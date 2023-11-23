@@ -18,18 +18,24 @@ package com.android.server.telecom;
 
 import android.telecom.AudioState;
 import android.telecom.CallAudioState;
+import android.telecom.CallEndpoint;
 import android.telecom.VideoProfile;
+import java.util.Set;
 
 /**
  * Provides a default implementation for listeners of CallsManager.
  */
-public class CallsManagerListenerBase implements CallsManager.CallsManagerListener {
+public abstract class CallsManagerListenerBase implements CallsManager.CallsManagerListener {
     @Override
     public void onCallAdded(Call call) {
     }
 
     @Override
     public void onCallRemoved(Call call) {
+    }
+
+    @Override
+    public void onCreateConnectionFailed(Call call) {
     }
 
     @Override
@@ -54,6 +60,18 @@ public class CallsManagerListenerBase implements CallsManager.CallsManagerListen
     @Override
     public void onCallAudioStateChanged(CallAudioState oldAudioState,
             CallAudioState newAudioState) {
+    }
+
+    @Override
+    public void onCallEndpointChanged(CallEndpoint callEndpoint) {
+    }
+
+    @Override
+    public void onAvailableCallEndpointsChanged(Set<CallEndpoint> availableCallEndpoints) {
+    }
+
+    @Override
+    public void onMuteStateChanged(boolean isMuted) {
     }
 
     @Override
@@ -87,6 +105,10 @@ public class CallsManagerListenerBase implements CallsManager.CallsManagerListen
 
     @Override
     public void onExternalCallChanged(Call call, boolean isExternalCall) {
+    }
+
+    @Override
+    public void onCallStreamingStateChanged(Call call, boolean isStreaming) {
     }
 
     @Override

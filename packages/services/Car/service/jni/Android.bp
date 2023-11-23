@@ -20,15 +20,15 @@ package {
 
 cc_library_shared {
     name: "libcarservicejni",
+    defaults: ["android.hardware.graphics.common-ndk_shared"],
     srcs: [
         "JniLoader.cpp",
-        "evs/*.cpp",
+        "evs/**/*.cpp",
     ],
 
     shared_libs: [
-        "android.hardware.automotive.evs-V1-ndk",
+        "android.hardware.automotive.evs-V2-ndk",
         "android.hardware.common-V2-ndk",
-        "android.hardware.graphics.common-V3-ndk",
         "libandroid",
         "libbase",
         "libbinder_ndk",
@@ -50,6 +50,62 @@ cc_library_shared {
 
     cflags: [
         "-DLOG_TAG=\"CarServiceJNI\"",
+        "-Wall",
+        "-Werror",
+        "-Wunused",
+        "-Wunreachable-code",
+        "-fvisibility=hidden",
+    ],
+}
+
+cc_test_library {
+    name: "libcarservicejni_test",
+    defaults: ["android.hardware.graphics.common-ndk_static"],
+    srcs: [
+        "JniLoader.cpp",
+        "evs/**/*.cpp",
+        "test-libs/**/*.cpp",
+    ],
+
+    shared_libs: [
+        "libandroid",
+        "libbase",
+        "libbinder_ndk",
+        "libcamera_client",
+        "libcamera_metadata",
+        "liblog",
+        "libnativehelper",
+        "libnativewindow",
+        "libui",
+        "libutils",
+    ],
+
+    static_libs: [
+        "android.hardware.automotive.evs-V2-ndk",
+        "android.hardware.common-V2-ndk",
+        "libaidlcommonsupport",
+        "libcutils",
+        "libgmock",
+        "libmockevshal",
+    ],
+
+    local_include_dirs: [
+        "evs",
+        "test-libs"
+    ],
+
+    min_sdk_version: "31",
+    apex_available: [
+        "//apex_available:platform",
+        "com.android.car.framework"
+    ],
+
+    strip: {
+        keep_symbols: true,
+    },
+
+    cflags: [
+        "-D__TEST__",
         "-Wall",
         "-Werror",
         "-Wunused",

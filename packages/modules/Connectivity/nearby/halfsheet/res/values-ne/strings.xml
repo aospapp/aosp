@@ -20,7 +20,18 @@
     <string name="fast_pair_setup_in_progress" msgid="4158762239172829807">"सेटअप प्रक्रिया सुरु गरिँदै छ…"</string>
     <string name="fast_pair_title_setup" msgid="2894360355540593246">"डिभाइस सेटअप गर्नुहोस्"</string>
     <string name="fast_pair_device_ready" msgid="2903490346082833101">"डिभाइस कनेक्ट गरियो"</string>
+    <string name="fast_pair_device_ready_with_device_name" msgid="2151967995692339422">"\"%s\" मा कनेक्ट गरिएको छ"</string>
     <string name="fast_pair_title_fail" msgid="5677174346601290232">"कनेक्ट गर्न सकिएन"</string>
+    <string name="fast_pair_unable_to_connect" msgid="3661854812014294569">"कनेक्ट गर्न सकिएन"</string>
+    <string name="fast_pair_unable_to_connect_description" msgid="3926830740860653891">"म्यानुअल तरिकाले डिभाइस कनेक्ट गरी हेर्नुहोस्"</string>
+    <string name="fast_pair_turn_on_bt_device_pairing_mode" msgid="3197372738187738030">"डिभाइस कनेक्ट गर्ने मोडमा राखी हेर्नुहोस्"</string>
+    <string name="devices_within_reach_channel_name" msgid="876280551450910440">"कनेक्ट गर्न सकिने नजिकैका डिभाइसहरू"</string>
+    <string name="devices_with_your_account_channel_name" msgid="8120067812798598102">"तपाईंको खातामा कनेक्ट गरिएका डिभाइस"</string>
+    <string name="fast_pair_your_device" msgid="3662423897069320840">"तपाईंले सेभ गरेको डिभाइस उपलब्ध छ"</string>
+    <string name="common_nearby_title" msgid="5480324514713607015">"नजिकै"</string>
+    <string name="common_devices" msgid="2635603125608104442">"डिभाइसहरू"</string>
+    <string name="common_connecting" msgid="160531481424245303">"कनेक्ट गरिँदै छ…"</string>
+    <string name="common_battery_level" msgid="8748495823047456645">"ब्याट्री: %d%%"</string>
     <string name="paring_action_done" msgid="6888875159174470731">"सम्पन्न भयो"</string>
     <string name="paring_action_save" msgid="6259357442067880136">"सेभ गर्नुहोस्"</string>
     <string name="paring_action_connect" msgid="4801102939608129181">"कनेक्ट गर्नुहोस्"</string>

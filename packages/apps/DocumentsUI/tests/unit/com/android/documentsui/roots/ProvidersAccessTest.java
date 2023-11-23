@@ -33,6 +33,7 @@ import com.android.documentsui.base.UserId;
 import com.google.common.collect.Lists;
 import com.google.common.truth.Correspondence;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 
@@ -44,7 +45,7 @@ public class ProvidersAccessTest extends AndroidTestCase {
             Correspondence.from((@Nullable RootInfo actual, @Nullable RootInfo expected) -> {
                     return actual != null && expected != null
                             && Objects.equals(actual.userId, expected.userId)
-                            && Objects.equals(actual.derivedMimeTypes, expected.derivedMimeTypes);
+                            && Arrays.equals(actual.derivedMimeTypes, expected.derivedMimeTypes);
             }, "has same userId and mimeTypes as in");
 
     private static RootInfo mNull = buildForMimeTypes((String[]) null);

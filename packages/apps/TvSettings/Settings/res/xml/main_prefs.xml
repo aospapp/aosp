@@ -70,6 +70,11 @@
             android:title="@string/device_pref_category_title"
             android:fragment="com.android.tv.settings.device.DevicePrefFragment" />
         <Preference
+            android:icon="@drawable/ic_accessibility_new"
+            android:key="accessibility"
+            android:title="@string/accessibility_category_title"
+            android:fragment="com.android.tv.settings.accessibility.AccessibilityFragment" />
+        <Preference
             android:icon="@drawable/ic_remotes_and_accessories"
             android:key="remotes_and_accessories"
             android:title="@string/remotes_and_accessories_category_title"

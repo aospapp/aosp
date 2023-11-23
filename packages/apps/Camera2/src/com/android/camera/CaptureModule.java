@@ -91,6 +91,9 @@ import com.android.camera2.R;
 import com.android.ex.camera2.portability.CameraAgent.CameraProxy;
 import com.google.common.logging.eventprotos;
 
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 
@@ -110,7 +113,8 @@ public class CaptureModule extends CameraModule implements
         OneCamera.PictureCallback,
         OneCamera.FocusStateListener,
         OneCamera.ReadyStateChangedListener,
-        RemoteCameraModule {
+        RemoteCameraModule,
+        OneCameraManager.AvailabilityCallback {
 
     private static final Tag TAG = new Tag("CaptureModule");
     /** Enable additional debug output. */
@@ -167,6 +171,9 @@ public class CaptureModule extends CameraModule implements
     private FocusController mFocusController;
     private OneCameraCharacteristics mCameraCharacteristics;
     final private PreviewTransformCalculator mPreviewTransformCalculator;
+
+    private ScheduledExecutorService mOnCameraAccessService;
+    private ScheduledFuture mOnCameraAccessFuture;
 
     /** The listener to listen events from the CaptureModuleUI. */
     private final CaptureModuleUI.CaptureModuleUIListener mUIListener =
@@ -405,12 +412,14 @@ public class CaptureModule extends CameraModule implements
         thread.start();
         mCameraHandler = new Handler(thread.getLooper());
         mOneCameraOpener = mAppController.getCameraOpener();
+        mOnCameraAccessService = Executors.newSingleThreadScheduledExecutor();
 
         try {
             mOneCameraManager = OneCameraModule.provideOneCameraManager();
         } catch (OneCameraException e) {
             Log.e(TAG, "Unable to provide a OneCameraManager. ", e);
         }
+        mOneCameraManager.setAvailabilityCallback(this, mCameraHandler);
         mDisplayRotation = CameraUtil.getDisplayRotation(activity);
         mCameraFacing = getFacingFromCameraId(
               mSettingsManager.getInteger(mAppController.getModuleScope(), Keys.KEY_CAMERA_ID));
@@ -501,6 +510,27 @@ public class CaptureModule extends CameraModule implements
         } else {
             takePictureNow();
         }
+    }
+
+    @Override
+    public void onCameraAccessPrioritiesChanged() {
+        Log.d(TAG, "onCameraAccessPrioritiesChanged");
+        Runnable runnable = () -> {
+            mMainThread.execute(() -> {
+                if (!mPaused && mCamera == null && !mAppController.isPaused()) {
+                    openCameraAndStartPreview();
+                }
+            });
+        };
+
+        // onCameraAccessPrioritiesChanged callbacks come in rapid fire due to the way process oom
+        // scores are updated. To avoid redundantly opening the camera, wait for 300 ms of silence
+        // before trying on the main thread.
+        if (mOnCameraAccessFuture != null) {
+            mOnCameraAccessFuture.cancel(false);
+        }
+        mOnCameraAccessFuture = mOnCameraAccessService.schedule(runnable, 300,
+                TimeUnit.MILLISECONDS);
     }
 
 
@@ -1390,6 +1420,27 @@ public class CaptureModule extends CameraModule implements
                       if (!isControllerPaused) {
                           mAppController.getFatalErrorHandler().onCameraOpenFailure();
                       }
+                  }
+
+                  @Override
+                  public void onCameraInUse() {
+                      Log.w(TAG, "Camera in use.");
+                      if (mCamera != null) {
+                          mCamera.close();
+                      }
+                      mCamera = null;
+                      mCameraOpenCloseLock.release();
+                  }
+
+                  @Override
+                  public void onCameraInterrupted() {
+                      Log.w(TAG, "Camera disconnected during active session.");
+                      AsyncTask.THREAD_POOL_EXECUTOR.execute(new Runnable() {
+                          @Override
+                          public void run() {
+                              closeCamera();
+                          }
+                      });
                   }
 
                   @Override

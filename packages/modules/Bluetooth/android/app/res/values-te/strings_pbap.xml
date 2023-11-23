@@ -13,4 +13,6 @@
     <string name="localPhoneName" msgid="9119254982537191352">"నా పేరు"</string>
     <string name="defaultnumber" msgid="5348816189286607406">"000000"</string>
     <string name="pbap_notification_group" msgid="4215789331721465381">"బ్లూటూత్ కాంటాక్ట్ షేర్"</string>
+    <string name="phonebook_advance_feature_support" msgid="8129553051734505128">"ఫోన్‌బుక్‌కు సంబంధించిన అధునాతన ఫీచర్ సపోర్ట్ చేయబడుతుంది"</string>
+    <string name="repair_for_adv_phonebook_feature" msgid="3489797973131684927">"అధునాతన ఫోన్‌బుక్ ఫీచర్‌ను ఉపయోగించడానికి, మళ్లీ పెయిర్ చేయండి"</string>
 </resources>

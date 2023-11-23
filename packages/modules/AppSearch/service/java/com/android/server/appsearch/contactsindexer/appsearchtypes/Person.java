@@ -25,6 +25,7 @@ import android.net.Uri;
 
 import com.android.internal.annotations.VisibleForTesting;
 import com.android.internal.util.Preconditions;
+import com.android.server.appsearch.contactsindexer.ContactsIndexerConfig;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -80,98 +81,145 @@ public class Person extends GenericDocument {
     public static final String PERSON_PROPERTY_NOTES = "notes";
     public static final String PERSON_PROPERTY_FINGERPRINT = "fingerprint";
 
-    public static final AppSearchSchema SCHEMA = new AppSearchSchema.Builder(SCHEMA_TYPE)
-            // full display name
-            .addProperty(new AppSearchSchema.StringPropertyConfig.Builder(PERSON_PROPERTY_NAME)
-                    .setCardinality(AppSearchSchema.PropertyConfig.CARDINALITY_OPTIONAL)
-                    .setIndexingType(
-                            AppSearchSchema.StringPropertyConfig.INDEXING_TYPE_PREFIXES)
-                    .setTokenizerType(AppSearchSchema.StringPropertyConfig.TOKENIZER_TYPE_PLAIN)
-                    .build())
-            // given name from CP2
-            .addProperty(new AppSearchSchema.StringPropertyConfig.Builder(
-                    PERSON_PROPERTY_GIVEN_NAME)
-                    .setCardinality(AppSearchSchema.PropertyConfig.CARDINALITY_OPTIONAL)
-                    .build())
-            // middle name from CP2
-            .addProperty(new AppSearchSchema.StringPropertyConfig.Builder(
-                    PERSON_PROPERTY_MIDDLE_NAME)
-                    .setCardinality(AppSearchSchema.PropertyConfig.CARDINALITY_OPTIONAL)
-                    .build())
-            // family name from CP2
-            .addProperty(new AppSearchSchema.StringPropertyConfig.Builder(
-                    PERSON_PROPERTY_FAMILY_NAME)
-                    .setCardinality(AppSearchSchema.PropertyConfig.CARDINALITY_OPTIONAL)
-                    .build())
-            // lookup uri from CP2
-            .addProperty(new AppSearchSchema.StringPropertyConfig.Builder(
-                    PERSON_PROPERTY_EXTERNAL_URI)
-                    .setCardinality(AppSearchSchema.PropertyConfig.CARDINALITY_OPTIONAL)
-                    .build())
-            // corresponding name types for the names stored in additional names below.
-            .addProperty(new AppSearchSchema.LongPropertyConfig.Builder(
-                    PERSON_PROPERTY_ADDITIONAL_NAME_TYPES)
-                    .setCardinality(AppSearchSchema.PropertyConfig.CARDINALITY_REPEATED)
-                    .build())
-            // additional names e.g. nick names and phonetic names.
-            .addProperty(new AppSearchSchema.StringPropertyConfig.Builder(
-                    PERSON_PROPERTY_ADDITIONAL_NAMES)
-                    .setCardinality(AppSearchSchema.PropertyConfig.CARDINALITY_REPEATED)
-                    .setIndexingType(
-                            AppSearchSchema.StringPropertyConfig.INDEXING_TYPE_PREFIXES)
-                    .setTokenizerType(AppSearchSchema.StringPropertyConfig.TOKENIZER_TYPE_PLAIN)
-                    .build())
-            // isImportant. It could be used to store isStarred from CP2.
-            .addProperty(new AppSearchSchema.BooleanPropertyConfig.Builder(
-                    PERSON_PROPERTY_IS_IMPORTANT)
-                    .setCardinality(AppSearchSchema.PropertyConfig.CARDINALITY_OPTIONAL)
-                    .build())
-            // isBot
-            .addProperty(new AppSearchSchema.BooleanPropertyConfig.Builder(
-                    PERSON_PROPERTY_IS_BOT)
-                    .setCardinality(AppSearchSchema.PropertyConfig.CARDINALITY_OPTIONAL)
-                    .build())
-            // imageUri
-            .addProperty(new AppSearchSchema.StringPropertyConfig.Builder(
-                    PERSON_PROPERTY_IMAGE_URI)
-                    .setCardinality(AppSearchSchema.PropertyConfig.CARDINALITY_OPTIONAL)
-                    .build())
-            // ContactPoint
-            .addProperty(new AppSearchSchema.DocumentPropertyConfig.Builder(
-                    PERSON_PROPERTY_CONTACT_POINTS,
-                    ContactPoint.SCHEMA.getSchemaType())
-                    .setShouldIndexNestedProperties(true)
-                    .setCardinality(AppSearchSchema.PropertyConfig.CARDINALITY_REPEATED)
-                    .build())
-            // Affiliations
-            .addProperty(new AppSearchSchema.StringPropertyConfig.Builder(
-                    PERSON_PROPERTY_AFFILIATIONS)
-                    .setCardinality(AppSearchSchema.PropertyConfig.CARDINALITY_REPEATED)
-                    .setIndexingType(
-                            AppSearchSchema.StringPropertyConfig.INDEXING_TYPE_PREFIXES)
-                    .setTokenizerType(AppSearchSchema.StringPropertyConfig.TOKENIZER_TYPE_PLAIN)
-                    .build())
-            // Relations
-            .addProperty(new AppSearchSchema.StringPropertyConfig.Builder(
-                    PERSON_PROPERTY_RELATIONS)
-                    .setCardinality(AppSearchSchema.PropertyConfig.CARDINALITY_REPEATED)
-                    .build())
-            // Notes
-            .addProperty(new AppSearchSchema.StringPropertyConfig.Builder(PERSON_PROPERTY_NOTES)
-                    .setCardinality(AppSearchSchema.PropertyConfig.CARDINALITY_REPEATED)
-                    .setIndexingType(
-                            AppSearchSchema.StringPropertyConfig.INDEXING_TYPE_PREFIXES)
-                    .setTokenizerType(AppSearchSchema.StringPropertyConfig.TOKENIZER_TYPE_PLAIN)
-                    .build())
-            //
-            // Following fields are internal to ContactsIndexer.
-            //
-            // Fingerprint for detecting significant changes
-            .addProperty(new AppSearchSchema.StringPropertyConfig.Builder(
-                    PERSON_PROPERTY_FINGERPRINT)
-                    .setCardinality(AppSearchSchema.PropertyConfig.CARDINALITY_OPTIONAL)
-                    .build())
-            .build();
+    private static AppSearchSchema createSchema(boolean indexFirstMiddleAndLastNames) {
+        AppSearchSchema.Builder builder = new AppSearchSchema.Builder(SCHEMA_TYPE)
+                // full display name
+                .addProperty(new AppSearchSchema.StringPropertyConfig.Builder(PERSON_PROPERTY_NAME)
+                        .setCardinality(AppSearchSchema.PropertyConfig.CARDINALITY_OPTIONAL)
+                        .setIndexingType(
+                                AppSearchSchema.StringPropertyConfig.INDEXING_TYPE_PREFIXES)
+                        .setTokenizerType(AppSearchSchema.StringPropertyConfig.TOKENIZER_TYPE_PLAIN)
+                        .build());
+
+        if (indexFirstMiddleAndLastNames) {
+            builder
+                    // given name from CP2
+                    .addProperty(new AppSearchSchema.StringPropertyConfig.Builder(
+                            PERSON_PROPERTY_GIVEN_NAME)
+                            .setCardinality(AppSearchSchema.PropertyConfig.CARDINALITY_OPTIONAL)
+                            .setIndexingType(AppSearchSchema.StringPropertyConfig
+                                    .INDEXING_TYPE_PREFIXES)
+                            .setTokenizerType(AppSearchSchema.StringPropertyConfig
+                                    .TOKENIZER_TYPE_PLAIN)
+                            .build())
+                    // middle name from CP2
+                    .addProperty(new AppSearchSchema.StringPropertyConfig.Builder(
+                            PERSON_PROPERTY_MIDDLE_NAME)
+                            .setCardinality(AppSearchSchema.PropertyConfig.CARDINALITY_OPTIONAL)
+                            .setIndexingType(AppSearchSchema.StringPropertyConfig
+                                    .INDEXING_TYPE_PREFIXES)
+                            .setTokenizerType(AppSearchSchema.StringPropertyConfig
+                                    .TOKENIZER_TYPE_PLAIN)
+                            .build())
+                    // family name from CP2
+                    .addProperty(new AppSearchSchema.StringPropertyConfig.Builder(
+                            PERSON_PROPERTY_FAMILY_NAME)
+                            .setCardinality(AppSearchSchema.PropertyConfig.CARDINALITY_OPTIONAL)
+                            .setIndexingType(AppSearchSchema.StringPropertyConfig
+                                    .INDEXING_TYPE_PREFIXES)
+                            .setTokenizerType(AppSearchSchema.StringPropertyConfig
+                                    .TOKENIZER_TYPE_PLAIN)
+                            .build());
+        } else {
+            builder
+                    // given name from CP2
+                    .addProperty(new AppSearchSchema.StringPropertyConfig.Builder(
+                            PERSON_PROPERTY_GIVEN_NAME)
+                            .setCardinality(AppSearchSchema.PropertyConfig.CARDINALITY_OPTIONAL)
+                            .build())
+                    // middle name from CP2
+                    .addProperty(new AppSearchSchema.StringPropertyConfig.Builder(
+                            PERSON_PROPERTY_MIDDLE_NAME)
+                            .setCardinality(AppSearchSchema.PropertyConfig.CARDINALITY_OPTIONAL)
+                            .build())
+                    // family name from CP2
+                    .addProperty(new AppSearchSchema.StringPropertyConfig.Builder(
+                            PERSON_PROPERTY_FAMILY_NAME)
+                            .setCardinality(AppSearchSchema.PropertyConfig.CARDINALITY_OPTIONAL)
+                            .build());
+        }
+
+        builder
+                // lookup uri from CP2
+                .addProperty(new AppSearchSchema.StringPropertyConfig.Builder(
+                        PERSON_PROPERTY_EXTERNAL_URI)
+                        .setCardinality(AppSearchSchema.PropertyConfig.CARDINALITY_OPTIONAL)
+                        .build())
+                // corresponding name types for the names stored in additional names below.
+                .addProperty(new AppSearchSchema.LongPropertyConfig.Builder(
+                        PERSON_PROPERTY_ADDITIONAL_NAME_TYPES)
+                        .setCardinality(AppSearchSchema.PropertyConfig.CARDINALITY_REPEATED)
+                        .build())
+                // additional names e.g. nick names and phonetic names.
+                .addProperty(new AppSearchSchema.StringPropertyConfig.Builder(
+                        PERSON_PROPERTY_ADDITIONAL_NAMES)
+                        .setCardinality(AppSearchSchema.PropertyConfig.CARDINALITY_REPEATED)
+                        .setIndexingType(
+                                AppSearchSchema.StringPropertyConfig.INDEXING_TYPE_PREFIXES)
+                        .setTokenizerType(AppSearchSchema.StringPropertyConfig.TOKENIZER_TYPE_PLAIN)
+                        .build())
+                // isImportant. It could be used to store isStarred from CP2.
+                .addProperty(new AppSearchSchema.BooleanPropertyConfig.Builder(
+                        PERSON_PROPERTY_IS_IMPORTANT)
+                        .setCardinality(AppSearchSchema.PropertyConfig.CARDINALITY_OPTIONAL)
+                        .build())
+                // isBot
+                .addProperty(new AppSearchSchema.BooleanPropertyConfig.Builder(
+                        PERSON_PROPERTY_IS_BOT)
+                        .setCardinality(AppSearchSchema.PropertyConfig.CARDINALITY_OPTIONAL)
+                        .build())
+                // imageUri
+                .addProperty(new AppSearchSchema.StringPropertyConfig.Builder(
+                        PERSON_PROPERTY_IMAGE_URI)
+                        .setCardinality(AppSearchSchema.PropertyConfig.CARDINALITY_OPTIONAL)
+                        .build())
+                // ContactPoint
+                .addProperty(new AppSearchSchema.DocumentPropertyConfig.Builder(
+                        PERSON_PROPERTY_CONTACT_POINTS,
+                        ContactPoint.SCHEMA.getSchemaType())
+                        .setShouldIndexNestedProperties(true)
+                        .setCardinality(AppSearchSchema.PropertyConfig.CARDINALITY_REPEATED)
+                        .build())
+                // Affiliations
+                .addProperty(new AppSearchSchema.StringPropertyConfig.Builder(
+                        PERSON_PROPERTY_AFFILIATIONS)
+                        .setCardinality(AppSearchSchema.PropertyConfig.CARDINALITY_REPEATED)
+                        .setIndexingType(
+                                AppSearchSchema.StringPropertyConfig.INDEXING_TYPE_PREFIXES)
+                        .setTokenizerType(AppSearchSchema.StringPropertyConfig.TOKENIZER_TYPE_PLAIN)
+                        .build())
+                // Relations
+                .addProperty(new AppSearchSchema.StringPropertyConfig.Builder(
+                        PERSON_PROPERTY_RELATIONS)
+                        .setCardinality(AppSearchSchema.PropertyConfig.CARDINALITY_REPEATED)
+                        .build())
+                // Notes
+                .addProperty(new AppSearchSchema.StringPropertyConfig.Builder(PERSON_PROPERTY_NOTES)
+                        .setCardinality(AppSearchSchema.PropertyConfig.CARDINALITY_REPEATED)
+                        .setIndexingType(
+                                AppSearchSchema.StringPropertyConfig.INDEXING_TYPE_PREFIXES)
+                        .setTokenizerType(AppSearchSchema.StringPropertyConfig.TOKENIZER_TYPE_PLAIN)
+                        .build())
+                //
+                // Following fields are internal to ContactsIndexer.
+                //
+                // Fingerprint for detecting significant changes
+                .addProperty(new AppSearchSchema.StringPropertyConfig.Builder(
+                        PERSON_PROPERTY_FINGERPRINT)
+                        .setCardinality(AppSearchSchema.PropertyConfig.CARDINALITY_OPTIONAL)
+                        .build());
+        return builder.build();
+    }
+
+    /***
+     * Returns Person schema based on current value of flag
+     * 'contacts_index_first_middle_and_last_names'. If the flag value changes after the initial
+     * schema fetch, the schema returned will be different than the original schema that was set
+     * for the Person corpus.
+     */
+    public static AppSearchSchema getSchema(ContactsIndexerConfig config) {
+        return createSchema(config.shouldIndexFirstMiddleAndLastNames());
+    }
 
     /** Constructs a {@link Person}. */
     @VisibleForTesting

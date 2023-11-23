@@ -1,0 +1,169 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<issues format="6" by="lint 8.0.0-dev" type="baseline" dependencies="true" variant="all" version="8.0.0-dev">
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 30 (current min is 29): `android.net.KeepalivePacketData#getDstAddress`"
+        errorLine1="        final InetAddress dstAddress = pkt.getDstAddress();"
+        errorLine2="                                           ~~~~~~~~~~~~~">
+        <location
+            file="packages/modules/NetworkStack/common/networkstackclient/src/android/net/util/KeepalivePacketDataUtil.java"
+            line="54"
+            column="44"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 30 (current min is 29): `android.net.KeepalivePacketData#getDstAddress`"
+        errorLine1="        final InetAddress dstAddress = pkt.getDstAddress();"
+        errorLine2="                                           ~~~~~~~~~~~~~">
+        <location
+            file="packages/modules/NetworkStack/common/networkstackclient/src/android/net/util/KeepalivePacketDataUtil.java"
+            line="70"
+            column="44"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 30 (current min is 29): `android.net.KeepalivePacketData#getDstAddress`"
+        errorLine1="        p.dstAddress = data.getDstAddress().getAddress();"
+        errorLine2="                            ~~~~~~~~~~~~~">
+        <location
+            file="packages/modules/NetworkStack/common/networkstackclient/src/android/net/util/KeepalivePacketDataUtil.java"
+            line="136"
+            column="29"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 30 (current min is 29): `android.net.KeepalivePacketData#getDstPort`"
+        errorLine1="        p.dstPort = data.getDstPort();"
+        errorLine2="                         ~~~~~~~~~~">
+        <location
+            file="packages/modules/NetworkStack/common/networkstackclient/src/android/net/util/KeepalivePacketDataUtil.java"
+            line="137"
+            column="26"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 30 (current min is 29): `android.net.KeepalivePacketData#getDstPort`"
+        errorLine1="        parcel.dstPort = pkt.getDstPort();"
+        errorLine2="                             ~~~~~~~~~~">
+        <location
+            file="packages/modules/NetworkStack/common/networkstackclient/src/android/net/util/KeepalivePacketDataUtil.java"
+            line="58"
+            column="30"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 30 (current min is 29): `android.net.KeepalivePacketData#getDstPort`"
+        errorLine1="        parcel.dstPort = pkt.getDstPort();"
+        errorLine2="                             ~~~~~~~~~~">
+        <location
+            file="packages/modules/NetworkStack/common/networkstackclient/src/android/net/util/KeepalivePacketDataUtil.java"
+            line="74"
+            column="30"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 30 (current min is 29): `android.net.KeepalivePacketData#getPacket`"
+        errorLine1="        final ByteBuffer buffer = ByteBuffer.wrap(data.getPacket());"
+        errorLine2="                                                       ~~~~~~~~~">
+        <location
+            file="packages/modules/NetworkStack/common/networkstackclient/src/android/net/util/KeepalivePacketDataUtil.java"
+            line="110"
+            column="56"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 30 (current min is 29): `android.net.KeepalivePacketData#getSrcAddress`"
+        errorLine1="        final InetAddress srcAddress = pkt.getSrcAddress();"
+        errorLine2="                                           ~~~~~~~~~~~~~">
+        <location
+            file="packages/modules/NetworkStack/common/networkstackclient/src/android/net/util/KeepalivePacketDataUtil.java"
+            line="53"
+            column="44"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 30 (current min is 29): `android.net.KeepalivePacketData#getSrcAddress`"
+        errorLine1="        final InetAddress srcAddress = pkt.getSrcAddress();"
+        errorLine2="                                           ~~~~~~~~~~~~~">
+        <location
+            file="packages/modules/NetworkStack/common/networkstackclient/src/android/net/util/KeepalivePacketDataUtil.java"
+            line="69"
+            column="44"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 30 (current min is 29): `android.net.KeepalivePacketData#getSrcAddress`"
+        errorLine1="        p.srcAddress = data.getSrcAddress().getAddress();"
+        errorLine2="                            ~~~~~~~~~~~~~">
+        <location
+            file="packages/modules/NetworkStack/common/networkstackclient/src/android/net/util/KeepalivePacketDataUtil.java"
+            line="134"
+            column="29"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 30 (current min is 29): `android.net.KeepalivePacketData#getSrcPort`"
+        errorLine1="        p.srcPort = data.getSrcPort();"
+        errorLine2="                         ~~~~~~~~~~">
+        <location
+            file="packages/modules/NetworkStack/common/networkstackclient/src/android/net/util/KeepalivePacketDataUtil.java"
+            line="135"
+            column="26"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 30 (current min is 29): `android.net.KeepalivePacketData#getSrcPort`"
+        errorLine1="        parcel.srcPort = pkt.getSrcPort();"
+        errorLine2="                             ~~~~~~~~~~">
+        <location
+            file="packages/modules/NetworkStack/common/networkstackclient/src/android/net/util/KeepalivePacketDataUtil.java"
+            line="56"
+            column="30"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 30 (current min is 29): `android.net.KeepalivePacketData#getSrcPort`"
+        errorLine1="        parcel.srcPort = pkt.getSrcPort();"
+        errorLine2="                             ~~~~~~~~~~">
+        <location
+            file="packages/modules/NetworkStack/common/networkstackclient/src/android/net/util/KeepalivePacketDataUtil.java"
+            line="72"
+            column="30"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 30 (current min is 29): `android.net.NetworkStack#getService`"
+        errorLine1="            while ((nss = NetworkStack.getService()) == null) {"
+        errorLine2="                                       ~~~~~~~~~~">
+        <location
+            file="packages/modules/NetworkStack/common/networkstackclient/src/android/net/networkstack/ModuleNetworkStackClient.java"
+            line="87"
+            column="40"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 30 (current min is 29): `android.net.NetworkStack#getService`"
+        errorLine1="        final IBinder nss = NetworkStack.getService();"
+        errorLine2="                                         ~~~~~~~~~~">
+        <location
+            file="packages/modules/NetworkStack/common/networkstackclient/src/android/net/networkstack/ModuleNetworkStackClient.java"
+            line="68"
+            column="42"/>
+    </issue>
+
+</issues>

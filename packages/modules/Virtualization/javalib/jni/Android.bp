@@ -3,11 +3,29 @@ package {
 }
 
 cc_library_shared {
+    name: "libvirtualizationservice_jni",
+    srcs: [
+        "android_system_virtualmachine_VirtualizationService.cpp",
+    ],
+    apex_available: ["com.android.virt"],
+    shared_libs: [
+        "libbase",
+        "libbinder_ndk",
+        "libbinder_rpc_unstable",
+        "liblog",
+        "libnativehelper",
+    ],
+}
+
+cc_library_shared {
     name: "libvirtualmachine_jni",
-    srcs: ["android_system_virtualmachine_VirtualMachine.cpp"],
+    srcs: [
+        "android_system_virtualmachine_VirtualMachine.cpp",
+    ],
     apex_available: ["com.android.virt"],
     shared_libs: [
         "android.system.virtualizationservice-ndk",
+        "libbase",
         "libbinder_ndk",
         "libbinder_rpc_unstable",
         "liblog",

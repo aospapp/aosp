@@ -104,7 +104,7 @@ public class AvrcpCoverArtStorage {
 
         Uri uri = AvrcpCoverArtProvider.getImageUri(device, imageUuid);
         mContext.getContentResolver().notifyChange(uri, null);
-        debug("Image '" + imageUuid + "' stored for device '" + device.getAddress() + "'");
+        debug("Image '" + imageUuid + "' stored for device '" + device + "'");
         return uri;
     }
 
@@ -128,7 +128,7 @@ public class AvrcpCoverArtStorage {
             mDeviceImages.remove(device);
         }
 
-        debug("Image '" + imageUuid + "' removed for device '" + device.getAddress() + "'");
+        debug("Image '" + imageUuid + "' removed for device '" + device + "'");
     }
 
     /**
@@ -138,7 +138,7 @@ public class AvrcpCoverArtStorage {
      */
     public void removeImagesForDevice(BluetoothDevice device) {
         if (device == null) return;
-        debug("Remove cover art for device " + device.getAddress());
+        debug("Remove cover art for device " + device);
         mDeviceImages.remove(device);
     }
 
@@ -155,7 +155,7 @@ public class AvrcpCoverArtStorage {
         String s = "CoverArtStorage:\n";
         for (BluetoothDevice device : mDeviceImages.keySet()) {
             Map<String, Bitmap> images = mDeviceImages.get(device);
-            s += "  " + device.getAddress() + " (" + images.size() + "):";
+            s += "  " + device + " (" + images.size() + "):";
             for (String uuid : images.keySet()) {
                 s += "\n    " + uuid;
             }

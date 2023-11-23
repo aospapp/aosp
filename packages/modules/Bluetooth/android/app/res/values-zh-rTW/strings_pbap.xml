@@ -13,4 +13,6 @@
     <string name="localPhoneName" msgid="9119254982537191352">"我的名稱"</string>
     <string name="defaultnumber" msgid="5348816189286607406">"000000"</string>
     <string name="pbap_notification_group" msgid="4215789331721465381">"藍牙聯絡人分享"</string>
+    <string name="phonebook_advance_feature_support" msgid="8129553051734505128">"支援電話簿進階功能"</string>
+    <string name="repair_for_adv_phonebook_feature" msgid="3489797973131684927">"重新配對以使用進階電話簿功能"</string>
 </resources>

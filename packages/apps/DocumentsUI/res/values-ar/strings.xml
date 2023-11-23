@@ -92,8 +92,8 @@
     <string name="save_error" msgid="8631128801982095782">"تعذّر حفظ المستند"</string>
     <string name="create_error" msgid="3092144450044861994">"تعذّر إنشاء المجلد"</string>
     <string name="query_error" msgid="6625421453613879336">"يتعذر تحميل المحتوى في الوقت الحالي"</string>
-    <string name="quiet_mode_error_title" msgid="9126656325282792843">"تم إيقاف الملف الشخصي للعمل مؤقتًا"</string>
-    <string name="quiet_mode_button" msgid="6977115032320235420">"تفعيل"</string>
+    <string name="quiet_mode_error_title" msgid="554319751414657910">"تطبيقات العمل متوقفة مؤقتًا"</string>
+    <string name="quiet_mode_button" msgid="8051436551926677305">"تفعيل تطبيقات العمل"</string>
     <string name="cant_select_work_files_error_title" msgid="6688716319549644354">"لا يمكن اختيار ملفات العمل"</string>
     <string name="cant_select_work_files_error_message" msgid="683480676150690641">"لا يسمح لك مشرف تكنولوجيا المعلومات بالوصول إلى ملفات العمل من تطبيق شخصي."</string>
     <string name="cant_select_personal_files_error_title" msgid="3200697170148617742">"لا يمكن اختيار ملفات شخصية"</string>
@@ -266,9 +266,9 @@
     <string name="rename_error" msgid="6700093173508118635">"تعذّرت إعادة تسمية المستند."</string>
     <string name="menu_eject_root" msgid="9215040039374893613">"إخراج"</string>
     <string name="notification_copy_files_converted_title" msgid="6916768494891833365">"تم تحويل بعض الملفات"</string>
-    <string name="open_external_dialog_request" msgid="8173558471322861268">"هل تريد منح التطبيق <xliff:g id="APPNAME"><b>^1</b></xliff:g> حق الوصول إلى الدليل <xliff:g id="DIRECTORY"><i>^2</i></xliff:g> على <xliff:g id="STORAGE"><i>^3</i></xliff:g>؟"</string>
-    <string name="open_external_dialog_request_primary_volume" msgid="2240992164087948176">"هل تريد منح <xliff:g id="APPNAME"><b>^1</b></xliff:g> حق الوصول إلى دليل <xliff:g id="DIRECTORY"><i>^2</i></xliff:g>؟"</string>
-    <string name="open_external_dialog_root_request" msgid="6776729293982633">"هل تريد منح <xliff:g id="APPNAME"><b>^1</b></xliff:g> حق الوصول إلى بياناتك، بما في ذلك الصور والفيديوهات على <xliff:g id="STORAGE"><i>^2</i></xliff:g>؟"</string>
+    <string name="open_external_dialog_request" msgid="8173558471322861268">"هل تريد منح التطبيق <xliff:g id="APPNAME"><b>^1</b></xliff:g> الإذن بالوصول إلى الدليل <xliff:g id="DIRECTORY"><i>^2</i></xliff:g> على <xliff:g id="STORAGE"><i>^3</i></xliff:g>؟"</string>
+    <string name="open_external_dialog_request_primary_volume" msgid="2240992164087948176">"هل تريد منح <xliff:g id="APPNAME"><b>^1</b></xliff:g> الإذن بالوصول إلى دليل <xliff:g id="DIRECTORY"><i>^2</i></xliff:g>؟"</string>
+    <string name="open_external_dialog_root_request" msgid="6776729293982633">"هل تريد منح <xliff:g id="APPNAME"><b>^1</b></xliff:g> الإذن بالوصول إلى بياناتك، بما في ذلك الصور والفيديوهات على <xliff:g id="STORAGE"><i>^2</i></xliff:g>؟"</string>
     <string name="allow" msgid="1275746941353040309">"السماح"</string>
     <string name="deny" msgid="5127201668078153379">"رفض"</string>
     <plurals name="elements_selected" formatted="false" msgid="4448165978637163692">

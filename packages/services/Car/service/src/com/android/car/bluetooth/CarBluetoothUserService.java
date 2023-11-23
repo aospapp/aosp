@@ -32,7 +32,7 @@ import android.util.Log;
 import android.util.SparseBooleanArray;
 
 import com.android.car.CarLog;
-import com.android.car.PerUserCarServiceImpl;
+import com.android.car.CarPerUserServiceImpl;
 import com.android.car.internal.ExcludeFromCodeCoverageGeneratedReport;
 import com.android.car.internal.util.IndentingPrintWriter;
 
@@ -59,7 +59,7 @@ public class CarBluetoothUserService extends ICarBluetoothUserService.Stub {
             BluetoothProfile.A2DP_SINK
     );
 
-    private final PerUserCarServiceImpl mService;
+    private final CarPerUserServiceImpl mService;
     private final BluetoothAdapter mBluetoothAdapter;
     private final TelecomManager mTelecomManager;
 
@@ -79,10 +79,10 @@ public class CarBluetoothUserService extends ICarBluetoothUserService.Stub {
     /**
      * Create a CarBluetoothUserService instance.
      *
-     * @param service - A reference to a PerUserCarService, so we can use its context to receive
+     * @param service - A reference to a CarPerUserService, so we can use its context to receive
      *                 updates as a particular user.
      */
-    public CarBluetoothUserService(PerUserCarServiceImpl service) {
+    public CarBluetoothUserService(CarPerUserServiceImpl service) {
         mService = service;
         mConnectedProfiles = 0;
         mBluetoothProfileStatus = new SparseBooleanArray();

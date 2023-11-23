@@ -14,11 +14,13 @@ IsoManager::IsoManager() {}
 IsoManager::~IsoManager() {}
 void IsoManager::RegisterCigCallbacks(CigCallbacks* callbacks) const {}
 void IsoManager::RegisterBigCallbacks(BigCallbacks* callbacks) const {}
+void IsoManager::RegisterOnIsoTrafficActiveCallback(
+    void callbacks(bool)) const {}
 void IsoManager::CreateCig(uint8_t cig_id,
                            struct iso_manager::cig_create_params cig_params) {}
 void IsoManager::ReconfigureCig(
     uint8_t cig_id, struct iso_manager::cig_create_params cig_params) {}
-void IsoManager::RemoveCig(uint8_t cig_id) {}
+void IsoManager::RemoveCig(uint8_t cig_id, bool force) {}
 void IsoManager::EstablishCis(
     struct iso_manager::cis_establish_params conn_params) {}
 void IsoManager::DisconnectCis(uint16_t cis_handle, uint8_t reason) {}

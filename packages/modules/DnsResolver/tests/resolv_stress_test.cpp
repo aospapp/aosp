@@ -23,23 +23,18 @@
 #include <android-base/logging.h>
 #include <gmock/gmock-matchers.h>
 #include <gtest/gtest.h>
+#include <netdutils/NetNativeTestBase.h>
 
-#include "ResolverStats.h"
 #include "dns_responder/dns_responder_client_ndk.h"
-#include "params.h"  // MAX_NS
 #include "resolv_test_utils.h"
-#include "tests/resolv_test_base.h"
 
-using android::net::ResolverStats;
-
-class ResolverStressTest : public ResolvTestBase {
+class ResolverStressTest : public NetNativeTestBase {
   public:
     ResolverStressTest() { mDnsClient.SetUp(); }
     ~ResolverStressTest() { mDnsClient.TearDown(); }
 
   protected:
-    void RunGetAddrInfoStressTest(unsigned num_hosts, unsigned num_threads,
-                                         unsigned num_queries) {
+    void RunGetAddrInfoStressTest(unsigned num_hosts, unsigned num_threads, unsigned num_queries) {
         std::vector<std::string> domains = {"example.com"};
         std::vector<std::unique_ptr<test::DNSResponder>> dns;
         std::vector<std::string> servers;
@@ -47,7 +42,7 @@ class ResolverStressTest : public ResolvTestBase {
         ASSERT_NO_FATAL_FAILURE(mDnsClient.SetupMappings(num_hosts, domains, &mappings));
         ASSERT_NO_FATAL_FAILURE(mDnsClient.SetupDNSServers(MAXNS, mappings, &dns, &servers));
 
-        ASSERT_TRUE(mDnsClient.SetResolversForNetwork(servers, domains, kDefaultParams));
+        ASSERT_TRUE(mDnsClient.SetResolversForNetwork(servers));
 
         auto t0 = std::chrono::steady_clock::now();
         std::vector<std::thread> threads(num_threads);
@@ -80,16 +75,9 @@ class ResolverStressTest : public ResolvTestBase {
         LOG(INFO) << fmt::format("{} hosts, {} threads, {} queries, {:E}s", num_hosts, num_threads,
                                  num_queries, std::chrono::duration<double>(t1 - t0).count());
 
-        std::vector<std::string> res_servers;
-        std::vector<std::string> res_domains;
-        std::vector<std::string> res_tls_servers;
-        res_params res_params;
-        std::vector<ResolverStats> res_stats;
-        int wait_for_pending_req_timeout_count;
-        ASSERT_TRUE(DnsResponderClient::GetResolverInfo(
-                mDnsClient.resolvService(), TEST_NETID, &res_servers, &res_domains,
-                &res_tls_servers, &res_params, &res_stats, &wait_for_pending_req_timeout_count));
-        EXPECT_EQ(0, wait_for_pending_req_timeout_count);
+        const auto resolvInfo = mDnsClient.getResolverInfo();
+        ASSERT_RESULT_OK(resolvInfo);
+        EXPECT_EQ(0, resolvInfo.value().waitForPendingReqTimeoutCount);
     }
 
     DnsResponderClient mDnsClient;

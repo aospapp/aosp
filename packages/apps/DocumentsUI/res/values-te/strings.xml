@@ -25,20 +25,20 @@
     <!-- no translation found for launcher_label (799410258349837668) -->
     <skip />
     <string name="title_open" msgid="3165686459158020921">"ఇక్కడి నుండి తెరువు"</string>
-    <string name="title_save" msgid="4384490653102710025">"ఇందులో సేవ్ చేయి"</string>
+    <string name="title_save" msgid="4384490653102710025">"ఇందులో సేవ్ చేయండి"</string>
     <string name="menu_create_dir" msgid="2413624798689091042">"కొత్త ఫోల్డర్"</string>
     <string name="menu_grid" msgid="1453636521731880680">"గ్రిడ్ వీక్షణ"</string>
     <string name="menu_list" msgid="6714267452146410402">"లిస్ట్‌ వీక్షణ"</string>
     <string name="menu_search" msgid="1876699106790719849">"సెర్చ్"</string>
-    <string name="menu_settings" msgid="6520844520117939047">"నిల్వ సెట్టింగ్‌లు"</string>
+    <string name="menu_settings" msgid="6520844520117939047">"స్టోరేజ్‌ సెట్టింగ్‌లు"</string>
     <string name="menu_open" msgid="9092138100049759315">"తెరువు"</string>
     <string name="menu_open_with" msgid="5507647065467520229">"దీనితో తెరువు"</string>
     <string name="menu_open_in_new_window" msgid="6686563636123311276">"కొత్త విండోలో తెరువు"</string>
-    <string name="menu_save" msgid="5195367497138965168">"సేవ్ చేయి"</string>
+    <string name="menu_save" msgid="5195367497138965168">"సేవ్ చేయండి"</string>
     <string name="menu_share" msgid="4307140947108068356">"షేర్ చేయి"</string>
     <string name="menu_delete" msgid="1022254131543256626">"తొలగించండి"</string>
     <string name="menu_select_all" msgid="7600576812185570403">"అన్నింటినీ ఎంచుకోండి"</string>
-    <string name="menu_deselect_all" msgid="7729916068862742979">"అన్నింటి ఎంపికను తీసివేయి"</string>
+    <string name="menu_deselect_all" msgid="7729916068862742979">"అన్నింటి ఎంపికను తీసివేయండి"</string>
     <string name="menu_select" msgid="1366061076507142387">"ఎంచుకోండి"</string>
     <string name="menu_sort" msgid="3362419226163725275">"దీన్ని బట్టి వర్గీకరించు…"</string>
     <string name="menu_copy" msgid="7404820171352314754">"ఇక్కడికి కాపీ చేయి…"</string>
@@ -49,12 +49,12 @@
     <string name="menu_inspect" msgid="7279855349299446224">"సమాచారాన్ని పొందండి"</string>
     <string name="menu_show_hidden_files" msgid="5140676344684492769">"దాచబడిన ఫైళ్లను చూపించు"</string>
     <string name="menu_hide_hidden_files" msgid="5654495713350153702">"దాచబడిన ఫైళ్లను చూపించవద్దు"</string>
-    <string name="menu_view_in_owner" msgid="7228948660557554770">"<xliff:g id="SOURCE">%1$s</xliff:g>లో వీక్షించు"</string>
+    <string name="menu_view_in_owner" msgid="7228948660557554770">"<xliff:g id="SOURCE">%1$s</xliff:g>లో చూడండి"</string>
     <string name="menu_new_window" msgid="2947837751796109126">"కొత్త విండో"</string>
-    <string name="menu_cut_to_clipboard" msgid="2878752142015026229">"కత్తిరించు"</string>
+    <string name="menu_cut_to_clipboard" msgid="2878752142015026229">"కత్తిరించండి"</string>
     <string name="menu_copy_to_clipboard" msgid="5064081159073330776">"కాపీ చేయండి"</string>
-    <string name="menu_paste_from_clipboard" msgid="360947260414135827">"అతికించు"</string>
-    <string name="menu_paste_into_folder" msgid="8000644546983240101">"ఫోల్డర్‌లో అతికించు"</string>
+    <string name="menu_paste_from_clipboard" msgid="360947260414135827">"పేస్ట్ చేయండి"</string>
+    <string name="menu_paste_into_folder" msgid="8000644546983240101">"ఫోల్డర్‌లో పేస్ట్ చేయండి"</string>
     <string name="menu_advanced_show" msgid="7558626506462906726">"అంతర్గత నిల్వను చూపు"</string>
     <string name="menu_advanced_hide" msgid="6488381508009246334">"అంతర్గత నిల్వను దాచు"</string>
     <string name="button_select" msgid="240863497069321364">"ఎంచుకోండి"</string>
@@ -62,7 +62,7 @@
     <string name="button_compress" msgid="8951561310857223966">"కుదించు"</string>
     <string name="button_extract" msgid="1038674453689912247">"సంగ్రహించు"</string>
     <string name="button_move" msgid="8596460499325291272">"తరలించు"</string>
-    <string name="button_dismiss" msgid="7235249361023803349">"తీసివేయి"</string>
+    <string name="button_dismiss" msgid="7235249361023803349">"తీసివేయండి"</string>
     <string name="button_retry" msgid="4011461781916631389">"మళ్లీ ప్రయత్నించు"</string>
     <string name="button_clear" msgid="5412304437764369441">"తీసివేయండి"</string>
     <string name="button_show_provider" msgid="6905880493806292753">"ప్రదాతలో చూపించండి"</string>
@@ -75,11 +75,11 @@
     <string name="sort_dimension_date" msgid="4231005651895254033">"ఎడిట్ చేసిన సమయం"</string>
     <string name="sort_dimension_name_ascending" msgid="3715725253270614742">"ఫైల్ పేరు (A నుండి Zకు)"</string>
     <string name="sort_dimension_file_type_ascending" msgid="3466973933402894292">"రకం (A నుండి Z)"</string>
-    <string name="sort_dimension_size_ascending" msgid="2617359017800057762">"పరిమాణం (మొదట చిన్నవి)"</string>
+    <string name="sort_dimension_size_ascending" msgid="2617359017800057762">"సైజ్‌ (మొదట చిన్నవి)"</string>
     <string name="sort_dimension_date_ascending" msgid="7920068979386920559">"సవరించబడినవి (మొదట పాతవి)"</string>
     <string name="sort_dimension_name_descending" msgid="1514525521100423342">"ఫైల్ పేరు (Z నుండి Aకు)"</string>
     <string name="sort_dimension_file_type_descending" msgid="3344796059784511100">"రకం (Z నుండి A)"</string>
-    <string name="sort_dimension_size_descending" msgid="2367030017597348938">"పరిమాణం (మొదట పెద్దవి)"</string>
+    <string name="sort_dimension_size_descending" msgid="2367030017597348938">"సైజ్‌ (మొదట పెద్దవి)"</string>
     <string name="sort_dimension_date_descending" msgid="5466839955763127113">"సవరించబడినవి (మొదట సరికొత్తవి)"</string>
     <string name="sort_dimension_dialog_title" msgid="3048641573962982157">"దీని ఆధారంగా వర్గీకరించు"</string>
     <string name="sort_dimension_button_title" msgid="1898606989130896126">"<xliff:g id="LABEL">%s</xliff:g> ద్వారా క్రమీకరించబడింది"</string>
@@ -92,8 +92,8 @@
     <string name="save_error" msgid="8631128801982095782">"డాక్యుమెంట్‌ను సేవ్ చేయడంలో విఫలమైంది"</string>
     <string name="create_error" msgid="3092144450044861994">"ఫోల్డర్‌ను సృష్టించడంలో విఫలమైంది"</string>
     <string name="query_error" msgid="6625421453613879336">"ఈ సమయంలో కంటెంట్‌ను లోడ్ చేయడం సాధ్యపడదు"</string>
-    <string name="quiet_mode_error_title" msgid="9126656325282792843">"వర్క్ ప్రొఫైల్ పాజ్ చేయబడింది"</string>
-    <string name="quiet_mode_button" msgid="6977115032320235420">"ఆన్ చేయి"</string>
+    <string name="quiet_mode_error_title" msgid="554319751414657910">"వర్క్ యాప్‌లు పాజ్ చేయబడ్డాయి"</string>
+    <string name="quiet_mode_button" msgid="8051436551926677305">"వర్క్ యాప్‌లను ఆన్ చేయండి"</string>
     <string name="cant_select_work_files_error_title" msgid="6688716319549644354">"కార్యాలయ ఫైళ్లను ఎంపిక చేయడం సాధ్యం కాదు"</string>
     <string name="cant_select_work_files_error_message" msgid="683480676150690641">"వ్యక్తిగత యాప్ నుండి ఆఫీస్ ఫైళ్లను యాక్సెస్ చేయడానికి మీ IT అడ్మిన్ అనుమతించరు"</string>
     <string name="cant_select_personal_files_error_title" msgid="3200697170148617742">"వ్యక్తిగత ఫైళ్లను ఎంపిక చేయడం సాధ్యం కాదు"</string>
@@ -103,10 +103,10 @@
     <string name="cant_save_to_personal_error_title" msgid="858327493694069780">"వ్యక్తిగత ప్రొఫైల్‌లో సేవ్ చేయడం సాధ్యం కాదు"</string>
     <string name="cant_save_to_personal_error_message" msgid="6991758723736381751">"మీ వ్యక్తిగత ప్రొఫైల్‌లో కార్యాలయ ఫైళ్లను సేవ్ చేయడానికి మీ IT అడ్మిన్ అనుమతించరు"</string>
     <string name="cross_profile_action_not_allowed_title" msgid="6611281348716476478">"ఈ చర్య అనుమతించబడదు"</string>
-    <string name="cross_profile_action_not_allowed_message" msgid="7331275433061690947">"మరింత తెలుసుకోవడానికి, మీ IT అడ్మిన్‌ను సంప్రదించండి"</string>
+    <string name="cross_profile_action_not_allowed_message" msgid="7331275433061690947">"మరింత తెలుసుకోవడానికి, మీ IT అడ్మిన్‌ను కాంటాక్ట్ చేయండి"</string>
     <string name="root_recent" msgid="1080156975424341623">"ఇటీవలివి"</string>
     <string name="root_available_bytes" msgid="8269870862691408864">"<xliff:g id="SIZE">%1$s</xliff:g> ఖాళీగా ఉంది"</string>
-    <string name="root_type_service" msgid="6521366147466512289">"నిల్వ పరికరాలు"</string>
+    <string name="root_type_service" msgid="6521366147466512289">"స్టోరేజ్‌ పరికరాలు"</string>
     <string name="root_type_shortcut" msgid="6059343175525442279">"షార్ట్‌కట్స్"</string>
     <string name="root_type_device" msgid="1713604128005476585">"పరికరాలు"</string>
     <string name="root_type_apps" msgid="8646073235029886342">"మరిన్ని యాప్‌లు"</string>
@@ -144,7 +144,7 @@
       <item quantity="other"><xliff:g id="COUNT_1">%1$d</xliff:g> అంశాలను తొలగిస్తోంది.</item>
       <item quantity="one"><xliff:g id="COUNT_0">%1$d</xliff:g> అంశాన్ని తొలగిస్తోంది.</item>
     </plurals>
-    <string name="undo" msgid="2902438994196400565">"చర్య రద్దు చేయి"</string>
+    <string name="undo" msgid="2902438994196400565">"చర్య రద్దు చేయండి"</string>
     <string name="copy_preparing" msgid="4759516490222449324">"సిద్ధం చేస్తోంది..."</string>
     <string name="compress_preparing" msgid="7401605598969019696">"సిద్ధం చేస్తోంది..."</string>
     <string name="extract_preparing" msgid="4796626960061745796">"సిద్ధం చేస్తోంది..."</string>
@@ -167,7 +167,7 @@
       <item quantity="other"><xliff:g id="COUNT_1">%1$d</xliff:g> అంశాలను తొలగించడం సాధ్యపడలేదు</item>
       <item quantity="one"><xliff:g id="COUNT_0">%1$d</xliff:g> అంశాన్ని తొలగించడం సాధ్యపడలేదు</item>
     </plurals>
-    <string name="notification_touch_for_details" msgid="2385563502445129570">"వివరాలను వీక్షించడానికి నొక్కండి"</string>
+    <string name="notification_touch_for_details" msgid="2385563502445129570">"వివరాలను చూడటానికి నొక్కండి"</string>
     <string name="close" msgid="905969391788869975">"మూసివేయి"</string>
     <plurals name="copy_failure_alert_content" formatted="false" msgid="5570549471912990536">
       <item quantity="other">ఈ ఫైళ్లు కాపీ కాలేదు: <xliff:g id="LIST_1">%1$s</xliff:g></item>
@@ -200,12 +200,12 @@
     <string name="file_operation_rejected" msgid="4301554203329008794">"ఫైల్ చర్యకు మద్దతు లేదు."</string>
     <string name="file_operation_error" msgid="2234357335716533795">"ఫైల్ చర్య విఫలమైంది."</string>
     <string name="rename_error" msgid="6700093173508118635">"డాక్యుమెంట్‌ పేరు మార్చడంలో విఫలమైంది"</string>
-    <string name="menu_eject_root" msgid="9215040039374893613">"తీసివేయి"</string>
+    <string name="menu_eject_root" msgid="9215040039374893613">"తీసివేయండి"</string>
     <string name="notification_copy_files_converted_title" msgid="6916768494891833365">"కొన్ని పైల్‌లు మార్చబడ్డాయి"</string>
     <string name="open_external_dialog_request" msgid="8173558471322861268">"<xliff:g id="APPNAME"><b>^1</b></xliff:g>కి <xliff:g id="STORAGE"><i>^3</i></xliff:g>లో <xliff:g id="DIRECTORY"><i>^2</i></xliff:g> డైరెక్టరీ యాక్సెస్‌ను మంజూరు చేయాలా?"</string>
     <string name="open_external_dialog_request_primary_volume" msgid="2240992164087948176">"<xliff:g id="APPNAME"><b>^1</b></xliff:g>కి <xliff:g id="DIRECTORY"><i>^2</i></xliff:g> డైరెక్టరీ యాక్సెస్‌ను మంజూరు చేయాలా?"</string>
     <string name="open_external_dialog_root_request" msgid="6776729293982633">"<xliff:g id="STORAGE"><i>^2</i></xliff:g>లోని ఫోటోలు, వీడియోలతో సహా మీ డేటా యాక్సెస్‌ను <xliff:g id="APPNAME"><b>^1</b></xliff:g>కి మంజూరు చేయాలా?"</string>
-    <string name="allow" msgid="1275746941353040309">"అనుమతించు"</string>
+    <string name="allow" msgid="1275746941353040309">"అనుమతించండి"</string>
     <string name="deny" msgid="5127201668078153379">"తిరస్కరించు"</string>
     <plurals name="elements_selected" formatted="false" msgid="4448165978637163692">
       <item quantity="other"><xliff:g id="COUNT_1">%1$d</xliff:g> ఎంచుకోబడ్డాయి</item>
@@ -235,9 +235,9 @@
     <string name="authentication_required" msgid="8030880723643436099">"ఈ డైరెక్టరీని వీక్షించాలంటే, <xliff:g id="NAME">%1$s</xliff:g>కి సైన్ ఇన్ చేయండి"</string>
     <string name="cant_display_content" msgid="8633226333229417237">"కంటెంట్‌లను ప్రదర్శించడం సాధ్యం కాదు"</string>
     <string name="sign_in" msgid="6253762676723505592">"సైన్ ఇన్ చేయండి"</string>
-    <string name="new_archive_file_name" msgid="1604650338077249838">"ఆర్కైవ్ చేయి<xliff:g id="EXTENSION">%s</xliff:g>"</string>
+    <string name="new_archive_file_name" msgid="1604650338077249838">"ఆర్కైవ్ చేయండి<xliff:g id="EXTENSION">%s</xliff:g>"</string>
     <string name="overwrite_file_confirmation_message" msgid="2496109652768222716">"<xliff:g id="NAME">%1$s</xliff:g>ని భర్తీ చేయాలా?"</string>
-    <string name="continue_in_background" msgid="1974214559047793331">"బ్యాక్‌గ్రౌండ్‌లో కొనసాగించు"</string>
+    <string name="continue_in_background" msgid="1974214559047793331">"బ్యాక్‌గ్రౌండ్‌లో కొనసాగించండి"</string>
     <plurals name="selected_count" formatted="false" msgid="7555250236512981129">
       <item quantity="other"><xliff:g id="COUNT_1">%1$d</xliff:g> ఎంచుకోబడ్డాయి</item>
       <item quantity="one"><xliff:g id="COUNT_0">%1$d</xliff:g> ఎంచుకోబడింది</item>
@@ -270,7 +270,7 @@
     <string name="anonymous_application" msgid="7633027057951625862">"తెలియనిది"</string>
     <string name="open_tree_button" msgid="6402871398424497776">"ఈ ఫోల్డర్‌ను ఉపయోగించండి"</string>
     <string name="open_tree_dialog_title" msgid="6339509533852318569">"<xliff:g id="DIRECTORY">%2$s</xliff:g>లోని ఫైళ్లను యాక్సెస్ చేయడానికి <xliff:g id="APPNAME">%1$s</xliff:g>ని అనుమతించాలా?"</string>
-    <string name="open_tree_dialog_message" msgid="4120695398430659628">"ఇది <xliff:g id="DIRECTORY">%2$s</xliff:g>లో నిల్వ చేసిన ప్రస్తుత మరియు భవిష్యత్తు కంటెంట్‌ను <xliff:g id="APPNAME">%1$s</xliff:g> యాక్సెస్ చేయడానికి అనుమతిస్తుంది."</string>
+    <string name="open_tree_dialog_message" msgid="4120695398430659628">"ఇది <xliff:g id="DIRECTORY">%2$s</xliff:g>లో స్టోరేజ్‌ చేసిన ప్రస్తుత మరియు భవిష్యత్తు కంటెంట్‌ను <xliff:g id="APPNAME">%1$s</xliff:g> యాక్సెస్ చేయడానికి అనుమతిస్తుంది."</string>
     <string name="directory_blocked_header_title" msgid="1164584889578740066">"ఈ ఫోల్డర్‌ను ఉపయోగించడం సాధ్యం కాదు"</string>
     <string name="directory_blocked_header_subtitle" msgid="2829150911849033408">"మీ గోప్యతను కాపాడుకోవటానికి, మరొక ఫోల్డర్‌ను ఎంచుకోండి"</string>
     <string name="create_new_folder_button" msgid="8859613309559794890">"కొత్త ఫోల్డర్‌ని క్రియేట్ చేయండి"</string>

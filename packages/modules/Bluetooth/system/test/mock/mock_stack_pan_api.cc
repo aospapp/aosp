@@ -26,8 +26,6 @@
 #include <map>
 #include <string>
 
-extern std::map<std::string, int> mock_function_count_map;
-
 // Mock include file to share data between tests and mock
 #include "test/mock/mock_stack_pan_api.h"
 
@@ -63,65 +61,65 @@ struct PAN_Register PAN_Register;
 // Mocked functions, if any
 tPAN_RESULT PAN_Connect(const RawAddress& rem_bda, tPAN_ROLE src_role,
                         tPAN_ROLE dst_role, uint16_t* handle) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return test::mock::stack_pan_api::PAN_Connect(rem_bda, src_role, dst_role,
                                                 handle);
 }
 tPAN_RESULT PAN_Disconnect(uint16_t handle) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return test::mock::stack_pan_api::PAN_Disconnect(handle);
 }
 tPAN_RESULT PAN_SetMulticastFilters(uint16_t handle, uint16_t num_mcast_filters,
                                     uint8_t* p_start_array,
                                     uint8_t* p_end_array) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return test::mock::stack_pan_api::PAN_SetMulticastFilters(
       handle, num_mcast_filters, p_start_array, p_end_array);
 }
 tPAN_RESULT PAN_SetProtocolFilters(uint16_t handle, uint16_t num_filters,
                                    uint16_t* p_start_array,
                                    uint16_t* p_end_array) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return test::mock::stack_pan_api::PAN_SetProtocolFilters(
       handle, num_filters, p_start_array, p_end_array);
 }
 tPAN_RESULT PAN_SetRole(uint8_t role, std::string p_user_name,
                         std::string p_nap_name) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return test::mock::stack_pan_api::PAN_SetRole(role, p_user_name, p_nap_name);
 }
 tPAN_RESULT PAN_Write(uint16_t handle, const RawAddress& dst,
                       const RawAddress& src, uint16_t protocol, uint8_t* p_data,
                       uint16_t len, bool ext) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return test::mock::stack_pan_api::PAN_Write(handle, dst, src, protocol,
                                               p_data, len, ext);
 }
 tPAN_RESULT PAN_WriteBuf(uint16_t handle, const RawAddress& dst,
                          const RawAddress& src, uint16_t protocol,
                          BT_HDR* p_buf, bool ext) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return test::mock::stack_pan_api::PAN_WriteBuf(handle, dst, src, protocol,
                                                  p_buf, ext);
 }
 uint8_t PAN_SetTraceLevel(uint8_t new_level) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return test::mock::stack_pan_api::PAN_SetTraceLevel(new_level);
 }
 void PAN_Deregister(void) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   test::mock::stack_pan_api::PAN_Deregister();
 }
 void PAN_Dumpsys(int fd) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   test::mock::stack_pan_api::PAN_Dumpsys(fd);
 }
 void PAN_Init(void) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   test::mock::stack_pan_api::PAN_Init();
 }
 void PAN_Register(tPAN_REGISTER* p_register) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   test::mock::stack_pan_api::PAN_Register(p_register);
 }
 

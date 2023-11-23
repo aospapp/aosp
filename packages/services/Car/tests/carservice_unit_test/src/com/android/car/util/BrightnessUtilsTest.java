@@ -18,18 +18,29 @@ package com.android.car.util;
 
 import static com.android.car.util.BrightnessUtils.GAMMA_SPACE_MAX;
 import static com.android.car.util.BrightnessUtils.GAMMA_SPACE_MIN;
+import static com.android.dx.mockito.inline.extended.ExtendedMockito.doReturn;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import android.car.test.mocks.AbstractExtendedMockitoTestCase;
+
+import com.android.car.internal.util.VersionUtils;
+
 import org.junit.Test;
 
-public class BrightnessUtilsTest {
+public class BrightnessUtilsTest extends AbstractExtendedMockitoTestCase {
     private static final int MIN_INT = 1;
     private static final int MAX_INT = 255;
     private static final float MIN_FLOAT = 0.0f;
     private static final float MAX_FLOAT = 1.0f;
     private static final int MIN_BACKLIGHT = 10;   // config_screenBrightnessSettingMinimum
     private static final int MAX_BACKLIGHT = 255;  // config_screenBrightnessSettingMaximum
+    private static final int INVALID_BRIGHTNESS = -1;
+
+    @Override
+    protected void onSessionBuilder(CustomMockitoSessionBuilder session) {
+        session.spyStatic(VersionUtils.class);
+    }
 
     @Test
     public void linearToGamma_minValue_shouldReturnMin() {
@@ -64,5 +75,50 @@ public class BrightnessUtilsTest {
     public void gammaToLinear_autoDefault() {
         assertThat(BrightnessUtils.convertGammaToLinear(53572, MIN_BACKLIGHT, MAX_BACKLIGHT))
                 .isEqualTo(102);
+    }
+
+    @Test
+    public void brightnessIntToFloat_shouldReturnMin() {
+        assertThat(BrightnessUtils.brightnessIntToFloat(MIN_INT)).isEqualTo(MIN_FLOAT);
+    }
+
+    @Test
+    public void brightnessIntToFloat_shouldReturnMax() {
+        assertThat(BrightnessUtils.brightnessIntToFloat(MAX_INT)).isEqualTo(MAX_FLOAT);
+    }
+
+    @Test
+    public void testBrightnessIntToFloat_platformVersionLower() {
+        doReturn(false).when(() -> VersionUtils.isPlatformVersionAtLeastU());
+
+        assertThat(BrightnessUtils.brightnessIntToFloat(100))
+                .isEqualTo(BrightnessUtils.INVALID_BRIGHTNESS_IN_FLOAT);
+    }
+
+    @Test
+    public void brightnessFloatToInt_shouldReturnMin() {
+        assertThat(BrightnessUtils.brightnessFloatToInt(MIN_FLOAT)).isEqualTo(MIN_INT);
+    }
+
+    @Test
+    public void brightnessFloatToInt_shouldReturnMax() {
+        assertThat(BrightnessUtils.brightnessFloatToInt(MAX_FLOAT)).isEqualTo(MAX_BACKLIGHT);
+    }
+
+    @Test
+    public void tesetBrightnessIntToFloat() {
+        assertThat(BrightnessUtils.brightnessIntToFloat(128)).isEqualTo(0.5f);
+    }
+
+    @Test
+    public void testBrightnessFloatToInt() {
+        assertThat(BrightnessUtils.brightnessFloatToInt(0.5f)).isEqualTo(128);
+    }
+
+    @Test
+    public void testBrightnessFloatToInt_platformVersionLower() {
+        doReturn(false).when(() -> VersionUtils.isPlatformVersionAtLeastU());
+
+        assertThat(BrightnessUtils.brightnessFloatToInt(0.5f)).isEqualTo(INVALID_BRIGHTNESS);
     }
 }

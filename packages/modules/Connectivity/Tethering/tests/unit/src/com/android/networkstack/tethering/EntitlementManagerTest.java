@@ -65,7 +65,6 @@ import android.content.pm.ModuleInfo;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.content.res.Resources;
-import android.net.util.SharedLog;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.PersistableBundle;
@@ -82,6 +81,7 @@ import androidx.test.runner.AndroidJUnit4;
 
 import com.android.internal.util.test.BroadcastInterceptingContext;
 import com.android.modules.utils.build.SdkLevel;
+import com.android.net.module.util.SharedLog;
 import com.android.testutils.DevSdkIgnoreRule;
 
 import org.junit.After;
@@ -213,7 +213,8 @@ public final class EntitlementManagerTest {
         }
 
         @Override
-        PendingIntent createRecheckAlarmIntent() {
+        PendingIntent createRecheckAlarmIntent(final String pkgName) {
+            assertEquals(TEST_PACKAGE_NAME, pkgName);
             return mAlarmIntent;
         }
     }

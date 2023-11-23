@@ -28,9 +28,10 @@ import androidx.test.filters.SdkSuppress
 import androidx.test.platform.app.InstrumentationRegistry
 import com.android.dx.mockito.inline.extended.ExtendedMockito.mockitoSession
 import com.android.permissioncontroller.Constants
-import com.android.permissioncontroller.hibernation.v31.HibernationController
 import com.android.permissioncontroller.PermissionControllerApplication
+import com.android.permissioncontroller.hibernation.v31.HibernationController
 import com.android.permissioncontroller.permission.model.livedatatypes.LightPackageInfo
+import java.io.File
 import org.junit.After
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -43,11 +44,10 @@ import org.mockito.Mockito.doReturn
 import org.mockito.Mockito.mock
 import org.mockito.Mockito.never
 import org.mockito.Mockito.verify
+import org.mockito.Mockito.`when` as whenever
 import org.mockito.MockitoAnnotations
 import org.mockito.MockitoSession
 import org.mockito.quality.Strictness
-import java.io.File
-import org.mockito.Mockito.`when` as whenever
 
 /**
  * Unit tests for [HibernationController].
@@ -159,6 +159,9 @@ class HibernationControllerTest {
             false /* isInstantApp */,
             true /* enabled */,
             0 /* appFlags */,
-            0 /* firstInstallTime */)
+            0 /* firstInstallTime */,
+            0 /* lastUpdateTime */,
+            false /* areAttributionsUserVisible */,
+            emptyMap() /* attributionTagsToLabels */)
     }
 }

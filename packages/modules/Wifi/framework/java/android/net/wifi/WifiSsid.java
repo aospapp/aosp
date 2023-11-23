@@ -44,15 +44,10 @@ public final class WifiSsid implements Parcelable {
      * Creates a WifiSsid from the raw bytes. If the byte array is null, creates an empty WifiSsid
      * object which will return an empty byte array and empty text.
      * @param bytes the SSID
-     * @throws IllegalArgumentException if the raw byte array is longer than 32 bytes.
      */
     private WifiSsid(@Nullable byte[] bytes) {
         if (bytes == null) {
             bytes = new byte[0];
-        }
-        if (bytes.length > 32) {
-            throw new IllegalArgumentException(
-                    "Max SSID length is 32 bytes, but received " + bytes.length + " bytes!");
         }
         mBytes = bytes;
         // Duplicate the bytes to #octets for legacy apps.
@@ -62,7 +57,6 @@ public final class WifiSsid implements Parcelable {
     /**
      * Create a WifiSsid from the raw bytes. If the byte array is null, return an empty WifiSsid
      * object which will return an empty byte array and empty text.
-     * @throws IllegalArgumentException if the raw byte array is longer than 32 bytes.
      */
     @NonNull
     public static WifiSsid fromBytes(@Nullable byte[] bytes) {
@@ -75,13 +69,12 @@ public final class WifiSsid implements Parcelable {
      */
     @NonNull
     public byte[] getBytes() {
-        return mBytes;
+        return mBytes.clone();
     }
 
     /**
      * Create a UTF-8 WifiSsid from unquoted plaintext. If the text is null, return an
      * empty WifiSsid object which will return an empty byte array and empty text.
-     * @throws IllegalArgumentException if the encoded UTF-8 byte array is longer than 32 bytes.
      * @hide
      */
     @NonNull
@@ -108,8 +101,7 @@ public final class WifiSsid implements Parcelable {
      * If the string is null, return an empty WifiSsid object which will return an empty byte array
      * and empty text.
      * @throws IllegalArgumentException if the string is unquoted but not hexadecimal,
-     *                                  if the hexadecimal string is odd-length,
-     *                                  or if the encoded byte array is longer than 32 bytes.
+     *                                  or if the hexadecimal string is odd-length.
      * @hide
      */
     @NonNull
@@ -137,7 +129,7 @@ public final class WifiSsid implements Parcelable {
     public String toString() {
         String utf8String = decodeSsid(mBytes, StandardCharsets.UTF_8);
         if (TextUtils.isEmpty(utf8String)) {
-            return HexEncoding.encodeToString(mBytes);
+            return HexEncoding.encodeToString(mBytes, false /* upperCase */);
         }
         return "\"" + utf8String + "\"";
     }

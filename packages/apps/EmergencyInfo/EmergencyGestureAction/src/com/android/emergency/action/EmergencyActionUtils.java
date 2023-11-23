@@ -39,4 +39,14 @@ public class EmergencyActionUtils {
         context.getContentResolver().call(EMERGENCY_ACTION_AUTHORITY,
                 ACTION_START_EMERGENCY_CALL, null, null);
     }
+
+    public static boolean isDefaultEmergencyGestureEnabled(Context context) {
+        return context.getResources().getBoolean(
+                com.android.internal.R.bool.config_defaultEmergencyGestureEnabled);
+    }
+
+    public static boolean isDefaultEmergencyGestureSoundEnabled(Context context) {
+        return context.getResources().getBoolean(
+                com.android.internal.R.bool.config_defaultEmergencyGestureSoundEnabled);
+    }
 }

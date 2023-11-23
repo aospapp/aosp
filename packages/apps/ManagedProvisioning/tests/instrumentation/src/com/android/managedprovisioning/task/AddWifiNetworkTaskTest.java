@@ -54,8 +54,8 @@ import org.mockito.MockitoAnnotations;
 public class AddWifiNetworkTaskTest {
     private static final int TEST_USER_ID = 123;
     private static final ComponentName ADMIN = new ComponentName("com.test.admin", ".Receiver");
-    private static final String TEST_SSID = "TEST_SSID";
-    private static final String TEST_SSID_2 = "TEST_SSID_2";
+    private static final String TEST_SSID = "\"TEST_SSID\"";
+    private static final String TEST_SSID_2 = "\"TEST_SSID_2\"";
     private static final ProvisioningParams NO_WIFI_INFO_PARAMS = new ProvisioningParams.Builder()
             .setProvisioningAction(ACTION_PROVISION_MANAGED_PROFILE)
             .setDeviceAdminComponentName(ADMIN)

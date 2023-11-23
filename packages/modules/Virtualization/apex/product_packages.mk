@@ -19,9 +19,11 @@
 # To include the APEX in your build, insert this in your device.mk:
 #   $(call inherit-product, packages/modules/Virtualization/apex/product_packages.mk)
 
+# If devices supports AVF it implies that it uses non-flattened APEXes.
+$(call inherit-product, $(SRC_TARGET_DIR)/product/updatable_apex.mk)
+
 PRODUCT_PACKAGES += \
     com.android.compos \
-    com.android.virt \
 
 # TODO(b/207336449): Figure out how to get these off /system
 PRODUCT_ARTIFACT_PATH_REQUIREMENT_ALLOWED_LIST := \
@@ -32,4 +34,6 @@ PRODUCT_APEX_SYSTEM_SERVER_JARS := com.android.compos:service-compos
 
 PRODUCT_SYSTEM_EXT_PROPERTIES := ro.config.isolated_compilation_enabled=true
 
-PRODUCT_SYSTEM_FSVERITY_GENERATE_METADATA := true
+PRODUCT_FSVERITY_GENERATE_METADATA := true
+
+PRODUCT_AVF_ENABLED := true

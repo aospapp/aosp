@@ -17,5 +17,5 @@
 
 <resources>
     <string name="title_activity_main" description="Launcher title">Odp Test</string>
-    <string name="bind_service">Bind Service</string>
+    <string name="get_ad">Get Ad</string>
 </resources>

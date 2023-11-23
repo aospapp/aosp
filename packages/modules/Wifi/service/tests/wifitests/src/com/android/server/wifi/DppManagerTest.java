@@ -90,6 +90,7 @@ import org.junit.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+import org.mockito.stubbing.Answer;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -118,6 +119,8 @@ public class DppManagerTest extends WifiBaseTest {
     DppManager mDppManager;
 
     @Mock
+    WifiInjector mWifiInjector;
+    @Mock
     Context mContext;
     @Mock
     WifiMetrics mWifiMetrics;
@@ -139,6 +142,8 @@ public class DppManagerTest extends WifiBaseTest {
     ScanRequestProxy mScanRequestProxy;
     @Mock
     WifiPermissionsUtil mWifiPermissionsUtil;
+    @Mock
+    SsidTranslator mSsidTranslator;
 
     String mUri =
             "DPP:C:81/1;I:DPP_TESTER;K:MDkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDIgADebGHMJoCcE7OZP/aek5muaJo"
@@ -177,11 +182,16 @@ public class DppManagerTest extends WifiBaseTest {
 
         // Successfully start enrollee responder
         when(mWifiNative.startDppEnrolleeResponder(anyString(), anyInt())).thenReturn(true);
+        when(mWifiInjector.getSsidTranslator()).thenReturn(mSsidTranslator);
+        when(mSsidTranslator.getOriginalSsid(any())).thenAnswer(
+                (Answer<WifiSsid>) invocation -> WifiSsid.fromString(
+                        ((WifiConfiguration) invocation.getArguments()[0]).SSID));
     }
 
     private DppManager createDppManager() {
-        DppManager dppManager = new DppManager(new Handler(mLooper.getLooper()), mWifiNative,
-                mWifiConfigManager, mContext, mDppMetrics, mScanRequestProxy, mWifiPermissionsUtil);
+        DppManager dppManager = new DppManager(mWifiInjector, new Handler(mLooper.getLooper()),
+                mWifiNative, mWifiConfigManager, mContext, mDppMetrics, mScanRequestProxy,
+                mWifiPermissionsUtil);
         dppManager.mDppTimeoutMessage = mWakeupMessage;
         dppManager.enableVerboseLogging(true);
         return dppManager;
@@ -603,7 +613,7 @@ public class DppManagerTest extends WifiBaseTest {
         when(mWifiConfigManager.addOrUpdateNetwork(any(WifiConfiguration.class),
                 anyInt())).thenReturn(networkUpdateResult);
 
-        dppEventCallback.onSuccessConfigReceived(selectedNetwork);
+        dppEventCallback.onSuccessConfigReceived(selectedNetwork, false);
         mLooper.dispatchAll();
         verify(mDppCallback).onSuccessConfigReceived(eq(TEST_NETWORK_ID));
         verify(mDppCallback, never()).onSuccess(anyInt());
@@ -1173,7 +1183,7 @@ public class DppManagerTest extends WifiBaseTest {
         when(mWifiConfigManager.addOrUpdateNetwork(any(WifiConfiguration.class),
                 anyInt())).thenReturn(networkUpdateResult);
 
-        dppEventCallback.onSuccessConfigReceived(selectedNetwork);
+        dppEventCallback.onSuccessConfigReceived(selectedNetwork, false);
         mLooper.dispatchAll();
         verify(mDppCallback).onSuccessConfigReceived(eq(TEST_NETWORK_ID));
         verify(mDppCallback, never()).onSuccess(anyInt());
@@ -1254,6 +1264,89 @@ public class DppManagerTest extends WifiBaseTest {
         verify(mDppMetrics).updateDppEnrolleeResponderRequests();
         verifyNoMoreInteractions(mDppMetrics);
         verifyCleanUpResources(DppManager.DPP_AUTH_ROLE_RESPONDER);
+        assertFalse(mDppManager.isSessionInProgress());
+    }
+
+    @Test
+    public void testDppAsEnrolleeResponderWaitForConnectionStatusResult() throws Exception {
+        assumeTrue(SdkLevel.isAtLeastS());
+        ArgumentCaptor<WifiNative.DppEventCallback> dppEventCallbackCaptor =
+                ArgumentCaptor.forClass(
+                        WifiNative.DppEventCallback.class);
+
+        assertFalse(mDppManager.isSessionInProgress());
+        mDppManager.startDppAsEnrolleeResponder(0, TEST_INTERFACE_NAME, mBinder, mDeviceInfo,
+                EASY_CONNECT_CRYPTOGRAPHY_CURVE_PRIME256V1, mDppCallback);
+        verify(mWifiNative).registerDppEventCallback(dppEventCallbackCaptor.capture());
+        assertTrue(mDppManager.isSessionInProgress());
+
+        // Generate an onSuccessConfigReceived callback
+        WifiNative.DppEventCallback dppEventCallback = dppEventCallbackCaptor.getValue();
+
+        // Generate a mock WifiConfiguration object
+        WifiConfiguration selectedNetwork = new WifiConfiguration();
+        selectedNetwork.SSID = TEST_SSID;
+        selectedNetwork.networkId = TEST_NETWORK_ID;
+        selectedNetwork.preSharedKey = TEST_PASSWORD;
+        selectedNetwork.allowedKeyManagement.set(WifiConfiguration.KeyMgmt.SAE);
+
+        // Generate result
+        NetworkUpdateResult networkUpdateResult = new NetworkUpdateResult(TEST_NETWORK_ID);
+        when(mWifiConfigManager.addOrUpdateNetwork(any(WifiConfiguration.class),
+                anyInt())).thenReturn(networkUpdateResult);
+
+        // Send configuration received event with connection status requested as true
+        // and check that DPP session is not cleaned up & is still in progress.
+        dppEventCallback.onSuccessConfigReceived(selectedNetwork, true);
+        mLooper.dispatchAll();
+        assertTrue(mDppManager.isSessionInProgress());
+
+        // Send connection status result
+        // and check that DPP session is cleaned up & session is not in progress anymore.
+        dppEventCallback.onConnectionStatusResultSent(0);
+        mLooper.dispatchAll();
+        verifyCleanUpResources(DppManager.DPP_AUTH_ROLE_RESPONDER);
+        assertFalse(mDppManager.isSessionInProgress());
+    }
+
+    @Test
+    public void testDppAsEnrolleeInitiatorWaitForConnectionStatusResult() throws Exception {
+        ArgumentCaptor<WifiNative.DppEventCallback> dppEventCallbackCaptor =
+                ArgumentCaptor.forClass(
+                        WifiNative.DppEventCallback.class);
+
+        assertFalse(mDppManager.isSessionInProgress());
+        mDppManager.startDppAsEnrolleeInitiator(0, TEST_INTERFACE_NAME, mBinder, mUri,
+                mDppCallback);
+        verify(mWifiNative).registerDppEventCallback(dppEventCallbackCaptor.capture());
+        assertTrue(mDppManager.isSessionInProgress());
+
+        // Generate an onSuccessConfigReceived callback
+        WifiNative.DppEventCallback dppEventCallback = dppEventCallbackCaptor.getValue();
+
+        // Generate a mock WifiConfiguration object
+        WifiConfiguration selectedNetwork = new WifiConfiguration();
+        selectedNetwork.SSID = TEST_SSID;
+        selectedNetwork.networkId = TEST_NETWORK_ID;
+        selectedNetwork.preSharedKey = TEST_PASSWORD;
+        selectedNetwork.setSecurityParams(WifiConfiguration.SECURITY_TYPE_SAE);
+
+        // Generate result
+        NetworkUpdateResult networkUpdateResult = new NetworkUpdateResult(TEST_NETWORK_ID);
+        when(mWifiConfigManager.addOrUpdateNetwork(any(WifiConfiguration.class),
+                anyInt())).thenReturn(networkUpdateResult);
+
+        // Send configuration received event with connection status requested as true
+        // and check that DPP session is not cleaned up & is still in progress.
+        dppEventCallback.onSuccessConfigReceived(selectedNetwork, true);
+        mLooper.dispatchAll();
+        assertTrue(mDppManager.isSessionInProgress());
+
+        // Send connection status result
+        // and check that DPP session is cleaned up & session is not in progress anymore.
+        dppEventCallback.onConnectionStatusResultSent(0);
+        mLooper.dispatchAll();
+        verifyCleanUpResources(DppManager.DPP_AUTH_ROLE_INITIATOR);
         assertFalse(mDppManager.isSessionInProgress());
     }
 }

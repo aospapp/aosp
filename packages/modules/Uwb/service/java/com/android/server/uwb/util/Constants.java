@@ -41,11 +41,11 @@ public class Constants {
     }
 
     /**
-     * Unicast UWB session (1 controller, 1 controllee).
+     * Unicast UWB session (1 controller, 1 controlee).
      */
     public static final int UWB_SESSION_TYPE_UNICAST = 0;
     /**
-     * Multicast UWB session (1 controller, multiple controllees).
+     * Multicast UWB session (1 controller, multiple controlees).
      */
     public static final int UWB_SESSION_TYPE_MULTICAST = 1;
 

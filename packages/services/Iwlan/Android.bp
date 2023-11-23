@@ -2,12 +2,21 @@ package {
     default_applicable_licenses: ["Android-Apache-2.0"],
 }
 
+genrule {
+    name: "statslog-Iwlan-java-gen",
+    tools: ["stats-log-api-gen"],
+    cmd: "$(location stats-log-api-gen) --java $(out) --module iwlan --javaPackage com.google.android.iwlan"
+        + " --javaClass IwlanStatsLog",
+    out: ["com/google/android/iwlan/IwlanStatsLog.java"],
+}
+
 android_app {
     name: "Iwlan",
     manifest: "AndroidManifest.xml",
     srcs: [
         "src/**/*.java",
         "src/**/I*.aidl",
+        ":statslog-Iwlan-java-gen",
     ],
     resource_dirs: [
         "res",
@@ -53,6 +62,7 @@ android_test {
     srcs: [
         "src/**/*.java",
         "test/**/*.java",
+        ":statslog-Iwlan-java-gen",
     ],
 
     platform_apis: true,

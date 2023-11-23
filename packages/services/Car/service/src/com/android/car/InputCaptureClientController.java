@@ -158,7 +158,7 @@ public class InputCaptureClientController {
                     .append(",callback:")
                     .append(mCallback)
                     .append(",inputTypes:")
-                    .append(mInputTypes)
+                    .append(Arrays.toString(mInputTypes))
                     .append(",flags:")
                     .append(Integer.toHexString(mFlags))
                     .append(",grantedTypes:")
@@ -264,7 +264,7 @@ public class InputCaptureClientController {
                 CarServiceUtils.assertCallingFromSystemProcessOrSelf();
             } else {  // for DISPLAY_TYPE_INSTRUMENT_CLUSTER
                 if (!CarServiceUtils.isCallingFromSystemProcessOrSelf()) {
-                    CarServiceUtils.assertPackageName(mContext, mClusterHomePackage);
+                    CarServiceUtils.checkCalledByPackage(mContext, mClusterHomePackage);
                 }
             }
             if (inputTypes.length != 1 || inputTypes[0] != CarInputManager.INPUT_TYPE_ALL_INPUTS) {

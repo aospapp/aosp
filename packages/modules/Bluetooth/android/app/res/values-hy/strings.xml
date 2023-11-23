@@ -23,6 +23,7 @@
     <string name="bt_share_picker_label" msgid="7464438494743777696">"Bluetooth"</string>
     <string name="unknown_device" msgid="2317679521750821654">"Անհայտ սարք"</string>
     <string name="unknownNumber" msgid="1245183329830158661">"Անհայտ"</string>
+    <string name="not_provided" msgid="6938740494380012614">"Մետատվյալներ չեն տրամադրվել"</string>
     <string name="airplane_error_title" msgid="2570111716678850860">"Ավիառեժիմ"</string>
     <string name="airplane_error_msg" msgid="4853111123699559578">"Դուք չեք կարող օգտվել Bluetooth-ից Ավիառեժիմում:"</string>
     <string name="bt_enable_title" msgid="4484289159118416315"></string>
@@ -31,20 +32,20 @@
     <string name="bt_enable_cancel" msgid="6770180540581977614">"Չեղարկել"</string>
     <string name="bt_enable_ok" msgid="4224374055813566166">"Միացնել"</string>
     <string name="incoming_file_confirm_title" msgid="938251186275547290">"Ֆայլերի փոխանցում"</string>
-    <string name="incoming_file_confirm_content" msgid="6573502088511901157">"Ընդունե՞լ մուտքային ֆայլը:"</string>
+    <string name="incoming_file_confirm_content" msgid="6573502088511901157">"Ընդունե՞լ մուտքային ֆայլը"</string>
     <string name="incoming_file_confirm_cancel" msgid="9205906062663982692">"Մերժել"</string>
     <string name="incoming_file_confirm_ok" msgid="5046926299036238623">"Ընդունել"</string>
     <string name="incoming_file_confirm_timeout_ok" msgid="8612187577686515660">"Եղավ"</string>
     <string name="incoming_file_confirm_timeout_content" msgid="3221412098281076974">"«<xliff:g id="SENDER">%1$s</xliff:g>»-ից մուտքային ֆայլի ընդունման ժամանակը սպառվեց"</string>
     <string name="incoming_file_confirm_Notification_title" msgid="5381395500920804895">"Մուտքային ֆայլ"</string>
     <string name="incoming_file_confirm_Notification_content" msgid="2669135531488877921">"«<xliff:g id="SENDER">%1$s</xliff:g>» սարքը պատրաստ է ուղարկել այս ֆայլը՝ <xliff:g id="FILE">%2$s</xliff:g>"</string>
-    <string name="notification_receiving" msgid="8445265771083510696">"Bluetooth համօգտագործում՝ <xliff:g id="FILE">%1$s</xliff:g>-ը ստացվում է"</string>
-    <string name="notification_received" msgid="2330252358543000567">"Bluetooth համօգտագործում՝ ստացվեց <xliff:g id="FILE">%1$s</xliff:g>-ը"</string>
-    <string name="notification_received_fail" msgid="9059153354809379374">"Bluetooth համօգտագործում՝ <xliff:g id="FILE">%1$s</xliff:g> ֆայլը չի ստացվել"</string>
-    <string name="notification_sending" msgid="8269912843286868700">"Bluetooth համօգտագործում՝ ուղարկվում է <xliff:g id="FILE">%1$s</xliff:g>-ը"</string>
-    <string name="notification_sent" msgid="2685202778935769332">"Bluetooth համօգտագործում՝ <xliff:g id="FILE">%1$s</xliff:g>-ն ուղարկված է"</string>
+    <string name="notification_receiving" msgid="8445265771083510696">"Bluetooth-ով փոխանցում․ <xliff:g id="FILE">%1$s</xliff:g> ֆայլն ընդունվում է"</string>
+    <string name="notification_received" msgid="2330252358543000567">"Bluetooth-ով փոխանցում․ <xliff:g id="FILE">%1$s</xliff:g> ֆայլն ընդունվեց"</string>
+    <string name="notification_received_fail" msgid="9059153354809379374">"Bluetooth-ով փոխանցում․ <xliff:g id="FILE">%1$s</xliff:g> ֆայլը չի ընդունվել"</string>
+    <string name="notification_sending" msgid="8269912843286868700">"Bluetooth-ով փոխանցում․ ուղարկվում է <xliff:g id="FILE">%1$s</xliff:g> ֆայլը"</string>
+    <string name="notification_sent" msgid="2685202778935769332">"Bluetooth-ով փոխանցում․ <xliff:g id="FILE">%1$s</xliff:g> ֆայլն ուղարկվեց"</string>
     <string name="notification_sent_complete" msgid="6293391081175517098">"100% ավարտուն"</string>
-    <string name="notification_sent_fail" msgid="7449832660578001579">"Bluetooth համօգտագործում՝ <xliff:g id="FILE">%1$s</xliff:g> ֆայլը չի ուղարկվել"</string>
+    <string name="notification_sent_fail" msgid="7449832660578001579">"Bluetooth-ով փոխանցում․ <xliff:g id="FILE">%1$s</xliff:g> ֆայլը չի ուղարկվել"</string>
     <string name="download_title" msgid="6449408649671518102">"Ֆայլերի փոխանցում"</string>
     <string name="download_line1" msgid="6449220145685308846">"Ումից՝ «<xliff:g id="SENDER">%1$s</xliff:g>»"</string>
     <string name="download_line2" msgid="7634316500490825390">"Ֆայլ՝ <xliff:g id="FILE">%1$s</xliff:g>"</string>
@@ -55,7 +56,7 @@
     <string name="download_ok" msgid="2404442707314575833">"Թաքցնել"</string>
     <string name="incoming_line1" msgid="6342300988329482408">"Ումից"</string>
     <string name="incoming_line2" msgid="2199520895444457585">"Ֆայլի անունը"</string>
-    <string name="incoming_line3" msgid="8630078246326525633">"Չափը"</string>
+    <string name="incoming_line3" msgid="8630078246326525633">"Չափսը"</string>
     <string name="download_fail_line1" msgid="3149552664349685007">"Ֆայլը չհաջողվեց ստանալ"</string>
     <string name="download_fail_line2" msgid="4289018531070750414">"Ֆայլ՝ <xliff:g id="FILE">%1$s</xliff:g>"</string>
     <string name="download_fail_line3" msgid="2214989413171231684">"Պատճառը՝ <xliff:g id="REASON">%1$s</xliff:g>"</string>
@@ -100,15 +101,15 @@
     <string name="status_protocol_error" msgid="3231573735130475654">"Հարցումը հնարավոր չէ ճշգրտորեն մշակել:"</string>
     <string name="status_unknown_error" msgid="314676481744304866">"Անհայտ սխալ:"</string>
     <string name="btopp_live_folder" msgid="4859989703965326287">"Bluetooth-ով ստացված"</string>
-    <string name="opp_notification_group" msgid="150067508422520653">"Bluetooth համօգտագործում"</string>
+    <string name="opp_notification_group" msgid="150067508422520653">"Bluetooth-ով փոխանցում"</string>
     <string name="download_success" msgid="3438268368708549686">"<xliff:g id="FILE_SIZE">%1$s</xliff:g> ստացումն ավարտված է:"</string>
     <string name="upload_success" msgid="143787470859042049">"<xliff:g id="FILE_SIZE">%1$s</xliff:g> ուղարկումն ավարտված է:"</string>
     <string name="inbound_history_title" msgid="189623888169624862">"Մուտքային փոխանցումներ"</string>
     <string name="outbound_history_title" msgid="7614166584551065036">"Ելքային փոխանցումներ"</string>
     <string name="no_transfers" msgid="740521199933899821">"Փոխանցումների պատմությունը դատարկ է:"</string>
     <string name="transfer_clear_dlg_msg" msgid="586117930961007311">"Ցուցակի բոլոր տվյալները կջնջվեն:"</string>
-    <string name="outbound_noti_title" msgid="2045560896819618979">"Bluetooth համօգտագործում՝ ֆայլերն ուղարկված են"</string>
-    <string name="inbound_noti_title" msgid="3730993443609581977">"Bluetooth համօգտագործում՝ ֆայլերը ստացված են"</string>
+    <string name="outbound_noti_title" msgid="2045560896819618979">"Bluetooth-ով փոխանցում․ ֆայլերն ուղարկված են"</string>
+    <string name="inbound_noti_title" msgid="3730993443609581977">"Bluetooth-ով փոխանցում․ ֆայլերը ստացված են"</string>
     <string name="noti_caption_unsuccessful" msgid="6679288016450410835">"{count,plural, =1{# չհաջողված։}one{# չհաջողված։}other{# չհաջողված։}}"</string>
     <string name="noti_caption_success" msgid="7652777514009569713">"{count,plural, =1{# հաջողված, %1$s}one{# հաջողված, %1$s}other{# հաջողված, %1$s}}"</string>
     <string name="transfer_menu_clear_all" msgid="3014459758656427076">"Ջնջել ցուցակը"</string>
@@ -128,4 +129,10 @@
     <string name="a2dp_sink_mbs_label" msgid="6035366346569127155">"Bluetooth աուդիո"</string>
     <string name="bluetooth_opp_file_limit_exceeded" msgid="6612109860149473930">"4 ԳԲ-ից մեծ ֆայլերը հնարավոր չէ փոխանցել"</string>
     <string name="bluetooth_connect_action" msgid="2319449093046720209">"Միանալ Bluetooth-ին"</string>
+    <string name="bluetooth_enabled_apm_title" msgid="6914461147844949044">"Bluetooth-ը միացված է ավիառեժիմում"</string>
+    <string name="bluetooth_enabled_apm_message" msgid="6168686193308136881">"Եթե Bluetooth-ը միացված թողնեք, հաջորդ անգամ այն ավտոմատ միացված կմնա ավիառեժիմում"</string>
+    <string name="bluetooth_stays_on_title" msgid="39720820955212918">"Bluetooth-ը կմնա միացված"</string>
+    <string name="bluetooth_stays_on_message" msgid="3669663452593157737">"Ավիառեժիմում Bluetooth-ը միացված կմնա։ Ցանկության դեպքում կարող եք անջատել Bluetooth-ը։"</string>
+    <string name="bluetooth_and_wifi_stays_on_title" msgid="5821932798860821244">"Wi-Fi-ը և Bluetooth-ը մնում են միացված"</string>
+    <string name="bluetooth_and_wifi_stays_on_message" msgid="7848565203843882558">"Ավիառեժիմում Wi-Fi-ը և Bluetooth-ը միացված կմնան։ Ցանկության դեպքում կարող եք անջատել Wi-Fi-ը և Bluetooth-ը։"</string>
 </resources>

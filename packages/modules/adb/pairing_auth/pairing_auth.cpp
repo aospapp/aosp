@@ -27,6 +27,8 @@
 
 #include "adb/pairing/aes_128_gcm.h"
 
+#include <string.h>
+
 using namespace adb::pairing;
 
 static constexpr spake2_role_t kClientRole = spake2_role_alice;

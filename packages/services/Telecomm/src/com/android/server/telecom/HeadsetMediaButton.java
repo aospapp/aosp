@@ -67,6 +67,11 @@ public class HeadsetMediaButton extends CallsManagerListenerBase {
             mMediaSession.setActive(active);
         }
 
+        @Override
+        public void setCallback(MediaSession.Callback callback) {
+            mMediaSession.setCallback(callback);
+        }
+
         /**
          * Gets the underlying {@link MediaSession} active status.
          * @return {@code true} if active, {@code false} otherwise.
@@ -84,6 +89,7 @@ public class HeadsetMediaButton extends CallsManagerListenerBase {
      */
     public interface MediaSessionAdapter {
         void setActive(boolean active);
+        void setCallback(MediaSession.Callback callback);
         boolean isActive();
     }
 
@@ -165,6 +171,8 @@ public class HeadsetMediaButton extends CallsManagerListenerBase {
         mCallsManager = callsManager;
         mLock = lock;
         mSession = adapter;
+
+        adapter.setCallback(mSessionCallback);
     }
 
     /**

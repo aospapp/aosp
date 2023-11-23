@@ -23,12 +23,12 @@
         style="@style/ColoredSwitchPreferenceStyle"
         settings:controller="com.android.car.settings.accessibility.ScreenReaderEnabledSwitchPreferenceController"
         settings:searchable="false"/>
-    <com.android.car.settings.common.DividerPreference/>
     <Preference
         android:key="@string/pk_screen_reader_settings_intent"
         android:title="@string/screen_reader_description_title"
         settings:controller="com.android.car.settings.accessibility.ScreenReaderSettingsIntentPreferenceController"/>
     <Preference
         android:key="@string/pk_screen_reader_description_subheader"
-        settings:controller="com.android.car.settings.accessibility.ScreenReaderSettingsSubheaderPreferenceController"/>
+        settings:controller="com.android.car.settings.accessibility.ScreenReaderSettingsSubheaderPreferenceController"
+        android:selectable="false"/>
 </PreferenceScreen>

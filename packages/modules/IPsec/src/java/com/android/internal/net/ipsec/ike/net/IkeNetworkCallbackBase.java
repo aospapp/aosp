@@ -22,6 +22,7 @@ import android.net.ConnectivityManager.NetworkCallback;
 import android.net.LinkAddress;
 import android.net.LinkProperties;
 import android.net.Network;
+import android.net.NetworkCapabilities;
 
 import com.android.internal.annotations.VisibleForTesting;
 
@@ -33,12 +34,20 @@ public abstract class IkeNetworkCallbackBase extends NetworkCallback {
 
     protected final IkeNetworkUpdater mIkeNetworkUpdater;
     protected Network mCurrNetwork;
-    private InetAddress mCurrAddress;
+    protected LinkProperties mCurrLp;
+    protected NetworkCapabilities mCurrNc;
+    protected InetAddress mCurrAddress;
 
     protected IkeNetworkCallbackBase(
-            IkeNetworkUpdater ikeNetworkUpdater, Network currNetwork, InetAddress currAddress) {
+            IkeNetworkUpdater ikeNetworkUpdater,
+            Network currNetwork,
+            InetAddress currAddress,
+            LinkProperties currLp,
+            NetworkCapabilities currNc) {
         mIkeNetworkUpdater = ikeNetworkUpdater;
         mCurrNetwork = currNetwork;
+        mCurrLp = currLp;
+        mCurrNc = currNc;
         mCurrAddress = currAddress;
     }
 
@@ -53,11 +62,9 @@ public abstract class IkeNetworkCallbackBase extends NetworkCallback {
         mIkeNetworkUpdater.onUnderlyingNetworkDied();
     }
 
-    @Override
-    public void onLinkPropertiesChanged(Network network, LinkProperties linkProperties) {
-        // This LinkProperties update is only meaningful if it's for the current Network
-        if (!mCurrNetwork.equals(network)) {
-            return;
+    protected boolean isCurrentAddressLost(LinkProperties linkProperties) {
+        if (mCurrAddress == null) {
+            return true;
         }
 
         // Use getAllLinkAddresses (instead of getLinkAddresses()) so that the return value also
@@ -65,18 +72,16 @@ public abstract class IkeNetworkCallbackBase extends NetworkCallback {
         // a CLAT interface.
         for (LinkAddress linkAddress : linkProperties.getAllLinkAddresses()) {
             if (mCurrAddress.equals(linkAddress.getAddress())) {
-                return;
+                return false;
             }
         }
 
-        // The underlying Network didn't change, but the current address disappeared. A MOBIKE
-        // event is necessary to update the local address and notify the peer of this change.
         logd(
                 "onLinkPropertiesChanged indicates current address "
                         + mCurrAddress
                         + " lost on current Network "
                         + mCurrNetwork.getNetId());
-        mIkeNetworkUpdater.onUnderlyingNetworkUpdated(mCurrNetwork);
+        return true;
     }
 
     /**
@@ -85,8 +90,11 @@ public abstract class IkeNetworkCallbackBase extends NetworkCallback {
      * <p>MUST be called on the Handler specified when registering this NetworkCallback with {@link
      * ConnectivityManager}.
      */
-    public void setNetwork(Network network) {
+    public void setNetwork(Network network, LinkProperties lp, NetworkCapabilities nc) {
         mCurrNetwork = network;
+        mCurrLp = lp;
+        mCurrNc = nc;
+        mCurrAddress = null;
     }
 
     /** Returns the current Network that this NetworkCallback is monitoring for. */
@@ -113,5 +121,9 @@ public abstract class IkeNetworkCallbackBase extends NetworkCallback {
 
     protected void logd(String msg) {
         getIkeLog().d(TAG, msg);
+    }
+
+    protected void logWtf(String msg) {
+        getIkeLog().wtf(TAG, msg);
     }
 }

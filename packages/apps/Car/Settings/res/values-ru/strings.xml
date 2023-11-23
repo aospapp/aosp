@@ -24,14 +24,13 @@
     <string name="auto_brightness_title" msgid="9124647862844666581">"Адаптивная яркость"</string>
     <string name="auto_brightness_summary" msgid="2002570577219479702">"Изменять яркость экрана в зависимости от освещения"</string>
     <string name="condition_night_display_title" msgid="3777509730126972675">"Ночная подсветка включена"</string>
-    <string name="night_mode_tile_label" msgid="6603597795502131664">"Ночной режим"</string>
     <string name="network_and_internet" msgid="4229023630498537530">"Сеть и интернет"</string>
     <string name="mobile_network_settings" msgid="1708621113321368597">"Мобильная сеть"</string>
     <string name="mobile_network_summary_count" msgid="760865625847664029">"{count,plural, =1{# SIM-карта}one{# SIM-карта}few{# SIM-карты}many{# SIM-карт}other{# SIM-карты}}"</string>
     <string name="mobile_network_active_sim" msgid="1901674954229832811">"Активно (SIM-карта)"</string>
     <string name="mobile_network_inactive_sim" msgid="3644984830926224318">"Неактивно (SIM-карта)"</string>
-    <string name="mobile_network_active_esim" msgid="5864100786496761032">"Активно (cкачанная SIM-карта)"</string>
-    <string name="mobile_network_inactive_esim" msgid="1397332352238119032">"Неактивно (скачанная SIM-карта)"</string>
+    <string name="mobile_network_active_esim" msgid="5175362818078597096">"Активно (eSIM)"</string>
+    <string name="mobile_network_inactive_esim" msgid="7273712403773327964">"Неактивно (eSIM)"</string>
     <string name="mobile_network_list_add_more" msgid="6174294462747070655">"Добавить"</string>
     <string name="mobile_network_toggle_title" msgid="3515647310810280063">"Мобильный интернет"</string>
     <string name="mobile_network_toggle_summary" msgid="8698267487987697148">"Доступ к Интернету по мобильной сети"</string>
@@ -177,6 +176,7 @@
     <string name="network_connection_request_dialog_showall" msgid="776613149566461487">"Показать все"</string>
     <string name="progress_scanning" msgid="7191583064717479795">"Поиск"</string>
     <string name="bluetooth_settings_title" msgid="3794688574569688649">"Bluetooth"</string>
+    <string name="bluetooth_toggle_title" msgid="1431803611346881088">"Использовать Bluetooth"</string>
     <string name="bluetooth_device" msgid="3178478829314083240">"Устройство без названия"</string>
     <string name="bluetooth_paired_devices" msgid="6463199569164652410">"Подключенные устройства"</string>
     <string name="bluetooth_pair_new_device" msgid="6948753485443263095">"Подключить новое устройство"</string>
@@ -221,6 +221,9 @@
     <string name="bluetooth_notif_title" msgid="8374602799367803335">"Запрос на подключение"</string>
     <string name="bluetooth_notif_message" msgid="1060821000510108726">"Нажмите, чтобы подключить устройство \"<xliff:g id="DEVICE_NAME">%1$s</xliff:g>\"."</string>
     <string name="bluetooth_device_picker" msgid="673238198452345475">"Выбор устройства Bluetooth"</string>
+    <string name="bluetooth_bonded_bluetooth_toggle_content_description" msgid="6800772154405846597">"Bluetooth"</string>
+    <string name="bluetooth_bonded_phone_toggle_content_description" msgid="8152794643249938377">"Телефон"</string>
+    <string name="bluetooth_bonded_media_toggle_content_description" msgid="7803420585378155404">"Мультимедиа"</string>
     <string name="language_settings" msgid="2079258598337245546">"Языки"</string>
     <string name="languages_and_input_settings" msgid="3672322610529408248">"Язык и ввод"</string>
     <string name="language_picker_list_suggested_header" msgid="7593893806003415948">"Рекомендуемые"</string>
@@ -300,14 +303,16 @@
     <string name="apps_and_notifications_settings" msgid="8704585874333781975">"Приложения и уведомления"</string>
     <string name="all_applications" msgid="7798210477486822168">"Показать все приложения"</string>
     <string name="default_applications" msgid="1558183275638697087">"Приложения по умолчанию"</string>
+    <string name="performance_impacting_apps" msgid="3439260699394720569">"Приложения, снижающие производительность"</string>
     <string name="app_permissions" msgid="32799922508313948">"Разрешения для приложений"</string>
     <string name="app_permissions_summary" msgid="5402214755935368418">"Управление доступом приложений к вашим данным"</string>
     <string name="applications_settings" msgid="794261395191035632">"Сведения о приложениях"</string>
-    <string name="force_stop" msgid="2153183697014720520">"Остановить"</string>
-    <string name="force_stop_dialog_title" msgid="3342850939200388694">"Остановить принудительно?"</string>
+    <string name="force_stop" msgid="1616958676171167028">"Остановить"</string>
+    <string name="force_stop_dialog_title" msgid="4481858344628934971">"Остановить приложение?"</string>
     <string name="force_stop_dialog_text" msgid="4354954014318432599">"Принудительное закрытие приложения может отразиться на его функциональности."</string>
-    <string name="prioritize_app_performance_dialog_title" msgid="2561577032540073080">"Приоритизировать производительность приложения?"</string>
-    <string name="prioritize_app_performance_dialog_text" msgid="572525689800110355">"Включение этой настройки может привести к нестабильной работе системы и долговременному воздействию на аппаратное обеспечение. Продолжить?"</string>
+    <string name="force_stop_success_toast_text" msgid="2986272849275894254">"Приложение \"<xliff:g id="APP_NAME">%1$s</xliff:g>\" остановлено."</string>
+    <string name="prioritize_app_performance_dialog_title" msgid="3205297520523665568">"Приоритизиров. производ-сть приложения?"</string>
+    <string name="prioritize_app_performance_dialog_text" msgid="4321564728229192878">"Это может привести к нестабильной работе системы и долговременному воздействию на аппаратное обеспечение. Продолжить?"</string>
     <string name="prioritize_app_performance_dialog_action_on" msgid="3556735049873419163">"Да"</string>
     <string name="prioritize_app_performance_dialog_action_off" msgid="2813324718753199319">"Нет"</string>
     <string name="disable_text" msgid="4358165448648990820">"Отключить"</string>
@@ -378,6 +383,7 @@
     <string name="apps_permission_manager_title" msgid="8776335943862484131">"Управление разрешениями"</string>
     <string name="apps_permission_manager_summary" msgid="4180424218228141274">"Управление доступом приложений к вашим данным"</string>
     <string name="apps_default_apps_summary" msgid="2017792579839972926">"Для Ассистента и не только"</string>
+    <string name="performance_impacting_apps_summary" msgid="7762122057244111162">"{count,plural, =1{# приложение, снижающее производительность}one{# приложение, снижающее производительность}few{# приложения, снижающих производительность}many{# приложений, снижающих производительность}other{# приложения, снижающих производительность}}"</string>
     <string name="apps_special_app_access_summary" msgid="6464767436309742163">"Доступ к системным и другим настройкам"</string>
     <string name="special_access" msgid="5730278220917123811">"Специальный доступ для приложений"</string>
     <string name="show_system" msgid="4401355756969485287">"Показать системные"</string>
@@ -391,6 +397,8 @@
     <string name="notification_listener_revoke_warning_summary" msgid="4904973394539125407">"Если вы отключите доступ к уведомлениям для приложения \"<xliff:g id="NOTIFICATION_LISTENER_NAME">%1$s</xliff:g>\", также может быть отключен доступ к настройкам режима \"Не беспокоить\"."</string>
     <string name="notification_listener_revoke_warning_confirm" msgid="2759583507454984812">"Отключить"</string>
     <string name="notification_listener_revoke_warning_cancel" msgid="4399941651358241154">"Отмена"</string>
+    <string name="performance_impacting_apps_description" msgid="7361464904617808444">"Эти приложения снижают производительность системы. Им запрещено работать в фоновом режиме.\nПриоритизируйте приложение, чтобы разрешить ему работать в фоновом режиме и удалить из этого списка."</string>
+    <string name="performance_impacting_apps_button_label" msgid="8277507326717608783">"Приоритизировать"</string>
     <string name="premium_sms_access_title" msgid="1409118461646148686">"Доступ к платным SMS"</string>
     <string name="premium_sms_access_description" msgid="7119026067677052169">"Обратите внимание, что такие SMS могут оплачиваться дополнительно. Предоставив разрешение приложению, вы сможете отправлять платные SMS с его помощью."</string>
     <string name="usage_access_title" msgid="7153427122072303254">"Доступ к истории использования"</string>
@@ -401,22 +409,27 @@
     <string name="location_settings_title" msgid="901334356682423679">"Геолокация"</string>
     <string name="location_toggle_title" msgid="836779750812064601">"Использовать данные о местоположении"</string>
     <string name="location_toggle_summary" msgid="7977868708102299495">"Разрешить для выбранных приложений"</string>
-    <string name="location_toggle_off_warning" msgid="8396854289251143748">"Если вы отключите эту настройку, данные о местоположении будут недоступны всем приложениям, кроме системы помощи водителю."</string>
-    <string name="location_driver_assistance_toggle_title" msgid="9201622805420459957">"Геолокация для системы помощи водителю"</string>
+    <string name="location_toggle_off_warning" msgid="5959449346865136081">"Если вы отключите этот параметр, данные о местоположении будут доступны только приложениям для помощи водителю."</string>
+    <string name="location_driver_assistance_toggle_title" msgid="3780157378527924932">"Геолокация для системы помощи водителю"</string>
     <string name="location_driver_assistance_toggle_off_title" msgid="2218532550578204718">"Геоданные автомобиля не определяются"</string>
-    <string name="location_driver_assistance_toggle_off_summary" msgid="1516786816178866919">"Нет доступа к данным о местоположении"</string>
+    <string name="location_driver_assistance_toggle_off_summary" msgid="6040822988891113026">"Нет доступа к данным о местоположении"</string>
     <string name="location_driver_assistance_action_text" msgid="1887309495010247883">"Изменить"</string>
     <string name="location_driver_assistance_toggle_summary" msgid="2732591196508054649">"Открыть доступ к данным о местоположении"</string>
-    <string name="location_driver_assistance_toggle_off_warning" msgid="8097738968253492982">"Если вы отключите эту настройку, приложения для помощи водителю, которым необходимы данные о местоположении, работать не будут."</string>
+    <string name="location_driver_assistance_toggle_off_warning" msgid="2733124752598498356">"Если вы отключите этот параметр, приложения для помощи водителю, которым необходимы данные о местоположении, работать не будут."</string>
     <string name="driver_assistance_warning_confirm_label" msgid="2873799611160864931">"Отключить"</string>
-    <string name="location_settings_recent_requests_title" msgid="6345634382240930628">"Последние запросы местоположения"</string>
-    <string name="location_settings_recent_requests_empty_message" msgid="7789667070033674910">"Нет недавних запросов местоположения."</string>
+    <string name="location_recently_accessed" msgid="522888989582110975">"Недавно просмотренные местоположения"</string>
+    <string name="location_settings_recently_accessed_title" msgid="6016264778609426382">"Недавно просмотренные местоположения"</string>
+    <string name="location_settings_recently_accessed_view_all_title" msgid="6344830628885781448">"Показать все"</string>
+    <string name="location_no_recent_access" msgid="2859914321242257931">"Нет недавних приложений"</string>
+    <string name="driver_assistance_label" msgid="9217315205754658940">"<xliff:g id="TIME">%1$s</xliff:g> • Система помощи водителю"</string>
+    <string name="location_driver_assistance_privacy_policy_header_content" msgid="8118086439003674350">"Приложения с доступом к данным о местоположении автомобиля для помощи водителю"</string>
+    <string name="location_driver_assistance_privacy_policy_button_text" msgid="669921557502414704">"Политика конфиденциальности"</string>
     <string name="location_settings_app_permissions_title" msgid="6446735313354321564">"Разрешения для приложений"</string>
     <string name="location_settings_services_title" msgid="1186133632690970468">"Сервисы геолокации"</string>
     <string name="location_use_location_title" msgid="117735895374606680">"Использовать данные о местоположении"</string>
     <string name="location_settings_footer" msgid="296892848338100051">"Для определения местоположения устройства могут использоваться данные GPS, Wi-Fi, мобильных сетей и датчиков."</string>
     <string name="driver_assistance_settings_title" msgid="4915804073177128915">"Система помощи водителю"</string>
-    <string name="adas_settings_footer" msgid="5128483877858058534">"Данные о местоположении, которые отправляются системе помощи водителю, не содержат идентифицирующей вас информации. Они хранятся не более двух дней и затем удаляются."</string>
+    <string name="adas_settings_footer" msgid="6697021691244459156">"Данные о местоположении, которые отправляются системе помощи водителю, не содержат идентифицирующей вас информации. Они хранятся не более двух дней и затем удаляются."</string>
     <string name="microphone_settings_title" msgid="7125554350537136922">"Микрофон"</string>
     <string name="microphone_toggle_title" msgid="911586035332827275">"Использовать микрофон"</string>
     <string name="microphone_toggle_summary" msgid="2682653449849128626">"Разрешить всем приложениям доступ к микрофону"</string>
@@ -432,6 +445,9 @@
     <string name="system_update_settings_title" msgid="8448588267784138855">"Обновления системы"</string>
     <string name="system_advanced_title" msgid="6303355131691523362">"Дополнительно"</string>
     <string name="system_advanced_summary" msgid="5833643795981791953">"Сведения о системе, юридическая информация, сброс настроек и т. д."</string>
+    <string name="restart_infotainment_system_title" msgid="5174129167446756511">"Перезапустить информационно-развлекательную систему"</string>
+    <string name="restart_infotainment_system_dialog_text" msgid="6395281407323116808">"Перезапуск информационно-развлекательной системы автомобиля может занять несколько минут. Продолжить?"</string>
+    <string name="continue_confirmation" msgid="1598892163951467191">"Продолжить"</string>
     <string name="firmware_version" msgid="8491753744549309333">"Версия Android"</string>
     <string name="security_patch" msgid="4794276590178386903">"Обновление системы безопасности"</string>
     <string name="hardware_info" msgid="3973165746261507658">"Модель и аппаратное обеспечение"</string>
@@ -472,11 +488,11 @@
     <string name="developer_options_settings" msgid="1530739225109118480">"Для разработчиков"</string>
     <string name="reset_options_title" msgid="4388902952861833420">"Сброс настроек"</string>
     <string name="reset_options_summary" msgid="5508201367420359293">"Сброс настроек сети, приложений и устройства"</string>
-    <string name="reset_network_title" msgid="1284233059990797263">"Сбросить настройки сети"</string>
-    <string name="reset_network_desc" msgid="602381374544634925">"Будут сброшены все настройки, в том числе:"</string>
-    <string name="reset_network_item_wifi" msgid="7569481589699982698"><li>"Wi‑Fi"</li></string>
+    <string name="reset_network_title" msgid="3077846909739832734">"Сбросить Wi‑Fi и Bluetooth"</string>
+    <string name="reset_network_desc" msgid="3332203703135823033">"Будут сброшены настройки Wi‑Fi и Bluetooth, а также удалены следующие данные:"</string>
+    <string name="reset_network_item_wifi" msgid="2876370861806060314"><li>"о сетях Wi‑Fi и их паролях."</li></string>
     <string name="reset_network_item_mobile" msgid="5747282716664480997"><li>"Мобильный интернет"</li></string>
-    <string name="reset_network_item_bluetooth" msgid="6035019931106921284"><li>"Bluetooth"</li></string>
+    <string name="reset_network_item_bluetooth" msgid="7475279871421815601"><li>"о телефонах и других устройствах Bluetooth;"</li></string>
     <string name="reset_esim_title" msgid="8132107637911831211">"Удалить данные всех eSIM автомобиля"</string>
     <string name="reset_esim_desc" msgid="1437276625485586740">"Это действие не отменит ваш тарифный план."</string>
     <string name="reset_esim_error_title" msgid="7245109418130525492">"Не удалось сбросить настройки eSIM"</string>
@@ -574,7 +590,7 @@
     <string name="storage_clear_user_data_text" msgid="8787615136779130680">"Очистить хранилище"</string>
     <string name="storage_clear_cache_btn_text" msgid="8449547925966775612">"Очистить кеш"</string>
     <string name="storage_clear_data_dlg_title" msgid="5863775997588969879">"Удалить данные приложения?"</string>
-    <string name="storage_clear_data_dlg_text" msgid="795055288575727801">"Все данные этого приложения будут удалены без возможности восстановления, включая все файлы, базы данных, настройки, аккаунты и т. д."</string>
+    <string name="storage_clear_data_dlg_text" msgid="3255314337644212283">"Данные этого приложения (включая файлы, базы данных, настройки и т. д.) будут удалены без возможности восстановления."</string>
     <string name="storage_clear_failed_dlg_text" msgid="6710485971686866306">"Не удалось очистить хранилище."</string>
     <string name="storage_unmount_success" msgid="1553591517580407021">"Устройство \"<xliff:g id="NAME">%1$s</xliff:g>\" безопасно извлечено."</string>
     <string name="storage_unmount_failure" msgid="4591934911541762883">"Не удалось безопасно извлечь устройство \"<xliff:g id="NAME">%1$s</xliff:g>\"."</string>
@@ -675,6 +691,7 @@
     <string name="lockpassword_cancel_label" msgid="5791237697404166450">"Отмена"</string>
     <string name="lockpassword_confirm_label" msgid="5918463281546146953">"Подтвердить"</string>
     <string name="choose_lock_password_hints" msgid="3903696950202491593">"Не менее 4 символов"</string>
+    <string name="locktype_unavailable" msgid="2678317466336249126">"Этот способ блокировки недоступен."</string>
     <string name="lockpassword_pin_contains_non_digits" msgid="3044526271686839923">"PIN-код должен содержать только цифры."</string>
     <string name="lockpassword_pin_recently_used" msgid="7901918311213276207">"Использовать недавний PIN-код запрещено"</string>
     <string name="lockpassword_pin_denylisted_by_admin" msgid="3752574009492336468">"Системный администратор заблокировал простые PIN-коды. Выберите более сложную комбинацию."</string>
@@ -699,7 +716,6 @@
     <string name="lockpassword_pin_too_long" msgid="8315542764465856288">"{count,plural, =1{Длина PIN-кода должна быть менее # цифры.}one{Длина PIN-кода должна быть менее # цифры.}few{Длина PIN-кода должна быть менее # цифр.}many{Длина PIN-кода должна быть менее # цифр.}other{Длина PIN-кода должна быть менее # цифры.}}"</string>
     <string name="lockpassword_pin_no_sequential_digits" msgid="6511579896796310956">"Нельзя использовать последовательности из идущих подряд или повторяющихся цифр"</string>
     <string name="setup_lock_settings_options_button_label" msgid="3337845811029780896">"Варианты блокировки экрана"</string>
-    <string name="build_info_fmt" msgid="5592554123908086426">"<xliff:g id="FINGERPRINT">%1$s</xliff:g>\n<xliff:g id="DATE">%2$s</xliff:g> (<xliff:g id="NUM_DAYS">%3$s</xliff:g> дн. назад)"</string>
     <string name="credentials_reset" msgid="873900550885788639">"Очистить учетные данные"</string>
     <string name="credentials_reset_summary" msgid="6067911547500459637">"Удалить все сертификаты"</string>
     <string name="credentials_reset_hint" msgid="3459271621754137661">"Удалить все содержимое?"</string>
@@ -722,6 +738,8 @@
     <string name="exit_retail_mode_dialog_confirmation_button_text" msgid="3147249675355968649">"Выйти из деморежима"</string>
     <string name="suggestion_dismiss_button" msgid="4539412646977050641">"ЗАКРЫТЬ"</string>
     <string name="restricted_while_driving" msgid="6587569249519274524">"Эта функция недоступна во время вождения."</string>
+    <string name="restricted_for_passenger" msgid="7240117443887727753">"Попросите у водителя изменить параметр"</string>
+    <string name="restricted_for_driver" msgid="3364388937671526800">"Это действие вам недоступно"</string>
     <string name="add_user_restricted_while_driving" msgid="1037301074725362944">"Невозможно добавить профиль во время вождения."</string>
     <string name="default_search_query" msgid="3137420627428857068">"Поиск"</string>
     <string name="assistant_and_voice_setting_title" msgid="737733881661819853">"Ассистент и голосовое управление"</string>
@@ -737,6 +755,7 @@
     <string name="add_a_profile_button_text" msgid="8027395095117925114">"Добавить профиль"</string>
     <string name="delete_this_profile_text" msgid="6035404714526922665">"Удалить этот профиль"</string>
     <string name="add_profile_text" msgid="9118410102199116969">"Добавить профиль"</string>
+    <string name="cannot_remove_driver_profile" msgid="4109363161608717969">"Сейчас этот профиль использует водитель. Повторите попытку, когда он выйдет из него."</string>
     <string name="qc_display_brightness" msgid="2939655289816201170">"Яркость экрана"</string>
     <string name="qc_bluetooth_off_devices_info" msgid="8420985279976892700">"Чтобы посмотреть список своих устройств, включите Bluetooth."</string>
     <string name="qc_bluetooth_on_no_devices_info" msgid="7573736950041887300">"Чтобы подключить устройство, откройте настройки Bluetooth."</string>
@@ -769,6 +788,7 @@
     <string name="number_of_device_admins" msgid="7508826094096451485">"{count,plural, =1{# активное приложение}one{# активное приложение}few{# активных приложения}many{# активных приложений}other{# активного приложения}}"</string>
     <string name="number_of_device_admins_none" msgid="5547493703413973954">"Нет активных приложений"</string>
     <string name="work_policy_privacy_settings" msgid="5263835989260149968">"Правила организации \"<xliff:g id="ORGANIZATION_NAME">%1$s</xliff:g>\" в отношении автотранспорта"</string>
+    <string name="work_policy_privacy_settings_no_org_name" msgid="8011687012493940230">"Правила в отношении автотранспорта"</string>
     <string name="work_policy_privacy_settings_summary" msgid="5321618399949880194">"Настройки, которыми управляет менеджер организации"</string>
     <string name="footer_learn_more_content_description" msgid="7749452309729272078">"Подробнее о сервисе \"<xliff:g id="SERVICE">%1$s</xliff:g>\""</string>
     <string name="enterprise_privacy_settings" msgid="6496900796150572727">"Сведения о корпоративном автомобиле"</string>

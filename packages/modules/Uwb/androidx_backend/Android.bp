@@ -1,0 +1,66 @@
+// Copyright (C) 2022 The Android Open Source Project
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
+aidl_interface {
+    name: "androidx.core.uwb.backend.aidl_interface",
+    owner: "Google",
+    local_include_dir: "interface",
+    srcs: [
+        "interface/**/*.aidl",
+    ],
+    backend: {
+        java: {
+            enabled: true,
+            min_sdk_version: "31",
+        },
+    },
+    visibility: ["//visibility:public"],
+}
+
+java_library {
+    name: "uwb_androidx_backend",
+    installable: false,
+    platform_apis: true,
+    srcs: [
+        "src/**/*.java",
+    ],
+    libs: ["android-support-annotations"],
+    static_libs: [
+        "androidx.concurrent_concurrent-futures",
+        "androidx.core.uwb.backend.aidl_interface-V1-java",
+        "com.uwb.support.fira",
+        "com.uwb.support.multichip",
+        "com.uwb.support.dltdoa",
+        "guava",
+    ],
+}
+
+android_app {
+    name: "uwb_androidx_backend_app",
+    platform_apis: true,
+    certificate: "platform",
+    manifest: "AndroidManifest.xml",
+    libs: ["android-support-annotations"],
+    static_libs: [
+        "androidx.concurrent_concurrent-futures",
+        "androidx.core.uwb.backend.aidl_interface-V1-java",
+        "com.uwb.support.fira",
+        "guava",
+	"uwb_androidx_backend"
+    ],
+}

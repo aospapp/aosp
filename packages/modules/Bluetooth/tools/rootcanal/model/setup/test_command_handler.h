@@ -24,8 +24,6 @@
 #include <unordered_map>
 #include <vector>
 
-#include "model/devices/device.h"
-#include "phy_layer_factory.h"
 #include "test_channel_transport.h"
 #include "test_model.h"
 
@@ -42,35 +40,31 @@ class TestCommandHandler {
   void HandleCommand(const std::string& name,
                      const std::vector<std::string>& args);
 
-  // Dispatches the action from a file
-  void FromFile(const std::string& file_name);
-
   // Dispatches the action corresponding to the command specified by |name|.
-  void RegisterSendResponse(
-      const std::function<void(const std::string&)> callback);
+  void RegisterSendResponse(std::function<void(const std::string&)> callback);
 
   // Commands:
 
   // Add a device
-  void Add(const std::vector<std::string>& args);
+  void AddDevice(const std::vector<std::string>& args);
 
   // Add a remote device
   void AddRemote(const std::vector<std::string>& args);
 
   // Remove devices by index
-  void Del(const std::vector<std::string>& args);
+  void RemoveDevice(const std::vector<std::string>& args);
 
   // Add phy
   void AddPhy(const std::vector<std::string>& args);
 
   // Remove phy by name
-  void DelPhy(const std::vector<std::string>& args);
+  void RemovePhy(const std::vector<std::string>& args);
 
   // Add device to phy
   void AddDeviceToPhy(const std::vector<std::string>& args);
 
   // Remove device from phy
-  void DelDeviceFromPhy(const std::vector<std::string>& args);
+  void RemoveDeviceFromPhy(const std::vector<std::string>& args);
 
   // List the devices that the test knows about
   void List(const std::vector<std::string>& args);

@@ -21,8 +21,8 @@
           android:process="com.android.phone"
           android:sharedUserId="android.uid.phone">
 
-    <protected-broadcast android:name="com.android.ons.action.DOWNLOAD" />
-    <protected-broadcast android:name="com.android.ons.action.CONFIG" />
+    <protected-broadcast android:name="com.android.ons.action.ESIM_DOWNLOAD" />
+    <protected-broadcast android:name="com.android.ons.action.ESIM_CONFIG" />
 
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.READ_PHONE_STATE"/>

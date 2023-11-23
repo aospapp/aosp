@@ -17,6 +17,8 @@
 package android.car.builtin.os;
 
 import android.annotation.SystemApi;
+import android.car.builtin.annotation.AddedIn;
+import android.car.builtin.annotation.PlatformVersion;
 import android.os.Build;
 
 /**
@@ -31,21 +33,25 @@ public final class BuildHelper {
     }
 
     /** Tells if it is {@code user} build. */
+    @AddedIn(PlatformVersion.TIRAMISU_0)
     public static boolean isUserBuild() {
         return Build.IS_USER;
     }
 
     /** Tells if it is {@code eng} build. */
+    @AddedIn(PlatformVersion.TIRAMISU_0)
     public static boolean isEngBuild() {
         return Build.IS_ENG;
     }
 
     /** Tells if it is {@code userdebug} build. */
+    @AddedIn(PlatformVersion.TIRAMISU_0)
     public static boolean isUserDebugBuild() {
         return Build.IS_USERDEBUG;
     }
 
     /** Tells if the build is debuggable ({@code eng} or {@code userdebug}) */
+    @AddedIn(PlatformVersion.TIRAMISU_0)
     public static boolean isDebuggableBuild() {
         return Build.IS_DEBUGGABLE;
     }

@@ -27,7 +27,7 @@
 
     <com.android.car.settings.common.DividerPreference/>
 
-    <Preference
+    <com.android.car.ui.preference.CarUiFooterPreference
         android:key="@string/pk_enterprise_privacy_microphone_access_package_footer"
         android:summary="@string/enterprise_privacy_apps_count_estimation_info"
         android:icon="@drawable/ic_settings_about"

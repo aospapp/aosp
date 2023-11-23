@@ -15,13 +15,12 @@
  * limitations under the License.
  */
 
-#include <base/bind.h>
 #include <base/bind_helpers.h>
+#include <base/functional/bind.h>
 #include <base/strings/string_number_conversions.h>
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include <osi/include/alarm.h>
-#include <osi/test/alarm_mock.h>
 #include <sys/socket.h>
 
 #include <variant>
@@ -38,20 +37,10 @@
 #include "has_types.h"
 #include "mock_controller.h"
 #include "mock_csis_client.h"
-
-static std::map<const char*, bool> fake_osi_bool_props;
-
-bool osi_property_get_bool(const char* key, bool default_value) {
-  if (fake_osi_bool_props.count(key)) return fake_osi_bool_props.at(key);
-
-  return default_value;
-}
-
-void osi_property_set_bool(const char* key, bool value) {
-  fake_osi_bool_props.insert_or_assign(key, value);
-}
+#include "test/common/mock_functions.h"
 
 bool gatt_profile_get_eatt_support(const RawAddress& addr) { return true; }
+void osi_property_set_bool(const char* key, bool value);
 
 namespace bluetooth {
 namespace has {
@@ -655,8 +644,7 @@ class HasClientTestBase : public ::testing::Test {
   }
 
   void SetUp(void) override {
-    fake_osi_bool_props.clear();
-
+    reset_mock_function_count_map();
     controller::SetMockControllerInterface(&controller_interface_);
     bluetooth::manager::SetMockBtmInterface(&btm_interface);
     bluetooth::storage::SetMockBtifStorageInterface(&btif_storage_interface_);
@@ -665,6 +653,15 @@ class HasClientTestBase : public ::testing::Test {
     callbacks.reset(new MockHasCallbacks());
 
     encryption_result = true;
+
+    ON_CALL(btm_interface, SetEncryption(_, _, _, _, _))
+        .WillByDefault(
+            Invoke([this](const RawAddress& bd_addr, tBT_TRANSPORT transport,
+                          tBTM_SEC_CALLBACK* p_callback, void* p_ref_data,
+                          tBTM_BLE_SEC_ACT sec_act) -> tBTM_STATUS {
+              InjectEncryptionEvent(bd_addr);
+              return BTM_SUCCESS;
+            }));
 
     MockCsisClient::SetMockInstanceForTesting(&mock_csis_client_module_);
     ON_CALL(mock_csis_client_module_, Get())
@@ -737,8 +734,8 @@ class HasClientTestBase : public ::testing::Test {
     ON_CALL(gatt_interface, Open(_, _, _, _))
         .WillByDefault(
             Invoke([&](tGATT_IF client_if, const RawAddress& remote_bda,
-                       bool is_direct, bool opportunistic) {
-              if (is_direct)
+                       tBTM_BLE_CONN_TYPE connection_type, bool opportunistic) {
+              if (connection_type == BTM_BLE_DIRECT_CONNECTION)
                 InjectConnectedEvent(remote_bda, GetTestConnId(remote_bda));
             }));
 
@@ -784,7 +781,8 @@ class HasClientTestBase : public ::testing::Test {
     ON_CALL(btm_interface, BTM_IsEncrypted(address, _))
         .WillByDefault(DoAll(Return(encryption_result)));
 
-    EXPECT_CALL(gatt_interface, Open(gatt_if, address, true, _));
+    EXPECT_CALL(gatt_interface,
+                Open(gatt_if, address, BTM_BLE_DIRECT_CONNECTION, _));
     HasClient::Get()->Connect(address);
 
     Mock::VerifyAndClearExpectations(&*callbacks);
@@ -807,7 +805,8 @@ class HasClientTestBase : public ::testing::Test {
   void TestAddFromStorage(const RawAddress& address, uint8_t features,
                           bool auto_connect) {
     if (auto_connect) {
-      EXPECT_CALL(gatt_interface, Open(gatt_if, address, false, _));
+      EXPECT_CALL(gatt_interface,
+                  Open(gatt_if, address, BTM_BLE_BKG_CONNECT_ALLOW_LIST, _));
       HasClient::Get()->AddFromStorage(address, features, auto_connect);
 
       /* Inject connected event for autoconnect/background connection */
@@ -878,26 +877,20 @@ class HasClientTestBase : public ::testing::Test {
     gatt_callback(BTA_GATTC_NOTIF_EVT, (tBTA_GATTC*)&event_data);
   }
 
+  void InjectEncryptionEvent(const RawAddress& test_address) {
+    tBTA_GATTC_ENC_CMPL_CB event_data = {
+        .client_if = static_cast<tGATT_IF>(GetTestConnId(test_address)),
+        .remote_bda = test_address,
+    };
+
+    gatt_callback(BTA_GATTC_ENC_CMPL_CB_EVT, (tBTA_GATTC*)&event_data);
+  }
+
   void SetEncryptionResult(const RawAddress& address, bool success) {
     encryption_result = success;
+
     ON_CALL(btm_interface, BTM_IsEncrypted(address, _))
-        .WillByDefault(Return(success));
-    ON_CALL(btm_interface, GetSecurityFlagsByTransport(address, NotNull(), _))
-        .WillByDefault(
-            DoAll(SetArgPointee<1>(success ? BTM_SEC_FLAG_ENCRYPTED : 0),
-                  Return(true)));
-    if (!success) {
-      EXPECT_CALL(btm_interface,
-                  SetEncryption(address, _, NotNull(), _, BTM_BLE_SEC_ENCRYPT))
-          .WillOnce(Invoke(
-              [success](const RawAddress& bd_addr, tBT_TRANSPORT transport,
-                        tBTM_SEC_CALLBACK* p_callback, void* p_ref_data,
-                        tBTM_BLE_SEC_ACT sec_act) -> tBTM_STATUS {
-                p_callback(&bd_addr, transport, p_ref_data,
-                           success ? BTM_SUCCESS : BTM_FAILED_ON_SECURITY);
-                return BTM_SUCCESS;
-              }));
-    }
+        .WillByDefault(DoAll(Return(encryption_result)));
   }
 
   void InjectNotifyReadPresetResponse(uint16_t conn_id,
@@ -1233,7 +1226,8 @@ TEST_F(HasClientTest, test_disconnect_non_connected) {
   const RawAddress test_address = GetTestAddress(1);
 
   /* Override the default action to prevent us sendind the connected event */
-  EXPECT_CALL(gatt_interface, Open(gatt_if, test_address, true, _))
+  EXPECT_CALL(gatt_interface,
+              Open(gatt_if, test_address, BTM_BLE_DIRECT_CONNECTION, _))
       .WillOnce(Return());
   HasClient::Get()->Connect(test_address);
   TestDisconnect(test_address, GATT_INVALID_CONN_ID);
@@ -1341,9 +1335,9 @@ TEST_F(HasClientTest, test_reconnect_after_encryption_failed_from_storage) {
   InjectConnectedEvent(test_address, GetTestConnId(test_address));
 }
 
-TEST_F(HasClientTest, test_load_from_storage) {
+TEST_F(HasClientTest, test_load_from_storage_and_connect) {
   const RawAddress test_address = GetTestAddress(1);
-  SetSampleDatabaseHasPresetsNtf(test_address, kFeatureBitDynamicPresets, {{}});
+  SetSampleDatabaseHasPresetsNtf(test_address, kFeatureBitDynamicPresets);
   SetEncryptionResult(test_address, true);
 
   std::set<HasPreset, HasPreset::ComparatorDesc> has_presets = {{
@@ -1392,7 +1386,7 @@ TEST_F(HasClientTest, test_load_from_storage) {
 
   /* Expect no read or write operations when loading from storage */
   EXPECT_CALL(gatt_queue, ReadCharacteristic(1, _, _, _)).Times(0);
-  EXPECT_CALL(gatt_queue, WriteDescriptor(1, _, _, _, _, _)).Times(0);
+  EXPECT_CALL(gatt_queue, WriteDescriptor(1, _, _, _, _, _)).Times(3);
 
   TestAddFromStorage(test_address,
                      kFeatureBitWritablePresets |
@@ -1409,6 +1403,58 @@ TEST_F(HasClientTest, test_load_from_storage) {
       ASSERT_TRUE(info.writable);
     ASSERT_EQ(preset->GetName(), info.preset_name);
   }
+}
+
+TEST_F(HasClientTest, test_load_from_storage) {
+  const RawAddress test_address = GetTestAddress(1);
+  SetSampleDatabaseHasPresetsNtf(test_address, kFeatureBitDynamicPresets);
+  SetEncryptionResult(test_address, true);
+
+  std::set<HasPreset, HasPreset::ComparatorDesc> has_presets = {{
+      HasPreset(5, HasPreset::kPropertyAvailable | HasPreset::kPropertyWritable,
+                "YourWritablePreset5"),
+      HasPreset(55, HasPreset::kPropertyAvailable, "YourPreset55"),
+  }};
+
+  /* Load persistent storage data */
+  ON_CALL(btif_storage_interface_, GetLeaudioHasPresets(test_address, _, _))
+      .WillByDefault([&has_presets](const RawAddress& address,
+                                    std::vector<uint8_t>& presets_bin,
+                                    uint8_t& active_preset) {
+        /* Generate presets binary to be used instead the attribute values */
+        HasDevice device(address, 0);
+        device.has_presets = has_presets;
+        active_preset = 55;
+
+        if (device.SerializePresets(presets_bin)) return true;
+
+        return false;
+      });
+
+  EXPECT_CALL(gatt_interface, RegisterForNotifications(gatt_if, _, _))
+      .Times(0);  // features
+
+  EXPECT_CALL(*callbacks,
+              OnDeviceAvailable(test_address,
+                                (kFeatureBitWritablePresets |
+                                 kFeatureBitPresetSynchronizationSupported |
+                                 kFeatureBitHearingAidTypeBanded)));
+
+  std::vector<PresetInfo> loaded_preset_details;
+  EXPECT_CALL(*callbacks,
+              OnPresetInfo(std::variant<RawAddress, int>(test_address),
+                           PresetInfoReason::ALL_PRESET_INFO, _))
+      .Times(0);
+
+  /* Expect no read or write operations when loading from storage */
+  EXPECT_CALL(gatt_queue, ReadCharacteristic(1, _, _, _)).Times(0);
+  EXPECT_CALL(gatt_queue, WriteDescriptor(1, _, _, _, _, _)).Times(0);
+
+  TestAddFromStorage(test_address,
+                     kFeatureBitWritablePresets |
+                         kFeatureBitPresetSynchronizationSupported |
+                         kFeatureBitHearingAidTypeBanded,
+                     false);
 }
 
 TEST_F(HasClientTest, test_write_to_storage) {
@@ -2882,9 +2928,52 @@ TEST_F(HasClientTest, test_dumpsys) {
   ASSERT_TRUE(SimpleJsonValidator(sv[1], &dumpsys_byte_cnt));
 }
 
+TEST_F(HasClientTest, test_connect_database_out_of_sync) {
+  osi_property_set_bool("persist.bluetooth.has.always_use_preset_cache", false);
+
+  const RawAddress test_address = GetTestAddress(1);
+  std::set<HasPreset, HasPreset::ComparatorDesc> has_presets = {{
+      HasPreset(1, HasPreset::kPropertyAvailable, "Universal"),
+      HasPreset(2, HasPreset::kPropertyAvailable | HasPreset::kPropertyWritable,
+                "Preset2"),
+  }};
+  SetSampleDatabaseHasPresetsNtf(
+      test_address,
+      bluetooth::has::kFeatureBitHearingAidTypeBanded |
+          bluetooth::has::kFeatureBitWritablePresets |
+          bluetooth::has::kFeatureBitDynamicPresets,
+      has_presets);
+
+  EXPECT_CALL(*callbacks, OnDeviceAvailable(
+                              test_address,
+                              bluetooth::has::kFeatureBitHearingAidTypeBanded |
+                                  bluetooth::has::kFeatureBitWritablePresets |
+                                  bluetooth::has::kFeatureBitDynamicPresets));
+  EXPECT_CALL(*callbacks,
+              OnConnectionState(ConnectionState::CONNECTED, test_address));
+  TestConnect(test_address);
+
+  ON_CALL(gatt_queue, WriteCharacteristic(_, _, _, _, _, _))
+      .WillByDefault(
+          Invoke([this](uint16_t conn_id, uint16_t handle,
+                        std::vector<uint8_t> value, tGATT_WRITE_TYPE write_type,
+                        GATT_WRITE_OP_CB cb, void* cb_data) {
+            auto* svc = gatt::FindService(services_map[conn_id], handle);
+            if (svc == nullptr) return;
+
+            tGATT_STATUS status = GATT_DATABASE_OUT_OF_SYNC;
+            if (cb)
+              cb(conn_id, status, handle, value.size(), value.data(), cb_data);
+          }));
+
+  ON_CALL(gatt_interface, ServiceSearchRequest(_, _)).WillByDefault(Return());
+  EXPECT_CALL(gatt_interface, ServiceSearchRequest(_, _));
+  HasClient::Get()->GetPresetInfo(test_address, 1);
+}
+
 class HasTypesTest : public ::testing::Test {
  protected:
-  void SetUp(void) override { fake_osi_bool_props.clear(); }
+  void SetUp(void) override { reset_mock_function_count_map(); }
 
   void TearDown(void) override {}
 };  // namespace
@@ -3021,15 +3110,16 @@ TEST_F(HasTypesTest, test_group_op_coordinator_init) {
   auto address1 = GetTestAddress(1);
   auto address2 = GetTestAddress(2);
 
-  EXPECT_CALL(*AlarmMock::Get(), AlarmNew(_)).Times(1);
   HasCtpGroupOpCoordinator wrapper(
       {address1, address2},
       HasCtpOp(0x01, ::le_audio::has::PresetCtpOpcode::READ_PRESETS, 6));
   ASSERT_EQ(2u, wrapper.ref_cnt);
 
-  EXPECT_CALL(*AlarmMock::Get(), AlarmFree(_)).Times(1);
   HasCtpGroupOpCoordinator::Cleanup();
   ASSERT_EQ(0u, wrapper.ref_cnt);
+
+  ASSERT_EQ(1, get_func_call_count("alarm_free"));
+  ASSERT_EQ(1, get_func_call_count("alarm_new"));
 }
 
 TEST_F(HasTypesTest, test_group_op_coordinator_copy) {
@@ -3040,7 +3130,6 @@ TEST_F(HasTypesTest, test_group_op_coordinator_copy) {
   auto address1 = GetTestAddress(1);
   auto address2 = GetTestAddress(2);
 
-  EXPECT_CALL(*AlarmMock::Get(), AlarmNew(_)).Times(1);
   HasCtpGroupOpCoordinator wrapper(
       {address1, address2},
       HasCtpOp(0x01, ::le_audio::has::PresetCtpOpcode::READ_PRESETS, 6));
@@ -3056,9 +3145,11 @@ TEST_F(HasTypesTest, test_group_op_coordinator_copy) {
   delete wrapper4;
   ASSERT_EQ(4u, wrapper.ref_cnt);
 
-  EXPECT_CALL(*AlarmMock::Get(), AlarmFree(_)).Times(1);
   HasCtpGroupOpCoordinator::Cleanup();
   ASSERT_EQ(0u, wrapper.ref_cnt);
+
+  ASSERT_EQ(1, get_func_call_count("alarm_free"));
+  ASSERT_EQ(1, get_func_call_count("alarm_new"));
 }
 
 TEST_F(HasTypesTest, test_group_op_coordinator_completion) {
@@ -3071,7 +3162,6 @@ TEST_F(HasTypesTest, test_group_op_coordinator_completion) {
   auto address2 = GetTestAddress(2);
   auto address3 = GetTestAddress(3);
 
-  EXPECT_CALL(*AlarmMock::Get(), AlarmNew(_)).Times(1);
   HasCtpGroupOpCoordinator wrapper(
       {address1, address3},
       HasCtpOp(0x01, ::le_audio::has::PresetCtpOpcode::READ_PRESETS, 6));
@@ -3080,7 +3170,6 @@ TEST_F(HasTypesTest, test_group_op_coordinator_completion) {
       HasCtpOp(0x01, ::le_audio::has::PresetCtpOpcode::READ_PRESETS, 6));
   ASSERT_EQ(3u, wrapper.ref_cnt);
 
-  EXPECT_CALL(*AlarmMock::Get(), AlarmFree(_)).Times(0);
   ASSERT_FALSE(wrapper.IsFullyCompleted());
 
   wrapper.SetCompleted(address1);
@@ -3089,23 +3178,24 @@ TEST_F(HasTypesTest, test_group_op_coordinator_completion) {
   wrapper.SetCompleted(address3);
   ASSERT_EQ(1u, wrapper.ref_cnt);
   ASSERT_FALSE(wrapper.IsFullyCompleted());
-  Mock::VerifyAndClearExpectations(&*AlarmMock::Get());
+  ASSERT_EQ(0, get_func_call_count("alarm_free"));
 
   /* Non existing address completion */
-  EXPECT_CALL(*AlarmMock::Get(), AlarmFree(_)).Times(0);
   wrapper.SetCompleted(address2);
-  Mock::VerifyAndClearExpectations(&*AlarmMock::Get());
+  ASSERT_EQ(0, get_func_call_count("alarm_free"));
   ASSERT_EQ(1u, wrapper.ref_cnt);
 
   /* Last device address completion */
-  EXPECT_CALL(*AlarmMock::Get(), AlarmFree(_)).Times(1);
   wrapper2.SetCompleted(address2);
-  Mock::VerifyAndClearExpectations(&*AlarmMock::Get());
   ASSERT_TRUE(wrapper.IsFullyCompleted());
   ASSERT_EQ(0u, wrapper.ref_cnt);
+  const int alarm_free_count = get_func_call_count("alarm_free");
+  ASSERT_EQ(1, alarm_free_count);
 
-  EXPECT_CALL(*AlarmMock::Get(), AlarmFree(_)).Times(0);
   HasCtpGroupOpCoordinator::Cleanup();
+
+  ASSERT_EQ(alarm_free_count, get_func_call_count("alarm_free"));
+  ASSERT_EQ(1, get_func_call_count("alarm_new"));
 }
 
 }  // namespace

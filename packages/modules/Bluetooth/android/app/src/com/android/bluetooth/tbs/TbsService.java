@@ -17,19 +17,12 @@
 
 package com.android.bluetooth.tbs;
 
-import android.Manifest;
 import android.bluetooth.BluetoothDevice;
-import android.bluetooth.BluetoothGatt;
-import android.bluetooth.BluetoothGattCharacteristic;
-import android.bluetooth.BluetoothGattDescriptor;
-import android.bluetooth.BluetoothGattServerCallback;
-import android.bluetooth.BluetoothGattService;
-import android.bluetooth.BluetoothLeCallControl;
 import android.bluetooth.BluetoothLeCall;
+import android.bluetooth.BluetoothProfile;
 import android.bluetooth.IBluetoothLeCallControl;
 import android.bluetooth.IBluetoothLeCallControlCallback;
 import android.content.AttributionSource;
-import android.content.Context;
 import android.os.ParcelUuid;
 import android.os.RemoteException;
 import android.sysprop.BluetoothProperties;
@@ -37,13 +30,14 @@ import android.util.Log;
 
 import static com.android.bluetooth.Utils.enforceBluetoothPrivilegedPermission;
 
-import com.android.bluetooth.btservice.ProfileService;
 import com.android.bluetooth.Utils;
+import com.android.bluetooth.btservice.ProfileService;
+import com.android.bluetooth.le_audio.LeAudioService;
 import com.android.internal.annotations.VisibleForTesting;
 
-import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
-import java.util.Objects;
+import java.util.Map;
 import java.util.UUID;
 
 public class TbsService extends ProfileService {
@@ -52,6 +46,7 @@ public class TbsService extends ProfileService {
     private static final boolean DBG = true;
 
     private static TbsService sTbsService;
+    private Map<BluetoothDevice, Integer> mDeviceAuthorizations = new HashMap<>();
 
     private final TbsGeneric mTbsGeneric = new TbsGeneric();
 
@@ -114,6 +109,7 @@ public class TbsService extends ProfileService {
         if (DBG) {
             Log.d(TAG, "cleanup()");
         }
+        mDeviceAuthorizations.clear();
     }
 
     /**
@@ -143,15 +139,114 @@ public class TbsService extends ProfileService {
         sTbsService = instance;
     }
 
+    public void onDeviceUnauthorized(BluetoothDevice device) {
+        if (Utils.isPtsTestMode()) {
+            Log.d(TAG, "PTS test: setDeviceAuthorized");
+            setDeviceAuthorized(device, true);
+            return;
+        }
+        Log.w(TAG, "onDeviceUnauthorized - authorization notification not implemented yet ");
+        setDeviceAuthorized(device, false);
+    }
+
+    /**
+     * Sets device authorization for TBS.
+     *
+     * @param device device that would be authorized
+     * @param isAuthorized boolean value of authorization permission
+     * @hide
+     */
+    public void setDeviceAuthorized(BluetoothDevice device, boolean isAuthorized) {
+        Log.i(TAG, "setDeviceAuthorized(): device: " + device + ", isAuthorized: " + isAuthorized);
+        int authorization = isAuthorized ? BluetoothDevice.ACCESS_ALLOWED
+                : BluetoothDevice.ACCESS_REJECTED;
+        mDeviceAuthorizations.put(device, authorization);
+
+        if (mTbsGeneric != null) {
+            mTbsGeneric.onDeviceAuthorizationSet(device);
+        }
+    }
+
+    /**
+     * Returns authorization value for given device.
+     *
+     * @param device device that would be authorized
+     * @return authorization value for device
+     *
+     * Possible authorization values:
+     * {@link BluetoothDevice.ACCESS_UNKNOWN},
+     * {@link BluetoothDevice.ACCESS_ALLOWED}
+     * @hide
+     */
+    public int getDeviceAuthorization(BluetoothDevice device) {
+        /* Telephony Bearer Service is allowed for
+         * 1. in PTS mode
+         * 2. authorized devices
+         * 3. Any LeAudio devices which are allowed to connect
+         */
+        int authorization = mDeviceAuthorizations.getOrDefault(device, Utils.isPtsTestMode()
+                ? BluetoothDevice.ACCESS_ALLOWED : BluetoothDevice.ACCESS_UNKNOWN);
+        if (authorization != BluetoothDevice.ACCESS_UNKNOWN) {
+            return authorization;
+        }
+
+        LeAudioService leAudioService = LeAudioService.getLeAudioService();
+        if (leAudioService == null) {
+            Log.e(TAG, "TBS access not permited. LeAudioService not available");
+            return BluetoothDevice.ACCESS_UNKNOWN;
+        }
+
+        if (leAudioService.getConnectionPolicy(device)
+                > BluetoothProfile.CONNECTION_POLICY_FORBIDDEN) {
+            if (DBG) {
+                Log.d(TAG, "TBS authorization allowed based on supported LeAudio service");
+            }
+            setDeviceAuthorized(device, true);
+            return BluetoothDevice.ACCESS_ALLOWED;
+        }
+
+        Log.e(TAG, "TBS access not permited");
+        return BluetoothDevice.ACCESS_UNKNOWN;
+    }
+
+    /**
+     * Set inband ringtone for the device.
+     * When set, notification will be sent to given device.
+     *
+     * @param device    device for which inband ringtone has been set
+     */
+    public void setInbandRingtoneSupport(BluetoothDevice device) {
+        if (mTbsGeneric == null) {
+            Log.i(TAG, "setInbandRingtoneSupport, mTbsGeneric not available");
+            return;
+        }
+        mTbsGeneric.setInbandRingtoneSupport(device);
+    }
+
+    /**
+     * Clear inband ringtone for the device.
+     * When set, notification will be sent to given device.
+     *
+     * @param device    device for which inband ringtone has been clear
+     */
+    public void clearInbandRingtoneSupport(BluetoothDevice device) {
+        if (mTbsGeneric == null) {
+            Log.i(TAG, "clearInbandRingtoneSupport, mTbsGeneric not available");
+            return;
+        }
+        mTbsGeneric.clearInbandRingtoneSupport(device);
+    }
+
+
     /** Binder object: must be a static class or memory leak may occur */
     @VisibleForTesting
     static class TbsServerBinder extends IBluetoothLeCallControl.Stub implements IProfileServiceBinder {
         private TbsService mService;
 
         private TbsService getService(AttributionSource source) {
-            if (!Utils.checkCallerIsSystemOrActiveUser(TAG)
-                || !Utils.checkServiceAvailable(mService, TAG)
-                || !Utils.checkConnectPermissionForDataDelivery(mService, source, TAG)) {
+            if (!Utils.checkServiceAvailable(mService, TAG)
+                    || !Utils.checkCallerIsSystemOrActiveOrManagedUser(mService, TAG)
+                    || !Utils.checkConnectPermissionForDataDelivery(mService, source, TAG)) {
                 Log.w(TAG, "TbsService call not allowed for non-active user");
                 return null;
             }
@@ -361,5 +456,20 @@ public class TbsService extends ProfileService {
     @Override
     public void dump(StringBuilder sb) {
         super.dump(sb);
+        sb.append("TbsService instance:\n");
+
+        mTbsGeneric.dump(sb);
+
+        for (Map.Entry<BluetoothDevice, Integer> entry : mDeviceAuthorizations.entrySet()) {
+            String accessString;
+            if (entry.getValue() == BluetoothDevice.ACCESS_REJECTED) {
+                accessString = "ACCESS_REJECTED";
+            } else if (entry.getValue() == BluetoothDevice.ACCESS_ALLOWED) {
+                accessString = "ACCESS_ALLOWED";
+            } else {
+                accessString = "ACCESS_UNKNOWN";
+            }
+            sb.append("\n\tDevice: " + entry.getKey() + ", access: " + accessString);
+        }
     }
 }

@@ -14,6 +14,10 @@ apex {
 apex_defaults {
     name: "com.android.mediaprovider-defaults",
     bootclasspath_fragments: ["com.android.mediaprovider-bootclasspath-fragment"],
+    sh_binaries: [
+        // MediaProvider CLI (cli/media_provider_cli_wrapper.sh)
+        "media_provider"
+    ],
     prebuilts: [
         "current_sdkinfo",
         "privapp_allowlist_com.android.providers.media.module.xml"
@@ -40,7 +44,11 @@ android_app_certificate {
 
 sdk {
     name: "mediaprovider-module-sdk",
-    bootclasspath_fragments: ["com.android.mediaprovider-bootclasspath-fragment"],
+    apexes: [
+        // Adds exportable dependencies of the APEX to the sdk,
+        // e.g. *classpath_fragments.
+        "com.android.mediaprovider",
+    ],
 }
 
 // Encapsulate the contributions made by the com.android.mediaprovider to the bootclasspath.

@@ -16,27 +16,22 @@
 
 package com.android.systemui.car.displayarea;
 
+import static android.view.Display.DEFAULT_DISPLAY;
+
+import android.car.app.CarActivityManager;
+import android.content.ComponentName;
 import android.content.Context;
-import android.content.Intent;
 import android.content.res.Resources;
 import android.util.Log;
 
 /**
  * Utils for CarDisplayArea package.
  */
-public class CarDisplayAreaUtils {
+public final class CarDisplayAreaUtils {
 
     private static final String TAG = "CarDisplayAreaUtils";
 
     private CarDisplayAreaUtils() {
-    }
-
-    static Intent getMapsIntent(Context context) {
-        Intent defaultIntent =
-                Intent.makeMainSelectorActivity(Intent.ACTION_MAIN, Intent.CATEGORY_APP_MAPS);
-        defaultIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-
-        return defaultIntent;
     }
 
     static boolean isCustomDisplayPolicyDefined(Context context) {
@@ -51,5 +46,18 @@ public class CarDisplayAreaUtils {
             Log.w(TAG, "custom policy provider not defined");
         }
         return customPolicyName != null && !customPolicyName.isEmpty();
+    }
+
+    static void setPersistentActivity(CarActivityManager am,
+            ComponentName activity, int featureId, String featureName) {
+        if (activity == null) {
+            Log.e(TAG, "Empty activity for " + featureName + " (" + featureId + ")");
+            return;
+        }
+        int ret = am.setPersistentActivity(activity, DEFAULT_DISPLAY, featureId);
+        if (ret != CarActivityManager.RESULT_SUCCESS) {
+            Log.e(TAG, "Failed to set PersistentActivity: activity=" + activity
+                    + ", ret=" + ret);
+        }
     }
 }

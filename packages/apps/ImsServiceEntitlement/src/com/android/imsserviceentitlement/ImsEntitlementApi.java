@@ -26,6 +26,7 @@ import android.util.Log;
 import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 
+import com.android.imsserviceentitlement.debug.DebugUtils;
 import com.android.imsserviceentitlement.entitlement.EntitlementConfiguration;
 import com.android.imsserviceentitlement.entitlement.EntitlementConfiguration.ClientBehavior;
 import com.android.imsserviceentitlement.entitlement.EntitlementResult;
@@ -75,7 +76,13 @@ public class ImsEntitlementApi {
         this.mSubId = subId;
         CarrierConfig carrierConfig = getCarrierConfig(context);
         this.mNeedsImsProvisioning = TelephonyUtils.isImsProvisioningRequired(context, subId);
-        this.mServiceEntitlement = new ServiceEntitlement(context, carrierConfig, subId);
+        this.mServiceEntitlement =
+                new ServiceEntitlement(
+                        context,
+                        carrierConfig,
+                        subId,
+                        /* saveHttpHistory = */ false,
+                        DebugUtils.getBypassEapAkaResponse());
         this.mLastEntitlementConfiguration = new EntitlementConfiguration(context, subId);
     }
 

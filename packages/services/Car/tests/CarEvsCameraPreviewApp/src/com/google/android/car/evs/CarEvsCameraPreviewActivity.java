@@ -16,6 +16,7 @@
 
 package com.google.android.car.evs;
 
+import static android.car.evs.CarEvsManager.ERROR_NONE;
 import static android.hardware.display.DisplayManager.DisplayListener;
 
 import android.app.Activity;
@@ -41,14 +42,58 @@ import android.view.ViewGroup;
 import android.view.WindowManager;
 import android.widget.LinearLayout;
 
+import androidx.annotation.GuardedBy;
+
+import com.android.car.internal.evs.CarEvsGLSurfaceView;
+import com.android.car.internal.evs.GLES20CarEvsBufferRenderer;
+
 import java.util.ArrayList;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-public class CarEvsCameraPreviewActivity extends Activity {
+public class CarEvsCameraPreviewActivity extends Activity
+        implements CarEvsGLSurfaceView.BufferCallback {
+
     private static final String TAG = CarEvsCameraPreviewActivity.class.getSimpleName();
+    /**
+     * ActivityManagerService encodes the reason for a request to close system dialogs with this
+     * key.
+     */
+    private final static String EXTRA_DIALOG_CLOSE_REASON = "reason";
+    /** This string literal is from com.android.systemui.car.systembar.CarSystemBarButton class. */
+    private final static String DIALOG_CLOSE_REASON_CAR_SYSTEMBAR_BUTTON = "carsystembarbutton";
+    /** This string literal is from com.android.server.policy.PhoneWindowManager class. */
+    private final static String DIALOG_CLOSE_REASON_HOME_KEY = "homekey";
+
+    /**
+     * Defines internal states.
+     */
+    private final static int STREAM_STATE_STOPPED = 0;
+    private final static int STREAM_STATE_VISIBLE = 1;
+    private final static int STREAM_STATE_INVISIBLE = 2;
+    private final static int STREAM_STATE_LOST = 3;
+
+    private static String streamStateToString(int state) {
+        switch (state) {
+            case STREAM_STATE_STOPPED:
+                return "STOPPED";
+
+            case STREAM_STATE_VISIBLE:
+                return "VISIBLE";
+
+            case STREAM_STATE_INVISIBLE:
+                return "INVISIBLE";
+
+            case STREAM_STATE_LOST:
+                return "LOST";
+
+            default:
+                return "UNKNOWN: " + state;
+        }
+    }
 
     /** Buffer queue to store references of received frames */
+    @GuardedBy("mLock")
     private final ArrayList<CarEvsBufferDescriptor> mBufferQueue = new ArrayList<>();
 
     private final Object mLock = new Object();
@@ -57,7 +102,7 @@ public class CarEvsCameraPreviewActivity extends Activity {
     private final ExecutorService mCallbackExecutor = Executors.newFixedThreadPool(1);
 
     /** GL backed surface view to render the camera preview */
-    private CarEvsCameraGLSurfaceView mEvsView;
+    private CarEvsGLSurfaceView mEvsView;
     private ViewGroup mRootView;
     private LinearLayout mPreviewContainer;
 
@@ -68,11 +113,16 @@ public class CarEvsCameraPreviewActivity extends Activity {
     private int mDisplayState = Display.STATE_OFF;
 
     /** Tells whether or not a video stream is running */
-    private boolean mStreamRunning = false;
+    @GuardedBy("mLock")
+    private int mStreamState = STREAM_STATE_STOPPED;
 
+    @GuardedBy("mLock")
     private Car mCar;
+
+    @GuardedBy("mLock")
     private CarEvsManager mEvsManager;
 
+    @GuardedBy("mLock")
     private IBinder mSessionToken;
 
     private boolean mUseSystemWindow;
@@ -93,9 +143,15 @@ public class CarEvsCameraPreviewActivity extends Activity {
 
         @Override
         public void onNewFrame(CarEvsBufferDescriptor buffer) {
-            // Enqueues a new frame and posts a rendering job
-            synchronized (mBufferQueue) {
-                mBufferQueue.add(buffer);
+            synchronized (mLock) {
+                if (mStreamState == STREAM_STATE_INVISIBLE) {
+                    // When the activity becomes invisible (e.g. goes background), we immediately
+                    // returns received frame buffers instead of stopping a video stream.
+                    doneWithBufferLocked(buffer);
+                } else {
+                    // Enqueues a new frame and posts a rendering job
+                    mBufferQueue.add(buffer);
+                }
             }
         }
     };
@@ -119,34 +175,37 @@ public class CarEvsCameraPreviewActivity extends Activity {
             int state = decideViewVisibility();
             synchronized (mLock) {
                 mDisplayState = state;
-                handleVideoStreamLocked();
+                handleVideoStreamLocked(state == Display.STATE_ON ?
+                        STREAM_STATE_VISIBLE : STREAM_STATE_INVISIBLE);
             }
         }
     };
 
     /** CarService status listener  */
     private final CarServiceLifecycleListener mCarServiceLifecycleListener = (car, ready) -> {
-        if (!ready) {
-            Log.d(TAG, "Disconnected from the Car Service");
-            // Upon the CarService's accidental termination, CarEvsService gets released and
-            // CarEvsManager deregisters all listeners and callbacks.  So, we simply release
-            // CarEvsManager instance and update the status in handleVideoStreamLocked().
+        try {
             synchronized (mLock) {
-                mCar = null;
-                mEvsManager = null;
-                handleVideoStreamLocked();
-            }
-        } else {
-            Log.d(TAG, "Connected to the Car Service");
-            try {
-                synchronized (mLock) {
-                    mCar = car;
-                    mEvsManager = (CarEvsManager) car.getCarManager(Car.CAR_EVS_SERVICE);
-                    handleVideoStreamLocked();
+                mCar = ready ? car : null;
+                mEvsManager = ready ? (CarEvsManager) car.getCarManager(Car.CAR_EVS_SERVICE) : null;
+                if (!ready) {
+                    if (!mUseSystemWindow) {
+                        // If we were launched by the user manually, we enter the LOST state and
+                        // wait for the car service's restoration.
+                        handleVideoStreamLocked(STREAM_STATE_LOST);
+                    } else {
+                        // If we were launched by the system,we will clean up the states and
+                        // then finish; the car service will request a new instance when it comes
+                        // back from the incident while the system still requires the rearview.
+                        handleVideoStreamLocked(STREAM_STATE_STOPPED);
+                        finish();
+                    }
+                } else {
+                    // We request to start a video stream if we get connected to the car service.
+                    handleVideoStreamLocked(STREAM_STATE_VISIBLE);
                 }
-            } catch (CarNotConnectedException err) {
-                Log.e(TAG, "Failed to connect to the Car Service");
             }
+        } catch (CarNotConnectedException err) {
+            Log.e(TAG, "Failed to connect to the Car Service");
         }
     };
 
@@ -154,6 +213,17 @@ public class CarEvsCameraPreviewActivity extends Activity {
         @Override
         public void onReceive(Context context, Intent intent) {
             if (Intent.ACTION_CLOSE_SYSTEM_DIALOGS.equals(intent.getAction())) {
+                Bundle extras = intent.getExtras();
+                if (extras != null) {
+                    String reason = extras.getString(EXTRA_DIALOG_CLOSE_REASON);
+                    if (!DIALOG_CLOSE_REASON_CAR_SYSTEMBAR_BUTTON.equals(reason) &&
+                        !DIALOG_CLOSE_REASON_HOME_KEY.equals(reason)) {
+                        Log.i(TAG, "Ignore a request to close the system dialog with a reason = " +
+                                   reason);
+                        return;
+                    }
+                    Log.d(TAG, "Requested to close the dialog, reason = " + reason);
+                }
                 finish();
             } else {
                 Log.e(TAG, "Unexpected intent " + intent);
@@ -168,7 +238,7 @@ public class CarEvsCameraPreviewActivity extends Activity {
         // Need to register the receiver for all users, because we want to receive the Intent after
         // the user is changed.
         registerReceiverForAllUsers(mBroadcastReceiver, filter, /* broadcastPermission= */ null,
-                /* scheduler= */ null, Context.RECEIVER_NOT_EXPORTED);
+                /* scheduler= */ null, Context.RECEIVER_EXPORTED);
     }
 
     @Override
@@ -190,7 +260,8 @@ public class CarEvsCameraPreviewActivity extends Activity {
         Car.createCar(getApplicationContext(), /* handler = */ null,
                 Car.CAR_WAIT_TIMEOUT_WAIT_FOREVER, mCarServiceLifecycleListener);
 
-        mEvsView = new CarEvsCameraGLSurfaceView(getApplication(), this);
+        mEvsView = CarEvsGLSurfaceView.create(getApplication(), this, getApplicationContext()
+                .getResources().getInteger(R.integer.config_evsRearviewCameraInPlaneRotationAngle));
         mRootView = (ViewGroup) LayoutInflater.from(this).inflate(
                 R.layout.evs_preview_activity, /* root= */ null);
         mPreviewContainer = mRootView.findViewById(R.id.evs_preview_container);
@@ -246,78 +317,116 @@ public class CarEvsCameraPreviewActivity extends Activity {
     }
 
     @Override
-    protected void onStart() {
-        Log.d(TAG, "onStart");
-        super.onStart();
-        handleVideoStreamLocked();
+    protected void onRestart() {
+        Log.d(TAG, "onRestart");
+        super.onRestart();
+        synchronized (mLock) {
+            // When we come back to the top task, we start rendering the view.
+            handleVideoStreamLocked(STREAM_STATE_VISIBLE);
+        }
     }
-
 
     @Override
     protected void onStop() {
         Log.d(TAG, "onStop");
-        super.onStop();
+        try {
+            if (mUseSystemWindow) {
+                // When a new activity is launched, this activity will become the background
+                // activity and, however, likely still visible to the users if it is using the
+                // system window.  Therefore, we should not transition to the INVISIBLE state.
+                //
+                // Similarly, this activity continues previewing the camera when the user triggers
+                // the home button.  If the users want to manually close the preview window, they
+                // can trigger the close button at the bottom of the window.
+                return;
+            }
+
+            synchronized (mLock) {
+                handleVideoStreamLocked(STREAM_STATE_INVISIBLE);
+            }
+        } finally {
+            super.onStop();
+        }
     }
 
     @Override
     protected void onDestroy() {
-        super.onDestroy();
         Log.d(TAG, "onDestroy");
-        // Request to stop current service and unregister a status listener
-        synchronized (mBufferQueue) {
-            mBufferQueue.clear();
-        }
-        synchronized (mLock) {
-            if (mEvsManager != null) {
-                mEvsManager.stopVideoStream();
-                mEvsManager.stopActivity();
-                mEvsManager.clearStatusListener();
+        try {
+            // Request to stop current service and unregister a status listener
+            synchronized (mLock) {
+                if (mEvsManager != null) {
+                    handleVideoStreamLocked(STREAM_STATE_STOPPED);
+                    mEvsManager.clearStatusListener();
+                }
+                if (mCar != null) {
+                    mCar.disconnect();
+                }
             }
-            if (mCar != null) {
-                mCar.disconnect();
-            }
-        }
-        mDisplayManager.unregisterDisplayListener(mDisplayListener);
-        if (mUseSystemWindow) {
-            WindowManager wm = getSystemService(WindowManager.class);
-            wm.removeView(mRootView);
-        }
 
-        unregisterReceiver(mBroadcastReceiver);
+            mDisplayManager.unregisterDisplayListener(mDisplayListener);
+            if (mUseSystemWindow) {
+                WindowManager wm = getSystemService(WindowManager.class);
+                wm.removeViewImmediate(mRootView);
+            }
+
+            unregisterReceiver(mBroadcastReceiver);
+        } finally {
+            super.onDestroy();
+        }
     }
 
-    private void handleVideoStreamLocked() {
-        if (mEvsManager == null) {
-            Log.w(TAG, "CarEvsManager is not available.");
+    @GuardedBy("mLock")
+    private void handleVideoStreamLocked(int newState) {
+        Log.d(TAG, "Requested: " + streamStateToString(mStreamState) + " -> " +
+                streamStateToString(newState));
+        if (newState == mStreamState) {
+            // Safely ignore a request of transitioning to the current state.
             return;
         }
 
-        if (mDisplayState == Display.STATE_ON) {
-            // We show a camera preview only when the activity has been resumed and the display is
-            // on.
-            if (!mStreamRunning) {
-                Log.d(TAG, "Request to start a video stream");
-                mEvsManager.startVideoStream(CarEvsManager.SERVICE_TYPE_REARVIEW,
-                        mSessionToken, mCallbackExecutor, mStreamHandler);
-                mStreamRunning = true;
-            }
+        boolean needToUpdateState = false;
+        switch (newState) {
+            case STREAM_STATE_STOPPED:
+                if (mEvsManager != null) {
+                    mEvsManager.stopVideoStream();
+                    mBufferQueue.clear();
+                    needToUpdateState = true;
+                } else {
+                    Log.w(TAG, "EvsManager is not available");
+                }
+                break;
 
-            return;
+            case STREAM_STATE_VISIBLE:
+                // Starts a video stream
+                if (mEvsManager != null) {
+                    int result = mEvsManager.startVideoStream(CarEvsManager.SERVICE_TYPE_REARVIEW,
+                            mSessionToken, mCallbackExecutor, mStreamHandler);
+                    if (result != ERROR_NONE) {
+                        Log.e(TAG, "Failed to start a video stream, error = " + result);
+                    } else {
+                        needToUpdateState = true;
+                    }
+                } else {
+                    Log.w(TAG, "EvsManager is not available");
+                }
+                break;
+
+            case STREAM_STATE_INVISIBLE:
+                needToUpdateState = true;
+                break;
+
+            case STREAM_STATE_LOST:
+                needToUpdateState = true;
+                break;
+
+            default:
+                throw new IllegalArgumentException();
         }
 
-        // Otherwise, we do not need a video stream.
-        if (mStreamRunning) {
-            Log.d(TAG, "Request to stop a video stream");
-            mEvsManager.stopVideoStream();
-            mStreamRunning = false;
-
-            // We already stopped an active video stream so are safe to drop all buffer references.
-            synchronized (mBufferQueue) {
-                mBufferQueue.clear();
-            }
-
-            // Clear a buffer reference CarEvsCameraGLSurfaceView holds.
-            mEvsView.clearBuffer();
+        if (needToUpdateState) {
+            mStreamState = newState;
+            Log.d(TAG, "Completed: " + streamStateToString(mStreamState));
         }
     }
 
@@ -336,9 +445,9 @@ public class CarEvsCameraPreviewActivity extends Activity {
         return state;
     }
 
-    /** Get a new frame */
-    public CarEvsBufferDescriptor getNewFrame() {
-        synchronized (mBufferQueue) {
+    @Override
+    public CarEvsBufferDescriptor onBufferRequested() {
+        synchronized (mLock) {
             if (mBufferQueue.isEmpty()) {
                 return null;
             }
@@ -352,8 +461,19 @@ public class CarEvsCameraPreviewActivity extends Activity {
         }
     }
 
-    /** Request to return a buffer we're done with */
-    public void returnBuffer(CarEvsBufferDescriptor buffer) {
-        mEvsManager.returnFrameBuffer(buffer);
+    @Override
+    public void onBufferProcessed(CarEvsBufferDescriptor buffer) {
+        synchronized (mLock) {
+            doneWithBufferLocked(buffer);
+        }
+    }
+
+    @GuardedBy("mLock")
+    private void doneWithBufferLocked(CarEvsBufferDescriptor buffer) {
+        try {
+            mEvsManager.returnFrameBuffer(buffer);
+        } catch (Exception e) {
+            Log.w(TAG, "CarEvsService is not available.");
+        }
     }
 }

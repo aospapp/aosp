@@ -54,8 +54,6 @@ class BtifConfigInterface {
                              const std::string& key);
   static std::vector<std::string> GetPersistentDevices();
   static void ConvertEncryptOrDecryptKeyIfNeeded();
-  static void Save();
-  static void Flush();
   static void Clear();
 };
 

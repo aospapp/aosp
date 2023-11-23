@@ -19,6 +19,7 @@ package {
 android_test {
     name: "ContactsIndexerTests",
     srcs: ["src/**/*.java"],
+    defaults: ["modules-utils-testable-device-config-defaults"],
     static_libs: [
         "AppSearchTestUtils",
         "androidx.test.ext.junit",
@@ -30,13 +31,14 @@ android_test {
     ],
     libs: [
         "android.test.runner",
-        "framework-appsearch.impl",
         "android.test.mock",
         "android.test.base",
+        "framework-appsearch.impl",
     ],
     test_suites: [
         "general-tests",
         "mts-appsearch",
     ],
     compile_multilib: "both",
+    min_sdk_version: "33",
 }

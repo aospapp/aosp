@@ -30,6 +30,7 @@ namespace hidlevs = ::android::hardware::automotive::evs;
 using ::aidl::android::hardware::automotive::evs::BufferDesc;
 using ::aidl::android::hardware::automotive::evs::DisplayDesc;
 using ::aidl::android::hardware::automotive::evs::DisplayState;
+using ::aidl::android::hardware::automotive::evs::EvsResult;
 using ::aidl::android::hardware::automotive::evs::Rotation;
 using ::ndk::ScopedAStatus;
 
@@ -42,6 +43,10 @@ AidlDisplay::~AidlDisplay() {
  * Gets basic display information from a hardware display object and returns.
  */
 ScopedAStatus AidlDisplay::getDisplayInfo(DisplayDesc* _aidl_return) {
+    if (!mHidlDisplay) {
+        return Utils::buildScopedAStatusFromEvsResult(EvsResult::RESOURCE_NOT_AVAILABLE);
+    }
+
     mHidlDisplay->getDisplayInfo([_aidl_return](const hidlevs::V1_0::DisplayDesc& info) {
         _aidl_return->id = info.displayId;
         _aidl_return->vendorFlags = info.vendorFlags;
@@ -70,6 +75,10 @@ ScopedAStatus AidlDisplay::getDisplayInfo(DisplayDesc* _aidl_return) {
  * Gets current display state from a hardware display object and return.
  */
 ScopedAStatus AidlDisplay::getDisplayState(DisplayState* _aidl_return) {
+    if (!mHidlDisplay) {
+        return Utils::buildScopedAStatusFromEvsResult(EvsResult::RESOURCE_NOT_AVAILABLE);
+    }
+
     *_aidl_return = std::move(Utils::makeFromHidl(mHidlDisplay->getDisplayState()));
     return ScopedAStatus::ok();
 }
@@ -78,7 +87,11 @@ ScopedAStatus AidlDisplay::getDisplayState(DisplayState* _aidl_return) {
  * Returns a handle to a frame buffer associated with the display.
  */
 ScopedAStatus AidlDisplay::getTargetBuffer(BufferDesc* _aidl_return) {
-    mHidlDisplay->getTargetBuffer([this, &_aidl_return](auto& hidlBuffer) {
+    if (!mHidlDisplay) {
+        return Utils::buildScopedAStatusFromEvsResult(EvsResult::RESOURCE_NOT_AVAILABLE);
+    }
+
+    mHidlDisplay->getTargetBuffer([this, _aidl_return](auto& hidlBuffer) {
         *_aidl_return = std::move(Utils::makeFromHidl(hidlBuffer, /* doDup= */ true));
         mHeldBuffer = std::move(hidlBuffer);
     });
@@ -89,6 +102,10 @@ ScopedAStatus AidlDisplay::getTargetBuffer(BufferDesc* _aidl_return) {
  * Notifies the display that the buffer is ready to be used.
  */
 ScopedAStatus AidlDisplay::returnTargetBufferForDisplay(const BufferDesc& buffer) {
+    if (!mHidlDisplay) {
+        return Utils::buildScopedAStatusFromEvsResult(EvsResult::RESOURCE_NOT_AVAILABLE);
+    }
+
     if (buffer.bufferId != mHeldBuffer.bufferId) {
         LOG(WARNING) << "Ignores a request to return a buffer " << buffer.bufferId << "; a buffer "
                      << mHeldBuffer.bufferId << " is held.";
@@ -103,6 +120,10 @@ ScopedAStatus AidlDisplay::returnTargetBufferForDisplay(const BufferDesc& buffer
  * Sets the display state as what the clients wants.
  */
 ScopedAStatus AidlDisplay::setDisplayState(DisplayState state) {
+    if (!mHidlDisplay) {
+        return Utils::buildScopedAStatusFromEvsResult(EvsResult::RESOURCE_NOT_AVAILABLE);
+    }
+
     return Utils::buildScopedAStatusFromEvsResult(
             mHidlDisplay->setDisplayState(std::move(Utils::makeToHidl(state))));
 }

@@ -16,32 +16,93 @@
 
 package com.android.car.settings.storage;
 
+import android.annotation.NonNull;
+import android.annotation.Nullable;
 import android.content.Context;
-import android.content.res.Resources;
+import android.icu.text.DecimalFormat;
+import android.icu.text.MeasureFormat;
+import android.icu.text.NumberFormat;
+import android.icu.util.Measure;
+import android.icu.util.MeasureUnit;
 import android.text.BidiFormatter;
-import android.text.format.Formatter;
+import android.text.TextUtils;
+import android.view.View;
 
-import androidx.annotation.NonNull;
+import java.math.BigDecimal;
+import java.util.Locale;
 
 /**
  * Utility class to aid in formatting file sizes always with the same unit. This is modified from
  * android.text.format.Formatter to fit this purpose.
- *
- * <p>Class is taken from {@link com.android.settings.utils.FileSizeFormatter}
  */
 public final class FileSizeFormatter {
     public static final long KILOBYTE_IN_BYTES = 1000;
     public static final long MEGABYTE_IN_BYTES = KILOBYTE_IN_BYTES * 1000;
     public static final long GIGABYTE_IN_BYTES = MEGABYTE_IN_BYTES * 1000;
 
-    private FileSizeFormatter() {
+    private static class RoundedBytesResult {
+        public final float value;
+        public final MeasureUnit units;
+        public final int fractionDigits;
+        public final long roundedBytes;
+
+        private RoundedBytesResult(float value, MeasureUnit units, int fractionDigits,
+                long roundedBytes) {
+            this.value = value;
+            this.units = units;
+            this.fractionDigits = fractionDigits;
+            this.roundedBytes = roundedBytes;
+        }
+    }
+
+    private static Locale localeFromContext(@NonNull Context context) {
+        return context.getResources().getConfiguration().locale;
+    }
+
+    private static String bidiWrap(@NonNull Context context, String source) {
+        Locale locale = localeFromContext(context);
+        if (TextUtils.getLayoutDirectionFromLocale(locale) == View.LAYOUT_DIRECTION_RTL) {
+            return BidiFormatter.getInstance(/* RTL= */ true).unicodeWrap(source);
+        } else {
+            return source;
+        }
+    }
+
+    private static NumberFormat getNumberFormatter(Locale locale, int fractionDigits) {
+        NumberFormat numberFormatter = NumberFormat.getInstance(locale);
+        numberFormatter.setMinimumFractionDigits(fractionDigits);
+        numberFormatter.setMaximumFractionDigits(fractionDigits);
+        numberFormatter.setGroupingUsed(false);
+        if (numberFormatter instanceof DecimalFormat) {
+            // We do this only for DecimalFormat, since in the general NumberFormat case, calling
+            // setRoundingMode may throw an exception.
+            numberFormatter.setRoundingMode(BigDecimal.ROUND_HALF_UP);
+        }
+        return numberFormatter;
+    }
+
+    private static String formatMeasureShort(Locale locale, NumberFormat numberFormatter,
+            float value, MeasureUnit units) {
+        MeasureFormat measureFormatter = MeasureFormat.getInstance(locale,
+                MeasureFormat.FormatWidth.SHORT, numberFormatter);
+        return measureFormatter.format(new Measure(value, units));
+    }
+
+    private static String formatRoundedBytesResult(@NonNull Context context,
+            @NonNull RoundedBytesResult input) {
+        Locale locale = localeFromContext(context);
+        NumberFormat numberFormatter = getNumberFormatter(locale, input.fractionDigits);
+        return formatMeasureShort(locale, numberFormatter, input.value, input.units);
     }
 
     /**
      * Formats a content size to be in the form of bytes, kilobytes, megabytes, etc.
      *
-     * <p>The prefixes are used in their standard meanings in the SI system, so kB = 1000
+     * <p>As of O, the prefixes are used in their standard meanings in the SI system, so kB = 1000
      * bytes, MB = 1,000,000 bytes, etc.
+     *
+     * <p class="note">In {@link android.os.Build.VERSION_CODES#N} and earlier, powers of 1024 are
+     * used instead, with KB = 1024 bytes, MB = 1,048,576 bytes, etc.
      *
      * <p>If the context has a right-to-left locale, the returned string is wrapped in bidi
      * formatting characters to make sure it's displayed correctly if inserted inside a
@@ -50,20 +111,17 @@ public final class FileSizeFormatter {
      *
      * @param context Context to use to load the localized units
      * @param sizeBytes size value to be formatted, in bytes
-     * @param suffix String id for the unit suffix.
-     * @param mult Amount of bytes in the unit. * @return formatted string with the number
+     * @param unit The unit used for formatting.
+     * @param mult Amount of bytes in the unit.
+     * @return formatted string with the number
      */
-    public static String formatFileSize(
-            @NonNull Context context, long sizeBytes, int suffix, long mult) {
-        Formatter.BytesResult res =
-                formatBytes(context.getResources(), sizeBytes, suffix, mult);
-        return BidiFormatter.getInstance()
-                .unicodeWrap(context.getString(getFileSizeSuffix(context), res.value, res.units));
-    }
-
-    private static int getFileSizeSuffix(Context context) {
-        Resources res = context.getResources();
-        return res.getIdentifier("fileSizeSuffix", "string", "android");
+    public static String formatFileSize(@Nullable Context context, long sizeBytes,
+            MeasureUnit unit, long mult) {
+        if (context == null) {
+            return "";
+        }
+        RoundedBytesResult res = formatBytes(sizeBytes, unit, mult);
+        return bidiWrap(context, formatRoundedBytesResult(context, res));
     }
 
     /**
@@ -76,8 +134,7 @@ public final class FileSizeFormatter {
      * @param suffix String id for the unit suffix.
      * @param mult Amount of bytes in the unit.
      */
-    private static Formatter.BytesResult formatBytes(
-            Resources res, long sizeBytes, int suffix, long mult) {
+    private static RoundedBytesResult formatBytes(long sizeBytes, MeasureUnit unit, long mult) {
         boolean isNegative = (sizeBytes < 0);
         float result = isNegative ? -sizeBytes : sizeBytes;
         result = result / mult;
@@ -85,32 +142,29 @@ public final class FileSizeFormatter {
         // compute the rounded value. String.format("%f", 0.1) might not return "0.1" due to
         // floating point errors.
         int roundFactor;
-        String roundFormat;
+        int roundDigits;
         if (mult == 1) {
             roundFactor = 1;
-            roundFormat = "%.0f";
+            roundDigits = 0;
         } else if (result < 1) {
             roundFactor = 100;
-            roundFormat = "%.2f";
+            roundDigits = 2;
         } else if (result < 10) {
             roundFactor = 10;
-            roundFormat = "%.1f";
+            roundDigits = 1;
         } else { // 10 <= result < 100
             roundFactor = 1;
-            roundFormat = "%.0f";
+            roundDigits = 0;
         }
 
         if (isNegative) {
             result = -result;
         }
-        String roundedString = String.format(roundFormat, result);
 
         // Note this might overflow if abs(result) >= Long.MAX_VALUE / 100, but that's like 80PB so
         // it's okay (for now)...
         long roundedBytes = (((long) Math.round(result * roundFactor)) * mult / roundFactor);
 
-        String units = res.getString(suffix);
-
-        return new Formatter.BytesResult(roundedString, units, roundedBytes);
+        return new RoundedBytesResult(result, unit, roundDigits, roundedBytes);
     }
 }

@@ -69,7 +69,8 @@ public:
     ::ndk::ScopedAStatus stopVideoStream() override;
     ::ndk::ScopedAStatus unsetPrimaryClient() override;
 
-    explicit AidlCamera(const ::android::sp<hidlevs::V1_0::IEvsCamera>& camera);
+    explicit AidlCamera(const ::android::sp<hidlevs::V1_0::IEvsCamera>& camera,
+                        bool forceV1_0 = false);
     virtual ~AidlCamera() { mImpl = nullptr; }
 
     const ::android::sp<hidlevs::V1_0::IEvsCamera> getHidlCamera() const;
@@ -124,6 +125,7 @@ protected:
     // The low level camera interface that backs this proxy
     ::android::sp<hidlevs::V1_0::IEvsCamera> mHidlCamera;
     ::android::sp<HidlCameraStream> mHidlStream;
+    std::string mId;
 };
 
 class AidlCamera::ImplV0 final : public IHidlCamera {
@@ -157,7 +159,7 @@ public:
     ::ndk::ScopedAStatus unsetPrimaryClient() override;
 
     explicit ImplV0(const ::android::sp<hidlevs::V1_0::IEvsCamera>& camera);
-    virtual ~ImplV0(){};
+    virtual ~ImplV0() { mHidlCamera = nullptr; };
 
     const ::android::sp<hidlevs::V1_0::IEvsCamera> getHidlCamera() const override {
         return mHidlCamera;

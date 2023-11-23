@@ -20,14 +20,17 @@ import static com.google.common.truth.Truth.assertThat;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
-import android.app.Application;
 import android.car.drivingstate.CarUxRestrictions;
 import android.car.drivingstate.CarUxRestrictionsManager;
 import android.car.drivingstate.CarUxRestrictionsManager.OnUxRestrictionsChangedListener;
 import android.car.testapi.CarUxRestrictionsController;
 import android.car.testapi.FakeCar;
+import android.content.Context;
 import android.os.RemoteException;
+import android.os.UserManager;
+import android.view.Display;
 
 import androidx.test.core.app.ApplicationProvider;
 
@@ -36,6 +39,7 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 import org.robolectric.RobolectricTestRunner;
@@ -45,23 +49,31 @@ import org.robolectric.annotation.internal.DoNotInstrument;
 @DoNotInstrument
 public class CarUxRestrictionsManagerTest {
     @Rule
-    public MockitoRule rule = MockitoJUnit.rule();
+    public final MockitoRule rule = MockitoJUnit.rule();
 
-    CarUxRestrictionsManager mCarUxRestrictionsManager;
-    CarUxRestrictionsController mCarUxRestrictionsController;
+    @Spy
+    private final Context mContext = ApplicationProvider.getApplicationContext();
+
+    @Mock
+    private UserManager mUserManager;
+
+    private CarUxRestrictionsManager mCarUxRestrictionsManager;
+    private CarUxRestrictionsController mCarUxRestrictionsController;
 
     @Mock
     OnUxRestrictionsChangedListener mListener;
 
     @Before
     public void setUp() {
-        Application context = ApplicationProvider.getApplicationContext();
-        FakeCar fakeCar = FakeCar.createFakeCar(context);
+        FakeCar fakeCar = FakeCar.createFakeCar(mContext);
         Car carApi = fakeCar.getCar();
 
         mCarUxRestrictionsManager =
                 (CarUxRestrictionsManager) carApi.getCarManager(Car.CAR_UX_RESTRICTION_SERVICE);
         mCarUxRestrictionsController = fakeCar.getCarUxRestrictionController();
+
+        when(mContext.getSystemService(UserManager.class)).thenReturn(mUserManager);
+        when(mUserManager.getMainDisplayIdAssignedToUser()).thenReturn(Display.DEFAULT_DISPLAY);
     }
 
     @Test

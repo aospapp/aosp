@@ -41,10 +41,11 @@ import android.net.Network;
 import android.net.NetworkCapabilities;
 import android.net.RouteInfo;
 import android.net.ip.IpServer;
-import android.net.util.SharedLog;
 
 import androidx.test.filters.SmallTest;
 import androidx.test.runner.AndroidJUnit4;
+
+import com.android.net.module.util.SharedLog;
 
 import org.junit.Before;
 import org.junit.Test;

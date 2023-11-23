@@ -273,7 +273,7 @@ public class NotificationPanelViewController extends OverlayPanelViewController
 
     /** Reinflates the view. */
     public void reinflate() {
-	// Do not reinflate the view if it has not been inflated at all.
+        // Do not reinflate the view if it has not been inflated at all.
         if (!isInflated()) return;
 
         ViewGroup container = (ViewGroup) getLayout();
@@ -443,7 +443,7 @@ public class NotificationPanelViewController extends OverlayPanelViewController
     /** Called when the car power state is changed to ON. */
     public void onCarPowerStateOn() {
         if (mNotificationClickHandlerFactory != null) {
-            mNotificationClickHandlerFactory.clearAllNotifications();
+            mNotificationClickHandlerFactory.clearAllNotifications(mContext);
         }
         mNotificationDataManager.clearAll();
     }

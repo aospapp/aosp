@@ -14,13 +14,6 @@
  * limitations under the License.
  */
 
-#include <map>
-#include <thread>
-#include <vector>
-
-#include <stats_event.h>
-#include <stats_pull_atom_callback.h>
-
 #include <aidl/android/os/BnPullAtomCallback.h>
 #include <aidl/android/os/IPullAtomResultReceiver.h>
 #include <aidl/android/os/IStatsd.h>
@@ -28,6 +21,13 @@
 #include <android/binder_auto_utils.h>
 #include <android/binder_ibinder.h>
 #include <android/binder_manager.h>
+#include <stats_event.h>
+#include <stats_pull_atom_callback.h>
+
+#include <map>
+#include <queue>
+#include <thread>
+#include <vector>
 
 using Status = ::ndk::ScopedAStatus;
 using aidl::android::os::BnPullAtomCallback;
@@ -47,7 +47,7 @@ AStatsEvent* AStatsEventList_addStatsEvent(AStatsEventList* pull_data) {
 }
 
 constexpr int64_t DEFAULT_COOL_DOWN_MILLIS = 1000LL;  // 1 second.
-constexpr int64_t DEFAULT_TIMEOUT_MILLIS = 2000LL;    // 2 seconds.
+constexpr int64_t DEFAULT_TIMEOUT_MILLIS = 1500LL;    // 1.5 seconds.
 
 struct AStatsManager_PullAtomMetadata {
     int64_t cool_down_millis;
@@ -159,20 +159,20 @@ class StatsPullAtomCallbackInternal : public BnPullAtomCallback {
 };
 
 /**
- * @brief pullAtomMutex is used to guard simultaneous access to mPullers from below threads
+ * @brief pullersMutex is used to guard simultaneous access to pullers from below threads
  * Main thread
  * - AStatsManager_setPullAtomCallback()
  * - AStatsManager_clearPullAtomCallback()
  * Binder thread:
  * - StatsdProvider::binderDied()
  */
-static std::mutex pullAtomMutex;
+static std::mutex pullersMutex;
 
-static std::map<int32_t, std::shared_ptr<StatsPullAtomCallbackInternal>> mPullers;
+static std::map<int32_t, std::shared_ptr<StatsPullAtomCallbackInternal>> pullers;
 
 class StatsdProvider {
 public:
-    StatsdProvider() : deathRecipient(AIBinder_DeathRecipient_new(binderDied)) {
+    StatsdProvider() : mDeathRecipient(AIBinder_DeathRecipient_new(binderDied)) {
     }
 
     ~StatsdProvider() {
@@ -180,21 +180,26 @@ public:
     }
 
     std::shared_ptr<IStatsd> getStatsService() {
-        std::lock_guard<std::mutex> lock(statsdMutex);
-        if (!statsd) {
+        // There are host unit tests which are using libstatspull
+        // Since we do not have statsd on host - the getStatsService() is no-op and
+        // should return nullptr
+#ifdef __ANDROID__
+        std::lock_guard<std::mutex> lock(mStatsdMutex);
+        if (!mStatsd) {
             // Fetch statsd
             ::ndk::SpAIBinder binder(AServiceManager_getService("stats"));
-            statsd = IStatsd::fromBinder(binder);
-            if (statsd) {
-                AIBinder_linkToDeath(binder.get(), deathRecipient.get(), this);
+            mStatsd = IStatsd::fromBinder(binder);
+            if (mStatsd) {
+                AIBinder_linkToDeath(binder.get(), mDeathRecipient.get(), this);
             }
         }
-        return statsd;
+#endif  //  __ANDROID__
+        return mStatsd;
     }
 
     void resetStatsService() {
-        std::lock_guard<std::mutex> lock(statsdMutex);
-        statsd = nullptr;
+        std::lock_guard<std::mutex> lock(mStatsdMutex);
+        mStatsd = nullptr;
     }
 
     static void binderDied(void* cookie) {
@@ -210,8 +215,8 @@ public:
         // copy of the data with the lock held before iterating through the map.
         std::map<int32_t, std::shared_ptr<StatsPullAtomCallbackInternal>> pullersCopy;
         {
-            std::lock_guard<std::mutex> lock(pullAtomMutex);
-            pullersCopy = mPullers;
+            std::lock_guard<std::mutex> lock(pullersMutex);
+            pullersCopy = pullers;
         }
         for (const auto& it : pullersCopy) {
             statsService->registerNativePullAtomCallback(it.first, it.second->getCoolDownMillis(),
@@ -222,16 +227,16 @@ public:
 
 private:
     /**
-     * @brief statsdMutex is used to guard simultaneous access to statsd from below threads:
+     * @brief mStatsdMutex is used to guard simultaneous access to mStatsd from below threads:
      * Work thread
      * - registerStatsPullAtomCallbackBlocking()
      * - unregisterStatsPullAtomCallbackBlocking()
      * Binder thread:
      * - StatsdProvider::binderDied()
      */
-    std::mutex statsdMutex;
-    std::shared_ptr<IStatsd> statsd;
-    ::ndk::ScopedAIBinder_DeathRecipient deathRecipient;
+    std::mutex mStatsdMutex;
+    std::shared_ptr<IStatsd> mStatsd;
+    ::ndk::ScopedAIBinder_DeathRecipient mDeathRecipient;
 };
 
 static std::shared_ptr<StatsdProvider> statsProvider = std::make_shared<StatsdProvider>();
@@ -260,6 +265,114 @@ void unregisterStatsPullAtomCallbackBlocking(int32_t atomTag,
     statsService->unregisterNativePullAtomCallback(atomTag);
 }
 
+class CallbackOperationsHandler {
+    struct Cmd {
+        enum Type { CMD_REGISTER, CMD_UNREGISTER };
+
+        Type type;
+        int atomTag;
+        std::shared_ptr<StatsPullAtomCallbackInternal> callback;
+    };
+
+public:
+    ~CallbackOperationsHandler() {
+        for (auto& workThread : mWorkThreads) {
+            if (workThread.joinable()) {
+                mCondition.notify_one();
+                workThread.join();
+            }
+        }
+    }
+
+    static CallbackOperationsHandler& getInstance() {
+        static CallbackOperationsHandler handler;
+        return handler;
+    }
+
+    void registerCallback(int atomTag, std::shared_ptr<StatsPullAtomCallbackInternal> callback) {
+        auto registerCmd = std::make_unique<Cmd>();
+        registerCmd->type = Cmd::CMD_REGISTER;
+        registerCmd->atomTag = atomTag;
+        registerCmd->callback = std::move(callback);
+        pushToQueue(std::move(registerCmd));
+
+        std::thread registerThread(&CallbackOperationsHandler::processCommands, this,
+                                   statsProvider);
+        mWorkThreads.push_back(std::move(registerThread));
+    }
+
+    void unregisterCallback(int atomTag) {
+        auto unregisterCmd = std::make_unique<Cmd>();
+        unregisterCmd->type = Cmd::CMD_UNREGISTER;
+        unregisterCmd->atomTag = atomTag;
+        pushToQueue(std::move(unregisterCmd));
+
+        std::thread unregisterThread(&CallbackOperationsHandler::processCommands, this,
+                                     statsProvider);
+        mWorkThreads.push_back(std::move(unregisterThread));
+    }
+
+private:
+    std::vector<std::thread> mWorkThreads;
+
+    std::condition_variable mCondition;
+    std::mutex mMutex;
+    std::queue<std::unique_ptr<Cmd>> mCmdQueue;
+
+    CallbackOperationsHandler() {
+    }
+
+    void pushToQueue(std::unique_ptr<Cmd> cmd) {
+        {
+            std::unique_lock<std::mutex> lock(mMutex);
+            mCmdQueue.push(std::move(cmd));
+        }
+        mCondition.notify_one();
+    }
+
+    void processCommands(std::shared_ptr<StatsdProvider> statsProvider) {
+        /**
+         * First trying to obtain stats service instance
+         * This is a blocking call, which waits on service readiness
+         */
+        const std::shared_ptr<IStatsd> statsService = statsProvider->getStatsService();
+
+        /**
+         * To guarantee sequential commands processing we need to lock mutex queue
+         */
+        std::unique_lock<std::mutex> lock(mMutex);
+        /**
+         * This should never really block in practice, since the command was already queued
+         * from the main thread by registerCallback or unregisterCallback.
+         * We are putting command to the queue, and only after a worker thread is created,
+         * which will pop a single command from a queue and will be terminated after processing.
+         * It makes producer/consumer as 1:1 match
+         */
+        if (mCmdQueue.empty()) {
+            mCondition.wait(lock, [this] { return !this->mCmdQueue.empty(); });
+        }
+
+        std::unique_ptr<Cmd> cmd = std::move(mCmdQueue.front());
+        mCmdQueue.pop();
+
+        if (!statsService) {
+            // Statsd not available - dropping command request
+            return;
+        }
+
+        switch (cmd->type) {
+            case Cmd::CMD_REGISTER: {
+                registerStatsPullAtomCallbackBlocking(cmd->atomTag, statsProvider, cmd->callback);
+                break;
+            }
+            case Cmd::CMD_UNREGISTER: {
+                unregisterStatsPullAtomCallbackBlocking(cmd->atomTag, statsProvider);
+                break;
+            }
+        }
+    }
+};
+
 void AStatsManager_setPullAtomCallback(int32_t atom_tag, AStatsManager_PullAtomMetadata* metadata,
                                        AStatsManager_PullAtomCallback callback, void* cookie) {
     int64_t coolDownMillis =
@@ -276,24 +389,21 @@ void AStatsManager_setPullAtomCallback(int32_t atom_tag, AStatsManager_PullAtomM
                                                                timeoutMillis, additiveFields);
 
     {
-        std::lock_guard<std::mutex> lg(pullAtomMutex);
+        std::lock_guard<std::mutex> lock(pullersMutex);
         // Always add to the map. If statsd is dead, we will add them when it comes back.
-        mPullers[atom_tag] = callbackBinder;
+        pullers[atom_tag] = callbackBinder;
     }
 
-    std::thread registerThread(registerStatsPullAtomCallbackBlocking, atom_tag, statsProvider,
-                               callbackBinder);
-    registerThread.detach();
+    CallbackOperationsHandler::getInstance().registerCallback(atom_tag, callbackBinder);
 }
 
 void AStatsManager_clearPullAtomCallback(int32_t atom_tag) {
     {
-        std::lock_guard<std::mutex> lg(pullAtomMutex);
+        std::lock_guard<std::mutex> lock(pullersMutex);
         // Always remove the puller from our map.
         // If statsd is down, we will not register it when it comes back.
-        mPullers.erase(atom_tag);
+        pullers.erase(atom_tag);
     }
 
-    std::thread unregisterThread(unregisterStatsPullAtomCallbackBlocking, atom_tag, statsProvider);
-    unregisterThread.detach();
+    CallbackOperationsHandler::getInstance().unregisterCallback(atom_tag);
 }

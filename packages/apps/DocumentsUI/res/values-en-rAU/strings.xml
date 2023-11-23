@@ -92,8 +92,8 @@
     <string name="save_error" msgid="8631128801982095782">"Failed to save document"</string>
     <string name="create_error" msgid="3092144450044861994">"Failed to create folder"</string>
     <string name="query_error" msgid="6625421453613879336">"Can’t load content at the moment"</string>
-    <string name="quiet_mode_error_title" msgid="9126656325282792843">"Work profile is paused"</string>
-    <string name="quiet_mode_button" msgid="6977115032320235420">"Turn on"</string>
+    <string name="quiet_mode_error_title" msgid="554319751414657910">"Work apps are paused"</string>
+    <string name="quiet_mode_button" msgid="8051436551926677305">"Turn on work apps"</string>
     <string name="cant_select_work_files_error_title" msgid="6688716319549644354">"Can’t select work files"</string>
     <string name="cant_select_work_files_error_message" msgid="683480676150690641">"Your IT admin doesn’t allow you to access work files from a personal app"</string>
     <string name="cant_select_personal_files_error_title" msgid="3200697170148617742">"Can’t select personal files"</string>

@@ -184,7 +184,7 @@ public class WifiLastResortWatchdog {
         if (activeModeWarden == null) return new WifiInfo();
         // Cannot be null.
         ClientModeManager primaryCmm = activeModeWarden.getPrimaryClientModeManager();
-        return primaryCmm.syncRequestConnectionInfo();
+        return primaryCmm.getConnectionInfo();
     }
 
     /**

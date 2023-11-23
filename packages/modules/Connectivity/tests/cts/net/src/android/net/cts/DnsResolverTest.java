@@ -200,13 +200,13 @@ public class DnsResolverTest {
             super(data);
 
             // Check QR field.(query (0), or a response (1)).
-            if ((mHeader.flags & (1 << 15)) == 0) {
+            if ((mHeader.getFlags() & (1 << 15)) == 0) {
                 throw new DnsParseException("Not an answer packet");
             }
         }
 
         int getRcode() {
-            return mHeader.rcode;
+            return mHeader.getFlags() & 0x0F;
         }
 
         int getANCount() {

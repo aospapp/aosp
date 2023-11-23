@@ -47,7 +47,7 @@ class ResolverController {
     int getResolverInfo(int32_t netId, std::vector<std::string>* servers,
                         std::vector<std::string>* domains, std::vector<std::string>* tlsServers,
                         std::vector<int32_t>* params, std::vector<int32_t>* stats,
-                        std::vector<int32_t>* wait_for_pending_req_timeout_count);
+                        int* wait_for_pending_req_timeout_count);
 
     // Start or stop NAT64 prefix discovery.
     void startPrefix64Discovery(int32_t netId);

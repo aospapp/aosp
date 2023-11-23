@@ -26,14 +26,14 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:contentDescription="@string/wallpaper_thumbnail"
+        android:foreground="?attr/selectableItemBackground"
         app:cardCornerRadius="?android:dialogCornerRadius"
         app:cardBackgroundColor="@android:color/transparent"
         app:cardElevation="0dp">
 
         <RelativeLayout
             android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:foreground="@drawable/wallpaper_option_border">
+            android:layout_height="match_parent">
 
             <ImageView
                 android:id="@+id/thumbnail"

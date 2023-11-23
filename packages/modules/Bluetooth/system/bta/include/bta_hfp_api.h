@@ -24,6 +24,8 @@
 #define HFP_VERSION_1_5 0x0105
 #define HFP_VERSION_1_6 0x0106
 #define HFP_VERSION_1_7 0x0107
+#define HFP_VERSION_1_8 0x0108
+#define HFP_VERSION_1_9 0x0109
 
 #define HSP_VERSION_1_0 0x0100
 #define HSP_VERSION_1_2 0x0102
@@ -31,9 +33,6 @@
 #define HFP_VERSION_CONFIG_KEY "HfpVersion"
 #define HFP_SDP_FEATURES_CONFIG_KEY "HfpSdpFeatures"
 
-/* Default HFP Version */
-#ifndef BTA_HFP_VERSION
-#define BTA_HFP_VERSION HFP_VERSION_1_7
-#endif
+int get_default_hfp_version();
 
 #endif /* BTA_HFP_API_H */

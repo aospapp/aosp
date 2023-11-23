@@ -92,8 +92,8 @@
     <string name="save_error" msgid="8631128801982095782">"ಡಾಕ್ಯುಮೆಂಟ್ ಉಳಿಸಲು ವಿಫಲವಾಗಿದೆ"</string>
     <string name="create_error" msgid="3092144450044861994">"ಫೋಲ್ಡರ್ ರಚಿಸಲು ವಿಫಲವಾಗಿದೆ"</string>
     <string name="query_error" msgid="6625421453613879336">"ಈ ಕ್ಷಣದಲ್ಲಿ ವಿಷಯವನ್ನು ಲೋಡ್ ಮಾಡಲು ಸಾಧ್ಯವಿಲ್ಲ"</string>
-    <string name="quiet_mode_error_title" msgid="9126656325282792843">"ಉದ್ಯೋಗ ಪ್ರೊಫೈಲ್‌ ಅನ್ನು ವಿರಾಮಗೊಳಿಸಲಾಗಿದೆ"</string>
-    <string name="quiet_mode_button" msgid="6977115032320235420">"ಆನ್ ಮಾಡಿ"</string>
+    <string name="quiet_mode_error_title" msgid="554319751414657910">"ಕೆಲಸಕ್ಕೆ ಸಂಬಂಧಿಸಿದ ಆ್ಯಪ್‌ಗಳನ್ನು ವಿರಾಮಗೊಳಿಸಲಾಗಿದೆ"</string>
+    <string name="quiet_mode_button" msgid="8051436551926677305">"ಕೆಲಸಕ್ಕೆ ಸಂಬಂಧಿಸಿದ ಆ್ಯಪ್‌ಗಳನ್ನು ಆನ್ ಮಾಡಿ"</string>
     <string name="cant_select_work_files_error_title" msgid="6688716319549644354">"ಉದ್ಯೋಗದ ಫೈಲ್‌ಗಳನ್ನು ಆಯ್ಕೆ ಮಾಡಲು ಸಾಧ್ಯವಿಲ್ಲ"</string>
     <string name="cant_select_work_files_error_message" msgid="683480676150690641">"ವೈಯಕ್ತಿಕ ಆ್ಯಪ್ ಒಂದರಿಂದ ಉದ್ಯೋಗದ ಫೈಲ್‌ಗಳನ್ನು ಪ್ರವೇಶಿಸಲು ನಿಮ್ಮ ಐಟಿ ನಿರ್ವಾಹಕರು ನಿಮಗೆ ಅನುಮತಿಸುವುದಿಲ್ಲ"</string>
     <string name="cant_select_personal_files_error_title" msgid="3200697170148617742">"ವೈಯಕ್ತಿಕ ಫೈಲ್‌ಗಳನ್ನು ಆಯ್ಕೆ ಮಾಡಲು ಸಾಧ್ಯವಿಲ್ಲ"</string>
@@ -202,8 +202,8 @@
     <string name="rename_error" msgid="6700093173508118635">"ಡಾಕ್ಯುಮೆಂಟ್ ಮರುಹೆಸರಿಸಲು ವಿಫಲವಾಗಿದೆ"</string>
     <string name="menu_eject_root" msgid="9215040039374893613">"ಇಜೆಕ್ಟ್‌‌"</string>
     <string name="notification_copy_files_converted_title" msgid="6916768494891833365">"ಕೆಲವು ಫೈಲ್‌ಗಳನ್ನು ಪರಿವರ್ತಿಸಲಾಗಿದೆ"</string>
-    <string name="open_external_dialog_request" msgid="8173558471322861268">"<xliff:g id="STORAGE"><i>^3</i></xliff:g> ರಲ್ಲಿ <xliff:g id="DIRECTORY"><i>^2</i></xliff:g> ಡೈರೆಕ್ಟರಿಗೆ <xliff:g id="APPNAME"><b>^1</b></xliff:g> ಪ್ರವೇಶ ನೀಡುವುದೇ?"</string>
-    <string name="open_external_dialog_request_primary_volume" msgid="2240992164087948176">"<xliff:g id="DIRECTORY"><i>^2</i></xliff:g> ಡೈರೆಕ್ಟರಿಗೆ <xliff:g id="APPNAME"><b>^1</b></xliff:g> ಗೆ ಪ್ರವೇಶ ನೀಡುವುದೇ?"</string>
+    <string name="open_external_dialog_request" msgid="8173558471322861268">"<xliff:g id="STORAGE"><i>^3</i></xliff:g> ರಲ್ಲಿ <xliff:g id="DIRECTORY"><i>^2</i></xliff:g> ಡೈರೆಕ್ಟರಿಗೆ <xliff:g id="APPNAME"><b>^1</b></xliff:g> ಆ್ಯಕ್ಸೆಸ್ ನೀಡುವುದೇ?"</string>
+    <string name="open_external_dialog_request_primary_volume" msgid="2240992164087948176">"<xliff:g id="DIRECTORY"><i>^2</i></xliff:g> ಡೈರೆಕ್ಟರಿಗೆ <xliff:g id="APPNAME"><b>^1</b></xliff:g> ಗೆ ಆ್ಯಕ್ಸೆಸ್ ನೀಡುವುದೇ?"</string>
     <string name="open_external_dialog_root_request" msgid="6776729293982633">"<xliff:g id="STORAGE"><i>^2</i></xliff:g> ಸಂಗ್ರಹಣೆಯಲ್ಲಿನ ಪೋಟೋಗಳು ಮತ್ತು ವೀಡಿಯೊಗಳು ಸೇರಿದಂತೆ ನಿಮ್ಮ ಡೇಟಾವನ್ನು ಪ್ರವೇಶಿಸಲು <xliff:g id="APPNAME"><b>^1</b></xliff:g> ಅಪ್ಲಿಕೇಶನ್‌ಗೆ ಅನುಮತಿಸುವುದೇ?"</string>
     <string name="allow" msgid="1275746941353040309">"ಅನುಮತಿಸಿ"</string>
     <string name="deny" msgid="5127201668078153379">"ನಿರಾಕರಿಸಿ"</string>

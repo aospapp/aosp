@@ -37,6 +37,7 @@ import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 
 import com.android.car.settings.R;
+import com.android.car.setupwizardlib.InitialLockSetupConstants.LockTypes;
 import com.android.internal.widget.LockPatternUtils;
 import com.android.internal.widget.LockscreenCredential;
 import com.android.settingslib.utils.StringUtil;
@@ -100,10 +101,16 @@ public final class PasswordHelperTest {
                 .that(passwordHelper.validateSetupWizard(SHORT_SEQUENTIAL_PASSWORD.getBytes()))
                 .isEqualTo(PasswordHelper.ERROR_CODE);
 
+        String expectedError = StringUtil.getIcuPluralsString(mContext, /* count= */ 4,
+                R.string.lockpassword_password_too_short);
+        assertWithMessage(PASSWORD_MESSAGE, SHORT_SEQUENTIAL_PASSWORD)
+                .that(passwordHelper.validateSetupWizardAndReturnError(
+                        /* lockType */ LockTypes.PASSWORD,
+                        /* credentialBytes */ SHORT_SEQUENTIAL_PASSWORD.getBytes()))
+                .isEqualTo(expectedError);
+
         List<String> messages = passwordHelper.convertErrorCodeToMessages();
-        assertWithMessage(ERROR_MESSAGE).that(messages)
-                .containsExactly(StringUtil.getIcuPluralsString(mContext, /* count= */ 4,
-                        R.string.lockpassword_password_too_short));
+        assertWithMessage(ERROR_MESSAGE).that(messages).containsExactly(expectedError);
     }
 
     @Test
@@ -118,6 +125,12 @@ public final class PasswordHelperTest {
         assertWithMessage(PASSWORD_MESSAGE, MEDIUM_SEQUENTIAL_PASSWORD)
                 .that(passwordHelper.validateSetupWizard(MEDIUM_SEQUENTIAL_PASSWORD.getBytes()))
                 .isEqualTo(PasswordHelper.NO_ERROR);
+        String noErrorMessage = passwordHelper.validateSetupWizardAndReturnError(
+                /* lockType */ LockTypes.PASSWORD,
+                /* credentialBytes */ MEDIUM_SEQUENTIAL_PASSWORD.getBytes());
+        assertWithMessage(PASSWORD_MESSAGE, MEDIUM_SEQUENTIAL_PASSWORD)
+                .that(noErrorMessage)
+                .isEqualTo(PasswordHelper.NO_ERROR_MESSAGE);
     }
 
     @Test
@@ -133,10 +146,17 @@ public final class PasswordHelperTest {
                 .that(passwordHelper.validateSetupWizard(SHORT_SEQUENTIAL_PASSWORD.getBytes()))
                 .isEqualTo(PasswordHelper.ERROR_CODE);
 
+        String expectedError = StringUtil.getIcuPluralsString(mContext, /* count= */ 4,
+                R.string.lockpassword_password_too_short);
+        assertWithMessage(PASSWORD_MESSAGE, SHORT_SEQUENTIAL_PASSWORD)
+                .that(passwordHelper.validateSetupWizardAndReturnError(
+                        /* lockType */ LockTypes.PASSWORD,
+                        /* credentialBytes */ SHORT_SEQUENTIAL_PASSWORD.getBytes()))
+                .isEqualTo(expectedError);
+
         List<String> messages = passwordHelper.convertErrorCodeToMessages();
         assertWithMessage(ERROR_MESSAGE).that(messages)
-                .containsExactly(StringUtil.getIcuPluralsString(mContext, /* count= */ 4,
-                        R.string.lockpassword_password_too_short));
+                .containsExactly(expectedError);
     }
 
     @Test
@@ -151,6 +171,12 @@ public final class PasswordHelperTest {
         assertWithMessage(PASSWORD_MESSAGE, MEDIUM_SEQUENTIAL_PASSWORD)
                 .that(passwordHelper.validateSetupWizard(MEDIUM_SEQUENTIAL_PASSWORD.getBytes()))
                 .isEqualTo(PasswordHelper.NO_ERROR);
+        String noErrorMessage = passwordHelper.validateSetupWizardAndReturnError(
+                /* lockType */ LockTypes.PASSWORD,
+                /* credentialBytes */ MEDIUM_SEQUENTIAL_PASSWORD.getBytes());
+        assertWithMessage(PASSWORD_MESSAGE, MEDIUM_SEQUENTIAL_PASSWORD)
+                .that(noErrorMessage)
+                .isEqualTo(PasswordHelper.NO_ERROR_MESSAGE);
     }
 
     @Test
@@ -166,10 +192,17 @@ public final class PasswordHelperTest {
                 .that(passwordHelper.validateSetupWizard(SHORT_SEQUENTIAL_PASSWORD.getBytes()))
                 .isEqualTo(PasswordHelper.ERROR_CODE);
 
+        String expectedError = StringUtil.getIcuPluralsString(mContext, /* count= */ 4,
+                R.string.lockpassword_password_too_short);
+        assertWithMessage(PASSWORD_MESSAGE, SHORT_SEQUENTIAL_PASSWORD)
+                .that(passwordHelper.validateSetupWizardAndReturnError(
+                        /* lockType */ LockTypes.PASSWORD,
+                        /* credentialBytes */ SHORT_SEQUENTIAL_PASSWORD.getBytes()))
+                .isEqualTo(expectedError);
+
         List<String> messages = passwordHelper.convertErrorCodeToMessages();
         assertWithMessage(ERROR_MESSAGE).that(messages)
-                .containsExactly(StringUtil.getIcuPluralsString(mContext, /* count= */ 4,
-                        R.string.lockpassword_password_too_short));
+                .containsExactly(expectedError);
     }
 
     @Test
@@ -185,10 +218,17 @@ public final class PasswordHelperTest {
                 .that(passwordHelper.validateSetupWizard(MEDIUM_SEQUENTIAL_PASSWORD.getBytes()))
                 .isEqualTo(PasswordHelper.ERROR_CODE);
 
+        String expectedError = StringUtil.getIcuPluralsString(mContext, /* count= */ 4,
+                R.string.lockpassword_pin_no_sequential_digits);
+        assertWithMessage(PASSWORD_MESSAGE, MEDIUM_SEQUENTIAL_PASSWORD)
+                .that(passwordHelper.validateSetupWizardAndReturnError(
+                        /* lockType */ LockTypes.PASSWORD,
+                        /* credentialBytes */ MEDIUM_SEQUENTIAL_PASSWORD.getBytes()))
+                .isEqualTo(expectedError);
+
         List<String> messages = passwordHelper.convertErrorCodeToMessages();
         assertWithMessage(ERROR_MESSAGE).that(messages)
-                .containsExactly(StringUtil.getIcuPluralsString(mContext, /* count= */ 4,
-                        R.string.lockpassword_pin_no_sequential_digits));
+                .containsExactly(expectedError);
     }
 
     @Test
@@ -203,6 +243,12 @@ public final class PasswordHelperTest {
         assertWithMessage(PASSWORD_MESSAGE, MEDIUM_ALPHANUMERIC_PASSWORD)
                 .that(passwordHelper.validateSetupWizard(MEDIUM_ALPHANUMERIC_PASSWORD.getBytes()))
                 .isEqualTo(PasswordHelper.NO_ERROR);
+        String noErrorMessage = passwordHelper.validateSetupWizardAndReturnError(
+                /* lockType */ LockTypes.PASSWORD,
+                /* credentialBytes */ MEDIUM_ALPHANUMERIC_PASSWORD.getBytes());
+        assertWithMessage(PASSWORD_MESSAGE, MEDIUM_ALPHANUMERIC_PASSWORD)
+                .that(noErrorMessage)
+                .isEqualTo(PasswordHelper.NO_ERROR_MESSAGE);
     }
 
     @Test
@@ -218,11 +264,25 @@ public final class PasswordHelperTest {
                 .that(passwordHelper.validateSetupWizard(MEDIUM_SEQUENTIAL_PASSWORD.getBytes()))
                 .isEqualTo(PasswordHelper.ERROR_CODE);
 
+        String expectedFirstError = StringUtil.getIcuPluralsString(mContext, /* count= */ 6,
+                R.string.lockpassword_password_too_short);
+        String expectedSecondError = mContext.getString(
+                R.string.lockpassword_pin_no_sequential_digits);
+        String combinedError = passwordHelper.getCombinedErrorMessage(
+                /* messages */ List.of(expectedFirstError, expectedSecondError));
+        // the error message displayed in SUW should be the first error detected
+        assertWithMessage(PASSWORD_MESSAGE, MEDIUM_SEQUENTIAL_PASSWORD)
+                .that(passwordHelper.validateSetupWizardAndReturnError(
+                        /* lockType */ LockTypes.PASSWORD,
+                        /* credentialBytes */ MEDIUM_SEQUENTIAL_PASSWORD.getBytes()))
+                .isEqualTo(combinedError);
+
         List<String> messages = passwordHelper.convertErrorCodeToMessages();
-        assertWithMessage(ERROR_MESSAGE).that(messages)
-                .containsExactly(StringUtil.getIcuPluralsString(mContext, /* count= */ 8,
-                        R.string.lockpassword_password_too_short),
-                        mContext.getString(R.string.lockpassword_pin_no_sequential_digits));
+        // PasswordMetrics considers a password "numeric" based on whether it is a pin or a
+        // password. So even though "2222" is numeric, it will have the minimum length requirement
+        // of a password.
+        assertWithMessage(ERROR_MESSAGE).that(messages).containsExactly(expectedFirstError,
+                expectedSecondError);
     }
 
     @Test
@@ -238,10 +298,16 @@ public final class PasswordHelperTest {
                 .that(passwordHelper.validateSetupWizard(MEDIUM_ALPHANUMERIC_PASSWORD.getBytes()))
                 .isEqualTo(PasswordHelper.ERROR_CODE);
 
+        String expectedError = StringUtil.getIcuPluralsString(mContext, /* count= */ 6,
+                R.string.lockpassword_password_too_short);
+        assertWithMessage(PASSWORD_MESSAGE, MEDIUM_ALPHANUMERIC_PASSWORD)
+                .that(passwordHelper.validateSetupWizardAndReturnError(
+                        /* lockType */ LockTypes.PASSWORD,
+                        /* credentialBytes */ MEDIUM_ALPHANUMERIC_PASSWORD.getBytes()))
+                .isEqualTo(expectedError);
+
         List<String> messages = passwordHelper.convertErrorCodeToMessages();
-        assertWithMessage(ERROR_MESSAGE).that(messages)
-                .containsExactly(StringUtil.getIcuPluralsString(mContext, /* count= */ 6,
-                        R.string.lockpassword_password_too_short));
+        assertWithMessage(ERROR_MESSAGE).that(messages).containsExactly(expectedError);
     }
 
     @Test
@@ -257,9 +323,15 @@ public final class PasswordHelperTest {
                 .that(passwordHelper.validateSetupWizard(LONG_SEQUENTIAL_PASSWORD.getBytes()))
                 .isEqualTo(PasswordHelper.ERROR_CODE);
 
+        String expectedError = mContext.getString(R.string.lockpassword_pin_no_sequential_digits);
+        assertWithMessage(PASSWORD_MESSAGE, LONG_SEQUENTIAL_PASSWORD)
+                .that(passwordHelper.validateSetupWizardAndReturnError(
+                        /* lockType */ LockTypes.PASSWORD,
+                        /* credentialBytes */ LONG_SEQUENTIAL_PASSWORD.getBytes()))
+                .isEqualTo(expectedError);
+
         List<String> messages = passwordHelper.convertErrorCodeToMessages();
-        assertWithMessage(ERROR_MESSAGE).that(messages).containsExactly(
-                mContext.getString(R.string.lockpassword_pin_no_sequential_digits));
+        assertWithMessage(ERROR_MESSAGE).that(messages).containsExactly(expectedError);
     }
 
     @Test
@@ -274,6 +346,12 @@ public final class PasswordHelperTest {
         assertWithMessage(PASSWORD_MESSAGE, LONG_ALPHANUMERIC_PASSWORD)
                 .that(passwordHelper.validateSetupWizard(LONG_ALPHANUMERIC_PASSWORD.getBytes()))
                 .isEqualTo(PasswordHelper.NO_ERROR);
+        String noErrorMessage = passwordHelper.validateSetupWizardAndReturnError(
+                /* lockType */ LockTypes.PASSWORD,
+                /* credentialBytes */ LONG_ALPHANUMERIC_PASSWORD.getBytes());
+        assertWithMessage(PASSWORD_MESSAGE, LONG_ALPHANUMERIC_PASSWORD)
+                .that(noErrorMessage)
+                .isEqualTo(PasswordHelper.NO_ERROR_MESSAGE);
     }
 
     @Test
@@ -289,10 +367,16 @@ public final class PasswordHelperTest {
                 .that(passwordHelper.validateSetupWizard(SHORT_SEQUENTIAL_PASSWORD.getBytes()))
                 .isEqualTo(PasswordHelper.ERROR_CODE);
 
+        String expectedError = StringUtil.getIcuPluralsString(mContext, /* count= */ 4,
+                R.string.lockpassword_pin_too_short);
+        assertWithMessage(PASSWORD_MESSAGE, SHORT_SEQUENTIAL_PASSWORD)
+                .that(passwordHelper.validateSetupWizardAndReturnError(
+                        /* lockType */ LockTypes.PIN,
+                        /* credentialBytes */ SHORT_SEQUENTIAL_PASSWORD.getBytes()))
+                .isEqualTo(expectedError);
+
         List<String> messages = passwordHelper.convertErrorCodeToMessages();
-        assertWithMessage(ERROR_MESSAGE).that(messages)
-                .containsExactly(StringUtil.getIcuPluralsString(mContext,
-                        /* count= */ 4, R.string.lockpassword_pin_too_short));
+        assertWithMessage(ERROR_MESSAGE).that(messages).containsExactly(expectedError);
     }
 
     @Test
@@ -307,6 +391,12 @@ public final class PasswordHelperTest {
         assertWithMessage(PASSWORD_MESSAGE, MEDIUM_SEQUENTIAL_PASSWORD)
                 .that(passwordHelper.validateSetupWizard(MEDIUM_SEQUENTIAL_PASSWORD.getBytes()))
                 .isEqualTo(PasswordHelper.NO_ERROR);
+        String noErrorMessage = passwordHelper.validateSetupWizardAndReturnError(
+                /* lockType */ LockTypes.PIN,
+                /* credentialBytes */ MEDIUM_SEQUENTIAL_PASSWORD.getBytes());
+        assertWithMessage(PASSWORD_MESSAGE, MEDIUM_SEQUENTIAL_PASSWORD)
+                .that(noErrorMessage)
+                .isEqualTo(PasswordHelper.NO_ERROR_MESSAGE);
     }
 
     @Test
@@ -322,10 +412,16 @@ public final class PasswordHelperTest {
                 .that(passwordHelper.validateSetupWizard(SHORT_SEQUENTIAL_PASSWORD.getBytes()))
                 .isEqualTo(PasswordHelper.ERROR_CODE);
 
+        String expectedError = StringUtil.getIcuPluralsString(mContext, /* count= */ 4,
+                R.string.lockpassword_pin_too_short);
+        assertWithMessage(PASSWORD_MESSAGE, SHORT_SEQUENTIAL_PASSWORD)
+                .that(passwordHelper.validateSetupWizardAndReturnError(
+                        /* lockType */ LockTypes.PIN,
+                        /* credentialBytes */ SHORT_SEQUENTIAL_PASSWORD.getBytes()))
+                .isEqualTo(expectedError);
+
         List<String> messages = passwordHelper.convertErrorCodeToMessages();
-        assertWithMessage(ERROR_MESSAGE).that(messages)
-                .containsExactly(StringUtil.getIcuPluralsString(mContext,
-                        /* count= */ 4, R.string.lockpassword_pin_too_short));
+        assertWithMessage(ERROR_MESSAGE).that(messages).containsExactly(expectedError);
     }
 
     @Test
@@ -340,6 +436,12 @@ public final class PasswordHelperTest {
         assertWithMessage(PASSWORD_MESSAGE, MEDIUM_SEQUENTIAL_PASSWORD)
                 .that(passwordHelper.validateSetupWizard(MEDIUM_SEQUENTIAL_PASSWORD.getBytes()))
                 .isEqualTo(PasswordHelper.NO_ERROR);
+        String noErrorMessage = passwordHelper.validateSetupWizardAndReturnError(
+                /* lockType */ LockTypes.PIN,
+                /* credentialBytes */ MEDIUM_SEQUENTIAL_PASSWORD.getBytes());
+        assertWithMessage(PASSWORD_MESSAGE, MEDIUM_SEQUENTIAL_PASSWORD)
+                .that(noErrorMessage)
+                .isEqualTo(PasswordHelper.NO_ERROR_MESSAGE);
     }
 
     @Test
@@ -355,10 +457,17 @@ public final class PasswordHelperTest {
                 .that(passwordHelper.validateSetupWizard(SHORT_SEQUENTIAL_PASSWORD.getBytes()))
                 .isEqualTo(PasswordHelper.ERROR_CODE);
 
+        String expectedError = StringUtil.getIcuPluralsString(mContext, /* count= */ 4,
+                R.string.lockpassword_pin_too_short);
+        assertWithMessage(PASSWORD_MESSAGE, SHORT_SEQUENTIAL_PASSWORD)
+                .that(passwordHelper.validateSetupWizardAndReturnError(
+                        /* lockType */ LockTypes.PIN,
+                        /* credentialBytes */ SHORT_SEQUENTIAL_PASSWORD.getBytes()))
+                .isEqualTo(expectedError);
+
         List<String> messages = passwordHelper.convertErrorCodeToMessages();
         assertWithMessage(ERROR_MESSAGE).that(messages)
-                .containsExactly(StringUtil.getIcuPluralsString(mContext,
-                        /* count= */ 4, R.string.lockpassword_pin_too_short));
+                .containsExactly(expectedError);
     }
 
     @Test
@@ -373,10 +482,15 @@ public final class PasswordHelperTest {
         assertWithMessage(PASSWORD_MESSAGE, MEDIUM_SEQUENTIAL_PASSWORD)
                 .that(passwordHelper.validateSetupWizard(MEDIUM_SEQUENTIAL_PASSWORD.getBytes()))
                 .isEqualTo(PasswordHelper.ERROR_CODE);
+        String expectedError = mContext.getString(R.string.lockpassword_pin_no_sequential_digits);
+        assertWithMessage(PASSWORD_MESSAGE, MEDIUM_SEQUENTIAL_PASSWORD)
+                .that(passwordHelper.validateSetupWizardAndReturnError(
+                        /* lockType */ LockTypes.PIN,
+                        /* credentialBytes */ MEDIUM_SEQUENTIAL_PASSWORD.getBytes()))
+                .isEqualTo(expectedError);
 
         List<String> messages = passwordHelper.convertErrorCodeToMessages();
-        assertWithMessage(ERROR_MESSAGE).that(messages).containsExactly(
-                mContext.getString(R.string.lockpassword_pin_no_sequential_digits));
+        assertWithMessage(ERROR_MESSAGE).that(messages).containsExactly(expectedError);
     }
 
     @Test
@@ -391,6 +505,12 @@ public final class PasswordHelperTest {
         assertWithMessage(PASSWORD_MESSAGE, MEDIUM_PIN_PASSWORD)
                 .that(passwordHelper.validateSetupWizard(MEDIUM_PIN_PASSWORD.getBytes()))
                 .isEqualTo(PasswordHelper.NO_ERROR);
+        String noErrorMessage = passwordHelper.validateSetupWizardAndReturnError(
+                /* lockType */ LockTypes.PIN,
+                /* credentialBytes */ MEDIUM_PIN_PASSWORD.getBytes());
+        assertWithMessage(PASSWORD_MESSAGE, MEDIUM_PIN_PASSWORD)
+                .that(noErrorMessage)
+                .isEqualTo(PasswordHelper.NO_ERROR_MESSAGE);
     }
 
     @Test
@@ -406,10 +526,17 @@ public final class PasswordHelperTest {
                 .that(passwordHelper.validateSetupWizard(MEDIUM_PIN_PASSWORD.getBytes()))
                 .isEqualTo(PasswordHelper.ERROR_CODE);
 
+        String expectedError = StringUtil.getIcuPluralsString(mContext, /* count= */ 8,
+                R.string.lockpassword_pin_too_short);
+        assertWithMessage(PASSWORD_MESSAGE, LONG_SEQUENTIAL_PASSWORD)
+                .that(passwordHelper.validateSetupWizardAndReturnError(
+                        /* lockType */ LockTypes.PIN,
+                        /* credentialBytes */ MEDIUM_PIN_PASSWORD.getBytes()))
+                .isEqualTo(expectedError);
+
         List<String> messages = passwordHelper.convertErrorCodeToMessages();
         assertWithMessage(ERROR_MESSAGE).that(messages)
-                .containsExactly(StringUtil.getIcuPluralsString(mContext,
-                        /* count= */ 8, R.string.lockpassword_pin_too_short));
+                .containsExactly(expectedError);
     }
 
     @Test
@@ -425,9 +552,15 @@ public final class PasswordHelperTest {
                 .that(passwordHelper.validateSetupWizard(LONG_SEQUENTIAL_PASSWORD.getBytes()))
                 .isEqualTo(PasswordHelper.ERROR_CODE);
 
+        String expectedError = mContext.getString(R.string.lockpassword_pin_no_sequential_digits);
+        assertWithMessage(PASSWORD_MESSAGE, LONG_SEQUENTIAL_PASSWORD)
+                .that(passwordHelper.validateSetupWizardAndReturnError(
+                        /* lockType */ LockTypes.PIN,
+                        /* credentialBytes */ LONG_SEQUENTIAL_PASSWORD.getBytes()))
+                .isEqualTo(expectedError);
+
         List<String> messages = passwordHelper.convertErrorCodeToMessages();
-        assertWithMessage(ERROR_MESSAGE).that(messages).containsExactly(
-                mContext.getString(R.string.lockpassword_pin_no_sequential_digits));
+        assertWithMessage(ERROR_MESSAGE).that(messages).containsExactly(expectedError);
     }
 
     @Test
@@ -442,5 +575,11 @@ public final class PasswordHelperTest {
         assertWithMessage(PASSWORD_MESSAGE, LONG_PIN_PASSWORD)
                 .that(passwordHelper.validateSetupWizard(LONG_PIN_PASSWORD.getBytes()))
                 .isEqualTo(PasswordHelper.NO_ERROR);
+        String noErrorMessage = passwordHelper.validateSetupWizardAndReturnError(
+                /* lockType */ LockTypes.PIN,
+                /* credentialBytes */ LONG_PIN_PASSWORD.getBytes());
+        assertWithMessage(PASSWORD_MESSAGE, LONG_PIN_PASSWORD)
+                .that(noErrorMessage)
+                .isEqualTo(PasswordHelper.NO_ERROR_MESSAGE);
     }
 }

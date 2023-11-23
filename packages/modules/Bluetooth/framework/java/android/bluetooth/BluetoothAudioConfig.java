@@ -16,6 +16,7 @@
 
 package android.bluetooth;
 
+import android.annotation.NonNull;
 import android.annotation.Nullable;
 import android.os.Parcel;
 import android.os.Parcelable;
@@ -65,19 +66,18 @@ public final class BluetoothAudioConfig implements Parcelable {
         return 0;
     }
 
-    public static final @android.annotation.NonNull Parcelable.Creator<BluetoothAudioConfig> CREATOR =
-            new Parcelable.Creator<BluetoothAudioConfig>() {
-                public BluetoothAudioConfig createFromParcel(Parcel in) {
-                    int sampleRate = in.readInt();
-                    int channelConfig = in.readInt();
-                    int audioFormat = in.readInt();
-                    return new BluetoothAudioConfig(sampleRate, channelConfig, audioFormat);
-                }
+    public static final @NonNull Creator<BluetoothAudioConfig> CREATOR = new Creator<>() {
+        public BluetoothAudioConfig createFromParcel(Parcel in) {
+            int sampleRate = in.readInt();
+            int channelConfig = in.readInt();
+            int audioFormat = in.readInt();
+            return new BluetoothAudioConfig(sampleRate, channelConfig, audioFormat);
+        }
 
-                public BluetoothAudioConfig[] newArray(int size) {
-                    return new BluetoothAudioConfig[size];
-                }
-            };
+        public BluetoothAudioConfig[] newArray(int size) {
+            return new BluetoothAudioConfig[size];
+        }
+    };
 
     @Override
     public void writeToParcel(Parcel out, int flags) {

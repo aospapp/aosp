@@ -26,7 +26,7 @@
 
 #include "bta/include/bta_ag_api.h"
 
-#include <base/bind.h>
+#include <base/functional/bind.h>
 #include <base/location.h>
 
 #include <cstdint>
@@ -61,7 +61,7 @@ tBTA_STATUS BTA_AgEnable(tBTA_AG_CBACK* p_cback) {
   /* Error if AG is already enabled, or AG is in the middle of disabling. */
   for (const tBTA_AG_SCB& scb : bta_ag_cb.scb) {
     if (scb.in_use) {
-      APPL_TRACE_ERROR("BTA_AgEnable: FAILED, AG already enabled.");
+      LOG_ERROR("BTA_AgEnable: FAILED, AG already enabled.");
       return BTA_FAILURE;
     }
   }
@@ -159,16 +159,18 @@ void BTA_AgClose(uint16_t handle) {
  * Function         BTA_AgAudioOpen
  *
  * Description      Opens an audio connection to the currently connected
- *                  headset or hnadsfree.
+ *                  headset or handsfree. Specifying force_cvsd to true to
+ *                  force the stack to use CVSD even if mSBC is supported.
  *
  *
  * Returns          void
  *
  ******************************************************************************/
-void BTA_AgAudioOpen(uint16_t handle) {
-  do_in_main_thread(
-      FROM_HERE, base::Bind(&bta_ag_sm_execute_by_handle, handle,
-                            BTA_AG_API_AUDIO_OPEN_EVT, tBTA_AG_DATA::kEmpty));
+void BTA_AgAudioOpen(uint16_t handle, bool force_cvsd) {
+  tBTA_AG_DATA data = {};
+  data.api_audio_open.force_cvsd = force_cvsd;
+  do_in_main_thread(FROM_HERE, base::Bind(&bta_ag_sm_execute_by_handle, handle,
+                                          BTA_AG_API_AUDIO_OPEN_EVT, data));
 }
 
 /*******************************************************************************
@@ -176,7 +178,7 @@ void BTA_AgAudioOpen(uint16_t handle) {
  * Function         BTA_AgAudioClose
  *
  * Description      Close the currently active audio connection to a headset
- *                  or hnadsfree. The data connection remains open
+ *                  or handsfree. The data connection remains open
  *
  *
  * Returns          void
@@ -223,6 +225,11 @@ void BTA_AgSetCodec(uint16_t handle, tBTA_AG_PEER_CODEC codec) {
   data.api_setcodec.codec = codec;
   do_in_main_thread(FROM_HERE, base::Bind(&bta_ag_sm_execute_by_handle, handle,
                                           BTA_AG_API_SETCODEC_EVT, data));
+}
+
+void BTA_AgSetScoOffloadEnabled(bool value) {
+  do_in_main_thread(FROM_HERE,
+                    base::Bind(&bta_ag_set_sco_offload_enabled, value));
 }
 
 void BTA_AgSetScoAllowed(bool value) {

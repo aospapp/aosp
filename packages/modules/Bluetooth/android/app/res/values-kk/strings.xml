@@ -23,6 +23,7 @@
     <string name="bt_share_picker_label" msgid="7464438494743777696">"Bluetooth"</string>
     <string name="unknown_device" msgid="2317679521750821654">"Белгісіз құрылғы"</string>
     <string name="unknownNumber" msgid="1245183329830158661">"Белгісіз"</string>
+    <string name="not_provided" msgid="6938740494380012614">"Берілмеген"</string>
     <string name="airplane_error_title" msgid="2570111716678850860">"Ұшақ режимі"</string>
     <string name="airplane_error_msg" msgid="4853111123699559578">"Bluetooth байланысын ұшақ режимінде қолдану мүмкін емес."</string>
     <string name="bt_enable_title" msgid="4484289159118416315"></string>
@@ -38,7 +39,7 @@
     <string name="incoming_file_confirm_timeout_content" msgid="3221412098281076974">"\"<xliff:g id="SENDER">%1$s</xliff:g>\" жіберген файлды қабылдау барысында уақыт аяқталды."</string>
     <string name="incoming_file_confirm_Notification_title" msgid="5381395500920804895">"Кіріс файл"</string>
     <string name="incoming_file_confirm_Notification_content" msgid="2669135531488877921">"<xliff:g id="SENDER">%1$s</xliff:g> келесі файлды жіберуге дайын: <xliff:g id="FILE">%2$s</xliff:g>"</string>
-    <string name="notification_receiving" msgid="8445265771083510696">"Bluetooth бөлісу: <xliff:g id="FILE">%1$s</xliff:g> файлын қабылдауда"</string>
+    <string name="notification_receiving" msgid="8445265771083510696">"Bluetooth арқылы бөлісу: <xliff:g id="FILE">%1$s</xliff:g> файлы қабылдануда"</string>
     <string name="notification_received" msgid="2330252358543000567">"Bluetooth бөлісу: <xliff:g id="FILE">%1$s</xliff:g> файлы қабылданды"</string>
     <string name="notification_received_fail" msgid="9059153354809379374">"Bluetooth бөлісу: <xliff:g id="FILE">%1$s</xliff:g> файлы қабылданбады"</string>
     <string name="notification_sending" msgid="8269912843286868700">"Bluetooth бөлісу: <xliff:g id="FILE">%1$s</xliff:g> файлын жіберуде"</string>
@@ -90,7 +91,7 @@
     <string name="status_pending" msgid="4781040740237733479">"Файлды аудару әлі басталған жоқ."</string>
     <string name="status_running" msgid="7419075903776657351">"Файлды аудару орындалуда."</string>
     <string name="status_success" msgid="7963589000098719541">"Файлды аудару сәтті орындалды."</string>
-    <string name="status_not_accept" msgid="1165798802740579658">"Мазмұн қолдауы жоқ."</string>
+    <string name="status_not_accept" msgid="1165798802740579658">"Контент қолдауы жоқ."</string>
     <string name="status_forbidden" msgid="4017060451358837245">"Аударуға қабылдайтын құрылғы тыйым салды."</string>
     <string name="status_canceled" msgid="8441679418717978515">"Тасымалды пайдаланушы тоқтатты."</string>
     <string name="status_file_error" msgid="5379018888714679311">"Жад ақаулығы."</string>
@@ -108,7 +109,7 @@
     <string name="no_transfers" msgid="740521199933899821">"Тасымал туралы дерек жоқ."</string>
     <string name="transfer_clear_dlg_msg" msgid="586117930961007311">"Тізімнен барлық элементтер алынады."</string>
     <string name="outbound_noti_title" msgid="2045560896819618979">"Bluetooth бөлісу: Жіберілген файлдар"</string>
-    <string name="inbound_noti_title" msgid="3730993443609581977">"Bluetooth бөлісу: Қабылданған файлдар"</string>
+    <string name="inbound_noti_title" msgid="3730993443609581977">"Bluetooth арқылы бөлісу: қабылданған файлдар"</string>
     <string name="noti_caption_unsuccessful" msgid="6679288016450410835">"{count,plural, =1{# жіберілмеді.}other{# жіберілмеді.}}"</string>
     <string name="noti_caption_success" msgid="7652777514009569713">"{count,plural, =1{# жіберілді, %1$s}other{# жіберілді, %1$s}}"</string>
     <string name="transfer_menu_clear_all" msgid="3014459758656427076">"Тізімді өшіру"</string>
@@ -128,4 +129,10 @@
     <string name="a2dp_sink_mbs_label" msgid="6035366346569127155">"Bluetooth aудиосы"</string>
     <string name="bluetooth_opp_file_limit_exceeded" msgid="6612109860149473930">"Көлемі 4 ГБ-тан асатын файлдар тасымалданбайды"</string>
     <string name="bluetooth_connect_action" msgid="2319449093046720209">"Bluetooth-қа қосылу"</string>
+    <string name="bluetooth_enabled_apm_title" msgid="6914461147844949044">"Bluetooth ұшақ режимінде қосулы"</string>
+    <string name="bluetooth_enabled_apm_message" msgid="6168686193308136881">"Bluetooth-ты қосулы қалдырсаңыз, келесі жолы ұшақ режиміне ауысқанда да ол қосылып тұрады."</string>
+    <string name="bluetooth_stays_on_title" msgid="39720820955212918">"Bluetooth қосулы болады"</string>
+    <string name="bluetooth_stays_on_message" msgid="3669663452593157737">"Bluetooth ұшақ режимінде қосылып тұрады. Қаласаңыз, оны өшіріп қоюыңызға болады."</string>
+    <string name="bluetooth_and_wifi_stays_on_title" msgid="5821932798860821244">"Wi-Fi мен Bluetooth қосулы тұрады"</string>
+    <string name="bluetooth_and_wifi_stays_on_message" msgid="7848565203843882558">"Wi‑Fi мен Bluetooth ұшақ режимінде қосылып тұрады. Қаласаңыз, оларды өшіріп қоюыңызға болады."</string>
 </resources>

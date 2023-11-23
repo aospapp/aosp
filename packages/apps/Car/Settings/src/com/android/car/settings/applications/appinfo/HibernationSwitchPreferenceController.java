@@ -61,7 +61,7 @@ public final class HibernationSwitchPreferenceController
     }
 
     @Override
-    public int getAvailabilityStatus() {
+    public int getDefaultAvailabilityStatus() {
         return isHibernationEnabled() && mIsPackageSet ? AVAILABLE : CONDITIONALLY_UNAVAILABLE;
     }
 

@@ -29,7 +29,7 @@ import java.util.Objects;
  *
  * @hide
  */
-public class DriverDistractionChangeEvent implements Parcelable {
+public final class DriverDistractionChangeEvent implements Parcelable {
 
     private final long mElapsedRealtimeTimestamp;
 

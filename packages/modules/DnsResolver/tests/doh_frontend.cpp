@@ -62,8 +62,7 @@ bool DohFrontend::stopServer() {
     std::lock_guard guard(mMutex);
     if (!mRustDoh) return false;
 
-    rust::frontend_stop(mRustDoh);
-    return true;
+    return rust::frontend_stop(mRustDoh);
 }
 
 int DohFrontend::queries() const {
@@ -102,6 +101,15 @@ int DohFrontend::resumedConnections() const {
     return stats.resumed_connections;
 }
 
+int DohFrontend::earlyDataConnections() const {
+    std::lock_guard guard(mMutex);
+    if (!mRustDoh) return 0;
+
+    rust::Stats stats;
+    rust::frontend_stats(mRustDoh, &stats);
+    return stats.early_data_connections;
+}
+
 void DohFrontend::clearQueries() {
     std::lock_guard guard(mMutex);
     if (mRustDoh) {
@@ -121,32 +129,35 @@ bool DohFrontend::setMaxIdleTimeout(uint64_t value) {
     std::lock_guard guard(mMutex);
     if (!mRustDoh) return false;
 
-    frontend_set_max_idle_timeout(mRustDoh, value);
-    return true;
+    return frontend_set_max_idle_timeout(mRustDoh, value);
 }
 
 bool DohFrontend::setMaxBufferSize(uint64_t value) {
     std::lock_guard guard(mMutex);
     if (!mRustDoh) return false;
 
-    frontend_set_max_buffer_size(mRustDoh, value);
-    return true;
+    return frontend_set_max_buffer_size(mRustDoh, value);
 }
 
 bool DohFrontend::setMaxStreamsBidi(uint64_t value) {
     std::lock_guard guard(mMutex);
     if (!mRustDoh) return false;
 
-    frontend_set_max_streams_bidi(mRustDoh, value);
-    return true;
+    return frontend_set_max_streams_bidi(mRustDoh, value);
 }
 
 bool DohFrontend::block_sending(bool block) {
     std::lock_guard guard(mMutex);
     if (!mRustDoh) return false;
 
-    frontend_block_sending(mRustDoh, block);
-    return true;
+    return frontend_block_sending(mRustDoh, block);
+}
+
+bool DohFrontend::setResetStreamId(uint64_t value) {
+    std::lock_guard guard(mMutex);
+    if (!mRustDoh) return false;
+
+    return frontend_set_reset_stream_id(mRustDoh, value);
 }
 
 bool DohFrontend::waitForAllClientsDisconnected() const {

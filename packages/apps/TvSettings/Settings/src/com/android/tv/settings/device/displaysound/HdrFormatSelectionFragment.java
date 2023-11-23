@@ -21,7 +21,11 @@ import static android.view.Display.HdrCapabilities.HDR_TYPE_HDR10;
 import static android.view.Display.HdrCapabilities.HDR_TYPE_HDR10_PLUS;
 import static android.view.Display.HdrCapabilities.HDR_TYPE_HLG;
 
-import static com.android.tv.settings.library.overlay.FlavorUtils.FLAVOR_CLASSIC;
+import static com.android.tv.settings.device.displaysound.DisplaySoundUtils.isHdrFormatSupported;
+import static com.android.tv.settings.device.displaysound.HdrFormatSelectionInfo.AutoInfoFragment;
+import static com.android.tv.settings.device.displaysound.HdrFormatSelectionInfo.DolbyVisionNotSupportedFragment;
+import static com.android.tv.settings.device.displaysound.HdrFormatSelectionInfo.ManualInfoFragment;
+import static com.android.tv.settings.overlay.FlavorUtils.FLAVOR_CLASSIC;
 import static com.android.tv.settings.util.InstrumentationUtils.logEntrySelected;
 import static com.android.tv.settings.util.InstrumentationUtils.logToggleInteracted;
 
@@ -44,10 +48,11 @@ import com.android.settingslib.core.AbstractPreferenceController;
 import com.android.tv.settings.PreferenceControllerFragment;
 import com.android.tv.settings.R;
 import com.android.tv.settings.RadioPreference;
-import com.android.tv.settings.library.overlay.FlavorUtils;
+import com.android.tv.settings.overlay.FlavorUtils;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -99,9 +104,7 @@ public class HdrFormatSelectionFragment extends PreferenceControllerFragment {
         mDisplayManager = getDisplayManager();
         mDeviceHdrTypes = toSet(getDeviceSupportedHdrTypes());
         mUserDisabledHdrTypes = toSet(mDisplayManager.getUserDisabledHdrTypes());
-
-        Display display = mDisplayManager.getDisplay(Display.DEFAULT_DISPLAY);
-        mDisplayReportedHdrTypes = toSet(display.getReportedHdrTypes());
+        mDisplayReportedHdrTypes = getDisplaySupportedHdrTypes();
 
         super.onAttach(context);
     }
@@ -211,6 +214,15 @@ public class HdrFormatSelectionFragment extends PreferenceControllerFragment {
         return getContext().getResources().getIntArray(R.array.config_deviceSupportedHdrFormats);
     }
 
+    private Set<Integer> getDisplaySupportedHdrTypes() {
+        Set<Integer> hdrTypes = new HashSet<>();
+        Display display = mDisplayManager.getDisplay(Display.DEFAULT_DISPLAY);
+        Arrays.stream(display.getSupportedModes())
+                .map(Display.Mode::getSupportedHdrTypes)
+                .forEach(types -> Arrays.stream(types).forEach(hdrTypes::add));
+        return hdrTypes;
+    }
+
     private void selectRadioPreference(Preference preference) {
         final RadioPreference radioPreference = (RadioPreference) preference;
         radioPreference.setChecked(true);
@@ -293,6 +305,13 @@ public class HdrFormatSelectionFragment extends PreferenceControllerFragment {
         };
         pref.setTitle(titleId);
         pref.setKey(KEY_HDR_FORMAT_PREFIX + hdrType);
+        Display.Mode mode = mDisplayManager.getDisplay(Display.DEFAULT_DISPLAY).getMode();
+        if (!isHdrFormatSupported(mode, hdrType)) {
+            if (hdrType == HDR_TYPE_DOLBY_VISION) {
+                pref.setFragment(DolbyVisionNotSupportedFragment.class.getName());
+            }
+            enabled = false;
+        }
         pref.setChecked(enabled);
         if (getLogEntryId(hdrType) != -1) {
             pref.setOnPreferenceClickListener(
@@ -405,9 +424,9 @@ public class HdrFormatSelectionFragment extends PreferenceControllerFragment {
 
     private void createInfoFragments() {
         Preference autoPreference = findPreference(KEY_HDR_FORMAT_SELECTION_AUTO);
-        autoPreference.setFragment(HdrFormatSelectionInfo.AutoInfoFragment.class.getName());
+        autoPreference.setFragment(AutoInfoFragment.class.getName());
 
         Preference manualPreference = findPreference(KEY_HDR_FORMAT_SELECTION_MANUAL);
-        manualPreference.setFragment(HdrFormatSelectionInfo.ManualInfoFragment.class.getName());
+        manualPreference.setFragment(ManualInfoFragment.class.getName());
     }
 }

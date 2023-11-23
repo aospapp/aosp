@@ -18,37 +18,32 @@
 <androidx.preference.PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android">
     <androidx.preference.SwitchPreference
         android:key="@string/pref_key_tracing_on"
-        android:title="@string/record_trace" />
+        android:title="@string/record_trace"
+        android:summary="@string/record_trace_summary" />
     <androidx.preference.SwitchPreference
-        android:key="@string/pref_key_apps"
-        android:title="@string/trace_debuggable_applications"
-        android:defaultValue="true" />
-    <androidx.preference.MultiSelectListPreference
-        android:key="@string/pref_key_tags"
-        android:title="@string/categories"
-        style="@style/MultiSelectDialogStyle" />
-    <Preference
-        android:key="restore_default_tags"
-        android:persistent="false"
-        android:title="@string/restore_default_categories" />
-    <androidx.preference.ListPreference
-        android:key="@string/pref_key_buffer_size"
-        android:title="@string/buffer_size"
-        android:entries="@array/buffer_size_names"
-        android:entryValues="@array/buffer_size_values"
-        android:defaultValue="@string/default_buffer_size" />
-    <Preference
-        android:key="trace_link_button"
-        android:title="@string/link_to_traces"
-        android:persistent="false" />
-    <Preference
-        android:key="clear_saved_traces"
-        android:summary="@string/clear_saved_traces_summary"
-        android:persistent="false"
-        android:title="@string/clear_saved_traces" />
+        android:key="@string/pref_key_stack_sampling_on"
+        android:title="@string/record_stack_samples"
+        android:summary="@string/record_stack_samples_summary" />
     <androidx.preference.PreferenceCategory
-        android:key="long_trace_category"
-        android:orderingFromXml="true" >
+        android:title="@string/pref_category_trace_settings" >
+        <androidx.preference.SwitchPreference
+            android:key="@string/pref_key_apps"
+            android:title="@string/trace_debuggable_applications"
+            android:defaultValue="true" />
+        <androidx.preference.MultiSelectListPreference
+            android:key="@string/pref_key_tags"
+            android:title="@string/categories"
+            style="@style/MultiSelectDialogStyle" />
+        <Preference
+            android:key="restore_default_tags"
+            android:persistent="false"
+            android:title="@string/restore_default_categories" />
+        <androidx.preference.ListPreference
+            android:key="@string/pref_key_buffer_size"
+            android:title="@string/buffer_size"
+            android:entries="@array/buffer_size_names"
+            android:entryValues="@array/buffer_size_values"
+            android:defaultValue="@string/default_buffer_size" />
         <androidx.preference.SwitchPreference
             android:key="@string/pref_key_long_traces"
             android:title="@string/long_traces"
@@ -70,6 +65,19 @@
             android:defaultValue="@string/default_long_trace_duration" />
     </androidx.preference.PreferenceCategory>
     <androidx.preference.PreferenceCategory
+        android:title="@string/pref_category_saved_files" >
+        <Preference
+            android:key="trace_link_button"
+            android:title="@string/link_to_traces"
+            android:persistent="false" />
+        <Preference
+            android:key="clear_saved_files"
+            android:summary="@string/clear_saved_files_summary"
+            android:persistent="false"
+            android:title="@string/clear_saved_files" />
+    </androidx.preference.PreferenceCategory>
+    <androidx.preference.PreferenceCategory
+        android:title="@string/pref_category_misc"
         android:orderingFromXml="true" >
         <androidx.preference.SwitchPreference
             android:key="@string/pref_key_stop_on_bugreport"

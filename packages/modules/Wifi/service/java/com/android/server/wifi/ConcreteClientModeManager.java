@@ -26,6 +26,7 @@ import android.content.Intent;
 import android.net.ConnectivityManager;
 import android.net.ConnectivityManager.NetworkCallback;
 import android.net.DhcpResultsParcelable;
+import android.net.MacAddress;
 import android.net.Network;
 import android.net.NetworkCapabilities;
 import android.net.NetworkRequest;
@@ -34,6 +35,7 @@ import android.net.wifi.WifiAnnotations;
 import android.net.wifi.WifiConfiguration;
 import android.net.wifi.WifiInfo;
 import android.net.wifi.WifiManager;
+import android.net.wifi.WifiManager.DeviceMobilityState;
 import android.net.wifi.hotspot2.IProvisioningCallback;
 import android.net.wifi.hotspot2.OsuProvider;
 import android.net.wifi.nl80211.DeviceWiphyCapabilities;
@@ -62,6 +64,7 @@ import com.android.internal.util.State;
 import com.android.internal.util.StateMachine;
 import com.android.modules.utils.HandlerExecutor;
 import com.android.server.wifi.WifiNative.InterfaceCallback;
+import com.android.server.wifi.WifiNative.InterfaceEventCallback;
 import com.android.server.wifi.WifiNative.RxFateReport;
 import com.android.server.wifi.WifiNative.TxFateReport;
 import com.android.server.wifi.util.ActionListenerWrapper;
@@ -178,7 +181,8 @@ public class ConcreteClientModeManager implements ClientModeManager {
     }
 
     private String getTag() {
-        return TAG + "[" + (mClientInterfaceName == null ? "unknown" : mClientInterfaceName) + "]";
+        return TAG + "[" + mId + ":" + (mClientInterfaceName == null ? "unknown"
+                : mClientInterfaceName) + "]";
     }
 
     /**
@@ -438,6 +442,28 @@ public class ConcreteClientModeManager implements ClientModeManager {
         }
     }
 
+    private boolean isAnyImsServiceOverWlanAvailable(int subId) {
+        ImsMmTelManager imsMmTelManager = ImsMmTelManager.createForSubscriptionId(subId);
+        try {
+            int[] possibleServiceOverWlan = new int[] {
+                MmTelFeature.MmTelCapabilities.CAPABILITY_TYPE_VOICE,
+                MmTelFeature.MmTelCapabilities.CAPABILITY_TYPE_VIDEO,
+                MmTelFeature.MmTelCapabilities.CAPABILITY_TYPE_UT,
+                MmTelFeature.MmTelCapabilities.CAPABILITY_TYPE_SMS,
+                MmTelFeature.MmTelCapabilities.CAPABILITY_TYPE_CALL_COMPOSER,
+            };
+            for (int i: possibleServiceOverWlan) {
+                if (imsMmTelManager.isAvailable(i,
+                        ImsRegistrationImplBase.REGISTRATION_TECH_IWLAN)) {
+                    return true;
+                }
+            }
+        } catch (RuntimeException ex) {
+            Log.e(TAG, "IMS Manager is not available.", ex);
+        }
+        return false;
+    }
+
     /**
      * Get deferring time before turning off WiFi.
      */
@@ -449,7 +475,8 @@ public class ConcreteClientModeManager implements ClientModeManager {
             return 0;
         }
 
-        List<SubscriptionInfo> subInfoList = subscriptionManager.getActiveSubscriptionInfoList();
+        List<SubscriptionInfo> subInfoList = subscriptionManager
+                .getCompleteActiveSubscriptionInfoList();
         if (subInfoList == null) {
             Log.d(getTag(), "Active SubscriptionInfo list not found");
             return 0;
@@ -473,17 +500,9 @@ public class ConcreteClientModeManager implements ClientModeManager {
             return 0;
         }
 
-        ImsMmTelManager imsMmTelManager = ImsMmTelManager.createForSubscriptionId(subId);
-        // If no wifi calling, no delay
-        try {
-            if (!imsMmTelManager.isAvailable(
-                    MmTelFeature.MmTelCapabilities.CAPABILITY_TYPE_VOICE,
-                    ImsRegistrationImplBase.REGISTRATION_TECH_IWLAN)) {
-                Log.d(getTag(), "IMS not registered over IWLAN for subId: " + subId);
-                return 0;
-            }
-        } catch (RuntimeException ex) {
-            Log.e(TAG, "IMS Manager is not available.", ex);
+        // If no IMS service over WLAN, no delay
+        if (!isAnyImsServiceOverWlanAvailable(subId)) {
+            Log.d(getTag(), "IMS not registered over IWLAN for subId: " + subId);
             return 0;
         }
 
@@ -699,10 +718,11 @@ public class ConcreteClientModeManager implements ClientModeManager {
         public static final int CMD_INTERFACE_DESTROYED = 4;
         public static final int CMD_INTERFACE_DOWN = 5;
         public static final int CMD_SWITCH_TO_SCAN_ONLY_MODE_CONTINUE = 6;
-        private final State mIdleState = new IdleState();
-        private final State mStartedState = new StartedState();
-        private final State mScanOnlyModeState = new ScanOnlyModeState();
-        private final State mConnectModeState = new ConnectModeState();
+        public static final int CMD_INTERFACE_ADDED = 7;
+        private final State mIdleState;
+        private final State mStartedState;
+        private final State mScanOnlyModeState;
+        private final State mConnectModeState;
         // Workaround since we cannot use transitionTo(mScanOnlyModeState, RoleChangeInfo)
         private RoleChangeInfo mScanRoleChangeInfoToSetOnTransition = null;
         // Workaround since we cannot use transitionTo(mConnectModeState, RoleChangeInfo)
@@ -710,6 +730,39 @@ public class ConcreteClientModeManager implements ClientModeManager {
 
         @Nullable
         private StateMachineObituary mObituary = null;
+
+        private final InterfaceEventCallback mWifiNativeInterfaceEventCallback =
+                new InterfaceEventCallback() {
+
+            boolean mEnabling = false;
+
+            @Override
+            public void onInterfaceLinkStateChanged(String ifaceName, boolean isLinkUp) {
+                Log.d("InterfaceEventCallback",
+                        "onInterfaceLinkStateChanged, ifaceName=" + ifaceName + " up="
+                                + isLinkUp + " CurrentState=" + getCurrentStateName());
+                if (isLinkUp) {
+                    mEnabling = false;
+                }
+            }
+
+            @Override
+            public void onInterfaceAdded(String ifaceName) {
+                Log.d("InterfaceEventCallback",
+                        "onInterfaceAdded, ifaceName=" + ifaceName
+                                + " CurrentState=" + getCurrentStateName());
+                if (mStateMachine.getCurrentState() == null) {
+                    Log.d(TAG, "StateMachine not active, trigger ifaceAddedDetected");
+                    mSelfRecovery.trigger(SelfRecovery.REASON_IFACE_ADDED);
+                } else if (!mEnabling) {
+                    Log.d("InterfaceEventCallback", "send CMD_INTERFACE_ADDED");
+                    mStateMachine.sendMessage(CMD_INTERFACE_ADDED);
+                    mEnabling = true;
+                } else {
+                    Log.d("InterfaceEventCallback", "wifi already in the start");
+                }
+            }
+        };
 
         private final InterfaceCallback mWifiNativeInterfaceCallback = new InterfaceCallback() {
             @Override
@@ -728,6 +781,8 @@ public class ConcreteClientModeManager implements ClientModeManager {
                         mClientModeImpl.handleIfaceDestroyed();
                     }
 
+                    // set it to null since the interface had been destroyed
+                    mClientInterfaceName = null;
                     sendMessage(CMD_INTERFACE_DESTROYED);
                 }
             }
@@ -749,7 +804,12 @@ public class ConcreteClientModeManager implements ClientModeManager {
 
         ClientModeStateMachine(Looper looper) {
             super(TAG, looper);
-
+            final int threshold = mContext.getResources().getInteger(
+                    R.integer.config_wifiConfigurationWifiRunnerThresholdInMs);
+            mIdleState = new IdleState(threshold);
+            mStartedState = new StartedState(threshold);
+            mScanOnlyModeState = new ScanOnlyModeState(threshold);
+            mConnectModeState = new ConnectModeState(threshold);
             // CHECKSTYLE:OFF IndentationCheck
             addState(mIdleState);
                 addState(mStartedState, mIdleState);
@@ -783,6 +843,52 @@ public class ConcreteClientModeManager implements ClientModeManager {
         }
 
         /**
+         * Return the additional string to be logged by LogRec.
+         *
+         * @param msg that was processed
+         * @return information to be logged as a String
+         */
+        @Override
+        protected String getLogRecString(Message msg) {
+            StringBuilder sb = new StringBuilder();
+            sb.append(msg.arg1)
+                    .append(" ").append(msg.arg2);
+            if (msg.obj != null) {
+                sb.append(" ").append(msg.obj);
+            }
+            return sb.toString();
+        }
+
+        /**
+         * Convert the |what| field in logs from int to String.
+         */
+        @Override
+        protected String getWhatToString(int what) {
+            switch (what) {
+                case CMD_START:
+                    return "CMD_START";
+                case CMD_SWITCH_TO_SCAN_ONLY_MODE:
+                    return "CMD_SWITCH_TO_SCAN_ONLY_MODE";
+                case CMD_SWITCH_TO_CONNECT_MODE:
+                    return "CMD_SWITCH_TO_CONNECT_MODE";
+                case CMD_INTERFACE_STATUS_CHANGED:
+                    return "CMD_INTERFACE_STATUS_CHANGED";
+                case CMD_INTERFACE_DESTROYED:
+                    return "CMD_INTERFACE_DESTROYED";
+                case CMD_INTERFACE_DOWN:
+                    return "CMD_INTERFACE_DOWN";
+                case CMD_SWITCH_TO_SCAN_ONLY_MODE_CONTINUE:
+                    return "CMD_SWITCH_TO_SCAN_ONLY_MODE_CONTINUE";
+                case RunnerState.STATE_ENTER_CMD:
+                    return "Enter";
+                case RunnerState.STATE_EXIT_CMD:
+                    return "Exit";
+                default:
+                    return "what:" + what;
+            }
+        }
+
+        /**
          * Reset this ConcreteClientModeManager when its role changes, so that it can be reused for
          * another purpose.
          */
@@ -808,11 +914,17 @@ public class ConcreteClientModeManager implements ClientModeManager {
         private void setRoleInternalAndInvokeCallback(@NonNull RoleChangeInfo roleChangeInfo) {
             if (roleChangeInfo.role == mRole) return;
             if (mRole == null) {
-                Log.v(getTag(), "ClientModeManager started in role: " + roleChangeInfo);
+                if (mVerboseLoggingEnabled) {
+                    Log.v(getTag(), "CurState:" + getCurrentStateName()
+                            + ", clientModeManager started in role: " + roleChangeInfo);
+                }
                 setRoleInternal(roleChangeInfo);
                 mModeListener.onStarted(ConcreteClientModeManager.this);
             } else {
-                Log.v(getTag(), "ClientModeManager role changed: " + roleChangeInfo);
+                if (mVerboseLoggingEnabled) {
+                    Log.v(getTag(), "CurState:" + getCurrentStateName()
+                            + ", clientModeManager role changed: " + roleChangeInfo);
+                }
                 setRoleInternal(roleChangeInfo);
                 reset();
                 mModeListener.onRoleChanged(ConcreteClientModeManager.this);
@@ -822,39 +934,60 @@ public class ConcreteClientModeManager implements ClientModeManager {
             }
         }
 
-        private class IdleState extends State {
+        private class IdleState extends RunnerState {
+            IdleState(int threshold) {
+                super(threshold, mWifiInjector.getWifiHandlerLocalLog());
+            }
+
             @Override
-            public void enter() {
+            public void enterImpl() {
                 Log.d(getTag(), "entering IdleState");
                 mClientInterfaceName = null;
                 mIfaceIsUp = false;
             }
 
             @Override
-            public void exit() {
+            public void exitImpl() {
                 // Sometimes the wifi handler thread may become blocked that the statemachine
                 // will exit in the IdleState without first entering StartedState. Trigger a
                 // cleanup here in case the above sequence happens. This the statemachine was
                 // started normally this will will not send a duplicate broadcast since mIsStopped
                 // will get set to false the first time the exit happens.
                 cleanupOnQuitIfApplicable();
+                Log.d(getTag(), "IdleState.exit()");
             }
 
             @Override
-            public boolean processMessage(Message message) {
+            String getMessageLogRec(int what) {
+                return ConcreteClientModeManager.class.getSimpleName() + "."
+                        + IdleState.class.getSimpleName() + "."
+                        + getWhatToString(what);
+            }
+
+            @Override
+            public boolean processMessageImpl(Message message) {
+                if (mVerboseLoggingEnabled) {
+                    Log.d(getTag(),
+                            getName() + " cmd = " + getWhatToString(message.what) + " "
+                                    + message.toString());
+                }
                 switch (message.what) {
                     case CMD_START:
                         // Always start in scan mode first.
                         RoleChangeInfo roleChangeInfo = (RoleChangeInfo) message.obj;
                         mClientInterfaceName = mWifiNative.setupInterfaceForClientInScanMode(
-                                mWifiNativeInterfaceCallback, roleChangeInfo.requestorWs);
+                                mWifiNativeInterfaceCallback, roleChangeInfo.requestorWs,
+                                ConcreteClientModeManager.this);
                         if (TextUtils.isEmpty(mClientInterfaceName)) {
                             Log.e(getTag(), "Failed to create ClientInterface. Sit in Idle");
                             takeBugReportInterfaceFailureIfNeeded(
-                                    "Wi-Fi scan STA interface HAL failure");
+                                    "Wi-Fi BugReport (scan STA interface failure):",
+                                    "Failed to create client interface in idle state");
                             mModeListener.onStartFailure(ConcreteClientModeManager.this);
                             break;
                         }
+                        mWifiNative.setWifiNativeInterfaceEventCallback(
+                                mWifiNativeInterfaceEventCallback);
                         if (roleChangeInfo.role instanceof ClientConnectivityRole) {
                             sendMessage(CMD_SWITCH_TO_CONNECT_MODE, roleChangeInfo);
                             transitionTo(mStartedState);
@@ -863,15 +996,22 @@ public class ConcreteClientModeManager implements ClientModeManager {
                             transitionTo(mScanOnlyModeState);
                         }
                         break;
+                    case CMD_INTERFACE_ADDED:
+                        Log.d(getTag(), "IdleState received CMD_INTERFACE_ADDED");
+                        mSelfRecovery.trigger(SelfRecovery.REASON_IFACE_ADDED);
+                        break;
                     default:
-                        Log.d(getTag(), "received an invalid message: " + message);
+                        Log.d(getTag(), getName() + ", received an invalid message: " + message);
                         return NOT_HANDLED;
                 }
                 return HANDLED;
             }
         }
 
-        private class StartedState extends State {
+        private class StartedState extends RunnerState {
+            StartedState(int threshold) {
+                super(threshold, mWifiInjector.getWifiHandlerLocalLog());
+            }
 
             private void onUpChanged(boolean isUp) {
                 if (isUp == mIfaceIsUp) {
@@ -880,7 +1020,7 @@ public class ConcreteClientModeManager implements ClientModeManager {
                 mIfaceIsUp = isUp;
                 if (!isUp) {
                     // if the interface goes down we should exit and go back to idle state.
-                    Log.d(getTag(), "interface down!");
+                    Log.d(getTag(), getName() + ", interface down!");
                     mStateMachine.sendMessage(CMD_INTERFACE_DOWN);
                 }
                 if (mClientModeImpl != null) {
@@ -889,7 +1029,7 @@ public class ConcreteClientModeManager implements ClientModeManager {
             }
 
             @Override
-            public void enter() {
+            public void enterImpl() {
                 Log.d(getTag(), "entering StartedState");
                 mIfaceIsUp = false;
                 mIsStopped = false;
@@ -897,7 +1037,19 @@ public class ConcreteClientModeManager implements ClientModeManager {
             }
 
             @Override
-            public boolean processMessage(Message message) {
+            String getMessageLogRec(int what) {
+                return ConcreteClientModeManager.class.getSimpleName() + "."
+                        + StartedState.class.getSimpleName() + "."
+                        + getWhatToString(what);
+            }
+
+            @Override
+            public boolean processMessageImpl(Message message) {
+                if (mVerboseLoggingEnabled) {
+                    Log.d(getTag(),
+                            getName() + " cmd = " + getWhatToString(message.what) + " "
+                                    + message.toString());
+                }
                 switch (message.what) {
                     case CMD_START:
                         // Already started, ignore this command.
@@ -916,7 +1068,8 @@ public class ConcreteClientModeManager implements ClientModeManager {
                                     WifiManager.WIFI_STATE_DISABLED,
                                     WifiManager.WIFI_STATE_UNKNOWN);
                             takeBugReportInterfaceFailureIfNeeded(
-                                    "Wi-Fi STA interface HAL failure");
+                                    "Wi-Fi BugReport (STA interface failure):",
+                                    "Fail to switch to connection mode in started state");
                             mModeListener.onStartFailure(ConcreteClientModeManager.this);
                             break;
                         }
@@ -937,8 +1090,9 @@ public class ConcreteClientModeManager implements ClientModeManager {
                         break;
                     }
                     case CMD_INTERFACE_DOWN:
-                        Log.e(getTag(), "Detected an interface down, reporting failure to "
-                                + "SelfRecovery");
+                        Log.e(getTag(),
+                                getName() + ", detected an interface down, reporting failure to "
+                                        + "SelfRecovery");
                         mSelfRecovery.trigger(SelfRecovery.REASON_STA_IFACE_DOWN);
                         // once interface down, nothing else to do...  stop the state machine
                         captureObituaryAndQuitNow();
@@ -948,7 +1102,7 @@ public class ConcreteClientModeManager implements ClientModeManager {
                         onUpChanged(isUp);
                         break;
                     case CMD_INTERFACE_DESTROYED:
-                        Log.e(getTag(), "interface destroyed - client mode stopping");
+                        Log.e(getTag(), getName() + ", interface destroyed - client mode stopping");
                         mClientInterfaceName = null;
                         // once interface destroyed, nothing else to do...  stop the state machine
                         captureObituaryAndQuitNow();
@@ -963,22 +1117,26 @@ public class ConcreteClientModeManager implements ClientModeManager {
              * Clean up state, unregister listeners and update wifi state.
              */
             @Override
-            public void exit() {
+            public void exitImpl() {
                 if (mClientInterfaceName != null) {
                     mWifiNative.teardownInterface(mClientInterfaceName);
                     mClientInterfaceName = null;
                     mIfaceIsUp = false;
                 }
 
-                Log.i(getTag(), "StartedState#exit(), setting mRole = null");
+                Log.i(getTag(), "StartedState.exit(), setting mRole = null");
                 mIsStopped = true;
                 cleanupOnQuitIfApplicable();
             }
         }
 
-        private class ScanOnlyModeState extends State {
+        private class ScanOnlyModeState extends RunnerState {
+            ScanOnlyModeState(int threshold) {
+                super(threshold, mWifiInjector.getWifiHandlerLocalLog());
+            }
+
             @Override
-            public void enter() {
+            public void enterImpl() {
                 Log.d(getTag(), "entering ScanOnlyModeState");
 
                 if (mClientInterfaceName != null) {
@@ -1005,7 +1163,19 @@ public class ConcreteClientModeManager implements ClientModeManager {
             }
 
             @Override
-            public boolean processMessage(Message message) {
+            String getMessageLogRec(int what) {
+                return ConcreteClientModeManager.class.getSimpleName() + "."
+                        + ScanOnlyModeState.class.getSimpleName() + "."
+                        + getWhatToString(what);
+            }
+
+            @Override
+            public boolean processMessageImpl(Message message) {
+                if (mVerboseLoggingEnabled) {
+                    Log.d(getTag(),
+                            getName() + " cmd = " + getWhatToString(message.what) + " "
+                                    + message.toString());
+                }
                 switch (message.what) {
                     case CMD_SWITCH_TO_SCAN_ONLY_MODE:
                         // Already in scan only mode, ignore this command.
@@ -1017,7 +1187,7 @@ public class ConcreteClientModeManager implements ClientModeManager {
             }
 
             @Override
-            public void exit() {
+            public void exitImpl() {
                 mScanOnlyModeImpl = null;
                 mScanRoleChangeInfoToSetOnTransition = null;
 
@@ -1028,9 +1198,13 @@ public class ConcreteClientModeManager implements ClientModeManager {
             }
         }
 
-        private class ConnectModeState extends State {
+        private class ConnectModeState extends RunnerState {
+            ConnectModeState(int threshold) {
+                super(threshold, mWifiInjector.getWifiHandlerLocalLog());
+            }
+
             @Override
-            public void enter() {
+            public void enterImpl() {
                 Log.d(getTag(), "entering ConnectModeState, starting ClientModeImpl");
                 if (mClientInterfaceName == null) {
                     Log.e(getTag(), "Supposed to start ClientModeImpl, but iface is null!");
@@ -1061,7 +1235,19 @@ public class ConcreteClientModeManager implements ClientModeManager {
             }
 
             @Override
-            public boolean processMessage(Message message) {
+            String getMessageLogRec(int what) {
+                return ConcreteClientModeManager.class.getSimpleName() + "."
+                        + ConnectModeState.class.getSimpleName() + "."
+                        + getWhatToString(what);
+            }
+
+            @Override
+            public boolean processMessageImpl(Message message) {
+                if (mVerboseLoggingEnabled) {
+                    Log.d(getTag(),
+                            getName() + " cmd = " + getWhatToString(message.what) + " "
+                                    + message.toString());
+                }
                 switch (message.what) {
                     case CMD_SWITCH_TO_CONNECT_MODE:
                         RoleChangeInfo roleChangeInfo = (RoleChangeInfo) message.obj;
@@ -1075,7 +1261,7 @@ public class ConcreteClientModeManager implements ClientModeManager {
                             // If this call failed, the iface would be torn down.
                             // Thus, simply abort and let the iface down handling take care of the
                             // rest.
-                            Log.e(getTag(), "Failed to switch ClientModeManager="
+                            Log.e(getTag(), getName() + ", Failed to switch ClientModeManager="
                                     + ConcreteClientModeManager.this + "'s requestorWs");
                         }
                         break;
@@ -1118,14 +1304,14 @@ public class ConcreteClientModeManager implements ClientModeManager {
             }
 
             @Override
-            public void exit() {
+            public void exitImpl() {
                 updateConnectModeState(mRole, WifiManager.WIFI_STATE_DISABLED,
                         WifiManager.WIFI_STATE_DISABLING);
 
                 if (mClientModeImpl == null) {
                     Log.w(getTag(), "ConnectModeState.exit(): mClientModeImpl is already null?!");
                 } else {
-                    Log.d(getTag(), "Stopping ClientModeImpl");
+                    Log.d(getTag(), "ConnectModeState.exit(): Stopping ClientModeImpl");
                     mClientModeImpl.stop();
                     mGraveyard.inter(mClientModeImpl);
                     mClientModeImpl = null;
@@ -1160,9 +1346,9 @@ public class ConcreteClientModeManager implements ClientModeManager {
         }
     }
 
-    private void takeBugReportInterfaceFailureIfNeeded(String bugTitle) {
+    private void takeBugReportInterfaceFailureIfNeeded(String bugTitle, String bugDetail) {
         if (mWifiInjector.getDeviceConfigFacade().isInterfaceFailureBugreportEnabled()) {
-            mWifiInjector.getWifiDiagnostics().takeBugReport(bugTitle, bugTitle);
+            mWifiInjector.getWifiDiagnostics().takeBugReport(bugTitle, bugDetail);
         }
     }
 
@@ -1219,6 +1405,16 @@ public class ConcreteClientModeManager implements ClientModeManager {
     }
 
     @Override
+    public void onDeviceMobilityStateUpdated(@DeviceMobilityState int newState) {
+        getClientMode().onDeviceMobilityStateUpdated(newState);
+    }
+
+    @Override
+    public void setLinkLayerStatsPollingInterval(int newIntervalMs) {
+        getClientMode().setLinkLayerStatsPollingInterval(newIntervalMs);
+    }
+
+    @Override
     public boolean setWifiConnectedNetworkScorer(
             IBinder binder, IWifiConnectedNetworkScorer scorer) {
         return getClientMode().setWifiConnectedNetworkScorer(binder, scorer);
@@ -1227,6 +1423,16 @@ public class ConcreteClientModeManager implements ClientModeManager {
     @Override
     public void clearWifiConnectedNetworkScorer() {
         getClientMode().clearWifiConnectedNetworkScorer();
+    }
+
+    @Override
+    public void onNetworkSwitchAccepted(int targetNetworkId, String targetBssid) {
+        getClientMode().onNetworkSwitchAccepted(targetNetworkId, targetBssid);
+    }
+
+    @Override
+    public void onNetworkSwitchRejected(int targetNetworkId, String targetBssid) {
+        getClientMode().onNetworkSwitchRejected(targetNetworkId, targetBssid);
     }
 
     @Override
@@ -1240,8 +1446,8 @@ public class ConcreteClientModeManager implements ClientModeManager {
     }
 
     @Override
-    public WifiInfo syncRequestConnectionInfo() {
-        return getClientMode().syncRequestConnectionInfo();
+    public WifiInfo getConnectionInfo() {
+        return getClientMode().getConnectionInfo();
     }
 
     @Override
@@ -1250,8 +1456,8 @@ public class ConcreteClientModeManager implements ClientModeManager {
     }
 
     @Override
-    public Network syncGetCurrentNetwork() {
-        return getClientMode().syncGetCurrentNetwork();
+    public Network getCurrentNetwork() {
+        return getClientMode().getCurrentNetwork();
     }
 
     @Override
@@ -1277,8 +1483,28 @@ public class ConcreteClientModeManager implements ClientModeManager {
     }
 
     @Override
-    public void enableTdls(String remoteMacAddress, boolean enable) {
-        getClientMode().enableTdls(remoteMacAddress, enable);
+    public boolean enableTdls(String remoteMacAddress, boolean enable) {
+        return getClientMode().enableTdls(remoteMacAddress, enable);
+    }
+
+    @Override
+    public boolean enableTdlsWithRemoteIpAddress(String remoteIpAddress, boolean enable) {
+        return getClientMode().enableTdlsWithRemoteIpAddress(remoteIpAddress, enable);
+    }
+
+    @Override
+    public boolean isTdlsOperationCurrentlyAvailable() {
+        return getClientMode().isTdlsOperationCurrentlyAvailable();
+    }
+
+    @Override
+    public int getMaxSupportedConcurrentTdlsSessions() {
+        return getClientMode().getMaxSupportedConcurrentTdlsSessions();
+    }
+
+    @Override
+    public int getNumberOfEnabledTdlsSessions() {
+        return getClientMode().getNumberOfEnabledTdlsSessions();
     }
 
     @Override
@@ -1464,5 +1690,15 @@ public class ConcreteClientModeManager implements ClientModeManager {
     @Override
     public void updateCapabilities() {
         getClientMode().updateCapabilities();
+    }
+
+    @Override
+    public boolean isAffiliatedLinkBssid(MacAddress bssid) {
+        return getClientMode().isAffiliatedLinkBssid(bssid);
+    }
+
+    @Override
+    public boolean isMlo() {
+        return getClientMode().isMlo();
     }
 }

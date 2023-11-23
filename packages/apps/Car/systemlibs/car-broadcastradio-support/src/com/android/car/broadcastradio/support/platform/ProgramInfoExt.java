@@ -21,6 +21,7 @@ import android.annotation.NonNull;
 import android.annotation.Nullable;
 import android.graphics.Bitmap;
 import android.hardware.radio.ProgramSelector;
+import android.hardware.radio.RadioManager;
 import android.hardware.radio.RadioManager.ProgramInfo;
 import android.hardware.radio.RadioMetadata;
 import android.media.MediaMetadata;
@@ -29,6 +30,7 @@ import android.util.Log;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
+import java.util.Objects;
 
 /**
  * Proposed extensions to android.hardware.radio.RadioManager.ProgramInfo.
@@ -71,13 +73,23 @@ public class ProgramInfoExt {
     /**
      * Returns program name suitable to display.
      *
-     * If there is no program name, it falls back to channel name. Flags related to
+     * <p>If there is no program name, it falls back to channel name. Flags related to
      * the channel name display will be forwarded to the channel name generation method.
+     *
+     * @param info {@link ProgramInfo} to get name from
+     * @param flags Fallback method
+     * @param programNameOrder {@link RadioMetadata} metadata keys to pull from {@link ProgramInfo}
+     * for the program name
      */
-    public static @NonNull String getProgramName(@NonNull ProgramInfo info, @NameFlag int flags) {
+    @NonNull
+    public static String getProgramName(@NonNull ProgramInfo info, @NameFlag int flags,
+            @NonNull String[] programNameOrder) {
+        Objects.requireNonNull(info, "info can not be null.");
+        Objects.requireNonNull(programNameOrder, "programNameOrder can not be null");
+
         RadioMetadata meta = info.getMetadata();
         if (meta != null) {
-            for (String key : PROGRAM_NAME_ORDER) {
+            for (String key : programNameOrder) {
                 String value = meta.getString(key);
                 if (value != null) return value;
             }
@@ -104,6 +116,17 @@ public class ProgramInfoExt {
     }
 
     /**
+     * Returns program name suitable to display.
+     *
+     * <p>If there is no program name, it falls back to channel name. Flags related to
+     * the channel name display will be forwarded to the channel name generation method.
+     */
+    @NonNull
+    public static String getProgramName(@NonNull ProgramInfo info, @NameFlag int flags) {
+        return getProgramName(info, flags, PROGRAM_NAME_ORDER);
+    }
+
+    /**
      * Proposed reimplementation of {@link RadioManager#ProgramInfo#getMetadata}.
      *
      * As opposed to the original implementation, it never returns null.
@@ -118,12 +141,69 @@ public class ProgramInfoExt {
     }
 
     /**
-     * Converts {@ProgramInfo} to {@MediaMetadata}.
+     * Converts {@link ProgramInfo} to {@link MediaMetadata} for displaying.
      *
-     * This method is meant to be used for currently playing station in {@link MediaSession}.
+     * <p>This method is meant to be used for displaying the currently playing station in
+     *  {@link MediaSession}, only a subset of keys populated in {@link ProgramInfo#toMediaMetadata}
+     *  will be populated in this method.
+     *
+     * <ul>
+     * The following keys will be populated in the {@link MediaMetadata}:
+     *  <li>{@link MediaMetadata#METADATA_KEY_DISPLAY_TITLE}</li>
+     *  <li>{@link MediaMetadata#METADATA_KEY_DISPLAY_SUBTITLE}</li>
+     *  <li>{@link MediaMetadata#METADATA_KEY_ALBUM_ART}</li>
+     *  <li>{@link MediaMetadata#METADATA_KEY_USER_RATING}</li>
+     * <ul/>
      *
      * @param info {@link ProgramInfo} to convert
-     * @param isFavorite true, if a given program is a favorite
+     * @param isFavorite {@code true}, if a given program is a favorite
+     * @param imageResolver metadata images resolver/cache
+     * @param programNameOrder order of keys to look for program name in {@link ProgramInfo}
+     * @return {@link MediaMetadata} object
+     */
+    @NonNull
+    public static MediaMetadata toMediaDisplayMetadata(@NonNull ProgramInfo info,
+            boolean isFavorite, @NonNull ImageResolver imageResolver,
+            @NonNull String[] programNameOrder) {
+        Objects.requireNonNull(info, "info can not be null.");
+        Objects.requireNonNull(imageResolver, "imageResolver can not be null.");
+        Objects.requireNonNull(programNameOrder, "programNameOrder can not be null.");
+
+        MediaMetadata.Builder bld = new MediaMetadata.Builder();
+
+        ProgramSelector selector =
+                ProgramSelectorExt.createAmFmSelector(info.getLogicallyTunedTo().getValue());
+        String displayTitle = ProgramSelectorExt.getDisplayName(selector, info.getChannel());
+        bld.putString(MediaMetadata.METADATA_KEY_DISPLAY_TITLE, displayTitle);
+        String subtitle = getProgramName(info, /* flags= */ 0, programNameOrder);
+        bld.putString(MediaMetadata.METADATA_KEY_DISPLAY_SUBTITLE, subtitle);
+
+        Bitmap bm = resolveAlbumArtBitmap(info.getMetadata(), imageResolver);
+        if (bm != null) bld.putBitmap(MediaMetadata.METADATA_KEY_ALBUM_ART, bm);
+
+        bld.putRating(MediaMetadata.METADATA_KEY_USER_RATING, Rating.newHeartRating(isFavorite));
+
+        return bld.build();
+    }
+
+    /**
+     * Converts {@link ProgramInfo} to {@link MediaMetadata}.
+     *
+     * <p>This method is meant to be used for currently playing station in {@link MediaSession}.
+     *
+     * <ul>
+     * The following keys will be populated in the {@link MediaMetadata}:
+     *  <li>{@link MediaMetadata#METADATA_KEY_DISPLAY_TITLE}</li>
+     *  <li>{@link MediaMetadata#METADATA_KEY_TITLE}</li>
+     *  <li>{@link MediaMetadata#METADATA_KEY_ARTIST}</li>
+     *  <li>{@link MediaMetadata#METADATA_KEY_ALBUM}</li>
+     *  <li>{@link MediaMetadata#METADATA_KEY_DISPLAY_SUBTITLE}</li>
+     *  <li>{@link MediaMetadata#METADATA_KEY_ALBUM_ART}</li>
+     *  <li>{@link MediaMetadata#METADATA_KEY_USER_RATING}</li>
+     * <ul/>
+     *
+     * @param info {@link ProgramInfo} to convert
+     * @param isFavorite {@code true}, if a given program is a favorite
      * @param imageResolver metadata images resolver/cache
      * @return {@link MediaMetadata} object
      */
@@ -158,16 +238,22 @@ public class ProgramInfoExt {
                 }
                 bld.putString(MediaMetadata.METADATA_KEY_DISPLAY_SUBTITLE, subtitle);
             }
-            long albumArtId = RadioMetadataExt.getGlobalBitmapId(meta,
-                    RadioMetadata.METADATA_KEY_ART);
-            if (albumArtId != 0 && imageResolver != null) {
-                Bitmap bm = imageResolver.resolve(albumArtId);
-                if (bm != null) bld.putBitmap(MediaMetadata.METADATA_KEY_ALBUM_ART, bm);
-            }
+
+            Bitmap bm = resolveAlbumArtBitmap(meta, imageResolver);
+            if (bm != null) bld.putBitmap(MediaMetadata.METADATA_KEY_ALBUM_ART, bm);
         }
 
         bld.putRating(MediaMetadata.METADATA_KEY_USER_RATING, Rating.newHeartRating(isFavorite));
 
         return bld.build();
+    }
+
+    private static Bitmap resolveAlbumArtBitmap(@NonNull RadioMetadata meta,
+            @NonNull ImageResolver imageResolver) {
+        long albumArtId = RadioMetadataExt.getGlobalBitmapId(meta, RadioMetadata.METADATA_KEY_ART);
+        if (albumArtId != 0 && imageResolver != null) {
+            return imageResolver.resolve(albumArtId);
+        }
+        return null;
     }
 }

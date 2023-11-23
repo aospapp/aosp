@@ -20,7 +20,7 @@
     android:layout_height="wrap_content"
     android:background="?selectableItemBackground"
     android:clickable="true"
-    android:paddingVertical="@dimen/section_top_padding"
+    android:paddingVertical="@dimen/section_padding"
     android:paddingHorizontal="@dimen/section_horizontal_padding"
     android:orientation="horizontal">
 

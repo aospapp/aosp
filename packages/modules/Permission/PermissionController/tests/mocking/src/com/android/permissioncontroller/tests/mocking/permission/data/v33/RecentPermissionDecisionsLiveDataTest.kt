@@ -19,6 +19,7 @@ package com.android.permissioncontroller.tests.mocking.permission.data.v33
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.android.permissioncontroller.permission.data.v33.PermissionDecision
 import com.android.permissioncontroller.permission.data.v33.RecentPermissionDecisionsLiveData
+import com.android.permissioncontroller.tests.mocking.permission.data.FakeEventStorage
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.runBlocking
 import org.junit.Before

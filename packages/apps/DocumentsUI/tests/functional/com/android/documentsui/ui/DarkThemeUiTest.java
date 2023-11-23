@@ -69,7 +69,8 @@ public class DarkThemeUiTest extends ThemeUiTestBase {
     }
 
     @Test
-    public void themeNightModeEnable_navigationBarColorShouldBeDark() {
+    public void themeNightModeEnable_navigationBarColorShouldBeDark() throws Exception {
+        assumeFalse(VersionUtils.isAtLeastS()); // Disable for S dynamic color
         assertTheme(R.styleable.SystemWindow, R.styleable.SystemWindow_android_navigationBarColor,
                 mTheme.getResources().getColor(android.R.color.black, mTheme));
     }

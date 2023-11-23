@@ -46,8 +46,8 @@ void EattExtension::Connect(const RawAddress& bd_addr) {
   pimpl_->Connect(bd_addr);
 }
 
-void EattExtension::Disconnect(const RawAddress& bd_addr) {
-  pimpl_->Disconnect(bd_addr);
+void EattExtension::Disconnect(const RawAddress& bd_addr, uint16_t cid) {
+  pimpl_->Disconnect(bd_addr, cid);
 }
 
 void EattExtension::Reconfigure(const RawAddress& bd_addr, uint16_t cid,
@@ -86,9 +86,9 @@ bool EattExtension::IsOutstandingMsgInSendQueue(const RawAddress& bd_addr) {
   return pimpl_->IsOutstandingMsgInSendQueue(bd_addr);
 }
 
-EattChannel* EattExtension::GetChannelWithQueuedData(
+EattChannel* EattExtension::GetChannelWithQueuedDataToSend(
     const RawAddress& bd_addr) {
-  return pimpl_->GetChannelWithQueuedData(bd_addr);
+  return pimpl_->GetChannelWithQueuedDataToSend(bd_addr);
 }
 
 EattChannel* EattExtension::GetChannelAvailableForClientRequest(

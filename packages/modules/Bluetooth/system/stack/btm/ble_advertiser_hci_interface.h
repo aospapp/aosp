@@ -19,7 +19,7 @@
 #ifndef BLE_ADVERTISER_HCI_INTERFACE_H
 #define BLE_ADVERTISER_HCI_INTERFACE_H
 
-#include <base/callback.h>
+#include <base/functional/callback.h>
 
 #include <vector>
 
@@ -102,7 +102,8 @@ class BleAdvertiserHciInterface {
                                           uint8_t adv_data_length,
                                           uint8_t* adv_data,
                                           status_cb command_complete) = 0;
-  virtual void SetPeriodicAdvertisingEnable(uint8_t enable, uint8_t handle,
+  virtual void SetPeriodicAdvertisingEnable(bool enable, bool include_adi,
+                                            uint8_t handle,
                                             status_cb command_complete) = 0;
   virtual void RemoveAdvertisingSet(uint8_t handle,
                                     status_cb command_complete) = 0;

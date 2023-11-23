@@ -14,12 +14,12 @@ cc_library_static {
     host_supported: true,
     include_dirs: ["packages/modules/Bluetooth/system/include"],
     srcs: [
-        "packet.cc",
         "iterator.cc",
+        "packet.cc",
         "packet_builder.cc",
     ],
     apex_available: [
-        "com.android.bluetooth",
+        "com.android.btservices",
     ],
     min_sdk_version: "30",
 }

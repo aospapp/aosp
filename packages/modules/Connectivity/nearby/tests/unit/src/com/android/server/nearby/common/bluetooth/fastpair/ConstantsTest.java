@@ -33,6 +33,8 @@ import com.android.server.nearby.common.bluetooth.BluetoothException;
 import com.android.server.nearby.common.bluetooth.fastpair.Constants.FastPairService.KeyBasedPairingCharacteristic;
 import com.android.server.nearby.common.bluetooth.gatt.BluetoothGattConnection;
 
+import com.google.common.collect.ImmutableList;
+
 import junit.framework.TestCase;
 
 import org.mockito.Mock;
@@ -43,6 +45,8 @@ import java.util.UUID;
  * Unit tests for {@link Constants}.
  */
 public class ConstantsTest extends TestCase {
+
+    private static final int PASSKEY = 32689;
 
     @Mock
     private BluetoothGattConnection mMockGattConnection;
@@ -77,5 +81,63 @@ public class ConstantsTest extends TestCase {
 
         assertThat(KeyBasedPairingCharacteristic.getId(mMockGattConnection))
                 .isEqualTo(OLD_KEY_BASE_PAIRING_CHARACTERISTICS);
+    }
+
+    @SdkSuppress(minSdkVersion = 32, codeName = "T")
+    public void test_accountKeyCharacteristic_notCrash() throws BluetoothException {
+        Constants.FastPairService.AccountKeyCharacteristic.getId(mMockGattConnection);
+    }
+
+    @SdkSuppress(minSdkVersion = 32, codeName = "T")
+    public void test_additionalDataCharacteristic_notCrash() throws BluetoothException {
+        Constants.FastPairService.AdditionalDataCharacteristic.getId(mMockGattConnection);
+    }
+
+    @SdkSuppress(minSdkVersion = 32, codeName = "T")
+    public void test_nameCharacteristic_notCrash() throws BluetoothException {
+        Constants.FastPairService.NameCharacteristic.getId(mMockGattConnection);
+    }
+
+    @SdkSuppress(minSdkVersion = 32, codeName = "T")
+    public void test_passKeyCharacteristic_encryptDecryptSuccessfully()
+            throws java.security.GeneralSecurityException {
+        byte[] secret = AesEcbSingleBlockEncryption.generateKey();
+
+        Constants.FastPairService.PasskeyCharacteristic.getId(mMockGattConnection);
+        assertThat(
+                Constants.FastPairService.PasskeyCharacteristic.decrypt(
+                        Constants.FastPairService.PasskeyCharacteristic.Type.SEEKER,
+                        secret,
+                        Constants.FastPairService.PasskeyCharacteristic.encrypt(
+                                Constants.FastPairService.PasskeyCharacteristic.Type.SEEKER,
+                                secret,
+                                PASSKEY))
+        ).isEqualTo(PASSKEY);
+    }
+
+    @SdkSuppress(minSdkVersion = 32, codeName = "T")
+    public void test_beaconActionsCharacteristic_notCrash() throws BluetoothException {
+        Constants.FastPairService.BeaconActionsCharacteristic.getId(mMockGattConnection);
+        for (byte b : ImmutableList.of(
+                (byte) Constants.FastPairService.BeaconActionsCharacteristic.BeaconActionType
+                        .READ_BEACON_PARAMETERS,
+                (byte) Constants.FastPairService.BeaconActionsCharacteristic.BeaconActionType
+                        .READ_PROVISIONING_STATE,
+                (byte) Constants.FastPairService.BeaconActionsCharacteristic.BeaconActionType
+                        .SET_EPHEMERAL_IDENTITY_KEY,
+                (byte) Constants.FastPairService.BeaconActionsCharacteristic.BeaconActionType
+                        .CLEAR_EPHEMERAL_IDENTITY_KEY,
+                (byte) Constants.FastPairService.BeaconActionsCharacteristic.BeaconActionType
+                        .READ_EPHEMERAL_IDENTITY_KEY,
+                (byte) Constants.FastPairService.BeaconActionsCharacteristic.BeaconActionType
+                        .RING,
+                (byte) Constants.FastPairService.BeaconActionsCharacteristic.BeaconActionType
+                        .READ_RINGING_STATE,
+                (byte) Constants.FastPairService.BeaconActionsCharacteristic.BeaconActionType
+                        .UNKNOWN
+        )) {
+            assertThat(Constants.FastPairService.BeaconActionsCharacteristic
+                    .valueOf(b)).isEqualTo(b);
+        }
     }
 }

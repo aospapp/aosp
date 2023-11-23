@@ -24,10 +24,5 @@
     <!-- no translation found for phone_number (3879925006862072135) -->
     <skip />
     <string name="phone_number_with_pin" msgid="6760582665093825412">"<xliff:g id="NUMBER">%1$s</xliff:g> PIN kodas: <xliff:g id="PIN_0">%2$s</xliff:g>"</string>
-    <plurals name="all_day_title" formatted="false" msgid="7938279592034934265">
-      <item quantity="one">%d visos dienos įvykis</item>
-      <item quantity="few">%d visos dienos įvykiai</item>
-      <item quantity="many">%d visos dienos įvykio</item>
-      <item quantity="other">%d visos dienos įvykių</item>
-    </plurals>
+    <string name="all_day_title" msgid="5963074297534975402">"{count,plural, =1{# visos dienos įvykis}one{# visos dienos įvykis}few{# visos dienos įvykiai}many{# visos dienos įvykio}other{# visos dienos įvykių}}"</string>
 </resources>

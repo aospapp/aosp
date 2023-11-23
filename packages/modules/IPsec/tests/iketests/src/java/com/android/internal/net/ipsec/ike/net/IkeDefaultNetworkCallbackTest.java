@@ -20,12 +20,14 @@ import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 
 import android.net.InetAddresses;
 import android.net.LinkAddress;
 import android.net.LinkProperties;
 import android.net.Network;
+import android.net.NetworkCapabilities;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -48,6 +50,8 @@ public class IkeDefaultNetworkCallbackTest {
     private IkeNetworkUpdater mMockIkeNetworkUpdater;
 
     private InetAddress mCurrAddress;
+    private LinkProperties mCurrLp;
+    private NetworkCapabilities mCurrNc;
     private IkeDefaultNetworkCallback mNetworkCallback;
 
     @Before
@@ -55,25 +59,77 @@ public class IkeDefaultNetworkCallbackTest {
         mMockNetwork = mock(Network.class);
         mMockIkeNetworkUpdater = mock(IkeNetworkUpdater.class);
 
+        mCurrLp = mock(LinkProperties.class);
+        mCurrNc = mock(NetworkCapabilities.class);
+
         mCurrAddress = CURR_ADDRESS;
         mNetworkCallback =
-                new IkeDefaultNetworkCallback(mMockIkeNetworkUpdater, mMockNetwork, mCurrAddress);
+                new IkeDefaultNetworkCallback(
+                        mMockIkeNetworkUpdater, mMockNetwork, mCurrAddress, mCurrLp, mCurrNc);
+    }
+
+    private void verifyNewNetworkCallback(
+            boolean onAvailableCalled,
+            boolean onLpChangedCalled,
+            boolean onNcChangedCalled,
+            boolean expectNotifyUpdate) {
+        Network updatedNetwork = mock(Network.class);
+        LinkProperties lp = mock(LinkProperties.class);
+        NetworkCapabilities nc = mock(NetworkCapabilities.class);
+
+        if (onAvailableCalled) mNetworkCallback.onAvailable(updatedNetwork);
+        if (onLpChangedCalled) mNetworkCallback.onLinkPropertiesChanged(updatedNetwork, lp);
+        if (onNcChangedCalled) mNetworkCallback.onCapabilitiesChanged(updatedNetwork, nc);
+
+        if (expectNotifyUpdate) {
+            verify(mMockIkeNetworkUpdater)
+                    .onUnderlyingNetworkUpdated(eq(updatedNetwork), eq(lp), eq(nc));
+        } else {
+            verify(mMockIkeNetworkUpdater, never()).onUnderlyingNetworkUpdated(any(), any(), any());
+        }
+    }
+
+    @Test
+    public void testOnNewNetwork() {
+        verifyNewNetworkCallback(
+                true /* onAvailableCalled */,
+                true /* onLpChangedCalled */,
+                true /* onNcChangedCalled */,
+                true /* expectNotifyUpdate */);
     }
 
     @Test
     public void testOnAvailable() {
-        Network updatedNetwork = mock(Network.class);
+        verifyNewNetworkCallback(
+                true /* onAvailableCalled */,
+                false /* onLpChangedCalled */,
+                false /* onNcChangedCalled */,
+                false /* expectNotifyUpdate */);
+    }
 
-        mNetworkCallback.onAvailable(updatedNetwork);
+    @Test
+    public void testOnLinkPropertiesChangedOnNewNetwork() {
+        verifyNewNetworkCallback(
+                true /* onAvailableCalled */,
+                true /* onLpChangedCalled */,
+                false /* onNcChangedCalled */,
+                false /* expectNotifyUpdate */);
+    }
 
-        verify(mMockIkeNetworkUpdater).onUnderlyingNetworkUpdated(eq(updatedNetwork));
+    @Test
+    public void testOnCapabilitiesChangedOnNewNetwork() {
+        verifyNewNetworkCallback(
+                true /* onAvailableCalled */,
+                false /* onLpChangedCalled */,
+                true /* onNcChangedCalled */,
+                false /* expectNotifyUpdate */);
     }
 
     @Test
     public void testOnAvailableCurrentNetwork() {
         mNetworkCallback.onAvailable(mMockNetwork);
 
-        verify(mMockIkeNetworkUpdater, never()).onUnderlyingNetworkUpdated(any());
+        verify(mMockIkeNetworkUpdater, never()).onUnderlyingNetworkUpdated(any(), any(), any());
     }
 
     @Test
@@ -91,19 +147,21 @@ public class IkeDefaultNetworkCallbackTest {
     }
 
     @Test
-    public void testOnLinkPropertiesChanged() throws Exception {
-        mNetworkCallback.onLinkPropertiesChanged(
-                mMockNetwork, getLinkPropertiesWithAddresses(UPDATED_ADDRESS));
+    public void testOnCapabilitiesChanged() throws Exception {
+        NetworkCapabilities mockNc = mock(NetworkCapabilities.class);
+        mNetworkCallback.onCapabilitiesChanged(mMockNetwork, mockNc);
 
-        verify(mMockIkeNetworkUpdater).onUnderlyingNetworkUpdated(eq(mMockNetwork));
+        verify(mMockIkeNetworkUpdater).onCapabilitiesUpdated(eq(mockNc));
     }
 
     @Test
-    public void testOnLinkPropertiesChangedWrongNetwork() throws Exception {
-        mNetworkCallback.onLinkPropertiesChanged(
-                mock(Network.class), getLinkPropertiesWithAddresses(UPDATED_ADDRESS));
+    public void testOnLinkPropertiesChanged() throws Exception {
+        LinkProperties lp = spy(getLinkPropertiesWithAddresses(UPDATED_ADDRESS));
+        mNetworkCallback.onLinkPropertiesChanged(mMockNetwork, lp);
 
-        verify(mMockIkeNetworkUpdater, never()).onUnderlyingNetworkUpdated(any());
+        verify(mMockIkeNetworkUpdater)
+                .onUnderlyingNetworkUpdated(eq(mMockNetwork), eq(lp), eq(mCurrNc));
+        verify(lp).getAllLinkAddresses();
     }
 
     @Test
@@ -111,19 +169,20 @@ public class IkeDefaultNetworkCallbackTest {
         mNetworkCallback.onLinkPropertiesChanged(
                 mMockNetwork, getLinkPropertiesWithAddresses(CURR_ADDRESS));
 
-        verify(mMockIkeNetworkUpdater, never()).onUnderlyingNetworkUpdated(any());
+        verify(mMockIkeNetworkUpdater, never()).onUnderlyingNetworkUpdated(any(), any(), any());
     }
 
     @Test
     public void testOnLinkPropertiesChangedNoAddressChangeIpv6() throws Exception {
         mCurrAddress = CURR_ADDRESS_V6;
         mNetworkCallback =
-                new IkeDefaultNetworkCallback(mMockIkeNetworkUpdater, mMockNetwork, mCurrAddress);
+                new IkeDefaultNetworkCallback(
+                        mMockIkeNetworkUpdater, mMockNetwork, mCurrAddress, mCurrLp, mCurrNc);
 
         mNetworkCallback.onLinkPropertiesChanged(
                 mMockNetwork, getLinkPropertiesWithAddresses(CURR_ADDRESS_V6));
 
-        verify(mMockIkeNetworkUpdater, never()).onUnderlyingNetworkUpdated(any());
+        verify(mMockIkeNetworkUpdater, never()).onUnderlyingNetworkUpdated(any(), any(), any());
     }
 
     private LinkProperties getLinkPropertiesWithAddresses(InetAddress... addresses)

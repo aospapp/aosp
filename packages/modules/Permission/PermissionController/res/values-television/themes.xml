@@ -56,15 +56,15 @@
     </style>
 
     <style name="GrantPermissions.ActionItem">
-        <item name="android:gravity">left|center_vertical</item>
+        <item name="android:gravity">start|center_vertical</item>
         <item name="android:fontFamily">sans-serif-condensed</item>
         <item name="android:textSize">14sp</item>
         <item name="android:textColor">@color/tv_grant_button_text_color</item>
         <item name="android:lineSpacingMultiplier">1</item>
         <item name="android:background">@drawable/dialog_action_button_background</item>
         <item name="android:layout_margin">@dimen/action_dialog_button_margin</item>
-        <item name="android:paddingLeft">@dimen/action_dialog_button_padding_left</item>
-        <item name="android:paddingRight">@dimen/action_dialog_button_padding_right</item>
+        <item name="android:paddingStart">@dimen/action_dialog_button_padding_left</item>
+        <item name="android:paddingEnd">@dimen/action_dialog_button_padding_right</item>
         <item name="android:paddingTop">@dimen/action_dialog_button_padding_top</item>
         <item name="android:paddingBottom">@dimen/action_dialog_button_padding_bottom</item>
         <item name="android:minHeight">@dimen/action_dialog_button_min_height</item>

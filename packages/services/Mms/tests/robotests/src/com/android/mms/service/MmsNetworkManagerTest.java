@@ -36,6 +36,8 @@ import android.net.ConnectivityManager.NetworkCallback;
 import android.net.Network;
 import android.net.NetworkCapabilities;
 import android.net.NetworkInfo;
+import android.os.PersistableBundle;
+import android.telephony.CarrierConfigManager;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -70,7 +72,8 @@ public final class MmsNetworkManagerTest {
     @Mock Context mCtx;
     @Mock ConnectivityManager mCm;
     @Mock MmsNetworkManager.Dependencies mDeps;
-
+    @Mock CarrierConfigManager mCarrierConfigManager;
+    @Mock PersistableBundle mConfig;
 
     private MmsNetworkManager mMnm;
     private final ExecutorService mExecutor = Executors.newSingleThreadExecutor();
@@ -89,6 +92,8 @@ public final class MmsNetworkManagerTest {
         doReturn(MMS_APN2).when(mNetworkInfo2).getExtraInfo();
         doReturn(NETWORK_ACQUIRE_TIMEOUT_MS).when(mDeps).getNetworkRequestTimeoutMillis();
         doReturn(NETWORK_ACQUIRE_TIMEOUT_MS).when(mDeps).getAdditionalNetworkAcquireTimeoutMillis();
+        doReturn(mCarrierConfigManager).when(mCtx).getSystemService(Context.CARRIER_CONFIG_SERVICE);
+        doReturn(mConfig).when(mCarrierConfigManager).getConfigForSubId(TEST_SUBID);
 
         mMnm = new MmsNetworkManager(mCtx, TEST_SUBID, mDeps);
     }
@@ -199,6 +204,25 @@ public final class MmsNetworkManagerTest {
 
         // mNetwork should be null.
         assertEquals(null, mMnm.getApnName());
+    }
+
+    @Test
+    public void testHandleCarrierConfigChanged() throws Exception {
+        // Expect receiving default NETWORK_RELEASE_TIMEOUT of 5 seconds
+        int defaultNetworkReleaseTimeout = 5000;
+        doReturn(defaultNetworkReleaseTimeout).when(mConfig).getInt(
+                CarrierConfigManager.KEY_MMS_NETWORK_RELEASE_TIMEOUT_MILLIS_INT);
+        MmsNetworkManager mmsNetworkManager = new MmsNetworkManager(mCtx, TEST_SUBID, mDeps);
+        assertEquals(defaultNetworkReleaseTimeout,
+                mmsNetworkManager.getNetworkReleaseTimeoutMillis());
+
+        // Expect receiving a carrier-configured value
+        int configuredNetworkReleaseTimeout = 10000;
+        doReturn(configuredNetworkReleaseTimeout).when(mConfig).getInt(
+                CarrierConfigManager.KEY_MMS_NETWORK_RELEASE_TIMEOUT_MILLIS_INT);
+        mmsNetworkManager = new MmsNetworkManager(mCtx, TEST_SUBID, mDeps);
+        assertEquals(configuredNetworkReleaseTimeout,
+                mmsNetworkManager.getNetworkReleaseTimeoutMillis());
     }
 
     private NetworkCallback acquireAvailableNetworkAndGetCallback(

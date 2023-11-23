@@ -136,6 +136,7 @@ public abstract class FiraParams extends Params {
             value = {
                 RANGING_DEVICE_TYPE_CONTROLEE,
                 RANGING_DEVICE_TYPE_CONTROLLER,
+                RANGING_DEVICE_TYPE_DT_TAG,
             })
     public @interface RangingDeviceType {}
 
@@ -143,11 +144,18 @@ public abstract class FiraParams extends Params {
 
     public static final int RANGING_DEVICE_TYPE_CONTROLLER = 1;
 
+    public static final int RANGING_DEVICE_TYPE_DT_TAG = 2;
+
     /** Device role defined in FiRa */
     @IntDef(
             value = {
                 RANGING_DEVICE_ROLE_RESPONDER,
                 RANGING_DEVICE_ROLE_INITIATOR,
+                RANGING_DEVICE_UT_TAG,
+                RANGING_DEVICE_ROLE_ADVERTISER,
+                RANGING_DEVICE_ROLE_OBSERVER,
+                RANGING_DEVICE_DT_ANCHOR,
+                RANGING_DEVICE_DT_TAG,
             })
     public @interface RangingDeviceRole {}
 
@@ -155,15 +163,32 @@ public abstract class FiraParams extends Params {
 
     public static final int RANGING_DEVICE_ROLE_INITIATOR = 1;
 
+    public static final int RANGING_DEVICE_UT_TAG = 4;
+
+    public static final int RANGING_DEVICE_ROLE_ADVERTISER = 5;
+
+    public static final int RANGING_DEVICE_ROLE_OBSERVER = 6;
+
+    public static final int RANGING_DEVICE_DT_ANCHOR = 7;
+
+    public static final int RANGING_DEVICE_DT_TAG = 8;
+
     /** Ranging Round Usage */
     @IntDef(
             value = {
+                RANGING_ROUND_USAGE_UL_TDOA,
                 RANGING_ROUND_USAGE_SS_TWR_DEFERRED_MODE,
                 RANGING_ROUND_USAGE_DS_TWR_DEFERRED_MODE,
                 RANGING_ROUND_USAGE_SS_TWR_NON_DEFERRED_MODE,
                 RANGING_ROUND_USAGE_DS_TWR_NON_DEFERRED_MODE,
+                RANGING_ROUND_USAGE_OWR_AOA_MEASUREMENT,
+                RANGING_ROUND_USAGE_DL_TDOA,
+                RANGING_ROUND_USAGE_DATA_TRANSFER_MODE,
             })
     public @interface RangingRoundUsage {}
+
+    /** Uplink Time Difference of Arrival (OWR) */
+    public static final int RANGING_ROUND_USAGE_UL_TDOA = 0;
 
     /** Single-sided two-way ranging, deferred */
     public static final int RANGING_ROUND_USAGE_SS_TWR_DEFERRED_MODE = 1;
@@ -176,6 +201,15 @@ public abstract class FiraParams extends Params {
 
     /** Double-sided two-way ranging, non-deferred */
     public static final int RANGING_ROUND_USAGE_DS_TWR_NON_DEFERRED_MODE = 4;
+
+    /** Downlink Time Difference of Arrival */
+    public static final int RANGING_ROUND_USAGE_DL_TDOA = 5;
+
+    /** OWR for AoA measurement */
+    public static final int RANGING_ROUND_USAGE_OWR_AOA_MEASUREMENT = 6;
+
+    /** Data transfer mode */
+    public static final int RANGING_ROUND_USAGE_DATA_TRANSFER_MODE = 9;
 
     /** Multi-Node mode */
     @IntDef(
@@ -192,6 +226,42 @@ public abstract class FiraParams extends Params {
 
     /** Unuported in Fira 1.1 */
     public static final int MULTI_NODE_MODE_MANY_TO_MANY = 2;
+
+    /** Scheduling Mode */
+    @IntDef(
+            value = {
+                CONTENTION_BASED_RANGING,
+                TIME_SCHEDULED_RANGING,
+            })
+    public @interface SchedulingMode {}
+
+    public static final int CONTENTION_BASED_RANGING = 0;
+
+    public static final int TIME_SCHEDULED_RANGING = 1;
+
+    /** Ranging Time Struct */
+    @IntDef(
+            value = {
+                INTERVAL_BASED_SCHEDULING,
+                BLOCK_BASED_SCHEDULING,
+            })
+    public @interface RangingTimeStruct {}
+
+    public static final int INTERVAL_BASED_SCHEDULING = 0;
+
+    public static final int BLOCK_BASED_SCHEDULING = 1;
+
+    /** Cc Constraint Length */
+    @IntDef(
+            value = {
+                CONSTRAINT_LENGTH_3,
+                CONSTRAINT_LENGTH_7,
+            })
+    public @interface CcConstraintLength {}
+
+    public static final int CONSTRAINT_LENGTH_3 = 3;
+
+    public static final int CONSTRAINT_LENGTH_7 = 7;
 
     /** Measurement Report */
     @IntDef(
@@ -284,6 +354,8 @@ public abstract class FiraParams extends Params {
                 STS_CONFIG_STATIC,
                 STS_CONFIG_DYNAMIC,
                 STS_CONFIG_DYNAMIC_FOR_CONTROLEE_INDIVIDUAL_KEY,
+                STS_CONFIG_PROVISIONED,
+                STS_CONFIG_PROVISIONED_FOR_CONTROLEE_INDIVIDUAL_KEY,
             })
     public @interface StsConfig {}
 
@@ -292,6 +364,10 @@ public abstract class FiraParams extends Params {
     public static final int STS_CONFIG_DYNAMIC = 1;
 
     public static final int STS_CONFIG_DYNAMIC_FOR_CONTROLEE_INDIVIDUAL_KEY = 2;
+
+    public static final int STS_CONFIG_PROVISIONED = 3;
+
+    public static final int STS_CONFIG_PROVISIONED_FOR_CONTROLEE_INDIVIDUAL_KEY = 4;
 
     /** AoA request */
     @IntDef(
@@ -354,6 +430,9 @@ public abstract class FiraParams extends Params {
             })
     public @interface HoppingMode {}
 
+      /** UCI spec default: 25 slots per ranging round. */
+    public static final int SLOTS_PER_RR = 25;
+    public static final int MIN_CAP_SIZE = 5;
     public static final int HOPPING_MODE_DISABLE = 0;
     public static final int HOPPING_MODE_FIRA_HOPPING_ENABLE = 1;
 
@@ -375,13 +454,23 @@ public abstract class FiraParams extends Params {
             value = {
                 RANGE_DATA_NTF_CONFIG_DISABLE,
                 RANGE_DATA_NTF_CONFIG_ENABLE,
-                RANGE_DATA_NTF_CONFIG_ENABLE_PROXIMITY,
+                RANGE_DATA_NTF_CONFIG_ENABLE_PROXIMITY_LEVEL_TRIG,
+                RANGE_DATA_NTF_CONFIG_ENABLE_AOA_LEVEL_TRIG,
+                RANGE_DATA_NTF_CONFIG_ENABLE_PROXIMITY_AOA_LEVEL_TRIG,
+                RANGE_DATA_NTF_CONFIG_ENABLE_PROXIMITY_EDGE_TRIG,
+                RANGE_DATA_NTF_CONFIG_ENABLE_AOA_EDGE_TRIG,
+                RANGE_DATA_NTF_CONFIG_ENABLE_PROXIMITY_AOA_EDGE_TRIG,
             })
     public @interface RangeDataNtfConfig {}
 
     public static final int RANGE_DATA_NTF_CONFIG_DISABLE = 0;
     public static final int RANGE_DATA_NTF_CONFIG_ENABLE = 1;
-    public static final int RANGE_DATA_NTF_CONFIG_ENABLE_PROXIMITY = 2;
+    public static final int RANGE_DATA_NTF_CONFIG_ENABLE_PROXIMITY_LEVEL_TRIG = 2;
+    public static final int RANGE_DATA_NTF_CONFIG_ENABLE_AOA_LEVEL_TRIG = 3;
+    public static final int RANGE_DATA_NTF_CONFIG_ENABLE_PROXIMITY_AOA_LEVEL_TRIG = 4;
+    public static final int RANGE_DATA_NTF_CONFIG_ENABLE_PROXIMITY_EDGE_TRIG = 5;
+    public static final int RANGE_DATA_NTF_CONFIG_ENABLE_AOA_EDGE_TRIG = 6;
+    public static final int RANGE_DATA_NTF_CONFIG_ENABLE_PROXIMITY_AOA_EDGE_TRIG = 7;
 
     /** MAC address mode: short (2 bytes) or extended (8 bytes) */
     @IntDef(
@@ -440,6 +529,7 @@ public abstract class FiraParams extends Params {
                 STATUS_CODE_ERROR_MULTICAST_LIST_FULL,
                 STATUS_CODE_ERROR_ADDRESS_NOT_FOUND,
                 STATUS_CODE_ERROR_ADDRESS_ALREADY_PRESENT,
+                STATUS_CODE_OK_NEGATIVE_DISTANCE_REPORT,
                 STATUS_CODE_RANGING_TX_FAILED,
                 STATUS_CODE_RANGING_RX_TIMEOUT,
                 STATUS_CODE_RANGING_RX_PHY_DEC_FAILED,
@@ -448,6 +538,10 @@ public abstract class FiraParams extends Params {
                 STATUS_CODE_RANGING_RX_MAC_DEC_FAILED,
                 STATUS_CODE_RANGING_RX_MAC_IE_DEC_FAILED,
                 STATUS_CODE_RANGING_RX_MAC_IE_MISSING,
+                STATUS_CODE_ERROR_ROUND_INDEX_NOT_ACTIVATED,
+                STATUS_CODE_ERROR_NUMBER_OF_ACTIVE_RANGING_ROUNDS_EXCEEDED,
+                STATUS_CODE_ERROR_ROUND_INDEX_NOT_SET_AS_INITIATOR,
+                STATUS_CODE_ERROR_DL_TDOA_DEVICE_ADDRESS_NOT_MATCHING_IN_REPLY_TIME_LIST,
             })
     public @interface StatusCode {}
 
@@ -471,6 +565,7 @@ public abstract class FiraParams extends Params {
     public static final int STATUS_CODE_ERROR_MULTICAST_LIST_FULL = 0x17;
     public static final int STATUS_CODE_ERROR_ADDRESS_NOT_FOUND = 0x18;
     public static final int STATUS_CODE_ERROR_ADDRESS_ALREADY_PRESENT = 0x19;
+    public static final int STATUS_CODE_OK_NEGATIVE_DISTANCE_REPORT = 0x1B;
     public static final int STATUS_CODE_RANGING_TX_FAILED = 0x20;
     public static final int STATUS_CODE_RANGING_RX_TIMEOUT = 0x21;
     public static final int STATUS_CODE_RANGING_RX_PHY_DEC_FAILED = 0x22;
@@ -479,6 +574,34 @@ public abstract class FiraParams extends Params {
     public static final int STATUS_CODE_RANGING_RX_MAC_DEC_FAILED = 0x25;
     public static final int STATUS_CODE_RANGING_RX_MAC_IE_DEC_FAILED = 0x26;
     public static final int STATUS_CODE_RANGING_RX_MAC_IE_MISSING = 0x27;
+    public static final int STATUS_CODE_ERROR_ROUND_INDEX_NOT_ACTIVATED = 0X28;
+    public static final int STATUS_CODE_ERROR_NUMBER_OF_ACTIVE_RANGING_ROUNDS_EXCEEDED = 0X29;
+    public static final int STATUS_CODE_ERROR_ROUND_INDEX_NOT_SET_AS_INITIATOR = 0X2A;
+    public static final int
+            STATUS_CODE_ERROR_DL_TDOA_DEVICE_ADDRESS_NOT_MATCHING_IN_REPLY_TIME_LIST = 0X2B;
+
+    /**
+     * Table 28: Status codes in the DATA_TRANSFER_STATUS_NTF.
+     */
+    @IntDef(
+            value = {
+                    STATUS_CODE_DATA_TRANSFER_NTF_REPETITION_OK,
+                    STATUS_CODE_DATA_TRANSFER_NTF_OK,
+                    STATUS_CODE_DATA_TRANSFER_NTF_ERROR_DATA_TRANSFER,
+                    STATUS_CODE_DATA_TRANSFER_NTF_ERROR_NO_CREDIT_AVAILABLE,
+                    STATUS_CODE_DATA_TRANSFER_NTF_ERROR_REJECTED,
+                    STATUS_CODE_DATA_TRANSFER_NTF_SESSION_TYPE_NOT_SUPPORTED,
+                    STATUS_CODE_DATA_TRANSFER_NTF_ERROR_DATA_TRANSFER_IS_ONGOING
+            })
+    public @interface DataTransferStatusNtfCode {}
+
+    public static final int STATUS_CODE_DATA_TRANSFER_NTF_REPETITION_OK = 0;
+    public static final int STATUS_CODE_DATA_TRANSFER_NTF_OK = 1;
+    public static final int STATUS_CODE_DATA_TRANSFER_NTF_ERROR_DATA_TRANSFER = 2;
+    public static final int STATUS_CODE_DATA_TRANSFER_NTF_ERROR_NO_CREDIT_AVAILABLE = 3;
+    public static final int STATUS_CODE_DATA_TRANSFER_NTF_ERROR_REJECTED = 4;
+    public static final int STATUS_CODE_DATA_TRANSFER_NTF_SESSION_TYPE_NOT_SUPPORTED = 5;
+    public static final int STATUS_CODE_DATA_TRANSFER_NTF_ERROR_DATA_TRANSFER_IS_ONGOING = 6;
 
     /** State change reason codes defined in UCI table-15 */
     @IntDef(
@@ -508,11 +631,15 @@ public abstract class FiraParams extends Params {
             value = {
                 MULTICAST_LIST_UPDATE_ACTION_ADD,
                 MULTICAST_LIST_UPDATE_ACTION_DELETE,
+                P_STS_MULTICAST_LIST_UPDATE_ACTION_ADD_16_BYTE,
+                P_STS_MULTICAST_LIST_UPDATE_ACTION_ADD_32_BYTE,
             })
     public @interface MulticastListUpdateAction {}
 
-    public static final int MULTICAST_LIST_UPDATE_ACTION_ADD = 0;
-    public static final int MULTICAST_LIST_UPDATE_ACTION_DELETE = 1;
+    public static final int MULTICAST_LIST_UPDATE_ACTION_ADD = 0x0;
+    public static final int MULTICAST_LIST_UPDATE_ACTION_DELETE = 0x1;
+    public static final int P_STS_MULTICAST_LIST_UPDATE_ACTION_ADD_16_BYTE = 0x2;
+    public static final int P_STS_MULTICAST_LIST_UPDATE_ACTION_ADD_32_BYTE = 0x3;
 
     @IntDef(
             value = {
@@ -541,6 +668,41 @@ public abstract class FiraParams extends Params {
     public static final int DEVICE_CLASS_2 = 2; // Controller
     public static final int DEVICE_CLASS_3 = 3; // Controlee
 
+    /** Length of UL-TDoA Device ID */
+    @IntDef(
+            value = {
+                    UL_TDOA_DEVICE_ID_NONE,
+                    UL_TDOA_DEVICE_ID_16_BIT,
+                    UL_TDOA_DEVICE_ID_32_BIT,
+                    UL_TDOA_DEVICE_ID_64_BIT,
+            })
+    public @interface UlTdoaDeviceIdType {}
+
+    public static final int UL_TDOA_DEVICE_ID_NONE = 0;
+    public static final int UL_TDOA_DEVICE_ID_16_BIT = 1;
+    public static final int UL_TDOA_DEVICE_ID_32_BIT = 2;
+    public static final int UL_TDOA_DEVICE_ID_64_BIT = 3;
+
+    /** TX Timestamp of UL-TDoA */
+    @IntDef(
+            value = {
+                    TX_TIMESTAMP_NONE,
+                    TX_TIMESTAMP_40_BIT,
+                    TX_TIMESTAMP_64_BIT,
+            })
+    public @interface UlTdoaTxTimestampType {}
+
+    public static final int TX_TIMESTAMP_NONE = 0;
+    public static final int TX_TIMESTAMP_40_BIT = 1;
+    public static final int TX_TIMESTAMP_64_BIT = 2;
+
+    public static final int RANGE_DATA_NTF_PROXIMITY_NEAR_DEFAULT = 0;
+    public static final int RANGE_DATA_NTF_PROXIMITY_FAR_DEFAULT = 20000;
+    public static final double RANGE_DATA_NTF_AOA_AZIMUTH_LOWER_DEFAULT = -Math.PI;
+    public static final double RANGE_DATA_NTF_AOA_AZIMUTH_UPPER_DEFAULT = Math.PI;
+    public static final double RANGE_DATA_NTF_AOA_ELEVATION_LOWER_DEFAULT = -Math.PI / 2;
+    public static final double RANGE_DATA_NTF_AOA_ELEVATION_UPPER_DEFAULT = Math.PI / 2;
+
     public enum AoaCapabilityFlag implements FlagEnum {
         HAS_AZIMUTH_SUPPORT(1),
         HAS_ELEVATION_SUPPORT(1 << 1),
@@ -564,7 +726,14 @@ public abstract class FiraParams extends Params {
         HAS_CONTROLEE_INITIATOR_SUPPORT(1),
         HAS_CONTROLEE_RESPONDER_SUPPORT(1 << 1),
         HAS_CONTROLLER_INITIATOR_SUPPORT(1 << 2),
-        HAS_CONTROLLER_RESPONDER_SUPPORT(1 << 3);
+        HAS_CONTROLLER_RESPONDER_SUPPORT(1 << 3),
+        HAS_UT_SYNCHRONIZATION_SUPPORT(1 << 4),
+        HAS_UT_ANCHOR_SUPPORT(1 << 5),
+        HAS_UT_TAG_SUPPORT(1 << 6),
+        HAS_ADVERTISER_SUPPORT(1 << 7),
+        HAS_OBSERVER_SUPPORT(1 << 8),
+        HAS_DT_ANCHOR_SUPPORT(1 << 9),
+        HAS_DT_TAG_SUPPORT(1 << 10);
 
         private final long mValue;
 
@@ -595,6 +764,54 @@ public abstract class FiraParams extends Params {
         }
     }
 
+    public enum RangingTimeStructCapabilitiesFlag implements FlagEnum {
+        HAS_INTERVAL_BASED_SCHEDULING_SUPPORT(1),
+        HAS_BLOCK_BASED_SCHEDULING_SUPPORT(1 << 1);
+
+        private final long mValue;
+
+        private RangingTimeStructCapabilitiesFlag(long value) {
+            mValue = value;
+        }
+
+        @Override
+        public long getValue() {
+            return mValue;
+        }
+    }
+
+    public enum SchedulingModeCapabilitiesFlag implements FlagEnum {
+        HAS_CONTENTION_BASED_RANGING_SUPPORT(1),
+        HAS_TIME_SCHEDULED_RANGING_SUPPORT(1 << 1);
+
+        private final long mValue;
+
+        private SchedulingModeCapabilitiesFlag(long value) {
+            mValue = value;
+        }
+
+        @Override
+        public long getValue() {
+            return mValue;
+        }
+    }
+
+    public enum CcConstraintLengthCapabilitiesFlag implements FlagEnum {
+        HAS_CONSTRAINT_LENGTH_3_SUPPORT(1),
+        HAS_CONSTRAINT_LENGTH_7_SUPPORT(1 << 1);
+
+        private final long mValue;
+
+        private CcConstraintLengthCapabilitiesFlag(long value) {
+            mValue = value;
+        }
+
+        @Override
+        public long getValue() {
+            return mValue;
+        }
+    }
+
     public enum PrfCapabilityFlag implements FlagEnum {
         HAS_BPRF_SUPPORT(1),
         HAS_HPRF_SUPPORT(1 << 1);
@@ -613,7 +830,13 @@ public abstract class FiraParams extends Params {
 
     public enum RangingRoundCapabilityFlag implements FlagEnum {
         HAS_DS_TWR_SUPPORT(1),
-        HAS_SS_TWR_SUPPORT(1 << 1);
+        HAS_SS_TWR_SUPPORT(1 << 1),
+        // TODO(b/265047064) : Check if addition of non-deferred mode is needed.
+        HAS_OWR_UL_TDOA_SUPPORT(1 << 2),
+        HAS_OWR_DL_TDOA_SUPPORT(1 << 3),
+        HAS_OWR_AOA_SUPPORT(1 << 4),
+        HAS_ESS_TWR_SUPPORT(1 << 5),
+        HAS_ADS_TWR_SUPPORT(1 << 6);
 
         private final long mValue;
 
@@ -647,7 +870,9 @@ public abstract class FiraParams extends Params {
     public enum StsCapabilityFlag implements FlagEnum {
         HAS_STATIC_STS_SUPPORT(1),
         HAS_DYNAMIC_STS_SUPPORT(1 << 1),
-        HAS_DYNAMIC_STS_INDIVIDUAL_CONTROLEE_KEY_SUPPORT(1 << 2);
+        HAS_DYNAMIC_STS_INDIVIDUAL_CONTROLEE_KEY_SUPPORT(1 << 2),
+        HAS_PROVISIONED_STS_SUPPORT(1 << 3),
+        HAS_PROVISIONED_STS_INDIVIDUAL_CONTROLEE_KEY_SUPPORT(1 << 4);
 
         private final long mValue;
 
@@ -747,6 +972,100 @@ public abstract class FiraParams extends Params {
             return mValue;
         }
     }
+
+    public enum RangeDataNtfConfigCapabilityFlag implements FlagEnum {
+        HAS_RANGE_DATA_NTF_CONFIG_DISABLE(1 << RANGE_DATA_NTF_CONFIG_DISABLE),
+        HAS_RANGE_DATA_NTF_CONFIG_ENABLE(1 << RANGE_DATA_NTF_CONFIG_ENABLE),
+        HAS_RANGE_DATA_NTF_CONFIG_ENABLE_PROXIMITY_LEVEL_TRIG(
+                1 << RANGE_DATA_NTF_CONFIG_ENABLE_PROXIMITY_LEVEL_TRIG),
+        HAS_RANGE_DATA_NTF_CONFIG_ENABLE_AOA_LEVEL_TRIG(
+                1 << RANGE_DATA_NTF_CONFIG_ENABLE_AOA_LEVEL_TRIG),
+        HAS_RANGE_DATA_NTF_CONFIG_ENABLE_PROXIMITY_AOA_LEVEL_TRIG(
+                1 << RANGE_DATA_NTF_CONFIG_ENABLE_PROXIMITY_AOA_LEVEL_TRIG),
+        HAS_RANGE_DATA_NTF_CONFIG_ENABLE_PROXIMITY_EDGE_TRIG(
+                1 << RANGE_DATA_NTF_CONFIG_ENABLE_PROXIMITY_EDGE_TRIG),
+        HAS_RANGE_DATA_NTF_CONFIG_ENABLE_AOA_EDGE_TRIG(
+                1 << RANGE_DATA_NTF_CONFIG_ENABLE_AOA_EDGE_TRIG),
+        HAS_RANGE_DATA_NTF_CONFIG_ENABLE_PROXIMITY_AOA_EDGE_TRIG(
+                1 << RANGE_DATA_NTF_CONFIG_ENABLE_PROXIMITY_AOA_EDGE_TRIG);
+
+
+
+        private final long mValue;
+
+        private RangeDataNtfConfigCapabilityFlag(long value) {
+            mValue = value;
+        }
+
+        @Override
+        public long getValue() {
+            return mValue;
+        }
+    }
+
+    /**
+     * Suspend Ranging Support (FiRa 2.0)
+     */
+    @IntDef(
+            value = {
+                    SUSPEND_RANGING_DISABLED,
+                    SUSPEND_RANGING_ENABLED,
+            })
+    public @interface SuspendRanging {}
+
+    public static final int SUSPEND_RANGING_DISABLED = 0;
+    public static final int SUSPEND_RANGING_ENABLED = 1;
+
+    /**
+     * Session Key length supported (FiRa 2.0)
+     */
+    @IntDef(
+            value = {
+                    KEY_LENGTH_256_BITS_NOT_SUPPORTED,
+                    KEY_LENGTH_256_BITS_SUPPORTED,
+            })
+    public @interface SessionKeyLength {}
+
+    public static final int KEY_LENGTH_256_BITS_NOT_SUPPORTED = 0;
+    public static final int KEY_LENGTH_256_BITS_SUPPORTED = 1;
+
+    /**
+     * Session Type (for SESSION_INIT_CMD)
+     */
+    @IntDef(
+            value = {
+                    SESSION_TYPE_RANGING,
+                    SESSION_TYPE_RANGING_AND_IN_BAND_DATA,
+                    SESSION_TYPE_DATA_TRANSFER,
+                    SESSION_TYPE_RANGING_ONLY_PHASE,
+                    SESSION_TYPE_IN_BAND_DATA_PHASE,
+                    SESSION_TYPE_RANGING_WITH_DATA_PHASE,
+                    SESSION_TYPE_DEVICE_TEST_MODE,
+            })
+    public @interface SessionType{}
+
+    public static final int SESSION_TYPE_RANGING = 0;
+    public static final int SESSION_TYPE_RANGING_AND_IN_BAND_DATA = 1;
+    public static final int SESSION_TYPE_DATA_TRANSFER = 2;
+    public static final int SESSION_TYPE_RANGING_ONLY_PHASE = 3;
+    public static final int SESSION_TYPE_IN_BAND_DATA_PHASE = 4;
+    public static final int SESSION_TYPE_RANGING_WITH_DATA_PHASE = 5;
+    public static final int SESSION_TYPE_DEVICE_TEST_MODE = 0xD0;
+
+    /** Which type of filter to use for filtering AoA/distance readings. */
+    @IntDef(
+            value = {
+                    FILTER_TYPE_NONE,
+                    FILTER_TYPE_DEFAULT,
+                    FILTER_TYPE_APPLICATION,
+            })
+    public @interface FilterType {}
+    public static final int FILTER_TYPE_NONE = 0;
+    public static final int FILTER_TYPE_DEFAULT = 1;
+    public static final int FILTER_TYPE_APPLICATION = 2;
+
+    // Default value (Unlimited)
+    public static final int MAX_NUMBER_OF_MEASUREMENTS_DEFAULT = 0;
 
     // Helper functions
     protected static UwbAddress longToUwbAddress(long value, int length) {

@@ -37,13 +37,12 @@ import androidx.preference.PreferenceCategory;
 import androidx.preference.PreferenceGroupAdapter;
 import androidx.preference.PreferenceManager;
 import androidx.preference.PreferenceScreen;
-import androidx.preference.SwitchPreference;
 
 import com.android.tv.settings.R;
 import com.android.tv.settings.SettingsPreferenceFragment;
 import com.android.tv.settings.device.apps.AppManagementFragment;
-import com.android.tv.settings.library.overlay.FlavorUtils;
-import com.android.tv.settings.library.privacy.RecentlyAccessedByUtils;
+import com.android.tv.settings.overlay.FlavorUtils;
+import com.android.tv.settings.widget.SwitchWithSoundPreference;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -63,9 +62,9 @@ public class SensorFragment extends SettingsPreferenceFragment {
     private static final int MAX_RECENT_APPS_COLLAPSED = 2;
     private List<Preference> mAllRecentAppPrefs;
 
-    private static final String SENSOR_TOGGLE_KEY = "sensor_toggle";
+    protected static final String SENSOR_TOGGLE_KEY = "sensor_toggle";
     private PrivacyToggle mToggle;
-    private SwitchPreference mSensorToggle;
+    protected SwitchWithSoundPreference mSensorToggle;
     private Preference mPhysicalPrivacyEnabledInfo;
 
     private SensorPrivacyManager mSensorPrivacyManager;
@@ -104,11 +103,20 @@ public class SensorFragment extends SettingsPreferenceFragment {
 
         addPhysicalPrivacyEnabledInfo(screen, themedContext);
         addSensorToggleWithInfo(screen, themedContext);
+        addHardwareToggle(screen, themedContext);
         addRecentAppsGroup(screen, themedContext);
         addPermissionControllerPreference(screen, themedContext);
         updateSensorPrivacyState();
 
         setPreferenceScreen(screen);
+    }
+
+    protected void addHardwareToggle(PreferenceScreen screen, Context themedContext) {
+        // no-op
+    }
+
+    protected void updateHardwareToggle() {
+        // no-nop
     }
 
     private void addPhysicalPrivacyEnabledInfo(PreferenceScreen screen, Context themedContext) {
@@ -140,7 +148,7 @@ public class SensorFragment extends SettingsPreferenceFragment {
      * one-panel mode).
      */
     private void addSensorToggleWithInfo(PreferenceScreen screen, Context themedContext) {
-        mSensorToggle = new SwitchPreference(themedContext);
+        mSensorToggle = new SwitchWithSoundPreference(themedContext);
         screen.addPreference(mSensorToggle);
         mSensorToggle.setKey(SENSOR_TOGGLE_KEY);
         mSensorToggle.setTitle(mToggle.toggleTitle);
@@ -177,6 +185,7 @@ public class SensorFragment extends SettingsPreferenceFragment {
         if (physicalPrivacyEnabled) {
             selectPreference(mPhysicalPrivacyEnabledInfo);
         }
+        updateHardwareToggle();
     }
 
     private void selectPreference(Preference preference) {

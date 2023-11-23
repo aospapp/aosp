@@ -1,4 +1,4 @@
-// Copyright (C) 2022 The Android Source Project
+// Copyright (C) 2022 The Android Open Source Project
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -24,6 +24,7 @@ android_test {
     srcs: ["**/*.java"],
     defaults: ["framework-ondevicepersonalization-test-defaults"],
     min_sdk_version: "Tiramisu",
+    sdk_version: "module_current",
     target_sdk_version: "Tiramisu",
     static_libs: [
         "androidx.test.core",
@@ -31,6 +32,8 @@ android_test {
         "androidx.test.rules",
         "frameworks-base-testutils",
         "guava",
+        "libprotobuf-java-lite",
+        "tensorflow_core_proto_java_lite",
         "mockito-target-minus-junit4",
         "truth-prebuilt",
     ],
@@ -38,7 +41,10 @@ android_test {
         "android.test.runner",
         "android.test.base",
     ],
+    test_mainline_modules: ["com.google.android.ondevicepersonalization.apex"],
     test_suites: [
         "general-tests",
+    	"mts-ondevicepersonalization",
     ],
+    test_config: "AndroidTest.xml",
 }

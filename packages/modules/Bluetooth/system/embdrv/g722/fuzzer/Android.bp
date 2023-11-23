@@ -8,17 +8,16 @@ package {
 }
 
 cc_fuzz {
-    name: "g722_enc_fuzzer",
+    name: "g722_fuzzer",
     srcs: [
-        "g722_enc_fuzzer.cc",
+        "g722_fuzzer.cc",
     ],
-    host_supported: false,
+    host_supported: true,
     static_libs: [
         "libg722codec",
     ],
     fuzz_config: {
-        cc: [
-            "hsz@google.com",
-        ],
+        cc: ["android-bluetooth-security@google.com"],
+        componentid: 27441,
     },
 }

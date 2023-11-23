@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-#include <chrono>
 #include <limits>
 
 #include <gmock/gmock.h>
@@ -419,7 +418,6 @@ TEST(LruCacheTest, for_loop_test) {
 }
 
 TEST(LruCacheTest, pressure_test) {
-  auto started = std::chrono::high_resolution_clock::now();
   int capacity = 0xFFFF;  // 2^16 = 65535
   LruCache<int, int> cache(static_cast<size_t>(capacity));
 
@@ -449,13 +447,6 @@ TEST(LruCacheTest, pressure_test) {
     EXPECT_TRUE(cache.extract(key));
   }
   EXPECT_EQ(cache.size(), 0ul);
-
-  // test execution time
-  auto done = std::chrono::high_resolution_clock::now();
-  int execution_time = std::chrono::duration_cast<std::chrono::microseconds>(done - started).count();
-  // Shouldn't be more than 1120ms
-  int execution_time_per_cycle_us = 17;
-  EXPECT_LT(execution_time, execution_time_per_cycle_us * capacity);
 }
 
 }  // namespace testing

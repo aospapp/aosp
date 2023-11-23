@@ -168,7 +168,7 @@ class L2capClassicModuleFacadeService : public L2capClassicModuleFacade::Service
     ASSERT(hci::Address::FromString(request->address(), peer));
     auto entry = security_link_map_.find(peer);
     if (entry == security_link_map_.end()) {
-      LOG_WARN("Unknown address '%s'", peer.ToString().c_str());
+      LOG_WARN("Unknown address '%s'", ADDRESS_TO_LOGGABLE_CSTR(peer));
     } else {
       entry->second->Hold();
     }
@@ -183,7 +183,7 @@ class L2capClassicModuleFacadeService : public L2capClassicModuleFacade::Service
     ASSERT(hci::Address::FromString(request->address(), peer));
     auto entry = security_link_map_.find(peer);
     if (entry == security_link_map_.end()) {
-      LOG_WARN("Unknown address '%s'", peer.ToString().c_str());
+      LOG_WARN("Unknown address '%s'", ADDRESS_TO_LOGGABLE_CSTR(peer));
     } else {
       entry->second->EnsureAuthenticated();
     }
@@ -199,7 +199,7 @@ class L2capClassicModuleFacadeService : public L2capClassicModuleFacade::Service
     outgoing_pairing_remote_devices_.erase(peer);
     auto entry = security_link_map_.find(peer);
     if (entry == security_link_map_.end()) {
-      LOG_WARN("Unknown address '%s'", peer.ToString().c_str());
+      LOG_WARN("Unknown address '%s'", ADDRESS_TO_LOGGABLE_CSTR(peer));
     } else {
       entry->second->Release();
     }
@@ -215,7 +215,7 @@ class L2capClassicModuleFacadeService : public L2capClassicModuleFacade::Service
     outgoing_pairing_remote_devices_.erase(peer);
     auto entry = security_link_map_.find(peer);
     if (entry == security_link_map_.end()) {
-      LOG_WARN("Unknown address '%s'", peer.ToString().c_str());
+      LOG_WARN("Unknown address '%s'", ADDRESS_TO_LOGGABLE_CSTR(peer));
     } else {
       entry->second->Disconnect();
     }
@@ -237,7 +237,7 @@ class L2capClassicModuleFacadeService : public L2capClassicModuleFacade::Service
   void OnLinkDisconnected(hci::Address remote) override {
     auto entry = security_link_map_.find(remote);
     if (entry == security_link_map_.end()) {
-      LOG_WARN("Unknown address '%s'", remote.ToString().c_str());
+      LOG_WARN("Unknown address '%s'", ADDRESS_TO_LOGGABLE_CSTR(remote));
       return;
     }
     entry->second.reset();

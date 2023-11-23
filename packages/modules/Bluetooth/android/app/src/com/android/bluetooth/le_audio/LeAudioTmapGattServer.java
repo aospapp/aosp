@@ -123,7 +123,7 @@ public class LeAudioTmapGattServer {
                                                 BluetoothGattCharacteristic characteristic) {
             byte[] value = characteristic.getValue();
             if (DBG) {
-                Log.d(TAG, "value " + value);
+                Log.d(TAG, "value " + Arrays.toString(value));
             }
             if (value != null) {
                 Log.e(TAG, "value null");

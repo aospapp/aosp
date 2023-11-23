@@ -21,11 +21,20 @@ import android.test.suitebuilder.annotation.SmallTest;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import com.android.compatibility.common.util.ApiTest;
+
 import org.junit.Test;
 
 @SmallTest
-public final class FuelTypeTest {
+public final class FuelTypeTest extends CarLessApiTestBase {
+
     @Test
+    @ApiTest(apis = {"android.car.FuelType#UNKNOWN", "android.car.FuelType#UNLEADED",
+            "android.car.FuelType#LEADED", "android.car.FuelType#DIESEL_1",
+            "android.car.FuelType#DIESEL_2", "android.car.FuelType#BIODIESEL",
+            "android.car.FuelType#E85", "android.car.FuelType#LPG", "android.car.FuelType#CNG",
+            "android.car.FuelType#LNG", "android.car.FuelType#ELECTRIC",
+            "android.car.FuelType#HYDROGEN", "android.car.FuelType#OTHER"})
     public void testMatchWithVehicleHal() {
         assertThat(FuelType.UNKNOWN)
                 .isEqualTo(android.hardware.automotive.vehicle.FuelType.FUEL_TYPE_UNKNOWN);

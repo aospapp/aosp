@@ -171,6 +171,11 @@ public final class TransportDiscoveryData implements Parcelable {
         }
     }
 
+    @Override
+    public String toString() {
+        return BluetoothLeUtils.toString(toByteArray());
+    }
+
     /**
      * @return total byte count of this TransportDataDiscovery
      */

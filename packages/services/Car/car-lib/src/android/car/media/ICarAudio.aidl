@@ -16,8 +16,18 @@
 
 package android.car.media;
 
+import android.car.CarOccupantZoneManager.OccupantZoneInfo;
 import android.car.media.CarAudioPatchHandle;
+import android.car.media.CarAudioZoneConfigInfo;
+import android.car.media.CarVolumeGroupInfo;
+import android.car.media.IAudioZonesMirrorStatusCallback;
+import android.car.media.ICarVolumeEventCallback;
+import android.car.media.IMediaAudioRequestStatusCallback;
+import android.car.media.IPrimaryZoneMediaAudioRequestCallback;
+import android.car.media.ISwitchAudioZoneConfigCallback;
+import android.media.AudioAttributes;
 import android.media.AudioDeviceAttributes;
+
 /**
  * Binder interface for {@link android.car.media.CarAudioManager}.
  * Check {@link android.car.media.CarAudioManager} APIs for expected behavior of each call.
@@ -50,15 +60,52 @@ interface ICarAudio {
 
     boolean isVolumeGroupMuted(int zoneId, int groupId);
     void setVolumeGroupMute(int zoneId, int groupId, boolean mute, int flags);
+    CarVolumeGroupInfo getVolumeGroupInfo(int zoneId, int groupId);
+    List<CarVolumeGroupInfo> getVolumeGroupInfosForZone(int zoneId);
+
+    List<AudioAttributes> getAudioAttributesForVolumeGroup(in CarVolumeGroupInfo groupInfo);
 
     String getOutputDeviceAddressForUsage(int zoneId, int usage);
 
     List<AudioDeviceAttributes> getInputDevicesForZoneId(int zoneId);
 
     boolean isPlaybackOnVolumeGroupActive(int volumeGroupId, int audioZoneId);
+
+    boolean registerPrimaryZoneMediaAudioRequestCallback(
+        in IPrimaryZoneMediaAudioRequestCallback callback);
+    void unregisterPrimaryZoneMediaAudioRequestCallback(
+        in IPrimaryZoneMediaAudioRequestCallback callback);
+
+    long requestMediaAudioOnPrimaryZone(in IMediaAudioRequestStatusCallback callback,
+        in OccupantZoneInfo info);
+    boolean cancelMediaAudioOnPrimaryZone(long requestId);
+
+    boolean allowMediaAudioOnPrimaryZone(in IBinder token, long requestId, boolean allow);
+    boolean isMediaAudioAllowedInPrimaryZone(in OccupantZoneInfo info);
+    boolean resetMediaAudioOnPrimaryZone(in OccupantZoneInfo zone);
+
+    CarAudioZoneConfigInfo getCurrentAudioZoneConfigInfo(int zoneId);
+    List<CarAudioZoneConfigInfo> getAudioZoneConfigInfos(int zoneId);
+    void switchZoneToConfig(in CarAudioZoneConfigInfo zoneConfig,
+            in ISwitchAudioZoneConfigCallback callback);
+
+    boolean registerAudioZonesMirrorStatusCallback(in IAudioZonesMirrorStatusCallback callback);
+    void unregisterAudioZonesMirrorStatusCallback(in IAudioZonesMirrorStatusCallback callback);
+    int canEnableAudioMirror();
+    long enableMirrorForAudioZones(in int[] audioZones);
+    void extendAudioMirrorRequest(long mirrorId, in int[] audioZones);
+    void disableAudioMirrorForZone(int zoneId);
+    void disableAudioMirror(long mirrorId);
+    int[] getMirrorAudioZonesForAudioZone(int zoneId);
+    int[] getMirrorAudioZonesForMirrorRequest(long mirrorId);
+
+
     /**
      * IBinder is ICarVolumeCallback but passed as IBinder due to aidl hidden.
      */
     void registerVolumeCallback(in IBinder binder);
     void unregisterVolumeCallback(in IBinder binder);
+
+    boolean registerCarVolumeEventCallback(in ICarVolumeEventCallback callback);
+    boolean unregisterCarVolumeEventCallback(in ICarVolumeEventCallback callback);
 }

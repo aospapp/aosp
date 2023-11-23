@@ -35,5 +35,5 @@
     <string name="enable_alert_speech_summary" msgid="5021926525240750702">"Шашылыш билдирүүнү угуу үчүн кеп синтезаторун колдонуңуз"</string>
     <string name="cmas_opt_out_dialog_text" msgid="1972978578760513449">"Учурда шашылыш билдирүүлөрдү алып жатасыз. Мындан ары да ала бересизби?"</string>
     <string name="emergency_alert_settings_title_watches" msgid="5299419351642118203">"Шашылыш билдирүүлөр"</string>
-    <string name="notification_cb_settings_changed_text" msgid="6861845802821634203">"Шашылыш билдирүү жөндөөлөрүн көрүү үчүн басыңыз"</string>
+    <string name="notification_cb_settings_changed_text" msgid="6861845802821634203">"Шашылыш билдирүү параметрлерин көрүү үчүн басыңыз"</string>
 </resources>

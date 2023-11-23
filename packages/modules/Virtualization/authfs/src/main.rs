@@ -33,16 +33,15 @@
 //! the state is not persistent, thus only new file/directory are supported.
 
 use anyhow::{anyhow, bail, Result};
+use clap::Parser;
 use log::error;
 use protobuf::Message;
 use std::convert::TryInto;
 use std::fs::File;
 use std::num::NonZeroU8;
 use std::path::{Path, PathBuf};
-use structopt::StructOpt;
 
 mod common;
-mod crypto;
 mod file;
 mod fsstat;
 mod fsverity;
@@ -54,22 +53,21 @@ use fsverity::VerifiedFileEditor;
 use fsverity_digests_proto::fsverity_digests::FSVerityDigests;
 use fusefs::{AuthFs, AuthFsEntry, LazyVerifiedReadonlyFile};
 
-#[derive(StructOpt)]
+#[derive(Parser)]
 struct Args {
     /// Mount point of AuthFS.
-    #[structopt(parse(from_os_str))]
     mount_point: PathBuf,
 
     /// CID of the VM where the service runs.
-    #[structopt(long)]
+    #[clap(long)]
     cid: u32,
 
     /// Extra options to FUSE
-    #[structopt(short = "o")]
+    #[clap(short = 'o')]
     extra_options: Option<String>,
 
     /// Number of threads to serve FUSE requests.
-    #[structopt(short = "j")]
+    #[clap(short = 'j')]
     thread_number: Option<NonZeroU8>,
 
     /// A read-only remote file with integrity check. Can be multiple.
@@ -77,21 +75,21 @@ struct Args {
     /// For example, `--remote-ro-file 5:sha256-1234abcd` tells the filesystem to associate the
     /// file $MOUNTPOINT/5 with a remote FD 5, and has a fs-verity digest with sha256 of the hex
     /// value 1234abcd.
-    #[structopt(long, parse(try_from_str = parse_remote_ro_file_option))]
+    #[clap(long, value_parser = parse_remote_ro_file_option)]
     remote_ro_file: Vec<OptionRemoteRoFile>,
 
     /// A read-only remote file without integrity check. Can be multiple.
     ///
     /// For example, `--remote-ro-file-unverified 5` tells the filesystem to associate the file
     /// $MOUNTPOINT/5 with a remote FD 5.
-    #[structopt(long)]
+    #[clap(long)]
     remote_ro_file_unverified: Vec<i32>,
 
     /// A new read-writable remote file with integrity check. Can be multiple.
     ///
     /// For example, `--remote-new-rw-file 5` tells the filesystem to associate the file
     /// $MOUNTPOINT/5 with a remote FD 5.
-    #[structopt(long)]
+    #[clap(long)]
     remote_new_rw_file: Vec<i32>,
 
     /// A read-only directory that represents a remote directory. The directory view is constructed
@@ -108,7 +106,7 @@ struct Args {
     /// include a file like /5/system/framework/framework.jar. "prefix/" tells the filesystem to
     /// strip the path (e.g. "system/") from the mount point to match the expected location of the
     /// remote FD (e.g. a directory FD of "/system" in the remote).
-    #[structopt(long, parse(try_from_str = parse_remote_new_ro_dir_option))]
+    #[clap(long, value_parser = parse_remote_new_ro_dir_option)]
     remote_ro_dir: Vec<OptionRemoteRoDir>,
 
     /// A new directory that is assumed empty in the backing filesystem. New files created in this
@@ -117,14 +115,15 @@ struct Args {
     ///
     /// For example, `--remote-new-rw-dir 5` tells the filesystem to associate $MOUNTPOINT/5
     /// with a remote dir FD 5.
-    #[structopt(long)]
+    #[clap(long)]
     remote_new_rw_dir: Vec<i32>,
 
     /// Enable debugging features.
-    #[structopt(long)]
+    #[clap(long)]
     debug: bool,
 }
 
+#[derive(Clone)]
 struct OptionRemoteRoFile {
     /// ID to refer to the remote file.
     remote_fd: i32,
@@ -133,6 +132,7 @@ struct OptionRemoteRoFile {
     digest: String,
 }
 
+#[derive(Clone)]
 struct OptionRemoteRoDir {
     /// ID to refer to the remote dir.
     remote_dir_fd: i32,
@@ -306,7 +306,7 @@ fn remote_fd_to_path_buf(fd: i32) -> PathBuf {
 }
 
 fn try_main() -> Result<()> {
-    let args = Args::from_args_safe()?;
+    let args = Args::parse();
 
     let log_level = if args.debug { log::Level::Debug } else { log::Level::Info };
     android_logger::init_once(

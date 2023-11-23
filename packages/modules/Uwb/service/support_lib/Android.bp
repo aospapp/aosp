@@ -19,20 +19,19 @@ package {
 
 java_defaults {
     name: "support-lib-uwb-common-defaults",
-    defaults: ["uwb-module-sdk-version-defaults"],
-    sdk_version: "module_Tiramisu",
+    sdk_version: "system_31",
     libs: [
-        "framework-annotations-lib",
-        "framework-uwb-pre-jarjar",
+        "androidx.annotation_annotation",
+    ],
+    static_libs: [
+        "guava"
     ],
     apex_available: [
         "com.android.uwb",
     ],
     visibility : [
-        "//cts/tests/uwb",
-        "//cts/hostsidetests/multidevices/uwb/snippet",
         "//external/sl4a/Common",
-        "//packages/modules/Uwb/service:__subpackages__",
+        "//packages/modules/Uwb:__subpackages__",
     ]
 }
 
@@ -41,10 +40,6 @@ java_library {
     defaults: ["support-lib-uwb-common-defaults"],
     srcs: [
         "src/com/google/uwb/support/base/**/*.java",
-    ],
-    static_libs: [
-        "androidx.annotation_annotation",
-        "modules-utils-preconditions",
     ],
 }
 
@@ -55,9 +50,7 @@ java_library {
         "src/com/google/uwb/support/ccc/**/*.java",
     ],
     static_libs: [
-        "androidx.annotation_annotation",
         "com.uwb.support.base",
-        "modules-utils-preconditions",
     ],
 }
 
@@ -68,9 +61,7 @@ java_library {
         "src/com/google/uwb/support/fira/**/*.java",
     ],
     static_libs: [
-        "androidx.annotation_annotation",
         "com.uwb.support.base",
-        "modules-utils-preconditions",
     ],
 }
 
@@ -81,11 +72,9 @@ java_library {
         "src/com/google/uwb/support/generic/**/*.java",
     ],
     static_libs: [
-        "androidx.annotation_annotation",
         "com.uwb.support.base",
         "com.uwb.support.ccc",
         "com.uwb.support.fira",
-        "modules-utils-preconditions",
     ],
 }
 
@@ -95,9 +84,6 @@ java_library {
     srcs: [
         "src/com/google/uwb/support/multichip/**/*.java",
     ],
-    static_libs: [
-    ],
-    visibility: ["//cts/tests/uwb"],
 }
 
 java_library {
@@ -107,9 +93,30 @@ java_library {
         "src/com/google/uwb/support/profile/**/*.java",
     ],
     static_libs: [
-        "androidx.annotation_annotation",
         "com.uwb.support.base",
         "com.uwb.support.fira",
-        "modules-utils-preconditions",
+    ],
+}
+
+java_library {
+    name: "com.uwb.support.oemextension",
+    defaults: ["support-lib-uwb-common-defaults"],
+    srcs: [
+        "src/com/google/uwb/support/oemextension/**/*.java",
+    ],
+    static_libs: [
+        "com.uwb.support.base",
+    ],
+}
+
+java_library {
+    name: "com.uwb.support.dltdoa",
+    defaults: ["support-lib-uwb-common-defaults"],
+    srcs: [
+        "src/com/google/uwb/support/dltdoa/**/*.java",
+    ],
+    static_libs: [
+        "com.uwb.support.base",
+        "com.uwb.support.fira",
     ],
 }

@@ -3,18 +3,23 @@
 ## Building
 
 ```
-TARGET_BUILD_APPS=MicrodroidDemoApp m apps_only dist
+UNBUNDLED_BUILD_SDKS_FROM_SOURCE=true TARGET_BUILD_APPS=MicrodroidDemoApp m apps_only dist
 ```
 
 ## Installing
 
+You can install the app like this:
 ```
-adb install -t out/dist/MicrodroidDemoApp.apk
-adb shell pm grant com.android.microdroid.demo android.permission.MANAGE_VIRTUAL_MACHINE
+adb install -t -g out/dist/MicrodroidDemoApp.apk
 ```
 
-Don't run the app before granting the permission. Or you will have to uninstall
-the app, and then re-install it.
+(-t allows it to be installed even though it is marked as a test app, -g grants
+the necessary permission.)
+
+You can also explicitly grant or revoke the permission, e.g.
+```
+adb shell pm grant com.android.microdroid.demo android.permission.MANAGE_VIRTUAL_MACHINE
+```
 
 ## Running
 

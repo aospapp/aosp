@@ -26,11 +26,13 @@ java_library {
     srcs: ["src/**/*.java"],
     libs: [
         "androidx.test.ext.junit",
+        "framework-annotations-lib",
         "framework-appsearch.impl",
         "guava",
         "service-appsearch-for-tests",
         "truth-prebuilt",
     ],
+    sdk_version: "system_server_current",
     visibility: [
         "//cts/hostsidetests/appsearch",
         "//cts/tests:__subpackages__",

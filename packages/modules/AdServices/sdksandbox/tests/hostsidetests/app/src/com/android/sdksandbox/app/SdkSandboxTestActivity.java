@@ -18,27 +18,37 @@ package com.android.sdksandbox.app;
 
 import android.app.Activity;
 import android.app.sdksandbox.SdkSandboxManager;
-import android.app.sdksandbox.testutils.FakeRemoteSdkCallback;
+import android.app.sdksandbox.testutils.FakeLoadSdkCallback;
+import android.app.sdksandbox.testutils.FakeSdkSandboxProcessDeathCallback;
 import android.os.Bundle;
 
 public class SdkSandboxTestActivity extends Activity {
 
+    private static final String SDK_NAME = "com.android.testcode";
+    private static final String SDK_NAME_2 = "com.android.testcode2";
+
     @Override
     public void onCreate(Bundle icicle) {
         super.onCreate(icicle);
+        if (icicle != null) {
+            // Only load SDKs when Activity created, not restored.
+            return;
+        }
 
         SdkSandboxManager sdkSandboxManager =
                 getApplicationContext().getSystemService(SdkSandboxManager.class);
+        assert sdkSandboxManager != null;
+
+        // Add a callback so that this app does not die when the sandbox dies.
+        sdkSandboxManager.addSdkSandboxProcessDeathCallback(
+                Runnable::run, new FakeSdkSandboxProcessDeathCallback());
 
         Bundle params = new Bundle();
-        params.putString("sdk-provider-class", "com.android.testcode.TestSandboxedSdkProvider");
-        FakeRemoteSdkCallback callback = new FakeRemoteSdkCallback();
-        sdkSandboxManager.loadSdk(
-                "com.android.testcode", params, callback);
-        if (!callback.isLoadSdkSuccessful()) {
-            throw new AssertionError(
-                    "Failed to load com.android.testcode : " + callback.getLoadSdkErrorCode() + "["
-                            + callback.getLoadSdkErrorMsg() + "]");
-        }
+        FakeLoadSdkCallback callback = new FakeLoadSdkCallback();
+        FakeLoadSdkCallback callback2 = new FakeLoadSdkCallback();
+        sdkSandboxManager.loadSdk(SDK_NAME, params, Runnable::run, callback);
+        sdkSandboxManager.loadSdk(SDK_NAME_2, params, Runnable::run, callback2);
+        callback.assertLoadSdkIsSuccessful();
+        callback2.assertLoadSdkIsSuccessful();
     }
 }

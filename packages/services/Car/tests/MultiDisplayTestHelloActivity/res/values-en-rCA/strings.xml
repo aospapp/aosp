@@ -16,7 +16,7 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="hello_activity_text_text" msgid="8189259382863353832">"Hello, world!"</string>
+    <string name="hello_activity_text_text" msgid="8189259382863353832">"Hello, World!"</string>
     <string name="app_name_default" msgid="110846623663619763">"MDTHelloDefault"</string>
     <string name="app_name_always" msgid="6684579479829101738">"MDTHelloAlways"</string>
 </resources>

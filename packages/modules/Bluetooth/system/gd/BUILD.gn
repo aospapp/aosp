@@ -26,8 +26,6 @@ config("gd_defaults") {
   ]
 
   defines = [
-    "OS_LINUX_GENERIC",
-    "OS_GENERIC",
     "TARGET_FLOSS",
   ]
 
@@ -63,6 +61,7 @@ static_library("libbluetooth_gd") {
   include_dirs = [ "." ]
   configs += [ ":gd_defaults" ]
   deps = [
+    "//bt/system/gd/rust/common:libbt_keystore_cc",
     "//bt/system/gd/rust/topshim:libbluetooth_topshim",
     "//bt/system/gd/rust/shim:libbluetooth_rust_interop",
     "//bt/system/gd:BluetoothGeneratedPackets_h",
@@ -79,6 +78,7 @@ static_library("libbluetooth_gd") {
     "//bt/system/gd/security:BluetoothSecuritySources",
     "//bt/system/gd/shim:BluetoothShimSources",
     "//bt/system/gd/storage:BluetoothStorageSources",
+    "//bt/system/gd/sysprops:BluetoothSyspropsSources",
   ]
 }
 
@@ -88,6 +88,7 @@ flatbuffer("BluetoothGeneratedDumpsysDataSchema_h") {
     "common/init_flags.fbs",
     "dumpsys_data.fbs",
     "hci/hci_acl_manager.fbs",
+    "hci/hci_controller.fbs",
     "l2cap/classic/l2cap_classic_module.fbs",
     "os/wakelock_manager.fbs",
     "shim/dumpsys.fbs",
@@ -100,6 +101,7 @@ bt_flatc_binary_schema("BluetoothGeneratedDumpsysBinarySchema_bfbs") {
     "common/init_flags.fbs",
     "dumpsys_data.fbs",
     "hci/hci_acl_manager.fbs",
+    "hci/hci_controller.fbs",
     "l2cap/classic/l2cap_classic_module.fbs",
     "os/wakelock_manager.fbs",
     "shim/dumpsys.fbs",

@@ -25,7 +25,7 @@ import android.util.ArraySet;
 import java.util.List;
 import java.util.Set;
 
-public class UidToPackageNameConverter {
+public final class UidToPackageNameConverter {
 
     public static Set<Integer> convertToUids(Context applicationContext, String packageNames)
             throws PackageManager.NameNotFoundException {
@@ -37,10 +37,23 @@ public class UidToPackageNameConverter {
 
         String[] packageNamesArray = packageNames.split(",");
         for (String packageName : packageNamesArray) {
+            boolean nameNotFound = true;
             packageName = packageName.trim();
             for (final UserHandle user : users) {
-                final int uid = packageManager.getApplicationInfoAsUser(packageName, 0, user).uid;
-                uids.add(uid);
+                try {
+                    final int uid =
+                            packageManager.getApplicationInfoAsUser(packageName, 0, user).uid;
+                    uids.add(uid);
+                    nameNotFound = false;
+                } catch (PackageManager.NameNotFoundException e) {
+                    // Although this may seem like an error scenario, it is ok as all packages are
+                    // not expected to be installed for all users.
+                    continue;
+                }
+            }
+
+            if (nameNotFound) {
+                throw new PackageManager.NameNotFoundException("Not installed: " + packageName);
             }
         }
         return uids;

@@ -27,6 +27,7 @@ import android.content.IntentFilter;
 import android.net.wifi.WifiContext;
 import android.os.Handler;
 import android.os.SystemClock;
+import android.os.UserHandle;
 import android.provider.Settings;
 import android.text.format.DateUtils;
 import android.util.Log;
@@ -76,8 +77,8 @@ public class WakeupOnboarding {
                 case ACTION_OPEN_WIFI_PREFERENCES:
                     // Close notification drawer before opening preferences.
                     mContext.sendBroadcast(new Intent(Intent.ACTION_CLOSE_SYSTEM_DIALOGS));
-                    mContext.startActivity(new Intent(Settings.ACTION_WIFI_IP_SETTINGS)
-                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+                    mContext.startActivityAsUser(new Intent(Settings.ACTION_WIFI_IP_SETTINGS)
+                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK), UserHandle.CURRENT);
                     dismissNotification(true /* shouldOnboard */);
                     break;
                 case ACTION_DISMISS_NOTIFICATION:

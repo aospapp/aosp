@@ -16,42 +16,40 @@
 
 package com.android.server.wifi;
 
+import android.annotation.NonNull;
 import android.net.MacAddress;
-import android.security.keystore.AndroidKeyStoreProvider;
-import android.security.keystore.BackendBusyException;
-import android.security.keystore.KeyGenParameterSpec;
-import android.security.keystore.KeyProperties;
 import android.util.Log;
 
-import com.android.modules.utils.build.SdkLevel;
+import com.android.internal.annotations.VisibleForTesting;
+import com.android.server.wifi.util.KeystoreWrapper;
 
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
-import java.security.InvalidAlgorithmParameterException;
-import java.security.InvalidKeyException;
-import java.security.Key;
-import java.security.KeyStore;
-import java.security.KeyStoreException;
-import java.security.NoSuchAlgorithmException;
-import java.security.NoSuchProviderException;
 import java.security.ProviderException;
-import java.security.UnrecoverableKeyException;
 import java.util.Arrays;
 
-import javax.crypto.KeyGenerator;
 import javax.crypto.Mac;
-import javax.crypto.SecretKey;
 
 /**
  * Contains helper methods to support MAC randomization.
  */
 public class MacAddressUtil {
     private static final String TAG = "MacAddressUtil";
-    private static final String MAC_RANDOMIZATION_ALIAS = "MacRandSecret";
-    private static final String MAC_RANDOMIZATION_SAP_ALIAS = "MacRandSapSecret";
+    @VisibleForTesting
+    public static final String MAC_RANDOMIZATION_ALIAS = "MacRandSecret";
+    @VisibleForTesting
+    public static final String MAC_RANDOMIZATION_SAP_ALIAS = "MacRandSapSecret";
     private static final long MAC_ADDRESS_VALID_LONG_MASK = (1L << 48) - 1;
     private static final long MAC_ADDRESS_LOCALLY_ASSIGNED_MASK = 1L << 41;
     private static final long MAC_ADDRESS_MULTICAST_MASK = 1L << 40;
+    private static final int ETHER_ADDR_LEN = 6;
+    private final KeystoreWrapper mKeystoreWrapper;
+    private Mac mMacForSta = null;
+    private Mac mMacForSap = null;
+
+    public MacAddressUtil(KeystoreWrapper keystoreWrapper) {
+        mKeystoreWrapper = keystoreWrapper;
+    }
 
     /**
      * Computes the persistent randomized MAC using the given key and hash function.
@@ -59,7 +57,7 @@ public class MacAddressUtil {
      * @param hashFunction the hash function that will perform the MAC address computation.
      * @return The persistent randomized MAC address or null if inputs are invalid.
      */
-    public MacAddress calculatePersistentMac(String key, Mac hashFunction) {
+    private MacAddress calculatePersistentMacInternal(String key, Mac hashFunction) {
         if (key == null || hashFunction == null) {
             return null;
         }
@@ -88,72 +86,66 @@ public class MacAddressUtil {
         return macAddress;
     }
 
-    private Mac obtainMacRandHashFunctionInternal(int uid, String alias) {
-        try {
-            KeyStore keyStore = AndroidKeyStoreProvider.getKeyStoreForUid(uid);
-            // tries to retrieve the secret, and generate a new one if it's unavailable.
-            Key key = keyStore.getKey(alias, null);
-            if (key == null) {
-                key = generateAndPersistNewMacRandomizationSecret(uid, alias);
+    private MacAddress calculatePersistentMacWithCachedHash(@NonNull String key, int uid,
+            @NonNull String alias) {
+        Mac hashFunction = getCachedHashFunction(alias);
+        if (hashFunction != null) {
+            // first try calculating the MacAddress using the cached hash function
+            MacAddress macAddress = calculatePersistentMacInternal(key, hashFunction);
+            if (macAddress != null) {
+                return macAddress;
             }
-            if (key == null) {
-                Log.e(TAG, "Failed to generate secret for " + alias);
-                return null;
-            }
-            Mac result = Mac.getInstance("HmacSHA256");
-            result.init(key);
-            return result;
-        } catch (KeyStoreException | NoSuchAlgorithmException | InvalidKeyException
-                | UnrecoverableKeyException | NoSuchProviderException e) {
-            Log.e(TAG, "Failure in obtainMacRandHashFunction", e);
+            // intentional fallthrough if calculating MacAddress with the cached hash function fails
+        }
+        hashFunction = mKeystoreWrapper.getHmacSHA256ForUid(uid, alias);
+        cacheHashFunction(alias, hashFunction);
+        return calculatePersistentMacInternal(key, hashFunction);
+    }
+
+    /**
+     * calculate the persistent randomized MAC for STA
+     */
+    public MacAddress calculatePersistentMacForSta(String key, int uid) {
+        if (key == null) {
             return null;
-        } catch (Exception e) {
-            if (SdkLevel.isAtLeastS() && e instanceof BackendBusyException) {
-                Log.e(TAG, "Failure in obtainMacRandHashFunction", e);
-                return null;
-            }
-            Log.e(TAG, "Unexpected exception caught in obtainMacRandHashFunction", e);
-            throw e;
+        }
+        return calculatePersistentMacWithCachedHash(key, uid, MAC_RANDOMIZATION_ALIAS);
+    }
+
+    /**
+     * calculate the persistent randomized MAC for SoftAp
+     */
+    public MacAddress calculatePersistentMacForSap(String key, int uid) {
+        if (key == null) {
+            return null;
+        }
+        return calculatePersistentMacWithCachedHash(key, uid, MAC_RANDOMIZATION_SAP_ALIAS);
+    }
+
+    private Mac getCachedHashFunction(@NonNull String alias) {
+        if (MAC_RANDOMIZATION_ALIAS.equals(alias)) {
+            return mMacForSta;
+        } else if (MAC_RANDOMIZATION_SAP_ALIAS.equals(alias)) {
+            return mMacForSap;
+        }
+        return null;
+    }
+
+    private void cacheHashFunction(@NonNull String alias, Mac mac) {
+        if (MAC_RANDOMIZATION_ALIAS.equals(alias)) {
+            mMacForSta = mac;
+        } else if (MAC_RANDOMIZATION_SAP_ALIAS.equals(alias)) {
+            mMacForSap = mac;
         }
     }
 
     /**
-     * Retrieves a Hash function that could be used to calculate the persistent randomized MAC
-     * for a WifiConfiguration for client mode.
-     * @param uid the UID of the KeyStore to get the secret of the hash function from.
+     * Returns the next Mac address to the given Mac address.
      */
-    public Mac obtainMacRandHashFunction(int uid) {
-        return obtainMacRandHashFunctionInternal(uid, MAC_RANDOMIZATION_ALIAS);
-    }
-
-    /**
-     * Retrieves a Hash function that could be used to calculate the persistent randomized MAC
-     * for a WifiConfiguration for Soft AP.
-     * @param uid the UID of the KeyStore to get the secret of the hash function from.
-     */
-    public Mac obtainMacRandHashFunctionForSap(int uid) {
-        return obtainMacRandHashFunctionInternal(uid, MAC_RANDOMIZATION_SAP_ALIAS);
-    }
-
-    /**
-     * Generates and returns a secret key to use for Mac randomization.
-     * Will also persist the generated secret inside KeyStore, accessible in the
-     * future with KeyGenerator#getKey.
-     */
-    private SecretKey generateAndPersistNewMacRandomizationSecret(int uid, String alias) {
-        try {
-            KeyGenerator keyGenerator = KeyGenerator.getInstance(
-                    KeyProperties.KEY_ALGORITHM_HMAC_SHA256, "AndroidKeyStore");
-            keyGenerator.init(
-                    new KeyGenParameterSpec.Builder(alias,
-                            KeyProperties.PURPOSE_SIGN)
-                            .setUid(uid)
-                            .build());
-            return keyGenerator.generateKey();
-        } catch (NoSuchAlgorithmException | InvalidAlgorithmParameterException
-                | NoSuchProviderException | ProviderException e) {
-            Log.e(TAG, "Failure in generateMacRandomizationSecret", e);
-            return null;
-        }
+    public static MacAddress nextMacAddress(MacAddress mac) {
+        byte[] bytes = mac.toByteArray();
+        bytes[MacAddressUtil.ETHER_ADDR_LEN - 1] =
+                (byte) ((bytes[MacAddressUtil.ETHER_ADDR_LEN - 1] + 1) & 0xff);
+        return MacAddress.fromBytes(bytes);
     }
 }

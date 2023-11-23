@@ -20,6 +20,7 @@
 
 #include <base/base64.h>
 #include <base/logging.h>
+#include <frameworks/proto_logging/stats/enums/bluetooth/le/enums.pb.h>
 #include <include/hardware/bt_av.h>
 #include <statslog_bt.h>
 #include <unistd.h>
@@ -35,6 +36,9 @@
 
 #include "address_obfuscator.h"
 #include "bluetooth/metrics/bluetooth.pb.h"
+#include "gd/metrics/metrics_state.h"
+#include "gd/hci/address.h"
+#include "gd/os/metrics.h"
 #include "leaky_bonded_queue.h"
 #include "metric_id_allocator.h"
 #include "osi/include/osi.h"
@@ -68,6 +72,7 @@ using bluetooth::metrics::BluetoothMetricsProto::ScanEvent_ScanEventType;
 using bluetooth::metrics::BluetoothMetricsProto::ScanEvent_ScanTechnologyType;
 using bluetooth::metrics::BluetoothMetricsProto::WakeEvent;
 using bluetooth::metrics::BluetoothMetricsProto::WakeEvent_WakeEventType;
+using bluetooth::hci::Address;
 
 static float combine_averages(float avg_a, int64_t ct_a, float avg_b,
                               int64_t ct_b) {
@@ -960,6 +965,26 @@ void LogLeAudioConnectionSessionReported(
                  << "streaming_context_type[" << streaming_context_type.size()
                  << "]";
   }
+}
+
+void LogLeAudioBroadcastSessionReported(int64_t duration_nanos) {
+  int ret = stats_write(LE_AUDIO_BROADCAST_SESSION_REPORTED, duration_nanos);
+  if (ret < 0) {
+    LOG(WARNING) << __func__ << ": failed for duration=" << duration_nanos;
+  }
+}
+
+void LogLeBluetoothConnectionMetricEventReported(
+    const Address& address,
+    android::bluetooth::le::LeConnectionOriginType origin_type,
+    android::bluetooth::le::LeConnectionType connection_type,
+    android::bluetooth::le::LeConnectionState transaction_state,
+    std::vector<std::pair<os::ArgumentType, int>>
+        argument_list) {
+  // Log the events for the State Management
+  metrics::MetricsCollector::GetLEConnectionMetricsCollector()
+      ->AddStateChangedEvent(address, origin_type, connection_type,
+                             transaction_state, argument_list);
 }
 
 }  // namespace common

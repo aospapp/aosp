@@ -28,8 +28,6 @@
 #include "test/headless/headless.h"
 #include "types/raw_address.h"
 
-extern bt_interface_t bluetoothInterface;
-
 int bluetooth::test::headless::Dumpsys::Run() {
   return RunOnHeadlessStack<int>([this]() {
     fprintf(stdout, "Dumpsys loop:%lu \n", loop_);

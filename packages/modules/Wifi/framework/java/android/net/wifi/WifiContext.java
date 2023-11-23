@@ -17,6 +17,7 @@
 package android.net.wifi;
 
 import android.annotation.NonNull;
+import android.app.ActivityManager;
 import android.content.Context;
 import android.content.ContextWrapper;
 import android.content.Intent;
@@ -25,6 +26,7 @@ import android.content.pm.ResolveInfo;
 import android.content.res.AssetManager;
 import android.content.res.Resources;
 import android.net.wifi.util.Environment;
+import android.os.UserHandle;
 import android.util.Log;
 
 import androidx.annotation.Nullable;
@@ -67,7 +69,7 @@ public class WifiContext extends ContextWrapper {
         if (mWifiOverlayApkPkgName != null) {
             return mWifiOverlayApkPkgName;
         }
-        mWifiOverlayApkPkgName = getApkPkgNameForAction(ACTION_RESOURCES_APK);
+        mWifiOverlayApkPkgName = getApkPkgNameForAction(ACTION_RESOURCES_APK, null);
         if (mWifiOverlayApkPkgName == null) {
             // Resource APK not loaded yet, print a stack trace to see where this is called from
             Log.e(TAG, "Attempted to fetch resources before Wifi Resources APK is loaded!",
@@ -83,7 +85,8 @@ public class WifiContext extends ContextWrapper {
         if (mWifiDialogApkPkgName != null) {
             return mWifiDialogApkPkgName;
         }
-        mWifiDialogApkPkgName = getApkPkgNameForAction(ACTION_WIFI_DIALOG_APK);
+        mWifiDialogApkPkgName = getApkPkgNameForAction(ACTION_WIFI_DIALOG_APK,
+                UserHandle.of(ActivityManager.getCurrentUser()));
         if (mWifiDialogApkPkgName == null) {
             // WifiDialog APK not loaded yet, print a stack trace to see where this is called from
             Log.e(TAG, "Attempted to fetch WifiDialog apk before it is loaded!",
@@ -95,10 +98,19 @@ public class WifiContext extends ContextWrapper {
     }
 
     /** Gets the package name of the apk responding to the given intent action */
-    private String getApkPkgNameForAction(@NonNull String action) {
-        List<ResolveInfo> resolveInfos = getPackageManager().queryIntentActivities(
-                new Intent(action),
-                PackageManager.MATCH_SYSTEM_ONLY);
+    private String getApkPkgNameForAction(@NonNull String action, UserHandle userHandle) {
+
+        List<ResolveInfo> resolveInfos;
+        if (userHandle != null) {
+            resolveInfos = getPackageManager().queryIntentActivitiesAsUser(
+                    new Intent(action),
+                    PackageManager.MATCH_SYSTEM_ONLY,
+                    userHandle);
+        } else {
+            resolveInfos = getPackageManager().queryIntentActivities(
+                    new Intent(action),
+                    PackageManager.MATCH_SYSTEM_ONLY);
+        }
         Log.i(TAG, "Got resolveInfos for " + action + ": " + resolveInfos);
 
         // remove apps that don't live in the Wifi apex

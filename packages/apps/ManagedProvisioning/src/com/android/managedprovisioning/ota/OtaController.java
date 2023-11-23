@@ -111,7 +111,7 @@ public class OtaController {
                 addManagedProfileTasks(userInfo.id, mContext);
             } else if (mDevicePolicyManager.getProfileOwnerAsUser(userInfo.id) != null) {
                 addManagedUserTasks(userInfo.id, mContext);
-            } else {
+            } else if (!userInfo.isProfile()) {
                 // if this user has managed profiles, reset the cross-profile intent filters between
                 // this user and its managed profiles.
                 mDevicePolicyManager.resetDefaultCrossProfileIntentFilters(userInfo.id);

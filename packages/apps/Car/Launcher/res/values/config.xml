@@ -54,4 +54,32 @@
     -->
     <string-array name="config_taskViewPackages" translatable="false">
     </string-array>
+
+    <!--
+        Determines whether or not to use the RemoteCarTaskView from car-lib instead of the
+        CarTaskView that exists inside the CarLauncher.
+    -->
+    <bool name="config_useRemoteCarTaskView">true</bool>
+
+    <!-- Service information to get screen mirroring information -->
+    <string name="config_msg_mirroring_service_pkg_name" translatable="false">com.android.car.multidisplay.controlcenter</string>
+    <string name="config_msg_mirroring_service_class_name" translatable="false">com.android.car.multidisplay.controlcenter.service.ControlCenterService</string>
+
+    <!--
+        Keep in sync with the config file in {@link com.android.car.multidisplay.controlcenter}
+        ControlCenterService constants that allow other apps to get information about mirrored apps
+    -->
+    <integer name="config_msg_register_mirroring_pkg_code">1</integer>
+    <integer name="config_msg_unregister_mirroring_pkg_code">2</integer>
+    <integer name="config_msg_send_mirroring_pkg_code">3</integer>
+    <string name="config_msg_mirroring_pkg_name_key" translatable="false">msg_mirroring_pkg_name_key</string>
+    <string name="config_msg_mirroring_redirect_uri_key" translatable="false">msg_mirroring_redirect_uri_key</string>
+    <!-- Number of columns in recents that should be included in a page when snapping -->
+    <integer name="config_recents_columns_per_page">2</integer>
+
+    <!--
+        The Activity to use as a passenger Launcher, if empty, it assumes CarLauncher can do
+        the passenger Launcher role too.
+    -->
+    <string name="config_passengerLauncherComponent">com.android.car.multidisplay/.launcher.LauncherActivity</string>
 </resources>

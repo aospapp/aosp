@@ -16,6 +16,7 @@
 
 package com.android.systemui.car.volume;
 
+import android.annotation.ColorInt;
 import android.graphics.drawable.Drawable;
 import android.view.View;
 import android.widget.ImageView;
@@ -146,6 +147,19 @@ public class CarVolumeItem {
                     carVolumeItem.mSupplementalIconOnClickListener);
             mSupplementalIcon.setClickable(
                     carVolumeItem.mSupplementalIconOnClickListener != null);
+        }
+
+        /** Refresh the icons drawable color. */
+        void setIconDrawableColor(@ColorInt int color) {
+            Drawable primaryIconDrawable = mPrimaryIcon.getDrawable();
+            primaryIconDrawable.mutate().setTint(color);
+            mPrimaryIcon.setImageDrawable(primaryIconDrawable);
+
+            if (mSupplementalIcon != null && mSupplementalIcon.getDrawable() != null) {
+                Drawable supplementalIconDrawable = mSupplementalIcon.getDrawable();
+                supplementalIconDrawable.mutate().setTint(color);
+                mSupplementalIcon.setImageDrawable(supplementalIconDrawable);
+            }
         }
     }
 }

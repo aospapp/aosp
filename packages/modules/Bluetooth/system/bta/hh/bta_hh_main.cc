@@ -49,7 +49,7 @@ static void bta_hh_better_state_machine(tBTA_HH_DEV_CB* p_cb, uint16_t event,
       switch (event) {
         case BTA_HH_API_OPEN_EVT:
           p_cb->state = BTA_HH_W4_CONN_ST;
-          bta_hh_start_sdp(p_cb, p_data);
+          bta_hh_connect(p_cb, p_data);
           break;
         case BTA_HH_INT_OPEN_EVT:
           p_cb->state = BTA_HH_W4_CONN_ST;
@@ -303,57 +303,41 @@ bool bta_hh_hdl_event(BT_HDR_RIGID* p_msg) {
   uint8_t index = BTA_HH_IDX_INVALID;
   tBTA_HH_DEV_CB* p_cb = NULL;
 
-  switch (p_msg->event) {
-    case BTA_HH_API_ENABLE_EVT:
-      bta_hh_api_enable((tBTA_HH_DATA*)p_msg);
-      break;
-
-    case BTA_HH_API_DISABLE_EVT:
-      bta_hh_api_disable();
-      break;
-
-    case BTA_HH_DISC_CMPL_EVT: /* disable complete */
-      bta_hh_disc_cmpl();
-      break;
-
-    default:
-      /* all events processed in state machine need to find corresponding
-          CB before proceed */
-      if (p_msg->event == BTA_HH_API_OPEN_EVT) {
-        index = bta_hh_find_cb(((tBTA_HH_API_CONN*)p_msg)->bd_addr);
-      } else if (p_msg->event == BTA_HH_API_MAINT_DEV_EVT) {
-        /* if add device */
-        if (((tBTA_HH_MAINT_DEV*)p_msg)->sub_event == BTA_HH_ADD_DEV_EVT) {
-          index = bta_hh_find_cb(((tBTA_HH_MAINT_DEV*)p_msg)->bda);
-        } else /* else remove device by handle */
-        {
-          index = bta_hh_dev_handle_to_cb_idx((uint8_t)p_msg->layer_specific);
-          /* If BT disable is done while the HID device is connected and
-           * Link_Key uses unauthenticated combination
-            * then we can get into a situation where remove_bonding is called
-           * with the index set to 0 (without getting
-            * cleaned up). Only when VIRTUAL_UNPLUG is called do we cleanup the
-           * index and make it MAX_KNOWN.
-            * So if REMOVE_DEVICE is called and in_use is false then we should
-           * treat this as a NULL p_cb. Hence we
-            * force the index to be IDX_INVALID
-            */
-          if ((index != BTA_HH_IDX_INVALID) &&
-              (!bta_hh_cb.kdev[index].in_use)) {
-            index = BTA_HH_IDX_INVALID;
-          }
-        }
-      } else if (p_msg->event == BTA_HH_INT_OPEN_EVT) {
-        index = bta_hh_find_cb(((tBTA_HH_CBACK_DATA*)p_msg)->addr);
-      } else
-        index = bta_hh_dev_handle_to_cb_idx((uint8_t)p_msg->layer_specific);
-
-      if (index != BTA_HH_IDX_INVALID) p_cb = &bta_hh_cb.kdev[index];
-
-      APPL_TRACE_DEBUG("bta_hh_hdl_event:: handle = %d dev_cb[%d] ",
-                       p_msg->layer_specific, index);
-      bta_hh_sm_execute(p_cb, p_msg->event, (tBTA_HH_DATA*)p_msg);
+  /* all events processed in state machine need to find corresponding
+     CB before proceed */
+  if (p_msg->event == BTA_HH_API_OPEN_EVT) {
+    index = bta_hh_find_cb(((tBTA_HH_API_CONN*)p_msg)->bd_addr);
+  } else if (p_msg->event == BTA_HH_API_MAINT_DEV_EVT) {
+    /* if add device */
+    if (((tBTA_HH_MAINT_DEV*)p_msg)->sub_event == BTA_HH_ADD_DEV_EVT) {
+      index = bta_hh_find_cb(((tBTA_HH_MAINT_DEV*)p_msg)->bda);
+    } else /* else remove device by handle */ {
+      index = bta_hh_dev_handle_to_cb_idx((uint8_t)p_msg->layer_specific);
+      /* If BT disable is done while the HID device is connected and
+       * Link_Key uses unauthenticated combination
+       * then we can get into a situation where remove_bonding is called
+       * with the index set to 0 (without getting
+       * cleaned up). Only when VIRTUAL_UNPLUG is called do we cleanup the
+       * index and make it MAX_KNOWN.
+       * So if REMOVE_DEVICE is called and in_use is false then we should
+       * treat this as a NULL p_cb. Hence we
+       * force the index to be IDX_INVALID
+       */
+      if ((index != BTA_HH_IDX_INVALID) && (!bta_hh_cb.kdev[index].in_use)) {
+        index = BTA_HH_IDX_INVALID;
+      }
+    }
+  } else if (p_msg->event == BTA_HH_INT_OPEN_EVT) {
+    index = bta_hh_find_cb(((tBTA_HH_CBACK_DATA*)p_msg)->addr);
+  } else {
+    index = bta_hh_dev_handle_to_cb_idx((uint8_t)p_msg->layer_specific);
   }
+
+  if (index != BTA_HH_IDX_INVALID) p_cb = &bta_hh_cb.kdev[index];
+
+  APPL_TRACE_DEBUG("bta_hh_hdl_event:: handle = %d dev_cb[%d] ", p_msg->layer_specific, index);
+  bta_hh_sm_execute(p_cb, p_msg->event, (tBTA_HH_DATA*)p_msg);
+
   return (true);
 }
 
@@ -371,10 +355,6 @@ bool bta_hh_hdl_event(BT_HDR_RIGID* p_msg) {
  ******************************************************************************/
 static const char* bta_hh_evt_code(tBTA_HH_INT_EVT evt_code) {
   switch (evt_code) {
-    case BTA_HH_API_DISABLE_EVT:
-      return "BTA_HH_API_DISABLE_EVT";
-    case BTA_HH_API_ENABLE_EVT:
-      return "BTA_HH_API_ENABLE_EVT";
     case BTA_HH_API_OPEN_EVT:
       return "BTA_HH_API_OPEN_EVT";
     case BTA_HH_API_CLOSE_EVT:
@@ -393,8 +373,6 @@ static const char* bta_hh_evt_code(tBTA_HH_INT_EVT evt_code) {
       return "BTA_HH_API_WRITE_DEV_EVT";
     case BTA_HH_SDP_CMPL_EVT:
       return "BTA_HH_SDP_CMPL_EVT";
-    case BTA_HH_DISC_CMPL_EVT:
-      return "BTA_HH_DISC_CMPL_EVT";
     case BTA_HH_API_MAINT_DEV_EVT:
       return "BTA_HH_API_MAINT_DEV_EVT";
     case BTA_HH_API_GET_DSCP_EVT:

@@ -21,13 +21,13 @@ import static com.android.permissioncontroller.PermissionControllerStatsLog.PERM
 import static com.android.permissioncontroller.PermissionControllerStatsLog.write;
 
 import android.content.ActivityNotFoundException;
-import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
 import android.graphics.drawable.Drawable;
 import android.os.UserHandle;
+import android.text.format.DateFormat;
 import android.util.Log;
 import android.view.Gravity;
 import android.view.LayoutInflater;
@@ -42,12 +42,12 @@ import androidx.annotation.Nullable;
 import androidx.preference.Preference;
 import androidx.preference.PreferenceViewHolder;
 
-import com.android.modules.utils.build.SdkLevel;
 import com.android.permissioncontroller.R;
 import com.android.permissioncontroller.permission.compat.IntentCompat;
+import com.android.permissioncontroller.permission.ui.model.v31.PermissionUsageDetailsViewModel;
+import com.android.permissioncontroller.permission.utils.Utils;
 
 import java.util.ArrayList;
-import java.util.List;
 import java.util.Objects;
 
 /**
@@ -55,21 +55,21 @@ import java.util.Objects;
  */
 public class PermissionHistoryPreference extends Preference {
 
-    private static final String LOG_TAG = "PermissionHistoryPreference";
+    private static final String LOG_TAG = "PermissionHistoryPref";
 
     private final Context mContext;
     private final UserHandle mUserHandle;
     private final String mPackageName;
     private final String mPermissionGroup;
-    private final String mAccessTime;
+    private final long mAccessStartTime;
+    private final long mAccessEndTime;
     private final Drawable mAppIcon;
     private final String mTitle;
-    private final List<Long> mAccessTimeList;
     private final ArrayList<String> mAttributionTags;
     private final boolean mIsLastUsage;
     private final Intent mIntent;
     private final boolean mShowingAttribution;
-    private final PackageManager mPackageManager;
+    private final PackageManager mUserPackageManager;
 
     private final long mSessionId;
 
@@ -79,25 +79,27 @@ public class PermissionHistoryPreference extends Preference {
             @NonNull UserHandle userHandle, @NonNull String pkgName,
             @NonNull Drawable appIcon,
             @NonNull String preferenceTitle,
-            @NonNull String permissionGroup, @NonNull String accessTime,
+            @NonNull String permissionGroup,
+            @NonNull long accessStartTime,
+            @NonNull long accessEndTime,
             @Nullable CharSequence summaryText, boolean showingAttribution,
-            @NonNull List<Long> accessTimeList,
             @NonNull ArrayList<String> attributionTags, boolean isLastUsage, long sessionId) {
         super(context);
         mContext = context;
+        Context userContext = Utils.getUserContext(context, userHandle);
+        mUserPackageManager = userContext.getPackageManager();
         mUserHandle = userHandle;
         mPackageName = pkgName;
         mPermissionGroup = permissionGroup;
-        mAccessTime = accessTime;
+        mAccessStartTime = accessStartTime;
+        mAccessEndTime = accessEndTime;
         mAppIcon = appIcon;
         mTitle = preferenceTitle;
         mWidgetIcon = null;
-        mAccessTimeList = accessTimeList;
         mAttributionTags = attributionTags;
         mIsLastUsage = isLastUsage;
         mSessionId = sessionId;
         mShowingAttribution = showingAttribution;
-        mPackageManager = context.getPackageManager();
 
         setTitle(mTitle);
         if (summaryText != null) {
@@ -133,30 +135,37 @@ public class PermissionHistoryPreference extends Preference {
         widgetFrameParent.setGravity(Gravity.TOP);
 
         TextView permissionHistoryTime = widget.findViewById(R.id.permission_history_time);
-        permissionHistoryTime.setText(mAccessTime);
+        permissionHistoryTime.setText(DateFormat.getTimeFormat(mContext).format(mAccessEndTime));
 
         ImageView permissionIcon = widget.findViewById(R.id.permission_history_icon);
         permissionIcon.setImageDrawable(mAppIcon);
 
         ImageView widgetView = widgetFrame.findViewById(R.id.icon);
-        setInfoIcon(widgetView);
+        setInfoIcon(holder, widgetView);
 
         View dashLine = widget.findViewById(R.id.permission_history_dash_line);
         dashLine.setVisibility(mIsLastUsage ? View.GONE : View.VISIBLE);
 
-        Intent intent = getManagePermissionUsageIntent();
-        if (intent == null) {
-            intent = getDefaultManageAppPermissionsIntent();
-        }
+        // This Intent should ideally be part of the constructor, passed in from the ViewModel.
+        // It's temporarily created via a static method due to ongoing ViewModel refactoring.
+        Intent intent =
+                PermissionUsageDetailsViewModel.Companion.createHistoryPreferenceClickIntent(
+                    mContext,
+                    mUserHandle,
+                    mPackageName,
+                    mPermissionGroup,
+                    mAccessStartTime,
+                    mAccessEndTime,
+                    mShowingAttribution,
+                    mAttributionTags);
 
-        Intent finalIntent = intent;
         setOnPreferenceClickListener((preference) -> {
-            mContext.startActivity(finalIntent);
+            mContext.startActivityAsUser(intent, mUserHandle);
             return true;
         });
     }
 
-    private void setInfoIcon(ImageView widgetView) {
+    private void setInfoIcon(@NonNull PreferenceViewHolder holder, ImageView widgetView) {
         if (mIntent != null) {
             widgetView.setImageDrawable(mWidgetIcon);
             widgetView.setOnClickListener(v -> {
@@ -166,54 +175,15 @@ public class PermissionHistoryPreference extends Preference {
                         mPackageName,
                         PERMISSION_DETAILS_INTERACTION__ACTION__INFO_ICON_CLICKED);
                 try {
-                    mContext.startActivity(mIntent);
+                    mContext.startActivityAsUser(mIntent, mUserHandle);
                 } catch (ActivityNotFoundException e) {
                     Log.e(LOG_TAG, "No activity found for viewing permission usage.");
                 }
             });
+            View preferenceRootView = holder.itemView;
+            preferenceRootView.setPaddingRelative(preferenceRootView.getPaddingStart(),
+                    preferenceRootView.getPaddingTop(), 0, preferenceRootView.getPaddingBottom());
         }
-    }
-
-    private Intent getDefaultManageAppPermissionsIntent() {
-        Intent intent = new Intent(Intent.ACTION_MANAGE_APP_PERMISSIONS);
-        intent.putExtra(Intent.EXTRA_USER, mUserHandle);
-        intent.putExtra(Intent.EXTRA_PACKAGE_NAME, mPackageName);
-
-        return intent;
-    }
-
-    /**
-     * Get a {@link Intent#ACTION_MANAGE_PERMISSION_USAGE} intent, or null if the intent
-     * can't be handled.
-     *
-     * Suppressing the NewApi warning since we already have a isAtLeastT() check.
-     */
-    @Nullable
-    @SuppressWarnings("NewApi")
-    private Intent getManagePermissionUsageIntent() {
-        if (!mShowingAttribution || !SdkLevel.isAtLeastT() || mPackageName == null) {
-            return null;
-        }
-
-        Intent intent = new Intent(Intent.ACTION_MANAGE_PERMISSION_USAGE);
-        intent.setPackage(mPackageName);
-        intent.putExtra(Intent.EXTRA_PERMISSION_GROUP_NAME, mPermissionGroup);
-        intent.putExtra(Intent.EXTRA_ATTRIBUTION_TAGS, mAttributionTags.toArray(new String[0]));
-        intent.putExtra(Intent.EXTRA_START_TIME, mAccessTimeList.get(mAccessTimeList.size() - 1));
-        intent.putExtra(Intent.EXTRA_END_TIME, mAccessTimeList.get(0));
-        intent.putExtra(IntentCompat.EXTRA_SHOWING_ATTRIBUTION, mShowingAttribution);
-        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-
-        ResolveInfo resolveInfo = mPackageManager.resolveActivity(intent,
-                PackageManager.ResolveInfoFlags.of(0));
-        if (resolveInfo == null || resolveInfo.activityInfo == null || !Objects.equals(
-                resolveInfo.activityInfo.permission,
-                android.Manifest.permission.START_VIEW_PERMISSION_USAGE)) {
-            return null;
-        }
-        intent.setComponent(new ComponentName(mPackageName, resolveInfo.activityInfo.name));
-
-        return intent;
     }
 
     /**
@@ -229,12 +199,12 @@ public class PermissionHistoryPreference extends Preference {
         viewUsageIntent.putExtra(Intent.EXTRA_ATTRIBUTION_TAGS,
                 mAttributionTags.toArray(new String[0]));
         viewUsageIntent.putExtra(Intent.EXTRA_START_TIME,
-                mAccessTimeList.get(mAccessTimeList.size() - 1));
-        viewUsageIntent.putExtra(Intent.EXTRA_END_TIME, mAccessTimeList.get(0));
+                mAccessStartTime);
+        viewUsageIntent.putExtra(Intent.EXTRA_END_TIME, mAccessEndTime);
         viewUsageIntent.putExtra(IntentCompat.EXTRA_SHOWING_ATTRIBUTION, showingAttribution);
         viewUsageIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
 
-        ResolveInfo resolveInfo = mPackageManager.resolveActivity(viewUsageIntent,
+        ResolveInfo resolveInfo = mUserPackageManager.resolveActivity(viewUsageIntent,
                 PackageManager.MATCH_INSTANT);
         if (resolveInfo != null && resolveInfo.activityInfo != null && Objects.equals(
                 resolveInfo.activityInfo.permission,

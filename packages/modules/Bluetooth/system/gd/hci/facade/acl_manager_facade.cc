@@ -339,7 +339,8 @@ class AclManagerFacadeService : public AclManagerFacade::Service, public Connect
   }
 
   void on_incoming_acl(std::shared_ptr<ClassicAclConnection> connection, uint16_t handle) {
-    LOG_INFO("handle=%d, addr=%s", connection->GetHandle(), connection->GetAddress().ToString().c_str());
+    LOG_INFO("handle=%d, addr=%s", connection->GetHandle(),
+             ADDRESS_TO_LOGGABLE_CSTR(connection->GetAddress()));
     auto packet = connection->GetAclQueueEnd()->TryDequeue();
     auto connection_tracker = acl_connections_.find(handle);
     ASSERT_LOG(connection_tracker != acl_connections_.end(), "handle %d", handle);
@@ -351,7 +352,8 @@ class AclManagerFacadeService : public AclManagerFacade::Service, public Connect
   }
 
   void OnConnectSuccess(std::unique_ptr<ClassicAclConnection> connection) override {
-    LOG_INFO("handle=%d, addr=%s", connection->GetHandle(), connection->GetAddress().ToString().c_str());
+    LOG_INFO("handle=%d, addr=%s", connection->GetHandle(),
+             ADDRESS_TO_LOGGABLE_CSTR(connection->GetAddress()));
     std::unique_lock<std::mutex> lock(acl_connections_mutex_);
     std::shared_ptr<ClassicAclConnection> shared_connection = std::move(connection);
     uint16_t handle = to_handle(current_connection_request_);
@@ -374,8 +376,13 @@ class AclManagerFacadeService : public AclManagerFacade::Service, public Connect
     current_connection_request_++;
   }
 
-  void OnConnectFail(Address address, ErrorCode reason) override {
-    LOG_INFO("addr=%s, reason=%s", address.ToString().c_str(), ErrorCodeText(reason).c_str());
+  void OnConnectRequest(Address address, ClassOfDevice cod) override {
+    LOG_ERROR("Remote connect request unimplemented");
+  }
+
+  void OnConnectFail(Address address, ErrorCode reason, bool locally_initiated) override {
+    LOG_INFO("addr=%s, reason=%s",
+             ADDRESS_TO_LOGGABLE_CSTR(address), ErrorCodeText(reason).c_str());
     std::unique_ptr<BasePacketBuilder> builder =
         ConnectionCompleteBuilder::Create(reason, 0, address, LinkType::ACL, Enable::DISABLED);
     ConnectionEvent fail;

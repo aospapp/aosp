@@ -24,5 +24,18 @@ java_binary_host {
     manifest: "manifest.txt",
     static_libs: [
         "javaparser",
+        "junit",
+        "truth-prebuilt",
+    ],
+}
+
+java_test_host {
+    name: "GenericCarApiBuilderTest",
+    srcs: ["src/**/*.java"],
+    java_resource_dirs: ["res"],
+    static_libs: [
+        "javaparser",
+        "junit",
+        "truth-prebuilt",
     ],
 }

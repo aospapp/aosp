@@ -143,4 +143,27 @@ public final class WifiAnnotations {
     })
     @Retention(RetentionPolicy.SOURCE)
     public @interface Cipher {}
+
+    /**
+     * Security type of current connection.
+     * @hide
+     */
+    @Retention(RetentionPolicy.SOURCE)
+    @IntDef(prefix = { "SECURITY_TYPE_" }, value = {
+            WifiInfo.SECURITY_TYPE_UNKNOWN,
+            WifiInfo.SECURITY_TYPE_OPEN,
+            WifiInfo.SECURITY_TYPE_WEP,
+            WifiInfo.SECURITY_TYPE_PSK,
+            WifiInfo.SECURITY_TYPE_EAP,
+            WifiInfo.SECURITY_TYPE_SAE,
+            WifiInfo.SECURITY_TYPE_OWE,
+            WifiInfo.SECURITY_TYPE_WAPI_PSK,
+            WifiInfo.SECURITY_TYPE_WAPI_CERT,
+            WifiInfo.SECURITY_TYPE_EAP_WPA3_ENTERPRISE,
+            WifiInfo.SECURITY_TYPE_EAP_WPA3_ENTERPRISE_192_BIT,
+            WifiInfo.SECURITY_TYPE_PASSPOINT_R1_R2,
+            WifiInfo.SECURITY_TYPE_PASSPOINT_R3,
+            WifiInfo.SECURITY_TYPE_DPP,
+    })
+    public @interface SecurityType {}
 }

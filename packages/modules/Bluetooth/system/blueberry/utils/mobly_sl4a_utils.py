@@ -78,7 +78,10 @@ def teardown_sl4a(device: AndroidDevice):
         # waiting for the future. However, mobly calls it and cause InvalidStateError when it
         # tries to do that after the thread pool has stopped, overriding it here
         # TODO: Resolve this issue in mobly
-        device.sl4a.ed.poller = FakeFuture()
+        try:
+            device.sl4a.ed.poller = FakeFuture()
+        except Exception as e:
+            print(e)
     try:
         # Guarded by is_alive internally
         device.sl4a.stop()

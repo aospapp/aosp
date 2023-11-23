@@ -84,18 +84,18 @@ public class SystemInterface implements ActivityManagerInterface,
     }
 
     @Override
-    public void releaseAllWakeLocks() {
-        mWakeLockInterface.releaseAllWakeLocks();
+    public void releaseAllWakeLocks(int displayId) {
+        mWakeLockInterface.releaseAllWakeLocks(displayId);
     }
 
     @Override
-    public void switchToPartialWakeLock() {
-        mWakeLockInterface.switchToPartialWakeLock();
+    public void switchToPartialWakeLock(int displayId) {
+        mWakeLockInterface.switchToPartialWakeLock(displayId);
     }
 
     @Override
-    public void switchToFullWakeLock() {
-        mWakeLockInterface.switchToFullWakeLock();
+    public void switchToFullWakeLock(int displayId) {
+        mWakeLockInterface.switchToFullWakeLock(displayId);
     }
 
     @Override
@@ -133,8 +133,18 @@ public class SystemInterface implements ActivityManagerInterface,
     }
 
     @Override
-    public void setDisplayState(boolean on) {
-        mDisplayInterface.setDisplayState(on);
+    public void setDisplayBrightness(int displayId, int brightness) {
+        mDisplayInterface.setDisplayBrightness(displayId, brightness);
+    }
+
+    @Override
+    public void setDisplayState(int displayId, boolean on) {
+        mDisplayInterface.setDisplayState(displayId, on);
+    }
+
+    @Override
+    public void setAllDisplayState(boolean on) {
+        mDisplayInterface.setAllDisplayState(on);
     }
 
     @Override
@@ -154,8 +164,13 @@ public class SystemInterface implements ActivityManagerInterface,
     }
 
     @Override
-    public boolean isDisplayEnabled() {
-        return mDisplayInterface.isDisplayEnabled();
+    public boolean isAnyDisplayEnabled() {
+        return mDisplayInterface.isAnyDisplayEnabled();
+    }
+
+    @Override
+    public boolean isDisplayEnabled(int displayId) {
+        return mDisplayInterface.isDisplayEnabled(displayId);
     }
 
     @Override
@@ -215,6 +230,11 @@ public class SystemInterface implements ActivityManagerInterface,
         mDisplayInterface.refreshDisplayBrightness();
     }
 
+    @Override
+    public void refreshDisplayBrightness(int displayId) {
+        mDisplayInterface.refreshDisplayBrightness(displayId);
+    }
+
     public final static class Builder {
         private ActivityManagerInterface mActivityManagerInterface;
         private DisplayInterface mDisplayInterface;
@@ -237,7 +257,7 @@ public class SystemInterface implements ActivityManagerInterface,
             builder.withWakeLockInterface(new WakeLockInterface.DefaultImpl(context));
             builder.withDisplayInterface(new DisplayInterface.DefaultImpl(context,
                     builder.mWakeLockInterface));
-            builder.withIOInterface(new IOInterface.DefaultImpl(context));
+            builder.withIOInterface(new IOInterface.DefaultImpl());
             builder.withStorageMonitoringInterface(new StorageMonitoringInterface.DefaultImpl());
             builder.withSystemStateInterface(new SystemStateInterface.DefaultImpl(context));
             return builder.withTimeInterface(new TimeInterface.DefaultImpl());

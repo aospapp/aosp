@@ -18,6 +18,7 @@
 
 #include <gtest/gtest.h>
 
+#include <unistd.h>
 #include <chrono>
 #include <limits>
 #include <memory>
@@ -25,6 +26,8 @@
 #include <string>
 #include <thread>
 #include <vector>
+
+#include <android-base/threads.h>
 
 #include "adb_io.h"
 #include "fdevent_test.h"
@@ -135,7 +138,7 @@ TEST_F(FdeventTest, smoke) {
         PrepareThread();
 
         std::vector<std::unique_ptr<FdHandler>> fd_handlers;
-        fdevent_run_on_main_thread([&thread_arg, &fd_handlers, use_new_callback]() {
+        fdevent_run_on_looper([&thread_arg, &fd_handlers, use_new_callback]() {
             std::vector<int> read_fds;
             std::vector<int> write_fds;
 
@@ -163,7 +166,7 @@ TEST_F(FdeventTest, smoke) {
             ASSERT_EQ(read_buffer, write_buffer);
         }
 
-        fdevent_run_on_main_thread([&fd_handlers]() { fd_handlers.clear(); });
+        fdevent_run_on_looper([&fd_handlers]() { fd_handlers.clear(); });
         WaitForFdeventLoop();
 
         TerminateThread();
@@ -172,20 +175,20 @@ TEST_F(FdeventTest, smoke) {
     }
 }
 
-TEST_F(FdeventTest, run_on_main_thread) {
+TEST_F(FdeventTest, run_on_looper_thread_queued) {
     std::vector<int> vec;
 
     PrepareThread();
 
-    // Block the main thread for a long time while we queue our callbacks.
-    fdevent_run_on_main_thread([]() {
-        check_main_thread();
+    // Block the looper thread for a long time while we queue our callbacks.
+    fdevent_run_on_looper([]() {
+        fdevent_check_looper();
         std::this_thread::sleep_for(std::chrono::seconds(1));
     });
 
     for (int i = 0; i < 1000000; ++i) {
-        fdevent_run_on_main_thread([i, &vec]() {
-            check_main_thread();
+        fdevent_run_on_looper([i, &vec]() {
+            fdevent_check_looper();
             vec.push_back(i);
         });
     }
@@ -198,29 +201,22 @@ TEST_F(FdeventTest, run_on_main_thread) {
     }
 }
 
-static std::function<void()> make_appender(std::vector<int>* vec, int value) {
-    return [vec, value]() {
-        check_main_thread();
-        if (value == 100) {
-            return;
-        }
-
-        vec->push_back(value);
-        fdevent_run_on_main_thread(make_appender(vec, value + 1));
-    };
-}
-
-TEST_F(FdeventTest, run_on_main_thread_reentrant) {
-    std::vector<int> vec;
+TEST_F(FdeventTest, run_on_looper_thread_reentrant) {
+    bool b = false;
 
     PrepareThread();
-    fdevent_run_on_main_thread(make_appender(&vec, 0));
+
+    fdevent_run_on_looper([&b]() {
+        fdevent_check_looper();
+        fdevent_run_on_looper([&b]() {
+            fdevent_check_looper();
+            b = true;
+        });
+    });
+
     TerminateThread();
 
-    ASSERT_EQ(100u, vec.size());
-    for (int i = 0; i < 100; ++i) {
-        ASSERT_EQ(i, vec[i]);
-    }
+    EXPECT_EQ(b, true);
 }
 
 TEST_F(FdeventTest, timeout) {
@@ -242,7 +238,7 @@ TEST_F(FdeventTest, timeout) {
     int fds[2];
     ASSERT_EQ(0, adb_socketpair(fds));
     static constexpr auto delta = 100ms;
-    fdevent_run_on_main_thread([&]() {
+    fdevent_run_on_looper([&]() {
         test.fde = fdevent_create(fds[0], [](fdevent* fde, unsigned events, void* arg) {
             auto test = static_cast<TimeoutTest*>(arg);
             auto now = std::chrono::steady_clock::now();
@@ -318,4 +314,87 @@ TEST_F(FdeventTest, timeout) {
     ASSERT_LT(diff[0], delta.count() * 0.5);
     ASSERT_LT(diff[1], delta.count() * 0.5);
     ASSERT_LT(diff[2], delta.count() * 0.5);
+}
+
+TEST_F(FdeventTest, unregister_with_pending_event) {
+    fdevent_reset();
+
+    int fds1[2];
+    int fds2[2];
+    ASSERT_EQ(0, adb_socketpair(fds1));
+    ASSERT_EQ(0, adb_socketpair(fds2));
+
+    struct Test {
+        fdevent* fde1;
+        fdevent* fde2;
+        bool should_not_happen;
+    };
+    Test test{};
+
+    test.fde1 = fdevent_create(
+            fds1[0],
+            [](fdevent* fde, unsigned events, void* arg) {
+                auto test = static_cast<Test*>(arg);
+                // Unregister fde2 from inside the fde1 event
+                fdevent_destroy(test->fde2);
+                // Unregister fde1 so it doesn't get called again
+                fdevent_destroy(test->fde1);
+            },
+            &test);
+
+    test.fde2 = fdevent_create(
+            fds2[0],
+            [](fdevent* fde, unsigned events, void* arg) {
+                auto test = static_cast<Test*>(arg);
+                test->should_not_happen = true;
+            },
+            &test);
+
+    fdevent_add(test.fde1, FDE_READ | FDE_ERROR);
+    fdevent_add(test.fde2, FDE_READ | FDE_ERROR);
+
+    PrepareThread();
+    WaitForFdeventLoop();
+
+    std::mutex m;
+    std::condition_variable cv;
+    bool main_thread_latch = false;
+    bool looper_thread_latch = false;
+
+    fdevent_run_on_looper([&]() {
+        std::unique_lock lk(m);
+        // Notify the main thread that the looper is in this lambda
+        main_thread_latch = true;
+        cv.notify_one();
+        // Pause the looper to ensure both events occur in the same epoll_wait
+        cv.wait(lk, [&] { return looper_thread_latch; });
+    });
+
+    // Wait for the looper thread to pause to ensure it is not in epoll_wait
+    {
+        std::unique_lock lk(m);
+        cv.wait(lk, [&] { return main_thread_latch; });
+    }
+
+    // Write to one end of the sockets to trigger events on the other ends
+    adb_write(fds1[1], "a", 1);
+    adb_write(fds2[1], "a", 1);
+
+    // Unpause the looper thread to let it loop back into epoll_wait, which should return
+    // both fde1 and fde2.
+    {
+        std::lock_guard lk(m);
+        looper_thread_latch = true;
+    }
+    cv.notify_one();
+
+    WaitForFdeventLoop();
+    TerminateThread();
+
+    adb_close(fds1[0]);
+    adb_close(fds1[1]);
+    adb_close(fds2[0]);
+    adb_close(fds2[1]);
+
+    ASSERT_FALSE(test.should_not_happen);
 }

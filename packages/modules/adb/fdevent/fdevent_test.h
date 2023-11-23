@@ -30,13 +30,13 @@ static void WaitForFdeventLoop() {
     // Sleep for a bit to make sure that network events have propagated.
     std::this_thread::sleep_for(100ms);
 
-    // fdevent_run_on_main_thread has a guaranteed ordering, and is guaranteed to happen after
+    // fdevent_run_on_looper has a guaranteed ordering, and is guaranteed to happen after
     // socket events, so as soon as our function is called, we know that we've processed all
     // previous events.
     std::mutex mutex;
     std::condition_variable cv;
     std::unique_lock<std::mutex> lock(mutex);
-    fdevent_run_on_main_thread([&]() {
+    fdevent_run_on_looper([&]() {
         mutex.lock();
         mutex.unlock();
         cv.notify_one();
@@ -46,8 +46,6 @@ static void WaitForFdeventLoop() {
 
 class FdeventTest : public ::testing::Test {
   protected:
-    unique_fd dummy;
-
     ~FdeventTest() {
         if (thread_.joinable()) {
             TerminateThread();
@@ -65,34 +63,14 @@ class FdeventTest : public ::testing::Test {
         ASSERT_EQ(0u, fdevent_installed_count());
     }
 
-    // Register a placeholder socket used to wake up the fdevent loop to tell it to die.
     void PrepareThread() {
-        int dummy_fds[2];
-        if (adb_socketpair(dummy_fds) != 0) {
-            FAIL() << "failed to create socketpair: " << strerror(errno);
-        }
-
-        asocket* dummy_socket = create_local_socket(unique_fd(dummy_fds[1]));
-        if (!dummy_socket) {
-            FAIL() << "failed to create local socket: " << strerror(errno);
-        }
-        dummy_socket->ready(dummy_socket);
-        dummy.reset(dummy_fds[0]);
-
         thread_ = std::thread([]() { fdevent_loop(); });
         WaitForFdeventLoop();
     }
 
-    size_t GetAdditionalLocalSocketCount() {
-        // placeholder socket installed in PrepareThread()
-        return 1;
-    }
-
     void TerminateThread() {
         fdevent_terminate_loop();
-        ASSERT_TRUE(WriteFdExactly(dummy, "", 1));
         thread_.join();
-        dummy.reset();
     }
 
     std::thread thread_;

@@ -16,8 +16,8 @@
 
 #pragma once
 
-#include <base/bind.h>
 #include <base/cancelable_callback.h>
+#include <base/functional/bind.h>
 #include <base/location.h>
 #include <base/time/time.h>
 

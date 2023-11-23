@@ -59,12 +59,17 @@ public class DarkModeSectionController implements
 
     private Context mContext;
     private DarkModeSectionView mDarkModeSectionView;
+    private final DarkModeSnapshotRestorer mSnapshotRestorer;
 
-    public DarkModeSectionController(Context context, Lifecycle lifecycle) {
+    public DarkModeSectionController(
+            Context context,
+            Lifecycle lifecycle,
+            DarkModeSnapshotRestorer snapshotRestorer) {
         mContext = context;
         mLifecycle = lifecycle;
         mPowerManager = context.getSystemService(PowerManager.class);
         mLifecycle.addObserver(this);
+        mSnapshotRestorer = snapshotRestorer;
     }
 
     @OnLifecycleEvent(Lifecycle.Event.ON_START)
@@ -132,6 +137,7 @@ public class DarkModeSectionController implements
                     mDarkModeSectionView.announceForAccessibility(
                             context.getString(R.string.mode_changed));
                     uiModeManager.setNightModeActivated(viewActivated);
+                    mSnapshotRestorer.store(viewActivated);
                 },
                 /* delayMillis= */ shortDelay);
     }

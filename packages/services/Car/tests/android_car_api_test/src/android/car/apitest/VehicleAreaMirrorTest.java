@@ -20,12 +20,17 @@ import android.test.suitebuilder.annotation.SmallTest;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import com.android.compatibility.common.util.ApiTest;
+
 import org.junit.Test;
 
 @SmallTest
-public class VehicleAreaMirrorTest {
+public final class VehicleAreaMirrorTest extends CarLessApiTestBase {
 
     @Test
+    @ApiTest(apis = {"android.car.VehicleAreaMirror#MIRROR_DRIVER_CENTER",
+            "android.car.VehicleAreaMirror#MIRROR_DRIVER_LEFT",
+            "android.car.VehicleAreaMirror#MIRROR_DRIVER_RIGHT"})
     public void testMatchWithVehicleHal() {
         assertThat(VehicleAreaMirror.MIRROR_DRIVER_CENTER).isEqualTo(
                 android.hardware.automotive.vehicle.VehicleAreaMirror.DRIVER_CENTER);

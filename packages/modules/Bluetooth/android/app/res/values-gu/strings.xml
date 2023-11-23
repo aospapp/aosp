@@ -23,6 +23,7 @@
     <string name="bt_share_picker_label" msgid="7464438494743777696">"બ્લૂટૂથ"</string>
     <string name="unknown_device" msgid="2317679521750821654">"અજાણ્યું ઉપકરણ"</string>
     <string name="unknownNumber" msgid="1245183329830158661">"અજાણ્યો"</string>
+    <string name="not_provided" msgid="6938740494380012614">"આપ્યો નથી"</string>
     <string name="airplane_error_title" msgid="2570111716678850860">"એરપ્લેન મોડ"</string>
     <string name="airplane_error_msg" msgid="4853111123699559578">"તમે એરપ્લેન મોડમાં બ્લૂટૂથ નો ઉપયોગ કરી શકતા નથી."</string>
     <string name="bt_enable_title" msgid="4484289159118416315"></string>
@@ -128,4 +129,10 @@
     <string name="a2dp_sink_mbs_label" msgid="6035366346569127155">"બ્લૂટૂથ ઑડિઓ"</string>
     <string name="bluetooth_opp_file_limit_exceeded" msgid="6612109860149473930">"4GB કરતા મોટી ફાઇલ ટ્રાન્સફર કરી શકાતી નથી"</string>
     <string name="bluetooth_connect_action" msgid="2319449093046720209">"બ્લૂટૂથ સાથે કનેક્ટ કરો"</string>
+    <string name="bluetooth_enabled_apm_title" msgid="6914461147844949044">"એરપ્લેન મોડમાં બ્લૂટૂથ ચાલુ છે"</string>
+    <string name="bluetooth_enabled_apm_message" msgid="6168686193308136881">"જો તમે બ્લૂટૂથ ચાલુ રાખો, તો તમે જ્યારે આગલી વખતે એરપ્લેન મોડ પર જશો, ત્યારે તમારું ડિવાઇસ તેને ચાલુ રાખવાનું યાદ રાખશે"</string>
+    <string name="bluetooth_stays_on_title" msgid="39720820955212918">"બ્લૂટૂથ ચાલુ રહેશે"</string>
+    <string name="bluetooth_stays_on_message" msgid="3669663452593157737">"તમારું ડિવાઇસ બ્લૂટૂથને એરપ્લેન મોડમાં ચાલુ રાખવાનું યાદ રાખે છે. જો તમે બ્લૂટૂથ ચાલુ રાખવા માગતા ન હો, તો તેને બંધ કરો."</string>
+    <string name="bluetooth_and_wifi_stays_on_title" msgid="5821932798860821244">"વાઇ-ફાઇ અને બ્લૂટૂથ ચાલુ રહે છે"</string>
+    <string name="bluetooth_and_wifi_stays_on_message" msgid="7848565203843882558">"તમારું ડિવાઇસ વાઇ-ફાઇ અને બ્લૂટૂથને એરપ્લેન મોડમાં ચાલુ રાખવાનું યાદ રાખે છે. જો તમે વાઇ-ફાઇ અને બ્લૂટૂથ ચાલુ રાખવા માગતા ન હો, તો તેને બંધ કરો."</string>
 </resources>

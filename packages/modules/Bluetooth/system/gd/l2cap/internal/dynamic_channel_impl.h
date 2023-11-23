@@ -47,7 +47,6 @@ class DynamicChannelImpl : public l2cap::internal::ChannelImpl {
 
   virtual void Close();
   virtual void OnClosed(hci::ErrorCode status);
-  virtual std::string ToString();
 
   common::BidiQueueEnd<packet::BasePacketBuilder, packet::PacketView<packet::kLittleEndian>>* GetQueueUpEnd() {
     return channel_queue_.GetUpEnd();

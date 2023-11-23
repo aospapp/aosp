@@ -25,6 +25,9 @@ import static com.android.car.assist.client.CarAssistUtils.isCarCompatibleMessag
 import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
 import android.animation.AnimatorSet;
+import android.annotation.NonNull;
+import android.annotation.Nullable;
+import android.app.ActivityTaskManager;
 import android.app.KeyguardManager;
 import android.app.Notification;
 import android.app.NotificationChannel;
@@ -40,17 +43,20 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewTreeObserver;
 
+import androidx.annotation.UiThread;
 import androidx.annotation.VisibleForTesting;
 
 import com.android.car.notification.headsup.CarHeadsUpNotificationContainer;
 import com.android.car.notification.headsup.animationhelper.HeadsUpNotificationAnimationHelper;
 import com.android.car.notification.template.MessageNotificationViewHolder;
 
+import java.time.Clock;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
 
 /**
  * Notification Manager for heads-up notifications in car.
@@ -66,7 +72,25 @@ public class CarHeadsUpNotificationManager
          * Will be called if a new notification added/updated changes the heads up state for that
          * notification.
          */
-        void onStateChange(AlertEntry alertEntry, boolean isHeadsUp);
+        void onStateChange(AlertEntry alertEntry, HeadsUpState headsUpState);
+    }
+
+    /**
+     * Captures HUN State with following values:
+     * <ul>
+     * {@link HeadsUpState.SHOWN}: shown on screen
+     * {@link HeadsUpState.DISMISSED}: HUN dismissed by user/timeout/system and no longer displayed
+     * {@link HeadsUpState.REMOVED_FROM_QUEUE}: removed from {@link CarHeadsUpNotificationQueue}
+     * without displaying
+     * {@link HeadsUpState.REMOVED_BY_SENDER}: HUN dismissed because it was removed by the sender
+     * app
+     * <ul/>
+     */
+    public enum HeadsUpState {
+        SHOWN,
+        DISMISSED,
+        REMOVED_FROM_QUEUE,
+        REMOVED_BY_SENDER
     }
 
     private static final boolean DEBUG = Build.IS_ENG || Build.IS_USERDEBUG;
@@ -79,11 +103,14 @@ public class CarHeadsUpNotificationManager
     private final long mMinDisplayDuration;
     private HeadsUpNotificationAnimationHelper mAnimationHelper;
     private final int mNotificationHeadsUpCardMarginTop;
+    private final boolean mIsSuppressAndThrottleHeadsUp;
 
     private final KeyguardManager mKeyguardManager;
     private final PreprocessingManager mPreprocessingManager;
     private final LayoutInflater mInflater;
     private final CarHeadsUpNotificationContainer mHunContainer;
+    private final CarHeadsUpNotificationQueue.CarHeadsUpNotificationQueueCallback
+            mCarHeadsUpNotificationQueueCallback;
 
     // key for the map is the statusbarnotification key
     private final Map<String, HeadsUpEntry> mActiveHeadsUpNotifications = new HashMap<>();
@@ -96,6 +123,8 @@ public class CarHeadsUpNotificationManager
     private boolean mShouldRestrictMessagePreview;
     private NotificationClickHandlerFactory mClickHandlerFactory;
     private NotificationDataManager mNotificationDataManager;
+    private CarHeadsUpNotificationQueue mCarHeadsUpNotificationQueue;
+    private Clock mClock;
 
     public CarHeadsUpNotificationManager(Context context,
             NotificationClickHandlerFactory clickHandlerFactory,
@@ -118,7 +147,48 @@ public class CarHeadsUpNotificationManager
         mInflater = LayoutInflater.from(mContext);
         mClickHandlerFactory.registerClickListener(
                 (launchResult, alertEntry) -> dismissHun(alertEntry));
+        mClickHandlerFactory.setHunDismissCallback(
+                (launchResult, alertEntry) -> dismissHun(alertEntry));
         mHunContainer = hunContainer;
+        mIsSuppressAndThrottleHeadsUp = context.getResources().getBoolean(
+                R.bool.config_suppressAndThrottleHeadsUp);
+        mClock = Clock.systemUTC();
+        mCarHeadsUpNotificationQueueCallback =
+                new CarHeadsUpNotificationQueue.CarHeadsUpNotificationQueueCallback() {
+                    @Override
+                    public void showAsHeadsUp(AlertEntry alertEntry,
+                            NotificationListenerService.RankingMap rankingMap) {
+                        mContext.getMainExecutor().execute(() -> showHeadsUp(
+                                mPreprocessingManager.optimizeForDriving(alertEntry),
+                                rankingMap)
+                        );
+                    }
+
+                    @Override
+                    public void removedFromHeadsUpQueue(AlertEntry alertEntry) {
+                        handleHeadsUpNotificationStateChanged(alertEntry,
+                                HeadsUpState.REMOVED_FROM_QUEUE);
+                    }
+
+                    @Override
+                    public void dismissHeadsUp(@Nullable AlertEntry alertEntry) {
+                        if (alertEntry != null) {
+                            dismissHun(alertEntry);
+                        }
+                    }
+
+                    @Override
+                    public List<AlertEntry> getActiveHeadsUpNotifications() {
+                        return new ArrayList<>(mActiveHeadsUpNotifications.values());
+                    }
+                };
+        mCarHeadsUpNotificationQueue = new CarHeadsUpNotificationQueue(context,
+                ActivityTaskManager.getInstance(),
+                mContext.getSystemService(NotificationManager.class),
+                new ScheduledThreadPoolExecutor(/* corePoolSize= */ 1),
+                mCarHeadsUpNotificationQueueCallback
+        );
+        registerHeadsUpNotificationStateChangeListener(mCarHeadsUpNotificationQueue);
     }
 
     @VisibleForTesting
@@ -148,16 +218,15 @@ public class CarHeadsUpNotificationManager
             NotificationListenerService.RankingMap rankingMap,
             Map<String, AlertEntry> activeNotifications) {
         if (!shouldShowHeadsUp(alertEntry, rankingMap)) {
-            // check if this is an update to the existing notification and if it should still show
-            // as a heads up or not.
-            HeadsUpEntry currentActiveHeadsUpNotification = mActiveHeadsUpNotifications.get(
-                    alertEntry.getKey());
-            if (currentActiveHeadsUpNotification == null) {
+            if (!isActiveHun(alertEntry)) {
                 if (DEBUG) {
                     Log.d(TAG, alertEntry + " is not an active heads up notification");
                 }
                 return false;
             }
+            // Check if this is an update to the existing notification and if it should still show
+            // as a heads up or not.
+            HeadsUpEntry currentActiveHeadsUpNotification = getActiveHeadsUpEntry(alertEntry);
             if (CarNotificationDiff.sameNotificationKey(currentActiveHeadsUpNotification,
                     alertEntry)
                     && currentActiveHeadsUpNotification.getHandler().hasMessagesOrCallbacks()) {
@@ -173,9 +242,17 @@ public class CarHeadsUpNotificationManager
             Log.d(TAG, alertEntry + " is an updatable notification: " + canUpdateFlag);
             Log.d(TAG, alertEntry + " is not an alert once notification: " + alertAgainFlag);
         }
-        if (containsKeyFlag || canUpdateFlag || alertAgainFlag) {
+        if (canUpdateFlag) {
             showHeadsUp(mPreprocessingManager.optimizeForDriving(alertEntry),
                     rankingMap);
+            return true;
+        } else if (containsKeyFlag || alertAgainFlag) {
+            if (!mIsSuppressAndThrottleHeadsUp) {
+                showHeadsUp(mPreprocessingManager.optimizeForDriving(alertEntry),
+                        rankingMap);
+            } else {
+                mCarHeadsUpNotificationQueue.addToQueue(alertEntry, rankingMap);
+            }
             return true;
         }
         return false;
@@ -185,15 +262,31 @@ public class CarHeadsUpNotificationManager
      * This method gets called when an app wants to cancel or withdraw its notification.
      */
     public void maybeRemoveHeadsUp(AlertEntry alertEntry) {
-        HeadsUpEntry currentActiveHeadsUpNotification = mActiveHeadsUpNotifications.get(
-                alertEntry.getKey());
-        // if the heads up notification is already removed do nothing.
-        if (currentActiveHeadsUpNotification == null) {
+        if (mCarHeadsUpNotificationQueue.removeFromQueue(alertEntry)) {
             return;
         }
-        currentActiveHeadsUpNotification.mShouldRemove = true;
+
+        if (!isActiveHun(alertEntry)) {
+            // If the heads up notification is already removed do nothing.
+            return;
+        }
+        tagCurrentActiveHunToBeRemoved(alertEntry);
+
+        scheduleRemoveHeadsUp(alertEntry);
+    }
+
+    /**
+     * Release the notifications stored in the queue.
+     */
+    public void releaseQueue() {
+        mCarHeadsUpNotificationQueue.releaseQueue();
+    }
+
+    private void scheduleRemoveHeadsUp(AlertEntry alertEntry) {
+        HeadsUpEntry currentActiveHeadsUpNotification = getActiveHeadsUpEntry(alertEntry);
+
         long totalDisplayDuration =
-                System.currentTimeMillis() - currentActiveHeadsUpNotification.getPostTime();
+                mClock.millis() - currentActiveHeadsUpNotification.getPostTime();
         // ongoing notification that has passed the minimum threshold display time.
         if (totalDisplayDuration >= mMinDisplayDuration) {
             dismissHun(alertEntry);
@@ -217,20 +310,22 @@ public class CarHeadsUpNotificationManager
     }
 
     /**
-     * Unregisters a {@link OnHeadsUpNotificationStateChange} from the list of listeners.
+     * Unregisters all {@link OnHeadsUpNotificationStateChange} listeners along with other listeners
+     * registered by {@link CarHeadsUpNotificationManager}.
      */
-    public void unregisterHeadsUpNotificationStateChangeListener(
-            OnHeadsUpNotificationStateChange listener) {
-        mNotificationStateChangeListeners.remove(listener);
+    public void unregisterListeners() {
+        mNotificationStateChangeListeners.clear();
+        mCarHeadsUpNotificationQueue.unregisterListeners();
     }
 
     /**
      * Invokes all OnHeadsUpNotificationStateChange handlers registered in {@link
      * OnHeadsUpNotificationStateChange}s array.
      */
-    private void handleHeadsUpNotificationStateChanged(AlertEntry alertEntry, boolean isHeadsUp) {
+    private void handleHeadsUpNotificationStateChanged(AlertEntry alertEntry,
+            HeadsUpState headsUpState) {
         mNotificationStateChangeListeners.forEach(
-                listener -> listener.onStateChange(alertEntry, isHeadsUp));
+                listener -> listener.onStateChange(alertEntry, headsUpState));
     }
 
     /**
@@ -247,23 +342,16 @@ public class CarHeadsUpNotificationManager
      * notification.
      */
     private boolean isUpdate(AlertEntry alertEntry) {
-        HeadsUpEntry currentActiveHeadsUpNotification = mActiveHeadsUpNotifications.get(
-                alertEntry.getKey());
-        if (currentActiveHeadsUpNotification == null) {
-            return false;
-        }
-        return CarNotificationDiff.sameNotificationKey(currentActiveHeadsUpNotification,
-                alertEntry);
+        return isActiveHun(alertEntry) && CarNotificationDiff.sameNotificationKey(
+                getActiveHeadsUpEntry(alertEntry), alertEntry);
     }
 
     /**
      * Updates only when the notification is being displayed.
      */
     private boolean canUpdate(AlertEntry alertEntry) {
-        HeadsUpEntry currentActiveHeadsUpNotification = mActiveHeadsUpNotifications.get(
-                alertEntry.getKey());
-        return currentActiveHeadsUpNotification != null && System.currentTimeMillis() -
-                currentActiveHeadsUpNotification.getPostTime() < mDuration;
+        return isActiveHun(alertEntry) && (System.currentTimeMillis()
+                - getActiveHeadsUpEntry(alertEntry).getPostTime()) < mDuration;
     }
 
     /**
@@ -271,19 +359,18 @@ public class CarHeadsUpNotificationManager
      * mActiveHeadsUpNotifications.
      */
     private HeadsUpEntry addNewHeadsUpEntry(AlertEntry alertEntry) {
-        HeadsUpEntry currentActiveHeadsUpNotification = mActiveHeadsUpNotifications.get(
-                alertEntry.getKey());
-        if (currentActiveHeadsUpNotification == null) {
-            currentActiveHeadsUpNotification = new HeadsUpEntry(
+        if (!isActiveHun(alertEntry)) {
+            HeadsUpEntry newActiveHeadsUpNotification = new HeadsUpEntry(
                     alertEntry.getStatusBarNotification());
-            handleHeadsUpNotificationStateChanged(alertEntry, /* isHeadsUp= */ true);
+            handleHeadsUpNotificationStateChanged(alertEntry, HeadsUpState.SHOWN);
             mActiveHeadsUpNotifications.put(alertEntry.getKey(),
-                    currentActiveHeadsUpNotification);
-            currentActiveHeadsUpNotification.mIsAlertAgain = alertAgain(
+                    newActiveHeadsUpNotification);
+            newActiveHeadsUpNotification.mIsAlertAgain = alertAgain(
                     alertEntry.getNotification());
-            currentActiveHeadsUpNotification.mIsNewHeadsUp = true;
-            return currentActiveHeadsUpNotification;
+            newActiveHeadsUpNotification.mIsNewHeadsUp = true;
+            return newActiveHeadsUpNotification;
         }
+        HeadsUpEntry currentActiveHeadsUpNotification = getActiveHeadsUpEntry(alertEntry);
         currentActiveHeadsUpNotification.mIsNewHeadsUp = false;
         currentActiveHeadsUpNotification.mIsAlertAgain = alertAgain(
                 alertEntry.getNotification());
@@ -308,6 +395,7 @@ public class CarHeadsUpNotificationManager
      * will only be done if {@link Notification#FLAG_ONLY_ALERT_ONCE} flag is not set.
      * </ol>
      */
+    @UiThread
     private void showHeadsUp(AlertEntry alertEntry,
             NotificationListenerService.RankingMap rankingMap) {
         // Show animations only when there is no active HUN and notification is new. This check
@@ -336,15 +424,15 @@ public class CarHeadsUpNotificationManager
                             mClickHandlerFactory));
         }
 
-        currentNotification.getViewHolder().setHideDismissButton(!shouldDismissOnSwipe(alertEntry));
+        currentNotification.getViewHolder().setHideDismissButton(!isHeadsUpDismissible(alertEntry));
 
         if (mShouldRestrictMessagePreview && notificationTypeItem.getNotificationType()
                 == NotificationViewType.MESSAGE) {
-            ((MessageNotificationViewHolder) currentNotification.getViewHolder())
-                    .bindRestricted(alertEntry, /* isInGroup= */ false, /* isHeadsUp= */ true);
+            ((MessageNotificationViewHolder) currentNotification.getViewHolder()).bindRestricted(
+                    alertEntry, /* isInGroup= */ false, /* isHeadsUp= */ true, /* isSeen= */ false);
         } else {
             currentNotification.getViewHolder().bind(alertEntry, /* isInGroup= */false,
-                    /* isHeadsUp= */ true);
+                    /* isHeadsUp= */ true, /* isSeen= */ false);
         }
 
         resetViewTreeListenersEntry(currentNotification);
@@ -382,18 +470,20 @@ public class CarHeadsUpNotificationManager
         mRegisteredViewTreeListeners.put(currentNotification,
                 new Pair<>(onComputeInternalInsetsListener, onGlobalFocusChangeListener));
 
-        if (currentNotification.mIsNewHeadsUp) {
-            // Add swipe gesture
-            View cardView = currentNotification.getNotificationView().findViewById(R.id.card_view);
-            cardView.setOnTouchListener(new HeadsUpNotificationOnTouchListener(cardView,
-                    shouldDismissOnSwipe(alertEntry), () -> resetView(alertEntry)));
+        attachHunViewListeners(currentNotification.getNotificationView(), alertEntry);
+    }
 
-            // Add dismiss button listener
-            View dismissButton = currentNotification.getNotificationView().findViewById(
-                    R.id.dismiss_button);
-            if (dismissButton != null) {
-                dismissButton.setOnClickListener(v -> dismissHun(alertEntry));
-            }
+    private void attachHunViewListeners(View notificationView, AlertEntry alertEntry) {
+        // Add swipe gesture
+        View cardView = notificationView.findViewById(R.id.card_view);
+        cardView.setOnTouchListener(new HeadsUpNotificationOnTouchListener(cardView,
+                isHeadsUpDismissible(alertEntry), () -> resetView(alertEntry)));
+
+        // Add dismiss button listener
+        View dismissButton = notificationView.findViewById(
+                R.id.dismiss_button);
+        if (dismissButton != null) {
+            dismissButton.setOnClickListener(v -> dismissHun(alertEntry));
         }
     }
 
@@ -449,7 +539,10 @@ public class CarHeadsUpNotificationManager
         }
     }
 
-    private boolean shouldDismissOnSwipe(AlertEntry alertEntry) {
+    /**
+     * @return true if the {@code alertEntry} can be dismissed/swiped away.
+     */
+    public static boolean isHeadsUpDismissible(@NonNull AlertEntry alertEntry) {
         return !(hasFullScreenIntent(alertEntry)
                 && Objects.equals(alertEntry.getNotification().category, Notification.CATEGORY_CALL)
                 && alertEntry.getStatusBarNotification().isOngoing());
@@ -472,7 +565,7 @@ public class CarHeadsUpNotificationManager
     /**
      * Returns true if AlertEntry has a full screen Intent.
      */
-    private boolean hasFullScreenIntent(AlertEntry alertEntry) {
+    private static boolean hasFullScreenIntent(@NonNull AlertEntry alertEntry) {
         return alertEntry.getNotification().fullScreenIntent != null;
     }
 
@@ -481,14 +574,13 @@ public class CarHeadsUpNotificationManager
      */
     private void dismissHun(AlertEntry alertEntry) {
         Log.d(TAG, "clearViews for Heads Up Notification: ");
-        // get the current notification to perform animations and remove it immediately from the
-        // active notification maps and cancel all other call backs if any.
-        HeadsUpEntry currentHeadsUpNotification = mActiveHeadsUpNotifications.get(
-                alertEntry.getKey());
-        // view can also be removed when swiped away.
-        if (currentHeadsUpNotification == null) {
+        if (!isActiveHun(alertEntry)) {
+            // View can also be removed when swiped away.
             return;
         }
+        // Get the current notification to perform animations and remove it immediately from the
+        // active notification maps and cancel all other call backs if any.
+        HeadsUpEntry currentHeadsUpNotification = getActiveHeadsUpEntry(alertEntry);
         // view could already be in the process of being dismissed
         if (currentHeadsUpNotification.mIsDismissing) {
             return;
@@ -509,10 +601,9 @@ public class CarHeadsUpNotificationManager
                 // triggering another remove call.
                 mActiveHeadsUpNotifications.remove(alertEntry.getKey());
 
-                // If the HUN was not specifically removed then add it to the panel.
-                if (!currentHeadsUpNotification.mShouldRemove) {
-                    handleHeadsUpNotificationStateChanged(alertEntry, /* isHeadsUp= */ false);
-                }
+                handleHeadsUpNotificationStateChanged(alertEntry,
+                        currentHeadsUpNotification.mShouldRemove ? HeadsUpState.REMOVED_BY_SENDER
+                                : HeadsUpState.DISMISSED);
             }
         });
         animatorSet.start();
@@ -523,14 +614,14 @@ public class CarHeadsUpNotificationManager
      * of active Notifications.
      */
     private void resetView(AlertEntry alertEntry) {
-        HeadsUpEntry currentHeadsUpNotification = mActiveHeadsUpNotifications.get(
-                alertEntry.getKey());
-        if (currentHeadsUpNotification == null) return;
-
+        if (!isActiveHun(alertEntry)) {
+            return;
+        }
+        HeadsUpEntry currentHeadsUpNotification = getActiveHeadsUpEntry(alertEntry);
         currentHeadsUpNotification.getHandler().removeCallbacksAndMessages(null);
         mHunContainer.removeNotification(currentHeadsUpNotification.getNotificationView());
         mActiveHeadsUpNotifications.remove(alertEntry.getKey());
-        handleHeadsUpNotificationStateChanged(alertEntry, /* isHeadsUp= */ false);
+        handleHeadsUpNotificationStateChanged(alertEntry, HeadsUpState.DISMISSED);
         resetViewTreeListenersEntry(currentHeadsUpNotification);
     }
 
@@ -633,6 +724,22 @@ public class CarHeadsUpNotificationManager
                 || Notification.CATEGORY_NAVIGATION.equals(notification.category);
     }
 
+    private boolean isActiveHun(AlertEntry alertEntry) {
+        return mActiveHeadsUpNotifications.containsKey(alertEntry.getKey());
+    }
+
+    private HeadsUpEntry getActiveHeadsUpEntry(AlertEntry alertEntry) {
+        return mActiveHeadsUpNotifications.get(alertEntry.getKey());
+    }
+
+    /**
+     * We tag HUN that was removed by the app and hence not to be shown in the notification panel
+     * against the normal behaviour (on dismiss add to notification panel).
+     */
+    private void tagCurrentActiveHunToBeRemoved(AlertEntry alertEntry) {
+        getActiveHeadsUpEntry(alertEntry).mShouldRemove = true;
+    }
+
     @VisibleForTesting
     protected NotificationListenerService.Ranking getRanking() {
         return new NotificationListenerService.Ranking();
@@ -640,6 +747,8 @@ public class CarHeadsUpNotificationManager
 
     @Override
     public void onUxRestrictionsChanged(CarUxRestrictions restrictions) {
+        mCarHeadsUpNotificationQueue.setActiveUxRestriction(
+                restrictions.isRequiresDistractionOptimization());
         mShouldRestrictMessagePreview =
                 (restrictions.getActiveRestrictions()
                         & CarUxRestrictions.UX_RESTRICTIONS_NO_TEXT_MESSAGE) != 0;
@@ -653,5 +762,16 @@ public class CarHeadsUpNotificationManager
     @VisibleForTesting
     public void setClickHandlerFactory(NotificationClickHandlerFactory clickHandlerFactory) {
         mClickHandlerFactory = clickHandlerFactory;
+    }
+
+    @VisibleForTesting
+    CarHeadsUpNotificationQueue.CarHeadsUpNotificationQueueCallback
+            getCarHeadsUpNotificationQueueCallback() {
+        return mCarHeadsUpNotificationQueueCallback;
+    }
+
+    @VisibleForTesting
+    void setCarHeadsUpNotificationQueue(CarHeadsUpNotificationQueue carHeadsUpNotificationQueue) {
+        mCarHeadsUpNotificationQueue = carHeadsUpNotificationQueue;
     }
 }

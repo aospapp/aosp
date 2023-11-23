@@ -22,8 +22,9 @@
 
 mod authfs;
 
-use anyhow::{bail, Context, Result};
+use anyhow::{bail, Result};
 use log::*;
+use rpcbinder::RpcServer;
 use std::ffi::OsString;
 use std::fs::{create_dir, read_dir, remove_dir_all, remove_file};
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -31,14 +32,10 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use authfs_aidl_interface::aidl::com::android::virt::fs::AuthFsConfig::AuthFsConfig;
 use authfs_aidl_interface::aidl::com::android::virt::fs::IAuthFs::IAuthFs;
 use authfs_aidl_interface::aidl::com::android::virt::fs::IAuthFsService::{
-    BnAuthFsService, IAuthFsService,
+    BnAuthFsService, IAuthFsService, AUTHFS_SERVICE_SOCKET_NAME,
 };
-use authfs_aidl_interface::binder::{
-    self, add_service, BinderFeatures, ExceptionCode, Interface, ProcessState, Strong,
-};
-use binder_common::new_binder_exception;
+use binder::{self, BinderFeatures, ExceptionCode, Interface, Status, Strong};
 
-const SERVICE_NAME: &str = "authfs_service";
 const SERVICE_ROOT: &str = "/data/misc/authfs";
 
 /// Implementation of `IAuthFsService`.
@@ -57,16 +54,16 @@ impl IAuthFsService for AuthFsService {
 
         // The directory is supposed to be deleted when `AuthFs` is dropped.
         create_dir(&mountpoint).map_err(|e| {
-            new_binder_exception(
-                ExceptionCode::SERVICE_SPECIFIC,
-                format!("Cannot create mount directory {:?}: {:?}", &mountpoint, e),
+            Status::new_service_specific_error_str(
+                -1,
+                Some(format!("Cannot create mount directory {:?}: {:?}", &mountpoint, e)),
             )
         })?;
 
         authfs::AuthFs::mount_and_wait(mountpoint, config, self.debuggable).map_err(|e| {
-            new_binder_exception(
-                ExceptionCode::SERVICE_SPECIFIC,
-                format!("mount_and_wait failed: {:?}", e),
+            Status::new_service_specific_error_str(
+                -1,
+                Some(format!("mount_and_wait failed: {:?}", e)),
             )
         })
     }
@@ -80,9 +77,9 @@ impl AuthFsService {
 
     fn validate(&self, config: &AuthFsConfig) -> binder::Result<()> {
         if config.port < 0 {
-            return Err(new_binder_exception(
+            return Err(Status::new_exception_str(
                 ExceptionCode::ILLEGAL_ARGUMENT,
-                format!("Invalid port: {}", config.port),
+                Some(format!("Invalid port: {}", config.port)),
             ));
         }
         Ok(())
@@ -118,15 +115,13 @@ fn try_main() -> Result<()> {
 
     clean_up_working_directory()?;
 
-    ProcessState::start_thread_pool();
-
     let service = AuthFsService::new_binder(debuggable).as_binder();
-    add_service(SERVICE_NAME, service)
-        .with_context(|| format!("Failed to register service {}", SERVICE_NAME))?;
-    debug!("{} is running", SERVICE_NAME);
-
-    ProcessState::join_thread_pool();
-    bail!("Unexpected exit after join_thread_pool")
+    debug!("{} is starting as a rpc service.", AUTHFS_SERVICE_SOCKET_NAME);
+    let server = RpcServer::new_init_unix_domain(service, AUTHFS_SERVICE_SOCKET_NAME)?;
+    info!("The RPC server '{}' is running.", AUTHFS_SERVICE_SOCKET_NAME);
+    server.join();
+    info!("The RPC server at '{}' has shut down gracefully.", AUTHFS_SERVICE_SOCKET_NAME);
+    Ok(())
 }
 
 fn main() {

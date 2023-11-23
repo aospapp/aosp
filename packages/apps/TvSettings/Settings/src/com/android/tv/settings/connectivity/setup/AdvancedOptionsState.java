@@ -18,7 +18,9 @@ package com.android.tv.settings.connectivity.setup;
 
 import android.content.Context;
 import android.net.wifi.WifiConfiguration;
+import android.net.wifi.WifiInfo;
 import android.os.Bundle;
+import android.text.TextUtils;
 
 import androidx.fragment.app.Fragment;
 import androidx.fragment.app.FragmentActivity;
@@ -27,9 +29,9 @@ import androidx.leanback.widget.GuidedAction;
 import androidx.lifecycle.ViewModelProviders;
 
 import com.android.tv.settings.R;
+import com.android.tv.settings.connectivity.WifiConfigHelper;
 import com.android.tv.settings.connectivity.util.State;
 import com.android.tv.settings.connectivity.util.StateMachine;
-import com.android.tv.settings.library.network.WifiHelper;
 
 import java.util.List;
 
@@ -75,7 +77,7 @@ public class AdvancedOptionsState implements State {
                 .of(mActivity)
                 .get(UserChoiceInfo.class);
         WifiConfiguration wifiConfiguration = userChoiceInfo.getWifiConfiguration();
-        return WifiHelper.isNetworkLockedDown(mActivity, wifiConfiguration);
+        return WifiConfigHelper.isNetworkLockedDown(mActivity, wifiConfiguration);
     }
 
     @Override
@@ -89,12 +91,24 @@ public class AdvancedOptionsState implements State {
     public static class AdvancedOptionsFragment extends WifiConnectivityGuidedStepFragment {
         private StateMachine mStateMachine;
         private AdvancedOptionsFlowInfo mAdvancedOptionsFlowInfo;
+        private UserChoiceInfo mUserChoiceInfo;
+
+        private String getWifiSsid() {
+            WifiConfiguration wifiConfiguration = mUserChoiceInfo.getWifiConfiguration();
+            if (wifiConfiguration != null) {
+                String ssid = WifiInfo.sanitizeSsid(wifiConfiguration.SSID);
+                if (!TextUtils.isEmpty(ssid)) {
+                    return ssid;
+                }
+            }
+            return mAdvancedOptionsFlowInfo.getPrintableSsid();
+        }
 
         @Override
         public GuidanceStylist.Guidance onCreateGuidance(Bundle savedInstanceState) {
             String title = getString(
                     R.string.title_wifi_advanced_options,
-                    mAdvancedOptionsFlowInfo.getPrintableSsid()
+                    getWifiSsid()
             );
             return new GuidanceStylist.Guidance(title, null, null, null);
         }
@@ -104,6 +118,9 @@ public class AdvancedOptionsState implements State {
             mAdvancedOptionsFlowInfo = ViewModelProviders
                     .of(getActivity())
                     .get(AdvancedOptionsFlowInfo.class);
+            mUserChoiceInfo = ViewModelProviders
+                    .of(getActivity())
+                    .get(UserChoiceInfo.class);
             mStateMachine = ViewModelProviders
                     .of(getActivity())
                     .get(StateMachine.class);

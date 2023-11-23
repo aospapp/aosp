@@ -59,7 +59,6 @@ public final class CarAudioPatchHandle implements Parcelable {
     }
 
     @Override
-    @AddedInOrBefore(majorVersion = 33)
     public String toString() {
         return "Patch (mHandleId=" + mHandleId + "): "
                 + mSourceAddress + " => " + mSinkAddress;

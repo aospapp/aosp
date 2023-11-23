@@ -17,7 +17,7 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="app_label" msgid="2008319089248760277">"Утасгүй сүлжээгээр дамжуулах гамшгийн аюулын дохио"</string>
-    <string name="sms_cb_settings" msgid="9021266457863671070">"Утасгүй сүлжээгээр дамжуулах гамшгийн аюулын дохио"</string>
+    <string name="sms_cb_settings" msgid="9021266457863671070">"Утасгүй сүлжээний онцгой байдлын сэрэмжлүүлэг"</string>
     <string name="sms_cb_sender_name_default" msgid="972946539768958828">"Утасгүй сүлжээний онцгой байдлын сэрэмжлүүлэг"</string>
     <string name="sms_cb_sender_name_presidential" msgid="5302753979711319380">"Утасгүй сүлжээний онцгой байдлын сэрэмжлүүлэг"</string>
     <string name="sms_cb_sender_name_emergency" msgid="2937067842997478965">"Утасгүй сүлжээний онцгой байдлын сэрэмжлүүлэг"</string>
@@ -54,27 +54,27 @@
     <string name="public_safety_message" msgid="9119928798786998252">"Нийтийн аюулгүй байдлын мессеж"</string>
     <string name="state_local_test_alert" msgid="8003145745857480200">"Муж/Орон нутгийн туршилт"</string>
     <string name="emergency_alert" msgid="624783871477634263">"Онцгой байдлын сэрэмжлүүлэг"</string>
-    <string name="emergency_alerts_title" msgid="6605036374197485429">"Дохио"</string>
+    <string name="emergency_alerts_title" msgid="6605036374197485429">"Сэрэмжлүүлэг"</string>
     <string name="notification_channel_broadcast_messages" msgid="880704362482824524">"Мессеж дамжуулах"</string>
     <string name="notification_channel_emergency_alerts" msgid="5008287980979183617">"Гамшгийн аюулын дохио"</string>
     <string name="notification_channel_emergency_alerts_high_priority" msgid="3937475297436439073">"Хүлээн зөвшөөрөөгүй яаралтай тусламжийн сэрэмжлүүлэг"</string>
     <string name="notification_channel_broadcast_messages_in_voicecall" msgid="3291001780110813190">"Дуут дуудлагын үеэр ирэх гамшгийн аюулын дохио"</string>
     <string name="notification_channel_settings_updates" msgid="6779759372516475085">"WEA автомат тохиргоо SIM дээр үндэслэн өөрчлөгддөг"</string>
-    <string name="enable_alerts_master_toggle_title" msgid="1457904343636699446">"Дохиоллыг зөвшөөрөх"</string>
+    <string name="enable_alerts_master_toggle_title" msgid="1457904343636699446">"Сэрэмжлүүлгийг зөвшөөрөх"</string>
     <string name="enable_alerts_master_toggle_summary" msgid="5583168548073938617">"Утасгүй сүлжээгээр гамшгийн аюулын дохионы мэдэгдэл авах"</string>
     <string name="alert_reminder_interval_title" msgid="3283595202268218149">"Сэрэмжлүүлгийн сануулагч"</string>
     <string name="enable_alert_speech_title" msgid="8052104771053526941">"Сэрэмжлүүлгийн мессежийг унших"</string>
     <string name="enable_alert_speech_summary" msgid="2855629032890937297">"Утасгүй гамшгийн аюулын дохионы мессежийг чангаар уншихын тулд бичвэрийг-ярианд-хувиргахыг ашиглана уу"</string>
     <string name="alert_reminder_dialog_title" msgid="2299010977651377315">"Сануулагчийн аяыг дууны энгийн түвшинд тоглуулна"</string>
-    <string name="emergency_alert_history_title" msgid="8310173569237268431">"Гамшгийн аюулын дохионы түүх"</string>
-    <string name="alert_preferences_title" msgid="6001469026393248468">"Дохионы тохиргоо"</string>
+    <string name="emergency_alert_history_title" msgid="8310173569237268431">"Онцгой байдлын сэрэмжлүүлгийн түүх"</string>
+    <string name="alert_preferences_title" msgid="6001469026393248468">"Сэрэмжлүүлгийн тохиргоо"</string>
     <string name="enable_etws_test_alerts_title" msgid="3593533226735441539">"ГХЦАС тест дамжуулалт"</string>
     <string name="enable_etws_test_alerts_summary" msgid="8746155402612927306">"Газар Хөдлөлт, Цунамиг Анхааруулах Системийн тест дамжуулалт"</string>
     <string name="enable_cmas_extreme_threat_alerts_title" msgid="5416260219062637770">"Mаш ноцтой аюул занал"</string>
     <string name="enable_cmas_extreme_threat_alerts_summary" msgid="5832146246627518123">"Амь нас, өмч хөрөнгөд учрах маш ноцтой аюул занал"</string>
     <string name="enable_cmas_severe_threat_alerts_title" msgid="1066172973703410042">"Ноцтой аюул занал"</string>
     <string name="enable_cmas_severe_threat_alerts_summary" msgid="5292443310309039223">"Амь нас, өмч хөрөнгөд учрах ноцтой аюул занал"</string>
-    <string name="enable_cmas_amber_alerts_title" msgid="1475030503498979651">"УЛБАР ШАР дохио"</string>
+    <string name="enable_cmas_amber_alerts_title" msgid="1475030503498979651">"УЛБАР ШАР сэрэмжлүүлэг"</string>
     <string name="enable_cmas_amber_alerts_summary" msgid="4495233280416889667">"Хүүхэд хулгайлсан тохиолдлын яаралтай мэдээлэл"</string>
     <string name="enable_alert_message_title" msgid="2939830587633599352">"Мессежээр анхааруулах"</string>
     <string name="enable_alert_message_summary" msgid="6525664541696985610">"Аюулгүй байдалд учирч болзошгүй арга хэмжээний талаар сэрэмжлүүлэх"</string>
@@ -139,7 +139,7 @@
     <string name="cmas_opt_out_dialog_text" msgid="4820577535626084938">"Та одоогоор утасгүй сүлжээгээр дамжуулах гамшгийн аюулын дохиог хүлээн авч байна. Та утасгүй сүлжээгээр дамжуулах гамшгийн аюулын дохиог үргэлжлүүлэн авах уу?"</string>
     <string name="cmas_opt_out_button_yes" msgid="7248930667195432936">"Тийм"</string>
     <string name="cmas_opt_out_button_no" msgid="3110484064328538553">"Үгүй"</string>
-    <string name="cb_list_activity_title" msgid="1433502151877791724">"Гамшгийн аюулын дохионы түүх"</string>
+    <string name="cb_list_activity_title" msgid="1433502151877791724">"Онцгой байдлын сэрэмжлүүлгийн түүх"</string>
     <string name="action_delete" msgid="7435661404543945861">"Устгах"</string>
     <string name="action_detail_info" msgid="8486524382178381810">"Дэлгэрэнгүйг харуулах"</string>
   <string-array name="alert_reminder_interval_entries">

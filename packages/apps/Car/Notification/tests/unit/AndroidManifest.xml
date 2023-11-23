@@ -19,14 +19,15 @@
     xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.android.car.notification.tests.unit">
 
-    <uses-permission android:name="android.permission.INTERNAL_SYSTEM_WINDOW" />
+    <uses-permission android:name="android.permission.INTERNAL_SYSTEM_WINDOW"/>
     <uses-permission android:name="android.permission.INTERACT_ACROSS_USERS"/>
-    <uses-permission android:name="android.permission.MANAGE_USERS" />
-    <uses-permission android:name="android.permission.STATUS_BAR_SERVICE" />
+    <uses-permission android:name="android.permission.MANAGE_USERS"/>
+    <uses-permission android:name="android.permission.STATUS_BAR_SERVICE"/>
     <uses-permission android:name="android.permission.ACCESS_VOICE_INTERACTION_SERVICE"/>
+    <uses-permission android:name="android.permission.MANAGE_ACTIVITY_TASKS"/>
 
     <application android:debuggable="true">
-        <uses-library android:name="android.test.runner" />
+        <uses-library android:name="android.test.runner"/>
 
         <activity
             android:name="com.android.car.notification.headsup.HeadsUpContainerViewTestActivity"/>
@@ -34,5 +35,5 @@
 
     <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
                      android:targetPackage="com.android.car.notification.tests.unit"
-                     android:label="Car Notification Unit Tests" />
+                     android:label="Car Notification Unit Tests"/>
 </manifest>

@@ -63,6 +63,7 @@ import com.android.bluetooth.BluetoothMetricsProto;
 import com.android.bluetooth.Utils;
 import com.android.bluetooth.btservice.MetricsLogger;
 import com.android.bluetooth.btservice.ProfileService;
+import com.android.internal.annotations.VisibleForTesting;
 import com.android.internal.util.IState;
 import com.android.internal.util.State;
 import com.android.internal.util.StateMachine;
@@ -70,9 +71,9 @@ import com.android.internal.util.StateMachine;
 import java.util.ArrayList;
 import java.util.List;
 
-final class PbapClientStateMachine extends StateMachine {
-    private static final boolean DBG = false; //Utils.DBG;
+class PbapClientStateMachine extends StateMachine {
     private static final String TAG = "PbapClientStateMachine";
+    private static final boolean DBG = Log.isLoggable(TAG, Log.DEBUG);
 
     // Messages for handling connect/disconnect requests.
     private static final int MSG_DISCONNECT = 2;
@@ -108,10 +109,17 @@ final class PbapClientStateMachine extends StateMachine {
     private int mMostRecentState = BluetoothProfile.STATE_DISCONNECTED;
 
     PbapClientStateMachine(PbapClientService svc, BluetoothDevice device) {
+        this(svc, device, null);
+    }
+
+    @VisibleForTesting
+    PbapClientStateMachine(PbapClientService svc, BluetoothDevice device,
+            PbapClientConnectionHandler connectionHandler) {
         super(TAG);
 
         mService = svc;
         mCurrentDevice = device;
+        mConnectionHandler = connectionHandler;
         mLock = new Object();
         mUserManager = mService.getSystemService(UserManager.class);
         mDisconnected = new Disconnected();
@@ -158,12 +166,16 @@ final class PbapClientStateMachine extends StateMachine {
             mHandlerThread =
                     new HandlerThread("PBAP PCE handler", Process.THREAD_PRIORITY_BACKGROUND);
             mHandlerThread.start();
-            mConnectionHandler =
+
+            // Keeps mock handler from being overwritten in tests
+            if (mConnectionHandler == null) {
+                mConnectionHandler =
                     new PbapClientConnectionHandler.Builder().setLooper(mHandlerThread.getLooper())
                             .setContext(mService)
                             .setClientSM(PbapClientStateMachine.this)
                             .setRemoteDevice(mCurrentDevice)
                             .build();
+            }
 
             sendMessageDelayed(MSG_CONNECT_TIMEOUT, CONNECT_TIMEOUT);
         }
@@ -239,6 +251,7 @@ final class PbapClientStateMachine extends StateMachine {
 
             public void register() {
                 IntentFilter filter = new IntentFilter();
+                filter.setPriority(IntentFilter.SYSTEM_HIGH_PRIORITY);
                 filter.addAction(BluetoothDevice.ACTION_SDP_RECORD);
                 mService.registerReceiver(this, filter);
             }
@@ -280,6 +293,8 @@ final class PbapClientStateMachine extends StateMachine {
                 case MSG_DISCONNECT_TIMEOUT:
                     Log.w(TAG, "Disconnect Timeout, Forcing");
                     mConnectionHandler.abort();
+                    mHandlerThread.quitSafely();
+                    transitionTo(mDisconnected);
                     break;
 
                 case MSG_RESUME_DOWNLOAD:

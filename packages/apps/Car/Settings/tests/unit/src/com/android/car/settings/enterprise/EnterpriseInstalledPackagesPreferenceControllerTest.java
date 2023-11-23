@@ -16,6 +16,7 @@
 package com.android.car.settings.enterprise;
 
 import static com.android.car.settings.common.PreferenceController.AVAILABLE;
+import static com.android.car.settings.common.PreferenceController.AVAILABLE_FOR_VIEWING;
 import static com.android.car.settings.common.PreferenceController.CONDITIONALLY_UNAVAILABLE;
 import static com.android.car.settings.common.PreferenceController.DISABLED_FOR_PROFILE;
 
@@ -71,6 +72,60 @@ public class EnterpriseInstalledPackagesPreferenceControllerTest extends
     }
 
     @Test
+    public void testGetAvailabilityStatus_noInstalledApps_zoneWrite() {
+        NumberOfAppsCallbackHolder callbackHolder = mockCalculateNumberOfPolicyInstalledApps();
+        mSpiedController.setAvailabilityStatusForZone("write");
+
+        // Assert initial state
+        PreferenceControllerTestUtil.assertAvailability(mSpiedController.getAvailabilityStatus(),
+                CONDITIONALLY_UNAVAILABLE);
+
+        // Unblock async call
+        callbackHolder.release(0);
+
+        // Assert post-callback result
+        PreferenceControllerTestUtil.assertAvailability(mSpiedController.getAvailabilityStatus(),
+                DISABLED_FOR_PROFILE);
+        assertUiNotRefreshed(mSpiedController);
+    }
+
+    @Test
+    public void testGetAvailabilityStatus_noInstalledApps_zoneRead() {
+        NumberOfAppsCallbackHolder callbackHolder = mockCalculateNumberOfPolicyInstalledApps();
+        mSpiedController.setAvailabilityStatusForZone("read");
+
+        // Assert initial state
+        PreferenceControllerTestUtil.assertAvailability(mSpiedController.getAvailabilityStatus(),
+                CONDITIONALLY_UNAVAILABLE);
+
+        // Unblock async call
+        callbackHolder.release(0);
+
+        // Assert post-callback result
+        PreferenceControllerTestUtil.assertAvailability(mSpiedController.getAvailabilityStatus(),
+                DISABLED_FOR_PROFILE);
+        assertUiNotRefreshed(mSpiedController);
+    }
+
+    @Test
+    public void testGetAvailabilityStatus_noInstalledApps_zoneHidden() {
+        NumberOfAppsCallbackHolder callbackHolder = mockCalculateNumberOfPolicyInstalledApps();
+        mSpiedController.setAvailabilityStatusForZone("hidden");
+
+        // Assert initial state
+        PreferenceControllerTestUtil.assertAvailability(mSpiedController.getAvailabilityStatus(),
+                CONDITIONALLY_UNAVAILABLE);
+
+        // Unblock async call
+        callbackHolder.release(0);
+
+        // Assert post-callback result
+        PreferenceControllerTestUtil.assertAvailability(mSpiedController.getAvailabilityStatus(),
+                DISABLED_FOR_PROFILE);
+        assertUiNotRefreshed(mSpiedController);
+    }
+
+    @Test
     public void testGetAvailabilityStatus_withInstalledApps() {
         expectUiRefreshed(mSpiedController);
         NumberOfAppsCallbackHolder callbackHolder = mockCalculateNumberOfPolicyInstalledApps();
@@ -85,6 +140,63 @@ public class EnterpriseInstalledPackagesPreferenceControllerTest extends
         // Assert post-callback result
         PreferenceControllerTestUtil.assertAvailability(mSpiedController.getAvailabilityStatus(),
                 AVAILABLE);
+        assertUiRefreshed(mSpiedController);
+    }
+
+    @Test
+    public void testGetAvailabilityStatus_withInstalledApps_zoneWrite() {
+        expectUiRefreshed(mSpiedController);
+        NumberOfAppsCallbackHolder callbackHolder = mockCalculateNumberOfPolicyInstalledApps();
+        mSpiedController.setAvailabilityStatusForZone("write");
+
+        // Assert initial state
+        PreferenceControllerTestUtil.assertAvailability(mSpiedController.getAvailabilityStatus(),
+                CONDITIONALLY_UNAVAILABLE);
+
+        // Unblock async call
+        callbackHolder.release(3);
+
+        // Assert post-callback result
+        PreferenceControllerTestUtil.assertAvailability(mSpiedController.getAvailabilityStatus(),
+                AVAILABLE);
+        assertUiRefreshed(mSpiedController);
+    }
+
+    @Test
+    public void testGetAvailabilityStatus_withInstalledApps_zoneRead() {
+        expectUiRefreshed(mSpiedController);
+        NumberOfAppsCallbackHolder callbackHolder = mockCalculateNumberOfPolicyInstalledApps();
+        mSpiedController.setAvailabilityStatusForZone("read");
+
+        // Assert initial state
+        PreferenceControllerTestUtil.assertAvailability(mSpiedController.getAvailabilityStatus(),
+                CONDITIONALLY_UNAVAILABLE);
+
+        // Unblock async call
+        callbackHolder.release(3);
+
+        // Assert post-callback result
+        PreferenceControllerTestUtil.assertAvailability(mSpiedController.getAvailabilityStatus(),
+                AVAILABLE_FOR_VIEWING);
+        assertUiRefreshed(mSpiedController);
+    }
+
+    @Test
+    public void testGetAvailabilityStatus_withInstalledApps_zoneHidden() {
+        expectUiRefreshed(mSpiedController);
+        NumberOfAppsCallbackHolder callbackHolder = mockCalculateNumberOfPolicyInstalledApps();
+        mSpiedController.setAvailabilityStatusForZone("hidden");
+
+        // Assert initial state
+        PreferenceControllerTestUtil.assertAvailability(mSpiedController.getAvailabilityStatus(),
+                CONDITIONALLY_UNAVAILABLE);
+
+        // Unblock async call
+        callbackHolder.release(3);
+
+        // Assert post-callback result
+        PreferenceControllerTestUtil.assertAvailability(mSpiedController.getAvailabilityStatus(),
+                CONDITIONALLY_UNAVAILABLE);
         assertUiRefreshed(mSpiedController);
     }
 

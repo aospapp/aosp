@@ -33,8 +33,15 @@
         android:title="@string/location_driver_assistance_toggle_title"
         android:summary="@string/location_driver_assistance_toggle_summary"
         settings:controller="com.android.car.settings.location.AdasLocationSwitchPreferenceController"
+        settings:occupant_front_passenger="hidden"
+        settings:occupant_rear_passenger="hidden"
         settings:searchable="true"/>
-    <com.android.car.settings.common.DividerPreference/>
+    <com.android.car.settings.common.DividerPreference
+        android:key="@string/pk_location_divider"
+        settings:controller="com.android.car.settings.common.DefaultRestrictionsPreferenceController"
+        settings:occupant_front_passenger="hidden"
+        settings:occupant_rear_passenger="hidden"
+    />
     <PreferenceCategory
         android:key="@string/pk_location_recent_accesses_category"
         android:title="@string/location_recently_accessed"
@@ -56,7 +63,7 @@
         android:title="@string/location_settings_services_title"
         settings:controller="com.android.car.settings.location.LocationServicesPreferenceController"/>
 
-    <Preference
+    <com.android.car.ui.preference.CarUiFooterPreference
         android:key="@string/pk_location_footer"
         android:summary="@string/location_settings_footer"
         android:icon="@drawable/ic_settings_about"

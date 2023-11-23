@@ -15,6 +15,7 @@
  */
 package android.car.drivingstate;
 
+import static android.car.CarOccupantZoneManager.DisplayTypeEnum;
 import static android.car.drivingstate.CarDrivingStateEvent.DRIVING_STATE_IDLING;
 import static android.car.drivingstate.CarDrivingStateEvent.DRIVING_STATE_MOVING;
 import static android.car.drivingstate.CarDrivingStateEvent.DRIVING_STATE_PARKED;
@@ -23,11 +24,17 @@ import static android.car.drivingstate.CarUxRestrictionsManager.UX_RESTRICTION_M
 
 import static com.android.car.internal.ExcludeFromCodeCoverageGeneratedReport.BOILERPLATE_CODE;
 import static com.android.car.internal.ExcludeFromCodeCoverageGeneratedReport.DUMP_INFO;
+import static com.android.car.internal.util.VersionUtils.assertPlatformVersionAtLeastU;
 
 import android.annotation.FloatRange;
 import android.annotation.NonNull;
 import android.annotation.Nullable;
+import android.annotation.SuppressLint;
+import android.annotation.SystemApi;
+import android.car.CarOccupantZoneManager;
+import android.car.CarOccupantZoneManager.OccupantZoneInfo;
 import android.car.annotation.AddedInOrBefore;
+import android.car.annotation.ApiRequirements;
 import android.car.builtin.os.BuildHelper;
 import android.car.drivingstate.CarDrivingStateEvent.CarDrivingState;
 import android.os.Parcel;
@@ -56,11 +63,14 @@ import java.util.Objects;
  *
  * @hide
  */
+@SystemApi
 public final class CarUxRestrictionsConfiguration implements Parcelable {
     private static final String TAG = "CarUxRConfig";
 
     // Constants used by json de/serialization.
     private static final String JSON_NAME_PHYSICAL_PORT = "physical_port";
+    private static final String JSON_NAME_OCCUPANT_ZONE_ID = "occupant_zone_id";
+    private static final String JSON_NAME_DISPLAY_TYPE = "display_type";
     private static final String JSON_NAME_MAX_CONTENT_DEPTH = "max_content_depth";
     private static final String JSON_NAME_MAX_CUMULATIVE_CONTENT_ITEMS =
             "max_cumulative_content_items";
@@ -83,13 +93,21 @@ public final class CarUxRestrictionsConfiguration implements Parcelable {
      */
     private final Map<String, RestrictionModeContainer> mRestrictionModes = new ArrayMap<>();
 
-    // null means the port is not configured. It should apply to default display.
+    // A display is either identified by 'mPhysicalPort' or the combination of 'mOccupantZoneId'
+    // and 'mDisplayType'. If neither of them are configured, the default display is assumed.
+
+    // null means the port is not configured.
     @Nullable
     private final Integer mPhysicalPort;
 
+    private final int mOccupantZoneId;
+
+    private final int mDisplayType;
+
     private CarUxRestrictionsConfiguration(CarUxRestrictionsConfiguration.Builder builder) {
         mPhysicalPort = builder.mPhysicalPort;
-
+        mOccupantZoneId = builder.mOccupantZoneId;
+        mDisplayType = builder.mDisplayType;
         mMaxContentDepth = builder.mMaxContentDepth;
         mMaxCumulativeContentItems = builder.mMaxCumulativeContentItems;
         mMaxStringLength = builder.mMaxStringLength;
@@ -118,6 +136,7 @@ public final class CarUxRestrictionsConfiguration implements Parcelable {
      * @param currentSpeed Current speed in meter per second.
      */
     @AddedInOrBefore(majorVersion = 33)
+    @NonNull
     public CarUxRestrictions getUxRestrictions(
             @CarDrivingState int drivingState, float currentSpeed) {
         return getUxRestrictions(drivingState, currentSpeed, UX_RESTRICTION_MODE_BASELINE);
@@ -135,6 +154,7 @@ public final class CarUxRestrictionsConfiguration implements Parcelable {
      * @param mode         Current UX Restriction mode.
      */
     @AddedInOrBefore(majorVersion = 33)
+    @NonNull
     public CarUxRestrictions getUxRestrictions(@CarDrivingState int drivingState,
             @FloatRange(from = 0f) float currentSpeed, @NonNull String mode) {
         Objects.requireNonNull(mode, "mode must not be null");
@@ -180,13 +200,63 @@ public final class CarUxRestrictionsConfiguration implements Parcelable {
     /**
      * Returns the port this configuration applies to.
      *
-     * <p>Returns {@code null} if port is not set, meaning this configuration will apply
-     * to default display {@link android.view.Display#DEFAULT_DISPLAY}.
+     * When port is not set, the combination of occupant zone id {@code getOccupantZoneId()} and
+     * display type {@code getDisplayType()} can also identify a display.
+     * If neither port nor occupant zone id and display type are set, the configuration will
+     * apply to default display {@link android.view.Display#DEFAULT_DISPLAY}.
+     *
+     * <p>Returns {@code null} if port is not set.
      */
     @Nullable
+    @SuppressLint("AutoBoxing")
     @AddedInOrBefore(majorVersion = 33)
     public Integer getPhysicalPort() {
         return mPhysicalPort;
+    }
+
+    /**
+     * Returns the id of the occupant zone of the display this configuration applies to.
+     *
+     * <p>Occupant zone id and display type {@code getDisplayType()} should both exist to identity a
+     * display.
+     * When occupant zone id and display type {@code getDisplayType()} are not set,
+     * port {@code getPhysicalPort()} can also identify a display.
+     * <p>If neither port nor occupant zone id and display type are set, the configuration
+     * will apply to default display {@link android.view.Display#DEFAULT_DISPLAY}.
+     *
+     * @return the occupant zone id or
+     * {@code CarOccupantZoneManager.OccupantZoneInfo.INVALID_ZONE_ID} if the occupant zone id
+     * is not set.
+     */
+    @ApiRequirements(minCarVersion = ApiRequirements.CarVersion.UPSIDE_DOWN_CAKE_0,
+            minPlatformVersion = ApiRequirements.PlatformVersion.UPSIDE_DOWN_CAKE_0)
+    public int getOccupantZoneId() {
+        // TODO(b/273843708): add assertion back. getOccupantZoneId is not version guarded
+        // properly when it is used within Car module. Assertion should be added backed once
+        // b/280700896 is resolved
+        // assertPlatformVersionAtLeastU();
+        return mOccupantZoneId;
+    }
+
+    /**
+     * Returns the type of the display in occupant zone identified by {@code getOccupantZoneId()}
+     * this configuration applies to.
+     *
+     * <p>Occupant zone id {@code getOccupantZoneId()} and display type should both exist to
+     * identity a display.
+     * When display type and occupant zone id {@code getOccupantZoneId()} are not set,
+     * port {@code getPhysicalPort()} can also identify a display.
+     * <p>If neither port nor occupant zone id and display type are set, the configuration
+     * will apply to default display {@link android.view.Display#DEFAULT_DISPLAY}.
+     *
+     * @return the display type or {@code CarOccupantZoneManager.DISPLAY_TYPE_UNKNOWN}
+     * if the display type is not set.
+     */
+    @ApiRequirements(minCarVersion = ApiRequirements.CarVersion.UPSIDE_DOWN_CAKE_0,
+            minPlatformVersion = ApiRequirements.PlatformVersion.UPSIDE_DOWN_CAKE_0)
+    public @DisplayTypeEnum int getDisplayType() {
+        assertPlatformVersionAtLeastU();
+        return mDisplayType;
     }
 
     /**
@@ -204,12 +274,40 @@ public final class CarUxRestrictionsConfiguration implements Parcelable {
             return restrictions.get(0);
         }
 
+        if (currentSpeed >= Builder.SpeedRange.MAX_SPEED) {
+            return findUxRestrictionsInHighestSpeedRange(restrictions);
+        }
+
         for (RestrictionsPerSpeedRange r : restrictions) {
             if (r.mSpeedRange != null && r.mSpeedRange.includes(currentSpeed)) {
                 return r;
             }
         }
         return null;
+    }
+
+    /**
+     * Returns the restrictions in the highest speed range.
+     *
+     * <p>Returns {@code null} if {@code restrictions} is an empty list.
+     */
+    @Nullable
+    private static RestrictionsPerSpeedRange findUxRestrictionsInHighestSpeedRange(
+            List<RestrictionsPerSpeedRange> restrictions) {
+        RestrictionsPerSpeedRange restrictionsInHighestSpeedRange = null;
+        for (int i = 0; i < restrictions.size(); ++i) {
+            RestrictionsPerSpeedRange r = restrictions.get(i);
+            if (r.mSpeedRange != null) {
+                if (restrictionsInHighestSpeedRange == null) {
+                    restrictionsInHighestSpeedRange = r;
+                } else if (r.mSpeedRange.compareTo(
+                        restrictionsInHighestSpeedRange.mSpeedRange) > 0) {
+                    restrictionsInHighestSpeedRange = r;
+                }
+            }
+        }
+
+        return restrictionsInHighestSpeedRange;
     }
 
     private CarUxRestrictions createDefaultUxRestrictionsEvent() {
@@ -220,8 +318,10 @@ public final class CarUxRestrictionsConfiguration implements Parcelable {
     /**
      * Creates CarUxRestrictions with restrictions parameters from current configuration.
      */
-    private CarUxRestrictions createUxRestrictionsEvent(boolean requiresOpt,
+    private CarUxRestrictions createUxRestrictionsEvent(boolean requiresOptParam,
             @CarUxRestrictions.CarUxRestrictionsInfo int uxr) {
+        boolean requiresOpt = requiresOptParam;
+
         // In case the UXR is not baseline, set requiresDistractionOptimization to true since it
         // doesn't make sense to have an active non baseline restrictions without
         // requiresDistractionOptimization set to true.
@@ -246,6 +346,7 @@ public final class CarUxRestrictionsConfiguration implements Parcelable {
 
     /**
      * Writes current configuration as Json.
+     * @hide
      */
     @AddedInOrBefore(majorVersion = 33)
     public void writeJson(@NonNull JsonWriter writer) throws IOException {
@@ -258,6 +359,16 @@ public final class CarUxRestrictionsConfiguration implements Parcelable {
             writer.name(JSON_NAME_PHYSICAL_PORT).nullValue();
         } else {
             writer.name(JSON_NAME_PHYSICAL_PORT).value((int) mPhysicalPort);
+        }
+        if (mOccupantZoneId == OccupantZoneInfo.INVALID_ZONE_ID) {
+            writer.name(JSON_NAME_OCCUPANT_ZONE_ID).nullValue();
+        } else {
+            writer.name(JSON_NAME_OCCUPANT_ZONE_ID).value(mOccupantZoneId);
+        }
+        if (mDisplayType == CarOccupantZoneManager.DISPLAY_TYPE_UNKNOWN) {
+            writer.name(JSON_NAME_DISPLAY_TYPE).nullValue();
+        } else {
+            writer.name(JSON_NAME_DISPLAY_TYPE).value(mDisplayType);
         }
         writer.name(JSON_NAME_MAX_CONTENT_DEPTH).value(mMaxContentDepth);
         writer.name(JSON_NAME_MAX_CUMULATIVE_CONTENT_ITEMS).value(
@@ -315,7 +426,6 @@ public final class CarUxRestrictionsConfiguration implements Parcelable {
     }
 
     @Override
-    @AddedInOrBefore(majorVersion = 33)
     public String toString() {
         CharArrayWriter charWriter = new CharArrayWriter();
         JsonWriter writer = new JsonWriter(charWriter);
@@ -323,7 +433,7 @@ public final class CarUxRestrictionsConfiguration implements Parcelable {
         try {
             writeJson(writer);
         } catch (IOException e) {
-            e.printStackTrace();
+            Log.e(TAG, "Failed printing UX restrictions configuration", e);
         }
         return charWriter.toString();
     }
@@ -333,8 +443,10 @@ public final class CarUxRestrictionsConfiguration implements Parcelable {
      *
      * <p>Supports reading files persisted in multiple JSON schemas, including the pre-R version 1
      * format, and the R format version 2.
+     * @hide
      */
     @AddedInOrBefore(majorVersion = 33)
+    @NonNull
     public static CarUxRestrictionsConfiguration readJson(@NonNull JsonReader reader,
             int schemaVersion) throws IOException {
         Objects.requireNonNull(reader, "reader must not be null");
@@ -353,6 +465,20 @@ public final class CarUxRestrictionsConfiguration implements Parcelable {
                         reader.nextNull();
                     } else {
                         builder.setPhysicalPort(Builder.validatePort(reader.nextInt()));
+                    }
+                    break;
+                case JSON_NAME_OCCUPANT_ZONE_ID:
+                    if (reader.peek() == JsonToken.NULL) {
+                        reader.nextNull();
+                    } else {
+                        builder.setOccupantZoneId(Builder.validateOccupantZoneId(reader.nextInt()));
+                    }
+                    break;
+                case JSON_NAME_DISPLAY_TYPE:
+                    if (reader.peek() == JsonToken.NULL) {
+                        reader.nextNull();
+                    } else {
+                        builder.setDisplayType(Builder.validateDisplayType(reader.nextInt()));
                     }
                     break;
                 case JSON_NAME_MAX_CONTENT_DEPTH:
@@ -499,11 +625,11 @@ public final class CarUxRestrictionsConfiguration implements Parcelable {
         Builder.SpeedRange speedRange = null;
         while (reader.hasNext()) {
             String name = reader.nextName();
-            if (name.equals(JSON_NAME_REQ_OPT)) {
+            if (Objects.equals(name, JSON_NAME_REQ_OPT)) {
                 reqOpt = reader.nextBoolean();
-            } else if (name.equals(JSON_NAME_RESTRICTIONS)) {
+            } else if (Objects.equals(name, JSON_NAME_RESTRICTIONS)) {
                 restrictions = reader.nextInt();
-            } else if (name.equals(JSON_NAME_SPEED_RANGE)) {
+            } else if (Objects.equals(name, JSON_NAME_SPEED_RANGE)) {
                 reader.beginObject();
                 // Okay to set min initial value as MAX_SPEED because SpeedRange() won't allow it.
                 float minSpeed = Builder.SpeedRange.MAX_SPEED;
@@ -511,9 +637,9 @@ public final class CarUxRestrictionsConfiguration implements Parcelable {
 
                 while (reader.hasNext()) {
                     String n = reader.nextName();
-                    if (n.equals(JSON_NAME_MIN_SPEED)) {
+                    if (Objects.equals(n, JSON_NAME_MIN_SPEED)) {
                         minSpeed = Double.valueOf(reader.nextDouble()).floatValue();
-                    } else if (n.equals(JSON_NAME_MAX_SPEED)) {
+                    } else if (Objects.equals(n, JSON_NAME_MAX_SPEED)) {
                         maxSpeed = Double.valueOf(reader.nextDouble()).floatValue();
                     } else {
                         Log.e(TAG, "Unknown name parsing json config: " + n);
@@ -535,14 +661,12 @@ public final class CarUxRestrictionsConfiguration implements Parcelable {
     }
 
     @Override
-    @AddedInOrBefore(majorVersion = 33)
     public int hashCode() {
-        return Objects.hash(mPhysicalPort, mMaxStringLength, mMaxCumulativeContentItems,
-                mMaxContentDepth, mRestrictionModes);
+        return Objects.hash(mPhysicalPort, mOccupantZoneId, mDisplayType, mMaxStringLength,
+                mMaxCumulativeContentItems, mMaxContentDepth, mRestrictionModes);
     }
 
     @Override
-    @AddedInOrBefore(majorVersion = 33)
     public boolean equals(Object obj) {
         if (this == obj) {
             return true;
@@ -553,13 +677,16 @@ public final class CarUxRestrictionsConfiguration implements Parcelable {
 
         CarUxRestrictionsConfiguration other = (CarUxRestrictionsConfiguration) obj;
 
-        return mPhysicalPort == other.mPhysicalPort
+        return Objects.equals(mPhysicalPort, other.mPhysicalPort)
+                && mOccupantZoneId == other.mOccupantZoneId
+                && mDisplayType == other.mDisplayType
                 && hasSameParameters(other)
                 && mRestrictionModes.equals(other.mRestrictionModes);
     }
 
     /**
      * Compares {@code this} configuration object with {@code other} on restriction parameters.
+     * @hide
      */
     @AddedInOrBefore(majorVersion = 33)
     public boolean hasSameParameters(@NonNull CarUxRestrictionsConfiguration other) {
@@ -571,12 +698,15 @@ public final class CarUxRestrictionsConfiguration implements Parcelable {
 
     /**
      * Dump the driving state to UX restrictions mapping.
+     * @hide
      */
     @ExcludeFromCodeCoverageGeneratedReport(reason = DUMP_INFO)
     @AddedInOrBefore(majorVersion = 33)
     public void dump(@NonNull PrintWriter writer) {
         Objects.requireNonNull(writer, "writer must not be null");
         writer.println("Physical display port: " + mPhysicalPort);
+        writer.println("Occupant zone id of the display: " + mOccupantZoneId);
+        writer.println("Display type: " + mDisplayType);
 
         for (Map.Entry<String, RestrictionModeContainer> entry : mRestrictionModes.entrySet()) {
             writer.println("===========================================");
@@ -635,6 +765,7 @@ public final class CarUxRestrictionsConfiguration implements Parcelable {
     };
 
     @AddedInOrBefore(majorVersion = 33)
+    @NonNull
     public static final Parcelable.Creator<CarUxRestrictionsConfiguration> CREATOR =
             new Parcelable.Creator<CarUxRestrictionsConfiguration>() {
 
@@ -672,6 +803,8 @@ public final class CarUxRestrictionsConfiguration implements Parcelable {
         boolean nullPhysicalPort = in.readBoolean();
         int physicalPort = in.readInt();
         mPhysicalPort = nullPhysicalPort ? null : physicalPort;
+        mOccupantZoneId = in.readInt();
+        mDisplayType = in.readInt();
 
         mMaxContentDepth = in.readInt();
         mMaxCumulativeContentItems = in.readInt();
@@ -680,7 +813,7 @@ public final class CarUxRestrictionsConfiguration implements Parcelable {
 
     @Override
     @AddedInOrBefore(majorVersion = 33)
-    public void writeToParcel(Parcel dest, int flags) {
+    public void writeToParcel(@NonNull Parcel dest, int flags) {
         dest.writeInt(mRestrictionModes.size());
         for (Map.Entry<String, RestrictionModeContainer> entry : mRestrictionModes.entrySet()) {
             dest.writeString(entry.getKey());
@@ -692,6 +825,9 @@ public final class CarUxRestrictionsConfiguration implements Parcelable {
         dest.writeBoolean(nullPhysicalPort);
         // When physical port is null, 0 should be skipped.
         dest.writeInt(nullPhysicalPort ? (0) : mPhysicalPort);
+
+        dest.writeInt(mOccupantZoneId);
+        dest.writeInt(mDisplayType);
 
         dest.writeInt(mMaxContentDepth);
         dest.writeInt(mMaxCumulativeContentItems);
@@ -719,12 +855,61 @@ public final class CarUxRestrictionsConfiguration implements Parcelable {
                     "Port value should be within the range [0, 255]. Input is " + port);
         }
 
+        /**
+         * Validates {@code zoneId} is a valid occupant zone id.
+         *
+         * @throws IllegalArgumentException if {@code zoneId} is not a valid occupant zone id.
+         *
+         * @return {@code zoneId}.
+         */
+        @ApiRequirements(minCarVersion = ApiRequirements.CarVersion.UPSIDE_DOWN_CAKE_0,
+                minPlatformVersion = ApiRequirements.PlatformVersion.UPSIDE_DOWN_CAKE_0)
+        public static int validateOccupantZoneId(int zoneId) {
+            assertPlatformVersionAtLeastU();
+            if (zoneId > OccupantZoneInfo.INVALID_ZONE_ID) {
+                return zoneId;
+            }
+            throw new IllegalArgumentException("Occupant zone id should be greater than "
+                    + OccupantZoneInfo.INVALID_ZONE_ID
+                    + ". Input is " + zoneId);
+        }
+
+        /**
+         * Validates {@code displayType} is a valid display type.
+         *
+         * @throws IllegalArgumentException if {@code displayType} is not a valid display type.
+         *
+         * @return {@code displayType}.
+         */
+        @ApiRequirements(minCarVersion = ApiRequirements.CarVersion.UPSIDE_DOWN_CAKE_0,
+                minPlatformVersion = ApiRequirements.PlatformVersion.UPSIDE_DOWN_CAKE_0)
+        public static int validateDisplayType(int displayType) {
+            assertPlatformVersionAtLeastU();
+            if (displayType > CarOccupantZoneManager.DISPLAY_TYPE_UNKNOWN) {
+                return displayType;
+            }
+            throw new IllegalArgumentException("Display type should be greater than "
+                    + CarOccupantZoneManager.DISPLAY_TYPE_UNKNOWN
+                    + ". Input is " + displayType);
+        }
+
         private static final int UX_RESTRICTIONS_UNKNOWN = -1;
 
         /**
          * {@code null} means port is not set.
          */
+        @Nullable
         private Integer mPhysicalPort;
+
+        /**
+         * {@code OccupantZoneInfo.INVALID_ZONE_ID} means occupant zone id is not set.
+         */
+        private int mOccupantZoneId = OccupantZoneInfo.INVALID_ZONE_ID;
+
+        /**
+         * {@code CarOccupantZoneManager.DISPLAY_TYPE_UNKNOWN} means display type is not set.
+         */
+        private int mDisplayType = CarOccupantZoneManager.DISPLAY_TYPE_UNKNOWN;
 
         private int mMaxContentDepth = UX_RESTRICTIONS_UNKNOWN;
         private int mMaxCumulativeContentItems = UX_RESTRICTIONS_UNKNOWN;
@@ -740,7 +925,7 @@ public final class CarUxRestrictionsConfiguration implements Parcelable {
         /**
          * Sets the display this configuration will apply to.
          *
-         * <p>The display is identified by the physical {@code port}.
+         * <p>The display can be identified by the physical {@code port}.
          *
          * @param port Port that is connected to a display.
          *             See {@link android.view.DisplayAddress.Physical#getPort()}.
@@ -748,6 +933,37 @@ public final class CarUxRestrictionsConfiguration implements Parcelable {
         @AddedInOrBefore(majorVersion = 33)
         public Builder setPhysicalPort(int port) {
             mPhysicalPort = port;
+            return this;
+        }
+
+        /**
+         * Sets the occupant zone of the display this configuration will apply to.
+         *
+         * <p>The display can be identified by the combination of occupant zone id and display type.
+         *
+         * @param occupantZoneId Id of the occupant zone this display is configured in.
+         */
+        @ApiRequirements(minCarVersion = ApiRequirements.CarVersion.UPSIDE_DOWN_CAKE_0,
+                minPlatformVersion = ApiRequirements.PlatformVersion.UPSIDE_DOWN_CAKE_0)
+        public Builder setOccupantZoneId(int occupantZoneId) {
+            // TODO(241589812): Call validation method here rather than separately.
+            assertPlatformVersionAtLeastU();
+            mOccupantZoneId = occupantZoneId;
+            return this;
+        }
+
+        /**
+         * Sets the display type of the display this configuration will apply to.
+         *
+         * <p>The display can be identified by the combination of occupant zone id and display type.
+         *
+         * @param displayType display type of the display in the occupant zone.
+         */
+        @ApiRequirements(minCarVersion = ApiRequirements.CarVersion.UPSIDE_DOWN_CAKE_0,
+                minPlatformVersion = ApiRequirements.PlatformVersion.UPSIDE_DOWN_CAKE_0)
+        public Builder setDisplayType(@DisplayTypeEnum int displayType) {
+            assertPlatformVersionAtLeastU();
+            mDisplayType = displayType;
             return this;
         }
 
@@ -853,6 +1069,7 @@ public final class CarUxRestrictionsConfiguration implements Parcelable {
             // Unspecified driving state should be fully restricted to be safe.
             addDefaultRestrictionsToBaseline();
 
+            validateDisplayIdentifier();
             validateBaselineModeRestrictions();
             for (String mode : mRestrictionModes.keySet()) {
                 if (UX_RESTRICTION_MODE_BASELINE.equals(mode)) {
@@ -875,6 +1092,33 @@ public final class CarUxRestrictionsConfiguration implements Parcelable {
                             + getDrivingStateName(drivingState));
                     restrictions.add(new RestrictionsPerSpeedRange(
                             true, CarUxRestrictions.UX_RESTRICTIONS_FULLY_RESTRICTED));
+                }
+            }
+        }
+
+        private void validateDisplayIdentifier() {
+            // There are two ways to identify a display when associating with UxR.
+            // A display can be identified by a physical port or the combination of the id of the
+            // occupant zone the display is assigned to and the type of the display.
+            if (mPhysicalPort != null) {
+                // Physical port and the combination of occupant zone id and display type can't
+                // co-exist.
+                // It should be either physical port or the combination of occupant zone id and
+                // display type.
+                if (mOccupantZoneId != OccupantZoneInfo.INVALID_ZONE_ID
+                        || mDisplayType != CarOccupantZoneManager.DISPLAY_TYPE_UNKNOWN) {
+                    throw new IllegalStateException(
+                            "physical_port can't be set when occupant_zone_id or display_type "
+                            + "is set");
+                }
+            } else {
+                // Occupant zone id and display type should co-exist to identify a display.
+                if ((mOccupantZoneId != OccupantZoneInfo.INVALID_ZONE_ID
+                        && mDisplayType == CarOccupantZoneManager.DISPLAY_TYPE_UNKNOWN)
+                        || (mOccupantZoneId == OccupantZoneInfo.INVALID_ZONE_ID
+                            && mDisplayType != CarOccupantZoneManager.DISPLAY_TYPE_UNKNOWN)) {
+                    throw new IllegalStateException("occupant_zone_id and display_type should "
+                            + "both exist");
                 }
             }
         }
@@ -1044,13 +1288,11 @@ public final class CarUxRestrictionsConfiguration implements Parcelable {
             }
 
             @Override
-            @AddedInOrBefore(majorVersion = 33)
             public int hashCode() {
                 return Objects.hash(mMinSpeed, mMaxSpeed);
             }
 
             @Override
-            @AddedInOrBefore(majorVersion = 33)
             public boolean equals(Object obj) {
                 if (this == obj) {
                     return true;
@@ -1064,7 +1306,6 @@ public final class CarUxRestrictionsConfiguration implements Parcelable {
             }
 
             @Override
-            @AddedInOrBefore(majorVersion = 33)
             public String toString() {
                 return new StringBuilder()
                         .append("[min: ").append(mMinSpeed)
@@ -1133,7 +1374,6 @@ public final class CarUxRestrictionsConfiguration implements Parcelable {
         }
 
         @Override
-        @AddedInOrBefore(majorVersion = 33)
         public String toString() {
             return new StringBuilder()
                     .append("Mode: ").append(mMode)

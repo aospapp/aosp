@@ -27,11 +27,10 @@ import com.android.managedprovisioning.R;
 import com.android.managedprovisioning.common.ProvisionLogger;
 import com.android.managedprovisioning.common.SetupGlifLayoutActivity;
 import com.android.managedprovisioning.common.Utils;
-import com.android.managedprovisioning.model.CustomizationParams;
 import com.android.managedprovisioning.model.ProvisioningParams;
 
 import com.google.android.setupdesign.GlifLayout;
-
+import com.google.android.setupdesign.util.DeviceHelper;
 /**
  * Activity to ask for permission to activate full-filesystem encryption.
  *
@@ -52,14 +51,17 @@ public class EncryptDeviceActivity extends SetupGlifLayoutActivity {
             return;
         }
 
+        CharSequence deviceName = DeviceHelper.getDeviceName(getApplicationContext());
         if (getUtils().isProfileOwnerAction(mParams.provisioningAction)) {
-            initializeUi(R.string.setup_work_profile,
-                    R.string.setup_profile_encryption,
-                    R.string.encrypt_device_text_for_profile_owner_setup);
+            initializeUi(
+                    R.string.setup_work_profile,
+                    getString(R.string.setup_profile_encryption),
+                    getString(R.string.encrypt_device_text_for_profile_owner_setup, deviceName));
         } else if (getUtils().isDeviceOwnerAction(mParams.provisioningAction)) {
-            initializeUi(R.string.setup_work_device,
-                    R.string.setup_device_encryption,
-                    R.string.encrypt_device_text_for_device_owner_setup);
+            initializeUi(
+                    R.string.setup_work_device,
+                    getString(R.string.setup_device_encryption, deviceName),
+                    getString(R.string.encrypt_device_text_for_device_owner_setup, deviceName));
         } else {
             ProvisionLogger.loge("Unknown provisioning action: " + mParams.provisioningAction);
             getTransitionHelper().finishActivity(this);
@@ -71,7 +73,7 @@ public class EncryptDeviceActivity extends SetupGlifLayoutActivity {
         return PROVISIONING_ENCRYPT_DEVICE_ACTIVITY_TIME_MS;
     }
 
-    private void initializeUi(int headerRes, int titleRes, int mainTextRes) {
+    private void initializeUi(int headerRes, String titleRes, String mainTextRes) {
         initializeLayoutParams(R.layout.encrypt_device, headerRes);
         setTitle(titleRes);
         GlifLayout layout = findViewById(R.id.setup_wizard_layout);

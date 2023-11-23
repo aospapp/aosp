@@ -24,11 +24,15 @@ import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
 
+import com.android.internal.annotations.Keep;
+
 /**
- * Broadcast Receiver for receiving new Sdk install requests and
- * verifying Sdk code before running it in Sandbox.
+ * Broadcast Receiver for receiving new Sdk install requests and verifying Sdk code before running
+ * it in Sandbox.
+ *
  * @hide
  */
+@Keep // See b/255754931. Explicitly keep SdkSandboxVerifierReceiver for reflection.
 public class SdkSandboxVerifierReceiver extends BroadcastReceiver {
 
     private static final String TAG = "SdkSandboxManager";
@@ -49,29 +53,7 @@ public class SdkSandboxVerifierReceiver extends BroadcastReceiver {
 
     private void verifySdkHandler(Context context, Intent intent) {
         int verificationId = intent.getIntExtra(PackageManager.EXTRA_VERIFICATION_ID, -1);
-        String verificationRootHash = intent.getStringExtra(
-                PackageManager.EXTRA_VERIFICATION_ROOT_HASH);
-
-        String apkPath = intent.getData().getSchemeSpecificPart();
-
-        boolean validSdk = true;
-
-        for (String apkWithHash : verificationRootHash.split(";")) {
-            String apk = apkWithHash.split(":")[0];
-
-            //TODO(b/206445674): move verify call to sdk sandbox apk
-            //TODO(b/206445674): call verify and pass the apk Path
-        }
-
-        // TODO(b/206445674): store results from the verifier.
-        if (validSdk) {
-            context.getPackageManager().verifyPendingInstall(
-                    verificationId,
-                    PackageManager.VERIFICATION_ALLOW);
-        } else {
-            context.getPackageManager().verifyPendingInstall(
-                    verificationId,
-                    PackageManager.VERIFICATION_REJECT);
-        }
+        context.getPackageManager()
+                .verifyPendingInstall(verificationId, PackageManager.VERIFICATION_ALLOW);
     }
 }

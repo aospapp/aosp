@@ -14,30 +14,31 @@
  * limitations under the License.
  */
 
-#include "HalCamera.h"
 #include "StatsCollector.h"
+
+#include "HalCamera.h"
 #include "VirtualCamera.h"
 
-#include <processgroup/sched_policy.h>
-#include <pthread.h>
-
 #include <android-base/file.h>
-#include <android-base/strings.h>
 #include <android-base/stringprintf.h>
+#include <android-base/strings.h>
+#include <processgroup/sched_policy.h>
 #include <utils/SystemClock.h>
+
+#include <pthread.h>
 
 namespace {
 
-    const char* kSingleIndent = "\t";
-    const char* kDoubleIndent = "\t\t";
-    const char* kDumpAllDevices = "all";
+const char* kSingleIndent = "\t";
+const char* kDoubleIndent = "\t\t";
+const char* kDumpAllDevices = "all";
 
-}
+}  // namespace
 
 namespace android::automotive::evs::V1_1::implementation {
 
-using android::base::Error;
 using android::base::EqualsIgnoreCase;
+using android::base::Error;
 using android::base::Result;
 using android::base::StringAppendF;
 using android::base::StringPrintf;
@@ -52,7 +53,7 @@ const auto kMinCollectionInterval = 1s;
 const auto kCustomCollectionMaxDuration = 30min;
 const auto kMaxDumpHistory = 10;
 
-}
+}  // namespace
 
 void StatsCollector::handleMessage(const Message& message) {
     const auto received = static_cast<CollectionEvent>(message.what);
@@ -90,8 +91,7 @@ void StatsCollector::handleMessage(const Message& message) {
 
     if (!ret.ok()) {
         Mutex::Autolock lock(mMutex);
-        LOG(ERROR) << "Terminating data collection: "
-                   << ret.error();
+        LOG(ERROR) << "Terminating data collection: " << ret.error();
 
         mCurrentCollectionEvent = CollectionEvent::TERMINATED;
         mLooper->removeMessages(this);
@@ -99,9 +99,7 @@ void StatsCollector::handleMessage(const Message& message) {
     }
 }
 
-
-Result<void> StatsCollector::handleCollectionEvent(CollectionEvent event,
-                                                   CollectionInfo* info) {
+Result<void> StatsCollector::handleCollectionEvent(CollectionEvent event, CollectionInfo* info) {
     AutoMutex lock(mMutex);
     if (mCurrentCollectionEvent != event) {
         if (mCurrentCollectionEvent != CollectionEvent::TERMINATED) {
@@ -141,7 +139,6 @@ Result<void> StatsCollector::handleCollectionEvent(CollectionEvent event,
     return {};
 }
 
-
 Result<void> StatsCollector::collectLocked(CollectionInfo* info) REQUIRES(mMutex) {
     for (auto&& [id, ptr] : mClientsToMonitor) {
         auto pClient = ptr.promote();
@@ -171,17 +168,15 @@ Result<void> StatsCollector::collectLocked(CollectionInfo* info) REQUIRES(mMutex
 android::base::Result<void> StatsCollector::startCollection() {
     {
         AutoMutex lock(mMutex);
-        if (mCurrentCollectionEvent != CollectionEvent::INIT ||
-            mCollectionThread.joinable()) {
-            return Error(INVALID_OPERATION)
-                   << "Camera usages collection is already running.";
+        if (mCurrentCollectionEvent != CollectionEvent::INIT || mCollectionThread.joinable()) {
+            return Error(INVALID_OPERATION) << "Camera usages collection is already running.";
         }
 
         // Create the collection info w/ the default values
         mPeriodicCollectionInfo = {
-            .interval = kPeriodicCollectionInterval,
-            .maxCacheSize = kPeriodicCollectionCacheSize,
-            .lastCollectionTime = 0,
+                .interval = kPeriodicCollectionInterval,
+                .maxCacheSize = kPeriodicCollectionCacheSize,
+                .lastCollectionTime = 0,
         };
     }
 
@@ -248,16 +243,14 @@ StatsCollector::~StatsCollector() {
     }
 }
 
-Result<void> StatsCollector::startCustomCollection(
-        std::chrono::nanoseconds interval,
-        std::chrono::nanoseconds maxDuration) {
+Result<void> StatsCollector::startCustomCollection(std::chrono::nanoseconds interval,
+                                                   std::chrono::nanoseconds maxDuration) {
     using std::chrono::duration_cast;
     using std::chrono::milliseconds;
     if (interval < kMinCollectionInterval || maxDuration < kMinCollectionInterval) {
         return Error(INVALID_OPERATION)
                 << "Collection interval and maximum maxDuration must be >= "
-                << duration_cast<milliseconds>(kMinCollectionInterval).count()
-                << " milliseconds.";
+                << duration_cast<milliseconds>(kMinCollectionInterval).count() << " milliseconds.";
     }
 
     if (maxDuration > kCustomCollectionMaxDuration) {
@@ -304,7 +297,6 @@ Result<void> StatsCollector::startCustomCollection(
     return {};
 }
 
-
 Result<std::string> StatsCollector::stopCustomCollection(std::string targetId) {
     Mutex::Autolock lock(mMutex);
     if (mCurrentCollectionEvent == CollectionEvent::CUSTOM_START) {
@@ -323,16 +315,15 @@ Result<std::string> StatsCollector::stopCustomCollection(std::string targetId) {
     std::string buffer;
     using std::chrono::duration_cast;
     using std::chrono::seconds;
-    const intmax_t interval =
-        duration_cast<seconds>(mCustomCollectionInfo.interval).count();
+    const intmax_t interval = duration_cast<seconds>(mCustomCollectionInfo.interval).count();
     if (EqualsIgnoreCase(targetId, kDumpAllDevices)) {
         for (auto& [id, records] : mCustomCollectionInfo.records) {
-            StringAppendF(&buffer, "%s\n"
-                                   "%sNumber of collections: %zu\n"
-                                   "%sCollection interval: %" PRIdMAX " secs\n",
-                                   id.c_str(),
-                                   kSingleIndent, records.history.size(),
-                                   kSingleIndent, interval);
+            StringAppendF(&buffer,
+                          "%s\n"
+                          "%sNumber of collections: %zu\n"
+                          "%sCollection interval: %" PRIdMAX " secs\n",
+                          id.c_str(), kSingleIndent, records.history.size(), kSingleIndent,
+                          interval);
             auto it = records.history.rbegin();
             while (it != records.history.rend()) {
                 buffer += it++->toString(kDoubleIndent);
@@ -344,12 +335,12 @@ Result<std::string> StatsCollector::stopCustomCollection(std::string targetId) {
     } else {
         auto it = mCustomCollectionInfo.records.find(targetId);
         if (it != mCustomCollectionInfo.records.end()) {
-            StringAppendF(&buffer, "%s\n"
-                                   "%sNumber of collections: %zu\n"
-                                   "%sCollection interval: %" PRIdMAX " secs\n",
-                                   targetId.c_str(),
-                                   kSingleIndent, it->second.history.size(),
-                                   kSingleIndent, interval);
+            StringAppendF(&buffer,
+                          "%s\n"
+                          "%sNumber of collections: %zu\n"
+                          "%sCollection interval: %" PRIdMAX " secs\n",
+                          targetId.c_str(), kSingleIndent, it->second.history.size(), kSingleIndent,
+                          interval);
             auto recordIter = it->second.history.rbegin();
             while (recordIter != it->second.history.rend()) {
                 buffer += recordIter++->toString(kDoubleIndent);

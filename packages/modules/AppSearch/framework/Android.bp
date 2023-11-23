@@ -23,14 +23,12 @@ package {
 
 filegroup {
     name: "framework-appsearch-sources",
+    defaults: ["framework-sources-module-defaults"],
     srcs: [
         ":framework-appsearch-internal-sources",
         ":framework-appsearch-external-sources",
     ],
-    visibility: [
-        "//frameworks/base",
-        "//packages/modules/AppSearch:__subpackages__"
-    ],
+    visibility: ["//packages/modules/AppSearch:__subpackages__"],
 }
 
 filegroup {
@@ -76,5 +74,32 @@ java_sdk_library {
         "//cts/tests/appsearch:__subpackages__",
         "//packages/modules/AppSearch/service:__subpackages__",
         "//packages/modules/AppSearch/testing:__subpackages__",
+    ],
+}
+
+java_api_contribution {
+    name: "framework-appsearch-public-stubs",
+    api_surface: "public",
+    api_file: "api/current.txt",
+    visibility: [
+        "//build/orchestrator/apis",
+    ],
+}
+
+java_api_contribution {
+    name: "framework-appsearch-system-stubs",
+    api_surface: "system",
+    api_file: "api/system-current.txt",
+    visibility: [
+        "//build/orchestrator/apis",
+    ],
+}
+
+java_api_contribution {
+    name: "framework-appsearch-module-lib-stubs",
+    api_surface: "module-lib",
+    api_file: "api/module-lib-current.txt",
+    visibility: [
+        "//build/orchestrator/apis",
     ],
 }

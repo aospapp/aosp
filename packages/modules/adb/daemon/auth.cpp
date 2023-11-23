@@ -209,7 +209,7 @@ void adbd_cloexec_auth_socket() {
 
 static void adbd_auth_key_authorized(void* arg, uint64_t id) {
     LOG(INFO) << "adb client " << id << " authorized";
-    fdevent_run_on_main_thread([=]() {
+    fdevent_run_on_looper([=]() {
         auto* transport = transport_from_callback_arg(arg);
         if (!transport) {
             LOG(ERROR) << "authorization received for deleted transport (" << id << "), ignoring";

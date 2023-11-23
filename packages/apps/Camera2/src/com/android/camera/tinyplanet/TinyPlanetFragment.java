@@ -112,14 +112,16 @@ public class TinyPlanetFragment extends DialogFragment implements PreviewSizeLis
 
     /** Used to delay-post a tiny planet rendering task. */
     private final Handler mHandler = new Handler();
+
+    private final Object mRenderingLock = new Object();
     /** Whether rendering is in progress right now. */
-    private Boolean mRendering = false;
+    private boolean mRendering = false;
     /**
      * Whether we should render one more time after the current rendering run is
      * done. This is needed when there was an update to the values during the
      * current rendering.
      */
-    private Boolean mRenderOneMore = false;
+    private boolean mRenderOneMore = false;
 
     /** Tiny planet data plus size. */
     private static final class TinyPlanetImage {
@@ -139,7 +141,7 @@ public class TinyPlanetFragment extends DialogFragment implements PreviewSizeLis
     private final Runnable mCreateTinyPlanetRunnable = new Runnable() {
         @Override
         public void run() {
-            synchronized (mRendering) {
+            synchronized (mRenderingLock) {
                 if (mRendering) {
                     mRenderOneMore = true;
                     return;
@@ -168,7 +170,7 @@ public class TinyPlanetFragment extends DialogFragment implements PreviewSizeLis
                 @Override
                 protected void onPostExecute(Void result) {
                     mPreview.setBitmap(mResultBitmap, mResultLock);
-                    synchronized (mRendering) {
+                    synchronized (mRenderingLock) {
                         mRendering = false;
                         if (mRenderOneMore) {
                             mRenderOneMore = false;
@@ -283,7 +285,7 @@ public class TinyPlanetFragment extends DialogFragment implements PreviewSizeLis
     private void onCreateTinyPlanet() {
         // Make sure we stop rendering before we create the high-res tiny
         // planet.
-        synchronized (mRendering) {
+        synchronized (mRenderingLock) {
             mRenderOneMore = false;
         }
 

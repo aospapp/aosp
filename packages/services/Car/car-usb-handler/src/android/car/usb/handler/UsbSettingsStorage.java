@@ -178,7 +178,7 @@ public final class UsbSettingsStorage {
         contentValues.put(COLUMN_PID, settings.getPid());
         contentValues.put(COLUMN_NAME, settings.getDeviceName());
         contentValues.put(COLUMN_HANDLER, settings.getHandler().flattenToShortString());
-        contentValues.put(COLUMN_AOAP, settings.getAoap() ? 1 : 0);
+        contentValues.put(COLUMN_AOAP, settings.isAaop() ? 1 : 0);
         contentValues.put(COLUMN_DEFAULT_HANDLER, settings.isDefaultHandler() ? 1 : 0);
         return contentValues;
     }
@@ -223,8 +223,9 @@ public final class UsbSettingsStorage {
 
         @Override
         public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
-            for (; oldVersion != newVersion; oldVersion++) {
-                switch (oldVersion) {
+            int version = oldVersion;
+            for (; version != newVersion; version++) {
+                switch (version) {
                     case 1:
                         String tempTableName = "temp_" + TABLE_USB_SETTINGS;
                         createTable(db, tempTableName);

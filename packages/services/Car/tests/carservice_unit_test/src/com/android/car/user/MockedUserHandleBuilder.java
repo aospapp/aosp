@@ -59,11 +59,6 @@ public final class MockedUserHandleBuilder {
         return this;
     }
 
-    private MockedUserHandleBuilder setPreCreated() {
-        when(mUserHandleHelper.isPreCreatedUser(mUser)).thenReturn(true);
-        return this;
-    }
-
     private MockedUserHandleBuilder setInitialized() {
         when(mUserHandleHelper.isInitializedUser(mUser)).thenReturn(true);
         return this;
@@ -74,7 +69,6 @@ public final class MockedUserHandleBuilder {
         when(mUserHandleHelper.isAdminUser(mUser)).thenThrow(exception);
         when(mUserHandleHelper.isEnabledUser(mUser)).thenThrow(exception);
         when(mUserHandleHelper.isProfileUser(mUser)).thenThrow(exception);
-        when(mUserHandleHelper.isPreCreatedUser(mUser)).thenThrow(exception);
         when(mUserHandleHelper.isInitializedUser(mUser)).thenThrow(exception);
         return this;
     }
@@ -126,26 +120,5 @@ public final class MockedUserHandleBuilder {
                     .setEphemeral().build();
         }
         return new MockedUserHandleBuilder(userHandleHelper, userId).setGuest().build();
-    }
-
-    public static UserHandle expectPreCreatedRegularUserExists(
-            @NonNull UserHandleHelper userHandleHelper, @UserIdInt int userId,
-            boolean isInitialized) {
-        if (isInitialized) {
-            return new MockedUserHandleBuilder(userHandleHelper, userId).setPreCreated()
-                    .setInitialized().build();
-        }
-        return new MockedUserHandleBuilder(userHandleHelper, userId).setPreCreated().build();
-    }
-
-    public static UserHandle expectPreCreatedGuestUserExists(
-            @NonNull UserHandleHelper userHandleHelper, @UserIdInt int userId,
-            boolean isInitialized) {
-        if (isInitialized) {
-            return new MockedUserHandleBuilder(userHandleHelper, userId).setGuest()
-                    .setPreCreated().setInitialized().build();
-        }
-        return new MockedUserHandleBuilder(userHandleHelper, userId).setGuest().setPreCreated()
-                .build();
     }
 }

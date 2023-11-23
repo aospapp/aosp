@@ -35,7 +35,6 @@ import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_DISCLAIME
 import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_DISCLAIMER_CONTENT;
 import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_DISCLAIMER_HEADER;
 import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_KEEP_ACCOUNT_ON_MIGRATION;
-import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_KEEP_SCREEN_ON;
 import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_LEAVE_ALL_SYSTEM_APPS_ENABLED;
 import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_LOCALE;
 import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_LOCAL_TIME;
@@ -583,10 +582,6 @@ public class ExtrasProvisioningDataParser implements ProvisioningDataParser {
                     .setReturnBeforePolicyCompliance(getReturnBeforePolicyCompliance(intent))
                     .setDeviceOwnerPermissionGrantOptOut(
                             adminOptedOutOfSensorsPermissionGrants)
-                    .setKeepScreenOn(getBooleanExtraFromLongName(
-                            intent,
-                            EXTRA_PROVISIONING_KEEP_SCREEN_ON,
-                            ProvisioningParams.DEFAULT_EXTRA_PROVISIONING_KEEP_SCREEN_ON))
                     .setAllowOffline(getBooleanExtraFromLongName(
                             intent,
                             EXTRA_PROVISIONING_ALLOW_OFFLINE,

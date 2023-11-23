@@ -17,7 +17,6 @@ package com.android.bluetooth;
 
 import android.bluetooth.BluetoothSocket;
 import android.os.Handler;
-import android.os.Handler.Callback;
 import android.os.HandlerThread;
 import android.os.Looper;
 import android.os.Message;
@@ -35,7 +34,7 @@ import java.io.IOException;
  *
  * Will reject the OBEX connection, start a timer, and at timeout close the socket.
  */
-public class ObexRejectServer extends ServerRequestHandler implements Callback {
+public class ObexRejectServer extends ServerRequestHandler implements Handler.Callback {
 
     private static final String TAG = "ObexRejectServer";
     private static final boolean V = true;

@@ -17,10 +17,10 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="restricted_dialing_mode_label" msgid="7172816353849537731">"Folosirea tastaturii numerice este restricționată în timp ce conduceți"</string>
+    <string name="restricted_dialing_mode_label" msgid="7172816353849537731">"Folosirea tastaturii numerice este restricționată în timp ce conduci"</string>
     <string name="emergency_button_text" msgid="5012352862848993348">"Urgență"</string>
-    <string name="connect_bluetooth_button_text" msgid="3404373747160373407">"Conectați-vă la Bluetooth"</string>
+    <string name="connect_bluetooth_button_text" msgid="3404373747160373407">"Conectează-te la Bluetooth"</string>
     <string name="decline_call" msgid="3593508497959313142"></string>
     <string name="answer_call" msgid="5688982198411188640"></string>
-    <string name="no_hfp" msgid="2403350988312998712">"Pentru a iniția apelul, conectați telefonul la mașină prin Bluetooth."</string>
+    <string name="no_hfp" msgid="2403350988312998712">"Pentru a iniția apelul, conectează telefonul la mașină prin Bluetooth."</string>
 </resources>

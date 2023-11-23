@@ -17,7 +17,7 @@
 #ifndef CPP_WATCHDOG_SERVER_TESTS_MOCKUIDSTATSCOLLECTOR_H_
 #define CPP_WATCHDOG_SERVER_TESTS_MOCKUIDSTATSCOLLECTOR_H_
 
-#include "UidIoStatsCollector.h"
+#include "UidStatsCollector.h"
 
 #include <android-base/result.h>
 #include <gmock/gmock.h>

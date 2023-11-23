@@ -12,6 +12,7 @@ package android.app.role {
     field public static final String ROLE_DIALER = "android.app.role.DIALER";
     field public static final String ROLE_EMERGENCY = "android.app.role.EMERGENCY";
     field public static final String ROLE_HOME = "android.app.role.HOME";
+    field public static final String ROLE_NOTES = "android.app.role.NOTES";
     field public static final String ROLE_SMS = "android.app.role.SMS";
   }
 

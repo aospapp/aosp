@@ -70,5 +70,9 @@ adb shell cmd car_service telemetry add sample_wifi_netstats < sample_wifi_netst
 4. Get results
 
 ```
-adb shell cmd car_service telemetry get-result sample_wifi_netstats
+adb shell cmd car_service telemetry get-result sample_wifi_netstats --result_count 10000 --timeout 20 --print-results
 ```
+where result_count is the number of reports we expect to receive in this call,
+timeout is how many seconds should we wait for the results to be returned,
+and --print-results is an optional flag whether we want every result to be printed
+on the screen.

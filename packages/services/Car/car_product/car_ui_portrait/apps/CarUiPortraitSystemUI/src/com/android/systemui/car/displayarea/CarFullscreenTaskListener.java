@@ -24,7 +24,6 @@ import com.android.wm.shell.fullscreen.FullscreenTaskListener;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 
 import javax.inject.Inject;
 
@@ -32,13 +31,11 @@ import javax.inject.Inject;
  * Organizes tasks presented in display area using {@link CarDisplayAreaOrganizer}.
  */
 public class CarFullscreenTaskListener extends FullscreenTaskListener {
-    // TODO(b/202182129): Introduce more robust way to resolve the intents.
-    static final String MAPS = "maps";
     private final List<OnTaskChangeListener> mOnTaskChangeListeners;
 
     @Inject
     public CarFullscreenTaskListener(SyncTransactionQueue syncQueue) {
-        super(syncQueue, Optional.empty());
+        super(syncQueue);
         mOnTaskChangeListeners = new ArrayList<>();
     }
 

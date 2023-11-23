@@ -75,7 +75,7 @@
     <string name="phone_accounts_configure_account_settings" msgid="6622119715253196586">"Konfigurer kontoinnstillingene"</string>
     <string name="phone_accounts_all_calling_accounts" msgid="1609600743500618823">"Alle ringekontoer"</string>
     <string name="phone_accounts_all_calling_accounts_summary" msgid="2214134955430107240">"Velg hvilke kontoer som kan ringe"</string>
-    <string name="wifi_calling" msgid="3650509202851355742">"Wi-Fi-anrop"</string>
+    <string name="wifi_calling" msgid="3650509202851355742">"Wifi-anrop"</string>
     <string name="connection_service_default_label" msgid="7332739049855715584">"Innebygd tilkoblingstjeneste"</string>
     <string name="voicemail" msgid="7697769412804195032">"Talepostkasse"</string>
     <string name="voicemail_settings_with_label" msgid="4228431668214894138">"Talepostkasse (<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
@@ -133,6 +133,7 @@
     <string name="cdma_call_waiting_in_ims_off" msgid="1099246114368636334">"CDMA samtale venter under IMS er av"</string>
     <string name="updating_title" msgid="6130548922615719689">"Samtaleinnstillinger"</string>
     <string name="call_settings_admin_user_only" msgid="7238947387649986286">"Anropsinnstillinger kan bare endres av administratoren."</string>
+    <string name="phone_account_settings_user_restriction" msgid="9142685151087208396">"Kontoinnstillingene for telefonen kan bare endres av administratoren eller jobbbrukeren."</string>
     <string name="call_settings_with_label" msgid="8460230435361579511">"Innstillinger (<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
     <string name="error_updating_title" msgid="2024290892676808965">"Feil ved samtaleinnstillinger"</string>
     <string name="reading_settings" msgid="1605904432450871183">"Leser innstillingene …"</string>
@@ -309,7 +310,7 @@
     <string name="sim_selection_required_pref" msgid="6985901872978341314">"Du må velge en SIM-innstilling"</string>
     <string name="sim_change_data_title" msgid="9142726786345906606">"Endre SIM-kort for databruk?"</string>
     <string name="sim_change_data_message" msgid="3567358694255933280">"Vil du bruke <xliff:g id="NEW_SIM">%1$s</xliff:g> i stedet for <xliff:g id="OLD_SIM">%2$s</xliff:g> for mobildata?"</string>
-    <string name="wifi_calling_settings_title" msgid="5800018845662016507">"Wi-Fi-anrop"</string>
+    <string name="wifi_calling_settings_title" msgid="5800018845662016507">"Wifi-anrop"</string>
     <string name="video_calling_settings_title" msgid="342829454913266078">"Videoanrop via mobiloperatør"</string>
     <string name="gsm_umts_options" msgid="4968446771519376808">"GSM/UMTS-innstillinger"</string>
     <string name="cdma_options" msgid="3669592472226145665">"CDMA-innstillinger"</string>
@@ -555,7 +556,8 @@
     <string name="incall_error_supp_service_hangup" msgid="836524952243836735">"Kan ikke frigjøre samtale(r)."</string>
     <string name="incall_error_supp_service_hold" msgid="8535056414643540997">"Kan ikke sette samtaler på vent."</string>
     <string name="incall_error_wfc_only_no_wireless_network" msgid="5860742792811400109">"Koble til et trådløst nettverk for å ringe."</string>
-    <string name="incall_error_promote_wfc" msgid="9164896813931363415">"Slå på telefonanrop via Wi-Fi for å ringe."</string>
+    <string name="incall_error_promote_wfc" msgid="9164896813931363415">"Slå på telefonanrop via Wifi for å ringe."</string>
+    <string name="incall_error_satellite_enabled" msgid="1936541518147323016">"Slå av satellittmodus for å ringe."</string>
     <string name="emergency_information_hint" msgid="9208897544917793012">"Nødinformasjon"</string>
     <string name="emergency_information_owner_hint" msgid="6256909888049185316">"Eier"</string>
     <string name="emergency_information_confirm_hint" msgid="5109017615894918914">"Trykk på nytt for å se informasjon"</string>
@@ -672,17 +674,17 @@
     <string name="sim_description_emergency_calls" msgid="5146872803938897296">"Kun nødanrop"</string>
     <string name="sim_description_default" msgid="7474671114363724971">"SIM-kort, spor: <xliff:g id="SLOT_ID">%s</xliff:g>"</string>
     <string name="accessibility_settings_activity_title" msgid="7883415189273700298">"Tilgjengelighet"</string>
-    <string name="status_hint_label_incoming_wifi_call" msgid="2606052595898044071">"Wi-Fi-anrop fra"</string>
-    <string name="status_hint_label_wifi_call" msgid="942993035689809853">"Oppringing via Wi-Fi"</string>
+    <string name="status_hint_label_incoming_wifi_call" msgid="2606052595898044071">"Wifi-anrop fra"</string>
+    <string name="status_hint_label_wifi_call" msgid="942993035689809853">"Oppringing via Wifi"</string>
     <string name="message_decode_error" msgid="1061856591500290887">"Det oppsto en feil under dekoding av meldingen."</string>
     <string name="callFailed_cdma_activation" msgid="5392057031552253550">"Et SIM-kort har aktivert tjenesten din og oppdatert roamingfunksjonene for telefonen din."</string>
     <string name="callFailed_cdma_call_limit" msgid="1074219746093031412">"Du har for mange aktive samtaler. Avslutt eller slå sammen eksisterende samtaler før du starter en ny samtale."</string>
     <string name="callFailed_imei_not_accepted" msgid="7257903653685147251">"Kunne ikke koble til. Sett inn et gyldig SIM-kort."</string>
-    <string name="callFailed_wifi_lost" msgid="1788036730589163141">"Samtalen ble avsluttet fordi Wi-Fi-forbindelsen ble brutt."</string>
+    <string name="callFailed_wifi_lost" msgid="1788036730589163141">"Samtalen ble avsluttet fordi Wifi-forbindelsen ble brutt."</string>
     <string name="dialFailed_low_battery" msgid="6857904237423407056">"Kan ikke utføre videoanropet på grunn av lite batteristrøm."</string>
     <string name="callFailed_low_battery" msgid="4056828320214416182">"Videosamtalen ble avsluttet på grunn av lite batteristrøm."</string>
-    <string name="callFailed_emergency_call_over_wfc_not_available" msgid="5944309590693432042">"Nødanrop via Wi-Fi-anrop er ikke tilgjengelig på dette stedet."</string>
-    <string name="callFailed_wfc_service_not_available_in_this_location" msgid="3624536608369524988">"Wi-Fi-anrop er ikke tilgjengelige på dette stedet."</string>
+    <string name="callFailed_emergency_call_over_wfc_not_available" msgid="5944309590693432042">"Nødanrop via wifi-anrop er ikke tilgjengelig på dette stedet."</string>
+    <string name="callFailed_wfc_service_not_available_in_this_location" msgid="3624536608369524988">"Wifi-anrop er ikke tilgjengelige på dette stedet."</string>
     <string name="change_pin_title" msgid="3564254326626797321">"Endre PIN-kode for talemeldinger"</string>
     <string name="change_pin_continue_label" msgid="5177011752453506371">"Fortsett"</string>
     <string name="change_pin_cancel_label" msgid="2301711566758827936">"Avbryt"</string>
@@ -692,7 +694,7 @@
     <string name="change_pin_enter_new_pin_header" msgid="4739465616733486118">"Angi en ny PIN-kode"</string>
     <string name="change_pin_enter_new_pin_hint" msgid="2326038476516364210">"PIN-koden må bestå av <xliff:g id="MIN">%1$d</xliff:g>-<xliff:g id="MAX">%2$d</xliff:g> sifre."</string>
     <string name="change_pin_confirm_pin_header" msgid="2606303906320705726">"Bekreft PIN-koden"</string>
-    <string name="change_pin_confirm_pins_dont_match" msgid="305164501222587215">"PIN-kodene stemmer ikke overens"</string>
+    <string name="change_pin_confirm_pins_dont_match" msgid="305164501222587215">"PIN-kodene er ikke like"</string>
     <string name="change_pin_succeeded" msgid="2504705600693014403">"PIN-koden for talemeldinger ble oppdatert"</string>
     <string name="change_pin_system_error" msgid="7772788809875146873">"Kan ikke angi PIN-kode"</string>
     <string name="mobile_data_status_roaming_turned_off_subtext" msgid="6840673347416227054">"Data-roaming er slått av"</string>
@@ -713,6 +715,7 @@
     <string name="clh_callFailed_powerOff_txt" msgid="8279934912560765361">"Flymodus er på"</string>
     <string name="clh_callFailed_simError_txt" msgid="5128538525762326413">"Får ikke tilgang til SIM-kortet"</string>
     <string name="clh_incall_error_out_of_service_txt" msgid="2736010617446749869">"Mobilnettverket er ikke tilgjengelig"</string>
+    <string name="clh_callFailed_satelliteEnabled_txt" msgid="1675517238240377396">"Satellittmodus er på"</string>
     <string name="clh_callFailed_unassigned_number_txt" msgid="141967660286695682">"Det er noe galt med telefonnummeret du prøver å ringe. Feilkode: 1."</string>
     <string name="clh_callFailed_no_route_to_destination_txt" msgid="4805015149822352308">"Kunne ikke ringe. Feilkode: 3."</string>
     <string name="clh_callFailed_channel_unacceptable_txt" msgid="4062754579408613021">"Kunne ikke ringe. Feilkode: 6."</string>
@@ -827,7 +830,7 @@
     <string name="radio_info_data_connection_disable" msgid="6404751291511368706">"Slå av datatilkobling"</string>
     <string name="volte_provisioned_switch_string" msgid="4812874990480336178">"VoLTE-tildelt"</string>
     <string name="vt_provisioned_switch_string" msgid="8295542122512195979">"Identitetshåndtering aktiv for videoanrop"</string>
-    <string name="wfc_provisioned_switch_string" msgid="3835004640321078988">"Identitetshåndtering aktiv for Wi-Fi-anrop"</string>
+    <string name="wfc_provisioned_switch_string" msgid="3835004640321078988">"Identitetshåndtering aktiv for wifi-anrop"</string>
     <string name="eab_provisioned_switch_string" msgid="4449676720736033035">"EAB/Presence er klargjort"</string>
     <string name="cbrs_data_switch_string" msgid="6060356430838077653">"CBRS-data"</string>
     <string name="dsds_switch_string" msgid="7564769822086764796">"Slå på DSDS"</string>
@@ -835,8 +838,9 @@
     <string name="dsds_dialog_message" msgid="4047480385678538850">"Du må starte enheten din på nytt for å endre innstillingen."</string>
     <string name="dsds_dialog_confirm" msgid="9032004888134129885">"Start på nytt"</string>
     <string name="dsds_dialog_cancel" msgid="3245958947099586655">"Avbryt"</string>
-    <string name="removable_esim_string" msgid="7931369811671787649">"Angi flyttbart e-SIM-kort som standard"</string>
+    <string name="removable_esim_string" msgid="7931369811671787649">"Angi flyttbart eSIM-kort som standard"</string>
     <string name="radio_info_radio_power" msgid="8805595022160471587">"Strømforsyning for mobilradio"</string>
+    <string name="simulate_out_of_service_string" msgid="7787925611727597193">"Ute av drift-simulering (bare for feilsøkingsversjoner)"</string>
     <string name="radioInfo_menu_viewADN" msgid="4533179730908559846">"Se adressebok for SIM-kort"</string>
     <string name="radioInfo_menu_viewFDN" msgid="1847236480527032061">"Vis forhåndsbestemte numre"</string>
     <string name="radioInfo_menu_viewSDN" msgid="2613431584522392842">"Vis tjenestenumre"</string>
@@ -846,7 +850,7 @@
     <string name="radio_info_ims_reg_status_not_registered" msgid="8045821447288876085">"Ikke registrert"</string>
     <string name="radio_info_ims_feature_status_available" msgid="6493200914756969292">"Tilgjengelig"</string>
     <string name="radio_info_ims_feature_status_unavailable" msgid="8930391136839759778">"Utilgjengelig"</string>
-    <string name="radio_info_ims_reg_status" msgid="25582845222446390">"IMS-registrering: <xliff:g id="STATUS">%1$s</xliff:g>\nTale over LTE: <xliff:g id="AVAILABILITY_0">%2$s</xliff:g>\nTale over Wi-Fi: <xliff:g id="AVAILABILITY_1">%3$s</xliff:g>\nVideoanrop: <xliff:g id="AVAILABILITY_2">%4$s</xliff:g>\nUT-grensesnitt: <xliff:g id="AVAILABILITY_3">%5$s</xliff:g>"</string>
+    <string name="radio_info_ims_reg_status" msgid="25582845222446390">"IMS-registrering: <xliff:g id="STATUS">%1$s</xliff:g>\nTale over LTE: <xliff:g id="AVAILABILITY_0">%2$s</xliff:g>\nTale over Wifi: <xliff:g id="AVAILABILITY_1">%3$s</xliff:g>\nVideoanrop: <xliff:g id="AVAILABILITY_2">%4$s</xliff:g>\nUT-grensesnitt: <xliff:g id="AVAILABILITY_3">%5$s</xliff:g>"</string>
     <string name="radioInfo_service_in" msgid="45753418231446400">"Fungerer som normalt"</string>
     <string name="radioInfo_service_out" msgid="287972405416142312">"Ute av drift"</string>
     <string name="radioInfo_service_emergency" msgid="4763879891415016848">"Bare nødanrop"</string>
@@ -861,6 +865,7 @@
     <string name="radioInfo_data_connected" msgid="7637335645634239508">"Tilkoblet"</string>
     <string name="radioInfo_data_suspended" msgid="8695262782642002785">"Sperret midlertidig"</string>
     <string name="radioInfo_unknown" msgid="5401423738500672850">"Ukjent"</string>
+    <string name="radioInfo_imei_primary" msgid="5948747378637224400">"Primær"</string>
     <string name="radioInfo_display_packets" msgid="6794302192441084157">"pakker"</string>
     <string name="radioInfo_display_bytes" msgid="7701006329222413797">"byte"</string>
     <string name="radioInfo_display_dbm" msgid="7491944975710865703">"dBm"</string>
@@ -887,10 +892,12 @@
     <string name="radio_info_ppp_sent_label" msgid="6542208429356199695">"Data sendt:"</string>
     <string name="radio_info_message_waiting_label" msgid="1886549432566952078">"Melding venter:"</string>
     <string name="radio_info_phone_number_label" msgid="2533852539562512203">"Telefonnummer:"</string>
-    <string name="radio_info_band_mode_label" msgid="23480556225515290">"Velg radiobånd"</string>
     <string name="radio_info_voice_network_type_label" msgid="2395347336419593265">"Nettverkstype for tale:"</string>
     <string name="radio_info_data_network_type_label" msgid="8886597029237501929">"Type datanettverk:"</string>
     <string name="radio_info_override_network_type_label" msgid="4176280017221092005">"Overstyr nettverkstype:"</string>
+    <string name="radio_info_voice_raw_registration_state_label" msgid="2822988327145825128">"Rå registreringstilstand for Voice:"</string>
+    <string name="radio_info_data_raw_registration_state_label" msgid="2895895513822604539">"Rå registreringstilstand for data:"</string>
+    <string name="radio_info_wlan_data_raw_registration_state_label" msgid="6396894835757296612">"Rå registreringstilstand for WLAN:"</string>
     <string name="phone_index_label" msgid="6222406512768964268">"Velg telefonindeks"</string>
     <string name="radio_info_set_perferred_label" msgid="7408131389363136210">"Velg foretrukket nettverkstype:"</string>
     <string name="radio_info_ping_hostname_v4" msgid="6951237885381284790">"Ping vertsnavn(www.google.no) IPv4:"</string>
@@ -919,4 +926,9 @@
     <string name="call_quality_notification_bluetooth_details" msgid="8348950331707346711">"Bluetooth-signalet er svakt. Prøv å bytte til høyttaleren."</string>
     <string name="call_quality_notification_name" msgid="3476828289553948830">"Varsel om anropskvalitet"</string>
     <string name="notification_channel_sip_account" msgid="1261816025156179637">"Avviklede SIP-kontoer"</string>
+    <string name="send_from_work_profile_title" msgid="7044759579507604732">"Kan ikke sende meldinger fra en personlig app"</string>
+    <string name="send_from_work_profile_description" msgid="2174402508727161974">"Organisasjonen din tillater bare at du sender meldinger fra jobbapper"</string>
+    <string name="send_from_work_profile_cancel" msgid="177746511030381711">"Avbryt"</string>
+    <string name="send_from_work_profile_action_str" msgid="6892775562934243337">"Bytt til jobbprofilen"</string>
+    <string name="install_messages_on_work_profile_action_str" msgid="3773440996395152903">"Installer en jobbmeldingsapp"</string>
 </resources>

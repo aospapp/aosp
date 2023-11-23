@@ -86,6 +86,13 @@ class IsoManager {
   virtual void RegisterBigCallbacks(iso_manager::BigCallbacks* callbacks) const;
 
   /**
+   * Set true when CIG or BIG is active, false when CIG or BIG is closed
+   *
+   * @param callback function takes bool as parameter and return void
+   */
+  virtual void RegisterOnIsoTrafficActiveCallback(void callback(bool)) const;
+
+  /**
    * Creates connected isochronous group (CIG) according to given params.
    *
    * @param cig_id connected isochronous group id
@@ -107,8 +114,9 @@ class IsoManager {
    * Initiates removing of connected isochronous group (CIG).
    *
    * @param cig_id connected isochronous group id
+   * @param force do not check if CIG exist
    */
-  virtual void RemoveCig(uint8_t cig_id);
+  virtual void RemoveCig(uint8_t cig_id, bool force = false);
 
   /**
    * Initiates creation of connected isochronous stream (CIS).

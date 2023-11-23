@@ -16,8 +16,11 @@
 
 package android.net.wifi.hotspot2.pps;
 
+import static android.net.wifi.hotspot2.PasspointConfiguration.MAX_STRING_LENGTH;
+
 import android.net.wifi.EAPConstants;
 import android.net.wifi.ParcelUtil;
+import android.net.wifi.WifiEnterpriseConfig;
 import android.os.Parcel;
 import android.os.Parcelable;
 import android.text.TextUtils;
@@ -412,6 +415,13 @@ public final class Credential implements Parcelable {
                 Log.d(TAG, "password exceeding maximum length: "
                         + mPassword.getBytes(StandardCharsets.UTF_8).length);
                 return false;
+            }
+            if (mSoftTokenApp != null) {
+                if (mSoftTokenApp.getBytes(StandardCharsets.UTF_8).length > MAX_STRING_LENGTH) {
+                    Log.d(TAG, "app name exceeding maximum length: "
+                            + mSoftTokenApp.getBytes(StandardCharsets.UTF_8).length);
+                    return false;
+                }
             }
 
             // Only supports EAP-TTLS for user credential.
@@ -950,6 +960,43 @@ public final class Credential implements Parcelable {
     }
 
     /**
+     * The required minimum TLS version.
+     */
+    private @WifiEnterpriseConfig.TlsVersion int mMinimumTlsVersion = WifiEnterpriseConfig.TLS_V1_0;
+    /**
+     * Set the minimum TLS version for TLS-based EAP methods.
+     *
+     * {@link android.net.wifi.WifiManager#isTlsMinimumVersionSupported()} indicates whether
+     * or not a minimum TLS version can be set. If not supported, the minimum TLS version
+     * is always TLS v1.0.
+     * <p>
+     * {@link android.net.wifi.WifiManager#isTlsV13Supported()} indicates whether or not
+     * TLS v1.3 is supported. If requested minimum is not supported, it will default to
+     * the maximum supported version.
+     *
+     * @param tlsVersion the TLS version
+     * @throws IllegalArgumentException if the TLS version is invalid.
+     */
+    public void setMinimumTlsVersion(@WifiEnterpriseConfig.TlsVersion int tlsVersion)
+            throws IllegalArgumentException {
+        if (tlsVersion < WifiEnterpriseConfig.TLS_VERSION_MIN
+                || tlsVersion > WifiEnterpriseConfig.TLS_VERSION_MAX) {
+            throw new IllegalArgumentException(
+                    "Invalid TLS version: " + tlsVersion);
+        }
+        mMinimumTlsVersion = tlsVersion;
+    }
+
+    /**
+     * Get the minimum TLS version for TLS-based EAP methods.
+     *
+     * @return the TLS version
+     */
+    public @WifiEnterpriseConfig.TlsVersion int getMinimumTlsVersion() {
+        return mMinimumTlsVersion;
+    }
+
+    /**
      * Constructor for creating Credential with default values.
      */
     public Credential() {}
@@ -984,6 +1031,7 @@ public final class Credential implements Parcelable {
             }
 
             mClientPrivateKey = source.mClientPrivateKey;
+            mMinimumTlsVersion = source.mMinimumTlsVersion;
         }
     }
 
@@ -1004,6 +1052,7 @@ public final class Credential implements Parcelable {
         ParcelUtil.writeCertificates(dest, mCaCertificates);
         ParcelUtil.writeCertificates(dest, mClientCertificateChain);
         ParcelUtil.writePrivateKey(dest, mClientPrivateKey);
+        dest.writeInt(mMinimumTlsVersion);
     }
 
     @Override
@@ -1028,7 +1077,8 @@ public final class Credential implements Parcelable {
                     : mSimCredential.equals(that.mSimCredential))
                 && isX509CertificatesEquals(mCaCertificates, that.mCaCertificates)
                 && isX509CertificatesEquals(mClientCertificateChain, that.mClientCertificateChain)
-                && isPrivateKeyEquals(mClientPrivateKey, that.mClientPrivateKey);
+                && isPrivateKeyEquals(mClientPrivateKey, that.mClientPrivateKey)
+                && mMinimumTlsVersion == that.mMinimumTlsVersion;
     }
 
     @Override
@@ -1036,7 +1086,7 @@ public final class Credential implements Parcelable {
         return Objects.hash(mCreationTimeInMillis, mExpirationTimeInMillis, mRealm,
                 mCheckAaaServerCertStatus, mUserCredential, mCertCredential, mSimCredential,
                 mClientPrivateKey, Arrays.hashCode(mCaCertificates),
-                Arrays.hashCode(mClientCertificateChain));
+                Arrays.hashCode(mClientCertificateChain), mMinimumTlsVersion);
     }
 
     /**
@@ -1070,6 +1120,7 @@ public final class Credential implements Parcelable {
             builder.append(mCertCredential);
             builder.append("CertificateCredential End ---\n");
         }
+        builder.append("MinimumTlsVersion: ").append(mMinimumTlsVersion).append("\n");
         if (mSimCredential != null) {
             builder.append("SIMCredential Begin ---\n");
             builder.append(mSimCredential);
@@ -1131,6 +1182,7 @@ public final class Credential implements Parcelable {
                 credential.setCaCertificates(ParcelUtil.readCertificates(in));
                 credential.setClientCertificateChain(ParcelUtil.readCertificates(in));
                 credential.setClientPrivateKey(ParcelUtil.readPrivateKey(in));
+                credential.setMinimumTlsVersion(in.readInt());
                 return credential;
             }
 

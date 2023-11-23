@@ -123,8 +123,8 @@ public class RoamingPreferenceController extends
         return new ConfirmationDialogFragment.Builder(getContext())
                 .setTitle(R.string.roaming_alert_title)
                 .setMessage(R.string.roaming_warning)
-                .setPositiveButton(android.R.string.yes, mConfirmListener)
-                .setNegativeButton(android.R.string.no, /* rejectListener= */ null)
+                .setPositiveButton(android.R.string.ok, mConfirmListener)
+                .setNegativeButton(android.R.string.cancel, /* rejectListener= */ null)
                 .build();
     }
 

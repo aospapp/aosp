@@ -23,6 +23,8 @@
 #include <openssl/hkdf.h>
 #include <openssl/rand.h>
 
+#include <string.h>
+
 namespace adb {
 namespace pairing {
 

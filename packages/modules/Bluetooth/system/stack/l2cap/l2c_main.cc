@@ -27,6 +27,7 @@
 #include <string.h>
 
 #include "bt_target.h"
+#include "gd/hal/snoop_logger.h"
 #include "hcimsgs.h"  // HCID_GET_
 #include "main/shim/shim.h"
 #include "osi/include/allocator.h"
@@ -90,46 +91,9 @@ void l2c_rcv_acl_data(BT_HDR* p_msg) {
   /* Find the LCB based on the handle */
   tL2C_LCB* p_lcb = l2cu_find_lcb_by_handle(handle);
   if (!p_lcb) {
-    /* There is a slight possibility (specifically with USB) that we get an */
-    /* L2CAP connection request before we get the HCI connection complete.  */
-    /* So for these types of messages, hold them for up to 2 seconds.       */
-    if (l2cap_len == 0) {
-      L2CAP_TRACE_WARNING("received empty L2CAP packet");
-      osi_free(p_msg);
-      return;
-    }
-    uint8_t cmd_code;
-    STREAM_TO_UINT8(cmd_code, p);
-
-    if ((p_msg->layer_specific != 0) || (rcv_cid != L2CAP_SIGNALLING_CID) ||
-        (cmd_code != L2CAP_CMD_INFO_REQ && cmd_code != L2CAP_CMD_CONN_REQ)) {
-      bool qcom_debug_log = (handle == 3804 && ((rcv_cid & 0xff) == 0xff) &&
-                             p_msg->layer_specific == 0);
-
-      if (!qcom_debug_log) {
-        L2CAP_TRACE_ERROR(
-            "L2CAP - rcvd ACL for unknown handle:%d ls:%d cid:%d opcode:%d cur "
-            "count:%d",
-            handle, p_msg->layer_specific, rcv_cid, cmd_code,
-            list_length(l2cb.rcv_pending_q));
-      }
-
-      osi_free(p_msg);
-      return;
-    }
-
-    L2CAP_TRACE_WARNING(
-        "L2CAP - holding ACL for unknown handle:%d ls:%d cid:%d opcode:%d cur "
-        "count:%d",
-        handle, p_msg->layer_specific, rcv_cid, cmd_code,
-        list_length(l2cb.rcv_pending_q));
-    p_msg->layer_specific = 2;
-    list_append(l2cb.rcv_pending_q, p_msg);
-
-    if (list_length(l2cb.rcv_pending_q) == 1) {
-      alarm_set_on_mloop(l2cb.receive_hold_timer, BT_1SEC_TIMEOUT_MS,
-                         l2c_receive_hold_timer_timeout, NULL);
-    }
+    LOG_ERROR("L2CAP - rcvd ACL for unknown handle:%d ls:%d cid:%d", handle,
+              p_msg->layer_specific, rcv_cid);
+    osi_free(p_msg);
     return;
   }
 
@@ -221,9 +185,9 @@ void l2c_rcv_acl_data(BT_HDR* p_msg) {
     --p_ccb->remote_credit_count;
 
     /* If the credits left on the remote device are getting low, send some */
-    if (p_ccb->remote_credit_count <= L2CAP_LE_CREDIT_THRESHOLD) {
-      uint16_t credits = L2CAP_LE_CREDIT_DEFAULT - p_ccb->remote_credit_count;
-      p_ccb->remote_credit_count = L2CAP_LE_CREDIT_DEFAULT;
+    if (p_ccb->remote_credit_count <= L2CA_LeCreditThreshold()) {
+      uint16_t credits = L2CA_LeCreditDefault() - p_ccb->remote_credit_count;
+      p_ccb->remote_credit_count = L2CA_LeCreditDefault();
 
       /* Return back credits */
       l2c_csm_execute(p_ccb, L2CEVT_L2CA_SEND_FLOW_CONTROL_CREDIT, &credits);
@@ -254,6 +218,7 @@ void l2c_rcv_acl_data(BT_HDR* p_msg) {
  ******************************************************************************/
 static void process_l2cap_cmd(tL2C_LCB* p_lcb, uint8_t* p, uint16_t pkt_len) {
   tL2C_CONN_INFO con_info;
+  tL2C_RCB* p_rcb;
 
   /* if l2cap command received in CID 1 on top of an LE link, ignore this
    * command */
@@ -276,6 +241,8 @@ static void process_l2cap_cmd(tL2C_LCB* p_lcb, uint8_t* p, uint16_t pkt_len) {
 
   uint8_t* p_next_cmd = p;
   uint8_t* p_pkt_end = p + pkt_len;
+  uint8_t last_id = 0;
+  bool first_cmd = true;
 
   tL2CAP_CFG_INFO cfg_info;
   memset(&cfg_info, 0, sizeof(cfg_info));
@@ -284,13 +251,26 @@ static void process_l2cap_cmd(tL2C_LCB* p_lcb, uint8_t* p, uint16_t pkt_len) {
   while (true) {
     /* Smallest command is 4 bytes */
     p = p_next_cmd;
-    if (p > (p_pkt_end - 4)) break;
+    if (p > (p_pkt_end - 4)) {
+      /* Reject to the previous endpoint if reliable channel is being used.
+       * This is required in L2CAP/COS/CED/BI-02-C */
+      if (!first_cmd &&
+          (cfg_info.fcr.mode == L2CAP_FCR_BASIC_MODE ||
+           cfg_info.fcr.mode == L2CAP_FCR_ERTM_MODE) &&
+          p != p_pkt_end)
+        l2cu_send_peer_cmd_reject(p_lcb, L2CAP_CMD_REJ_NOT_UNDERSTOOD, last_id,
+                                  0, 0);
+      break;
+    }
 
     uint8_t cmd_code, id;
     uint16_t cmd_len;
     STREAM_TO_UINT8(cmd_code, p);
     STREAM_TO_UINT8(id, p);
     STREAM_TO_UINT16(cmd_len, p);
+
+    last_id = id;
+    first_cmd = false;
 
     if (cmd_len > BT_SMALL_BUFFER_SIZE) {
       LOG_WARN("Command size %u exceeds limit %d", cmd_len,
@@ -388,7 +368,7 @@ static void process_l2cap_cmd(tL2C_LCB* p_lcb, uint8_t* p, uint16_t pkt_len) {
         }
         STREAM_TO_UINT16(con_info.psm, p);
         STREAM_TO_UINT16(rcid, p);
-        tL2C_RCB* p_rcb = l2cu_find_rcb_by_psm(con_info.psm);
+        p_rcb = l2cu_find_rcb_by_psm(con_info.psm);
         if (!p_rcb) {
           LOG_WARN("Rcvd conn req for unknown PSM: %d", con_info.psm);
           l2cu_reject_connection(p_lcb, rcid, id, L2CAP_CONN_NO_PSM);
@@ -411,6 +391,14 @@ static void process_l2cap_cmd(tL2C_LCB* p_lcb, uint8_t* p, uint16_t pkt_len) {
         p_ccb->p_rcb = p_rcb;
         p_ccb->remote_cid = rcid;
         p_ccb->connection_initiator = L2CAP_INITIATOR_REMOTE;
+
+        if (p_rcb->psm == BT_PSM_RFCOMM) {
+          bluetooth::shim::GetSnoopLogger()->AddRfcommL2capChannel(
+              p_lcb->Handle(), p_ccb->local_cid, p_ccb->remote_cid);
+        } else if (p_rcb->log_packets) {
+          bluetooth::shim::GetSnoopLogger()->AcceptlistL2capChannel(
+              p_lcb->Handle(), p_ccb->local_cid, p_ccb->remote_cid);
+        }
 
         l2c_csm_execute(p_ccb, L2CEVT_L2CAP_CONNECT_REQ, &con_info);
         break;
@@ -438,12 +426,22 @@ static void process_l2cap_cmd(tL2C_LCB* p_lcb, uint8_t* p, uint16_t pkt_len) {
           break;
         }
 
-        if (con_info.l2cap_result == L2CAP_CONN_OK)
+        if (con_info.l2cap_result == L2CAP_CONN_OK) {
           l2c_csm_execute(p_ccb, L2CEVT_L2CAP_CONNECT_RSP, &con_info);
-        else if (con_info.l2cap_result == L2CAP_CONN_PENDING)
+        } else if (con_info.l2cap_result == L2CAP_CONN_PENDING) {
           l2c_csm_execute(p_ccb, L2CEVT_L2CAP_CONNECT_RSP_PND, &con_info);
-        else
+        } else {
           l2c_csm_execute(p_ccb, L2CEVT_L2CAP_CONNECT_RSP_NEG, &con_info);
+
+          p_rcb = p_ccb->p_rcb;
+          if (p_rcb->psm == BT_PSM_RFCOMM) {
+            bluetooth::shim::GetSnoopLogger()->AddRfcommL2capChannel(
+                p_lcb->Handle(), p_ccb->local_cid, p_ccb->remote_cid);
+          } else if (p_rcb->log_packets) {
+            bluetooth::shim::GetSnoopLogger()->AcceptlistL2capChannel(
+                p_lcb->Handle(), p_ccb->local_cid, p_ccb->remote_cid);
+          }
+        }
 
         break;
       }
@@ -480,11 +478,9 @@ static void process_l2cap_cmd(tL2C_LCB* p_lcb, uint8_t* p, uint16_t pkt_len) {
             case L2CAP_CFG_TYPE_MTU:
               cfg_info.mtu_present = true;
               if (cfg_len != 2) {
-                android_errorWriteLog(0x534e4554, "119870451");
                 return;
               }
               if (p + cfg_len > p_next_cmd) {
-                android_errorWriteLog(0x534e4554, "74202041");
                 return;
               }
               STREAM_TO_UINT16(cfg_info.mtu, p);
@@ -493,11 +489,9 @@ static void process_l2cap_cmd(tL2C_LCB* p_lcb, uint8_t* p, uint16_t pkt_len) {
             case L2CAP_CFG_TYPE_FLUSH_TOUT:
               cfg_info.flush_to_present = true;
               if (cfg_len != 2) {
-                android_errorWriteLog(0x534e4554, "119870451");
                 return;
               }
               if (p + cfg_len > p_next_cmd) {
-                android_errorWriteLog(0x534e4554, "74202041");
                 return;
               }
               STREAM_TO_UINT16(cfg_info.flush_to, p);
@@ -506,11 +500,9 @@ static void process_l2cap_cmd(tL2C_LCB* p_lcb, uint8_t* p, uint16_t pkt_len) {
             case L2CAP_CFG_TYPE_QOS:
               cfg_info.qos_present = true;
               if (cfg_len != 2 + 5 * 4) {
-                android_errorWriteLog(0x534e4554, "119870451");
                 return;
               }
               if (p + cfg_len > p_next_cmd) {
-                android_errorWriteLog(0x534e4554, "74202041");
                 return;
               }
               STREAM_TO_UINT8(cfg_info.qos.qos_flags, p);
@@ -525,11 +517,9 @@ static void process_l2cap_cmd(tL2C_LCB* p_lcb, uint8_t* p, uint16_t pkt_len) {
             case L2CAP_CFG_TYPE_FCR:
               cfg_info.fcr_present = true;
               if (cfg_len != 3 + 3 * 2) {
-                android_errorWriteLog(0x534e4554, "119870451");
                 return;
               }
               if (p + cfg_len > p_next_cmd) {
-                android_errorWriteLog(0x534e4554, "74202041");
                 return;
               }
               STREAM_TO_UINT8(cfg_info.fcr.mode, p);
@@ -543,11 +533,9 @@ static void process_l2cap_cmd(tL2C_LCB* p_lcb, uint8_t* p, uint16_t pkt_len) {
             case L2CAP_CFG_TYPE_FCS:
               cfg_info.fcs_present = true;
               if (cfg_len != 1) {
-                android_errorWriteLog(0x534e4554, "119870451");
                 return;
               }
               if (p + cfg_len > p_next_cmd) {
-                android_errorWriteLog(0x534e4554, "74202041");
                 return;
               }
               STREAM_TO_UINT8(cfg_info.fcs, p);
@@ -556,11 +544,9 @@ static void process_l2cap_cmd(tL2C_LCB* p_lcb, uint8_t* p, uint16_t pkt_len) {
             case L2CAP_CFG_TYPE_EXT_FLOW:
               cfg_info.ext_flow_spec_present = true;
               if (cfg_len != 2 + 2 + 3 * 4) {
-                android_errorWriteLog(0x534e4554, "119870451");
                 return;
               }
               if (p + cfg_len > p_next_cmd) {
-                android_errorWriteLog(0x534e4554, "74202041");
                 return;
               }
               STREAM_TO_UINT8(cfg_info.ext_flow_spec.id, p);
@@ -809,7 +795,6 @@ static void process_l2cap_cmd(tL2C_LCB* p_lcb, uint8_t* p, uint16_t pkt_len) {
         if (info_type == L2CAP_FIXED_CHANNELS_INFO_TYPE) {
           if (result == L2CAP_INFO_RESP_RESULT_SUCCESS) {
             if (p + L2CAP_FIXED_CHNL_ARRAY_SIZE > p_next_cmd) {
-              android_errorWriteLog(0x534e4554, "111215173");
               return;
             }
             memcpy(p_lcb->peer_chnl_mask, p, L2CAP_FIXED_CHNL_ARRAY_SIZE);
@@ -834,46 +819,6 @@ static void process_l2cap_cmd(tL2C_LCB* p_lcb, uint8_t* p, uint16_t pkt_len) {
                                   0);
         return;
     }
-  }
-}
-
-/*******************************************************************************
- *
- * Function         l2c_process_held_packets
- *
- * Description      This function processes any L2CAP packets that arrived
- *                  before the HCI connection complete arrived. It is a work
- *                  around for badly behaved controllers.
- *
- * Returns          void
- *
- ******************************************************************************/
-void l2c_process_held_packets(bool timed_out) {
-  if (list_is_empty(l2cb.rcv_pending_q)) return;
-
-  if (!timed_out) {
-    alarm_cancel(l2cb.receive_hold_timer);
-    L2CAP_TRACE_WARNING("L2CAP HOLD CONTINUE");
-  } else {
-    L2CAP_TRACE_WARNING("L2CAP HOLD TIMEOUT");
-  }
-
-  for (const list_node_t* node = list_begin(l2cb.rcv_pending_q);
-       node != list_end(l2cb.rcv_pending_q);) {
-    BT_HDR* p_buf = static_cast<BT_HDR*>(list_node(node));
-    node = list_next(node);
-    if (!timed_out || (!p_buf->layer_specific) ||
-        (--p_buf->layer_specific == 0)) {
-      list_remove(l2cb.rcv_pending_q, p_buf);
-      p_buf->layer_specific = 0xFFFF;
-      l2c_rcv_acl_data(p_buf);
-    }
-  }
-
-  /* If anyone still in the queue, restart the timeout */
-  if (!list_is_empty(l2cb.rcv_pending_q)) {
-    alarm_set_on_mloop(l2cb.receive_hold_timer, BT_1SEC_TIMEOUT_MS,
-                       l2c_receive_hold_timer_timeout, NULL);
   }
 }
 
@@ -930,11 +875,6 @@ void l2c_init(void) {
   l2cb.l2c_ble_fixed_chnls_mask = L2CAP_FIXED_CHNL_ATT_BIT |
                                   L2CAP_FIXED_CHNL_BLE_SIG_BIT |
                                   L2CAP_FIXED_CHNL_SMP_BIT;
-
-  l2cb.rcv_pending_q = list_new(NULL);
-  CHECK(l2cb.rcv_pending_q != NULL);
-
-  l2cb.receive_hold_timer = alarm_new("l2c.receive_hold_timer");
 }
 
 void l2c_free(void) {
@@ -942,14 +882,6 @@ void l2c_free(void) {
     // L2CAP cleanup should be handled by GD stack manager
     return;
   }
-
-  list_free(l2cb.rcv_pending_q);
-  l2cb.rcv_pending_q = NULL;
-}
-
-void l2c_receive_hold_timer_timeout(UNUSED_ATTR void* data) {
-  /* Update the timeouts in the hold queue */
-  l2c_process_held_packets(true);
 }
 
 void l2c_ccb_timer_timeout(void* data) {

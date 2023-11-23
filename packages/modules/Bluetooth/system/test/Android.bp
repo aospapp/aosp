@@ -15,441 +15,514 @@ subdirs = [
 filegroup {
     name: "TestMockBtaAg",
     srcs: [
-      "mock/mock_bta_ag_*.cc",
+        "mock/mock_bta_ag_*.cc",
     ],
 }
 
 filegroup {
     name: "TestMockBtaAr",
     srcs: [
-      "mock/mock_bta_ar.cc",
+        "mock/mock_bta_ar.cc",
     ],
 }
 
 filegroup {
     name: "TestMockBtaAv",
     srcs: [
-      "mock/mock_bta_av_*.cc",
+        "mock/mock_bta_av_*.cc",
     ],
 }
 
 filegroup {
     name: "TestMockBtaCsis",
     srcs: [
-      "mock/mock_bta_csis*.cc",
+        "mock/mock_bta_csis*.cc",
     ],
 }
 
 filegroup {
     name: "TestMockBtaDm",
     srcs: [
-      "mock/mock_bta_dm_*.cc",
+        "mock/mock_bta_dm_*.cc",
     ],
 }
 
 filegroup {
     name: "TestMockBtaGatt",
     srcs: [
-      "mock/mock_bta_gatt*.cc",
+        "mock/mock_bta_gatt*.cc",
     ],
 }
 
 filegroup {
     name: "TestMockBtaGroups",
     srcs: [
-      "mock/mock_bta_groups*.cc",
+        "mock/mock_bta_groups*.cc",
     ],
 }
 
 filegroup {
     name: "TestMockBtaHas",
     srcs: [
-      "mock/mock_bta_has.cc",
+        "mock/mock_bta_has.cc",
     ],
 }
 
 filegroup {
     name: "TestMockBtaHd",
     srcs: [
-      "mock/mock_bta_hd*.cc",
+        "mock/mock_bta_hd*.cc",
     ],
 }
 
 filegroup {
     name: "TestMockBtaHearingAid",
     srcs: [
-      "mock/mock_bta_hearing_aid.cc",
+        "mock/mock_bta_hearing_aid.cc",
     ],
 }
 
 filegroup {
     name: "TestMockBtaHf",
     srcs: [
-      "mock/mock_bta_hf*.cc",
+        "mock/mock_bta_hf*.cc",
     ],
 }
 
 filegroup {
     name: "TestMockBtaHh",
     srcs: [
-      "mock/mock_bta_hh*.cc",
+        "mock/mock_bta_hh*.cc",
     ],
 }
 
 filegroup {
     name: "TestMockBtaJv",
     srcs: [
-      "mock/mock_bta_jv_*.cc",
+        "mock/mock_bta_jv_*.cc",
     ],
 }
 
 filegroup {
     name: "TestMockBtaLeAudio",
     srcs: [
-      "mock/mock_bta_leaudio*.cc",
+        "mock/mock_bta_leaudio*.cc",
     ],
 }
 
 filegroup {
-  name: "TestMockBtaLeAudioHalVerifier",
-  srcs: [
-      "mock/mock_le_audio_hal_verifier.cc",
-  ],
+    name: "TestMockBtaLeAudioHalVerifier",
+    srcs: [
+        "mock/mock_le_audio_hal_verifier.cc",
+    ],
 }
 
 filegroup {
     name: "TestMockBtaPan",
     srcs: [
-      "mock/mock_bta_pan_*.cc",
+        "mock/mock_bta_pan_*.cc",
     ],
 }
 
 filegroup {
     name: "TestMockBtaSdp",
     srcs: [
-      "mock/mock_bta_sdp_*.cc",
+        "mock/mock_bta_sdp_*.cc",
     ],
 }
 
 filegroup {
     name: "TestMockBtaSys",
     srcs: [
-      "mock/mock_bta_sys_*.cc",
+        "mock/mock_bta_sys_*.cc",
     ],
 }
 
 filegroup {
     name: "TestMockBtaVc",
     srcs: [
-      "mock/mock_bta_vc*.cc",
+        "mock/mock_bta_vc*.cc",
     ],
 }
 
 filegroup {
     name: "TestMockBta",
     srcs: [
-      ":TestMockBtaAg",
-      ":TestMockBtaAr",
-      ":TestMockBtaAv",
-      ":TestMockBtaCsis",
-      ":TestMockBtaDm",
-      ":TestMockBtaGatt",
-      ":TestMockBtaGroups",
-      ":TestMockBtaHas",
-      ":TestMockBtaHd",
-      ":TestMockBtaHearingAid",
-      ":TestMockBtaHf",
-      ":TestMockBtaHh",
-      ":TestMockBtaJv",
-      ":TestMockBtaLeAudio",
-      ":TestMockBtaLeAudioHalVerifier",
-      ":TestMockBtaPan",
-      ":TestMockBtaSdp",
-      ":TestMockBtaSys",
-      ":TestMockBtaVc",
+        ":TestMockBtaAg",
+        ":TestMockBtaAr",
+        ":TestMockBtaAv",
+        ":TestMockBtaCsis",
+        ":TestMockBtaDm",
+        ":TestMockBtaGatt",
+        ":TestMockBtaGroups",
+        ":TestMockBtaHas",
+        ":TestMockBtaHd",
+        ":TestMockBtaHearingAid",
+        ":TestMockBtaHf",
+        ":TestMockBtaHh",
+        ":TestMockBtaJv",
+        ":TestMockBtaLeAudio",
+        ":TestMockBtaLeAudioHalVerifier",
+        ":TestMockBtaPan",
+        ":TestMockBtaSdp",
+        ":TestMockBtaSys",
+        ":TestMockBtaVc",
     ],
 }
 
 filegroup {
     name: "TestMockMainShim",
     srcs: [
-      "mock/mock_main_shim*.cc",
+        "mock/mock_main_shim*.cc",
     ],
 }
 
 filegroup {
     name: "TestMockCommon",
     srcs: [
-      "mock/mock_common_*.cc",
+        "mock/mock_common_*.cc",
     ],
 }
 
 filegroup {
     name: "TestMockStackA2dp",
     srcs: [
-      "mock/mock_stack_a2dp_*.cc",
+        "mock/mock_stack_a2dp_*.cc",
+    ],
+}
+
+filegroup {
+    name: "TestMockStackA2dpApi",
+    srcs: [
+        "mock/mock_stack_a2dp_api.cc",
+    ],
+}
+
+filegroup {
+    name: "TestMockStackArbiter",
+    srcs: [
+        "mock/mock_stack_arbiter_*.cc",
     ],
 }
 
 filegroup {
     name: "TestMockStackL2cap",
     srcs: [
-      "mock/mock_stack_l2cap_*.cc",
+        "mock/mock_stack_l2cap_*.cc",
+    ],
+}
+
+filegroup {
+    name: "TestMockStackRfcomm",
+    srcs: [
+        "mock/mock_stack_rfcomm*.cc",
     ],
 }
 
 filegroup {
     name: "TestMockStack",
     srcs: [
-      "mock/mock_stack_*.cc",
+        "mock/mock_stack_*.cc",
     ],
 }
 
 filegroup {
     name: "TestMockHci",
     srcs: [
-      "mock/mock_hci_*.cc",
+        "mock/mock_hci_*.cc",
     ],
 }
 
 filegroup {
     name: "TestMockFrameworks",
     srcs: [
-      "mock/mock_frameworks_*.cc",
+        "mock/mock_frameworks_*.cc",
     ],
 }
 
 filegroup {
     name: "TestMockBtcore",
     srcs: [
-      "mock/mock_btcore_*.cc",
+        "mock/mock_btcore_*.cc",
     ],
 }
 
 filegroup {
     name: "TestMockSystemLibfmq",
     srcs: [
-      "mock/mock_system_libfmq_*.cc",
+        "mock/mock_system_libfmq_*.cc",
     ],
 }
 
 filegroup {
     name: "TestMockUdrv",
     srcs: [
-      "mock/mock_udrv_*.cc",
+        "mock/mock_udrv_*.cc",
     ],
 }
 
 filegroup {
     name: "TestMockAndroidHardware",
     srcs: [
-      "mock/mock_android_hardware_*.cc",
+        "mock/mock_android_hardware_*.cc",
     ],
 }
 
 filegroup {
     name: "TestMockDevice",
     srcs: [
-      "mock/mock_device_*.cc",
+        "mock/mock_device_*.cc",
     ],
 }
 
 filegroup {
     name: "TestMockLegacyHciCommands",
     srcs: [
-      "mock/mock_hcic_*.cc",
+        "mock/mock_hcic_*.cc",
     ],
 }
 
 filegroup {
     name: "TestMockMainShimEntry",
     srcs: [
-      "mock/mock_main_shim_entry.cc",
+        "mock/mock_main_shim_entry.cc",
     ],
 }
 
 filegroup {
     name: "TestMockMainShimLeScanning",
     srcs: [
-      "mock/mock_main_shim_le_scanning_manager.cc",
-      "mock/mock_main_shim.cc",
+        "mock/mock_main_shim.cc",
+        "mock/mock_main_shim_le_scanning_manager.cc",
     ],
 }
 
 filegroup {
     name: "TestMockMainShimFlags",
     srcs: [
-      "mock/mock_main_shim.cc",
+        "mock/mock_main_shim.cc",
     ],
 }
 
 filegroup {
-  name: "TestMockBtif",
-  srcs: [
-      ":TestCommonJniThread",
-      "mock/mock_btif*.cc",
-  ],
-}
-
-filegroup {
-  name: "TestMockStackSdp",
-  srcs: [
-      "mock/mock_stack_sdp*.cc",
-  ],
-}
-
-filegroup {
-  name: "TestMockStackBtm",
-  srcs: [
-      "mock/mock_stack_btm*.cc",
-  ],
-}
-
-filegroup {
-  name: "TestStubLegacyTrace",
-  srcs: [
-      "stub/legacy_trace.cc",
-  ],
-}
-
-filegroup {
-  name: "TestStubOsi",
-  srcs: [
-      "stub/osi.cc",
-  ],
-}
-
-filegroup {
-  name: "TestMockOsi",
+    name: "TestMockBtif",
     srcs: [
-      "mock/mock_osi_*.cc",
+        ":TestCommonCoreInterface",
+        ":TestCommonJniThread",
+        ":TestMockBluetoothInterface",
+        "mock/mock_btif*.cc",
     ],
 }
 
 filegroup {
-  name: "TestMockStackAcl",
-  srcs: [
-      "mock/mock_stack_acl*.cc",
-  ],
+    name: "TestMockStackSdp",
+    srcs: [
+        "mock/mock_stack_sdp*.cc",
+    ],
 }
 
 filegroup {
-  name: "TestMockStackSmp",
-  srcs: [
-      "mock/mock_stack_smp*.cc",
-  ],
+    name: "TestMockStackBtm",
+    srcs: [
+        "mock/mock_stack_btm*.cc",
+    ],
 }
 
 filegroup {
-  name: "TestMockStackMetrics",
-  srcs: [
-      "mock/mock_stack_metrics*.cc",
-  ],
+    name: "TestStubLegacyTrace",
+    srcs: [
+        "stub/legacy_trace.cc",
+    ],
 }
 
 filegroup {
-  name: "TestMockStackGap",
-  srcs: [
-      "mock/mock_stack_gap*.cc",
-  ],
+    name: "TestStubOsi",
+    srcs: [
+        "stub/osi.cc",
+    ],
 }
 
 filegroup {
-  name: "TestMockStackGatt",
-  srcs: [
-      "mock/mock_stack_gatt*.cc",
-  ],
+    name: "TestMockOsi",
+    srcs: [
+        "mock/mock_osi_*.cc",
+    ],
 }
 
 filegroup {
-  name: "TestMockStackBtu",
-  srcs: [
-      "mock/mock_stack_btu*.cc",
-  ],
+    name: "TestMockStackAcl",
+    srcs: [
+        "mock/mock_stack_acl*.cc",
+    ],
 }
 
 filegroup {
-  name: "TestMockMainBte",
-  srcs: [
-      "mock/mock_main_bte*.cc",
-  ],
+    name: "TestMockStackSmp",
+    srcs: [
+        "mock/mock_stack_smp*.cc",
+    ],
 }
 
 filegroup {
-  name: "TestMockStackCryptotoolbox",
-  srcs: [
-      "mock/mock_stack_crypto_toolbox*.cc",
-  ],
+    name: "TestMockStackMetrics",
+    srcs: [
+        "mock/mock_stack_metrics*.cc",
+    ],
 }
 
 filegroup {
-  name: "TestMockBtu",
-  srcs: [
-      "mock/mock_btu_*cc",
-  ],
+    name: "TestMockStackGap",
+    srcs: [
+        "mock/mock_stack_gap*.cc",
+    ],
 }
 
 filegroup {
-  name: "TestMockUtils",
-  srcs: [
-      "mock/mock_utils_*cc",
-  ],
+    name: "TestMockStackEatt",
+    srcs: [
+        "mock/mock_stack_eatt*.cc",
+    ],
 }
 
 filegroup {
-  name: "TestCommonMockFunctions",
-  srcs: [
-      "common/mock_functions.cc",
-  ],
+    name: "TestMockStackGatt",
+    srcs: [
+        "mock/mock_stack_gatt*.cc",
+    ],
 }
 
 filegroup {
-  name: "TestCommonJniThread",
-  srcs: [
-      "common/jni_thread.cc",
-  ],
+    name: "TestMockRustFfi",
+    srcs: [
+        "mock/mock_rust_ffi_connection*.cc",
+    ],
 }
 
 filegroup {
-  name: "TestCommonMainHandler",
-  srcs: [
-      "common/main_handler.cc",
-  ],
+    name: "TestMockStackBtu",
+    srcs: [
+        "mock/mock_stack_btu*.cc",
+    ],
 }
 
 filegroup {
-  name: "TestCommonInitFlags",
-  srcs: [
-      "common/init_flags.cc",
-  ],
+    name: "TestMockMainBte",
+    srcs: [
+        "mock/mock_main_bte*.cc",
+    ],
 }
 
 filegroup {
-  name: "TestCommonStackConfig",
-  srcs: [
-      "common/stack_config.cc",
-  ],
+    name: "TestMockStackCryptotoolbox",
+    srcs: [
+        "mock/mock_stack_crypto_toolbox*.cc",
+    ],
 }
 
 filegroup {
-  name: "TestMockBluetoothInterface",
-  srcs: [
-      "mock/mock_bluetooth_interface.cc",
-  ],
+    name: "TestMockBtu",
+    srcs: [
+        "mock/mock_btu_*cc",
+    ],
 }
 
 filegroup {
-  name: "TestMockStackHcic",
-  srcs: [
-      "mock/mock_stack_hcic*.cc",
-  ],
+    name: "TestMockUtils",
+    srcs: [
+        "mock/mock_utils_*cc",
+    ],
 }
 
 filegroup {
-  name: "TestMockLegacyHciInterface",
-  srcs: [
-      "mock/mock_legacy_hci_iterface.cc"
-  ],
+    name: "TestCommonMockFunctions",
+    srcs: [
+        "common/mock_functions.cc",
+    ],
+}
+
+filegroup {
+    name: "TestCommonJniThread",
+    srcs: [
+        "common/jni_thread.cc",
+    ],
+}
+
+filegroup {
+    name: "TestCommonMainHandler",
+    srcs: [
+        "common/main_handler.cc",
+    ],
+}
+
+filegroup {
+    name: "TestCommonInitFlags",
+    srcs: [
+        "common/init_flags.cc",
+    ],
+}
+
+filegroup {
+    name: "TestCommonStackConfig",
+    srcs: [
+        "common/stack_config.cc",
+    ],
+}
+
+filegroup {
+    name: "TestCommonCoreInterface",
+    srcs: [
+        "common/core_interface.cc",
+    ],
+}
+
+filegroup {
+    name: "TestCommonLogMsg",
+    srcs: [
+        "common/log_msg.cc",
+    ],
+}
+
+filegroup {
+    name: "TestMockBluetoothInterface",
+    srcs: [
+        "mock/mock_bluetooth_interface.cc",
+    ],
+}
+
+filegroup {
+    name: "TestMockStackHcic",
+    srcs: [
+        "mock/mock_stack_hcic*.cc",
+    ],
+}
+
+filegroup {
+    name: "TestMockLegacyHciInterface",
+    srcs: [
+        "mock/mock_legacy_hci_iterface.cc",
+    ],
+}
+
+filegroup {
+    name: "TestMockSrvcDis",
+    srcs: [
+        "mock/mock_stack_srvc_dis.cc",
+    ],
+}
+
+filegroup {
+    name: "TestMockGdOsLoggingLogRedaction",
+    srcs: [
+        "mock/mock_gd_os_logging_log_redaction.cc",
+    ],
+}
+
+filegroup {
+    name: "TestFakeOsi",
+    srcs: [
+        ":TestMockOsi",
+        "fake/fake_osi.cc",
+    ],
 }
 
 cc_defaults {
@@ -457,7 +530,7 @@ cc_defaults {
     target: {
         android: {
             test_config_template: ":BluetoothTestConfigTemplate",
-            test_suites: ["mts-bluetooth",],
+            test_suites: ["mts-bluetooth"],
         },
     },
     compile_multilib: "both",
@@ -468,5 +541,39 @@ cc_defaults {
         lib64: {
             suffix: "64",
         },
+    },
+}
+
+cc_test {
+    name: "net_test_common",
+    host_supported: true,
+    local_include_dirs: [
+        "common",
+    ],
+    include_dirs: [
+        "packages/modules/Bluetooth/system",
+        "packages/modules/Bluetooth/system/gd",
+        "packages/modules/Bluetooth/system/include",
+    ],
+    srcs: [
+        "common/log_msg.cc",
+        "common/log_msg_test.cc",
+    ],
+    shared_libs: [
+        "libchrome",
+    ],
+    cflags: [
+        "-Wall",
+        "-Werror",
+        "-Wextra",
+        // there are too many unused parameters in all the code.
+        "-Wno-unused-parameter",
+        // http://b/264549607
+        "-Wno-deprecated-builtins",
+    ],
+    sanitize: {
+        address: true,
+        cfi: true,
+        misc_undefined: ["bounds"],
     },
 }

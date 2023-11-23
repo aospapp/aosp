@@ -19,12 +19,13 @@ import static com.android.wallpaper.util.ActivityUtils.startActivityForResultSaf
 
 import android.Manifest.permission;
 import android.content.Intent;
+import android.content.pm.ActivityInfo;
 import android.content.pm.PackageManager;
+import android.content.res.Resources;
 import android.net.Uri;
 import android.os.Binder;
 import android.os.Bundle;
 import android.util.Log;
-import android.view.WindowManager;
 
 import androidx.annotation.NonNull;
 import androidx.fragment.app.Fragment;
@@ -62,7 +63,8 @@ public class StandalonePreviewActivity extends BasePreviewActivity implements Ap
 
         enableFullScreen();
 
-        mUserEventLogger = InjectorProvider.getInjector().getUserEventLogger(getApplicationContext());
+        mUserEventLogger = InjectorProvider.getInjector().getUserEventLogger(
+                getApplicationContext());
         mUserEventLogger.logStandalonePreviewLaunched();
 
         Intent cropAndSetWallpaperIntent = getIntent();
@@ -80,10 +82,11 @@ public class StandalonePreviewActivity extends BasePreviewActivity implements Ap
         mUserEventLogger.logStandalonePreviewImageUriHasReadPermission(
                 isReadPermissionGrantedForImageUri);
 
-        // Request storage permission if necessary (i.e., on Android M and later if storage permission
-        // has not already been granted) and delay loading the PreviewFragment until the permission is
-        // granted.
-        if (!isReadPermissionGrantedForImageUri && !isReadExternalStoragePermissionGrantedForApp()) {
+        // Request storage permission if necessary (i.e., on Android M and later if storage
+        // permission has not already been granted) and delay loading the PreviewFragment until the
+        // permission is granted.
+        if (!isReadPermissionGrantedForImageUri
+                && !isReadExternalStoragePermissionGrantedForApp()) {
             requestPermissions(
                     new String[]{permission.READ_MEDIA_IMAGES},
                     READ_EXTERNAL_STORAGE_PERMISSION_REQUEST_CODE);
@@ -102,9 +105,22 @@ public class StandalonePreviewActivity extends BasePreviewActivity implements Ap
         }
     }
 
+    @SuppressWarnings("MissingSuperCall") // TODO: Fix me
+    @Override
+    protected void onResume() {
+        super.onResume();
+        Resources res = getResources();
+        boolean isDeviceFoldableOrTablet = res.getBoolean(R.bool.is_large_screen);
+
+        if (!isDeviceFoldableOrTablet) {
+            setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
+        }
+    }
+
+    @SuppressWarnings("MissingSuperCall") // TODO: Fix me
     @Override
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions,
-                                           @NonNull int[] grantResults) {
+            @NonNull int[] grantResults) {
         // Load the preview fragment if the storage permission was granted.
         if (requestCode == READ_EXTERNAL_STORAGE_PERMISSION_REQUEST_CODE) {
             boolean isGranted = permissions.length > 0
@@ -137,14 +153,6 @@ public class StandalonePreviewActivity extends BasePreviewActivity implements Ap
         return getIntent().getBooleanExtra(KEY_UP_ARROW, false);
     }
 
-    @Override
-    protected void enableFullScreen() {
-        super.enableFullScreen();
-        getWindow().setFlags(
-                WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
-                WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS);
-    }
-
     /**
      * Launches multi-pane when it is enabled, for non-Settings' trampoline launch case will
      * retrieve EXTRA_STREAM's image URI and assign back its intent by calling setData().
@@ -155,22 +163,10 @@ public class StandalonePreviewActivity extends BasePreviewActivity implements Ap
             Intent intent = getIntent();
             if (!ActivityUtils.isLaunchedFromSettingsTrampoline(intent)
                     && !ActivityUtils.isLaunchedFromSettingsRelated(intent)) {
-                Uri uri = intent.getData();
-                if (uri != null) {
-                    // Grant URI permission for next launching activity.
-                    grantUriPermission(getPackageName(), uri,
-                            Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                if (!InjectorProvider.getInjector().getFlags().isFullscreenWallpaperPreviewEnabled(
+                        this)) {
+                    launchMultiPanes(checker);
                 }
-
-                Intent previewLaunch = checker.getMultiPanesIntent(intent);
-                previewLaunch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                        // Put image URI and back arrow condition to separate extras.
-                        .putExtra(Intent.EXTRA_STREAM, intent.getData())
-                        .putExtra(KEY_UP_ARROW, true);
-
-                startActivityForResultSafely(/* activity= */ this, previewLaunch, /* requestCode= */
-                        0);
-                finish();
             } else {
                 Uri uri = intent.hasExtra(Intent.EXTRA_STREAM) ? intent.getParcelableExtra(
                         Intent.EXTRA_STREAM) : null;
@@ -179,6 +175,26 @@ public class StandalonePreviewActivity extends BasePreviewActivity implements Ap
                 }
             }
         }
+    }
+
+    private void launchMultiPanes(MultiPanesChecker checker) {
+        Intent intent = getIntent();
+        Uri uri = intent.getData();
+        if (uri != null) {
+            // Grant URI permission for next launching activity.
+            grantUriPermission(getPackageName(), uri,
+                    Intent.FLAG_GRANT_READ_URI_PERMISSION);
+        }
+
+        Intent previewLaunch = checker.getMultiPanesIntent(intent);
+        previewLaunch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                // Put image URI and back arrow condition to separate extras.
+                .putExtra(Intent.EXTRA_STREAM, intent.getData())
+                .putExtra(KEY_UP_ARROW, true);
+
+        startActivityForResultSafely(/* activity= */ this, previewLaunch, /* requestCode= */
+                0);
+        finish();
     }
 
     /**

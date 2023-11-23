@@ -91,6 +91,7 @@ public class SdpMasRecord implements Parcelable {
         return mSupportedMessageTypes;
     }
 
+    /** @hide */
     public boolean msgSupported(int msg) {
         return (mSupportedMessageTypes & msg) != 0;
     }

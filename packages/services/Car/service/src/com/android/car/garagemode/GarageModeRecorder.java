@@ -57,6 +57,10 @@ public final class GarageModeRecorder {
     static final String SESSION_WAS_CANCELLED = "Session was cancelled : ";
     @VisibleForTesting
     static final String DATE_FORMAT = "HH:mm:ss.SSS z MM/dd/yyyy";
+    @VisibleForTesting
+    static final String GARAGE_MODE_RECORDER_IS_SACTIVE = "GarageModeRecorder is %sactive\n";
+    @VisibleForTesting
+    static final String NOT = "not ";
 
     private static final String GARAGEMODE_DIR_NAME = "garagemode";
     private static final String TAG = "GarageModeRecorder";
@@ -88,6 +92,9 @@ public final class GarageModeRecorder {
      * Prints garage mode session history to the {@code dumpsys}.
      */
     public void dump(IndentingPrintWriter writer) {
+        //TODO(b/223241457) Add dump to protobuf
+        writer.printf(GARAGE_MODE_RECORDER_IS_SACTIVE, (isRecorderEnabled() ? "" : NOT));
+
         if (!isRecorderEnabled()) return;
 
         readFileToWriter(writer);
@@ -100,7 +107,7 @@ public final class GarageModeRecorder {
         if (!isRecorderEnabled()) return;
 
         if (mSessionStartTime != 0) {
-            Slogf.e(TAG, "Error, garage mode session is started twice, prevous start - %s",
+            Slogf.e(TAG, "Error, garage mode session is started twice, previous start - %s",
                     mDateFormat.format(mSessionStartTime));
             return;
         }

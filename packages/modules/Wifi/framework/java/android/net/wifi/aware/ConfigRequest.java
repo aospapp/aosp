@@ -68,7 +68,7 @@ public final class ConfigRequest implements Parcelable {
     /**
      * Specifies the desired master preference.
      */
-    public final int mMasterPreference;
+    public int mMasterPreference;
 
     /**
      * Specifies the desired lower range of the cluster ID. Must be lower then

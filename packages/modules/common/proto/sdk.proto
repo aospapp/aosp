@@ -22,11 +22,16 @@ message SdkVersion {
 }
 
 // All the modules that can be used for version requirements.
+//
+// The only modules that should be listed here are non-optional modules that
+// have Java APIs, i.e. their APEX contains a bootclaspath_fragment or a
+// systemserverclasspath_fragment.
 enum SdkModule {
   UNKNOWN = 0;
 
   // R modules
   CONSCRYPT = 10;
+  EXT_SERVICES = 14;
   IPSEC = 1;
   MEDIA = 2;
   MEDIA_PROVIDER = 3;
@@ -34,6 +39,7 @@ enum SdkModule {
   SDK_EXTENSIONS = 5;
   STATSD = 6;
   TETHERING = 7;
+  // WIFI - optional
 
   // S modules
   ART = 8;
@@ -43,6 +49,13 @@ enum SdkModule {
   AD_SERVICES = 11;
   APPSEARCH = 12;
   ON_DEVICE_PERSONALIZATION = 13;
+  // UWB - optional
+
+  // U modules
+  // BT_SERVICES - optional
+  CONFIG_INFRASTRUCTURE = 15;
+  HEALTH_FITNESS = 16;
+  // REMOTE_KEY_PROVISIONING - optional
 }
 
 // A single extension version.

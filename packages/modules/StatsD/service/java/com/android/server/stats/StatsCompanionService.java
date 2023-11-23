@@ -103,8 +103,6 @@ public class StatsCompanionService extends IStatsCompanionService.Stub {
 
     public static final int DEATH_THRESHOLD = 10;
 
-    private static final String INCLUDE_CERTIFICATE_HASH = "include_certificate_hash";
-
     private final Context mContext;
     private final AlarmManager mAlarmManager;
     @GuardedBy("sStatsdLock")
@@ -160,7 +158,7 @@ public class StatsCompanionService extends IStatsCompanionService.Stub {
         String installerPackageName = null;
         if (installSourceInfo != null) {
             installerPackageName = installSourceInfo.getInitiatingPackageName();
-            if (installerPackageName == null) {
+            if (installerPackageName == null || installerPackageName.equals("com.android.shell")) {
                 installerPackageName = installSourceInfo.getInstallingPackageName();
             }
         }
@@ -207,6 +205,7 @@ public class StatsCompanionService extends IStatsCompanionService.Stub {
         backgroundThread.start();
         Handler handler = new Handler(backgroundThread.getLooper());
         handler.post(() -> {
+            if (DEBUG) Log.d(TAG, "Start thread for sending uid map data.");
             UserManager um = (UserManager) context.getSystemService(Context.USER_SERVICE);
             PackageManager pm = context.getPackageManager();
             final List<UserHandle> users = um.getUserHandles(true);
@@ -227,8 +226,7 @@ public class StatsCompanionService extends IStatsCompanionService.Stub {
             } catch (IOException e) {
                 Log.e(TAG, "Failed to close the read side of the pipe.", e);
             }
-            final ParcelFileDescriptor writeFd = fds[1];
-            FileOutputStream fout = new ParcelFileDescriptor.AutoCloseOutputStream(writeFd);
+            FileOutputStream fout = new ParcelFileDescriptor.AutoCloseOutputStream(fds[1]);
             try {
                 ProtoOutputStream output = new ProtoOutputStream(fout);
                 int numRecords = 0;
@@ -263,15 +261,12 @@ public class StatsCompanionService extends IStatsCompanionService.Stub {
                                             | ProtoOutputStream.FIELD_COUNT_SINGLE
                                             | INSTALLER_FIELD_ID,
                                     installer);
-                            if (DeviceConfig.getBoolean(
-                                        NAMESPACE_STATSD_JAVA, INCLUDE_CERTIFICATE_HASH, false)) {
-                                final byte[] certHash = getPackageCertificateHash(
-                                        packagesPlusApex.get(j).signingInfo);
-                                output.write(ProtoOutputStream.FIELD_TYPE_BYTES
-                                                | ProtoOutputStream.FIELD_COUNT_SINGLE
-                                                | CERTIFICATE_HASH_FIELD_ID,
-                                        certHash);
-                            }
+                            final byte[] certHash =
+                                getPackageCertificateHash(packagesPlusApex.get(j).signingInfo);
+                            output.write(ProtoOutputStream.FIELD_TYPE_BYTES
+                                    | ProtoOutputStream.FIELD_COUNT_SINGLE
+                                    | CERTIFICATE_HASH_FIELD_ID,
+                                certHash);
 
                             numRecords++;
                             output.end(applicationInfoToken);
@@ -283,9 +278,9 @@ public class StatsCompanionService extends IStatsCompanionService.Stub {
                     Log.d(TAG, "Sent data for " + numRecords + " apps");
                 }
             } finally {
+                if (DEBUG) Log.d(TAG, "End thread for sending uid map data.");
                 FileUtils.closeQuietly(fout);
                 backgroundThread.quit();
-                backgroundThread.interrupt();
             }
         });
     }
@@ -297,7 +292,8 @@ public class StatsCompanionService extends IStatsCompanionService.Stub {
         List<PackageInfo> allPackages = new ArrayList<>(
                 pm.getInstalledPackagesAsUser(PackageManager.GET_SIGNING_CERTIFICATES
                                 | PackageManager.MATCH_UNINSTALLED_PACKAGES
-                                | PackageManager.MATCH_ANY_USER,
+                                | PackageManager.MATCH_ANY_USER
+                                | PackageManager.MATCH_STATIC_SHARED_AND_SDK_LIBRARIES,
                         userHandle.getIdentifier()));
         // We make a second query to package manager for the apex modules because package manager
         // returns both installed and uninstalled apexes with
@@ -376,11 +372,7 @@ public class StatsCompanionService extends IStatsCompanionService.Stub {
                         final String installer = getInstallerPackageName(pm, app);
 
                         // Get Package certificate hash.
-                        byte[] certHash = new byte[0];
-                        if (DeviceConfig.getBoolean(
-                                    NAMESPACE_STATSD_JAVA, INCLUDE_CERTIFICATE_HASH, false)) {
-                            certHash = getPackageCertificateHash(pi.signingInfo);
-                        }
+                        byte[] certHash = getPackageCertificateHash(pi.signingInfo);
 
                         sStatsd.informOnePackage(
                                 app,
@@ -673,13 +665,6 @@ public class StatsCompanionService extends IStatsCompanionService.Stub {
 
     private void onPropertiesChanged(final Properties properties) {
         updateProperties(properties);
-
-        // Re-fetch package information with package certificates if include_certificate_hash
-        // property changed.
-        final Set<String> propertyNames = properties.getKeyset();
-        if (propertyNames.contains(INCLUDE_CERTIFICATE_HASH)) {
-            informAllUids(mContext);
-        }
     }
 
     private void updateProperties(final Properties properties) {
@@ -710,7 +695,7 @@ public class StatsCompanionService extends IStatsCompanionService.Stub {
         try {
             statsd.updateProperties(propertyParcels);
         } catch (RemoteException e) {
-            Log.w(TAG, "Failed to inform statsd of an include app certificate flag update", e);
+            Log.w(TAG, "Failed to inform statsd of updated statsd_java properties", e);
         }
     }
 

@@ -17,6 +17,8 @@
 package android.car.builtin;
 
 import android.annotation.SystemApi;
+import android.car.builtin.annotation.AddedIn;
+import android.car.builtin.annotation.PlatformVersion;
 
 /**
  * Helper for Permissions
@@ -30,5 +32,6 @@ public final class PermissionHelper {
     }
 
     /** MONITOR_INPUT permission */
+    @AddedIn(PlatformVersion.TIRAMISU_0)
     public static final String MONITOR_INPUT = android.Manifest.permission.MONITOR_INPUT;
 }

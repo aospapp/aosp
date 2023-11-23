@@ -1,0 +1,680 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--  Copyright (C) 2022 The Android Open Source Project
+
+     Licensed under the Apache License, Version 2.0 (the "License");
+     you may not use this file except in compliance with the License.
+     You may obtain a copy of the License at
+
+          http://www.apache.org/licenses/LICENSE-2.0
+
+     Unless required by applicable law or agreed to in writing, software
+     distributed under the License is distributed on an "AS IS" BASIS,
+     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+     See the License for the specific language governing permissions and
+     limitations under the License.
+ -->
+
+<!--  IMPORTANT! If adding new strings, then run generate_adservices_public_xml.py  -->
+
+<resources xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+    <string name="permlab_accessAdServicesTopics" msgid="1108993892369517728">"AdServices Topics API এক্সেছ কৰাৰ অনুমতি"</string>
+    <string name="permdesc_accessAdServicesTopics" msgid="4220466427260104683">"এটা এপ্লিকেশ্বনক AdServices Topics API এক্সেছ কৰিবলৈ অনুমতি দিয়ে।"</string>
+    <string name="permlab_accessAdServicesAttribution" msgid="4498132091418336093">"AdServices Attribution API এক্সেছ কৰাৰ অনুমতি"</string>
+    <string name="permdesc_accessAdServicesAttribution" msgid="1644434244130657749">"এটা এপ্লিকেশ্বনক AdServices Attribution API এক্সেছ কৰিবলৈ অনুমতি দিয়ে।"</string>
+    <string name="permlab_accessAdServicesCustomAudience" msgid="2766614780488510189">"AdServices Custom Audience API এক্সেছ কৰাৰ অনুমতি"</string>
+    <string name="permdesc_accessAdServicesCustomAudience" msgid="2034811807106784662">"এটা এপ্লিকেশ্বনক AdServices Custom Audiences API এক্সেছ কৰিবলৈ অনুমতি দিয়ে।"</string>
+    <string name="permlab_accessAdServicesAdId" msgid="2754825914769538156">"AdId API এক্সেছ কৰাৰ অনুমতি"</string>
+    <string name="permdesc_accessAdServicesAdId" msgid="7717770480967762044">"এটা এপ্লিকেশ্বনক AdId API এক্সেছ কৰিবলৈ অনুমতি দিয়ে।"</string>
+    <string name="permlab_accessAdServicesConsent" msgid="3203633397142568707">"AdServices Consent API এক্সেছ কৰিব পাৰে"</string>
+    <string name="permdesc_accessAdServicesConsent" msgid="8440334072391708453">"কোনো এপ্লিকেশ্বনক AdServices Consent API এক্সেছ কৰিবলৈ অনুমতি দিয়ে।"</string>
+    <string name="permlab_adServicesAccessAdId" msgid="1425385999072194463">"Ad ID API এক্সেছ কৰাৰ অনুমতি"</string>
+    <string name="permdesc_adServicesAccessAdId" msgid="5082994464565978279">"এটা এপ্লিকেশ্বনক Ad ID API এক্সেছ কৰিবলৈ অনুমতি দিয়ে।"</string>
+    <string name="permlab_adServicesAccessAppSetId" msgid="1300149048751231124">"App Set ID API এক্সেছ কৰাৰ অনুমতি"</string>
+    <string name="permdesc_adServicesAccessAppSetId" msgid="7919418391145455372">"এটা এপ্লিকেশ্বনক App Set ID API এক্সেছ কৰিবলৈ অনুমতি দিয়ে।"</string>
+    <string name="permlab_adServicesAccessConsentService" msgid="5994709782267864205">"Consent Service APIৰ এক্সেছ"</string>
+    <string name="permdesc_adServicesAccessConsentService" msgid="4587727715580124241">"কোনো এপ্লিকেশ্বনক Consent Service API এক্সেছ কৰিবলৈ অনুমতি দিয়ে।"</string>
+    <string name="permlab_modifyAdServicesState" msgid="3594653261299518914">"AdService সক্ষমকৰণৰ স্থিতিৰ সংশোধনৰ APIলৈ এক্সেছ"</string>
+    <string name="permdesc_modifyAdServicesState" msgid="2485849128464307209">"কোনো এপ্লিকেশ্বনক AdService সক্ষমকৰণৰ স্থিতিৰ সংশোধনৰ API এক্সেছ কৰিবলৈ অনুমতি দিয়ে।"</string>
+    <string name="permlab_accessAdServicesState" msgid="482058883975394398">"AdService সক্ষমকৰণৰ স্থিতিৰ APIলৈ এক্সেছ"</string>
+    <string name="permdesc_accessAdServicesState" msgid="1165015604618567202">"কোনো এপ্লিকেশ্বনক AdService সক্ষমকৰণৰ স্থিতিৰ API এক্সেছ কৰিবলৈ অনুমতি দিয়ে।"</string>
+    <string name="permlab_accessAdServicesManager" msgid="4816332609066703740">"AdServicesManager’s APIsলৈ এক্সেছ"</string>
+    <string name="permdesc_accessAdServicesManager" msgid="2619300431637689524">"এটা এপ্লিকেশ্বনক AdServicesManager’s APIs এক্সেছ কৰিবলৈ অনুমতি দিয়ে।"</string>
+    <string name="app_label" msgid="5985320129629013968">"Android ছিষ্টেম"</string>
+    <string name="notificationUI_notification_title_eu" msgid="6328781145332100489">"Androidৰ বিজ্ঞাপনৰ গোপনীয়তা বিটাত যোগদান কৰক"</string>
+    <string name="notificationUI_notification_content_eu" msgid="4119222762583017840">"Androidএ আপোনাক বিজ্ঞাপন দেখুৱাবলৈ এপৰ বাবে অধিক গোপনীয় উপায়সমূহ অন্বেষণ কৰি আছে"</string>
+    <string name="notificationUI_notification_cta_eu" msgid="1294908454704864207">"অধিক জানক"</string>
+    <string name="notificationUI_header_title_eu" msgid="4955298263079910371">"Androidৰ বিজ্ঞাপনৰ গোপনীয়তা বিটা"</string>
+    <string name="notificationUI_container1_title_eu" msgid="8315199862119660570">"নতুন কি আছে"</string>
+    <string name="notificationUI_container1_body_text_eu" msgid="1700290522706948241">"প্ৰাইভেচি ছেণ্ডবক্সৰ নতুন সুবিধাসমূহে এপক আপোনাক প্ৰাসংগিক বিজ্ঞাপন দেখুৱাবলৈ দিয়ে, কিন্তু সেই এপে আপুনি ৱেবছাইট আৰু অন্য বিকাশকৰ্তাৰ এপত কৰা কাৰ্যকলাপ জনাটো প্ৰতিবন্ধিত কৰে।"</string>
+    <string name="notificationUI_container1_control_text_eu" msgid="3158258148321255153">"ই কিদৰে কাম কৰে"</string>
+    <string name="notificationUI_container2_title_eu" msgid="7198761373796187596">"কেনেকৈ অংশগ্ৰহণ কৰিব লাগে"</string>
+    <string name="notificationUI_container2_body_text_eu" msgid="5763735880112009239">"বিটা অন কৰাটোৱে এপক আপোনাক বিজ্ঞাপন দেখুৱাবলৈ এই নতুন অধিক গোপনীয় উপায়সমূহ পৰীক্ষা কৰি চাবলৈ অনুমতি দিয়ে। আপুনি যিকোনো সময়তে নিজৰ গোপনীয়তাৰ ছেটিঙত বিটা অফ কৰিব পাৰে।"</string>
+    <string name="notificationUI_left_control_button_text_eu" msgid="3573715612232957187">"নালাগে, ধন্যবাদ"</string>
+    <string name="notificationUI_right_control_button_text_eu" msgid="8484787286437052150">"অন কৰক"</string>
+    <string name="notificationUI_more_button_text" msgid="8861584693765844519">"অধিক"</string>
+    <string name="notificationUI_confirmation_accept_title" msgid="3178322390976087463">"অংশগ্ৰহণ কৰাৰ বাবে ধন্যবাদ"</string>
+    <string name="notificationUI_confirmation_accept_subtitle" msgid="6980730715078085252">"আপুনি Androidৰ বিজ্ঞাপনৰ গোপনীয়তাৰ বিটা। আপোনাৰ ডিভাইচটোৰ বাবে প্ৰাইভেচি ছেণ্ডবক্স অন কৰা হৈছে।\n\nআপুনি অধিক জানিব পাৰে অথবা নিজৰ গোপনীয়তাৰ ছেটিঙত বিটাটো যিকোনো সময়তে অফ কৰিব পাৰে।"</string>
+    <string name="notificationUI_confirmation_decline_title" msgid="6453417169877486440">"আপুনি অংশগ্ৰহণ নকৰিবলৈ বাছনি কৰিছে"</string>
+    <string name="notificationUI_confirmation_decline_subtitle" msgid="4194388733937808440">"আপোনাৰ সঁহাৰিৰ বাবে ধন্যবাদ। আপোনাৰ ডিভাইচটোৰ বাবে প্ৰাইভেচি ছেণ্ডবক্স অফ কৰা হৈছে।\n\nযদি আপুনি নিজৰ সিদ্ধান্ত সলনি কৰে অথবা অধিক জানিবলৈ বিচাৰে, আপোনাৰ গোপনীয়তাৰ ছেটিঙলৈ যাওক।"</string>
+    <string name="notificationUI_confirmation_left_control_button_text" msgid="7459283556129950513">"গোপনীয়তাৰ ছেটিং"</string>
+    <string name="notificationUI_confirmation_right_control_button_text" msgid="1390803936115621269">"বুজি পালোঁ"</string>
+    <string name="notificationUI_container2_title" msgid="3844342008598264655">"আপুনি বিটাটোৰ অংশ"</string>
+    <string name="notificationUI_container2_body_text" msgid="758560159693325060">"আপোনাৰ ডিভাইচৰ বাবে প্ৰাইভেচি ছেণ্ডবক্স অন আছে আৰু এপে আপোনাক বিজ্ঞাপন দেখুৱাবলৈ এই নতুন অধিক গোপনীয় উপায়সমূহ পৰীক্ষা কৰি চাব পাৰে। আপুনি যিকোনো সময়তে নিজৰ গোপনীয়তাৰ ছেটিঙত বিটা অফ কৰিব পাৰে।"</string>
+    <string name="notificationUI_right_control_button_text" msgid="4418849554981401536">"বুজি পালোঁ"</string>
+    <string name="notificationUI_how_it_works_expanded_text1" msgid="5567641119079971239">"Androidৰ প্ৰাইভেচি ছেণ্ডবক্সে নতুন সুবিধাসমূহ দিয়ে, যিসমূহ সুবিধা এপে আপোনাক আপুনি পচন্দ কৰিব পৰা ধৰণৰ বিজ্ঞাপন দেখুৱাবলৈ ব্যৱহাৰ কৰিব পাৰে। এই প্ৰযুক্তিসমূহে ডিভাইচ চিনাক্তকাৰী ব্যৱহাৰ নকৰে।\n\nAndroid আৰু আপোনাৰ এপে আপুনি আগ্ৰহী হ’ব পৰা ধৰণৰ বিজ্ঞাপন অনুমান কৰিব পাৰে আৰু আপোনাৰ ডিভাইচত অস্থায়ীভাৱে আগ্ৰহসমূহ ছেভ কৰিব পাৰে। এইটোৱে সমগ্ৰ ৱেবছাইট আৰু অন্য বিকাশকৰ্তাৰ এপত আপোনাৰ কাৰ্যকলাপ ট্ৰেক নকৰাকৈয়ে এপক আপুনি পচন্দ কৰিব পৰা ধৰণৰ বিজ্ঞাপন দেখুৱাবলৈ অনুমতি দিয়ে।"</string>
+    <string name="notificationUI_how_it_works_expanded_text2" msgid="6676443093692450581">"প্ৰাইভেচি ছেণ্ডবক্সৰ জৰিয়তে বিজ্ঞাপন ব্যক্তিগতকৃত কৰা"</string>
+    <string name="notificationUI_how_it_works_expanded_text3" msgid="603165966360369018">"•  Androidএ অনুমান কৰা আগ্ৰহ"</string>
+    <string name="notificationUI_how_it_works_expanded_text4" msgid="3910573920883580609">"Androidএ আপুনি ব্যৱহাৰ কৰা এপৰ ভিত্তিত সময়ে সময়ে আপোনাৰ শীৰ্ষ আগ্ৰহসমূহ অনুমান কৰে, যেনে, \"ক্ৰীড়া\" অথবা \"ভ্ৰমণ\"।\n\nপাছত, কোনো এপে আপোনাক অধিক প্ৰাসংগিক বিজ্ঞাপন দেখুৱাবলৈ Androidক সেই আগ্ৰহসমূহ ব্যৱহাৰ কৰিবলৈ বিচাৰিব পাৰে।\n\nআপুনি তথাপিও নিজৰ গোপনীয়তাৰ ছেটিঙত বৰ্তমানৰ আগ্ৰহসমূহৰ সূচীখন চাব আৰু আপুনি পচন্দ নকৰা যিকোনো আগ্ৰহ মচিব পাৰে।"</string>
+    <string name="notificationUI_how_it_works_expanded_text5" msgid="7257714040472055781">"•  এপে অনুমান কৰা আগ্ৰহ"</string>
+    <string name="notificationUI_how_it_works_expanded_text6" msgid="2949292580123453023">"এপে আপোনাৰ আগ্ৰহসমূহ অনুমান কৰিব আৰু সেইবোৰ Androidৰ জৰিয়তে অস্থায়ীভাৱে ছেভ কৰিব পাৰে। উদাহৰণস্বৰূপে, আপুনি দৌৰিবলৈ পিন্ধা জোতা কিনিবলৈ ব্যৱহাৰ কৰা কোনো এপে আপোনাৰ আগ্ৰহ \"মাৰাথান দৌৰা\" বুলি অনুমান কৰিব পাৰে।\n\nপাছত, আপোনাৰ এই আগ্ৰহৰ ভিত্তিত, অন্য এটা এপে আপোনাক মাৰাথানৰ সৈতে জড়িত কোনো বিজ্ঞাপন দেখুৱাব পাৰে।\n\nআপোনাৰ গোপনীয়তাৰ ছেটিঙত, আপুনি আগ্ৰহ ছেভ কৰা এই এপৰ সূচীখন পৰিচালনা কৰিব পাৰে।"</string>
+    <string name="notificationUI_notification_ga_title" msgid="7090667803616048587">"বিজ্ঞাপনৰ গোপনীয়তাৰ নতুন সুবিধা"</string>
+    <string name="notificationUI_notification_ga_content" msgid="3483979694272908942">"বিজ্ঞাপনৰ বিষয়বস্তু আৰু নতুন নিয়ন্ত্ৰণে আপুনি দেখা পোৱা বিজ্ঞাপনৰ ক্ষেত্ৰত আপোনাক বাছনি কৰিবলৈ অধিক বিষয়বস্তু প্ৰদান কৰে"</string>
+    <string name="notificationUI_header_ga_title" msgid="3557937325021173836">"এতিয়া বিজ্ঞাপনৰ গোপনীয়তাৰ নতুন সুবিধা উপলব্ধ"</string>
+    <string name="notificationUI_container2_ga_introduction" msgid="2201578950159210581">"আপুনি শেহতীয়াকৈ ব্যৱহাৰ কৰা এপ্‌সমূহৰ আধাৰত Androidএ আগ্ৰহৰ বিষয়বস্তুৰ লক্ষ্য ৰাখে। আপুনি ব্যৱহাৰ কৰা এপ্‌সমূহেও আপুনি কি ভাল পায় সেয়া নিৰ্ধাৰণ কৰিব পাৰে। পাছত, এপ্‌সমূহে আপোনাক ব্যক্তিগতকৃত বিজ্ঞাপন দেখুৱাবলৈ এই তথ্য বিচাৰিব পাৰে। আপোনাক বিজ্ঞাপন দেখুৱাবলৈ কোনবোৰ বিষয় আৰু এপ্‌ ব্যৱহাৰ কৰা হয় সেয়া আপুনি বাছনি কৰিব পাৰে।"</string>
+    <string name="notificationUI_container3_ga_introduction" msgid="4247237824558927582">"কোনো বিজ্ঞাপনৰ পাৰদৰ্শিতাৰ জোখ-মাখ কৰিবলৈ, এপ্‌সমূহৰ মাজত সীমিত ধৰণৰ ডেটা শ্বেয়াৰ কৰা হয়।"</string>
+    <string name="notificationUI_ga_container1_control_text" msgid="2711321174550177509">"Androidত দেখা পোৱা বিজ্ঞাপনৰ বিষয়ে অধিক তথ্য"</string>
+    <string name="notificationUI_how_it_works_row_subtitle1" msgid="8685034725335826096">"অধিক উপযোগী বিজ্ঞাপন"</string>
+    <string name="notificationUI_how_it_works_row_body1" msgid="5865369599951938718">"আপুনি দেখা বিজ্ঞাপনসমূহ ব্যক্তিগতকৰণ কৰাত সহায় কৰিবলৈ এপ্‌সমূহে Androidৰ পৰা তথ্য বিচাৰিব পাৰে।"</string>
+    <string name="notificationUI_how_it_works_row_body2" msgid="6601773212442110369">"•  আপুনি শেহতীয়াকৈ ব্যৱহাৰ কৰা এপ্‌সমূহৰ আধাৰত Androidএ আগ্ৰহৰ বিষয়বস্তুৰ লক্ষ্য ৰাখে।"</string>
+    <string name="notificationUI_how_it_works_row_body3" msgid="3692457397642529055">"•  আপুনি ব্যৱহাৰ কৰা এপ্‌সমূহেও আপুনি সেইবিলাক কেনেকৈ ব্যৱহাৰ কৰে তাৰ ওপৰত ভিত্তি কৰি আপুনি কি ভাল পায় সেইটো নিৰ্ধাৰণ কৰিব পাৰে। উদাহৰণস্বৰূপে, যদি আপুনি দীৰ্ঘ-দূৰত্বৰ দৌৰত পিন্ধা জোতা বিক্ৰী কৰা কোনো এপ্‌ ব্যৱহাৰ কৰে, তেন্তে এপ্‌টোৱে আপোনাৰ মাৰাথন দৌৰাত আগ্ৰহ আছে বুলি সিদ্ধান্ত ল’ব পাৰে।"</string>
+    <string name="notificationUI_how_it_works_row_body4" msgid="8731138074016839243">"পাছত, আপুনি ব্যৱহাৰ কৰা কোনো এপে এই তথ্যখিনি বিচাৰিব পাৰে — হয় বিজ্ঞাপনৰ বিষয়বস্তু নহয় আপুনি ব্যৱহাৰ কৰা এপ্‌সমূহে দিয়া বিজ্ঞাপনৰ পৰামৰ্শ।"</string>
+    <string name="notificationUI_how_it_works_row_body5" msgid="4524382869577899661">"Androidএ নিয়মীয়াকৈ বিষয়বস্তু আৰু বিজ্ঞাপনৰ পৰামৰ্শ আগবঢ়োৱা ডেটা স্বয়ংক্ৰিয়ভাৱে মচে। আপুনি নিৰ্দিষ্ট কিছুমান বিষয়বস্তু আৰু এপ্ অৱৰোধ কৰিব পাৰে, যিবোৰৰ পৰামৰ্শ আগবঢ়োৱাটো আপুনি নিবিচাৰে।"</string>
+    <string name="notificationUI_how_it_works_subtitle2" msgid="2203542887026049927">"কোনো বিজ্ঞাপনে কিমান ভাল পাৰদৰ্শিতা দেখুৱাইছে তাৰ জোখ-মাখ কৰা"</string>
+    <string name="notificationUI_how_it_works_row_body6" msgid="5368364880910986588">"আপুনি ব্যৱহাৰ কৰা এপ্‌সমূহে সেইবিলাকৰ বিজ্ঞাপনৰ পাৰদৰ্শিতাৰ জোখ-মাখ কৰাত সহায়ক হোৱা তথ্য Androidৰ পৰা বিচাৰিব পাৰে। Androidএ এপ্‌সমূহক সীমিত ধৰণৰ ডেটা সংগ্ৰহ কৰিবলৈ দিয়ে, যেনে- আপোনাক কোনো বিজ্ঞাপন দিনটোৰ কি সময়ত দেখুওৱা হৈছিল।"</string>
+    <string name="notificationUI_notification_ga_title_eu" msgid="5803977334621918481">"বিজ্ঞাপনৰ গোপনীয়তাৰ নতুন সুবিধা ব্যৱহাৰ কৰি চাওক"</string>
+    <string name="notificationUI_notification_ga_content_eu" msgid="8430705356085726474">"বিজ্ঞাপনৰ বিষয়বস্তুৱে আপুনি দেখা পোৱা বিজ্ঞাপনৰ ক্ষেত্ৰত আপোনাক বাছনি কৰিবলৈ অধিক বিষয়বস্তু প্ৰদান কৰে"</string>
+    <string name="notificationUI_notification_ga_cta_eu" msgid="8494461862622985200">"সবিশেষ চাওক"</string>
+    <string name="notificationUI_header_ga_title_eu" msgid="6246782633712559485">"বিজ্ঞাপনৰ গোপনীয়তাৰ নতুন সুবিধা ব্যৱহাৰ কৰি চাওক"</string>
+    <string name="notificationUI_container1_body_ga_text_eu" msgid="2461669162863900717">"Androidএ গোপনীয়তাৰ নতুন সুবিধা আগবঢ়াবলৈ লৈছে যিবিলাকে আপুনি দেখা পোৱা বিজ্ঞাপনৰ ক্ষেত্ৰত আপোনাক বাছনি কৰিবলৈ অধিক বিষয়বস্তু প্ৰদান কৰে।"</string>
+    <string name="notificationUI_container2_body_ga_text_eu" msgid="1692066129509373924">"বিজ্ঞাপনৰ বিষয়বস্তুৱে এপ্‌সমূহক আপোনাৰ পৰিচয় আৰু আপোনাৰ এপৰ ব্যৱহাৰৰ বিষয়ে তথ্য সুৰক্ষিত ৰাখি আপোনাক প্ৰাসংগিক বিজ্ঞাপন দেখুওৱাত সহায় কৰে। আপুনি শেহতীয়াকৈ ব্যৱহাৰ কৰা এপৰ ওপৰত ভিত্তি কৰি Androidএ আগ্ৰহৰ বিষয়বস্তুৰ লক্ষ্য় ৰাখিব পাৰে। পাছত, আপুনি ব্যৱহাৰ কৰা এটা এপে আপুনি দেখা পোৱা বিজ্ঞাপন ব্যক্তিগতকৰণ কৰিবলৈ Androidক প্ৰাসংগিক বিষয়বস্তুবোৰ বিচাৰিব পাৰে।"</string>
+    <string name="notificationUI_container3_body_ga_text_eu" msgid="5992069735281496875">"আপুনি আপোনাৰ ডিভাইচৰ ছেটিঙত বিজ্ঞাপনৰ বিষয়বস্তু চাব পাৰে আৰু আপুনি এপ্‌সমূহৰ সৈতে শ্বেয়াৰ কৰিব নিবিচৰাসমূহ অৱৰোধ কৰিব পাৰে। Androidএ নিয়মীয়াকৈ বিজ্ঞাপনৰ বিষয়বস্তু স্বয়ংক্ৰিয়ভাৱেও মচে।"</string>
+    <string name="notificationUI_change_any_time_in_privacy_settings_eu" msgid="2908767337419331427">"আপুনি যিকোনো সময়তে গোপনীয়তাৰ ছেটিঙত আপোনাৰ মন সলনি কৰিব পাৰে।"</string>
+    <string name="notificationUI_container1_control_ga_text_eu" msgid="4496835418228234590">"বিজ্ঞাপনৰ বিষয়বস্তুৰ বিষয়ে অধিক"</string>
+    <string name="notificationUI_learn_more_from_privacy_policy" msgid="7809111628979410445">"আমাৰ "<a href="https://policies.google.com/privacy">"গোপনীয়তাৰ নীতি"</a>"ত Androidএ আপোনাৰ ডেটা কেনেকৈ সুৰক্ষিত কৰে সেই বিষয়ে অধিক জানক।"</string>
+    <string name="notificationUI_right_control_button_ga_text_eu" msgid="7164165910760741822">"এইটো ব্যৱহাৰ কৰি চাওক"</string>
+    <string name="notificationUI_how_it_works_topics_expanded_text3" msgid="5620813445262745365">"•  কি ডেটা ব্যৱহাৰ কৰা হয়"</string>
+    <string name="notificationUI_how_it_works_topics_expanded_text4" msgid="398508225331553559">"আপোনাৰ বিজ্ঞাপনৰ বিষয়বস্তু এই ডিভাইচটোত আপুনি শেহতীয়াকৈ ব্যৱহাৰ কৰা এপ্‌সমূহ আৰু সেইবিলাক আপুনি কিমান সঘনাই ব্যৱহাৰ কৰে তাৰ ওপৰত আধাৰিত।"</string>
+    <string name="notificationUI_how_it_works_topics_expanded_text5" msgid="5976468008939416198">"•  আমি এই ডেটা কেনেকৈ ব্যৱহাৰ কৰোঁ"</string>
+    <string name="notificationUI_how_it_works_topics_expanded_text6" msgid="6318275524155409408">"আপুনি আপোনাৰ এপ্‌সমূহ ব্যৱহাৰ কৰোঁতে Androidএ আগ্ৰহৰ বিষয়সমূহৰ হিচাপ ৰাখে। বিষয়বস্তুৰ লেবেলসমূহ পূৰ্বনিৰ্ধাৰিত আৰু ইয়াত কলা আৰু মনোৰঞ্জন, শ্বপিং আৰু ক্ৰীড়াৰ দৰে বস্তু অন্তৰ্ভুক্ত হয়। পাছত, আপুনি ব্যৱহাৰ কৰা কোনো এপে আপুনি দেখা বিজ্ঞাপনসমূহ ব্যক্তিগতকৰণ কৰিবলৈ Androidক আপোনাৰ বিষয়সমূহৰ কিছুমান (কিন্তু আপোনাৰ এপৰ ব্যৱহাৰৰ অথবা পৰিচয়ৰ ডেটাৰ বিষয়ে নহয়)ৰ বিষয়ে সুধিব পাৰে।"</string>
+    <string name="notificationUI_how_it_works_topics_expanded_text7" msgid="4275126336833782389">"•  আপুনি নিজৰ ডেটা কেনেকৈ পৰিচালনা কৰিব পাৰে"</string>
+    <string name="notificationUI_how_it_works_topics_expanded_text8" msgid="2797007387412839612">"Androidএ নিয়মীয়াকৈ বিষয়বস্তু স্বয়ংক্ৰিয়ভাৱে মচে। আপুনি কোনো এপ্‌ ব্যৱহাৰ কৰি থাকিলে, সূচীখনত কোনো বিষয়বস্তু পুনৰ প্ৰদৰ্শিত হ\'ব পাৰে। আপুনি Androidএ কোনো এপৰ সৈতে শ্বেয়াৰ কৰিবলৈ দিবলৈ নিবিচৰা বিষয়বস্তু অৱৰোধো কৰিব পাৰে আৰু গোপনীয়তাৰ ছেটিঙত যিকোনো সময়তে বিজ্ঞাপনৰ বিষয়বস্তুৰ সুবিধাটো অফ কৰিব পাৰে।"</string>
+    <string name="notificationUI_you_can_change_in_privacy_settings" msgid="4781410091509838647">"আপুনি গোপনীয়তাৰ ছেটিঙত সালসলনি কৰিব পাৰে।"</string>
+    <string name="notificationUI_fledge_measurement_title" msgid="1721724915714192994">"এতিয়া বিজ্ঞাপনৰ গোপনীয়তাৰ অন্য সুবিধা উপলব্ধ"</string>
+    <string name="notificationUI_fledge_measurement_introduction_text1" msgid="2217529852483952185">"এপ্‌সমূহে আপোনাক ব্যক্তিগতকৃত বিজ্ঞাপন দেখুৱালে সেইসমূহে আপোনাৰ বিষয়ে কি জানিব পাৰে সেয়া সীমিত কৰাৰ বাবে Androidএ নতুন উপায় আগবঢ়ায়।"</string>
+    <string name="notificationUI_fledge_measurement_introduction_text2" msgid="601600895880486962">"•  এপে পৰামৰ্শ দিয়া বিজ্ঞাপনসমূহে এপ্‌সমূহক আপোনাক প্ৰাসংগিক বিজ্ঞাপন দেখুৱাবলৈ সক্ষম কৰি আপোনাৰ পৰিচয় আৰু আপোনাৰ এপৰ ব্যৱহাৰৰ বিষয়ে তথ্য সুৰক্ষিত কৰাত সহায় কৰে। আপোনাৰ কাৰ্যকলাপৰ ওপৰত ভিত্তি কৰি আপুনি ব্যৱহাৰ কৰা এটা এপে অন্য এপ্‌সমূহত প্ৰাসংগিক বিজ্ঞাপনৰ পৰামৰ্শ দিব পাৰে। আপুনি এপ্‌সমূহৰ সূচী চাব পাৰে আৰু গোপনীয়তাৰ ছেটিঙলৈ গৈ সেইসমূহক পৰামৰ্শ দিয়াৰ পৰা অৱৰোধ কৰিব পাৰে।"</string>
+    <string name="notificationUI_fledge_measurement_introduction_text3" msgid="956235653060248351">"•  বিজ্ঞাপনৰ জোখ-মাখৰ জৰিয়তে, এপ্‌সমূহৰ মাজত সেইবিলাকে দেখুওৱা বিজ্ঞাপনৰ পাৰদৰ্শিতা জোখ-মাখ কৰিবলৈ সীমিত ধৰণৰ ডেটা শ্বেয়াৰ কৰা হয়, যেনে- আপোনাক কোনো বিজ্ঞাপন দিনটোৰ কি সময়ত দেখুওৱা হৈছিল।"</string>
+    <string name="notificationUI_fledge_measurement_control_ga_text_eu" msgid="2346851728118443500">"এপে পৰামৰ্শ দিয়া বিজ্ঞাপন আৰু বিজ্ঞাপনৰ জোখ-মাখৰ বিষয়ে অধিক তথ্য"</string>
+    <string name="notificationUI_how_it_works_fledge_measurement_expanded_text0" msgid="2456923104551938349">"এপে পৰামৰ্শ দিয়া বিজ্ঞাপন"</string>
+    <string name="notificationUI_how_it_works_fledge_measurement_expanded_text1" msgid="5606895535548790900">"•  কি ডেটা ব্যৱহাৰ কৰা হয়"</string>
+    <string name="notificationUI_how_it_works_fledge_measurement_expanded_text2" msgid="6309052819494439288">"এই ডিভাইচটোত ব্যৱহাৰ কৰা এটা এপত আপোনাৰ কাৰ্যকলাপ।"</string>
+    <string name="notificationUI_how_it_works_fledge_measurement_expanded_text3" msgid="5347980571056638783">"•  এপ্‌সমূহে এই ডেটা কেনেকৈ ব্যৱহাৰ কৰে"</string>
+    <string name="notificationUI_how_it_works_fledge_measurement_expanded_text4" msgid="4738335469671465639">"এপ্‌সমূহ আপোনাৰ প্ৰিয় বস্তুবোৰৰ বিষয়ে তথ্য Androidৰ জৰিয়তে ষ্ট’ৰ কৰিব পাৰে। উদাহৰণস্বৰূপে, যদি আপুনি মাৰাথান দৌৰৰ প্ৰশিক্ষণ সম্পৰ্কীয় কোনো এপ্‌ ব্যৱহাৰ কৰে, তেন্তে এপ্‌টোৱে আপোনাৰ দৌৰোঁতে পিন্ধা জোতাত আগ্ৰহ আছে বুলি সিদ্ধান্ত ল’ব পাৰে। পাছত, আপুনি যদি অন্য কোনো এপ্‌ ব্যৱহাৰ কৰে, সেই এপ্‌টোৱে প্ৰথমটো এপে পৰামৰ্শ আগবঢ়োৱা দৌৰোঁতে পিন্ধা জোতাৰ বিজ্ঞাপন দেখুৱাব পাৰে।"</string>
+    <string name="notificationUI_how_it_works_fledge_measurement_expanded_text5" msgid="8737925570089314631">"•  আপুনি নিজৰ ডেটা কেনেকৈ পৰিচালনা কৰিব পাৰে"</string>
+    <string name="notificationUI_how_it_works_fledge_measurement_expanded_text6" msgid="495908587748380196">"Androidএ নিয়মীয়াকৈ এপে পৰামৰ্শ দিয়া ডেটা স্বয়ংক্ৰিয়ভাৱে মচে। আপুনি পুনৰ ব্যৱহাৰ কৰা কোনো এপ্‌ সূচীখনত পুনৰ ওলাব পাৰে।"</string>
+    <string name="notificationUI_how_it_works_fledge_measurement_expanded_text7" msgid="8995912218837619600">"আপুনি লগতে কোনো এপে আপোনাক বিজ্ঞাপনৰ পৰামৰ্শ দিয়াৰ পৰা সেইটোক অৱৰোধ কৰিব পাৰে, বিজ্ঞাপনৰ পৰামৰ্শৰ লগত জড়িত আটাইবোৰ ডেটা ৰিছেট কৰিব পাৰে অথবা যিকোনো সময়তে গোপনীয়তাৰ ছেটিঙলৈ গৈ এপে পৰামৰ্শ দিয়া বিজ্ঞাপনৰ সুবিধাটো অফ কৰিব পাৰে।"</string>
+    <string name="notificationUI_how_it_works_fledge_measurement_expanded_text9" msgid="5709134827192739362">"আপুনি ব্যৱহাৰ কৰা এপ্‌সমূহে Androidৰ পৰা এনে তথ্য বিচাৰিব পাৰে যিয়ে সেইবিলাকক সেইবিলাকৰ বিজ্ঞাপনৰ পাৰদৰ্শিতাৰ জোখ-মাখ কৰাত সহায় কৰে। Androidএ এটা এপে অন্য এটা এপৰ সৈতে শ্বেয়াৰ কৰিব পৰা তথ্য সীমিত কৰি আপোনাৰ গোপনীয়তাক সুৰক্ষা দিয়ে।"</string>
+    <string name="notificationUI_notification_ga_title_eu_v2" msgid="9132669086237883391">"এতিয়া বিজ্ঞাপনৰ গোপনীয়তাৰ নতুন সুবিধা উপলব্ধ"</string>
+    <string name="notificationUI_notification_ga_content_eu_v2" msgid="9205285241542339861">"আপোনাৰ পৰিচয় সুৰক্ষিত ৰাখি আপুনি দেখা পোৱা বিজ্ঞাপনৰ বিষয়ে অধিক বিকল্প লাভ কৰক"</string>
+    <string name="notificationUI_fledge_measurement_title_v2" msgid="1097778529908285549">"এতিয়া বিজ্ঞাপনৰ গোপনীয়তাৰ নতুন সুবিধা উপলব্ধ"</string>
+    <string name="notificationUI_fledge_measurement_introduction_text1_v2" msgid="4019531984422364790">"এপ্‌সমূহে আপোনাক ব্যক্তিগতকৃত বিজ্ঞাপন দেখুৱালে সেইসমূহে আপোনাৰ বিষয়ে কি জানিব পাৰে সেয়া সীমিত কৰাৰ বাবে Androidএ নতুন পদ্ধতি লঞ্চ কৰিছে।"</string>
+    <string name="notificationUI_fledge_measurement_introduction_text2_v2" msgid="7324869061552803848">"•  এপে পৰামৰ্শ দিয়া বিজ্ঞাপনৰ জৰিয়তে, নতুন গোপনীয়তা সম্পৰ্কীয় সুবিধাসমূহে আপোনাৰ পৰিচয় আৰু আপোনাৰ এপ্‌ ব্যৱহাৰৰ বিষয়ে তথ্য সুৰক্ষিত কৰাত সহায় কৰাৰ লগতে আপোনাক প্ৰাসংগিক বিজ্ঞাপন দেখুৱাবলৈ এপ্‌সমূহক সুবিধা প্ৰদান কৰে। আপোনাৰ কাৰ্যকলাপৰ ওপৰত ভিত্তি কৰি আপুনি ব্যৱহাৰ কৰা এটা এপে অন্য এপ্‌সমূহত প্ৰাসংগিক বিজ্ঞাপনৰ পৰামৰ্শ দিব পাৰে। আপুনি এপ্‌সমূহৰ সূচী চাব পাৰে আৰু গোপনীয়তাৰ ছেটিঙলৈ গৈ সেইসমূহক পৰামৰ্শ দিয়াৰ পৰা অৱৰোধ কৰিব পাৰে।"</string>
+    <string name="notificationUI_fledge_measurement_introduction_text3_v2" msgid="7061185974787039681">"•  বিজ্ঞাপনৰ জোখ-মাখৰ ক্ষেত্ৰত, এপ্‌সমূহৰ মাজত সেইবিলাকে দেখুওৱা বিজ্ঞাপনৰ পাৰদৰ্শিতাৰ বুজ ল’বলৈ সীমিত ধৰণৰ ডেটা শ্বেয়াৰ কৰা হয়, যেনে- আপোনাক কোনো বিজ্ঞাপন দিনটোৰ কি সময়ত দেখুওৱা হৈছিল।"</string>
+    <string name="notificationUI_how_it_works_fledge_measurement_expanded_text2_v2" msgid="5467298277353569728">"এই ডিভাইচটোৰ কোনো এপত আপুনি কৰা কাৰ্যকলাপ বিজ্ঞাপনৰ পৰামৰ্শ দিবলৈ ব্যৱহাৰ কৰিব পাৰি।"</string>
+    <string name="notificationUI_header_ga_title_eu_v2" msgid="8442776546238998877">"বিজ্ঞাপনৰ গোপনীয়তাৰ অন্য এটা সুবিধা অন কৰক"</string>
+    <string name="notificationUI_container1_body_ga_text_eu_v2" msgid="1119632112904754361">"Androidএ লগতে এটা নতুন গোপনীয়তা সম্পৰ্কীয় সুবিধা আগবঢ়ায়, যিটোৱে আপুনি দেখা বিজ্ঞাপনৰ বিষয়ে আপোনাক অধিক বিকল্প প্ৰদান কৰে।"</string>
+    <string name="notificationUI_container2_body_ga_text_eu_v2" msgid="7264946073865844642">"বিজ্ঞাপনৰ বিষয়বস্তুৱে এপ্‌সমূহক আপোনাৰ পৰিচয় আৰু আপোনাৰ এপ্‌ ব্যৱহাৰৰ বিষয়ে তথ্য সুৰক্ষিত ৰাখি আপোনাক প্ৰাসংগিক বিজ্ঞাপন দেখুওৱাত সহায় কৰে। আপুনি শেহতীয়াকৈ ব্যৱহাৰ কৰা এপৰ ওপৰত ভিত্তি কৰি Androidএ আগ্ৰহৰ বিষয়বস্তুৰ লক্ষ্য ৰাখিব পাৰে। পাছত, আপুনি ব্যৱহাৰ কৰা কোনো এপে আপোনাক অধিক প্ৰাসংগিক বিজ্ঞাপন দেখুৱাবলৈ Androidক প্ৰাসংগিক বিষয়বস্তুবোৰ বিচাৰিব পাৰে।"</string>
+    <string name="notificationUI_container3_body_ga_text_eu_v2" msgid="3204499878554843655">"আপুনি আপোনাৰ ডিভাইচৰ গোপনীয়তাৰ ছেটিঙত বিজ্ঞাপনৰ বিষয়বস্তু চাব পাৰে আৰু আপুনি এপ্‌সমূহৰ সৈতে শ্বেয়াৰ কৰিবলৈ নিবিচৰাসমূহ অৱৰোধ কৰিব পাৰে। Androidএ নিয়মীয়াকৈ বিজ্ঞাপনৰ বিষয়বস্তু স্বয়ংক্ৰিয়ভাৱেও মচে।"</string>
+    <string name="notificationUI_right_control_button_ga_text_eu_v2" msgid="7227289411885047121">"এইটো অন কৰক"</string>
+    <string name="notificationUI_notification_ga_title_v2" msgid="7429979629916798545">"এতিয়া বিজ্ঞাপনৰ গোপনীয়তাৰ নতুন সুবিধা উপলব্ধ"</string>
+    <string name="notificationUI_notification_ga_content_v2" msgid="4673081782304081905">"আপোনাৰ পৰিচয় সুৰক্ষিত ৰাখি আপুনি দেখা পোৱা বিজ্ঞাপনৰ বিষয়ে এতিয়া অধিক বিকল্প লাভ কৰাৰ সুবিধা আছে"</string>
+    <string name="notificationUI_header_ga_title_v2" msgid="2079990149331373941">"এতিয়া বিজ্ঞাপনৰ গোপনীয়তাৰ নতুন সুবিধা উপলব্ধ"</string>
+    <string name="notificationUI_container1_ga_introduction_v2" msgid="3820258766801905248">"Androidএ এতিয়া এটা নতুন গোপনীয়তা সম্পৰ্কীয় সুবিধা আগবঢ়ায়, যিটোৱে আপুনি দেখা বিজ্ঞাপনৰ বিষয়ে আপোনাক অধিক বিকল্প প্ৰদান কৰে।"</string>
+    <string name="notificationUI_next_button_text" msgid="5564270455474313663">"পৰৱৰ্তী"</string>
+    <string name="settingsUI_main_view_title" msgid="1663691082473230496">"প্ৰাইভেচি ছেণ্ডবক্স"</string>
+    <string name="settingsUI_main_view_subtitle" msgid="2059496555507319371">"Androidৰ বিজ্ঞাপনৰ গোপনীয়তাৰ বিটাত অংশগ্ৰহণকাৰী"</string>
+    <string name="settingsUI_privacy_sandbox_beta_switch_title" msgid="5264782269528129670">"প্ৰাইভেচি ছেণ্ডবক্স"</string>
+    <string name="settingsUI_topics_title" msgid="5996189869721397937">"Androidএ অনুমান কৰা আগ্ৰহ"</string>
+    <string name="settingsUI_apps_title" msgid="2772289096915264175">"আগ্ৰহ অনুমান কৰা এপ্"</string>
+    <string name="settingsUI_main_view_info_text8" msgid="2262800588014737545">"বিজ্ঞাপনৰ জোখ-মাখ"</string>
+    <string name="settingsUI_main_view_info_text9" msgid="5431131706102562540">"এপে নিজৰ বিজ্ঞাপনৰ ফলপ্ৰসূতা জুখিবলৈ প্ৰাইভেচি ছেণ্ডবক্স ব্যৱহাৰ কৰিব পাৰে। এনে কৰিবলৈ, বিজ্ঞাপকে আপুনি তেওঁৰ বিজ্ঞাপন আৰু এপৰ সৈতে কৰা ভাব-বিনিময়ৰ বিষয়ে Androidৰ জৰিয়তে অস্থায়ীভাৱে ডেটা ছেভ কৰিব পাৰে। তেওঁ ছেভ কৰিব পৰা ডেটাৰ পৰিমাণ প্ৰতিবন্ধিত আৰু সেয়া নিয়মীয়াকৈ মচা হ’ব।\n\nআপুনি প্ৰাইভেচি ছেণ্ডবক্স অফ কৰি এই ডেটাখিনি যিকোনো সময়তে মচিব পাৰে।"</string>
+    <string name="settingsUI_topics_view_subtitle" msgid="6608135144119617292">"Androidএ আপুনি ব্যৱহাৰ কৰা এপৰ ভিত্তিত সময়ে সময়ে আপোনাৰ শীৰ্ষ আগ্ৰহসমূহ অনুমান কৰে। এপে আপোনাক অধিক প্ৰাসংগিক বিজ্ঞাপন দেখুৱাবলৈ Androidক সেই আগ্ৰহসমূহ ব্যৱহাৰ কৰিবলৈ বিচাৰিব পাৰে।\n\nযদি আপুনি কোনো আগ্ৰহ অৱৰোধ কৰে, আপুনি ইয়াক অৱৰোধৰ পৰা আঁতৰাই নিদিয়ালৈকে সূচীখনত যোগ দিয়া নহ’ব। আপুনি তথাপি কিছুমান প্ৰাসংগিক বিজ্ঞাপন দেখা পাব পাৰে।"</string>
+    <string name="settingsUI_block_topic_title" msgid="1883542291264768402">"অৱৰোধ কৰক"</string>
+    <string name="settingsUI_unblock_topic_title" msgid="1710283575567727667">"আনব্লক কৰক"</string>
+    <string name="settingsUI_blocked_topics_title" msgid="5030422883546261820">"আপুনি অৱৰোধ কৰা আগ্ৰহ"</string>
+    <string name="settingsUI_reset_topics_title" msgid="6917960006583871987">"আটাইবোৰ আগ্ৰহ ৰিছেট কৰক"</string>
+    <string name="settingsUI_topics_view_no_topics_text" msgid="6954747579303498382">"এই মুহূৰ্তত দেখুৱাবলৈ কোনো আগ্ৰহ নাই।"</string>
+    <string name="settingsUI_topics_view_no_topics_ga_text" msgid="8043163159679359485">"এই মুহূৰ্তত দেখুৱাবলৈ কোনো বিষয়বস্তু নাই।\n"<a href="https://support.google.com/android?p=ad_privacy">"বিজ্ঞাপনৰ বিষয়বস্তু"</a>"ৰ বিষয়ে অধিক জানক"</string>
+    <string name="settingsUI_topics_view_info_text1" msgid="2477020249748216309">"প্ৰাইভেচি ছেণ্ডবক্স"</string>
+    <string name="settingsUI_topics_view_info_text2" msgid="6223353589295876851">"Androidৰ বিজ্ঞাপনৰ গোপনীয়তা বিটাই নতুন সুবিধাসমূহ দিয়ে, যিসমূহ সুবিধা এপে আপোনাক আপুনি পচন্দ কৰিব পৰা ধৰণৰ বিজ্ঞাপন দেখুৱাবলৈ ব্যৱহাৰ কৰিব পাৰে। এই প্ৰযুক্তিসমূহে ডিভাইচ চিনাক্তকাৰী ব্যৱহাৰ নকৰে।\n\nAndroidএ আপুনি আগ্ৰহী হ’ব পৰা ধৰণৰ বিজ্ঞাপন অনুমান কৰিব পাৰে আৰু আপোনাৰ ডিভাইচত অস্থায়ীভাৱে আগ্ৰহসমূহ ছেভ কৰিব পাৰে। এইটোৱে সমগ্ৰ ৱেবছাইট আৰু অন্য বিকাশকৰ্তাৰ এপত আপোনাৰ কাৰ্যকলাপ ট্ৰেক নকৰাকৈয়ে আপোনাৰ বাবে প্ৰাসংগিক বিজ্ঞাপন দেখুৱাবলৈ এপক অনুমতি দিয়ে।"</string>
+    <string name="settingsUI_topics_view_no_blocked_topics_text" msgid="6553014185055718781">"আপোনাৰ ওচৰত অৱৰোধ কৰি থোৱা কোনো আগ্ৰহ নাই"</string>
+    <string name="settingsUI_no_blocked_topics_ga_text" msgid="377459829879121256">"কোনো অৱৰোধ কৰা বিষয়বস্তু নাই"</string>
+    <string name="settingsUI_view_blocked_topics_title" msgid="3705333677440361392">"অৱৰোধ কৰা বিষয়বস্তু চাওক"</string>
+    <string name="settingsUI_topics_are_reset" msgid="7539323750312329931">"আগ্ৰহসমূহ ৰিছেট কৰা হৈছে"</string>
+    <string name="settingsUI_topics_are_reset_ga" msgid="5250296990870048195">"বিষয়বস্তু ৰিছেট কৰা হৈছে"</string>
+    <string name="settingsUI_apps_view_subtitle" msgid="8193343057416677400">"এপে আপোনাৰ আগ্ৰহসমূহ অনুমান কৰিব আৰু সেইবোৰ Androidৰ জৰিয়তে অস্থায়ীভাৱে ছেভ কৰিব পাৰে। পাছত, অন্য এটা এপে এই আগ্ৰহসমূহৰ ভিত্তিত আপোনাক কোনো বিজ্ঞাপন দেখুৱাব পাৰে।\n\nযদি আপুনি কোনো এপ্ অৱৰোধ কৰে, সেইটোৱে আৰু কোনো আগ্ৰহ অনুমান কৰিব নোৱাৰিব। আপুনি ইয়াক অৱৰোধৰ পৰা আঁতৰাই নিদিয়ালৈকে ইয়াক এপৰ এই সূচীখনত যোগ দিয়া নহ’ব। এপ্‌টোৱে ইতিমধ্যে অনুমান কৰা আগ্ৰহসমূহ মচি পেলোৱা হ’ব, কিন্তু আপুনি তথাপি কিছুমান প্ৰাসংগিক বিজ্ঞাপন দেখিব পাৰে।"</string>
+    <string name="settingsUI_blocked_apps_title" msgid="1260257485713408637">"আপুনি অৱৰোধ কৰা এপ্‌সমূহ"</string>
+    <string name="settingsUI_view_blocked_apps_title" msgid="379556513199380600">"অৱৰোধ কৰা এপ্‌ চাওক"</string>
+    <string name="settingsUI_reset_apps_title" msgid="6221704974528131179">"এপে অনুমান কৰা আগ্ৰহ ৰিছেট কৰক"</string>
+    <string name="settingsUI_apps_view_no_apps_text" msgid="7460005016322426137">"এই মুহূৰ্তত আপোনাৰ বাবে কোনো এপে আগ্ৰহ সৃষ্টি কৰা নাই"</string>
+    <string name="settingsUI_apps_view_no_apps_ga_text" msgid="742044210764257860">"এই মুহূৰ্তত দেখুৱাবলৈ কোনো এপ্‌ নাই। \n"<a href="https://support.google.com/android?p=ad_privacy">"এপে পৰামৰ্শ দিয়া বিজ্ঞাপন"</a>"ৰ বিষয়ে অধিক জানক"</string>
+    <string name="settingsUI_apps_view_info_text1" msgid="7835635425477842692">"প্ৰাইভেচি ছেণ্ডবক্স"</string>
+    <string name="settingsUI_apps_view_info_text2" msgid="308547275474796552">"Androidৰ বিজ্ঞাপনৰ গোপনীয়তা বিটাই নতুন সুবিধাসমূহ দিয়ে, যিসমূহ সুবিধা এপে আপোনাক আপুনি পচন্দ কৰিব পৰা ধৰণৰ বিজ্ঞাপন দেখুৱাবলৈ ব্যৱহাৰ কৰিব পাৰে। এই প্ৰযুক্তিসমূহে ডিভাইচ চিনাক্তকাৰী ব্যৱহাৰ নকৰে।\n\nএপে আপুনি আগ্ৰহী হ’ব পৰা ধৰণৰ বিজ্ঞাপন অনুমান কৰিব পাৰে আৰু আপোনাৰ ডিভাইচত অস্থায়ীভাৱে আগ্ৰহসমূহ ছেভ কৰিব পাৰে। এইটোৱে সমগ্ৰ ৱেবছাইট আৰু অন্য বিকাশকৰ্তাৰ এপত আপোনাৰ কাৰ্যকলাপ ট্ৰেক নকৰাকৈয়ে আপোনাৰ বাবে প্ৰাসংগিক বিজ্ঞাপন দেখুৱাবলৈ এপক অনুমতি দিয়ে।"</string>
+    <string name="settingsUI_apps_view_no_blocked_apps_text" msgid="3953560911214151396">"আপোনাৰ ওচৰত কোনো অৱৰোধিত এপ্ নাই"</string>
+    <string name="settingsUI_no_blocked_apps_ga_text" msgid="7488680173653861943">"কোনো অৱৰোধ কৰা এপ্‌ নাই"</string>
+    <string name="settingsUI_measurement_switch_title" msgid="6623116680555954932">"বিজ্ঞাপনৰ জোখ-মাখ কৰাৰ অনুমতি দিয়ক"</string>
+    <string name="settingsUI_measurement_view_intro_text" msgid="3608942051176719850">"এপ্‌সমূহ আৰু বিজ্ঞাপনদাতাসকলে Androidৰ পৰা এনে তথ্য বিচাৰি অনুৰোধ কৰিব পাৰে, যিয়ে এপ্‌সমূহক সেইবিলাকৰ আৰু বিজ্ঞাপনদাতাসকলক তেওঁলোকৰ বিজ্ঞাপনৰ পাৰদৰ্শিতাৰ জোখ-মাখ কৰাত সহায় কৰে।\n\nবিজ্ঞাপনৰ জোখ-মাখৰ ডেটা আপোনাৰ ডিভাইচৰ পৰা নিয়মিতভাৱে মচি পেলোৱা হয়।"</string>
+    <string name="settingsUI_measurement_view_reset_title" msgid="3063374834649428050">"জোখ-মাখৰ ডেটা ৰিছেট কৰক"</string>
+    <string name="settingsUI_measurement_view_footer_text" msgid="5978750159738729308">"Androidএ এটা এপে অন্য এটা এপৰ সৈতে শ্বেয়াৰ কৰিব পৰা তথ্য সীমিত কৰি আপোনাৰ গোপনীয়তাক সুৰক্ষা দিয়ে। ৰিপ’ৰ্টসমূহ আপোনাৰ পৰিচয় সুৰক্ষিত কৰিবলৈ পলমকৈ পঠিওৱা হয়।\n\nআপোনাৰ ব্ৰাউজাৰটোত একেধৰণৰ এটা ছেটিং থাকিব পাৰে। যদি Android আৰু আপোনাৰ ব্ৰাউজাৰ দুয়োটাতে বিজ্ঞাপনৰ জোখ-মাখ অন কৰা হয়, তেন্তে কোনো কোম্পানীয়ে আপুনি ব্যৱহাৰ কৰা এপ্‌ আৰু আপুনি চোৱা ছাইটৰ মাজত বিজ্ঞাপনৰ ফলপ্ৰসূতা জোখ-মাখ কৰিবলৈ সক্ষম হ’ব পাৰে। আপোনাৰ ব্ৰাউজিঙৰ ইতিহাস আপোনাৰ ডিভাইচত গোপনে ৰখা হয়।\n\n"<a href="https://policies.google.com/privacy">"আমাৰ গোপনীয়তাৰ নীতি"</a>"ত Androidএ আপোনাৰ ডেটা কেনেকৈ সুৰক্ষিত কৰে সেই বিষয়ে অধিক জানক।"</string>
+    <string name="settingsUI_measurement_are_reset" msgid="4375330550418573499">"বিজ্ঞাপনৰ জোখ-মাখৰ ডেটা ৰিছেট কৰা হৈছে"</string>
+    <string name="settingsUI_dialog_negative_text" msgid="3014088254631375852">"বাতিল কৰক"</string>
+    <string name="settingsUI_dialog_opt_out_title" msgid="1862069591629418291">"প্ৰাইভেচি ছেণ্ডবক্স অফ কৰিবনে?"</string>
+    <string name="settingsUI_dialog_opt_out_message" msgid="5696012172835241848">"আপুনি যদি নিজৰ সিদ্ধান্ত সলনি কৰে অথবা Androidৰ বিজ্ঞাপনৰ গোপনীয়তা বিটাৰ বিষয়ে অধিক জানিবলৈ বিচাৰে, আপোনাৰ গোপনীয়তাৰ ছেটিঙলৈ যাওক"</string>
+    <string name="settingsUI_dialog_opt_out_positive_text" msgid="5344259263448028614">"অফ কৰক"</string>
+    <string name="settingsUI_dialog_block_topic_title" msgid="5744004384480280782">"<xliff:g id="TOPIC">%1$s</xliff:g> অৱৰোধ কৰিবনে?"</string>
+    <string name="settingsUI_dialog_block_topic_message" msgid="2581824495438333677">"এই বিষয়বস্তুটো অৱৰোধ কৰা হ’ব আৰু আপুনি ইয়াক পুনৰ যোগ নিদিয়া পৰ্যন্ত এইটো আপোনাৰ সূচীত পুনৰ যোগ দিয়া নহ’ব। আপুনি তথাপি কিছুমান প্ৰাসংগিক বিজ্ঞাপন দেখা পাব পাৰে।"</string>
+    <string name="settingsUI_dialog_block_topic_positive_text" msgid="2626152417590300510">"অৱৰোধ কৰক"</string>
+    <string name="settingsUI_dialog_unblock_topic_title" msgid="7361000923920947234">"<xliff:g id="TOPIC">%1$s</xliff:g>ক অৱৰোধৰ পৰা আঁতৰোৱা হ’ল"</string>
+    <string name="settingsUI_dialog_unblock_topic_message" msgid="1090743551997420666">"Androidএ আপোনাৰ সূচীখনত এই বিষয়বস্তুটো পুনৰ যোগ দিব পাৰে, কিন্তু সেইটো তৎক্ষণাৎ প্ৰদৰ্শিত নহ’ব পাৰে"</string>
+    <string name="settingsUI_dialog_unblock_topic_positive_text" msgid="2192452325573789737">"ঠিক আছে"</string>
+    <string name="settingsUI_dialog_reset_topic_title" msgid="8025836207966712435">"আটাইবোৰ বিজ্ঞাপনৰ বিষয়বস্তু ৰিছেট কৰিবনে?"</string>
+    <string name="settingsUI_dialog_reset_topic_message" msgid="4243744527757134000">"আপোনাৰ সূচীখন মচা হ’ব আৰু এতিয়াৰ পৰা নতুন বিষয়বস্তু যোগ দিয়া হ’ব। আপুনি তথাপি আপুনি ৰিছেট কৰা বিষয়বস্তুৰ প্ৰাসংগিক কিছুমান বিজ্ঞাপন দেখা পাব পাৰে।"</string>
+    <string name="settingsUI_dialog_reset_topic_positive_text" msgid="8345697359799280761">"ৰিছেট কৰক"</string>
+    <string name="settingsUI_dialog_block_app_title" msgid="421160714549264414">"<xliff:g id="APP">%1$s</xliff:g> অৱৰোধ কৰিবনে?"</string>
+    <string name="settingsUI_dialog_block_app_message" msgid="758788973278770119">"এই এপ্‌টোৱে বিজ্ঞাপনৰ পৰামৰ্শ নিদিয়ে আৰু আপুনি ইয়াক অৱৰোধৰ পৰা আঁতৰাই নিদিয়ালৈকে ইয়াক আপোনাৰ সূচীখনত পুনৰ যোগ দিয়া নহ’ব। আপুনি তথাপি কিছুমান প্ৰাসংগিক বিজ্ঞাপন দেখা পাব পাৰে।"</string>
+    <string name="settingsUI_dialog_unblock_app_title" msgid="4360730780049298286">"<xliff:g id="APP">%1$s</xliff:g>ক অৱৰোধৰ পৰা আঁতৰোৱা হ’ল"</string>
+    <string name="settingsUI_dialog_unblock_app_message" msgid="5758218424845642060">"এই এপ্‌টোৱে আপোনাৰ বাবে পুনৰ বিজ্ঞাপনৰ পৰামৰ্শ দিব পাৰে, কিন্তু সেয়া আপোনাৰ সূচীখনত তৎক্ষণাৎ প্ৰদৰ্শিত নহ’ব পাৰে। আপুনি প্ৰাসংগিক বিজ্ঞাপনসমূহ দেখা পাবলৈ কিছু সময় লাগিব পাৰে।"</string>
+    <string name="settingsUI_dialog_reset_app_title" msgid="5177572712117150557">"এপে পৰামৰ্শ দিয়া বিজ্ঞাপন ৰিছেট কৰিবনে?"</string>
+    <string name="settingsUI_dialog_reset_app_message" msgid="7845329616145691006">"আপোনাৰ সূচীত থকা এপ্‌সমূহৰ পৰা বিজ্ঞাপন পৰামৰ্শৰ লগত জড়িত ডেটা মচা হ’ব আৰু এপ্‌সমূহে ভৱিষ্যতে নতুন বিজ্ঞাপনৰ পৰামৰ্শ দিব। আপুনি তথাপি কিছুমান প্ৰাসংগিক বিজ্ঞাপন দেখা পাব পাৰে।"</string>
+    <string name="settingsUI_apps_are_reset" msgid="1814400631145418530">"এপৰ ডেটা ৰিছেট কৰা হৈছে"</string>
+    <string name="settingsUI_dialog_topics_opt_in_title" msgid="8121927422479701361">"বিজ্ঞাপনৰ বিষয়বস্তু অন আছে"</string>
+    <string name="settingsUI_dialog_topics_opt_in_message" msgid="906156509464496182">"Androidএ আগ্ৰহৰ বিষয়বস্তুৰ প্ৰতি লক্ষ্য ৰাখিবলৈ আৰম্ভ কৰিব, কিন্তু আপোনাৰ প্ৰথম বিষয়বস্তুটো দেখা পাবলৈ কিছু সময় লাগিব পাৰে।"</string>
+    <string name="settingsUI_dialog_topics_opt_out_title" msgid="729119757000459089">"বিজ্ঞাপনৰ বিষয়বস্তু অফ কৰিবনে?"</string>
+    <string name="settingsUI_dialog_topics_opt_out_message" msgid="1536431481297878931">"বিষয়বস্তুৰ এই সূচীখন মচি পেলোৱা হ’ব। Androidএ আৰু আগ্ৰহৰ বিষয়বস্তুৰ প্ৰতি লক্ষ্য নাৰাখিব, কিন্তু আপুনি তথাপি প্ৰাসংগিক বিজ্ঞাপন দেখা পাব পাৰে।"</string>
+    <string name="settingsUI_dialog_apps_opt_in_title" msgid="1802639238531107941">"এপে পৰামৰ্শ দিয়া বিজ্ঞাপন অন আছে"</string>
+    <string name="settingsUI_dialog_apps_opt_in_message" msgid="6335861029594000364">"এপ্‌সমূহে বিজ্ঞাপনৰ পৰামৰ্শ আগবঢ়াবলৈ আৰম্ভ কৰিব পাৰে। এপ্‌সমূহে বিজ্ঞাপনৰ পৰামৰ্শ আগবঢ়াবলৈ আৰম্ভ কৰিলে আপুনি সেইবিলাকৰ এখন সূচী দেখা পাব।"</string>
+    <string name="settingsUI_dialog_apps_opt_out_title" msgid="2152898453001885432">"এপে পৰামৰ্শ দিয়া বিজ্ঞাপন অফ কৰিবনে?"</string>
+    <string name="settingsUI_dialog_apps_opt_out_message" msgid="6894065908128443334">"আটাইবোৰ বিজ্ঞাপনৰ পৰামৰ্শৰ ডেটা মচা হ’ব। এপ্‌সমূহে আৰু বিজ্ঞাপনৰ পৰামৰ্শ দিব নোৱাৰিব, কিন্তু আপুনি তথাপি প্ৰাসংগিক বিজ্ঞাপন দেখা পাব পাৰে।"</string>
+    <string name="settingsUI_dialog_measurement_opt_in_title" msgid="313317715284771681">"বিজ্ঞাপনৰ জোখ-মাখ অন আছে"</string>
+    <string name="settingsUI_dialog_measurement_opt_in_message" msgid="1122570790810645916">"এপ্‌সমূহক নিজৰ বিজ্ঞাপনৰ পাৰদৰ্শিতা জোখ-মাখ কৰাত সহায় কৰিবলৈ Androidএ সেইবিলাকৰ সৈতে অতি সীমিত তথ্য শ্বেয়াৰ কৰিব পাৰে।"</string>
+    <string name="settingsUI_dialog_measurement_opt_out_title" msgid="1629867723206716370">"বিজ্ঞাপনৰ জোখ-মাখ অফ কৰিবনে?"</string>
+    <string name="settingsUI_dialog_measurement_opt_out_message" msgid="1050338738668085641">"আটাইবোৰ বিবেচনাধীন বিজ্ঞাপনৰ জোখ-মাখৰ ৰিপ’ৰ্ট মচি পেলোৱা হ’ব আৰু কোনো নতুন ৰিপ’ৰ্ট সৃষ্টি অথবা শ্বেয়াৰ কৰা নহ’ব।"</string>
+    <string name="settingsUI_main_view_ga_title" msgid="4149820452019697214">"বিজ্ঞাপনৰ গোপনীয়তা"</string>
+    <string name="settingsUI_topics_ga_title" msgid="7324482132761824214">"বিজ্ঞাপনৰ বিষয়বস্তু"</string>
+    <string name="settingsUI_apps_ga_title" msgid="1527820834800364372">"এপে পৰামৰ্শ দিয়া বিজ্ঞাপন"</string>
+    <string name="settingsUI_main_view_ad_topics_info" msgid="2643088833140772417">"আপুনি শেহতীয়াকৈ ব্যৱহাৰ কৰা এপ্‌সমূহ আৰু আপুনি সেইবোৰ কিমান সঘনাই ব্যৱহাৰ কৰে তাৰ ওপৰত ভিত্তি কৰি Androidএ আগ্ৰহৰ বিষয়বস্তুৰ লক্ষ্য় ৰাখে।"</string>
+    <string name="settingsUI_main_view_apps_info" msgid="1668244327840008046">"আপুনি ব্যৱহাৰ কৰা এপ্‌সমূহেও আপুনি সেইবিলাক কেনেকৈ ব্যৱহাৰ কৰে তাৰ ওপৰত ভিত্তি কৰি আপুনি কি ভাল পায় সেইটো নিৰ্ধাৰণ কৰিব পাৰে।"</string>
+    <string name="settingsU_main_view_measurement_info" msgid="7950104699961821635">"আপুনি ব্যৱহাৰ কৰা এপ্‌সমূহে দেখুওৱা বিজ্ঞাপনৰ পাৰদৰ্শিতাৰ জোখ-মাখ কৰাত সহায় কৰিবলৈ সেইসমূহে Androidৰ পৰা তথ্য বিচাৰিব পাৰে। Androidএ এপ্‌সমূহক সীমিত ধৰণৰ ডেটা সংগ্ৰহ কৰিবলৈ দিয়ে।"</string>
+    <string name="settingsU_main_view_learn_more" msgid="2129694798398023916"><a href="https://support.google.com/android?p=ad_privacy">"Androidত বিজ্ঞাপনৰ গোপনীয়তা"</a>"ৰ বিষয়ে অধিক জানক"</string>
+    <string name="settingsUI_topics_subtitle" msgid="6545976434367750110">"অন আছে / <xliff:g id="TOPICS_COUNT">%1$d</xliff:g> টা বিষয়বস্তু"</string>
+    <string name="settingsUI_topics_subtitle_plural" msgid="4809219115021801972">"{count,plural, =1{অন আছে / # টা বিষয়বস্তু}one{অন আছে / # টা বিষয়বস্তু}other{অন আছে / # টা বিষয়বস্তু}}"</string>
+    <string name="settingsUI_apps_subtitle" msgid="387595280958995973">"অন আছে / <xliff:g id="APPS_COUNT">%1$d</xliff:g> টা এপ্‌"</string>
+    <string name="settingsUI_apps_subtitle_plural" msgid="3989880089023565457">"{count,plural, =1{অন আছে / # টা এপ্}one{অন আছে / # টা এপ্}other{অন আছে / # টা এপ্}}"</string>
+    <string name="settingsUI_subtitle_consent_on" msgid="7522464537194619022">"অন আছে"</string>
+    <string name="settingsUI_subtitle_consent_off" msgid="1604274030685784887">"অফ আছে"</string>
+    <string name="settingsUI_topics_view_ga_subtitle" msgid="3672784134413586246">"আগ্ৰহৰ বিষয়বস্তু আপুনি শেহতীয়াকৈ ব্যৱহাৰ কৰা এপ্‌সমূহৰ ওপৰত আধাৰিত আৰু সেইবোৰ এপ্‌সমূহে আপোনাক ব্যক্তিগতকৃত বিজ্ঞাপন দেখুৱাবলৈ ব্যৱহাৰ কৰে।\n\nআপুনি এপ্‌সমূহৰ সৈতে শ্বেয়াৰ কৰিবলৈ নিবিচৰা বিষয়বস্তু অৱৰোধ কৰিব পাৰে। Androidএও নিয়মীয়াকৈ বিষয়বস্তু স্বয়ংক্ৰিয়ভাৱে মচে।"</string>
+    <string name="settingsUI_topics_switch_title" msgid="5856255848598189791">"বিজ্ঞাপনৰ বিষয়বস্তুৰ অনুমতি দিয়ক"</string>
+    <string name="settingsUI_blocked_topics_ga_title" msgid="7163366621282449273">"আপুনি অৱৰোধ কৰা বিজ্ঞাপনৰ বিষয়বস্তু"</string>
+    <string name="settingsUI_reset_topics_ga_title" msgid="5365554894399951300">"আটাইবোৰ বিজ্ঞাপনৰ বিষয়বস্তু ৰিছেট কৰক"</string>
+    <string name="settingsU_topics_view_footer" msgid="4769146330248953561">"আপুনি বিগত কেইসপ্তাহমানত ব্যৱহাৰ কৰা এপ্‌সমূহৰ আধাৰত Androidএ আগ্ৰহৰ বিষয়বস্তুৰ লক্ষ্য ৰাখে।\n\nপাছত, আপুনি ব্যৱহাৰ কৰা এটা এপে আপুনি দেখা পোৱা বিজ্ঞাপন ব্যক্তিগতকৰণ কৰিবলৈ Androidক আপোনাৰ বিষয়বস্তুবোৰ বিচাৰিব পাৰে। Androidএ আপোনাৰ পৰিচয় আৰু আপুনি এপ্ ব্যৱহাৰ কৰাৰ তথ্য সুৰক্ষিত কৰি ৩ টা পৰ্যন্ত বিষয়বস্তু শ্বেয়াৰ কৰে।\n\nAndroidএ নিয়মীয়াকৈ বিষয়বস্তুবোৰ স্বয়ংক্ৰিয়ভাৱে মচে। আপুনি কোনো এপ্‌ ব্যৱহাৰ কৰি থাকিলে, সূচীখনত কোনো বিষয়বস্তু পুনৰ প্ৰদৰ্শিত হ’ব পাৰে। অথবা আপুনি Androidএ কোনো এপৰ সৈতে শ্বেয়াৰ কৰিবলৈ দিব নিবিচৰা বিষয়বস্তু অৱৰোধ কৰিব পাৰে।\n\nআপোনাৰ এপ্‌সমূহত, এইটো ছেটিং, এপৰ পৰামৰ্শ আগবঢ়োৱা বিজ্ঞাপনৰ ছেটিং, আপোনাৰ বিজ্ঞাপনৰ আইডিৰ ছেটিং আৰু আপুনি ব্যৱহাৰ কৰি থকা এপ্‌টোৱে ব্যক্তিগতকৃত বিজ্ঞাপন কৰেনে নকৰে এইবোৰৰ আধাৰত কোনো বিজ্ঞাপন ব্যক্তিগতকৰণ কৰা হ’ব পাৰে।"</string>
+    <string name="settingsUI_apps_switch_title" msgid="1308209012769248890">"এপে পৰামৰ্শ দিয়া বিজ্ঞাপনৰ অনুমতি দিয়ক"</string>
+    <string name="settingsUI_apps_view_ga_subtitle" msgid="1911743837387384160">"আপুনি ব্যৱহাৰ কৰা এপ্‌সমূহে আপুনি কি ভাল পায় সেইটো নিৰ্ধাৰণ কৰিব পাৰে আৰু তাৰ পাছত অন্য এপত বিজ্ঞাপনৰ পৰামৰ্শ দিব পাৰে।\n\nআপুনি এপ্‌সমূহক আপোনাক পৰামৰ্শ দিয়াৰ পৰা অৱৰোধ কৰিব পাৰে। Androidএ নিয়মীয়াকৈ এপে পৰামৰ্শ দিয়া ডেটা স্বয়ংক্ৰিয়ভাৱে মচে।"</string>
+    <string name="settingsUI_blocked_apps_ga_title" msgid="1896327995101895088">"আপুনি অৱৰোধ কৰা এপ্‌"</string>
+    <string name="settingsUI_reset_apps_ga_title" msgid="371969808353100852">"এপে পৰামৰ্শ দিয়া ডেটা ৰিছেট কৰক"</string>
+    <string name="settingsUI_apps_view_footer" msgid="6428897482766556515">"আপোনাৰ অভিজ্ঞতা ব্যক্তিগতকৰণ কৰিবলৈ আপুনি ব্যৱহাৰ কৰা এপ্‌সমূহে আপুনি আগ্ৰহ দেখুওৱা বস্তুৰ বিষয়ে মনত ৰখাটো সাধাৰণ কথা। এপ্‌সমূহে আপোনাৰ বিষয়বস্তু সম্পৰ্কে Androidৰ সহায়ত তথ্য ষ্ট’ৰো কৰিব পাৰে।\n\nউদাহৰণস্বৰূপে, আপুনি যদি মাৰাথন প্ৰশিক্ষণৰ সৈতে জড়িত কোনো এপ্‌ ব্যৱহাৰ কৰে, এপ্‌টোৱে সিদ্ধান্ত ল’ব পাৰে যে আপুনি দৌৰোঁতে পিন্ধা জোতাৰ প্ৰতি আগ্ৰহী হ’ব পাৰে। পাছত, আপুনি যদি অন্য কোনো এপ্‌ ব্যৱহাৰ কৰে, সেই এপ্‌টোৱে আপোনাক প্ৰথমটো এপে পৰামৰ্শ আগবঢ়োৱা দৌৰোঁতে পিন্ধা জোতাৰ বিজ্ঞাপন দেখুৱাব পাৰে।\n\nএপে পৰামৰ্শ হিচাপে আগবঢ়োৱা ডেটা Androidএ নিয়মীয়াকৈ স্বয়ংক্ৰিয়ভাৱে মচে। আপুনি পুনৰ ব্যৱহাৰ কৰিব পৰা কোনো এপ্‌ সূচীখনত পুনৰ ওলাব পাৰে। অথবা আপুনি কোনো এপক আপোনাৰ বাবে বিজ্ঞাপনৰ পৰামৰ্শ আগবঢ়োৱাৰ ক্ষেত্ৰত বাধা দিব পাৰে।\n\nআপোনাৰ এপ্‌সমূহত আপুনি দেখা কোনো বিজ্ঞাপন এইটো ছেটিং, বিজ্ঞাপনৰ বিষয়বস্তুৰ ছেটিং, আপোনাৰ বিজ্ঞাপন IDৰ ছেটিং আৰু আপুনি ব্যৱহাৰ কৰি থকা এপ্‌টোৱে বিজ্ঞাপন ব্যক্তিগতকৰণ কৰেনে নকৰে তাৰ ওপৰত ভিত্তি কৰি ব্যক্তিগতকৰণ কৰা হ’ব পাৰে।"</string>
+    <string name="notificationUI_u18_notification_title" msgid="4880509503177562077">"বিজ্ঞাপনৰ গোপনীয়তা সম্পৰ্কীয় নতুন সুবিধা উপলব্ধ"</string>
+    <string name="notificationUI_u18_notification_content" msgid="6734418183242286936">"বিজ্ঞাপনৰ পাৰদৰ্শিতা জোখ-মাখ কৰাত সহায় কৰিবলৈ এপ্‌সমূহৰ মাজত অতি সীমিত তথ্য শ্বেয়াৰ কৰা হয়"</string>
+    <string name="notificationUI_u18_body1" msgid="5384339364319615715">"আমি বিজ্ঞাপনৰ জোখ-মাখ নামৰ এটা নতুন বিজ্ঞাপনৰ গোপনীয়তা সম্পৰ্কীয় সুবিধা লঞ্চ কৰিবলৈ লৈছোঁ। Androidএ বিজ্ঞাপনৰ পাৰদৰ্শিতা জোখ-মাখ কৰাত সহায় কৰিবলৈ এপ্‌সমূহৰ মাজত অতি সীমিত তথ্য শ্বেয়াৰ কৰে, যেনে, আপোনাক বিজ্ঞাপনটো দেখুওৱা হৈছিল।"</string>
+    <string name="notificationUI_u18_body3" msgid="4511974346169641579">"আপুনি বিজ্ঞাপনৰ গোপনীয়তাৰ ছেটিঙত সালসলনি কৰিব পাৰে।"</string>
+    <string name="settingsUI_u18_main_view_measurement_info" msgid="1709326915590855853">"আপুনি ব্যৱহাৰ কৰা এপ্‌সমূহে দেখুওৱা বিজ্ঞাপনৰ পাৰদৰ্শিতাৰ জোখ-মাখ কৰাত সহায় কৰিবলৈ সেইসমূহে Androidৰ পৰা তথ্য বিচাৰিব পাৰে। Androidএ এপ্‌সমূহক কেৱল সীমিত ধৰণৰ ডেটা সংগ্ৰহ কৰিবলৈ দিয়ে।"</string>
+    <string name="ic_consent_notification_ga_image_description" msgid="6146488914437778539">"সংগীত, বাতৰি আৰু ক্ৰীড়াৰ দৰে আগ্ৰহৰ বিষয়সমূহ প্ৰতিনিধিত্ব কৰা চিহ্নবোৰৰ ৰঙীন চিত্ৰণ"</string>
+    <string name="ic_main_view_ga_image_description" msgid="1846571138870271761">"এটা বৃত্তৰ ভিতৰত থকা এটা তলাৰ ৰঙীন চিত্ৰণ"</string>
+    <string name="ic_placeholder_icon_for_empty_apps_list_description" msgid="8171099879240285360">"এটা বৰ্গ গঠন কৰা নটা বিন্দুৰ সৰু ক’লা আৰু বগা চিত্ৰণ"</string>
+    <string name="ic_placeholder_icon_for_empty_topics_list_description" msgid="2112218456926009271">"হৃদয়, ত্ৰিভূজ আৰু বৰ্গৰ দৰে সৰল আকৃতিবোৰৰ সৰু ক’লা আৰু বগা চিত্ৰণ"</string>
+    <string name="topic10001" msgid="1636806320891333775">"কলা আৰু বিনোদন"</string>
+    <string name="topic10002" msgid="1226367977754287428">"অভিনয় আৰু থিয়েটাৰ"</string>
+    <string name="topic10003" msgid="6949890838957814881">"এনিমে’ আৰু মাংগা"</string>
+    <string name="topic10004" msgid="5397903150832181233">"কাৰ্টুন"</string>
+    <string name="topic10005" msgid="6316179809581237302">"কমিক"</string>
+    <string name="topic10006" msgid="7442330644172139790">"সংগীতানুষ্ঠান আৰু সংগীতৰ উৎসৱ"</string>
+    <string name="topic10007" msgid="5537896091418145164">"নৃত্য"</string>
+    <string name="topic10008" msgid="2737343278307552521">"বিনোদন উদ্যোগ"</string>
+    <string name="topic10009" msgid="3252367380340240453">"মনোৰঞ্জন আৰু ট্ৰিভিয়া"</string>
+    <string name="topic10010" msgid="932301479153552725">"আমোদজনক পৰীক্ষা আৰু একেবাৰে সাধাৰণ সমীক্ষা"</string>
+    <string name="topic10011" msgid="3123553390567261985">"হাস্যৰস"</string>
+    <string name="topic10012" msgid="8756486271154511326">"আমোদজনক চিত্ৰ আৰু ভিডিঅ’"</string>
+    <string name="topic10013" msgid="1242353161202448753">"লাইভ হাস্য-ব্যংগ"</string>
+    <string name="topic10014" msgid="6086156236112755291">"লাইভ ক্ৰীড়া অনুষ্ঠান"</string>
+    <string name="topic10015" msgid="9196350141359833832">"যাদু"</string>
+    <string name="topic10016" msgid="202419376638900745">"চলচ্চিত্ৰৰ সূচী আৰু চিনেমা হলৰ দৰ্শনীৰ সময়"</string>
+    <string name="topic10017" msgid="6737229918787540100">"চলচ্চিত্ৰ"</string>
+    <string name="topic10018" msgid="6823676154109177487">"একশ্বন আৰু দুঃসাহসিক চিনেমা"</string>
+    <string name="topic10019" msgid="6875960630918973127">"এনিমে’ট কৰা চিনেমা"</string>
+    <string name="topic10020" msgid="4323870300602151489">"হাস্য-ব্যংগ চিনেমা"</string>
+    <string name="topic10021" msgid="446758643774468418">"কাল্ট আৰু ইণ্ডী চিনেমা"</string>
+    <string name="topic10022" msgid="3671929742155787005">"তথ্যচিত্ৰমূলক চিনেমা"</string>
+    <string name="topic10023" msgid="3547616830531182863">"নাটকীয় চিনেমা"</string>
+    <string name="topic10024" msgid="1044853632986202120">"পাৰিবাৰিক চিনেমা"</string>
+    <string name="topic10025" msgid="5958629223443279316">"ভৌতিক চিনেমা"</string>
+    <string name="topic10026" msgid="5685515125614860029">"ৰোমাণ্টিক চিনেমা"</string>
+    <string name="topic10027" msgid="8846353713171614854">"থ্ৰিলাৰ"</string>
+    <string name="topic10028" msgid="170404703980174756">"সংগীত আৰু ধ্বনি"</string>
+    <string name="topic10029" msgid="4634600135545614665">"ব্লুজ"</string>
+    <string name="topic10030" msgid="7226438392540805771">"শাস্ত্ৰীয় সংগীত"</string>
+    <string name="topic10031" msgid="1488013446112025676">"কাণ্ট্ৰী সংগীত"</string>
+    <string name="topic10032" msgid="9053666244854789632">"নৃত্য আৰু ইলেক্ট্ৰনিক সংগীত"</string>
+    <string name="topic10033" msgid="440063573197454181">"লোক আৰু পৰম্পৰাগত সংগীত"</string>
+    <string name="topic10034" msgid="8296307244554241197">"জেজ"</string>
+    <string name="topic10035" msgid="9171752741499923310">"সংগীতৰ ষ্ট্ৰীম আৰু ডাউনল’ডসমূহ"</string>
+    <string name="topic10036" msgid="2490236112725457376">"সংগীত ভিডিঅ’"</string>
+    <string name="topic10037" msgid="1923690469725883551">"বাদ্য যন্ত্ৰ"</string>
+    <string name="topic10038" msgid="2817492732688549631">"পিয়ান’ আৰু কীব’ৰ্ড"</string>
+    <string name="topic10039" msgid="8970033643570782019">"পপ সংগীত"</string>
+    <string name="topic10040" msgid="7478395512712452137">"ৰেডিঅ’"</string>
+    <string name="topic10041" msgid="3319379117705411886">"টক ৰেডিঅ’"</string>
+    <string name="topic10042" msgid="8830471038440654640">"ৰেপ আৰু হিপ-হপ"</string>
+    <string name="topic10043" msgid="8585450284346207691">"ৰক সংগীত"</string>
+    <string name="topic10044" msgid="3710011249220779842">"ক্লাছিক ৰক আৰু পুৰণি গীত"</string>
+    <string name="topic10045" msgid="7593443421067822441">"হাৰ্ড ৰক প্ৰগ্ৰেছিভ"</string>
+    <string name="topic10046" msgid="8715621227472631784">"ইণ্ডী আৰু বৈকল্পিক সংগীত"</string>
+    <string name="topic10047" msgid="3518038303049899798">"নমুনা আৰু ধ্বনিৰ লাইব্ৰেৰী"</string>
+    <string name="topic10048" msgid="3063505369500799094">"ছ’ল আৰু R&amp;B"</string>
+    <string name="topic10049" msgid="8061992014977840818">"ছাউণ্ডট্ৰেক"</string>
+    <string name="topic10050" msgid="3540229495848506229">"বিশ্ব সংগীত"</string>
+    <string name="topic10051" msgid="6132468331924347995">"ৰেগে’ আৰু কেৰিবিয়ান সংগীত"</string>
+    <string name="topic10052" msgid="8213269199807045473">"অনলাইন প্ৰতিচ্ছবিৰ গেলাৰী"</string>
+    <string name="topic10053" msgid="1378192203082454197">"অনলাইন ভিডিঅ’"</string>
+    <string name="topic10054" msgid="3727401645405134505">"লাইভ ভিডিঅ’ ষ্ট্ৰীমিং"</string>
+    <string name="topic10055" msgid="4943174831732192854">"চলচ্চিত্ৰ আৰু টিভি ষ্ট্ৰীমিং"</string>
+    <string name="topic10056" msgid="3066058636154255073">"অ’পেৰা"</string>
+    <string name="topic10057" msgid="387445514677222034">"টিভিৰ গাইড আৰু প্ৰসংগ"</string>
+    <string name="topic10058" msgid="9149178644022969766">"টিভি নেটৱৰ্ক আৰু ষ্টেচন"</string>
+    <string name="topic10059" msgid="6300562669238320524">"টিভি শ্ব’ আৰু প্ৰ’গ্ৰাম"</string>
+    <string name="topic10060" msgid="3901256055064835246">"টিভিৰ হাস্য-ব্যংগৰ অনুষ্ঠান"</string>
+    <string name="topic10061" msgid="8343924749123326062">"টভিৰ তথ্যচিত্ৰমূলক আৰু অকাল্পনিক অনুষ্ঠান"</string>
+    <string name="topic10062" msgid="9183355218976951211">"টিভিৰ নাটক"</string>
+    <string name="topic10063" msgid="644340831620792432">"টিভিৰ ছ’প অ’পেৰা"</string>
+    <string name="topic10064" msgid="5961885645457010998">"টিভিৰ পাৰিবাৰিক শ্ব’"</string>
+    <string name="topic10065" msgid="7916343612028608044">"টিভিৰ ৰিয়েলিটী শ্ব’"</string>
+    <string name="topic10066" msgid="5984396525358003559">"টিভিৰ কল্পবিজ্ঞান আৰু ফেণ্টাছী শ্ব’"</string>
+    <string name="topic10067" msgid="6404637729885733437">"ভিজুৱেল আৰ্ট আৰু ডিজাইন"</string>
+    <string name="topic10068" msgid="4589856961950168493">"ডিজাইন"</string>
+    <string name="topic10069" msgid="3129378082034151991">"পেইণ্টিং"</string>
+    <string name="topic10070" msgid="2570256568661324147">"ফট’গ্ৰাফিক আৰু ডিজিটেল আৰ্ট"</string>
+    <string name="topic10071" msgid="1288722040962471254">"মটৰগাড়ী আৰু বাহন"</string>
+    <string name="topic10072" msgid="9155509766616567261">"কাৰ্গ’ ট্ৰাক আৰু ট্ৰেইলাৰ"</string>
+    <string name="topic10073" msgid="3748676231341513738">"ক্লাছিক বাহন"</string>
+    <string name="topic10074" msgid="2040911547161463227">"কাষ্টমাইজ কৰা আৰু কাৰ্যক্ষম বাহন"</string>
+    <string name="topic10075" msgid="1242538698445713796">"ইন্ধনৰ মূল্য আৰু বাহনৰ ইন্ধন"</string>
+    <string name="topic10076" msgid="8674225812339579627">"মটৰগাড়ী (প্ৰকাৰ অনুসৰি)"</string>
+    <string name="topic10077" msgid="3577709810751953433">"স্বয়ংক্ৰিয়ভাৱে চলা বাহন"</string>
+    <string name="topic10078" msgid="5493263845129910125">"কনভাৰ্টিবল"</string>
+    <string name="topic10079" msgid="3466838852836498580">"দুজনৰ আসন থকা বন্ধ গাড়ী"</string>
+    <string name="topic10080" msgid="3515647285637163190">"হেচ্চবেক"</string>
+    <string name="topic10081" msgid="4135085035401158860">"হাইব্ৰিড আৰু বৈকল্পিক বাহন"</string>
+    <string name="topic10082" msgid="7168659489029594320">"বিলাসী বাহন"</string>
+    <string name="topic10083" msgid="1532745144715857802">"মাইক্ৰ’কাৰ আৰু ছাবকম্পেক্ট"</string>
+    <string name="topic10084" msgid="1984231414410381476">"মটৰচাইকেল"</string>
+    <string name="topic10085" msgid="5235555028227554661">"ৰাস্তাৰ বাহিৰেও অন্য ঠাইত চলা বাহন"</string>
+    <string name="topic10086" msgid="8360336602646460411">"পিকআপ ট্ৰাক"</string>
+    <string name="topic10087" msgid="6566900167002195406">"স্কুটাৰ আৰু ম’পেড"</string>
+    <string name="topic10088" msgid="2899313082601001223">"ছিডেন"</string>
+    <string name="topic10089" msgid="1053630346809973163">"ষ্টেচন ৱেগন"</string>
+    <string name="topic10090" msgid="4478565601243447368">"এছইউভি আৰু ক্ৰছঅ’ভাৰ"</string>
+    <string name="topic10091" msgid="3812668311830832874">"ক্ৰছঅ’ভাৰ"</string>
+    <string name="topic10092" msgid="524130833813249539">"ভেন আৰু মিনিভেন"</string>
+    <string name="topic10093" msgid="8900143351472824542">"ৰছী অথবা শিকলি লগাই টানি নিয়া আৰু পথত গাড়ী মেৰামতি সম্পৰ্কীয় সহায়"</string>
+    <string name="topic10094" msgid="6205146188176216038">"বাহন আৰু যাতায়াত সুৰক্ষা"</string>
+    <string name="topic10095" msgid="7983070264654477553">"বাহনৰ অংশ আৰু আনুষংগিক সামগ্ৰী"</string>
+    <string name="topic10096" msgid="8148747014459050804">"বাহনৰ মেৰামতি আৰু তত্ত্বাৱধান"</string>
+    <string name="topic10097" msgid="4716536434833425748">"বাহনৰ শ্বপিং"</string>
+    <string name="topic10098" msgid="6401980112135995019">"ব্যৱহাৰ কৰা বাহন"</string>
+    <string name="topic10099" msgid="8018714209926584445">"বাহনৰ শ্ব’"</string>
+    <string name="topic10100" msgid="2481422464734249871">"সৌন্দৰ্য চৰ্চা আৰু ফিটনেছ"</string>
+    <string name="topic10101" msgid="7889144198021629053">"বডি আৰ্ট"</string>
+    <string name="topic10102" msgid="577637051755692238">"মুখাৱয়ব আৰু শৰীৰৰ যত্ন"</string>
+    <string name="topic10103" msgid="6618157344631408510">"এণ্টিপাৰ্স্পিৰেণ্ট"</string>
+    <string name="topic10104" msgid="6043649669944382784">"গা ধোৱা আৰু শৰীৰৰ যত্ন লোৱাৰ বাবে ব্যৱহাৰ কৰা প্ৰ’ডাক্ট"</string>
+    <string name="topic10105" msgid="3248569527339253661">"প্ৰাকৃতিক সৌন্দৰ্য সম্পৰ্কীয় প্ৰ’ডাক্ট"</string>
+    <string name="topic10106" msgid="1291481249483309832">"মে’ক-আপ আৰু প্ৰসাধন"</string>
+    <string name="topic10107" msgid="1335060201249279923">"নখৰ যত্ন লোৱা প্ৰ’ডাক্ট"</string>
+    <string name="topic10108" msgid="4996884435711154930">"পাৰফিউম আৰু সুগন্ধি"</string>
+    <string name="topic10109" msgid="7298403319989686251">"ৰেজৰ আৰু ছেভাৰ"</string>
+    <string name="topic10110" msgid="5954355866247248022">"ফেশ্বন আৰু ষ্টাইল"</string>
+    <string name="topic10111" msgid="4447710938881368413">"ফিটনেছ"</string>
+    <string name="topic10112" msgid="8816530137921714131">"শৰীৰচৰ্চা"</string>
+    <string name="topic10113" msgid="8138889299405853557">"ফিটনেছ নিৰ্দেশনা আৰু ব্যক্তিগত প্ৰশিক্ষণ"</string>
+    <string name="topic10114" msgid="2172821400279346865">"ফিটনেছ প্ৰযুক্তিৰ প্ৰ’ডাক্ট"</string>
+    <string name="topic10115" msgid="9060244278068231494">"চুলিৰ যত্ন"</string>
+    <string name="topic10116" msgid="116242880964485085">"কিতাপ আৰু সাহিত্য"</string>
+    <string name="topic10117" msgid="8933734721100160863">"শিশুৰ সাহিত্য"</string>
+    <string name="topic10118" msgid="4368531903547695191">"ই-বুক"</string>
+    <string name="topic10119" msgid="2781095265741115471">"আলোচনী"</string>
+    <string name="topic10120" msgid="3099507102655270527">"কবিতা"</string>
+    <string name="topic10121" msgid="4466592180799340837">"ব্যৱসায়িক আৰু ঔদ্যোগিক"</string>
+    <string name="topic10122" msgid="2375136741125920744">"বিজ্ঞাপন প্ৰচাৰ আৰু মাৰ্কেটিং"</string>
+    <string name="topic10123" msgid="6974082907852347979">"বিক্ৰী"</string>
+    <string name="topic10124" msgid="44474598156972786">"কৃষি আৰু বনপালন বিদ্যা"</string>
+    <string name="topic10125" msgid="9170394261421539760">"খাদ্য বস্তু প্ৰস্তুতকৰণ"</string>
+    <string name="topic10126" msgid="2210146434071038904">"যানবাহন সম্পৰ্কীয় উদ্যােগ"</string>
+    <string name="topic10127" msgid="5503077037318678029">"বিমান উদ্যােগ"</string>
+    <string name="topic10128" msgid="285525650692719959">"ব্যৱসায়ৰ কাম"</string>
+    <string name="topic10129" msgid="3094691551566702427">"কৰ্মচাৰীৰ সুবিধামতে ব্যৱস্থা কৰা কৰ্মস্থান"</string>
+    <string name="topic10130" msgid="1922351409757117764">"মানৱ সম্পদ"</string>
+    <string name="topic10131" msgid="8598763405951029782">"বাণিজ্যিক ঋণ"</string>
+    <string name="topic10132" msgid="1476352626208153907">"নিৰ্মাণ আৰু তত্ত্বাৱধান"</string>
+    <string name="topic10133" msgid="7089177624979453528">"অসামৰিক অভিযান্ত্ৰিক বিদ্যা"</string>
+    <string name="topic10134" msgid="3833032373311037601">"প্ৰতিৰক্ষা সম্পৰ্কীয় উদ্যােগ"</string>
+    <string name="topic10135" msgid="2478808072377000440">"শক্তি আৰু উপযোগিতা"</string>
+    <string name="topic10136" msgid="9083992436834044162">"পানী যোগান আৰু ব্যৱস্থাপনা"</string>
+    <string name="topic10137" msgid="1912599316814246824">"আতিথ্য সেৱাৰ উদ্যোগ"</string>
+    <string name="topic10138" msgid="7428346836350671895">"নিৰ্মাণ"</string>
+    <string name="topic10139" msgid="1396685812404869953">"ধাতু আৰু খনিজ পৰ্দাথ আহৰণ কৰা"</string>
+    <string name="topic10140" msgid="5264212052238781441">"MLM আৰু ব্যৱসায়িক সুযোগ"</string>
+    <string name="topic10141" msgid="860058416683118730">"ফাৰ্মাচিউটিকেল আৰু বায়’টেক"</string>
+    <string name="topic10142" msgid="2912550934111655896">"মুদ্ৰণ আৰু প্ৰকাশ"</string>
+    <string name="topic10143" msgid="5690610408227078117">"খুচুৰা ব্যৱসায়"</string>
+    <string name="topic10144" msgid="3341052306953106368">"ভেঞ্চাৰ কেপিটেল"</string>
+    <string name="topic10145" msgid="6886608911083388041">"কম্পিউটাৰ আৰু ইলেক্ট্ৰনিক্স"</string>
+    <string name="topic10146" msgid="8202145175139144216">"কম্পিউটাৰৰ আনুষংগিক আহিলা"</string>
+    <string name="topic10147" msgid="4687964705548995437">"প্ৰিণ্টাৰ"</string>
+    <string name="topic10148" msgid="8861628145647459323">"কম্পিউটাৰৰ সুৰক্ষা"</string>
+    <string name="topic10149" msgid="1719988773455991739">"এণ্টিভাইৰাছ আৰু মালৱেৰ"</string>
+    <string name="topic10150" msgid="1482205464872465298">"নেটৱৰ্কৰ সুৰক্ষা"</string>
+    <string name="topic10151" msgid="1772262905623388968">"কনজুমাৰ ইলেক্ট্ৰনিক্স"</string>
+    <string name="topic10152" msgid="651152740021127086">"কেমেৰা আৰু কেমকৰ্ডাৰ"</string>
+    <string name="topic10153" msgid="8741504768717646372">"জিপিএছ আৰু নেভিগেশ্বন"</string>
+    <string name="topic10154" msgid="5382029798409496090">"হ’ম অট’মেশ্বন"</string>
+    <string name="topic10155" msgid="5243817792730496258">"হ’ম থিয়েটাৰ ছিষ্টেম"</string>
+    <string name="topic10156" msgid="2497791567138856030">"MP3 আৰু প’ৰ্টেবল মিডিয়া প্লে’য়াৰ"</string>
+    <string name="topic10157" msgid="4723439422860510190">"পৰিধানযোগ্য প্ৰযুক্তিবিদ্যা"</string>
+    <string name="topic10158" msgid="5345830001295028513">"ডেটাৰ বেকআপ আৰু পুনৰুদ্ধাৰ"</string>
+    <string name="topic10159" msgid="6146958285117174314">"ডেস্কটপ কম্পিউটাৰ"</string>
+    <string name="topic10160" msgid="6624820395549466426">"লেপটপ আৰু ন’টবুক"</string>
+    <string name="topic10161" msgid="912458758908978530">"নেটৱৰ্কিং"</string>
+    <string name="topic10162" msgid="6717352131379507693">"বিতৰণ কৰা আৰু ক্লাউড কম্পিউটিং"</string>
+    <string name="topic10163" msgid="6344926622025055321">"প্ৰ’গ্ৰামিং"</string>
+    <string name="topic10164" msgid="4228888249078845459">"ছফ্টৱেৰ"</string>
+    <string name="topic10165" msgid="5507908999219967161">"অডিঅ’ আৰু সংগীতৰ ছেফ্টৱেৰ"</string>
+    <string name="topic10166" msgid="4768106492755849560">"ব্যৱসায় আৰু উৎপাদনশীলতাৰ ছফ্টৱেৰ"</string>
+    <string name="topic10167" msgid="8556935769754922871">"কেলেণ্ডাৰ আৰু সময়সূচী নিৰ্ধাৰণ কৰা ছফ্টৱেৰ"</string>
+    <string name="topic10168" msgid="7730134961167790334">"সহযোগিতা আৰু কনফাৰেন্সিং ছফ্টৱেৰ"</string>
+    <string name="topic10169" msgid="5655084106378890454">"উপস্থাপনৰ বাবে ব্যৱহাৰ কৰা ছফ্টৱেৰ"</string>
+    <string name="topic10170" msgid="4638281897205909919">"স্প্ৰেডশ্বীট ছফ্টৱেৰ"</string>
+    <string name="topic10171" msgid="7910183120486541228">"ৱৰ্ড প্ৰচেছিঙৰ ছফ্টৱেৰ"</string>
+    <string name="topic10172" msgid="3626573644414074730">"ডেস্কটপ পাব্লিশ্বিং"</string>
+    <string name="topic10173" msgid="7320053835183057144">"ফণ্ট"</string>
+    <string name="topic10174" msgid="5770469447869586710">"ডাউনল’ড মেনেজাৰ"</string>
+    <string name="topic10175" msgid="3475235810022334041">"ফ্ৰীৱেৰ আৰু শ্বেয়াৰৱেৰ"</string>
+    <string name="topic10176" msgid="6881704501596479881">"গ্ৰাফিক্স আৰু এনিমেশ্বন ছফ্টৱেৰ"</string>
+    <string name="topic10177" msgid="6740430730079682579">"বুদ্ধিমান ব্যক্তিগত সহায়ক"</string>
+    <string name="topic10178" msgid="7261811053741593091">"মিডিয়া প্লে’য়াৰ"</string>
+    <string name="topic10179" msgid="2967001567120854492">"নিৰীক্ষণ কৰিবলৈ ব্যৱহাৰ কৰা ছফ্টৱেৰ"</string>
+    <string name="topic10180" msgid="4197420326455130102">"অপাৰেটিং ছিষ্টেম"</string>
+    <string name="topic10181" msgid="3537573129132698830">"ফট’ আৰু ভিডিঅ’ৰ ছফ্টৱেৰ"</string>
+    <string name="topic10182" msgid="7688631285131229981">"ফট’ৰ ছফ্টৱেৰ"</string>
+    <string name="topic10183" msgid="5994974566140272512">"ভিডিঅ’ৰ ছফ্টৱেৰ"</string>
+    <string name="topic10184" msgid="8685817335076871509">"ছফ্টৱেৰৰ উপযোগিতা"</string>
+    <string name="topic10185" msgid="308314128178285390">"ৱেব ব্ৰাউজাৰ"</string>
+    <string name="topic10186" msgid="3147859503481018245">"বিত্ত"</string>
+    <string name="topic10187" msgid="7077128721410871032">"হিচাপৰক্ষা আৰু অডিটিং"</string>
+    <string name="topic10188" msgid="2206138708659457910">"কৰৰ পৰিমাণ নিৰ্ধাৰণ আৰু পৰিকল্পনা কৰা"</string>
+    <string name="topic10189" msgid="4001795553008246784">"বেংকিং"</string>
+    <string name="topic10190" msgid="2988430661381243083">"ধন স্থানান্তৰ আৰু ৱায়াৰ সেৱা"</string>
+    <string name="topic10191" msgid="6196081825838237614">"ক্ৰেডিট আৰু ঋণ"</string>
+    <string name="topic10192" msgid="3290123244833047307">"ক্ৰেডিট কাৰ্ড"</string>
+    <string name="topic10193" msgid="294407043381146861">"ঘৰ ক্ৰয় কৰিবলৈ পুঁজিৰ যোগান"</string>
+    <string name="topic10194" msgid="2834543407440890272">"ব্যক্তিগত ঋণ"</string>
+    <string name="topic10195" msgid="7650553060132394782">"শিক্ষাৰ্থীৰ ঋণ আৰু মহাবিদ্যালয়ৰ শিক্ষাৰ বাবে পুঁজিৰ যোগান"</string>
+    <string name="topic10196" msgid="5395035781876507254">"বিত্তীয় পৰিকল্পনা আৰু পৰিচালনা"</string>
+    <string name="topic10197" msgid="1287138667488226463">"অৱসৰ আৰু পেঞ্চন"</string>
+    <string name="topic10198" msgid="2523256186943366779">"অনুদান"</string>
+    <string name="topic10199" msgid="3746711537661530183">"অনুদান"</string>
+    <string name="topic10200" msgid="2394864891391267841">"বীমা"</string>
+    <string name="topic10201" msgid="4301879117376963742">"বাহন বীমা"</string>
+    <string name="topic10202" msgid="739808503036239379">"স্বাস্থ্য বীমা"</string>
+    <string name="topic10203" msgid="838786942776142290">"গৃহ বীমা"</string>
+    <string name="topic10204" msgid="6591131759521321677">"জীৱন বীমা"</string>
+    <string name="topic10205" msgid="3294946723815021478">"ভ্ৰমণ বীমা"</string>
+    <string name="topic10206" msgid="6166888350685752683">"বিনিয়োগ কৰা"</string>
+    <string name="topic10207" msgid="2296385804039743999">"পণ্য আৰু ভৱিষ্যতৰ ট্ৰে’ডিং"</string>
+    <string name="topic10208" msgid="2717498987483479091">"মুদ্ৰা আৰু বিদেশী মুদ্ৰা বিনিময়"</string>
+    <string name="topic10209" msgid="5204948738662951962">"হে’জ পুঁজি"</string>
+    <string name="topic10210" msgid="4607225697024266227">"মিউচুৱেল ফাণ্ড"</string>
+    <string name="topic10211" msgid="7475381839877166080">"ষ্টক আৰু বণ্ড"</string>
+    <string name="topic10212" msgid="3988751035952286047">"খাদ্য আৰু পানীয়"</string>
+    <string name="topic10213" msgid="1358963098339995471">"ৰন্ধন আৰু ৰন্ধনবিধি"</string>
+    <string name="topic10214" msgid="8463864389138867811">"BBQ আৰু গ্ৰিলিং"</string>
+    <string name="topic10215" msgid="3085467051491069648">"ৰন্ধনবিধি"</string>
+    <string name="topic10216" msgid="6043130649326166680">"নিৰামিষ ৰন্ধনবিধি"</string>
+    <string name="topic10217" msgid="7173870057669247536">"সম্পূৰ্ণ শাকাহাৰী ৰন্ধনবিধি"</string>
+    <string name="topic10218" msgid="5570240643247064951">"স্বাস্থ্যসন্মত খাদ্য"</string>
+    <string name="topic10219" msgid="5896715206025463732">"খাদ্য আৰু গেলামালৰ খুচুৰা ব্যৱসায়ী"</string>
+    <string name="topic10220" msgid="3894580611467039658">"গে’ম"</string>
+    <string name="topic10221" msgid="14471057764591805">"আৰ্কে’ড আৰু কইন-অপ গে’ম"</string>
+    <string name="topic10222" msgid="2704894577954508861">"বিলিয়াৰ্ড"</string>
+    <string name="topic10223" msgid="202900267060220170">"ব’ৰ্ড গে’ম"</string>
+    <string name="topic10224" msgid="6572627325588452785">"দবা আৰু বিমূৰ্ত ৰণকৌশলৰ গে’ম"</string>
+    <string name="topic10225" msgid="8056906319560292131">"কাৰ্ড গে’ম"</string>
+    <string name="topic10226" msgid="714463563336281099">"কাৰ্ড জমা কৰা গে’ম"</string>
+    <string name="topic10227" msgid="218768654597520683">"কম্পিউটাৰ আৰু ভিডিঅ’ গে’ম"</string>
+    <string name="topic10228" msgid="850597136074192489">"একশ্বন আৰু প্লেটফৰ্ম গে’ম"</string>
+    <string name="topic10229" msgid="4284501233897149886">"দুঃসাহসিক গে’ম"</string>
+    <string name="topic10230" msgid="7156822286576815181">"অনানুষ্ঠানিক গে’ম"</string>
+    <string name="topic10231" msgid="7620407218897744361">"প্ৰতিযোগিতামূলক ভিডিঅ’ গে’মিং"</string>
+    <string name="topic10232" msgid="3029734447275709941">"ড্ৰাইভিং আৰু ৰেচিং গে’ম"</string>
+    <string name="topic10233" msgid="8318075279868138231">"ফাইটিং গে’ম"</string>
+    <string name="topic10234" msgid="3899847414436099153">"গে’মিঙৰ প্ৰসংগ আৰু পৰ্যালোচনা"</string>
+    <string name="topic10235" msgid="5851356242523630529">"ভিডিঅ’ গে’ম চ্চীট আৰু কিটিপ"</string>
+    <string name="topic10236" msgid="1986665634014804954">"অজস্ৰ খেলুৱৈয়ে একেলগে খেলা মাল্টিপ্লে’য়াৰ গে’ম"</string>
+    <string name="topic10237" msgid="5569920221620447713">"সংগীত আৰু নৃত্যৰ গে’ম"</string>
+    <string name="topic10238" msgid="7431087331656772530">"ছেণ্ডবক্স গে’ম"</string>
+    <string name="topic10239" msgid="8667462879554115515">"শ্বুটাৰ গে’ম"</string>
+    <string name="topic10240" msgid="1618985302446756520">"ছিমুলেশ্বন গে’ম"</string>
+    <string name="topic10241" msgid="8450778411063723262">"ব্যৱসায় আৰু বিশিষ্ট ধনী ব্যৱসায়ী সম্পৰ্কীয় গে’ম"</string>
+    <string name="topic10242" msgid="8860812940320018907">"চিটী-বিল্ডিং গে’ম"</string>
+    <string name="topic10243" msgid="1764694148721971512">"জীৱন্ত ছিমুলেশ্বন গে’ম"</string>
+    <string name="topic10244" msgid="4308588210397969087">"বাহনৰ ছিমুলেশ্বন"</string>
+    <string name="topic10245" msgid="6904368410919496658">"ক্ৰীড়া গে’ম"</string>
+    <string name="topic10246" msgid="3381244806751528148">"ক্ৰীড়া পৰিচালনা সম্পৰ্কীয় গে’ম"</string>
+    <string name="topic10247" msgid="5927502688389762068">"ৰণকৌশলৰ গে’ম"</string>
+    <string name="topic10248" msgid="8471339627212674032">"ভিডিঅ’ গে’ম মড আৰু এড-অন"</string>
+    <string name="topic10249" msgid="5076706536204559962">"শিক্ষামূলক গে’ম"</string>
+    <string name="topic10250" msgid="6083030595195401083">"পাৰিবাৰিক গে’ম আৰু কাৰ্যকলাপ"</string>
+    <string name="topic10251" msgid="99237306730665104">"অংকন আৰু ৰং কৰা"</string>
+    <string name="topic10252" msgid="6543039575961394064">"পোছাক পৰিধান আৰু ফেশ্বন সম্পৰ্কীয় গে’ম"</string>
+    <string name="topic10253" msgid="566596668186874227">"পাজল আৰু ব্ৰেইনটিজাৰ"</string>
+    <string name="topic10254" msgid="5732147617072023634">"চৰিত্ৰাভিনয় কৰা গে’ম"</string>
+    <string name="topic10255" msgid="2890655077164103057">"টেবল টেনিচ"</string>
+    <string name="topic10256" msgid="3302096971402751679">"টাইল গে’ম"</string>
+    <string name="topic10257" msgid="4238531589193902619">"শব্দ সৃষ্টি কৰা সম্পৰ্কীয় গে’ম"</string>
+    <string name="topic10258" msgid="6995329540076529056">"ৰুচি আৰু অৱসৰ-বিনোদন"</string>
+    <string name="topic10259" msgid="8649688885811560410">"বৰ্ষপূৰ্তি"</string>
+    <string name="topic10260" msgid="487999213495640080">"জন্মদিন আৰু নাম দিয়াৰ দিন"</string>
+    <string name="topic10261" msgid="8970668366745952094">"ডাইভিং আৰু পানীৰ তলত কৰা কাৰ্য"</string>
+    <string name="topic10262" msgid="6644046161469353448">"ফাইবাৰ আৰু টেক্সটাইল আৰ্ট"</string>
+    <string name="topic10263" msgid="848165976917542929">"মুকলি ঠাই"</string>
+    <string name="topic10264" msgid="6274985117752637104">"মাছ ধৰা"</string>
+    <string name="topic10265" msgid="4134876488948695674">"চিকাৰ আৰু শ্বুটিং"</string>
+    <string name="topic10266" msgid="6617785039128074351">"পেইণ্টবল"</string>
+    <string name="topic10267" msgid="488093331618885003">"ৰেডিঅ’ নিয়ন্ত্ৰণ আৰু মডেলিং"</string>
+    <string name="topic10268" msgid="277932389492046264">"বিবাহ"</string>
+    <string name="topic10269" msgid="8572041514147955202">"ঘৰ আৰু বাগিচা"</string>
+    <string name="topic10270" msgid="2646715182474030951">"বাগিচা পতা"</string>
+    <string name="topic10271" msgid="1308931236810509881">"ঘৰ আৰু ভিতৰৰ অংশ সজোৱা"</string>
+    <string name="topic10272" msgid="8746698707390628887">"ঘৰত ব্যৱহৃত সা-সৰঞ্জাম"</string>
+    <string name="topic10273" msgid="344442071339164852">"ঘৰৰ উন্নতি সাধন"</string>
+    <string name="topic10274" msgid="8982330028561451429">"ঘৰৰ সুৰক্ষা আৰু নিৰাপত্তা"</string>
+    <string name="topic10275" msgid="8280198018937968735">"ঘৰুৱা সামগ্ৰী"</string>
+    <string name="topic10276" msgid="1651598271798609235">"লেণ্ডস্কে’প ডিজাইন"</string>
+    <string name="topic10277" msgid="7675195736886448994">"ইণ্টাৰনেট আৰু টেলিকম"</string>
+    <string name="topic10278" msgid="873251714192341707">"ইমেইল আৰু বাৰ্তা বিনিময়"</string>
+    <string name="topic10279" msgid="6514296374139842600">"ইমেইল"</string>
+    <string name="topic10280" msgid="7976787187115018267">"পাঠ আৰু তাৎক্ষণিক বাৰ্তা বিনিময়"</string>
+    <string name="topic10281" msgid="4013341162811169339">"ভইচ আৰু ভিডিঅ’ চাট"</string>
+    <string name="topic10282" msgid="7810462611906257564">"ISPs"</string>
+    <string name="topic10283" msgid="3958287780718485172">"ফ’ন সেৱা প্ৰদানকাৰী"</string>
+    <string name="topic10284" msgid="2415044270290467935">"ৰিংট’ন আৰু ম’বাইল থীম"</string>
+    <string name="topic10285" msgid="7056449544316408821">"সন্ধান ইঞ্জিনসমূহ"</string>
+    <string name="topic10286" msgid="3458688996478472971">"স্মাৰ্টফ’ন"</string>
+    <string name="topic10287" msgid="6766203044518402938">"টেলিকনফাৰেন্সিং"</string>
+    <string name="topic10288" msgid="3883137694557636622">"ৱেব এপ্‌ আৰু অনলাইন সঁজুলি"</string>
+    <string name="topic10289" msgid="3392995633794787676">"ৱেব সেৱা"</string>
+    <string name="topic10290" msgid="3118880486702986341">"ক্লাউড ষ্ট’ৰেজ"</string>
+    <string name="topic10291" msgid="6025855926350955094">"ৱেব ডিজাইন আৰু বিকাশ"</string>
+    <string name="topic10292" msgid="3069720659823056935">"ৱেব হ’ষ্টিং"</string>
+    <string name="topic10293" msgid="2489957780009828409">"চাকৰি আৰু শিক্ষা"</string>
+    <string name="topic10294" msgid="474839431177892843">"শিক্ষা"</string>
+    <string name="topic10295" msgid="2215489196192620880">"শৈক্ষিক কনফাৰেন্স আৰু পাব্লিকেশ্বন"</string>
+    <string name="topic10296" msgid="4494362881225210483">"মহাবিদ্যালয় আৰু বিশ্ববিদ্যালয়"</string>
+    <string name="topic10297" msgid="8596946591674128749">"দূৰ-শিক্ষা"</string>
+    <string name="topic10298" msgid="6669181180128620422">"প্ৰাথমিক শিশু শিক্ষা"</string>
+    <string name="topic10299" msgid="989138215800115613">"প্ৰাক-প্ৰাথমিক বিদ্যালয়"</string>
+    <string name="topic10300" msgid="8281464235308602670">"হ’মস্কুলিং"</string>
+    <string name="topic10301" msgid="9156890858635333460">"প্ৰমাণীকৃত আৰু প্ৰৱেশিকা পৰীক্ষা"</string>
+    <string name="topic10302" msgid="1325835179421990876">"শিক্ষা দিয়া আৰু শ্ৰেণীকোঠাৰ সম্পদ"</string>
+    <string name="topic10303" msgid="3103839978894155537">"বৃত্তি সম্পৰ্কীয় শিক্ষা আৰু শিক্ষা অব্যাহত ৰখা"</string>
+    <string name="topic10304" msgid="8831682558788062486">"চাকৰি"</string>
+    <string name="topic10305" msgid="8415203095484493106">"জীৱিকা সম্পৰ্কীয় সম্পদ আৰু পৰিকল্পনা"</string>
+    <string name="topic10306" msgid="7426556527349374835">"চাকৰিৰ সূচী"</string>
+    <string name="topic10307" msgid="1187762846826735256">"আইন আৰু চৰকাৰ"</string>
+    <string name="topic10308" msgid="3346756665358311386">"অপৰাধ আৰু ন্যায়"</string>
+    <string name="topic10309" msgid="2041175328931014735">"আইনী"</string>
+    <string name="topic10310" msgid="7079570344976872062">"আইনী সেৱা"</string>
+    <string name="topic10311" msgid="2095095138677585525">"বাতৰি"</string>
+    <string name="topic10312" msgid="939721674816307639">"অৰ্থনীতি সম্পৰ্কীয় বাতৰি"</string>
+    <string name="topic10313" msgid="4159611985538361632">"স্থানীয় বাতৰি"</string>
+    <string name="topic10314" msgid="93219947859117151">"একত্ৰীকৰণ আৰু অধিগ্ৰহণ"</string>
+    <string name="topic10315" msgid="5046321177148647481">"বাতৰিকাকত"</string>
+    <string name="topic10316" msgid="8592980844674525307">"ৰাজনীতি"</string>
+    <string name="topic10317" msgid="2412259096368647866">"ক্ৰীড়া সংবাদ"</string>
+    <string name="topic10318" msgid="1508449672941031904">"বতৰ"</string>
+    <string name="topic10319" msgid="3973645291178509390">"বিশ্বৰ সংবাদ"</string>
+    <string name="topic10320" msgid="5279440074507438174">"অনলাইন সম্প্ৰদায়"</string>
+    <string name="topic10321" msgid="7018890132742820265">"ক্লিপ আৰ্ট আৰু এনিমে’ট কৰা GIF"</string>
+    <string name="topic10322" msgid="1585737438943011532">"ডেটিং আৰু ব্যক্তিগত সেৱা"</string>
+    <string name="topic10323" msgid="962863497957179646">"ফীড এগ্ৰেশ্বন আৰু ছ’চিয়েল বুকমাৰ্কিং"</string>
+    <string name="topic10324" msgid="1425257460381023853">"ফাইল শ্বেয়াৰ কৰা আৰু হ’ষ্ট কৰা"</string>
+    <string name="topic10325" msgid="8698912164970408378">"ফ’ৰাম আৰু চাট প্ৰদানকাৰী"</string>
+    <string name="topic10326" msgid="2425798096705921796">"মাইক্ৰ’ব্লগিং"</string>
+    <string name="topic10327" msgid="8518822987595111212">"ফট’ আৰু ভিডিঅ’ শ্বেয়াৰ কৰা"</string>
+    <string name="topic10328" msgid="8932708475346340912">"ফট’ আৰু প্ৰতিচ্ছবি শ্বেয়াৰ কৰা"</string>
+    <string name="topic10329" msgid="223933889758324282">"ভিডিঅ’ শ্বেয়াৰ কৰা"</string>
+    <string name="topic10330" msgid="188028553492626282">"স্কিন"</string>
+    <string name="topic10331" msgid="426844238985651925">"ছ’চিয়েল নেটৱৰ্ক আৰু এড-অন"</string>
+    <string name="topic10332" msgid="291747325781232456">"ছ’চিয়েল নেটৱৰ্ক"</string>
+    <string name="topic10333" msgid="7950152600374846488">"লোক আৰু সমাজ"</string>
+    <string name="topic10334" msgid="8671262583721706509">"পৰিয়াল আৰু সম্বন্ধ"</string>
+    <string name="topic10335" msgid="1526523762163185819">"বংশলতা আৰু বংশাৱলী"</string>
+    <string name="topic10336" msgid="4551233571090493177">"বিবাহ"</string>
+    <string name="topic10337" msgid="8436172065188964882">"সন্তানৰ লালন-পালন"</string>
+    <string name="topic10338" msgid="8896269734682970">"শিশু তুলি লোৱা"</string>
+    <string name="topic10339" msgid="781900237993621300">"কেঁচুৱা আৰু নৱজাতক"</string>
+    <string name="topic10340" msgid="6538182603360796294">"ইণ্টাৰনেটত শিশুৰ সুৰক্ষা"</string>
+    <string name="topic10341" msgid="3586543243312398568">"ৰোমাঞ্চ"</string>
+    <string name="topic10342" msgid="3695176378281477573">"কল্পবিজ্ঞান আৰু ফেণ্টাছী"</string>
+    <string name="topic10343" msgid="2318169062960263837">"পোহনীয়া জন্তু আৰু জীৱ-জন্তু"</string>
+    <string name="topic10344" msgid="2005534117977874327">"পোহনীয়া জীৱ-জন্তুৰ খাদ্য আৰু সেইবোৰৰ যত্ন লোৱাৰ বাবে আৱশ্যকীয় সামগ্ৰী"</string>
+    <string name="topic10345" msgid="2397329020706244200">"পোহনীয়া জন্তু"</string>
+    <string name="topic10346" msgid="1323702748723563694">"চৰাই"</string>
+    <string name="topic10347" msgid="3301879823396773413">"মেকুৰী"</string>
+    <string name="topic10348" msgid="8066686305498410222">"কুকুৰ"</string>
+    <string name="topic10349" msgid="5253723822905761195">"মাছ আৰু একুৰিয়া"</string>
+    <string name="topic10350" msgid="6164036369108076590">"সৰীসৃপ আৰু উভচৰ প্ৰাণী"</string>
+    <string name="topic10351" msgid="1132984519083501363">"পশু চিকিৎসা"</string>
+    <string name="topic10352" msgid="6310110390516037997">"ৰিয়েল ইষ্টেট"</string>
+    <string name="topic10353" msgid="5114390804081576684">"ভূমিৰ টুকুৰা আৰু ভূমি"</string>
+    <string name="topic10354" msgid="7980778954791504082">"অৱসৰ বিনোদন আৰু বন্ধৰ দিন কটাব পৰা ঠাই"</string>
+    <string name="topic10355" msgid="7720717354548642600">"প্ৰসংগ"</string>
+    <string name="topic10356" msgid="8366981308613661935">"ব্যৱসায়িক আৰু ব্যক্তিগত সূচী"</string>
+    <string name="topic10357" msgid="3185598234676097975">"সাধাৰণ প্ৰসংগ"</string>
+    <string name="topic10358" msgid="6732669037513504019">"কেলকুলেটৰ আৰু প্ৰসংগ সঁজুলি"</string>
+    <string name="topic10359" msgid="8901932349008990500">"অভিধান আৰু বিশ্বকোষ"</string>
+    <string name="topic10360" msgid="6113408769992775754">"শৈক্ষিক সম্পদ"</string>
+    <string name="topic10361" msgid="364838820459183817">"কেনেকৈ কৰিব লাগে"</string>
+    <string name="topic10362" msgid="3760998790588600032">"সময় আৰু কেলেণ্ডাৰ"</string>
+    <string name="topic10363" msgid="5464708619861040861">"ভাষা সম্পৰ্কীয় সম্পদ"</string>
+    <string name="topic10364" msgid="4685400848805560054">"বিদেশী ভাষাৰ অধ্যয়ন"</string>
+    <string name="topic10365" msgid="5196231842716190887">"অনুবাদৰ সঁজুলি আৰু সম্পদ"</string>
+    <string name="topic10366" msgid="7460927054539097025">"মেপ"</string>
+    <string name="topic10367" msgid="3900361839783743700">"বিজ্ঞান"</string>
+    <string name="topic10368" msgid="2069447039109930660">"পৰিৱৰ্ধিত আৰু ভাৰ্ছুৱেল ৰিয়েলিটি"</string>
+    <string name="topic10369" msgid="5747888306428024793">"জৈৱিক বিজ্ঞান"</string>
+    <string name="topic10370" msgid="4860829940151353583">"আনুবংশিক বিজ্ঞান"</string>
+    <string name="topic10371" msgid="8229818210867472466">"ৰসায়ন বিজ্ঞান"</string>
+    <string name="topic10372" msgid="6400467418954574231">"পৰিস্থিতি বিজ্ঞান আৰু পৰিৱেশ"</string>
+    <string name="topic10373" msgid="6990757247198163741">"ভূ-বিজ্ঞান"</string>
+    <string name="topic10374" msgid="8057983193031950119">"মেছিন লাৰ্নিং আৰু কৃত্ৰিম বুদ্ধিমত্তা"</string>
+    <string name="topic10375" msgid="8511185098682306025">"গণিত"</string>
+    <string name="topic10376" msgid="6387800251638760737">"পদাৰ্থ বিজ্ঞান"</string>
+    <string name="topic10377" msgid="7834619927563362042">"ৰবটিক্স"</string>
+    <string name="topic10378" msgid="242496862821758873">"শ্বপিং"</string>
+    <string name="topic10379" msgid="5505228335012447165">"প্ৰাচীন সামগ্ৰী আৰু সংগ্ৰহযোগ্য সামগ্ৰী"</string>
+    <string name="topic10380" msgid="4989560205486143927">"পোছাক"</string>
+    <string name="topic10381" msgid="7585496746485093505">"শিশুৰ পোছাক"</string>
+    <string name="topic10382" msgid="5088060295126473451">"সাজ-পোছাক"</string>
+    <string name="topic10383" msgid="4947104586590538143">"পুৰুষৰ পোছাক"</string>
+    <string name="topic10384" msgid="3752472493887374077">"মহিলাৰ পোছাক"</string>
+    <string name="topic10385" msgid="5275843140794803595">"শ্ৰেণীবদ্ধ বিজ্ঞাপন"</string>
+    <string name="topic10386" msgid="5887032952574801982">"গ্ৰাহক সম্পদ"</string>
+    <string name="topic10387" msgid="8474154360410317897">"কুপন আৰু ৰেহাইৰ অফাৰ"</string>
+    <string name="topic10388" msgid="3650307363028796765">"লয়েল্টী কাৰ্ড আৰু প্ৰ’গ্ৰাম"</string>
+    <string name="topic10389" msgid="1542336508240183221">"কাৰিকৰী সহায় আৰু মেৰামতি"</string>
+    <string name="topic10390" msgid="831225961168954292">"ফুল"</string>
+    <string name="topic10391" msgid="6810540242154911762">"গ্ৰিটিং কাৰ্ড"</string>
+    <string name="topic10392" msgid="2431377771302967625">"পাৰ্টী আৰু বন্ধৰ দিন উদ্‌যাপনৰ সামগ্ৰী"</string>
+    <string name="topic10393" msgid="2671274205988136926">"শ্বপিং প’ৰ্টেল"</string>
+    <string name="topic10394" msgid="1530096364743244151">"ক্ৰীড়া"</string>
+    <string name="topic10395" msgid="316192616624062917">"আমেৰিকান ফুটবল"</string>
+    <string name="topic10396" msgid="8042120651878490689">"অষ্ট্ৰেলিয়ান ফুটবল"</string>
+    <string name="topic10397" msgid="492901976344700942">"অট’ ৰে’চিং"</string>
+    <string name="topic10398" msgid="3471795015226090296">"বেছবল"</string>
+    <string name="topic10399" msgid="2126280752064021308">"বাস্কেটবল"</string>
+    <string name="topic10400" msgid="5440499529264277027">"ব’লিং"</string>
+    <string name="topic10401" msgid="166689951236922024">"বক্সিং"</string>
+    <string name="topic10402" msgid="2451339788231007479">"চিয়েৰলিডিং"</string>
+    <string name="topic10403" msgid="6455478521804717635">"কলেজৰ ক্ৰীড়া"</string>
+    <string name="topic10404" msgid="5261583496913118024">"ক্ৰিকেট"</string>
+    <string name="topic10405" msgid="482477447879117820">"চাইকেল চলোৱা"</string>
+    <string name="topic10406" msgid="8167644332387528703">"অশ্বাৰোহী"</string>
+    <string name="topic10407" msgid="3237734582719584272">"দুঃসাহসিক খেল"</string>
+    <string name="topic10408" msgid="3859749534843254349">"বগোৱা আৰু পৰ্বতাৰোহন"</string>
+    <string name="topic10409" msgid="7485614115639267976">"ফেণ্টাছী ক্ৰীড়া"</string>
+    <string name="topic10410" msgid="5996939009229881074">"গল্ফ"</string>
+    <string name="topic10411" msgid="2513997418184786648">"জিমনাষ্টিক"</string>
+    <string name="topic10412" msgid="5411755341358248299">"হকী"</string>
+    <string name="topic10413" msgid="3319233613448963890">"আইচ স্কেটিং"</string>
+    <string name="topic10414" msgid="1797840816328584660">"সমৰ কলা"</string>
+    <string name="topic10415" msgid="2886043330316735719">"মটৰচাইকেল ৰে’চিং"</string>
+    <string name="topic10416" msgid="3436682172863605224">"অলিম্পিক"</string>
+    <string name="topic10417" msgid="8296644015663416236">"ৰাগবী"</string>
+    <string name="topic10418" msgid="8276736633218488127">"দৌৰা আৰু খোজকঢ়া"</string>
+    <string name="topic10419" msgid="5663062924928275215">"স্কিইং আৰু শ্ন’ব’ৰ্ডিং"</string>
+    <string name="topic10420" msgid="2509320683543423424">"ফুটবল"</string>
+    <string name="topic10421" msgid="6512889128030030686">"ছাৰ্ফিং"</string>
+    <string name="topic10422" msgid="8342986282852879750">"সাঁতোৰ"</string>
+    <string name="topic10423" msgid="6333426807705188459">"টেনিছ"</string>
+    <string name="topic10424" msgid="5495511215629567375">"ট্ৰেক এণ্ড ফিল্ড"</string>
+    <string name="topic10425" msgid="4009138228283995179">"ভলীবল"</string>
+    <string name="topic10426" msgid="7998590461761852196">"মল্লযুদ্ধ"</string>
+    <string name="topic10427" msgid="6711468161729797769">"ভ্ৰমণ আৰু পৰিবহণ"</string>
+    <string name="topic10428" msgid="661919563628063196">"দুঃসাহসিক ভ্ৰমণ"</string>
+    <string name="topic10429" msgid="408270392813634227">"বিমান যাত্ৰা"</string>
+    <string name="topic10430" msgid="3046485339481297656">"ব্যৱসায়িক ভ্ৰমণ"</string>
+    <string name="topic10431" msgid="7439352609169583150">"গাড়ী ভাড়ালৈ দিয়া সেৱা"</string>
+    <string name="topic10432" msgid="5034961318884376752">"ক্ৰুজ আৰু চাৰ্টাৰ"</string>
+    <string name="topic10433" msgid="6354590445323135986">"পৰিয়ালৰ ভ্ৰমণ"</string>
+    <string name="topic10434" msgid="7081309045291255264">"মধুচন্দ্ৰিকা আৰু ৰোমান্তিক ঠাই"</string>
+    <string name="topic10435" msgid="1064605516265819020">"হোটেল আৰু থকাৰ সুবিধা থকা আৱাস"</string>
+    <string name="topic10436" msgid="9050375924140897722">"দূৰণিবটীয়া বাছ আৰু ৰে’ল"</string>
+    <string name="topic10437" msgid="2655664900730187701">"কম খৰচী আৰু শেষ সময়ত কৰা ভ্ৰমণ"</string>
+    <string name="topic10438" msgid="7944023251845122923">"ভ্ৰমণকাৰীৰ মাল-বস্তু আৰু ভ্ৰমণৰ আনুষংগিক সামগ্ৰী"</string>
+    <string name="topic10439" msgid="7845433008088931971">"পৰ্যটনস্থল"</string>
+    <string name="topic10440" msgid="485118071443976808">"সমুদ্ৰতীৰ আৰু দ্বীপ"</string>
+    <string name="topic10441" msgid="518643446480879895">"আঞ্চলিক উদ্যান আৰু বাগিছা"</string>
+    <string name="topic10442" msgid="6534536077484540292">"থীম পাৰ্ক"</string>
+    <string name="topic10443" msgid="8787722062991478596">"চিৰিয়াখানা"</string>
+    <string name="topic10444" msgid="2075863187654728611">"ট্ৰেফিক আৰু ভ্ৰমণৰ বাবে পথৰ পৰিকল্পনা কৰোঁতা"</string>
+    <string name="topic10445" msgid="3460421948068980869">"ট্ৰেভেল এজেঞ্চী আৰু সেৱাসমূহ"</string>
+    <string name="topic10446" msgid="5333138740720504195">"ভ্ৰমণ সম্পৰ্কত সহায় কৰা লোক আৰু ভ্ৰমণ কাহিনী"</string>
+</resources>

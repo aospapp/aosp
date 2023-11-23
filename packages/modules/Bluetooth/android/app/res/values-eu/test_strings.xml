@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="app_name" msgid="7766152617107310582">"Bluetooth-a"</string>
+    <string name="app_name" msgid="7766152617107310582">"Bluetootha"</string>
     <string name="insert_record" msgid="4024416351836939752">"Sartu erregistroa"</string>
     <string name="update_record" msgid="7201772850942641237">"Berretsi erregistroa"</string>
     <string name="ack_record" msgid="2404738476192250210">"ACK erregistroa"</string>

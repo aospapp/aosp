@@ -23,10 +23,14 @@
  ******************************************************************************/
 #include "avrc_api.h"
 
+#ifdef __ANDROID__
+#include <avrcp.sysprop.h>
+#endif
 #include <base/logging.h>
 #include <string.h>
 
 #include "avrc_int.h"
+#include "btif/include/btif_config.h"
 #include "osi/include/allocator.h"
 #include "osi/include/fixed_queue.h"
 #include "osi/include/log.h"
@@ -73,6 +77,25 @@ static const uint8_t avrc_ctrl_event_map[] = {
 /* Flags definitions for AVRC_MsgReq */
 #define AVRC_MSG_MASK_IS_VENDOR_CMD 0x01
 #define AVRC_MSG_MASK_IS_CONTINUATION_RSP 0x02
+
+/******************************************************************************
+ *
+ * Function         avrcp_absolute_volume_is_enabled
+ *
+ * Description      Check if config support advance control (absolute volume)
+ *
+ * Returns          return true if absolute_volume is enabled
+ *
+ *****************************************************************************/
+bool avrcp_absolute_volume_is_enabled() {
+#ifdef __ANDROID__
+  static const bool absolute_volume =
+      android::sysprop::bluetooth::Avrcp::absolute_volume().value_or(true);
+  return absolute_volume;
+#else
+  return true;
+#endif
+}
 
 /******************************************************************************
  *
@@ -596,6 +619,7 @@ static uint8_t avrc_proc_far_msg(uint8_t handle, uint8_t label, uint8_t cr,
       return drop_code;
     }
     avrc_cmd.status = AVRC_STS_NO_ERROR;
+    avrc_cmd.opcode = AVRC_OP_INVALID;
     avrc_cmd.target_pdu = p_rcb->rasm_pdu;
 
     tAVRC_COMMAND avrc_command;
@@ -636,7 +660,6 @@ static void avrc_msg_cback(uint8_t handle, uint8_t label, uint8_t cr,
 
   if (cr == AVCT_CMD && (p_pkt->layer_specific & AVCT_DATA_CTRL &&
                          p_pkt->len > AVRC_PACKET_LEN)) {
-    android_errorWriteLog(0x534e4554, "177611958");
     AVRC_TRACE_WARNING("%s: Command length %d too long: must be at most %d",
                        __func__, p_pkt->len, AVRC_PACKET_LEN);
     osi_free(p_pkt);
@@ -666,7 +689,6 @@ static void avrc_msg_cback(uint8_t handle, uint8_t label, uint8_t cr,
     msg.browse.p_browse_pkt = p_pkt;
   } else {
     if (p_pkt->len < AVRC_AVC_HDR_SIZE) {
-      android_errorWriteLog(0x534e4554, "111803925");
       AVRC_TRACE_WARNING("%s: message length %d too short: must be at least %d",
                          __func__, p_pkt->len, AVRC_AVC_HDR_SIZE);
       osi_free(p_pkt);
@@ -709,7 +731,6 @@ static void avrc_msg_cback(uint8_t handle, uint8_t label, uint8_t cr,
             AVRC_TRACE_WARNING(
                 "%s: message length %d too short: must be at least %d",
                 __func__, p_pkt->len, AVRC_OP_UNIT_INFO_RSP_LEN);
-            android_errorWriteLog(0x534e4554, "79883824");
             drop = true;
             p_drop_msg = "UNIT_INFO_RSP too short";
             break;
@@ -747,7 +768,6 @@ static void avrc_msg_cback(uint8_t handle, uint8_t label, uint8_t cr,
             AVRC_TRACE_WARNING(
                 "%s: message length %d too short: must be at least %d",
                 __func__, p_pkt->len, AVRC_OP_SUB_UNIT_INFO_RSP_LEN);
-            android_errorWriteLog(0x534e4554, "79883824");
             drop = true;
             p_drop_msg = "SUB_UNIT_INFO_RSP too short";
             break;
@@ -949,6 +969,38 @@ static BT_HDR* avrc_pass_msg(tAVRC_MSG_PASS* p_msg) {
   p_cmd->len = (uint16_t)(p_data - (uint8_t*)(p_cmd + 1) - p_cmd->offset);
 
   return p_cmd;
+}
+
+/******************************************************************************
+ *
+ * Function         ARVC_GetControlProfileVersion
+ *
+ * Description      Get the AVRCP profile version
+ *
+ * Returns          The AVRCP control profile version
+ *
+ *****************************************************************************/
+uint16_t AVRC_GetControlProfileVersion() {
+  char volume_disabled[PROPERTY_VALUE_MAX] = {0};
+  osi_property_get("persist.bluetooth.disableabsvol", volume_disabled, "false");
+
+  uint16_t profile_version = AVRC_REV_1_3;
+  char avrcp_version[PROPERTY_VALUE_MAX] = {0};
+  osi_property_get(AVRC_CONTROL_VERSION_PROPERTY, avrcp_version,
+                   strncmp(volume_disabled, "true", 4) == 0 ? AVRC_1_3_STRING
+                                                            : AVRC_1_4_STRING);
+
+  if (!strncmp(AVRC_1_6_STRING, avrcp_version, sizeof(AVRC_1_6_STRING))) {
+    profile_version = AVRC_REV_1_6;
+  } else if (!strncmp(AVRC_1_5_STRING, avrcp_version,
+                      sizeof(AVRC_1_5_STRING))) {
+    profile_version = AVRC_REV_1_5;
+  } else if (!strncmp(AVRC_1_4_STRING, avrcp_version,
+                      sizeof(AVRC_1_4_STRING))) {
+    profile_version = AVRC_REV_1_4;
+  }
+
+  return profile_version;
 }
 
 /******************************************************************************
@@ -1362,4 +1414,44 @@ uint16_t AVRC_PassRsp(uint8_t handle, uint8_t label, tAVRC_MSG_PASS* p_msg) {
   p_buf = avrc_pass_msg(p_msg);
   if (p_buf) return AVCT_MsgReq(handle, label, AVCT_RSP, p_buf);
   return AVRC_NO_RESOURCES;
+}
+
+/******************************************************************************
+ *
+ * Function         AVRC_SaveControllerVersion
+ *
+ * Description      Save AVRC controller version of peer device into bt_config.
+ *                  This version is used to send same AVRC target version to
+ *                  peer device to avoid version mismatch IOP issue.
+ *
+ *                  Input Parameters:
+ *                      bdaddr: BD address of peer device.
+ *
+ *                      version: AVRC controller version of peer device.
+ *
+ *                  Output Parameters:
+ *                      None.
+ *
+ * Returns          Nothing
+ *
+ *****************************************************************************/
+void AVRC_SaveControllerVersion(const RawAddress& bdaddr,
+                                uint16_t new_version) {
+  // store AVRC controller version into BT config
+  uint16_t old_version = 0;
+  size_t version_value_size = sizeof(old_version);
+  if (btif_config_get_bin(bdaddr.ToString(),
+                          AVRCP_CONTROLLER_VERSION_CONFIG_KEY,
+                          (uint8_t*)&old_version, &version_value_size) &&
+      new_version == old_version) {
+    LOG_INFO("AVRC controller version same as cached config");
+  } else if (btif_config_set_bin(
+                 bdaddr.ToString(), AVRCP_CONTROLLER_VERSION_CONFIG_KEY,
+                 (const uint8_t*)&new_version, sizeof(new_version))) {
+    LOG_INFO("store AVRC controller version %x for %s into config.",
+             new_version, ADDRESS_TO_LOGGABLE_CSTR(bdaddr));
+  } else {
+    LOG_WARN("Failed to store AVRC controller version for %s",
+             ADDRESS_TO_LOGGABLE_CSTR(bdaddr));
+  }
 }

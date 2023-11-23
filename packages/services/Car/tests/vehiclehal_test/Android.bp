@@ -18,31 +18,34 @@ package {
     default_applicable_licenses: ["Android-Apache-2.0"],
 }
 
-// TODO(b/194410486): Improve this test and turn it back on after we migrate
-// VHAL interface.
-// android_test {
-//     name: "VehicleHALTest",
+// The end-to-end integration test for vehicle HAL and car services that depends
+// on vehicle HAL. Test cases would use vehicle HAL debug interface to
+// setup vehicle HAL state and test car services' behavior.
+android_test {
+    name: "VehicleHalE2eTest",
 
-//     srcs: ["src/**/*.java"],
+    srcs: ["src/**/*.java"],
 
-//     platform_apis: true,
+    platform_apis: true,
 
-//     certificate: "platform",
+    certificate: "platform",
 
-//     optimize: {
-//         enabled: false,
-//     },
+    optimize: {
+        enabled: false,
+    },
 
-//     static_libs: [
-//         "vehicle-hal-support-lib",
-//         "androidx.test.rules",
-//         "android.hidl.base-V1.0-java",
-//         "android.hardware.automotive.vehicle-V2.0-java",
-//     ],
+    static_libs: [
+        "vehicle-hal-support-lib",
+        "androidx.test.rules",
+        "android.hardware.automotive.vehicle-V2-java",
+        "android.hardware.automotive.vehicle.property-V2-java",
+        "compatibility-device-util-axt",
+        "truth-prebuilt",
+    ],
 
-//     libs: [
-//         "android.car",
-//         "android.test.runner",
-//         "android.test.base",
-//     ],
-// }
+    libs: [
+        "android.car",
+        "android.test.runner",
+        "android.test.base",
+    ],
+}

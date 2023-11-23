@@ -16,14 +16,29 @@
 -->
 <com.android.car.ui.FocusArea
     xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:id="@+id/focus_area"
+    android:orientation="vertical"
     android:layout_width="match_parent"
-    android:layout_height="match_parent">
-    <com.android.car.ui.recyclerview.CarUiRecyclerView
-        android:id="@+id/apps_grid"
-        app:layoutStyle="grid"
-        app:numOfColumns="4"
+    android:layout_height="match_parent"
+    android:gravity="center">
+    <LinearLayout
+        android:id="@+id/apps_grid_background"
+        android:orientation="vertical"
         android:layout_width="match_parent"
-        android:layout_height="match_parent"/>
+        android:layout_height="match_parent"
+        android:gravity="center">
+        <com.android.car.carlauncher.AppGridRecyclerView
+            android:id="@+id/apps_grid"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"/>
+        <FrameLayout
+            android:id="@+id/page_indicator_container"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content">
+            <com.android.car.carlauncher.PageIndicator
+                android:id="@+id/page_indicator"
+                android:layout_width="match_parent"
+                android:layout_height="@dimen/page_indicator_height"/>
+        </FrameLayout>
+    </LinearLayout>
 </com.android.car.ui.FocusArea>

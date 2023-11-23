@@ -20,6 +20,8 @@ import android.telecom.Conference;
 import android.telecom.Connection;
 import android.telecom.DisconnectCause;
 import android.telecom.PhoneAccountHandle;
+import android.text.TextUtils;
+import android.util.Patterns;
 
 import com.android.internal.telephony.Call;
 import com.android.phone.PhoneUtils;
@@ -40,7 +42,6 @@ import java.util.stream.Collectors;
  */
 final class TelephonyConferenceController {
     private static final int TELEPHONY_CONFERENCE_MAX_SIZE = 5;
-    private static final String RIL_REPORTED_CONFERENCE_CALL_STRING = "Conference Call";
 
     private final TelephonyConnection.TelephonyConnectionListener mTelephonyConnectionListener =
             new TelephonyConnection.TelephonyConnectionListener() {
@@ -271,13 +272,13 @@ final class TelephonyConferenceController {
                             // Remove all instances of PROPERTY_IS_DOWNGRADED_CONFERENCE. This
                             // property should only be set on the parent call (i.e. the newly
                             // created TelephonyConference.
-                            // This doesn't apply to a connection whose address is "Conference
-                            // Call", which may be updated by some modem to create a connection
-                            // to represent a merged conference connection in SRVCC.
+                            // This doesn't apply to a connection whose address is not an
+                            // identifiable phone number, which may be updated by some modem
+                            // to create a connection to represent a merged conference connection
+                            // in SRVCC.
                             if (connection.getAddress() == null
-                                    || !connection.getAddress().getSchemeSpecificPart()
-                                            .equalsIgnoreCase(
-                                                    RIL_REPORTED_CONFERENCE_CALL_STRING)) {
+                                    || isPhoneNumber(
+                                            connection.getAddress().getSchemeSpecificPart())) {
                                 Log.d(this, "Removing PROPERTY_IS_DOWNGRADED_CONFERENCE"
                                         + " from connection %s", connection);
                                 int newProperties = connection.getConnectionProperties()
@@ -319,5 +320,12 @@ final class TelephonyConferenceController {
                 }
             }
         }
+    }
+
+    private boolean isPhoneNumber(String number) {
+        if (TextUtils.isEmpty(number)) {
+            return false;
+        }
+        return Patterns.PHONE.matcher(number).matches();
     }
 }

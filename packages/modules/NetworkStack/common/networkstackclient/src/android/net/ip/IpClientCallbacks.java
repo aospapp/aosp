@@ -146,4 +146,11 @@ public class IpClientCallbacks {
         // onReachabilityLost method.
         onReachabilityLost(lossInfo.message);
     }
+
+    /**
+     * Set maximum acceptable DTIM multiplier to hardware driver.
+     *
+     * @param multiplier an integer maximum DTIM multiplier value to set.
+     */
+    public void setMaxDtimMultiplier(int multiplier) {}
 }

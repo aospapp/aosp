@@ -18,6 +18,7 @@ package com.android.car.settings.accounts;
 
 import static com.android.car.settings.common.PreferenceController.AVAILABLE;
 import static com.android.car.settings.common.PreferenceController.AVAILABLE_FOR_VIEWING;
+import static com.android.car.settings.common.PreferenceController.CONDITIONALLY_UNAVAILABLE;
 import static com.android.car.settings.common.PreferenceController.DISABLED_FOR_PROFILE;
 
 import static com.google.common.truth.Truth.assertThat;
@@ -63,10 +64,8 @@ import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.mockito.MockitoSession;
 
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -284,6 +283,39 @@ public class AccountListPreferenceControllerTest {
     }
 
     @Test
+    public void getAvailabilityStatus_demoOrGuest_notAvailable_zoneWrite() {
+        when(mMockProfileHelper.isDemoOrGuest()).thenReturn(true);
+
+        mController.onCreate(mLifecycleOwner);
+        mController.setAvailabilityStatusForZone("write");
+
+        PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
+                DISABLED_FOR_PROFILE);
+    }
+
+    @Test
+    public void getAvailabilityStatus_demoOrGuest_notAvailable_zoneRead() {
+        when(mMockProfileHelper.isDemoOrGuest()).thenReturn(true);
+
+        mController.onCreate(mLifecycleOwner);
+        mController.setAvailabilityStatusForZone("read");
+
+        PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
+                DISABLED_FOR_PROFILE);
+    }
+
+    @Test
+    public void getAvailabilityStatus_demoOrGuest_notAvailable_zoneHidden() {
+        when(mMockProfileHelper.isDemoOrGuest()).thenReturn(true);
+
+        mController.onCreate(mLifecycleOwner);
+        mController.setAvailabilityStatusForZone("hidden");
+
+        PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
+                DISABLED_FOR_PROFILE);
+    }
+
+    @Test
     public void getAvailabilityStatus_restrictedByUm_notAvailable() {
         EnterpriseTestUtils
                 .mockUserRestrictionSetByUm(mMockUserManager, TEST_RESTRICTION, true);
@@ -291,6 +323,42 @@ public class AccountListPreferenceControllerTest {
         mController.onCreate(mLifecycleOwner);
 
         assertThat(mController.getAvailabilityStatus()).isEqualTo(DISABLED_FOR_PROFILE);
+    }
+
+    @Test
+    public void getAvailabilityStatus_restrictedByUm_notAvailable_zoneWrite() {
+        EnterpriseTestUtils
+                .mockUserRestrictionSetByUm(mMockUserManager, TEST_RESTRICTION, true);
+
+        mController.onCreate(mLifecycleOwner);
+        mController.setAvailabilityStatusForZone("write");
+
+        PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
+                DISABLED_FOR_PROFILE);
+    }
+
+    @Test
+    public void getAvailabilityStatus_restrictedByUm_notAvailable_zoneRead() {
+        EnterpriseTestUtils
+                .mockUserRestrictionSetByUm(mMockUserManager, TEST_RESTRICTION, true);
+
+        mController.onCreate(mLifecycleOwner);
+        mController.setAvailabilityStatusForZone("read");
+
+        PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
+                DISABLED_FOR_PROFILE);
+    }
+
+    @Test
+    public void getAvailabilityStatus_restrictedByUm_notAvailable_zoneHidden() {
+        EnterpriseTestUtils
+                .mockUserRestrictionSetByUm(mMockUserManager, TEST_RESTRICTION, true);
+
+        mController.onCreate(mLifecycleOwner);
+        mController.setAvailabilityStatusForZone("hidden");
+
+        PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
+                DISABLED_FOR_PROFILE);
     }
 
     @Test
@@ -305,6 +373,45 @@ public class AccountListPreferenceControllerTest {
     }
 
     @Test
+    public void getAvailabilityStatus_demoOrGuest_restrictedByDpm_notAvailable_zoneWrite() {
+        EnterpriseTestUtils
+                .mockUserRestrictionSetByDpm(mMockUserManager, TEST_RESTRICTION, true);
+        when(mMockProfileHelper.isDemoOrGuest()).thenReturn(true);
+
+        mController.onCreate(mLifecycleOwner);
+        mController.setAvailabilityStatusForZone("write");
+
+        PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
+                DISABLED_FOR_PROFILE);
+    }
+
+    @Test
+    public void getAvailabilityStatus_demoOrGuest_restrictedByDpm_notAvailable_zoneRead() {
+        EnterpriseTestUtils
+                .mockUserRestrictionSetByDpm(mMockUserManager, TEST_RESTRICTION, true);
+        when(mMockProfileHelper.isDemoOrGuest()).thenReturn(true);
+
+        mController.onCreate(mLifecycleOwner);
+        mController.setAvailabilityStatusForZone("read");
+
+        PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
+                DISABLED_FOR_PROFILE);
+    }
+
+    @Test
+    public void getAvailabilityStatus_demoOrGuest_restrictedByDpm_notAvailable_zoneHidden() {
+        EnterpriseTestUtils
+                .mockUserRestrictionSetByDpm(mMockUserManager, TEST_RESTRICTION, true);
+        when(mMockProfileHelper.isDemoOrGuest()).thenReturn(true);
+
+        mController.onCreate(mLifecycleOwner);
+        mController.setAvailabilityStatusForZone("hidden");
+
+        PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
+                DISABLED_FOR_PROFILE);
+    }
+
+    @Test
     public void getAvailabilityStatus_restrictedByDpm_availableForViewing() {
         EnterpriseTestUtils
                 .mockUserRestrictionSetByDpm(mMockUserManager, TEST_RESTRICTION, true);
@@ -312,6 +419,42 @@ public class AccountListPreferenceControllerTest {
         mController.onCreate(mLifecycleOwner);
 
         assertThat(mController.getAvailabilityStatus()).isEqualTo(AVAILABLE_FOR_VIEWING);
+    }
+
+    @Test
+    public void getAvailabilityStatus_restrictedByDpm_availableForViewing_zoneWrite() {
+        EnterpriseTestUtils
+                .mockUserRestrictionSetByDpm(mMockUserManager, TEST_RESTRICTION, true);
+
+        mController.onCreate(mLifecycleOwner);
+        mController.setAvailabilityStatusForZone("write");
+
+        PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
+                AVAILABLE_FOR_VIEWING);
+    }
+
+    @Test
+    public void getAvailabilityStatus_restrictedByDpm_availableForViewing_zoneRead() {
+        EnterpriseTestUtils
+                .mockUserRestrictionSetByDpm(mMockUserManager, TEST_RESTRICTION, true);
+
+        mController.onCreate(mLifecycleOwner);
+        mController.setAvailabilityStatusForZone("read");
+
+        PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
+                AVAILABLE_FOR_VIEWING);
+    }
+
+    @Test
+    public void getAvailabilityStatus_restrictedByDpm_availableForViewing_zoneHidden() {
+        EnterpriseTestUtils
+                .mockUserRestrictionSetByDpm(mMockUserManager, TEST_RESTRICTION, true);
+
+        mController.onCreate(mLifecycleOwner);
+        mController.setAvailabilityStatusForZone("hidden");
+
+        PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
+                CONDITIONALLY_UNAVAILABLE);
     }
 
     @Test
@@ -324,15 +467,48 @@ public class AccountListPreferenceControllerTest {
         assertThat(mController.getAvailabilityStatus()).isEqualTo(AVAILABLE);
     }
 
+    @Test
+    public void getAvailabilityStatus_canModifyAccounts_available_zoneWrite() {
+        when(mMockProfileHelper.canCurrentProcessModifyAccounts()).thenReturn(true);
+        PreferenceControllerTestUtil.assignPreference(mController, mPreference);
+
+        mController.onCreate(mLifecycleOwner);
+        mController.setAvailabilityStatusForZone("write");
+
+        PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
+                AVAILABLE);
+    }
+
+    @Test
+    public void getAvailabilityStatus_canModifyAccounts_available_zoneRead() {
+        when(mMockProfileHelper.canCurrentProcessModifyAccounts()).thenReturn(true);
+        PreferenceControllerTestUtil.assignPreference(mController, mPreference);
+
+        mController.onCreate(mLifecycleOwner);
+        mController.setAvailabilityStatusForZone("read");
+
+        PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
+                AVAILABLE_FOR_VIEWING);
+    }
+
+    @Test
+    public void getAvailabilityStatus_canModifyAccounts_available_zoneHidden() {
+        when(mMockProfileHelper.canCurrentProcessModifyAccounts()).thenReturn(true);
+        PreferenceControllerTestUtil.assignPreference(mController, mPreference);
+
+        mController.onCreate(mLifecycleOwner);
+        mController.setAvailabilityStatusForZone("hidden");
+
+        PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
+                CONDITIONALLY_UNAVAILABLE);
+    }
+
     private void initMocks() {
-        mAccountTypeToLabelMap = new HashMap<String, String>() {
-            {
-                put("com.acct1", mContext.getString(R.string.account_type1_label));
-                put("com.acct2", mContext.getString(R.string.account_type2_label));
-                put("com.acct3", mContext.getString(R.string.account_type3_label));
-            }
-        };
-        mAuthenticatedAccountTypes = new HashSet<>(Arrays.asList("com.acct1", "com.acct2"));
+        mAccountTypeToLabelMap = Map.of(
+                "com.acct1", mContext.getString(R.string.account_type1_label),
+                "com.acct2", mContext.getString(R.string.account_type2_label),
+                "com.acct3", mContext.getString(R.string.account_type3_label));
+        mAuthenticatedAccountTypes = Set.of("com.acct1", "com.acct2");
         mAccountTypeToNameMap = new HashMap<>();
         updateEnabledAccountTypes();
         when(mMockAuthenticatorHelper.getLabelForType(any(), any())).then(invocation -> {

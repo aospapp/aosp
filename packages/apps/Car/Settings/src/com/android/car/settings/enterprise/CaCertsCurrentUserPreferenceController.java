@@ -38,8 +38,8 @@ public final class CaCertsCurrentUserPreferenceController
     }
 
     @Override
-    protected int getAvailabilityStatus() {
-        int superStatus = super.getAvailabilityStatus();
+    protected int getDefaultAvailabilityStatus() {
+        int superStatus = super.getDefaultAvailabilityStatus();
         if (superStatus != AVAILABLE) return superStatus;
 
         return getNumberOfOwnerInstalledCaCertsForCurrentUser() > 0 ? AVAILABLE

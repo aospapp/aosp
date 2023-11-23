@@ -23,6 +23,7 @@ import static org.mockito.Mockito.anyInt;
 import static org.mockito.Mockito.anyObject;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.reset;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.validateMockitoUsage;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
@@ -121,14 +122,19 @@ public class MultiInternetWifiNetworkFactoryTest extends WifiBaseTest {
 
     @Test
     public void testIsWifiMultiInternetRequest() {
-        assertFalse(MultiInternetWifiNetworkFactory.isWifiMultiInternetRequest(mNetworkRequest2G));
-        assertFalse(MultiInternetWifiNetworkFactory.isWifiMultiInternetRequest(mNetworkRequest5G));
+        // Test when caller is no settings
+        assertFalse(MultiInternetWifiNetworkFactory.isWifiMultiInternetRequest(
+                mNetworkRequest2G, false));
+        assertFalse(MultiInternetWifiNetworkFactory.isWifiMultiInternetRequest(
+                mNetworkRequest5G, false));
         mNetworkRequest2G.networkCapabilities.addCapability(
                 NetworkCapabilities.NET_CAPABILITY_INTERNET);
         mNetworkRequest5G.networkCapabilities.addCapability(
                 NetworkCapabilities.NET_CAPABILITY_INTERNET);
-        assertTrue(MultiInternetWifiNetworkFactory.isWifiMultiInternetRequest(mNetworkRequest2G));
-        assertTrue(MultiInternetWifiNetworkFactory.isWifiMultiInternetRequest(mNetworkRequest5G));
+        assertTrue(MultiInternetWifiNetworkFactory.isWifiMultiInternetRequest(
+                mNetworkRequest2G, false));
+        assertTrue(MultiInternetWifiNetworkFactory.isWifiMultiInternetRequest(
+                mNetworkRequest5G, false));
         final NetworkRequest networkRequestNoBandSpecifier = new NetworkRequest.Builder()
                 .setCapabilities(mNetworkCapabilities)
                 .setNetworkSpecifier(new WifiNetworkSpecifier.Builder()
@@ -136,7 +142,7 @@ public class MultiInternetWifiNetworkFactoryTest extends WifiBaseTest {
                         .build())
                 .build();
         assertFalse(MultiInternetWifiNetworkFactory.isWifiMultiInternetRequest(
-                networkRequestNoBandSpecifier));
+                networkRequestNoBandSpecifier, false));
         final NetworkRequest networkRequestSSIDSpecifier = new NetworkRequest.Builder()
                 .setCapabilities(mNetworkCapabilities)
                 .setNetworkSpecifier(new WifiNetworkSpecifier.Builder()
@@ -146,7 +152,7 @@ public class MultiInternetWifiNetworkFactoryTest extends WifiBaseTest {
                     .build())
                 .build();
         assertFalse(MultiInternetWifiNetworkFactory.isWifiMultiInternetRequest(
-                networkRequestSSIDSpecifier));
+                networkRequestSSIDSpecifier, false));
         final NetworkRequest networkRequestBSSIDSpecifier = new NetworkRequest.Builder()
                 .setCapabilities(mNetworkCapabilities)
                 .setNetworkSpecifier(new WifiNetworkSpecifier.Builder()
@@ -154,8 +160,14 @@ public class MultiInternetWifiNetworkFactoryTest extends WifiBaseTest {
                     .setBand(ScanResult.WIFI_BAND_5_GHZ)
                     .build())
                 .build();
+        networkRequestBSSIDSpecifier.networkCapabilities.addCapability(
+                NetworkCapabilities.NET_CAPABILITY_INTERNET);
         assertFalse(MultiInternetWifiNetworkFactory.isWifiMultiInternetRequest(
-                networkRequestBSSIDSpecifier));
+                networkRequestBSSIDSpecifier, false));
+
+        // test when the caller is settings
+        assertTrue(MultiInternetWifiNetworkFactory.isWifiMultiInternetRequest(
+                networkRequestBSSIDSpecifier, true));
     }
 
     /**
@@ -170,11 +182,39 @@ public class MultiInternetWifiNetworkFactoryTest extends WifiBaseTest {
         mMultiInternetWifiNetworkFactory.needNetworkFor(mNetworkRequest2G);
         // First network request should notify MultiInternetManager.
         verify(mMultiInternetManager).setMultiInternetConnectionWorksource(
-                ScanResult.WIFI_BAND_24_GHZ, TEST_WORKSOURCE);
+                ScanResult.WIFI_BAND_24_GHZ, null, TEST_WORKSOURCE);
 
         // Subsequent ones should do nothing.
         mMultiInternetWifiNetworkFactory.needNetworkFor(mNetworkRequest2G);
         verifyNoMoreInteractions(mWifiConnectivityManager);
+    }
+
+    /**
+     * Validates handling of needNetworkFor.
+     */
+    @Test
+    public void testMultiInternetHandleNetworkRequestFromSettingsWithBssid() {
+        when(mWifiPermissionsUtil.checkNetworkSettingsPermission(anyInt())).thenReturn(true);
+        when(mMultiInternetManager.isStaConcurrencyForMultiInternetEnabled()).thenReturn(true);
+        final NetworkRequest networkRequestBSSIDSpecifier = new NetworkRequest.Builder()
+                .setCapabilities(mNetworkCapabilities)
+                .setNetworkSpecifier(new WifiNetworkSpecifier.Builder()
+                        .setBssid(MacAddress.fromString(TEST_BSSID))
+                        .setBand(ScanResult.WIFI_BAND_5_GHZ)
+                        .build())
+                .build();
+        networkRequestBSSIDSpecifier.networkCapabilities.addCapability(
+                NetworkCapabilities.NET_CAPABILITY_INTERNET);
+
+        mMultiInternetWifiNetworkFactory.needNetworkFor(networkRequestBSSIDSpecifier);
+        // First network request should notify MultiInternetManager.
+        verify(mMultiInternetManager).setMultiInternetConnectionWorksource(
+                ScanResult.WIFI_BAND_5_GHZ, TEST_BSSID, TEST_WORKSOURCE);
+
+        // Subsequent ones send it to MultiInternetManagerAgain since it's from Settings.
+        mMultiInternetWifiNetworkFactory.needNetworkFor(networkRequestBSSIDSpecifier);
+        verify(mMultiInternetManager, times(2)).setMultiInternetConnectionWorksource(
+                ScanResult.WIFI_BAND_5_GHZ, TEST_BSSID, TEST_WORKSOURCE);
     }
 
     /**
@@ -192,16 +232,16 @@ public class MultiInternetWifiNetworkFactoryTest extends WifiBaseTest {
         mMultiInternetWifiNetworkFactory.needNetworkFor(mNetworkRequest5G);
         // First network request should notify MultiInternetManager.
         verify(mMultiInternetManager).setMultiInternetConnectionWorksource(
-                ScanResult.WIFI_BAND_24_GHZ, TEST_WORKSOURCE);
+                ScanResult.WIFI_BAND_24_GHZ, null, TEST_WORKSOURCE);
         verify(mMultiInternetManager).setMultiInternetConnectionWorksource(
-                ScanResult.WIFI_BAND_5_GHZ, TEST_WORKSOURCE);
+                ScanResult.WIFI_BAND_5_GHZ, null, TEST_WORKSOURCE);
 
         reset(mMultiInternetManager);
         // Subsequent ones should do nothing.
         mMultiInternetWifiNetworkFactory.needNetworkFor(mNetworkRequest2G);
         mMultiInternetWifiNetworkFactory.needNetworkFor(mNetworkRequest5G);
         verify(mMultiInternetManager, never()).setMultiInternetConnectionWorksource(anyInt(),
-                anyObject());
+                anyObject(), anyObject());
         verifyNoMoreInteractions(mWifiConnectivityManager);
     }
 
@@ -219,11 +259,11 @@ public class MultiInternetWifiNetworkFactoryTest extends WifiBaseTest {
         // Now request & then release the network request
         mMultiInternetWifiNetworkFactory.needNetworkFor(mNetworkRequest2G);
         verify(mMultiInternetManager).setMultiInternetConnectionWorksource(
-                ScanResult.WIFI_BAND_24_GHZ, TEST_WORKSOURCE);
+                ScanResult.WIFI_BAND_24_GHZ, null, TEST_WORKSOURCE);
 
         mMultiInternetWifiNetworkFactory.releaseNetworkFor(mNetworkRequest2G);
         verify(mMultiInternetManager).setMultiInternetConnectionWorksource(
-                ScanResult.WIFI_BAND_24_GHZ, null);
+                ScanResult.WIFI_BAND_24_GHZ, null, null);
     }
 
     /**
@@ -240,7 +280,7 @@ public class MultiInternetWifiNetworkFactoryTest extends WifiBaseTest {
         // Now request & then release the network request
         mMultiInternetWifiNetworkFactory.needNetworkFor(mNetworkRequest5G);
         verify(mMultiInternetManager).setMultiInternetConnectionWorksource(
-                ScanResult.WIFI_BAND_5_GHZ, TEST_WORKSOURCE);
+                ScanResult.WIFI_BAND_5_GHZ, null, TEST_WORKSOURCE);
 
         // Now request the network again for 2 times.
         mMultiInternetWifiNetworkFactory.needNetworkFor(mNetworkRequest5G);
@@ -248,10 +288,10 @@ public class MultiInternetWifiNetworkFactoryTest extends WifiBaseTest {
 
         mMultiInternetWifiNetworkFactory.releaseNetworkFor(mNetworkRequest5G);
         verify(mMultiInternetManager, never()).setMultiInternetConnectionWorksource(
-                ScanResult.WIFI_BAND_5_GHZ, null);
+                ScanResult.WIFI_BAND_5_GHZ, null, null);
         mMultiInternetWifiNetworkFactory.releaseNetworkFor(mNetworkRequest5G);
         mMultiInternetWifiNetworkFactory.releaseNetworkFor(mNetworkRequest5G);
         verify(mMultiInternetManager).setMultiInternetConnectionWorksource(
-                ScanResult.WIFI_BAND_5_GHZ, null);
+                ScanResult.WIFI_BAND_5_GHZ, null, null);
     }
 }

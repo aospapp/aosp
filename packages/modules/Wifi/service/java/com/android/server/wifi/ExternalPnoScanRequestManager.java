@@ -160,19 +160,20 @@ public class ExternalPnoScanRequestManager implements IBinder.DeathRecipient {
     }
 
     /**
-     * Triggered when PNO networks are found. Any results matching the external request will be
+     * Triggered when networks are found. Any results matching the external request will be
      * sent to the callback.
-     * @param results
+     * @param scanDetails the list of scanDetails received by the framework
      */
-    public void onPnoNetworkFound(ScanResult[] results) {
+    public void onScanResultsAvailable(List<ScanDetail> scanDetails) {
         if (mCurrentRequest == null) {
             return;
         }
         mCurrentRequestOnPnoNetworkFoundCount++;
         List<ScanResult> requestedResults = new ArrayList<>();
-        for (ScanResult result : results) {
-            if (mCurrentRequest.mSsidStrings.contains(result.getWifiSsid().toString())) {
-                requestedResults.add(result);
+        for (ScanDetail scanDetail : scanDetails) {
+            if (mCurrentRequest.mSsidStrings.contains(
+                    scanDetail.getScanResult().getWifiSsid().toString())) {
+                requestedResults.add(scanDetail.getScanResult());
             }
         }
         if (requestedResults.isEmpty()) {

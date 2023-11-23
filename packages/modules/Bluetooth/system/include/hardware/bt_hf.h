@@ -56,6 +56,9 @@ typedef enum { BTHF_NREC_STOP, BTHF_NREC_START } bthf_nrec_t;
 /* WBS codec setting */
 typedef enum { BTHF_WBS_NONE, BTHF_WBS_NO, BTHF_WBS_YES } bthf_wbs_config_t;
 
+/* SWB codec setting */
+typedef enum { BTHF_SWB_NONE, BTHF_SWB_NO, BTHF_SWB_YES } bthf_swb_config_t;
+
 /* CHLD - Call held handling */
 typedef enum {
   BTHF_CHLD_TYPE_RELEASEHELD,  // Terminate all held or set UDUB("busy") to a

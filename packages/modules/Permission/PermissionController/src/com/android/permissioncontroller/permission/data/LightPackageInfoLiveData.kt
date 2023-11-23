@@ -13,15 +13,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+@file:Suppress("DEPRECATION")
 
 package com.android.permissioncontroller.permission.data
 
 import android.app.Application
 import android.content.pm.PackageManager
 import android.os.UserHandle
+import android.os.UserManager
 import android.util.Log
 import androidx.annotation.MainThread
 import androidx.lifecycle.Observer
+import com.android.modules.utils.build.SdkLevel
 import com.android.permissioncontroller.PermissionControllerApplication
 import com.android.permissioncontroller.permission.model.livedatatypes.LightPackageInfo
 import com.android.permissioncontroller.permission.utils.Utils
@@ -38,14 +41,13 @@ class LightPackageInfoLiveData private constructor(
     private val app: Application,
     private val packageName: String,
     private val user: UserHandle
-) : SmartAsyncMediatorLiveData<LightPackageInfo>(alwaysUpdateOnActive = false),
+) : SmartAsyncMediatorLiveData<LightPackageInfo?>(alwaysUpdateOnActive = false),
     PackageBroadcastReceiver.PackageBroadcastListener,
     PermissionListenerMultiplexer.PermissionChangeCallback {
 
     private val LOG_TAG = LightPackageInfoLiveData::class.java.simpleName
     private val userPackagesLiveData = UserPackageInfosLiveData[user]
 
-    private var context = Utils.getUserContext(app, user)
     private var uid: Int? = null
     /**
      * The currently registered UID on which this LiveData is listening for permission changes.
@@ -94,10 +96,21 @@ class LightPackageInfoLiveData private constructor(
             return
         }
         postValue(try {
-            LightPackageInfo(context.packageManager.getPackageInfo(packageName,
-                PackageManager.GET_PERMISSIONS))
-        } catch (e: PackageManager.NameNotFoundException) {
-            Log.w(LOG_TAG, "Package \"$packageName\" not found")
+            var flags = PackageManager.GET_PERMISSIONS
+            if (SdkLevel.isAtLeastS()) {
+                flags = flags or PackageManager.GET_ATTRIBUTIONS
+            }
+
+            LightPackageInfo(Utils.getUserContext(app, user).packageManager
+                .getPackageInfo(packageName, flags))
+        } catch (e: Exception) {
+            if (e is PackageManager.NameNotFoundException) {
+                Log.w(LOG_TAG, "Package \"$packageName\" not found for user $user")
+            } else {
+                val profiles = app.getSystemService(UserManager::class.java)!!.userProfiles
+                Log.e(LOG_TAG, "Failed to create context for user $user. " +
+                        "User exists : ${user in profiles }", e)
+            }
             invalidateSingle(packageName to user)
             null
         })

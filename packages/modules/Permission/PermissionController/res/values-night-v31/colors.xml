@@ -14,13 +14,10 @@
   ~ See the License for the specific language governing permissions and
   ~ limitations under the License.
   -->
-<resources>
+<resources xmlns:androidprv="http://schemas.android.com/apk/prv/res/android">
     <color name="warning_surface">#333124</color>
     <color name="warning_onsurface">#FDD663</color>
 
-    <!-- Safety center colors -->
-    <color name="safety_center_info">#5BB974</color>
-    <color name="safety_center_recommend">#FCC934</color>
-    <color name="safety_center_warn">#EE675C</color>
-    <color name="safety_center_status_unfilled_wedge">#3C4043</color> <!-- Material Gray 800 @ 75% opacity -->
+    <!-- overviewBackground is not visible from mainline, so UX provided this alternative -->
+    <color name="permission_rationale_overview_background">@android:color/system_neutral1_600</color>
 </resources>

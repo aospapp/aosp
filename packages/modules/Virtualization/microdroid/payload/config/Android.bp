@@ -8,7 +8,7 @@ rust_library {
     crate_name: "microdroid_payload_config",
     srcs: ["src/lib.rs"],
     prefer_rlib: true,
-    edition: "2018",
+    edition: "2021",
     rustlibs: [
         "libserde_json",
         "libserde",

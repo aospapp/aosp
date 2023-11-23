@@ -1,0 +1,27 @@
+{
+  "presubmit": [
+    {
+      "name": "PermissionControllerMockingTests",
+      "options": [
+        {
+          "include-filter": "com.android.permissioncontroller.tests.mocking.safetylabel"
+        }
+      ]
+    }
+  ],
+   "presubmit-large": [
+    {
+      "name": "CtsPermission3TestCases",
+      "options": [
+        {
+          "exclude-annotation": "android.platform.test.annotations.FlakyTest"
+        }
+      ]
+    }
+  ],
+  "mainline-presubmit": [
+    {
+      "name": "CtsPermission3TestCases[com.google.android.permission.apex]"
+    }
+  ]
+}

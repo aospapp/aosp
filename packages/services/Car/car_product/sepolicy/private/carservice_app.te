@@ -6,8 +6,14 @@ hal_client_domain(carservice_app, hal_audiocontrol)
 hal_client_domain(carservice_app, hal_health)
 hal_client_domain(carservice_app, hal_vehicle)
 
+# Allow Car Service to be the client of remoteaccess HAL.
+hal_client_domain(carservice_app, hal_remoteaccess)
+
 # Allow Car Service to use EVS service
 hal_client_domain(carservice_app, hal_evs)
+
+# Allow Car Service to use IVN HAL.
+hal_client_domain(carservice_app, hal_ivn)
 
 # Allow to set boot.car_service_created property
 set_prop(carservice_app, system_prop)
@@ -51,6 +57,7 @@ allow carservice_app {
     timedetector_service
     timezonedetector_service
     uimode_service
+    usagestats_service
     voiceinteraction_service
     wifi_service
     wifiscanner_service

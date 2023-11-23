@@ -31,8 +31,8 @@
     <string name="set_live_wallpaper" msgid="764007409845174475">"ልጣፍ አዘጋጅ"</string>
     <string name="wallpaper_title_and_author" msgid="7606029050779779421">"<xliff:g id="TITLE">%1$s</xliff:g> በ <xliff:g id="AUTHOR">%2$s</xliff:g>"</string>
     <string name="live_wallpaper_loading" msgid="7218845906181560315">"ቀጥታ የሚተላለፍ ልጣፍ በመስቀል ላይ..."</string>
-    <string name="which_wallpaper_option_home_screen" msgid="3323619298489943624">"መነሻ ገጽ"</string>
-    <string name="which_wallpaper_option_home_screen_and_lock_screen" msgid="1650093303691767601">"መነሻ ገጽ እና ማያ ገጽ ቁልፍ"</string>
+    <string name="which_wallpaper_option_home_screen" msgid="3323619298489943624">"መነሻ ገፅ"</string>
+    <string name="which_wallpaper_option_home_screen_and_lock_screen" msgid="1650093303691767601">"መነሻ ገፅ እና ማያ ገፅ ቁልፍ"</string>
     <string name="explore_further" msgid="489032063223099244">"አስስ"</string>
     <string name="tab_info" msgid="5501369870701932475">"መረጃ"</string>
     <string name="tab_customize" msgid="9007237541087328909">"ያብጁ"</string>

@@ -16,13 +16,7 @@
 
 static_library("hci") {
   sources = [
-    "src/btsnoop.cc",
-    "src/btsnoop_mem.cc",
-    "src/btsnoop_net.cc",
     "src/buffer_allocator.cc",
-    "src/hci_inject.cc",
-    "src/hci_packet_factory.cc",
-    "src/hci_packet_parser.cc",
     "src/packet_fragmenter.cc",
   ]
 

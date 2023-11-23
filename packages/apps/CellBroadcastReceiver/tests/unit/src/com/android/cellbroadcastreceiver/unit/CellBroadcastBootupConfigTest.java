@@ -36,6 +36,8 @@ import static com.android.internal.telephony.gsm.SmsCbConstants.MESSAGE_ID_ETWS_
 import static com.android.internal.telephony.gsm.SmsCbConstants.MESSAGE_ID_ETWS_EARTHQUAKE_WARNING;
 import static com.android.internal.telephony.gsm.SmsCbConstants.MESSAGE_ID_ETWS_OTHER_EMERGENCY_TYPE;
 
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Matchers.anyInt;
 import static org.mockito.Matchers.anyString;
 import static org.mockito.Mockito.doReturn;
@@ -44,6 +46,7 @@ import static org.mockito.Mockito.verify;
 
 import android.content.Intent;
 import android.os.IBinder;
+import android.telephony.CellBroadcastIdRange;
 import android.telephony.SmsCbMessage;
 
 import androidx.test.filters.FlakyTest;
@@ -51,12 +54,15 @@ import androidx.test.filters.FlakyTest;
 import com.android.cellbroadcastreceiver.CellBroadcastConfigService;
 import com.android.cellbroadcastreceiver.CellBroadcastSettings;
 import com.android.internal.telephony.ISms;
+import com.android.modules.utils.build.SdkLevel;
 
 import org.junit.After;
 import org.junit.Before;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Captor;
 import org.mockito.Mock;
+
+import java.util.List;
 
 public class CellBroadcastBootupConfigTest extends
         CellBroadcastServiceTestCase<CellBroadcastConfigService> {
@@ -149,6 +155,8 @@ public class CellBroadcastBootupConfigTest extends
         for (String key : preferenceKeys) {
             enablePreference(key);
         }
+        doReturn("").when(mMockedSharedPreferences)
+                .getString(eq("roaming_operator_supported"), any());
 
         Intent intent = new Intent(mContext, CellBroadcastConfigService.class);
         intent.setAction(CellBroadcastConfigService.ACTION_ENABLE_CHANNELS);
@@ -200,14 +208,33 @@ public class CellBroadcastBootupConfigTest extends
                         SmsCbMessage.MESSAGE_FORMAT_3GPP),
         };
 
-        verify(mSmsService, timeout(10000).times(configs.length))
-                .enableCellBroadcastRangeForSubscriber(
-                        anyInt(), mStartIds.capture(), mEndIds.capture(), mTypes.capture());
+        if (SdkLevel.isAtLeastU()) {
+            ArgumentCaptor<List<CellBroadcastIdRange>> ranges =
+                    ArgumentCaptor.forClass(List.class);
+            verify(mMockedTelephonyManager, timeout(10000).times(1))
+                    .setCellBroadcastIdRanges(ranges.capture(), any(), any());
 
-        for (int i = 0; i < configs.length; i++) {
-            assertEquals("i=" + i, configs[i].startId, mStartIds.getAllValues().get(i).intValue());
-            assertEquals("i=" + i, configs[i].endId, mEndIds.getAllValues().get(i).intValue());
-            assertEquals("i=" + i, configs[i].type, mTypes.getAllValues().get(i).intValue());
+            for (int i = 0; i < configs.length; i++) {
+                assertEquals("i=" + i, configs[i].startId, ((CellBroadcastIdRange)
+                        (ranges.getAllValues().get(0).get(i))).getStartId());
+                assertEquals("i=" + i, configs[i].endId, ((CellBroadcastIdRange)
+                        (ranges.getAllValues().get(0).get(i))).getEndId());
+                assertEquals("i=" + i, configs[i].type, ((CellBroadcastIdRange)
+                        (ranges.getAllValues().get(0).get(i))).getType());
+            }
+        } else {
+            verify(mSmsService, timeout(10000).times(configs.length))
+                    .enableCellBroadcastRangeForSubscriber(
+                            anyInt(), mStartIds.capture(), mEndIds.capture(), mTypes.capture());
+
+            for (int i = 0; i < configs.length; i++) {
+                assertEquals("i=" + i, configs[i].startId,
+                        mStartIds.getAllValues().get(i).intValue());
+                assertEquals("i=" + i, configs[i].endId,
+                        mEndIds.getAllValues().get(i).intValue());
+                assertEquals("i=" + i, configs[i].type,
+                        mTypes.getAllValues().get(i).intValue());
+            }
         }
      }
 }

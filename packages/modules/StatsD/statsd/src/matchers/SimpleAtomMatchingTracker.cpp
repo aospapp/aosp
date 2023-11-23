@@ -42,20 +42,28 @@ SimpleAtomMatchingTracker::SimpleAtomMatchingTracker(const int64_t& id, const in
 SimpleAtomMatchingTracker::~SimpleAtomMatchingTracker() {
 }
 
-bool SimpleAtomMatchingTracker::init(const vector<AtomMatcher>& allAtomMatchers,
-                                     const vector<sp<AtomMatchingTracker>>& allAtomMatchingTrackers,
-                                     const unordered_map<int64_t, int>& matcherMap,
-                                     vector<bool>& stack) {
+optional<InvalidConfigReason> SimpleAtomMatchingTracker::init(
+        const vector<AtomMatcher>& allAtomMatchers,
+        const vector<sp<AtomMatchingTracker>>& allAtomMatchingTrackers,
+        const unordered_map<int64_t, int>& matcherMap, vector<bool>& stack) {
     // no need to do anything.
-    return mInitialized;
+    if (!mInitialized) {
+        return createInvalidConfigReasonWithMatcher(
+                INVALID_CONFIG_REASON_MATCHER_TRACKER_NOT_INITIALIZED, mId);
+    }
+    return nullopt;
 }
 
-bool SimpleAtomMatchingTracker::onConfigUpdated(
+optional<InvalidConfigReason> SimpleAtomMatchingTracker::onConfigUpdated(
         const AtomMatcher& matcher, const int index,
         const unordered_map<int64_t, int>& atomMatchingTrackerMap) {
     mIndex = index;
     // Do not need to update mMatcher since the matcher must be identical across the update.
-    return mInitialized;
+    if (!mInitialized) {
+        return createInvalidConfigReasonWithMatcher(
+                INVALID_CONFIG_REASON_MATCHER_TRACKER_NOT_INITIALIZED, mId);
+    }
+    return nullopt;
 }
 
 void SimpleAtomMatchingTracker::onLogEvent(

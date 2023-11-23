@@ -163,6 +163,25 @@ bool WriteToFile(const std::string& path, const std::string& data) {
   // Change the file's permissions to Read/Write by User and Group
   if (chmod(temp_path.c_str(), S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP) != 0) {
     LOG_ERROR("unable to change file permissions '%s', error: %s", temp_path.c_str(), strerror(errno));
+
+    struct stat dirstat {};
+    if (fstat(dir_fd, &dirstat) == 0) {
+      LOG_ERROR("dir st_mode = 0x%02x", dirstat.st_mode);
+      LOG_ERROR("dir uid = %d", dirstat.st_uid);
+      LOG_ERROR("dir gid = %d", dirstat.st_gid);
+    } else {
+      LOG_ERROR("unable to call fstat on the directory, error: %s", strerror(errno));
+    }
+
+    struct stat filestat {};
+    if (stat(temp_path.c_str(), &filestat) == 0) {
+      LOG_ERROR("file st_mode = 0x%02x", filestat.st_mode);
+      LOG_ERROR("file uid = %d", filestat.st_uid);
+      LOG_ERROR("file gid = %d", filestat.st_gid);
+    } else {
+      LOG_ERROR("unable to call stat, error: %s", strerror(errno));
+    }
+
     HandleError(temp_path, &dir_fd, &fp);
     return false;
   }

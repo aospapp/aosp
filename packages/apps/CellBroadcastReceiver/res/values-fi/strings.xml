@@ -61,12 +61,12 @@
     <string name="notification_channel_broadcast_messages_in_voicecall" msgid="3291001780110813190">"Hätähälytykset äänipuhelun aikana"</string>
     <string name="notification_channel_settings_updates" msgid="6779759372516475085">"Langattomien vaaratiedotteiden automaattiset asetukset muuttuneet SIM-kortin perusteella"</string>
     <string name="enable_alerts_master_toggle_title" msgid="1457904343636699446">"Salli hälytykset"</string>
-    <string name="enable_alerts_master_toggle_summary" msgid="5583168548073938617">"Vastaanota langattomia vaaratiedotteita"</string>
+    <string name="enable_alerts_master_toggle_summary" msgid="5583168548073938617">"Vastaanota langattomia hätätiedotteita"</string>
     <string name="alert_reminder_interval_title" msgid="3283595202268218149">"Hälytysmuistutus"</string>
     <string name="enable_alert_speech_title" msgid="8052104771053526941">"Puhu varoitusilmoitus"</string>
     <string name="enable_alert_speech_summary" msgid="2855629032890937297">"Käytä tekstistä puheeksi -toimintoa langattomissa vaaratiedotteissa"</string>
     <string name="alert_reminder_dialog_title" msgid="2299010977651377315">"Muistutusääni soi tavallisella äänenvoimakkuudella"</string>
-    <string name="emergency_alert_history_title" msgid="8310173569237268431">"Hätähälytyshistoria"</string>
+    <string name="emergency_alert_history_title" msgid="8310173569237268431">"Hätävaroitushistoria"</string>
     <string name="alert_preferences_title" msgid="6001469026393248468">"Hälytysasetukset"</string>
     <string name="enable_etws_test_alerts_title" msgid="3593533226735441539">"ETWS-testilähetykset"</string>
     <string name="enable_etws_test_alerts_summary" msgid="8746155402612927306">"Maanjäristys- ja tsunamivaroitusjärjestelmän koelähetykset"</string>
@@ -139,7 +139,7 @@
     <string name="cmas_opt_out_dialog_text" msgid="4820577535626084938">"Vastaanotat tällä hetkellä langattomia hätähälytyksiä. Haluatko jatkaa langattomien hätähälytysten vastaanottamista?"</string>
     <string name="cmas_opt_out_button_yes" msgid="7248930667195432936">"Kyllä"</string>
     <string name="cmas_opt_out_button_no" msgid="3110484064328538553">"Ei"</string>
-    <string name="cb_list_activity_title" msgid="1433502151877791724">"Hätähälytyshistoria"</string>
+    <string name="cb_list_activity_title" msgid="1433502151877791724">"Hätävaroitushistoria"</string>
     <string name="action_delete" msgid="7435661404543945861">"Poista"</string>
     <string name="action_detail_info" msgid="8486524382178381810">"Näytä tiedot"</string>
   <string-array name="alert_reminder_interval_entries">

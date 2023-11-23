@@ -22,10 +22,12 @@ import android.annotation.IntDef;
 import android.annotation.NonNull;
 import android.annotation.Nullable;
 import android.annotation.RequiresPermission;
+import android.annotation.SuppressLint;
 import android.annotation.SystemApi;
 import android.annotation.TestApi;
 import android.car.Car;
 import android.car.CarManagerBase;
+import android.car.SyncResultCallback;
 import android.car.annotation.AddedInOrBefore;
 import android.car.builtin.util.EventLogHelper;
 import android.car.user.UserCreationResult;
@@ -36,7 +38,9 @@ import android.car.util.concurrent.AndroidFuture;
 import android.os.IBinder;
 import android.os.RemoteException;
 import android.os.UserHandle;
+import android.util.Log;
 
+import com.android.car.internal.ResultCallbackImpl;
 import com.android.car.internal.common.UserHelperLite;
 import com.android.car.internal.os.CarSystemProperties;
 import com.android.internal.annotations.VisibleForTesting;
@@ -56,13 +60,12 @@ import java.util.concurrent.TimeoutException;
  *
  * <ol>
  *   <li>Its methods take in consideration driver-safety restrictions.
- *   <li>Callers doesn't need to be a {@code DPC}, but rather have the proper permissions.
+ *   <li>Callers don't need to be a {@code DPC}, but rather have the proper permissions.
  * </ol>
  *
  * @hide
  */
 @SystemApi
-@TestApi
 public final class CarDevicePolicyManager extends CarManagerBase {
 
     /**
@@ -103,6 +106,7 @@ public final class CarDevicePolicyManager extends CarManagerBase {
 
     private static final int DEVICE_POLICY_MANAGER_TIMEOUT_MS =
             CarSystemProperties.getDevicePolicyManagerTimeout().orElse(60_000);
+    private static final int REMOVE_USER_CALL_TIMEOUT_MS = 60_000;
 
     /** @hide */
     @IntDef(prefix = PREFIX_USER_TYPE, value = {
@@ -143,35 +147,41 @@ public final class CarDevicePolicyManager extends CarManagerBase {
      * @hide
      */
     @SystemApi
-    @TestApi
     @RequiresPermission(anyOf = {android.Manifest.permission.MANAGE_USERS,
             android.Manifest.permission.CREATE_USERS})
     @NonNull
     @AddedInOrBefore(majorVersion = 33)
+    @SuppressLint("VisibleForTests")
     public RemoveUserResult removeUser(@NonNull UserHandle user) {
         Objects.requireNonNull(user, "user cannot be null");
 
         int userId = user.getIdentifier();
         int uid = myUid();
         EventLogHelper.writeCarDevicePolicyManagerRemoveUserReq(uid, userId);
-        int status = RemoveUserResult.STATUS_FAILURE_GENERIC;
+        UserRemovalResult userRemovalResult = new UserRemovalResult(
+                UserRemovalResult.STATUS_ANDROID_FAILURE);
         try {
-            AndroidFuture<UserRemovalResult> future = new AndroidFuture<UserRemovalResult>();
-            mService.removeUser(userId, future);
-            UserRemovalResult result = future.get(DEVICE_POLICY_MANAGER_TIMEOUT_MS,
+            SyncResultCallback<UserRemovalResult> userRemovalResultCallback =
+                    new SyncResultCallback<>();
+            ResultCallbackImpl<UserRemovalResult> resultCallbackImpl = new ResultCallbackImpl<>(
+                    Runnable::run, userRemovalResultCallback);
+            mService.removeUser(user.getIdentifier(), resultCallbackImpl);
+
+            userRemovalResult = userRemovalResultCallback.get(REMOVE_USER_CALL_TIMEOUT_MS,
                     TimeUnit.MILLISECONDS);
-            status = result.getStatus();
-            return new RemoveUserResult(status);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            return new RemoveUserResult(status);
-        } catch (ExecutionException | TimeoutException e) {
-            return new RemoveUserResult(status);
+            Log.e(TAG, "CarDevicePolicyManager removeUser(user): ", e);
+        } catch (TimeoutException e) {
+            Log.e(TAG, "CarDevicePolicyManager removeUser(user): ", e);
         } catch (RemoteException e) {
-            return handleRemoteExceptionFromCarService(e, new RemoveUserResult(status));
+            return handleRemoteExceptionFromCarService(e,
+                    new RemoveUserResult(UserRemovalResult.STATUS_ANDROID_FAILURE));
         } finally {
-            EventLogHelper.writeCarDevicePolicyManagerRemoveUserResp(uid, status);
+            EventLogHelper.writeCarDevicePolicyManagerRemoveUserResp(uid,
+                    userRemovalResult.getStatus());
         }
+        return new RemoveUserResult(userRemovalResult.getStatus());
     }
 
     /**
@@ -189,7 +199,6 @@ public final class CarDevicePolicyManager extends CarManagerBase {
      * @hide
      */
     @SystemApi
-    @TestApi
     @RequiresPermission(anyOf = {android.Manifest.permission.MANAGE_USERS,
             android.Manifest.permission.CREATE_USERS})
     @NonNull
@@ -200,16 +209,22 @@ public final class CarDevicePolicyManager extends CarManagerBase {
                 type);
         int status = CreateUserResult.STATUS_FAILURE_GENERIC;
         try {
-            AndroidFuture<UserCreationResult> future = new AndroidFuture<UserCreationResult>();
-            mService.createUser(name, type, future);
-            UserCreationResult result = future.get(DEVICE_POLICY_MANAGER_TIMEOUT_MS,
-                    TimeUnit.MILLISECONDS);
+            SyncResultCallback<UserCreationResult> userCreationResultCallback =
+                    new SyncResultCallback<>();
+
+            ResultCallbackImpl<UserCreationResult> resultCallbackImpl = new ResultCallbackImpl(
+                    Runnable::run, userCreationResultCallback);
+
+            mService.createUser(name, type, resultCallbackImpl);
+
+            UserCreationResult result = userCreationResultCallback.get(
+                    DEVICE_POLICY_MANAGER_TIMEOUT_MS, TimeUnit.MILLISECONDS);
             status = result.getStatus();
             return new CreateUserResult(result);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             return CreateUserResult.forGenericError();
-        } catch (ExecutionException | TimeoutException e) {
+        } catch (TimeoutException e) {
             return CreateUserResult.forGenericError();
         } catch (RemoteException e) {
             return handleRemoteExceptionFromCarService(e, CreateUserResult.forGenericError());
@@ -225,6 +240,7 @@ public final class CarDevicePolicyManager extends CarManagerBase {
      *
      * @return whether the user was successfully started.
      *
+     * @deprecated Use {@link android.car.user.CarUserManager#startUser(UserStartRequest)} instead.
      * @hide
      */
     @TestApi
@@ -232,6 +248,7 @@ public final class CarDevicePolicyManager extends CarManagerBase {
             android.Manifest.permission.CREATE_USERS})
     @NonNull
     @AddedInOrBefore(majorVersion = 33)
+    @Deprecated
     public StartUserInBackgroundResult startUserInBackground(@NonNull UserHandle user) {
         Objects.requireNonNull(user, "user cannot be null");
 
@@ -266,12 +283,14 @@ public final class CarDevicePolicyManager extends CarManagerBase {
      * @return whether the user was successfully stopped.
      *
      * @hide
+     * @deprecated Use {@link android.car.user.CarUserManager#stopUser(UserStopRequest)} instead.
      */
     @TestApi
     @RequiresPermission(anyOf = {android.Manifest.permission.MANAGE_USERS,
             android.Manifest.permission.CREATE_USERS})
     @NonNull
     @AddedInOrBefore(majorVersion = 33)
+    @Deprecated
     public StopUserResult stopUser(@NonNull UserHandle user) {
         Objects.requireNonNull(user, "user cannot be null");
 

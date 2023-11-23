@@ -19,7 +19,6 @@
 #include <android-base/file.h>
 #include <android-base/strings.h>
 #include <gmock/gmock.h>
-#include <log/log.h>
 
 #include <inttypes.h>
 

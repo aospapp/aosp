@@ -132,6 +132,46 @@ public final class CallState {
      */
     public static final int SIMULATED_RINGING = TelecomProtoEnums.SIMULATED_RINGING; // = 13
 
+    /**
+     * Determines if a given call state is "transitory".  A transitory call state is one which a
+     * call should only be in for a short duration of time before lower levels move it to a more
+     * permanent stable state.
+     *
+     * It is tempting to consider {@link #DIALING}, for example, to be transitory, however the time
+     * spent in this state is entirely dependent on how long the call is actually in that state and
+     * it is expected a call can be {@link #DIALING} for potentially a minute or more.
+     * @param callState the state to check
+     * @return {@code true} if the state is transitory, {@code false} otherwise.
+     */
+    public static boolean isTransitoryState(int callState) {
+        switch (callState) {
+            case NEW:
+            case CONNECTING:
+            case DISCONNECTING:
+            case ANSWERED:
+                return true;
+            default:
+                return false;
+        }
+    }
+
+    /**
+     * Determines if a given call state is "intermediate".  An intermediate call state may exist
+     * before a stable call state, but may be longer than a transitory state.
+     *
+     * @param callState the state to check
+     * @return {@code true} if the state is intermediate, {@code false} otherwise.
+     */
+    public static boolean isIntermediateState(int callState) {
+        switch (callState) {
+            case DIALING:
+            case RINGING:
+                return true;
+            default:
+                return false;
+        }
+    }
+
     public static String toString(int callState) {
         switch (callState) {
             case NEW:

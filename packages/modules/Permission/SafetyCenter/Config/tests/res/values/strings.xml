@@ -26,4 +26,7 @@
     <string name="dynamic_all_references_max_severity_level" translatable="false">300</string>
     <string name="dynamic_all_references_logging_allowed" translatable="false">false</string>
     <string name="dynamic_all_references_refresh_on_page_open_allowed" translatable="false">true</string>
+    <string name="dynamic_all_references_notifications_allowed" translatable="false">true</string>
+    <string name="dynamic_all_references_deduplication_group" translatable="false">group</string>
+    <string name="dynamic_all_references_package_cert_hashes" translatable="false">feed1,feed2</string>
 </resources>

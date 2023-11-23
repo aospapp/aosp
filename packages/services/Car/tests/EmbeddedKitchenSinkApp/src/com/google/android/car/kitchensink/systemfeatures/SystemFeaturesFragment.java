@@ -69,11 +69,6 @@ public class SystemFeaturesFragment extends Fragment {
         refresh();
     }
 
-    @Override
-    public void onPause() {
-        super.onPause();
-    }
-
     private void refresh() {
         final FeatureInfo[] features = mPackageManager.getSystemAvailableFeatures();
         if (features != null) {

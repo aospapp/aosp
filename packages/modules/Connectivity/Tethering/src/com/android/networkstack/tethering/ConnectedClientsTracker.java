@@ -29,6 +29,8 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 
+import com.android.modules.utils.build.SdkLevel;
+
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -48,6 +50,8 @@ public class ConnectedClientsTracker {
 
     @NonNull
     private List<WifiClient> mLastWifiClients = Collections.emptyList();
+    @NonNull
+    private List<WifiClient> mLastLocalOnlyClients = Collections.emptyList();
     @NonNull
     private List<TetheredClient> mLastTetheredClients = Collections.emptyList();
 
@@ -72,25 +76,44 @@ public class ConnectedClientsTracker {
      *
      * <p>The new list can be obtained through {@link #getLastTetheredClients()}.
      * @param ipServers The IpServers used to assign addresses to clients.
-     * @param wifiClients The list of L2-connected WiFi clients. Null for no change since last
-     *                    update.
+     * @param wifiClients The list of L2-connected WiFi clients that are connected to a global
+     *                    hotspot. Null for no change since last update.
+     * @param localOnlyClients The list of L2-connected WiFi clients that are connected to localOnly
+     *                    hotspot. Null for no change since last update.
      * @return True if the list of clients changed since the last calculation.
      */
     public boolean updateConnectedClients(
-            Iterable<IpServer> ipServers, @Nullable List<WifiClient> wifiClients) {
+            Iterable<IpServer> ipServers, @Nullable List<WifiClient> wifiClients,
+            @Nullable List<WifiClient> localOnlyClients) {
         final long now = mClock.elapsedRealtime();
 
-        if (wifiClients != null) {
-            mLastWifiClients = wifiClients;
-        }
+        if (wifiClients != null) mLastWifiClients = wifiClients;
+        if (localOnlyClients != null) mLastLocalOnlyClients = localOnlyClients;
+
         final Set<MacAddress> wifiClientMacs = getClientMacs(mLastWifiClients);
+        final Set<MacAddress> localOnlyClientMacs = getClientMacs(mLastLocalOnlyClients);
 
         // Build the list of non-expired leases from all IpServers, grouped by mac address
         final Map<MacAddress, TetheredClient> clientsMap = new HashMap<>();
         for (IpServer server : ipServers) {
+            final Set<MacAddress> connectedClientMacs;
+            switch (server.servingMode()) {
+                case IpServer.STATE_TETHERED:
+                    connectedClientMacs = wifiClientMacs;
+                    break;
+                case IpServer.STATE_LOCAL_ONLY:
+                    // Before T, SAP and LOHS both use wifiClientMacs because
+                    // registerLocalOnlyHotspotSoftApCallback didn't exist.
+                    connectedClientMacs = SdkLevel.isAtLeastT()
+                            ? localOnlyClientMacs : wifiClientMacs;
+                    break;
+                default:
+                    continue;
+            }
+
             for (TetheredClient client : server.getAllLeases()) {
                 if (client.getTetheringType() == TETHERING_WIFI
-                        && !wifiClientMacs.contains(client.getMacAddress())) {
+                        && !connectedClientMacs.contains(client.getMacAddress())) {
                     // Skip leases of WiFi clients that are not (or no longer) L2-connected
                     continue;
                 }
@@ -104,17 +127,23 @@ public class ConnectedClientsTracker {
         // TODO: add IPv6 addresses from netlink
 
         // Add connected WiFi clients that do not have any known address
-        for (MacAddress client : wifiClientMacs) {
-            if (clientsMap.containsKey(client)) continue;
-            clientsMap.put(client, new TetheredClient(
-                    client, Collections.emptyList() /* addresses */, TETHERING_WIFI));
-        }
+        addWifiClientsIfNoLeases(clientsMap, wifiClientMacs);
+        addWifiClientsIfNoLeases(clientsMap, localOnlyClientMacs);
 
         final HashSet<TetheredClient> clients = new HashSet<>(clientsMap.values());
         final boolean clientsChanged = clients.size() != mLastTetheredClients.size()
                 || !clients.containsAll(mLastTetheredClients);
         mLastTetheredClients = Collections.unmodifiableList(new ArrayList<>(clients));
         return clientsChanged;
+    }
+
+    private static void addWifiClientsIfNoLeases(
+            final Map<MacAddress, TetheredClient> clientsMap, final Set<MacAddress> clientMacs) {
+        for (MacAddress mac : clientMacs) {
+            if (clientsMap.containsKey(mac)) continue;
+            clientsMap.put(mac, new TetheredClient(
+                    mac, Collections.emptyList() /* addresses */, TETHERING_WIFI));
+        }
     }
 
     private static void addLease(Map<MacAddress, TetheredClient> clientsMap, TetheredClient lease) {

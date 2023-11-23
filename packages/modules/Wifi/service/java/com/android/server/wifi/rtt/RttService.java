@@ -23,7 +23,6 @@ import android.os.HandlerThread;
 import android.util.Log;
 
 import com.android.server.SystemService;
-import com.android.server.wifi.HalDeviceManager;
 import com.android.server.wifi.WifiInjector;
 import com.android.server.wifi.util.WifiPermissionsUtil;
 
@@ -56,16 +55,16 @@ public class RttService extends SystemService {
                 return;
             }
 
-            HalDeviceManager halDeviceManager = wifiInjector.getHalDeviceManager();
             HandlerThread handlerThread = wifiInjector.getRttHandlerThread();
             WifiPermissionsUtil wifiPermissionsUtil = wifiInjector.getWifiPermissionsUtil();
             RttMetrics rttMetrics = wifiInjector.getWifiMetrics().getRttMetrics();
-
             WifiAwareManager awareManager = getContext().getSystemService(WifiAwareManager.class);
 
-            RttNative rttNative = new RttNative(mImpl, halDeviceManager);
-            mImpl.start(handlerThread.getLooper(), wifiInjector.getClock(), awareManager, rttNative,
-                    rttMetrics, wifiPermissionsUtil, wifiInjector.getSettingsConfigStore());
+            mImpl.start(handlerThread.getLooper(), wifiInjector.getClock(), awareManager,
+                    rttMetrics, wifiPermissionsUtil, wifiInjector.getSettingsConfigStore(),
+                    wifiInjector.getHalDeviceManager());
+        } else if (phase == SystemService.PHASE_BOOT_COMPLETED) {
+            mImpl.handleBootCompleted();
         }
     }
 }

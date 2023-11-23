@@ -25,17 +25,20 @@ import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
+import android.app.PropertyInvalidatedCache;
 import android.content.BroadcastReceiver;
 import android.content.Intent;
 import android.os.PersistableBundle;
 import android.telephony.CarrierConfigManager;
 import android.telephony.SubscriptionManager;
+import android.telephony.TelephonyManager;
 
 import androidx.test.runner.AndroidJUnit4;
 
 import com.android.TelephonyTestBase;
 import com.android.ims.FeatureConnector;
 import com.android.ims.RcsFeatureManager;
+import com.android.internal.telephony.ISub;
 
 import org.junit.After;
 import org.junit.Before;
@@ -59,12 +62,26 @@ public class TelephonyRcsServiceTest extends TelephonyTestBase {
     @Mock RcsFeatureController.FeatureConnectorFactory<RcsFeatureManager> mFeatureConnectorFactory;
     @Mock FeatureConnector<RcsFeatureManager> mFeatureConnector;
 
+    @Mock
+    private ISub mISub;
+
+    @Mock
+    private TelephonyManager mTelephonyManager;
+
     private RcsFeatureController mFeatureControllerSlot0;
     private RcsFeatureController mFeatureControllerSlot1;
 
     @Before
     public void setUp() throws Exception {
         super.setUp();
+        TelephonyManager.setupISubForTest(mISub);
+        TelephonyManager.enableServiceHandleCaching();
+        PropertyInvalidatedCache.disableForTestMode();
+
+        //set up default slot-> sub ID mappings.
+        setSlotToSubIdMapping(0 /*slotId*/, 1/*subId*/);
+        setSlotToSubIdMapping(1 /*slotId*/, 2/*subId*/);
+
         doReturn(mFeatureConnector).when(mFeatureConnectorFactory).create(any(), anyInt(),
                 any(), any(), any());
         mFeatureControllerSlot0 = createFeatureController(0 /*slotId*/, 1 /*subId*/);
@@ -82,9 +99,9 @@ public class TelephonyRcsServiceTest extends TelephonyTestBase {
         doReturn(mMockSipTransportSlot1).when(mFeatureFactory).createSipTransportController(any(),
                 eq(1), anyInt());
         doReturn(true).when(mResourceProxy).getDeviceUceEnabled(any());
-        //set up default slot-> sub ID mappings.
-        setSlotToSubIdMapping(0 /*slotId*/, 1/*subId*/);
-        setSlotToSubIdMapping(1 /*slotId*/, 2/*subId*/);
+
+        replaceInstance(TelephonyManager.class, "sInstance", null, mTelephonyManager);
+        doReturn(2).when(mTelephonyManager).getActiveModemCount();
     }
 
     @After
@@ -341,11 +358,8 @@ public class TelephonyRcsServiceTest extends TelephonyTestBase {
         bundle.putBoolean(key, value);
     }
 
-    private void setSlotToSubIdMapping(int slotId, int loadedSubId) {
-        SubscriptionManager m = mContext.getSystemService(SubscriptionManager.class);
-        int [] subIds = new int[1];
-        subIds[0] = loadedSubId;
-        doReturn(subIds).when(m).getSubscriptionIds(eq(slotId));
+    private void setSlotToSubIdMapping(int slotId, int loadedSubId) throws Exception {
+        doReturn(loadedSubId).when(mISub).getSubId(slotId);
     }
 
     private TelephonyRcsService createRcsService(int numSlots) {

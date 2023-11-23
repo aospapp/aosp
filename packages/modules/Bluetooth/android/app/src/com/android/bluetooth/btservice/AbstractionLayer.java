@@ -50,13 +50,16 @@ public final class AbstractionLayer {
 
     static final int BT_PROPERTY_DYNAMIC_AUDIO_BUFFER = 0x10;
     static final int BT_PROPERTY_REMOTE_IS_COORDINATED_SET_MEMBER = 0x11;
+    static final int BT_PROPERTY_WL_MEDIA_PLAYERS_LIST = 0x14;
+    static final int BT_PROPERTY_REMOTE_ASHA_CAPABILITY = 0X15;
+    static final int BT_PROPERTY_REMOTE_ASHA_TRUNCATED_HISYNCID = 0X16;
+    static final int BT_PROPERTY_REMOTE_MODEL_NUM = 0x17;
 
     public static final int BT_DEVICE_TYPE_BREDR = 0x01;
     public static final int BT_DEVICE_TYPE_BLE = 0x02;
     public static final int BT_DEVICE_TYPE_DUAL = 0x03;
 
     static final int BT_PROPERTY_LOCAL_IO_CAPS = 0x0e;
-    static final int BT_PROPERTY_LOCAL_IO_CAPS_BLE = 0x0f;
 
     static final int BT_BOND_STATE_NONE = 0x00;
     static final int BT_BOND_STATE_BONDING = 0x01;

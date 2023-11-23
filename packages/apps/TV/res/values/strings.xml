@@ -1044,4 +1044,12 @@
         Selecting \"Allow\", enables <xliff:g id="app_name">Live TV</xliff:g> to immediately
         free storage space when deleting recorded TV programs.
         This makes more space available for new recordings.</string>
+
+    <!-- Interactive Application Dialog-->
+    <string name="tv_app_dialog_title">An interactive app was found. Do you want to turn on interactive apps?</string>
+
+    <!-- Interactive Application Setting -->
+    <string name="interactive_app_settings">Interactive app settings</string>
+    <string name="tv_iapp_on">On</string>
+    <string name="tv_iapp_off">Off</string>
 </resources>

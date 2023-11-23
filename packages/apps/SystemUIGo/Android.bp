@@ -18,11 +18,6 @@ package {
     default_applicable_licenses: ["Android-Apache-2.0"],
 }
 
-soong_config_module_type_import {
-    from: "frameworks/base/packages/SystemUI/Android.bp",
-    module_types: ["systemui_optimized_java_defaults"],
-}
-
 android_library {
     name: "SystemUIGo-core",
     srcs: [
@@ -40,30 +35,11 @@ android_library {
     plugins: ["dagger2-compiler"],
 }
 
-systemui_optimized_java_defaults {
-    name: "SystemUIGo_app_defaults",
-    soong_config_variables: {
-        SYSTEMUI_OPTIMIZE_JAVA: {
-            optimize: {
-                enabled: true,
-                optimize: true,
-                shrink: true,
-                proguard_flags_files: ["proguard.flags"],
-            },
-            conditions_default: {
-                optimize: {
-                    proguard_flags_files: ["proguard.flags"],
-                },
-            },
-        },
-    },
-}
-
 android_app {
     name: "SystemUIGo",
     defaults: [
         "platform_app_defaults",
-        "SystemUIGo_app_defaults",
+        "SystemUI_optimized_defaults",
     ],
     static_libs: [
         "SystemUIGo-core"
@@ -81,6 +57,9 @@ android_app {
     kotlincflags: ["-Xjvm-default=enable"],
 
     dxflags: ["--multi-dex"],
+    optimize: {
+        proguard_flags_files: ["proguard.flags"],
+    },
     required: [
         "privapp_whitelist_com.android.systemui",
     ],

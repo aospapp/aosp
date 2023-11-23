@@ -283,6 +283,7 @@ class AlarmActivity : BaseActivity(), View.OnClickListener, View.OnTouchListener
                     }
                     AlarmVolumeButtonBehavior.NOTHING -> {
                     }
+                    null -> { }
                 }
             }
         }

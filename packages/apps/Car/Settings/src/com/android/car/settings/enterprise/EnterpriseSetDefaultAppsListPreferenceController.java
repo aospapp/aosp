@@ -64,7 +64,7 @@ public final class EnterpriseSetDefaultAppsListPreferenceController
     }
 
     @Override
-    protected int getAvailabilityStatus() {
+    protected int getDefaultAvailabilityStatus() {
         if (mAllApps == null) {
             mAllApps = listEnterpriseSetDefaultApps();
             mLogger.d("All apps: " + mAllApps);

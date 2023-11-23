@@ -20,6 +20,7 @@ import android.annotation.NonNull;
 import android.app.AlertDialog;
 import android.content.Context;
 import android.content.DialogInterface;
+import android.media.AudioFormat;
 import android.media.AudioManager;
 import android.provider.Settings;
 import android.text.TextUtils;
@@ -138,7 +139,7 @@ public class SoundFormatPreferenceController extends AbstractPreferenceControlle
         if (!isReportedFormat() && enabled) {
             showWarningDialogOnEnableUnsupportedFormat(preference);
         } else {
-            mAudioManager.setSurroundFormatEnabled(mFormatId, enabled);
+            setSurroundFormatEnabled(mFormatId, enabled);
         }
     }
 
@@ -155,7 +156,7 @@ public class SoundFormatPreferenceController extends AbstractPreferenceControlle
                     R.string.surround_sound_enable_unsupported_dialog_ok,
                     new DialogInterface.OnClickListener() {
                         public void onClick(DialogInterface dialog, int which) {
-                            mAudioManager.setSurroundFormatEnabled(mFormatId, true);
+                            setSurroundFormatEnabled(mFormatId, true);
                             dialog.dismiss();
                         }
                     })
@@ -168,5 +169,16 @@ public class SoundFormatPreferenceController extends AbstractPreferenceControlle
                         }
                     })
             .show();
+    }
+
+    // Utility wrapper to handle multiple formats (e.g. DTS-HD and DTS-HD MA) with one setting
+    private void setSurroundFormatEnabled(int audioFormat, boolean enabled) {
+        mAudioManager.setSurroundFormatEnabled(audioFormat, enabled);
+
+        if (audioFormat == AudioFormat.ENCODING_DTS_HD) {
+            mAudioManager.setSurroundFormatEnabled(AudioFormat.ENCODING_DTS_HD_MA, enabled);
+        } else if (audioFormat == AudioFormat.ENCODING_DTS_UHD_P1) {
+            mAudioManager.setSurroundFormatEnabled(AudioFormat.ENCODING_DTS_UHD_P2, enabled);
+        }
     }
 }

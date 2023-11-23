@@ -46,7 +46,10 @@ import android.util.Log;
 import android.util.Patterns;
 import android.widget.Toast;
 
+import com.android.bluetooth.BluetoothMethodProxy;
 import com.android.bluetooth.R;
+import com.android.bluetooth.Utils;
+import com.android.internal.annotations.VisibleForTesting;
 
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -133,7 +136,7 @@ public class BluetoothOppLauncherActivity extends Activity {
                                 "Get ACTION_SEND intent with Extra_text = " + extraText.toString()
                                         + "; mimetype = " + type);
                     }
-                    final Uri fileUri = creatFileForSharedContent(
+                    final Uri fileUri = createFileForSharedContent(
                             this.createCredentialProtectedStorageContext(), extraText);
                     if (fileUri != null) {
                         Thread t = new Thread(new Runnable() {
@@ -193,15 +196,17 @@ public class BluetoothOppLauncherActivity extends Activity {
             if (V) {
                 Log.v(TAG, "Get ACTION_OPEN intent: Uri = " + uri);
             }
-
             Intent intent1 = new Intent(Constants.ACTION_OPEN);
             intent1.setClassName(this, BluetoothOppReceiver.class.getName());
             intent1.setDataAndNormalize(uri);
-            this.sendBroadcast(intent1);
+            BluetoothMethodProxy.getInstance().contextSendBroadcast(this, intent1);
             finish();
         } else {
             Log.w(TAG, "Unsupported action: " + action);
-            finish();
+            // To prevent activity to finish immediately in testing mode
+            if (!Utils.isInstrumentationTestMode()) {
+                finish();
+            }
         }
     }
 
@@ -209,7 +214,8 @@ public class BluetoothOppLauncherActivity extends Activity {
      * Turns on Bluetooth if not already on, or launches device picker if Bluetooth is on
      * @return
      */
-    private void launchDevicePicker() {
+    @VisibleForTesting
+    void launchDevicePicker() {
         // TODO: In the future, we may send intent to DevicePickerActivity
         // directly,
         // and let DevicePickerActivity to handle Bluetooth Enable.
@@ -274,7 +280,8 @@ public class BluetoothOppLauncherActivity extends Activity {
         return false;
     }
 
-    private Uri creatFileForSharedContent(Context context, CharSequence shareContent) {
+    @VisibleForTesting
+    Uri createFileForSharedContent(Context context, CharSequence shareContent) {
         if (shareContent == null) {
             return null;
         }
@@ -406,7 +413,8 @@ public class BluetoothOppLauncherActivity extends Activity {
         return text;
     }
 
-    private void sendFileInfo(String mimeType, String uriString, boolean isHandover,
+    @VisibleForTesting
+    void sendFileInfo(String mimeType, String uriString, boolean isHandover,
             boolean fromExternal) {
         BluetoothOppManager manager = BluetoothOppManager.getInstance(getApplicationContext());
         try {

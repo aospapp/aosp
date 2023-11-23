@@ -110,6 +110,13 @@
         <item name="android:letterSpacing">0.02</item>
     </style>
 
+    <style name="CategorySectionTitleTextAppearance" parent="TitleTextAppearance">
+        <item name="android:textStyle" />
+        <item name="textAllCaps">false</item>
+        <item name="android:textSize">16sp</item>
+        <item name="android:textFontWeight">500</item>
+    </style>
+
     <!-- Individual components / Widgets -->
     <style name="OutlinedButtonStyle"  parent="@android:style/Widget.DeviceDefault.Button">
         <item name="android:background">@drawable/btn_transparent</item>
@@ -126,6 +133,9 @@
 
     <!-- Preview attribution pane styles -->
     <style name="WallpaperPicker.BottomPaneStyle" parent="@android:style/Theme.DeviceDefault.Settings"/>
+
+    <style name="WallpaperPicker.FloatingPaneStyle"
+        parent="@android:style/Theme.DeviceDefault.Settings" />
 
     <!-- Preview customization pane styles -->
     <style name="WallpaperPicker.CustomizationPaneStyle" parent="@android:style/Theme.DeviceDefault.Settings">
@@ -192,6 +202,15 @@
         <item name="android:lineHeight">@dimen/option_title_line_height</item>
     </style>
 
+    <!-- Labeled tiles -->
+    <style name="GridLabelTextAppearance" parent="TitleTextAppearance">
+        <item name="android:textColor">@color/text_color_light</item>
+        <item name="android:textAlignment">center</item>
+        <item name="android:textSize">@dimen/grid_label_font_text_size</item>
+        <item name="android:lineHeight">@dimen/grid_label_line_height</item>
+        <item name="android:textAllCaps">false</item>
+    </style>
+
     <!-- Preview header -->
     <style name="PreviewHeaderStyle">
         <item name="android:paddingBottom">?android:attr/actionBarSize</item>
@@ -214,5 +233,23 @@
         <item name="android:fontFamily">google-sans</item>
         <item name="android:textSize">36sp</item>
         <item name="android:textColor">@color/settingslib_text_color_primary_device_default</item>
+    </style>
+
+    <style name="DialogButton">
+        <item name="android:gravity">center</item>
+        <item name="android:textAppearance">@android:style/TextAppearance.DeviceDefault.Small</item>
+        <item name="android:textFontWeight">500</item>
+        <item name="android:paddingVertical">8dp</item>
+        <item name="android:paddingHorizontal">16dp</item>
+    </style>
+
+    <style name="DialogButton.Primary">
+        <item name="android:textColor">@color/text_color_on_accent</item>
+        <item name="android:background">@drawable/primary_dialog_button_background</item>
+    </style>
+
+    <style name="DialogButton.Secondary">
+        <item name="android:textColor">@color/text_color_primary</item>
+        <item name="android:background">@drawable/secondary_dialog_button_background</item>
     </style>
 </resources>

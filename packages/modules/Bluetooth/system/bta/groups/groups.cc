@@ -20,10 +20,11 @@
 #include <algorithm>
 #include <limits>
 #include <map>
+#include <mutex>
 #include <unordered_set>
 
 #include "bta_groups.h"
-#include "btif_storage.h"
+#include "btif_profile_storage.h"
 #include "types/bluetooth/uuid.h"
 #include "types/raw_address.h"
 
@@ -34,6 +35,7 @@ namespace groups {
 
 class DeviceGroupsImpl;
 DeviceGroupsImpl* instance;
+std::mutex instance_mutex;
 static constexpr int kMaxGroupId = 0xEF;
 
 class DeviceGroup {
@@ -116,7 +118,7 @@ class DeviceGroupsImpl : public DeviceGroups {
     LOG_ASSERT(group);
 
     if (group->Contains(addr)) {
-      LOG(ERROR) << __func__ << " device " << addr
+      LOG(ERROR) << __func__ << " device " << ADDRESS_TO_LOGGABLE_STR(addr)
                  << " already in the group: " << group_id;
       return group->GetGroupId();
     }
@@ -328,6 +330,7 @@ class DeviceGroupsImpl : public DeviceGroups {
 };
 
 void DeviceGroups::Initialize(DeviceGroupsCallbacks* callbacks) {
+  std::scoped_lock<std::mutex> lock(instance_mutex);
   if (instance == nullptr) {
     instance = new DeviceGroupsImpl(callbacks);
     return;
@@ -357,6 +360,7 @@ bool DeviceGroups::GetForStorage(const RawAddress& addr,
 }
 
 void DeviceGroups::CleanUp(DeviceGroupsCallbacks* callbacks) {
+  std::scoped_lock<std::mutex> lock(instance_mutex);
   if (!instance) return;
 
   if (instance->Clear(callbacks)) {
@@ -371,12 +375,13 @@ std::ostream& operator<<(std::ostream& out,
       << "      Uuid: " << group.group_uuid_ << std::endl;
   out << "      Devices:\n";
   for (auto const& addr : group.devices_) {
-    out << "        " << addr << std::endl;
+    out << "        " << ADDRESS_TO_LOGGABLE_STR(addr) << std::endl;
   }
   return out;
 }
 
 void DeviceGroups::DebugDump(int fd) {
+  std::scoped_lock<std::mutex> lock(instance_mutex);
   dprintf(fd, "Device Groups Manager:\n");
   if (instance)
     instance->Dump(fd);

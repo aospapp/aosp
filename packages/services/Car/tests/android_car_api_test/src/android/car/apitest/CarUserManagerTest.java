@@ -35,15 +35,20 @@ import android.car.user.CarUserManager.UserLifecycleEvent;
 import android.car.user.UserLifecycleEventFilter;
 import android.content.pm.UserInfo;
 import android.os.Process;
+import android.os.SystemProperties;
 import android.os.UserHandle;
 import android.os.UserManager;
 import android.util.Log;
 
+import com.android.compatibility.common.util.ApiTest;
+
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
+import org.junit.Ignore;
 import org.junit.Test;
 
 import java.util.List;
+import java.util.Objects;
 
 public final class CarUserManagerTest extends CarMultiUserTestBase {
 
@@ -77,6 +82,7 @@ public final class CarUserManagerTest extends CarMultiUserTestBase {
     }
 
     @Test
+    @ApiTest(apis = {"android.car.user.CarUserManager#createUser(String, int)"})
     public void testCreateUser() throws Exception {
         UserInfo newUser = createUser("DaNewUserInTheBlock");
         assertWithMessage("(%s).isGuest()", newUser.toFullString()).that(newUser.isGuest())
@@ -91,6 +97,7 @@ public final class CarUserManagerTest extends CarMultiUserTestBase {
     }
 
     @Test
+    @ApiTest(apis = {"android.car.user.CarUserManager#createGuest(String)"})
     public void testCreateGuest() throws Exception {
         UserInfo newGuest = createGuest("DaNewGuestInTheBlock");
         assertWithMessage("(%s).isGuest()", newGuest.toFullString()).that(newGuest.isGuest())
@@ -105,6 +112,10 @@ public final class CarUserManagerTest extends CarMultiUserTestBase {
     }
 
     @Test
+    @ApiTest(apis = {
+            "android.car.user.CarUserManager#addListener(Executor,UserLifecycleListener)",
+            "android.car.user.CarUserManager#removeListener(UserLifecycleListener)"
+    })
     public void testLifecycleMultipleListeners() throws Exception {
         int newUserId = createUser("Test").id;
         Car car2 = Car.createCar(getContext().getApplicationContext());
@@ -196,8 +207,16 @@ public final class CarUserManagerTest extends CarMultiUserTestBase {
      * Tests resume behavior when current user is ephemeral guest, a new guest user should be
      * created and switched to.
      */
+    @Ignore("b/233164303")
     @Test
+    @ApiTest(apis = {
+            "android.car.user.CarUserManager#USER_LIFECYCLE_EVENT_TYPE_UNLOCKED",
+            "android.car.user.CarUserManager#USER_LIFECYCLE_EVENT_TYPE_SWITCHING",
+    })
     public void testGuestUserResumeToNewGuestUser() throws Exception {
+        // TODO(b/241837415): Create a host-side test and move this test there.
+        if (!isDeviceEmulator()) return;
+
         // Create new guest user
         UserInfo guestUser = createGuest();
         int guestUserId = guestUser.id;
@@ -251,7 +270,13 @@ public final class CarUserManagerTest extends CarMultiUserTestBase {
      * resume to same guest user.
      */
     @Test
+    @ApiTest(apis = {
+            "android.car.user.CarUserManager#USER_LIFECYCLE_EVENT_TYPE_UNLOCKED",
+    })
     public void testSecuredGuestUserResumeToSameUser() throws Exception {
+        // TODO(b/241837415): Create a host-side test and move this test there.
+        if (!isDeviceEmulator()) return;
+
         // Create new guest user
         UserInfo guestUser = createGuest();
         int guestUserId = guestUser.id;
@@ -289,7 +314,13 @@ public final class CarUserManagerTest extends CarMultiUserTestBase {
      * Tests resume behavior when current user is persistent user.
      */
     @Test
+    @ApiTest(apis = {
+            "android.car.user.CarUserManager#USER_LIFECYCLE_EVENT_TYPE_UNLOCKED",
+    })
     public void testPersistentUserResumeToUser() throws Exception {
+        // TODO(b/241837415): Create a host-side test and move this test there.
+        if (!isDeviceEmulator()) return;
+
         int newUserId = createUser().id;
         BlockingUserLifecycleListener listener = BlockingUserLifecycleListener
                 .forSpecificEvents()
@@ -311,5 +342,9 @@ public final class CarUserManagerTest extends CarMultiUserTestBase {
         } finally {
             mCarUserManager.removeListener(listener);
         }
+    }
+
+    private static boolean isDeviceEmulator() {
+        return Objects.equals(SystemProperties.get("ro.product.system.device"), "generic");
     }
 }

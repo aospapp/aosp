@@ -17,18 +17,17 @@
 #ifndef ANDROID_AUTOMOTIVE_EVS_V1_0_CAMERAPROXY_H
 #define ANDROID_AUTOMOTIVE_EVS_V1_0_CAMERAPROXY_H
 
-#include <android/hardware/automotive/evs/1.0/types.h>
 #include <android/hardware/automotive/evs/1.0/IEvsCamera.h>
+#include <android/hardware/automotive/evs/1.0/types.h>
 #include <ui/GraphicBuffer.h>
 
-#include <thread>
 #include <deque>
-
+#include <thread>
 
 using namespace ::android::hardware::automotive::evs::V1_0;
+using ::android::hardware::hidl_handle;
 using ::android::hardware::Return;
 using ::android::hardware::Void;
-using ::android::hardware::hidl_handle;
 
 namespace android {
 namespace automotive {
@@ -36,9 +35,7 @@ namespace evs {
 namespace V1_0 {
 namespace implementation {
 
-
-class HalCamera;        // From HalCamera.h
-
+class HalCamera;  // From HalCamera.h
 
 // This class represents an EVS camera to the client application.  As such it presents
 // the IEvsCamera interface, and also proxies the frame delivery to the client's
@@ -47,41 +44,41 @@ class VirtualCamera : public IEvsCamera {
 public:
     explicit VirtualCamera(sp<HalCamera> halCamera);
     virtual ~VirtualCamera();
-    void                shutdown();
+    void shutdown();
 
-    sp<HalCamera>       getHalCamera()      { return mHalCamera; };
-    unsigned            getAllowedBuffers() { return mFramesAllowed; };
-    bool                isStreaming()       { return mStreamState == RUNNING; }
+    sp<HalCamera> getHalCamera() { return mHalCamera; };
+    unsigned getAllowedBuffers() { return mFramesAllowed; };
+    bool isStreaming() { return mStreamState == RUNNING; }
 
     // Proxy to receive frames and forward them to the client's stream
-    bool                deliverFrame(const BufferDesc& buffer);
+    bool deliverFrame(const BufferDesc& buffer);
 
     // Methods from ::android::hardware::automotive::evs::V1_0::IEvsCamera follow.
-    Return<void>        getCameraInfo(getCameraInfo_cb _hidl_cb)  override;
-    Return<EvsResult>   setMaxFramesInFlight(uint32_t bufferCount) override;
-    Return<EvsResult>   startVideoStream(const ::android::sp<IEvsCameraStream>& stream) override;
-    Return<void>        doneWithFrame(const BufferDesc& buffer) override;
-    Return<void>        stopVideoStream() override;
-    Return<int32_t>     getExtendedInfo(uint32_t opaqueIdentifier) override;
-    Return<EvsResult>   setExtendedInfo(uint32_t opaqueIdentifier, int32_t opaqueValue) override;
+    Return<void> getCameraInfo(getCameraInfo_cb _hidl_cb) override;
+    Return<EvsResult> setMaxFramesInFlight(uint32_t bufferCount) override;
+    Return<EvsResult> startVideoStream(const ::android::sp<IEvsCameraStream>& stream) override;
+    Return<void> doneWithFrame(const BufferDesc& buffer) override;
+    Return<void> stopVideoStream() override;
+    Return<int32_t> getExtendedInfo(uint32_t opaqueIdentifier) override;
+    Return<EvsResult> setExtendedInfo(uint32_t opaqueIdentifier, int32_t opaqueValue) override;
 
 private:
-    sp<HalCamera>           mHalCamera;     // The low level camera interface that backs this proxy
-    sp<IEvsCameraStream>    mStream;
+    sp<HalCamera> mHalCamera;  // The low level camera interface that backs this proxy
+    sp<IEvsCameraStream> mStream;
 
-    std::deque<BufferDesc>  mFramesHeld;
-    unsigned                mFramesAllowed  = 1;
+    std::deque<BufferDesc> mFramesHeld;
+    unsigned mFramesAllowed = 1;
     enum {
         STOPPED,
         RUNNING,
         STOPPING,
-    }                       mStreamState    = STOPPED;
+    } mStreamState = STOPPED;
 };
 
-} // namespace implementation
-} // namespace V1_0
-} // namespace evs
-} // namespace automotive
-} // namespace android
+}  // namespace implementation
+}  // namespace V1_0
+}  // namespace evs
+}  // namespace automotive
+}  // namespace android
 
 #endif  // ANDROID_AUTOMOTIVE_EVS_V1_0_CAMERAPROXY_H

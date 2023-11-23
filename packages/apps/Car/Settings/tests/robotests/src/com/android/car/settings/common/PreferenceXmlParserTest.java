@@ -50,4 +50,55 @@ public class PreferenceXmlParserTest {
             assertThat(bundle.getString(PreferenceXmlParser.METADATA_CONTROLLER)).isNotNull();
         }
     }
+
+    @Test
+    public void extractMetadata_driverZone() throws IOException, XmlPullParserException {
+        List<Bundle> metadata = PreferenceXmlParser.extractMetadata(
+                RuntimeEnvironment.application, R.xml.preference_occupants_parser,
+                PreferenceXmlParser.MetadataFlag.FLAG_NEED_KEY
+                        | PreferenceXmlParser.MetadataFlag.FLAG_NEED_PREF_CONTROLLER
+                        | PreferenceXmlParser.MetadataFlag.FLAG_NEED_PREF_DRIVER);
+
+        assertThat(metadata).hasSize(3);
+        assertThat(metadata.get(1).getString(PreferenceXmlParser.METADATA_OCCUPANT_ZONE))
+                .isEqualTo(PreferenceXmlParser.PREF_AVAILABILITY_STATUS_WRITE);
+    }
+
+    @Test
+    public void extractMetadata_frontPassengerZone() throws IOException, XmlPullParserException {
+        List<Bundle> metadata = PreferenceXmlParser.extractMetadata(
+                RuntimeEnvironment.application, R.xml.preference_occupants_parser,
+                PreferenceXmlParser.MetadataFlag.FLAG_NEED_KEY
+                        | PreferenceXmlParser.MetadataFlag.FLAG_NEED_PREF_CONTROLLER
+                        | PreferenceXmlParser.MetadataFlag.FLAG_NEED_PREF_FRONT_PASSENGER);
+
+        assertThat(metadata).hasSize(3);
+        assertThat(metadata.get(1).getString(PreferenceXmlParser.METADATA_OCCUPANT_ZONE))
+                .isEqualTo(PreferenceXmlParser.PREF_AVAILABILITY_STATUS_READ);
+    }
+
+    @Test
+    public void extractMetadata_rearPassengerZone() throws IOException, XmlPullParserException {
+        List<Bundle> metadata = PreferenceXmlParser.extractMetadata(
+                RuntimeEnvironment.application, R.xml.preference_occupants_parser,
+                PreferenceXmlParser.MetadataFlag.FLAG_NEED_KEY
+                        | PreferenceXmlParser.MetadataFlag.FLAG_NEED_PREF_CONTROLLER
+                        | PreferenceXmlParser.MetadataFlag.FLAG_NEED_PREF_REAR_PASSENGER);
+
+        assertThat(metadata).hasSize(3);
+        assertThat(metadata.get(1).getString(PreferenceXmlParser.METADATA_OCCUPANT_ZONE))
+                .isEqualTo(PreferenceXmlParser.PREF_AVAILABILITY_STATUS_HIDDEN);
+    }
+
+    @Test
+    public void extractMetadata_occupantDriverIsNull() throws IOException, XmlPullParserException {
+        List<Bundle> metadata = PreferenceXmlParser.extractMetadata(
+                RuntimeEnvironment.application, R.xml.preference_occupants_parser,
+                PreferenceXmlParser.MetadataFlag.FLAG_NEED_KEY
+                        | PreferenceXmlParser.MetadataFlag.FLAG_NEED_PREF_CONTROLLER
+                        | PreferenceXmlParser.MetadataFlag.FLAG_NEED_PREF_DRIVER);
+
+        assertThat(metadata).hasSize(3);
+        assertThat(metadata.get(2).getString(PreferenceXmlParser.METADATA_OCCUPANT_ZONE)).isNull();
+    }
 }

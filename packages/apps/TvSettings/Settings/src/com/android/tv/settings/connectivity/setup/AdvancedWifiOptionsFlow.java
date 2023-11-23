@@ -75,10 +75,13 @@ public class AdvancedWifiOptionsFlow {
         AdvancedOptionsFlowInfo advancedOptionsFlowInfo = ViewModelProviders.of(activity).get(
                 AdvancedOptionsFlowInfo.class);
         advancedOptionsFlowInfo.setSettingsFlow(isSettingsFlow);
-        IpConfiguration ipConfiguration = (initialConfiguration != null)
-                ? initialConfiguration.getIpConfiguration()
-                : new IpConfiguration();
-        advancedOptionsFlowInfo.setIpConfiguration(ipConfiguration);
+        if (initialConfiguration != null) {
+            advancedOptionsFlowInfo.setPrintableSsid(initialConfiguration.getPrintableName());
+            advancedOptionsFlowInfo.setIpConfiguration(initialConfiguration.getIpConfiguration());
+        } else {
+            advancedOptionsFlowInfo.setPrintableSsid("");
+            advancedOptionsFlowInfo.setIpConfiguration(new IpConfiguration());
+        }
         State advancedOptionsState = new AdvancedOptionsState(activity);
         State proxySettingsState = new ProxySettingsState(activity);
         State ipSettingsState = new IpSettingsState(activity);

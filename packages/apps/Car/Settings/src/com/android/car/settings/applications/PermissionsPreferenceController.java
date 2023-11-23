@@ -103,7 +103,7 @@ public class PermissionsPreferenceController extends PreferenceController<Prefer
     private final PermissionsSummaryHelper.PermissionsResultCallback mPermissionCallback =
             new PermissionsSummaryHelper.PermissionsResultCallback() {
                 @Override
-                public void onPermissionSummaryResult(int standardGrantedPermissionCount,
+                public void onPermissionSummaryResult(
                         int requestedPermissionCount, int additionalGrantedPermissionCount,
                         List<CharSequence> grantedGroupLabels) {
                     Resources res = getContext().getResources();

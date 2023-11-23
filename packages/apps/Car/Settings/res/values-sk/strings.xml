@@ -24,14 +24,13 @@
     <string name="auto_brightness_title" msgid="9124647862844666581">"Prispôsobivý jas"</string>
     <string name="auto_brightness_summary" msgid="2002570577219479702">"Prispôsobenie jasu obrazovky prostrediu"</string>
     <string name="condition_night_display_title" msgid="3777509730126972675">"Nočný režim je zapnutý"</string>
-    <string name="night_mode_tile_label" msgid="6603597795502131664">"Nočný režim"</string>
     <string name="network_and_internet" msgid="4229023630498537530">"Sieť a internet"</string>
     <string name="mobile_network_settings" msgid="1708621113321368597">"Mobilná sieť"</string>
     <string name="mobile_network_summary_count" msgid="760865625847664029">"{count,plural, =1{# SIM}few{# SIM karty}many{# SIMs}other{# SIM kariet}}"</string>
     <string name="mobile_network_active_sim" msgid="1901674954229832811">"Aktívne / SIM karta"</string>
     <string name="mobile_network_inactive_sim" msgid="3644984830926224318">"Neaktívne / SIM karta"</string>
-    <string name="mobile_network_active_esim" msgid="5864100786496761032">"Aktívne / stiahnutá SIM karta"</string>
-    <string name="mobile_network_inactive_esim" msgid="1397332352238119032">"Neaktívne / stiahnutá SIM karta"</string>
+    <string name="mobile_network_active_esim" msgid="5175362818078597096">"Aktívna / eSIM"</string>
+    <string name="mobile_network_inactive_esim" msgid="7273712403773327964">"Neaktívna / eSIM"</string>
     <string name="mobile_network_list_add_more" msgid="6174294462747070655">"Pridať ďalšie"</string>
     <string name="mobile_network_toggle_title" msgid="3515647310810280063">"Mobilné dáta"</string>
     <string name="mobile_network_toggle_summary" msgid="8698267487987697148">"Prístup k dátam pomocou mobilnej siete"</string>
@@ -177,6 +176,7 @@
     <string name="network_connection_request_dialog_showall" msgid="776613149566461487">"Zobraziť všetko"</string>
     <string name="progress_scanning" msgid="7191583064717479795">"Vyhľadávanie"</string>
     <string name="bluetooth_settings_title" msgid="3794688574569688649">"Bluetooth"</string>
+    <string name="bluetooth_toggle_title" msgid="1431803611346881088">"Použiť Bluetooth"</string>
     <string name="bluetooth_device" msgid="3178478829314083240">"Zariadenie bez názvu"</string>
     <string name="bluetooth_paired_devices" msgid="6463199569164652410">"Spárované zariadenia"</string>
     <string name="bluetooth_pair_new_device" msgid="6948753485443263095">"Spárovať nové zariadenie"</string>
@@ -221,6 +221,9 @@
     <string name="bluetooth_notif_title" msgid="8374602799367803335">"Žiadosť o párovanie"</string>
     <string name="bluetooth_notif_message" msgid="1060821000510108726">"Zariadenie <xliff:g id="DEVICE_NAME">%1$s</xliff:g> spárujete klepnutím."</string>
     <string name="bluetooth_device_picker" msgid="673238198452345475">"Vybrať zariadenie Bluetooth"</string>
+    <string name="bluetooth_bonded_bluetooth_toggle_content_description" msgid="6800772154405846597">"Bluetooth"</string>
+    <string name="bluetooth_bonded_phone_toggle_content_description" msgid="8152794643249938377">"Telefón"</string>
+    <string name="bluetooth_bonded_media_toggle_content_description" msgid="7803420585378155404">"Médiá"</string>
     <string name="language_settings" msgid="2079258598337245546">"Jazyky"</string>
     <string name="languages_and_input_settings" msgid="3672322610529408248">"Jazyky a vstup"</string>
     <string name="language_picker_list_suggested_header" msgid="7593893806003415948">"Navrhované"</string>
@@ -300,14 +303,16 @@
     <string name="apps_and_notifications_settings" msgid="8704585874333781975">"Aplikácie a upozornenia"</string>
     <string name="all_applications" msgid="7798210477486822168">"Zobraziť všetky aplikácie"</string>
     <string name="default_applications" msgid="1558183275638697087">"Predvolené aplikácie"</string>
+    <string name="performance_impacting_apps" msgid="3439260699394720569">"Aplikácie ovplyvňujúce výkon"</string>
     <string name="app_permissions" msgid="32799922508313948">"Povolenia aplikácie"</string>
     <string name="app_permissions_summary" msgid="5402214755935368418">"Ovládanie prístupu aplikácií k vašim údajom"</string>
     <string name="applications_settings" msgid="794261395191035632">"Informácie o aplikáciách"</string>
-    <string name="force_stop" msgid="2153183697014720520">"Vynútiť zastavenie"</string>
-    <string name="force_stop_dialog_title" msgid="3342850939200388694">"Chcete vynútiť zastavenie?"</string>
+    <string name="force_stop" msgid="1616958676171167028">"Zastaviť aplikáciu"</string>
+    <string name="force_stop_dialog_title" msgid="4481858344628934971">"Chcete zastaviť aplikáciu?"</string>
     <string name="force_stop_dialog_text" msgid="4354954014318432599">"Ak vynútite zastavenie aplikácie, môže sa správať zvláštne."</string>
-    <string name="prioritize_app_performance_dialog_title" msgid="2561577032540073080">"Zapnúť priorizáciu výkonu aplikácie?"</string>
-    <string name="prioritize_app_performance_dialog_text" msgid="572525689800110355">"Zapnutie môže potenciálne spôsobiť nestabilitu systému alebo mať dlhodobý vplyv na hardvér. Chcete pokračovať?"</string>
+    <string name="force_stop_success_toast_text" msgid="2986272849275894254">"Aplikácia <xliff:g id="APP_NAME">%1$s</xliff:g> bola zastavená."</string>
+    <string name="prioritize_app_performance_dialog_title" msgid="3205297520523665568">"Chcete uprednostniť výkon aplikácie?"</string>
+    <string name="prioritize_app_performance_dialog_text" msgid="4321564728229192878">"Môže to potenciálne spôsobiť nestabilitu systému alebo mať dlhodobý vplyv na hardvér. Chcete pokračovať?"</string>
     <string name="prioritize_app_performance_dialog_action_on" msgid="3556735049873419163">"Áno"</string>
     <string name="prioritize_app_performance_dialog_action_off" msgid="2813324718753199319">"Nie, ďakujem"</string>
     <string name="disable_text" msgid="4358165448648990820">"Zakázať"</string>
@@ -378,6 +383,7 @@
     <string name="apps_permission_manager_title" msgid="8776335943862484131">"Správca povolení"</string>
     <string name="apps_permission_manager_summary" msgid="4180424218228141274">"Ovládajte prístup aplikácií k vašim údajom"</string>
     <string name="apps_default_apps_summary" msgid="2017792579839972926">"Pre Asistenta a ďalšie aplikácie"</string>
+    <string name="performance_impacting_apps_summary" msgid="7762122057244111162">"{count,plural, =1{# aplikácia ovplyvňujúca výkon}few{# aplikácie ovplyvňujúce výkon}many{# apps impacting performance}other{# aplikácií ovplyvňujúcich výkon}}"</string>
     <string name="apps_special_app_access_summary" msgid="6464767436309742163">"Pre systém a ďalšie nastavenia"</string>
     <string name="special_access" msgid="5730278220917123811">"Špeciálny prístup aplikácií"</string>
     <string name="show_system" msgid="4401355756969485287">"Zobraziť systémové"</string>
@@ -391,6 +397,8 @@
     <string name="notification_listener_revoke_warning_summary" msgid="4904973394539125407">"Ak vypnete prístup k upozorneniam pre aplikáciu <xliff:g id="NOTIFICATION_LISTENER_NAME">%1$s</xliff:g>, môžete tým tiež deaktivovať prístup k režimu bez vyrušení."</string>
     <string name="notification_listener_revoke_warning_confirm" msgid="2759583507454984812">"Vypnúť"</string>
     <string name="notification_listener_revoke_warning_cancel" msgid="4399941651358241154">"Zrušiť"</string>
+    <string name="performance_impacting_apps_description" msgid="7361464904617808444">"Tieto aplikácie negatívne ovplyvňujú výkon systému, a preto bolo zablokované ich spúšťanie na pozadí.\nUprednostnením aplikácie povolíte jej používanie na pozadí a odstránite ju tak z tohto zoznamu."</string>
+    <string name="performance_impacting_apps_button_label" msgid="8277507326717608783">"Uprednostniť aplikáciu"</string>
     <string name="premium_sms_access_title" msgid="1409118461646148686">"Prístup k prémiovým správam SMS"</string>
     <string name="premium_sms_access_description" msgid="7119026067677052169">"Za prémiové správy SMS sa môžu účtovať poplatky, ktoré sa naúčtujú na faktúru operátora. Ak aktivujete toto povolenie pre aplikáciu, budete môcť pomocou nej posielať prémiové správy SMS."</string>
     <string name="usage_access_title" msgid="7153427122072303254">"Prístup k údajom o používaní"</string>
@@ -401,22 +409,27 @@
     <string name="location_settings_title" msgid="901334356682423679">"Poloha"</string>
     <string name="location_toggle_title" msgid="836779750812064601">"Použiť polohu"</string>
     <string name="location_toggle_summary" msgid="7977868708102299495">"Povoľte vybr. aplikác. prístup k polohe"</string>
-    <string name="location_toggle_off_warning" msgid="8396854289251143748">"Ak túto funkciu vypnete, odstráni prístup k polohe všetkým aplikáciám. Aplikáciám asistencie pre vodiča sa prístup zachová."</string>
-    <string name="location_driver_assistance_toggle_title" msgid="9201622805420459957">"Používať polohu pre asistenc. pre vodiča"</string>
+    <string name="location_toggle_off_warning" msgid="5959449346865136081">"Ak túto možnosť vypnete, prístup k polohe stratia všetky aplikácie okrem tých, ktoré sú potrebné na asistenciu pre vodiča"</string>
+    <string name="location_driver_assistance_toggle_title" msgid="3780157378527924932">"Používať polohu pre asistencie pre vodiča"</string>
     <string name="location_driver_assistance_toggle_off_title" msgid="2218532550578204718">"Poloha vozidla je vypnutá"</string>
-    <string name="location_driver_assistance_toggle_off_summary" msgid="1516786816178866919">"Asistenčné aplikácie pre vodiča nemajú prístup k polohe"</string>
+    <string name="location_driver_assistance_toggle_off_summary" msgid="6040822988891113026">"Asistenčné aplikácie pre vodiča nemajú prístup k polohe"</string>
     <string name="location_driver_assistance_action_text" msgid="1887309495010247883">"Zmeniť"</string>
     <string name="location_driver_assistance_toggle_summary" msgid="2732591196508054649">"Povoľte prístup k polohe aplikáciám, ktoré pomáhajú pri šoférovaní"</string>
-    <string name="location_driver_assistance_toggle_off_warning" msgid="8097738968253492982">"Ak túto možnosť vypnete, aplikácie asistencie pre vodiča, ktoré fungujú na základe údajov o polohe, sa deaktivujú."</string>
+    <string name="location_driver_assistance_toggle_off_warning" msgid="2733124752598498356">"Ak túto možnosť vypnete, asistenčné aplikácie pre vodiča, ktoré fungujú na základe údajov o polohe, sa deaktivujú."</string>
     <string name="driver_assistance_warning_confirm_label" msgid="2873799611160864931">"Aj tak vypnúť"</string>
-    <string name="location_settings_recent_requests_title" msgid="6345634382240930628">"Nedávne žiadosti o polohu"</string>
-    <string name="location_settings_recent_requests_empty_message" msgid="7789667070033674910">"Žiadne nedávne žiadosti o polohu"</string>
+    <string name="location_recently_accessed" msgid="522888989582110975">"Nedávno použité"</string>
+    <string name="location_settings_recently_accessed_title" msgid="6016264778609426382">"Nedávno použité"</string>
+    <string name="location_settings_recently_accessed_view_all_title" msgid="6344830628885781448">"Zobraziť všetko"</string>
+    <string name="location_no_recent_access" msgid="2859914321242257931">"Žiadne nedávne aplikácie"</string>
+    <string name="driver_assistance_label" msgid="9217315205754658940">"<xliff:g id="TIME">%1$s</xliff:g> • Asistencia pre vodiča"</string>
+    <string name="location_driver_assistance_privacy_policy_header_content" msgid="8118086439003674350">"Aplikácie, ktoré majú povolený prístup k polohe tohto vozidla, aby mohli poskytovať funkcie asistencie pre vodiča"</string>
+    <string name="location_driver_assistance_privacy_policy_button_text" msgid="669921557502414704">"Pravidlá ochrany súkromia"</string>
     <string name="location_settings_app_permissions_title" msgid="6446735313354321564">"Povolenia na úrovni aplikácie"</string>
     <string name="location_settings_services_title" msgid="1186133632690970468">"Služby určovania polohy"</string>
     <string name="location_use_location_title" msgid="117735895374606680">"Používať polohu"</string>
     <string name="location_settings_footer" msgid="296892848338100051">"Nastavenie Poloha pomáha odhadnúť polohu vášho zariadenia pomocou zdrojov, ako sú GPS, Wi-Fi, mobilné siete a senzory."</string>
     <string name="driver_assistance_settings_title" msgid="4915804073177128915">"Asistencia pre vodiča"</string>
-    <string name="adas_settings_footer" msgid="5128483877858058534">"Informácie o polohe odoslané asistenčným aplikáciám pre vodiča neobsahujú údaje, ktoré umožňujú zistenie vašej totožnosti. Sú uchovávané maximálne dva dni a potom odstránené."</string>
+    <string name="adas_settings_footer" msgid="6697021691244459156">"Informácie o polohe odoslané asistenčným aplikáciám pre vodiča neobsahujú údaje, ktoré umožňujú zistenie vašej totožnosti. Uchovávajú sa maximálne dva dni a potom sa odstránia."</string>
     <string name="microphone_settings_title" msgid="7125554350537136922">"Mikrofón"</string>
     <string name="microphone_toggle_title" msgid="911586035332827275">"Použiť mikrofón"</string>
     <string name="microphone_toggle_summary" msgid="2682653449849128626">"Povoliť všetkým aplikáciám prístup k mikrofónu"</string>
@@ -432,6 +445,9 @@
     <string name="system_update_settings_title" msgid="8448588267784138855">"Aktualizácie systému"</string>
     <string name="system_advanced_title" msgid="6303355131691523362">"Rozšírené"</string>
     <string name="system_advanced_summary" msgid="5833643795981791953">"Popis, právne informácie, reset a ďalšie"</string>
+    <string name="restart_infotainment_system_title" msgid="5174129167446756511">"Reštartovať palubný systém"</string>
+    <string name="restart_infotainment_system_dialog_text" msgid="6395281407323116808">"Reštartovanie palubného systému auta môže chvíľu trvať. Chcete pokračovať?"</string>
+    <string name="continue_confirmation" msgid="1598892163951467191">"Pokračovať"</string>
     <string name="firmware_version" msgid="8491753744549309333">"Verzia Androidu"</string>
     <string name="security_patch" msgid="4794276590178386903">"Úroveň opráv zabezpečenia systému"</string>
     <string name="hardware_info" msgid="3973165746261507658">"Model a hardvér"</string>
@@ -472,11 +488,11 @@
     <string name="developer_options_settings" msgid="1530739225109118480">"Pre vývojárov"</string>
     <string name="reset_options_title" msgid="4388902952861833420">"Možnosti resetu"</string>
     <string name="reset_options_summary" msgid="5508201367420359293">"Reset siete, aplikácií alebo zariadenia"</string>
-    <string name="reset_network_title" msgid="1284233059990797263">"Resetovať sieť"</string>
-    <string name="reset_network_desc" msgid="602381374544634925">"Budú resetované všetky nastavenia sietí vrátane:"</string>
-    <string name="reset_network_item_wifi" msgid="7569481589699982698"><li>"Wi‑Fi"</li></string>
+    <string name="reset_network_title" msgid="3077846909739832734">"Resetovať Wi‑Fi a Bluetooth"</string>
+    <string name="reset_network_desc" msgid="3332203703135823033">"Tento krok resetuje nastavenia Wi‑Fi a Bluetooth a z pamäte budú odstránené pripojené:"</string>
+    <string name="reset_network_item_wifi" msgid="2876370861806060314"><li>"Siete Wi‑Fi a heslá"</li></string>
     <string name="reset_network_item_mobile" msgid="5747282716664480997"><li>"Mobilné dáta"</li></string>
-    <string name="reset_network_item_bluetooth" msgid="6035019931106921284"><li>"Bluetooth"</li></string>
+    <string name="reset_network_item_bluetooth" msgid="7475279871421815601"><li>"Telefóny a ďalšie zariadenia s rozhraním Bluetooth"</li></string>
     <string name="reset_esim_title" msgid="8132107637911831211">"Vymazať všetky eSIM karty vo vozidle"</string>
     <string name="reset_esim_desc" msgid="1437276625485586740">"Vaša tarifa nebude zrušená."</string>
     <string name="reset_esim_error_title" msgid="7245109418130525492">"eSIM karty sa nedajú obnoviť"</string>
@@ -574,7 +590,7 @@
     <string name="storage_clear_user_data_text" msgid="8787615136779130680">"Vymazať priestor"</string>
     <string name="storage_clear_cache_btn_text" msgid="8449547925966775612">"Vymazať vyrovnávaciu pamäť"</string>
     <string name="storage_clear_data_dlg_title" msgid="5863775997588969879">"Chcete odstrániť dáta aplikácie?"</string>
-    <string name="storage_clear_data_dlg_text" msgid="795055288575727801">"Všetky údaje tejto aplikácie vrátane súborov, nastavení, účtov, databáz atď. budú navždy odstránené."</string>
+    <string name="storage_clear_data_dlg_text" msgid="3255314337644212283">"Dáta tejto aplikácie budú natrvalo odstránené. Zahrnujú súbory, nastavenia, databázy a ďalšie dáta aplikácie."</string>
     <string name="storage_clear_failed_dlg_text" msgid="6710485971686866306">"Nepodarilo sa vymazať ukladací priestor aplikácie"</string>
     <string name="storage_unmount_success" msgid="1553591517580407021">"Úložisko (<xliff:g id="NAME">%1$s</xliff:g>) bolo bezpečne odpojené"</string>
     <string name="storage_unmount_failure" msgid="4591934911541762883">"Úložisko (<xliff:g id="NAME">%1$s</xliff:g>) sa nepodarilo bezpečne odpojiť"</string>
@@ -646,7 +662,7 @@
     <string name="lockpattern_recording_intro_header" msgid="7864149726033694408">"Nakreslite bezpečnostný vzor"</string>
     <string name="lockpattern_recording_inprogress" msgid="1575019990484725964">"Na záver zdvihnite prst z obrazovky"</string>
     <string name="lockpattern_pattern_entered" msgid="6103071005285320575">"Vzor bol zaznamenaný"</string>
-    <string name="lockpattern_need_to_confirm" msgid="4648070076022940382">"Znovu nakreslite pre potvrdenie"</string>
+    <string name="lockpattern_need_to_confirm" msgid="4648070076022940382">"Znova nakreslite vzor pre potvrdenie"</string>
     <string name="lockpattern_recording_incorrect_too_short" msgid="2417932185815083082">"Musíte spojiť aspoň 4 body. Skúste to znova."</string>
     <string name="lockpattern_pattern_wrong" msgid="929223969555399363">"Nesprávny vzor"</string>
     <string name="lockpattern_settings_help_how_to_record" msgid="4436556875843192284">"Ako kresliť bezpečnostný vzor obrazovky"</string>
@@ -675,6 +691,7 @@
     <string name="lockpassword_cancel_label" msgid="5791237697404166450">"Zrušiť"</string>
     <string name="lockpassword_confirm_label" msgid="5918463281546146953">"Potvrdiť"</string>
     <string name="choose_lock_password_hints" msgid="3903696950202491593">"Musí obsahovať najmenej 4 znaky"</string>
+    <string name="locktype_unavailable" msgid="2678317466336249126">"Tento typ zámky nie je k dispozícii."</string>
     <string name="lockpassword_pin_contains_non_digits" msgid="3044526271686839923">"Musí obsahovať len číslice 0 až 9."</string>
     <string name="lockpassword_pin_recently_used" msgid="7901918311213276207">"Správca zariadenia neumožňuje používať nedávny kód PIN"</string>
     <string name="lockpassword_pin_denylisted_by_admin" msgid="3752574009492336468">"Bežné kódy PIN zablokoval váš správca IT. Skúste iný PIN."</string>
@@ -699,7 +716,6 @@
     <string name="lockpassword_pin_too_long" msgid="8315542764465856288">"{count,plural, =1{Musí mať menej ako # znak}few{Musí mať menej ako # znaky}many{Must be fewer than # digits}other{Musí mať menej ako # znakov}}"</string>
     <string name="lockpassword_pin_no_sequential_digits" msgid="6511579896796310956">"Vzostupná, zostupná alebo opakovaná sekvencia čísiel nie je povolená"</string>
     <string name="setup_lock_settings_options_button_label" msgid="3337845811029780896">"Možnosti zámky obrazovky"</string>
-    <string name="build_info_fmt" msgid="5592554123908086426">"<xliff:g id="FINGERPRINT">%1$s</xliff:g>\n<xliff:g id="DATE">%2$s</xliff:g> : pred <xliff:g id="NUM_DAYS">%3$s</xliff:g> dňami"</string>
     <string name="credentials_reset" msgid="873900550885788639">"Vymazanie poverení"</string>
     <string name="credentials_reset_summary" msgid="6067911547500459637">"Odstrániť všetky certifikáty"</string>
     <string name="credentials_reset_hint" msgid="3459271621754137661">"Chcete odstrániť všetok obsah?"</string>
@@ -722,6 +738,8 @@
     <string name="exit_retail_mode_dialog_confirmation_button_text" msgid="3147249675355968649">"Ukončiť ukážku"</string>
     <string name="suggestion_dismiss_button" msgid="4539412646977050641">"ZAVRIEŤ"</string>
     <string name="restricted_while_driving" msgid="6587569249519274524">"Funkcia nie je k dispozícii počas jazdy"</string>
+    <string name="restricted_for_passenger" msgid="7240117443887727753">"Požiadajte o zmenu nastavenia vodiča"</string>
+    <string name="restricted_for_driver" msgid="3364388937671526800">"Túto akciu nemôžete vykonať"</string>
     <string name="add_user_restricted_while_driving" msgid="1037301074725362944">"Za jazdy sa nedá pridať profil"</string>
     <string name="default_search_query" msgid="3137420627428857068">"Hľadať"</string>
     <string name="assistant_and_voice_setting_title" msgid="737733881661819853">"Asistent a hlas"</string>
@@ -737,6 +755,7 @@
     <string name="add_a_profile_button_text" msgid="8027395095117925114">"Pridať profil"</string>
     <string name="delete_this_profile_text" msgid="6035404714526922665">"Odstrániť tento profil"</string>
     <string name="add_profile_text" msgid="9118410102199116969">"Pridanie profilu"</string>
+    <string name="cannot_remove_driver_profile" msgid="4109363161608717969">"Tento profil je aktuálne prihlásený ako vodič. Skúste to znova, keď sa profil nebude používať ako vodič."</string>
     <string name="qc_display_brightness" msgid="2939655289816201170">"Jas displeja"</string>
     <string name="qc_bluetooth_off_devices_info" msgid="8420985279976892700">"Ak chcete vidieť svoje zariadenia, zapnite Bluetooth"</string>
     <string name="qc_bluetooth_on_no_devices_info" msgid="7573736950041887300">"Ak chcete spárovať zariadenie, otvorte nastavenia Bluetooth"</string>
@@ -769,6 +788,7 @@
     <string name="number_of_device_admins" msgid="7508826094096451485">"{count,plural, =1{# aktivovaná aplikácia}few{# aktivované aplikácie}many{# activated apps}other{# aktivovaných aplikácií}}"</string>
     <string name="number_of_device_admins_none" msgid="5547493703413973954">"Žiadne aktivované aplikácie"</string>
     <string name="work_policy_privacy_settings" msgid="5263835989260149968">"Pravidlá pre vozidlá organizácie <xliff:g id="ORGANIZATION_NAME">%1$s</xliff:g>"</string>
+    <string name="work_policy_privacy_settings_no_org_name" msgid="8011687012493940230">"Pravidlá pre vozidlá"</string>
     <string name="work_policy_privacy_settings_summary" msgid="5321618399949880194">"Nastavenia ovláda správca organizácie"</string>
     <string name="footer_learn_more_content_description" msgid="7749452309729272078">"Ďalšie informácie o službe <xliff:g id="SERVICE">%1$s</xliff:g>"</string>
     <string name="enterprise_privacy_settings" msgid="6496900796150572727">"Informácie o spravovanom vozidle"</string>

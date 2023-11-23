@@ -21,8 +21,13 @@ import static com.android.dx.mockito.inline.extended.ExtendedMockito.mockitoSess
 import static org.junit.Assert.*;
 import static org.mockito.Mockito.*;
 
+import android.annotation.Nullable;
 import android.content.Context;
 import android.net.ConnectivityManager;
+import android.net.Network;
+import android.net.NetworkCapabilities;
+import android.net.TelephonyNetworkSpecifier;
+import android.net.vcn.VcnTransportInfo;
 import android.telephony.AccessNetworkConstants;
 import android.telephony.INetworkService;
 import android.telephony.INetworkServiceCallback;
@@ -31,6 +36,8 @@ import android.telephony.NetworkServiceCallback;
 import android.telephony.SubscriptionInfo;
 import android.telephony.SubscriptionManager;
 import android.telephony.TelephonyManager;
+import android.telephony.ims.ImsManager;
+import android.telephony.ims.ImsMmTelManager;
 
 import com.google.android.iwlan.IwlanNetworkService.IwlanNetworkServiceProvider;
 
@@ -40,18 +47,23 @@ import org.junit.Test;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.mockito.MockitoSession;
+import org.mockito.quality.Strictness;
 
 import java.util.Arrays;
 
 public class IwlanNetworkServiceTest {
     private static final String TAG = IwlanNetworkServiceTest.class.getSimpleName();
     private static final int DEFAULT_SLOT_INDEX = 0;
+    private static final int DEFAULT_SUB_INDEX = 0;
 
     @Mock private Context mMockContext;
     @Mock private ConnectivityManager mMockConnectivityManager;
     @Mock private SubscriptionManager mMockSubscriptionManager;
     @Mock private SubscriptionInfo mMockSubscriptionInfo;
+    @Mock private ImsManager mMockImsManager;
+    @Mock private ImsMmTelManager mMockImsMmTelManager;
     @Mock private INetworkServiceCallback mCallback;
+    @Mock private Network mMockNetwork;
     MockitoSession mStaticMockSession;
 
     IwlanNetworkService mIwlanNetworkService;
@@ -64,8 +76,8 @@ public class IwlanNetworkServiceTest {
 
         mStaticMockSession =
                 mockitoSession()
-                        .mockStatic(IwlanHelper.class)
                         .mockStatic(SubscriptionManager.class)
+                        .strictness(Strictness.LENIENT)
                         .startMocking();
 
         when(mMockContext.getSystemService(eq(ConnectivityManager.class)))
@@ -77,10 +89,17 @@ public class IwlanNetworkServiceTest {
         when(mMockSubscriptionManager.getActiveSubscriptionInfoForSimSlotIndex(
                         eq(DEFAULT_SLOT_INDEX)))
                 .thenReturn(mMockSubscriptionInfo);
+        when(mMockSubscriptionManager.getDefaultDataSubscriptionId()).thenReturn(DEFAULT_SUB_INDEX);
+        when(mMockSubscriptionManager.getSlotIndex(DEFAULT_SUB_INDEX))
+                .thenReturn(DEFAULT_SLOT_INDEX);
+        when(mMockSubscriptionManager.getSlotIndex(DEFAULT_SUB_INDEX + 1))
+                .thenReturn(DEFAULT_SLOT_INDEX + 1);
 
-        lenient()
-                .when(SubscriptionManager.from(eq(mMockContext)))
-                .thenReturn(mMockSubscriptionManager);
+        when(mMockSubscriptionInfo.getSubscriptionId()).thenReturn(DEFAULT_SUB_INDEX);
+
+        when(mMockContext.getSystemService(eq(ImsManager.class))).thenReturn(mMockImsManager);
+
+        when(mMockImsManager.getImsMmTelManager(anyInt())).thenReturn(mMockImsMmTelManager);
 
         mIwlanNetworkService = new IwlanNetworkService();
         mIwlanNetworkService.setAppContext(mMockContext);
@@ -97,22 +116,23 @@ public class IwlanNetworkServiceTest {
         mStaticMockSession.finishMocking();
     }
 
-    @Test
-    public void testRequestNetworkRegistrationInfo() throws Exception {
-        int domain = NetworkRegistrationInfo.DOMAIN_PS;
-        boolean mIsSubActive = true;
-        long startTime;
-
+    @Nullable
+    IwlanNetworkServiceProvider initNSP() {
         // Wait for IwlanNetworkServiceProvider created and timeout is 1 second.
-        startTime = System.currentTimeMillis();
+        long startTime = System.currentTimeMillis();
+        IwlanNetworkServiceProvider nsp = null;
         while (System.currentTimeMillis() - startTime < 1000) {
-            mIwlanNetworkServiceProvider =
-                    mIwlanNetworkService.getNetworkServiceProvider(DEFAULT_SLOT_INDEX);
-            if (mIwlanNetworkServiceProvider != null) {
+            nsp = mIwlanNetworkService.getNetworkServiceProvider(DEFAULT_SLOT_INDEX);
+            if (nsp != null) {
                 break;
             }
         }
+        return nsp;
+    }
 
+    @Test
+    public void testRequestNetworkRegistrationInfo() throws Exception {
+        mIwlanNetworkServiceProvider = initNSP();
         assertTrue(mIwlanNetworkServiceProvider != null);
 
         // Set Wifi on and verify mCallback should receive onNetworkStateChanged.
@@ -126,223 +146,202 @@ public class IwlanNetworkServiceTest {
         // Create expected NetworkRegistrationInfo
         NetworkRegistrationInfo.Builder expectedStateBuilder =
                 generateStateBuilder(
-                        domain, mIsSubActive, NetworkRegistrationInfo.REGISTRATION_STATE_HOME);
+                        NetworkRegistrationInfo.DOMAIN_PS,
+                        true /* isSubActive */,
+                        NetworkRegistrationInfo.REGISTRATION_STATE_HOME);
 
-        mBinder.requestNetworkRegistrationInfo(0, domain, mCallback);
+        mBinder.requestNetworkRegistrationInfo(0, NetworkRegistrationInfo.DOMAIN_PS, mCallback);
 
         verify(mCallback, timeout(1000).times(1))
                 .onRequestNetworkRegistrationInfoComplete(
                         eq(NetworkServiceCallback.RESULT_SUCCESS),
                         eq(expectedStateBuilder.build()));
+    }
 
-        IwlanNetworkService.setNetworkConnected(
-                false, IwlanNetworkService.Transport.UNSPECIFIED_NETWORK);
+    private NetworkCapabilities prepareCellularNetworkCapabilitiesForTest(
+            int subId, boolean isVcn) {
+        NetworkCapabilities.Builder builder =
+                new NetworkCapabilities.Builder()
+                        .addTransportType(NetworkCapabilities.TRANSPORT_CELLULAR);
+        if (isVcn) {
+            builder.setTransportInfo(new VcnTransportInfo(subId));
+        } else {
+            builder.setNetworkSpecifier(new TelephonyNetworkSpecifier(subId));
+        }
+        return builder.build();
+    }
+
+    private NetworkCapabilities prepareWifiNetworkCapabilitiesForTest() {
+        return new NetworkCapabilities.Builder()
+                .addTransportType(NetworkCapabilities.TRANSPORT_WIFI)
+                .build();
     }
 
     @Test
-    public void testNetworkRegistrationInfoForCellularAndCstDisabled() throws Exception {
-        int domain = NetworkRegistrationInfo.DOMAIN_PS;
-        boolean mIsSubActive = true;
-        long startTime;
-
-        // Wait for IwlanNetworkServiceProvider created and timeout is 1 second.
-        startTime = System.currentTimeMillis();
-        while (System.currentTimeMillis() - startTime < 1000) {
-            mIwlanNetworkServiceProvider =
-                    mIwlanNetworkService.getNetworkServiceProvider(DEFAULT_SLOT_INDEX);
-            if (mIwlanNetworkServiceProvider != null) {
-                break;
-            }
-        }
-
-        lenient()
-                .when(
-                        IwlanHelper.isCrossSimCallingEnabled(
-                                eq(mMockContext), eq(DEFAULT_SLOT_INDEX)))
-                .thenReturn(false);
-        lenient()
-                .when(IwlanHelper.isDefaultDataSlot(eq(mMockContext), eq(DEFAULT_SLOT_INDEX)))
-                .thenReturn(true);
-
+    public void testNetworkRegistrationInfoSearchingForCellularAndCstDisabled() throws Exception {
+        mIwlanNetworkServiceProvider = initNSP();
         assertTrue(mIwlanNetworkServiceProvider != null);
 
-        // Set Network on and verify mCallback should receive onNetworkStateChanged.
-        mIwlanNetworkService.setNetworkConnected(true, IwlanNetworkService.Transport.MOBILE);
-        verify(mCallback, timeout(1000).times(1)).onNetworkStateChanged();
+        when(mMockImsMmTelManager.isCrossSimCallingEnabled()).thenReturn(false);
 
-        // Set Sub active and verify mCallback should receive onNetworkStateChanged.
+        NetworkCapabilities nc =
+                prepareCellularNetworkCapabilitiesForTest(DEFAULT_SUB_INDEX, false /* is Vcn */);
+        mIwlanNetworkService.getNetworkMonitorCallback().onCapabilitiesChanged(mMockNetwork, nc);
         mIwlanNetworkServiceProvider.subscriptionChanged();
-        verify(mCallback, timeout(1000).times(2)).onNetworkStateChanged();
 
         // Create expected NetworkRegistrationInfo
         NetworkRegistrationInfo.Builder expectedStateBuilder =
                 generateStateBuilder(
-                        domain,
-                        mIsSubActive,
+                        NetworkRegistrationInfo.DOMAIN_PS,
+                        true /* isSubActive */,
                         NetworkRegistrationInfo.REGISTRATION_STATE_NOT_REGISTERED_SEARCHING);
 
-        mBinder.requestNetworkRegistrationInfo(0, domain, mCallback);
+        mBinder.requestNetworkRegistrationInfo(0, NetworkRegistrationInfo.DOMAIN_PS, mCallback);
 
         verify(mCallback, timeout(1000).times(1))
                 .onRequestNetworkRegistrationInfoComplete(
                         eq(NetworkServiceCallback.RESULT_SUCCESS),
                         eq(expectedStateBuilder.build()));
-
-        IwlanNetworkService.setNetworkConnected(
-                false, IwlanNetworkService.Transport.UNSPECIFIED_NETWORK);
     }
 
     @Test
-    public void testNetworkRegistrationInfoForCellularAndCstEnabled() throws Exception {
-        int domain = NetworkRegistrationInfo.DOMAIN_PS;
-        boolean mIsSubActive = true;
-        long startTime;
-
-        // Wait for IwlanNetworkServiceProvider created and timeout is 1 second.
-        startTime = System.currentTimeMillis();
-        while (System.currentTimeMillis() - startTime < 1000) {
-            mIwlanNetworkServiceProvider =
-                    mIwlanNetworkService.getNetworkServiceProvider(DEFAULT_SLOT_INDEX);
-            if (mIwlanNetworkServiceProvider != null) {
-                break;
-            }
-        }
-
-        lenient()
-                .when(
-                        IwlanHelper.isCrossSimCallingEnabled(
-                                eq(mMockContext), eq(DEFAULT_SLOT_INDEX)))
-                .thenReturn(true);
-        lenient()
-                .when(IwlanHelper.isDefaultDataSlot(eq(mMockContext), eq(DEFAULT_SLOT_INDEX)))
-                .thenReturn(false);
-
+    public void testNetworkRegistrationInfoSearchingForCellularOnSameSubAndCstEnabled()
+            throws Exception {
+        mIwlanNetworkServiceProvider = initNSP();
         assertTrue(mIwlanNetworkServiceProvider != null);
 
-        // Set Network on and verify mCallback should receive onNetworkStateChanged.
-        mIwlanNetworkService.setNetworkConnected(true, IwlanNetworkService.Transport.MOBILE);
-        verify(mCallback, timeout(1000).times(1)).onNetworkStateChanged();
+        when(mMockImsMmTelManager.isCrossSimCallingEnabled()).thenReturn(true);
 
-        // Set Sub active and verify mCallback should receive onNetworkStateChanged.
+        NetworkCapabilities nc =
+                prepareCellularNetworkCapabilitiesForTest(DEFAULT_SUB_INDEX, false /* is Vcn */);
+        mIwlanNetworkService.getNetworkMonitorCallback().onCapabilitiesChanged(mMockNetwork, nc);
         mIwlanNetworkServiceProvider.subscriptionChanged();
-        verify(mCallback, timeout(1000).times(2)).onNetworkStateChanged();
 
         // Create expected NetworkRegistrationInfo
         NetworkRegistrationInfo.Builder expectedStateBuilder =
                 generateStateBuilder(
-                        domain, mIsSubActive, NetworkRegistrationInfo.REGISTRATION_STATE_HOME);
+                        NetworkRegistrationInfo.DOMAIN_PS,
+                        true /* mIsSubActive */,
+                        NetworkRegistrationInfo.REGISTRATION_STATE_NOT_REGISTERED_SEARCHING);
 
-        mBinder.requestNetworkRegistrationInfo(0, domain, mCallback);
+        mBinder.requestNetworkRegistrationInfo(0, NetworkRegistrationInfo.DOMAIN_PS, mCallback);
 
         verify(mCallback, timeout(1000).times(1))
                 .onRequestNetworkRegistrationInfoComplete(
                         eq(NetworkServiceCallback.RESULT_SUCCESS),
                         eq(expectedStateBuilder.build()));
-
-        IwlanNetworkService.setNetworkConnected(
-                false, IwlanNetworkService.Transport.UNSPECIFIED_NETWORK);
     }
 
     @Test
-    public void testNetworkRegistrationInfoForWiFiAndCstEnabled() throws Exception {
-        int domain = NetworkRegistrationInfo.DOMAIN_PS;
-        boolean mIsSubActive = true;
-        long startTime;
-
-        // Wait for IwlanNetworkServiceProvider created and timeout is 1 second.
-        startTime = System.currentTimeMillis();
-        while (System.currentTimeMillis() - startTime < 1000) {
-            mIwlanNetworkServiceProvider =
-                    mIwlanNetworkService.getNetworkServiceProvider(DEFAULT_SLOT_INDEX);
-            if (mIwlanNetworkServiceProvider != null) {
-                break;
-            }
-        }
-
-        lenient()
-                .when(
-                        IwlanHelper.isCrossSimCallingEnabled(
-                                eq(mMockContext), eq(DEFAULT_SLOT_INDEX)))
-                .thenReturn(true);
-        lenient()
-                .when(IwlanHelper.isDefaultDataSlot(eq(mMockContext), eq(DEFAULT_SLOT_INDEX)))
-                .thenReturn(true);
-
+    public void testNetworkRegistrationInfoHomeForCellularOnDifferentSubAndCstEnabled()
+            throws Exception {
+        mIwlanNetworkServiceProvider = initNSP();
         assertTrue(mIwlanNetworkServiceProvider != null);
 
-        // Set Network on and verify mCallback should receive onNetworkStateChanged.
-        mIwlanNetworkService.setNetworkConnected(true, IwlanNetworkService.Transport.WIFI);
-        verify(mCallback, timeout(1000).times(1)).onNetworkStateChanged();
+        when(mMockImsMmTelManager.isCrossSimCallingEnabled()).thenReturn(true);
 
-        // Set Sub active and verify mCallback should receive onNetworkStateChanged.
+        // Cellular data is on the other sub
+        NetworkCapabilities nc =
+                prepareCellularNetworkCapabilitiesForTest(
+                        DEFAULT_SUB_INDEX + 1, false /* is Vcn */);
+        mIwlanNetworkService.getNetworkMonitorCallback().onCapabilitiesChanged(mMockNetwork, nc);
         mIwlanNetworkServiceProvider.subscriptionChanged();
-        verify(mCallback, timeout(1000).times(2)).onNetworkStateChanged();
 
         // Create expected NetworkRegistrationInfo
         NetworkRegistrationInfo.Builder expectedStateBuilder =
                 generateStateBuilder(
-                        domain, mIsSubActive, NetworkRegistrationInfo.REGISTRATION_STATE_HOME);
+                        NetworkRegistrationInfo.DOMAIN_PS,
+                        true /* isSubActive */,
+                        NetworkRegistrationInfo.REGISTRATION_STATE_HOME);
 
-        mBinder.requestNetworkRegistrationInfo(0, domain, mCallback);
+        mBinder.requestNetworkRegistrationInfo(0, NetworkRegistrationInfo.DOMAIN_PS, mCallback);
 
         verify(mCallback, timeout(1000).times(1))
                 .onRequestNetworkRegistrationInfoComplete(
                         eq(NetworkServiceCallback.RESULT_SUCCESS),
                         eq(expectedStateBuilder.build()));
-
-        IwlanNetworkService.setNetworkConnected(
-                false, IwlanNetworkService.Transport.UNSPECIFIED_NETWORK);
     }
 
     @Test
-    public void testNetworkRegistrationInfoForWiFiAndCstDisabled() throws Exception {
-        int domain = NetworkRegistrationInfo.DOMAIN_PS;
-        boolean mIsSubActive = true;
-        long startTime;
-
-        // Wait for IwlanNetworkServiceProvider created and timeout is 1 second.
-        startTime = System.currentTimeMillis();
-        while (System.currentTimeMillis() - startTime < 1000) {
-            mIwlanNetworkServiceProvider =
-                    mIwlanNetworkService.getNetworkServiceProvider(DEFAULT_SLOT_INDEX);
-            if (mIwlanNetworkServiceProvider != null) {
-                break;
-            }
-        }
-
-        lenient()
-                .when(
-                        IwlanHelper.isCrossSimCallingEnabled(
-                                eq(mMockContext), eq(DEFAULT_SLOT_INDEX)))
-                .thenReturn(false);
-        lenient()
-                .when(IwlanHelper.isDefaultDataSlot(eq(mMockContext), eq(DEFAULT_SLOT_INDEX)))
-                .thenReturn(true);
-
+    public void testNetworkRegistrationInfoHomeForCellularVcnOnDifferentSubAndCstEnabled()
+            throws Exception {
+        mIwlanNetworkServiceProvider = initNSP();
         assertTrue(mIwlanNetworkServiceProvider != null);
 
-        // Set Network on and verify mCallback should receive onNetworkStateChanged.
-        mIwlanNetworkService.setNetworkConnected(true, IwlanNetworkService.Transport.WIFI);
-        verify(mCallback, timeout(1000).times(1)).onNetworkStateChanged();
+        when(mMockImsMmTelManager.isCrossSimCallingEnabled()).thenReturn(true);
 
-        // Set Sub active and verify mCallback should receive onNetworkStateChanged.
+        // Cellular data as a VCN network is on the other sub
+        NetworkCapabilities nc =
+                prepareCellularNetworkCapabilitiesForTest(DEFAULT_SUB_INDEX + 1, true /* is Vcn */);
+        mIwlanNetworkService.getNetworkMonitorCallback().onCapabilitiesChanged(mMockNetwork, nc);
         mIwlanNetworkServiceProvider.subscriptionChanged();
-        verify(mCallback, timeout(1000).times(2)).onNetworkStateChanged();
 
         // Create expected NetworkRegistrationInfo
         NetworkRegistrationInfo.Builder expectedStateBuilder =
                 generateStateBuilder(
-                        domain, mIsSubActive, NetworkRegistrationInfo.REGISTRATION_STATE_HOME);
+                        NetworkRegistrationInfo.DOMAIN_PS,
+                        true /* isSubActive */,
+                        NetworkRegistrationInfo.REGISTRATION_STATE_HOME);
 
-        mBinder.requestNetworkRegistrationInfo(0, domain, mCallback);
+        mBinder.requestNetworkRegistrationInfo(0, NetworkRegistrationInfo.DOMAIN_PS, mCallback);
 
         verify(mCallback, timeout(1000).times(1))
                 .onRequestNetworkRegistrationInfoComplete(
                         eq(NetworkServiceCallback.RESULT_SUCCESS),
                         eq(expectedStateBuilder.build()));
+    }
 
-        IwlanNetworkService.setNetworkConnected(
-                false, IwlanNetworkService.Transport.UNSPECIFIED_NETWORK);
+    @Test
+    public void testNetworkRegistrationInfoHomeForWiFiAndCstEnabled() throws Exception {
+        mIwlanNetworkServiceProvider = initNSP();
+        assertTrue(mIwlanNetworkServiceProvider != null);
+
+        when(mMockImsMmTelManager.isCrossSimCallingEnabled()).thenReturn(true);
+
+        NetworkCapabilities nc = prepareWifiNetworkCapabilitiesForTest();
+        mIwlanNetworkService.getNetworkMonitorCallback().onCapabilitiesChanged(mMockNetwork, nc);
+        mIwlanNetworkServiceProvider.subscriptionChanged();
+
+        // Create expected NetworkRegistrationInfo
+        NetworkRegistrationInfo.Builder expectedStateBuilder =
+                generateStateBuilder(
+                        NetworkRegistrationInfo.DOMAIN_PS,
+                        true /* isSubActive */,
+                        NetworkRegistrationInfo.REGISTRATION_STATE_HOME);
+
+        mBinder.requestNetworkRegistrationInfo(0, NetworkRegistrationInfo.DOMAIN_PS, mCallback);
+
+        verify(mCallback, timeout(1000).times(1))
+                .onRequestNetworkRegistrationInfoComplete(
+                        eq(NetworkServiceCallback.RESULT_SUCCESS),
+                        eq(expectedStateBuilder.build()));
+    }
+
+    @Test
+    public void testNetworkRegistrationInfoHomeForWiFiAndCstDisabled() throws Exception {
+        mIwlanNetworkServiceProvider = initNSP();
+        assertTrue(mIwlanNetworkServiceProvider != null);
+
+        when(mMockImsMmTelManager.isCrossSimCallingEnabled()).thenReturn(false);
+
+        NetworkCapabilities nc = prepareWifiNetworkCapabilitiesForTest();
+        mIwlanNetworkService.getNetworkMonitorCallback().onCapabilitiesChanged(mMockNetwork, nc);
+
+        mIwlanNetworkServiceProvider.subscriptionChanged();
+
+        // Create expected NetworkRegistrationInfo
+        NetworkRegistrationInfo.Builder expectedStateBuilder =
+                generateStateBuilder(
+                        NetworkRegistrationInfo.DOMAIN_PS,
+                        true /* isSubActive */,
+                        NetworkRegistrationInfo.REGISTRATION_STATE_HOME);
+
+        mBinder.requestNetworkRegistrationInfo(0, NetworkRegistrationInfo.DOMAIN_PS, mCallback);
+
+        verify(mCallback, timeout(1000).times(1))
+                .onRequestNetworkRegistrationInfoComplete(
+                        eq(NetworkServiceCallback.RESULT_SUCCESS),
+                        eq(expectedStateBuilder.build()));
     }
 
     private NetworkRegistrationInfo.Builder generateStateBuilder(

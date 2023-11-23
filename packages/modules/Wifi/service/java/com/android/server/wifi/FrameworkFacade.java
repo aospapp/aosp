@@ -47,6 +47,9 @@ import android.telephony.CarrierConfigManager;
 import android.util.Log;
 import android.widget.Toast;
 
+import com.android.modules.utils.build.SdkLevel;
+import com.android.wifi.resources.R;
+
 import java.util.List;
 import java.util.NoSuchElementException;
 
@@ -91,6 +94,13 @@ public class FrameworkFacade {
     }
 
     /**
+     * Mockable getter for user context from ActivityManager
+     */
+    public Context getUserContext(Context context) {
+        return context.createContextAsUser(UserHandle.of(ActivityManager.getCurrentUser()), 0);
+    }
+
+    /**
      * Mockable setter for Settings.Global
      */
     public boolean setIntegerSetting(ContentResolver contentResolver, String name, int value) {
@@ -112,6 +122,14 @@ public class FrameworkFacade {
         return Settings.Global.getInt(getContentResolver(context), name, def);
     }
 
+    /**
+     * Mockable getter for Settings.Global.getInt with SettingNotFoundException
+     */
+    public int getIntegerSetting(ContentResolver contentResolver, String name)
+            throws Settings.SettingNotFoundException {
+        return Settings.Global.getInt(contentResolver, name);
+    }
+
     public long getLongSetting(Context context, String name, long def) {
         return Settings.Global.getLong(getContentResolver(context), name, def);
     }
@@ -128,20 +146,31 @@ public class FrameworkFacade {
      * Mockable facade to Settings.Secure.getInt(.).
      */
     public int getSecureIntegerSetting(Context context, String name, int def) {
-        return Settings.Secure.getInt(getContentResolver(context), name, def);
+        return Settings.Secure.getInt(context.getContentResolver(), name, def);
+    }
+
+    /**
+     * Mockable facade to Settings.Secure.putInt(.).
+     */
+    public boolean setSecureIntegerSetting(Context context, String name, int def) {
+        return Settings.Secure.putInt(context.getContentResolver(), name, def);
     }
 
     /**
      * Mockable facade to Settings.Secure.getString(.).
      */
     public String getSecureStringSetting(Context context, String name) {
-        return Settings.Secure.getString(getContentResolver(context), name);
+        return Settings.Secure.getString(context.getContentResolver(), name);
     }
 
     /**
      * Returns whether the device is in NIAP mode or not.
      */
     public boolean isNiapModeOn(Context context) {
+        boolean isNiapModeEnabled = context.getResources().getBoolean(
+                R.bool.config_wifiNiapModeEnabled);
+        if (isNiapModeEnabled) return true;
+
         DevicePolicyManager devicePolicyManager =
                 context.getSystemService(DevicePolicyManager.class);
         if (devicePolicyManager == null
@@ -208,6 +237,14 @@ public class FrameworkFacade {
 
     public long getRxPackets(String iface) {
         return TrafficStats.getRxPackets(iface);
+    }
+
+    public long getTxBytes(String iface) {
+        return SdkLevel.isAtLeastS() ? TrafficStats.getTxBytes(iface) : 0;
+    }
+
+    public long getRxBytes(String iface) {
+        return SdkLevel.isAtLeastS() ? TrafficStats.getRxBytes(iface) : 0;
     }
 
     /**
@@ -353,6 +390,9 @@ public class FrameworkFacade {
      * Returns grant string for a given KeyChain alias or null if key not granted.
      */
     public String getWifiKeyGrantAsUser(Context context, UserHandle user, String alias) {
+        if (!SdkLevel.isAtLeastS()) {
+            return null;
+        }
         return KeyChain.getWifiKeyGrantAsUser(context, user, alias);
     }
 

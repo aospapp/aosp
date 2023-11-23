@@ -18,6 +18,7 @@ package com.android.launcher3;
 
 import static com.android.launcher3.util.DisplayController.CHANGE_ROTATION;
 import static com.android.launcher3.util.Executors.MAIN_EXECUTOR;
+import static com.android.launcher3.util.Executors.THREAD_POOL_EXECUTOR;
 
 import android.app.WallpaperColors;
 import android.app.WallpaperManager;
@@ -34,9 +35,6 @@ import android.view.View;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
-import com.android.launcher3.allapps.ActivityAllAppsContainerView;
-import com.android.launcher3.allapps.search.DefaultSearchAdapterProvider;
-import com.android.launcher3.allapps.search.SearchAdapterProvider;
 import com.android.launcher3.model.data.ItemInfo;
 import com.android.launcher3.touch.ItemClickHandler;
 import com.android.launcher3.util.ActivityOptionsWrapper;
@@ -79,8 +77,8 @@ public abstract class BaseDraggingActivity extends BaseActivity
 
         // Update theme
         if (Utilities.ATLEAST_P) {
-            getSystemService(WallpaperManager.class)
-                    .addOnColorsChangedListener(this, MAIN_EXECUTOR.getHandler());
+            THREAD_POOL_EXECUTOR.execute(() -> getSystemService(WallpaperManager.class)
+                    .addOnColorsChangedListener(this, MAIN_EXECUTOR.getHandler()));
         }
         int themeRes = Themes.getActivityThemeRes(this);
         if (themeRes != mThemeRes) {
@@ -128,9 +126,13 @@ public abstract class BaseDraggingActivity extends BaseActivity
         mCurrentActionMode = null;
     }
 
+    protected boolean isInAutoCancelActionMode() {
+        return mCurrentActionMode != null && AUTO_CANCEL_ACTION_MODE == mCurrentActionMode.getTag();
+    }
+
     @Override
     public boolean finishAutoCancelActionMode() {
-        if (mCurrentActionMode != null && AUTO_CANCEL_ACTION_MODE == mCurrentActionMode.getTag()) {
+        if (isInAutoCancelActionMode()) {
             mCurrentActionMode.finish();
             return true;
         }
@@ -149,6 +151,13 @@ public abstract class BaseDraggingActivity extends BaseActivity
     @NonNull
     public ActivityOptionsWrapper getActivityLaunchOptions(View v, @Nullable ItemInfo item) {
         ActivityOptionsWrapper wrapper = super.getActivityLaunchOptions(v, item);
+        addOnResumeCallback(wrapper.onEndCallback::executeAllAndDestroy);
+        return wrapper;
+    }
+
+    @Override
+    public ActivityOptionsWrapper makeDefaultActivityOptions(int splashScreenStyle) {
+        ActivityOptionsWrapper wrapper = super.makeDefaultActivityOptions(splashScreenStyle);
         addOnResumeCallback(wrapper.onEndCallback::executeAllAndDestroy);
         return wrapper;
     }
@@ -210,16 +219,6 @@ public abstract class BaseDraggingActivity extends BaseActivity
         Point mwSize = new Point();
         display.getSize(mwSize);
         return new WindowBounds(new Rect(0, 0, mwSize.x, mwSize.y), new Rect());
-    }
-
-    /**
-     * Creates and returns {@link SearchAdapterProvider} for build variant specific search result
-     * views
-     */
-    @Override
-    public SearchAdapterProvider<?> createSearchAdapterProvider(
-            ActivityAllAppsContainerView<?> allApps) {
-        return new DefaultSearchAdapterProvider(this);
     }
 
     @Override

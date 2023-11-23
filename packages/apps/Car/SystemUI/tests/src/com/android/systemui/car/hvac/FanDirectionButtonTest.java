@@ -39,6 +39,8 @@ import android.testing.TestableLooper;
 import android.view.LayoutInflater;
 import android.widget.ImageView;
 
+import androidx.annotation.Nullable;
+
 import com.android.systemui.SysuiTestCase;
 import com.android.systemui.car.CarSystemUiTest;
 import com.android.systemui.car.hvac.referenceui.FanDirectionButtons;
@@ -210,6 +212,22 @@ public class FanDirectionButtonTest extends SysuiTestCase {
     }
 
     @Test
+    public void onPropertyChanged_fanDirectionInvalid_shouldDoNothing() {
+        setCarPropertyValue(FAN_DIRECTION_FACE);
+        mFanDirectionButtons.onPropertyChanged(mCarPropertyValue);
+        waitForIdleSync();
+
+        assertThat(mDirectionFaceButton.isSelected()).isTrue();
+        //set invalid property value
+        setCarPropertyValue(null);
+        mFanDirectionButtons.onPropertyChanged(mCarPropertyValue);
+        waitForIdleSync();
+
+        //does not change the state of Fan Direction
+        assertThat(mDirectionFaceButton.isSelected()).isTrue();
+    }
+
+    @Test
     public void onClickFaceDirectionButton_allowsControl_setsFanDirectionToFace() {
         setPowerPropertyValue(true);
         mFanDirectionButtons.onPropertyChanged(mHvacPowerProperty);
@@ -317,7 +335,7 @@ public class FanDirectionButtonTest extends SysuiTestCase {
         verify(mHvacPropertySetter, never()).setHvacProperty(anyInt(), anyInt(), anyInt());
     }
 
-    private void setCarPropertyValue(int value) {
+    private void setCarPropertyValue(@Nullable Integer value) {
         when(mCarPropertyValue.getAreaId()).thenReturn(GLOBAL_AREA_ID);
         when(mCarPropertyValue.getPropertyId()).thenReturn(PROPERTY_ID);
         when(mCarPropertyValue.getValue()).thenReturn(value);

@@ -16,6 +16,7 @@
 
 package com.android.server.wifi.util;
 
+import static android.Manifest.permission.ACCESS_COARSE_LOCATION;
 import static android.Manifest.permission.ACCESS_FINE_LOCATION;
 import static android.Manifest.permission.ENTER_CAR_MODE_PRIORITIZED;
 import static android.Manifest.permission.NEARBY_WIFI_DEVICES;
@@ -216,6 +217,7 @@ public class WifiPermissionsUtil {
         }
         String packageName = attributionSource.getPackageName();
         int uid = attributionSource.getUid();
+        checkPackage(uid, packageName);
         // Apps with NETWORK_SETTINGS, NETWORK_SETUP_WIZARD, NETWORK_MANAGED_PROVISIONING,
         // NETWORK_STACK & MAINLINE_NETWORK_STACK, RADIO_SCAN_WITHOUT_LOCATION are granted a bypass.
         if (checkNetworkSettingsPermission(uid) || checkNetworkSetupWizardPermission(uid)
@@ -224,6 +226,7 @@ public class WifiPermissionsUtil {
                 || checkScanWithoutLocationPermission(uid)) {
             return;
         }
+
         int permissionCheckResult = mPermissionManager.checkPermissionForDataDelivery(
                 Manifest.permission.NEARBY_WIFI_DEVICES, attributionSource, message);
         if (permissionCheckResult != PermissionManager.PERMISSION_GRANTED) {
@@ -264,6 +267,7 @@ public class WifiPermissionsUtil {
         }
         // If the app did not renounce location, check if "neverForLocation" is set.
         PackageManager pm = mContext.getPackageManager();
+        long ident = Binder.clearCallingIdentity();
         try {
             PackageInfo pkgInfo = pm.getPackageInfo(packageName,
                     GET_PERMISSIONS | MATCH_UNINSTALLED_PACKAGES);
@@ -287,9 +291,11 @@ public class WifiPermissionsUtil {
             }
         } catch (PackageManager.NameNotFoundException e) {
             Log.w(TAG, "Could not find package for disavowal check: " + packageName);
+        } finally {
+            Binder.restoreCallingIdentity(ident);
         }
         // App did not disavow location. Check for location permission and location mode.
-        long ident = Binder.clearCallingIdentity();
+        ident = Binder.clearCallingIdentity();
         try {
             if (!isLocationModeEnabled()) {
                 if (mVerboseLoggingEnabled) {
@@ -354,6 +360,35 @@ public class WifiPermissionsUtil {
     }
 
     /**
+     * Check and enforce Location permission in the manifest.
+     *
+     * @param uid uid of the app.
+     * @param isCoarseOnly whether permission type is COARSE or FINE since FINE permission
+     *                     implies having COARSE permission.
+     */
+    public void enforceLocationPermissionInManifest(int uid, boolean isCoarseOnly) {
+        if (!checkCallersLocationPermissionInManifest(uid, isCoarseOnly)) {
+            throw new SecurityException("UID " + uid + " does not have Location permission ("
+                    + "isCoarseOnly = " + isCoarseOnly + " )");
+        }
+    }
+
+    /**
+     * Checks if the app has the location permission in the manifest.
+     *
+     * @param uid uid of the app.
+     * @param isCoarseOnly whether permission type is COARSE or FINE since FINE permission
+     *                     implies having COARSE permission.
+     * @return true if the app does have the permission, false otherwise.
+     */
+    public boolean checkCallersLocationPermissionInManifest(int uid, boolean isCoarseOnly) {
+        // Having FINE permission implies having COARSE permission (but not the reverse)
+        String permissionType = isCoarseOnly ? ACCESS_COARSE_LOCATION : ACCESS_FINE_LOCATION;
+        return mWifiPermissionsWrapper.getUidPermission(permissionType, uid)
+                == PackageManager.PERMISSION_GRANTED;
+    }
+
+    /**
      * Checks that calling process has android.Manifest.permission.ACCESS_FINE_LOCATION or
      * android.Manifest.permission.ACCESS_FINE_LOCATION (depending on config/targetSDK leve)
      * and a corresponding app op is allowed for this package and uid.
@@ -373,7 +408,7 @@ public class WifiPermissionsUtil {
         String permissionType = ACCESS_FINE_LOCATION;
         if (coarseForTargetSdkLessThanQ && isTargetSdkLessThanQ) {
             // Having FINE permission implies having COARSE permission (but not the reverse)
-            permissionType = Manifest.permission.ACCESS_COARSE_LOCATION;
+            permissionType = ACCESS_COARSE_LOCATION;
         }
         if (mWifiPermissionsWrapper.getUidPermission(permissionType, uid)
                 == PackageManager.PERMISSION_DENIED) {
@@ -490,8 +525,7 @@ public class WifiPermissionsUtil {
      */
     public boolean checkCallersCoarseLocationPermission(String pkgName, @Nullable String featureId,
             int uid, @Nullable String message) {
-        if (mWifiPermissionsWrapper.getUidPermission(
-                Manifest.permission.ACCESS_COARSE_LOCATION, uid)
+        if (mWifiPermissionsWrapper.getUidPermission(ACCESS_COARSE_LOCATION, uid)
                 == PackageManager.PERMISSION_DENIED) {
             if (mVerboseLoggingEnabled) {
                 Log.v(TAG, "checkCallersCoarseLocationPermission(" + pkgName + "): uid " + uid
@@ -607,6 +641,11 @@ public class WifiPermissionsUtil {
             @Nullable String featureId, int uid, boolean ignoreLocationSettings,
             boolean hideFromAppOps) throws SecurityException {
         checkPackage(uid, pkgName);
+
+        // Apps with NETWORK_SETTINGS or NETWORK_SETUP_WIZARD get a bypass
+        if (checkNetworkSettingsPermission(uid) || checkNetworkSetupWizardPermission(uid)) {
+            return;
+        }
 
         // Location mode must be enabled
         if (!isLocationModeEnabled()) {
@@ -919,9 +958,14 @@ public class WifiPermissionsUtil {
     }
 
     private DevicePolicyManager retrieveDevicePolicyManagerFromUserContext(int uid) {
-        Context userContext = createPackageContextAsUser(uid);
-        if (userContext == null) return null;
-        return retrieveDevicePolicyManagerFromContext(userContext);
+        long ident = Binder.clearCallingIdentity();
+        try {
+            Context userContext = createPackageContextAsUser(uid);
+            if (userContext == null) return null;
+            return retrieveDevicePolicyManagerFromContext(userContext);
+        } finally {
+            Binder.restoreCallingIdentity(ident);
+        }
     }
 
     @Nullable
@@ -1177,6 +1221,39 @@ public class WifiPermissionsUtil {
     }
 
     /**
+     * Return the corresponding WifiCallerType enum used for WifiStatsLog metrics logging.
+     */
+    @RequiresApi(Build.VERSION_CODES.S)
+    public int getWifiCallerType(@NonNull AttributionSource attributionSource) {
+        if (!SdkLevel.isAtLeastS() || attributionSource == null) {
+            return 0;
+        }
+        return getWifiCallerType(attributionSource.getUid(), attributionSource.getPackageName());
+    }
+
+    /**
+     * Return the corresponding WifiCallerType enum used for WifiStatsLog metrics logging.
+     */
+    public int getWifiCallerType(int uid, String packageName) {
+        // TODO: Need to hardcode enum values for now since no atom is actually using this enum.
+        // Once the first atom start using it, replace the hardcoded values with constants generated
+        // in WifiStatsLog
+        if (checkNetworkSettingsPermission(uid) || checkNetworkSetupWizardPermission(uid)) {
+            return 1; // SETTINGS
+        } else if (isAdmin(uid, packageName)) {
+            return 2; // ADMIN
+        } else if (checkEnterCarModePrioritized(uid)) {
+            return 3; // AUTOMOTIVE
+        } else if (mContext.getPackageManager().checkSignatures(uid, Process.SYSTEM_UID)
+                == PackageManager.SIGNATURE_MATCH) {
+            return 4; // SIGNATURE
+        } else if (isSystem(packageName, uid)) {
+            return 5; // SYSTEM
+        }
+        return 6; // OTHERS
+    }
+
+    /**
      * Returns true if the |callingUid|/|callingPackage| is an admin.
      */
     public boolean isAdmin(int uid, @Nullable String packageName) {
@@ -1190,6 +1267,22 @@ public class WifiPermissionsUtil {
 
         return isDeviceOwner(uid, packageName) || isProfileOwner(uid, packageName)
                 || isOemPrivilegedAdmin;
+    }
+
+    /**
+     * Returns true if a package is a device admin.
+     * Note that device admin is a deprecated concept so this should only be used in very specific
+     * cases which require such checks.
+     */
+    public boolean isLegacyDeviceAdmin(int uid, String packageName) {
+        if (packageName == null) {
+            Log.e(TAG, "isLegacyDeviceAdmin: packageName is null, returning false");
+            return false;
+        }
+        DevicePolicyManager devicePolicyManager =
+                retrieveDevicePolicyManagerFromUserContext(uid);
+        if (devicePolicyManager == null) return false;
+        return devicePolicyManager.packageHasActiveAdmins(packageName);
     }
 
     /**
@@ -1268,5 +1361,11 @@ public class WifiPermissionsUtil {
             Binder.restoreCallingIdentity(ident);
         }
         return user;
+    }
+
+    /** Whether the uid is signed with the same key as the platform. */
+    public boolean isSignedWithPlatformKey(int uid) {
+        return mContext.getPackageManager().checkSignatures(uid, Process.SYSTEM_UID)
+                == PackageManager.SIGNATURE_MATCH;
     }
 }

@@ -19,10 +19,9 @@
 
 #include "WatchdogServiceHelper.h"
 
+#include <aidl/android/automotive/watchdog/internal/ApplicationCategoryType.h>
+#include <aidl/android/automotive/watchdog/internal/PackageInfo.h>
 #include <android-base/result.h>
-#include <android/automotive/watchdog/internal/ApplicationCategoryType.h>
-#include <android/automotive/watchdog/internal/PackageInfo.h>
-#include <binder/IBinder.h>
 #include <gtest/gtest_prod.h>
 #include <utils/Mutex.h>
 #include <utils/RefBase.h>
@@ -50,11 +49,11 @@ class PackageInfoResolverPeer;
 
 }  // namespace internal
 
-class PackageInfoResolverInterface : public android::RefBase {
+class PackageInfoResolverInterface : virtual public android::RefBase {
 public:
     virtual std::unordered_map<uid_t, std::string> getPackageNamesForUids(
             const std::vector<uid_t>& uids) = 0;
-    virtual std::unordered_map<uid_t, android::automotive::watchdog::internal::PackageInfo>
+    virtual std::unordered_map<uid_t, aidl::android::automotive::watchdog::internal::PackageInfo>
     getPackageInfosForUids(const std::vector<uid_t>& uids) = 0;
 
 protected:
@@ -63,7 +62,8 @@ protected:
     virtual void setPackageConfigurations(
             const std::unordered_set<std::string>& vendorPackagePrefixes,
             const std::unordered_map<
-                    std::string, android::automotive::watchdog::internal::ApplicationCategoryType>&
+                    std::string,
+                    aidl::android::automotive::watchdog::internal::ApplicationCategoryType>&
                     packagesToAppCategories) = 0;
 
 private:
@@ -73,7 +73,7 @@ private:
 };
 
 /*
- * PackageInfoResolver maintains a cache of the UID to PackageInfo mapping in the CarWatchdog
+ * PackageInfoResolver maintains a cache of the UID to PackageInfo mapping in the car watchdog
  * daemon. PackageInfoResolver is a singleton and must be accessed only via the public static
  * methods.
  *
@@ -110,13 +110,14 @@ public:
      * Similar to getPackageNamesForUids, resolves the given |uids| and returns a mapping of uids to
      * package infos.
      */
-    std::unordered_map<uid_t, android::automotive::watchdog::internal::PackageInfo>
+    std::unordered_map<uid_t, aidl::android::automotive::watchdog::internal::PackageInfo>
     getPackageInfosForUids(const std::vector<uid_t>& uids);
 
     virtual void setPackageConfigurations(
             const std::unordered_set<std::string>& vendorPackagePrefixes,
             const std::unordered_map<
-                    std::string, android::automotive::watchdog::internal::ApplicationCategoryType>&
+                    std::string,
+                    aidl::android::automotive::watchdog::internal::ApplicationCategoryType>&
                     packagesToAppCategories);
 
 private:
@@ -141,13 +142,14 @@ private:
      * |getPackage*ForUids| calls, mWatchdogServiceHelper is guarded by a read-write lock.
      */
     android::sp<WatchdogServiceHelperInterface> mWatchdogServiceHelper GUARDED_BY(mRWMutex);
-    std::unordered_map<uid_t, android::automotive::watchdog::internal::PackageInfo>
+    std::unordered_map<uid_t, aidl::android::automotive::watchdog::internal::PackageInfo>
             mUidToPackageInfoMapping GUARDED_BY(mRWMutex);
     std::vector<std::string> mVendorPackagePrefixes GUARDED_BY(mRWMutex);
     std::unordered_map<std::string,
-                       android::automotive::watchdog::internal::ApplicationCategoryType>
+                       aidl::android::automotive::watchdog::internal::ApplicationCategoryType>
             mPackagesToAppCategories GUARDED_BY(mRWMutex);
 
+    // Required to instantiate the class in |getInstance|.
     friend class android::sp<PackageInfoResolver>;
 
     // For unit tests.

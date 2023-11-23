@@ -16,6 +16,7 @@
 
 #include "gd/hci/acl_manager_mock.h"
 #include "gd/hci/controller_mock.h"
+#include "gd/hci/distance_measurement_manager_mock.h"
 #include "gd/hci/hci_layer.h"
 #include "gd/hci/le_advertising_manager_mock.h"
 #include "gd/hci/le_scanning_manager_mock.h"
@@ -23,7 +24,6 @@
 #include "gd/neighbor/discoverability.h"
 #include "gd/neighbor/inquiry.h"
 #include "gd/neighbor/inquiry_mock.h"
-#include "gd/neighbor/name.h"
 #include "gd/neighbor/page.h"
 #include "gd/os/handler.h"
 #include "gd/security/security_module.h"
@@ -40,6 +40,7 @@ MockController* mock_controller_{nullptr};
 os::Handler* mock_gd_shim_handler_{nullptr};
 MockLeAdvertisingManager* mock_le_advertising_manager_{nullptr};
 MockLeScanningManager* mock_le_scanning_manager_{nullptr};
+MockDistanceMeasurementManager* mock_distance_measurement_manager_{nullptr};
 
 }  // namespace testing
 }  // namespace hci
@@ -61,6 +62,9 @@ hci::LeAdvertisingManager* GetAdvertising() {
 hci::LeScanningManager* GetScanning() {
   return hci::testing::mock_le_scanning_manager_;
 }
+hci::DistanceMeasurementManager* GetDistanceMeasurementManager() {
+  return hci::testing::mock_distance_measurement_manager_;
+}
 hci::VendorSpecificEventManager* GetVendorSpecificEventManager() {
   return nullptr;
 }
@@ -69,13 +73,14 @@ l2cap::le::L2capLeModule* GetL2capLeModule() { return nullptr; }
 neighbor::ConnectabilityModule* GetConnectability() { return nullptr; }
 neighbor::DiscoverabilityModule* GetDiscoverability() { return nullptr; }
 neighbor::InquiryModule* GetInquiry() { return nullptr; }
-neighbor::NameModule* GetName() { return nullptr; }
 neighbor::PageModule* GetPage() { return nullptr; }
 os::Handler* GetGdShimHandler() { return hci::testing::mock_gd_shim_handler_; }
 security::SecurityModule* GetSecurityModule() { return nullptr; }
+hal::SnoopLogger* GetSnoopLogger() { return nullptr; }
 storage::StorageModule* GetStorage() { return nullptr; }
 metrics::CounterMetrics* GetCounterMetrics() { return nullptr; }
-
+hci::MsftExtensionManager* GetMsftExtensionManager() { return nullptr; }
+hci::RemoteNameRequestModule* GetRemoteNameRequest() { return nullptr; }
 
 }  // namespace shim
 }  // namespace bluetooth

@@ -18,6 +18,10 @@ package android.net;
 
 import static android.net.ConnectivityManager.TYPE_MOBILE;
 import static android.net.NetworkIdentity.OEM_NONE;
+import static android.net.NetworkStats.DEFAULT_NETWORK_NO;
+import static android.net.NetworkStats.IFACE_ALL;
+import static android.net.NetworkStats.METERED_NO;
+import static android.net.NetworkStats.ROAMING_NO;
 import static android.net.NetworkStats.SET_ALL;
 import static android.net.NetworkStats.SET_DEFAULT;
 import static android.net.NetworkStats.TAG_NONE;
@@ -480,7 +484,8 @@ public class NetworkStatsCollectionTest {
         ident.add(new NetworkIdentity(ConnectivityManager.TYPE_MOBILE, -1, TEST_IMSI, null,
                 false, true, true, OEM_NONE, TEST_SUBID));
         large.recordData(ident, UID_ALL, SET_ALL, TAG_NONE, TIME_A, TIME_B,
-                new NetworkStats.Entry(12_730_893_164L, 1, 0, 0, 0));
+                new NetworkStats.Entry(IFACE_ALL, UID_ALL, SET_DEFAULT, TAG_NONE, METERED_NO,
+                ROAMING_NO, DEFAULT_NETWORK_NO, 12_730_893_164L, 1, 0, 0, 0));
 
         // Verify untouched total
         assertEquals(12_730_893_164L, getHistory(large, null, TIME_A, TIME_C).getTotalBytes());
@@ -659,26 +664,33 @@ public class NetworkStatsCollectionTest {
 
     private static void assertEntry(long rxBytes, long rxPackets, long txBytes, long txPackets,
             NetworkStats.Entry actual) {
-        assertEntry(new NetworkStats.Entry(rxBytes, rxPackets, txBytes, txPackets, 0L), actual);
+        assertEntry(new NetworkStats.Entry(IFACE_ALL, UID_ALL, SET_DEFAULT, TAG_NONE, METERED_NO,
+                ROAMING_NO, DEFAULT_NETWORK_NO, rxBytes, rxPackets, txBytes, txPackets, 0L),
+                actual);
     }
 
     private static void assertEntry(long rxBytes, long rxPackets, long txBytes, long txPackets,
             NetworkStatsHistory.Entry actual) {
-        assertEntry(new NetworkStats.Entry(rxBytes, rxPackets, txBytes, txPackets, 0L), actual);
+        assertEntry(new NetworkStats.Entry(IFACE_ALL, UID_ALL, SET_DEFAULT, TAG_NONE, METERED_NO,
+                ROAMING_NO, DEFAULT_NETWORK_NO, rxBytes, rxPackets, txBytes, txPackets, 0L),
+                actual);
     }
 
     private static void assertEntry(NetworkStats.Entry expected,
             NetworkStatsHistory.Entry actual) {
-        assertEntry(expected, new NetworkStats.Entry(actual.rxBytes, actual.rxPackets,
+        assertEntry(expected, new NetworkStats.Entry(IFACE_ALL, UID_ALL, SET_DEFAULT, TAG_NONE,
+                METERED_NO, ROAMING_NO, DEFAULT_NETWORK_NO, actual.rxBytes, actual.rxPackets,
                 actual.txBytes, actual.txPackets, 0L));
     }
 
     private static void assertEntry(NetworkStatsHistory.Entry expected,
             NetworkStatsHistory.Entry actual) {
-        assertEntry(new NetworkStats.Entry(actual.rxBytes, actual.rxPackets,
-                actual.txBytes, actual.txPackets, 0L),
-                new NetworkStats.Entry(actual.rxBytes, actual.rxPackets,
-                actual.txBytes, actual.txPackets, 0L));
+        assertEntry(new NetworkStats.Entry(IFACE_ALL, UID_ALL, SET_DEFAULT, TAG_NONE, METERED_NO,
+                        ROAMING_NO, DEFAULT_NETWORK_NO, actual.rxBytes, actual.rxPackets,
+                       actual.txBytes, actual.txPackets, 0L),
+                new NetworkStats.Entry(IFACE_ALL, UID_ALL, SET_DEFAULT, TAG_NONE, METERED_NO,
+                        ROAMING_NO, DEFAULT_NETWORK_NO, actual.rxBytes, actual.rxPackets,
+                        actual.txBytes, actual.txPackets, 0L));
     }
 
     private static void assertEntry(NetworkStats.Entry expected,

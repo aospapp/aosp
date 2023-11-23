@@ -154,6 +154,13 @@ public class LocationListeners {
                         "Rad/s",
                         "Gyro Limited Axes Uncal",
                         mTextUpdateHandler::setGyroLimitedAxesUncalField));
+        mSensors.add(
+                new SensorHelper(
+                        mSensorMgr,
+                        Sensor.TYPE_HEADING,
+                        "deg",
+                        "Heading",
+                        mTextUpdateHandler::setHeadingField));
     }
 
     public void startListening() {

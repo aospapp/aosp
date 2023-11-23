@@ -43,7 +43,7 @@ public class FrameworkCallerAccess extends CallerAccess {
      */
     public FrameworkCallerAccess(
             @NonNull AttributionSource callerAttributionSource,boolean callerHasSystemAccess) {
-        super(callerAttributionSource.getPackageName());
+        super(Objects.requireNonNull(callerAttributionSource.getPackageName()));
         mAttributionSource = callerAttributionSource;
         mCallerHasSystemAccess = callerHasSystemAccess;
     }

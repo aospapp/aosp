@@ -1,0 +1,7 @@
+{
+  "avf-presubmit": [
+    {
+      "name": "rialto_test"
+    }
+  ]
+}

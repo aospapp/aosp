@@ -26,17 +26,25 @@
 
 #include "base/logging.h"  // LOG() stdout and android log
 #include "include/hardware/bluetooth.h"
+#include "internal_include/bt_trace.h"
 #include "osi/include/log.h"  // android log only
 #include "test/headless/get_options.h"
 #include "test/headless/interface.h"
+#include "test/headless/log.h"
 #include "types/raw_address.h"
 
 extern bt_interface_t bluetoothInterface;
 
 using namespace bluetooth::test::headless;
 
+namespace {
+
+constexpr char kHeadlessIcon[] = "🗣";
+
 std::map<const std::string, std::list<callback_function_t>>
     interface_api_callback_map_;
+
+}  // namespace
 
 void headless_add_callback(const std::string interface_name,
                            callback_function_t function) {
@@ -58,7 +66,6 @@ void headless_remove_callback(const std::string interface_name,
   interface_api_callback_map_[interface_name].remove(function);
 }
 
-namespace {
 std::mutex adapter_state_mutex_;
 std::condition_variable adapter_state_cv_;
 bt_state_t bt_state_{BT_STATE_OFF};
@@ -68,94 +75,132 @@ void adapter_state_changed(bt_state_t state) {
   bt_state_ = state;
   adapter_state_cv_.notify_all();
 }
-void adapter_properties(bt_status_t status, int num_properties,
-                        bt_property_t* properties) {
+void adapter_properties([[maybe_unused]] bt_status_t status,
+                        [[maybe_unused]] int num_properties,
+                        [[maybe_unused]] ::bt_property_t* properties) {
   LOG_INFO("%s", __func__);
 }
 
 void remote_device_properties(bt_status_t status, RawAddress* bd_addr,
-                              int num_properties, bt_property_t* properties) {
-  LOG_INFO("%s", __func__);
+                              int num_properties, ::bt_property_t* properties) {
+  CHECK(bd_addr != nullptr);
+  const size_t num_callbacks = interface_api_callback_map_.size();
+  auto callback_list = interface_api_callback_map_.find(__func__);
+  if (callback_list != interface_api_callback_map_.end()) {
+    RawAddress raw_address =
+        (bd_addr != nullptr) ? *bd_addr : RawAddress::kEmpty;
+    for (auto callback : callback_list->second) {
+      remote_device_properties_params_t params(status, raw_address,
+                                               num_properties, properties);
+      (callback)(&params);
+    }
+  }
+  LOG_INFO(
+      "%s num_callbacks:%zu status:%s device:%s num_properties:%d "
+      "properties:%p",
+      __func__, num_callbacks, bt_status_text(status).c_str(), STR(*bd_addr),
+      num_properties, properties);
 }
 
-void device_found(int num_properties, bt_property_t* properties) {
+void device_found([[maybe_unused]] int num_properties,
+                  [[maybe_unused]] ::bt_property_t* properties) {
   LOG_INFO("%s", __func__);
 }
 
 void discovery_state_changed(bt_discovery_state_t state) {
-  LOG_INFO("%s", __func__);
+  auto callback_list = interface_api_callback_map_.find(__func__);
+  if (callback_list != interface_api_callback_map_.end()) {
+    for (auto callback : callback_list->second) {
+      discovery_state_changed_params_t params(state);
+      (callback)(&params);
+    }
+  }
 }
 
 /** Bluetooth Legacy PinKey Request callback */
-void pin_request(RawAddress* remote_bd_addr, bt_bdname_t* bd_name, uint32_t cod,
-                 bool min_16_digit) {
+void pin_request([[maybe_unused]] RawAddress* remote_bd_addr,
+                 [[maybe_unused]] bt_bdname_t* bd_name,
+                 [[maybe_unused]] uint32_t cod,
+                 [[maybe_unused]] bool min_16_digit) {
   LOG_INFO("%s", __func__);
 }
 
-void ssp_request(RawAddress* remote_bd_addr, bt_bdname_t* bd_name, uint32_t cod,
-                 bt_ssp_variant_t pairing_variant, uint32_t pass_key) {
+void ssp_request([[maybe_unused]] RawAddress* remote_bd_addr,
+                 [[maybe_unused]] bt_bdname_t* bd_name,
+                 [[maybe_unused]] uint32_t cod,
+                 [[maybe_unused]] bt_ssp_variant_t pairing_variant,
+                 [[maybe_unused]] uint32_t pass_key) {
   LOG_INFO("%s", __func__);
 }
 
 /** Bluetooth Bond state changed callback */
 /* Invoked in response to create_bond, cancel_bond or remove_bond */
-void bond_state_changed(bt_status_t status, RawAddress* remote_bd_addr,
-                        bt_bond_state_t state, int fail_reason) {
+void bond_state_changed([[maybe_unused]] bt_status_t status,
+                        [[maybe_unused]] RawAddress* remote_bd_addr,
+                        [[maybe_unused]] bt_bond_state_t state,
+                        [[maybe_unused]] int fail_reason) {
   LOG_INFO("%s", __func__);
 }
 
-void address_consolidate(RawAddress* main_bd_addr,
-                         RawAddress* secondary_bd_addr) {
+void address_consolidate([[maybe_unused]] RawAddress* main_bd_addr,
+                         [[maybe_unused]] RawAddress* secondary_bd_addr) {
+  LOG_INFO("%s", __func__);
+}
+
+void le_address_associate([[maybe_unused]] RawAddress* main_bd_addr,
+                          [[maybe_unused]] RawAddress* secondary_bd_addr) {
   LOG_INFO("%s", __func__);
 }
 
 /** Bluetooth ACL connection state changed callback */
 void acl_state_changed(bt_status_t status, RawAddress* remote_bd_addr,
                        bt_acl_state_t state, int transport_link_type,
-                       bt_hci_error_code_t hci_reason) {
-  auto callback_list = interface_api_callback_map_.at(__func__);
-  for (auto callback : callback_list) {
-    interface_data_t params{
-        .name = __func__,
-        .params.acl_state_changed.status = status,
-        .params.acl_state_changed.remote_bd_addr = remote_bd_addr,
-        .params.acl_state_changed.state = state,
-        .params.acl_state_changed.hci_reason = hci_reason,
-    };
-    (callback)(params);
+                       bt_hci_error_code_t hci_reason,
+                       bt_conn_direction_t direction, uint16_t acl_handle) {
+  CHECK(remote_bd_addr != nullptr);
+  const size_t num_callbacks = interface_api_callback_map_.size();
+  auto callback_list = interface_api_callback_map_.find(__func__);
+  if (callback_list != interface_api_callback_map_.end()) {
+    RawAddress raw_address(*remote_bd_addr);
+    for (auto callback : callback_list->second) {
+      acl_state_changed_params_t params(status, raw_address, state,
+                                        transport_link_type, hci_reason,
+                                        direction, acl_handle);
+      (callback)(&params);
+    }
   }
-  LOG_INFO("%s status:%s device:%s state:%s", __func__,
-           bt_status_text(status).c_str(), remote_bd_addr->ToString().c_str(),
+  LOG_INFO("%s num_callbacks:%zu status:%s device:%s state:%s", __func__,
+           num_callbacks, bt_status_text(status).c_str(),
+           remote_bd_addr->ToString().c_str(),
            (state) ? "disconnected" : "connected");
 }
 
 /** Bluetooth Link Quality Report callback */
-void link_quality_report(uint64_t timestamp, int report_id, int rssi, int snr,
-    int retransmission_count, int packets_not_receive_count,
-    int negative_acknowledgement_count) {
+void link_quality_report([[maybe_unused]] uint64_t timestamp,
+                         [[maybe_unused]] int report_id,
+                         [[maybe_unused]] int rssi, [[maybe_unused]] int snr,
+                         [[maybe_unused]] int retransmission_count,
+                         [[maybe_unused]] int packets_not_receive_count,
+                         [[maybe_unused]] int negative_acknowledgement_count) {
   LOG_INFO("%s", __func__);
 }
 
 /** Switch buffer size callback */
-void switch_buffer_size(bool is_low_latency_buffer_size) {
+void switch_buffer_size([[maybe_unused]] bool is_low_latency_buffer_size) {
   LOG_INFO("%s", __func__);
 }
 
 /** Switch codec callback */
-void switch_codec(bool is_low_latency_buffer_size) { LOG_INFO("%s", __func__); }
-
-void thread_event(bt_cb_thread_evt evt) { LOG_INFO("%s", __func__); }
-
-void dut_mode_recv(uint16_t opcode, uint8_t* buf, uint8_t len) {
+void switch_codec([[maybe_unused]] bool is_low_latency_buffer_size) {
   LOG_INFO("%s", __func__);
 }
 
-void le_test_mode(bt_status_t status, uint16_t num_packets) {
+void thread_event([[maybe_unused]] bt_cb_thread_evt evt) {
   LOG_INFO("%s", __func__);
 }
 
-void energy_info(bt_activity_energy_info* energy_info,
-                 bt_uid_traffic_t* uid_data) {
+void energy_info([[maybe_unused]] bt_activity_energy_info* energy_info,
+                 [[maybe_unused]] bt_uid_traffic_t* uid_data) {
   LOG_INFO("%s", __func__);
 }
 
@@ -171,10 +216,9 @@ bt_callbacks_t bt_callbacks{
     .ssp_request_cb = ssp_request,
     .bond_state_changed_cb = bond_state_changed,
     .address_consolidate_cb = address_consolidate,
+    .le_address_associate_cb = le_address_associate,
     .acl_state_changed_cb = acl_state_changed,
     .thread_evt_cb = thread_event,
-    .dut_mode_recv_cb = dut_mode_recv,
-    .le_test_mode_cb = le_test_mode,
     .energy_info_cb = energy_info,
     .link_quality_report_cb = link_quality_report,
     .switch_buffer_size_cb = switch_buffer_size,
@@ -183,17 +227,19 @@ bt_callbacks_t bt_callbacks{
 // HAL HARDWARE CALLBACKS
 
 // OS CALLOUTS
-bool set_wake_alarm_co(uint64_t delay_millis, bool should_wake, alarm_cb cb,
-                       void* data) {
+bool set_wake_alarm_co([[maybe_unused]] uint64_t delay_millis,
+                       [[maybe_unused]] bool should_wake,
+                       [[maybe_unused]] alarm_cb cb,
+                       [[maybe_unused]] void* data) {
   LOG_INFO("%s", __func__);
   return true;
 }
-int acquire_wake_lock_co(const char* lock_name) {
+int acquire_wake_lock_co([[maybe_unused]] const char* lock_name) {
   LOG_INFO("%s", __func__);
   return 1;
 }
 
-int release_wake_lock_co(const char* lock_name) {
+int release_wake_lock_co([[maybe_unused]] const char* lock_name) {
   LOG_INFO("%s", __func__);
   return 0;
 }
@@ -204,7 +250,6 @@ bt_os_callouts_t bt_os_callouts{
     .acquire_wake_lock = acquire_wake_lock_co,
     .release_wake_lock = release_wake_lock_co,
 };
-}  // namespace
 
 void HeadlessStack::SetUp() {
   LOG(INFO) << __func__ << " Entry";
@@ -213,6 +258,7 @@ void HeadlessStack::SetUp() {
   const bool is_common_criteria_mode = false;
   const int config_compare_result = 0;
   const bool is_atv = false;
+
   int status = bluetoothInterface.init(
       &bt_callbacks, start_restricted, is_common_criteria_mode,
       config_compare_result, StackInitFlags(), is_atv, nullptr);
@@ -232,9 +278,20 @@ void HeadlessStack::SetUp() {
   std::unique_lock<std::mutex> lck(adapter_state_mutex_);
   while (bt_state_ != BT_STATE_ON) adapter_state_cv_.wait(lck);
   LOG_INFO("%s HeadlessStack stack is operational", __func__);
+
+  // Logging can only be enabled after the stack has started up to override
+  // the default logging levels built into the stack.
+  enable_logging();
+
+  bluetooth::test::headless::start_messenger();
+
+  LOG_CONSOLE("%s Headless stack has started up successfully", kHeadlessIcon);
 }
 
 void HeadlessStack::TearDown() {
+  bluetooth::test::headless::stop_messenger();
+
+  log_logging();
   LOG_INFO("Stack has disabled");
   int status = bluetoothInterface.disable();
 
@@ -246,4 +303,5 @@ void HeadlessStack::TearDown() {
   std::unique_lock<std::mutex> lck(adapter_state_mutex_);
   while (bt_state_ != BT_STATE_OFF) adapter_state_cv_.wait(lck);
   LOG_INFO("%s HeadlessStack stack has exited", __func__);
+  LOG_CONSOLE("%s Headless stack has shutdown successfully", kHeadlessIcon);
 }

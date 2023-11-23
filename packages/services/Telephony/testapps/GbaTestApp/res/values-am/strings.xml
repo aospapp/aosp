@@ -16,7 +16,7 @@
     <string name="title_activity_test_config" msgid="7585204485536359713">"TestConfigActivity"</string>
     <string name="service_package_name" msgid="7204809439090483315">"የGBA አገልግሎት የጥቅል ስም"</string>
     <string name="service_release_time" msgid="532937496122890892">"ጥሪ ከተደረገ በኋላ አገልግሎት የሚለቀቅበት ጊዜ"</string>
-    <string name="request_app_type" msgid="3975978141673475612">"UICC የመተግበሪያ አይነት"</string>
+    <string name="request_app_type" msgid="3975978141673475612">"UICC የመተግበሪያ ዓይነት"</string>
     <string name="request_naf_url" msgid="4487793541217737042">"የአውታረ መረብ የመተግበሪያ ተግባር (NAF) ዩአርኤል"</string>
     <string name="request_force_bootstrapping" msgid="206043602616214325">"በማስነሻ ተገዶ ይነሳ?"</string>
     <string name="request_org" msgid="8416693445448308975">"የድርጅት ኮድ"</string>

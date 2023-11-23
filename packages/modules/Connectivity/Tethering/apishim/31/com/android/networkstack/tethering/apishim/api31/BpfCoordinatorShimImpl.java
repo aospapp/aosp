@@ -19,7 +19,6 @@ package com.android.networkstack.tethering.apishim.api31;
 import static android.net.netstats.provider.NetworkStatsProvider.QUOTA_UNLIMITED;
 
 import android.net.MacAddress;
-import android.net.util.SharedLog;
 import android.system.ErrnoException;
 import android.system.Os;
 import android.system.OsConstants;
@@ -29,8 +28,9 @@ import android.util.SparseArray;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
-import com.android.net.module.util.BpfMap;
+import com.android.net.module.util.IBpfMap;
 import com.android.net.module.util.IBpfMap.ThrowingBiConsumer;
+import com.android.net.module.util.SharedLog;
 import com.android.net.module.util.bpf.Tether4Key;
 import com.android.net.module.util.bpf.Tether4Value;
 import com.android.net.module.util.bpf.TetherStatsKey;
@@ -66,31 +66,31 @@ public class BpfCoordinatorShimImpl
 
     // BPF map for downstream IPv4 forwarding.
     @Nullable
-    private final BpfMap<Tether4Key, Tether4Value> mBpfDownstream4Map;
+    private final IBpfMap<Tether4Key, Tether4Value> mBpfDownstream4Map;
 
     // BPF map for upstream IPv4 forwarding.
     @Nullable
-    private final BpfMap<Tether4Key, Tether4Value> mBpfUpstream4Map;
+    private final IBpfMap<Tether4Key, Tether4Value> mBpfUpstream4Map;
 
     // BPF map for downstream IPv6 forwarding.
     @Nullable
-    private final BpfMap<TetherDownstream6Key, Tether6Value> mBpfDownstream6Map;
+    private final IBpfMap<TetherDownstream6Key, Tether6Value> mBpfDownstream6Map;
 
     // BPF map for upstream IPv6 forwarding.
     @Nullable
-    private final BpfMap<TetherUpstream6Key, Tether6Value> mBpfUpstream6Map;
+    private final IBpfMap<TetherUpstream6Key, Tether6Value> mBpfUpstream6Map;
 
     // BPF map of tethering statistics of the upstream interface since tethering startup.
     @Nullable
-    private final BpfMap<TetherStatsKey, TetherStatsValue> mBpfStatsMap;
+    private final IBpfMap<TetherStatsKey, TetherStatsValue> mBpfStatsMap;
 
     // BPF map of per-interface quota for tethering offload.
     @Nullable
-    private final BpfMap<TetherLimitKey, TetherLimitValue> mBpfLimitMap;
+    private final IBpfMap<TetherLimitKey, TetherLimitValue> mBpfLimitMap;
 
     // BPF map of interface index mapping for XDP.
     @Nullable
-    private final BpfMap<TetherDevKey, TetherDevValue> mBpfDevMap;
+    private final IBpfMap<TetherDevKey, TetherDevValue> mBpfDevMap;
 
     // Tracking IPv4 rule count while any rule is using the given upstream interfaces. Used for
     // reducing the BPF map iteration query. The count is increased or decreased when the rule is
@@ -425,11 +425,11 @@ public class BpfCoordinatorShimImpl
     }
 
     @Override
-    public boolean attachProgram(String iface, boolean downstream) {
+    public boolean attachProgram(String iface, boolean downstream, boolean ipv4) {
         if (!isInitialized()) return false;
 
         try {
-            BpfUtils.attachProgram(iface, downstream);
+            BpfUtils.attachProgram(iface, downstream, ipv4);
         } catch (IOException e) {
             mLog.e("Could not attach program: " + e);
             return false;
@@ -438,11 +438,11 @@ public class BpfCoordinatorShimImpl
     }
 
     @Override
-    public boolean detachProgram(String iface) {
+    public boolean detachProgram(String iface, boolean ipv4) {
         if (!isInitialized()) return false;
 
         try {
-            BpfUtils.detachProgram(iface);
+            BpfUtils.detachProgram(iface, ipv4);
         } catch (IOException e) {
             mLog.e("Could not detach program: " + e);
             return false;
@@ -482,7 +482,7 @@ public class BpfCoordinatorShimImpl
         return true;
     }
 
-    private String mapStatus(BpfMap m, String name) {
+    private String mapStatus(IBpfMap m, String name) {
         return name + "{" + (m != null ? "OK" : "ERROR") + "}";
     }
 

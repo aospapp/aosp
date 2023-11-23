@@ -20,6 +20,8 @@
 <!-- These resources are around just to allow their values to be customized
      for different hardware and product builds.  Do not translate. -->
 <resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+    <!-- Disable local-display-mirror-content -->
+    <bool name="config_localDisplaysMirrorContent">false</bool>
     <!-- Enable multi-user. -->
     <bool name="config_enableMultiUserUI">true</bool>
     <!--  Maximum number of supported users -->
@@ -100,6 +102,16 @@
     <!-- True if the device supports system decorations on secondary displays. -->
     <bool name="config_supportsSystemDecorsOnSecondaryDisplays">false</bool>
 
+    <!-- Whether the main user is a permanent admin user. If the main user is a permanent admin user
+     it can't be deleted or downgraded to non-admin status.
+     This is generally only relevant on headless system user mode devices; on other devices, the
+     main user is the system user which is always a permanent admin anyway. -->
+    <bool name="config_isMainUserPermanentAdmin">false</bool>
+
+    <!-- Whether switch to headless system user is allowed. If allowed,
+         headless system user can run in the foreground even though it is not a full user. -->
+    <bool name="config_canSwitchToHeadlessSystemUser">true</bool>
+
     <string name="config_dataUsageSummaryComponent">com.android.car.settings/com.android.car.settings.datausage.DataWarningAndLimitActivity</string>
 
     <!-- Controls whether system buttons use all caps for text -->
@@ -174,4 +186,23 @@
     <!-- Determines whether SafetyCenter feature is enabled.
          SafetyCenter is not yet supported on cars. -->
     <bool name="config_enableSafetyCenter">false</bool>
+
+    <!-- Use round icon if it is provided by the package -->
+    <bool name="config_useRoundIcon">true</bool>
+
+    <!-- Setting the icon mask to circular path data -->
+    <string name="config_icon_mask" translatable="false">
+        "M50 0A50 50,0,1,1,50 100A50 50,0,1,1,50 0"</string>
+
+    <bool name="config_matchSecondaryInternalDisplaysOrientationToReverseDefaultDisplay">
+        false
+    </bool>
+
+    <!-- Component name for the activity that will be presenting the Recents UI, which will receive
+         special permissions for API related to fetching and presenting recent tasks. The default
+         configuration uses CarLauncher as default launcher and points to the corresponding
+         recents component. -->
+    <string name="config_recentsComponentName" translatable="false">
+        com.android.car.carlauncher/.recents.CarRecentsActivity
+    </string>
 </resources>

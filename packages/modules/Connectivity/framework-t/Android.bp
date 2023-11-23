@@ -43,14 +43,10 @@ java_defaults {
         ":framework-connectivity-tiramisu-updatable-sources",
         ":framework-nearby-java-sources",
     ],
-    stub_only_libs: [
-        // Use prebuilt framework-connectivity stubs to avoid circular dependencies
-        "sdk_module-lib_current_framework-connectivity",
-    ],
     libs: [
         "unsupportedappusage",
         "app-compat-annotations",
-        "sdk_module-lib_current_framework-connectivity",
+        "androidx.annotation_annotation",
     ],
     impl_only_libs: [
         // The build system will use framework-bluetooth module_current stubs, because
@@ -80,6 +76,12 @@ java_defaults {
     ],
 }
 
+filegroup {
+    name: "connectivity-t-hiddenapi-files",
+    srcs: ["hiddenapi/*.txt"],
+    visibility: ["//packages/modules/Connectivity:__subpackages__"],
+}
+
 java_library {
     name: "framework-connectivity-t-pre-jarjar",
     defaults: ["framework-connectivity-t-defaults"],
@@ -103,7 +105,14 @@ java_sdk_library {
     // Do not add static_libs to this library: put them in framework-connectivity instead.
     // The jarjar rules are only so that references to jarjared utils in
     // framework-connectivity-pre-jarjar match at runtime.
-    jarjar_rules: ":connectivity-jarjar-rules",
+    jarjar_rules: ":framework-connectivity-jarjar-rules",
+    stub_only_libs: [
+        // Use prebuilt framework-connectivity stubs to avoid circular dependencies
+        "sdk_module-lib_current_framework-connectivity",
+    ],
+    libs: [
+        "sdk_module-lib_current_framework-connectivity",
+    ],
     permitted_packages: [
         "android.app.usage",
         "android.net",
@@ -112,12 +121,26 @@ java_sdk_library {
         "com.android.connectivity",
         "com.android.nearby",
     ],
+
+    hidden_api: {
+        max_target_o_low_priority: [
+            "hiddenapi/hiddenapi-max-target-o-low-priority-tiramisu.txt",
+        ],
+        max_target_r_low_priority: [
+            "hiddenapi/hiddenapi-max-target-r-loprio.txt",
+        ],
+        unsupported: [
+            "hiddenapi/hiddenapi-unsupported-tiramisu.txt",
+        ],
+    },
+
     impl_library_visibility: [
         "//packages/modules/Connectivity/Tethering/apex",
         // In preparation for future move
         "//packages/modules/Connectivity/apex",
+        "//packages/modules/Connectivity/service", // For R8 only
         "//packages/modules/Connectivity/service-t",
-        "//packages/modules/Connectivity/nearby/service",
+        "//packages/modules/Connectivity/nearby:__subpackages__",
         "//frameworks/base",
 
         // Tests using hidden APIs
@@ -134,10 +157,15 @@ java_sdk_library {
         "//frameworks/opt/telephony/tests/telephonytests",
         "//packages/modules/CaptivePortalLogin/tests",
         "//packages/modules/Connectivity/Tethering/tests:__subpackages__",
-        "//packages/modules/Connectivity/nearby/tests:__subpackages__",
         "//packages/modules/Connectivity/tests:__subpackages__",
         "//packages/modules/IPsec/tests/iketests",
         "//packages/modules/NetworkStack/tests:__subpackages__",
         "//packages/modules/Wifi/service/tests/wifitests",
     ],
+}
+
+// This rule is not used anymore(b/268440216).
+platform_compat_config {
+    name: "connectivity-t-platform-compat-config",
+    src: ":framework-connectivity-t",
 }

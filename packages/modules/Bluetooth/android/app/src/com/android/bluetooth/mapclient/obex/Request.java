@@ -69,9 +69,11 @@ abstract class Request {
     protected static final byte TRANSPARENT_ON = 0x01;
     protected static final byte RETRY_OFF = 0x00;
     protected static final byte RETRY_ON = 0x01;
-    protected HeaderSet mHeaderSet;
 
+    protected HeaderSet mHeaderSet;
     protected int mResponseCode;
+    private boolean mAborted = false;
+    private ClientOperation mOp = null;
 
     Request() {
         mHeaderSet = new HeaderSet();
@@ -80,10 +82,14 @@ abstract class Request {
     public abstract void execute(ClientSession session) throws IOException;
 
     protected void executeGet(ClientSession session) throws IOException {
-        ClientOperation op = null;
+        /* in case request is aborted before can be executed */
+        if (mAborted) {
+            mResponseCode = ResponseCodes.OBEX_HTTP_INTERNAL_ERROR;
+            return;
+        }
 
         try {
-            op = (ClientOperation) session.get(mHeaderSet);
+            mOp = (ClientOperation) session.get(mHeaderSet);
 
             /*
              * MAP spec does not explicitly require that GET request should be
@@ -92,23 +98,23 @@ abstract class Request {
              * headers. So this is workaround, at least temporary. TODO: check
              * with PTS
              */
-            op.setGetFinalFlag(true);
+            mOp.setGetFinalFlag(true);
 
             /*
              * this will trigger ClientOperation to use non-buffered stream so
              * we can abort operation
              */
-            op.continueOperation(true, false);
+            mOp.continueOperation(true, false);
 
-            readResponseHeaders(op.getReceivedHeader());
+            readResponseHeaders(mOp.getReceivedHeader());
 
-            InputStream is = op.openInputStream();
+            InputStream is = mOp.openInputStream();
             readResponse(is);
             is.close();
 
-            op.close();
+            mOp.close();
 
-            mResponseCode = op.getResponseCode();
+            mResponseCode = mOp.getResponseCode();
         } catch (IOException e) {
             mResponseCode = ResponseCodes.OBEX_HTTP_INTERNAL_ERROR;
 
@@ -136,6 +142,18 @@ abstract class Request {
             mResponseCode = ResponseCodes.OBEX_HTTP_INTERNAL_ERROR;
 
             throw e;
+        }
+    }
+
+    public void abort() {
+        mAborted = true;
+
+        if (mOp != null) {
+            try {
+                mOp.abort();
+            } catch (IOException e) {
+                // Do nothing
+            }
         }
     }
 

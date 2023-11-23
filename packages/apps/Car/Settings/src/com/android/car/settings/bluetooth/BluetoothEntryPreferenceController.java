@@ -48,7 +48,7 @@ public class BluetoothEntryPreferenceController extends PreferenceController<Pre
     }
 
     @Override
-    public int getAvailabilityStatus() {
+    public int getDefaultAvailabilityStatus() {
         if (!getContext().getPackageManager().hasSystemFeature(FEATURE_BLUETOOTH)) {
             return UNSUPPORTED_ON_DEVICE;
         }

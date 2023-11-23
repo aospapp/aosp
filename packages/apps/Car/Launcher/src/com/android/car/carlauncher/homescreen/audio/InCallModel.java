@@ -22,17 +22,22 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
+import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.graphics.drawable.Drawable;
+import android.os.Bundle;
 import android.os.IBinder;
 import android.telecom.Call;
 import android.telecom.CallAudioState;
+import android.telecom.PhoneAccountHandle;
 import android.telecom.TelecomManager;
+import android.text.TextUtils;
 import android.util.Log;
 import android.view.Display;
 import android.view.View;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.core.content.ContextCompat;
 
 import com.android.car.carlauncher.R;
@@ -43,6 +48,8 @@ import com.android.car.carlauncher.homescreen.ui.CardHeader;
 import com.android.car.carlauncher.homescreen.ui.DescriptiveTextWithControlsView;
 import com.android.car.telephony.common.CallDetail;
 import com.android.car.telephony.common.TelecomUtils;
+import com.android.car.telephony.selfmanaged.SelfManagedCallUtil;
+import com.android.car.ui.utils.CarUxRestrictionsUtil;
 import com.android.internal.annotations.VisibleForTesting;
 import com.android.internal.util.ArrayUtils;
 
@@ -61,13 +68,18 @@ public class InCallModel implements HomeCardInterface.Model, InCallServiceImpl.I
 
     private Context mContext;
     private TelecomManager mTelecomManager;
+    private SelfManagedCallUtil mSelfManagedCallUtil;
+
+    private PackageManager mPackageManager;
     private final Clock mElapsedTimeClock;
+
     private Call mCurrentCall;
     private CompletableFuture<Void> mPhoneNumberInfoFuture;
 
     private InCallServiceImpl mInCallService;
     private HomeCardInterface.Presenter mPresenter;
 
+    private CardHeader mDefaultDialerCardHeader;
     private CardHeader mCardHeader;
     private CardContent mCardContent;
     private CharSequence mOngoingCallSubtitle;
@@ -75,6 +87,7 @@ public class InCallModel implements HomeCardInterface.Model, InCallServiceImpl.I
     private DescriptiveTextWithControlsView.Control mMuteButton;
     private DescriptiveTextWithControlsView.Control mEndCallButton;
     private DescriptiveTextWithControlsView.Control mDialpadButton;
+    private Drawable mContactImageBackground;
 
     private final ServiceConnection mInCallServiceConnection = new ServiceConnection() {
         @Override
@@ -82,6 +95,9 @@ public class InCallModel implements HomeCardInterface.Model, InCallServiceImpl.I
             if (DEBUG) Log.d(TAG, "onServiceConnected: " + name + ", service: " + service);
             mInCallService = ((InCallServiceImpl.LocalBinder) service).getService();
             mInCallService.addListener(InCallModel.this);
+            if (mInCallService.getCalls() != null && !mInCallService.getCalls().isEmpty()) {
+                handleActiveCall(mInCallService.getCalls().get(0));
+            }
         }
 
         @Override
@@ -107,19 +123,18 @@ public class InCallModel implements HomeCardInterface.Model, InCallServiceImpl.I
     public void onCreate(Context context) {
         mContext = context;
         mTelecomManager = context.getSystemService(TelecomManager.class);
+        CarUxRestrictionsUtil carUxRestrictionsUtil = CarUxRestrictionsUtil.getInstance(context);
+        mSelfManagedCallUtil = new SelfManagedCallUtil(mContext, carUxRestrictionsUtil);
+
         mOngoingCallSubtitle = context.getResources().getString(R.string.ongoing_call_text);
         mDialingCallSubtitle = context.getResources().getString(R.string.dialing_call_text);
+        mContactImageBackground = context.getResources()
+                .getDrawable(R.drawable.control_bar_contact_image_background);
         initializeAudioControls();
-        try {
-            PackageManager pm = context.getPackageManager();
-            Drawable appIcon = pm.getApplicationIcon(mTelecomManager.getDefaultDialerPackage());
-            CharSequence appName = pm.getApplicationLabel(
-                    pm.getApplicationInfo(mTelecomManager.getDefaultDialerPackage(), /* flags = */
-                            0));
-            mCardHeader = new CardHeader(appName, appIcon);
-        } catch (PackageManager.NameNotFoundException e) {
-            Log.w(TAG, "No default dialer package found", e);
-        }
+
+        mPackageManager = context.getPackageManager();
+        mDefaultDialerCardHeader = createCardHeader(mTelecomManager.getDefaultDialerPackage());
+        mCardHeader = mDefaultDialerCardHeader;
 
         Intent intent = new Intent(context, InCallServiceImpl.class);
         intent.setAction(InCallServiceImpl.ACTION_LOCAL_BIND);
@@ -130,6 +145,7 @@ public class InCallModel implements HomeCardInterface.Model, InCallServiceImpl.I
     @Override
     public void onDestroy(Context context) {
         if (mInCallService != null) {
+            mInCallService.removeListener(InCallModel.this);
             context.getApplicationContext().unbindService(mInCallServiceConnection);
             mInCallService = null;
         }
@@ -160,8 +176,25 @@ public class InCallModel implements HomeCardInterface.Model, InCallServiceImpl.I
      */
     @Override
     public void onClick(View view) {
-        PackageManager pm = mContext.getPackageManager();
-        Intent intent = pm.getLaunchIntentForPackage(mTelecomManager.getDefaultDialerPackage());
+        Intent intent = null;
+        if (isSelfManagedCall() && mSelfManagedCallUtil.canShowCalInCallView()) {
+            Bundle extras = mCurrentCall.getDetails().getExtras();
+            ComponentName componentName = extras == null ? null : extras.getParcelable(
+                    Intent.EXTRA_COMPONENT_NAME, ComponentName.class);
+            if (componentName != null) {
+                intent = new Intent();
+                intent.setComponent(componentName);
+            } else {
+                String callingAppPackageName = getCallingAppPackageName();
+                if (!TextUtils.isEmpty(callingAppPackageName)) {
+                    intent = mPackageManager.getLaunchIntentForPackage(callingAppPackageName);
+                }
+            }
+        } else {
+            intent = mPackageManager.getLaunchIntentForPackage(
+                    mTelecomManager.getDefaultDialerPackage());
+        }
+
         if (intent != null) {
             // Launch activity in the default app task container: the display area where
             // applications are launched by default.
@@ -171,8 +204,7 @@ public class InCallModel implements HomeCardInterface.Model, InCallServiceImpl.I
             mContext.startActivity(intent, options.toBundle());
         } else {
             if (DEBUG) {
-                Log.d(TAG, "No launch intent found for dialer package: "
-                        + mTelecomManager.getDefaultDialerPackage());
+                Log.d(TAG, "No launch intent found to show in call ui for call : " + mCurrentCall);
             }
         }
     }
@@ -196,6 +228,7 @@ public class InCallModel implements HomeCardInterface.Model, InCallServiceImpl.I
     @Override
     public void onCallRemoved(Call call) {
         mCurrentCall = null;
+        mCardHeader = null;
         mCardContent = null;
         mPresenter.onModelUpdated(this);
         if (call != null) {
@@ -262,7 +295,21 @@ public class InCallModel implements HomeCardInterface.Model, InCallServiceImpl.I
     @VisibleForTesting
     void updateModelWithContact(TelecomUtils.PhoneNumberInfo phoneNumberInfo,
             @Call.CallState int callState) {
-        String contactName = phoneNumberInfo.getDisplayName();
+        String contactName = null;
+        String initials = null;
+        // If current call details exist, use the caller display name or contact display name first.
+        if (mCurrentCall != null) {
+            contactName = mCurrentCall.getDetails().getCallerDisplayName();
+            if (TextUtils.isEmpty(contactName)) {
+                contactName = mCurrentCall.getDetails().getContactDisplayName();
+            }
+        }
+        if (TextUtils.isEmpty(contactName)) {
+            contactName = phoneNumberInfo.getDisplayName();
+            initials = phoneNumberInfo.getInitials();
+        } else {
+            initials = TelecomUtils.getInitials(contactName);
+        }
         Drawable contactImage = null;
         if (phoneNumberInfo.getAvatarUri() != null) {
             try {
@@ -280,21 +327,32 @@ public class InCallModel implements HomeCardInterface.Model, InCallServiceImpl.I
             }
         }
         if (contactImage == null) {
-            contactImage = TelecomUtils.createLetterTile(mContext,
-                    phoneNumberInfo.getInitials(), phoneNumberInfo.getDisplayName());
+            contactImage = TelecomUtils.createLetterTile(mContext, initials, contactName);
         }
 
-        mCardContent = createPhoneCardContent(contactImage, contactName, callState);
+        mCardContent = createPhoneCardContent(
+                new CardContent.CardBackgroundImage(contactImage, mContactImageBackground),
+                contactName, callState);
         mPresenter.onModelUpdated(this);
     }
 
     private void handleActiveCall(@NonNull Call call) {
-        @Call.CallState int callState = call.getState();
+        @Call.CallState int callState = call.getDetails().getState();
         if (callState != Call.STATE_ACTIVE && callState != Call.STATE_DIALING) {
             return;
         }
         mCurrentCall = call;
+
         CallDetail callDetails = CallDetail.fromTelecomCallDetail(call.getDetails());
+        if (callDetails.isSelfManaged()) {
+            String packageName = getCallingAppPackageName();
+            mCardHeader = createCardHeader(packageName);
+        }
+        if (mCardHeader == null) {
+            // Default to show the default dialer app info
+            mCardHeader = mDefaultDialerCardHeader;
+        }
+
         // If the home app does not have permission to read contacts, just display the
         // phone number
         if (ContextCompat.checkSelfPermission(mContext, Manifest.permission.READ_CONTACTS)
@@ -302,6 +360,7 @@ public class InCallModel implements HomeCardInterface.Model, InCallServiceImpl.I
             updateModelWithPhoneNumber(callDetails.getNumber(), callState);
             return;
         }
+
         if (mPhoneNumberInfoFuture != null) {
             mPhoneNumberInfoFuture.cancel(/* mayInterruptIfRunning= */ true);
         }
@@ -311,15 +370,19 @@ public class InCallModel implements HomeCardInterface.Model, InCallServiceImpl.I
                         mContext.getMainExecutor());
     }
 
-    private CardContent createPhoneCardContent(Drawable image, CharSequence title,
-            @Call.CallState int callState) {
+    private CardContent createPhoneCardContent(CardContent.CardBackgroundImage image,
+            CharSequence title, @Call.CallState int callState) {
         switch (callState) {
             case Call.STATE_DIALING:
                 return new DescriptiveTextWithControlsView(image, title, mDialingCallSubtitle,
                         mMuteButton, mEndCallButton, mDialpadButton);
             case Call.STATE_ACTIVE:
+                long callStartTime =
+                        mCurrentCall != null ? mCurrentCall.getDetails().getConnectTimeMillis()
+                                - System.currentTimeMillis() + mElapsedTimeClock.millis()
+                                : mElapsedTimeClock.millis();
                 return new DescriptiveTextWithControlsView(image, title, mOngoingCallSubtitle,
-                        mElapsedTimeClock.millis(), mMuteButton, mEndCallButton, mDialpadButton);
+                        callStartTime, mMuteButton, mEndCallButton, mDialpadButton);
             default:
                 if (DEBUG) {
                     Log.d(TAG, "Call State " + callState
@@ -352,5 +415,34 @@ public class InCallModel implements HomeCardInterface.Model, InCallServiceImpl.I
     @VisibleForTesting
     int[] getMuteButtonDrawableState() {
         return mMuteButton.getIcon().getState();
+    }
+
+    @Nullable
+    private String getCallingAppPackageName() {
+        Call.Details callDetails = mCurrentCall == null ? null : mCurrentCall.getDetails();
+        PhoneAccountHandle phoneAccountHandle =
+                callDetails == null ? null : callDetails.getAccountHandle();
+        return phoneAccountHandle == null ? null
+                : phoneAccountHandle.getComponentName().getPackageName();
+    }
+
+    private boolean isSelfManagedCall() {
+        return mCurrentCall != null
+                && mCurrentCall.getDetails().hasProperty(Call.Details.PROPERTY_SELF_MANAGED);
+    }
+
+    private CardHeader createCardHeader(String packageName) {
+        if (!TextUtils.isEmpty(packageName)) {
+            try {
+                ApplicationInfo applicationInfo = mPackageManager.getApplicationInfo(
+                        packageName, PackageManager.ApplicationInfoFlags.of(0));
+                Drawable appIcon = mPackageManager.getApplicationIcon(applicationInfo);
+                CharSequence appName = mPackageManager.getApplicationLabel(applicationInfo);
+                return new CardHeader(appName, appIcon);
+            } catch (PackageManager.NameNotFoundException e) {
+                Log.w(TAG, "No such package found " + packageName, e);
+            }
+        }
+        return null;
     }
 }

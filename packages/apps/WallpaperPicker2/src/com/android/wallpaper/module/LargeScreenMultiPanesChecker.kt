@@ -20,10 +20,9 @@ import android.content.Intent
 import android.content.Intent.ACTION_SET_WALLPAPER
 import android.content.pm.PackageManager.MATCH_DEFAULT_ONLY
 import android.provider.Settings.*
+import com.android.wallpaper.util.DisplayUtils
 
-/**
- * Utility class to check the support of multi panes integration (trampoline)
- */
+/** Utility class to check the support of multi panes integration (trampoline) */
 class LargeScreenMultiPanesChecker : MultiPanesChecker {
     companion object {
         private const val TAG = "LargeScreenMultiPanesChecker"
@@ -32,18 +31,21 @@ class LargeScreenMultiPanesChecker : MultiPanesChecker {
 
     override fun isMultiPanesEnabled(context: Context): Boolean {
         val pm = context.packageManager
-        val intent = getMultiPanesIntent(
-                Intent(ACTION_SET_WALLPAPER).setPackage(context.packageName))
+        val intent =
+            getMultiPanesIntent(Intent(ACTION_SET_WALLPAPER).setPackage(context.packageName))
 
-        val resolveInfo = pm.resolveActivity(intent, MATCH_DEFAULT_ONLY)?.activityInfo?.enabled
-        return resolveInfo != null
+        val resolveInfo = pm.resolveActivity(intent, MATCH_DEFAULT_ONLY)?.activityInfo
+        return resolveInfo != null && DisplayUtils(context).isLargeScreenDevice()
     }
 
     override fun getMultiPanesIntent(intent: Intent): Intent {
         return Intent(ACTION_SETTINGS_EMBED_DEEP_LINK_ACTIVITY).apply {
+            intent.extras?.let { putExtras(it) }
             putExtra(EXTRA_SETTINGS_EMBEDDED_DEEP_LINK_HIGHLIGHT_MENU_KEY, VALUE_HIGHLIGHT_MENU)
-            putExtra(EXTRA_SETTINGS_EMBEDDED_DEEP_LINK_INTENT_URI,
-                    intent.toUri(Intent.URI_INTENT_SCHEME))
-        };
+            putExtra(
+                EXTRA_SETTINGS_EMBEDDED_DEEP_LINK_INTENT_URI,
+                intent.toUri(Intent.URI_INTENT_SCHEME)
+            )
+        }
     }
 }

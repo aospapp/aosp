@@ -18,12 +18,12 @@ package com.android.launcher3.model;
 import static android.text.format.DateUtils.DAY_IN_MILLIS;
 import static android.text.format.DateUtils.formatElapsedTime;
 
+import static com.android.launcher3.LauncherPrefs.getDevicePrefs;
 import static com.android.launcher3.LauncherSettings.Favorites.CONTAINER_HOTSEAT_PREDICTION;
 import static com.android.launcher3.LauncherSettings.Favorites.CONTAINER_PREDICTION;
 import static com.android.launcher3.LauncherSettings.Favorites.CONTAINER_WIDGETS_PREDICTION;
 import static com.android.launcher3.LauncherSettings.Favorites.ITEM_TYPE_APPLICATION;
 import static com.android.launcher3.LauncherSettings.Favorites.ITEM_TYPE_DEEP_SHORTCUT;
-import static com.android.launcher3.Utilities.getDevicePrefs;
 import static com.android.launcher3.hybridhotseat.HotseatPredictionModel.convertDataModelToAppTargetBundle;
 import static com.android.launcher3.model.PredictionHelper.getAppTargetFromItemInfo;
 import static com.android.launcher3.model.PredictionHelper.wrapAppTargetWithItemLocation;
@@ -48,11 +48,15 @@ import android.os.UserHandle;
 import android.util.Log;
 import android.util.StatsEvent;
 
+import androidx.annotation.AnyThread;
+import androidx.annotation.CallSuper;
+import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.WorkerThread;
 
 import com.android.launcher3.InvariantDeviceProfile;
 import com.android.launcher3.LauncherAppState;
+import com.android.launcher3.config.FeatureFlags;
 import com.android.launcher3.logger.LauncherAtom;
 import com.android.launcher3.logging.InstanceId;
 import com.android.launcher3.logging.InstanceIdSequence;
@@ -62,6 +66,7 @@ import com.android.launcher3.model.data.FolderInfo;
 import com.android.launcher3.model.data.ItemInfo;
 import com.android.launcher3.model.data.WorkspaceItemInfo;
 import com.android.launcher3.shortcuts.ShortcutKey;
+import com.android.launcher3.util.Executors;
 import com.android.launcher3.util.IntSparseArrayMap;
 import com.android.launcher3.util.PersistedItemArray;
 import com.android.quickstep.logging.SettingsChangeLogger;
@@ -111,27 +116,82 @@ public class QuickstepModelDelegate extends ModelDelegate {
         mStatsManager = context.getSystemService(StatsManager.class);
     }
 
+    @CallSuper
     @Override
+    public void loadAndBindWorkspaceItems(@NonNull UserManagerState ums,
+            @NonNull BgDataModel.Callbacks[] callbacks,
+            @NonNull Map<ShortcutKey, ShortcutInfo> pinnedShortcuts) {
+        loadAndBindItems(ums, pinnedShortcuts, callbacks, mIDP.numDatabaseHotseatIcons,
+                mHotseatState);
+    }
+
+    @CallSuper
+    @Override
+    public void loadAndBindAllAppsItems(@NonNull UserManagerState ums,
+            @NonNull BgDataModel.Callbacks[] callbacks,
+            @NonNull Map<ShortcutKey, ShortcutInfo> pinnedShortcuts) {
+        loadAndBindItems(ums, pinnedShortcuts, callbacks, mIDP.numDatabaseAllAppsColumns,
+                mAllAppsState);
+    }
+
     @WorkerThread
-    public void loadItems(UserManagerState ums, Map<ShortcutKey, ShortcutInfo> pinnedShortcuts) {
+    private void loadAndBindItems(@NonNull UserManagerState ums,
+            @NonNull Map<ShortcutKey, ShortcutInfo> pinnedShortcuts,
+            @NonNull BgDataModel.Callbacks[] callbacks,
+            int numColumns, @NonNull PredictorState state) {
         // TODO: Implement caching and preloading
-        super.loadItems(ums, pinnedShortcuts);
 
-        WorkspaceItemFactory allAppsFactory = new WorkspaceItemFactory(
-                mApp, ums, pinnedShortcuts, mIDP.numDatabaseAllAppsColumns);
-        FixedContainerItems allAppsItems = new FixedContainerItems(mAllAppsState.containerId,
-                mAllAppsState.storage.read(mApp.getContext(), allAppsFactory, ums.allUsers::get));
-        mDataModel.extraItems.put(mAllAppsState.containerId, allAppsItems);
+        WorkspaceItemFactory factory =
+                new WorkspaceItemFactory(mApp, ums, pinnedShortcuts, numColumns, state.containerId);
+        FixedContainerItems fci = new FixedContainerItems(state.containerId,
+                state.storage.read(mApp.getContext(), factory, ums.allUsers::get));
+        if (FeatureFlags.CHANGE_MODEL_DELEGATE_LOADING_ORDER.get()) {
+            bindPredictionItems(callbacks, fci);
+        }
+        mDataModel.extraItems.put(state.containerId, fci);
+    }
 
-        WorkspaceItemFactory hotseatFactory =
-                new WorkspaceItemFactory(mApp, ums, pinnedShortcuts, mIDP.numDatabaseHotseatIcons);
-        FixedContainerItems hotseatItems = new FixedContainerItems(mHotseatState.containerId,
-                mHotseatState.storage.read(mApp.getContext(), hotseatFactory, ums.allUsers::get));
-        mDataModel.extraItems.put(mHotseatState.containerId, hotseatItems);
+    @CallSuper
+    @Override
+    public void loadAndBindOtherItems(@NonNull BgDataModel.Callbacks[] callbacks) {
+        FixedContainerItems widgetPredictionFCI = new FixedContainerItems(
+                mWidgetsRecommendationState.containerId, new ArrayList<>());
 
         // Widgets prediction isn't used frequently. And thus, it is not persisted on disk.
-        mDataModel.extraItems.put(mWidgetsRecommendationState.containerId,
-                new FixedContainerItems(mWidgetsRecommendationState.containerId));
+        mDataModel.extraItems.put(mWidgetsRecommendationState.containerId, widgetPredictionFCI);
+
+        bindPredictionItems(callbacks, widgetPredictionFCI);
+        loadStringCache(mDataModel.stringCache);
+    }
+
+    @AnyThread
+    private void bindPredictionItems(@NonNull BgDataModel.Callbacks[] callbacks,
+            @NonNull FixedContainerItems fci) {
+        Executors.MAIN_EXECUTOR.execute(() -> {
+            for (BgDataModel.Callbacks c : callbacks) {
+                c.bindExtraContainerItems(fci);
+            }
+        });
+    }
+
+    @Override
+    @WorkerThread
+    public void bindAllModelExtras(@NonNull BgDataModel.Callbacks[] callbacks) {
+        Iterable<FixedContainerItems> containerItems;
+        synchronized (mDataModel.extraItems) {
+            containerItems = mDataModel.extraItems.clone();
+        }
+        Executors.MAIN_EXECUTOR.execute(() -> {
+            for (BgDataModel.Callbacks c : callbacks) {
+                for (FixedContainerItems fci : containerItems) {
+                    c.bindExtraContainerItems(fci);
+                }
+            }
+        });
+    }
+
+    public void markActive() {
+        super.markActive();
         mActive = true;
     }
 
@@ -304,6 +364,7 @@ public class QuickstepModelDelegate extends ModelDelegate {
     }
 
     private void registerPredictor(PredictorState state, AppPredictor predictor) {
+        state.setTargets(Collections.emptyList());
         state.predictor = predictor;
         state.predictor.registerPredictionUpdates(
                 MODEL_EXECUTOR, t -> handleUpdate(state, t));
@@ -432,15 +493,17 @@ public class QuickstepModelDelegate extends ModelDelegate {
         private final UserManagerState mUMS;
         private final Map<ShortcutKey, ShortcutInfo> mPinnedShortcuts;
         private final int mMaxCount;
+        private final int mContainer;
 
         private int mReadCount = 0;
 
         protected WorkspaceItemFactory(LauncherAppState appState, UserManagerState ums,
-                Map<ShortcutKey, ShortcutInfo> pinnedShortcuts, int maxCount) {
+                Map<ShortcutKey, ShortcutInfo> pinnedShortcuts, int maxCount, int container) {
             mAppState = appState;
             mUMS = ums;
             mPinnedShortcuts = pinnedShortcuts;
             mMaxCount = maxCount;
+            mContainer = container;
         }
 
         @Nullable
@@ -458,6 +521,7 @@ public class QuickstepModelDelegate extends ModelDelegate {
                         return null;
                     }
                     AppInfo info = new AppInfo(lai, user, mUMS.isUserQuiet(user));
+                    info.container = mContainer;
                     mAppState.getIconCache().getTitleAndIcon(info, lai, false);
                     mReadCount++;
                     return info.makeWorkspaceItem(mAppState.getContext());
@@ -472,6 +536,7 @@ public class QuickstepModelDelegate extends ModelDelegate {
                         return null;
                     }
                     WorkspaceItemInfo wii = new WorkspaceItemInfo(si, mAppState.getContext());
+                    wii.container = mContainer;
                     mAppState.getIconCache().getShortcutIcon(wii, si);
                     mReadCount++;
                     return wii;

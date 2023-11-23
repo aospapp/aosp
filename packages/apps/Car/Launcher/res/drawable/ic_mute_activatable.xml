@@ -15,9 +15,13 @@
   ~ limitations under the License.
   -->
 
-<selector xmlns:android="http://schemas.android.com/apk/res/android">
-    <item android:state_selected="true"
-          android:drawable="@drawable/ic_mic_off"/>
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:width="@dimen/button_tap_target_size"
+          android:height="@dimen/button_tap_target_size"
+          android:drawable="@drawable/dialer_button_active_state_circle"/>
 
-    <item android:drawable="@drawable/ic_mic_on"/>
-</selector>
+    <item android:width="@dimen/home_card_button_size"
+          android:height="@dimen/home_card_button_size"
+          android:gravity="center"
+          android:drawable="@drawable/ic_mic_on"/>
+</layer-list>

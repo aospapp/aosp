@@ -16,6 +16,14 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+    <string name="car_permission_label_bind_projection_service" msgid="6976251734714662552">"vincular un servicio de proyección"</string>
+    <string name="car_permission_desc_bind_projection_service" msgid="4610418233070289810">"Permite al titular vincular con la interfaz de nivel superior de un servicio de proyección. Las aplicaciones normales no deberían necesitar este permiso."</string>
+    <string name="car_permission_label_bind_vms_client" msgid="1298928874094319701">"Servicio de cliente de VMS"</string>
+    <string name="car_permission_desc_bind_vms_client" msgid="7758142590449847602">"Vincular con clientes VMS"</string>
+    <string name="car_permission_label_bind_instrument_cluster_rendering" msgid="6723392540805279625">"Representación de datos en el panel de instrumentos"</string>
+    <string name="car_permission_desc_bind_instrument_cluster_rendering" msgid="2583711303360788080">"Recibir datos del panel de instrumentos"</string>
+    <string name="car_permission_label_bind_input_service" msgid="6647238478703096557">"Servicio de entrada del coche"</string>
+    <string name="car_permission_desc_bind_input_service" msgid="8460218104132496613">"Gestionar eventos de entrada"</string>
     <string name="activity_blocked_text" msgid="5991043857905412794">"No puedes usar esta función mientras conduces"</string>
     <string name="exit_button_message" msgid="5375678491245394542">"Para volver a empezar con funciones de aplicaciones seguras, selecciona <xliff:g id="EXIT_BUTTON">%s</xliff:g>."</string>
     <string name="exit_button" msgid="3491899413031549265">"Atrás"</string>
@@ -30,11 +38,7 @@
     <string name="factory_reset_warning" msgid="8463356329619149262">"Tu dispositivo se borrará"</string>
     <string name="factory_reset_message" msgid="1972536809866779972">"No se puede utilizar la aplicación de administración. Se borrarán todos los datos del dispositivo.\n\nSi tienes alguna pregunta, ponte en contacto con el administrador de tu organización."</string>
     <string name="resource_overuse_notification_title" msgid="1622015333965744463">"<xliff:g id="ID_1">^1</xliff:g> está afectando al rendimiento de tu sistema"</string>
-    <string name="resource_overuse_notification_text_disable_app" msgid="6230392052741662158">"Inhabilita la aplicación para mejorar el rendimiento del sistema. Puedes habilitarla de nuevo en Ajustes."</string>
-    <string name="resource_overuse_notification_text_prioritize_app" msgid="5712958688473220136">"Prioriza la aplicación para seguir usándola."</string>
-    <string name="resource_overuse_notification_text_uninstall_app" msgid="7571808726595158942">"Desinstala la aplicación para mejorar el rendimiento del sistema."</string>
-    <string name="resource_overuse_notification_button_disable_app" msgid="7366883746281232189">"Inhabilitar aplicación"</string>
+    <string name="resource_overuse_notification_text_disabled_app" msgid="9058683477901746549">"Se ha impedido que esta aplicación se ejecute en segundo plano. Prioriza la aplicación para que se siga usando en segundo plano."</string>
+    <string name="resource_overuse_notification_button_close_app" msgid="131355952730826999">"Cerrar"</string>
     <string name="resource_overuse_notification_button_prioritize_app" msgid="1093325910457794796">"Priorizar aplicación"</string>
-    <string name="resource_overuse_notification_button_uninstall_app" msgid="5259756814713178196">"Desinstalar aplicación"</string>
-    <string name="resource_overuse_toast_disable_app_now" msgid="5020071090614971772">"<xliff:g id="ID_1">^1</xliff:g> se ha inhabilitado. Puedes habilitarla de nuevo en Ajustes."</string>
 </resources>

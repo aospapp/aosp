@@ -17,7 +17,7 @@
 
 #include "ble_scanner_hci_interface.h"
 
-#include <base/bind.h>
+#include <base/functional/bind.h>
 #include <base/logging.h>
 
 #include "acl_api.h"
@@ -417,6 +417,11 @@ void btm_ble_process_periodic_adv_pkt(uint8_t data_len, const uint8_t* data) {
 void btm_ble_process_periodic_adv_sync_lost_evt(uint8_t data_len,
                                                 uint8_t* data) {
   uint16_t sync_handle;
+
+  if (data_len < 2) {
+    LOG(ERROR) << "Bogus event packet, too short";
+    return;
+  }
 
   STREAM_TO_UINT16(sync_handle, data);
 

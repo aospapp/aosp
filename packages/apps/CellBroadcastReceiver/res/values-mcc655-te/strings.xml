@@ -16,5 +16,5 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="emergency_alert_history_title" msgid="5166801194974934794">"సెల్ ప్రసార చరిత్ర"</string>
+    <string name="emergency_alert_history_title" msgid="5166801194974934794">"సెల్ ప్రసార హిస్టరీ"</string>
 </resources>

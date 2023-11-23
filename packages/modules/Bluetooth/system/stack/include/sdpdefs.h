@@ -70,6 +70,11 @@
 #define ATTR_ID_MAP_SUPPORTED_FEATURES 0x0317  /* MAP profile */
 #define ATTR_ID_PBAP_SUPPORTED_FEATURES 0x0317 /* PBAP profile */
 
+/* These values are for the MPS (Multi-Profile Specification) */
+#define ATTR_ID_MPS_SUPPORTED_SCENARIOS_MPSD 0x0200
+#define ATTR_ID_MPS_SUPPORTED_SCENARIOS_MPMD 0x0201
+#define ATTR_ID_MPS_SUPPORTED_DEPENDENCIES 0x0202
+
 /* These values are for the PAN profile */
 #define ATTR_ID_SECURITY_DESCRIPTION 0x030A
 #define ATTR_ID_NET_ACCESS_TYPE 0x030B
@@ -167,6 +172,10 @@
 #define UUID_SERVCLASS_PBAP_PSE 0X112F /* Phonebook Access - PSE */
 #define UUID_SERVCLASS_PHONE_ACCESS 0x1130
 #define UUID_SERVCLASS_HEADSET_HS 0x1131      /* Headset - HS, from HSP v1.2 */
+#define UUID_SERVCLASS_MPS_PROFILE \
+  0x113A /* Multi-Profile Specification - Profile */
+#define UUID_SERVCLASS_MPS_SC \
+  0x113B /* Multi-Profile Specification - Service Class */
 #define UUID_SERVCLASS_PNP_INFORMATION 0X1200 /* Device Identification */
 #define UUID_SERVCLASS_GENERIC_NETWORKING 0X1201
 #define UUID_SERVCLASS_GENERIC_FILETRANSFER 0X1202
@@ -204,6 +213,7 @@
 
 #define UUID_CODEC_CVSD 0x0001 /* CVSD */
 #define UUID_CODEC_MSBC 0x0002 /* mSBC */
+#define UUID_CODEC_LC3 0x0003  /* LC3 */
 
 /* Define all the 'Descriptor Type' values.
 */

@@ -133,6 +133,7 @@
     <string name="cdma_call_waiting_in_ims_off" msgid="1099246114368636334">"IMS ಆಫ್ ಅಡಿಯಲ್ಲಿ CDMA ಕರೆ ನಿರೀಕ್ಷೆ"</string>
     <string name="updating_title" msgid="6130548922615719689">"ಕರೆ ಸೆಟ್ಟಿಂಗ್‌ಗಳು"</string>
     <string name="call_settings_admin_user_only" msgid="7238947387649986286">"ಕರೆ ಸೆಟ್ಟಿಂಗ್‌ಗಳನ್ನು ಕೇವಲ ನಿರ್ವಾಹಕ ಬಳಕೆದಾರರು ಮಾತ್ರ ಬದಲಾಯಿಸಬಹುದು."</string>
+    <string name="phone_account_settings_user_restriction" msgid="9142685151087208396">"ಫೋನ್ ಖಾತೆಯ ಸೆಟ್ಟಿಂಗ್‌ಗಳನ್ನು ನಿರ್ವಾಹಕರು ಅಥವಾ ಕೆಲಸದ ಬಳಕೆದಾರರಿಂದ ಮಾತ್ರ ಬದಲಾಯಿಸಬಹುದಾಗಿದೆ."</string>
     <string name="call_settings_with_label" msgid="8460230435361579511">"ಸೆಟ್ಟಿಂಗ್‌ಗಳು (<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
     <string name="error_updating_title" msgid="2024290892676808965">"ಕರೆ ಸೆಟ್ಟಿಂಗ್‌ಗಳ ದೋಷ"</string>
     <string name="reading_settings" msgid="1605904432450871183">"ಸೆಟ್ಟಿಂಗ್‌ಗಳನ್ನು ಓದಲಾಗುತ್ತಿದೆ…"</string>
@@ -422,9 +423,9 @@
     <item msgid="462340042928284921">"ಮುಖಪುಟ ಮಾತ್ರ"</item>
     <item msgid="6058010046783562674">"ಸ್ವಯಂಚಾಲಿತ"</item>
   </string-array>
-    <string name="cdma_subscription_title" msgid="3449527179325589434">"CDMA ಚಂದಾದಾರಿಕೆ"</string>
+    <string name="cdma_subscription_title" msgid="3449527179325589434">"CDMA ಸಬ್‌ಸ್ಕ್ರಿಪ್ಶನ್"</string>
     <string name="cdma_subscription_summary" msgid="5681152534466169001">"RUIM/ಸಿಮ್‌ ಮತ್ತು NV ರ ನಡುವೆ ಬದಲಾಯಿಸಿ"</string>
-    <string name="cdma_subscription_dialogtitle" msgid="8872086335839723980">"ಚಂದಾದಾರಿಕೆ"</string>
+    <string name="cdma_subscription_dialogtitle" msgid="8872086335839723980">"ಸಬ್‌ಸ್ಕ್ರಿಪ್ಶನ್"</string>
   <string-array name="cdma_subscription_choices">
     <item msgid="7989486897370727698">"RUIM/ಸಿಮ್‌"</item>
     <item msgid="5445342771222849381">"NV"</item>
@@ -556,6 +557,7 @@
     <string name="incall_error_supp_service_hold" msgid="8535056414643540997">"ಕರೆಗಳನ್ನು ಹೋಲ್ಡ್ ಮಾಡಲಾಗುವುದಿಲ್ಲ."</string>
     <string name="incall_error_wfc_only_no_wireless_network" msgid="5860742792811400109">"ಕರೆ ಮಾಡಲು ವೈರ್‌ಲೆಸ್ ನೆಟ್‌ವರ್ಕ್‌ಗೆ ಸಂಪರ್ಕಿಸಿ."</string>
     <string name="incall_error_promote_wfc" msgid="9164896813931363415">"ಕರೆ ಮಾಡಲು ವೈ-ಫೈ ಕರೆ ಮಾಡುವಿಕೆಯನ್ನು ಸಕ್ರಿಯಗೊಳಿಸಿ"</string>
+    <string name="incall_error_satellite_enabled" msgid="1936541518147323016">"ಕರೆ ಮಾಡಲು ಸ್ಯಾಟಲೈಟ್ ಮೋಡ್ ಅನ್ನು ನಿಷ್ಕ್ರಿಯಗೊಳಿಸಿ."</string>
     <string name="emergency_information_hint" msgid="9208897544917793012">"ತುರ್ತು ಮಾಹಿತಿ"</string>
     <string name="emergency_information_owner_hint" msgid="6256909888049185316">"ಮಾಲೀಕರು"</string>
     <string name="emergency_information_confirm_hint" msgid="5109017615894918914">"ಮಾಹಿತಿಯನ್ನು ವೀಕ್ಷಿಸಲು ಮತ್ತೆ ಟ್ಯಾಪ್ ಮಾಡಿ"</string>
@@ -616,7 +618,7 @@
     <string name="ota_touch_activate" msgid="838764494319694754">"ನಿಮ್ಮ ಫೋನ್‌ ಸೇವೆಯನ್ನು ಸಕ್ರಿಯಗೊಳಿಸಲು ವಿಶೇಷ ಕರೆಯೊಂದನ್ನು ಮಾಡಬೇಕಾಗುತ್ತದೆ. \n\n “ಸಕ್ರಿಯಗೊಳಿಸು” ಒತ್ತಿದ ಬಳಿಕ ನಿಮ್ಮ ಫೋನ್ ಸಕ್ರಿಯಗೊಳಿಸಲು ನೀಡಲಾಗುವ ಸೂಚನೆಗಳನ್ನು ಕೇಳಿ."</string>
     <string name="ota_hfa_activation_title" msgid="3300556778212729671">"ಸಕ್ರಿಯಗೊಳಿಸಲಾಗುತ್ತಿದೆ..."</string>
     <string name="ota_hfa_activation_dialog_message" msgid="7921718445773342996">"ನಿಮ್ಮ ಮೊಬೈಲ್‌‌ ಡೇಟಾ ಸೇವೆಯನ್ನು ಫೋನ್‌ ಸಕ್ರಿಯಗೊಳಿಸುತ್ತಿದೆ.\n\nಇದು ಸುಮಾರು 5 ನಿಮಿಷಗಳ ಕಾಲಾವಕಾಶ ತೆಗೆದುಕೊಳ್ಳಬಹುದು."</string>
-    <string name="ota_skip_activation_dialog_title" msgid="7666611236789203797">"ಸಕ್ರಿಯಗೊಳಿಸುವುದನ್ನು ಸ್ಕಿಪ್‌ ಮಾಡುವುದೇ?"</string>
+    <string name="ota_skip_activation_dialog_title" msgid="7666611236789203797">"ಸಕ್ರಿಯಗೊಳಿಸುವುದನ್ನು ಸ್ಕಿಪ್‌ ಮಾಡಬೇಕೆ?"</string>
     <string name="ota_skip_activation_dialog_message" msgid="6691722887019708713">"ನೀವು ಸಕ್ರಿಯಗೊಳಿಸುವುದನ್ನು ಸ್ಕಿಪ್‌ ಮಾಡಿದರೆ, ನೀವು ಕರೆಗಳನ್ನು ಮಾಡಲು ಅಥವಾ ಮೊಬೈಲ್‌ ಡೇಟಾ ನೆಟ್‌ವರ್ಕ್‌ಗಳಿಗೆ ಸಂಪರ್ಕಗೊಳಿಸಲು ಸಾಧ್ಯವಾಗುವುದಿಲ್ಲ (ಆದರೂ ನೀವು ವೈ-ಫೈ ನೆಟ್‌ವರ್ಕ್‌ಗಳಿಗೆ ಸಂಪರ್ಕಗೊಳಿಸಬಹುದು). ನಿಮ್ಮ ಫೋನ್ ಅನ್ನು ನೀವು ಸಕ್ರಿಯಗೊಳಿಸುವವರೆಗೂ, ನೀವು ಅದನ್ನು ಪ್ರತಿಬಾರಿ ಆನ್‌ ಮಾಡಿದಾಗಲೆಲ್ಲಾ ಅದನ್ನು ಸಕ್ರಿಯಗೊಳಿಸಲು ನಿಮಗೆ ತಿಳಿಸಲಾಗುತ್ತದೆ."</string>
     <string name="ota_skip_activation_dialog_skip_label" msgid="5908029466817825633">"ಸ್ಕಿಪ್"</string>
     <string name="ota_activate" msgid="7939695753665438357">"ಸಕ್ರಿಯಗೊಳಿಸಿ"</string>
@@ -671,7 +673,7 @@
     <string name="sim_label_emergency_calls" msgid="9078241989421522310">"ತುರ್ತು ಕರೆಗಳು"</string>
     <string name="sim_description_emergency_calls" msgid="5146872803938897296">"ತುರ್ತು ಕರೆ ಮಾಡುವಿಕೆ ಮಾತ್ರ"</string>
     <string name="sim_description_default" msgid="7474671114363724971">"SIM ಕಾರ್ಡ್, ಸ್ಲಾಟ್: <xliff:g id="SLOT_ID">%s</xliff:g>"</string>
-    <string name="accessibility_settings_activity_title" msgid="7883415189273700298">"ಪ್ರವೇಶಿಸುವಿಕೆ"</string>
+    <string name="accessibility_settings_activity_title" msgid="7883415189273700298">"ಆ್ಯಕ್ಸೆಸಿಬಿಲಿಟಿ"</string>
     <string name="status_hint_label_incoming_wifi_call" msgid="2606052595898044071">"ಅವರಿಂದ ವೈ-ಫೈ ಕರೆ"</string>
     <string name="status_hint_label_wifi_call" msgid="942993035689809853">"ವೈ-ಫೈ ಕರೆ"</string>
     <string name="message_decode_error" msgid="1061856591500290887">"ಸಂದೇಶವನ್ನು ಡೀಕೋಡ್ ಮಾಡುವಾಗ ದೋಷವುಂಟಾಗಿದೆ."</string>
@@ -713,6 +715,7 @@
     <string name="clh_callFailed_powerOff_txt" msgid="8279934912560765361">"ಏರ್‌ಪ್ಲೇನ್ ಮೋಡ್ ಆನ್ ಆಗಿದೆ"</string>
     <string name="clh_callFailed_simError_txt" msgid="5128538525762326413">"ಸಿಮ್ ಕಾರ್ಡ್ ಪ್ರವೇಶಿಸಲು ಸಾಧ್ಯವಿಲ್ಲ"</string>
     <string name="clh_incall_error_out_of_service_txt" msgid="2736010617446749869">"ಮೊಬೈಲ್ ನೆಟ್‌ವರ್ಕ್ ಲಭ್ಯವಿಲ್ಲ"</string>
+    <string name="clh_callFailed_satelliteEnabled_txt" msgid="1675517238240377396">"ಸ್ಯಾಟಲೈಟ್ ಮೋಡ್ ಆನ್ ಆಗಿದೆ"</string>
     <string name="clh_callFailed_unassigned_number_txt" msgid="141967660286695682">"ನೀವು ಡಯಲ್‌ ಮಾಡಲು ಪ್ರಯತ್ನಿಸುತ್ತಿರುವ ಫೋನ್‌ ಸಂಖ್ಯೆಯು ತಪ್ಪಾಗಿದೆ. ದೋಷ ಕೋಡ್‌ 1."</string>
     <string name="clh_callFailed_no_route_to_destination_txt" msgid="4805015149822352308">"ಕರೆಯನ್ನು ಪೂರ್ಣಗೊಳಿಸಲು ಸಾಧ್ಯವಾಗಲಿಲ್ಲ. ದೋಷ ಕೋಡ್ 3."</string>
     <string name="clh_callFailed_channel_unacceptable_txt" msgid="4062754579408613021">"ಕರೆಯನ್ನು ಪೂರ್ಣಗೊಳಿಸಲು ಸಾಧ್ಯವಾಗಲಿಲ್ಲ. ದೋಷ ಕೋಡ್ 6."</string>
@@ -837,6 +840,7 @@
     <string name="dsds_dialog_cancel" msgid="3245958947099586655">"ರದ್ದುಮಾಡಿ"</string>
     <string name="removable_esim_string" msgid="7931369811671787649">"ತೆಗೆದುಹಾಕಬಹುದಾದ eSIM ಅನ್ನು ಡೀಫಾಲ್ಟ್ ಆಗಿ ಸೆಟ್ ಮಾಡಿ"</string>
     <string name="radio_info_radio_power" msgid="8805595022160471587">"ಮೊಬೈಲ್ ರೇಡಿಯೋ ಪವರ್"</string>
+    <string name="simulate_out_of_service_string" msgid="7787925611727597193">"ಸೇವೆಯಲ್ಲಿಲ್ಲದಿರುವುದನ್ನು ಸಿಮ್ಯುಲೇಟ್‌ ಮಾಡುವುದು (ಡೀಬಗ್ ಬಿಲ್ಡ್ ಮಾತ್ರ)"</string>
     <string name="radioInfo_menu_viewADN" msgid="4533179730908559846">"ಸಿಮ್ ವಿಳಾಸ ಪುಸ್ತಕವನ್ನು ವೀಕ್ಷಿಸಿ"</string>
     <string name="radioInfo_menu_viewFDN" msgid="1847236480527032061">"ಸ್ಥಿರ ಡಯಲಿಂಗ್ ಸಂಖ್ಯೆಗಳನ್ನು ವೀಕ್ಷಿಸಿ"</string>
     <string name="radioInfo_menu_viewSDN" msgid="2613431584522392842">"ಸೇವಾ ಡಯಲಿಂಗ್ ಸಂಖ್ಯೆಗಳನ್ನು ವೀಕ್ಷಿಸಿ"</string>
@@ -861,6 +865,7 @@
     <string name="radioInfo_data_connected" msgid="7637335645634239508">"ಕನೆಕ್ಟ್ ಮಾಡಲಾಗಿದೆ"</string>
     <string name="radioInfo_data_suspended" msgid="8695262782642002785">"ಅಮಾನತುಗೊಳಿಸಲಾಗಿದೆ"</string>
     <string name="radioInfo_unknown" msgid="5401423738500672850">"ಅಪರಿಚಿತ"</string>
+    <string name="radioInfo_imei_primary" msgid="5948747378637224400">"ಪ್ರಾಥಮಿಕ"</string>
     <string name="radioInfo_display_packets" msgid="6794302192441084157">"pkts"</string>
     <string name="radioInfo_display_bytes" msgid="7701006329222413797">"ಬೈಟ್‌ಗಳು"</string>
     <string name="radioInfo_display_dbm" msgid="7491944975710865703">"dBm"</string>
@@ -887,10 +892,12 @@
     <string name="radio_info_ppp_sent_label" msgid="6542208429356199695">"ಡೇಟಾ ಕಳುಹಿಸಲಾಗಿದೆ:"</string>
     <string name="radio_info_message_waiting_label" msgid="1886549432566952078">"ಸಂದೇಶ ನಿರೀಕ್ಷಿಸಲಾಗುತ್ತಿದೆ:"</string>
     <string name="radio_info_phone_number_label" msgid="2533852539562512203">"ಫೋನ್ ಸಂಖ್ಯೆ:"</string>
-    <string name="radio_info_band_mode_label" msgid="23480556225515290">"ರೇಡಿಯೋ ಬ್ಯಾಂಡ್ ಆಯ್ಕೆಮಾಡಿ"</string>
     <string name="radio_info_voice_network_type_label" msgid="2395347336419593265">"ಧ್ವನಿ ನೆಟ್‌ವರ್ಕ್‌ ಪ್ರಕಾರ:"</string>
     <string name="radio_info_data_network_type_label" msgid="8886597029237501929">"ಡೇಟಾ ನೆಟ್‌ವರ್ಕ್ ಪ್ರಕಾರ:"</string>
     <string name="radio_info_override_network_type_label" msgid="4176280017221092005">"ನೆಟ್‌ವರ್ಕ್ ಪ್ರಕಾರವನ್ನು ಅತಿಕ್ರಮಿಸಿ:"</string>
+    <string name="radio_info_voice_raw_registration_state_label" msgid="2822988327145825128">"ಧ್ವನಿ ರಾ ರಿಜಿಸ್ಟ್ರೇಷನ್ ಸ್ಟೇಟ್‌:"</string>
+    <string name="radio_info_data_raw_registration_state_label" msgid="2895895513822604539">"ಡೇಟಾ ರಾ ರಿಜಿಸ್ಟ್ರೇಷನ್‌ ಸ್ಟೇಟ್‌:"</string>
+    <string name="radio_info_wlan_data_raw_registration_state_label" msgid="6396894835757296612">"WLAN ಡೇಟಾ ರಾ ರಿಜಿಸ್ಟ್ರೇಷನ್‌ ಸ್ಟೇಟ್‌:"</string>
     <string name="phone_index_label" msgid="6222406512768964268">"ಫೋನ್ ಸೂಚಿಕೆಯನ್ನು ಆಯ್ಕೆಮಾಡಿ"</string>
     <string name="radio_info_set_perferred_label" msgid="7408131389363136210">"ಆದ್ಯತೆಯ ನೆಟ್‌ವರ್ಕ್‌ ಪ್ರಕಾರವನ್ನು ಹೊಂದಿಸಿ:"</string>
     <string name="radio_info_ping_hostname_v4" msgid="6951237885381284790">"ಹೋಸ್ಟ್‌ ಹೆಸರನ್ನು ಪಿಂಗ್ ಮಾಡಿ(www.google.com) IPv4:"</string>
@@ -917,6 +924,11 @@
     <string name="carrier_provisioning" msgid="2668065041869578376">"ವಾಹಕ ಪೂರೈಕೆಯ ಮಾಹಿತಿ"</string>
     <string name="trigger_carrier_provisioning" msgid="1301829588620638234">"ಟ್ರಿಗರ್‌ ವಾಹಕ ಪೂರೈಕೆ"</string>
     <string name="call_quality_notification_bluetooth_details" msgid="8348950331707346711">"ನಿಮ್ಮ ಬ್ಲೂಟೂತ್ ಸಿಗ್ನಲ್ ದುರ್ಬಲವಾಗಿದೆ. ಸ್ಪೀಕರ್‌ಫೋನ್‌ಗೆ ಬದಲಾಯಿಸಲು ಪ್ರಯತ್ನಿಸಿ."</string>
-    <string name="call_quality_notification_name" msgid="3476828289553948830">"ಕರೆ ಗುಣಮಟ್ಟದ ಅಧಿಸೂಚನೆ"</string>
+    <string name="call_quality_notification_name" msgid="3476828289553948830">"ಕರೆ ಗುಣಮಟ್ಟದ ನೋಟಿಫಿಕೇಶನ್"</string>
     <string name="notification_channel_sip_account" msgid="1261816025156179637">"ತಡೆಹಿಡಿಯಲಾಗಿರುವ SIP ಖಾತೆಗಳು"</string>
+    <string name="send_from_work_profile_title" msgid="7044759579507604732">"ವೈಯಕ್ತಿಕ ಆ್ಯಪ್‌ನಿಂದ ಸಂದೇಶವನ್ನು ಕಳುಹಿಸಲು ಸಾಧ್ಯವಿಲ್ಲ"</string>
+    <string name="send_from_work_profile_description" msgid="2174402508727161974">"ನಿಮ್ಮ ಸಂಸ್ಥೆಯು ಕೆಲಸಕ್ಕೆ ಸಂಬಂಧಿಸಿದ ಆ್ಯಪ್‌ಗಳಿಂದ ಮಾತ್ರ ಸಂದೇಶಗಳನ್ನು ಕಳುಹಿಸಲು ನಿಮಗೆ ಅನುಮತಿಸುತ್ತದೆ"</string>
+    <string name="send_from_work_profile_cancel" msgid="177746511030381711">"ರದ್ದುಮಾಡಿ"</string>
+    <string name="send_from_work_profile_action_str" msgid="6892775562934243337">"ಉದ್ಯೋಗ ಪ್ರೊಫೈಲ್‌ಗೆ ಬದಲಿಸಿ"</string>
+    <string name="install_messages_on_work_profile_action_str" msgid="3773440996395152903">"ಕೆಲಸಕ್ಕೆ ಸಂಬಂಧಿಸಿದ ಸಂದೇಶಗಳನ್ನು ಕಳುಹಿಸುವ ಆ್ಯಪ್ ಅನ್ನು ಇನ್‌ಸ್ಟಾಲ್ ಮಾಡಿ"</string>
 </resources>

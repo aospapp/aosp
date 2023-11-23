@@ -45,7 +45,7 @@
  * Returns          void
  *
  ******************************************************************************/
-extern void SMP_Init(void);
+void SMP_Init(void);
 
 /*******************************************************************************
  *
@@ -57,7 +57,7 @@ extern void SMP_Init(void);
  * Returns          The new or current trace level
  *
  ******************************************************************************/
-extern uint8_t SMP_SetTraceLevel(uint8_t new_level);
+uint8_t SMP_SetTraceLevel(uint8_t new_level);
 
 /*******************************************************************************
  *
@@ -68,7 +68,7 @@ extern uint8_t SMP_SetTraceLevel(uint8_t new_level);
  * Returns          void
  *
  ******************************************************************************/
-extern bool SMP_Register(tSMP_CALLBACK* p_cback);
+bool SMP_Register(tSMP_CALLBACK* p_cback);
 
 /*******************************************************************************
  *
@@ -79,9 +79,8 @@ extern bool SMP_Register(tSMP_CALLBACK* p_cback);
  * Returns          SMP_STARTED if bond started, else otherwise exception.
  *
  ******************************************************************************/
-extern tSMP_STATUS SMP_Pair(const RawAddress& bd_addr);
-extern tSMP_STATUS SMP_Pair(const RawAddress& bd_addr,
-                            tBLE_ADDR_TYPE addr_type);
+tSMP_STATUS SMP_Pair(const RawAddress& bd_addr);
+tSMP_STATUS SMP_Pair(const RawAddress& bd_addr, tBLE_ADDR_TYPE addr_type);
 
 /*******************************************************************************
  *
@@ -93,7 +92,7 @@ extern tSMP_STATUS SMP_Pair(const RawAddress& bd_addr,
  *                  failure.
  *
  ******************************************************************************/
-extern tSMP_STATUS SMP_BR_PairWith(const RawAddress& bd_addr);
+tSMP_STATUS SMP_BR_PairWith(const RawAddress& bd_addr);
 
 /*******************************************************************************
  *
@@ -104,7 +103,7 @@ extern tSMP_STATUS SMP_BR_PairWith(const RawAddress& bd_addr);
  * Returns          true - pairing cancelled
  *
  ******************************************************************************/
-extern bool SMP_PairCancel(const RawAddress& bd_addr);
+bool SMP_PairCancel(const RawAddress& bd_addr);
 
 /*******************************************************************************
  *
@@ -120,7 +119,7 @@ extern bool SMP_PairCancel(const RawAddress& bd_addr);
  * Returns          None
  *
  ******************************************************************************/
-extern void SMP_SecurityGrant(const RawAddress& bd_addr, tSMP_STATUS res);
+void SMP_SecurityGrant(const RawAddress& bd_addr, tSMP_STATUS res);
 
 /*******************************************************************************
  *
@@ -136,8 +135,7 @@ extern void SMP_SecurityGrant(const RawAddress& bd_addr, tSMP_STATUS res);
  *                             BTM_MAX_PASSKEY_VAL(999999(0xF423F)).
  *
  ******************************************************************************/
-extern void SMP_PasskeyReply(const RawAddress& bd_addr, uint8_t res,
-                             uint32_t passkey);
+void SMP_PasskeyReply(const RawAddress& bd_addr, uint8_t res, uint32_t passkey);
 
 /*******************************************************************************
  *
@@ -151,7 +149,7 @@ extern void SMP_PasskeyReply(const RawAddress& bd_addr, uint8_t res,
  *                  res          - comparison result SMP_SUCCESS if success
  *
  ******************************************************************************/
-extern void SMP_ConfirmReply(const RawAddress& bd_addr, uint8_t res);
+void SMP_ConfirmReply(const RawAddress& bd_addr, uint8_t res);
 
 /*******************************************************************************
  *
@@ -165,8 +163,8 @@ extern void SMP_ConfirmReply(const RawAddress& bd_addr, uint8_t res);
  *                  p_data      - SM Randomizer  C.
  *
  ******************************************************************************/
-extern void SMP_OobDataReply(const RawAddress& bd_addr, tSMP_STATUS res,
-                             uint8_t len, uint8_t* p_data);
+void SMP_OobDataReply(const RawAddress& bd_addr, tSMP_STATUS res, uint8_t len,
+                      uint8_t* p_data);
 
 /*******************************************************************************
  *
@@ -178,7 +176,7 @@ extern void SMP_OobDataReply(const RawAddress& bd_addr, tSMP_STATUS res,
  * Parameters:      p_data      - pointer to the data
  *
  ******************************************************************************/
-extern void SMP_SecureConnectionOobDataReply(uint8_t* p_data);
+void SMP_SecureConnectionOobDataReply(uint8_t* p_data);
 
 /*******************************************************************************
  *
@@ -187,8 +185,11 @@ extern void SMP_SecureConnectionOobDataReply(uint8_t* p_data);
  * Description      This function is called to generate a public key to be
  *                  passed to a remote device via an Out of Band transport
  *
+ * Returns          true if the request is successfully sent and executed by the
+ *                  state machine, false otherwise
+ *
  ******************************************************************************/
-extern void SMP_CrLocScOobData();
+bool SMP_CrLocScOobData();
 
 /*******************************************************************************
  *
@@ -197,13 +198,13 @@ extern void SMP_CrLocScOobData();
  * Description      This function is called to clear out the OOB stored locally.
  *
  ******************************************************************************/
-extern void SMP_ClearLocScOobData();
+void SMP_ClearLocScOobData();
 
 // Called when LTK request is received from controller.
-extern bool smp_proc_ltk_request(const RawAddress& bda);
+bool smp_proc_ltk_request(const RawAddress& bda);
 
 // Called when link is encrypted and notified to peripheral device.
 // Proceed to send LTK, DIV and ER to central if bonding the devices.
-extern void smp_link_encrypted(const RawAddress& bda, uint8_t encr_enable);
+void smp_link_encrypted(const RawAddress& bda, uint8_t encr_enable);
 
 #endif /* SMP_API_H */

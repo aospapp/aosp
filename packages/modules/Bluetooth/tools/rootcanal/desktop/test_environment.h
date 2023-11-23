@@ -22,7 +22,6 @@
 #include <memory>      // for shared_ptr, make_...
 #include <string>      // for string
 
-#include "model/controller/dual_mode_controller.h"  // for DualModeController
 #include "model/setup/async_manager.h"              // for AsyncTaskId, Asyn...
 #include "model/setup/test_channel_transport.h"     // for TestChannelTransport
 #include "model/setup/test_command_handler.h"       // for TestCommandHandler
@@ -43,57 +42,50 @@ using android::net::AsyncDataChannelConnector;
 using android::net::AsyncDataChannelServer;
 using android::net::ConnectCallback;
 
+using rootcanal::AsyncManager;
 using rootcanal::Device;
 using rootcanal::Phy;
 
 class TestEnvironment {
  public:
-  TestEnvironment(std::shared_ptr<AsyncDataChannelServer> test_port,
-                  std::shared_ptr<AsyncDataChannelServer> hci_server_port,
-                  std::shared_ptr<AsyncDataChannelServer> link_server_port,
-                  std::shared_ptr<AsyncDataChannelServer> link_ble_server_port,
-                  std::shared_ptr<AsyncDataChannelConnector> connector,
-                  const std::string& controller_properties_file = "",
-                  const std::string& default_commands_file = "")
-      : test_socket_server_(test_port),
-        hci_socket_server_(hci_server_port),
-        link_socket_server_(link_server_port),
-        link_ble_socket_server_(link_ble_server_port),
-        connector_(connector),
-        controller_properties_file_(controller_properties_file),
-        default_commands_file_(default_commands_file),
-        controller_(std::make_shared<rootcanal::DualModeController>(
-            controller_properties_file)) {}
+  TestEnvironment(
+      std::function<std::shared_ptr<AsyncDataChannelServer>(AsyncManager*, int)>
+          open_server,
+      std::function<std::shared_ptr<AsyncDataChannelConnector>(AsyncManager*)>
+          open_connector,
+      int test_port, int hci_port, int link_port, int link_ble_port,
+      std::string const& config_str,
+      bool enable_hci_sniffer = false, bool enable_baseband_sniffer = false,
+      bool enable_pcap_filter = false, bool disable_address_reuse = false);
 
   void initialize(std::promise<void> barrier);
-
   void close();
 
  private:
   rootcanal::AsyncManager async_manager_;
+  rootcanal::TestChannelTransport test_channel_transport_;
   std::shared_ptr<AsyncDataChannelServer> test_socket_server_;
-  std::shared_ptr<AsyncDataChannelServer> hci_socket_server_;
+  std::vector<std::shared_ptr<AsyncDataChannelServer>> hci_socket_servers_;
   std::shared_ptr<AsyncDataChannelServer> link_socket_server_;
   std::shared_ptr<AsyncDataChannelServer> link_ble_socket_server_;
   std::shared_ptr<AsyncDataChannelConnector> connector_;
-  std::string controller_properties_file_;
-  std::string default_commands_file_;
+  bool enable_hci_sniffer_;
+  bool enable_baseband_sniffer_;
+  bool enable_pcap_filter_;
   bool test_channel_open_{false};
   std::promise<void> barrier_;
+  rootcanal::AsyncUserId socket_user_id_{};
 
   void SetUpTestChannel();
-  void SetUpHciServer(ConnectCallback on_connect);
+  void SetUpHciServer(
+      std::function<std::shared_ptr<AsyncDataChannelServer>(AsyncManager*, int)>
+          open_server,
+      int tcp_port, rootcanal::ControllerProperties properties);
   void SetUpLinkLayerServer();
   void SetUpLinkBleLayerServer();
+
   std::shared_ptr<Device> ConnectToRemoteServer(const std::string& server,
                                                 int port, Phy::Type phy_type);
-
-  std::shared_ptr<rootcanal::DualModeController> controller_;
-
-  rootcanal::TestChannelTransport test_channel_transport_;
-  rootcanal::TestChannelTransport remote_hci_transport_;
-  rootcanal::TestChannelTransport remote_link_layer_transport_;
-  rootcanal::TestChannelTransport remote_link_ble_layer_transport_;
 
   rootcanal::TestModel test_model_{
       [this]() { return async_manager_.GetNextUserId(); },

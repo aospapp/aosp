@@ -16,6 +16,7 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="pws_other_message_identifiers" msgid="4208192760081890030">"Информация за Антигуа и Барбуда"</string>
-    <string name="enable_emergency_alerts_message_title" msgid="8604945009695563346">"Редовен канал за предаване в Антигуа и Барбуда"</string>
+    <string name="pws_other_message_identifiers" msgid="2878052464538791122">"Предупреждение от оператора"</string>
+    <string name="enable_emergency_alerts_message_title" msgid="735033564276896784">"Предупреждения от оператора"</string>
+    <string name="enable_emergency_alerts_message_summary" msgid="9097859342785910501">"Канал за предупрежденията от оператора"</string>
 </resources>

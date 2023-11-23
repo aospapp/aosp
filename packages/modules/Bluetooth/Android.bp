@@ -31,39 +31,33 @@ license {
     ],
 }
 
-subdirs = [
-    "apex",
-    "binder",
-    "build",
-    "btif",
-    "btcore",
-    "common",
-    "audio_a2dp_hw",
-    "audio_bluetooth_hw",
-    "audio_hal_interface",
-    "audio_hearing_aid_hw",
-    "gd",
-    "hci",
-    "utils",
-    "device",
-    "stack",
-    "osi",
-    "embdrv",
-    "service",
-    "include",
-    "main",
-    "bta",
-    "vendor_libs",
-    "test",
-    "types",
-    "udrv",
-    "tools",
-    "proto",
-]
-
 filegroup {
     name: "BluetoothTestConfigTemplate",
     srcs: [
         "AndroidTestTemplate.xml",
     ],
+}
+
+filegroup {
+    name: "BluetoothGTestForce32ConfigTemplate",
+    srcs: [
+        "AndroidGTestForce32Template.xml",
+    ],
+}
+
+// Address Sanitizer is flaky on Android x86_64 binaries but it's not on x86
+// binaries.
+// This default workaround the x86_64 ASAN flakyness by running 32bit binaries
+// on 64bit targets.
+// TODO(b/154347133): Remove this workaround
+cc_defaults {
+    name: "bluetooth_gtest_x86_asan_workaround",
+    target: {
+        android_x86: {
+            test_config_template: ":BluetoothGTestForce32ConfigTemplate",
+        },
+        android_x86_64: {
+            enabled: false,
+        },
+    },
 }

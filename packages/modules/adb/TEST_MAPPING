@@ -33,10 +33,16 @@
       "name": "adb_tls_connection_test"
     },
     {
+      "name": "FastDeployTests"
+    },
+    {
+      "name": "FastDeployHostTests"
+    },
+    {
       "name": "MicrodroidHostTestCases"
     }
   ],
-  "hwasan-postsubmit": [
+  "hwasan-presubmit": [
     {
       "name": "adbd_test"
     },

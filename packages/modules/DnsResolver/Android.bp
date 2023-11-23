@@ -53,7 +53,7 @@ cc_library_headers {
     ],
 }
 
-dnsresolver_aidl_interface_lateststable_version = "V10"
+dnsresolver_aidl_interface_lateststable_version = "V11"
 
 cc_library_static {
     name: "dnsresolver_aidl_interface-lateststable-ndk",
@@ -107,6 +107,7 @@ aidl_interface {
         "8",
         "9",
         "10",
+        "11",
     ],
     dumpapi: {
         no_license: true,
@@ -148,6 +149,34 @@ cc_defaults {
             suffix: "64",
         },
     },
+    // 'resolv_test_config_template' used DisableConfigSyncTargetPreparer provided
+    // by net-tests-utils-host-common; adding it to make the host jar available
+    // after the build process.
+    host_required: [
+        "net-tests-utils-host-common",
+    ]
+}
+
+cc_defaults {
+    // Similar to resolv_test_mts_coverage_defaults, but it's for the tests that don't need
+    // root access.
+    name: "resolv_test_mts_coverage_without_root_defaults",
+    test_config_template: ":resolv_test_config_without_root_template",
+    compile_multilib: "both",
+    multilib: {
+        lib32: {
+            suffix: "32",
+        },
+        lib64: {
+            suffix: "64",
+        },
+    },
+    // 'resolv_test_config_without_root_template' used DisableConfigSyncTargetPreparer
+    // provided by net-tests-utils-host-common; adding it to make the host jar available
+    // after the build process.
+    host_required: [
+        "net-tests-utils-host-common",
+    ]
 }
 
 cc_library {
@@ -301,16 +330,16 @@ cc_library_static {
 }
 
 filegroup {
-    name: "resolv_rust_test_config_template",
+    name: "resolv_test_config_template",
     srcs: [
-        "resolv_rust_test_config_template.xml",
+        "resolv_test_config_template.xml",
     ],
 }
 
 filegroup {
-    name: "resolv_test_config_template",
+    name: "resolv_test_config_without_root_template",
     srcs: [
-        "resolv_test_config_template.xml",
+        "resolv_test_config_without_root_template.xml",
     ],
 }
 
@@ -366,9 +395,6 @@ rust_test {
     edition: "2018",
     test_suites: ["general-tests"],
     auto_gen_config: true,
-    // Used to enable root permission for the test.
-    // TODO: remove after 'require_root' is supported in rust_test.
-    test_config_template: ":resolv_rust_test_config_template",
     rustlibs: doh_rust_deps + ["libquiche_static"],
     min_sdk_version: "29",
 }
@@ -390,4 +416,32 @@ rust_ffi_static {
         "com.android.resolv",
     ],
     min_sdk_version: "29",
+}
+
+rust_ffi_static {
+    // Combines libdoh_frontend_ffi and libdoh_ffi for fuzzing test.
+    // Includes multiple static rust libraries will cause duplicate symbol error.
+    name: "libdoh_fuzz_ffi",
+    crate_name: "doh_fuzz_ffi",
+    srcs: [
+        "doh/doh_test_superset_for_fuzzer.rs",
+    ],
+    edition: "2018",
+
+    rlibs: [
+        "libandroid_logger",
+        "libanyhow",
+        "libbase64_rust",
+        "libfutures",
+        "liblazy_static",
+        "liblibc",
+        "liblog_rust",
+        "libquiche_static",
+        "libring",
+        "libthiserror",
+        "libtokio",
+        "liburl",
+    ],
+
+    whole_static_libs: ["libunwind"],
 }

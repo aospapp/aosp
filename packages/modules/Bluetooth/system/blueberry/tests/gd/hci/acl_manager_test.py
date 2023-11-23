@@ -18,10 +18,10 @@ from blueberry.tests.gd.cert import gd_base_test
 from blueberry.tests.gd.cert.py_hci import PyHci
 from blueberry.tests.gd.cert.py_acl_manager import PyAclManager
 from blueberry.tests.gd.cert.truth import assertThat
-from bluetooth_packets_python3 import hci_packets
 from datetime import timedelta
 from blueberry.facade.neighbor import facade_pb2 as neighbor_facade
 from mobly import test_runner
+import hci_packets as hci
 
 
 class AclManagerTest(gd_base_test.GdBaseTestClass):
@@ -43,7 +43,7 @@ class AclManagerTest(gd_base_test.GdBaseTestClass):
         self.cert_hci.enable_inquiry_and_page_scan()
         cert_address = self.cert_hci.read_own_address()
 
-        self.dut_acl_manager.initiate_connection(cert_address)
+        self.dut_acl_manager.initiate_connection(repr(cert_address))
         cert_acl = self.cert_hci.accept_connection()
         with self.dut_acl_manager.complete_outgoing_connection() as dut_acl:
             cert_acl.send_first(b'\x26\x00\x07\x00This is just SomeAclData from the Cert')
@@ -77,13 +77,12 @@ class AclManagerTest(gd_base_test.GdBaseTestClass):
         with self.dut_acl_manager.complete_incoming_connection() as dut_acl:
             cert_acl = self.cert_hci.complete_connection()
 
-            cert_acl.send(hci_packets.PacketBoundaryFlag.FIRST_AUTOMATICALLY_FLUSHABLE,
-                          hci_packets.BroadcastFlag.ACTIVE_PERIPHERAL_BROADCAST,
+            cert_acl.send(hci.PacketBoundaryFlag.FIRST_AUTOMATICALLY_FLUSHABLE,
+                          hci.BroadcastFlag.ACTIVE_PERIPHERAL_BROADCAST,
                           b'\x26\x00\x07\x00This is a Broadcast from the Cert')
             assertThat(dut_acl).emitsNone(timeout=timedelta(seconds=0.5))
 
-            cert_acl.send(hci_packets.PacketBoundaryFlag.FIRST_AUTOMATICALLY_FLUSHABLE,
-                          hci_packets.BroadcastFlag.POINT_TO_POINT,
+            cert_acl.send(hci.PacketBoundaryFlag.FIRST_AUTOMATICALLY_FLUSHABLE, hci.BroadcastFlag.POINT_TO_POINT,
                           b'\x26\x00\x07\x00This is just SomeAclData from the Cert')
             assertThat(dut_acl).emits(lambda packet: b'SomeAclData' in packet.payload)
 
@@ -103,14 +102,14 @@ class AclManagerTest(gd_base_test.GdBaseTestClass):
             assertThat(cert_acl).emits(lambda packet: b'SomeMoreAclData' in packet.payload)
             assertThat(dut_acl).emits(lambda packet: b'SomeAclData' in packet.payload)
 
-            dut_acl.disconnect(hci_packets.DisconnectReason.REMOTE_USER_TERMINATED_CONNECTION)
+            dut_acl.disconnect(hci.DisconnectReason.REMOTE_USER_TERMINATED_CONNECTION)
             dut_acl.wait_for_disconnection_complete()
 
     def test_recombination_l2cap_packet(self):
         self.cert_hci.enable_inquiry_and_page_scan()
         cert_address = self.cert_hci.read_own_address()
 
-        self.dut_acl_manager.initiate_connection(cert_address)
+        self.dut_acl_manager.initiate_connection(repr(cert_address))
         cert_acl = self.cert_hci.accept_connection()
         with self.dut_acl_manager.complete_outgoing_connection() as dut_acl:
             cert_acl.send_first(b'\x06\x00\x07\x00Hello')

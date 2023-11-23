@@ -68,6 +68,8 @@ public class CanvasView extends View {
                 upTouch();
                 invalidate();
                 break;
+            default:
+                // No op.
         }
         return true;
     }

@@ -65,6 +65,11 @@ aidl_interface {
             version: "1",
             imports: ["android.automotive.watchdog-V3"],
         },
-    ],
+        {
+            version: "2",
+            imports: ["android.automotive.watchdog-V3"],
+        },
 
+    ],
+    owner: "google",
 }

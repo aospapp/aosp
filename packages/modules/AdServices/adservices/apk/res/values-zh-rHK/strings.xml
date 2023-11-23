@@ -1,0 +1,680 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--  Copyright (C) 2022 The Android Open Source Project
+
+     Licensed under the Apache License, Version 2.0 (the "License");
+     you may not use this file except in compliance with the License.
+     You may obtain a copy of the License at
+
+          http://www.apache.org/licenses/LICENSE-2.0
+
+     Unless required by applicable law or agreed to in writing, software
+     distributed under the License is distributed on an "AS IS" BASIS,
+     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+     See the License for the specific language governing permissions and
+     limitations under the License.
+ -->
+
+<!--  IMPORTANT! If adding new strings, then run generate_adservices_public_xml.py  -->
+
+<resources xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+    <string name="permlab_accessAdServicesTopics" msgid="1108993892369517728">"存取 AdServices Topics API"</string>
+    <string name="permdesc_accessAdServicesTopics" msgid="4220466427260104683">"允許應用程式存取 AdServices Topics API。"</string>
+    <string name="permlab_accessAdServicesAttribution" msgid="4498132091418336093">"存取 AdServices Attribution API"</string>
+    <string name="permdesc_accessAdServicesAttribution" msgid="1644434244130657749">"允許應用程式存取 AdServices Attribution API。"</string>
+    <string name="permlab_accessAdServicesCustomAudience" msgid="2766614780488510189">"存取 AdServices Custom Audience API"</string>
+    <string name="permdesc_accessAdServicesCustomAudience" msgid="2034811807106784662">"允許應用程式存取 AdServices Custom Audience API。"</string>
+    <string name="permlab_accessAdServicesAdId" msgid="2754825914769538156">"廣告 ID API 存取權"</string>
+    <string name="permdesc_accessAdServicesAdId" msgid="7717770480967762044">"允許應用程式存取廣告 ID API。"</string>
+    <string name="permlab_accessAdServicesConsent" msgid="3203633397142568707">"存取 AdServices Consent API"</string>
+    <string name="permdesc_accessAdServicesConsent" msgid="8440334072391708453">"允許應用程式存取 AdServices Topics API。"</string>
+    <string name="permlab_adServicesAccessAdId" msgid="1425385999072194463">"存取廣告 ID API"</string>
+    <string name="permdesc_adServicesAccessAdId" msgid="5082994464565978279">"允許應用程式存取廣告 ID API。"</string>
+    <string name="permlab_adServicesAccessAppSetId" msgid="1300149048751231124">"存取應用程式組合 ID API"</string>
+    <string name="permdesc_adServicesAccessAppSetId" msgid="7919418391145455372">"允許應用程式存取應用程式組合 ID API。"</string>
+    <string name="permlab_adServicesAccessConsentService" msgid="5994709782267864205">"Consent Service API 的存取權"</string>
+    <string name="permdesc_adServicesAccessConsentService" msgid="4587727715580124241">"允許應用程式存取 Consent Service API。"</string>
+    <string name="permlab_modifyAdServicesState" msgid="3594653261299518914">"AdService 啟用狀態修改 API 的存取權"</string>
+    <string name="permdesc_modifyAdServicesState" msgid="2485849128464307209">"允許應用程式存取 AdService 啟用狀態修改 API。"</string>
+    <string name="permlab_accessAdServicesState" msgid="482058883975394398">"AdService 啟用狀態 API 的存取權"</string>
+    <string name="permdesc_accessAdServicesState" msgid="1165015604618567202">"允許應用程式存取 AdService 啟用狀態 API。"</string>
+    <string name="permlab_accessAdServicesManager" msgid="4816332609066703740">"AdServicesManager 的 API 存取權"</string>
+    <string name="permdesc_accessAdServicesManager" msgid="2619300431637689524">"允許應用程式存取 AdServicesManager 的 API。"</string>
+    <string name="app_label" msgid="5985320129629013968">"Android 系統"</string>
+    <string name="notificationUI_notification_title_eu" msgid="6328781145332100489">"加入 Android 廣告私隱權 Beta 版本測試計劃"</string>
+    <string name="notificationUI_notification_content_eu" msgid="4119222762583017840">"Android 不斷探索如何透過更能保護私隱的方式，讓應用程式向你顯示廣告"</string>
+    <string name="notificationUI_notification_cta_eu" msgid="1294908454704864207">"瞭解詳情"</string>
+    <string name="notificationUI_header_title_eu" msgid="4955298263079910371">"Android 廣告私隱權 Beta 版本"</string>
+    <string name="notificationUI_container1_title_eu" msgid="8315199862119660570">"新功能"</string>
+    <string name="notificationUI_container1_body_text_eu" msgid="1700290522706948241">"私隱沙箱新的私隱功能允許應用程式向你顯示相關的廣告，但會針對你在其他開發人員網站和應用程式內的活動相關資料，限制這些應用程式可以取得的資料。"</string>
+    <string name="notificationUI_container1_control_text_eu" msgid="3158258148321255153">"運作方式"</string>
+    <string name="notificationUI_container2_title_eu" msgid="7198761373796187596">"參與計劃方式"</string>
+    <string name="notificationUI_container2_body_text_eu" msgid="5763735880112009239">"開啟 Beta 版本後，應用程式就可測試這些更能保護私隱的新方式，向你顯示廣告。你可隨時在私隱權設定中停用 Beta 版本。"</string>
+    <string name="notificationUI_left_control_button_text_eu" msgid="3573715612232957187">"不用了，謝謝"</string>
+    <string name="notificationUI_right_control_button_text_eu" msgid="8484787286437052150">"開啟"</string>
+    <string name="notificationUI_more_button_text" msgid="8861584693765844519">"更多內容"</string>
+    <string name="notificationUI_confirmation_accept_title" msgid="3178322390976087463">"感謝你的參與"</string>
+    <string name="notificationUI_confirmation_accept_subtitle" msgid="6980730715078085252">"你已加入 Android 廣告私隱權 Beta 版本計劃。你的裝置已啟用私隱沙箱。\n\n你可隨時在私隱權設定中瞭解詳情或停用 Beta 版本。"</string>
+    <string name="notificationUI_confirmation_decline_title" msgid="6453417169877486440">"你已選擇不參與"</string>
+    <string name="notificationUI_confirmation_decline_subtitle" msgid="4194388733937808440">"感謝你的回覆。你的裝置已停用私隱沙箱。\n\n如果你改變主意或希望瞭解詳情，請前往私隱權設定。"</string>
+    <string name="notificationUI_confirmation_left_control_button_text" msgid="7459283556129950513">"私隱權設定"</string>
+    <string name="notificationUI_confirmation_right_control_button_text" msgid="1390803936115621269">"知道了"</string>
+    <string name="notificationUI_container2_title" msgid="3844342008598264655">"你已加入 Beta 版本測試計劃"</string>
+    <string name="notificationUI_container2_body_text" msgid="758560159693325060">"你的裝置已啟用私隱沙箱，因此應用程式可測試這些更能保護私隱的新方式，向你顯示廣告。你可隨時在私隱權設定中停用 Beta 版本。"</string>
+    <string name="notificationUI_right_control_button_text" msgid="4418849554981401536">"知道了"</string>
+    <string name="notificationUI_how_it_works_expanded_text1" msgid="5567641119079971239">"Android 私隱沙箱提供全新功能，讓應用程式可向你顯示可能感興趣的廣告。這些技術不會使用裝置識別碼。\n\nAndroid 和應用程式可推測你可能感興趣的廣告類型，並在裝置上暫時儲存興趣。這允許應用程式向你顯示可能感興趣的廣告，但不會追蹤你在其他開發人員的網站和應用程式內的活動。"</string>
+    <string name="notificationUI_how_it_works_expanded_text2" msgid="6676443093692450581">"透過私隱沙箱進行廣告個人化設定"</string>
+    <string name="notificationUI_how_it_works_expanded_text3" msgid="603165966360369018">"•  Android 推測的興趣"</string>
+    <string name="notificationUI_how_it_works_expanded_text4" msgid="3910573920883580609">"Android 會定期根據你所用的應用程式推測你最感興趣的類別，例如「運動」或「旅遊」。\n\n然後，應用程式可要求 Android 運用這些興趣向你顯示更相關的廣告。\n\n你可在私隱權設定中查看目前的興趣清單，並封鎖任何不喜歡的項目。"</string>
+    <string name="notificationUI_how_it_works_expanded_text5" msgid="7257714040472055781">"•  應用程式推測的興趣"</string>
+    <string name="notificationUI_how_it_works_expanded_text6" msgid="2949292580123453023">"應用程式可推測你的興趣，並暫時儲存在 Android 系統中。例如，你用於購買跑鞋的應用程式可能會估計你的興趣是「跑馬拉松」。\n\n然後，另一個應用程式可根據這項興趣向你顯示與馬拉松相關的廣告。\n\n你可在私隱權設定中管理已儲存興趣的應用程式清單。"</string>
+    <string name="notificationUI_notification_ga_title" msgid="7090667803616048587">"全新廣告私隱權功能"</string>
+    <string name="notificationUI_notification_ga_content" msgid="3483979694272908942">"利用廣告主題和全新控制項，進一步控制向你顯示的廣告"</string>
+    <string name="notificationUI_header_ga_title" msgid="3557937325021173836">"新廣告私隱功能現已推出"</string>
+    <string name="notificationUI_container2_ga_introduction" msgid="2201578950159210581">"Android 會根據你最近使用過的應用程式，記住你感興趣的主題。此外，你使用的應用程式可判斷你喜歡的內容，並稍後要求你提供這些資料，以便向你顯示個人化廣告。你可選擇系統根據哪些主題和應用程式顯示廣告。"</string>
+    <string name="notificationUI_container3_ga_introduction" msgid="4247237824558927582">"為評估廣告成效，應用程式之間會分享特定類型的資料。"</string>
+    <string name="notificationUI_ga_container1_control_text" msgid="2711321174550177509">"進一步瞭解 Android 上的廣告"</string>
+    <string name="notificationUI_how_it_works_row_subtitle1" msgid="8685034725335826096">"更實用的廣告"</string>
+    <string name="notificationUI_how_it_works_row_body1" msgid="5865369599951938718">"應用程式可要求 Android 提供資料，以便向你顯示個人化廣告。"</string>
+    <string name="notificationUI_how_it_works_row_body2" msgid="6601773212442110369">"•  Android 會根據你最近使用過的應用程式，記住你感興趣的主題。"</string>
+    <string name="notificationUI_how_it_works_row_body3" msgid="3692457397642529055">"•  你使用的應用程式亦可根據你的使用方式判斷你喜歡的內容。例如，如果你使用售賣長跑運動鞋的應用程式，該應用程式可能會判斷你有興趣參加馬拉松。"</string>
+    <string name="notificationUI_how_it_works_row_body4" msgid="8731138074016839243">"你日後使用的應用程式可要求取得此資料，包括廣告主題或你使用過的應用程式的廣告建議。"</string>
+    <string name="notificationUI_how_it_works_row_body5" msgid="4524382869577899661">"Android 會定期自動刪除主題和應用程式建議的資料。你亦可封鎖你不希望建議廣告的特定主題和應用程式。"</string>
+    <string name="notificationUI_how_it_works_subtitle2" msgid="2203542887026049927">"評估廣告成效"</string>
+    <string name="notificationUI_how_it_works_row_body6" msgid="5368364880910986588">"你使用的應用程式可要求 Android 提供資料，以協助評估廣告成效。Android 只允許應用程式收集特定類型的資料，例如在一天中向使用者放送廣告的時段。"</string>
+    <string name="notificationUI_notification_ga_title_eu" msgid="5803977334621918481">"試用全新廣告私隱權功能"</string>
+    <string name="notificationUI_notification_ga_content_eu" msgid="8430705356085726474">"利用廣告主題進一步控制向你顯示的廣告"</string>
+    <string name="notificationUI_notification_ga_cta_eu" msgid="8494461862622985200">"查看詳情"</string>
+    <string name="notificationUI_header_ga_title_eu" msgid="6246782633712559485">"試用全新廣告私隱功能"</string>
+    <string name="notificationUI_container1_body_ga_text_eu" msgid="2461669162863900717">"Android 將推出全新私隱功能，讓你更能掌握自己看到的廣告。"</string>
+    <string name="notificationUI_container2_body_ga_text_eu" msgid="1692066129509373924">"廣告主題可協助應用程式向你顯示相關廣告，並同時保護你的身分，以及與應用程式使用情況相關的資料。Android 可根據你最近使用過的應用程式，記下你感興趣的主題。你日後使用的應用程式可向 Android 要求相關主題資料，以便向你顯示個人化廣告。"</string>
+    <string name="notificationUI_container3_body_ga_text_eu" msgid="5992069735281496875">"你可在裝置設定中查看廣告主題，並封鎖不希望與應用程式分享的廣告主題。Android 亦會定期自動刪除廣告主題。"</string>
+    <string name="notificationUI_change_any_time_in_privacy_settings_eu" msgid="2908767337419331427">"如果你改變主意，可隨時前往「私隱權設定」作出變更。"</string>
+    <string name="notificationUI_container1_control_ga_text_eu" msgid="4496835418228234590">"進一步瞭解廣告主題"</string>
+    <string name="notificationUI_learn_more_from_privacy_policy" msgid="7809111628979410445">"請查看"<a href="https://policies.google.com/privacy">"《私隱權政策》"</a>"，進一步瞭解 Android 如何保護你的資料。"</string>
+    <string name="notificationUI_right_control_button_ga_text_eu" msgid="7164165910760741822">"立即試用"</string>
+    <string name="notificationUI_how_it_works_topics_expanded_text3" msgid="5620813445262745365">"•  系統會使用哪些資料"</string>
+    <string name="notificationUI_how_it_works_topics_expanded_text4" msgid="398508225331553559">"系統會根據你最近在此裝置上使用的應用程式，以及應用程式的使用頻率顯示廣告主題。"</string>
+    <string name="notificationUI_how_it_works_topics_expanded_text5" msgid="5976468008939416198">"•  我們會如何使用這些資料"</string>
+    <string name="notificationUI_how_it_works_topics_expanded_text6" msgid="6318275524155409408">"Android 會在你使用應用程式時記錄你感興趣的主題。系統會預先定義主題標籤，包括「藝術與娛樂」、「購物」和「運動」等。你日後使用的應用程式可要求 Android 提供一些主題 (而非應用程式使用情況或身分資料)，以便向你顯示個人化廣告。"</string>
+    <string name="notificationUI_how_it_works_topics_expanded_text7" msgid="4275126336833782389">"•  如何管理自己的資料"</string>
+    <string name="notificationUI_how_it_works_topics_expanded_text8" msgid="2797007387412839612">"Android 會定期自動刪除主題。隨著你持續使用應用程式，清單可能會再次出現特定主題。此外，你亦可隨時前往「私隱權設定」封鎖不希望 Android 與應用程式分享的主題，以及關閉廣告主題。"</string>
+    <string name="notificationUI_you_can_change_in_privacy_settings" msgid="4781410091509838647">"你可前往「私隱權設定」作出變更。"</string>
+    <string name="notificationUI_fledge_measurement_title" msgid="1721724915714192994">"其他廣告私隱功能現已推出"</string>
+    <string name="notificationUI_fledge_measurement_introduction_text1" msgid="2217529852483952185">"Android 亦提供新方法，限制應用程式在顯示個人化廣告時取得的個人資料。"</string>
+    <string name="notificationUI_fledge_measurement_introduction_text2" msgid="601600895880486962">"•  應用程式建議的廣告有助保護你的身分和與應用程式使用情況相關的資料，同時可讓應用程式向你顯示相關廣告。你使用的應用程式可根據你的活動，在其他應用程式中建議相關廣告。你可前往「私隱權設定」查看這些應用程式的清單，並封鎖你不希望建議廣告的應用程式。"</string>
+    <string name="notificationUI_fledge_measurement_introduction_text3" msgid="956235653060248351">"•  廣告評估功能讓各應用程式只可分享特定類型的資料，以評估廣告成效，例如一天中向使用者放送廣告的時段。"</string>
+    <string name="notificationUI_fledge_measurement_control_ga_text_eu" msgid="2346851728118443500">"進一步瞭解應用程式建議廣告和廣告評估"</string>
+    <string name="notificationUI_how_it_works_fledge_measurement_expanded_text0" msgid="2456923104551938349">"應用程式建議的廣告"</string>
+    <string name="notificationUI_how_it_works_fledge_measurement_expanded_text1" msgid="5606895535548790900">"•  系統會使用什麼資料"</string>
+    <string name="notificationUI_how_it_works_fledge_measurement_expanded_text2" msgid="6309052819494439288">"你在此裝置上使用某個應用程式時的活動。"</string>
+    <string name="notificationUI_how_it_works_fledge_measurement_expanded_text3" msgid="5347980571056638783">"•  應用程式會如何使用這些資料"</string>
+    <string name="notificationUI_how_it_works_fledge_measurement_expanded_text4" msgid="4738335469671465639">"應用程式可將你喜歡的內容相關資料儲存在 Android 中。例如，如果你使用關於馬拉松訓練的應用程式，該應用程式便可能會判斷你對跑步鞋有興趣。如果你日後使用其他應用程式，該應用程式就可以根據第一個應用程式建議的感興趣項目，向你顯示跑步鞋廣告。"</string>
+    <string name="notificationUI_how_it_works_fledge_measurement_expanded_text5" msgid="8737925570089314631">"•  你可如何管理資料"</string>
+    <string name="notificationUI_how_it_works_fledge_measurement_expanded_text6" msgid="495908587748380196">"Android 會定期自動刪除應用程式建議的資料。你再次使用應用程式可能會再次在清單中顯示。"</string>
+    <string name="notificationUI_how_it_works_fledge_measurement_expanded_text7" msgid="8995912218837619600">"你亦可隨時前往私隱權設定，禁止某個應用程式建議廣告、重設所有廣告建議資料，或關閉應用程式建議廣告設定。"</string>
+    <string name="notificationUI_how_it_works_fledge_measurement_expanded_text9" msgid="5709134827192739362">"你使用的應用程式可要求 Android 提供相關資料，協助應用程式評估廣告成效。為保護你的私隱，Android 會限制應用程式之間可以分享的資料。"</string>
+    <string name="notificationUI_notification_ga_title_eu_v2" msgid="9132669086237883391">"新廣告私隱功能現已推出"</string>
+    <string name="notificationUI_notification_ga_content_eu_v2" msgid="9205285241542339861">"更全面掌握看到的廣告，並保護自己的身分"</string>
+    <string name="notificationUI_fledge_measurement_title_v2" msgid="1097778529908285549">"新廣告私隱功能現已推出"</string>
+    <string name="notificationUI_fledge_measurement_introduction_text1_v2" msgid="4019531984422364790">"Android 推出新方法，限制應用程式在顯示個人化廣告時取得的個人資料。"</string>
+    <string name="notificationUI_fledge_measurement_introduction_text2_v2" msgid="7324869061552803848">"•  應用程式建議的廣告可讓應用程式向你顯示相關廣告，並同時保護你的身分，以及與應用程式使用情況相關的資料。你使用的應用程式可根據你的活動，在其他應用程式中建議相關廣告。你可在私隱權設定中查看應用程式清單，並封鎖不希望建議廣告的應用程式。"</string>
+    <string name="notificationUI_fledge_measurement_introduction_text3_v2" msgid="7061185974787039681">"•  廣告評估功能讓各個應用程式分享特定類型的資料 (例如一天中向使用者放送廣告的時段)，以瞭解廣告成效。"</string>
+    <string name="notificationUI_how_it_works_fledge_measurement_expanded_text2_v2" msgid="5467298277353569728">"系統可根據你在此裝置上使用某應用程式時的活動建議廣告。"</string>
+    <string name="notificationUI_header_ga_title_eu_v2" msgid="8442776546238998877">"開啟其他廣告私隱功能"</string>
+    <string name="notificationUI_container1_body_ga_text_eu_v2" msgid="1119632112904754361">"Android 亦提供全新私隱功能，讓你更全面掌握看到的廣告。"</string>
+    <string name="notificationUI_container2_body_ga_text_eu_v2" msgid="7264946073865844642">"廣告主題協助應用程式向你顯示相關廣告，並同時保護你的身分，以及與應用程式使用情況相關的資料。Android 可根據你最近使用過的應用程式，得知你感興趣的主題。你日後使用的應用程式可要求 Android 提供相關主題，以向你顯示更相關的廣告。"</string>
+    <string name="notificationUI_container3_body_ga_text_eu_v2" msgid="3204499878554843655">"你可在私隱權設定中查看廣告主題，並封鎖不希望與應用程式分享的廣告主題。Android 亦會定期自動刪除廣告主題。"</string>
+    <string name="notificationUI_right_control_button_ga_text_eu_v2" msgid="7227289411885047121">"開啟"</string>
+    <string name="notificationUI_notification_ga_title_v2" msgid="7429979629916798545">"新廣告私隱功能現已推出"</string>
+    <string name="notificationUI_notification_ga_content_v2" msgid="4673081782304081905">"現在你可更全面掌握看到的廣告，並保護自己的身分"</string>
+    <string name="notificationUI_header_ga_title_v2" msgid="2079990149331373941">"新廣告私隱功能現已推出"</string>
+    <string name="notificationUI_container1_ga_introduction_v2" msgid="3820258766801905248">"Android 現提供全新私隱功能，讓你更全面掌握看到的廣告。"</string>
+    <string name="notificationUI_next_button_text" msgid="5564270455474313663">"繼續"</string>
+    <string name="settingsUI_main_view_title" msgid="1663691082473230496">"私隱沙箱"</string>
+    <string name="settingsUI_main_view_subtitle" msgid="2059496555507319371">"加入 Android 廣告私隱權 Beta 版本測試計劃"</string>
+    <string name="settingsUI_privacy_sandbox_beta_switch_title" msgid="5264782269528129670">"私隱沙箱"</string>
+    <string name="settingsUI_topics_title" msgid="5996189869721397937">"Android 推測的興趣"</string>
+    <string name="settingsUI_apps_title" msgid="2772289096915264175">"會推測興趣的應用程式"</string>
+    <string name="settingsUI_main_view_info_text8" msgid="2262800588014737545">"廣告評估功能"</string>
+    <string name="settingsUI_main_view_info_text9" msgid="5431131706102562540">"應用程式可使用私隱沙箱評估廣告成效。為此，廣告客戶可透過 Android 暫時儲存你與其廣告和應用程式之間互動的資料。他們可儲存的資料量有限，且會定期刪除。\n\n你可隨時停用私隱沙箱以刪除這些資料。"</string>
+    <string name="settingsUI_topics_view_subtitle" msgid="6608135144119617292">"Android 會定期根據你所用的應用程式，推測你最感興趣的類別。應用程式可要求 Android 運用那些興趣，向你顯示更相關的廣告。\n\n如果你封鎖某個興趣，清單就不會再顯示該興趣，直至你解除封鎖為止。你可能仍會看到部分相關的廣告。"</string>
+    <string name="settingsUI_block_topic_title" msgid="1883542291264768402">"封鎖"</string>
+    <string name="settingsUI_unblock_topic_title" msgid="1710283575567727667">"解除封鎖"</string>
+    <string name="settingsUI_blocked_topics_title" msgid="5030422883546261820">"你已封鎖的興趣"</string>
+    <string name="settingsUI_reset_topics_title" msgid="6917960006583871987">"重設所有興趣"</string>
+    <string name="settingsUI_topics_view_no_topics_text" msgid="6954747579303498382">"目前沒有可顯示的興趣。"</string>
+    <string name="settingsUI_topics_view_no_topics_ga_text" msgid="8043163159679359485">"目前沒有可顯示的應用程式。\n進一步瞭解"<a href="https://support.google.com/android?p=ad_privacy">"廣告主題"</a></string>
+    <string name="settingsUI_topics_view_info_text1" msgid="2477020249748216309">"私隱沙箱"</string>
+    <string name="settingsUI_topics_view_info_text2" msgid="6223353589295876851">"Android 廣告私隱權 Beta 版本提供全新功能，讓應用程式可向你顯示可能感興趣的廣告。這些技術不會使用裝置識別碼。\n\n推測你可能感興趣的廣告類別，並在裝置上暫時儲存興趣。這允許應用程式向你顯示相關的廣告，但不會追蹤你在其他開發人員的網站和應用程式內的活動。"</string>
+    <string name="settingsUI_topics_view_no_blocked_topics_text" msgid="6553014185055718781">"你沒有封鎖任何興趣"</string>
+    <string name="settingsUI_no_blocked_topics_ga_text" msgid="377459829879121256">"沒有封鎖任何主題"</string>
+    <string name="settingsUI_view_blocked_topics_title" msgid="3705333677440361392">"查看已封鎖的主題"</string>
+    <string name="settingsUI_topics_are_reset" msgid="7539323750312329931">"興趣已重設"</string>
+    <string name="settingsUI_topics_are_reset_ga" msgid="5250296990870048195">"已重設主題"</string>
+    <string name="settingsUI_apps_view_subtitle" msgid="8193343057416677400">"應用程式可推測你的興趣，並暫時儲存在 Android 系統中。然後，另一個應用程式可根據這些興趣向你顯示廣告。\n\n如果你封鎖某個應用程式，該應用程式就不會再推測其他興趣。除非你解除封鎖，否則該應用程式不會再加入此應用程式清單。系統會刪除應用程式之前推測的興趣，但你仍可能看到部分相關的廣告。"</string>
+    <string name="settingsUI_blocked_apps_title" msgid="1260257485713408637">"你已封鎖的應用程式"</string>
+    <string name="settingsUI_view_blocked_apps_title" msgid="379556513199380600">"查看已封鎖的應用程式"</string>
+    <string name="settingsUI_reset_apps_title" msgid="6221704974528131179">"重設應用程式推測的興趣"</string>
+    <string name="settingsUI_apps_view_no_apps_text" msgid="7460005016322426137">"目前沒有任何應用程式推測你的興趣"</string>
+    <string name="settingsUI_apps_view_no_apps_ga_text" msgid="742044210764257860">"目前沒有可顯示的應用程式。\n進一步瞭解"<a href="https://support.google.com/android?p=ad_privacy">"應用程式建議廣告"</a></string>
+    <string name="settingsUI_apps_view_info_text1" msgid="7835635425477842692">"私隱沙箱"</string>
+    <string name="settingsUI_apps_view_info_text2" msgid="308547275474796552">"Android 廣告私隱權 Beta 版本提供全新功能，讓應用程式可向你顯示可能感興趣的廣告。這些技術不會使用裝置識別碼。\n\n應用程式可推測你可能感興趣的廣告類別，並在裝置上暫時儲存興趣。這允許應用程式向你顯示相關的廣告，但不會追蹤你在其他開發人員的網站和應用程式內的活動。"</string>
+    <string name="settingsUI_apps_view_no_blocked_apps_text" msgid="3953560911214151396">"你沒有封鎖任何應用程式"</string>
+    <string name="settingsUI_no_blocked_apps_ga_text" msgid="7488680173653861943">"沒有封鎖任何應用程式"</string>
+    <string name="settingsUI_measurement_switch_title" msgid="6623116680555954932">"允許廣告評估功能"</string>
+    <string name="settingsUI_measurement_view_intro_text" msgid="3608942051176719850">"應用程式和廣告客戶可要求 Android 提供資料，協助評估廣告成效。\n\n廣告評估資料會定期從你的裝置中刪除。"</string>
+    <string name="settingsUI_measurement_view_reset_title" msgid="3063374834649428050">"重設評估資料"</string>
+    <string name="settingsUI_measurement_view_footer_text" msgid="5978750159738729308">"Android 限制應用程式之間可分享的資料，從而保護你的私隱。系統會延遲傳送報告，從而保護你的身分。\n\n你的瀏覽器可能會有類似的設定。如果 Android 和瀏覽器都開啟了廣告評估設定，廣告商或許能在你使用的應用程式和瀏覽的網站上評估廣告成效。你的瀏覽記錄會保留在裝置上，絕不會外洩。\n\n請查看"<a href="https://policies.google.com/privacy">"《私隱權政策》"</a>"，進一步瞭解 Android 如何保護你的資料。"</string>
+    <string name="settingsUI_measurement_are_reset" msgid="4375330550418573499">"廣告評估資料已重設"</string>
+    <string name="settingsUI_dialog_negative_text" msgid="3014088254631375852">"取消"</string>
+    <string name="settingsUI_dialog_opt_out_title" msgid="1862069591629418291">"要關閉私隱沙箱嗎？"</string>
+    <string name="settingsUI_dialog_opt_out_message" msgid="5696012172835241848">"如果你改變主意或希望瞭解 Android 廣告私隱權 Beta 版本，請前往私隱權設定。"</string>
+    <string name="settingsUI_dialog_opt_out_positive_text" msgid="5344259263448028614">"關閉"</string>
+    <string name="settingsUI_dialog_block_topic_title" msgid="5744004384480280782">"要封鎖「<xliff:g id="TOPIC">%1$s</xliff:g>」嗎？"</string>
+    <string name="settingsUI_dialog_block_topic_message" msgid="2581824495438333677">"此主題將被封鎖且不會再加入清單，直至你重新加回。你仍可能會看到相關廣告。"</string>
+    <string name="settingsUI_dialog_block_topic_positive_text" msgid="2626152417590300510">"封鎖"</string>
+    <string name="settingsUI_dialog_unblock_topic_title" msgid="7361000923920947234">"已解除封鎖「<xliff:g id="TOPIC">%1$s</xliff:g>」"</string>
+    <string name="settingsUI_dialog_unblock_topic_message" msgid="1090743551997420666">"Android 可能會再將此主題加入清單，但未必立即顯示"</string>
+    <string name="settingsUI_dialog_unblock_topic_positive_text" msgid="2192452325573789737">"確定"</string>
+    <string name="settingsUI_dialog_reset_topic_title" msgid="8025836207966712435">"要重設所有廣告主題嗎？"</string>
+    <string name="settingsUI_dialog_reset_topic_message" msgid="4243744527757134000">"系統將清空清單，並在日後加入新主題。你可能仍會看到部分與你已重設主題相關的廣告。"</string>
+    <string name="settingsUI_dialog_reset_topic_positive_text" msgid="8345697359799280761">"重設"</string>
+    <string name="settingsUI_dialog_block_app_title" msgid="421160714549264414">"要封鎖「<xliff:g id="APP">%1$s</xliff:g>」嗎？"</string>
+    <string name="settingsUI_dialog_block_app_message" msgid="758788973278770119">"除非你解除封鎖，否則此應用程式不會建議廣告，且不會再加入清單。你可能仍會看到部分相關的廣告。"</string>
+    <string name="settingsUI_dialog_unblock_app_title" msgid="4360730780049298286">"已解除封鎖「<xliff:g id="APP">%1$s</xliff:g>」"</string>
+    <string name="settingsUI_dialog_unblock_app_message" msgid="5758218424845642060">"此應用程式可再向你建議廣告，但未必立即在清單上顯示。相關廣告可能需要一段時間後才會顯示。"</string>
+    <string name="settingsUI_dialog_reset_app_title" msgid="5177572712117150557">"要重設應用程式建議的廣告嗎？"</string>
+    <string name="settingsUI_dialog_reset_app_message" msgid="7845329616145691006">"系統將刪除清單上來自應用程式的廣告建議資料，而應用程式之後會建議新的廣告。你可能仍會看到部分相關的廣告。"</string>
+    <string name="settingsUI_apps_are_reset" msgid="1814400631145418530">"應用程式資料已重設"</string>
+    <string name="settingsUI_dialog_topics_opt_in_title" msgid="8121927422479701361">"廣告主題已開啟"</string>
+    <string name="settingsUI_dialog_topics_opt_in_message" msgid="906156509464496182">"Android 會開始記錄感興趣的主題，但可能需要一段時間，才會顯示你的第一個主題。"</string>
+    <string name="settingsUI_dialog_topics_opt_out_title" msgid="729119757000459089">"要關閉廣告主題嗎？"</string>
+    <string name="settingsUI_dialog_topics_opt_out_message" msgid="1536431481297878931">"系統將會刪除此主題清單。Android 不會再記錄感興趣的主題，但你仍可看到相關廣告。"</string>
+    <string name="settingsUI_dialog_apps_opt_in_title" msgid="1802639238531107941">"應用程式建議廣告已開啟"</string>
+    <string name="settingsUI_dialog_apps_opt_in_message" msgid="6335861029594000364">"應用程式可能會開始建議廣告。應用程式開始建議廣告後，就會列在應用程式清單中。"</string>
+    <string name="settingsUI_dialog_apps_opt_out_title" msgid="2152898453001885432">"要關閉應用程式建議廣告嗎？"</string>
+    <string name="settingsUI_dialog_apps_opt_out_message" msgid="6894065908128443334">"系統會刪除所有廣告建議資料。應用程式無法再建議廣告，但你仍可看到相關廣告。"</string>
+    <string name="settingsUI_dialog_measurement_opt_in_title" msgid="313317715284771681">"廣告成效評估已開啟"</string>
+    <string name="settingsUI_dialog_measurement_opt_in_message" msgid="1122570790810645916">"Android 只能將極少量的資訊提供給應用程式，以協助應用程式評估其廣告成效。"</string>
+    <string name="settingsUI_dialog_measurement_opt_out_title" msgid="1629867723206716370">"要關閉廣告成效評估嗎？"</string>
+    <string name="settingsUI_dialog_measurement_opt_out_message" msgid="1050338738668085641">"系統會刪除所有待處理的廣告成效評估報告，不會產生或提供任何新報告。"</string>
+    <string name="settingsUI_main_view_ga_title" msgid="4149820452019697214">"廣告私隱權"</string>
+    <string name="settingsUI_topics_ga_title" msgid="7324482132761824214">"廣告主題"</string>
+    <string name="settingsUI_apps_ga_title" msgid="1527820834800364372">"應用程式建議的廣告"</string>
+    <string name="settingsUI_main_view_ad_topics_info" msgid="2643088833140772417">"Android 會根據你最近使用的應用程式及其使用頻率，記住你感興趣的主題。"</string>
+    <string name="settingsUI_main_view_apps_info" msgid="1668244327840008046">"你使用的應用程式亦可以根據你的使用方式，判斷你喜歡的內容。"</string>
+    <string name="settingsU_main_view_measurement_info" msgid="7950104699961821635">"你使用的應用程式可要求 Android 提供相關資料，協助應用程式評估廣告成效。Android 只允許應用程式收集特定類型的資料。"</string>
+    <string name="settingsU_main_view_learn_more" msgid="2129694798398023916">"進一步瞭解 "<a href="https://support.google.com/android?p=ad_privacy">"Android 上的廣告私隱權"</a></string>
+    <string name="settingsUI_topics_subtitle" msgid="6545976434367750110">"已啟用/<xliff:g id="TOPICS_COUNT">%1$d</xliff:g> 個主題"</string>
+    <string name="settingsUI_topics_subtitle_plural" msgid="4809219115021801972">"{count,plural, =1{已開啟/# 個主題}other{已開啟/# 個主題}}"</string>
+    <string name="settingsUI_apps_subtitle" msgid="387595280958995973">"已啟用/<xliff:g id="APPS_COUNT">%1$d</xliff:g> 個應用程式"</string>
+    <string name="settingsUI_apps_subtitle_plural" msgid="3989880089023565457">"{count,plural, =1{已開啟/# 個應用程式}other{已開啟/# 個應用程式}}"</string>
+    <string name="settingsUI_subtitle_consent_on" msgid="7522464537194619022">"已啟用"</string>
+    <string name="settingsUI_subtitle_consent_off" msgid="1604274030685784887">"已停用"</string>
+    <string name="settingsUI_topics_view_ga_subtitle" msgid="3672784134413586246">"系統根據你最近使用的應用程式來判斷你感興趣的主題，而應用程式會利用這些主題向你顯示個人化廣告。\n\n你可封鎖不希望與應用程式分享的主題。Android 亦會定期自動刪除主題。"</string>
+    <string name="settingsUI_topics_switch_title" msgid="5856255848598189791">"允許廣告主題"</string>
+    <string name="settingsUI_blocked_topics_ga_title" msgid="7163366621282449273">"你已封鎖的廣告主題"</string>
+    <string name="settingsUI_reset_topics_ga_title" msgid="5365554894399951300">"重設所有廣告主題"</string>
+    <string name="settingsU_topics_view_footer" msgid="4769146330248953561">"Android 會根據你過去幾星期使用過的應用程式，記住你感興趣的主題。\n\n你日後使用的應用程式可以要求 Android 提供相關主題，以便向你顯示個人化廣告。Android 最多會分享 3 個主題，並同時保護你的身分，以及與應用程式使用情況相關的資料。\n\nAndroid 會定期自動刪除主題，如果你繼續使用應用程式，特定主題可能會再次顯示在清單中。你亦可封鎖不希望 Android 與應用程式分享的主題。\n\n你在應用程式中看到的廣告可能是個人化廣告，視乎此設定、應用程式建議廣告設定、你的廣告 ID 設定，以及你使用的應用程式是否將廣告個人化而定。"</string>
+    <string name="settingsUI_apps_switch_title" msgid="1308209012769248890">"允許應用程式建議的廣告"</string>
+    <string name="settingsUI_apps_view_ga_subtitle" msgid="1911743837387384160">"你使用的應用程式可判斷你喜歡的內容，然後在其他應用程式中提供廣告建議。\n\n你可禁止應用程式提供廣告建議。Android 亦會定期自動刪除應用程式建議的資料。"</string>
+    <string name="settingsUI_blocked_apps_ga_title" msgid="1896327995101895088">"你已封鎖的應用程式"</string>
+    <string name="settingsUI_reset_apps_ga_title" msgid="371969808353100852">"重設應用程式建議的資料"</string>
+    <string name="settingsUI_apps_view_footer" msgid="6428897482766556515">"你使用的應用程式通常會記住你感興趣的項目，以便為你提供個人化體驗。應用程式亦會儲存你在 Android 中的相關主題資料。\n\n例如，如果你使用關於馬拉松訓練的應用程式，該應用程式便可能會判斷你對跑步鞋有興趣。如果你日後使用其他應用程式，該應用程式就可以根據第一個應用程式建議的感興趣項目，向你顯示跑步鞋廣告。\n\nAndroid 會定期自動刪除應用程式建議的資料。如你再次使用應用程式，該應用程式便可能會再次在清單中顯示。你亦可禁止應用程式為你建議廣告。\n\n你在應用程式中看到的廣告可能是個人化廣告，視乎此設定、廣告主題設定、你的廣告 ID 設定，以及你使用的應用程式是否將廣告個人化而定。"</string>
+    <string name="notificationUI_u18_notification_title" msgid="4880509503177562077">"全新廣告私隱功能現已推出"</string>
+    <string name="notificationUI_u18_notification_content" msgid="6734418183242286936">"應用程式之間只會分享非常有限的資料，以協助應用程式評估廣告成效"</string>
+    <string name="notificationUI_u18_body1" msgid="5384339364319615715">"我們即將推出名為「廣告成效評估」的全新廣告私隱功能。Android 只會在應用程式之間分享非常有限的資料，例如何時放送廣告，為協助應用程式評估廣告成效。"</string>
+    <string name="notificationUI_u18_body3" msgid="4511974346169641579">"你可前往「廣告私隱權設定」作出變更。"</string>
+    <string name="settingsUI_u18_main_view_measurement_info" msgid="1709326915590855853">"你使用的應用程式可要求 Android 提供相關資料，以評估廣告成效。Android 只允許應用程式收集特定類型的資料。"</string>
+    <string name="ic_consent_notification_ga_image_description" msgid="6146488914437778539">"呢張彩色插圖入面嘅符號代表音樂、新聞同體育賽事之類嘅興趣主題"</string>
+    <string name="ic_main_view_ga_image_description" msgid="1846571138870271761">"呢張彩色插圖入面嘅圓圈入面有一個鎖"</string>
+    <string name="ic_placeholder_icon_for_empty_apps_list_description" msgid="8171099879240285360">"呢張細嘅黑白插圖入面有由九個圓點組成嘅正方形"</string>
+    <string name="ic_placeholder_icon_for_empty_topics_list_description" msgid="2112218456926009271">"呢張細嘅黑白插圖入面有心形、三角形同正方形之類嘅簡單圖形"</string>
+    <string name="topic10001" msgid="1636806320891333775">"藝術和娛樂"</string>
+    <string name="topic10002" msgid="1226367977754287428">"表演和戲劇"</string>
+    <string name="topic10003" msgid="6949890838957814881">"動漫和日本漫畫"</string>
+    <string name="topic10004" msgid="5397903150832181233">"卡通"</string>
+    <string name="topic10005" msgid="6316179809581237302">"漫畫"</string>
+    <string name="topic10006" msgid="7442330644172139790">"演唱會和音樂節"</string>
+    <string name="topic10007" msgid="5537896091418145164">"舞蹈"</string>
+    <string name="topic10008" msgid="2737343278307552521">"娛樂業"</string>
+    <string name="topic10009" msgid="3252367380340240453">"有趣小知識"</string>
+    <string name="topic10010" msgid="932301479153552725">"趣味測驗和調查"</string>
+    <string name="topic10011" msgid="3123553390567261985">"幽默"</string>
+    <string name="topic10012" msgid="8756486271154511326">"有趣相片和影片"</string>
+    <string name="topic10013" msgid="1242353161202448753">"實時喜劇"</string>
+    <string name="topic10014" msgid="6086156236112755291">"實時體育活動"</string>
+    <string name="topic10015" msgid="9196350141359833832">"魔術"</string>
+    <string name="topic10016" msgid="202419376638900745">"電影場次和放映時間"</string>
+    <string name="topic10017" msgid="6737229918787540100">"電影"</string>
+    <string name="topic10018" msgid="6823676154109177487">"動作冒險電影"</string>
+    <string name="topic10019" msgid="6875960630918973127">"動畫電影"</string>
+    <string name="topic10020" msgid="4323870300602151489">"喜劇電影"</string>
+    <string name="topic10021" msgid="446758643774468418">"另類和獨立電影"</string>
+    <string name="topic10022" msgid="3671929742155787005">"紀錄片"</string>
+    <string name="topic10023" msgid="3547616830531182863">"劇情電影"</string>
+    <string name="topic10024" msgid="1044853632986202120">"合家歡電影"</string>
+    <string name="topic10025" msgid="5958629223443279316">"恐怖電影"</string>
+    <string name="topic10026" msgid="5685515125614860029">"愛情電影"</string>
+    <string name="topic10027" msgid="8846353713171614854">"驚悚片"</string>
+    <string name="topic10028" msgid="170404703980174756">"音樂和音訊"</string>
+    <string name="topic10029" msgid="4634600135545614665">"藍調音樂"</string>
+    <string name="topic10030" msgid="7226438392540805771">"古典音樂"</string>
+    <string name="topic10031" msgid="1488013446112025676">"鄉村音樂"</string>
+    <string name="topic10032" msgid="9053666244854789632">"舞曲和電子音樂"</string>
+    <string name="topic10033" msgid="440063573197454181">"民謠和傳統音樂"</string>
+    <string name="topic10034" msgid="8296307244554241197">"爵士樂"</string>
+    <string name="topic10035" msgid="9171752741499923310">"音樂串流和下載"</string>
+    <string name="topic10036" msgid="2490236112725457376">"音樂影片"</string>
+    <string name="topic10037" msgid="1923690469725883551">"樂器"</string>
+    <string name="topic10038" msgid="2817492732688549631">"鋼琴和鍵盤樂器"</string>
+    <string name="topic10039" msgid="8970033643570782019">"流行音樂"</string>
+    <string name="topic10040" msgid="7478395512712452137">"電台"</string>
+    <string name="topic10041" msgid="3319379117705411886">"清談電台節目"</string>
+    <string name="topic10042" msgid="8830471038440654640">"饒舌和嘻哈音樂"</string>
+    <string name="topic10043" msgid="8585450284346207691">"搖滾音樂"</string>
+    <string name="topic10044" msgid="3710011249220779842">"經典搖滾和懷舊音樂"</string>
+    <string name="topic10045" msgid="7593443421067822441">"重搖滾和前衛音樂"</string>
+    <string name="topic10046" msgid="8715621227472631784">"獨立和另類音樂"</string>
+    <string name="topic10047" msgid="3518038303049899798">"音訊取樣和音效庫"</string>
+    <string name="topic10048" msgid="3063505369500799094">"騷靈音樂和節奏藍調"</string>
+    <string name="topic10049" msgid="8061992014977840818">"原聲音樂"</string>
+    <string name="topic10050" msgid="3540229495848506229">"世界音樂"</string>
+    <string name="topic10051" msgid="6132468331924347995">"雷鬼和加勒比音樂"</string>
+    <string name="topic10052" msgid="8213269199807045473">"網上圖片庫"</string>
+    <string name="topic10053" msgid="1378192203082454197">"網上影片"</string>
+    <string name="topic10054" msgid="3727401645405134505">"即時影片串流"</string>
+    <string name="topic10055" msgid="4943174831732192854">"電影和電視串流"</string>
+    <string name="topic10056" msgid="3066058636154255073">"歌劇"</string>
+    <string name="topic10057" msgid="387445514677222034">"電視節目表和參考資訊"</string>
+    <string name="topic10058" msgid="9149178644022969766">"電視網絡和電視台"</string>
+    <string name="topic10059" msgid="6300562669238320524">"電視節目"</string>
+    <string name="topic10060" msgid="3901256055064835246">"電視喜劇"</string>
+    <string name="topic10061" msgid="8343924749123326062">"電視紀錄片與紀實"</string>
+    <string name="topic10062" msgid="9183355218976951211">"電視劇"</string>
+    <string name="topic10063" msgid="644340831620792432">"電視肥皂劇"</string>
+    <string name="topic10064" msgid="5961885645457010998">"合家歡電視節目"</string>
+    <string name="topic10065" msgid="7916343612028608044">"電視真人騷"</string>
+    <string name="topic10066" msgid="5984396525358003559">"科幻和奇幻電視節目"</string>
+    <string name="topic10067" msgid="6404637729885733437">"視覺藝術和設計"</string>
+    <string name="topic10068" msgid="4589856961950168493">"設計"</string>
+    <string name="topic10069" msgid="3129378082034151991">"繪畫"</string>
+    <string name="topic10070" msgid="2570256568661324147">"攝影和數碼藝術"</string>
+    <string name="topic10071" msgid="1288722040962471254">"汽車"</string>
+    <string name="topic10072" msgid="9155509766616567261">"貨車和拖車"</string>
+    <string name="topic10073" msgid="3748676231341513738">"古典車"</string>
+    <string name="topic10074" msgid="2040911547161463227">"改裝車和性能車"</string>
+    <string name="topic10075" msgid="1242538698445713796">"氣油價格和汽車燃料"</string>
+    <string name="topic10076" msgid="8674225812339579627">"汽車 (按種類)"</string>
+    <string name="topic10077" msgid="3577709810751953433">"自動駕駛汽車"</string>
+    <string name="topic10078" msgid="5493263845129910125">"開篷車"</string>
+    <string name="topic10079" msgid="3466838852836498580">"雙門房車"</string>
+    <string name="topic10080" msgid="3515647285637163190">"掀背車"</string>
+    <string name="topic10081" msgid="4135085035401158860">"混能車和新能源車"</string>
+    <string name="topic10082" msgid="7168659489029594320">"豪華房車"</string>
+    <string name="topic10083" msgid="1532745144715857802">"迷你車和小型車"</string>
+    <string name="topic10084" msgid="1984231414410381476">"電單車"</string>
+    <string name="topic10085" msgid="5235555028227554661">"越野車"</string>
+    <string name="topic10086" msgid="8360336602646460411">"農夫車"</string>
+    <string name="topic10087" msgid="6566900167002195406">"綿羊仔和電動單車"</string>
+    <string name="topic10088" msgid="2899313082601001223">"轎車"</string>
+    <string name="topic10089" msgid="1053630346809973163">"房車"</string>
+    <string name="topic10090" msgid="4478565601243447368">"休閒車和跨界休旅車"</string>
+    <string name="topic10091" msgid="3812668311830832874">"跨界休旅車"</string>
+    <string name="topic10092" msgid="524130833813249539">"客貨車和小型客貨車"</string>
+    <string name="topic10093" msgid="8900143351472824542">"拖車和道路救援服務"</string>
+    <string name="topic10094" msgid="6205146188176216038">"汽車和交通安全"</string>
+    <string name="topic10095" msgid="7983070264654477553">"汽車零件和配件"</string>
+    <string name="topic10096" msgid="8148747014459050804">"汽車維修和保養"</string>
+    <string name="topic10097" msgid="4716536434833425748">"購買汽車"</string>
+    <string name="topic10098" msgid="6401980112135995019">"二手車"</string>
+    <string name="topic10099" msgid="8018714209926584445">"車展"</string>
+    <string name="topic10100" msgid="2481422464734249871">"美容和健身"</string>
+    <string name="topic10101" msgid="7889144198021629053">"人體藝術"</string>
+    <string name="topic10102" msgid="577637051755692238">"臉部和身體護理"</string>
+    <string name="topic10103" msgid="6618157344631408510">"止汗劑"</string>
+    <string name="topic10104" msgid="6043649669944382784">"沐浴和身體護理產品"</string>
+    <string name="topic10105" msgid="3248569527339253661">"潔淨美容"</string>
+    <string name="topic10106" msgid="1291481249483309832">"化妝和美容"</string>
+    <string name="topic10107" msgid="1335060201249279923">"指甲護理產品"</string>
+    <string name="topic10108" msgid="4996884435711154930">"香水和香氛"</string>
+    <string name="topic10109" msgid="7298403319989686251">"剃刀和剃鬚刀"</string>
+    <string name="topic10110" msgid="5954355866247248022">"流行時尚"</string>
+    <string name="topic10111" msgid="4447710938881368413">"健身"</string>
+    <string name="topic10112" msgid="8816530137921714131">"健美"</string>
+    <string name="topic10113" msgid="8138889299405853557">"健身指導和私人教練"</string>
+    <string name="topic10114" msgid="2172821400279346865">"健身科技產品"</string>
+    <string name="topic10115" msgid="9060244278068231494">"頭髮護理"</string>
+    <string name="topic10116" msgid="116242880964485085">"書籍和文學"</string>
+    <string name="topic10117" msgid="8933734721100160863">"兒童文學"</string>
+    <string name="topic10118" msgid="4368531903547695191">"電子書"</string>
+    <string name="topic10119" msgid="2781095265741115471">"雜誌"</string>
+    <string name="topic10120" msgid="3099507102655270527">"詩詞"</string>
+    <string name="topic10121" msgid="4466592180799340837">"工商業"</string>
+    <string name="topic10122" msgid="2375136741125920744">"廣告和市場推廣"</string>
+    <string name="topic10123" msgid="6974082907852347979">"銷售"</string>
+    <string name="topic10124" msgid="44474598156972786">"農林業"</string>
+    <string name="topic10125" msgid="9170394261421539760">"食品製造"</string>
+    <string name="topic10126" msgid="2210146434071038904">"汽車業"</string>
+    <string name="topic10127" msgid="5503077037318678029">"航空業"</string>
+    <string name="topic10128" msgid="285525650692719959">"商業營運"</string>
+    <string name="topic10129" msgid="3094691551566702427">"彈性工作安排"</string>
+    <string name="topic10130" msgid="1922351409757117764">"人力資源"</string>
+    <string name="topic10131" msgid="8598763405951029782">"商業借貸"</string>
+    <string name="topic10132" msgid="1476352626208153907">"建築和維修"</string>
+    <string name="topic10133" msgid="7089177624979453528">"土木工程"</string>
+    <string name="topic10134" msgid="3833032373311037601">"國防工業"</string>
+    <string name="topic10135" msgid="2478808072377000440">"能源和公用事業"</string>
+    <string name="topic10136" msgid="9083992436834044162">"食水供應和處理"</string>
+    <string name="topic10137" msgid="1912599316814246824">"服務性行業"</string>
+    <string name="topic10138" msgid="7428346836350671895">"製造業"</string>
+    <string name="topic10139" msgid="1396685812404869953">"金屬和採礦"</string>
+    <string name="topic10140" msgid="5264212052238781441">"層壓式推銷和商機"</string>
+    <string name="topic10141" msgid="860058416683118730">"製藥和生物科技"</string>
+    <string name="topic10142" msgid="2912550934111655896">"印刷和出版"</string>
+    <string name="topic10143" msgid="5690610408227078117">"零售業"</string>
+    <string name="topic10144" msgid="3341052306953106368">"創業資金"</string>
+    <string name="topic10145" msgid="6886608911083388041">"電腦和電子產品"</string>
+    <string name="topic10146" msgid="8202145175139144216">"電腦周邊"</string>
+    <string name="topic10147" msgid="4687964705548995437">"打印機"</string>
+    <string name="topic10148" msgid="8861628145647459323">"電腦保安"</string>
+    <string name="topic10149" msgid="1719988773455991739">"防毒軟件和惡意軟件"</string>
+    <string name="topic10150" msgid="1482205464872465298">"網絡安全"</string>
+    <string name="topic10151" msgid="1772262905623388968">"電子消費品"</string>
+    <string name="topic10152" msgid="651152740021127086">"相機和攝錄機"</string>
+    <string name="topic10153" msgid="8741504768717646372">"GPS 和導航"</string>
+    <string name="topic10154" msgid="5382029798409496090">"自動化家居"</string>
+    <string name="topic10155" msgid="5243817792730496258">"家庭影院系統"</string>
+    <string name="topic10156" msgid="2497791567138856030">"MP3 和手提媒體播放器"</string>
+    <string name="topic10157" msgid="4723439422860510190">"穿戴式科技"</string>
+    <string name="topic10158" msgid="5345830001295028513">"資料備份和修復"</string>
+    <string name="topic10159" msgid="6146958285117174314">"桌面電腦"</string>
+    <string name="topic10160" msgid="6624820395549466426">"手提電腦"</string>
+    <string name="topic10161" msgid="912458758908978530">"網絡"</string>
+    <string name="topic10162" msgid="6717352131379507693">"分散式和雲端運算"</string>
+    <string name="topic10163" msgid="6344926622025055321">"程式設計"</string>
+    <string name="topic10164" msgid="4228888249078845459">"軟件"</string>
+    <string name="topic10165" msgid="5507908999219967161">"音訊和音樂軟件"</string>
+    <string name="topic10166" msgid="4768106492755849560">"商業和生產力軟件"</string>
+    <string name="topic10167" msgid="8556935769754922871">"日曆和排程軟件"</string>
+    <string name="topic10168" msgid="7730134961167790334">"協作和會議軟件"</string>
+    <string name="topic10169" msgid="5655084106378890454">"簡報軟件"</string>
+    <string name="topic10170" msgid="4638281897205909919">"試算表軟件"</string>
+    <string name="topic10171" msgid="7910183120486541228">"文字處理軟件"</string>
+    <string name="topic10172" msgid="3626573644414074730">"桌面排版"</string>
+    <string name="topic10173" msgid="7320053835183057144">"字型"</string>
+    <string name="topic10174" msgid="5770469447869586710">"下載管理程式"</string>
+    <string name="topic10175" msgid="3475235810022334041">"免費軟件和共享軟件"</string>
+    <string name="topic10176" msgid="6881704501596479881">"平面設計和動畫軟件"</string>
+    <string name="topic10177" msgid="6740430730079682579">"智能個人助理"</string>
+    <string name="topic10178" msgid="7261811053741593091">"媒體播放器"</string>
+    <string name="topic10179" msgid="2967001567120854492">"監控軟件"</string>
+    <string name="topic10180" msgid="4197420326455130102">"作業系統"</string>
+    <string name="topic10181" msgid="3537573129132698830">"相片和影片軟件"</string>
+    <string name="topic10182" msgid="7688631285131229981">"相片軟件"</string>
+    <string name="topic10183" msgid="5994974566140272512">"影片軟件"</string>
+    <string name="topic10184" msgid="8685817335076871509">"軟件公用程式"</string>
+    <string name="topic10185" msgid="308314128178285390">"網絡瀏覽器"</string>
+    <string name="topic10186" msgid="3147859503481018245">"財經"</string>
+    <string name="topic10187" msgid="7077128721410871032">"會計和核數"</string>
+    <string name="topic10188" msgid="2206138708659457910">"稅務籌劃"</string>
+    <string name="topic10189" msgid="4001795553008246784">"銀行服務"</string>
+    <string name="topic10190" msgid="2988430661381243083">"現金轉帳和電匯服務"</string>
+    <string name="topic10191" msgid="6196081825838237614">"信用借貸"</string>
+    <string name="topic10192" msgid="3290123244833047307">"信用卡"</string>
+    <string name="topic10193" msgid="294407043381146861">"住宅貸款"</string>
+    <string name="topic10194" msgid="2834543407440890272">"私人貸款"</string>
+    <string name="topic10195" msgid="7650553060132394782">"學生貸款和大專貸款"</string>
+    <string name="topic10196" msgid="5395035781876507254">"財務策劃和管理"</string>
+    <string name="topic10197" msgid="1287138667488226463">"退休和退休金"</string>
+    <string name="topic10198" msgid="2523256186943366779">"資助"</string>
+    <string name="topic10199" msgid="3746711537661530183">"資助"</string>
+    <string name="topic10200" msgid="2394864891391267841">"保險"</string>
+    <string name="topic10201" msgid="4301879117376963742">"汽車保險"</string>
+    <string name="topic10202" msgid="739808503036239379">"健康保險"</string>
+    <string name="topic10203" msgid="838786942776142290">"家居保險"</string>
+    <string name="topic10204" msgid="6591131759521321677">"人壽保險"</string>
+    <string name="topic10205" msgid="3294946723815021478">"旅遊保險"</string>
+    <string name="topic10206" msgid="6166888350685752683">"投資"</string>
+    <string name="topic10207" msgid="2296385804039743999">"商品和期貨買賣"</string>
+    <string name="topic10208" msgid="2717498987483479091">"貨幣和外幣兌換"</string>
+    <string name="topic10209" msgid="5204948738662951962">"對沖基金"</string>
+    <string name="topic10210" msgid="4607225697024266227">"互惠基金"</string>
+    <string name="topic10211" msgid="7475381839877166080">"股票和債券"</string>
+    <string name="topic10212" msgid="3988751035952286047">"飲食"</string>
+    <string name="topic10213" msgid="1358963098339995471">"烹飪和食譜"</string>
+    <string name="topic10214" msgid="8463864389138867811">"燒烤"</string>
+    <string name="topic10215" msgid="3085467051491069648">"美食"</string>
+    <string name="topic10216" msgid="6043130649326166680">"素食"</string>
+    <string name="topic10217" msgid="7173870057669247536">"純素菜式"</string>
+    <string name="topic10218" msgid="5570240643247064951">"健康飲食"</string>
+    <string name="topic10219" msgid="5896715206025463732">"食品和雜貨零售商"</string>
+    <string name="topic10220" msgid="3894580611467039658">"遊戲"</string>
+    <string name="topic10221" msgid="14471057764591805">"街機和投幣遊戲"</string>
+    <string name="topic10222" msgid="2704894577954508861">"桌球"</string>
+    <string name="topic10223" msgid="202900267060220170">"桌上遊戲"</string>
+    <string name="topic10224" msgid="6572627325588452785">"棋類和抽象策略遊戲"</string>
+    <string name="topic10225" msgid="8056906319560292131">"卡類遊戲"</string>
+    <string name="topic10226" msgid="714463563336281099">"集換式卡牌遊戲"</string>
+    <string name="topic10227" msgid="218768654597520683">"電腦和電玩遊戲"</string>
+    <string name="topic10228" msgid="850597136074192489">"動作和平台遊戲"</string>
+    <string name="topic10229" msgid="4284501233897149886">"冒險遊戲"</string>
+    <string name="topic10230" msgid="7156822286576815181">"休閒遊戲"</string>
+    <string name="topic10231" msgid="7620407218897744361">"電競"</string>
+    <string name="topic10232" msgid="3029734447275709941">"駕駛和賽車遊戲"</string>
+    <string name="topic10233" msgid="8318075279868138231">"格鬥遊戲"</string>
+    <string name="topic10234" msgid="3899847414436099153">"遊戲參考和評論"</string>
+    <string name="topic10235" msgid="5851356242523630529">"電玩遊戲秘技和提示"</string>
+    <string name="topic10236" msgid="1986665634014804954">"大型多人遊戲"</string>
+    <string name="topic10237" msgid="5569920221620447713">"音樂和舞蹈遊戲"</string>
+    <string name="topic10238" msgid="7431087331656772530">"沙箱遊戲"</string>
+    <string name="topic10239" msgid="8667462879554115515">"射擊遊戲"</string>
+    <string name="topic10240" msgid="1618985302446756520">"模擬遊戲"</string>
+    <string name="topic10241" msgid="8450778411063723262">"商業大亨遊戲"</string>
+    <string name="topic10242" msgid="8860812940320018907">"城市建設遊戲"</string>
+    <string name="topic10243" msgid="1764694148721971512">"模擬生活遊戲"</string>
+    <string name="topic10244" msgid="4308588210397969087">"車輛模擬器"</string>
+    <string name="topic10245" msgid="6904368410919496658">"體育遊戲"</string>
+    <string name="topic10246" msgid="3381244806751528148">"運動管理遊戲"</string>
+    <string name="topic10247" msgid="5927502688389762068">"策略遊戲"</string>
+    <string name="topic10248" msgid="8471339627212674032">"電玩遊戲模組和外掛程式"</string>
+    <string name="topic10249" msgid="5076706536204559962">"教育遊戲"</string>
+    <string name="topic10250" msgid="6083030595195401083">"合家歡遊戲和活動"</string>
+    <string name="topic10251" msgid="99237306730665104">"繪畫和填色"</string>
+    <string name="topic10252" msgid="6543039575961394064">"打扮和服裝遊戲"</string>
+    <string name="topic10253" msgid="566596668186874227">"解謎和智力遊戲"</string>
+    <string name="topic10254" msgid="5732147617072023634">"角色扮演遊戲"</string>
+    <string name="topic10255" msgid="2890655077164103057">"乒乓球"</string>
+    <string name="topic10256" msgid="3302096971402751679">"方塊遊戲"</string>
+    <string name="topic10257" msgid="4238531589193902619">"文字遊戲"</string>
+    <string name="topic10258" msgid="6995329540076529056">"興趣和休閒"</string>
+    <string name="topic10259" msgid="8649688885811560410">"週年紀念"</string>
+    <string name="topic10260" msgid="487999213495640080">"生日和命名日"</string>
+    <string name="topic10261" msgid="8970668366745952094">"潛水和水底活動"</string>
+    <string name="topic10262" msgid="6644046161469353448">"纖維和紡織藝術"</string>
+    <string name="topic10263" msgid="848165976917542929">"戶外"</string>
+    <string name="topic10264" msgid="6274985117752637104">"釣魚"</string>
+    <string name="topic10265" msgid="4134876488948695674">"打獵和射擊"</string>
+    <string name="topic10266" msgid="6617785039128074351">"漆彈"</string>
+    <string name="topic10267" msgid="488093331618885003">"無線電遙控和模型"</string>
+    <string name="topic10268" msgid="277932389492046264">"婚禮"</string>
+    <string name="topic10269" msgid="8572041514147955202">"家居和園藝"</string>
+    <string name="topic10270" msgid="2646715182474030951">"園藝"</string>
+    <string name="topic10271" msgid="1308931236810509881">"家居和室內設計"</string>
+    <string name="topic10272" msgid="8746698707390628887">"家庭電器"</string>
+    <string name="topic10273" msgid="344442071339164852">"居家俢繕"</string>
+    <string name="topic10274" msgid="8982330028561451429">"家居安全和保安"</string>
+    <string name="topic10275" msgid="8280198018937968735">"家庭用品"</string>
+    <string name="topic10276" msgid="1651598271798609235">"園景設計"</string>
+    <string name="topic10277" msgid="7675195736886448994">"互聯網和電訊"</string>
+    <string name="topic10278" msgid="873251714192341707">"電郵和訊息"</string>
+    <string name="topic10279" msgid="6514296374139842600">"電郵"</string>
+    <string name="topic10280" msgid="7976787187115018267">"短訊和即時通訊"</string>
+    <string name="topic10281" msgid="4013341162811169339">"語音通訊和視像通訊"</string>
+    <string name="topic10282" msgid="7810462611906257564">"ISP"</string>
+    <string name="topic10283" msgid="3958287780718485172">"電話服務供應商"</string>
+    <string name="topic10284" msgid="2415044270290467935">"鈴聲和手機主題"</string>
+    <string name="topic10285" msgid="7056449544316408821">"搜尋引擎"</string>
+    <string name="topic10286" msgid="3458688996478472971">"智能手機"</string>
+    <string name="topic10287" msgid="6766203044518402938">"電話會議"</string>
+    <string name="topic10288" msgid="3883137694557636622">"網絡應用程式和網上工具"</string>
+    <string name="topic10289" msgid="3392995633794787676">"互聯網服務"</string>
+    <string name="topic10290" msgid="3118880486702986341">"雲端儲存空間"</string>
+    <string name="topic10291" msgid="6025855926350955094">"網頁設計和開發"</string>
+    <string name="topic10292" msgid="3069720659823056935">"網頁寄存"</string>
+    <string name="topic10293" msgid="2489957780009828409">"就業和教育"</string>
+    <string name="topic10294" msgid="474839431177892843">"教育"</string>
+    <string name="topic10295" msgid="2215489196192620880">"學術會議和出版物"</string>
+    <string name="topic10296" msgid="4494362881225210483">"大專和大學"</string>
+    <string name="topic10297" msgid="8596946591674128749">"遙距學習"</string>
+    <string name="topic10298" msgid="6669181180128620422">"幼兒教育"</string>
+    <string name="topic10299" msgid="989138215800115613">"學前教育"</string>
+    <string name="topic10300" msgid="8281464235308602670">"在家教學"</string>
+    <string name="topic10301" msgid="9156890858635333460">"資格試和入學試"</string>
+    <string name="topic10302" msgid="1325835179421990876">"教學和課堂資源"</string>
+    <string name="topic10303" msgid="3103839978894155537">"職業和持續進修教育"</string>
+    <string name="topic10304" msgid="8831682558788062486">"就業"</string>
+    <string name="topic10305" msgid="8415203095484493106">"就業資源和職業生涯規劃"</string>
+    <string name="topic10306" msgid="7426556527349374835">"職位空缺"</string>
+    <string name="topic10307" msgid="1187762846826735256">"法律和政府"</string>
+    <string name="topic10308" msgid="3346756665358311386">"犯罪和司法"</string>
+    <string name="topic10309" msgid="2041175328931014735">"法律"</string>
+    <string name="topic10310" msgid="7079570344976872062">"法律服務"</string>
+    <string name="topic10311" msgid="2095095138677585525">"新聞"</string>
+    <string name="topic10312" msgid="939721674816307639">"經濟新聞"</string>
+    <string name="topic10313" msgid="4159611985538361632">"本地新聞"</string>
+    <string name="topic10314" msgid="93219947859117151">"合併和收購"</string>
+    <string name="topic10315" msgid="5046321177148647481">"報紙"</string>
+    <string name="topic10316" msgid="8592980844674525307">"政治"</string>
+    <string name="topic10317" msgid="2412259096368647866">"體育新聞"</string>
+    <string name="topic10318" msgid="1508449672941031904">"天氣"</string>
+    <string name="topic10319" msgid="3973645291178509390">"國際新聞"</string>
+    <string name="topic10320" msgid="5279440074507438174">"網上社群"</string>
+    <string name="topic10321" msgid="7018890132742820265">"插圖和動畫 GIF"</string>
+    <string name="topic10322" msgid="1585737438943011532">"約會和交友"</string>
+    <string name="topic10323" msgid="962863497957179646">"資訊提供彙整和社交書籤"</string>
+    <string name="topic10324" msgid="1425257460381023853">"檔案共用和寄存"</string>
+    <string name="topic10325" msgid="8698912164970408378">"論壇和聊天室服務供應商"</string>
+    <string name="topic10326" msgid="2425798096705921796">"微網誌"</string>
+    <string name="topic10327" msgid="8518822987595111212">"相片和影片分享"</string>
+    <string name="topic10328" msgid="8932708475346340912">"相片和圖片分享"</string>
+    <string name="topic10329" msgid="223933889758324282">"影片分享"</string>
+    <string name="topic10330" msgid="188028553492626282">"主題外觀"</string>
+    <string name="topic10331" msgid="426844238985651925">"社交網絡應用程式和外掛程式"</string>
+    <string name="topic10332" msgid="291747325781232456">"社交網絡"</string>
+    <string name="topic10333" msgid="7950152600374846488">"人文和社會"</string>
+    <string name="topic10334" msgid="8671262583721706509">"家庭和人際關係"</string>
+    <string name="topic10335" msgid="1526523762163185819">"祖先和族譜"</string>
+    <string name="topic10336" msgid="4551233571090493177">"婚姻"</string>
+    <string name="topic10337" msgid="8436172065188964882">"育兒"</string>
+    <string name="topic10338" msgid="8896269734682970">"領養"</string>
+    <string name="topic10339" msgid="781900237993621300">"嬰幼兒"</string>
+    <string name="topic10340" msgid="6538182603360796294">"兒童互聯網安全"</string>
+    <string name="topic10341" msgid="3586543243312398568">"浪漫"</string>
+    <string name="topic10342" msgid="3695176378281477573">"科幻和奇幻"</string>
+    <string name="topic10343" msgid="2318169062960263837">"寵物和動物"</string>
+    <string name="topic10344" msgid="2005534117977874327">"寵物食品和護理用品"</string>
+    <string name="topic10345" msgid="2397329020706244200">"寵物"</string>
+    <string name="topic10346" msgid="1323702748723563694">"鳥"</string>
+    <string name="topic10347" msgid="3301879823396773413">"貓"</string>
+    <string name="topic10348" msgid="8066686305498410222">"狗"</string>
+    <string name="topic10349" msgid="5253723822905761195">"魚類和水族"</string>
+    <string name="topic10350" msgid="6164036369108076590">"爬蟲類和兩棲類"</string>
+    <string name="topic10351" msgid="1132984519083501363">"獸醫"</string>
+    <string name="topic10352" msgid="6310110390516037997">"房地產"</string>
+    <string name="topic10353" msgid="5114390804081576684">"租賃土地"</string>
+    <string name="topic10354" msgid="7980778954791504082">"分時度假屋和度假物業"</string>
+    <string name="topic10355" msgid="7720717354548642600">"參考資訊"</string>
+    <string name="topic10356" msgid="8366981308613661935">"商戶和個人資訊目錄"</string>
+    <string name="topic10357" msgid="3185598234676097975">"一般參考資訊"</string>
+    <string name="topic10358" msgid="6732669037513504019">"計算機和參考工具"</string>
+    <string name="topic10359" msgid="8901932349008990500">"字典和百科全書"</string>
+    <string name="topic10360" msgid="6113408769992775754">"教育資源"</string>
+    <string name="topic10361" msgid="364838820459183817">"實用指南"</string>
+    <string name="topic10362" msgid="3760998790588600032">"時間和日曆"</string>
+    <string name="topic10363" msgid="5464708619861040861">"語言資源"</string>
+    <string name="topic10364" msgid="4685400848805560054">"外語學習"</string>
+    <string name="topic10365" msgid="5196231842716190887">"翻譯工具和資源"</string>
+    <string name="topic10366" msgid="7460927054539097025">"地圖"</string>
+    <string name="topic10367" msgid="3900361839783743700">"科學"</string>
+    <string name="topic10368" msgid="2069447039109930660">"擴張和虛擬實境"</string>
+    <string name="topic10369" msgid="5747888306428024793">"生物科學"</string>
+    <string name="topic10370" msgid="4860829940151353583">"遺傳學"</string>
+    <string name="topic10371" msgid="8229818210867472466">"化學"</string>
+    <string name="topic10372" msgid="6400467418954574231">"生態學和環境學"</string>
+    <string name="topic10373" msgid="6990757247198163741">"地質學"</string>
+    <string name="topic10374" msgid="8057983193031950119">"機器學習和人工智能"</string>
+    <string name="topic10375" msgid="8511185098682306025">"數學"</string>
+    <string name="topic10376" msgid="6387800251638760737">"物理"</string>
+    <string name="topic10377" msgid="7834619927563362042">"機械人科學"</string>
+    <string name="topic10378" msgid="242496862821758873">"購物"</string>
+    <string name="topic10379" msgid="5505228335012447165">"古董和收藏品"</string>
+    <string name="topic10380" msgid="4989560205486143927">"服飾"</string>
+    <string name="topic10381" msgid="7585496746485093505">"童裝"</string>
+    <string name="topic10382" msgid="5088060295126473451">"服飾道具"</string>
+    <string name="topic10383" msgid="4947104586590538143">"男裝"</string>
+    <string name="topic10384" msgid="3752472493887374077">"女裝"</string>
+    <string name="topic10385" msgid="5275843140794803595">"分類廣告"</string>
+    <string name="topic10386" msgid="5887032952574801982">"消費者資源"</string>
+    <string name="topic10387" msgid="8474154360410317897">"優惠券和折扣"</string>
+    <string name="topic10388" msgid="3650307363028796765">"會員卡和積分計劃"</string>
+    <string name="topic10389" msgid="1542336508240183221">"技術支援和維修"</string>
+    <string name="topic10390" msgid="831225961168954292">"鮮花"</string>
+    <string name="topic10391" msgid="6810540242154911762">"賀卡"</string>
+    <string name="topic10392" msgid="2431377771302967625">"派對和節日商品"</string>
+    <string name="topic10393" msgid="2671274205988136926">"購物入口網站"</string>
+    <string name="topic10394" msgid="1530096364743244151">"體育"</string>
+    <string name="topic10395" msgid="316192616624062917">"美式足球"</string>
+    <string name="topic10396" msgid="8042120651878490689">"澳式足球"</string>
+    <string name="topic10397" msgid="492901976344700942">"賽車"</string>
+    <string name="topic10398" msgid="3471795015226090296">"棒球"</string>
+    <string name="topic10399" msgid="2126280752064021308">"籃球"</string>
+    <string name="topic10400" msgid="5440499529264277027">"保齡"</string>
+    <string name="topic10401" msgid="166689951236922024">"拳擊"</string>
+    <string name="topic10402" msgid="2451339788231007479">"啦啦隊"</string>
+    <string name="topic10403" msgid="6455478521804717635">"大專院校運動"</string>
+    <string name="topic10404" msgid="5261583496913118024">"板球"</string>
+    <string name="topic10405" msgid="482477447879117820">"單車"</string>
+    <string name="topic10406" msgid="8167644332387528703">"馬術"</string>
+    <string name="topic10407" msgid="3237734582719584272">"極限運動"</string>
+    <string name="topic10408" msgid="3859749534843254349">"攀岩和登山運動"</string>
+    <string name="topic10409" msgid="7485614115639267976">"夢幻球隊經理人遊戲"</string>
+    <string name="topic10410" msgid="5996939009229881074">"高爾夫球"</string>
+    <string name="topic10411" msgid="2513997418184786648">"體操"</string>
+    <string name="topic10412" msgid="5411755341358248299">"曲棍球"</string>
+    <string name="topic10413" msgid="3319233613448963890">"溜冰"</string>
+    <string name="topic10414" msgid="1797840816328584660">"武術"</string>
+    <string name="topic10415" msgid="2886043330316735719">"電單車賽"</string>
+    <string name="topic10416" msgid="3436682172863605224">"奧運會"</string>
+    <string name="topic10417" msgid="8296644015663416236">"欖球"</string>
+    <string name="topic10418" msgid="8276736633218488127">"跑步和步行"</string>
+    <string name="topic10419" msgid="5663062924928275215">"滑雪和單板滑雪"</string>
+    <string name="topic10420" msgid="2509320683543423424">"足球"</string>
+    <string name="topic10421" msgid="6512889128030030686">"滑浪"</string>
+    <string name="topic10422" msgid="8342986282852879750">"游泳"</string>
+    <string name="topic10423" msgid="6333426807705188459">"網球"</string>
+    <string name="topic10424" msgid="5495511215629567375">"田徑運動"</string>
+    <string name="topic10425" msgid="4009138228283995179">"排球"</string>
+    <string name="topic10426" msgid="7998590461761852196">"摔角"</string>
+    <string name="topic10427" msgid="6711468161729797769">"旅遊和交通"</string>
+    <string name="topic10428" msgid="661919563628063196">"探險旅遊"</string>
+    <string name="topic10429" msgid="408270392813634227">"航空旅遊"</string>
+    <string name="topic10430" msgid="3046485339481297656">"公務旅遊"</string>
+    <string name="topic10431" msgid="7439352609169583150">"租車"</string>
+    <string name="topic10432" msgid="5034961318884376752">"遊艇和租船"</string>
+    <string name="topic10433" msgid="6354590445323135986">"家庭旅遊"</string>
+    <string name="topic10434" msgid="7081309045291255264">"蜜月和浪漫旅遊"</string>
+    <string name="topic10435" msgid="1064605516265819020">"酒店和住宿"</string>
+    <string name="topic10436" msgid="9050375924140897722">"長途巴士和鐵路"</string>
+    <string name="topic10437" msgid="2655664900730187701">"平價和最後促銷旅遊"</string>
+    <string name="topic10438" msgid="7944023251845122923">"行李箱和旅行裝備"</string>
+    <string name="topic10439" msgid="7845433008088931971">"旅遊目的地"</string>
+    <string name="topic10440" msgid="485118071443976808">"海灘和島嶼"</string>
+    <string name="topic10441" msgid="518643446480879895">"地區公園和花園"</string>
+    <string name="topic10442" msgid="6534536077484540292">"主題公園"</string>
+    <string name="topic10443" msgid="8787722062991478596">"動物園"</string>
+    <string name="topic10444" msgid="2075863187654728611">"交通和路線規劃工具"</string>
+    <string name="topic10445" msgid="3460421948068980869">"旅行社和相關服務"</string>
+    <string name="topic10446" msgid="5333138740720504195">"旅遊指南和遊記"</string>
+</resources>

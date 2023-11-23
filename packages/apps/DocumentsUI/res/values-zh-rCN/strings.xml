@@ -92,8 +92,8 @@
     <string name="save_error" msgid="8631128801982095782">"无法保存文档"</string>
     <string name="create_error" msgid="3092144450044861994">"无法创建文件夹"</string>
     <string name="query_error" msgid="6625421453613879336">"暂时无法加载内容"</string>
-    <string name="quiet_mode_error_title" msgid="9126656325282792843">"工作资料已被暂停"</string>
-    <string name="quiet_mode_button" msgid="6977115032320235420">"开启"</string>
+    <string name="quiet_mode_error_title" msgid="554319751414657910">"工作应用已暂停"</string>
+    <string name="quiet_mode_button" msgid="8051436551926677305">"开启工作应用"</string>
     <string name="cant_select_work_files_error_title" msgid="6688716319549644354">"无法选择工作文件"</string>
     <string name="cant_select_work_files_error_message" msgid="683480676150690641">"您的 IT 管理员不允许您通过个人应用访问工作文件"</string>
     <string name="cant_select_personal_files_error_title" msgid="3200697170148617742">"无法选择个人文件"</string>

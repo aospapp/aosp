@@ -1,0 +1,3 @@
+# Drive Mode RROs OWNERS
+per-file DriveModeEcoRRO/*, DriveModeOnRRO/*, DriveModeSportRRO/*=arecchi@google.com
+per-file DriveModeEcoRRO/*, DriveModeOnRRO/*, DriveModeSportRRO/*=amishkovets@google.com

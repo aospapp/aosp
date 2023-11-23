@@ -28,7 +28,7 @@ public abstract class TimeSource {
     public static final ZoneOffset ZONE_OFFSET = ZoneOffset.UTC;
 
     /** Returns the current instant from the time source implementation. */
-    abstract Instant now();
+    public abstract Instant now();
 
     /** Returns the current date time for the UTC timezone. */
     public ZonedDateTime getCurrentDateTime() {

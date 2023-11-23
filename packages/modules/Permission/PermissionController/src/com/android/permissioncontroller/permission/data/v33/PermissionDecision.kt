@@ -18,6 +18,7 @@ package com.android.permissioncontroller.permission.data.v33
 
 import android.os.Build
 import androidx.annotation.RequiresApi
+import com.android.permissioncontroller.permission.data.PermissionEvent
 
 /**
  * A record of a user's permission decision for an app.

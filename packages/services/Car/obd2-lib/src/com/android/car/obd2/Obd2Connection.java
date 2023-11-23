@@ -145,22 +145,24 @@ public class Obd2Connection {
     }
 
     String removeSideData(String response, String... patterns) {
+        String result = response;
         for (String pattern : patterns) {
-            if (response.contains(pattern)) response = response.replaceAll(pattern, "");
+            if (result.contains(pattern)) result = result.replaceAll(pattern, "");
         }
-        return response;
+        return result;
     }
 
     String unpackLongFrame(String response) {
+        String result = response;
         // long frames come back to us containing colon separated portions
-        if (response.indexOf(':') < 0) return response;
+        if (result.indexOf(':') < 0) return result;
 
         // remove everything until the first colon
-        response = response.substring(response.indexOf(':') + 1);
+        result = result.substring(result.indexOf(':') + 1);
 
         // then remove the <digit>: portions (sequential frame parts)
         //TODO(egranata): maybe validate the sequence of digits is progressive
-        return response.replaceAll("[0-9]:", "");
+        return result.replaceAll("[0-9]:", "");
     }
 
     public int[] run(String command) throws IOException, InterruptedException {
@@ -186,11 +188,12 @@ public class Obd2Connection {
                         "BUS ERROR",
                         "BUSERROR",
                         "STOPPED");
-        if (responseValue.equals("OK")) return new int[] {1};
-        if (responseValue.equals("?")) return new int[] {0};
-        if (responseValue.equals("NODATA")) return new int[] {};
-        if (responseValue.equals("UNABLETOCONNECT")) throw new IOException("connection failure");
-        if (responseValue.equals("CANERROR")) throw new IOException("CAN bus error");
+        if (Objects.equals(responseValue, "OK")) return new int[] {1};
+        if (Objects.equals(responseValue, "?")) return new int[] {0};
+        if (Objects.equals(responseValue, "NODATA")) return new int[] {};
+        if (Objects.equals(responseValue, "UNABLETOCONNECT")) throw new IOException(
+                "connection failure");
+        if (Objects.equals(responseValue, "CANERROR")) throw new IOException("CAN bus error");
         try {
             return toHexValues(responseValue);
         } catch (IllegalArgumentException e) {

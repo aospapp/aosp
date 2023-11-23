@@ -15,6 +15,8 @@
  */
 package android.car.cluster.sensors;
 
+import static android.car.VehicleAreaType.VEHICLE_AREA_TYPE_GLOBAL;
+
 import android.car.VehiclePropertyIds;
 import android.car.VehiclePropertyType;
 import android.car.hardware.CarPropertyValue;
@@ -31,9 +33,6 @@ import java.util.function.Function;
  * The collection of all sensors supported by this application.
  */
 public class Sensors {
-    /** Area identifier used for sensors corresponding to global VHAL properties */
-    public static final int GLOBAL_AREA_ID = -1;
-
     private static Sensors sInstance;
     private static List<Sensor<?>> sSensors = new ArrayList<>();
     private Map<Integer, List<Sensor<?>>> mSensorsByPropertyId = new HashMap<>();
@@ -48,35 +47,34 @@ public class Sensors {
 
     /** Fuel of the car, measured in millimeters */
     public static final Sensor<Float> SENSOR_FUEL = registerSensor(
-            "Fuel", VehiclePropertyIds.FUEL_LEVEL, GLOBAL_AREA_ID, VehiclePropertyType.FLOAT,
+            "Fuel", VehiclePropertyIds.FUEL_LEVEL, VEHICLE_AREA_TYPE_GLOBAL,
+            VehiclePropertyType.FLOAT,
             value -> (Float) value.getValue());
     /** Fuel capacity of the car, measured in millimeters */
     public static final Sensor<Float> SENSOR_FUEL_CAPACITY = registerSensor(
-            "Fuel Capacity", VehiclePropertyIds.INFO_FUEL_CAPACITY, GLOBAL_AREA_ID,
+            "Fuel Capacity", VehiclePropertyIds.INFO_FUEL_CAPACITY, VEHICLE_AREA_TYPE_GLOBAL,
             VehiclePropertyType.FLOAT,
             value -> (Float) value.getValue());
     /** RPMs */
     public static final Sensor<Float> SENSOR_RPM = registerSensor(
-            "RPM", VehiclePropertyIds.ENGINE_RPM, GLOBAL_AREA_ID,
+            "RPM", VehiclePropertyIds.ENGINE_RPM, VEHICLE_AREA_TYPE_GLOBAL,
             VehiclePropertyType.FLOAT,
             value -> (Float) value.getValue());
     /** Fuel range in meters */
     public static final Sensor<Float> SENSOR_FUEL_RANGE = registerSensor(
-            "Fuel Range", VehiclePropertyIds.RANGE_REMAINING, GLOBAL_AREA_ID,
+            "Fuel Range", VehiclePropertyIds.RANGE_REMAINING, VEHICLE_AREA_TYPE_GLOBAL,
             VehiclePropertyType.FLOAT,
             value -> (Float) value.getValue());
     /** Speed in meters per second */
     public static final Sensor<Float> SENSOR_SPEED = registerSensor(
-            "Speed", VehiclePropertyIds.PERF_VEHICLE_SPEED, GLOBAL_AREA_ID,
+            "Speed", VehiclePropertyIds.PERF_VEHICLE_SPEED, VEHICLE_AREA_TYPE_GLOBAL,
             VehiclePropertyType.FLOAT,
             value -> (Float) value.getValue());
     /** Current gear of the car */
     public static final Sensor<Gear> SENSOR_GEAR = registerSensor(
-            "Gear", VehiclePropertyIds.GEAR_SELECTION, GLOBAL_AREA_ID, VehiclePropertyType.INT32,
+            "Gear", VehiclePropertyIds.GEAR_SELECTION, VEHICLE_AREA_TYPE_GLOBAL,
+            VehiclePropertyType.INT32,
             value -> {
-                if (value == null) {
-                    return null;
-                }
                 Integer gear = (Integer) value.getValue();
                 if ((gear & CarSensorEvent.GEAR_REVERSE) != 0) {
                     return Gear.REVERSE;

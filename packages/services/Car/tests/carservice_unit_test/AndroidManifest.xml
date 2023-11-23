@@ -23,10 +23,18 @@
             android:label="Unit Tests for Car APIs"/>
     <!-- for CarActivityServiceTaskMonitorUnitTest -->
     <uses-permission android:name="android.permission.MANAGE_ACTIVITY_TASKS" />
+    <uses-permission android:name="android.car.permission.ACCESS_MIRRORED_SURFACE" />
     <uses-permission android:name="android.car.permission.CAR_ENROLL_TRUST" />
+    <uses-permission android:name="android.car.permission.MIRROR_DISPLAY" />
+    <!-- for CarRemoteDeviceManagerUnitTest -->
+    <uses-permission android:name="android.car.permission.MANAGE_REMOTE_DEVICE" />
+    <!-- for OccupantAwarenessServiceTest -->
+    <uses-permission android:name="android.car.permission.READ_CAR_OCCUPANT_AWARENESS_STATE" />
+    <!-- for CarOccupantConnectionManagerUnitTest -->
+    <uses-permission android:name="android.car.permission.MANAGE_OCCUPANT_CONNECTION" />
 
     <application android:label="@string/app_title"
-            android:debuggable="true">
+            android:debuggable="true" android:testOnly="true">
         <uses-library android:name="android.test.runner" />
         <activity android:name="com.android.car.SystemActivityMonitoringServiceTest$ActivityA"/>
         <activity android:name="com.android.car.SystemActivityMonitoringServiceTest$ActivityB"/>
@@ -34,15 +42,18 @@
         <activity android:name="com.android.car.SystemActivityMonitoringServiceTest$BlockingActivity"
                   android:taskAffinity="com.android.car.carservice_unittest.block"/>
 
-        <activity android:name="com.android.car.CarActivityServiceTaskMonitorUnitTest$ActivityA"/>
-        <activity android:name="com.android.car.CarActivityServiceTaskMonitorUnitTest$ActivityB"/>
-        <activity android:name="com.android.car.CarActivityServiceTaskMonitorUnitTest$ActivityC"/>
-        <activity android:name="com.android.car.CarActivityServiceTaskMonitorUnitTest$BlockingActivity"
+        <activity android:name="com.android.car.am.CarActivityServiceTaskMonitorUnitTest$ActivityA"/>
+        <activity android:name="com.android.car.am.CarActivityServiceTaskMonitorUnitTest$ActivityB"/>
+        <activity android:name="com.android.car.am.CarActivityServiceTaskMonitorUnitTest$ActivityC"/>
+        <activity android:name="com.android.car.am.CarActivityServiceTaskMonitorUnitTest$BlockingActivity"
             android:taskAffinity="com.android.car.carservice_unittest.block"/>
 
         <activity android:name="com.android.car.admin.ui.CarAdminUiTestActivity"/>
 
         <service android:name="android.car.cluster.renderer.InstrumentClusterRenderingServiceTest$TestableInstrumentClusterRenderingService"/>
+
+        <service android:name="android.car.occupantconnection.PayloadTestBinderService"
+                 android:exported="true"/>
 
     </application>
 </manifest>

@@ -32,6 +32,7 @@ import android.util.Pair;
 
 import com.android.server.wifi.WifiNetworkSelector.NetworkNominator.OnConnectableListener;
 import com.android.server.wifi.WifiNetworkSelectorTestUtil.ScanDetailsAndWifiConfigs;
+import com.android.server.wifi.entitlement.PseudonymInfo;
 import com.android.server.wifi.hotspot2.PasspointNetworkNominateHelper;
 import com.android.server.wifi.util.WifiPermissionsUtil;
 
@@ -46,6 +47,7 @@ import org.mockito.MockitoSession;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 
 /**
  * Unit tests for {@link SavedNetworkNominator}.
@@ -72,7 +74,7 @@ public class SavedNetworkNominatorTest extends WifiBaseTest {
         mLocalLog = new LocalLog(512);
         mSavedNetworkNominator = new SavedNetworkNominator(mWifiConfigManager,
                 mPasspointNetworkNominateHelper, mLocalLog, mWifiCarrierInfoManager,
-                mWifiPermissionsUtil, mWifiNetworkSuggestionsManager);
+                mWifiPseudonymManager, mWifiPermissionsUtil, mWifiNetworkSuggestionsManager);
         when(mWifiCarrierInfoManager.isSimReady(anyInt())).thenReturn(true);
         when(mWifiCarrierInfoManager.getBestMatchSubscriptionId(any())).thenReturn(VALID_SUBID);
         when(mWifiCarrierInfoManager.requiresImsiEncryption(VALID_SUBID)).thenReturn(true);
@@ -106,6 +108,7 @@ public class SavedNetworkNominatorTest extends WifiBaseTest {
     @Mock private Clock mClock;
     @Mock private OnConnectableListener mOnConnectableListener;
     @Mock private WifiCarrierInfoManager mWifiCarrierInfoManager;
+    @Mock private WifiPseudonymManager mWifiPseudonymManager;
     @Mock private PasspointNetworkNominateHelper mPasspointNetworkNominateHelper;
     @Mock private WifiPermissionsUtil mWifiPermissionsUtil;
     @Mock private WifiNetworkSuggestionsManager mWifiNetworkSuggestionsManager;
@@ -324,6 +327,8 @@ public class SavedNetworkNominatorTest extends WifiBaseTest {
         savedConfigs[0].carrierId = TEST_CARRIER_ID;
         // Doesn't require Imsi protection and user didn't approved
         when(mWifiCarrierInfoManager.requiresImsiEncryption(VALID_SUBID)).thenReturn(false);
+        when(mWifiCarrierInfoManager.isOobPseudonymFeatureEnabled(TEST_CARRIER_ID))
+                .thenReturn(false);
         when(mWifiCarrierInfoManager.hasUserApprovedImsiPrivacyExemptionForCarrier(TEST_CARRIER_ID))
                 .thenReturn(false);
         mSavedNetworkNominator.nominateNetworks(
@@ -341,6 +346,70 @@ public class SavedNetworkNominatorTest extends WifiBaseTest {
         when(mWifiCarrierInfoManager.hasUserApprovedImsiPrivacyExemptionForCarrier(TEST_CARRIER_ID))
                 .thenReturn(false);
         when(mWifiPermissionsUtil.checkNetworkSettingsPermission(anyInt())).thenReturn(true);
+    }
+
+    /**
+     * Verify a saved network is from app not user, if OOB pseudonym is enabled, but not available,
+     * it shouldn't be considered as a candidate.
+     */
+    @Test
+    public void testAllowNetworksIfOobPseudonymEnabledForImsiProtection() {
+        String[] ssids = {"\"test1\""};
+        String[] bssids = {"6c:f3:7f:ae:8c:f3"};
+        int[] freqs = {2470};
+        int[] levels = {RSSI_LEVEL};
+        when(mWifiCarrierInfoManager.isCarrierNetworkFromNonDefaultDataSim(any()))
+                .thenReturn(false);
+        ScanDetailsAndWifiConfigs scanDetailsAndConfigs =
+                WifiNetworkSelectorTestUtil.setupScanDetailsAndConfigForEapSimNetwork(ssids, bssids,
+                        freqs, levels, mWifiConfigManager, mClock);
+        List<ScanDetail> scanDetails = scanDetailsAndConfigs.getScanDetails();
+        WifiConfiguration[] savedConfigs = scanDetailsAndConfigs.getWifiConfigs();
+        savedConfigs[0].carrierId = TEST_CARRIER_ID;
+        // Doesn't require Imsi protection and user didn't approved
+        when(mWifiCarrierInfoManager.requiresImsiEncryption(VALID_SUBID)).thenReturn(false);
+        when(mWifiCarrierInfoManager.hasUserApprovedImsiPrivacyExemptionForCarrier(TEST_CARRIER_ID))
+                .thenReturn(false);
+        when(mWifiCarrierInfoManager.isOobPseudonymFeatureEnabled(TEST_CARRIER_ID))
+                .thenReturn(true);
+        when(mWifiPseudonymManager.getValidPseudonymInfo(TEST_CARRIER_ID))
+                .thenReturn(Optional.of(mock(PseudonymInfo.class)));
+
+        mSavedNetworkNominator.nominateNetworks(
+                scanDetails, false, true, true, Collections.emptySet(), mOnConnectableListener);
+
+        verify(mWifiPseudonymManager).updateWifiConfiguration(any());
+        verify(mOnConnectableListener).onConnectable(any(), any());
+    }
+
+    @Test
+    public void testIgnoreNetworksIfOobPseudonymEnabledButNotAvailableForImsiProtection() {
+        String[] ssids = {"\"test1\""};
+        String[] bssids = {"6c:f3:7f:ae:8c:f3"};
+        int[] freqs = {2470};
+        int[] levels = {RSSI_LEVEL};
+        when(mWifiCarrierInfoManager.isCarrierNetworkFromNonDefaultDataSim(any()))
+                .thenReturn(false);
+        ScanDetailsAndWifiConfigs scanDetailsAndConfigs =
+                WifiNetworkSelectorTestUtil.setupScanDetailsAndConfigForEapSimNetwork(ssids, bssids,
+                        freqs, levels, mWifiConfigManager, mClock);
+        List<ScanDetail> scanDetails = scanDetailsAndConfigs.getScanDetails();
+        WifiConfiguration[] savedConfigs = scanDetailsAndConfigs.getWifiConfigs();
+        savedConfigs[0].carrierId = TEST_CARRIER_ID;
+        // Doesn't require Imsi protection and user didn't approved
+        when(mWifiCarrierInfoManager.requiresImsiEncryption(VALID_SUBID)).thenReturn(false);
+        when(mWifiCarrierInfoManager.hasUserApprovedImsiPrivacyExemptionForCarrier(TEST_CARRIER_ID))
+                .thenReturn(false);
+        when(mWifiCarrierInfoManager.isOobPseudonymFeatureEnabled(TEST_CARRIER_ID))
+                .thenReturn(true);
+        when(mWifiPseudonymManager.getValidPseudonymInfo(TEST_CARRIER_ID))
+                .thenReturn(Optional.empty());
+
+        mSavedNetworkNominator.nominateNetworks(
+                scanDetails, false, true, true, Collections.emptySet(), mOnConnectableListener);
+
+        verify(mWifiPseudonymManager).retrievePseudonymOnFailureTimeoutExpired(any());
+        verify(mOnConnectableListener, never()).onConnectable(any(), any());
     }
 
     @Test

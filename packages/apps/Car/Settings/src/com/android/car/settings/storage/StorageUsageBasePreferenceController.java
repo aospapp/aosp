@@ -19,6 +19,7 @@ package com.android.car.settings.storage;
 import android.car.drivingstate.CarUxRestrictions;
 import android.content.Context;
 import android.content.res.Resources;
+import android.icu.util.MeasureUnit;
 import android.os.storage.VolumeInfo;
 import android.util.SparseArray;
 
@@ -87,7 +88,7 @@ public abstract class StorageUsageBasePreferenceController extends
                 FileSizeFormatter.formatFileSize(
                         getContext(),
                         size,
-                        getGigabyteSuffix(getContext().getResources()),
+                        MeasureUnit.GIGABYTE,
                         FileSizeFormatter.GIGABYTE_IN_BYTES));
         int progressPercent;
         if (total == 0) {

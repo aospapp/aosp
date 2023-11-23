@@ -22,7 +22,6 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
-import android.os.UserHandle;
 import android.util.Log;
 
 import androidx.annotation.VisibleForTesting;
@@ -31,6 +30,7 @@ import com.android.systemui.broadcast.BroadcastDispatcher;
 import com.android.systemui.car.systembar.CarSystemBarController;
 import com.android.systemui.car.window.OverlayViewMediator;
 import com.android.systemui.dagger.SysUISingleton;
+import com.android.systemui.settings.UserTracker;
 
 import javax.inject.Inject;
 
@@ -39,9 +39,11 @@ public class HvacPanelOverlayViewMediator implements OverlayViewMediator {
     private static final boolean DEBUG = false;
     private static final String TAG = "HvacPanelViewMediator";
 
+    private final Context mContext;
     private final CarSystemBarController mCarSystemBarController;
     private final HvacPanelOverlayViewController mHvacPanelOverlayViewController;
     private final BroadcastDispatcher mBroadcastDispatcher;
+    private final UserTracker mUserTracker;
 
     @VisibleForTesting
     final BroadcastReceiver mBroadcastReceiver = new BroadcastReceiver() {
@@ -57,14 +59,28 @@ public class HvacPanelOverlayViewMediator implements OverlayViewMediator {
         }
     };
 
+    private final UserTracker.Callback mUserTrackerCallback = new UserTracker.Callback() {
+        @Override
+        public void onUserChanged(int newUser, Context userContext) {
+            mBroadcastDispatcher.unregisterReceiver(mBroadcastReceiver);
+            mBroadcastDispatcher.registerReceiver(mBroadcastReceiver,
+                    new IntentFilter(Intent.ACTION_CLOSE_SYSTEM_DIALOGS), /* executor= */ null,
+                    mUserTracker.getUserHandle());
+        }
+    };
+
     @Inject
     public HvacPanelOverlayViewMediator(
+            Context context,
             CarSystemBarController carSystemBarController,
             HvacPanelOverlayViewController hvacPanelOverlayViewController,
-            BroadcastDispatcher broadcastDispatcher) {
+            BroadcastDispatcher broadcastDispatcher,
+            UserTracker userTracker) {
+        mContext = context;
         mCarSystemBarController = carSystemBarController;
         mHvacPanelOverlayViewController = hvacPanelOverlayViewController;
         mBroadcastDispatcher = broadcastDispatcher;
+        mUserTracker = userTracker;
     }
 
     @Override
@@ -96,7 +112,8 @@ public class HvacPanelOverlayViewMediator implements OverlayViewMediator {
 
         mBroadcastDispatcher.registerReceiver(mBroadcastReceiver,
                 new IntentFilter(Intent.ACTION_CLOSE_SYSTEM_DIALOGS), /* executor= */ null,
-                UserHandle.ALL);
+                mUserTracker.getUserHandle());
+        mUserTracker.addCallback(mUserTrackerCallback, mContext.getMainExecutor());
     }
 
     @Override

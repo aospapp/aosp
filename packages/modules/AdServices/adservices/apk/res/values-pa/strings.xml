@@ -1,0 +1,680 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--  Copyright (C) 2022 The Android Open Source Project
+
+     Licensed under the Apache License, Version 2.0 (the "License");
+     you may not use this file except in compliance with the License.
+     You may obtain a copy of the License at
+
+          http://www.apache.org/licenses/LICENSE-2.0
+
+     Unless required by applicable law or agreed to in writing, software
+     distributed under the License is distributed on an "AS IS" BASIS,
+     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+     See the License for the specific language governing permissions and
+     limitations under the License.
+ -->
+
+<!--  IMPORTANT! If adding new strings, then run generate_adservices_public_xml.py  -->
+
+<resources xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+    <string name="permlab_accessAdServicesTopics" msgid="1108993892369517728">"AdServices Topics API ਤੱਕ ਪਹੁੰਚ ਮਿਲਦੀ ਹੈ"</string>
+    <string name="permdesc_accessAdServicesTopics" msgid="4220466427260104683">"ਐਪਲੀਕੇਸ਼ਨ ਨੂੰ AdServices Topics API ਤੱਕ ਪਹੁੰਚ ਕਰਨ ਦੀ ਆਗਿਆ ਮਿਲਦੀ ਹੈ।"</string>
+    <string name="permlab_accessAdServicesAttribution" msgid="4498132091418336093">"AdServices Attribution API ਤੱਕ ਪਹੁੰਚ ਮਿਲਦੀ ਹੈ"</string>
+    <string name="permdesc_accessAdServicesAttribution" msgid="1644434244130657749">"ਐਪਲੀਕੇਸ਼ਨ ਨੂੰ AdServices Attribution API ਤੱਕ ਪਹੁੰਚ ਕਰਨ ਦੀ ਆਗਿਆ ਮਿਲਦੀ ਹੈ।"</string>
+    <string name="permlab_accessAdServicesCustomAudience" msgid="2766614780488510189">"AdServices Custom Audience API ਤੱਕ ਪਹੁੰਚ ਮਿਲਦੀ ਹੈ"</string>
+    <string name="permdesc_accessAdServicesCustomAudience" msgid="2034811807106784662">"ਐਪਲੀਕੇਸ਼ਨ ਨੂੰ AdServices Custom Audience API ਤੱਕ ਪਹੁੰਚ ਕਰਨ ਦੀ ਆਗਿਆ ਮਿਲਦੀ ਹੈ।"</string>
+    <string name="permlab_accessAdServicesAdId" msgid="2754825914769538156">"ਵਿਗਿਆਪਨ ਆਈਡੀ API ਤੱਕ ਪਹੁੰਚ ਮਿਲਦੀ ਹੈ"</string>
+    <string name="permdesc_accessAdServicesAdId" msgid="7717770480967762044">"ਕਿਸੇ ਐਪਲੀਕੇਸ਼ਨ ਨੂੰ ਵਿਗਿਆਪਨ ਆਈਡੀ API ਤੱਕ ਪਹੁੰਚ ਕਰਨ ਦੀ ਆਗਿਆ ਮਿਲਦੀ ਹੈ।"</string>
+    <string name="permlab_accessAdServicesConsent" msgid="3203633397142568707">"AdServices Consent API ਤੱਕ ਪਹੁੰਚ"</string>
+    <string name="permdesc_accessAdServicesConsent" msgid="8440334072391708453">"ਐਪਲੀਕੇਸ਼ਨ ਨੂੰ AdServices Consent API ਤੱਕ ਪਹੁੰਚ ਕਰਨ ਦੀ ਆਗਿਆ ਮਿਲਦੀ ਹੈ।"</string>
+    <string name="permlab_adServicesAccessAdId" msgid="1425385999072194463">"Ad ID API ਤੱਕ ਪਹੁੰਚ ਮਿਲਦੀ ਹੈ"</string>
+    <string name="permdesc_adServicesAccessAdId" msgid="5082994464565978279">"ਕਿਸੇ ਐਪਲੀਕੇਸ਼ਨ ਨੂੰ Ad ID API ਤੱਕ ਪਹੁੰਚ ਕਰਨ ਦੀ ਆਗਿਆ ਮਿਲਦੀ ਹੈ।"</string>
+    <string name="permlab_adServicesAccessAppSetId" msgid="1300149048751231124">"App Set ID API ਤੱਕ ਪਹੁੰਚ ਮਿਲਦੀ ਹੈ"</string>
+    <string name="permdesc_adServicesAccessAppSetId" msgid="7919418391145455372">"ਐਪਲੀਕੇਸ਼ਨ ਨੂੰ App Set ID API ਤੱਕ ਪਹੁੰਚ ਕਰਨ ਦੀ ਆਗਿਆ ਮਿਲਦੀ ਹੈ।"</string>
+    <string name="permlab_adServicesAccessConsentService" msgid="5994709782267864205">"Consent Service API ਤੱਕ ਪਹੁੰਚ"</string>
+    <string name="permdesc_adServicesAccessConsentService" msgid="4587727715580124241">"ਐਪਲੀਕੇਸ਼ਨ ਨੂੰ Consent Service API ਤੱਕ ਪਹੁੰਚ ਕਰਨ ਦੀ ਆਗਿਆ ਮਿਲਦੀ ਹੈ।"</string>
+    <string name="permlab_modifyAdServicesState" msgid="3594653261299518914">"AdService API ਨੂੰ ਚਾਲੂ ਜਾਂ ਬੰਦ ਕਰਨ ਦੀ ਸਥਿਤੀ ਵਿੱਚ ਸੰਸ਼ੋਧਨ ਤੱਕ ਪਹੁੰਚ ਕਰੋ"</string>
+    <string name="permdesc_modifyAdServicesState" msgid="2485849128464307209">"ਇਸ ਨਾਲ ਕਿਸੇ ਐਪਲੀਕੇਸ਼ਨ ਨੂੰ AdService API ਨੂੰ ਚਾਲੂ ਜਾਂ ਬੰਦ ਕਰਨ ਦੀ ਸਥਿਤੀ ਵਿੱਚ ਸੰਸ਼ੋਧਨ ਤੱਕ ਪਹੁੰਚ ਕਰਨ ਦੀ ਆਗਿਆ ਮਿਲਦੀ ਹੈ।"</string>
+    <string name="permlab_accessAdServicesState" msgid="482058883975394398">"AdService API ਨੂੰ ਚਾਲੂ ਜਾਂ ਬੰਦ ਕਰਨ ਦੀ ਸਥਿਤੀ ਤੱਕ ਪਹੁੰਚ ਕਰੋ"</string>
+    <string name="permdesc_accessAdServicesState" msgid="1165015604618567202">"ਇਸ ਨਾਲ ਕਿਸੇ ਐਪਲੀਕੇਸ਼ਨ ਨੂੰ AdService API ਨੂੰ ਚਾਲੂ ਜਾਂ ਬੰਦ ਕਰਨ ਦੀ ਸਥਿਤੀ ਤੱਕ ਪਹੁੰਚ ਕਰਨ ਦੀ ਆਗਿਆ ਮਿਲਦੀ ਹੈ।"</string>
+    <string name="permlab_accessAdServicesManager" msgid="4816332609066703740">"AdServicesManager ਦੇ API ਤੱਕ ਪਹੁੰਚ"</string>
+    <string name="permdesc_accessAdServicesManager" msgid="2619300431637689524">"ਐਪਲੀਕੇਸ਼ਨ ਨੂੰ AdServicesManager ਦੇ API ਤੱਕ ਪਹੁੰਚ ਕਰਨ ਦੀ ਆਗਿਆ ਦਿੰਦੀ ਹੈ।"</string>
+    <string name="app_label" msgid="5985320129629013968">"Android ਸਿਸਟਮ"</string>
+    <string name="notificationUI_notification_title_eu" msgid="6328781145332100489">"Android ਦੇ ਵਿਗਿਆਪਨ ਪਰਦੇਦਾਰੀ ਸੰਬੰਧੀ ਬੀਟਾ ਵਰਜਨ ਵਿੱਚ ਸ਼ਾਮਲ ਹੋਵੋ"</string>
+    <string name="notificationUI_notification_content_eu" msgid="4119222762583017840">"Android ਤੁਹਾਨੂੰ ਵਿਗਿਆਪਨ ਦਿਖਾਉਣ ਵਾਸਤੇ ਐਪਾਂ ਲਈ ਹੋਰ ਜ਼ਿਆਦਾ ਨਿੱਜੀ ਤਰੀਕਿਆਂ ਦੀ ਪੜਚੋਲ ਕਰ ਰਿਹਾ ਹੈ"</string>
+    <string name="notificationUI_notification_cta_eu" msgid="1294908454704864207">"ਹੋਰ ਜਾਣੋ"</string>
+    <string name="notificationUI_header_title_eu" msgid="4955298263079910371">"Android ਦਾ ਵਿਗਿਆਪਨ ਪਰਦੇਦਾਰੀ ਸੰਬੰਧੀ ਬੀਟਾ ਵਰਜਨ"</string>
+    <string name="notificationUI_container1_title_eu" msgid="8315199862119660570">"ਨਵਾਂ ਕੀ ਹੈ"</string>
+    <string name="notificationUI_container1_body_text_eu" msgid="1700290522706948241">"ਪ੍ਰਾਈਵੇਸੀ ਸੈਂਡਬਾਕਸ ਦੀਆਂ ਨਵੀਆਂ ਪਰਦੇਦਾਰੀ ਵਿਸ਼ੇਸ਼ਤਾਵਾਂ ਐਪਾਂ ਨੂੰ ਤੁਹਾਨੂੰ ਢੁਕਵੇਂ ਵਿਗਿਆਪਨ ਦਿਖਾਉਣ ਦਿੰਦੀਆਂ ਹਨ, ਪਰ ਉਨ੍ਹਾਂ ਐਪਾਂ ਨੂੰ ਹੋਰ ਵਿਕਾਸਕਾਰਾਂ ਦੀਆਂ ਵੈੱਬਸਾਈਟਾਂ ਅਤੇ ਐਪਾਂ \'ਤੇ ਤੁਹਾਡੀਆਂ ਸਰਗਰਮੀਆਂ ਬਾਰੇ ਜਾਣਕਾਰੀ ਪ੍ਰਾਪਤ ਕਰਨ ਤੋਂ ਪ੍ਰਤਿਬੰਧਿਤ ਕਰਦੀਆਂ ਹਨ।"</string>
+    <string name="notificationUI_container1_control_text_eu" msgid="3158258148321255153">"ਇਹ ਕਿਵੇਂ ਕੰਮ ਕਰਦਾ ਹੈ"</string>
+    <string name="notificationUI_container2_title_eu" msgid="7198761373796187596">"ਭਾਗ ਲੈਣ ਦਾ ਤਰੀਕਾ"</string>
+    <string name="notificationUI_container2_body_text_eu" msgid="5763735880112009239">"ਬੀਟਾ ਨੂੰ ਚਾਲੂ ਕਰਨ ਨਾਲ ਐਪਾਂ ਨੂੰ ਤੁਹਾਨੂੰ ਵਿਗਿਆਪਨ ਦਿਖਾਉਣ ਲਈ ਇਨ੍ਹਾਂ ਨਵੇਂ, ਹੋਰ ਜ਼ਿਆਦਾ ਨਿੱਜੀ ਤਰੀਕਿਆਂ ਦੀ ਜਾਂਚ ਕਰਨ ਦੀ ਆਗਿਆ ਮਿਲਦੀ ਹੈ। ਤੁਸੀਂ ਆਪਣੀਆਂ ਪਰਦੇਦਾਰੀ ਸੈਟਿੰਗਾਂ ਵਿੱਚ ਜਾ ਕੇ ਕਿਸੇ ਵੇਲੇ ਵੀ ਬੀਟਾ ਨੂੰ ਬੰਦ ਕਰ ਸਕਦੇ ਹੋ।"</string>
+    <string name="notificationUI_left_control_button_text_eu" msgid="3573715612232957187">"ਨਹੀਂ ਧੰਨਵਾਦ"</string>
+    <string name="notificationUI_right_control_button_text_eu" msgid="8484787286437052150">"ਚਾਲੂ ਕਰੋ"</string>
+    <string name="notificationUI_more_button_text" msgid="8861584693765844519">"ਹੋਰ"</string>
+    <string name="notificationUI_confirmation_accept_title" msgid="3178322390976087463">"ਭਾਗੀਦਾਰੀ ਲਈ ਤੁਹਾਡਾ ਧੰਨਵਾਦ"</string>
+    <string name="notificationUI_confirmation_accept_subtitle" msgid="6980730715078085252">"ਤੁਸੀਂ Android ਦੇ ਵਿਗਿਆਪਨ ਪਰਦੇਦਾਰੀ ਸੰਬੰਧੀ ਬੀਟਾ ਵਰਜਨ ਦਾ ਹਿੱਸਾ ਹੋ। ਪ੍ਰਾਈਵੇਸੀ ਸੈਂਡਬਾਕਸ ਨੂੰ ਤੁਹਾਡੇ ਡੀਵਾਈਸ ਲਈ ਚਾਲੂ ਕੀਤਾ ਗਿਆ ਹੈ।\n\nਤੁਸੀਂ ਆਪਣੀਆਂ ਪਰਦੇਦਾਰੀ ਸੈਟਿੰਗਾਂ ਵਿੱਚ ਜਾ ਕੇ ਹੋਰ ਜਾਣ ਸਕਦੇ ਹੋ ਜਾਂ ਕਿਸੇ ਵੀ ਸਮੇਂ ਬੀਟਾ ਨੂੰ ਬੰਦ ਕਰ ਸਕਦੇ ਹੋ।"</string>
+    <string name="notificationUI_confirmation_decline_title" msgid="6453417169877486440">"ਤੁਸੀਂ ਭਾਗੀਦਾਰੀ ਨਾ ਕਰਨ ਦੀ ਚੋਣ ਕੀਤੀ ਹੈ"</string>
+    <string name="notificationUI_confirmation_decline_subtitle" msgid="4194388733937808440">"ਤੁਹਾਡੇ ਜਵਾਬ ਲਈ ਧੰਨਵਾਦ। ਪ੍ਰਾਈਵੇਸੀ ਸੈਂਡਬਾਕਸ ਨੂੰ ਤੁਹਾਡੇ ਡੀਵਾਈਸ ਲਈ ਬੰਦ ਕੀਤਾ ਗਿਆ ਹੈ।\n\nਜੇ ਤੁਸੀਂ ਆਪਣਾ ਮਨ ਬਦਲ ਲੈਂਦੇ ਹੋ ਜਾਂ ਹੋਰ ਜਾਣਨਾ ਚਾਹੁੰਦੇ ਹੋ, ਤਾਂ ਆਪਣੀਆਂ ਪਰਦੇਦਾਰੀ ਸੈਟਿੰਗਾਂ ਵਿੱਚ ਜਾਓ।"</string>
+    <string name="notificationUI_confirmation_left_control_button_text" msgid="7459283556129950513">"ਪਰਦੇਦਾਰੀ ਸੈਟਿੰਗਾਂ"</string>
+    <string name="notificationUI_confirmation_right_control_button_text" msgid="1390803936115621269">"ਸਮਝ ਲਿਆ"</string>
+    <string name="notificationUI_container2_title" msgid="3844342008598264655">"ਤੁਸੀਂ ਬੀਟਾ ਦਾ ਹਿੱਸਾ ਹੋ"</string>
+    <string name="notificationUI_container2_body_text" msgid="758560159693325060">"ਪ੍ਰਾਈਵੇਸੀ ਸੈਂਡਬਾਕਸ ਨੂੰ ਤੁਹਾਡੇ ਡੀਵਾਈਸ ਲਈ ਚਾਲੂ ਕੀਤਾ ਗਿਆ ਹੈ, ਅਤੇ ਐਪਾਂ ਤੁਹਾਨੂੰ ਵਿਗਿਆਪਨ ਦਿਖਾਉਣ ਲਈ ਇਨ੍ਹਾਂ ਨਵੇਂ, ਹੋਰ ਜ਼ਿਆਦਾ ਨਿੱਜੀ ਤਰੀਕਿਆਂ ਦੀ ਜਾਂਚ ਕਰ ਸਕਦੀਆਂ ਹਨ। ਤੁਸੀਂ ਆਪਣੀਆਂ ਪਰਦੇਦਾਰੀ ਸੈਟਿੰਗਾਂ ਵਿੱਚ ਜਾ ਕੇ ਕਿਸੇ ਵੇਲੇ ਵੀ ਬੀਟਾ ਨੂੰ ਬੰਦ ਕਰ ਸਕਦੇ ਹੋ।"</string>
+    <string name="notificationUI_right_control_button_text" msgid="4418849554981401536">"ਸਮਝ ਲਿਆ"</string>
+    <string name="notificationUI_how_it_works_expanded_text1" msgid="5567641119079971239">"Android ਦਾ ਪ੍ਰਾਈਵੇਸੀ ਸੈਂਡਬਾਕਸ ਨਵੀਆਂ ਵਿਸ਼ੇਸ਼ਤਾਵਾਂ ਮੁਹੱਈਆ ਕਰਵਾਉਂਦਾ ਹੈ, ਜਿਨ੍ਹਾਂ ਨੂੰ ਐਪਾਂ ਤੁਹਾਡੇ ਮਨਪਸੰਦ ਵਿਗਿਆਪਨ ਦਿਖਾਉਣ ਲਈ ਵਰਤ ਸਕਦੀਆਂ ਹਨ। ਇਹ ਤਕਨਾਲੋਜੀਆਂ ਡੀਵਾਈਸ ਪਛਾਣਕਰਤਾਵਾਂ ਦੀ ਵਰਤੋਂ ਨਹੀਂ ਕਰਦੀਆਂ।\n\nAndroid ਅਤੇ ਤੁਹਾਡੀਆਂ ਐਪਾਂ ਤੁਹਾਡੇ ਦਿਲਚਸਪੀ ਵਾਲੇ ਵਿਗਿਆਪਨਾਂ ਦੀਆਂ ਕਿਸਮਾਂ ਬਾਰੇ ਅੰਦਾਜ਼ਾ ਲਗਾ ਸਕਦੀਆਂ ਹਨ, ਅਤੇ ਉਨ੍ਹਾਂ ਦਿਲਚਸਪੀਆਂ ਨੂੰ ਤੁਹਾਡੇ ਡੀਵਾਈਸ \'ਤੇ ਕੁਝ ਸਮੇਂ ਲਈ ਰੱਖਿਅਤ ਕਰ ਸਕਦੀਆਂ ਹਨ। ਇਸ ਨਾਲ ਐਪਾਂ ਨੂੰ ਹੋਰ ਵਿਕਾਸਕਾਰਾਂ ਦੀਆਂ ਵੈੱਬਸਾਈਟਾਂ ਅਤੇ ਐਪਾਂ \'ਤੇ ਤੁਹਾਡੀ ਸਰਗਰਮੀ ਨੂੰ ਟਰੈਕ ਕੀਤੇ ਬਿਨਾਂ, ਤੁਹਾਨੂੰ ਤੁਹਾਡੇ ਮਨਪਸੰਦ ਵਿਗਿਆਪਨ ਦਿਖਾਉਣ ਦੀ ਆਗਿਆ ਮਿਲਦੀ ਹੈ।"</string>
+    <string name="notificationUI_how_it_works_expanded_text2" msgid="6676443093692450581">"ਪ੍ਰਾਈਵੇਸੀ ਸੈਂਡਬਾਕਸ ਨਾਲ ਵਿਗਿਆਪਨ ਵਿਅਕਤੀਗਤਕਰਨ"</string>
+    <string name="notificationUI_how_it_works_expanded_text3" msgid="603165966360369018">"•  Android ਰਾਹੀਂ ਦਿਲਚਸਪੀਆਂ ਦਾ ਅੰਦਾਜ਼ਾ"</string>
+    <string name="notificationUI_how_it_works_expanded_text4" msgid="3910573920883580609">"Android ਤੁਹਾਡੇ ਵੱਲੋਂ ਵਰਤੀਆਂ ਜਾਣ ਵਾਲੀਆਂ ਐਪਾਂ ਦੇ ਆਧਾਰ \'ਤੇ ਸਮੇਂ-ਸਮੇਂ \'ਤੇ ਤੁਹਾਡੀਆਂ ਪ੍ਰਮੁੱਖ ਦਿਲਚਸਪੀਆਂ ਬਾਰੇ ਅੰਦਾਜ਼ਾ ਲਗਾਉਂਦਾ ਹੈ, ਉਦਾਹਰਨ ਲਈ, \"ਖੇਡਾਂ\" ਜਾਂ \"ਯਾਤਰਾ\"।\n\nਬਾਅਦ ਵਿੱਚ, ਐਪ ਤੁਹਾਨੂੰ ਹੋਰ ਢੁਕਵੇਂ ਵਿਗਿਆਪਨ ਦਿਖਾਉਣ ਲਈ Android ਨੂੰ ਉਨ੍ਹਾਂ ਦਿਲਚਸਪੀਆਂ ਦੀ ਵਰਤੋਂ ਕਰਨ ਲਈ ਕਹਿ ਸਕਦੀ ਹੈ।\n\nਤੁਸੀਂ ਮੌਜੂਦਾ ਦਿਲਚਸਪੀਆਂ ਦੀ ਸੂਚੀ ਨੂੰ ਆਪਣੀਆਂ ਪਰਦੇਦਾਰੀ ਸੈਟਿੰਗਾਂ ਵਿੱਚ ਜਾ ਕੇ ਦੇਖ ਸਕਦੇ ਹੋ, ਅਤੇ ਅਜਿਹੀ ਕਿਸੇ ਵੀ ਦਿਲਚਸਪੀ ਨੂੰ ਬਲਾਕ ਕਰ ਸਕਦੇ ਹੋ ਜੋ ਤੁਹਾਨੂੰ ਪਸੰਦ ਨਹੀਂ ਹੈ।"</string>
+    <string name="notificationUI_how_it_works_expanded_text5" msgid="7257714040472055781">"•  ਐਪਾਂ ਰਾਹੀਂ ਦਿਲਚਸਪੀਆਂ ਦਾ ਅੰਦਾਜ਼ਾ"</string>
+    <string name="notificationUI_how_it_works_expanded_text6" msgid="2949292580123453023">"ਐਪਾਂ ਤੁਹਾਡੀਆਂ ਦਿਲਚਸਪੀਆਂ ਬਾਰੇ ਅੰਦਾਜ਼ਾ ਲਗਾ ਸਕਦੀਆਂ ਹਨ ਅਤੇ ਉਨ੍ਹਾਂ ਨੂੰ Android ਨਾਲ ਕੁਝ ਸਮੇਂ ਲਈ ਰੱਖਿਅਤ ਕਰ ਸਕਦੀਆਂ ਹਨ। ਉਦਾਹਰਨ ਲਈ, ਜਿਸ ਐਪ ਦੀ ਵਰਤੋਂ ਤੁਸੀਂ ਦੌੜਨ ਲਈ ਜੁੱਤੇ ਖਰੀਦਣ ਵਾਸਤੇ ਕਰਦੇ ਹੋ, ਉਹ ਤੁਹਾਡੀ ਦਿਲਚਸਪੀ ਦਾ \"ਮੈਰਾਥਨ ਦੌੜਣਾ\" ਵਜੋਂ ਅੰਦਾਜ਼ਾ ਲਗਾ ਸਕਦੀ ਹੈ।\n\nਬਾਅਦ ਵਿੱਚ, ਇਸ ਦਿਲਚਸਪੀ ਦੇ ਆਧਾਰ \'ਤੇ, ਕੋਈ ਵੱਖਰੀ ਐਪ ਤੁਹਾਨੂੰ ਮੈਰਾਥਨ ਨਾਲ ਸੰਬੰਧਿਤ ਵਿਗਿਆਪਨ ਦਿਖਾ ਸਕਦੀ ਹੈ।\n\nਆਪਣੀਆਂ ਪਰਦੇਦਾਰੀ ਸੈਟਿੰਗਾਂ ਵਿੱਚ ਜਾ ਕੇ, ਤੁਸੀਂ ਉਨ੍ਹਾਂ ਐਪਾਂ ਦੀ ਸੂਚੀ ਦਾ ਪ੍ਰਬੰਧਨ ਕਰ ਸਕਦੇ ਹੋ ਜਿਨ੍ਹਾਂ ਵਿੱਚ ਦਿਲਚਸਪੀਆਂ ਰੱਖਿਅਤ ਹਨ।"</string>
+    <string name="notificationUI_notification_ga_title" msgid="7090667803616048587">"ਨਵੀਆਂ ਵਿਗਿਆਪਨ ਪਰਦੇਦਾਰੀ ਵਿਸ਼ੇਸ਼ਤਾਵਾਂ"</string>
+    <string name="notificationUI_notification_ga_content" msgid="3483979694272908942">"ਵਿਗਿਆਪਨ ਵਿਸ਼ੇ ਅਤੇ ਨਵੇਂ ਕੰਟਰੋਲ ਤੁਹਾਨੂੰ ਉਨ੍ਹਾਂ ਵਿਗਿਆਪਨਾਂ ਲਈ ਵੱਧ ਵਿਕਲਪ ਦਿੰਦੇ ਹਨ ਜਿਨ੍ਹਾਂ ਨੂੰ ਤੁਸੀਂ ਦੇਖਦੇ ਹੋ"</string>
+    <string name="notificationUI_header_ga_title" msgid="3557937325021173836">"ਨਵੀਆਂ ਵਿਗਿਆਪਨ ਪਰਦੇਦਾਰੀ ਵਿਸ਼ੇਸ਼ਤਾਵਾਂ ਹੁਣ ਉਪਲਬਧ ਹਨ"</string>
+    <string name="notificationUI_container2_ga_introduction" msgid="2201578950159210581">"Android ਤੁਹਾਡੇ ਵੱਲੋਂ ਹਾਲ ਹੀ ਵਿੱਚ ਵਰਤੀਆਂ ਗਈਆਂ ਐਪਾਂ ਦੇ ਆਧਾਰ \'ਤੇ ਦਿਲਚਸਪੀ ਦੇ ਵਿਸ਼ਿਆਂ ਨੂੰ ਨੋਟ ਕਰਦਾ ਹੈ। ਨਾਲ ਹੀ, ਜਿਨ੍ਹਾਂ ਐਪਾਂ ਨੂੰ ਤੁਸੀਂ ਵਰਤਦੇ ਹੋ ਤੁਹਾਡੀ ਪਸੰਦ ਨੂੰ ਨਿਰਧਾਰਿਤ ਕਰ ਸਕਦੀਆਂ ਹਨ। ਬਾਅਦ ਵਿੱਚ, ਐਪਾਂ ਤੁਹਾਨੂੰ ਵਿਅਕਤੀਗਤ ਬਣਾਏ ਵਿਗਿਆਪਨ ਦਿਖਾਉਣ ਲਈ ਇਸ ਜਾਣਕਾਰੀ ਦੀ ਮੰਗ ਕਰ ਸਕਦੀਆਂ ਹਨ। ਤੁਸੀਂ ਇਹ ਚੁਣ ਸਕਦੇ ਹੋ ਕਿ ਤੁਹਾਨੂੰ ਵਿਗਿਆਪਨ ਦਿਖਾਉਣ ਲਈ ਕਿਹੜੇ ਵਿਸ਼ੇ ਅਤੇ ਐਪਾਂ ਦੀ ਵਰਤੋਂ ਕੀਤੀ ਜਾਵੇ।"</string>
+    <string name="notificationUI_container3_ga_introduction" msgid="4247237824558927582">"ਕਿਸੇ ਵਿਗਿਆਪਨ ਦੀ ਕਾਰਗੁਜ਼ਾਰੀ ਦਾ ਮੁਲਾਂਕਣ ਕਰਨ ਲਈ, ਐਪਾਂ ਵਿਚਕਾਰ ਸੀਮਤ ਕਿਸਮ ਦਾ ਡਾਟਾ ਸਾਂਝਾ ਕੀਤਾ ਜਾਂਦਾ ਹੈ।"</string>
+    <string name="notificationUI_ga_container1_control_text" msgid="2711321174550177509">"Android \'ਤੇ ਵਿਗਿਆਪਨਾਂ ਬਾਰੇ ਹੋਰ ਜਾਣਕਾਰੀ"</string>
+    <string name="notificationUI_how_it_works_row_subtitle1" msgid="8685034725335826096">"ਹੋਰ ਲਾਹੇਵੰਦ ਵਿਗਿਆਪਨ"</string>
+    <string name="notificationUI_how_it_works_row_body1" msgid="5865369599951938718">"ਤੁਸੀਂ ਜੋ ਵਿਗਿਆਪਨ ਦੇਖਦੇ ਹੋ ਉਨ੍ਹਾਂ ਨੂੰ ਵਿਅਕਤੀਗਤ ਬਣਾਉਣ ਵਿੱਚ ਮਦਦ ਲਈ ਐਪਾਂ Android ਤੋਂ ਜਾਣਕਾਰੀ ਮੰਗ ਸਕਦੀਆਂ ਹਨ।"</string>
+    <string name="notificationUI_how_it_works_row_body2" msgid="6601773212442110369">"•  Android ਤੁਹਾਡੇ ਵੱਲੋਂ ਹਾਲ ਹੀ ਵਿੱਚ ਵਰਤੀਆਂ ਗਈਆਂ ਐਪਾਂ ਦੇ ਆਧਾਰ \'ਤੇ ਦਿਲਚਸਪੀ ਵਾਲੇ ਵਿਸ਼ਿਆਂ ਨੂੰ ਨੋਟ ਕਰਦਾ ਹੈ।"</string>
+    <string name="notificationUI_how_it_works_row_body3" msgid="3692457397642529055">"•  ਤੁਸੀਂ ਜਿਨ੍ਹਾਂ ਐਪਾਂ ਨੂੰ ਵਰਤਦੇ ਹੋ, ਉਹ ਉਨ੍ਹਾਂ ਨੂੰ ਵਰਤੇ ਜਾਣ ਦੇ ਤਰੀਕੇ ਦੇ ਆਧਾਰ \'ਤੇ ਤੁਹਾਡੀ ਪਸੰਦ ਨੂੰ ਵੀ ਨਿਰਧਾਰਿਤ ਕਰ ਸਕਦੀਆਂ ਹਨ। ਉਦਾਹਰਨ ਲਈ, ਜੇ ਤੁਸੀਂ ਕਿਸੇ ਅਜਿਹੀ ਐਪ ਨੂੰ ਵਰਤਦੇ ਹੋ ਜੋ ਲੰਮੀ ਦੂਰੀ ਦੀ ਦੌੜ ਵਾਲੇ ਜੁੱਤੇ ਵੇਚਦੀ ਹੈ, ਤਾਂ ਉਹ ਐਪ ਇਹ ਨਤੀਜਾ ਕੱਢ ਸਕਦੀ ਹੈ ਕਿ ਤੁਸੀਂ ਮੈਰਾਥਨ ਦੌੜਨ ਵਿੱਚ ਦਿਲਚਸਪੀ ਰੱਖਦੇ ਹੋ।"</string>
+    <string name="notificationUI_how_it_works_row_body4" msgid="8731138074016839243">"ਬਾਅਦ ਵਿੱਚ, ਤੁਸੀਂ ਜਿਹੜੀ ਐਪ ਵਰਤਦੇ ਹੋ ਉਹ ਇਹ ਜਾਣਕਾਰੀ ਮੰਗ ਸਕਦੀ ਹੈ — ਜਾਂ ਤਾਂ ਤੁਹਾਡੇ ਵਿਗਿਆਪਨ ਵਿਸ਼ੇ ਜਾਂ ਉਨ੍ਹਾਂ ਐਪਾਂ ਵੱਲੋਂ ਸੁਝਾਏ ਗਏ ਵਿਗਿਆਪਨ ਜਿਨ੍ਹਾਂ ਨੂੰ ਤੁਸੀਂ ਵਰਤਿਆ ਹੈ।"</string>
+    <string name="notificationUI_how_it_works_row_body5" msgid="4524382869577899661">"Android ਨਿਯਮਿਤ ਤੌਰ \'ਤੇ ਵਿਸ਼ਿਆਂ ਅਤੇ ਐਪ ਵੱਲੋਂ ਸੁਝਾਏ ਗਏ ਡਾਟੇ ਨੂੰ ਸਵੈਚਲਿਤ ਤੌਰ \'ਤੇ ਮਿਟਾਉਂਦਾ ਰਹਿੰਦਾ ਹੈ। ਤੁਸੀਂ ਕੁਝ ਖਾਸ ਵਿਸ਼ਿਆਂ ਨੂੰ ਬਲਾਕ ਕਰ ਸਕਦੇ ਹੋ ਅਤੇ ਉਨ੍ਹਾਂ ਐਪਾਂ ਨੂੰ ਵੀ ਬਲਾਕ ਕਰ ਸਕਦੇ ਹੋ ਜਿਨ੍ਹਾਂ ਤੋਂ ਤੁਸੀਂ ਸਿਫ਼ਾਰਸ਼ਾਂ ਨਹੀਂ ਚਾਹੁੰਦੇ।"</string>
+    <string name="notificationUI_how_it_works_subtitle2" msgid="2203542887026049927">"ਵਿਗਿਆਪਨ ਕਿੰਨੀ ਵਧੀਆ ਕਾਰਗੁਜ਼ਾਰੀ ਕਰਦਾ ਹੈ, ਉਸਦਾ ਮੁਲਾਂਕਣ ਕਰਨਾ"</string>
+    <string name="notificationUI_how_it_works_row_body6" msgid="5368364880910986588">"ਤੁਸੀਂ ਜੋ ਐਪਾਂ ਵਰਤਦੇ ਹੋ, ਉਹ ਆਪਣੇ ਵਿਗਿਆਪਨਾਂ ਦੀ ਕਾਰਗੁਜ਼ਾਰੀ ਦਾ ਮੁਲਾਂਕਣ ਕਰਨ ਵਿੱਚ ਉਨ੍ਹਾਂ ਦੀ ਮਦਦ ਵਾਸਤੇ Android ਤੋਂ ਜਾਣਕਾਰੀ ਮੰਗ ਸਕਦੀਆਂ ਹਨ। Android ਐਪਾਂ ਨੂੰ ਸੀਮਤ ਕਿਸਮ ਦਾ ਡਾਟਾ ਇਕੱਤਰ ਕਰਨ ਦੀ ਆਗਿਆ ਦਿੰਦਾ ਹੈ ਜਿਵੇਂ ਕਿ ਦਿਨ ਦਾ ਉਹ ਸਮਾਂ ਜਦੋਂ ਤੁਹਾਨੂੰ ਵਿਗਿਆਪਨ ਦਿਖਾਇਆ ਗਿਆ ਸੀ।"</string>
+    <string name="notificationUI_notification_ga_title_eu" msgid="5803977334621918481">"ਨਵੀਆਂ ਵਿਗਿਆਪਨ ਪਰਦੇਦਾਰੀ ਵਿਸ਼ੇਸ਼ਤਾਵਾਂ ਅਜ਼ਮਾਓ"</string>
+    <string name="notificationUI_notification_ga_content_eu" msgid="8430705356085726474">"ਵਿਗਿਆਪਨ ਵਿਸ਼ੇ ਤੁਹਾਨੂੰ ਉਨ੍ਹਾਂ ਵਿਗਿਆਪਨਾਂ ਲਈ ਵੱਧ ਵਿਕਲਪ ਦਿੰਦੇ ਹਨ ਜਿਨ੍ਹਾਂ ਨੂੰ ਤੁਸੀਂ ਦੇਖਦੇ ਹੋ"</string>
+    <string name="notificationUI_notification_ga_cta_eu" msgid="8494461862622985200">"ਵੇਰਵੇ ਦੇਖੋ"</string>
+    <string name="notificationUI_header_ga_title_eu" msgid="6246782633712559485">"ਵਿਗਿਆਪਨ ਪਰਦੇਦਾਰੀ ਸੰਬੰਧੀ ਨਵੀਆਂ ਵਿਸ਼ੇਸ਼ਤਾਵਾਂ ਵਰਤ ਕੇ ਦੇਖੋ"</string>
+    <string name="notificationUI_container1_body_ga_text_eu" msgid="2461669162863900717">"Android ਨਵੀਆਂ ਪਰਦੇਦਾਰੀ ਵਿਸ਼ੇਸ਼ਤਾਵਾਂ ਲਾਂਚ ਕਰ ਰਿਹਾ ਹੈ ਜੋ ਤੁਹਾਨੂੰ ਉਨ੍ਹਾਂ ਵਿਗਿਆਪਨਾਂ ਲਈ ਵੱਧ ਵਿਕਲਪ ਦਿੰਦੀਆਂ ਹਨ ਜਿਨ੍ਹਾਂ ਨੂੰ ਤੁਸੀਂ ਦੇਖਦੇ ਹੋ।"</string>
+    <string name="notificationUI_container2_body_ga_text_eu" msgid="1692066129509373924">"ਵਿਗਿਆਪਨ ਵਿਸ਼ੇ ਤੁਹਾਡੀ ਐਪ ਵਰਤੋਂ ਬਾਰੇ ਜਾਣਕਾਰੀ ਅਤੇ ਤੁਹਾਡੀ ਪਛਾਣ ਨੂੰ ਸੁਰੱਖਿਅਤ ਰੱਖਦੇ ਹੋਏ ਤੁਹਾਨੂੰ ਢੁਕਵੇਂ ਵਿਗਿਆਪਨ ਦਿਖਾਉਣ ਵਿੱਚ ਐਪਾਂ ਦੀ ਮਦਦ ਕਰਦੇ ਹਨ। Android ਤੁਹਾਡੇ ਵੱਲੋਂ ਹਾਲ ਹੀ ਵਿੱਚ ਵਰਤੀਆਂ ਗਈਆਂ ਐਪਾਂ ਦੇ ਆਧਾਰ \'ਤੇ ਦਿਲਚਸਪੀ ਦੇ ਵਿਸ਼ਿਆਂ ਨੂੰ ਨੋਟ ਕਰ ਸਕਦਾ ਹੈ। ਬਾਅਦ ਵਿੱਚ, ਤੁਹਾਡੇ ਵੱਲੋਂ ਵਰਤੀ ਜਾਂਦੀ ਐਪ Android ਤੋਂ ਤੁਹਾਡੇ ਵੱਲੋਂ ਦੇਖੇ ਜਾਣ ਵਾਲੇ ਵਿਗਿਆਪਨਾਂ ਨੂੰ ਵਿਅਕਤੀਗਤ ਬਣਾਉਣ ਲਈ ਢੁਕਵੇਂ ਵਿਸ਼ਿਆਂ ਦੀ ਜਾਣਕਾਰੀ ਮੰਗ ਸਕਦੀ ਹੈ।"</string>
+    <string name="notificationUI_container3_body_ga_text_eu" msgid="5992069735281496875">"ਤੁਸੀਂ ਆਪਣੇ ਡੀਵਾਈਸ ਦੀਆਂ ਸੈਟਿੰਗਾਂ ਵਿੱਚ ਵਿਗਿਆਪਨ ਵਿਸ਼ੇ ਦੇਖ ਸਕਦੇ ਹੋ ਅਤੇ ਉਨ੍ਹਾਂ ਵਿਸ਼ਿਆਂ ਨੂੰ ਬਲਾਕ ਕਰ ਸਕਦੇ ਹੋ ਜਿਨ੍ਹਾਂ ਨੂੰ ਤੁਸੀਂ ਐਪਾਂ ਨਾਲ ਸਾਂਝਾ ਨਹੀਂ ਕਰਨਾ ਚਾਹੁੰਦੇ। Android ਵੀ ਵਿਗਿਆਪਨ ਵਿਸ਼ਿਆਂ ਨੂੰ ਨਿਯਮਿਤ ਤੌਰ \'ਤੇ ਸਵੈਚਲਿਤ-ਮਿਟਾਉਂਦਾ ਰਹਿੰਦਾ ਹੈ।"</string>
+    <string name="notificationUI_change_any_time_in_privacy_settings_eu" msgid="2908767337419331427">"ਤੁਸੀਂ ਪਰਦੇਦਾਰੀ ਸੈਟਿੰਗਾਂ ਵਿੱਚ ਜਾ ਕੇ ਕਿਸੇ ਵੇਲੇ ਵੀ ਆਪਣਾ ਮਨ ਬਦਲ ਸਕਦੇ ਹੋ।"</string>
+    <string name="notificationUI_container1_control_ga_text_eu" msgid="4496835418228234590">"ਵਿਗਿਆਪਨ ਵਿਸ਼ਿਆਂ ਬਾਰੇ ਹੋਰ ਜਾਣਕਾਰੀ"</string>
+    <string name="notificationUI_learn_more_from_privacy_policy" msgid="7809111628979410445">"ਸਾਡੀ "<a href="https://policies.google.com/privacy">"ਪਰਦੇਦਾਰੀ ਨੀਤੀ"</a>" ਵਿੱਚ ਇਸ ਬਾਰੇ ਹੋਰ ਜਾਣੋ ਕਿ Android ਤੁਹਾਡੇ ਡਾਟੇ ਨੂੰ ਕਿਵੇਂ ਸੁਰੱਖਿਅਤ ਰੱਖਦਾ ਹੈ।"</string>
+    <string name="notificationUI_right_control_button_ga_text_eu" msgid="7164165910760741822">"ਇਸਨੂੰ ਅਜ਼ਮਾਓ"</string>
+    <string name="notificationUI_how_it_works_topics_expanded_text3" msgid="5620813445262745365">"•  ਕਿਹੜਾ ਡਾਟਾ ਵਰਤਿਆ ਜਾਂਦਾ ਹੈ"</string>
+    <string name="notificationUI_how_it_works_topics_expanded_text4" msgid="398508225331553559">"ਤੁਹਾਡੇ ਵਿਗਿਆਪਨ ਵਿਸ਼ੇ ਉਨ੍ਹਾਂ ਐਪਾਂ \'ਤੇ ਆਧਾਰਿਤ ਹੁੰਦੇ ਹਨ ਜਿਨ੍ਹਾਂ ਨੂੰ ਤੁਸੀਂ ਇਸ ਡੀਵਾਈਸ \'ਤੇ ਹਾਲ ਹੀ ਵਿੱਚ ਵਰਤਿਆ ਹੈ ਅਤੇ ਤੁਸੀਂ ਉਨ੍ਹਾਂ ਨੂੰ ਕਿੰਨੀ ਵਾਰ ਵਰਤਦੇ ਹੋ।"</string>
+    <string name="notificationUI_how_it_works_topics_expanded_text5" msgid="5976468008939416198">"•  ਅਸੀਂ ਇਸ ਡਾਟੇ ਨੂੰ ਕਿਵੇਂ ਵਰਤਦੇ ਹਾਂ"</string>
+    <string name="notificationUI_how_it_works_topics_expanded_text6" msgid="6318275524155409408">"ਜਦੋਂ ਤੁਸੀਂ ਆਪਣੀਆਂ ਐਪਾਂ ਵਰਤਦੇ ਹੋ, ਤਾਂ Android ਦਿਲਚਸਪੀ ਦੇ ਵਿਸ਼ਿਆਂ ਨੂੰ ਨੋਟ ਕਰਦਾ ਹੈ। ਵਿਸ਼ਿਆਂ ਦੇ ਲੇਬਲ ਕਲਾ ਅਤੇ ਮਨੋਰੰਜਨ, ਖਰੀਦਦਾਰੀ ਅਤੇ ਖੇਡਾਂ ਵਰਗੀਆਂ ਚੀਜ਼ਾਂ ਸਮੇਤ ਪਹਿਲਾਂ ਤੋਂ ਹੀ ਪਰਿਭਾਸ਼ਿਤ ਹੁੰਦੇ ਹਨ। ਬਾਅਦ ਵਿੱਚ, ਜੋ ਐਪ ਤੁਸੀਂ ਵਰਤਦੇ ਹੋ ਉਹ ਤੁਹਾਡੇ ਵੱਲੋਂ ਦੇਖੇ ਜਾਣ ਵਾਲੇ ਵਿਗਿਆਪਨਾਂ ਨੂੰ ਵਿਅਕਤੀਗਤ ਬਣਾਉਣ ਲਈ Android ਤੋਂ ਤੁਹਾਡੇ ਕੁਝ ਵਿਸ਼ਿਆਂ (ਪਰ ਤੁਹਾਡੀ ਐਪ ਵਰਤੋਂ ਜਾਂ ਪਛਾਣ ਬਾਰੇ ਡਾਟਾ ਨਹੀਂ) ਬਾਰੇ ਪੁੱਛ ਸਕਦੀ ਹੈ।"</string>
+    <string name="notificationUI_how_it_works_topics_expanded_text7" msgid="4275126336833782389">"•  ਤੁਸੀਂ ਆਪਣੇ ਡਾਟੇ ਦਾ ਪ੍ਰਬੰਧਨ ਕਿਵੇਂ ਕਰ ਸਕਦੇ ਹੋ"</string>
+    <string name="notificationUI_how_it_works_topics_expanded_text8" msgid="2797007387412839612">"Android ਨਿਯਮਿਤ ਤੌਰ \'ਤੇ ਵਿਸ਼ਿਆਂ ਨੂੰ ਸਵੈਚਲਿਤ ਤੌਰ \'ਤੇ ਮਿਟਾਉਂਦਾ ਰਹਿੰਦਾ ਹੈ। ਜਿਵੇਂ-ਜਿਵੇਂ ਤੁਸੀਂ ਐਪਾਂ ਨੂੰ ਵਰਤਣਾ ਜਾਰੀ ਰੱਖਦੇ ਹੋ, ਹੋ ਸਕਦਾ ਹੈ ਕਿ ਕੋਈ ਵਿਸ਼ਾ ਸੂਚੀ ਵਿੱਚ ਦੁਬਾਰਾ ਦਿਖਾਈ ਦੇਵੇ। ਤੁਸੀਂ ਉਨ੍ਹਾਂ ਵਿਸ਼ਿਆਂ ਨੂੰ ਬਲਾਕ ਵੀ ਕਰ ਸਕਦੇ ਹੋ ਜਿਨ੍ਹਾਂ ਨੂੰ ਤੁਸੀਂ ਨਹੀਂ ਚਾਹੁੰਦੇ ਕਿ Android ਐਪਾਂ ਨਾਲ ਸਾਂਝਾ ਕਰੇ ਅਤੇ ਤੁਸੀਂ ਕਿਸੇ ਵੇਲੇ ਵੀ ਪਰਦੇਦਾਰੀ ਸੈਟਿੰਗਾਂ ਵਿੱਚ ਜਾ ਕੇ ਵਿਗਿਆਪਨ ਵਿਸ਼ਿਆਂ ਨੂੰ ਬੰਦ ਕਰ ਸਕਦੇ ਹੋ।"</string>
+    <string name="notificationUI_you_can_change_in_privacy_settings" msgid="4781410091509838647">"ਤੁਸੀਂ ਪਰਦੇਦਾਰੀ ਸੈਟਿੰਗਾਂ ਵਿੱਚ ਤਬਦੀਲੀਆਂ ਕਰ ਸਕਦੇ ਹੋ।"</string>
+    <string name="notificationUI_fledge_measurement_title" msgid="1721724915714192994">"ਹੋਰ ਵਿਗਿਆਪਨ ਪਰਦੇਦਾਰੀ ਵਿਸ਼ੇਸ਼ਤਾਵਾਂ ਹੁਣ ਉਪਲਬਧ ਹਨ"</string>
+    <string name="notificationUI_fledge_measurement_introduction_text1" msgid="2217529852483952185">"ਵਿਅਕਤੀਗਤ ਬਣਾਏ ਵਿਗਿਆਪਨ ਦਿਖਾਉਣ ਵੇਲੇ ਐਪਾਂ ਤੁਹਾਡੇ ਬਾਰੇ ਕੀ ਜਾਣ ਸਕਦੀਆਂ ਹਨ, ਉਨ੍ਹਾਂ ਨੂੰ ਸੀਮਤ ਕਰਨ ਲਈ Android ਨਵੇਂ ਤਰੀਕਿਆਂ ਦੀ ਵੀ ਪੇਸ਼ਕਸ਼ ਕਰਦਾ ਹੈ।"</string>
+    <string name="notificationUI_fledge_measurement_introduction_text2" msgid="601600895880486962">"•  ਐਪ ਵੱਲੋਂ ਸੁਝਾਏ ਵਿਗਿਆਪਨ ਸੈਟਿੰਗ ਤੁਹਾਨੂੰ ਢੁਕਵੇਂ ਵਿਗਿਆਪਨ ਦਿਖਾਉਣ ਲਈ ਐਪਾਂ ਨੂੰ ਚਾਲੂ ਕਰ ਕੇ ਤੁਹਾਡੀ ਪਛਾਣ ਅਤੇ ਤੁਹਾਡੀ ਐਪ ਵਰਤੋਂ ਸੰਬੰਧੀ ਜਾਣਕਾਰੀ ਨੂੰ ਸੁਰੱਖਿਅਤ ਰੱਖਣ ਵਿੱਚ ਮਦਦ ਕਰਦੀ ਹੈ। ਤੁਹਾਡੀ ਸਰਗਰਮੀ ਦੇ ਆਧਾਰ \'ਤੇ, ਤੁਸੀਂ ਜੋ ਐਪ ਵਰਤਦੇ ਹੋ ਉਹ ਹੋਰ ਐਪਾਂ \'ਤੇ ਸੰਬੰਧਿਤ ਵਿਗਿਆਪਨਾਂ ਦਾ ਸੁਝਾਅ ਦੇ ਸਕਦੀ ਹੈ। ਤੁਸੀਂ ਪਰਦੇਦਾਰੀ ਸੈਟਿੰਗਾਂ ਵਿੱਚ ਜਾ ਕੇ, ਐਪਾਂ ਦੀ ਸੂਚੀ ਦੇਖ ਸਕਦੇ ਹੋ ਅਤੇ ਉਨ੍ਹਾਂ ਨੂੰ ਸੁਝਾਅ ਦੇਣ ਤੋਂ ਬਲਾਕ ਕਰ ਸਕਦੇ ਹੋ।"</string>
+    <string name="notificationUI_fledge_measurement_introduction_text3" msgid="956235653060248351">"•  ਵਿਗਿਆਪਨ ਦੇ ਮੁਲਾਂਕਣ ਨਾਲ, ਵਿਗਿਆਪਨਾਂ ਦੀ ਕਾਰਗੁਜ਼ਾਰੀ ਦਾ ਮੁਲਾਂਕਣ ਕਰਨ ਲਈ ਐਪਾਂ ਵਿਚਕਾਰ ਸੀਮਤ ਕਿਸਮ ਦਾ ਡਾਟਾ ਸਾਂਝਾ ਕੀਤਾ ਜਾਂਦਾ ਹੈ, ਜਿਵੇਂ ਕਿ ਦਿਨ ਦਾ ਉਹ ਸਮਾਂ ਜਦੋਂ ਤੁਹਾਨੂੰ ਵਿਗਿਆਪਨ ਦਿਖਾਇਆ ਗਿਆ ਸੀ।"</string>
+    <string name="notificationUI_fledge_measurement_control_ga_text_eu" msgid="2346851728118443500">"ਐਪ ਵੱਲੋਂ ਸੁਝਾਏ ਵਿਗਿਆਪਨ ਅਤੇ ਵਿਗਿਆਪਨ ਮੁਲਾਂਕਣ ਸੈਟਿੰਗ ਬਾਰੇ ਹੋਰ ਜਾਣਕਾਰੀ"</string>
+    <string name="notificationUI_how_it_works_fledge_measurement_expanded_text0" msgid="2456923104551938349">"ਐਪ ਵੱਲੋਂ ਸੁਝਾਏ ਵਿਗਿਆਪਨ"</string>
+    <string name="notificationUI_how_it_works_fledge_measurement_expanded_text1" msgid="5606895535548790900">"•  ਕਿਹੜਾ ਡਾਟਾ ਵਰਤਿਆ ਜਾਂਦਾ ਹੈ"</string>
+    <string name="notificationUI_how_it_works_fledge_measurement_expanded_text2" msgid="6309052819494439288">"ਉਸ ਐਪ ਵਿੱਚ ਤੁਹਾਡੀ ਸਰਗਰਮੀ, ਜਿਸਨੂੰ ਤੁਸੀਂ ਇਸ ਡੀਵਾਈਸ \'ਤੇ ਵਰਤਦੇ ਹੋ।"</string>
+    <string name="notificationUI_how_it_works_fledge_measurement_expanded_text3" msgid="5347980571056638783">"•  ਐਪਾਂ ਇਸ ਡਾਟੇ ਦੀ ਵਰਤੋਂ ਕਿਵੇਂ ਕਰਦੀਆਂ ਹਨ"</string>
+    <string name="notificationUI_how_it_works_fledge_measurement_expanded_text4" msgid="4738335469671465639">"ਐਪਾਂ ਤੁਹਾਡੀਆਂ ਮਨਪਸੰਦ ਚੀਜ਼ਾਂ ਬਾਰੇ ਜਾਣਕਾਰੀ Android ਕੋਲ ਸਟੋਰ ਕਰ ਸਕਦੀਆਂ ਹਨ। ਉਦਾਹਰਨ ਲਈ, ਜੇ ਤੁਸੀਂ ਮੈਰਾਥਨ ਸਿਖਲਾਈ ਵਾਲੀ ਐਪ ਵਰਤਦੇ ਹੋ, ਤਾਂ ਐਪ ਇਹ ਨਤੀਜਾ ਕੱਢ ਸਕਦੀ ਹੈ ਕਿ ਤੁਹਾਡੀ ਦਿਲਚਸਪੀ ਦੌੜਨ ਵਾਲੇ ਜੁੱਤਿਆਂ ਵਿੱਚ ਹੈ। ਬਾਅਦ ਵਿੱਚ, ਜੇ ਤੁਸੀਂ ਕੋਈ ਵੱਖਰੀ ਐਪ ਵਰਤਦੇ ਹੋ, ਤਾਂ ਉਹ ਐਪ ਪਹਿਲੀ ਵਾਲੀ ਐਪ ਵੱਲੋਂ ਸੁਝਾਏ ਗਏ ਦੌੜਨ ਵਾਲੇ ਜੁੱਤਿਆਂ ਦਾ ਵਿਗਿਆਪਨ ਦਿਖਾ ਸਕਦੀ ਹੈ।"</string>
+    <string name="notificationUI_how_it_works_fledge_measurement_expanded_text5" msgid="8737925570089314631">"•  ਤੁਸੀਂ ਆਪਣੇ ਡਾਟੇ ਦਾ ਪ੍ਰਬੰਧਨ ਕਿਵੇਂ ਕਰ ਸਕਦੇ ਹੋ"</string>
+    <string name="notificationUI_how_it_works_fledge_measurement_expanded_text6" msgid="495908587748380196">"Android ਨਿਯਮਿਤ ਤੌਰ \'ਤੇ ਐਪ ਵੱਲੋਂ ਸੁਝਾਏ ਗਏ ਡਾਟੇ ਨੂੰ ਆਪਣੇ ਆਪ ਮਿਟਾਉਂਦਾ ਰਹਿੰਦਾ ਹੈ। ਉਹ ਐਪ ਸੂਚੀ ਵਿੱਚ ਮੁੜ ਤੋਂ ਦਿਖਾਈ ਦੇ ਸਕਦੀ ਹੈ, ਜਿਸਨੂੰ ਤੁਸੀਂ ਦੁਬਾਰਾ ਵਰਤਦੇ ਹੋ।"</string>
+    <string name="notificationUI_how_it_works_fledge_measurement_expanded_text7" msgid="8995912218837619600">"ਤੁਸੀਂ ਕਿਸੇ ਵੇਲੇ ਵੀ ਪਰਦੇਦਾਰੀ ਸੈਟਿੰਗਾਂ ਵਿੱਚ ਜਾ ਕੇ, ਕਿਸੇ ਐਪ ਨੂੰ ਤੁਹਾਡੇ ਲਈ ਵਿਗਿਆਪਨਾਂ ਦੇ ਸੁਝਾਅ ਦੇਣ ਤੋਂ ਬਲਾਕ ਵੀ ਕਰ ਸਕਦੇ ਹੋ, ਵਿਗਿਆਪਨ ਸੰਬੰਧੀ ਸੁਝਾਅ ਦਾ ਸਾਰਾ ਡਾਟਾ ਵੀ ਰੀਸੈੱਟ ਕਰ ਸਕਦੇ ਹੋ ਜਾਂ ਐਪ ਵੱਲੋਂ ਸੁਝਾਏ ਗਏ ਵਿਗਿਆਪਨਾਂ ਨੂੰ ਬੰਦ ਵੀ ਕਰ ਸਕਦੇ ਹੋ।"</string>
+    <string name="notificationUI_how_it_works_fledge_measurement_expanded_text9" msgid="5709134827192739362">"ਜੋ ਐਪਾਂ ਤੁਸੀਂ ਵਰਤਦੇ ਹੋ, ਉਹ Android ਤੋਂ ਉਸ ਜਾਣਕਾਰੀ ਦੀ ਮੰਗ ਕਰ ਸਕਦੀਆਂ ਹਨ ਜੋ ਉਨ੍ਹਾਂ ਦੇ ਵਿਗਿਆਪਨਾਂ ਦੀ ਕਾਰਗੁਜ਼ਾਰੀ ਦਾ ਮੁਲਾਂਕਣ ਕਰਨ ਵਿੱਚ ਮਦਦ ਕਰਦੀ ਹੈ। Android ਐਪਾਂ ਵੱਲੋਂ ਇੱਕ-ਦੂਜੇ ਨਾਲ ਸਾਂਝੀ ਕੀਤੀ ਜਾਣ ਵਾਲੀ ਜਾਣਕਾਰੀ ਨੂੰ ਸੀਮਤ ਕਰ ਕੇ ਤੁਹਾਡੀ ਪਰਦੇਦਾਰੀ ਨੂੰ ਸੁਰੱਖਿਅਤ ਰੱਖਦਾ ਹੈ।"</string>
+    <string name="notificationUI_notification_ga_title_eu_v2" msgid="9132669086237883391">"ਨਵੀਆਂ ਵਿਗਿਆਪਨ ਪਰਦੇਦਾਰੀ ਵਿਸ਼ੇਸ਼ਤਾਵਾਂ ਹੁਣ ਉਪਲਬਧ ਹਨ"</string>
+    <string name="notificationUI_notification_ga_content_eu_v2" msgid="9205285241542339861">"ਆਪਣੀ ਪਛਾਣ ਨੂੰ ਸੁਰੱਖਿਅਤ ਰੱਖਣ ਵੇਲੇ, ਤੁਹਾਨੂੰ ਦਿਖਾਈ ਦੇਣ ਵਾਲੇ ਵਿਗਿਆਪਨਾਂ ਸੰਬੰਧੀ ਹੋਰ ਵਿਕਲਪ ਪ੍ਰਾਪਤ ਕਰੋ"</string>
+    <string name="notificationUI_fledge_measurement_title_v2" msgid="1097778529908285549">"ਨਵੀਆਂ ਵਿਗਿਆਪਨ ਪਰਦੇਦਾਰੀ ਵਿਸ਼ੇਸ਼ਤਾਵਾਂ ਹੁਣ ਉਪਲਬਧ ਹਨ"</string>
+    <string name="notificationUI_fledge_measurement_introduction_text1_v2" msgid="4019531984422364790">"ਵਿਅਕਤੀਗਤ ਬਣਾਏ ਵਿਗਿਆਪਨ ਦਿਖਾਉਣ ਵੇਲੇ ਐਪਾਂ ਤੁਹਾਡੇ ਬਾਰੇ ਕੀ ਜਾਣ ਸਕਦੀਆਂ ਹਨ, ਉਨ੍ਹਾਂ ਨੂੰ ਸੀਮਤ ਕਰਨ ਲਈ Android ਨਵੇਂ ਤਰੀਕੇ ਲਾਂਚ ਕਰ ਰਿਹਾ ਹੈ।"</string>
+    <string name="notificationUI_fledge_measurement_introduction_text2_v2" msgid="7324869061552803848">"•  ਐਪ ਵੱਲੋਂ ਸੁਝਾਏ ਵਿਗਿਆਪਨਾਂ ਨਾਲ, ਨਵੀਆਂ ਪਰਦੇਦਾਰੀ ਵਿਸ਼ੇਸ਼ਤਾਵਾਂ ਤੁਹਾਨੂੰ ਢੁਕਵੇਂ ਵਿਗਿਆਪਨ ਦਿਖਾਉਣ ਲਈ ਐਪਾਂ ਨੂੰ ਚਾਲੂ ਕਰਨ ਵੇਲੇ ਤੁਹਾਡੀ ਪਛਾਣ ਅਤੇ ਤੁਹਾਡੀ ਐਪ ਵਰਤੋਂ ਸੰਬੰਧੀ ਜਾਣਕਾਰੀ ਨੂੰ ਸੁਰੱਖਿਅਤ ਰੱਖਣ ਵਿੱਚ ਮਦਦ ਕਰਦੀਆਂ ਹਨ। ਤੁਹਾਡੀ ਸਰਗਰਮੀ ਦੇ ਆਧਾਰ \'ਤੇ, ਤੁਸੀਂ ਜੋ ਐਪ ਵਰਤਦੇ ਹੋ ਉਹ ਹੋਰ ਐਪਾਂ \'ਤੇ ਇਸ ਨਾਲ ਸੰਬੰਧਿਤ ਵਿਗਿਆਪਨਾਂ ਦਾ ਸੁਝਾਅ ਦੇ ਸਕਦੀ ਹੈ। ਤੁਸੀਂ ਪਰਦੇਦਾਰੀ ਸੈਟਿੰਗਾਂ ਵਿੱਚ ਜਾ ਕੇ, ਐਪਾਂ ਦੀ ਸੂਚੀ ਨੂੰ ਦੇਖ ਸਕਦੇ ਹੋ ਅਤੇ ਉਨ੍ਹਾਂ ਨੂੰ ਸੁਝਾਅ ਦੇਣ ਤੋਂ ਬਲਾਕ ਕਰ ਸਕਦੇ ਹੋ।"</string>
+    <string name="notificationUI_fledge_measurement_introduction_text3_v2" msgid="7061185974787039681">"•  ਵਿਗਿਆਪਨ ਦੇ ਮੁਲਾਂਕਣ ਨਾਲ, ਵਿਗਿਆਪਨਾਂ ਦੀ ਕਾਰਗੁਜ਼ਾਰੀ ਨੂੰ ਸਮਝਣ ਲਈ ਐਪਾਂ ਵਿਚਕਾਰ ਸੀਮਤ ਕਿਸਮ ਦਾ ਡਾਟਾ ਸਾਂਝਾ ਕੀਤਾ ਜਾਂਦਾ ਹੈ, ਜਿਵੇਂ ਕਿ ਦਿਨ ਦਾ ਉਹ ਸਮਾਂ ਜਦੋਂ ਤੁਹਾਨੂੰ ਵਿਗਿਆਪਨ ਦਿਖਾਇਆ ਗਿਆ ਸੀ।"</string>
+    <string name="notificationUI_how_it_works_fledge_measurement_expanded_text2_v2" msgid="5467298277353569728">"ਇਸ ਡੀਵਾਈਸ \'ਤੇ ਐਪ ਵਿਚਲੀ ਤੁਹਾਡੀ ਸਰਗਰਮੀ ਦੀ ਵਰਤੋਂ ਵਿਗਿਆਪਨ ਸੁਝਾਉਣ ਲਈ ਕੀਤੀ ਜਾ ਸਕਦੀ ਹੈ।"</string>
+    <string name="notificationUI_header_ga_title_eu_v2" msgid="8442776546238998877">"ਕੋਈ ਹੋਰ ਵਿਗਿਆਪਨ ਪਰਦੇਦਾਰੀ ਵਿਸ਼ੇਸ਼ਤਾ ਚਾਲੂ ਕਰੋ"</string>
+    <string name="notificationUI_container1_body_ga_text_eu_v2" msgid="1119632112904754361">"Android ਇੱਕ ਨਵੀਂ ਪਰਦੇਦਾਰੀ ਵਿਸ਼ੇਸ਼ਤਾ ਦੀ ਵੀ ਪੇਸ਼ਕਸ਼ ਕਰਦਾ ਹੈ ਜੋ ਤੁਹਾਨੂੰ ਉਨ੍ਹਾਂ ਵਿਗਿਆਪਨਾਂ ਲਈ ਵੱਧ ਵਿਕਲਪ ਦਿੰਦੀ ਹੈ ਜਿਨ੍ਹਾਂ ਨੂੰ ਤੁਸੀਂ ਦੇਖਦੇ ਹੋ।"</string>
+    <string name="notificationUI_container2_body_ga_text_eu_v2" msgid="7264946073865844642">"ਵਿਗਿਆਪਨ ਵਿਸ਼ੇ ਤੁਹਾਡੀ ਐਪ ਵਰਤੋਂ ਬਾਰੇ ਜਾਣਕਾਰੀ ਅਤੇ ਤੁਹਾਡੀ ਪਛਾਣ ਦੀ ਸੁਰੱਖਿਆ ਕਰਦੇ ਹੋਏ ਤੁਹਾਨੂੰ ਢੁਕਵੇਂ ਵਿਗਿਆਪਨ ਦਿਖਾਉਣ ਵਿੱਚ ਐਪਾਂ ਦੀ ਮਦਦ ਕਰਦੇ ਹਨ। Android ਤੁਹਾਡੇ ਵੱਲੋਂ ਹਾਲ ਹੀ ਵਿੱਚ ਵਰਤੀਆਂ ਗਈਆਂ ਐਪਾਂ ਦੇ ਆਧਾਰ \'ਤੇ ਦਿਲਚਸਪੀ ਦੇ ਵਿਸ਼ਿਆਂ ਨੂੰ ਨੋਟ ਕਰ ਸਕਦਾ ਹੈ। ਬਾਅਦ ਵਿੱਚ, ਤੁਹਾਡੇ ਵੱਲੋਂ ਵਰਤੀ ਜਾਂਦੀ ਐਪ ਤੁਹਾਨੂੰ ਹੋਰ ਢੁਕਵੇਂ ਵਿਗਿਆਪਨ ਦਿਖਾਉਣ ਲਈ Android ਤੋਂ ਢੁਕਵੇਂ ਵਿਸ਼ਿਆਂ ਦੀ ਜਾਣਕਾਰੀ ਮੰਗ ਸਕਦੀ ਹੈ।"</string>
+    <string name="notificationUI_container3_body_ga_text_eu_v2" msgid="3204499878554843655">"ਤੁਸੀਂ ਆਪਣੀਆਂ ਪਰਦੇਦਾਰੀ ਸੈਟਿੰਗਾਂ ਵਿੱਚ ਵਿਗਿਆਪਨ ਸੰਬੰਧੀ ਵਿਸ਼ੇ ਦੇਖ ਸਕਦੇ ਹੋ ਅਤੇ ਉਨ੍ਹਾਂ ਵਿਸ਼ਿਆਂ ਨੂੰ ਬਲਾਕ ਵੀ ਕਰ ਸਕਦੇ ਹੋ ਜਿਨ੍ਹਾਂ ਨੂੰ ਤੁਸੀਂ ਐਪਾਂ ਨਾਲ ਸਾਂਝਾ ਨਹੀਂ ਕਰਨਾ ਚਾਹੁੰਦੇ। Android ਸਵੈਚਲਿਤ ਤੌਰ \'ਤੇ ਵਿਗਿਆਪਨ ਸੰਬੰਧੀ ਵਿਸ਼ਿਆਂ ਨੂੰ ਨਿਯਮਿਤ ਤੌਰ \'ਤੇ ਮਿਟਾਉਂਦਾ ਵੀ ਰਹਿੰਦਾ ਹੈ।"</string>
+    <string name="notificationUI_right_control_button_ga_text_eu_v2" msgid="7227289411885047121">"ਇਸਨੂੰ ਚਾਲੂ ਕਰੋ"</string>
+    <string name="notificationUI_notification_ga_title_v2" msgid="7429979629916798545">"ਨਵੀਆਂ ਵਿਗਿਆਪਨ ਪਰਦੇਦਾਰੀ ਵਿਸ਼ੇਸ਼ਤਾਵਾਂ ਹੁਣ ਉਪਲਬਧ ਹਨ"</string>
+    <string name="notificationUI_notification_ga_content_v2" msgid="4673081782304081905">"ਹੁਣ, ਆਪਣੀ ਪਛਾਣ ਨੂੰ ਸੁਰੱਖਿਅਤ ਰੱਖਣ ਵੇਲੇ, ਤੁਹਾਨੂੰ ਦਿਖਾਈ ਦੇਣ ਵਾਲੇ ਵਿਗਿਆਪਨਾਂ ਸੰਬੰਧੀ ਹੋਰ ਵਿਕਲਪ ਮੌਜੂਦ ਹਨ"</string>
+    <string name="notificationUI_header_ga_title_v2" msgid="2079990149331373941">"ਨਵੀਆਂ ਵਿਗਿਆਪਨ ਪਰਦੇਦਾਰੀ ਵਿਸ਼ੇਸ਼ਤਾਵਾਂ ਹੁਣ ਉਪਲਬਧ ਹਨ"</string>
+    <string name="notificationUI_container1_ga_introduction_v2" msgid="3820258766801905248">"Android ਹੁਣ ਨਵੀਆਂ ਪਰਦੇਦਾਰੀ ਵਿਸ਼ੇਸ਼ਤਾਵਾਂ ਦੀ ਪੇਸ਼ਕਸ਼ ਕਰਦਾ ਹੈ ਜੋ ਤੁਹਾਨੂੰ ਉਨ੍ਹਾਂ ਵਿਗਿਆਪਨਾਂ ਲਈ ਵੱਧ ਵਿਕਲਪ ਦਿੰਦੀਆਂ ਹਨ ਜਿਨ੍ਹਾਂ ਨੂੰ ਤੁਸੀਂ ਦੇਖਦੇ ਹੋ।"</string>
+    <string name="notificationUI_next_button_text" msgid="5564270455474313663">"ਅੱਗੇ"</string>
+    <string name="settingsUI_main_view_title" msgid="1663691082473230496">"ਪ੍ਰਾਈਵੇਸੀ ਸੈਂਡਬਾਕਸ"</string>
+    <string name="settingsUI_main_view_subtitle" msgid="2059496555507319371">"Android ਦੇ ਵਿਗਿਆਪਨ ਪਰਦੇਦਾਰੀ ਸੰਬੰਧੀ ਬੀਟਾ ਵਿੱਚ ਭਾਗ ਲਵੋ"</string>
+    <string name="settingsUI_privacy_sandbox_beta_switch_title" msgid="5264782269528129670">"ਪ੍ਰਾਈਵੇਸੀ ਸੈਂਡਬਾਕਸ"</string>
+    <string name="settingsUI_topics_title" msgid="5996189869721397937">"Android ਦੀਆਂ ਅੰਦਾਜ਼ਨ ਦਿਲਚਸਪੀਆਂ"</string>
+    <string name="settingsUI_apps_title" msgid="2772289096915264175">"ਦਿਲਚਸਪੀਆਂ ਦਾ ਅੰਦਾਜ਼ਾ ਲਗਾਉਣ ਵਾਲੀਆਂ ਐਪਾਂ"</string>
+    <string name="settingsUI_main_view_info_text8" msgid="2262800588014737545">"ਵਿਗਿਆਪਨ ਮੁਲਾਂਕਣ"</string>
+    <string name="settingsUI_main_view_info_text9" msgid="5431131706102562540">"ਐਪਾਂ ਆਪਣੇ ਵਿਗਿਆਪਨਾਂ ਦੀ ਪ੍ਰਭਾਵਕਤਾ ਨੂੰ ਮਾਪਣ ਲਈ ਪ੍ਰਾਈਵੇਸੀ ਸੈਂਡਬਾਕਸ ਦੀ ਵਰਤੋਂ ਕਰ ਸਕਦੀਆਂ ਹਨ। ਇਹ ਕਰਨ ਲਈ, ਵਿਗਿਆਪਨਦਾਤਾ ਆਪਣੇ ਵਿਗਿਆਪਨਾਂ ਅਤੇ ਐਪਾਂ ਵਿਚਕਾਰ ਤੁਹਾਡੀਆਂ ਅੰਤਰਕਿਰਿਆਵਾਂ ਬਾਰੇ Android ਨਾਲ ਕੁਝ ਸਮੇਂ ਲਈ ਡਾਟਾ ਰੱਖਿਅਤ ਕਰ ਸਕਦੇ ਹਨ। ਉਨ੍ਹਾਂ ਵੱਲੋਂ ਡਾਟਾ ਰੱਖਿਅਤ ਕਰ ਸਕਣ ਦੀ ਮਾਤਰਾ ਪ੍ਰਤਿਬੰਧਿਤ ਹੈ ਅਤੇ ਉਸਨੂੰ ਨਿਯਮਿਤ ਤੌਰ \'ਤੇ ਮਿਟਾਇਆ ਜਾਵੇਗਾ।\n\nਤੁਸੀਂ ਪ੍ਰਾਈਵੇਸੀ ਸੈਂਡਬਾਕਸ ਨੂੰ ਬੰਦ ਕਰ ਕੇ ਕਿਸੇ ਵੇਲੇ ਵੀ ਇਸ ਡਾਟੇ ਨੂੰ ਮਿਟਾ ਸਕਦੇ ਹੋ।"</string>
+    <string name="settingsUI_topics_view_subtitle" msgid="6608135144119617292">"Android ਤੁਹਾਡੇ ਵੱਲੋਂ ਵਰਤੀਆਂ ਜਾਣ ਵਾਲੀਆਂ ਐਪਾਂ ਦੇ ਆਧਾਰ \'ਤੇ ਸਮੇਂ-ਸਮੇਂ \'ਤੇ ਤੁਹਾਡੀਆਂ ਪ੍ਰਮੁੱਖ ਦਿਲਚਸਪੀਆਂ ਬਾਰੇ ਅੰਦਾਜ਼ਾ ਲਗਾਉਂਦਾ ਹੈ। ਐਪਾਂ ਤੁਹਾਨੂੰ ਹੋਰ ਢੁਕਵੇਂ ਵਿਗਿਆਪਨ ਦਿਖਾਉਣ ਲਈ Android ਨੂੰ ਉਨ੍ਹਾਂ ਦਿਲਚਸਪੀਆਂ ਦੀ ਵਰਤੋਂ ਕਰਨ ਲਈ ਕਹਿ ਸਕਦੀਆਂ ਹਨ।\n\nਜੇ ਤੁਸੀਂ ਕਿਸੇ ਦਿਲਚਸਪੀ ਨੂੰ ਬਲਾਕ ਕਰਦੇ ਹੋ, ਤਾਂ ਉਸਨੂੰ ਉਦੋਂ ਤੱਕ ਸੂਚੀ ਵਿੱਚ ਦੁਬਾਰਾ ਸ਼ਾਮਲ ਨਹੀਂ ਕੀਤਾ ਜਾਵੇਗਾ ਜਦੋਂ ਤੱਕ ਤੁਸੀਂ ਉਸਨੂੰ ਅਣਬਲਾਕ ਨਹੀਂ ਕਰ ਦਿੰਦੇ। ਤੁਸੀਂ ਹਾਲੇ ਵੀ ਕੁਝ ਸੰਬੰਧਿਤ ਵਿਗਿਆਪਨ ਦੇਖ ਸਕਦੇ ਹੋ।"</string>
+    <string name="settingsUI_block_topic_title" msgid="1883542291264768402">"ਬਲਾਕ ਕਰੋ"</string>
+    <string name="settingsUI_unblock_topic_title" msgid="1710283575567727667">"ਅਣਬਲਾਕ ਕਰੋ"</string>
+    <string name="settingsUI_blocked_topics_title" msgid="5030422883546261820">"ਤੁਹਾਡੇ ਵੱਲੋਂ ਬਲਾਕ ਕੀਤੀਆਂ ਗਈਆਂ ਦਿਲਚਸਪੀਆਂ"</string>
+    <string name="settingsUI_reset_topics_title" msgid="6917960006583871987">"ਸਾਰੀਆਂ ਦਿਲਚਸਪੀਆਂ ਨੂੰ ਰੀਸੈੱਟ ਕਰੋ"</string>
+    <string name="settingsUI_topics_view_no_topics_text" msgid="6954747579303498382">"ਇਸ ਵੇਲੇ ਦਿਖਾਉਣ ਲਈ ਕੋਈ ਦਿਲਚਸਪੀ ਨਹੀਂ ਹੈ।"</string>
+    <string name="settingsUI_topics_view_no_topics_ga_text" msgid="8043163159679359485">"ਫ਼ਿਲਹਾਲ ਦਿਖਾਉਣ ਲਈ ਕੋਈ ਵਿਸ਼ਾ ਨਹੀਂ ਹੈ।\n"<a href="https://support.google.com/android?p=ad_privacy">"ਵਿਗਿਆਪਨ ਦੇ ਵਿਸ਼ਿਆਂ"</a>" ਬਾਰੇ ਹੋਰ ਜਾਣੋ"</string>
+    <string name="settingsUI_topics_view_info_text1" msgid="2477020249748216309">"ਪ੍ਰਾਈਵੇਸੀ ਸੈਂਡਬਾਕਸ"</string>
+    <string name="settingsUI_topics_view_info_text2" msgid="6223353589295876851">"Android ਦਾ ਵਿਗਿਆਪਨ ਪਰਦੇਦਾਰੀ ਸੰਬੰਧੀ ਬੀਟਾ ਵਰਜਨ ਨਵੀਆਂ ਵਿਸ਼ੇਸ਼ਤਾਵਾਂ ਮੁਹੱਈਆ ਕਰਵਾਉਂਦਾ ਹੈ, ਜਿਨ੍ਹਾਂ ਨੂੰ ਐਪਾਂ ਤੁਹਾਡੇ ਮਨਪਸੰਦ ਵਿਗਿਆਪਨ ਦਿਖਾਉਣ ਲਈ ਵਰਤ ਸਕਦੀਆਂ ਹਨ। ਇਹ ਤਕਨਾਲੋਜੀਆਂ ਡੀਵਾਈਸ ਪਛਾਣਕਰਤਾਵਾਂ ਦੀ ਵਰਤੋਂ ਨਹੀਂ ਕਰਦੀਆਂ।\n\nAndroid ਤੁਹਾਡੇ ਦਿਲਚਸਪੀ ਵਾਲੇ ਵਿਗਿਆਪਨਾਂ ਦੀਆਂ ਕਿਸਮਾਂ ਬਾਰੇ ਅੰਦਾਜ਼ਾ ਲਗਾ ਸਕਦਾ ਹੈ, ਅਤੇ ਉਨ੍ਹਾਂ ਦਿਲਚਸਪੀਆਂ ਨੂੰ ਤੁਹਾਡੇ ਡੀਵਾਈਸ \'ਤੇ ਕੁਝ ਸਮੇਂ ਲਈ ਰੱਖਿਅਤ ਕਰ ਸਕਦਾ ਹੈ। ਇਸ ਨਾਲ ਐਪਾਂ ਨੂੰ ਹੋਰ ਵਿਕਾਸਕਾਰਾਂ ਦੀਆਂ ਵੈੱਬਸਾਈਟਾਂ ਅਤੇ ਐਪਾਂ \'ਤੇ ਤੁਹਾਡੀ ਸਰਗਰਮੀ ਨੂੰ ਟਰੈਕ ਕੀਤੇ ਬਿਨਾਂ, ਤੁਹਾਨੂੰ ਢੁਕਵੇਂ ਵਿਗਿਆਪਨ ਦਿਖਾਉਣ ਦੀ ਆਗਿਆ ਮਿਲਦੀ ਹੈ।"</string>
+    <string name="settingsUI_topics_view_no_blocked_topics_text" msgid="6553014185055718781">"ਤੁਹਾਡੇ ਕੋਲ ਕੋਈ ਬਲਾਕ ਕੀਤੀ ਦਿਲਚਸਪੀ ਨਹੀਂ ਹੈ"</string>
+    <string name="settingsUI_no_blocked_topics_ga_text" msgid="377459829879121256">"ਕੋਈ ਬਲਾਕ ਕੀਤਾ ਵਿਸ਼ਾ ਨਹੀਂ ਹੈ"</string>
+    <string name="settingsUI_view_blocked_topics_title" msgid="3705333677440361392">"ਬਲਾਕ ਕੀਤੇ ਵਿਸ਼ੇ ਦੇਖੋ"</string>
+    <string name="settingsUI_topics_are_reset" msgid="7539323750312329931">"ਦਿਲਚਸਪੀਆਂ ਨੂੰ ਰੀਸੈੱਟ ਕੀਤਾ ਗਿਆ ਹੈ"</string>
+    <string name="settingsUI_topics_are_reset_ga" msgid="5250296990870048195">"ਵਿਸ਼ਿਆਂ ਨੂੰ ਰੀਸੈੱਟ ਕੀਤਾ ਗਿਆ"</string>
+    <string name="settingsUI_apps_view_subtitle" msgid="8193343057416677400">"ਐਪਾਂ ਤੁਹਾਡੀਆਂ ਦਿਲਚਸਪੀਆਂ ਬਾਰੇ ਅੰਦਾਜ਼ਾ ਲਗਾ ਸਕਦੀਆਂ ਹਨ ਅਤੇ ਉਨ੍ਹਾਂ ਨੂੰ Android ਨਾਲ ਕੁਝ ਸਮੇਂ ਲਈ ਰੱਖਿਅਤ ਕਰ ਸਕਦੀਆਂ ਹਨ। ਬਾਅਦ ਵਿੱਚ, ਕੋਈ ਵੱਖਰੀ ਐਪ ਇਨ੍ਹਾਂ ਦਿਲਚਸਪੀਆਂ ਦੇ ਆਧਾਰ \'ਤੇ ਤੁਹਾਨੂੰ ਵਿਗਿਆਪਨ ਦਿਖਾ ਸਕਦੀ ਹੈ।\n\nਜੇ ਤੁਸੀਂ ਕਿਸੇ ਐਪ ਨੂੰ ਬਲਾਕ ਕਰਦੇ ਹੋ, ਤਾਂ ਇਹ ਕਿਸੇ ਹੋਰ ਦਿਲਚਸਪੀ ਬਾਰੇ ਅੰਦਾਜ਼ਾ ਨਹੀਂ ਲਗਾ ਸਕੇਗੀ। ਇਸਨੂੰ ਉਦੋਂ ਤੱਕ ਐਪਾਂ ਦੀ ਇਸ ਸੂਚੀ ਵਿੱਚ ਦੁਬਾਰਾ ਸ਼ਾਮਲ ਨਹੀਂ ਕੀਤਾ ਜਾਵੇਗਾ, ਜਦੋਂ ਤੱਕ ਤੁਸੀਂ ਇਸਨੂੰ ਅਣਬਲਾਕ ਨਹੀਂ ਕਰ ਦਿੰਦੇ। ਐਪ ਵੱਲੋਂ ਪਹਿਲਾਂ ਤੋਂ ਅੰਦਾਜ਼ਨ ਦਿਲਚਸਪੀਆਂ ਨੂੰ ਮਿਟਾ ਦਿੱਤਾ ਜਾਵੇਗਾ, ਪਰ ਤੁਹਾਨੂੰ ਹਾਲੇ ਵੀ ਕੁਝ ਸੰਬੰਧਿਤ ਵਿਗਿਆਪਨ ਦਿਸ ਸਕਦੇ ਹਨ।"</string>
+    <string name="settingsUI_blocked_apps_title" msgid="1260257485713408637">"ਤੁਹਾਡੇ ਵੱਲੋਂ ਬਲਾਕ ਕੀਤੀਆਂ ਐਪਾਂ"</string>
+    <string name="settingsUI_view_blocked_apps_title" msgid="379556513199380600">"ਬਲਾਕ ਕੀਤੀਆਂ ਗਈਆਂ ਐਪਾਂ ਨੂੰ ਦੇਖੋ"</string>
+    <string name="settingsUI_reset_apps_title" msgid="6221704974528131179">"ਐਪਾਂ ਦੀਆਂ ਅੰਦਾਜ਼ਨ ਦਿਲਚਸਪੀਆਂ ਨੂੰ ਰੀਸੈੱਟ ਕਰੋ"</string>
+    <string name="settingsUI_apps_view_no_apps_text" msgid="7460005016322426137">"ਕੋਈ ਵੀ ਐਪ ਹਾਲੇ ਤੁਹਾਡੇ ਲਈ ਦਿਲਚਸਪੀਆਂ ਨਹੀਂ ਬਣਾ ਰਹੀ ਹੈ"</string>
+    <string name="settingsUI_apps_view_no_apps_ga_text" msgid="742044210764257860">"ਇਸ ਵੇਲੇ ਦਿਖਾਉਣ ਲਈ ਕੋਈ ਐਪ ਨਹੀਂ ਹੈ। \n"<a href="https://support.google.com/android?p=ad_privacy">"ਐਪ ਵੱਲੋਂ ਸੁਝਾਏ ਵਿਗਿਆਪਨਾਂ"</a>" ਬਾਰੇ ਹੋਰ ਜਾਣੋ"</string>
+    <string name="settingsUI_apps_view_info_text1" msgid="7835635425477842692">"ਪ੍ਰਾਈਵੇਸੀ ਸੈਂਡਬਾਕਸ"</string>
+    <string name="settingsUI_apps_view_info_text2" msgid="308547275474796552">"Android ਦਾ ਵਿਗਿਆਪਨ ਪਰਦੇਦਾਰੀ ਸੰਬੰਧੀ ਬੀਟਾ ਵਰਜਨ ਨਵੀਆਂ ਵਿਸ਼ੇਸ਼ਤਾਵਾਂ ਮੁਹੱਈਆ ਕਰਵਾਉਂਦਾ ਹੈ, ਜਿਨ੍ਹਾਂ ਨੂੰ ਐਪਾਂ ਤੁਹਾਡੇ ਮਨਪਸੰਦ ਵਿਗਿਆਪਨ ਦਿਖਾਉਣ ਲਈ ਵਰਤ ਸਕਦੀਆਂ ਹਨ। ਇਹ ਤਕਨਾਲੋਜੀਆਂ ਡੀਵਾਈਸ ਪਛਾਣਕਰਤਾਵਾਂ ਦੀ ਵਰਤੋਂ ਨਹੀਂ ਕਰਦੀਆਂ।\n\nਐਪਾਂ ਤੁਹਾਡੇ ਦਿਲਚਸਪੀ ਵਾਲੇ ਵਿਗਿਆਪਨਾਂ ਦੀਆਂ ਕਿਸਮਾਂ ਬਾਰੇ ਅੰਦਾਜ਼ਾ ਲਗਾ ਸਕਦੀਆਂ ਹਨ, ਅਤੇ ਉਨ੍ਹਾਂ ਦਿਲਚਸਪੀਆਂ ਨੂੰ ਤੁਹਾਡੇ ਡੀਵਾਈਸ \'ਤੇ ਕੁਝ ਸਮੇਂ ਲਈ ਰੱਖਿਅਤ ਕਰ ਸਕਦੀਆਂ ਹਨ। ਇਸ ਨਾਲ ਐਪਾਂ ਨੂੰ ਹੋਰ ਵਿਕਾਸਕਾਰਾਂ ਦੀਆਂ ਵੈੱਬਸਾਈਟਾਂ ਅਤੇ ਐਪਾਂ \'ਤੇ ਤੁਹਾਡੀ ਸਰਗਰਮੀ ਨੂੰ ਟਰੈਕ ਕੀਤੇ ਬਿਨਾਂ, ਤੁਹਾਨੂੰ ਢੁਕਵੇਂ ਵਿਗਿਆਪਨ ਦਿਖਾਉਣ ਦੀ ਆਗਿਆ ਮਿਲਦੀ ਹੈ।"</string>
+    <string name="settingsUI_apps_view_no_blocked_apps_text" msgid="3953560911214151396">"ਤੁਹਾਡੇ ਕੋਲ ਕੋਈ ਬਲਾਕ ਕੀਤੀ ਐਪ ਨਹੀਂ ਹੈ"</string>
+    <string name="settingsUI_no_blocked_apps_ga_text" msgid="7488680173653861943">"ਕੋਈ ਬਲਾਕ ਕੀਤੀ ਐਪ ਨਹੀਂ ਹੈ"</string>
+    <string name="settingsUI_measurement_switch_title" msgid="6623116680555954932">"ਵਿਗਿਆਪਨ ਮੁਲਾਂਕਣ ਦੀ ਆਗਿਆ ਦਿਓ"</string>
+    <string name="settingsUI_measurement_view_intro_text" msgid="3608942051176719850">"ਐਪਾਂ ਅਤੇ ਵਿਗਿਆਪਨਦਾਤੇ Android ਤੋਂ ਜਾਣਕਾਰੀ ਦੀ ਬੇਨਤੀ ਕਰ ਸਕਦੇ ਹਨ ਜੋ ਉਨ੍ਹਾਂ ਦੇ ਵਿਗਿਆਪਨਾਂ ਦੀ ਕਾਰਗੁਜ਼ਾਰੀ ਦਾ ਮੁਲਾਂਕਣ ਕਰਨ ਵਿੱਚ ਉਨ੍ਹਾਂ ਦੀ ਮਦਦ ਕਰਦੀ ਹੈ।\n\nਵਿਗਿਆਪਨ ਦੇ ਮੁਲਾਂਕਣ ਸੰਬੰਧੀ ਡਾਟੇ ਨੂੰ ਤੁਹਾਡੇ ਡੀਵਾਈਸ ਤੋਂ ਨਿਯਮਿਤ ਤੌਰ \'ਤੇ ਮਿਟਾਇਆ ਜਾਂਦਾ ਹੈ।"</string>
+    <string name="settingsUI_measurement_view_reset_title" msgid="3063374834649428050">"ਮੁਲਾਂਕਣ ਡਾਟੇ ਨੂੰ ਰੀਸੈੱਟ ਕਰੋ"</string>
+    <string name="settingsUI_measurement_view_footer_text" msgid="5978750159738729308">"Android ਐਪਾਂ ਵੱਲੋਂ ਇੱਕ-ਦੂਜੇ ਨਾਲ ਸਾਂਝੀ ਕੀਤੀ ਜਾਣ ਵਾਲੀ ਜਾਣਕਾਰੀ ਨੂੰ ਸੀਮਤ ਕਰ ਕੇ ਤੁਹਾਡੀ ਪਰਦੇਦਾਰੀ ਨੂੰ ਸੁਰੱਖਿਅਤ ਰੱਖਦਾ ਹੈ। ਤੁਹਾਡੀ ਪਛਾਣ ਨੂੰ ਸੁਰੱਖਿਅਤ ਰੱਖਣ ਲਈ ਰਿਪੋਰਟਾਂ ਨੂੰ ਦੇਰੀ ਨਾਲ ਭੇਜਿਆ ਜਾਂਦਾ ਹੈ।\n\nਤੁਹਾਡੇ ਬ੍ਰਾਊਜ਼ਰ ਵਿੱਚ ਵੀ ਇਹੀ ਸੈਟਿੰਗ ਹੋ ਸਕਦੀ ਹੈ। ਜੇ ਵਿਗਿਆਪਨ ਮੁਲਾਂਕਣ Android ਅਤੇ ਤੁਹਾਡੇ ਬ੍ਰਾਊਜ਼ਰ ਦੋਵਾਂ \'ਤੇ ਚਾਲੂ ਹੈ, ਤਾਂ ਕੋਈ ਕੰਪਨੀ ਤੁਹਾਡੇ ਵੱਲੋਂ ਵਰਤੀਆਂ ਜਾਣ ਵਾਲੀਆਂ ਐਪਾਂ ਅਤੇ ਤੁਹਾਡੇ ਵੱਲੋਂ ਦੇਖੀਆਂ ਜਾਣ ਵਾਲੀਆਂ ਵੈੱਬਸਾਈਟਾਂ ਵਿਚਕਾਰ ਵਿਗਿਆਪਨ ਦੀ ਪ੍ਰਭਾਵਕਤਾ ਦਾ ਮੁਲਾਂਕਣ ਕਰ ਸਕਦੀ ਹੈ। ਤੁਹਾਡਾ ਬ੍ਰਾਊਜ਼ਿੰਗ ਇਤਿਹਾਸ ਤੁਹਾਡੇ ਡੀਵਾਈਸ \'ਤੇ ਨਿੱਜੀ ਰੱਖਿਆ ਜਾਂਦਾ ਹੈ।\n\nਸਾਡੀ "<a href="https://policies.google.com/privacy">"ਪਰਦੇਦਾਰੀ ਨੀਤੀ"</a>" ਵਿੱਚ ਇਸ ਬਾਰੇ ਹੋਰ ਜਾਣੋ ਕਿ Android ਤੁਹਾਡੇ ਡਾਟੇ ਨੂੰ ਕਿਵੇਂ ਸੁਰੱਖਿਅਤ ਰੱਖਦਾ ਹੈ।"</string>
+    <string name="settingsUI_measurement_are_reset" msgid="4375330550418573499">"ਵਿਗਿਆਪਨ ਦੇ ਮੁਲਾਂਕਣ ਸੰਬੰਧੀ ਡਾਟੇ ਨੂੰ ਰੀਸੈੱਟ ਕੀਤਾ ਗਿਆ"</string>
+    <string name="settingsUI_dialog_negative_text" msgid="3014088254631375852">"ਰੱਦ ਕਰੋ"</string>
+    <string name="settingsUI_dialog_opt_out_title" msgid="1862069591629418291">"ਕੀ ਪ੍ਰਾਈਵੇਸੀ ਸੈਂਡਬਾਕਸ ਨੂੰ ਬੰਦ ਕਰਨਾ ਹੈ?"</string>
+    <string name="settingsUI_dialog_opt_out_message" msgid="5696012172835241848">"ਜੇ ਤੁਸੀਂ ਆਪਣਾ ਮਨ ਬਦਲਦੇ ਹੋ ਜਾਂ Android ਦੇ ਵਿਗਿਆਪਨ ਪਰਦੇਦਾਰੀ ਬੀਟਾ ਬਾਰੇ ਹੋਰ ਜਾਣਨਾ ਚਾਹੁੰਦੇ ਹੋ, ਤਾਂ ਆਪਣੀਆਂ ਪਰਦੇਦਾਰੀ ਸੈਟਿੰਗਾਂ \'ਤੇ ਜਾਓ"</string>
+    <string name="settingsUI_dialog_opt_out_positive_text" msgid="5344259263448028614">"ਬੰਦ ਕਰੋ"</string>
+    <string name="settingsUI_dialog_block_topic_title" msgid="5744004384480280782">"ਕੀ <xliff:g id="TOPIC">%1$s</xliff:g> ਨੂੰ ਬਲਾਕ ਕਰਨਾ ਹੈ?"</string>
+    <string name="settingsUI_dialog_block_topic_message" msgid="2581824495438333677">"ਇਸ ਵਿਸ਼ੇ ਨੂੰ ਬਲਾਕ ਕਰ ਦਿੱਤਾ ਜਾਵੇਗਾ ਅਤੇ ਇਸਨੂੰ ਤੁਹਾਡੀ ਸੂਚੀ ਵਿੱਚ ਉਦੋਂ ਤੱਕ ਦੁਬਾਰਾ ਸ਼ਾਮਲ ਨਹੀਂ ਕੀਤਾ ਜਾਵੇਗਾ, ਜਦੋਂ ਤੱਕ ਤੁਸੀਂ ਇਸਨੂੰ ਵਾਪਸ ਸ਼ਾਮਲ ਨਹੀਂ ਕਰਦੇ। ਤੁਹਾਨੂੰ ਹਾਲੇ ਵੀ ਕੁਝ ਸੰਬੰਧਿਤ ਵਿਗਿਆਪਨ ਦਿਸ ਸਕਦੇ ਹਨ।"</string>
+    <string name="settingsUI_dialog_block_topic_positive_text" msgid="2626152417590300510">"ਬਲਾਕ ਕਰੋ"</string>
+    <string name="settingsUI_dialog_unblock_topic_title" msgid="7361000923920947234">"<xliff:g id="TOPIC">%1$s</xliff:g> ਨੂੰ ਅਣਬਲਾਕ ਕੀਤਾ ਗਿਆ"</string>
+    <string name="settingsUI_dialog_unblock_topic_message" msgid="1090743551997420666">"Android ਤੁਹਾਡੀ ਸੂਚੀ ਵਿੱਚ ਇਸ ਵਿਸ਼ੇ ਨੂੰ ਦੁਬਾਰਾ ਸ਼ਾਮਲ ਕਰ ਸਕਦਾ ਹੈ, ਪਰ ਹੋ ਸਕਦਾ ਹੈ ਕਿ ਇਹ ਤੁਰੰਤ ਨਾ ਦਿਸੇ"</string>
+    <string name="settingsUI_dialog_unblock_topic_positive_text" msgid="2192452325573789737">"ਠੀਕ ਹੈ"</string>
+    <string name="settingsUI_dialog_reset_topic_title" msgid="8025836207966712435">"ਕੀ ਸਾਰੇ ਵਿਗਿਆਪਨ ਵਿਸ਼ਿਆਂ ਨੂੰ ਰੀਸੈੱਟ ਕਰਨਾ ਹੈ?"</string>
+    <string name="settingsUI_dialog_reset_topic_message" msgid="4243744527757134000">"ਤੁਹਾਡੀ ਸੂਚੀ ਨੂੰ ਕਲੀਅਰ ਕੀਤਾ ਜਾਵੇਗਾ ਅਤੇ ਅੱਗੇ ਵਾਸਤੇ ਨਵੇਂ ਵਿਸ਼ਿਆਂ ਨੂੰ ਸ਼ਾਮਲ ਕੀਤਾ ਜਾਵੇਗਾ। ਤੁਹਾਨੂੰ ਰੀਸੈੱਟ ਕੀਤੇ ਵਿਸ਼ਿਆਂ ਨਾਲ ਸੰਬੰਧਿਤ ਕੁਝ ਵਿਗਿਆਪਨ ਹਾਲੇ ਵੀ ਦਿਖਾਈ ਦੇ ਸਕਦੇ ਹਨ।"</string>
+    <string name="settingsUI_dialog_reset_topic_positive_text" msgid="8345697359799280761">"ਰੀਸੈੱਟ ਕਰੋ"</string>
+    <string name="settingsUI_dialog_block_app_title" msgid="421160714549264414">"ਕੀ <xliff:g id="APP">%1$s</xliff:g> ਨੂੰ ਬਲਾਕ ਕਰਨਾ ਹੈ?"</string>
+    <string name="settingsUI_dialog_block_app_message" msgid="758788973278770119">"ਜਦੋਂ ਤੱਕ ਤੁਸੀਂ ਇਸ ਐਪ ਨੂੰ ਅਣਬਲਾਕ ਨਹੀਂ ਕਰਦੇ, ਉਦੋਂ ਤੱਕ ਇਹ ਐਪ ਵਿਗਿਆਪਨਾਂ ਦਾ ਸੁਝਾਅ ਨਹੀਂ ਦੇਵੇਗੀ ਅਤੇ ਇਸਨੂੰ ਦੁਬਾਰਾ ਤੁਹਾਡੀ ਸੂਚੀ ਵਿੱਚ ਸ਼ਾਮਲ ਨਹੀਂ ਕੀਤਾ ਜਾਵੇਗਾ। ਤੁਸੀਂ ਹਾਲੇ ਵੀ ਕੁਝ ਸੰਬੰਧਿਤ ਵਿਗਿਆਪਨ ਦੇਖ ਸਕਦੇ ਹੋ।"</string>
+    <string name="settingsUI_dialog_unblock_app_title" msgid="4360730780049298286">"<xliff:g id="APP">%1$s</xliff:g> ਨੂੰ ਅਣਬਲਾਕ ਕੀਤਾ ਗਿਆ"</string>
+    <string name="settingsUI_dialog_unblock_app_message" msgid="5758218424845642060">"ਇਹ ਐਪ ਤੁਹਾਡੇ ਲਈ ਦੁਬਾਰਾ ਵਿਗਿਆਪਨਾਂ ਦਾ ਸੁਝਾਅ ਦੇ ਸਕਦੀ ਹੈ, ਪਰ ਹੋ ਸਕਦਾ ਹੈ ਕਿ ਇਹ ਤੁਰੰਤ ਤੁਹਾਡੀ ਸੂਚੀ ਵਿੱਚ ਨਾ ਦਿਸਣ। ਤੁਹਾਨੂੰ ਸੰਬੰਧਿਤ ਵਿਗਿਆਪਨ ਦਿਸਣ ਵਿੱਚ ਕੁਝ ਸਮਾਂ ਲੱਗ ਸਕਦਾ ਹੈ।"</string>
+    <string name="settingsUI_dialog_reset_app_title" msgid="5177572712117150557">"ਕੀ ਐਪਾਂ ਵੱਲੋਂ ਸੁਝਾਏ ਗਏ ਵਿਗਿਆਪਨਾਂ ਨੂੰ ਰੀਸੈੱਟ ਕਰਨਾ ਹੈ?"</string>
+    <string name="settingsUI_dialog_reset_app_message" msgid="7845329616145691006">"ਤੁਹਾਡੀ ਸੂਚੀ ਵਿੱਚ ਮੌਜੂਦ ਐਪਾਂ ਤੋਂ ਪ੍ਰਾਪਤ ਵਿਗਿਆਪਨ ਸੰਬੰਧੀ ਸੁਝਾਅ ਦਾ ਡਾਟਾ ਮਿਟਾ ਦਿੱਤਾ ਜਾਵੇਗਾ ਅਤੇ ਐਪਾਂ ਅੱਗੇ ਵਾਸਤੇ ਨਵੇਂ ਵਿਗਿਆਪਨਾਂ ਦਾ ਸੁਝਾਅ ਦੇਣਗੀਆਂ। ਤੁਹਾਨੂੰ ਹਾਲੇ ਵੀ ਕੁਝ ਸੰਬੰਧਿਤ ਵਿਗਿਆਪਨ ਦਿਸ ਸਕਦੇ ਹਨ।"</string>
+    <string name="settingsUI_apps_are_reset" msgid="1814400631145418530">"ਐਪ ਡਾਟਾ ਰੀਸੈੱਟ ਕੀਤਾ ਗਿਆ ਸੀ"</string>
+    <string name="settingsUI_dialog_topics_opt_in_title" msgid="8121927422479701361">"ਵਿਗਿਆਪਨ ਦੇ ਵਿਸ਼ਿਆਂ ਦੀ ਸੁਵਿਧਾ ਚਾਲੂ ਹੈ"</string>
+    <string name="settingsUI_dialog_topics_opt_in_message" msgid="906156509464496182">"Android ਦਿਲਚਸਪੀ ਦੇ ਵਿਸ਼ਿਆਂ ਨੂੰ ਨੋਟ ਕਰਨਾ ਸ਼ੁਰੂ ਕਰੇਗਾ, ਪਰ ਤੁਹਾਡੇ ਪਹਿਲੇ ਵਿਸ਼ਿਆਂ ਨੂੰ ਦਿਖਣ ਵਿੱਚ ਕੁਝ ਸਮਾਂ ਲੱਗ ਸਕਦਾ ਹੈ।"</string>
+    <string name="settingsUI_dialog_topics_opt_out_title" msgid="729119757000459089">"ਕੀ ਵਿਗਿਆਪਨ ਦੇ ਵਿਸ਼ਿਆਂ ਦੀ ਸੁਵਿਧਾ ਨੂੰ ਬੰਦ ਕਰਨਾ ਹੈ?"</string>
+    <string name="settingsUI_dialog_topics_opt_out_message" msgid="1536431481297878931">"ਵਿਸ਼ਿਆਂ ਦੀ ਇਹ ਸੂਚੀ ਮਿਟਾ ਦਿੱਤੀ ਜਾਵੇਗੀ। Android ਹੁਣ ਦਿਲਚਸਪੀ ਦੇ ਵਿਸ਼ਿਆਂ ਨੂੰ ਨੋਟ ਨਹੀ ਕਰੇਗਾ, ਪਰ ਤੁਸੀਂ ਹਾਲੇ ਵੀ ਢੁਕਵੇਂ ਵਿਗਿਆਪਨ ਦੇਖ ਸਕਦੇ ਹੋ।"</string>
+    <string name="settingsUI_dialog_apps_opt_in_title" msgid="1802639238531107941">"\'ਐਪ ਵੱਲੋਂ ਸੁਝਾਏ ਵਿਗਿਆਪਨ\' ਵਿਸ਼ੇਸ਼ਤਾ ਚਾਲੂ ਹੈ"</string>
+    <string name="settingsUI_dialog_apps_opt_in_message" msgid="6335861029594000364">"ਐਪਾਂ ਵਿਗਿਆਪਨਾਂ ਦੇ ਸੁਝਾਅ ਦੇਣਾ ਸ਼ੁਰੂ ਕਰ ਸਕਦੀਆਂ ਹਨ। ਉਨ੍ਹਾਂ ਵੱਲੋਂ ਵਿਗਿਆਪਨਾਂ ਦੇ ਸੁਝਾਅ ਦੇਣੇ ਸ਼ੁਰੂ ਕਰਨ \'ਤੇ, ਤੁਹਾਨੂੰ ਐਪਾਂ ਦੀ ਇੱਕ ਸੂਚੀ ਦਿਖਾਈ ਦੇਵੇਗੀ।"</string>
+    <string name="settingsUI_dialog_apps_opt_out_title" msgid="2152898453001885432">"ਕੀ \'ਐਪ ਵੱਲੋਂ ਸੁਝਾਏ ਵਿਗਿਆਪਨ\' ਵਿਸ਼ੇਸ਼ਤਾ ਨੂੰ ਬੰਦ ਕਰਨਾ ਹੈ?"</string>
+    <string name="settingsUI_dialog_apps_opt_out_message" msgid="6894065908128443334">"ਵਿਗਿਆਪਨ ਸੰਬੰਧੀ ਸੁਝਾਅ ਦਾ ਸਾਰਾ ਡਾਟਾ ਮਿਟਾ ਦਿੱਤਾ ਜਾਵੇਗਾ। ਐਪਾਂ ਹੁਣ ਵਿਗਿਆਪਨਾਂ ਦੇ ਸੁਝਾਅ ਨਹੀਂ ਦੇ ਸਕਣਗੀਆਂ, ਪਰ ਤੁਸੀਂ ਹਾਲੇ ਵੀ ਢੁਕਵੇਂ ਵਿਗਿਆਪਨ ਦੇਖ ਸਕਦੇ ਹੋ।"</string>
+    <string name="settingsUI_dialog_measurement_opt_in_title" msgid="313317715284771681">"ਵਿਗਿਆਪਨ ਮਾਪ ਦੀ ਸੁਵਿਧਾ ਚਾਲੂ ਹੈ"</string>
+    <string name="settingsUI_dialog_measurement_opt_in_message" msgid="1122570790810645916">"Android ਐਪਾਂ ਦੇ ਵਿਗਿਆਪਨਾਂ ਦੀ ਕਾਰਗੁਜ਼ਾਰੀ ਨੂੰ ਮਾਪਣ ਵਿੱਚ ਉਨ੍ਹਾਂ ਦੀ ਮਦਦ ਕਰਨ ਲਈ ਐਪਾਂ ਨਾਲ ਬਹੁਤ ਹੀ ਸੀਮਤ ਜਾਣਕਾਰੀ ਸਾਂਝੀ ਕਰ ਸਕਦਾ ਹੈ।"</string>
+    <string name="settingsUI_dialog_measurement_opt_out_title" msgid="1629867723206716370">"ਕੀ ਵਿਗਿਆਪਨ ਮਾਪ ਦੀ ਸੁਵਿਧਾ ਨੂੰ ਬੰਦ ਕਰਨਾ ਹੈ?"</string>
+    <string name="settingsUI_dialog_measurement_opt_out_message" msgid="1050338738668085641">"ਸਾਰੀਆਂ ਵਿਚਾਰ-ਅਧੀਨ ਵਿਗਿਆਪਨ ਮਾਪ ਰਿਪੋਰਟਾਂ ਮਿਟਾ ਦਿੱਤੀਆਂ ਜਾਣਗੀਆਂ ਅਤੇ ਕੋਈ ਵੀ ਨਵੀਂ ਰਿਪੋਰਟ ਸਿਰਜੀ ਜਾਂ ਸਾਂਝੀ ਨਹੀਂ ਕੀਤੀ ਜਾਵੇਗੀ।"</string>
+    <string name="settingsUI_main_view_ga_title" msgid="4149820452019697214">"ਵਿਗਿਆਪਨ ਪਰਦੇਦਾਰੀ"</string>
+    <string name="settingsUI_topics_ga_title" msgid="7324482132761824214">"ਵਿਗਿਆਪਨ ਵਿਸ਼ੇ"</string>
+    <string name="settingsUI_apps_ga_title" msgid="1527820834800364372">"ਐਪ ਵੱਲੋਂ ਸੁਝਾਏ ਗਏ ਵਿਗਿਆਪਨ"</string>
+    <string name="settingsUI_main_view_ad_topics_info" msgid="2643088833140772417">"Android ਤੁਹਾਡੇ ਵੱਲੋਂ ਹਾਲ ਹੀ ਵਿੱਚ ਵਰਤੀਆਂ ਗਈਆਂ ਐਪਾਂ ਅਤੇ ਉਨ੍ਹਾਂ ਨੂੰ ਵਰਤੇ ਜਾਣ ਦੀ ਗਿਣਤੀ ਦੇ ਆਧਾਰ \'ਤੇ ਦਿਲਚਸਪੀ ਦੇ ਵਿਸ਼ਿਆਂ ਨੂੰ ਨੋਟ ਕਰਦਾ ਹੈ।"</string>
+    <string name="settingsUI_main_view_apps_info" msgid="1668244327840008046">"ਜਿਨ੍ਹਾਂ ਐਪਾਂ ਨੂੰ ਤੁਸੀਂ ਵਰਤਦੇ ਹੋ, ਉਹ ਉਨ੍ਹਾਂ ਨੂੰ ਵਰਤੇ ਜਾਣ ਦੇ ਤਰੀਕੇ ਦੇ ਆਧਾਰ \'ਤੇ ਇਹ ਵੀ ਨਿਰਧਾਰਿਤ ਕਰ ਸਕਦੀਆਂ ਹਨ ਕਿ ਤੁਹਾਨੂੰ ਕੀ ਪਸੰਦ ਹੈ।"</string>
+    <string name="settingsU_main_view_measurement_info" msgid="7950104699961821635">"ਜੋ ਐਪਾਂ ਤੁਸੀਂ ਵਰਤਦੇ ਹੋ, ਉਹ ਆਪਣੇ ਵਿਗਿਆਪਨਾਂ ਦੀ ਕਾਰਗੁਜ਼ਾਰੀ ਦਾ ਮੁਲਾਂਕਣ ਕਰਨ ਵਿੱਚ ਉਨ੍ਹਾਂ ਦੀ ਮਦਦ ਵਾਸਤੇ Android ਤੋਂ ਜਾਣਕਾਰੀ ਮੰਗ ਸਕਦੀਆਂ ਹਨ। Android, ਐਪਾਂ ਨੂੰ ਸੀਮਤ ਕਿਸਮ ਦਾ ਡਾਟਾ ਇਕੱਤਰ ਕਰਨ ਦੀ ਆਗਿਆ ਦਿੰਦਾ ਹੈ।"</string>
+    <string name="settingsU_main_view_learn_more" msgid="2129694798398023916"><a href="https://support.google.com/android?p=ad_privacy">"Android \'ਤੇ ਵਿਗਿਆਪਨ ਪਰਦੇਦਾਰੀ"</a>" ਬਾਰੇ ਹੋਰ ਜਾਣੋ"</string>
+    <string name="settingsUI_topics_subtitle" msgid="6545976434367750110">"ਚਾਲੂ / <xliff:g id="TOPICS_COUNT">%1$d</xliff:g> ਵਿਸ਼ੇ"</string>
+    <string name="settingsUI_topics_subtitle_plural" msgid="4809219115021801972">"{count,plural, =1{ਚਾਲੂ / # ਵਿਸ਼ਾ}one{ਚਾਲੂ / # ਵਿਸ਼ਾ}other{ਚਾਲੂ / # ਵਿਸ਼ੇ}}"</string>
+    <string name="settingsUI_apps_subtitle" msgid="387595280958995973">"ਚਾਲੂ / <xliff:g id="APPS_COUNT">%1$d</xliff:g> ਐਪਾਂ"</string>
+    <string name="settingsUI_apps_subtitle_plural" msgid="3989880089023565457">"{count,plural, =1{ਚਾਲੂ / # ਐਪ}one{ਚਾਲੂ / # ਐਪ}other{ਚਾਲੂ / # ਐਪਾਂ}}"</string>
+    <string name="settingsUI_subtitle_consent_on" msgid="7522464537194619022">"ਚਾਲੂ"</string>
+    <string name="settingsUI_subtitle_consent_off" msgid="1604274030685784887">"ਬੰਦ"</string>
+    <string name="settingsUI_topics_view_ga_subtitle" msgid="3672784134413586246">"ਦਿਲਚਸਪੀ ਦੇ ਵਿਸ਼ੇ ਉਨ੍ਹਾਂ ਐਪਾਂ \'ਤੇ ਆਧਾਰਿਤ ਹੁੰਦੇ ਹਨ ਜਿਨ੍ਹਾਂ ਨੂੰ ਤੁਸੀਂ ਹਾਲ ਹੀ ਵਿੱਚ ਵਰਤਿਆ ਹੈ ਅਤੇ ਤੁਹਾਨੂੰ ਵਿਅਕਤੀਗਤ ਬਣਾਏ ਵਿਗਿਆਪਨ ਦਿਖਾਉਣ ਲਈ ਉਨ੍ਹਾਂ ਨੂੰ ਐਪਾਂ ਵੱਲੋਂ ਵਰਤਿਆ ਜਾਂਦਾ ਹੈ।\n\nਤੁਸੀਂ ਉਨ੍ਹਾਂ ਵਿਸ਼ਿਆਂ ਨੂੰ ਬਲਾਕ ਕਰ ਸਕਦੇ ਹੋ ਜਿਨ੍ਹਾਂ ਨੂੰ ਤੁਸੀਂ ਐਪਾਂ ਨਾਲ ਸਾਂਝਾ ਨਹੀਂ ਕਰਨਾ ਚਾਹੁੰਦੇ। Android ਵੀ ਨਿਯਮਿਤ ਤੌਰ \'ਤੇ ਵਿਸ਼ਿਆਂ ਨੂੰ ਸਵੈਚਲਿਤ-ਮਿਟਾਉਂਦਾ ਹੈ।"</string>
+    <string name="settingsUI_topics_switch_title" msgid="5856255848598189791">"ਵਿਗਿਆਪਨ ਵਿਸ਼ਿਆਂ ਦੀ ਆਗਿਆ ਦਿਓ"</string>
+    <string name="settingsUI_blocked_topics_ga_title" msgid="7163366621282449273">"ਤੁਹਾਡੇ ਵੱਲੋਂ ਬਲਾਕ ਕੀਤੇ ਗਏ ਵਿਗਿਆਪਨ ਵਿਸ਼ੇ"</string>
+    <string name="settingsUI_reset_topics_ga_title" msgid="5365554894399951300">"ਸਾਰੇ ਵਿਗਿਆਪਨ ਵਿਸ਼ਿਆਂ ਨੂੰ ਰੀਸੈੱਟ ਕਰੋ"</string>
+    <string name="settingsU_topics_view_footer" msgid="4769146330248953561">"ਪਿਛਲੇ ਹਫ਼ਤਿਆਂ ਦੀਆਂ ਐਪਾਂ ਦੀ ਤੁਹਾਡੀ ਵਰਤੋਂ ਦੇ ਆਧਾਰ \'ਤੇ Android ਦਿਲਚਸਪੀ ਦੇ ਵਿਸ਼ਿਆਂ ਨੂੰ ਨੋਟ ਕਰਦਾ ਹੈ।\n\nਬਾਅਦ ਵਿੱਚ, ਜੋ ਐਪ ਤੁਸੀਂ ਵਰਤਦੇ ਹੋ ਉਹ Android ਤੋਂ ਤੁਹਾਡੇ ਵੱਲੋਂ ਦੇਖੇ ਜਾਣ ਵਾਲੇ ਵਿਗਿਆਪਨਾਂ ਨੂੰ ਵਿਅਕਤੀਗਤ ਬਣਾਉਣ ਲਈ ਵਿਸ਼ਿਆਂ ਦੀ ਜਾਣਕਾਰੀ ਮੰਗ ਸਕਦੀ ਹੈ। Android ਤੁਹਾਡੀ ਪਛਾਣ ਅਤੇ ਤੁਹਾਡੀ ਐਪ ਦੀ ਜਾਣਕਾਰੀ ਨੂੰ ਸੁਰੱਖਿਅਤ ਰੱਖਦੇ ਹੋਏ ਵੱਧੋ-ਵੱਧ 3 ਵਿਸ਼ਿਆਂ ਨੂੰ ਸਾਂਝਾ ਕਰਦਾ ਹੈ।\n\nAndroid ਨਿਯਮਿਤ ਤੌਰ \'ਤੇ ਵਿਸ਼ਿਆਂ ਨੂੰ ਸਵੈਚਲਿਤ ਤੌਰ \'ਤੇ ਮਿਟਾਉਂਦਾ ਰਹਿੰਦਾ ਹੈ। ਜਿਵੇਂ-ਜਿਵੇਂ ਤੁਸੀਂ ਐਪਾਂ ਨੂੰ ਵਰਤਣਾ ਜਾਰੀ ਰੱਖਦੇ ਹੋ, ਤਾਂ ਸੂਚੀ ਵਿੱਚ ਵਿਸ਼ਾ ਮੁੜ-ਦਿਖਾਈ ਦੇ ਸਕਦਾ ਹੈ। ਜਾਂ ਤੁਸੀਂ ਉਨ੍ਹਾਂ ਵਿਸ਼ਿਆਂ ਨੂੰ ਬਲਾਕ ਕਰ ਸਕਦੇ ਹੋ ਜਿਨ੍ਹਾਂ ਬਾਰੇ ਤੁਸੀਂ ਚਾਹੁੰਦੇ ਹੋ ਕਿ Android ਐਪਾਂ ਨਾਲ ਸਾਂਝਾ ਨਾ ਕਰੇ।\n\nਤੁਹਾਡੀਆਂ ਐਪਾਂ ਵਿੱਚ, ਤੁਹਾਨੂੰ ਦਿਖਾਈ ਦੇਣ ਵਾਲਾ ਵਿਗਿਆਪਨ ਇਸ ਸੈਟਿੰਗ ਦੇ ਆਧਾਰ \'ਤੇ, ਐਪ ਵੱਲੋਂ ਸੁਝਾਏ ਵਿਗਿਆਪਨਾਂ ਸੰਬੰਧੀ ਸੈਟਿੰਗ, ਤੁਹਾਡੀ ਵਿਗਿਆਪਨ ਆਈਡੀ ਸੰਬੰਧੀ ਸੈਟਿੰਗਾਂ ਅਤੇ ਤੁਹਾਡੇ ਵੱਲੋਂ ਵਰਤੀ ਜਾਣ ਵਾਲੀ ਐਪ ਰਾਹੀਂ ਵਿਗਿਆਪਨਾਂ ਨੂੰ ਵਿਅਕਤੀਗਤ ਬਣਾਉਣ ਦੀ ਵਿਸ਼ੇਸ਼ਤਾ ਦੇ ਆਧਾਰ \'ਤੇ ਵਿਅਕਤੀਗਤ ਬਣਾਇਆ ਗਿਆ ਹੋ ਸਕਦਾ ਹੈ।"</string>
+    <string name="settingsUI_apps_switch_title" msgid="1308209012769248890">"ਐਪ ਵੱਲੋਂ ਸੁਝਾਏ ਗਏ ਵਿਗਿਆਪਨਾਂ ਦੀ ਆਗਿਆ ਦਿਓ"</string>
+    <string name="settingsUI_apps_view_ga_subtitle" msgid="1911743837387384160">"ਜਿਨ੍ਹਾਂ ਐਪਾਂ ਨੂੰ ਤੁਸੀਂ ਵਰਤਦੇ ਹੋ, ਉਹ ਇਹ ਨਿਰਧਾਰਿਤ ਕਰ ਸਕਦੀਆਂ ਹਨ ਕਿ ਤੁਹਾਨੂੰ ਕੀ ਪਸੰਦ ਹੈ ਅਤੇ ਫਿਰ ਹੋਰ ਐਪਾਂ ਨੂੰ ਵਿਗਿਆਪਨਾਂ ਦਾ ਸੁਝਾਅ ਦੇ ਸਕਦੀਆਂ ਹਨ।\n\nਤੁਸੀਂ ਐਪਾਂ ਨੂੰ ਸੁਝਾਅ ਦੇਣ ਤੋਂ ਬਲਾਕ ਕਰ ਸਕਦੇ ਹੋ। Android ਨਿਯਮਿਤ ਤੌਰ \'ਤੇ ਐਪ ਵੱਲੋਂ ਸੁਝਾਏ ਗਏ ਡਾਟੇ ਨੂੰ ਸਵੈਚਲਿਤ ਤੌਰ \'ਤੇ ਮਿਟਾਉਂਦਾ ਰਹਿੰਦਾ ਹੈ।"</string>
+    <string name="settingsUI_blocked_apps_ga_title" msgid="1896327995101895088">"ਤੁਹਾਡੇ ਵੱਲੋਂ ਬਲਾਕ ਕੀਤੀਆਂ ਐਪਾਂ"</string>
+    <string name="settingsUI_reset_apps_ga_title" msgid="371969808353100852">"ਐਪ ਵੱਲੋਂ ਸੁਝਾਏ ਗਏ ਡਾਟੇ ਨੂੰ ਰੀਸੈੱਟ ਕਰੋ"</string>
+    <string name="settingsUI_apps_view_footer" msgid="6428897482766556515">"ਤੁਹਾਡੀ ਦਿਲਚਸਪੀ ਵਾਲੀਆਂ ਚੀਜ਼ਾਂ ਯਾਦ ਰੱਖਣਾ, ਉਨ੍ਹਾਂ ਐਪਾਂ ਲਈ ਆਮ ਗੱਲ ਹੈ ਜਿਨ੍ਹਾਂ ਦੀ ਵਰਤੋਂ ਤੁਸੀਂ ਆਪਣੇ ਅਨੁਭਵ ਨੂੰ ਵਿਅਕਤੀਗਤ ਬਣਾਉਣ ਲਈ ਕਰਦੇ ਹੋ। ਐਪਾਂ Android ਦੀ ਮਦਦ ਨਾਲ ਤੁਹਾਡੇ ਵਿਸ਼ਿਆਂ ਬਾਰੇ ਜਾਣਕਾਰੀ ਵੀ ਸਟੋਰ ਕਰ ਸਕਦੀਆਂ ਹਨ।\n\nਉਦਾਹਰਨ ਲਈ, ਜੇ ਤੁਸੀਂ ਮੈਰਾਥਨ ਦੀ ਸਿਖਲਾਈ ਬਾਰੇ ਕਿਸੇ ਐਪ ਦੀ ਵਰਤੋਂ ਕਰਦੇ ਹੋ, ਤਾਂ ਉਹ ਐਪ ਇਹ ਫ਼ੈਸਲਾ ਕਰ ਸਕਦੀ ਹੈ ਕਿ ਤੁਸੀਂ ਦੌੜਨ ਵਾਲੇ ਜੁੱਤਿਆਂ ਵਿੱਚ ਦਿਲਚਸਪੀ ਰੱਖਦੇ ਹੋ। ਬਾਅਦ ਵਿੱਚ, ਜੇ ਤੁਸੀਂ ਕੋਈ ਵੱਖਰੀ ਐਪ ਵਰਤਦੇ ਹੋ, ਤਾਂ ਉਹ ਐਪ ਪਹਿਲੀ ਵਾਲੀ ਐਪ ਵੱਲੋਂ ਸੁਝਾਏ ਗਏ ਦੌੜਨ ਵਾਲੇ ਜੁੱਤਿਆਂ ਦਾ ਵਿਗਿਆਪਨ ਦਿਖਾ ਸਕਦੀ ਹੈ।\n\nAndroid, ਐਪ ਵੱਲੋਂ ਸੁਝਾਏ ਗਏ ਡਾਟੇ ਨੂੰ ਨਿਯਮਿਤ ਤੌਰ \'ਤੇ ਸਵੈਚਲਿਤ-ਮਿਟਾਉਂਦਾ ਹੈ। ਉਹ ਐਪ ਸੂਚੀ ਵਿੱਚ ਮੁੜ ਦਿਖਾਈ ਦੇ ਸਕਦੀ ਹੈ, ਜਿਸਨੂੰ ਤੁਸੀਂ ਦੁਬਾਰਾ ਵਰਤਦੇ ਹੋ। ਜਾਂ ਤੁਸੀਂ ਕਿਸੇ ਐਪ ਨੂੰ ਤੁਹਾਡੇ ਲਈ ਵਿਗਿਆਪਨਾਂ ਸੰਬੰਧੀ ਸੁਝਾਅ ਦੇਣ ਤੋਂ ਬਲਾਕ ਕਰ ਸਕਦੇ ਹੋ।\n\nਤੁਹਾਡੀਆਂ ਐਪਾਂ ਵਿੱਚ, ਤੁਹਾਨੂੰ ਦਿਖਾਈ ਦੇਣ ਵਾਲਾ ਵਿਗਿਆਪਨ ਇਸ ਸੈਟਿੰਗ, ਵਿਗਿਆਪਨ ਵਿਸ਼ਿਆਂ ਸੰਬੰਧੀ ਸੈਟਿੰਗ, ਤੁਹਾਡੀ ਵਿਗਿਆਪਨ ਆਈਡੀ ਸੰਬੰਧੀ ਸੈਟਿੰਗਾਂ ਅਤੇ ਤੁਹਾਡੇ ਵੱਲੋਂ ਵਰਤੀ ਜਾਣ ਵਾਲੀ ਐਪ ਰਾਹੀਂ ਵਿਗਿਆਪਨਾਂ ਨੂੰ ਵਿਅਕਤੀਗਤ ਬਣਾਉਣ ਦੀ ਵਿਸ਼ੇਸ਼ਤਾ ਦੇ ਆਧਾਰ \'ਤੇ ਵਿਅਕਤੀਗਤ ਬਣਾਇਆ ਗਿਆ ਹੋ ਸਕਦਾ ਹੈ।"</string>
+    <string name="notificationUI_u18_notification_title" msgid="4880509503177562077">"ਵਿਗਿਆਪਨ ਪਰਦੇਦਾਰੀ ਸੰਬੰਧੀ ਨਵੀਂ ਵਿਸ਼ੇਸ਼ਤਾ ਉਪਲਬਧ ਹੈ"</string>
+    <string name="notificationUI_u18_notification_content" msgid="6734418183242286936">"ਵਿਗਿਆਪਨ ਦੀ ਕਾਰਗੁਜ਼ਾਰੀ ਦਾ ਮੁਲਾਂਕਣ ਕਰਨ ਵਿੱਚ ਮਦਦ ਲਈ ਐਪਾਂ ਵਿਚਾਲੇ ਸਿਰਫ਼ ਬਹੁਤ ਹੀ ਸੀਮਤ ਜਾਣਕਾਰੀ ਨੂੰ ਸਾਂਝਾ ਕੀਤਾ ਜਾਂਦਾ ਹੈ"</string>
+    <string name="notificationUI_u18_body1" msgid="5384339364319615715">"ਅਸੀਂ ਵਿਗਿਆਪਨ ਪਰਦੇਦਾਰੀ ਸੰਬੰਧੀ ਨਵੀਂ ਵਿਸ਼ੇਸ਼ਤਾ ਲਾਂਚ ਕਰ ਰਹੇ ਹਾਂ ਜਿਸਨੂੰ ਵਿਗਿਆਪਨ ਮਾਪ ਕਹਿੰਦੇ ਹਨ। Android ਐਪਾਂ ਵਿਚਾਲੇ ਬਹੁਤ ਹੀ ਸੀਮਤ ਜਾਣਕਾਰੀ ਨੂੰ ਸਾਂਝਾ ਕਰਦਾ ਹੈ, ਜਿਵੇਂ ਕਿ ਜਦੋਂ ਤੁਹਾਨੂੰ ਕੋਈ ਵਿਗਿਆਪਨ ਦਿਖਾਇਆ ਗਿਆ ਸੀ, ਤਾਂ ਜੋ ਵਿਗਿਆਪਨਾਂ ਦੀ ਕਾਰਗੁਜ਼ਾਰੀ ਦਾ ਮੁਲਾਂਕਣ ਕਰਨ ਵਿੱਚ ਐਪਾਂ ਦੀ ਮਦਦ ਕੀਤੀ ਜਾ ਸਕੇ।"</string>
+    <string name="notificationUI_u18_body3" msgid="4511974346169641579">"ਤੁਸੀਂ ਵਿਗਿਆਪਨ ਪਰਦੇਦਾਰੀ ਸੈਟਿੰਗਾਂ ਵਿੱਚ ਤਬਦੀਲੀਆਂ ਕਰ ਸਕਦੇ ਹੋ।"</string>
+    <string name="settingsUI_u18_main_view_measurement_info" msgid="1709326915590855853">"ਜੋ ਐਪਾਂ ਤੁਸੀਂ ਵਰਤਦੇ ਹੋ, ਉਹ ਆਪਣੇ ਵਿਗਿਆਪਨਾਂ ਦੀ ਕਾਰਗੁਜ਼ਾਰੀ ਦਾ ਮੁਲਾਂਕਣ ਕਰਨ ਵਿੱਚ ਉਨ੍ਹਾਂ ਦੀ ਮਦਦ ਵਾਸਤੇ Android ਤੋਂ ਜਾਣਕਾਰੀ ਮੰਗ ਸਕਦੀਆਂ ਹਨ। Android, ਐਪਾਂ ਨੂੰ ਸਿਰਫ਼ ਸੀਮਤ ਕਿਸਮ ਦਾ ਡਾਟਾ ਇਕੱਤਰ ਕਰਨ ਦੀ ਆਗਿਆ ਦਿੰਦਾ ਹੈ।"</string>
+    <string name="ic_consent_notification_ga_image_description" msgid="6146488914437778539">"ਸੰਗੀਤ, ਖਬਰਾਂ ਅਤੇ ਖੇਡਾਂ ਵਰਗੇ ਦਿਸਚਸਪ ਵਿਸ਼ਿਆਂ ਨੂੰ ਦਰਸਾਉਣ ਵਾਲੇ ਚਿੰਨ੍ਹਾਂ ਦਾ ਰੰਗਦਾਰ ਚਿੱਤਰ"</string>
+    <string name="ic_main_view_ga_image_description" msgid="1846571138870271761">"ਚੱਕਰ ਵਿੱਚ ਤਾਲੇ ਦਾ ਰੰਗਦਾਰ ਚਿੱਤਰ"</string>
+    <string name="ic_placeholder_icon_for_empty_apps_list_description" msgid="8171099879240285360">"ਵਰਗ ਬਣਾਉਂਦੇ ਨੌਂ ਬਿੰਦੂਆਂ ਦਾ ਕਾਲੇ ਅਤੇ ਸਫ਼ੈਦ ਰੰਗ ਵਿੱਚ ਛੋਟਾ ਚਿੱਤਰ"</string>
+    <string name="ic_placeholder_icon_for_empty_topics_list_description" msgid="2112218456926009271">"ਦਿਲ, ਤਿਕੋਣ ਅਤੇ ਵਰਗ ਵਰਗੀਆਂ ਸਧਾਰਨ ਆਕ੍ਰਿਤੀਆਂ ਦਾ ਕਾਲੇ ਅਤੇ ਸਫ਼ੈਦ ਰੰਗ ਵਿੱਚ ਛੋਟਾ ਚਿੱਤਰ"</string>
+    <string name="topic10001" msgid="1636806320891333775">"ਕਲਾ ਅਤੇ ਮਨੋਰੰਜਨ"</string>
+    <string name="topic10002" msgid="1226367977754287428">"ਅਦਾਕਾਰੀ ਅਤੇ ਥੀਏਟਰ"</string>
+    <string name="topic10003" msgid="6949890838957814881">"ਐਨੀਮੇ ਅਤੇ ਮਾਂਗਾ"</string>
+    <string name="topic10004" msgid="5397903150832181233">"ਕਾਰਟੂਨ"</string>
+    <string name="topic10005" msgid="6316179809581237302">"ਕਾਮਿਕ"</string>
+    <string name="topic10006" msgid="7442330644172139790">"ਸਮਾਰੋਹ ਅਤੇ ਸੰਗੀਤ ਉਤਸਵ"</string>
+    <string name="topic10007" msgid="5537896091418145164">"ਡਾਂਸ"</string>
+    <string name="topic10008" msgid="2737343278307552521">"ਮਨੋਰੰਜਨ ਉਦਯੋਗ"</string>
+    <string name="topic10009" msgid="3252367380340240453">"ਮਸਤੀ ਅਤੇ ਗਿਆਨ-ਵਧਾਊ ਚੀਜ਼ਾਂ"</string>
+    <string name="topic10010" msgid="932301479153552725">"ਮਜ਼ੇਦਾਰ ਜਾਂਚਾਂ ਅਤੇ ਮਨੋਰੰਜਕ ਸਰਵੇਖਣ"</string>
+    <string name="topic10011" msgid="3123553390567261985">"ਹਾਸਰਸ"</string>
+    <string name="topic10012" msgid="8756486271154511326">"ਮਜ਼ੇਦਾਰ ਤਸਵੀਰਾਂ ਅਤੇ ਵੀਡੀਓ"</string>
+    <string name="topic10013" msgid="1242353161202448753">"ਲਾਈਵ ਕਾਮੇਡੀ"</string>
+    <string name="topic10014" msgid="6086156236112755291">"ਲਾਈਵ ਖੇਡਾਂ ਵਾਲੇ ਇਵੈਂਟ"</string>
+    <string name="topic10015" msgid="9196350141359833832">"ਜਾਦੂ"</string>
+    <string name="topic10016" msgid="202419376638900745">"ਫ਼ਿਲਮਾਂ ਦੀਆਂ ਸੂਚੀਆਂ ਅਤੇ ਥੀਏਟਰ ਦੇ ਸ਼ੋਅਟਾਈਮ"</string>
+    <string name="topic10017" msgid="6737229918787540100">"ਫ਼ਿਲਮਾਂ"</string>
+    <string name="topic10018" msgid="6823676154109177487">"ਐਕਸ਼ਨ ਅਤੇ ਰੁਮਾਂਚ ਵਾਲੀਆਂ ਫ਼ਿਲਮਾਂ"</string>
+    <string name="topic10019" msgid="6875960630918973127">"ਐਨੀਮੇਟਿਡ ਫ਼ਿਲਮਾਂ"</string>
+    <string name="topic10020" msgid="4323870300602151489">"ਕਾਮੇਡੀ ਫ਼ਿਲਮਾਂ"</string>
+    <string name="topic10021" msgid="446758643774468418">"ਪ੍ਰਸਿੱਧ ਅਤੇ ਇੰਡੀ ਫ਼ਿਲਮਾਂ"</string>
+    <string name="topic10022" msgid="3671929742155787005">"ਦਸਤਾਵੇਜ਼ੀ ਫ਼ਿਲਮਾਂ"</string>
+    <string name="topic10023" msgid="3547616830531182863">"ਡਰਾਮਾ ਫ਼ਿਲਮਾਂ"</string>
+    <string name="topic10024" msgid="1044853632986202120">"ਪਰਿਵਾਰਕ ਫ਼ਿਲਮਾਂ"</string>
+    <string name="topic10025" msgid="5958629223443279316">"ਡਰਾਉਣੀਆਂ ਫ਼ਿਲਮਾਂ"</string>
+    <string name="topic10026" msgid="5685515125614860029">"ਰੁਮਾਂਸ ਵਾਲੀਆਂ ਫ਼ਿਲਮਾਂ"</string>
+    <string name="topic10027" msgid="8846353713171614854">"ਰੋਮਾਂਚ"</string>
+    <string name="topic10028" msgid="170404703980174756">"ਸੰਗੀਤ ਅਤੇ ਆਡੀਓ"</string>
+    <string name="topic10029" msgid="4634600135545614665">"ਬਲੂਜ਼"</string>
+    <string name="topic10030" msgid="7226438392540805771">"ਸ਼ਾਸਤਰੀ ਸੰਗੀਤ"</string>
+    <string name="topic10031" msgid="1488013446112025676">"ਕੰਟਰੀ ਸੰਗੀਤ"</string>
+    <string name="topic10032" msgid="9053666244854789632">"ਡਾਂਸ ਅਤੇ ਇਲੈਕਟ੍ਰਾਨਿਕ ਸੰਗੀਤ"</string>
+    <string name="topic10033" msgid="440063573197454181">"ਲੋਕਗੀਤ ਅਤੇ ਰਵਾਇਤੀ ਸੰਗੀਤ"</string>
+    <string name="topic10034" msgid="8296307244554241197">"ਜੈਜ਼"</string>
+    <string name="topic10035" msgid="9171752741499923310">"ਸੰਗੀਤ ਸਟ੍ਰੀਮਾਂ ਅਤੇ ਡਾਊਨਲੋਡ"</string>
+    <string name="topic10036" msgid="2490236112725457376">"ਸੰਗੀਤ ਵੀਡੀਓ"</string>
+    <string name="topic10037" msgid="1923690469725883551">"ਸੰਗੀਤਮਈ ਸਾਜ਼"</string>
+    <string name="topic10038" msgid="2817492732688549631">"ਪਿਆਨੋ ਅਤੇ ਕੀ-ਬੋਰਡ"</string>
+    <string name="topic10039" msgid="8970033643570782019">"ਪੌਪ ਸੰਗੀਤ"</string>
+    <string name="topic10040" msgid="7478395512712452137">"ਰੇਡੀਓ"</string>
+    <string name="topic10041" msgid="3319379117705411886">"ਟਾਕ ਰੇਡੀਓ"</string>
+    <string name="topic10042" msgid="8830471038440654640">"ਰੈਪ ਅਤੇ ਹਿੱਪ-ਹੌਪ"</string>
+    <string name="topic10043" msgid="8585450284346207691">"ਰੌਕ ਸੰਗੀਤ"</string>
+    <string name="topic10044" msgid="3710011249220779842">"ਕਲਾਸਿਕ ਰੌਕ ਅਤੇ ਪੁਰਾਣੇ ਗੀਤ"</string>
+    <string name="topic10045" msgid="7593443421067822441">"ਹਾਰਡ ਰੌਕ ਅਤੇ ਪ੍ਰੋਗਰੈਸਿਵ ਸੰਗੀਤ"</string>
+    <string name="topic10046" msgid="8715621227472631784">"ਇੰਡੀ ਅਤੇ ਅਲਟਰਨੇਟਿਵ ਸੰਗੀਤ"</string>
+    <string name="topic10047" msgid="3518038303049899798">"ਨਮੂਨੇ ਅਤੇ ਧੁਨੀ ਸੰਬੰਧੀ ਲਾਇਬ੍ਰੇਰੀਆਂ"</string>
+    <string name="topic10048" msgid="3063505369500799094">"ਸੋਲ ਅਤੇ R&amp;B ਸੰਗੀਤ"</string>
+    <string name="topic10049" msgid="8061992014977840818">"ਸਾਊਂਡਟਰੈਕ"</string>
+    <string name="topic10050" msgid="3540229495848506229">"ਵਿਸ਼ਵ ਸੰਗੀਤ"</string>
+    <string name="topic10051" msgid="6132468331924347995">"ਰੇਗੇ ਅਤੇ ਕੈਰੇਬੀਅਨ ਸੰਗੀਤ"</string>
+    <string name="topic10052" msgid="8213269199807045473">"ਆਨਲਾਈਨ ਚਿੱਤਰ ਗੈਲਰੀਆਂ"</string>
+    <string name="topic10053" msgid="1378192203082454197">"ਆਨਲਾਈਨ ਵੀਡੀਓ"</string>
+    <string name="topic10054" msgid="3727401645405134505">"ਲਾਈਵ ਵੀਡੀਓ ਸਟ੍ਰੀਮਿੰਗ"</string>
+    <string name="topic10055" msgid="4943174831732192854">"ਫ਼ਿਲਮ ਅਤੇ ਟੀਵੀ ਸਟ੍ਰੀਮਿੰਗ"</string>
+    <string name="topic10056" msgid="3066058636154255073">"ਓਪੇਰਾ"</string>
+    <string name="topic10057" msgid="387445514677222034">"ਟੀਵੀ ਗਾਈਡਾਂ ਅਤੇ ਹਵਾਲੇ"</string>
+    <string name="topic10058" msgid="9149178644022969766">"ਟੀਵੀ ਨੈੱਟਵਰਕ ਅਤੇ ਸਟੇਸ਼ਨ"</string>
+    <string name="topic10059" msgid="6300562669238320524">"ਟੀਵੀ ਸ਼ੋਅ ਅਤੇ ਪ੍ਰੋਗਰਾਮ"</string>
+    <string name="topic10060" msgid="3901256055064835246">"ਟੀਵੀ ਕਾਮੇਡੀਆਂ"</string>
+    <string name="topic10061" msgid="8343924749123326062">"ਟੀਵੀ ਦਸਤਾਵੇਜ਼ੀ ਅਤੇ ਗੈਰ-ਗਲਪ"</string>
+    <string name="topic10062" msgid="9183355218976951211">"ਟੀਵੀ ਡਰਾਮਾ"</string>
+    <string name="topic10063" msgid="644340831620792432">"ਟੀਵੀ ਦੇ ਸਧਾਰਨ ਨਾਟਕ"</string>
+    <string name="topic10064" msgid="5961885645457010998">"ਟੀਵੀ ਦੇ ਪਰਿਵਾਰ-ਸੰਬੰਧੀ ਸ਼ੋਅ"</string>
+    <string name="topic10065" msgid="7916343612028608044">"ਟੀਵੀ ਰਿਐਲਟੀ ਸ਼ੋਅ"</string>
+    <string name="topic10066" msgid="5984396525358003559">"ਟੀਵੀ ਵਿਗਿਆਨਿਕ-ਗਲਪ ਅਤੇ ਕਾਲਪਨਿਕ ਸ਼ੋਅ"</string>
+    <string name="topic10067" msgid="6404637729885733437">"ਦ੍ਰਿਸ਼ਟੀਗਤ ਕਲਾ ਅਤੇ ਡਿਜ਼ਾਈਨ"</string>
+    <string name="topic10068" msgid="4589856961950168493">"ਡਿਜ਼ਾਈਨ"</string>
+    <string name="topic10069" msgid="3129378082034151991">"ਚਿੱਤਰਕਾਰੀ"</string>
+    <string name="topic10070" msgid="2570256568661324147">"ਫ਼ੋਟੋਗ੍ਰਾਫ਼ਿਕ ਅਤੇ ਡਿਜੀਟਲ ਕਲਾਵਾਂ"</string>
+    <string name="topic10071" msgid="1288722040962471254">"ਆਟੋ ਅਤੇ ਵਾਹਨ"</string>
+    <string name="topic10072" msgid="9155509766616567261">"ਕਾਰਗੋ ਟਰੱਕ ਅਤੇ ਟ੍ਰੇਲਰ"</string>
+    <string name="topic10073" msgid="3748676231341513738">"ਕਲਾਸਿਕ ਵਾਹਨ"</string>
+    <string name="topic10074" msgid="2040911547161463227">"ਵਿਉਂਤਬੱਧ ਅਤੇ ਕਾਰਗੁਜ਼ਾਰੀ ਸੰਬੰਧੀ ਵਾਹਨ"</string>
+    <string name="topic10075" msgid="1242538698445713796">"ਪੈਟਰੋਲ ਦੀਆਂ ਕੀਮਤਾਂ ਅਤੇ ਵਾਹਨ ਦਾ ਬਾਲਣ"</string>
+    <string name="topic10076" msgid="8674225812339579627">"ਮੋਟਰ ਵਾਹਨ (ਕਿਸਮ ਮੁਤਾਬਕ)"</string>
+    <string name="topic10077" msgid="3577709810751953433">"ਸਵੈ-ਚਲਤ ਵਾਹਨ"</string>
+    <string name="topic10078" msgid="5493263845129910125">"ਬਦਲਣਯੋਗ"</string>
+    <string name="topic10079" msgid="3466838852836498580">"ਕੂਪ"</string>
+    <string name="topic10080" msgid="3515647285637163190">"ਹੈਚਬੈਕ"</string>
+    <string name="topic10081" msgid="4135085035401158860">"ਹਾਈਬ੍ਰਿਡ ਅਤੇ ਅਲਟਰਨੇਟਿਵ ਵਾਹਨ"</string>
+    <string name="topic10082" msgid="7168659489029594320">"ਮਹਿੰਗੀਆਂ ਗੱਡੀਆਂ"</string>
+    <string name="topic10083" msgid="1532745144715857802">"ਮਾਈਕ੍ਰੋਕਾਰਾਂ ਅਤੇ ਸਬਕੰਪੈਕਟ"</string>
+    <string name="topic10084" msgid="1984231414410381476">"ਮੋਟਰਸਾਈਕਲ"</string>
+    <string name="topic10085" msgid="5235555028227554661">"ਆਫ਼-ਰੋਡ ਵਾਹਨ"</string>
+    <string name="topic10086" msgid="8360336602646460411">"ਪਿੱਕਅੱਪ ਟਰੱਕ"</string>
+    <string name="topic10087" msgid="6566900167002195406">"ਸਕੂਟਰ ਅਤੇ ਮੋਪਡ"</string>
+    <string name="topic10088" msgid="2899313082601001223">"ਸੇਡਾਨ"</string>
+    <string name="topic10089" msgid="1053630346809973163">"ਸਟੇਸ਼ਨ ਵੈਗਨ"</string>
+    <string name="topic10090" msgid="4478565601243447368">"SUV ਅਤੇ ਕ੍ਰਾਸਓਵਰ"</string>
+    <string name="topic10091" msgid="3812668311830832874">"ਕ੍ਰਾਸਓਵਰ"</string>
+    <string name="topic10092" msgid="524130833813249539">"ਵੈਨਾਂ ਅਤੇ ਮਿਨੀਵੈਨਾਂ"</string>
+    <string name="topic10093" msgid="8900143351472824542">"ਗੱਡੀਆਂ ਲਿਜਾਉਣ ਅਤੇ ਸੜਕ ਕਿਨਾਰੇ ਸਹਾਇਤਾ ਸੰਬੰਧੀ ਸੇਵਾ"</string>
+    <string name="topic10094" msgid="6205146188176216038">"ਵਾਹਨ ਅਤੇ ਟਰੈਫ਼ਿਕ ਸੁਰੱਖਿਆ"</string>
+    <string name="topic10095" msgid="7983070264654477553">"ਵਾਹਨ ਦੇ ਪੁਰਜ਼ੇ ਅਤੇ ਐਕਸੈਸਰੀਆਂ"</string>
+    <string name="topic10096" msgid="8148747014459050804">"ਵਾਹਨ ਦੀ ਮੁਰੰਮਤ ਅਤੇ ਸਾਂਭ-ਸੰਭਾਲ"</string>
+    <string name="topic10097" msgid="4716536434833425748">"ਵਾਹਨ ਖਰੀਦਦਾਰੀ"</string>
+    <string name="topic10098" msgid="6401980112135995019">"ਵਰਤੇ ਹੋਏ ਵਾਹਨ"</string>
+    <string name="topic10099" msgid="8018714209926584445">"ਵਾਹਨ ਸੰਬੰਧੀ ਸ਼ੋਅ"</string>
+    <string name="topic10100" msgid="2481422464734249871">"ਸੁੰਦਰਤਾ ਅਤੇ ਫਿੱਟਨੈੱਸ"</string>
+    <string name="topic10101" msgid="7889144198021629053">"ਸਰੀਰਕ ਕਲਾ"</string>
+    <string name="topic10102" msgid="577637051755692238">"ਚਿਹਰੇ ਅਤੇ ਸਰੀਰ ਦੀ ਦੇਖਭਾਲ"</string>
+    <string name="topic10103" msgid="6618157344631408510">"ਐਂਟੀਪਰਸਪਿਰੈਂਟ"</string>
+    <string name="topic10104" msgid="6043649669944382784">"ਨਹਾਉਣ ਲਈ ਅਤੇ ਸਰੀਰ \'ਤੇ ਵਰਤੇ ਜਾਣ ਵਾਲੇ ਉਤਪਾਦ"</string>
+    <string name="topic10105" msgid="3248569527339253661">"ਨਿਰਮਲ ਸੁੰਦਰਤਾ"</string>
+    <string name="topic10106" msgid="1291481249483309832">"ਮੇਕਅੱਪ ਅਤੇ ਸ਼ਿੰਗਾਰ ਸਮੱਗਰੀ"</string>
+    <string name="topic10107" msgid="1335060201249279923">"ਨਹੁੰਆਂ ਦੀ ਦੇਖਭਾਲ ਸੰਬੰਧੀ ਉਤਪਾਦ"</string>
+    <string name="topic10108" msgid="4996884435711154930">"ਅਤਰ ਅਤੇ ਖੁਸ਼ਬੋਆਂ"</string>
+    <string name="topic10109" msgid="7298403319989686251">"ਉਸਤਰੇ ਅਤੇ ਸ਼ੇਵਰ"</string>
+    <string name="topic10110" msgid="5954355866247248022">"ਫੈਸ਼ਨ ਅਤੇ ਸਟਾਈਲ"</string>
+    <string name="topic10111" msgid="4447710938881368413">"ਫਿੱਟਨੈੱਸ"</string>
+    <string name="topic10112" msgid="8816530137921714131">"ਬਾਡੀ ਬਿਲਡਿੰਗ"</string>
+    <string name="topic10113" msgid="8138889299405853557">"ਫਿੱਟਨੈੱਸ ਸੰਬੰਧੀ ਅਤੇ ਨਿੱਜੀ ਸਿਖਲਾਈ"</string>
+    <string name="topic10114" msgid="2172821400279346865">"ਫਿੱਟਨੈੱਸ ਤਕਨਾਲੋਜੀ ਸੰਬੰਧੀ ਉਤਪਾਦ"</string>
+    <string name="topic10115" msgid="9060244278068231494">"ਵਾਲਾਂ ਦੀ ਦੇਖਭਾਲ"</string>
+    <string name="topic10116" msgid="116242880964485085">"ਕਿਤਾਬਾਂ ਅਤੇ ਸਾਹਿਤ"</string>
+    <string name="topic10117" msgid="8933734721100160863">"ਬੱਚਿਆਂ ਲਈ ਸਾਹਿਤ"</string>
+    <string name="topic10118" msgid="4368531903547695191">"ਈ-ਕਿਤਾਬਾਂ"</string>
+    <string name="topic10119" msgid="2781095265741115471">"ਰਸਾਲੇ"</string>
+    <string name="topic10120" msgid="3099507102655270527">"ਕਵਿਤਾ"</string>
+    <string name="topic10121" msgid="4466592180799340837">"ਕਾਰੋਬਾਰੀ ਅਤੇ ਉਦਯੋਗਿਕ"</string>
+    <string name="topic10122" msgid="2375136741125920744">"ਵਿਗਿਆਪਨ ਅਤੇ ਮਾਰਕੀਟਿੰਗ"</string>
+    <string name="topic10123" msgid="6974082907852347979">"ਵਿਕਰੀ"</string>
+    <string name="topic10124" msgid="44474598156972786">"ਖੇਤੀਬਾੜੀ ਅਤੇ ਵਣ ਵਿਗਿਆਨ"</string>
+    <string name="topic10125" msgid="9170394261421539760">"ਭੋਜਨ ਉਤਪਾਦਨ"</string>
+    <string name="topic10126" msgid="2210146434071038904">"ਮੋਟਰ-ਵਹੀਕਲ ਉਦਯੋਗ"</string>
+    <string name="topic10127" msgid="5503077037318678029">"ਏਵੀਏਸ਼ਨ ਉਦਯੋਗ"</string>
+    <string name="topic10128" msgid="285525650692719959">"ਕਾਰੋਬਾਰੀ ਕਾਰਵਾਈਆਂ"</string>
+    <string name="topic10129" msgid="3094691551566702427">"ਕੰਮ ਸੰਬੰਧੀ ਅਨੁਕੂਲ ਵਿਵਸਥਾਵਾਂ"</string>
+    <string name="topic10130" msgid="1922351409757117764">"ਮਾਨਵ ਸੰਸਾਧਨ"</string>
+    <string name="topic10131" msgid="8598763405951029782">"ਵਪਾਰਕ ਉਧਾਰ"</string>
+    <string name="topic10132" msgid="1476352626208153907">"ਉਸਾਰੀ ਅਤੇ ਸਾਂਭ-ਸੰਭਾਲ"</string>
+    <string name="topic10133" msgid="7089177624979453528">"ਸਿਵਲ ਇੰਜੀਨੀਅਰਿੰਗ"</string>
+    <string name="topic10134" msgid="3833032373311037601">"ਡਿਫੈਂਸ ਉਦਯੋਗ"</string>
+    <string name="topic10135" msgid="2478808072377000440">"ਊਰਜਾ ਅਤੇ ਉਪਯੋਗਤਾ"</string>
+    <string name="topic10136" msgid="9083992436834044162">"ਜਲ ਸਪਲਾਈ ਅਤੇ ਉਪਚਾਰ"</string>
+    <string name="topic10137" msgid="1912599316814246824">"ਖਾਤਰਦਾਰੀ ਉਦਯੋਗ"</string>
+    <string name="topic10138" msgid="7428346836350671895">"ਨਿਰਮਾਣ"</string>
+    <string name="topic10139" msgid="1396685812404869953">"ਧਾਤਾਂ ਅਤੇ ਖਾਣ ਦੀ ਖੁਦਾਈ"</string>
+    <string name="topic10140" msgid="5264212052238781441">"MLM ਅਤੇ ਕਾਰੋਬਾਰੀ ਮੌਕੇ"</string>
+    <string name="topic10141" msgid="860058416683118730">"ਔਸ਼ਧੀ ਨਿਰਮਾਣ ਅਤੇ ਬਾਇਓਟੈਕ"</string>
+    <string name="topic10142" msgid="2912550934111655896">"ਪ੍ਰਿੰਟਿੰਗ ਅਤੇ ਪ੍ਰਕਾਸ਼ਨ"</string>
+    <string name="topic10143" msgid="5690610408227078117">"ਪਰਚੂਨ ਕਾਰੋਬਾਰ"</string>
+    <string name="topic10144" msgid="3341052306953106368">"ਵੈਂਚਰ ਕੈਪੀਟਲ"</string>
+    <string name="topic10145" msgid="6886608911083388041">"ਕੰਪਿਊਟਰ ਅਤੇ ਇਲੈਕਟ੍ਰਾਨਿਕਸ"</string>
+    <string name="topic10146" msgid="8202145175139144216">"ਕੰਪਿਊਟਰ ਪੈਰੀਫੈਰਲ"</string>
+    <string name="topic10147" msgid="4687964705548995437">"ਪ੍ਰਿੰਟਰ"</string>
+    <string name="topic10148" msgid="8861628145647459323">"ਕੰਪਿਊਟਰ ਸੁਰੱਖਿਆ"</string>
+    <string name="topic10149" msgid="1719988773455991739">"ਐਂਟੀਵਾਇਰਸ ਅਤੇ ਮਾਲਵੇਅਰ"</string>
+    <string name="topic10150" msgid="1482205464872465298">"ਨੈੱਟਵਰਕ ਸੁਰੱਖਿਆ"</string>
+    <string name="topic10151" msgid="1772262905623388968">"ਖਪਤਕਾਰ ਇਲੈਕਟ੍ਰਾਨਿਕਸ"</string>
+    <string name="topic10152" msgid="651152740021127086">"ਕੈਮਰੇ ਅਤੇ ਕੈਮਕੋਰਡਰ"</string>
+    <string name="topic10153" msgid="8741504768717646372">"GPS ਅਤੇ ਨੈਵੀਗੇਸ਼ਨ"</string>
+    <string name="topic10154" msgid="5382029798409496090">"ਹੋਮ ਆਟੋਮੇਸ਼ਨ"</string>
+    <string name="topic10155" msgid="5243817792730496258">"ਹੋਮ ਥੀਏਟਰ ਸਿਸਟਮ"</string>
+    <string name="topic10156" msgid="2497791567138856030">"MP3 ਅਤੇ ਪੋਰਟੇਬਲ ਮੀਡੀਆ ਪਲੇਅਰ"</string>
+    <string name="topic10157" msgid="4723439422860510190">"ਪਹਿਨਣਯੋਗ ਤਕਨਾਲੋਜੀ"</string>
+    <string name="topic10158" msgid="5345830001295028513">"ਡਾਟਾ ਬੈਕਅੱਪ ਅਤੇ ਰਿਕਵਰੀ"</string>
+    <string name="topic10159" msgid="6146958285117174314">"ਡੈਸਕਟਾਪ ਕੰਪਿਊਟਰ"</string>
+    <string name="topic10160" msgid="6624820395549466426">"ਲੈਪਟਾਪ ਅਤੇ ਨੋਟਬੁੱਕ"</string>
+    <string name="topic10161" msgid="912458758908978530">"ਨੈੱਟਵਰਕਿੰਗ"</string>
+    <string name="topic10162" msgid="6717352131379507693">"ਡਿਸਟ੍ਰੀਬਿਊਟਿਡ ਅਤੇ ਕਲਾਊਡ ਕੰਪਿਊਟਿੰਗ"</string>
+    <string name="topic10163" msgid="6344926622025055321">"ਪ੍ਰੋਗਰਾਮਿੰਗ"</string>
+    <string name="topic10164" msgid="4228888249078845459">"ਸਾਫ਼ਟਵੇਅਰ"</string>
+    <string name="topic10165" msgid="5507908999219967161">"ਆਡੀਓ ਅਤੇ ਸੰਗੀਤ ਸਾਫ਼ਟਵੇਅਰ"</string>
+    <string name="topic10166" msgid="4768106492755849560">"ਕਾਰੋਬਾਰੀ ਅਤੇ ਉਤਪਾਦਕਤਾ ਸਾਫ਼ਟਵੇਅਰ"</string>
+    <string name="topic10167" msgid="8556935769754922871">"ਕੈਲੰਡਰ ਅਤੇ ਸਮਾਂ-ਸੂਚੀ ਸੰਬੰਧੀ ਸਾਫ਼ਟਵੇਅਰ"</string>
+    <string name="topic10168" msgid="7730134961167790334">"ਸਹਿਯੋਗ ਅਤੇ ਕਾਨਫਰੰਸਿੰਗ ਸੰਬੰਧੀ ਸਾਫ਼ਟਵੇਅਰ"</string>
+    <string name="topic10169" msgid="5655084106378890454">"ਪੇਸ਼ਕਾਰੀ ਸਾਫ਼ਟਵੇਅਰ"</string>
+    <string name="topic10170" msgid="4638281897205909919">"ਸਪਰੈੱਡਸ਼ੀਟ ਸਾਫ਼ਟਵੇਅਰ"</string>
+    <string name="topic10171" msgid="7910183120486541228">"ਵਰਡ ਪ੍ਰੋਸੈਸਿੰਗ ਸਾਫ਼ਟਵੇਅਰ"</string>
+    <string name="topic10172" msgid="3626573644414074730">"ਡੈਸਕਟਾਪ ਪ੍ਰਕਾਸ਼ਨ"</string>
+    <string name="topic10173" msgid="7320053835183057144">"ਫੌਂਟ"</string>
+    <string name="topic10174" msgid="5770469447869586710">"ਡਾਊਨਲੋਡ ਪ੍ਰਬੰਧਕ"</string>
+    <string name="topic10175" msgid="3475235810022334041">"ਫ੍ਰੀ-ਵੇਅਰ ਅਤੇ ਸ਼ੇਅਰਵੇਅਰ"</string>
+    <string name="topic10176" msgid="6881704501596479881">"ਗ੍ਰਾਫ਼ਿਕ ਅਤੇ ਐਨੀਮੇਸ਼ਨ ਸਾਫ਼ਟਵੇਅਰ"</string>
+    <string name="topic10177" msgid="6740430730079682579">"ਸੂਝਵਾਨ ਨਿੱਜੀ ਸਹਾਇਕ"</string>
+    <string name="topic10178" msgid="7261811053741593091">"ਮੀਡੀਆ ਪਲੇਅਰ"</string>
+    <string name="topic10179" msgid="2967001567120854492">"ਨਿਗਰਾਨੀ ਸਾਫ਼ਟਵੇਅਰ"</string>
+    <string name="topic10180" msgid="4197420326455130102">"ਓਪਰੇਟਿੰਗ ਸਿਸਟਮ"</string>
+    <string name="topic10181" msgid="3537573129132698830">"ਫ਼ੋਟੋ ਅਤੇ ਵੀਡੀਓ ਸਾਫ਼ਟਵੇਅਰ"</string>
+    <string name="topic10182" msgid="7688631285131229981">"ਫ਼ੋਟੋ ਸਾਫ਼ਟਵੇਅਰ"</string>
+    <string name="topic10183" msgid="5994974566140272512">"ਵੀਡੀਓ ਸਾਫ਼ਟਵੇਅਰ"</string>
+    <string name="topic10184" msgid="8685817335076871509">"ਸਾਫ਼ਟਵੇਅਰ ਉਪਯੋਗਤਾਵਾਂ"</string>
+    <string name="topic10185" msgid="308314128178285390">"ਵੈੱਬ ਬ੍ਰਾਊਜ਼ਰ"</string>
+    <string name="topic10186" msgid="3147859503481018245">"ਵਿੱਤ"</string>
+    <string name="topic10187" msgid="7077128721410871032">"ਲੇਖਾਕਾਰੀ ਅਤੇ ਲੇਖਾ-ਪੜਤਾਲ"</string>
+    <string name="topic10188" msgid="2206138708659457910">"ਟੈਕਸ ਭਰਨਾ ਅਤੇ ਯੋਜਨਾਬੰਦੀ"</string>
+    <string name="topic10189" msgid="4001795553008246784">"ਬੈਂਕਿੰਗ"</string>
+    <string name="topic10190" msgid="2988430661381243083">"ਪੈਸਾ ਟ੍ਰਾਂਸਫ਼ਰ ਅਤੇ ਵਾਇਰ ਕਰਨ ਸੰਬੰਧੀ ਸੇਵਾਵਾਂ"</string>
+    <string name="topic10191" msgid="6196081825838237614">"ਕ੍ਰੈਡਿਟ ਅਤੇ ਉਧਾਰ"</string>
+    <string name="topic10192" msgid="3290123244833047307">"ਕ੍ਰੈਡਿਟ ਕਾਰਡ"</string>
+    <string name="topic10193" msgid="294407043381146861">"ਘਰ ਸੰਬੰਧੀ ਵਿੱਤ ਸੇਵਾਵਾਂ"</string>
+    <string name="topic10194" msgid="2834543407440890272">"ਨਿੱਜੀ ਲੋਨ"</string>
+    <string name="topic10195" msgid="7650553060132394782">"ਵਿਦਿਆਰਥੀ ਲੋਨ ਅਤੇ ਕਾਲਜ ਦੇ ਵਿਦਿਆਰਥੀਆਂ ਸੰਬੰਧੀ ਵਿੱਤ ਸੇਵਾਵਾਂ"</string>
+    <string name="topic10196" msgid="5395035781876507254">"ਵਿੱਤੀ ਯੋਜਨਾਬੰਦੀ ਅਤੇ ਪ੍ਰਬੰਧਨ"</string>
+    <string name="topic10197" msgid="1287138667488226463">"ਰਿਟਾਇਰਮੈਂਟ ਅਤੇ ਪੈਨਸ਼ਨ"</string>
+    <string name="topic10198" msgid="2523256186943366779">"ਅਨੁਦਾਨ"</string>
+    <string name="topic10199" msgid="3746711537661530183">"ਅਨੁਦਾਨ"</string>
+    <string name="topic10200" msgid="2394864891391267841">"ਬੀਮਾ"</string>
+    <string name="topic10201" msgid="4301879117376963742">"ਵਾਹਨ ਬੀਮਾ"</string>
+    <string name="topic10202" msgid="739808503036239379">"ਸਿਹਤ ਬੀਮਾ"</string>
+    <string name="topic10203" msgid="838786942776142290">"ਘਰ ਦਾ ਬੀਮਾ"</string>
+    <string name="topic10204" msgid="6591131759521321677">"ਜੀਵਨ ਬੀਮਾ"</string>
+    <string name="topic10205" msgid="3294946723815021478">"ਯਾਤਰਾ ਬੀਮਾ"</string>
+    <string name="topic10206" msgid="6166888350685752683">"ਨਿਵੇਸ਼"</string>
+    <string name="topic10207" msgid="2296385804039743999">"ਕਮੋਡਿਟੀ ਅਤੇ ਫਿਊਚਰਜ਼ ਟ੍ਰੇਡਿੰਗ"</string>
+    <string name="topic10208" msgid="2717498987483479091">"ਮੁਦਰਾਵਾਂ ਅਤੇ ਵਿਦੇਸ਼ੀ ਮੁਦਰਾ ਵਟਾਂਦਰਾ"</string>
+    <string name="topic10209" msgid="5204948738662951962">"ਹੈੱਜ ਫੰਡ"</string>
+    <string name="topic10210" msgid="4607225697024266227">"ਮਿਊਚੁਅਲ ਫੰਡ"</string>
+    <string name="topic10211" msgid="7475381839877166080">"ਸਟਾਕ ਅਤੇ ਬਾਂਡ"</string>
+    <string name="topic10212" msgid="3988751035952286047">"ਖਾਣਾ ਅਤੇ ਪੀਣਾ"</string>
+    <string name="topic10213" msgid="1358963098339995471">"ਖਾਣਾ ਪਕਾਉਣਾ ਅਤੇ ਪਕਵਾਨ-ਵਿਧੀਆਂ"</string>
+    <string name="topic10214" msgid="8463864389138867811">"BBQ ਅਤੇ ਗ੍ਰਿਲਿੰਗ"</string>
+    <string name="topic10215" msgid="3085467051491069648">"ਪਕਵਾਨ"</string>
+    <string name="topic10216" msgid="6043130649326166680">"ਸ਼ਾਕਾਹਾਰੀ ਪਕਵਾਨ"</string>
+    <string name="topic10217" msgid="7173870057669247536">"ਵੀਗਨ ਪਕਵਾਨ"</string>
+    <string name="topic10218" msgid="5570240643247064951">"ਸਿਹਤਮੰਦ ਖਾਣਾ"</string>
+    <string name="topic10219" msgid="5896715206025463732">"ਭੋਜਨ ਅਤੇ ਕਰਿਆਨੇ ਦੇ ਵਿਕਰੇਤਾ"</string>
+    <string name="topic10220" msgid="3894580611467039658">"ਗੇਮਾਂ"</string>
+    <string name="topic10221" msgid="14471057764591805">"ਆਰਕੇਡ ਅਤੇ ਸਿੱਕੇ ਵਾਲੀਆਂ ਗੇਮਾਂ"</string>
+    <string name="topic10222" msgid="2704894577954508861">"ਬਿਲੀਅਰਡ"</string>
+    <string name="topic10223" msgid="202900267060220170">"ਬੋਰਡ ਗੇਮਾਂ"</string>
+    <string name="topic10224" msgid="6572627325588452785">"ਸ਼ਤਰੰਜ ਅਤੇ ਅਮੂਰਤ ਰਣਨੀਤਕ ਗੇਮਾਂ"</string>
+    <string name="topic10225" msgid="8056906319560292131">"ਕਾਰਡ ਗੇਮਾਂ"</string>
+    <string name="topic10226" msgid="714463563336281099">"ਕਾਰਡ ਸੰਗ੍ਰਹਿ ਵਾਲੀਆਂ ਗੇਮਾਂ"</string>
+    <string name="topic10227" msgid="218768654597520683">"ਕੰਪਿਊਟਰ ਅਤੇ ਵੀਡੀਓ ਗੇਮਾਂ"</string>
+    <string name="topic10228" msgid="850597136074192489">"ਐਕਸ਼ਨ ਅਤੇ ਪਲੇਟਫਾਰਮ ਗੇਮਾਂ"</string>
+    <string name="topic10229" msgid="4284501233897149886">"ਰੁਮਾਂਚਕਾਰੀ ਗੇਮਾਂ"</string>
+    <string name="topic10230" msgid="7156822286576815181">"ਬੇਕਾਇਦਾ ਗੇਮਾਂ"</string>
+    <string name="topic10231" msgid="7620407218897744361">"ਪ੍ਰਤਿਯੋਗੀ ਵੀਡੀਓ ਗੇਮਿੰਗ"</string>
+    <string name="topic10232" msgid="3029734447275709941">"ਡਰਾਈਵਿੰਗ ਅਤੇ ਰੇਸਿੰਗ ਗੇਮਾਂ"</string>
+    <string name="topic10233" msgid="8318075279868138231">"ਲੜਾਈ ਵਾਲੀਆਂ ਗੇਮਾਂ"</string>
+    <string name="topic10234" msgid="3899847414436099153">"ਗੇਮਿੰਗ ਹਵਾਲੇ ਅਤੇ ਸਮੀਖਿਆਵਾਂ"</string>
+    <string name="topic10235" msgid="5851356242523630529">"ਵੀਡੀਓ ਗੇਮ ਚੀਟ ਕੋਡ ਅਤੇ ਸੰਕੇਤ"</string>
+    <string name="topic10236" msgid="1986665634014804954">"ਵਿਸ਼ਾਲ ਬਹੁ-ਖਿਡਾਰੀ ਗੇਮਾਂ"</string>
+    <string name="topic10237" msgid="5569920221620447713">"ਸੰਗੀਤ ਅਤੇ ਡਾਂਸ ਗੇਮਾਂ"</string>
+    <string name="topic10238" msgid="7431087331656772530">"ਸੈਂਡਬਾਕਸ ਗੇਮਾਂ"</string>
+    <string name="topic10239" msgid="8667462879554115515">"ਨਿਸ਼ਾਨੇਬਾਜ਼ੀ ਵਾਲੀਆਂ ਗੇਮਾਂ"</string>
+    <string name="topic10240" msgid="1618985302446756520">"ਸਿਮੂਲੇਸ਼ਨ ਗੇਮਾਂ"</string>
+    <string name="topic10241" msgid="8450778411063723262">"ਕਾਰੋਬਾਰੀ ਅਤੇ ਵੱਡੇ ਪੂੰਜੀਪਤੀਆਂ ਵਾਲੀਆਂ ਗੇਮਾਂ"</string>
+    <string name="topic10242" msgid="8860812940320018907">"ਸ਼ਹਿਰ ਨਿਰਮਾਣ ਵਾਲੀਆਂ ਗੇਮਾਂ"</string>
+    <string name="topic10243" msgid="1764694148721971512">"ਲਾਈਫ਼ ਸਿਮੂਲੇਸ਼ਨ ਗੇਮਾਂ"</string>
+    <string name="topic10244" msgid="4308588210397969087">"ਵਾਹਨ ਸਿਮੂਲੇਟਰ"</string>
+    <string name="topic10245" msgid="6904368410919496658">"ਖੇਡਾਂ ਵਾਲੀਆਂ ਗੇਮਾਂ"</string>
+    <string name="topic10246" msgid="3381244806751528148">"ਖੇਡ ਪ੍ਰਬੰਧਨ ਵਾਲੀਆਂ ਗੇਮਾਂ"</string>
+    <string name="topic10247" msgid="5927502688389762068">"ਰਣਨੀਤਕ ਗੇਮਾਂ"</string>
+    <string name="topic10248" msgid="8471339627212674032">"ਵੀਡੀਓ ਗੇਮ ਸੰਸ਼ੋਧਨ ਅਤੇ ਐਡ-ਆਨ"</string>
+    <string name="topic10249" msgid="5076706536204559962">"ਸਿੱਖਿਆ ਸੰਬੰਧੀ ਗੇਮਾਂ"</string>
+    <string name="topic10250" msgid="6083030595195401083">"ਪਰਿਵਾਰ-ਸੰਬੰਧੀ ਗੇਮਾਂ ਅਤੇ ਸਰਗਰਮੀਆਂ"</string>
+    <string name="topic10251" msgid="99237306730665104">"ਚਿੱਤਰਕਾਰੀ ਅਤੇ ਰੰਗ ਕਰਨ ਸੰਬੰਧੀ ਗੇਮਾਂ"</string>
+    <string name="topic10252" msgid="6543039575961394064">"ਤਿਆਰ ਹੋਣ ਅਤੇ ਫੈਸ਼ਨ ਸੰਬੰਧੀ ਗੇਮਾਂ"</string>
+    <string name="topic10253" msgid="566596668186874227">"ਬੁਝਾਰਤਾਂ ਅਤੇ ਦਿਮਾਗ ਚਕਰਾਊ ਗੇਮਾਂ"</string>
+    <string name="topic10254" msgid="5732147617072023634">"ਭੂਮਿਕਾ ਨਿਭਾਉਣ ਵਾਲੀਆਂ ਗੇਮਾਂ"</string>
+    <string name="topic10255" msgid="2890655077164103057">"ਟੇਬਲ ਟੈਨਿਸ"</string>
+    <string name="topic10256" msgid="3302096971402751679">"ਟਾਇਲ ਵਾਲੀਆਂ ਗੇਮਾਂ"</string>
+    <string name="topic10257" msgid="4238531589193902619">"ਸ਼ਾਬਦਿਕ ਗੇਮਾਂ"</string>
+    <string name="topic10258" msgid="6995329540076529056">"ਸ਼ੌਂਕ ਅਤੇ ਵਿਹਲਪੁਣਾ"</string>
+    <string name="topic10259" msgid="8649688885811560410">"ਵਰ੍ਹੇਗੰਢਾਂ"</string>
+    <string name="topic10260" msgid="487999213495640080">"ਜਨਮਦਿਨ ਅਤੇ ਨਾਮ ਰੱਖਣ ਵਾਲੇ ਦਿਨ"</string>
+    <string name="topic10261" msgid="8970668366745952094">"ਗੋਤਾਖੋਰੀ ਅਤੇ ਪਾਣੀ ਹੇਠਲੀਆਂ ਸਰਗਰਮੀਆਂ"</string>
+    <string name="topic10262" msgid="6644046161469353448">"ਫਾਈਬਰ ਅਤੇ ਟੈਕਸਟਾਈਲ ਸੰਬੰਧੀ ਕਲਾਵਾਂ"</string>
+    <string name="topic10263" msgid="848165976917542929">"ਆਊਟਡੋਰ"</string>
+    <string name="topic10264" msgid="6274985117752637104">"ਮੱਛੀ ਫੜ੍ਹਨਾ"</string>
+    <string name="topic10265" msgid="4134876488948695674">"ਸ਼ਿਕਾਰ ਅਤੇ ਨਿਸ਼ਾਨੇਬਾਜ਼ੀ"</string>
+    <string name="topic10266" msgid="6617785039128074351">"ਪੇਂਟਬਾਲ"</string>
+    <string name="topic10267" msgid="488093331618885003">"ਰੇਡੀਓ ਕੰਟਰੋਲ ਅਤੇ ਮਾਡਲਿੰਗ"</string>
+    <string name="topic10268" msgid="277932389492046264">"ਵਿਆਹ"</string>
+    <string name="topic10269" msgid="8572041514147955202">"ਘਰ ਅਤੇ ਬਾਗ"</string>
+    <string name="topic10270" msgid="2646715182474030951">"ਬਾਗਬਾਨੀ"</string>
+    <string name="topic10271" msgid="1308931236810509881">"ਘਰ ਦੀ ਅਤੇ ਅੰਦਰੂਨੀ ਸਜਾਵਟ"</string>
+    <string name="topic10272" msgid="8746698707390628887">"ਘਰੇਲੂ ਉਪਕਰਨ"</string>
+    <string name="topic10273" msgid="344442071339164852">"ਘਰ ਸੰਬੰਧੀ ਸੁਧਾਰ"</string>
+    <string name="topic10274" msgid="8982330028561451429">"ਘਰ ਦੀ ਸਲਾਮਤੀ ਅਤੇ ਸੁਰੱਖਿਆ"</string>
+    <string name="topic10275" msgid="8280198018937968735">"ਘਰੇਲੂ ਸਪਲਾਈਆਂ"</string>
+    <string name="topic10276" msgid="1651598271798609235">"ਲੈਂਡਸਕੇਪ ਡਿਜ਼ਾਈਨ"</string>
+    <string name="topic10277" msgid="7675195736886448994">"ਇੰਟਰਨੈੱਟ ਅਤੇ ਟੈਲੀਕਾਮ"</string>
+    <string name="topic10278" msgid="873251714192341707">"ਈਮੇਲ ਅਤੇ ਸੁਨੇਹੇ"</string>
+    <string name="topic10279" msgid="6514296374139842600">"ਈਮੇਲ"</string>
+    <string name="topic10280" msgid="7976787187115018267">"ਲਿਖਤ ਅਤੇ ਤਤਕਾਲ ਸੁਨੇਹਾ ਭੇਜਣਾ"</string>
+    <string name="topic10281" msgid="4013341162811169339">"ਅਵਾਜ਼ੀ ਅਤੇ ਵੀਡੀਓ ਚੈਟ"</string>
+    <string name="topic10282" msgid="7810462611906257564">"ISP"</string>
+    <string name="topic10283" msgid="3958287780718485172">"ਫ਼ੋਨ ਸੇਵਾ ਪ੍ਰਦਾਨਕ"</string>
+    <string name="topic10284" msgid="2415044270290467935">"ਰਿੰਗਟੋਨਾਂ ਅਤੇ ਮੋਬਾਈਲ ਥੀਮਾਂ"</string>
+    <string name="topic10285" msgid="7056449544316408821">"ਖੋਜ ਇੰਜਣ"</string>
+    <string name="topic10286" msgid="3458688996478472971">"ਸਮਾਰਟਫ਼ੋਨ"</string>
+    <string name="topic10287" msgid="6766203044518402938">"ਟੈਲੀਕਾਨਫਰੰਸਿੰਗ"</string>
+    <string name="topic10288" msgid="3883137694557636622">"ਵੈੱਬ ਐਪਾਂ ਅਤੇ ਆਨਲਾਈਨ ਟੂਲ"</string>
+    <string name="topic10289" msgid="3392995633794787676">"ਵੈੱਬ ਸੇਵਾਵਾਂ"</string>
+    <string name="topic10290" msgid="3118880486702986341">"ਕਲਾਊਡ ਸਟੋਰੇਜ"</string>
+    <string name="topic10291" msgid="6025855926350955094">"ਵੈੱਬ ਡਿਜ਼ਾਈਨ ਅਤੇ ਵਿਕਾਸ"</string>
+    <string name="topic10292" msgid="3069720659823056935">"ਵੈੱਬ ਹੋਸਟਿੰਗ"</string>
+    <string name="topic10293" msgid="2489957780009828409">"ਨੌਕਰੀਆਂ ਅਤੇ ਸਿੱਖਿਆ"</string>
+    <string name="topic10294" msgid="474839431177892843">"ਸਿੱਖਿਆ"</string>
+    <string name="topic10295" msgid="2215489196192620880">"ਅਕਾਦਮਿਕ ਕਾਨਫਰੰਸਾਂ ਅਤੇ ਪ੍ਰਕਾਸ਼ਨ"</string>
+    <string name="topic10296" msgid="4494362881225210483">"ਕਾਲਜ ਅਤੇ ਯੂਨੀਵਰਸਿਟੀਆਂ"</string>
+    <string name="topic10297" msgid="8596946591674128749">"ਡਿਸਟੈਂਸ ਲਰਨਿੰਗ"</string>
+    <string name="topic10298" msgid="6669181180128620422">"ਬੱਚਿਆਂ ਲਈ ਸ਼ੁਰੂਆਤੀ ਸਿੱਖਿਆ"</string>
+    <string name="topic10299" msgid="989138215800115613">"ਪ੍ਰੀ-ਸਕੂਲ"</string>
+    <string name="topic10300" msgid="8281464235308602670">"ਹੋਮਸਕੂਲਿੰਗ"</string>
+    <string name="topic10301" msgid="9156890858635333460">"ਮਿਆਰੀ ਅਤੇ ਦਾਖਲੇ ਲਈ ਟੈਸਟ"</string>
+    <string name="topic10302" msgid="1325835179421990876">"ਪੜ੍ਹਾਉਣ ਅਤੇ ਕਲਾਸ ਸੰਬੰਧੀ ਸਰੋਤ"</string>
+    <string name="topic10303" msgid="3103839978894155537">"ਵੋਕੇਸ਼ਨਲ ਅਤੇ ਅਗਲੇਰੀ ਸਿੱਖਿਆ"</string>
+    <string name="topic10304" msgid="8831682558788062486">"ਨੌਕਰੀਆਂ"</string>
+    <string name="topic10305" msgid="8415203095484493106">"ਕਰੀਅਰ ਸੰਬੰਧੀ ਸਰੋਤ ਅਤੇ ਯੋਜਨਾਬੰਦੀ"</string>
+    <string name="topic10306" msgid="7426556527349374835">"ਨੌਕਰੀਆਂ ਦੀਆਂ ਸੂਚੀਆਂ"</string>
+    <string name="topic10307" msgid="1187762846826735256">"ਕਨੂੰਨ ਅਤੇ ਸਰਕਾਰ"</string>
+    <string name="topic10308" msgid="3346756665358311386">"ਅਪਰਾਧ ਅਤੇ ਨਿਆਂ"</string>
+    <string name="topic10309" msgid="2041175328931014735">"ਕਨੂੰਨੀ"</string>
+    <string name="topic10310" msgid="7079570344976872062">"ਕਨੂੰਨੀ ਸੇਵਾਵਾਂ"</string>
+    <string name="topic10311" msgid="2095095138677585525">"ਖਬਰਾਂ"</string>
+    <string name="topic10312" msgid="939721674816307639">"ਅਰਥ ਵਿਵਸਥਾ ਦੀਆਂ ਖਬਰਾਂ"</string>
+    <string name="topic10313" msgid="4159611985538361632">"ਸਥਾਨਕ ਖਬਰਾਂ"</string>
+    <string name="topic10314" msgid="93219947859117151">"ਵਿਲੈ ਅਤੇ ਮਿਸ਼ਰਨ"</string>
+    <string name="topic10315" msgid="5046321177148647481">"ਅਖਬਾਰਾਂ"</string>
+    <string name="topic10316" msgid="8592980844674525307">"ਰਾਜਨੀਤੀ"</string>
+    <string name="topic10317" msgid="2412259096368647866">"ਖੇਡਾਂ ਸੰਬੰਧੀ ਖਬਰਾਂ"</string>
+    <string name="topic10318" msgid="1508449672941031904">"ਮੌਸਮ"</string>
+    <string name="topic10319" msgid="3973645291178509390">"ਸੰਸਾਰ ਦੀਆਂ ਖਬਰਾਂ"</string>
+    <string name="topic10320" msgid="5279440074507438174">"ਆਨਲਾਈਨ ਭਾਈਚਾਰੇ"</string>
+    <string name="topic10321" msgid="7018890132742820265">"ਕਲਿੱਪ ਆਰਟ ਅਤੇ ਐਨੀਮੇਟਿਡ GIF"</string>
+    <string name="topic10322" msgid="1585737438943011532">"ਡੇਟਿੰਗ ਅਤੇ ਵਿਅਕਤੀਗਤ ਲੋੜਾਂ ਨਾਲ ਸੰਬੰਧਿਤ ਸੇਵਾਵਾਂ"</string>
+    <string name="topic10323" msgid="962863497957179646">"ਫ਼ੀਡ ਇਕੱਤਰੀਕਰਨ ਅਤੇ ਸੋਸ਼ਲ ਬੁੱਕਮਾਰਕਿੰਗ"</string>
+    <string name="topic10324" msgid="1425257460381023853">"ਫ਼ਾਈਲ ਸਾਂਝਾਕਰਨ ਅਤੇ ਹੋਸਟਿੰਗ"</string>
+    <string name="topic10325" msgid="8698912164970408378">"ਫ਼ੋਰਮ ਅਤੇ ਚੈਟ ਪ੍ਰਦਾਨਕ"</string>
+    <string name="topic10326" msgid="2425798096705921796">"ਮਾਈਕਰੋ-ਬਲੌਗਿੰਗ"</string>
+    <string name="topic10327" msgid="8518822987595111212">"ਫ਼ੋਟੋ ਅਤੇ ਵੀਡੀਓ ਸਾਂਝਾਕਰਨ"</string>
+    <string name="topic10328" msgid="8932708475346340912">"ਫ਼ੋਟੋ ਅਤੇ ਚਿੱਤਰ ਸਾਂਝਾਕਰਨ"</string>
+    <string name="topic10329" msgid="223933889758324282">"ਵੀਡੀਓ ਸਾਂਝਾਕਰਨ"</string>
+    <string name="topic10330" msgid="188028553492626282">"ਰੂਪ"</string>
+    <string name="topic10331" msgid="426844238985651925">"ਸੋਸ਼ਲ ਨੈੱਟਵਰਕ ਐਪਾਂ ਅਤੇ ਐਡ-ਆਨ"</string>
+    <string name="topic10332" msgid="291747325781232456">"ਸੋਸ਼ਲ ਨੈੱਟਵਰਕ"</string>
+    <string name="topic10333" msgid="7950152600374846488">"ਲੋਕ ਅਤੇ ਸਮਾਜ"</string>
+    <string name="topic10334" msgid="8671262583721706509">"ਪਰਿਵਾਰ ਅਤੇ ਰਿਸ਼ਤੇ"</string>
+    <string name="topic10335" msgid="1526523762163185819">"ਖਾਨਦਾਨ ਅਤੇ ਬੰਸਾਵਲੀ"</string>
+    <string name="topic10336" msgid="4551233571090493177">"ਵਿਆਹ"</string>
+    <string name="topic10337" msgid="8436172065188964882">"ਪਾਲਣ-ਪੋਸ਼ਣ"</string>
+    <string name="topic10338" msgid="8896269734682970">"ਗੋਦ ਲੈਣਾ"</string>
+    <string name="topic10339" msgid="781900237993621300">"ਨਿਆਣੇ ਅਤੇ ਛੋਟੇ ਬੱਚੇ"</string>
+    <string name="topic10340" msgid="6538182603360796294">"ਇੰਟਰਨੈੱਟ \'ਤੇ ਬੱਚਿਆਂ ਦੀ ਸੁਰੱਖਿਆ"</string>
+    <string name="topic10341" msgid="3586543243312398568">"ਰੁਮਾਂਸ"</string>
+    <string name="topic10342" msgid="3695176378281477573">"ਵਿਗਿਆਨ ਗਲਪ ਅਤੇ ਕਾਲਪਨਿਕ"</string>
+    <string name="topic10343" msgid="2318169062960263837">"ਪਾਲਤੂ ਅਤੇ ਜਾਨਵਰ"</string>
+    <string name="topic10344" msgid="2005534117977874327">"ਪਾਲਤੂ ਜਾਨਵਰਾਂ ਦਾ ਭੋਜਨ ਅਤੇ ਉਨ੍ਹਾਂ ਦੀ ਦੇਖਭਾਲ ਸੰਬੰਧੀ ਸਪਲਾਈਆਂ"</string>
+    <string name="topic10345" msgid="2397329020706244200">"ਪਾਲਤੂ ਜਾਨਵਰ"</string>
+    <string name="topic10346" msgid="1323702748723563694">"ਪੰਛੀ"</string>
+    <string name="topic10347" msgid="3301879823396773413">"ਬਿੱਲੀਆਂ"</string>
+    <string name="topic10348" msgid="8066686305498410222">"ਕੁੱਤੇ"</string>
+    <string name="topic10349" msgid="5253723822905761195">"ਮੱਛੀ ਅਤੇ ਜਲ-ਜੀਵਸ਼ਾਲਾ"</string>
+    <string name="topic10350" msgid="6164036369108076590">"ਭੁਜੰਗਮ ਅਤੇ ਜਲਥਲੀ ਜਾਨਵਰ"</string>
+    <string name="topic10351" msgid="1132984519083501363">"ਪਸ਼ੂ ਚਿਕਿਤਸਕ"</string>
+    <string name="topic10352" msgid="6310110390516037997">"ਅਚੱਲ ਸੰਪਤੀ"</string>
+    <string name="topic10353" msgid="5114390804081576684">"ਪਲਾਟ ਅਤੇ ਜ਼ਮੀਨ"</string>
+    <string name="topic10354" msgid="7980778954791504082">"ਟਾਈਮਸ਼ੇਅਰ ਅਤੇ ਛੁੱਟੀਆਂ ਬਿਤਾਉਣ ਲਈ ਸੰਪਤੀ"</string>
+    <string name="topic10355" msgid="7720717354548642600">"ਹਵਾਲਾ"</string>
+    <string name="topic10356" msgid="8366981308613661935">"ਕਾਰੋਬਾਰ ਅਤੇ ਵਿਅਕਤੀਗਤ ਸੂਚੀਆਂ"</string>
+    <string name="topic10357" msgid="3185598234676097975">"ਸਧਾਰਨ ਹਵਾਲਾ"</string>
+    <string name="topic10358" msgid="6732669037513504019">"ਕੈਲਕੁਲੇਟਰ ਅਤੇ ਹਵਾਲਾ ਦੇਣ ਵਾਲੇ ਟੂਲ"</string>
+    <string name="topic10359" msgid="8901932349008990500">"ਸ਼ਬਦਕੋਸ਼ ਅਤੇ ਵਿਸ਼ਵਕੋਸ਼"</string>
+    <string name="topic10360" msgid="6113408769992775754">"ਸਿੱਖਿਆ ਸੰਬੰਧੀ ਸਰੋਤ"</string>
+    <string name="topic10361" msgid="364838820459183817">"ਕਿਵੇਂ ਕਰੀਏ"</string>
+    <string name="topic10362" msgid="3760998790588600032">"ਸਮਾਂ ਅਤੇ ਕੈਲੰਡਰ"</string>
+    <string name="topic10363" msgid="5464708619861040861">"ਭਾਸ਼ਾ ਦੇ ਸਰੋਤ"</string>
+    <string name="topic10364" msgid="4685400848805560054">"ਵਿਦੇਸ਼ੀ ਭਾਸ਼ਾ ਦਾ ਅਧਿਐਨ"</string>
+    <string name="topic10365" msgid="5196231842716190887">"ਅਨੁਵਾਦ ਟੂਲ ਅਤੇ ਸਰੋਤ"</string>
+    <string name="topic10366" msgid="7460927054539097025">"ਨਕਸ਼ੇ"</string>
+    <string name="topic10367" msgid="3900361839783743700">"ਵਿਗਿਆਨ"</string>
+    <string name="topic10368" msgid="2069447039109930660">"ਆਗਮੈਂਟਿਡ ਅਤੇ ਆਭਾਸੀ ਵਾਸਤਵਿਕਤਾ"</string>
+    <string name="topic10369" msgid="5747888306428024793">"ਜੀਵ ਸੰਬੰਧੀ ਵਿਗਿਆਨ"</string>
+    <string name="topic10370" msgid="4860829940151353583">"ਜੈਨੇਟਿਕਸ"</string>
+    <string name="topic10371" msgid="8229818210867472466">"ਰਸਾਇਣ ਵਿਗਿਆਨ"</string>
+    <string name="topic10372" msgid="6400467418954574231">"ਪਰਿਆਵਰਨ ਵਿਗਿਆਨ ਅਤੇ ਵਾਤਾਵਰਨ"</string>
+    <string name="topic10373" msgid="6990757247198163741">"ਭੂ-ਵਿਗਿਆਨ"</string>
+    <string name="topic10374" msgid="8057983193031950119">"ਮਸ਼ੀਨ ਸਿੱਖਿਆ ਅਤੇ ਬਣਾਉਟੀ ਬੁੱਧੀ"</string>
+    <string name="topic10375" msgid="8511185098682306025">"ਗਣਿਤ"</string>
+    <string name="topic10376" msgid="6387800251638760737">"ਭੌਤਿਕ ਵਿਗਿਆਨ"</string>
+    <string name="topic10377" msgid="7834619927563362042">"ਰੋਬੋਟਿਕਸ"</string>
+    <string name="topic10378" msgid="242496862821758873">"ਖਰੀਦਦਾਰੀ"</string>
+    <string name="topic10379" msgid="5505228335012447165">"ਪ੍ਰਾਚੀਨ ਅਤੇ ਸੰਗ੍ਰਹਿਣਯੋਗ ਚੀਜ਼ਾਂ"</string>
+    <string name="topic10380" msgid="4989560205486143927">"ਲਿਬਾਸ"</string>
+    <string name="topic10381" msgid="7585496746485093505">"ਬੱਚਿਆਂ ਦੇ ਕੱਪੜੇ"</string>
+    <string name="topic10382" msgid="5088060295126473451">"ਪੁਸ਼ਾਕਾਂ"</string>
+    <string name="topic10383" msgid="4947104586590538143">"ਮਰਦਾਂ ਦੇ ਕੱਪੜੇ"</string>
+    <string name="topic10384" msgid="3752472493887374077">"ਔਰਤਾਂ ਦੇ ਕੱਪੜੇ"</string>
+    <string name="topic10385" msgid="5275843140794803595">"ਵਰਗੀਕ੍ਰਿਤ"</string>
+    <string name="topic10386" msgid="5887032952574801982">"ਖਪਤਕਾਰ ਸਰੋਤ"</string>
+    <string name="topic10387" msgid="8474154360410317897">"ਕੂਪਨ ਅਤੇ ਛੋਟ ਸੰਬੰਧੀ ਪੇਸ਼ਕਸ਼ਾਂ"</string>
+    <string name="topic10388" msgid="3650307363028796765">"ਵਫ਼ਾਦਾਰੀ ਕਾਰਡ ਅਤੇ ਪ੍ਰੋਗਰਾਮ"</string>
+    <string name="topic10389" msgid="1542336508240183221">"ਤਕਨੀਕੀ ਸਹਾਇਤਾ ਅਤੇ ਮੁਰੰਮਤ"</string>
+    <string name="topic10390" msgid="831225961168954292">"ਫੁੱਲ"</string>
+    <string name="topic10391" msgid="6810540242154911762">"ਮੁਬਾਰਕਾਂ ਸੰਬੰਧੀ ਕਾਰਡ"</string>
+    <string name="topic10392" msgid="2431377771302967625">"ਪਾਰਟੀ ਅਤੇ ਛੁੱਟੀਆਂ ਲਈ ਸਪਲਾਈਆਂ"</string>
+    <string name="topic10393" msgid="2671274205988136926">"ਖਰੀਦਦਾਰੀ ਪੋਰਟਲ"</string>
+    <string name="topic10394" msgid="1530096364743244151">"ਖੇਡਾਂ"</string>
+    <string name="topic10395" msgid="316192616624062917">"ਅਮਰੀਕੀ ਫੁੱਟਬਾਲ"</string>
+    <string name="topic10396" msgid="8042120651878490689">"ਆਸਟ੍ਰੇਲੀਅਨ ਫੁੱਟਬਾਲ"</string>
+    <string name="topic10397" msgid="492901976344700942">"ਆਟੋ ਰੇਸਿੰਗ"</string>
+    <string name="topic10398" msgid="3471795015226090296">"ਬੇਸਬਾਲ"</string>
+    <string name="topic10399" msgid="2126280752064021308">"ਬਾਸਕਟਬਾਲ"</string>
+    <string name="topic10400" msgid="5440499529264277027">"ਬੋਲਿੰਗ"</string>
+    <string name="topic10401" msgid="166689951236922024">"ਮੁੱਕੇਬਾਜ਼ੀ"</string>
+    <string name="topic10402" msgid="2451339788231007479">"ਚੀਅਰਲੀਡਿੰਗ"</string>
+    <string name="topic10403" msgid="6455478521804717635">"ਕਾਲਜ ਸੰਬੰਧੀ ਖੇਡਾਂ"</string>
+    <string name="topic10404" msgid="5261583496913118024">"ਕ੍ਰਿਕਟ"</string>
+    <string name="topic10405" msgid="482477447879117820">"ਸਾਈਕਲਿੰਗ"</string>
+    <string name="topic10406" msgid="8167644332387528703">"ਘੋੜਸਵਾਰੀ"</string>
+    <string name="topic10407" msgid="3237734582719584272">"ਜੋਖਮ ਭਰੀਆਂ ਖੇਡਾਂ"</string>
+    <string name="topic10408" msgid="3859749534843254349">"ਪਹਾੜ ਚੜ੍ਹਨਾ ਅਤੇ ਪਰਬਤ ਆਰੋਹਣ"</string>
+    <string name="topic10409" msgid="7485614115639267976">"ਕਾਲਪਨਿਕ ਖੇਡਾਂ"</string>
+    <string name="topic10410" msgid="5996939009229881074">"ਗੌਲਫ਼"</string>
+    <string name="topic10411" msgid="2513997418184786648">"ਜਿਮਨਾਸਟਿਕ"</string>
+    <string name="topic10412" msgid="5411755341358248299">"ਹਾਕੀ"</string>
+    <string name="topic10413" msgid="3319233613448963890">"ਆਈਸ ਸਕੇਟਿੰਗ"</string>
+    <string name="topic10414" msgid="1797840816328584660">"ਮਾਰਸ਼ਲ ਆਰਟਸ"</string>
+    <string name="topic10415" msgid="2886043330316735719">"ਮੋਟਰਸਾਈਕਲ ਰੇਸਿੰਗ"</string>
+    <string name="topic10416" msgid="3436682172863605224">"ਓਲੰਪਿਕ"</string>
+    <string name="topic10417" msgid="8296644015663416236">"ਰਗਬੀ"</string>
+    <string name="topic10418" msgid="8276736633218488127">"ਦੌੜਨਾ ਅਤੇ ਪੈਦਲ-ਸੈਰ ਕਰਨਾ"</string>
+    <string name="topic10419" msgid="5663062924928275215">"ਸਕੀਇੰਗ ਅਤੇ ਸਨੋਬੋਰਡਿੰਗ"</string>
+    <string name="topic10420" msgid="2509320683543423424">"ਫੁੱਟਬਾਲ"</string>
+    <string name="topic10421" msgid="6512889128030030686">"ਸਰਫ਼ਿੰਗ"</string>
+    <string name="topic10422" msgid="8342986282852879750">"ਤੈਰਾਕੀ"</string>
+    <string name="topic10423" msgid="6333426807705188459">"ਟੈਨਿਸ"</string>
+    <string name="topic10424" msgid="5495511215629567375">"ਟਰੈਕ ਅਤੇ ਫ਼ੀਲਡ"</string>
+    <string name="topic10425" msgid="4009138228283995179">"ਵਾਲੀਬਾਲ"</string>
+    <string name="topic10426" msgid="7998590461761852196">"ਕੁਸ਼ਤੀ"</string>
+    <string name="topic10427" msgid="6711468161729797769">"ਯਾਤਰਾ ਅਤੇ ਆਵਾਜਾਈ"</string>
+    <string name="topic10428" msgid="661919563628063196">"ਰੁਮਾਂਚਕ ਯਾਤਰਾ"</string>
+    <string name="topic10429" msgid="408270392813634227">"ਹਵਾਈ ਯਾਤਰਾ"</string>
+    <string name="topic10430" msgid="3046485339481297656">"ਕਾਰੋਬਾਰੀ ਯਾਤਰਾ"</string>
+    <string name="topic10431" msgid="7439352609169583150">"ਕਿਰਾਏ \'ਤੇ ਕਾਰ"</string>
+    <string name="topic10432" msgid="5034961318884376752">"ਕਰੂਜ਼ ਅਤੇ ਚਾਰਟਰ"</string>
+    <string name="topic10433" msgid="6354590445323135986">"ਪਰਿਵਾਰਕ ਯਾਤਰਾ"</string>
+    <string name="topic10434" msgid="7081309045291255264">"ਹਨੀਮੂਨ ਅਤੇ ਰੋਮਾਂਟਿਕ ਸੈਰਗਾਹ"</string>
+    <string name="topic10435" msgid="1064605516265819020">"ਹੋਟਲ ਅਤੇ ਰਿਹਾਇਸ਼"</string>
+    <string name="topic10436" msgid="9050375924140897722">"ਲੰਮੀ ਦੂਰੀ ਦੀ ਬੱਸ ਅਤੇ ਰੇਲ"</string>
+    <string name="topic10437" msgid="2655664900730187701">"ਘੱਟ ਲਾਗਤ ਵਾਲੀ ਅਤੇ ਆਖਰੀ-ਮਿੰਟ \'ਤੇ ਯੋਜਨਾਬੱਧ ਕੀਤੀ ਜਾਣ ਵਾਲੀ ਯਾਤਰਾ"</string>
+    <string name="topic10438" msgid="7944023251845122923">"ਸਫ਼ਰੀ ਸਮਾਨ ਅਤੇ ਯਾਤਰਾ ਸੰਬੰਧੀ ਐਕਸੈਸਰੀਆਂ"</string>
+    <string name="topic10439" msgid="7845433008088931971">"ਘੁੰਮਣ-ਫਿਰਨ ਦੀਆਂ ਥਾਵਾਂ"</string>
+    <string name="topic10440" msgid="485118071443976808">"ਬੀਚ ਅਤੇ ਟਾਪੂ"</string>
+    <string name="topic10441" msgid="518643446480879895">"ਖੇਤਰੀ ਪਾਰਕ ਅਤੇ ਬਗੀਚੇ"</string>
+    <string name="topic10442" msgid="6534536077484540292">"ਥੀਮ ਪਾਰਕ"</string>
+    <string name="topic10443" msgid="8787722062991478596">"ਚਿੜੀਆ ਘਰ"</string>
+    <string name="topic10444" msgid="2075863187654728611">"ਟਰੈਫ਼ਿਕ ਅਤੇ ਰਸਤੇ ਯੋਜਨਾਕਾਰ"</string>
+    <string name="topic10445" msgid="3460421948068980869">"ਯਾਤਰਾ ਸੰਬੰਧੀ ਏਜੰਸੀਆਂ ਅਤੇ ਸੇਵਾਵਾਂ"</string>
+    <string name="topic10446" msgid="5333138740720504195">"ਯਾਤਰਾ ਸੰਬੰਧੀ ਗਾਈਡ ਅਤੇ ਸਫ਼ਰਨਾਮੇ"</string>
+</resources>

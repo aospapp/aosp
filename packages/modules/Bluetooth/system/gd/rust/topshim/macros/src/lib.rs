@@ -122,16 +122,101 @@ pub fn cb_variant(input: TokenStream) -> TokenStream {
         stmts.extend(quote! { #stmt });
     }
 
+    let dispatcher_str = quote!(#dispatcher).to_string();
     let tokens = quote! {
         #[no_mangle]
         extern "C" fn #ident(#params) {
             #stmts
-
-            unsafe {
-                (get_dispatchers().lock().unwrap().get::<#dispatcher>().unwrap().clone().lock().unwrap().dispatch)(#rpath(#args));
+                (get_dispatchers()
+                    .lock()
+                    .expect("Couldn't lock dispatchers!")
+                    .get::<#dispatcher>()
+                    .expect(concat!("Couldn't find dispatcher type: ", #dispatcher_str))
+                    .clone()
+                    .lock()
+                    .expect(concat!("Couldn't lock specific dispatcher: ", #dispatcher_str))
+                    .dispatch)(#rpath(#args));
             }
-        }
     };
 
     TokenStream::from(tokens)
+}
+
+// TODO: Replace below macro with a public crate, such as https://crates.io/crates/adorn
+#[proc_macro_attribute]
+/// Macro to check if the profile has been initialized
+///
+/// Function who applies this macro should also include log::warn and the self must implement
+/// fn is_initialized(&self) -> bool
+///
+/// Example:
+///     ```
+///     use log::warn;
+///     #[profile_enabled_or]
+///     fn foo(&self) {
+///         // actual code
+///     }
+///     ```
+///     expands as
+///     ```
+///     use log::warn;
+///     fn foo(&self) {
+///         if !self.is_enabled() {
+///             warn!("Tried to {} but internal hasn't been enabled", "foo");
+///             return ;
+///         }
+///         // actual code
+///     }
+///     ```
+/// One can specify a return value on uninitialized case
+///     ```
+///     use log::warn;
+///     #[profile_enabled_or("not ready")]
+///     fn foo(&self) -> &str {
+///         // actual code
+///     }
+///     ```
+///     expands as
+///     ```
+///     use log::warn;
+///     fn foo(&self) -> &str {
+///         if !self.is_enabled() {
+///             warn!("Tried to {} but internal hasn't been enabled", "foo");
+///             return "not ready";
+///         }
+///         // actual code
+///         return "success"
+///     }
+///     ```
+pub fn profile_enabled_or(attr: TokenStream, item: TokenStream) -> TokenStream {
+    generate_profile_enabled_or_tokenstream(item, attr.to_string())
+}
+
+/// Similar to profile_enabled_or but return Default::default() when profile is not enabled.
+#[proc_macro_attribute]
+pub fn profile_enabled_or_default(_attr: TokenStream, item: TokenStream) -> TokenStream {
+    generate_profile_enabled_or_tokenstream(item, String::from("Default::default()"))
+}
+
+fn generate_profile_enabled_or_tokenstream(item: TokenStream, attr_string: String) -> TokenStream {
+    let mut input = syn::parse_macro_input!(item as syn::ItemFn);
+
+    let fn_name = input.sig.ident.to_string();
+
+    let ret_stmt: proc_macro2::TokenStream = format!("return {};", attr_string).parse().unwrap();
+
+    let check_block = quote::quote! {
+        if !self.is_enabled() {
+            warn!("Tried to {} but internal hasn't been enabled", #fn_name);
+            #ret_stmt
+        }
+    };
+
+    input.block.stmts.insert(0, syn::parse(check_block.into()).unwrap());
+
+    let output = quote::quote! {
+        #input
+    };
+
+    output.into()
 }

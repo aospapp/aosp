@@ -42,6 +42,7 @@ import android.provider.OpenableColumns;
 import android.util.EventLog;
 import android.util.Log;
 
+import com.android.bluetooth.BluetoothMethodProxy;
 import com.android.bluetooth.R;
 
 import java.io.File;
@@ -119,9 +120,10 @@ public class BluetoothOppSendFileInfo {
             contentType = contentResolver.getType(uri);
             Cursor metadataCursor;
             try {
-                metadataCursor = contentResolver.query(uri, new String[]{
-                        OpenableColumns.DISPLAY_NAME, OpenableColumns.SIZE
-                }, null, null, null);
+                metadataCursor = BluetoothMethodProxy.getInstance().contentResolverQuery(
+                        contentResolver, uri, new String[]{
+                                OpenableColumns.DISPLAY_NAME, OpenableColumns.SIZE
+                        }, null, null, null);
             } catch (SQLiteException e) {
                 // some content providers don't support the DISPLAY_NAME or SIZE columns
                 metadataCursor = null;
@@ -180,7 +182,8 @@ public class BluetoothOppSendFileInfo {
                 // right size in _OpenableColumns.SIZE
                 // As a second source of getting the correct file length,
                 // get a file descriptor and get the stat length
-                AssetFileDescriptor fd = contentResolver.openAssetFileDescriptor(uri, "r");
+                AssetFileDescriptor fd = BluetoothMethodProxy.getInstance()
+                        .contentResolverOpenAssetFileDescriptor(contentResolver, uri, "r");
                 long statLength = fd.getLength();
                 if (length != statLength && statLength > 0) {
                     Log.e(TAG, "Content provider length is wrong (" + Long.toString(length)
@@ -200,7 +203,8 @@ public class BluetoothOppSendFileInfo {
                         length = getStreamSize(is);
                         Log.w(TAG, "File length not provided. Length from stream = " + length);
                         // Reset the stream
-                        fd = contentResolver.openAssetFileDescriptor(uri, "r");
+                        fd = BluetoothMethodProxy.getInstance()
+                                .contentResolverOpenAssetFileDescriptor(contentResolver, uri, "r");
                         is = fd.createInputStream();
                     }
                 } catch (IOException e) {
@@ -219,14 +223,16 @@ public class BluetoothOppSendFileInfo {
 
         if (is == null) {
             try {
-                is = (FileInputStream) contentResolver.openInputStream(uri);
+                is = (FileInputStream) BluetoothMethodProxy.getInstance()
+                        .contentResolverOpenInputStream(contentResolver, uri);
 
                 // If the database doesn't contain the file size, get the size
                 // by reading through the entire stream
                 if (length == 0) {
                     length = getStreamSize(is);
                     // Reset the stream
-                    is = (FileInputStream) contentResolver.openInputStream(uri);
+                    is = (FileInputStream) BluetoothMethodProxy.getInstance()
+                            .contentResolverOpenInputStream(contentResolver, uri);
                 }
             } catch (FileNotFoundException e) {
                 return SEND_FILE_INFO_ERROR;

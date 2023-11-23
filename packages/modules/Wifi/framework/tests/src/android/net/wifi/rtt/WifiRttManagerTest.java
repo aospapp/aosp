@@ -620,4 +620,12 @@ public class WifiRttManagerTest {
 
         assertEquals(ResponderConfig.PREAMBLE_HE, config.preamble);
     }
+
+    @Test
+    public void testGetRttCharacteristics() throws Exception {
+        when(mockRttService.getRttCharacteristics()).thenReturn(new Bundle());
+        Bundle characteristics = mDut.getRttCharacteristics();
+        verify(mockRttService).getRttCharacteristics();
+        assertEquals(0, characteristics.size());
+    }
 }

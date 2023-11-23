@@ -18,27 +18,26 @@
 #define SHADER_SIMPLE_TEX_H
 
 const char vtxShader_simpleTexture[] = ""
-        "#version 300 es                    \n"
-        "layout(location = 0) in vec4 pos;  \n"
-        "layout(location = 1) in vec2 tex;  \n"
-        "uniform mat4 cameraMat;            \n"
-        "out vec2 uv;                       \n"
-        "void main()                        \n"
-        "{                                  \n"
-        "   gl_Position = cameraMat * pos;  \n"
-        "   uv = tex;                       \n"
-        "}                                  \n";
+                                       "#version 300 es                    \n"
+                                       "layout(location = 0) in vec4 pos;  \n"
+                                       "layout(location = 1) in vec2 tex;  \n"
+                                       "uniform mat4 cameraMat;            \n"
+                                       "out vec2 uv;                       \n"
+                                       "void main()                        \n"
+                                       "{                                  \n"
+                                       "   gl_Position = cameraMat * pos;  \n"
+                                       "   uv = tex;                       \n"
+                                       "}                                  \n";
 
-const char pixShader_simpleTexture[] =
-        "#version 300 es                            \n"
-        "precision mediump float;                   \n"
-        "uniform sampler2D tex;                     \n"
-        "in vec2 uv;                                \n"
-        "out vec4 color;                            \n"
-        "void main()                                \n"
-        "{                                          \n"
-        "    vec4 texel = texture(tex, uv);         \n"
-        "    color = texel;                         \n"
-        "}                                          \n";
+const char pixShader_simpleTexture[] = "#version 300 es                            \n"
+                                       "precision mediump float;                   \n"
+                                       "uniform sampler2D tex;                     \n"
+                                       "in vec2 uv;                                \n"
+                                       "out vec4 color;                            \n"
+                                       "void main()                                \n"
+                                       "{                                          \n"
+                                       "    vec4 texel = texture(tex, uv);         \n"
+                                       "    color = texel;                         \n"
+                                       "}                                          \n";
 
-#endif // SHADER_SIMPLE_TEX_H
+#endif  // SHADER_SIMPLE_TEX_H

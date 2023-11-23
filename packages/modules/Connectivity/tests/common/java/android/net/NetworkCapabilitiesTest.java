@@ -21,6 +21,7 @@ import static android.net.NetworkCapabilities.MAX_TRANSPORT;
 import static android.net.NetworkCapabilities.MIN_TRANSPORT;
 import static android.net.NetworkCapabilities.NET_CAPABILITY_CAPTIVE_PORTAL;
 import static android.net.NetworkCapabilities.NET_CAPABILITY_CBS;
+import static android.net.NetworkCapabilities.NET_CAPABILITY_DUN;
 import static android.net.NetworkCapabilities.NET_CAPABILITY_EIMS;
 import static android.net.NetworkCapabilities.NET_CAPABILITY_ENTERPRISE;
 import static android.net.NetworkCapabilities.NET_CAPABILITY_FOREGROUND;
@@ -36,6 +37,8 @@ import static android.net.NetworkCapabilities.NET_CAPABILITY_OEM_PRIVATE;
 import static android.net.NetworkCapabilities.NET_CAPABILITY_PARTIAL_CONNECTIVITY;
 import static android.net.NetworkCapabilities.NET_CAPABILITY_PRIORITIZE_BANDWIDTH;
 import static android.net.NetworkCapabilities.NET_CAPABILITY_PRIORITIZE_LATENCY;
+import static android.net.NetworkCapabilities.NET_CAPABILITY_RCS;
+import static android.net.NetworkCapabilities.NET_CAPABILITY_SUPL;
 import static android.net.NetworkCapabilities.NET_CAPABILITY_TRUSTED;
 import static android.net.NetworkCapabilities.NET_CAPABILITY_VALIDATED;
 import static android.net.NetworkCapabilities.NET_CAPABILITY_WIFI_P2P;
@@ -111,6 +114,9 @@ public class NetworkCapabilitiesTest {
     private static final int TEST_SUBID1 = 1;
     private static final int TEST_SUBID2 = 2;
     private static final int TEST_SUBID3 = 3;
+
+    private static final Set<Integer> TEST_NETWORKS_EXTRA_ALLOWED_CAPS_ON_NON_CELL =
+            Set.of(NET_CAPABILITY_CBS, NET_CAPABILITY_DUN, NET_CAPABILITY_RCS);
 
     @Rule
     public DevSdkIgnoreRule mDevSdkIgnoreRule = new DevSdkIgnoreRule();
@@ -1320,16 +1326,31 @@ public class NetworkCapabilitiesTest {
     }
 
     @Test
-    public void testRestrictCapabilitiesForTestNetworkByNotOwnerWithRestrictedNc() {
-        testRestrictCapabilitiesForTestNetworkWithRestrictedNc(false /* isOwner */);
+    public void testRestrictCapabilitiesForTestNetworkRestrictedNc_NotOwner_NotCell() {
+        testRestrictCapabilitiesForTestNetworkWithRestrictedNc(
+                false /* isOwner */, false /* isCell */);
     }
 
     @Test
-    public void testRestrictCapabilitiesForTestNetworkByOwnerWithRestrictedNc() {
-        testRestrictCapabilitiesForTestNetworkWithRestrictedNc(true /* isOwner */);
+    public void testRestrictCapabilitiesForTestNetworkRestrictedNc_Owner_NotCell() {
+        testRestrictCapabilitiesForTestNetworkWithRestrictedNc(
+                true /* isOwner */, false /* isCell */);
     }
 
-    private void testRestrictCapabilitiesForTestNetworkWithRestrictedNc(boolean isOwner) {
+    @Test
+    public void testRestrictCapabilitiesForTestNetworkRestrictedNc_NotOwner_Cell() {
+        testRestrictCapabilitiesForTestNetworkWithRestrictedNc(
+                false /* isOwner */, true /* isCell */);
+    }
+
+    @Test
+    public void testRestrictCapabilitiesForTestNetworkRestrictedNc_Owner_Cell() {
+        testRestrictCapabilitiesForTestNetworkWithRestrictedNc(
+                true /* isOwner */, false /* isCell */);
+    }
+
+    private void testRestrictCapabilitiesForTestNetworkWithRestrictedNc(
+            boolean isOwner, boolean isCell) {
         final int ownerUid = 1234;
         final int signalStrength = -80;
         final int[] administratorUids = {1001, ownerUid};
@@ -1338,28 +1359,49 @@ public class NetworkCapabilitiesTest {
         // the networkCapabilities will contain more than one transport type. However,
         // networkCapabilities must have a single transport specified to use NetworkSpecifier. Thus,
         // do not verify this part since it's verified in other tests.
-        final NetworkCapabilities restrictedNc = new NetworkCapabilities.Builder()
+        final NetworkCapabilities.Builder restrictedNcBuilder = new NetworkCapabilities.Builder()
                 .removeCapability(NET_CAPABILITY_NOT_RESTRICTED)
-                .addTransportType(TRANSPORT_CELLULAR)
                 .addCapability(NET_CAPABILITY_MMS)
                 .addCapability(NET_CAPABILITY_NOT_METERED)
                 .setAdministratorUids(administratorUids)
                 .setOwnerUid(ownerUid)
                 .setSignalStrength(signalStrength)
                 .setTransportInfo(transportInfo)
-                .setSubscriptionIds(Set.of(TEST_SUBID1)).build();
+                .setSubscriptionIds(Set.of(TEST_SUBID1));
+        for (int cap : TEST_NETWORKS_EXTRA_ALLOWED_CAPS_ON_NON_CELL) {
+            restrictedNcBuilder.addCapability(cap);
+        }
+
+        if (isCell) {
+            restrictedNcBuilder.addTransportType(TRANSPORT_CELLULAR);
+        }
+        final NetworkCapabilities restrictedNc = restrictedNcBuilder.build();
+
         final int creatorUid = isOwner ? ownerUid : INVALID_UID;
         restrictedNc.restrictCapabilitiesForTestNetwork(creatorUid);
 
         final NetworkCapabilities.Builder expectedNcBuilder = new NetworkCapabilities.Builder()
                 .removeCapability(NET_CAPABILITY_NOT_RESTRICTED);
-        // If the test network is restricted, then the network may declare any transport, and
-        // appended with TRANSPORT_TEST.
-        expectedNcBuilder.addTransportType(TRANSPORT_CELLULAR);
+
+        if (isCell) {
+            // If the test network is restricted, then the network may declare any transport, and
+            // appended with TRANSPORT_TEST.
+            expectedNcBuilder.addTransportType(TRANSPORT_CELLULAR);
+        } else {
+            // If the test network only has TRANSPORT_TEST, then it can keep the subscription IDs.
+            expectedNcBuilder.setSubscriptionIds(Set.of(TEST_SUBID1));
+        }
         expectedNcBuilder.addTransportType(TRANSPORT_TEST);
+
         // Only TEST_NETWORKS_ALLOWED_CAPABILITIES will be kept.
         expectedNcBuilder.addCapability(NET_CAPABILITY_NOT_METERED);
         expectedNcBuilder.removeCapability(NET_CAPABILITY_TRUSTED);
+
+        if (!isCell) {
+            for (int cap : TEST_NETWORKS_EXTRA_ALLOWED_CAPS_ON_NON_CELL) {
+                expectedNcBuilder.addCapability(cap);
+            }
+        }
 
         expectedNcBuilder.setSignalStrength(signalStrength).setTransportInfo(transportInfo);
         if (creatorUid == ownerUid) {
@@ -1369,5 +1411,24 @@ public class NetworkCapabilitiesTest {
         }
 
         assertEquals(expectedNcBuilder.build(), restrictedNc);
+    }
+
+    @Test
+    public void testDescribeCapsDifferences() throws Exception {
+        final NetworkCapabilities nc1 = new NetworkCapabilities.Builder()
+                .addCapability(NET_CAPABILITY_MMS)
+                .addCapability(NET_CAPABILITY_OEM_PAID)
+                .addCapability(NET_CAPABILITY_INTERNET)
+                .build();
+        final NetworkCapabilities nc2 = new NetworkCapabilities.Builder()
+                .addCapability(NET_CAPABILITY_CAPTIVE_PORTAL)
+                .addCapability(NET_CAPABILITY_SUPL)
+                .addCapability(NET_CAPABILITY_VALIDATED)
+                .addCapability(NET_CAPABILITY_INTERNET)
+                .build();
+        assertEquals("-MMS-OEM_PAID+SUPL+VALIDATED+CAPTIVE_PORTAL",
+                nc2.describeCapsDifferencesFrom(nc1));
+        assertEquals("-SUPL-VALIDATED-CAPTIVE_PORTAL+MMS+OEM_PAID",
+                nc1.describeCapsDifferencesFrom(nc2));
     }
 }

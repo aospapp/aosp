@@ -58,7 +58,6 @@ static tAVRC_STS avrc_bld_next_cmd(tAVRC_NEXT_CMD* p_cmd, BT_HDR* p_pkt) {
  *  the following commands are introduced in AVRCP 1.4
  ****************************************************************************/
 
-#if (AVRC_ADV_CTRL_INCLUDED == TRUE)
 /*******************************************************************************
  *
  * Function         avrc_bld_set_abs_volume_cmd
@@ -110,7 +109,6 @@ static tAVRC_STS avrc_bld_register_notifn(BT_HDR* p_pkt, uint8_t event_id,
   p_pkt->len = (p_data - p_start);
   return AVRC_STS_NO_ERROR;
 }
-#endif
 
 /*******************************************************************************
  *
@@ -607,16 +605,18 @@ tAVRC_STS AVRC_BldCommand(tAVRC_COMMAND* p_cmd, BT_HDR** pp_pkt) {
     case AVRC_PDU_ABORT_CONTINUATION_RSP: /*          0x41 */
       status = avrc_bld_next_cmd(&p_cmd->abort, p_pkt);
       break;
-#if (AVRC_ADV_CTRL_INCLUDED == TRUE)
     case AVRC_PDU_SET_ABSOLUTE_VOLUME: /* 0x50 */
+      if (!avrcp_absolute_volume_is_enabled()) {
+        break;
+      }
       status = avrc_bld_set_abs_volume_cmd(&p_cmd->volume, p_pkt);
       break;
-#endif
     case AVRC_PDU_REGISTER_NOTIFICATION: /* 0x31 */
-#if (AVRC_ADV_CTRL_INCLUDED == TRUE)
+      if (!avrcp_absolute_volume_is_enabled()) {
+        break;
+      }
       status = avrc_bld_register_notifn(p_pkt, p_cmd->reg_notif.event_id,
                                         p_cmd->reg_notif.param);
-#endif
       break;
     case AVRC_PDU_GET_CAPABILITIES:
       status =

@@ -140,69 +140,66 @@ typedef struct {
  ****************************************************************************/
 
 /* LCB function declarations */
-extern void avct_lcb_event(tAVCT_LCB* p_lcb, uint8_t event,
-                           tAVCT_LCB_EVT* p_data);
-extern void avct_bcb_event(tAVCT_BCB* p_bcb, uint8_t event,
-                           tAVCT_LCB_EVT* p_data);
-extern void avct_close_bcb(tAVCT_LCB* p_lcb, tAVCT_LCB_EVT* p_data);
-extern tAVCT_LCB* avct_lcb_by_bcb(tAVCT_BCB* p_bcb);
-extern tAVCT_BCB* avct_bcb_by_lcb(tAVCT_LCB* p_lcb);
-extern uint8_t avct_bcb_get_last_ccb_index(tAVCT_BCB* p_bcb,
-                                           tAVCT_CCB* p_ccb_last);
-extern tAVCT_BCB* avct_bcb_by_lcid(uint16_t lcid);
-extern tAVCT_LCB* avct_lcb_by_bd(const RawAddress& bd_addr);
-extern tAVCT_LCB* avct_lcb_alloc(const RawAddress& bd_addr);
-extern void avct_lcb_dealloc(tAVCT_LCB* p_lcb, tAVCT_LCB_EVT* p_data);
-extern tAVCT_LCB* avct_lcb_by_lcid(uint16_t lcid);
-extern tAVCT_CCB* avct_lcb_has_pid(tAVCT_LCB* p_lcb, uint16_t pid);
-extern bool avct_lcb_last_ccb(tAVCT_LCB* p_lcb, tAVCT_CCB* p_ccb_last);
+void avct_lcb_event(tAVCT_LCB* p_lcb, uint8_t event, tAVCT_LCB_EVT* p_data);
+void avct_bcb_event(tAVCT_BCB* p_bcb, uint8_t event, tAVCT_LCB_EVT* p_data);
+void avct_close_bcb(tAVCT_LCB* p_lcb, tAVCT_LCB_EVT* p_data);
+tAVCT_LCB* avct_lcb_by_bcb(tAVCT_BCB* p_bcb);
+tAVCT_BCB* avct_bcb_by_lcb(tAVCT_LCB* p_lcb);
+uint8_t avct_bcb_get_last_ccb_index(tAVCT_BCB* p_bcb, tAVCT_CCB* p_ccb_last);
+tAVCT_BCB* avct_bcb_by_lcid(uint16_t lcid);
+tAVCT_LCB* avct_lcb_by_bd(const RawAddress& bd_addr);
+tAVCT_LCB* avct_lcb_alloc(const RawAddress& bd_addr);
+void avct_lcb_dealloc(tAVCT_LCB* p_lcb, tAVCT_LCB_EVT* p_data);
+tAVCT_LCB* avct_lcb_by_lcid(uint16_t lcid);
+tAVCT_CCB* avct_lcb_has_pid(tAVCT_LCB* p_lcb, uint16_t pid);
+bool avct_lcb_last_ccb(tAVCT_LCB* p_lcb, tAVCT_CCB* p_ccb_last);
 
 /* LCB action functions */
-extern void avct_lcb_chnl_open(tAVCT_LCB* p_lcb, tAVCT_LCB_EVT* p_data);
-extern void avct_lcb_unbind_disc(tAVCT_LCB* p_lcb, tAVCT_LCB_EVT* p_data);
-extern void avct_lcb_open_ind(tAVCT_LCB* p_lcb, tAVCT_LCB_EVT* p_data);
-extern void avct_lcb_open_fail(tAVCT_LCB* p_lcb, tAVCT_LCB_EVT* p_data);
-extern void avct_lcb_close_ind(tAVCT_LCB* p_lcb, tAVCT_LCB_EVT* p_data);
-extern void avct_lcb_close_cfm(tAVCT_LCB* p_lcb, tAVCT_LCB_EVT* p_data);
-extern void avct_lcb_bind_conn(tAVCT_LCB* p_lcb, tAVCT_LCB_EVT* p_data);
-extern void avct_lcb_chk_disc(tAVCT_LCB* p_lcb, tAVCT_LCB_EVT* p_data);
-extern void avct_lcb_chnl_disc(tAVCT_LCB* p_lcb, tAVCT_LCB_EVT* p_data);
-extern void avct_lcb_bind_fail(tAVCT_LCB* p_lcb, tAVCT_LCB_EVT* p_data);
-extern void avct_lcb_cong_ind(tAVCT_LCB* p_lcb, tAVCT_LCB_EVT* p_data);
-extern void avct_lcb_discard_msg(tAVCT_LCB* p_lcb, tAVCT_LCB_EVT* p_data);
-extern void avct_lcb_send_msg(tAVCT_LCB* p_lcb, tAVCT_LCB_EVT* p_data);
-extern void avct_lcb_msg_ind(tAVCT_LCB* p_lcb, tAVCT_LCB_EVT* p_data);
-extern void avct_lcb_free_msg_ind(tAVCT_LCB* p_lcb, tAVCT_LCB_EVT* p_data);
+void avct_lcb_chnl_open(tAVCT_LCB* p_lcb, tAVCT_LCB_EVT* p_data);
+void avct_lcb_unbind_disc(tAVCT_LCB* p_lcb, tAVCT_LCB_EVT* p_data);
+void avct_lcb_open_ind(tAVCT_LCB* p_lcb, tAVCT_LCB_EVT* p_data);
+void avct_lcb_open_fail(tAVCT_LCB* p_lcb, tAVCT_LCB_EVT* p_data);
+void avct_lcb_close_ind(tAVCT_LCB* p_lcb, tAVCT_LCB_EVT* p_data);
+void avct_lcb_close_cfm(tAVCT_LCB* p_lcb, tAVCT_LCB_EVT* p_data);
+void avct_lcb_bind_conn(tAVCT_LCB* p_lcb, tAVCT_LCB_EVT* p_data);
+void avct_lcb_chk_disc(tAVCT_LCB* p_lcb, tAVCT_LCB_EVT* p_data);
+void avct_lcb_chnl_disc(tAVCT_LCB* p_lcb, tAVCT_LCB_EVT* p_data);
+void avct_lcb_bind_fail(tAVCT_LCB* p_lcb, tAVCT_LCB_EVT* p_data);
+void avct_lcb_cong_ind(tAVCT_LCB* p_lcb, tAVCT_LCB_EVT* p_data);
+void avct_lcb_discard_msg(tAVCT_LCB* p_lcb, tAVCT_LCB_EVT* p_data);
+void avct_lcb_send_msg(tAVCT_LCB* p_lcb, tAVCT_LCB_EVT* p_data);
+void avct_lcb_msg_ind(tAVCT_LCB* p_lcb, tAVCT_LCB_EVT* p_data);
+void avct_lcb_free_msg_ind(tAVCT_LCB* p_lcb, tAVCT_LCB_EVT* p_data);
 
 /* BCB action functions */
 typedef void (*tAVCT_BCB_ACTION)(tAVCT_BCB* p_bcb, tAVCT_LCB_EVT* p_data);
-extern void avct_bcb_chnl_open(tAVCT_BCB* p_bcb, tAVCT_LCB_EVT* p_data);
-extern void avct_bcb_unbind_disc(tAVCT_BCB* p_bcb, tAVCT_LCB_EVT* p_data);
-extern void avct_bcb_open_ind(tAVCT_BCB* p_bcb, tAVCT_LCB_EVT* p_data);
-extern void avct_bcb_open_fail(tAVCT_BCB* p_bcb, tAVCT_LCB_EVT* p_data);
-extern void avct_bcb_close_ind(tAVCT_BCB* p_bcb, tAVCT_LCB_EVT* p_data);
-extern void avct_bcb_close_cfm(tAVCT_BCB* p_bcb, tAVCT_LCB_EVT* p_data);
-extern void avct_bcb_bind_conn(tAVCT_BCB* p_bcb, tAVCT_LCB_EVT* p_data);
-extern void avct_bcb_chk_disc(tAVCT_BCB* p_bcb, tAVCT_LCB_EVT* p_data);
-extern void avct_bcb_chnl_disc(tAVCT_BCB* p_bcb, tAVCT_LCB_EVT* p_data);
-extern void avct_bcb_bind_fail(tAVCT_BCB* p_bcb, tAVCT_LCB_EVT* p_data);
-extern void avct_bcb_cong_ind(tAVCT_BCB* p_bcb, tAVCT_LCB_EVT* p_data);
-extern void avct_bcb_discard_msg(tAVCT_BCB* p_bcb, tAVCT_LCB_EVT* p_data);
-extern void avct_bcb_send_msg(tAVCT_BCB* p_bcb, tAVCT_LCB_EVT* p_data);
-extern void avct_bcb_msg_ind(tAVCT_BCB* p_bcb, tAVCT_LCB_EVT* p_data);
-extern void avct_bcb_free_msg_ind(tAVCT_BCB* p_bcb, tAVCT_LCB_EVT* p_data);
+void avct_bcb_chnl_open(tAVCT_BCB* p_bcb, tAVCT_LCB_EVT* p_data);
+void avct_bcb_unbind_disc(tAVCT_BCB* p_bcb, tAVCT_LCB_EVT* p_data);
+void avct_bcb_open_ind(tAVCT_BCB* p_bcb, tAVCT_LCB_EVT* p_data);
+void avct_bcb_open_fail(tAVCT_BCB* p_bcb, tAVCT_LCB_EVT* p_data);
+void avct_bcb_close_ind(tAVCT_BCB* p_bcb, tAVCT_LCB_EVT* p_data);
+void avct_bcb_close_cfm(tAVCT_BCB* p_bcb, tAVCT_LCB_EVT* p_data);
+void avct_bcb_bind_conn(tAVCT_BCB* p_bcb, tAVCT_LCB_EVT* p_data);
+void avct_bcb_chk_disc(tAVCT_BCB* p_bcb, tAVCT_LCB_EVT* p_data);
+void avct_bcb_chnl_disc(tAVCT_BCB* p_bcb, tAVCT_LCB_EVT* p_data);
+void avct_bcb_bind_fail(tAVCT_BCB* p_bcb, tAVCT_LCB_EVT* p_data);
+void avct_bcb_cong_ind(tAVCT_BCB* p_bcb, tAVCT_LCB_EVT* p_data);
+void avct_bcb_discard_msg(tAVCT_BCB* p_bcb, tAVCT_LCB_EVT* p_data);
+void avct_bcb_send_msg(tAVCT_BCB* p_bcb, tAVCT_LCB_EVT* p_data);
+void avct_bcb_msg_ind(tAVCT_BCB* p_bcb, tAVCT_LCB_EVT* p_data);
+void avct_bcb_free_msg_ind(tAVCT_BCB* p_bcb, tAVCT_LCB_EVT* p_data);
 
-extern void avct_bcb_dealloc(tAVCT_BCB* p_bcb, tAVCT_LCB_EVT* p_data);
+void avct_bcb_dealloc(tAVCT_BCB* p_bcb, tAVCT_LCB_EVT* p_data);
 
 extern const tAVCT_BCB_ACTION avct_bcb_action[];
 extern const uint8_t avct_lcb_pkt_type_len[];
 
 /* CCB function declarations */
-extern tAVCT_CCB* avct_ccb_alloc(tAVCT_CC* p_cc);
-extern void avct_ccb_dealloc(tAVCT_CCB* p_ccb, uint8_t event, uint16_t result,
-                             const RawAddress* bd_addr);
-extern uint8_t avct_ccb_to_idx(tAVCT_CCB* p_ccb);
-extern tAVCT_CCB* avct_ccb_by_idx(uint8_t idx);
+tAVCT_CCB* avct_ccb_alloc(tAVCT_CC* p_cc);
+void avct_ccb_dealloc(tAVCT_CCB* p_ccb, uint8_t event, uint16_t result,
+                      const RawAddress* bd_addr);
+uint8_t avct_ccb_to_idx(tAVCT_CCB* p_ccb);
+tAVCT_CCB* avct_ccb_by_idx(uint8_t idx);
 
 /*****************************************************************************
  * global data

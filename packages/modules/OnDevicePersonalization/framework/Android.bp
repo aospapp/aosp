@@ -30,14 +30,17 @@ filegroup {
 
 filegroup {
     name: "framework-ondevicepersonalization-sources",
+    defaults: ["framework-sources-module-defaults"],
     srcs: [
         "java/**/*.java",
     ],
-    visibility: [
-        "//frameworks/base",
-        "//packages/modules/OnDevicePersonalization:__subpackages__"
-    ],
+    visibility: ["//packages/modules/OnDevicePersonalization:__subpackages__"],
     path: "java",
+}
+
+filegroup {
+    name: "framework-ondevicepersonalization-jarjar",
+    srcs: ["jarjar_rules.txt"]
 }
 
 java_sdk_library {
@@ -46,13 +49,24 @@ java_sdk_library {
         ":framework-ondevicepersonalization-aidl",
         ":framework-ondevicepersonalization-sources",
     ],
+    libs: [
+        "modules-utils-preconditions",
+    ],
     sdk_version: "module_current",
     defaults: [
         "framework-module-defaults",
         "ondevicepersonalization-java-defaults",
     ],
     permitted_packages: [
+        "android.app.ondevicepersonalization",
         "android.ondevicepersonalization",
+        "com.android.ondevicepersonalization.internal",
+        "android.federatedcompute",
+    ],
+    jarjar_rules: ":framework-ondevicepersonalization-jarjar",
+    static_libs: [
+            "modules-utils-build",
+            "modules-utils-list-slice",
     ],
     impl_library_visibility: ["//visibility:public"],
     min_sdk_version: "Tiramisu",
@@ -76,5 +90,14 @@ java_defaults {
     sdk_version: "module_Tiramisu",
     libs: [
         "framework-ondevicepersonalization.impl",
+    ],
+}
+
+java_api_contribution {
+    name: "framework-ondevicepersonalization-public-stubs",
+    api_surface: "public",
+    api_file: "api/current.txt",
+    visibility: [
+        "//build/orchestrator/apis",
     ],
 }

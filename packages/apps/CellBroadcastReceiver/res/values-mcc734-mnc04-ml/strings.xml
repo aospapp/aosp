@@ -16,6 +16,7 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="pws_other_message_identifiers" msgid="3594437796498866115">"VE-വിവരങ്ങൾ"</string>
-    <string name="enable_emergency_alerts_message_title" msgid="8589973943848979179">"VE-റെഗുലർ ബ്രോഡ്‌കാസ്‌റ്റ് ചാനല്‍"</string>
+    <string name="pws_other_message_identifiers" msgid="1136328633218138012">"ഓപ്പറേറ്റർ മുന്നറിയിപ്പ്"</string>
+    <string name="enable_emergency_alerts_message_title" msgid="1179764867218337219">"ഓപ്പറേറ്റർ മുന്നറിയിപ്പുകൾ"</string>
+    <string name="enable_emergency_alerts_message_summary" msgid="3149077347504309345">"ഓപ്പറേറ്റർ മുന്നറിയിപ്പുകൾക്കുള്ള ചാനൽ"</string>
 </resources>

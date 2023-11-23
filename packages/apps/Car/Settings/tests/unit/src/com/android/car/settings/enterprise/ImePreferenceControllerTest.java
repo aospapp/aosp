@@ -16,6 +16,8 @@
 package com.android.car.settings.enterprise;
 
 import static com.android.car.settings.common.PreferenceController.AVAILABLE;
+import static com.android.car.settings.common.PreferenceController.AVAILABLE_FOR_VIEWING;
+import static com.android.car.settings.common.PreferenceController.CONDITIONALLY_UNAVAILABLE;
 import static com.android.car.settings.common.PreferenceController.DISABLED_FOR_PROFILE;
 
 import static org.mockito.Mockito.when;
@@ -53,12 +55,72 @@ public final class ImePreferenceControllerTest
     }
 
     @Test
+    public void testGetgetAvailabilityStatus_notSet_zoneWrite() {
+        mController.setAvailabilityStatusForZone("write");
+        mockHasDeviceAdminFeature();
+        mockGetImeLabelIfOwnerSet(null);
+
+        PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
+                DISABLED_FOR_PROFILE);
+    }
+
+    @Test
+    public void testGetgetAvailabilityStatus_notSet_zoneRead() {
+        mController.setAvailabilityStatusForZone("read");
+        mockHasDeviceAdminFeature();
+        mockGetImeLabelIfOwnerSet(null);
+
+        PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
+                DISABLED_FOR_PROFILE);
+    }
+
+    @Test
+    public void testGetgetAvailabilityStatus_notSet_zoneHidden() {
+        mController.setAvailabilityStatusForZone("hidden");
+        mockHasDeviceAdminFeature();
+        mockGetImeLabelIfOwnerSet(null);
+
+        PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
+                DISABLED_FOR_PROFILE);
+    }
+
+    @Test
     public void testGetgetAvailabilityStatus_set() {
         mockHasDeviceAdminFeature();
         mockGetImeLabelIfOwnerSet("Da Lablue");
 
         PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
                 AVAILABLE);
+    }
+
+    @Test
+    public void testGetgetAvailabilityStatus_set_zoneWrite() {
+        mController.setAvailabilityStatusForZone("write");
+        mockHasDeviceAdminFeature();
+        mockGetImeLabelIfOwnerSet("Da Lablue");
+
+        PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
+                AVAILABLE);
+    }
+
+    @Test
+    public void testGetgetAvailabilityStatus_set_zoneRead() {
+        mController.setAvailabilityStatusForZone("read");
+        mockHasDeviceAdminFeature();
+        mockGetImeLabelIfOwnerSet("Da Lablue");
+
+        PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
+                AVAILABLE_FOR_VIEWING);
+    }
+
+    @Test
+    public void testGetgetAvailabilityStatus_set_zoneHidden() {
+        mController.setAvailabilityStatusForZone("hidden");
+        mockHasDeviceAdminFeature();
+        mockGetImeLabelIfOwnerSet("Da Lablue");
+
+        PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
+                CONDITIONALLY_UNAVAILABLE);
     }
 
     @Test

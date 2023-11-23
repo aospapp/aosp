@@ -50,6 +50,10 @@
 #         3.4.3. APM_ENABLE_EVENT: APM off to on toggle.
 #         3.4.4. WIFI_AP_CHANGED_EVENT: Wifi is connected to a AP with different SSID.
 #         3.4.5. WIFI_CALLING_DISABLE_EVENT: Wifi calling button on to off toggle.
+#    3.5. "HandoverAttemptCount": Integer to specify the number of handover request attempts before
+#         using initial attach instead. It is an optional field.
+#         Note: This should only be defined in the config when handover attempt count is enabled and
+#         "ErrorType" is explicitly defined as "IKE_PROTOCOL_ERROR_TYPE".
 #
 # Note: When the value is "*" for any of "ApnName" or "ErrorType" or "ErrorDetails",
 #       it means that the config definition applies to rest of the errors for which
@@ -64,20 +68,27 @@
       {
         "ErrorType": "*",
         "ErrorDetails": ["*"],
-        "RetryArray": ["5", "10", "-1"],
+        "RetryArray": ["1", "2", "2", "10", "20", "40", "80", "160", "320", "640", "1280", "1800", "3600", "-1"],
         "UnthrottlingEvents": ["APM_ENABLE_EVENT", "APM_DISABLE_EVENT", "WIFI_DISABLE_EVENT", "WIFI_AP_CHANGED_EVENT"]
       },
       {
         "ErrorType": "GENERIC_ERROR_TYPE",
         "ErrorDetails": ["IO_EXCEPTION"],
-        "RetryArray": ["0", "0", "0", "60+r15", "120", "-1"],
+        "RetryArray": ["0", "0", "0", "30", "60+r15", "120", "-1"],
         "UnthrottlingEvents": ["APM_ENABLE_EVENT", "APM_DISABLE_EVENT", "WIFI_DISABLE_EVENT", "WIFI_AP_CHANGED_EVENT"]
       },
       {
         "ErrorType": "IKE_PROTOCOL_ERROR_TYPE",
-        "ErrorDetails": ["24"],
-        "RetryArray": ["10", "20", "40", "80", "160"],
+        "ErrorDetails": ["*"],
+        "RetryArray": ["5", "10", "10", "20", "40", "80", "160", "320", "640", "1280", "1800", "3600", "-1"],
         "UnthrottlingEvents": ["APM_ENABLE_EVENT", "WIFI_DISABLE_EVENT", "WIFI_CALLING_DISABLE_EVENT"]
+      },
+      {
+        "ErrorType": "IKE_PROTOCOL_ERROR_TYPE",
+        "ErrorDetails": ["36"],
+        "RetryArray": ["0", "0", "0", "10", "20", "40", "80", "160", "320", "640", "1280", "1800", "3600", "-1"],
+        "UnthrottlingEvents": ["APM_ENABLE_EVENT", "WIFI_DISABLE_EVENT", "WIFI_CALLING_DISABLE_EVENT"],
+        "HandoverAttemptCount": 3
       }
     ]
   }

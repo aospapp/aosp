@@ -30,17 +30,20 @@ namespace android {
 namespace automotive {
 namespace watchdog {
 
+using ::aidl::android::automotive::watchdog::PerStateBytes;
+using ::aidl::android::automotive::watchdog::internal::ApplicationCategoryType;
+using ::aidl::android::automotive::watchdog::internal::ComponentType;
+using ::aidl::android::automotive::watchdog::internal::IoOveruseAlertThreshold;
+using ::aidl::android::automotive::watchdog::internal::IoOveruseConfiguration;
+using ::aidl::android::automotive::watchdog::internal::PackageInfo;
+using ::aidl::android::automotive::watchdog::internal::PackageMetadata;
+using ::aidl::android::automotive::watchdog::internal::ResourceOveruseConfiguration;
+using ::aidl::android::automotive::watchdog::internal::ResourceSpecificConfiguration;
+using ::aidl::android::automotive::watchdog::internal::UidType;
+using ::android::RefBase;
 using ::android::sp;
-using ::android::automotive::watchdog::internal::ApplicationCategoryType;
-using ::android::automotive::watchdog::internal::ComponentType;
-using ::android::automotive::watchdog::internal::IoOveruseAlertThreshold;
-using ::android::automotive::watchdog::internal::IoOveruseConfiguration;
-using ::android::automotive::watchdog::internal::PackageInfo;
-using ::android::automotive::watchdog::internal::PackageMetadata;
-using ::android::automotive::watchdog::internal::ResourceOveruseConfiguration;
-using ::android::automotive::watchdog::internal::ResourceSpecificConfiguration;
-using ::android::automotive::watchdog::internal::UidType;
 using ::android::base::Error;
+using ::android::base::Result;
 using ::android::base::StringAppendF;
 using ::android::base::StringPrintf;
 using ::testing::Eq;
@@ -229,20 +232,18 @@ sp<IoOveruseConfigs> sampleIoOveruseConfigs() {
 
 namespace internal {
 
-class IoOveruseConfigsPeer final : public android::RefBase {
+class IoOveruseConfigsPeer final : virtual public RefBase {
 public:
     IoOveruseConfigsPeer() {
         IoOveruseConfigs::sParseXmlFile =
-                [&](const char* filepath) -> android::base::Result<ResourceOveruseConfiguration> {
+                [&](const char* filepath) -> Result<ResourceOveruseConfiguration> {
             if (const auto it = configsByFilepaths.find(filepath); it != configsByFilepaths.end()) {
                 return it->second;
             }
             return Error() << "No configs available for the given filepath '" << filepath << "'";
         };
-        IoOveruseConfigs::sWriteXmlFile =
-                [&](const android::automotive::watchdog::internal::ResourceOveruseConfiguration&
-                            config,
-                    const char* filepath) -> android::base::Result<void> {
+        IoOveruseConfigs::sWriteXmlFile = [&](const ResourceOveruseConfiguration& config,
+                                              const char* filepath) -> Result<void> {
             configsByFilepaths[filepath] = config;
             return {};
         };
@@ -253,9 +254,8 @@ public:
     }
     void injectErrorOnWriteXmlFile() {
         IoOveruseConfigs::sWriteXmlFile =
-                [&]([[maybe_unused]] const android::automotive::watchdog::internal::
-                            ResourceOveruseConfiguration& config,
-                    [[maybe_unused]] const char* filepath) -> android::base::Result<void> {
+                [&]([[maybe_unused]] const ResourceOveruseConfiguration& config,
+                    [[maybe_unused]] const char* filepath) -> Result<void> {
             return Error() << "Failed to write XML files";
         };
     }

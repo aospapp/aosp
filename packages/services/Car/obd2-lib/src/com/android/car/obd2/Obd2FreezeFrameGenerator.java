@@ -16,6 +16,9 @@
 
 package com.android.car.obd2;
 
+import static com.android.car.obd2.Obd2FrameGeneratorUtils.tryRunCommand;
+import static com.android.car.obd2.Obd2FrameGeneratorUtils.writeResultIdValue;
+
 import android.os.SystemClock;
 import android.util.JsonWriter;
 import android.util.Log;
@@ -132,21 +135,9 @@ public class Obd2FreezeFrameGenerator {
             for (OutputSemanticHandler<Integer> handler : mIntegerCommands) {
                 FreezeFrameCommand<Integer> command =
                         Obd2Command.getFreezeFrameCommand(handler, freezeFrame.id);
-                try {
-                    Optional<Integer> result = command.run(mConnection);
-                    if (result.isPresent()) {
-                        jsonWriter.beginObject();
-                        jsonWriter.name("id").value(command.getPid());
-                        jsonWriter.name("value").value(result.get());
-                        jsonWriter.endObject();
-                    }
-                } catch (IOException | InterruptedException e) {
-                    Log.w(
-                            TAG,
-                            String.format(
-                                    "unable to retrieve OBD2 pid %d due to exception: %s",
-                                    command.getPid(), e));
-                    // skip this entry
+                Optional<Integer> result = tryRunCommand(mConnection, command);
+                if (result.isPresent()) {
+                    writeResultIdValue(jsonWriter, command.getPid(), result.get());
                 }
             }
             jsonWriter.endArray();
@@ -154,21 +145,9 @@ public class Obd2FreezeFrameGenerator {
             for (OutputSemanticHandler<Float> handler : mFloatCommands) {
                 FreezeFrameCommand<Float> command =
                         Obd2Command.getFreezeFrameCommand(handler, freezeFrame.id);
-                try {
-                    Optional<Float> result = command.run(mConnection);
-                    if (result.isPresent()) {
-                        jsonWriter.beginObject();
-                        jsonWriter.name("id").value(command.getPid());
-                        jsonWriter.name("value").value(result.get());
-                        jsonWriter.endObject();
-                    }
-                } catch (IOException | InterruptedException e) {
-                    Log.w(
-                            TAG,
-                            String.format(
-                                    "unable to retrieve OBD2 pid %d due to exception: %s",
-                                    command.getPid(), e));
-                    // skip this entry
+                Optional<Float> result = tryRunCommand(mConnection, command);
+                if (result.isPresent()) {
+                    writeResultIdValue(jsonWriter, command.getPid(), result.get());
                 }
             }
             jsonWriter.endArray();

@@ -31,6 +31,8 @@
     <string name="enabled" msgid="5127188665060746381">"מופעלת"</string>
     <string name="disabled" msgid="4589065923272201387">"מושבתת"</string>
     <string name="unavailable" msgid="1610732303812180196">"לא זמין"</string>
+    <string name="allow" msgid="6982558814345894019">"אישור"</string>
+    <string name="deny" msgid="8291577308813053917">"דחייה"</string>
     <string name="header_category_suggestions" msgid="106077820663753645">"הצעות"</string>
     <string name="header_category_quick_settings" msgid="3785334008768367890">"הגדרות מהירות"</string>
     <string name="header_category_general_settings" msgid="3897615781153506434">"הגדרות כלליות"</string>
@@ -45,12 +47,13 @@
     <string name="add_an_account" msgid="2601275122685226096">"הוספת חשבון"</string>
     <string name="accounts_category_title" msgid="7286858931427579845">"חשבונות וכניסה"</string>
     <string name="accounts_category_summary_no_account" msgid="3053606166993074648">"אין חשבונות"</string>
-    <string name="accounts_category_summary" msgid="7617932110389860822">"{count,plural, =1{חשבון אחד}two{# חשבונות}many{# חשבונות}other{# חשבונות}}"</string>
+    <string name="accounts_category_summary" msgid="7617932110389860822">"{count,plural, =1{חשבון אחד}one{# חשבונות}two{# חשבונות}other{# חשבונות}}"</string>
     <string name="accounts_slice_summary" msgid="1571012157154521119">"שירותי מדיה, Assistant,‏ Payments"</string>
     <string name="connectivity_network_category_title" msgid="8226264889892008114">"רשת ואינטרנט"</string>
     <string name="sound_category_title" msgid="7899816751041939518">"צליל"</string>
     <string name="applications_category_title" msgid="7112019490898586223">"אפליקציות"</string>
     <string name="device_pref_category_title" msgid="8292572846154873762">"העדפות מכשיר"</string>
+    <string name="accessibility_category_title" msgid="1552664829936369592">"נגישות"</string>
     <string name="remotes_and_accessories_category_title" msgid="4795119810430255047">"מכשירי שלט רחוק ואביזרים"</string>
     <string name="display_and_sound_category_title" msgid="9203309625380755860">"תצוגה וצליל"</string>
     <string name="help_and_feedback_category_title" msgid="7036505833991003031">"עזרה ומשוב"</string>
@@ -109,7 +112,8 @@
     <string name="device_backup_restore" msgid="3634531946308269398">"גיבוי ושחזור"</string>
     <string name="device_factory_reset" msgid="1110189450013225971">"איפוס לנתוני היצרן"</string>
     <string name="device_calibration" msgid="2907914144048739705">"כיול"</string>
-    <string name="device_energy_saver" msgid="1105023232841036991">"חיסכון באנרגיה"</string>
+    <string name="device_energy_saver" msgid="6611757996220443028">"טיימר לכיבוי"</string>
+    <string name="device_energy_saver_summary" msgid="5306058475316008429">"הגדרת טיימרים לכיבוי הטלוויזיה ולחיסכון באנרגיה"</string>
     <string name="overlay_internal_slice_title" msgid="6427352417573831625"></string>
     <string name="device_fastpair" msgid="1235240814051277047">"מכשירים"</string>
     <string name="surround_sound_select_formats" msgid="6070283650131226239">"בחירת פורמטים"</string>
@@ -118,7 +122,7 @@
     <string name="surround_sound_format_e_ac3" msgid="6923129088903887242">"Dolby Digital Plus"</string>
     <string name="surround_sound_format_dts" msgid="8331816247117135587">"DTS"</string>
     <string name="surround_sound_format_dts_hd" msgid="4268947520371740146">"DTS-HD"</string>
-    <string name="surround_sound_format_dts_uhd" msgid="2844983210044263719">"DTS-UHD"</string>
+    <string name="surround_sound_format_dts_uhd" msgid="4340749818133578788">"DTS:X"</string>
     <string name="surround_sound_format_dolby_mat" msgid="3029804841912462928">"Dolby Atmos עם Dolby TrueHD"</string>
     <string name="surround_sound_format_dolby_truehd" msgid="5113046743572967088">"Dolby TrueHD"</string>
     <string name="surround_sound_format_e_ac3_joc" msgid="3360344066462262996">"Dolby Atmos עם Dolby Digital Plus"</string>
@@ -147,10 +151,38 @@
     <string name="hdmi_cec_settings_title" msgid="7120729705063868627">"HDMI-CEC"</string>
     <string name="advanced_sound_settings_title" msgid="319921303039469139">"הגדרות צליל מתקדמות"</string>
     <string name="game_mode_title" msgid="7280816243531315755">"הרשאה למצב משחק"</string>
+    <string name="match_content_dynamic_range_title" msgid="2794980556561655838">"התאמה לטווח הדינמי של התוכן"</string>
+    <string name="match_content_dynamic_range_summary" msgid="2255683926227355398">"כשהאפשרות הזו מופעלת, המערכת תעבור בין פורמטים של טווח דינמי בהתאם לתוכן. המעבר עלול לגרום להצגת מסך שחור בזמן שינוי הפורמט.\n\nיש ללחוץ על הגדרות התצוגה המתקדמות כדי לראות אפשרויות נוספות של טווח דינמי."</string>
+    <string name="preferred_dynamic_range_title" msgid="5064883672337010588">"טווח דינמי מועדף"</string>
+    <string name="preferred_dynamic_range_selection_system_title" msgid="4505030483876080996">"המרה בהתאם למערכת"</string>
+    <string name="preferred_dynamic_range_selection_system_desc" msgid="5712920601553613576">"ההגדרה הזו מאפשרת למערכת לנהל את המרת הפורמט"</string>
+    <string name="preferred_dynamic_range_selection_system_summary" msgid="4509062596428781094">"כשבוחרים באפשרות הזו, המערכת תקבע טווח דינמי מתאים שיישלח לתצוגה שלך ותמיר תוכן לטווח הדינמי הזה לפי הצורך."</string>
+    <string name="preferred_dynamic_range_selection_passthrough_desc" msgid="4831260397179583737">"תמיד בהתאמה לפורמט של התוכן"</string>
+    <string name="preferred_dynamic_range_selection_force_title" msgid="4448836594133973103">"אילוץ המרה"</string>
+    <string name="preferred_dynamic_range_selection_force_desc" msgid="1418542349290684513">"אילוץ המרה לפורמט מועדף"</string>
+    <string name="preferred_dynamic_range_selection_force_summary" msgid="8381058061765216239">"אילוץ המרה לפורמט המועדף. אילוץ ההמרה עשוי להשפיע על הגדרות אחרות ב\'מצב תצוגה\' או ב\'פורמט HDR\'."</string>
+    <string name="preferred_dynamic_range_selection_force_sdr_title" msgid="3135104063034317252">"תמיד עבור SDR"</string>
+    <string name="preferred_dynamic_range_selection_force_hdr_title" msgid="1032587815433139859">"תמיד עבור <xliff:g id="HDR_TYPE">%s</xliff:g>"</string>
+    <string name="preferred_dynamic_range_force_dialog_title" msgid="6865110024863661702">"רוצה לאלץ את פלט ה-HDR?"</string>
+    <string name="preferred_dynamic_range_force_dialog_desc" msgid="7758323258282201656">"כברירת מחדל ההמרה תיאלץ לפעול במצב <xliff:g id="HDR_TYPE">%s</xliff:g>."</string>
+    <string name="preferred_dynamic_range_force_dialog_desc_4k30_issue" msgid="4938418395391206131">"התצוגה תפעל ברזולוציית 1080p ‏ 60Hz. האפשרות הזו לא תואמת לתצוגה שלך כשהיא פועלת ברזולוציית 4k‏ 60Hz."</string>
+    <string name="selection_dolby_vision_not_supported_sidebar" msgid="8994591316574824115">"Dolby Vision לא נתמך ברזולוציה הנוכחית. אם מפעילים את Dolby Vision באופן ידני, הרזולוציה של המסך משתנה ל-1080p 60Hz"</string>
+    <string name="manual_dolby_vision_format_on_4k60_title" msgid="4172263676512376500">"לשנות את הרזולוציה ל-1080p 60Hz?"</string>
+    <string name="dynamic_range_selection_force_dv_title" msgid="8070148109262327094">"תמיד לאלץ המרה לפורמט Dolby Vision"</string>
+    <string name="dynamic_range_selection_force_dv_summary" msgid="1052851029985095562">"אם התכונה Dolby Vision מושבתת בקטע \'פורמטים של איכות HDR\' בהגדרות התצוגה המתקדמות, אילוץ ההמרה לפורמט Dolby Vision יפעיל את התכונה מחדש."</string>
+    <string name="dynamic_range_selection_force_hdr10_title" msgid="1221688206945051384">"תמיד לאלץ המרה לפורמט HDR10"</string>
+    <string name="dynamic_range_selection_force_hdr10_summary" msgid="7784573527636502784">"אם התכונה HDR10 מושבתת בקטע \'פורמטים של איכות HDR\' בהגדרות התצוגה המתקדמות, אילוץ ההמרה לפורמט HDR10 יפעיל את התכונה מחדש."</string>
+    <string name="dynamic_range_selection_force_hlg_title" msgid="3976190987768712696">"תמיד לאלץ המרה לפורמט HLG"</string>
+    <string name="dynamic_range_selection_force_hlg_summary" msgid="5371949016689544001">"אם התכונה HLG מושבתת בקטע \'פורמטים של איכות HDR\' בהגדרות התצוגה המתקדמות, אילוץ ההמרה לפורמט HLG יפעיל את התכונה מחדש."</string>
+    <string name="dynamic_range_selection_force_hdr10plus_title" msgid="1305556000063625735">"תמיד לאלץ המרה לפורמט HDR10+‎"</string>
+    <string name="dynamic_range_selection_force_hdr10plus_summary" msgid="918038386222537401">"אם התכונה HDR10+‎ מושבתת בקטע \'פורמטים של איכות HDR\' בהגדרות התצוגה המתקדמות, אילוץ ההמרה לפורמט HDR10+‎ יפעיל את התכונה מחדש."</string>
+    <string name="dynamic_range_selection_force_sdr_title" msgid="1063579223517652945">"תמיד לאלץ המרה לפורמט SDR"</string>
+    <string name="dynamic_range_selection_force_sdr_summary" msgid="2874771365465898941">"אילוץ ההמרה לפורמט SDR ישבית את כל הפורמטים בקטע \'פורמטים של איכות HDR\' בהגדרות התצוגה המתקדמות."</string>
     <string name="match_content_frame_rate_title" msgid="153291168560947689">"התאמת התוכן לקצב הפריימים"</string>
-    <string name="match_content_frame_rate_seamless" msgid="5900012519258795448">"שינוי חלק של קצב הפריימים"</string>
+    <string name="match_content_frame_rate_seamless" msgid="5577846750811067585">"שינוי חלק של קצב הפריימים בלבד"</string>
     <string name="match_content_frame_rate_seamless_summary" msgid="2737466163964133210">"המכשיר ישנה את קצב הפריימים של המסך בהתאם לקצב הפריימים המקורי של התוכן בעקבות בקשה של האפליקציה רק אם הטלוויזיה יכולה לבצע את השינוי בצורה חלקה."</string>
-    <string name="match_content_frame_rate_non_seamless" msgid="1534300397118594640">"שינוי לא-חלק של קצב הפריימים"</string>
+    <string name="match_content_frame_rate_seamless_not_supported_summary" msgid="98559950465123792">"המסך המחובר שלך לא תומך במעברים עם קצב רענון חלק. לאפשרות זו לא תהיה השפעה אלא אם עוברים למסך שתומך בה."</string>
+    <string name="match_content_frame_rate_non_seamless" msgid="2702658727234710031">"תמיד"</string>
     <string name="match_content_frame_rate_non_seamless_summary" msgid="6831699459487130055">"המכשיר ישנה את קצב הפריימים של המסך בהתאם לקצב הפריימים המקורי של התוכן אם האפליקציה תבקש זאת. במקרה כזה, ייתכן שהמסך יואפל לרגע לפני תחילת הסרטון ובסופו."</string>
     <string name="match_content_frame_rate_never" msgid="1678354793095148423">"אף פעם"</string>
     <string name="match_content_frame_rate_never_summary" msgid="742977618080396095">"המכשיר אף פעם לא ינסה לשנות את קצב הפריימים של המסך כדי להתאים אותו לקצב הפריימים המקורי של התוכן, גם אם האפליקציה תבקש זאת."</string>
@@ -167,6 +199,7 @@
     <string name="hdr_format_selection_manual_desc" msgid="8865649615882146772">"בחירה ידנית של פורמטים מתוך הפורמטים הזמינים"</string>
     <string name="hdr_format_supported_title" msgid="1458594819224612431">"פורמטים נתמכים"</string>
     <string name="hdr_format_unsupported_title" msgid="715318408107924941">"פורמטים שלא נתמכים"</string>
+    <string name="hdr_format_sdr" msgid="7211377112392255102">"SDR"</string>
     <string name="hdr_format_hdr10" msgid="8063543267227491062">"HDR10"</string>
     <string name="hdr_format_hlg" msgid="454510079939620321">"HLG"</string>
     <string name="hdr_format_hdr10plus" msgid="4371652089162162876">"HDR10+‎"</string>
@@ -182,10 +215,14 @@
     <string name="resolution_selection_title" msgid="2873993320284587853">"רזולוציה"</string>
     <string name="resolution_selection_auto_title" msgid="4738671207331027385">"אוטומטית"</string>
     <string name="resolution_selection_dialog_title" msgid="4029798035133645272">"הרזולוציה שונתה"</string>
+    <string name="resolution_selection_with_mode_dialog_title" msgid="5011192408613100514">"לשנות את הרזולוציה ל-%1$s?"</string>
     <string name="resolution_selection_dialog_desc" msgid="3667357611495669701">"בוחרים באפשרות \'אישור\' כדי להשתמש ברזולוציה %1$s מעכשיו והלאה."</string>
+    <string name="resolution_selection_disabled_dolby_vision_dialog_desc" msgid="7952404018654828187">"Dolby Vision לא נתמך ב-%1$s. ניתן להשבית אותו בהגדרות התצוגה המתקדמות"</string>
+    <string name="resolution_hdr_description_info" msgid="2408761621976850238">"המצב הזה תומך ב: %1$s‏\nבחלק מהטלוויזיות ניתן להפעיל HDMI משופר כדי לאפשר הפעלה של עוד פורמטים של איכות HDR. כדאי לבדוק אם התכונה הזו נתמכת בהגדרות של הטלוויזיה."</string>
     <string name="resolution_selection_dialog_cancel" msgid="3683616572317946129">"ביטול"</string>
     <string name="resolution_selection_dialog_ok" msgid="3123351228545013492">"אישור"</string>
     <string name="resolution_selection_hz" msgid="4425902505388495637">"הרץ (Hz)"</string>
+    <string name="resolution_display_mode" msgid="6633857172598855480">"<xliff:g id="RESOLUTION">%1$s</xliff:g> ‏(<xliff:g id="REFRESH_RATE">%2$s</xliff:g> הרץ)"</string>
     <string name="device_storage_clear_cache_title" msgid="14370154552302965">"האם לנקות נתונים בקובץ שמור?"</string>
     <string name="device_storage_clear_cache_message" msgid="4352802738505831032">"פעולה זו תנקה נתונים בקובץ שמור, לכל האפליקציות."</string>
     <string name="default_audio_output_settings_title" msgid="5441937324539531999"></string>
@@ -257,7 +294,6 @@
     <string name="system_inputs" msgid="5552840337357572096">"כניסות קלט"</string>
     <string name="system_inputs_devices" msgid="2158421111699829399">"קלט והתקנים"</string>
     <string name="system_home_theater_control" msgid="6228949628173590310">"בקרה של מערכות קולנוע ביתי"</string>
-    <string name="system_accessibility" msgid="3081009195560501010">"נגישות"</string>
     <string name="system_developer_options" msgid="8480844257066475479">"אפשרויות מפתח"</string>
     <string name="accessibility_none" msgid="6355646833528306702">"ללא"</string>
     <string name="system_diagnostic" msgid="1654842813331919958">"שימוש ואבחון"</string>
@@ -283,12 +319,12 @@
     <string name="enterprise_privacy_none" msgid="6660670916934417519">"ללא"</string>
     <string name="enterprise_privacy_enterprise_installed_packages" msgid="7244796629052581085">"אפליקציות מותקנות"</string>
     <string name="enterprise_privacy_apps_count_estimation_info" msgid="3875568975752197381">"זוהי הערכה של מספר האפליקציות. ייתכן שהמספר לא כולל אפליקציות שהותקנו מחוץ לחנות Play."</string>
-    <string name="enterprise_privacy_number_packages_lower_bound" msgid="4518330667109848939">"{count,plural, =1{אפליקציה אחת לפחות}two{לפחות # אפליקציות}many{לפחות # אפליקציות}other{לפחות # אפליקציות}}"</string>
+    <string name="enterprise_privacy_number_packages_lower_bound" msgid="4518330667109848939">"{count,plural, =1{אפליקציה אחת לפחות}one{לפחות # אפליקציות}two{לפחות # אפליקציות}other{לפחות # אפליקציות}}"</string>
     <string name="enterprise_privacy_location_access" msgid="8978502415647245748">"הרשאות מיקום"</string>
     <string name="enterprise_privacy_microphone_access" msgid="3746238027890585248">"הרשאות מיקרופון"</string>
     <string name="enterprise_privacy_camera_access" msgid="6258493631976121930">"הרשאות מצלמה"</string>
     <string name="enterprise_privacy_enterprise_set_default_apps" msgid="5538330175901952288">"אפליקציות ברירת מחדל"</string>
-    <string name="enterprise_privacy_number_packages" msgid="6256222390430349008">"{count,plural, =1{אפליקציה אחת}two{# אפליקציות}many{# אפליקציות}other{# אפליקציות}}"</string>
+    <string name="enterprise_privacy_number_packages" msgid="6256222390430349008">"{count,plural, =1{אפליקציה אחת}one{# אפליקציות}two{# אפליקציות}other{# אפליקציות}}"</string>
     <string name="enterprise_privacy_input_method" msgid="5814752394251833058">"מקלדת המוגדרת כברירת מחדל"</string>
     <string name="enterprise_privacy_input_method_name" msgid="1088874503312671318">"<xliff:g id="APP_LABEL">%s</xliff:g> הוגדרה"</string>
     <string name="enterprise_privacy_always_on_vpn_device" msgid="8845550514448914237">"האפשרות \'חיבור תמידי ל-VPN\' פועלת"</string>
@@ -298,22 +334,23 @@
     <string name="enterprise_privacy_ca_certs_device" msgid="975646846291012452">"פרטי כניסה מהימנים"</string>
     <string name="enterprise_privacy_ca_certs_personal" msgid="7641368559306519707">"פרטי כניסה מהימנים בפרופיל האישי שלך"</string>
     <string name="enterprise_privacy_ca_certs_work" msgid="2905939250974399645">"פרטי כניסה מהימנים בפרופיל העבודה שלך"</string>
-    <string name="enterprise_privacy_number_ca_certs" msgid="5918439861975410142">"{count,plural, =1{אישור CA אחד}two{# אישורי CA}many{# אישורי CA}other{# אישורי CA}}"</string>
+    <string name="enterprise_privacy_number_ca_certs" msgid="5918439861975410142">"{count,plural, =1{אישור CA אחד}one{# אישורי CA}two{# אישורי CA}other{# אישורי CA}}"</string>
     <string name="enterprise_privacy_lock_device" msgid="3140624232334033641">"מנהל המערכת יכול לנעול את המכשיר ולאפס את הסיסמה"</string>
     <string name="enterprise_privacy_wipe_device" msgid="1714271125636510031">"מנהל המערכת יכול למחוק את כל הנתונים מהמכשיר"</string>
     <string name="enterprise_privacy_failed_password_wipe_device" msgid="8272298134556250600">"מספר הזנות של סיסמה שגויה לפני מחיקה של כל הנתונים מהמכשיר"</string>
     <string name="enterprise_privacy_failed_password_wipe_work" msgid="1184137458404844014">"מספר הזנות של סיסמה שגויה לפני מחיקה של כל הנתונים של פרופיל העבודה"</string>
-    <string name="enterprise_privacy_number_failed_password_wipe" msgid="277415009661470768">"{count,plural, =1{ניסיון אחד}two{# ניסיונות}many{# ניסיונות}other{# ניסיונות}}"</string>
+    <string name="enterprise_privacy_number_failed_password_wipe" msgid="277415009661470768">"{count,plural, =1{ניסיון אחד}one{# ניסיונות}two{# ניסיונות}other{# ניסיונות}}"</string>
     <string name="do_disclosure_generic" msgid="8390478119591845948">"מכשיר זה מנוהל על ידי הארגון שלך."</string>
     <string name="do_disclosure_with_name" msgid="4755509039938948975">"מכשיר זה מנוהל על ידי <xliff:g id="ORGANIZATION_NAME">%s</xliff:g>."</string>
     <string name="do_disclosure_learn_more_separator" msgid="4226390963162716446">" "</string>
+    <string name="hdr_capability" msgid="3331021013422460270">"- %1$s"</string>
     <string name="learn_more" msgid="820336467414665686">"מידע נוסף"</string>
-    <string name="default_camera_app_title" msgid="4573905807226306484">"{count,plural, =1{אפליקציית מצלמה}two{אפליקציות מצלמה}many{אפליקציות מצלמה}other{אפליקציות מצלמה}}"</string>
+    <string name="default_camera_app_title" msgid="4573905807226306484">"{count,plural, =1{אפליקציית מצלמה}one{אפליקציות מצלמה}two{אפליקציות מצלמה}other{אפליקציות מצלמה}}"</string>
     <string name="default_calendar_app_title" msgid="1533912443930743532">"אפליקציית יומן"</string>
     <string name="default_contacts_app_title" msgid="7792041146751261191">"אפליקציית אנשי קשר"</string>
-    <string name="default_email_app_title" msgid="3712283056326496555">"{count,plural, =1{אפליקציה של תוכנת אימייל}two{אפליקציות של תוכנת אימייל}many{אפליקציות של תוכנת אימייל}other{אפליקציות של תוכנת אימייל}}"</string>
+    <string name="default_email_app_title" msgid="3712283056326496555">"{count,plural, =1{אפליקציה של תוכנת אימייל}one{אפליקציות של תוכנת אימייל}two{אפליקציות של תוכנת אימייל}other{אפליקציות של תוכנת אימייל}}"</string>
     <string name="default_map_app_title" msgid="9051013257374474801">"אפליקציית מפה"</string>
-    <string name="default_phone_app_title" msgid="4833449131501871644">"{count,plural, =1{אפליקציית טלפון}two{אפליקציות טלפון}many{אפליקציות טלפון}other{אפליקציות טלפון}}"</string>
+    <string name="default_phone_app_title" msgid="4833449131501871644">"{count,plural, =1{אפליקציית טלפון}one{אפליקציות טלפון}two{אפליקציות טלפון}other{אפליקציות טלפון}}"</string>
     <string name="default_browser_title" msgid="3612813200586492159">"אפליקציית דפדפן"</string>
     <string name="app_names_concatenation_template_2" msgid="5297284354915830297">"<xliff:g id="FIRST_APP_NAME">%1$s</xliff:g>, <xliff:g id="SECOND_APP_NAME">%2$s</xliff:g>"</string>
     <string name="app_names_concatenation_template_3" msgid="4932774380339466733">"<xliff:g id="FIRST_APP_NAME">%1$s</xliff:g>, <xliff:g id="SECOND_APP_NAME">%2$s</xliff:g>, <xliff:g id="THIRD_APP_NAME">%3$s</xliff:g>"</string>
@@ -332,7 +369,7 @@
     <string name="about_version" msgid="6223547403835399861">"גרסת מערכת הפעלה של Android TV"</string>
     <string name="about_serial" msgid="3432319328808745459">"מספר סידורי"</string>
     <string name="about_build" msgid="8467840394761634575">"Build של מערכת הפעלה של Android TV"</string>
-    <string name="show_dev_countdown" msgid="4064986225625409361">"{count,plural, =1{נותר עוד שלב אחד להגדרתך כמפתח}two{נותרו עוד # שלבים להגדרתך כמפתח}many{נותרו עוד # שלבים להגדרתך כמפתח}other{נותרו עוד # שלבים להגדרתך כמפתח}}"</string>
+    <string name="show_dev_countdown" msgid="4064986225625409361">"{count,plural, =1{נותר עוד שלב אחד להגדרתך כמפתח}one{נותרו עוד # שלבים להגדרתך כמפתח}two{נותרו עוד # שלבים להגדרתך כמפתח}other{נותרו עוד # שלבים להגדרתך כמפתח}}"</string>
     <string name="about_ads" msgid="7662896442040086522">"מודעות"</string>
     <string name="ads_description" msgid="8081069475265061074">"ניהול הגדרות המודעות, למשל איפוס של מזהה הפרסום."</string>
     <string name="ads_content_description" msgid="1006489792324920289">"מודעות, ניהול הגדרות המודעות כגון איפוס של מזהה הפרסום."</string>
@@ -346,7 +383,7 @@
     <string name="additional_system_update_settings_list_item_title" msgid="1839534735929143986">"עדכוני מערכת נוספים"</string>
     <string name="ssl_ca_cert_warning" msgid="7836390021162211069">"ייתכן שהרשת מנוטרת"</string>
     <string name="done_button" msgid="616159688526431451">"בוצע"</string>
-    <string name="sl_ca_cert_dialog_title" msgid="5104377991202801698">"{count,plural, =1{קבלת מהימנות או הסרה של אישור}two{קבלת מהימנות או הסרה של אישורים}many{קבלת מהימנות או הסרה של אישורים}other{קבלת מהימנות או הסרה של אישורים}}"</string>
+    <string name="sl_ca_cert_dialog_title" msgid="5104377991202801698">"{count,plural, =1{קבלת מהימנות או הסרה של אישור}one{קבלת מהימנות או הסרה של אישורים}two{קבלת מהימנות או הסרה של אישורים}other{קבלת מהימנות או הסרה של אישורים}}"</string>
     <string name="device_status" msgid="8266002761193692207">"סטטוס"</string>
     <string name="device_status_summary" msgid="3270932829412434985">"רשת, מספרים סידוריים ומידע נוסף"</string>
     <string name="manual" msgid="5683935624321864999">"ידני"</string>
@@ -590,6 +627,7 @@
     <string name="recently_accessed_show_all" msgid="5234849189704717855">"הצגת הכול"</string>
     <string name="microphone" msgid="7893752847683941214">"מיקרופון"</string>
     <string name="mic_toggle_title" msgid="7193417007060235665">"גישה למיקרופון"</string>
+    <string name="mic_remote_toggle_title" msgid="7153283895012570080">"גישה למיקרופון בשלט הרחוק"</string>
     <string name="open_mic_permissions" msgid="8121871594807641073">"גישה של אפליקציות למיקרופון"</string>
     <string name="microphone_physical_privacy_enabled_title" msgid="6135130916399886772">"הגישה למיקרופון חסומה"</string>
     <string name="microphone_physical_privacy_enabled_text" msgid="401238365312924088">"כדי לבטל את החסימה ולאפשר גישה למיקרופון, צריך להעביר את מתג הפרטיות במכשיר למצב \'המיקרופון פועל\'."</string>
@@ -599,7 +637,11 @@
     <string name="camera_physical_privacy_enabled_title" msgid="1944155695921165511">"הגישה למצלמה חסומה"</string>
     <string name="camera_physical_privacy_enabled_text" msgid="6692088634676282779">"כדי לבטל את החסימה ולאפשר גישה למצלמה, צריך להעביר את מתג הפרטיות במכשיר למצב \'המצלמה פועלת\'."</string>
     <string name="mic_toggle_info_title" msgid="1086545614315873599">"סטטוס הגישה למיקרופון: <xliff:g id="SENSOR_STATE">%s</xliff:g>"</string>
-    <string name="mic_toggle_info_content" msgid="4699624900513326055">"כשההגדרה מופעלת, לכל האפליקציות והשירותים יש גישה לכל מיקרופון במכשיר הזה.\n\nההגדרה לא תשפיע על ציוד אודיו היקפי של עם פרוטוקול בהתאמה אישית."</string>
+    <string name="mic_toggle_info_content" msgid="3187791167208947239">"כשהמיקרופון מופעל, כל האפליקציות והשירותים המורשים להשתמש במיקרופון יוכלו לגשת אליו.\n\nכשהמיקרופון כבוי, אפליקציות או שירותים לא יוכלו לגשת למיקרופון. עדיין יתאפשר לך לדבר עם Google Assistant על ידי לחיצה על לחצן המעבר ל-Assistant בשלט הרחוק.\n\nייתכן שהתקני אודיו שמשתמשים בפרוטוקולים מותאמים אישית לתקשורת עם הטלוויזיה לא יושפעו מההגדרה הזו."</string>
+    <string name="mic_remote_toggle_on_info_title" msgid="8503441878870972046">"המיקרופון בשלט הרחוק מופעל"</string>
+    <string name="mic_remote_toggle_on_info_content" msgid="2715872916376493679">"Google Assistant יכולה לגשת למיקרופון בשלט הרחוק שלך. יתאפשר לך לדבר עם ה-Assistant על ידי לחיצה על כפתור Google Assistant בשלט הרחוק."</string>
+    <string name="mic_remote_toggle_off_info_title" msgid="4902909833546393713">"המיקרופון בשלט הרחוק מושבת"</string>
+    <string name="mic_remote_toggle_off_info_content" msgid="8062526350553191004">"לא תהיה לך אפשרות לדבר עם Google Assistant באמצעות השלט הרחוק. כדי להשתמש בכפתור Google Assistant, צריך לאפשר גישה למיקרופון."</string>
     <string name="camera_toggle_info_title" msgid="3871317082313736088">"סטטוס הגישה למצלמה: <xliff:g id="SENSOR_STATE">%s</xliff:g>"</string>
     <string name="camera_toggle_info_content" msgid="2999965953853204003">"כשההגדרה מופעלת, לכל האפליקציות והשירותים יש גישה לכל מצלמה במכשיר הזה.\n\nההגדרה לא תשפיע על ציוד היקפי של מצלמות עם פרוטוקול בהתאמה אישית."</string>
     <string name="sensor_toggle_info_on" msgid="4568111889147132257">"מופעל"</string>
@@ -625,11 +667,36 @@
     <string name="location_history_desc" msgid="926674012916014270">"כשהיסטוריית המיקומים פועלת עבור החשבון הזה, Google יכולה לאחסן את נתוני המיקום של המכשיר שלך לשימוש על ידי אפליקציות אחרות.\n\nלדוגמה, מפות Google יכול לספק לך מסלול ו-Google Now יכול ליידע אותך על עומסי תנועה.\n\nניתן לכבות את היסטוריית המיקומים בכל עת, אך פעולה זו לא מוחקת אותה. כדי להציג ולנהל את היסטוריית המיקומים, היכנס לכתובת maps.google.com/locationhistory."</string>
     <string name="delete_location_history_title" msgid="707559064715633152">"מחק היסטוריית מיקומים"</string>
     <string name="delete_location_history_desc" msgid="4035229731487113147">"הפעולה הזו תמחק את כל היסטוריית המיקומים השמורה במכשיר עבור חשבון Google הזה. לא תוכל לבטל את המחיקה הזו. חלק מהאפליקציות, כולל Google Now, יפסיקו לעבוד."</string>
-    <string name="system_services" msgid="5754310941186053151">"שירותים"</string>
+    <string name="accessibility_screen_readers_category_title" msgid="7742526514873922018">"קוראי מסך"</string>
+    <string name="accessibility_display_category_title" msgid="593444602101558017">"מסך"</string>
+    <string name="accessibility_interaction_controls_category_title" msgid="5290687835178852745">"פקדי אינטראקציה"</string>
+    <string name="accessibility_audio_and_onscreen_text_category_title" msgid="113841605896486212">"אודיו וטקסט שמופיע במסך"</string>
+    <string name="accessibility_experimental_category_title" msgid="3401773834179170206">"ניסיוני"</string>
+    <string name="accessibility_services_category_title" msgid="8813843874978910442">"שירותים"</string>
     <string name="accessibility_service_settings" msgid="3251334786870932423">"הגדרות שירות"</string>
+    <string name="accessibility_screen_reader_flattened_component_name" msgid="6834614827111101213">"com.google.android.marvin.talkback/com.google.android.marvin.talkback.TalkBackService"</string>
     <string name="accessibility_toggle_high_text_contrast_preference_title" msgid="9200419191468995574">"טקסט עם ניגודיות גבוהה"</string>
+    <string name="accessibility_toggle_bold_text_preference_title" msgid="3328992531170432669">"טקסט מודגש"</string>
+    <string name="accessibility_color_correction" msgid="6765093204922184119">"תיקון צבע"</string>
+    <string name="color_correction_usage" msgid="4160611639548748657">"שימוש בתיקון צבע"</string>
+    <string name="color_correction_color_mode" msgid="5081377780734779169">"מצב הצבעים"</string>
+    <string name="color_correction_mode_deuteranomaly" msgid="1513793544554228224">"דוטרנומליה"</string>
+    <string name="color_correction_mode_deuteranomaly_summary" msgid="5991561481464520986">"אדום-ירוק"</string>
+    <string name="color_correction_mode_protanomaly" msgid="8105793166015115037">"פרוטנומליה"</string>
+    <string name="color_correction_mode_protanomaly_summary" msgid="3247619910784115563">"אדום-ירוק"</string>
+    <string name="color_correction_mode_tritanomaly" msgid="757769418392736089">"טריטנומליה"</string>
+    <string name="color_correction_mode_tritanomaly_summary" msgid="137712354510881252">"כחול-צהוב"</string>
+    <string name="color_correction_mode_grayscale" msgid="2592973844160514484">"גווני אפור"</string>
+    <string name="palette_color_red" msgid="507196433434979086">"אדום"</string>
+    <string name="palette_color_orange" msgid="6209196069366109835">"כתום"</string>
+    <string name="palette_color_yellow" msgid="298466132578870590">"צהוב"</string>
+    <string name="palette_color_green" msgid="4904783063036825668">"ירוק"</string>
+    <string name="palette_color_cyan" msgid="3212217287628948203">"ציאן"</string>
+    <string name="palette_color_blue" msgid="8836682634988540630">"כחול"</string>
+    <string name="palette_color_purple" msgid="2123828754639683555">"סגול"</string>
+    <string name="palette_color_gray" msgid="4014534773994261194">"אפור"</string>
     <string name="accessibility_shortcut" msgid="5856158637840030531">"קיצור דרך לנגישות"</string>
-    <string name="accessibility_shortcut_enable" msgid="6603542432267329986">"הפעל את קיצור הדרך לנגישות"</string>
+    <string name="accessibility_shortcut_enable" msgid="6603542432267329986">"הפעלת קיצור הדרך לנגישות"</string>
     <string name="accessibility_shortcut_service" msgid="2053250146891420311">"שירות קיצורי הדרך"</string>
     <string name="accessibility_shortcut_description" msgid="2050424178481510046">"כאשר קיצור הדרך מופעל, ניתן ללחוץ בו זמנית על הלחצן \'הקודם\' ועל החץ למטה למשך שלוש שניות כדי להפעיל תכונת נגישות."</string>
     <string name="accessibility_captions" msgid="3411554568812306549">"כתוביות"</string>
@@ -812,9 +879,9 @@
     <string name="inputs_device_auto_off_desc" msgid="1164897242719608201">"כבה מכשירי HDNI עם הטלוויזיה"</string>
     <string name="inputs_tv_auto_on" msgid="544848340484583318">"הפעלה אוטומטית של הטלוויזיה"</string>
     <string name="inputs_tv_auto_on_desc" msgid="3640723210479925817">"הפעל את הטלוויזיה עם מכשיר HDMI"</string>
-    <string name="inputs_header_connected_input" msgid="4323324944548164849">"{count,plural, =1{כניסת קלט מחוברת}two{כניסות קלט מחוברות}many{כניסות קלט מחוברות}other{כניסות קלט מחוברות}}"</string>
-    <string name="inputs_header_standby_input" msgid="600117963181008144">"{count,plural, =1{כניסת קלט בהמתנה}two{כניסות קלט בהמתנה}many{כניסות קלט בהמתנה}other{כניסות קלט בהמתנה}}"</string>
-    <string name="inputs_header_disconnected_input" msgid="3852361100151289264">"{count,plural, =1{כניסת קלט לא מחוברת}two{כניסות קלט לא מחוברות}many{כניסות קלט לא מחוברות}other{כניסות קלט לא מחוברות}}"</string>
+    <string name="inputs_header_connected_input" msgid="4323324944548164849">"{count,plural, =1{כניסת קלט מחוברת}one{כניסות קלט מחוברות}two{כניסות קלט מחוברות}other{כניסות קלט מחוברות}}"</string>
+    <string name="inputs_header_standby_input" msgid="600117963181008144">"{count,plural, =1{כניסת קלט בהמתנה}one{כניסות קלט בהמתנה}two{כניסות קלט בהמתנה}other{כניסות קלט בהמתנה}}"</string>
+    <string name="inputs_header_disconnected_input" msgid="3852361100151289264">"{count,plural, =1{כניסת קלט לא מחוברת}one{כניסות קלט לא מחוברות}two{כניסות קלט לא מחוברות}other{כניסות קלט לא מחוברות}}"</string>
     <string name="user_add_profile_item_summary" msgid="3211866291940617804">"הגבל גישה אל אפליקציות ותוכן אחר בחשבון שלך"</string>
     <string name="user_new_profile_name" msgid="6637593067318708353">"פרופיל מוגבל"</string>
     <string name="user_restrictions_controlled_by" msgid="8124926446168030445">"בשליטת <xliff:g id="APP">%1$s</xliff:g>"</string>
@@ -853,24 +920,24 @@
     <string name="device_apps_app_management_open" msgid="4249743535677261897">"פתח"</string>
     <string name="device_apps_app_management_force_stop" msgid="4454221309989640309">"אילוץ עצירה"</string>
     <string name="device_apps_app_management_force_stop_desc" msgid="1980972142863114899">"אם תאלץ עצירה של אפליקציה, ייתכן שהיא לא תפעל כהלכה."</string>
-    <string name="device_apps_app_management_uninstall" msgid="4171103696233332967">"הסר התקנה"</string>
-    <string name="device_apps_app_management_uninstall_updates" msgid="5647988075828648951">"הסר התקנה של עדכונים"</string>
+    <string name="device_apps_app_management_uninstall" msgid="4171103696233332967">"הסרת ההתקנה"</string>
+    <string name="device_apps_app_management_uninstall_updates" msgid="5647988075828648951">"הסרת ההתקנה של עדכונים"</string>
     <string name="device_apps_app_management_uninstall_updates_desc" msgid="4508586498292236706">"כל העדכונים לאפליקציית מערכת Android הזו יוסרו."</string>
-    <string name="device_apps_app_management_disable" msgid="819003297535493633">"השבת"</string>
+    <string name="device_apps_app_management_disable" msgid="819003297535493633">"השבתה"</string>
     <string name="device_apps_app_management_disable_desc" msgid="9143166267511427607">"האם ברצונך להשבית את האפליקציה הזו?"</string>
     <string name="device_apps_app_management_enable" msgid="9173340340253029114">"הפעלה"</string>
     <string name="device_apps_app_management_enable_desc" msgid="8686291003061136476">"האם ברצונך להפעיל את האפליקציה הזו?"</string>
     <string name="device_apps_app_management_storage_used" msgid="6725789557993296433">"שטח אחסון בשימוש"</string>
     <string name="device_apps_app_management_storage_used_desc" msgid="8928632612101487179">"<xliff:g id="SIZE">%1$s</xliff:g> בשימוש ב-<xliff:g id="VOLUME">%2$s</xliff:g>"</string>
-    <string name="device_apps_app_management_clear_data" msgid="7305471678286735600">"נקה נתונים"</string>
+    <string name="device_apps_app_management_clear_data" msgid="7305471678286735600">"ניקוי נתונים"</string>
     <string name="device_apps_app_management_clear_data_desc" msgid="170972356946852847">"כל נתוני האפליקציה הזו יימחקו לצמיתות.\nנתונים אלה כוללים את כל הקבצים, ההגדרות, החשבונות, מסדי הנתונים וכו\'."</string>
-    <string name="device_apps_app_management_clear_default" msgid="4566187319647111484">"נקה ברירות מחדל"</string>
+    <string name="device_apps_app_management_clear_default" msgid="4566187319647111484">"ניקוי ברירות המחדל"</string>
     <string name="device_apps_app_management_clear_default_set" msgid="1649974109123107390">"הגדר הפעלה של האפליקציה לפעולות מסוימות"</string>
     <string name="device_apps_app_management_clear_default_none" msgid="5935252537185381597">"לא הוגדרו ברירות מחדל"</string>
-    <string name="device_apps_app_management_clear_cache" msgid="2678301483598915479">"נקה מטמון"</string>
+    <string name="device_apps_app_management_clear_cache" msgid="2678301483598915479">"ניקוי המטמון"</string>
     <string name="device_apps_app_management_notifications" msgid="1687529279264810317">"התראות"</string>
     <string name="device_apps_app_management_licenses" msgid="4809737266551899869">"מקור של צד שלישי"</string>
-    <string name="device_apps_app_management_permissions" msgid="4951820230491375037">"אישורים"</string>
+    <string name="device_apps_app_management_permissions" msgid="4951820230491375037">"הרשאות"</string>
     <string name="device_apps_app_management_not_available" msgid="4198634078194500518">"האפליקציה אינה זמינה"</string>
     <string name="unused_apps" msgid="5539166745483454543">"אפליקציות שמזמן לא השתמשת בהן"</string>
     <string name="settings_ok" msgid="5950888975075541964">"אישור"</string>
@@ -885,12 +952,24 @@
     <string name="device_daydreams_sleep_description" msgid="6237610484915504587">"שומר המסך מתחיל לאחר תקופת חוסר הפעילות הזו. אם לא ייבחר שומר מסך, התצוגה תיכבה."</string>
     <string name="device_daydreams_sleep_summary" msgid="3081688734381995693">"אחרי חוסר פעילות במשך <xliff:g id="SLEEP_DESCRIPTION">%1$s</xliff:g>"</string>
     <string name="device_energy_saver_screen_off" msgid="6908468996426629480">"כיבוי התצוגה"</string>
-    <string name="device_energy_saver_screen_off_description" msgid="4469679706899396071">"אחרי <xliff:g id="SLEEP_DESCRIPTION">%1$s</xliff:g>"</string>
-    <string name="device_energy_saver_screen_off_dialog_title" msgid="4092476553760123309">"כיבוי התצוגה אחרי"</string>
-    <string name="device_energy_saver_allow_turning_screen_off" msgid="3832490233158066073">"הרשאה לכבות את המסך"</string>
-    <string name="device_energy_saver_allow_turning_screen_off_description" msgid="6369746832941270786">"במהלך הפעלה של מדיה"</string>
-    <string name="device_energy_saver_confirmation_title" msgid="3888708298070409591">"אישור ההגדרה \'חיסכון באנרגיה\'"</string>
-    <string name="device_energy_saver_confirmation_text" msgid="3157546670441493125">"עליך לאשר את ההגדרה החדשה של <xliff:g id="SLEEP_TIME">%1$s</xliff:g>. להגדרה זאת יש פוטנציאל לגרום לצריכת אנרגיה מוגברת."</string>
+    <!-- no translation found for device_energy_saver_timeout_description (3206609135199137514) -->
+    <skip />
+    <string name="device_energy_saver_confirmation_title" msgid="7614859812773584773">"אישור ההגדרה של הפעלה ואנרגיה"</string>
+    <string name="device_energy_saver_confirmation_message" msgid="7789453187001013951">"השארת הטלוויזיה דולקת למשך זמן רב עשויה להגדיל את צריכת האנרגיה"</string>
+    <string name="device_energy_saver_disable_allow_turning_screen_off_title" msgid="1468097048101593731">"השבתה של הגדרת החיסכון באנרגיה"</string>
+    <string name="device_energy_saver_disable_allow_turning_screen_off_text" msgid="6334963903866002164">"להשבית את כיבוי המסך בזמן הצפייה? השארת המסך דלוק עלולה לגרום לצריכת אנרגיה מוגברת."</string>
+    <string name="device_energy_saver_sleep_timeout" msgid="1841900768718452039">"כשאין פעילות"</string>
+    <string name="device_energy_saver_attentive_timeout" msgid="3649486668821348087">"בזמן הצפייה"</string>
+    <string name="device_energy_saver_category_title" msgid="170076161677525986">"כיבוי אוטומטי"</string>
+    <string name="device_energy_saver_sleep_timeout_dialog_title" msgid="6588352532253294558">"כיבוי אוטומטי כשאין פעילות"</string>
+    <string name="device_energy_saver_attentive_timeout_dialog_title" msgid="3273988875711109352">"כיבוי אוטומטי בזמן הצפייה"</string>
+    <string name="device_energy_saver_validation_sleep" msgid="7490897287741107840">"משך הזמן שמוגדר בטיימר \'כשאין פעילות\' צריך להיות קצר יותר ממשך הזמן שמוגדר בטיימר \'בזמן הצפייה\'"</string>
+    <string name="device_energy_saver_validation_attentive" msgid="1461105528087097435">"משך הזמן שמוגדר בטיימר \'בזמן הצפייה\' צריך להיות ארוך יותר ממשך הזמן שמוגדר בטיימר \'כשאין פעילות\'"</string>
+    <string name="limit_network_in_standby_toggle_title" msgid="6587185599397355336">"הגבלת החיבור לרשת במצב המתנה"</string>
+    <string name="limit_network_in_standby_toggle_summary" msgid="9127792748675581174">"במצב המתנה הטלוויזיה צורכת פחות אנרגיה"</string>
+    <string name="limit_network_in_standby_toggle_info" msgid="566947772381093991">"במצב המתנה הטלוויזיה תתנתק מהרשת, ותתחבר רק לקבלת עדכונים אוטומטיים. הפעולה הזו תפחית את צריכת האנרגיה של הטלוויזיה, אבל לא ניתן יהיה להשתמש בפונקציות כמו העברה (Cast) ו-Google Assistant במצב ההמתנה."</string>
+    <string name="limit_network_in_standby_confirm_title" msgid="789232987058850322">"הרשאה לחיבור לרשת במצב המתנה"</string>
+    <string name="limit_network_in_standby_confirm_message" msgid="7176699480768019689">"מתן הרשאה לחיבור לרשת במצב המתנה יגדיל את צריכת האנרגיה במצב המתנה."</string>
     <string name="backup_configure_account_default_summary" msgid="2170733614341544296">"אין חשבון המאחסן כעת נתונים מגובים"</string>
     <string name="backup_erase_dialog_title" msgid="6008454053276987100"></string>
     <string name="backup_erase_dialog_message" msgid="222169533402624861">"האם להפסיק את הגיבוי של סיסמאות ה-Wi-Fi, הסימניות, נתוני האפליקציות והגדרות אחרות ולמחוק את כל העותקים משרתי Google?"</string>
@@ -918,7 +997,7 @@
     <string name="device_name_suggestion_summary" msgid="4582691399302362938">"יש לבחור בשם זה כשמעבירים תמונות, סרטונים ופריטים נוספים מהטלפון"</string>
     <string name="change_setting" msgid="7211706374208138343">"שינוי"</string>
     <string name="keep_settings" msgid="703474489210093961">"ללא שינוי"</string>
-    <string name="apps_permissions" msgid="7876407267050498394">"אישורים"</string>
+    <string name="apps_permissions" msgid="7876407267050498394">"הרשאות"</string>
     <string name="device_apps_permissions" msgid="8421323706003063878">"הרשאות לאפליקציות"</string>
     <string name="app_permissions_group_summary" msgid="6818210080117761117">"<xliff:g id="COUNT_0">%1$d</xliff:g> מתוך <xliff:g id="COUNT_1">%2$d</xliff:g> אפליקציות קיבלו הרשאה"</string>
     <string name="bluetooth_permission_request" msgid="7788089036741496993">"בקשה להרשאת Bluetooth"</string>
@@ -978,12 +1057,17 @@
     <string name="time_to_start_read_title" msgid="6565449163802837806">"משך הזמן לתחילת הקריאה"</string>
     <string name="time_to_valid_audio_title" msgid="7246101824813414348">"משך הזמן עד לנתוני אודיו תקפים"</string>
     <string name="empty_audio_duration_title" msgid="9024377320171450683">"משך הזמן של האודיו הריק"</string>
+    <string name="record_audio_source_title" msgid="9087784503276397929">"מקור האודיו המוקלט"</string>
+    <string name="record_audio_source_dialog_title" msgid="6556408220589197097">"בחירת מקור האודיו המוקלט עבור ההקלטה הבאה"</string>
+    <string name="recorded_microphones_title" msgid="5466988146086215426">"המיקרופון המקליט"</string>
     <string name="show_audio_recording_start_failed" msgid="9131762831381326605">"ניסיון ההפעלה של הקלטת האודיו נכשל."</string>
     <string name="show_audio_recording_failed" msgid="8128216664039868681">"הקלטת האודיו נכשלה."</string>
     <string name="title_data_saver" msgid="7500278996154002792">"חוסך הנתונים (Data Saver)"</string>
     <string name="summary_data_saver" msgid="6793558728898207405">"התאמה אוטומטית של איכות וידאו לשימוש מופחת בחבילת גלישה"</string>
     <string name="title_data_alert" msgid="8262081890052682475">"שימוש בחבילת הגלישה והתראות"</string>
     <string name="data_saver_header_info" msgid="2706725187498535785">"אפשר להתחבר לאינטרנט באמצעות Wi-Fi, אתרנט או נקודה לשיתוף אינטרנט בטלפון."</string>
+    <string name="bluetooth_ask_discovery_title" msgid="4955540555242269694">"רוצה שהמכשיר יהיה גלוי למכשירי Bluetooth נוספים?"</string>
+    <string name="bluetooth_ask_discovery_message" msgid="8609666862877703398">"אפליקציה מסוימת רוצה להפוך את הטלפון שלך לגלוי בפני מכשירי Bluetooth אחרים למשך <xliff:g id="TIMEOUT">%1$d</xliff:g> שניות."</string>
     <string name="help_center_title" msgid="6109822142761302433"></string>
     <string name="disabled_by_policy_title" msgid="2220484346213756472">"הפעולה אינה מותרת"</string>
     <string name="disabled_by_policy_title_adjust_volume" msgid="4229779946666263271">"לא ניתן לשנות את הנפח"</string>
@@ -1034,4 +1118,9 @@
     <string name="power_on_behavior" msgid="927607372303160716">"התנהגות בהפעלה"</string>
     <string name="reset_options_title" msgid="7632580482285108955">"איפוס"</string>
     <string name="adb_pairing_device_dialog_ethernet_pairing_code_label" msgid="7551782499828944838">"קוד התאמה לאתרנט"</string>
+    <string name="energy_modes" msgid="1331693860386361744">"מצבי אנרגיה"</string>
+    <string name="energy_modes_summary" msgid="7196407759836930799">"שיפור החיסכון באנרגיה כשהטלוויזיה לא בשימוש"</string>
+    <string name="energy_mode_enables" msgid="357960364751477627">"תכונות מופעלות:"</string>
+    <string name="energy_mode_eco_hint" msgid="1461517905015359947">"יש לשים לב שהמצב הזה עשוי להגדיל את צריכת החשמל של המכשיר."</string>
+    <string name="energy_modes_confirmation_title" msgid="4520280098781914825">"הפעלת מצב \'<xliff:g id="ENERGYMODENAME">%s</xliff:g>\'"</string>
 </resources>

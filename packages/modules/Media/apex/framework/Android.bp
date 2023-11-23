@@ -51,11 +51,17 @@ java_library {
         // This MUST not be used for compilation within the media module, use
         // framework-media.impl instead.
         "//frameworks/av/apex:__subpackages__",
+
+        // DO NOT REMOVE: Legacy visibility, needed for snapshots that are
+        // generated for the S build.
+        "//frameworks/base",
+        "//frameworks/base/apex/media/service",
     ],
 }
 
 filegroup {
     name: "updatable-media-srcs",
+    defaults: ["framework-sources-module-defaults"],
     srcs: [
         "java/android/media/MediaFrameworkInitializer.java",
         ":media-aidl-srcs",
@@ -64,7 +70,6 @@ filegroup {
         ":mediasession2-java-srcs",
         ":mediatranscoding-srcs",
     ],
-    visibility: ["//frameworks/base"],
 }
 
 filegroup {
@@ -137,8 +142,6 @@ java_sdk_library {
     ],
     jarjar_rules: "jarjar_rules.txt",
 
-    plugins: ["java_api_finder"],
-
     apex_available: [
         "com.android.media",
         "test_com.android.media",
@@ -147,6 +150,9 @@ java_sdk_library {
         strict_updatability_linting: true,
     },
     min_sdk_version: "29",
+    permitted_packages: [
+        "android.media",
+    ],
 }
 
 cc_library_shared {
@@ -171,4 +177,22 @@ cc_library_shared {
         "com.android.media",
     ],
     min_sdk_version: "29",
+}
+
+java_api_contribution {
+    name: "framework-media-public-stubs",
+    api_surface: "public",
+    api_file: "api/current.txt",
+    visibility: [
+        "//build/orchestrator/apis",
+    ],
+}
+
+java_api_contribution {
+    name: "framework-media-module-lib-stubs",
+    api_surface: "module-lib",
+    api_file: "api/module-lib-current.txt",
+    visibility: [
+        "//build/orchestrator/apis",
+    ],
 }

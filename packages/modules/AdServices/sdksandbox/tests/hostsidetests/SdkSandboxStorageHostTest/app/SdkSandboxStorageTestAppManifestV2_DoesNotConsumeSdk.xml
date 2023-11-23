@@ -19,9 +19,21 @@
     package="com.android.tests.sdksandbox"
     android:versionCode="2"
     android:versionName="2.0">
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 
     <application>
         <uses-library android:name="android.test.runner" />
+        <activity android:name="android.app.sdksandbox.testutils.EmptyActivity"
+                  android:exported="true"
+                  android:turnScreenOn="true"
+                  android:keepScreenOn="true"
+                  android:showWhenLocked="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
     </application>
 
     <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"

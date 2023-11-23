@@ -1,3 +1,7 @@
+//! Macros to make working with dbus-rs easier.
+//!
+//! This crate provides several macros to make it easier to project Rust types
+//! and traits onto D-Bus.
 extern crate proc_macro;
 
 use quote::{format_ident, quote, ToTokens};
@@ -42,13 +46,28 @@ pub fn dbus_method(_attr: TokenStream, item: TokenStream) -> TokenStream {
     gen.into()
 }
 
-/// Generates a function to export a Rust object to D-Bus.
+/// Generates a function to export a Rust object to D-Bus. The result will provide an IFaceToken
+/// that must then be registered to an object.
 ///
 /// Example:
-///   `#[generate_dbus_exporter(export_foo_dbus_obj, "org.example.FooInterface")]`
+///   `#[generate_dbus_exporter(export_foo_dbus_intf, "org.example.FooInterface")]`
+///   `#[generate_dbus_exporter(export_foo_dbus_intf, "org.example.FooInterface", FooMixin, foo]`
 ///
-/// This generates a method called `export_foo_dbus_obj` that will export a Rust object into a
-/// D-Bus object having interface `org.example.FooInterface`.
+/// This generates a method called `export_foo_dbus_intf` that will export a Rust object type into a
+/// interface token for `org.example.FooInterface`. This interface must then be inserted to an
+/// object in order to be exported.
+///
+/// If the mixin parameter is provided, you must provide the mixin class when registering with
+/// crossroads (and that's the one that should be Arc<Mutex<...>>.
+///
+/// # Args
+///
+/// `exporter`: Function name for outputted interface exporter.
+/// `interface`: Name of the interface where this object should be exported.
+/// `mixin_type`: The name of the Mixin struct. Mixins should be used when
+///               exporting multiple interfaces and objects under a single object
+///               path.
+/// `mixin`: Name of this object in the mixin where it's implemented.
 #[proc_macro_attribute]
 pub fn generate_dbus_exporter(attr: TokenStream, item: TokenStream) -> TokenStream {
     let ori_item: proc_macro2::TokenStream = item.clone().into();
@@ -67,12 +86,28 @@ pub fn generate_dbus_exporter(attr: TokenStream, item: TokenStream) -> TokenStre
         panic!("D-Bus interface name must be specified");
     };
 
+    // Must provide both a mixin type and name.
+    let (mixin_type, mixin_name) = if args.len() > 3 {
+        match (&args[2], &args[3]) {
+            (Expr::Path(t), Expr::Path(n)) => (Some(t), Some(n)),
+            (_, _) => (None, None),
+        }
+    } else {
+        (None, None)
+    };
+
     let ast: ItemImpl = syn::parse(item.clone()).unwrap();
     let api_iface_ident = ast.trait_.unwrap().1.to_token_stream();
 
     let mut register_methods = quote! {};
 
-    let obj_type = quote! { std::sync::Arc<std::sync::Mutex<Box<T>>> };
+    // If the object isn't expected to be part of a mixin, expect the object
+    // type to be Arc<Mutex<Box<T>>>. Otherwise, we accept any type T and depend
+    // on the field name lookup to throw an error.
+    let obj_type = match mixin_type {
+        None => quote! { std::sync::Arc<std::sync::Mutex<Box<T>>> },
+        Some(t) => quote! { Box<#t> },
+    };
 
     for item in ast.items {
         if let ImplItem::Method(method) = item {
@@ -165,6 +200,19 @@ pub fn generate_dbus_exporter(attr: TokenStream, item: TokenStream) -> TokenStre
                 output_names = quote! { "out", };
             }
 
+            let method_call = match mixin_name {
+                Some(name) => {
+                    quote! {
+                        let ret = obj.#name.lock().unwrap().#method_name(#method_args);
+                    }
+                }
+                None => {
+                    quote! {
+                        let ret = obj.lock().unwrap().#method_name(#method_args);
+                    }
+                }
+            };
+
             register_methods = quote! {
                 #register_methods
 
@@ -175,7 +223,7 @@ pub fn generate_dbus_exporter(attr: TokenStream, item: TokenStream) -> TokenStre
                                           #dbus_input_args |
                       -> Result<(#output_type), dbus_crossroads::MethodErr> {
                     #make_args
-                    let ret = obj.lock().unwrap().#method_name(#method_args);
+                    #method_call
                     #ret
                 };
                 ibuilder.method(
@@ -188,28 +236,23 @@ pub fn generate_dbus_exporter(attr: TokenStream, item: TokenStream) -> TokenStre
         }
     }
 
+    // If mixin is not given, we enforce the API trait is implemented when exporting.
+    let type_t = match mixin_type {
+        None => quote! { <T: 'static + #api_iface_ident + Send + ?Sized> },
+        Some(_) => quote! {},
+    };
+
     let gen = quote! {
         #ori_item
 
-        pub fn #fn_ident<T: 'static + #api_iface_ident + Send + ?Sized, P: Into<dbus::Path<'static>>>(
-            path: P,
+        pub fn #fn_ident #type_t(
             conn: std::sync::Arc<dbus::nonblock::SyncConnection>,
             cr: &mut dbus_crossroads::Crossroads,
-            obj: #obj_type,
             disconnect_watcher: std::sync::Arc<std::sync::Mutex<dbus_projection::DisconnectWatcher>>,
-        ) {
-            fn get_iface_token<T: #api_iface_ident + Send + ?Sized>(
-                conn: std::sync::Arc<dbus::nonblock::SyncConnection>,
-                cr: &mut dbus_crossroads::Crossroads,
-                disconnect_watcher: std::sync::Arc<std::sync::Mutex<dbus_projection::DisconnectWatcher>>,
-            ) -> dbus_crossroads::IfaceToken<#obj_type> {
-                cr.register(#dbus_iface_name, |ibuilder| {
-                    #register_methods
-                })
-            }
-
-            let iface_token = get_iface_token(conn, cr, disconnect_watcher);
-            cr.insert(path, &[iface_token], obj);
+        ) -> dbus_crossroads::IfaceToken<#obj_type> {
+            cr.register(#dbus_iface_name, |ibuilder| {
+                #register_methods
+            })
         }
     };
 
@@ -221,11 +264,22 @@ pub fn generate_dbus_exporter(attr: TokenStream, item: TokenStream) -> TokenStre
 /// Generates a client implementation of a D-Bus interface.
 ///
 /// Example:
-///   #[generate_dbus_interface_client()]
+///   #[generate_dbus_interface_client]
 ///
 /// The impl containing #[dbus_method()] will contain a generated code to call the method via D-Bus.
+///
+/// Example:
+///   #[generate_dbus_interface_client(SomeRPC)]
+///
+/// When the RPC wrapper struct name is specified, it also generates the more RPC-friendly struct:
+/// * All methods are async, allowing clients to await (yield) without blocking. Even methods that
+///   are sync at the server side requires clients to "wait" for the return.
+/// * All method returns are wrapped with `Result`, allowing clients to detect D-Bus level errors in
+///   addition to API-level errors.
 #[proc_macro_attribute]
-pub fn generate_dbus_interface_client(_attr: TokenStream, item: TokenStream) -> TokenStream {
+pub fn generate_dbus_interface_client(attr: TokenStream, item: TokenStream) -> TokenStream {
+    let rpc_struct_name = attr.to_string();
+
     let ast: ItemImpl = syn::parse(item.clone()).unwrap();
     let trait_path = ast.trait_.unwrap().1;
     let struct_path = match *ast.self_ty {
@@ -233,7 +287,11 @@ pub fn generate_dbus_interface_client(_attr: TokenStream, item: TokenStream) -> 
         _ => panic!("Struct path not available"),
     };
 
+    // Generated methods
     let mut methods = quote! {};
+
+    // Generated RPC-friendly methods (async and Result-wrapped).
+    let mut rpc_methods = quote! {};
 
     // Iterate on every methods of a trait impl
     for item in ast.items {
@@ -255,6 +313,22 @@ pub fn generate_dbus_interface_client(_attr: TokenStream, item: TokenStream) -> 
             }
 
             let sig = &method.sig;
+
+            // For RPC-friendly method, copy the original signature but add public, async, and wrap
+            // the return with Result.
+            let mut rpc_sig = sig.clone();
+            rpc_sig.asyncness = Some(<syn::Token![async]>::default());
+            rpc_sig.output = match rpc_sig.output {
+                syn::ReturnType::Default => {
+                    syn::parse(quote! {-> Result<(), dbus::Error>}.into()).unwrap()
+                }
+                syn::ReturnType::Type(_arrow, path) => {
+                    syn::parse(quote! {-> Result<#path, dbus::Error>}.into()).unwrap()
+                }
+            };
+            let rpc_sig = quote! {
+                pub #rpc_sig
+            };
 
             let dbus_method_name = if let Meta::List(meta_list) = attr.parse_meta().unwrap() {
                 Some(meta_list.nested[0].clone())
@@ -299,19 +373,18 @@ pub fn generate_dbus_interface_client(_attr: TokenStream, item: TokenStream) -> 
                                         path
                                     };
                             };
-
-                            input_list = quote! {
-                                #input_list
-                                #ident,
-                            };
                         } else {
                             // Convert every parameter to its corresponding type recognized by
                             // the D-Bus library.
-                            input_list = quote! {
-                                #input_list
-                                <#arg_type as DBusArg>::to_dbus(#ident).unwrap(),
+                            object_conversions = quote! {
+                                #object_conversions
+                                    let #ident = <#arg_type as DBusArg>::to_dbus(#ident).unwrap();
                             };
                         }
+                        input_list = quote! {
+                            #input_list
+                            #ident,
+                        };
                     }
                 }
             }
@@ -343,6 +416,26 @@ pub fn generate_dbus_interface_client(_attr: TokenStream, item: TokenStream) -> 
                     }
                 }
             };
+            let rpc_body = match &method.sig.output {
+                // Build the async method call to `self.client_proxy`.
+                ReturnType::Default => {
+                    quote! {
+                        self.client_proxy
+                            .async_method_noreturn(#dbus_method_name, #input_tuple)
+                            .await
+                    }
+                }
+                _ => {
+                    quote! {
+                        self.client_proxy
+                            .async_method(#dbus_method_name, #input_tuple)
+                            .await
+                            .map(|(x,)| {
+                                #output_as_dbus_arg::from_dbus(x, None, None, None).unwrap()
+                            })
+                    }
+                }
+            };
 
             // Assemble the method body. May have object conversions if there is a param that is
             // a proxy object (`Box<dyn>` type).
@@ -351,11 +444,21 @@ pub fn generate_dbus_interface_client(_attr: TokenStream, item: TokenStream) -> 
 
                 #body
             };
+            let rpc_body = quote! {
+                #object_conversions
+
+                #rpc_body
+            };
 
             // The method definition is its signature and the body.
             let generated_method = quote! {
                 #sig {
                     #body
+                }
+            };
+            let generated_rpc_method = quote! {
+                #rpc_sig {
+                    #rpc_body
                 }
             };
 
@@ -365,13 +468,33 @@ pub fn generate_dbus_interface_client(_attr: TokenStream, item: TokenStream) -> 
 
                 #generated_method
             };
+            rpc_methods = quote! {
+                #rpc_methods
+
+                #generated_rpc_method
+            };
         }
     }
 
+    // Generated code for the RPC wrapper struct.
+    let rpc_gen = if rpc_struct_name.is_empty() {
+        quote! {}
+    } else {
+        let rpc_struct = format_ident!("{}", rpc_struct_name);
+        quote! {
+            impl #rpc_struct {
+                #rpc_methods
+            }
+        }
+    };
+
+    // The final generated code.
     let gen = quote! {
         impl #trait_path for #struct_path {
             #methods
         }
+
+        #rpc_gen
     };
 
     debug_output_to_file(
@@ -400,6 +523,43 @@ fn copy_without_attributes(item: &TokenStream) -> TokenStream {
 }
 
 /// Generates a DBusArg implementation to transform Rust plain structs to a D-Bus data structure.
+///
+/// The D-Bus structure constructed by this macro has the signature `a{sv}`.
+///
+/// # Examples
+///
+/// Assume you have a struct as follows:
+/// ```
+///     struct FooBar {
+///         foo: i32,
+///         bar: u8,
+///     }
+/// ```
+///
+/// In order to serialize this into D-Bus (and deserialize it), you must re-declare this struct
+/// as follows. Note that the field names must match but the struct name does not.
+/// ```ignore
+///     #[dbus_propmap(FooBar)]
+///     struct AnyNameIsFineHere {
+///         foo: i32,
+///         bar: u8
+///     }
+/// ```
+///
+/// The resulting serialized D-Bus data will look like the following:
+///
+/// ```text
+/// array [
+///     dict {
+///         key: "foo",
+///         value: Variant(Int32(0))
+///     }
+///     dict {
+///         key: "bar",
+///         value: Variant(Byte(0))
+///     }
+/// ]
+/// ```
 // TODO: Support more data types of struct fields (currently only supports integers and enums).
 #[proc_macro_attribute]
 pub fn dbus_propmap(attr: TokenStream, item: TokenStream) -> TokenStream {
@@ -499,7 +659,6 @@ pub fn dbus_propmap(attr: TokenStream, item: TokenStream) -> TokenStream {
 
                 return Ok(#struct_ident {
                     #field_idents
-                    ..Default::default()
                 });
             }
 
@@ -592,20 +751,74 @@ pub fn dbus_proxy_obj(attr: TokenStream, item: TokenStream) -> TokenStream {
                     let remote__ = self.remote.clone();
                     let objpath__ = self.objpath.clone();
                     let conn__ = self.conn.clone();
-                    tokio::spawn(async move {
-                        let proxy = dbus::nonblock::Proxy::new(
+
+                    let proxy = dbus::nonblock::Proxy::new(
                             remote__,
                             objpath__,
                             std::time::Duration::from_secs(2),
                             conn__,
                         );
-                        let future: dbus::nonblock::MethodReply<()> = proxy.method_call(
-                            #dbus_iface_name,
-                            #dbus_method_name,
-                            (#method_args),
-                        );
-                        let _result = future.await;
-                    });
+                    let future: dbus::nonblock::MethodReply<()> = proxy.method_call(
+                        #dbus_iface_name,
+                        #dbus_method_name,
+                        (#method_args),
+                    );
+
+                    // Acquire await lock before pushing task.
+                    let has_await_block = {
+                        let await_guard = self.futures_awaiting.lock().unwrap();
+                        self.cb_futures.lock().unwrap().push_back(future);
+                        *await_guard
+                    };
+
+                    // Only insert async task if there isn't already one.
+                    if !has_await_block {
+                        // Callbacks will await in the order they were called.
+                        let futures = self.cb_futures.clone();
+                        let already_awaiting = self.futures_awaiting.clone();
+                        tokio::spawn(async move {
+                            // Check for another await block.
+                            {
+                                let mut await_guard = already_awaiting.lock().unwrap();
+                                if *await_guard {
+                                    return;
+                                }
+
+                                // We are now the only awaiting block. Mark and
+                                // drop the lock.
+                                *await_guard = true;
+                            }
+
+                            loop {
+                                // Go through all pending futures and await them.
+                                while futures.lock().unwrap().len() > 0 {
+                                    let future = {
+                                        let mut guard = futures.lock().unwrap();
+                                        match guard.pop_front() {
+                                            Some(f) => f,
+                                            None => {break;}
+                                        }
+                                    };
+                                    let _result = future.await;
+                                }
+
+                                // Acquire await block and make final check on
+                                // futures list to avoid racing against
+                                // insertion. Must acquire in-order to avoid a
+                                // deadlock.
+                                {
+                                    let mut await_guard = already_awaiting.lock().unwrap();
+                                    let futures_guard = futures.lock().unwrap();
+                                    if (*futures_guard).len() > 0 {
+                                        continue;
+                                    }
+
+                                    *await_guard = false;
+                                    break;
+                                }
+                            }
+                        });
+                    }
                 }
             };
         }
@@ -614,20 +827,38 @@ pub fn dbus_proxy_obj(attr: TokenStream, item: TokenStream) -> TokenStream {
     let gen = quote! {
         #ori_item
 
-        impl RPCProxy for #self_ty {
-            fn register_disconnect(&mut self, _disconnect_callback: Box<dyn Fn(u32) + Send>) -> u32 { 0 }
-            fn get_object_id(&self) -> String {
-                String::from("")
-            }
-            fn unregister(&mut self, _id: u32) -> bool { false }
-            fn export_for_rpc(self: Box<Self>) {}
-        }
+        impl RPCProxy for #self_ty {}
 
         struct #struct_ident {
             conn: std::sync::Arc<dbus::nonblock::SyncConnection>,
             remote: dbus::strings::BusName<'static>,
             objpath: Path<'static>,
             disconnect_watcher: std::sync::Arc<std::sync::Mutex<DisconnectWatcher>>,
+
+            /// Callback futures to await. If accessing with |futures_awaiting|,
+            /// always acquire |futures_awaiting| first to avoid deadlock.
+            cb_futures: std::sync::Arc<std::sync::Mutex<std::collections::VecDeque<dbus::nonblock::MethodReply<()>>>>,
+
+            /// Is there a task already awaiting on |cb_futures|? If acquiring
+            /// with |cb_futures|, always acquire this lock first to avoid deadlocks.
+            futures_awaiting: std::sync::Arc<std::sync::Mutex<bool>>,
+        }
+
+        impl #struct_ident {
+            fn new(
+                conn: std::sync::Arc<dbus::nonblock::SyncConnection>,
+                remote: dbus::strings::BusName<'static>,
+                objpath: Path<'static>,
+                disconnect_watcher: std::sync::Arc<std::sync::Mutex<DisconnectWatcher>>) -> Self {
+                Self {
+                    conn,
+                    remote,
+                    objpath,
+                    disconnect_watcher,
+                    cb_futures: std::sync::Arc::new(std::sync::Mutex::new(std::collections::VecDeque::new())),
+                    futures_awaiting: std::sync::Arc::new(std::sync::Mutex::new(false)),
+                }
+            }
         }
 
         impl #trait_ for #struct_ident {
@@ -646,7 +877,6 @@ pub fn dbus_proxy_obj(attr: TokenStream, item: TokenStream) -> TokenStream {
             fn unregister(&mut self, id: u32) -> bool {
                 self.disconnect_watcher.lock().unwrap().remove(self.remote.clone(), id)
             }
-            fn export_for_rpc(self: Box<Self>) {}
         }
 
         impl DBusArg for Box<dyn #trait_ + Send> {
@@ -658,12 +888,12 @@ pub fn dbus_proxy_obj(attr: TokenStream, item: TokenStream) -> TokenStream {
                 remote__: Option<dbus::strings::BusName<'static>>,
                 disconnect_watcher__: Option<std::sync::Arc<std::sync::Mutex<DisconnectWatcher>>>,
             ) -> Result<Box<dyn #trait_ + Send>, Box<dyn std::error::Error>> {
-                Ok(Box::new(#struct_ident {
-                    conn: conn__.unwrap(),
-                    remote: remote__.unwrap(),
-                    objpath: objpath__,
-                    disconnect_watcher: disconnect_watcher__.unwrap(),
-                }))
+                Ok(Box::new(#struct_ident::new(
+                    conn__.unwrap(),
+                    remote__.unwrap(),
+                    objpath__,
+                    disconnect_watcher__.unwrap(),
+                )))
             }
 
             fn to_dbus(_data: Box<dyn #trait_ + Send>) -> Result<Path<'static>, Box<dyn std::error::Error>> {
@@ -687,14 +917,20 @@ pub fn dbus_proxy_obj(attr: TokenStream, item: TokenStream) -> TokenStream {
 #[proc_macro]
 pub fn generate_dbus_arg(_item: TokenStream) -> TokenStream {
     let gen = quote! {
-        use dbus::arg::PropMap;
+        use dbus::arg::RefArg;
         use dbus::nonblock::SyncConnection;
         use dbus::strings::BusName;
         use dbus_projection::DisconnectWatcher;
+        use dbus_projection::impl_dbus_arg_from_into;
 
+        use std::convert::{TryFrom, TryInto};
         use std::error::Error;
         use std::fmt;
+        use std::hash::Hash;
         use std::sync::{Arc, Mutex};
+
+        // Key for serialized Option<T> in propmap
+        const OPTION_KEY: &'static str = "optional_value";
 
         #[derive(Debug)]
         pub(crate) struct DBusArgError {
@@ -715,6 +951,16 @@ pub fn generate_dbus_arg(_item: TokenStream) -> TokenStream {
 
         impl Error for DBusArgError {}
 
+        /// Trait for converting `dbus::arg::RefArg` to a Rust type.
+        ///
+        /// This trait needs to be implemented for all types that need to be
+        /// converted from the D-Bus representation (`dbus::arg::RefArg`) to
+        /// a Rust representation.
+        ///
+        /// These implementations should be provided as part of this macros
+        /// library since the reference types are defined by the D-Bus specification
+        /// (look under Basic Types, Container Types, etc) in
+        /// https://dbus.freedesktop.org/doc/dbus-specification.html.
         pub(crate) trait RefArgToRust {
             type RustType;
             fn ref_arg_to_rust(
@@ -723,7 +969,7 @@ pub fn generate_dbus_arg(_item: TokenStream) -> TokenStream {
             ) -> Result<Self::RustType, Box<dyn Error>>;
         }
 
-        impl<T: 'static + Clone + DirectDBus> RefArgToRust for T {
+        impl<T: 'static + DirectDBus> RefArgToRust for T {
             type RustType = T;
             fn ref_arg_to_rust(
                 arg: &(dyn dbus::arg::RefArg + 'static),
@@ -739,6 +985,31 @@ pub fn generate_dbus_arg(_item: TokenStream) -> TokenStream {
                     )))));
                 }
                 let arg = (*any.downcast_ref::<<Self as DBusArg>::DBusType>().unwrap()).clone();
+                return Ok(arg);
+            }
+        }
+
+        impl RefArgToRust for std::fs::File {
+            type RustType = std::fs::File;
+
+            fn ref_arg_to_rust(
+                arg: &(dyn dbus::arg::RefArg + 'static),
+                name: String,
+            ) -> Result<Self::RustType, Box<dyn Error>> {
+                let any = arg.as_any();
+                if !any.is::<<Self as DBusArg>::DBusType>() {
+                    return Err(Box::new(DBusArgError::new(String::from(format!(
+                        "{} type does not match: expected {}, found {}",
+                        name,
+                        std::any::type_name::<<Self as DBusArg>::DBusType>(),
+                        arg.arg_type().as_str(),
+                    )))));
+                }
+                let arg = match (*any.downcast_ref::<<Self as DBusArg>::DBusType>().unwrap()).try_clone() {
+                    Ok(foo) => foo,
+                    Err(_) => return Err(Box::new(DBusArgError::new(String::from(format!("{} cannot clone file.", name))))),
+                };
+
                 return Ok(arg);
             }
         }
@@ -763,7 +1034,16 @@ pub fn generate_dbus_arg(_item: TokenStream) -> TokenStream {
                 let mut val = iter.next();
                 while !key.is_none() && !val.is_none() {
                     let k = key.unwrap().as_str().unwrap().to_string();
-                    let v = dbus::arg::Variant(val.unwrap().box_clone());
+                    let val_clone = val.unwrap().box_clone();
+                    let v = dbus::arg::Variant(
+                        val_clone
+                            .as_static_inner(0)
+                            .ok_or(Box::new(DBusArgError::new(String::from(format!(
+                                "{}.{} is not a variant",
+                                name, k
+                            )))))?
+                            .box_clone(),
+                    );
                     map.insert(k, v);
                     key = iter.next();
                     val = iter.next();
@@ -781,7 +1061,10 @@ pub fn generate_dbus_arg(_item: TokenStream) -> TokenStream {
                 _name: String,
             ) -> Result<Self::RustType, Box<dyn Error>> {
                 let mut vec: Vec<T> = vec![];
-                let mut iter = arg.as_iter().unwrap();
+                let mut iter = arg.as_iter().ok_or(Box::new(DBusArgError::new(format!(
+                    "Failed parsing array for `{}`",
+                    _name
+                ))))?;
                 let mut val = iter.next();
                 while !val.is_none() {
                     let arg = val.unwrap().box_clone();
@@ -793,6 +1076,48 @@ pub fn generate_dbus_arg(_item: TokenStream) -> TokenStream {
             }
         }
 
+        impl<
+                K: 'static + Eq + Hash + RefArgToRust<RustType = K>,
+                V: 'static + RefArgToRust<RustType = V>
+            > RefArgToRust for std::collections::HashMap<K, V>
+        {
+            type RustType = std::collections::HashMap<K, V>;
+
+            fn ref_arg_to_rust(
+                arg: &(dyn dbus::arg::RefArg + 'static),
+                name: String,
+            ) -> Result<Self::RustType, Box<dyn Error>> {
+                let mut map: std::collections::HashMap<K, V> = std::collections::HashMap::new();
+                let mut iter = arg.as_iter().unwrap();
+                let mut key = iter.next();
+                let mut val = iter.next();
+                while !key.is_none() && !val.is_none() {
+                    let k = key.unwrap().box_clone();
+                    let k = <K as RefArgToRust>::ref_arg_to_rust(&k, name.clone() + " key")?;
+                    let v = val.unwrap().box_clone();
+                    let v = <V as RefArgToRust>::ref_arg_to_rust(&v, name.clone() + " value")?;
+                    map.insert(k, v);
+                    key = iter.next();
+                    val = iter.next();
+                }
+                Ok(map)
+            }
+        }
+
+        /// Trait describing how to convert to and from a D-Bus type.
+        ///
+        /// All Rust structs that need to be serialized to and from D-Bus need
+        /// to implement this trait. Basic and container types will have their
+        /// implementation provided by this macros crate.
+        ///
+        /// For Rust objects, implement the std::convert::TryFrom and std::convert::TryInto
+        /// traits into the relevant basic or container types for serialization. A
+        /// helper macro is provided in the `dbus_projection` macro (impl_dbus_arg_from_into).
+        /// For enums, use `impl_dbus_arg_enum`.
+        ///
+        /// When implementing this trait for Rust container types (i.e. Option<T>),
+        /// you must first select the D-Bus container type used (i.e. array, property map, etc) and
+        /// then implement the `from_dbus` and `to_dbus` functions.
         pub(crate) trait DBusArg {
             type DBusType;
 
@@ -809,12 +1134,13 @@ pub fn generate_dbus_arg(_item: TokenStream) -> TokenStream {
         }
 
         // Types that implement dbus::arg::Append do not need any conversion.
-        pub(crate) trait DirectDBus {}
+        pub(crate) trait DirectDBus: Clone {}
         impl DirectDBus for bool {}
         impl DirectDBus for i32 {}
         impl DirectDBus for u32 {}
         impl DirectDBus for i64 {}
         impl DirectDBus for u64 {}
+        impl DirectDBus for i16 {}
         impl DirectDBus for u16 {}
         impl DirectDBus for u8 {}
         impl DirectDBus for String {}
@@ -831,6 +1157,26 @@ pub fn generate_dbus_arg(_item: TokenStream) -> TokenStream {
             }
 
             fn to_dbus(data: T) -> Result<T, Box<dyn Error>> {
+                return Ok(data);
+            }
+        }
+
+        // Represent i8 as D-Bus's i16, since D-Bus only has unsigned type for BYTE.
+        impl_dbus_arg_from_into!(i8, i16);
+
+        impl DBusArg for std::fs::File {
+            type DBusType = std::fs::File;
+
+            fn from_dbus(
+                data: std::fs::File,
+                _conn: Option<Arc<dbus::nonblock::SyncConnection>>,
+                _remote: Option<BusName<'static>>,
+                _disconnect_watcher: Option<Arc<Mutex<DisconnectWatcher>>>,
+            ) -> Result<std::fs::File, Box<dyn Error>> {
+                return Ok(data);
+            }
+
+            fn to_dbus(data: std::fs::File) -> Result<std::fs::File, Box<dyn Error>> {
                 return Ok(data);
             }
         }
@@ -864,6 +1210,113 @@ pub fn generate_dbus_arg(_item: TokenStream) -> TokenStream {
                     list.push(t);
                 }
                 Ok(list)
+            }
+        }
+
+        impl<T: DBusArg> DBusArg for Option<T>
+            where <T as DBusArg>::DBusType: dbus::arg::RefArg + 'static + RefArgToRust<RustType = <T as DBusArg>::DBusType> {
+            type DBusType = dbus::arg::PropMap;
+
+            fn from_dbus(
+                data: dbus::arg::PropMap,
+                conn: Option<Arc<dbus::nonblock::SyncConnection>>,
+                remote: Option<BusName<'static>>,
+                disconnect_watcher: Option<Arc<Mutex<DisconnectWatcher>>>)
+                -> Result<Option<T>, Box<dyn Error>> {
+
+                // It's Ok if the key doesn't exist. That just means we have an empty option (i.e.
+                // None).
+                let prop_value = match data.get(OPTION_KEY) {
+                    Some(data) => data,
+                    None => {
+                        return Ok(None);
+                    }
+                };
+
+                // Make sure the option type was encoded correctly. If the key exists but the value
+                // is not right, we return an Err type.
+                match prop_value.arg_type() {
+                    dbus::arg::ArgType::Variant => (),
+                    _ => {
+                        return Err(Box::new(DBusArgError::new(String::from(format!("{} must be a variant", OPTION_KEY)))));
+                    }
+                };
+
+                // Convert the Variant into the target type and return an Err if that fails.
+                let ref_value: <T as DBusArg>::DBusType = match <<T as DBusArg>::DBusType as RefArgToRust>::ref_arg_to_rust(
+                    prop_value.as_static_inner(0).unwrap(),
+                    OPTION_KEY.to_string()) {
+                    Ok(v) => v,
+                    Err(e) => return Err(e),
+                };
+
+                let value = match T::from_dbus(ref_value, conn, remote, disconnect_watcher) {
+                    Ok(v) => Some(v),
+                    Err(e) => return Err(e),
+                };
+
+                Ok(value)
+            }
+
+            fn to_dbus(data: Option<T>) -> Result<dbus::arg::PropMap, Box<dyn Error>> {
+                let mut props = dbus::arg::PropMap::new();
+
+                if let Some(d) = data {
+                    let b = T::to_dbus(d)?;
+                    props.insert(OPTION_KEY.to_string(), dbus::arg::Variant(Box::new(b)));
+                }
+
+                Ok(props)
+            }
+        }
+
+        impl<K: Eq + Hash + DBusArg, V: DBusArg> DBusArg for std::collections::HashMap<K, V>
+            where
+                <K as DBusArg>::DBusType: 'static
+                    + Eq
+                    + Hash
+                    + dbus::arg::RefArg
+                    + RefArgToRust<RustType = <K as DBusArg>::DBusType>,
+        {
+            type DBusType = std::collections::HashMap<K::DBusType, V::DBusType>;
+
+            fn from_dbus(
+                data: std::collections::HashMap<K::DBusType, V::DBusType>,
+                conn: Option<std::sync::Arc<dbus::nonblock::SyncConnection>>,
+                remote: Option<dbus::strings::BusName<'static>>,
+                disconnect_watcher: Option<
+                    std::sync::Arc<std::sync::Mutex<dbus_projection::DisconnectWatcher>>>,
+            ) -> Result<std::collections::HashMap<K, V>, Box<dyn std::error::Error>> {
+                let mut map = std::collections::HashMap::new();
+                for (key, val) in data {
+                    let k = K::from_dbus(
+                        key,
+                        conn.clone(),
+                        remote.clone(),
+                        disconnect_watcher.clone()
+                    )?;
+                    let v = V::from_dbus(
+                        val,
+                        conn.clone(),
+                        remote.clone(),
+                        disconnect_watcher.clone()
+                    )?;
+                    map.insert(k, v);
+                }
+                Ok(map)
+            }
+
+            fn to_dbus(
+                data: std::collections::HashMap<K, V>,
+            ) -> Result<std::collections::HashMap<K::DBusType, V::DBusType>, Box<dyn std::error::Error>>
+            {
+                let mut map = std::collections::HashMap::new();
+                for (key, val) in data {
+                    let k = K::to_dbus(key)?;
+                    let v = V::to_dbus(val)?;
+                    map.insert(k, v);
+                }
+                Ok(map)
             }
         }
     };

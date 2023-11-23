@@ -85,6 +85,20 @@ class MockBroadcastStateMachine
     ON_CALL(*this, GetPaInterval()).WillByDefault([this]() -> uint8_t {
       return this->BroadcastStateMachine::GetPaInterval();
     });
+
+    ON_CALL(*this, IsPublicBroadcast()).WillByDefault([this]() -> bool {
+      return this->cfg.is_public;
+    });
+
+    ON_CALL(*this, GetBroadcastName()).WillByDefault([this]() -> std::string {
+      return this->cfg.broadcast_name;
+    });
+
+    ON_CALL(*this, GetPublicBroadcastAnnouncement())
+        .WillByDefault(
+            [this]() -> bluetooth::le_audio::PublicBroadcastAnnouncementData& {
+              return this->cfg.public_announcement;
+            });
   };
 
   ~MockBroadcastStateMachine() {
@@ -110,10 +124,19 @@ class MockBroadcastStateMachine
               GetBroadcastCode, (), (const override));
   MOCK_METHOD((bluetooth::le_audio::BroadcastId), GetBroadcastId, (),
               (const override));
+  MOCK_METHOD((bool), IsPublicBroadcast, (), (override));
+  MOCK_METHOD((std::string), GetBroadcastName, (), (override));
   MOCK_METHOD((bluetooth::le_audio::BasicAudioAnnouncementData&),
               GetBroadcastAnnouncement, (), (const override));
+  MOCK_METHOD((bluetooth::le_audio::PublicBroadcastAnnouncementData&),
+              GetPublicBroadcastAnnouncement, (), (const override));
   MOCK_METHOD((void), UpdateBroadcastAnnouncement,
               (bluetooth::le_audio::BasicAudioAnnouncementData announcement),
+              (override));
+  MOCK_METHOD((void), UpdatePublicBroadcastAnnouncement,
+              (uint32_t broadcast_id, const std::string& broadcast_name,
+               const bluetooth::le_audio::PublicBroadcastAnnouncementData&
+                   announcement),
               (override));
   MOCK_METHOD((uint8_t), GetPaInterval, (), (const override));
   MOCK_METHOD((void), HandleHciEvent, (uint16_t event, void* data), (override));
@@ -131,6 +154,7 @@ class MockBroadcastStateMachine
   std::optional<le_audio::broadcaster::BigConfig> big_config_ = std::nullopt;
   le_audio::broadcaster::BroadcastStateMachineConfig cfg;
   le_audio::broadcaster::IBroadcastStateMachineCallbacks* cb;
+  void SetExpectedState(BroadcastStateMachine::State state) { SetState(state); }
   void SetExpectedResult(bool result) { result_ = result; }
   void SetExpectedBigConfig(
       std::optional<le_audio::broadcaster::BigConfig> big_cfg) {

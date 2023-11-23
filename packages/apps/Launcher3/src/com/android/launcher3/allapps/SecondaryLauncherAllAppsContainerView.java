@@ -41,5 +41,10 @@ public class SecondaryLauncherAllAppsContainerView extends
     }
 
     @Override
-    protected void updateBackground(DeviceProfile deviceProfile) {}
+    protected void updateBackgroundVisibility(DeviceProfile deviceProfile) {}
+
+    @Override
+    public boolean isInAllApps() {
+        return mActivityContext.isAppDrawerShown();
+    }
 }

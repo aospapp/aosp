@@ -16,8 +16,8 @@
 
 package android.safetycenter.cts.testing
 
-import android.safetycenter.cts.testing.Coroutines.TIMEOUT_LONG
-import android.safetycenter.cts.testing.Coroutines.runBlockingWithTimeout
+import com.android.safetycenter.testing.Coroutines.TIMEOUT_LONG
+import com.android.safetycenter.testing.Coroutines.runBlockingWithTimeout
 import java.time.Duration
 import java.util.concurrent.Executor
 import kotlinx.coroutines.TimeoutCancellationException
@@ -47,5 +47,6 @@ class FakeExecutor : Executor {
      *
      * Note: the returned task is not run when returned. Use [Runnable.run] to actually run it.
      */
-    fun getNextTask(timeout: Duration = TIMEOUT_LONG) = runBlockingWithTimeout { tasks.receive() }
+    fun getNextTask(timeout: Duration = TIMEOUT_LONG) =
+        runBlockingWithTimeout(timeout) { tasks.receive() }
 }

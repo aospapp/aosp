@@ -97,7 +97,15 @@ option java_package android.car.builtin.util
 150129 car_user_svc_initial_user_info_req_complete (request_type|1)
 150130 car_user_svc_logout_user_req (user_id|1),(timeout|1)
 150131 car_user_svc_logout_user_resp (hal_callback_status|1),(user_switch_status|1),(error_message|3)
-
+### InitialSetter is part of CarUserService.
+150132 car_initial_user_start_fg_user (user_id|1)
+150133 car_initial_user_info (type|1), (replace_guest|1), (switch_user_id|1), (new_user_name|3), (new_user_flags|1), (supports_override_user_id_property|1), (user_locales|3)
+150134 car_initial_user_fallback_default_behavior (reason|3)
+150135 car_initial_user_replace_guest (user_id|1)
+150136 car_initial_user_unlock_system_user
+150137 car_initial_user_set_last_active (user_id|1)
+150138 car_initial_user_reset_global_property (name|3)
+# TODO(b/261924826): 150139 is not used yet and we might need it for car_initial_user / new HSUM integration
 150140 car_user_hal_initial_user_info_req (request_id|1),(request_type|1),(timeout|1)
 150141 car_user_hal_initial_user_info_resp (request_id|1),(status|1),(action|1),(user_id|1),(flags|1),(safe_name|3),(user_locales|3)
 150142 car_user_hal_switch_user_req (request_id|1),(user_id|1),(user_flags|1),(timeout|1)
@@ -112,6 +120,9 @@ option java_package android.car.builtin.util
 150151 car_user_hal_create_user_req (request_id|1),(safe_name|3),(flags|1),(timeout|1)
 150152 car_user_hal_create_user_resp (request_id|1),(status|1),(result|1),(error_message|3)
 150153 car_user_hal_remove_user_req (target_user_id|1),(current_user_id|1)
+# Add new CarUserService / UserHalService logs below (it's ok to mix them)
+150154 car_user_svc_start_user_visible_on_display_req (user_id|1),(display_id|1)
+150155 car_user_svc_start_user_visible_on_display_resp (user_id|1),(display_id|1),(result|1)
 
 150171 car_user_mgr_add_listener (uid|1),(package_name|3),(has_filter|1)
 150172 car_user_mgr_remove_listener (uid|1),(package_name|3)
@@ -130,6 +141,10 @@ option java_package android.car.builtin.util
 150185 car_user_mgr_pre_create_user_req (uid|1)
 150186 car_user_mgr_logout_user_req (uid|1)
 150187 car_user_mgr_logout_user_resp (uid|1),(status|1),(error_message|3)
+150188 car_user_mgr_start_user_req (uid|1),(user_id|1),(display_id|1)
+150189 car_user_mgr_start_user_resp (uid|1),(user_id|1),(display_id|1),(status|1)
+150190 car_user_mgr_stop_user_req (uid|1),(user_id|1)
+150191 car_user_mgr_stop_user_resp (uid|1),(user_id|1),(status|1)
 
 #### Device policy related tags (range 150200 - 150299)
 150200 car_dp_mgr_remove_user_req (uid|1),(user_id|1)

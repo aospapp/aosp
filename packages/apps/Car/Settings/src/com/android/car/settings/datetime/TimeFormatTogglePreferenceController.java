@@ -113,7 +113,7 @@ public class TimeFormatTogglePreferenceController extends PreferenceController<S
     }
 
     @Override
-    public int getAvailabilityStatus() {
+    public int getDefaultAvailabilityStatus() {
         return DatetimeUtils.getAvailabilityStatus(getContext());
     }
 

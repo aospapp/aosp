@@ -118,14 +118,14 @@ public final class BluetoothMap implements BluetoothProfile, AutoCloseable {
     }
 
     /**
-     * Close the connection to the backing service.
-     * Other public functions of BluetoothMap will return default error
-     * results once close() has been called. Multiple invocations of close()
+     * Close the connection to the backing service. Other public functions of BluetoothMap will
+     * return default error results once close() has been called. Multiple invocations of close()
      * are ok.
      *
      * @hide
      */
     @SystemApi
+    @Override
     public void close() {
         if (VDBG) log("close()");
         mProfileConnector.disconnect();
@@ -367,7 +367,7 @@ public final class BluetoothMap implements BluetoothProfile, AutoCloseable {
 
     /** @hide */
     public void disableBluetoothGetConnectionStateCache() {
-        mBluetoothConnectionCache.disableForCurrentProcess();
+        sBluetoothConnectionCache.disableForCurrentProcess();
     }
 
     /** @hide */
@@ -383,20 +383,23 @@ public final class BluetoothMap implements BluetoothProfile, AutoCloseable {
         IpcDataCache.invalidateCache(IpcDataCache.MODULE_BLUETOOTH, api);
     }
 
-    private final IpcDataCache.QueryHandler<Pair<IBluetoothMap, BluetoothDevice>, Integer>
-            mBluetoothConnectionQuery = new IpcDataCache.QueryHandler<>() {
+    private static final IpcDataCache
+            .QueryHandler<Pair<IBluetoothMap, Pair<AttributionSource, BluetoothDevice>>, Integer>
+            sBluetoothConnectionQuery = new IpcDataCache.QueryHandler<>() {
                 @RequiresBluetoothConnectPermission
                 @RequiresPermission(android.Manifest.permission.BLUETOOTH_CONNECT)
                 @Override
-                public Integer apply(Pair<IBluetoothMap, BluetoothDevice> pairQuery) {
+                public Integer apply(Pair<IBluetoothMap,
+                        Pair<AttributionSource, BluetoothDevice>> pairQuery) {
+                    IBluetoothMap service = pairQuery.first;
+                    AttributionSource source = pairQuery.second.first;
+                    BluetoothDevice device = pairQuery.second.second;
                     if (DBG) {
-                        log("getConnectionState(" + pairQuery.second.getAnonymizedAddress()
-                                + ") uncached");
+                        log("getConnectionState(" + device.getAnonymizedAddress() + ") uncached");
                     }
                     final SynchronousResultReceiver<Integer> recv = SynchronousResultReceiver.get();
                     try {
-                        pairQuery.first
-                            .getConnectionState(pairQuery.second, mAttributionSource, recv);
+                        service.getConnectionState(device, source, recv);
                         return recv.awaitResultNoInterrupt(getSyncTimeout())
                             .getValue(BluetoothProfile.STATE_DISCONNECTED);
                     } catch (RemoteException | TimeoutException e) {
@@ -407,9 +410,10 @@ public final class BluetoothMap implements BluetoothProfile, AutoCloseable {
 
     private static final String GET_CONNECTION_STATE_API = "BluetoothMap_getConnectionState";
 
-    private final BluetoothCache<Pair<IBluetoothMap, BluetoothDevice>, Integer>
-            mBluetoothConnectionCache = new BluetoothCache<>(GET_CONNECTION_STATE_API,
-                mBluetoothConnectionQuery);
+    private static final
+            BluetoothCache<Pair<IBluetoothMap, Pair<AttributionSource, BluetoothDevice>>, Integer>
+            sBluetoothConnectionCache = new BluetoothCache<>(GET_CONNECTION_STATE_API,
+                sBluetoothConnectionQuery);
 
     /**
      * Get connection state of device
@@ -427,7 +431,8 @@ public final class BluetoothMap implements BluetoothProfile, AutoCloseable {
             if (DBG) log(Log.getStackTraceString(new Throwable()));
         } else if (isEnabled() && isValidDevice(device)) {
             try {
-                return mBluetoothConnectionCache.query(new Pair<>(service, device));
+                return sBluetoothConnectionCache.query(
+                        new Pair<>(service, new Pair<>(mAttributionSource, device)));
             } catch (RuntimeException e) {
                 if (!(e.getCause() instanceof TimeoutException)
                         && !(e.getCause() instanceof RemoteException)) {

@@ -75,7 +75,7 @@ public final class MockedServiceManager {
         restoreInstances();
     }
 
-    private synchronized void replaceInstance(final Class c, final String instanceName,
+    synchronized void replaceInstance(final Class c, final String instanceName,
                                              final Object obj, final Object newValue)
             throws Exception {
         Field field = c.getDeclaredField(instanceName);

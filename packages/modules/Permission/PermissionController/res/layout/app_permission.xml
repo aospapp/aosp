@@ -38,6 +38,47 @@
             <LinearLayout
                 style="@style/AppPermissionSelection">
 
+                <LinearLayout
+                    android:id="@+id/app_permission_rationale_container"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    style="@style/AppPermissionRationaleContainer">
+                    <TextView
+                        android:id="@+id/app_permission_rationale_message"
+                        android:text="@string/app_permission_rationale_message"
+                        style="@style/AppPermissionMessage" />
+
+                    <LinearLayout
+                        android:id="@+id/app_permission_rationale_content"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        style="@style/AppPermissionRationaleContent" >
+
+                        <ImageView
+                            android:id="@+id/app_permission_rationale_icon"
+                            android:importantForAccessibility="no"
+                            android:src="@drawable/ic_shield_exclamation_outline"
+                            style="@style/AppPermissionRationaleIcon" />
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            style="@style/AppPermissionRationaleTextContent">
+                            <TextView
+                                android:duplicateParentState="true"
+                                android:id="@+id/app_permission_rationale_title"
+                                android:text="@string/app_location_permission_rationale_title"
+                                style="@style/AppPermissionRationaleTitle" />
+                            <TextView
+                                android:duplicateParentState="true"
+                                android:id="@+id/app_permission_rationale_subtitle"
+                                android:text="@string/app_location_permission_rationale_subtitle"
+                                style="@style/AppPermissionRationaleSubtitle" />
+                        </LinearLayout>
+
+                    </LinearLayout>
+                </LinearLayout>
+
                 <TextView
                     android:id="@+id/permission_message"
                     style="@style/AppPermissionMessage" />
@@ -61,6 +102,11 @@
                     <RadioButton
                         android:id="@+id/allow_foreground_only_radio_button"
                         android:text="@string/app_permission_button_allow_foreground"
+                        style="@style/AppPermissionRadioButton" />
+
+                    <RadioButton
+                        android:id="@+id/select_radio_button"
+                        android:text="@string/app_permission_button_ask"
                         style="@style/AppPermissionRadioButton" />
 
                     <RadioButton

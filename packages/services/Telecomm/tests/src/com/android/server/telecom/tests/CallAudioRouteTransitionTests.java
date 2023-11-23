@@ -64,6 +64,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 
 @RunWith(Parameterized.class)
 public class CallAudioRouteTransitionTests extends TelecomTestCase {
@@ -182,6 +183,7 @@ public class CallAudioRouteTransitionTests extends TelecomTestCase {
         };
 
         when(mockCallsManager.getForegroundCall()).thenReturn(fakeCall);
+        when(mockCallsManager.getTrackedCalls()).thenReturn(Set.of(fakeCall));
         when(mockCallsManager.getLock()).thenReturn(mLock);
         when(mockCallsManager.hasVideoCall()).thenReturn(false);
         when(fakeCall.getConnectionService()).thenReturn(mockConnectionServiceWrapper);
@@ -267,7 +269,8 @@ public class CallAudioRouteTransitionTests extends TelecomTestCase {
                 mockStatusBarNotifier,
                 mAudioServiceFactory,
                 mParams.earpieceControl,
-                mHandlerThread.getLooper());
+                mHandlerThread.getLooper(),
+                Runnable::run /** do async stuff sync for test purposes */);
         stateMachine.setCallAudioManager(mockCallAudioManager);
 
         setupMocksForParams(stateMachine, mParams);
@@ -363,7 +366,8 @@ public class CallAudioRouteTransitionTests extends TelecomTestCase {
                 mockStatusBarNotifier,
                 mAudioServiceFactory,
                 mParams.earpieceControl,
-                mHandlerThread.getLooper());
+                mHandlerThread.getLooper(),
+                Runnable::run /** do async stuff sync for test purposes */);
         stateMachine.setCallAudioManager(mockCallAudioManager);
 
         // Set up bluetooth and speakerphone state

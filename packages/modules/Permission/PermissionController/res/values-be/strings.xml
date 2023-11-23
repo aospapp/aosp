@@ -23,6 +23,8 @@
     <string name="back" msgid="6249950659061523680">"Назад"</string>
     <string name="available" msgid="6007778121920339498">"Даступна"</string>
     <string name="blocked" msgid="9195547604866033708">"Заблакіравана"</string>
+    <string name="on" msgid="280241003226755921">"Уключана"</string>
+    <string name="off" msgid="1438489226422866263">"Выключыць"</string>
     <string name="uninstall_or_disable" msgid="4496612999740858933">"Выдаліць або выключыць"</string>
     <string name="app_not_found_dlg_title" msgid="6029482906093859756">"Праграма не знойдзена"</string>
     <string name="grant_dialog_button_deny" msgid="88262611492697192">"Не дазваляць"</string>
@@ -30,6 +32,11 @@
     <string name="grant_dialog_button_no_upgrade" msgid="8344732743633736625">"Пакінуць \"У актыўным рэжыме праграмы\""</string>
     <string name="grant_dialog_button_no_upgrade_one_time" msgid="5125892775684968694">"Захаваць толькі на гэты раз"</string>
     <string name="grant_dialog_button_more_info" msgid="213350268561945193">"Падрабязней"</string>
+    <string name="grant_dialog_button_allow_all" msgid="5939066403732409516">"Дазволіць усе"</string>
+    <string name="grant_dialog_button_always_allow_all" msgid="1719900027660252167">"Заўсёды дазваляць усе"</string>
+    <string name="grant_dialog_button_allow_selected_photos" msgid="5497042471576153842">"Выбраць фота і відэа"</string>
+    <string name="grant_dialog_button_allow_more_selected_photos" msgid="5145657877588697709">"Яшчэ"</string>
+    <string name="grant_dialog_button_dont_select_more" msgid="6643552729129461268">"Больш не выбіраць"</string>
     <string name="grant_dialog_button_deny_anyway" msgid="7225905870668915151">"Усё роўна не дазваляць"</string>
     <string name="grant_dialog_button_dismiss" msgid="1930399742250226393">"Адхіліць"</string>
     <string name="current_permission_template" msgid="7452035392573329375">"<xliff:g id="CURRENT_PERMISSION_INDEX">%1$s</xliff:g> з <xliff:g id="PERMISSION_COUNT">%2$s</xliff:g>"</string>
@@ -42,12 +49,12 @@
     <string name="permission_revoked_all" msgid="3397649017727222283">"усе адключаны"</string>
     <string name="permission_revoked_none" msgid="9213345075484381180">"няма адключаных"</string>
     <string name="grant_dialog_button_allow" msgid="5314677880021102550">"Дазволіць"</string>
-    <string name="grant_dialog_button_allow_always" msgid="4485552579273565981">"Дазволіць заўсёды"</string>
+    <string name="grant_dialog_button_allow_always" msgid="4485552579273565981">"Дазваляць заўсёды"</string>
     <string name="grant_dialog_button_allow_foreground" msgid="501896824973636533">"Падчас выкарыстання праграмы"</string>
     <string name="grant_dialog_button_change_to_precise_location" msgid="3273115879467236033">"Пераключыцца на дакладнае вызначэнне месцазнаходжання"</string>
     <string name="grant_dialog_button_keey_approximate_location" msgid="438025182769080011">"Пакінуць прыблізнае месцазнаходжанне"</string>
     <string name="grant_dialog_button_allow_one_time" msgid="2618088516449706391">"Толькі ў гэты раз"</string>
-    <string name="grant_dialog_button_allow_background" msgid="8236044729434367833">"Дазволіць заўсёды"</string>
+    <string name="grant_dialog_button_allow_background" msgid="8236044729434367833">"Дазваляць заўсёды"</string>
     <string name="grant_dialog_button_allow_all_files" msgid="4955436994954829894">"Дазволіць кіраванне ўсімі файламі"</string>
     <string name="grant_dialog_button_allow_media_only" msgid="4832877658422573832">"Дазволіць доступ да файлаў мультымедыя"</string>
     <string name="app_permissions_breadcrumb" msgid="5136969550489411650">"Праграмы"</string>
@@ -100,16 +107,13 @@
     <!-- no translation found for background_access_chooser_dialog_choices:0 (1351721623256561996) -->
     <!-- no translation found for background_access_chooser_dialog_choices:1 (9127301153688725448) -->
     <!-- no translation found for background_access_chooser_dialog_choices:2 (4305536986042401191) -->
-    <string name="permission_access_always" msgid="1474641821883823446">"Дазволіць заўсёды"</string>
+    <string name="permission_access_always" msgid="1474641821883823446">"Дазваляць заўсёды"</string>
     <string name="permission_access_only_foreground" msgid="7801170728159326195">"Падчас карыстання праграмай"</string>
     <string name="permission_access_never" msgid="4647014230217936900">"Не дазваляць"</string>
     <string name="loading" msgid="4789365003890741082">"Загрузка…"</string>
     <string name="all_permissions" msgid="6911125611996872522">"Усе дазволы"</string>
     <string name="other_permissions" msgid="2901186127193849594">"Іншыя магчымасці праграмы"</string>
     <string name="permission_request_title" msgid="8790310151025020126">"Запыт дазволу"</string>
-    <string name="screen_overlay_title" msgid="6977038513913222078">"Выяўлена накладанне на экран"</string>
-    <string name="screen_overlay_message" msgid="5622563069757142102">"Каб змяніць гэту наладу дазволу, вы павінны спачатку выключыць накладанне на экран з меню \"Налады &gt; Праграмы\""</string>
-    <string name="screen_overlay_button" msgid="4655005928054025250">"Адкрыць налады"</string>
     <string name="wear_not_allowed_dlg_title" msgid="1429467891296932713">"Android Wear"</string>
     <string name="wear_not_allowed_dlg_text" msgid="512340555334769098">"Дзеянні па ўсталяванні або выдаленні не падтрымліваюцца на Wear."</string>
     <string name="permission_review_title_template_install" msgid="1284337937156289081">"Выберыце, да чаго дазволіць доступ праграме &lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt;"</string>
@@ -130,21 +134,20 @@
     <string name="permission_group_usage_subtitle_7d" msgid="1465828402260324654">"Храналогія выкарыстання праграмамі дазволаў \"<xliff:g id="PERMGROUP">%1$s</xliff:g>\" за апошнія 7 сутак"</string>
     <string name="permission_usage_access_dialog_subtitle" msgid="4171772805196955753">"Калі гэта праграма выкарыстоўвала ваш дазвол \"<xliff:g id="PERMGROUP">%1$s</xliff:g>\""</string>
     <string name="permission_usage_access_dialog_learn_more" msgid="7121468469493184613">"Даведацца больш"</string>
+    <string name="learn_more_content_description" msgid="8673699744544502539">"Даведацца больш пра дазвол \"<xliff:g id="PERMGROUP">%1$s</xliff:g>\""</string>
     <string name="manage_permission_summary" msgid="4117555482684114317">"Кіруйце дазволамі праграм на доступ да наступнага: <xliff:g id="PERMGROUP">%1$s</xliff:g>"</string>
     <string name="auto_permission_usage_timeline_summary" msgid="2713135806453218703">"<xliff:g id="ACCESS_TIME">%1$s</xliff:g> • <xliff:g id="SUMMARY_TEXT">%2$s</xliff:g>"</string>
     <string name="history_preference_subtext_2" msgid="1521763591164293683">"<xliff:g id="APP_NAME">%1$s</xliff:g> • <xliff:g id="TRUNCATED_TIME">%2$s</xliff:g>"</string>
     <string name="history_preference_subtext_3" msgid="758761785983094351">"<xliff:g id="ATTRIBUTION_NAME">%1$s</xliff:g> • <xliff:g id="APP_NAME">%2$s</xliff:g> • <xliff:g id="TRUNCATED_TIME">%3$s</xliff:g>"</string>
-    <string name="duration_used_days" msgid="8293010131040301793">"{count,plural, =1{1 дзень}one{# дзень}few{# дні}many{# дзён}other{# дня}}"</string>
-    <string name="duration_used_hours" msgid="1128716208752263576">"{count,plural, =1{1 гадзіна}one{# гадзіна}few{# гадзіны}many{# гадзін}other{# гадзіны}}"</string>
-    <string name="duration_used_minutes" msgid="5335824115042576567">"{count,plural, =1{1 хв}one{# хв}few{# хв}many{# хв}other{# хв}}"</string>
-    <string name="duration_used_seconds" msgid="6543746449171675028">"{count,plural, =1{1 с}one{# с}few{# с}many{# с}other{# с}}"</string>
+    <string name="duration_used_days" msgid="8238355545812998877">"{count,plural, =1{# дзень}one{# дзень}few{# дні}many{# дзён}other{# дня}}"</string>
+    <string name="duration_used_hours" msgid="4983814806123370332">"{count,plural, =1{# гадзіна}one{# гадзіна}few{# гадзіны}many{# гадзін}other{# гадзіны}}"</string>
+    <string name="duration_used_minutes" msgid="1701379522897227819">"{count,plural, =1{# хв}one{# хв}few{# хв}many{# хв}other{# хв}}"</string>
+    <string name="duration_used_seconds" msgid="4067390990568727715">"{count,plural, =1{# с}one{# с}few{# с}many{# с}other{# с}}"</string>
     <string name="permission_usage_any_permission" msgid="6358023078298106997">"Любы дазвол"</string>
     <string name="permission_usage_any_time" msgid="3802087027301631827">"За любы час"</string>
-    <string name="permission_usage_last_7_days" msgid="7386221251886130065">"За апошнія 7 дзён"</string>
-    <string name="permission_usage_last_day" msgid="1512880889737305115">"За апошнія 24 гадзіны"</string>
-    <string name="permission_usage_last_hour" msgid="3866005205535400264">"За апошнюю гадзіну"</string>
-    <string name="permission_usage_last_15_minutes" msgid="9077554653436200702">"За апошнія 15 хвілін"</string>
-    <string name="permission_usage_last_minute" msgid="7297055967335176238">"За апошнюю хвіліну"</string>
+    <string name="permission_usage_last_n_days" msgid="7882626467375714145">"{count,plural, =1{За апошні # дзень}one{За апошні # дзень}few{За апошнія # дні}many{За апошнія # дзён}other{За апошнія # дня}}"</string>
+    <string name="permission_usage_last_n_hours" msgid="8490466053680267858">"{count,plural, =1{За апошнюю # гадзіну}one{За апошнюю # гадзіну}few{За апошнія # гадзіны}many{За апошнія # гадзін}other{За апошнія # гадзіны}}"</string>
+    <string name="permission_usage_last_n_minutes" msgid="7817864229878281983">"{count,plural, =1{За апошнюю # хвіліну}one{За апошнюю # хвіліну}few{За апошнія # хвіліны}many{За апошнія # хвілін}other{За апошнія # хвіліны}}"</string>
     <string name="no_permission_usages" msgid="9119517454177289331">"Без выкарыстання дазволаў"</string>
     <string name="permission_usage_list_title_any_time" msgid="8718257027381592407">"Доступы за ўвесь час"</string>
     <string name="permission_usage_list_title_last_7_days" msgid="9048542342670890615">"Доступы за апошнія 7 дзён"</string>
@@ -158,8 +161,8 @@
     <string name="permission_usage_bar_chart_title_last_hour" msgid="6571647509660009185">"Выкарыстанне дазволаў за апошнюю гадзіну"</string>
     <string name="permission_usage_bar_chart_title_last_15_minutes" msgid="2743143675412824819">"Выкарыстаннне дазволаў за апошнія 15 хвілін"</string>
     <string name="permission_usage_bar_chart_title_last_minute" msgid="820450867183487607">"Выкарыстанне дазволаў за апошнюю хвіліну"</string>
-    <string name="permission_usage_preference_summary_not_used_24h" msgid="3087783232178611025">"За апошнія 24 гадзіны доступ не выкарыстоўваўся"</string>
-    <string name="permission_usage_preference_summary_not_used_7d" msgid="4592301300810120096">"За апошнія 7 сутак доступ не выкарыстоўваўся"</string>
+    <string name="permission_usage_preference_summary_not_used_in_past_n_days" msgid="4771868094611359651">"{count,plural, =1{За апошнія # суткі дазвол не выкарыстоўваўся}one{За апошнія # суткі дазвол не выкарыстоўваўся}few{За апошнія # сутак дазвол не выкарыстоўваўся}many{За апошнія # сутак дазвол не выкарыстоўваўся}other{За апошнія # сутак дазвол не выкарыстоўваўся}}"</string>
+    <string name="permission_usage_preference_summary_not_used_in_past_n_hours" msgid="3828973177433435742">"{count,plural, =1{За апошнюю # гадзіну дазвол не выкарыстоўваўся}one{За апошнюю # гадзіну дазвол не выкарыстоўваўся}few{За апошнія # гадзіны дазвол не выкарыстоўваўся}many{За апошнія # гадзін дазвол не выкарыстоўваўся}other{За апошнія # гадзіны дазвол не выкарыстоўваўся}}"</string>
     <string name="permission_usage_preference_label" msgid="8343167938128676378">"{count,plural, =1{Выкарыстоўваецца 1 праграмай}one{Выкарыстоўваецца # праграмай}few{Выкарыстоўваецца # праграмамі}many{Выкарыстоўваецца # праграмамі}other{Выкарыстоўваецца # праграмы}}"</string>
     <string name="permission_usage_view_details" msgid="6675335735468752787">"Паказаць усе на панэлі кіравання"</string>
     <string name="app_permission_usage_filter_label" msgid="7182861154638631550">"Параметр фільтравання: <xliff:g id="PERM">%1$s</xliff:g>"</string>
@@ -183,8 +186,9 @@
     <string name="app_permission_button_allow" msgid="5808039516494774647">"Дазволіць"</string>
     <string name="app_permission_button_allow_all_files" msgid="1792232272599018825">"Дазволіць кіраванне ўсімі файламі"</string>
     <string name="app_permission_button_allow_media_only" msgid="2834282724426046154">"Дазволіць доступ толькі да мультымедыя"</string>
-    <string name="app_permission_button_allow_always" msgid="4573292371734011171">"Дазволіць заўсёды"</string>
-    <string name="app_permission_button_allow_foreground" msgid="1991570451498943207">"Дазволіць толькі падчас карыстання праграмай"</string>
+    <string name="app_permission_button_allow_always" msgid="4573292371734011171">"Дазваляць заўсёды"</string>
+    <string name="app_permission_button_allow_foreground" msgid="1991570451498943207">"Дазваляць толькі падчас карыстання праграмай"</string>
+    <string name="app_permission_button_always_allow_all" msgid="4905699259378428855">"Заўсёды дазваляць усе"</string>
     <string name="app_permission_button_ask" msgid="3342950658789427">"Заўсёды пытацца"</string>
     <string name="app_permission_button_deny" msgid="6016454069832050300">"Не дазваляць"</string>
     <string name="precise_image_description" msgid="6349638632303619872">"Дакладнае месцазнаходжанне"</string>
@@ -211,14 +215,13 @@
     <string name="auto_revocable_permissions_two" msgid="4874067408752041716">"Дазволы \"<xliff:g id="PERM_0">%1$s</xliff:g>\" і \"<xliff:g id="PERM_1">%2$s</xliff:g>\" будуць выдалены."</string>
     <string name="auto_revocable_permissions_many" msgid="1521807896206032992">"Дазволы, якія будуць выдалены: <xliff:g id="PERMS">%1$s</xliff:g>."</string>
     <string name="auto_manage_title" msgid="7693181026874842935">"Аўтаматычнае кіраванне дазволамі"</string>
-    <string name="off" msgid="1438489226422866263">"Выключыць"</string>
     <string name="auto_revoked_app_summary_one" msgid="7093213590301252970">"Дазвол \"<xliff:g id="PERMISSION_NAME">%s</xliff:g>\" выдалены"</string>
     <string name="auto_revoked_app_summary_two" msgid="1910545340763709389">"Дазволы \"<xliff:g id="PERMISSION_NAME_0">%1$s</xliff:g>\" і \"<xliff:g id="PERMISSION_NAME_1">%2$s</xliff:g>\" выдалены"</string>
     <string name="auto_revoked_app_summary_many" msgid="5930976230827378798">"\"<xliff:g id="PERMISSION_NAME">%1$s</xliff:g>\" і іншыя дазволы (<xliff:g id="NUMBER">%2$s</xliff:g> шт.) выдалены"</string>
     <string name="unused_apps_page_title" msgid="6986983535677572559">"Праграмы, якія не выкарыстоўваюцца"</string>
     <string name="unused_apps_page_summary" msgid="1867593913217272155">"Калі праграма не выкарыстоўвалася некалькі месяцаў:\n\n• у мэтах абароны вашых даных выдаляюцца дазволы;\n• дзеля эканоміі зараду акумулятара спыняюцца апавяшчэнні;\n• для вызвалення месца выдаляюцца часовыя файлы.\n\nКаб зноў уключыць дазволы і апавяшчэнні, адкрыйце праграму."</string>
-    <string name="unused_apps_page_tv_summary" msgid="3685907153054355671">"Калі праграма не выкарыстоўвалася некалькі месяцаў:\n\n• у мэтах абароны вашых даных выдаляюцца дазволы;\n• для вызвалення месца выдаляюцца часовыя файлы.\n\nКаб зноў даць дазволы, адкрыйце праграму."</string>
-    <string name="last_opened_category_title" msgid="7871347400611202595">"Адкрывалася ў апошні раз больш за <xliff:g id="NUMBER">%s</xliff:g> мес. таму"</string>
+    <string name="unused_apps_page_tv_summary" msgid="2624911608663778308">"Калі праграма не выкарыстоўвалася на працягу месяца:\n\n• у мэтах абароны вашых даных выдаляюцца дазволы;\n• для вызвалення месца выдаляюцца часовыя файлы.\n\nКаб зноў даць дазволы, адкрыйце праграму."</string>
+    <string name="last_opened_category_title" msgid="8796557894614236128">"{count,plural, =1{Апошні раз адкрываліся больш чым # месяц таму}one{Апошні раз адкрываліся больш чым # месяц таму}few{Апошні раз адкрываліся больш чым # месяцы таму}many{Апошні раз адкрываліся больш чым # месяцаў таму}other{Апошні раз адкрываліся больш чым # месяца таму}}"</string>
     <string name="last_opened_summary" msgid="5248984030024968808">"Праграма адкрывалася ў апошні раз <xliff:g id="DATE">%s</xliff:g>"</string>
     <string name="last_opened_summary_short" msgid="1646067226191176825">"Адкрывалася ў апошні раз <xliff:g id="DATE">%s</xliff:g>"</string>
     <string name="app_permission_footer_special_file_access" msgid="1884202176147657788">"Калі вы дазволіце кіраванне ўсімі файламі, гэта праграма зможа атрымліваць доступ да ўсіх файлаў у агульным сховішчы на гэтай прыладзе ці ў сховішчах падключаных прылад, а таксама змяняць і выдаляць гэтыя файлы. Праграма зможа атрымліваць доступ да файлаў без вашага ведама."</string>
@@ -248,12 +251,12 @@
     <string name="allowed_storage_scoped" msgid="5383645873719086975">"Дазволены доступ толькі да мультымедыя"</string>
     <string name="allowed_storage_full" msgid="5356699280625693530">"Дазволена кіраванне ўсімі файламі"</string>
     <string name="ask_header" msgid="2633816846459944376">"Заўсёды пытацца"</string>
-    <string name="denied_header" msgid="903209608358177654">"Забаронена"</string>
+    <string name="denied_header" msgid="903209608358177654">"Забароненыя"</string>
     <string name="storage_footer_hyperlink_text" msgid="8873343987957834810">"Праглядзець іншыя праграмы, якія маюць доступ да ўсіх файлаў"</string>
     <string name="days" msgid="609563020985571393">"{count,plural, =1{1 дзень}one{# дзень}few{# дні}many{# дзён}other{# дня}}"</string>
-    <string name="hours" msgid="3447767892295843282">"{count,plural, =1{1 гадзіна}one{# гадзіна}few{# гадзіны}many{# гадзін}other{# гадзіны}}"</string>
-    <string name="minutes" msgid="4408293038068503157">"{count,plural, =1{1 хвіліна}one{# хвіліна}few{# хвіліны}many{# хвілін}other{# хвіліны}}"</string>
-    <string name="seconds" msgid="5397771912131132690">"{count,plural, =1{1 секунда}one{# секунда}few{# секунды}many{# секунд}other{# секунды}}"</string>
+    <string name="hours" msgid="7302866489666950038">"{count,plural, =1{# гадзіна}one{# гадзіна}few{# гадзіны}many{# гадзін}other{# гадзіны}}"</string>
+    <string name="minutes" msgid="4868414855445375753">"{count,plural, =1{# хвіліна}one{# хвіліна}few{# хвіліны}many{# хвілін}other{# хвіліны}}"</string>
+    <string name="seconds" msgid="5893958182059842734">"{count,plural, =1{# секунда}one{# секунда}few{# секунды}many{# секунд}other{# секунды}}"</string>
     <string name="permission_reminders" msgid="6528257957664832636">"Напаміны пра дазволы"</string>
     <string name="auto_revoke_permission_reminder_notification_title_one" msgid="6690347469376854137">"1 праграма не выкарыстоўваецца"</string>
     <string name="auto_revoke_permission_reminder_notification_title_many" msgid="6062217713645069960">"Колькасць праграм не ў карыстанні: <xliff:g id="NUMBER_OF_APPS">%s</xliff:g>"</string>
@@ -262,6 +265,9 @@
     <string name="auto_revoke_permission_notification_content" msgid="5125990886047799375">"Некаторыя праграмы не выкарыстоўваліся некалькі месяцаў. Націсніце, каб праглядзець."</string>
     <string name="unused_apps_notification_title" msgid="4314832015894238019">"{count,plural, =1{# праграма не выкарыстоўваецца}one{# праграма не выкарыстоўваецца}few{# праграмы не выкарыстоўваюцца}many{# праграм не выкарыстоўваюцца}other{# праграмы не выкарыстоўваюцца}}"</string>
     <string name="unused_apps_notification_content" msgid="9195026773244581246">"Дазволы і часовыя файлы выдалены, а апавяшчэнні спынены. Націсніце, каб праглядзець."</string>
+    <string name="unused_apps_safety_center_card_title" msgid="5638409355530099149">"Агляд праграм з выдаленымі дазволамі"</string>
+    <string name="unused_apps_safety_center_card_content" msgid="1088557243627427820">"Для праграм, якія вы даўно не выкарыстоўвалі, дазволы і часовыя файлы выдалены, а таксама спынены апавяшчэнні."</string>
+    <string name="unused_apps_safety_center_action_title" msgid="8865914432518993194">"Агляд праграм"</string>
     <string name="post_drive_permission_decision_reminder_title" msgid="1290697371418139976">"Праверце нядаўнія дазволы"</string>
     <string name="post_drive_permission_decision_reminder_summary_1_app_1_permission" msgid="670521503734140711">"У час язды вы далі праграме \"<xliff:g id="APP">%1$s</xliff:g>\" наступны дазвол: <xliff:g id="PERMISSION">%2$s</xliff:g>"</string>
     <string name="post_drive_permission_decision_reminder_summary_1_app_2_permissions" msgid="671791184670801301">"У час язды вы далі праграме \"<xliff:g id="APP">%1$s</xliff:g>\" наступныя дазволы: <xliff:g id="PERMISSION_1">%2$s</xliff:g> і <xliff:g id="PERMISSION_2">%3$s</xliff:g>"</string>
@@ -276,6 +282,19 @@
     <string name="auto_revoke_preference_summary" msgid="5517958331781391481">"Дазволы выдалены ў мэтах абароны прыватнасці"</string>
     <string name="background_location_access_reminder_notification_title" msgid="1140797924301941262">"<xliff:g id="APP_NAME">%s</xliff:g> атрымала доступ да даных месцазнаходжання ў фонавым рэжыме"</string>
     <string name="background_location_access_reminder_notification_content" msgid="7787084707336546245">"Гэта праграма заўсёды можа атрымаць доступ да даных пра ваша месцазнаходжанне. Націсніце, каб змяніць."</string>
+    <string name="notification_listener_reminder_notification_title" msgid="3747210460187479091">"Праверце праграму з доступам да апавяшчэнняў"</string>
+    <string name="notification_listener_reminder_notification_content" msgid="831476101108863427">"Праграма \"<xliff:g id="APP_NAME">%s</xliff:g>\" можа адхіляць і апрацоўваць апавяшчэнні, а таксама атрымліваць доступ да іх змесціва"</string>
+    <string name="notification_listener_warning_card_content" msgid="7840973324284115893">"Гэта праграма можа адхіляць і апрацоўваць апавяшчэнні, а таксама атрымліваць доступ да іх змесціва. Такі доступ патрабуецца некаторым праграмам для іх належнай працы."</string>
+    <string name="notification_listener_remove_access_button_label" msgid="7101898782417817097">"Выдаліць доступ"</string>
+    <string name="notification_listener_review_app_button_label" msgid="3433073281029143924">"Праглядзець іншыя параметры"</string>
+    <string name="notification_listener_remove_access_success_label" msgid="2477611529875633107">"Доступ выдалены"</string>
+    <string name="accessibility_access_reminder_notification_title" msgid="2971317234668807566">"Праверце праграму з поўным доступам да прылады"</string>
+    <string name="accessibility_access_reminder_notification_content" msgid="7389454158175306720">"<xliff:g id="APP_NAME">%s</xliff:g> можа праглядаць змесціва экрана і выконваць дзеянні на вашай прыладзе. Для нармальнай працы праграмам спецыяльных магчымасцей патрабуецца гэты тып доступу."</string>
+    <string name="accessibility_access_warning_card_content" msgid="4370327190293217358">"Гэта праграма можа праглядаць змесціва экрана і выконваць дзеянні на вашай прыладзе. Для нармальнай працы праграмам спецыяльных магчымасцей патрабуецца гэты тып доступу, аднак рэкамендуецца праверыць праграму і ўпэўніцца, што ёй можна давяраць."</string>
+    <string name="accessibility_remove_access_button_label" msgid="44145801526711640">"Выдаліць доступ"</string>
+    <string name="accessibility_show_all_apps_button_label" msgid="960067249326392280">"Праглядзець праграмы з поўным доступам"</string>
+    <string name="accessibility_remove_access_success_label" msgid="4380995302917014670">"Доступ выдалены"</string>
+    <string name="safety_center_notification_app_label" msgid="2457720616141926534">"Сістэма Android"</string>
     <string name="auto_revoke_after_notification_title" msgid="5417761027669887431">"У мэтах абароны прыватнасці дазволы праграмы выдалены"</string>
     <string name="auto_revoke_after_notification_content_one" msgid="6804038707453662753">"Праграма \"<xliff:g id="APP_NAME">%s</xliff:g>\" не выкарыстоўвалася некалькі месяцаў. Націсніце, каб праглядзець."</string>
     <string name="auto_revoke_after_notification_content_two" msgid="9108709764831425172">"<xliff:g id="APP_NAME">%s</xliff:g> і яшчэ 1 праграма не выкарыстоўваліся некалькі месяцаў. Націсніце, каб праглядзець."</string>
@@ -378,6 +397,10 @@
     <string name="role_watch_description" msgid="267003778693177779">"<xliff:g id="APP_NAME">%1$s</xliff:g> зможа ўзаемадзейнічаць з вашымі апавяшчэннямі і атрымае доступ да тэлефона, SMS, кантактаў і календара."</string>
     <string name="role_app_streaming_description" msgid="7341638576226183992">"<xliff:g id="APP_NAME">%1$s</xliff:g> зможа ўзаемадзейнічаць з вашымі апавяшчэннямі і перадаваць праграмы плынню на падключаную прыладу."</string>
     <string name="role_companion_device_computer_description" msgid="416099879217066377">"Гэты сэрвіс абагульвае з іншымі прыладамі фота, мультымедыя і апавяшчэнні, якія захоўваюцца на вашым тэлефоне."</string>
+    <string name="role_notes_label" msgid="7451627001058089536">"Стандартная праграма для нататак"</string>
+    <string name="role_notes_short_label" msgid="8796604147546125285">"Праграма для нататак"</string>
+    <string name="role_notes_description" msgid="8496852798616883551">"Праграмы, якія дазваляюць рабіць нататкі на прыладзе"</string>
+    <string name="role_notes_search_keywords" msgid="7710756695666744631">"нататкі"</string>
     <string name="request_role_current_default" msgid="738722892438247184">"Цяперашняя стандартная"</string>
     <string name="request_role_dont_ask_again" msgid="3556017886029520306">"Больш не пытацца"</string>
     <string name="request_role_set_as_default" msgid="4253949643984172880">"Зрабіць стандартнай"</string>
@@ -408,9 +431,9 @@
     <string name="default_app_no_apps" msgid="115720991680586885">"Няма праграм"</string>
     <string name="car_default_app_selected" msgid="5416420830430644174">"Выбрана"</string>
     <string name="car_default_app_selected_with_info" msgid="1932204186080593500">"Выбрана – <xliff:g id="ADDITIONAL_INFO">%1$s</xliff:g>"</string>
-    <string name="special_app_access_search_keyword" msgid="8032347212290774210">"спецыяльны доступ да праграм"</string>
-    <string name="special_app_access" msgid="5019319067120213797">"Спецыяльны доступ да праграм"</string>
-    <string name="no_special_app_access" msgid="6950277571805106247">"Няма доступу да праграм"</string>
+    <string name="special_app_access_search_keyword" msgid="8032347212290774210">"спецыяльны доступ для праграм"</string>
+    <string name="special_app_access" msgid="5019319067120213797">"Спецыяльны доступ для праграм"</string>
+    <string name="no_special_app_access" msgid="6950277571805106247">"Няма доступу для праграм"</string>
     <string name="special_app_access_no_apps" msgid="4102911722787886970">"Няма праграм"</string>
     <string name="home_missing_work_profile_support" msgid="1756855847669387977">"Працоўны профіль не падтрымліваецца"</string>
     <string name="encryption_unaware_confirmation_message" msgid="8274491794636402484">"Заўвага. Калі перазапусціць прыладу з наладжанай блакіроўкай экрана, праграма не запусціцца, пакуль вы не разблакіруеце прыладу."</string>
@@ -452,6 +475,7 @@
     <string name="permgrouprequest_storage_pre_q" msgid="168130651144569428">"Дазволіць праграме &lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; доступ да &lt;b&gt;фота, відэа, музыкі, аўдыя і файлаў&lt;/b&gt; на гэтай прыладзе?"</string>
     <string name="permgrouprequest_read_media_aural" msgid="2593365397347577812">"Дазволіць праграме &lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; доступ да музыкі і аўдыя на гэтай прыладзе?"</string>
     <string name="permgrouprequest_read_media_visual" msgid="5548780620779729975">"Дазволіць праграме &lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; доступ да фота і відэа на гэтай прыладзе?"</string>
+    <string name="permgrouprequest_more_photos" msgid="128933814654231321">"Дазволіць праграме &lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; доступ да дадатковых фота і відэа на гэтай прыладзе?"</string>
     <string name="permgrouprequest_microphone" msgid="2825208549114811299">"Дазволіць праграме &lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; запісваць аўдыя?"</string>
     <string name="permgrouprequestdetail_microphone" msgid="8510456971528228861">"Гэта праграма зможа запісваць аўдыя толькі падчас яе выкарыстання"</string>
     <string name="permgroupbackgroundrequest_microphone" msgid="8874462606796368183">"Дазволіць праграме &lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; запісваць аўдыя?"</string>
@@ -474,8 +498,8 @@
     <string name="permgroupupgraderequest_sensors" msgid="7576527638411370468">"Захаваць для праграмы \"&lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt;” дазвол на доступ да даных датчыкаў цела ў час яе выкарыстання?"</string>
     <string name="permgrouprequest_notifications" msgid="6396739062335106181">"Дазволіць праграме &lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; адпраўляць вам апавяшчэнні?"</string>
     <string name="auto_granted_permissions" msgid="6009452264824455892">"Кіраваныя дазволы"</string>
-    <string name="auto_granted_location_permission_notification_title" msgid="1438871159268985993">"Доступ да даных пра месцазнаходжанне атрыманы"</string>
-    <string name="auto_granted_permission_notification_body" msgid="6919835973190443695">"Ваш ІТ-адміністратар дазваляе праграме \"<xliff:g id="APP_NAME">%s</xliff:g>\" мець доступ да даных пра ваша месцазнаходжанне"</string>
+    <string name="auto_granted_location_permission_notification_title" msgid="7570818224669050377">"Праграма \"<xliff:g id="APP_NAME">%1$s</xliff:g>\" мае доступ да даных геалакацыі"</string>
+    <string name="auto_granted_permission_notification_body" msgid="5040234389205471318">"Ваша арганізацыя дазволіла праграме \"<xliff:g id="APP_NAME">%1$s</xliff:g>\" мець доступ да вашага месцазнаходжання"</string>
     <string name="other_permissions_label" msgid="8986184335503271992">"Iншыя дазволы"</string>
     <string name="not_used_permissions_label" msgid="3939839426115141264">"Дазвол, які выкарыстоўваецца сістэмай"</string>
     <string name="not_used_permissions_description" msgid="7595514824169388718">"Дазволы, якія выкарыстоўваюцца толькі сістэмнымі праграмамі."</string>
@@ -496,17 +520,28 @@
     <string name="blocked_sensor_summary" msgid="4443707628305027375">"Для праграм і сэрвісаў"</string>
     <string name="blocked_mic_summary" msgid="8960466941528458347">"Даныя з мікрафона па-ранейшаму могуць абагульвацца падчас выкліку нумара экстраннай службы."</string>
     <string name="blocked_sensor_button_label" msgid="6742092634984289658">"Змяніць"</string>
-    <string name="safety_center_dashboard_page_title" msgid="7514620345152008005">"Бяспека і прыватнасць"</string>
-    <string name="safety_center_rescan_button" msgid="8047036829052958144">"Сканіраваць"</string>
+    <string name="safety_center_dashboard_page_title" msgid="2810774008694315854">"Бяспека і прыватнасць"</string>
+    <string name="safety_center_rescan_button" msgid="4517514567809409596">"Сканіраваць прыладу"</string>
     <string name="safety_center_issue_card_dismiss_button" msgid="5113965506144222402">"Адхіліць"</string>
+    <string name="safety_center_issue_card_dismiss_confirmation_title" msgid="2734809473425036382">"Закрыць гэту абвестку?"</string>
+    <string name="safety_center_issue_card_dismiss_confirmation_message" msgid="3775418736671093563">"Вы можаце ў любы час праверыць і змяніць налады бяспекі і прыватнасці"</string>
+    <string name="safety_center_issue_card_confirm_dismiss_button" msgid="5884137843083634556">"Закрыць"</string>
+    <string name="safety_center_issue_card_cancel_dismiss_button" msgid="2874578798877712346">"Скасаваць"</string>
+    <string name="safety_center_entries_category_title" msgid="34356964062813115">"Налады"</string>
+    <string name="safety_status_preference_title_and_summary_content_description" msgid="3511373256505058464">"Стан бяспекі і прыватнасці. <xliff:g id="OVERALL_SAFETY_STATUS">%1$s</xliff:g>. <xliff:g id="SUMMARY_OF_DEVICE_STATUS">%2$s</xliff:g>"</string>
     <string name="security_settings" msgid="3808106921175271317">"Налады бяспекі"</string>
-    <string name="sensor_permissions_qs" msgid="4365989229426201877">"Дазволы на доступ да датчыка"</string>
-    <string name="privacy_controls_qs" msgid="471793881466080745">"Налады прыватнасці"</string>
+    <string name="sensor_permissions_qs" msgid="1022267900031317472">"Дазволы"</string>
+    <string name="safety_privacy_qs_tile_title" msgid="727301867710374052">"Бяспека і прыватнасць"</string>
+    <string name="safety_privacy_qs_tile_subtitle" msgid="3621544532041936749">"Праверыць стан"</string>
+    <string name="privacy_controls_qs" msgid="5780144882040591169">"Вашы налады прыватнасці"</string>
+    <string name="security_settings_button_label_qs" msgid="8280343822465962330">"Дадатковыя налады"</string>
+    <string name="camera_toggle_label_qs" msgid="3880261453066157285">"Доступ да камеры"</string>
+    <string name="microphone_toggle_label_qs" msgid="8132912469813396552">"Доступ да мікрафона"</string>
     <string name="permissions_removed_qs" msgid="8957319130625294572">"Дазвол выдалены"</string>
-    <string name="camera_usage_qs" msgid="7943349178368641820">"Паказаць больш звестак пра выкарыстанне камеры"</string>
-    <string name="microphone_usage_qs" msgid="2393193350541830472">"Паказаць больш звестак пра выкарыстанне мікрафона"</string>
-    <string name="remove_camera_qs" msgid="8209716677879809162">"Выдаліць дазвол на доступ да камеры"</string>
-    <string name="remove_microphone_qs" msgid="2893536836641560183">"Выдаліць дазвол на доступ да мікрафона"</string>
+    <string name="camera_usage_qs" msgid="4394233566086665994">"Праглядзець даныя пра нядаўняе выкарыстанне камеры"</string>
+    <string name="microphone_usage_qs" msgid="8527666682168170417">"Праглядзець даныя пра нядаўняе ўжыванне мікрафона"</string>
+    <string name="remove_camera_qs" msgid="3649996161066883350">"Выдаліць дазвол для гэтай праграмы"</string>
+    <string name="remove_microphone_qs" msgid="1276551965129953198">"Выдаліць дазвол для гэтай праграмы"</string>
     <string name="manage_service_qs" msgid="7862555549364153805">"Кіраваць сэрвісамі"</string>
     <string name="manage_permissions_qs" msgid="3780541819763475434">"Кіраваць дазволамі"</string>
     <string name="active_call_usage_qs" msgid="8559974395932523391">"Выкарыстоўваецца падчас тэлефонных выклікаў"</string>
@@ -517,8 +552,6 @@
     <string name="recent_app_usage_1_qs" msgid="261450184773310741">"Нядаўна выкарыстоўвалася праграмай \"<xliff:g id="APP_NAME">%1$s</xliff:g>\" (<xliff:g id="ATTRIBUTION_LABEL">%2$s</xliff:g>)"</string>
     <string name="active_app_usage_2_qs" msgid="6107866785243565283">"Выкарыстоўваецца праграмай \"<xliff:g id="APP_NAME">%1$s</xliff:g>\" (<xliff:g id="ATTRIBUTION_LABEL">%2$s</xliff:g> • <xliff:g id="PROXY_LABEL">%3$s</xliff:g>)"</string>
     <string name="recent_app_usage_2_qs" msgid="3591205954235694403">"Нядаўна выкарыстоўвалася праграмай \"<xliff:g id="APP_NAME">%1$s</xliff:g>\" (<xliff:g id="ATTRIBUTION_LABEL">%2$s</xliff:g> • <xliff:g id="PROXY_LABEL">%3$s</xliff:g>)"</string>
-    <string name="safety_privacy_qs_tile_title" msgid="5431148204168066203">"Бяспека і прыватнасць"</string>
-    <string name="safety_privacy_qs_tile_subtitle" msgid="3621544532041936749">"Праверыць стан"</string>
     <string name="media_confirm_dialog_positive_button" msgid="9020793594051526399">"Пацвердзіць"</string>
     <string name="media_confirm_dialog_negative_button" msgid="226987376924861785">"Назад"</string>
     <string name="media_confirm_dialog_title_a_to_p_aural_allow" msgid="8560601114044699903">"Атрымае доступ і да іншых файлаў"</string>
@@ -537,4 +570,53 @@
     <string name="media_confirm_dialog_message_q_to_s_aural_deny" msgid="6832087393653561911">"Гэта праграма не падтрымлівае апошнюю версію Android. Калі гэта праграма не атрымае дазволу на доступ да музыкі і аўдыяфайлаў, у яе таксама не будзе доступу да фота і відэа."</string>
     <string name="media_confirm_dialog_message_q_to_s_visual_allow" msgid="3504335060843147760">"Гэта праграма не падтрымлівае апошнюю версію Android. Калі гэта праграма атрымае дазвол на доступ да фота і відэа, у яе таксама будзе доступ да музыкі і аўдыяфайлаў."</string>
     <string name="media_confirm_dialog_message_q_to_s_visual_deny" msgid="2145973462806481992">"Гэта праграма не падтрымлівае апошнюю версію Android. Калі гэта праграма не атрымае дазволу на доступ да музыкі і аўдыяфайлаў, у яе таксама не будзе доступу да фота і відэа."</string>
+    <string name="safety_center_background_location_access_notification_title" msgid="8933610618810588237">"Праверце праграму з доступам да даных фонавай геалакацыі"</string>
+    <string name="safety_center_background_location_access_reminder_notification_content" msgid="4066560182507301022">"<xliff:g id="APP_NAME">%s</xliff:g> можа заўсёды мець доступ да даных геалакацыі, нават калі праграма закрыта"</string>
+    <string name="safety_center_background_location_access_reminder_title" msgid="5477847038103863843">"Праверце праграму з доступам да даных фонавай геалакацыі"</string>
+    <string name="safety_center_background_location_access_reminder_summary" msgid="7431657777510537658">"Гэта праграма заўсёды можа мець доступ да геаданых, нават калі яна закрыта.\n\nДля належнай працы некаторых праграм, прызначаных для аховы бяспекі і аказання дапамогі ў экстранных сітуацыях, патрабуецца доступ да геаданых у фонавым рэжыме."</string>
+    <string name="safety_center_background_location_access_revoked" msgid="6972274943343442213">"Доступ змяніўся"</string>
+    <string name="safety_center_view_recent_location_access" msgid="3524391299490678243">"Праглядзець даныя пра нядаўняе выкарыстанне геалакацыі"</string>
+    <string name="privacy_controls_title" msgid="7605929972256835199">"Налады прыватнасці"</string>
+    <string name="camera_toggle_title" msgid="1251201397431837666">"Доступ да камеры"</string>
+    <string name="mic_toggle_title" msgid="2649991093496110162">"Доступ да мікрафона"</string>
+    <string name="perm_toggle_description" msgid="7801326363741451379">"Для праграм і сэрвісаў"</string>
+    <string name="mic_toggle_description" msgid="9163104307990677157">"Для праграм і сэрвісаў. Нават калі гэта налада выключана, даныя з мікрафона будуць абагульвацца падчас выкліку нумара экстраннай службы."</string>
+    <string name="location_settings_subtitle" msgid="2328360561197430695">"Прагляд праграм і сэрвісаў, у якіх ёсць доступ да даных пра месцазнаходжанне"</string>
+    <string name="show_clip_access_notification_title" msgid="5168467637351109096">"Паказваць апавяшчэнні пра доступ да буфера абмену"</string>
+    <string name="show_clip_access_notification_summary" msgid="3532020182782112687">"Паказваць паведамленне, калі праграмы атрымліваюць доступ да тэксту, відарысаў ці іншага змесціва, якое вы скапіравалі"</string>
+    <string name="show_password_title" msgid="2877269286984684659">"Паказваць паролі"</string>
+    <string name="show_password_summary" msgid="1110166488865981610">"Падчас уводу сімвалаў на кароткі час паказваць іх"</string>
+    <string name="permission_rationale_message_location" msgid="2153841534298068414">"Гэта праграма можа абагульваць даныя пра месцазнаходжанне з трэцімі бакамі"</string>
+    <string name="permission_rationale_location_title" msgid="2404797182678793506">"Абагульванне даных і даныя пра месцазнаходжанне"</string>
+    <string name="permission_rationale_data_sharing_source_title" msgid="6874604543125814316">"Адкуль бярэцца інфармацыя пра абагульванне даных"</string>
+    <string name="permission_rationale_data_sharing_device_manufacturer_message" msgid="7569261218145653185">"Распрацоўшчык перадаў вытворцы прылады інфармацыю пра тое, як гэтая праграма абагульвае даныя. З цягам часу гэта інфармацыя можа быць зменена распрацоўшчыкам."</string>
+    <string name="permission_rationale_data_sharing_source_message" msgid="8330794595417986883">"Распрацоўшчык дадаў (сюды: "<annotation id="link"><annotation id="install_source" example="App Store">"%1$s"</annotation></annotation>") інфармацыю пра тое, як гэтая праграма абагульвае даныя. З цягам часу гэтая інфармацыя можа быць зменена распрацоўшчыкам."</string>
+    <string name="permission_rationale_location_purpose_title" msgid="5115877143670012618">"Праграма можа абагульваць геаданыя для наступнага:"</string>
+    <string name="permission_rationale_permission_data_sharing_varies_title" msgid="9103718980919908316">"Абагульванне даных залежыць ад розных умоў"</string>
+    <string name="permission_rationale_data_sharing_varies_message" msgid="4224469559084489222">"Практыкі збору і апрацоўкі даных залежаць ад версіі праграмы, яе выкарыстання, месца пражывання і ўзросту карыстальніка. "<annotation id="link">"Больш пра абагульванне даных"</annotation></string>
+    <string name="permission_rationale_data_sharing_varies_message_without_link" msgid="4912763761399025094">"Практыкі збору і апрацоўкі даных залежаць ад версіі праграмы, яе выкарыстання, месца пражывання і ўзросту карыстальніка."</string>
+    <string name="permission_rationale_location_settings_title" msgid="7204145004850190953">"Даныя пра ваша месцазнаходжанне"</string>
+    <string name="permission_rationale_permission_settings_message" msgid="631286040979660267">"Змяніць доступ праграмы можна ў "<annotation id="link">"наладах прыватнасці"</annotation></string>
+    <string name="permission_rationale_purpose_app_functionality" msgid="8397736681065841405">"Функцыі праграмы"</string>
+    <string name="permission_rationale_purpose_analytics" msgid="2070800501189620712">"Аналітыка"</string>
+    <string name="permission_rationale_purpose_developer_communications" msgid="6453047018892062374">"Сувязь з распрацоўшчыкам"</string>
+    <string name="permission_rationale_purpose_advertising" msgid="7156966429245180236">"Рэклама і маркетынг"</string>
+    <string name="permission_rationale_purpose_fraud_prevention_security" msgid="4262104770357031902">"Прадухіленне махлярства, бяспека і адпаведнасць патрабаванням"</string>
+    <string name="permission_rationale_purpose_personalization" msgid="1589973273682238708">"Персаналізацыя"</string>
+    <string name="permission_rationale_purpose_account_management" msgid="2985772421946688879">"Кіраванне ўліковымі запісамі"</string>
+    <string name="app_permission_rationale_message" msgid="8511466916077100713">"Бяспека даных"</string>
+    <string name="app_location_permission_rationale_title" msgid="925420340572401350">"Дазвол на абагульванне даных пра месцазнаходжанне"</string>
+    <string name="app_location_permission_rationale_subtitle" msgid="6986985722752868692">"Гэта праграма можа абагульваць даныя пра месцазнаходжанне з трэцімі бакамі"</string>
+    <string name="data_sharing_updates_title" msgid="7996933386875213859">"Змяненні ў абагульванні даных пра месцазнаходжанне"</string>
+    <string name="data_sharing_updates_summary" msgid="764113985772233889">"Праглядзець праграмы, для якіх быў зменены спосаб абагульвання даных пра месцазнаходжанне"</string>
+    <string name="data_sharing_updates_subtitle" msgid="6311537708950632329">"Для гэтых праграм спосаб абагульвання даных пра месцазнаходжанне змяніўся. Магчыма, яны раней увогуле не абагульвалі такія даныя альбо цяпер пачалі іх абагульваць у мэтах рэкламы ці маркетынгу."</string>
+    <string name="data_sharing_updates_footer_message" msgid="1582711655172892107">"Распрацоўшчыкі гэтых праграм дадалі ў краму праграм інфармацыю пра спосабы абагульвання даных. З цягам часу гэта інфармацыя можа быць зменена.\n\nСпосабы абагульвання даных залежаць ад версіі праграмы, яе выкарыстання, месца пражывання і ўзросту карыстальніка."</string>
+    <string name="learn_about_data_sharing" msgid="4200480587079488045">"Даведацца пра абагульванне даных"</string>
+    <string name="shares_location_with_third_parties" msgid="2278051743742057767">"Цяпер даныя пра месцазнаходжанне абагульваюцца з трэцімі бакамі"</string>
+    <string name="shares_location_with_third_parties_for_advertising" msgid="1918588064014480513">"Цяпер даныя пра месцазнаходжанне абагульваюцца з трэцімі бакамі ў мэтах рэкламы ці маркетынгу"</string>
+    <string name="updated_in_last_days" msgid="8371811947153042322">"{count,plural, =0{Абнаўленні за апошні дзень}=1{Абнаўленні за апошні дзень}one{Абнаўленні за # дзень}few{Абнаўленні за # дні}many{Абнаўленні за # дзён}other{Абнаўленні за # дня}}"</string>
+    <string name="no_updates_at_this_time" msgid="9031085635689982935">"Змяненняў пакуль няма"</string>
+    <string name="safety_label_changes_notification_title" msgid="4479955083472203839">"Змяненні ў абагульванні даных"</string>
+    <string name="safety_label_changes_notification_desc" msgid="7808764283266234675">"Для некаторых праграм спосаб абагульвання даных пра месцазнаходжанне змяніўся"</string>
+    <string name="safety_label_changes_gear_description" msgid="2655887555599138509">"Налады"</string>
 </resources>

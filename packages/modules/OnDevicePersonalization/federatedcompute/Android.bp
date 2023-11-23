@@ -1,0 +1,54 @@
+// Copyright (C) 2022 The Android Open Source Project
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+package {
+    default_visibility: [":__subpackages__"],
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
+java_defaults {
+    name: "federatedcompute-java-defaults",
+    lint: {
+        error_checks: ["NewApi"],
+        strict_updatability_linting: true,
+    },
+    min_sdk_version: "Tiramisu ",
+}
+
+java_genrule {
+    name: "federatedcompute-fbs",
+    tools: [
+        "flatc",
+        "soong_zip",
+    ],
+    host_supported: true,
+    srcs: ["src/**/*.fbs"],
+    out: ["federatedcompute-fbs.srcjar"],
+    cmd: "$(location flatc) -o $(genDir) --java $(in) " +
+        "&& $(location soong_zip) -o $(out) -C $(genDir) -D $(genDir)",
+    visibility: [
+      "//packages/modules/OnDevicePersonalization:__subpackages__"
+    ],
+}
+
+filegroup {
+    name: "federatedcompute-sources",
+    srcs: [
+        "src/**/*.java",
+    ],
+    path: "src",
+    visibility: [
+      "//packages/modules/OnDevicePersonalization:__subpackages__"
+    ],
+}

@@ -39,6 +39,7 @@ import com.android.cellbroadcastservice.GsmAlphabet;
 import com.android.cellbroadcastservice.SmsCbHeader;
 import com.android.cellbroadcastservice.SmsCbHeader.DataCodingScheme;
 import com.android.internal.telephony.SmsConstants;
+import com.android.modules.utils.build.SdkLevel;
 
 import java.io.UnsupportedEncodingException;
 import java.util.ArrayList;
@@ -93,12 +94,19 @@ public class GsmSmsCbMessage {
     public static SmsCbMessage createSmsCbMessage(Context context, SmsCbHeader header,
             SmsCbLocation location, byte[][] pdus, int slotIndex)
             throws IllegalArgumentException {
-        SubscriptionManager sm = (SubscriptionManager) context.getSystemService(
-                Context.TELEPHONY_SUBSCRIPTION_SERVICE);
-        int subId = SubscriptionManager.DEFAULT_SUBSCRIPTION_ID;
-        int[] subIds = sm.getSubscriptionIds(slotIndex);
-        if (subIds != null && subIds.length > 0) {
-            subId = subIds[0];
+        int subId = SubscriptionManager.INVALID_SUBSCRIPTION_ID;
+        if (SdkLevel.isAtLeastU()) {
+            subId = SubscriptionManager.getSubscriptionId(slotIndex);
+        } else {
+            SubscriptionManager sm = context.getSystemService(SubscriptionManager.class);
+            int[] subIds = sm.getSubscriptionIds(slotIndex);
+            if (subIds != null && subIds.length > 0) {
+                subId = subIds[0];
+            }
+        }
+
+        if (!SubscriptionManager.isValidSubscriptionId(subId)) {
+            subId = SubscriptionManager.DEFAULT_SUBSCRIPTION_ID;
         }
 
         long receivedTimeMillis = System.currentTimeMillis();

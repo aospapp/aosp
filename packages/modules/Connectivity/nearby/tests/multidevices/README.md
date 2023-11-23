@@ -43,14 +43,24 @@ headset). Flash it with a customized ROM with the following changes:
 *   Adjust Bluetooth profile configurations. \
     The Fast Pair provider simulator is an opposite role to the seeker. It needs
     to enable/disable the following Bluetooth profile:
-    *   Disable A2DP (profile_supported_a2dp)
-    *   Disable the AVRCP controller (profile_supported_avrcp_controller)
-    *   Enable A2DP sink (profile_supported_a2dp_sink)
-    *   Enable the HFP client connection service (profile_supported_hfpclient,
-        hfp_client_connection_service_enabled)
-    *   Enable the AVRCP target (profile_supported_avrcp_target)
-    *   Enable the automatic audio focus request
-        (a2dp_sink_automatically_request_audio_focus)
+    *   Disable A2DP source (bluetooth.profile.a2dp.source.enabled)
+    *   Enable A2DP sink (bluetooth.profile.a2dp.sink.enabled)
+    *   Disable the AVRCP controller (bluetooth.profile.avrcp.controller.enabled)
+    *   Enable the AVRCP target (bluetooth.profile.avrcp.target.enabled)
+    *   Enable the HFP service (bluetooth.profile.hfp.ag.enabled, bluetooth.profile.hfp.hf.enabled)
+
+```makefile
+# The Bluetooth profiles that Fast Pair provider simulator expect to have enabled.
+PRODUCT_PRODUCT_PROPERTIES += \
+    bluetooth.device.default_name=FastPairProviderSimulator \
+    bluetooth.profile.a2dp.source.enabled=false \
+    bluetooth.profile.a2dp.sink.enabled=true \
+    bluetooth.profile.avrcp.controller.enabled=false \
+    bluetooth.profile.avrcp.target.enabled=true \
+    bluetooth.profile.hfp.ag.enabled=true \
+    bluetooth.profile.hfp.hf.enabled=true
+```
+
 *   Adjust Bluetooth TX power limitation in Bluetooth module and disable the
     Fast Pair in Google Play service (aka GMS)
 

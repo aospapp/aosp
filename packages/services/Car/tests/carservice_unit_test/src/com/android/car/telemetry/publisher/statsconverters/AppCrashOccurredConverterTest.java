@@ -20,6 +20,7 @@ import static com.android.car.telemetry.AtomsProto.AppCrashOccurred.ERROR_SOURCE
 import static com.android.car.telemetry.AtomsProto.AppCrashOccurred.PACKAGE_NAME_FIELD_NUMBER;
 import static com.android.car.telemetry.AtomsProto.AppCrashOccurred.PID_FIELD_NUMBER;
 import static com.android.car.telemetry.AtomsProto.AppCrashOccurred.UID_FIELD_NUMBER;
+import static com.android.car.telemetry.publisher.Constants.STATS_BUNDLE_KEY_PREFIX;
 
 import static com.google.common.truth.Truth.assertThat;
 
@@ -77,13 +78,19 @@ public class AppCrashOccurredConverterTest {
         PersistableBundle bundle = mConverter.convert(atomsList, null, null, null);
 
         assertThat(bundle.size()).isEqualTo(4);
-        assertThat(bundle.getIntArray(accessorMap.get(UID_FIELD_NUMBER).getFieldName()))
+        assertThat(bundle.getIntArray(
+                    STATS_BUNDLE_KEY_PREFIX + accessorMap.get(UID_FIELD_NUMBER).getFieldName()))
                 .asList().containsExactly(1000, 2000).inOrder();
-        assertThat(bundle.getIntArray(accessorMap.get(PID_FIELD_NUMBER).getFieldName()))
+        assertThat(bundle.getIntArray(
+                    STATS_BUNDLE_KEY_PREFIX + accessorMap.get(PID_FIELD_NUMBER).getFieldName()))
                 .asList().containsExactly(12345, 67890).inOrder();
-        assertThat(bundle.getStringArray(accessorMap.get(PACKAGE_NAME_FIELD_NUMBER).getFieldName()))
+        assertThat(bundle.getStringArray(
+                    STATS_BUNDLE_KEY_PREFIX + accessorMap.get(PACKAGE_NAME_FIELD_NUMBER)
+                            .getFieldName()))
                 .asList().containsExactly(PACKAGE_NAME_1, PACKAGE_NAME_2).inOrder();
-        assertThat(bundle.getIntArray(accessorMap.get(ERROR_SOURCE_FIELD_NUMBER).getFieldName()))
+        assertThat(bundle.getIntArray(
+                    STATS_BUNDLE_KEY_PREFIX + accessorMap.get(ERROR_SOURCE_FIELD_NUMBER)
+                            .getFieldName()))
                 .asList().containsExactly(1, 2).inOrder();  // DATA_APP=1, SYSTEM_APP=2
     }
 

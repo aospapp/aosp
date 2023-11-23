@@ -8,51 +8,60 @@
       android:layout_width="match_parent"
       android:layout_height="match_parent"
       android:id="@+id/frameLayoutLatency">
-<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
-    xmlns:tools="http://schemas.android.com/tools"
-    android:id="@+id/frameLayout"
-    android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    tools:context=".PrioritizeLatency" >
-  <Button
-      android:id="@+id/requestlatency"
-      android:layout_width="wrap_content"
-      android:layout_height="wrap_content"
-      android:text="RequestNetwork"
-      app:layout_constraintBottom_toTopOf="@+id/button6"
-      app:layout_constraintEnd_toEndOf="parent"
-      app:layout_constraintHorizontal_bias="0.461"
-      app:layout_constraintStart_toStartOf="parent"
-      app:layout_constraintTop_toTopOf="parent"
-      app:layout_constraintVertical_bias="0.717" />
-  <Button
-      android:id="@+id/releaselatency"
-      android:layout_width="wrap_content"
-      android:layout_height="wrap_content"
-      android:layout_marginBottom="76dp"
-      android:text="Release Network"
-      app:layout_constraintBottom_toTopOf="@+id/button7"
-      app:layout_constraintEnd_toEndOf="parent"
-      app:layout_constraintHorizontal_bias="0.478"
-      app:layout_constraintStart_toStartOf="parent" />
-  <Button
-      android:id="@+id/pinglatency"
-      android:layout_width="182dp"
-      android:layout_height="42dp"
-      android:layout_marginBottom="308dp"
-      android:text="Ping"
-      app:layout_constraintBottom_toBottomOf="parent"
-      app:layout_constraintEnd_toEndOf="parent"
-      app:layout_constraintHorizontal_bias="0.471"
-      app:layout_constraintStart_toStartOf="parent" />
-  <TextView
-      android:id="@+id/textView"
-      android:layout_width="371dp"
-      android:layout_height="52dp"
-      android:text="Prioritize Latency"
-      tools:layout_editor_absoluteX="21dp"
-      tools:layout_editor_absoluteY="1dp" />
-</androidx.constraintlayout.widget.ConstraintLayout>
-    </FrameLayout>
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:id="@+id/frameLayout"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        tools:context=".PrioritizeLatency">
+      <Button
+          android:id="@+id/purchaseButton"
+          android:layout_width="233dp"
+          android:layout_height="50dp"
+          android:layout_marginTop="176dp"
+          android:text="@string/purchase"
+          app:layout_constraintEnd_toEndOf="parent"
+          app:layout_constraintHorizontal_bias="0.495"
+          app:layout_constraintStart_toStartOf="parent"
+          app:layout_constraintTop_toTopOf="parent"
+          app:layout_constraintVertical_bias="0.717" />
+      <Button
+          android:id="@+id/requestReleaseButton"
+          android:layout_width="183dp"
+          android:layout_height="50dp"
+          android:layout_marginTop="84dp"
+          android:text="@string/request_network"
+          app:layout_constraintEnd_toEndOf="parent"
+          app:layout_constraintStart_toStartOf="parent"
+          app:layout_constraintTop_toBottomOf="@+id/purchaseButton"
+          app:layout_constraintVertical_bias="0.717" />
+      <Button
+          android:id="@+id/pinglatency"
+          android:layout_width="182dp"
+          android:layout_height="42dp"
+          android:layout_marginBottom="92dp"
+          android:text="@string/ping"
+          app:layout_constraintBottom_toBottomOf="parent"
+          app:layout_constraintEnd_toEndOf="parent"
+          app:layout_constraintHorizontal_bias="0.493"
+          app:layout_constraintStart_toStartOf="parent"
+          app:layout_constraintTop_toBottomOf="@+id/requestReleaseButton" />
+      <TextView
+          android:id="@+id/resultTextView"
+          android:layout_width="283dp"
+          android:layout_height="wrap_content"
+          android:layout_marginTop="84dp"
+          android:text="@string/result_prefix"
+          app:layout_constraintEnd_toEndOf="parent"
+          app:layout_constraintStart_toStartOf="parent"
+          app:layout_constraintTop_toBottomOf="@+id/pinglatency"
+          app:layout_constraintVertical_bias="0.717" />
+      <TextView
+          android:id="@+id/textView"
+          android:layout_width="371dp"
+          android:layout_height="52dp"
+          android:text="@string/latency_title"
+          tools:layout_editor_absoluteX="16dp"
+          tools:layout_editor_absoluteY="16dp" />
+    </androidx.constraintlayout.widget.ConstraintLayout>
+  </FrameLayout>
     </RelativeLayout>

@@ -24,14 +24,13 @@
     <string name="auto_brightness_title" msgid="9124647862844666581">"Prilagodljiva svetlost"</string>
     <string name="auto_brightness_summary" msgid="2002570577219479702">"Prilagajanje svetlosti zaslona okolici"</string>
     <string name="condition_night_display_title" msgid="3777509730126972675">"Nočna svetloba je vklopljena"</string>
-    <string name="night_mode_tile_label" msgid="6603597795502131664">"Nočni način"</string>
     <string name="network_and_internet" msgid="4229023630498537530">"Omrežje in internet"</string>
     <string name="mobile_network_settings" msgid="1708621113321368597">"Mobilno omrežje"</string>
     <string name="mobile_network_summary_count" msgid="760865625847664029">"{count,plural, =1{# kartica SIM}one{# kartica SIM}two{# kartici SIM}few{# kartice SIM}other{# kartic SIM}}"</string>
     <string name="mobile_network_active_sim" msgid="1901674954229832811">"Aktivno/SIM"</string>
     <string name="mobile_network_inactive_sim" msgid="3644984830926224318">"Neaktivno/SIM"</string>
-    <string name="mobile_network_active_esim" msgid="5864100786496761032">"Aktivno/prenesena kartica SIM"</string>
-    <string name="mobile_network_inactive_esim" msgid="1397332352238119032">"Neaktivno/prenesena kartica SIM"</string>
+    <string name="mobile_network_active_esim" msgid="5175362818078597096">"Aktivno/e-SIM"</string>
+    <string name="mobile_network_inactive_esim" msgid="7273712403773327964">"Neaktivno/e-SIM"</string>
     <string name="mobile_network_list_add_more" msgid="6174294462747070655">"Dodaj več"</string>
     <string name="mobile_network_toggle_title" msgid="3515647310810280063">"Prenos pod. v mobilnem omrežju"</string>
     <string name="mobile_network_toggle_summary" msgid="8698267487987697148">"Dostop do podatkov prek mobilnega omrežja"</string>
@@ -177,6 +176,7 @@
     <string name="network_connection_request_dialog_showall" msgid="776613149566461487">"Pokaži vse"</string>
     <string name="progress_scanning" msgid="7191583064717479795">"Iskanje"</string>
     <string name="bluetooth_settings_title" msgid="3794688574569688649">"Bluetooth"</string>
+    <string name="bluetooth_toggle_title" msgid="1431803611346881088">"Uporaba Bluetootha"</string>
     <string name="bluetooth_device" msgid="3178478829314083240">"Neimenovana naprava"</string>
     <string name="bluetooth_paired_devices" msgid="6463199569164652410">"Seznanjene naprave"</string>
     <string name="bluetooth_pair_new_device" msgid="6948753485443263095">"Seznanitev nove naprave"</string>
@@ -221,6 +221,9 @@
     <string name="bluetooth_notif_title" msgid="8374602799367803335">"Zahteva za seznanitev"</string>
     <string name="bluetooth_notif_message" msgid="1060821000510108726">"Dotaknite se, če želite opraviti seznanitev z napravo <xliff:g id="DEVICE_NAME">%1$s</xliff:g>."</string>
     <string name="bluetooth_device_picker" msgid="673238198452345475">"Izbira naprave Bluetooth"</string>
+    <string name="bluetooth_bonded_bluetooth_toggle_content_description" msgid="6800772154405846597">"Bluetooth"</string>
+    <string name="bluetooth_bonded_phone_toggle_content_description" msgid="8152794643249938377">"Telefon"</string>
+    <string name="bluetooth_bonded_media_toggle_content_description" msgid="7803420585378155404">"Predstavnost"</string>
     <string name="language_settings" msgid="2079258598337245546">"Jeziki"</string>
     <string name="languages_and_input_settings" msgid="3672322610529408248">"Jeziki in vnos"</string>
     <string name="language_picker_list_suggested_header" msgid="7593893806003415948">"Predlagano"</string>
@@ -300,14 +303,16 @@
     <string name="apps_and_notifications_settings" msgid="8704585874333781975">"Aplikacije in obvestila"</string>
     <string name="all_applications" msgid="7798210477486822168">"Pokaži vse aplikacije"</string>
     <string name="default_applications" msgid="1558183275638697087">"Privzete aplikacije"</string>
+    <string name="performance_impacting_apps" msgid="3439260699394720569">"Aplikacije, ki vplivajo na delovanje"</string>
     <string name="app_permissions" msgid="32799922508313948">"Dovoljenja za aplikacije"</string>
     <string name="app_permissions_summary" msgid="5402214755935368418">"Nadzor dostopa aplikacij do podatkov"</string>
     <string name="applications_settings" msgid="794261395191035632">"Podatki o aplikaciji"</string>
-    <string name="force_stop" msgid="2153183697014720520">"Prisilna ustavitev"</string>
-    <string name="force_stop_dialog_title" msgid="3342850939200388694">"Želite prisilno ustaviti aplikacijo?"</string>
+    <string name="force_stop" msgid="1616958676171167028">"Ustavi aplikacijo"</string>
+    <string name="force_stop_dialog_title" msgid="4481858344628934971">"Želite ustaviti aplikacijo?"</string>
     <string name="force_stop_dialog_text" msgid="4354954014318432599">"Če prisilno ustavite aplikacijo, morda ne bo pravilno delovala."</string>
-    <string name="prioritize_app_performance_dialog_title" msgid="2561577032540073080">"Želite vklopiti prednost učinkovitosti delovanja aplikacije?"</string>
-    <string name="prioritize_app_performance_dialog_text" msgid="572525689800110355">"Če vklopite, lahko pride do nestabilnosti sistema ali dolgoročnega vpliva na strojno opremo. Ali želite nadaljevati?"</string>
+    <string name="force_stop_success_toast_text" msgid="2986272849275894254">"Aplikacija <xliff:g id="APP_NAME">%1$s</xliff:g> je ustavljena."</string>
+    <string name="prioritize_app_performance_dialog_title" msgid="3205297520523665568">"Bi dali prednost delovanju aplikacije?"</string>
+    <string name="prioritize_app_performance_dialog_text" msgid="4321564728229192878">"To lahko povzroči nestabilnost sistema ali dolgoročno vpliva na strojno opremo. Ali želite nadaljevati?"</string>
     <string name="prioritize_app_performance_dialog_action_on" msgid="3556735049873419163">"Da"</string>
     <string name="prioritize_app_performance_dialog_action_off" msgid="2813324718753199319">"Ne, hvala"</string>
     <string name="disable_text" msgid="4358165448648990820">"Onemogoči"</string>
@@ -378,6 +383,7 @@
     <string name="apps_permission_manager_title" msgid="8776335943862484131">"Upravitelj dovoljenj"</string>
     <string name="apps_permission_manager_summary" msgid="4180424218228141274">"Nadzor dostopa aplikacij do podatkov"</string>
     <string name="apps_default_apps_summary" msgid="2017792579839972926">"Za Pomočnika in drugo"</string>
+    <string name="performance_impacting_apps_summary" msgid="7762122057244111162">"{count,plural, =1{# aplikacija, ki vpliva na delovanje}one{# aplikacija, ki vpliva na delovanje}two{# aplikaciji, ki vplivata na delovanje}few{# aplikacije, ki vplivajo na delovanje}other{# aplikacij, ki vpliva na delovanje}}"</string>
     <string name="apps_special_app_access_summary" msgid="6464767436309742163">"Na nastavitve sistema in druge nastavitve"</string>
     <string name="special_access" msgid="5730278220917123811">"Posebni dostop za aplikacije"</string>
     <string name="show_system" msgid="4401355756969485287">"Prikaz sistemskih procesov"</string>
@@ -391,6 +397,8 @@
     <string name="notification_listener_revoke_warning_summary" msgid="4904973394539125407">"Če za aplikacijo <xliff:g id="NOTIFICATION_LISTENER_NAME">%1$s</xliff:g> izklopite dostop do obvestil, bo dostop do načina »ne moti« morda tudi izklopljen."</string>
     <string name="notification_listener_revoke_warning_confirm" msgid="2759583507454984812">"Izklop"</string>
     <string name="notification_listener_revoke_warning_cancel" msgid="4399941651358241154">"Prekliči"</string>
+    <string name="performance_impacting_apps_description" msgid="7361464904617808444">"Te aplikacije negativno vplivajo na delovanje sistema in jim je bilo preprečeno izvajanje v ozadju.\nDajte aplikaciji prednost, da ji odobrite uporabo sredstev ozadju in jo odstranite s tega seznama."</string>
+    <string name="performance_impacting_apps_button_label" msgid="8277507326717608783">"Dajanje pred. aplik."</string>
     <string name="premium_sms_access_title" msgid="1409118461646148686">"Dostop za plačljiva sporočila SMS"</string>
     <string name="premium_sms_access_description" msgid="7119026067677052169">"Plačljiva sporočila SMS vam lahko povzročijo stroške in povečajo račun za mobilno telefonijo. Če za aplikacijo omogočite dovoljenje, boste lahko s tisto aplikacijo pošiljali plačljiva sporočila SMS."</string>
     <string name="usage_access_title" msgid="7153427122072303254">"Dostop do podatkov o uporabi"</string>
@@ -401,22 +409,27 @@
     <string name="location_settings_title" msgid="901334356682423679">"Lokacija"</string>
     <string name="location_toggle_title" msgid="836779750812064601">"Uporaba lokacije"</string>
     <string name="location_toggle_summary" msgid="7977868708102299495">"Navedenim aplikacijam omogočite dostop do lokacije"</string>
-    <string name="location_toggle_off_warning" msgid="8396854289251143748">"Če to izklopite, nobena aplikacija ne bo imela dostopa do lokacije. Aplikacije za pomoč vozniku bodo še vedno imele dostop."</string>
-    <string name="location_driver_assistance_toggle_title" msgid="9201622805420459957">"Uporaba lokacije za pomoč vozniku"</string>
+    <string name="location_toggle_off_warning" msgid="5959449346865136081">"Če to izklopite, nobena aplikacija ne bo imela dostopa do lokacije razen tistih, ki so potrebne za pomoč vozniku."</string>
+    <string name="location_driver_assistance_toggle_title" msgid="3780157378527924932">"Uporaba lokacije za pomoč vozniku"</string>
     <string name="location_driver_assistance_toggle_off_title" msgid="2218532550578204718">"Lokacija vozila je izklopljena"</string>
-    <string name="location_driver_assistance_toggle_off_summary" msgid="1516786816178866919">"Aplikacije za pomoč vozniku nimajo dostopa do lokacije."</string>
+    <string name="location_driver_assistance_toggle_off_summary" msgid="6040822988891113026">"Aplikacije za pomoč vozniku nimajo dostopa do lokacije."</string>
     <string name="location_driver_assistance_action_text" msgid="1887309495010247883">"Spremeni"</string>
     <string name="location_driver_assistance_toggle_summary" msgid="2732591196508054649">"Aplikacijam za pomoč pri vožnji omogočite dostop do lokacije"</string>
-    <string name="location_driver_assistance_toggle_off_warning" msgid="8097738968253492982">"Če to izklopite, boste onemogočili aplikacije za pomoč vozniku, ki delujejo na podlagi podatkov o lokaciji."</string>
+    <string name="location_driver_assistance_toggle_off_warning" msgid="2733124752598498356">"Če to izklopite, boste onemogočili aplikacije za pomoč vozniku, ki delujejo na podlagi podatkov o lokaciji."</string>
     <string name="driver_assistance_warning_confirm_label" msgid="2873799611160864931">"Vseeno izklopi"</string>
-    <string name="location_settings_recent_requests_title" msgid="6345634382240930628">"Nedavne zahteve za lokacijo"</string>
-    <string name="location_settings_recent_requests_empty_message" msgid="7789667070033674910">"Ni nedavnih zahtev za lokacijo"</string>
+    <string name="location_recently_accessed" msgid="522888989582110975">"Nedavno dostopano"</string>
+    <string name="location_settings_recently_accessed_title" msgid="6016264778609426382">"Nedavno dostopano"</string>
+    <string name="location_settings_recently_accessed_view_all_title" msgid="6344830628885781448">"Ogled vseh"</string>
+    <string name="location_no_recent_access" msgid="2859914321242257931">"Ni nedavnih aplikacij"</string>
+    <string name="driver_assistance_label" msgid="9217315205754658940">"<xliff:g id="TIME">%1$s</xliff:g> • Pomoč vozniku"</string>
+    <string name="location_driver_assistance_privacy_policy_header_content" msgid="8118086439003674350">"Aplikacije z dovoljenjem za dostop do lokacije tega vozila zaradi funkcij za pomoč vozniku."</string>
+    <string name="location_driver_assistance_privacy_policy_button_text" msgid="669921557502414704">"Pravilnik o zasebnosti"</string>
     <string name="location_settings_app_permissions_title" msgid="6446735313354321564">"Dovoljenja na ravni aplikacije"</string>
     <string name="location_settings_services_title" msgid="1186133632690970468">"Lokacijske storitve"</string>
     <string name="location_use_location_title" msgid="117735895374606680">"Uporaba lokacije"</string>
     <string name="location_settings_footer" msgid="296892848338100051">"Lokacijska storitev si pri zaznavanju lokacije naprave pomaga z viri, kot so GPS, omrežja Wi-Fi, mobilna omrežja in tipala."</string>
     <string name="driver_assistance_settings_title" msgid="4915804073177128915">"Pomoč vozniku"</string>
-    <string name="adas_settings_footer" msgid="5128483877858058534">"Podatki o lokaciji, poslani aplikacijam za pomoč vozniku, ne vsebujejo podatkov, ki bi omogočali vašo prepoznavo. Pred izbrisom se hranijo največ dva dneva."</string>
+    <string name="adas_settings_footer" msgid="6697021691244459156">"Podatki o lokaciji, poslani aplikacijam za pomoč vozniku, ne vsebujejo podatkov, ki bi omogočali vašo prepoznavo. Pred izbrisom se hranijo največ dva dneva."</string>
     <string name="microphone_settings_title" msgid="7125554350537136922">"Mikrofon"</string>
     <string name="microphone_toggle_title" msgid="911586035332827275">"Uporaba mikrofona"</string>
     <string name="microphone_toggle_summary" msgid="2682653449849128626">"Dostop do mikrofona omogoči vsem aplikacijam"</string>
@@ -432,6 +445,9 @@
     <string name="system_update_settings_title" msgid="8448588267784138855">"Posodobitve sistema"</string>
     <string name="system_advanced_title" msgid="6303355131691523362">"Dodatno"</string>
     <string name="system_advanced_summary" msgid="5833643795981791953">"Vizitka, pravne informacije, ponastavitev in drugo"</string>
+    <string name="restart_infotainment_system_title" msgid="5174129167446756511">"Vnovični zagon informativno-razvedrilnega sistema"</string>
+    <string name="restart_infotainment_system_dialog_text" msgid="6395281407323116808">"Vnovični zagon informativno-razvedrilnega sistema avtomobila lahko traja nekaj minut. Ali želite nadaljevati?"</string>
+    <string name="continue_confirmation" msgid="1598892163951467191">"Naprej"</string>
     <string name="firmware_version" msgid="8491753744549309333">"Različica Androida"</string>
     <string name="security_patch" msgid="4794276590178386903">"Raven popravkov za varnost v Androidu"</string>
     <string name="hardware_info" msgid="3973165746261507658">"Model in strojna oprema"</string>
@@ -472,11 +488,11 @@
     <string name="developer_options_settings" msgid="1530739225109118480">"Možnosti za razvijalce"</string>
     <string name="reset_options_title" msgid="4388902952861833420">"Možnosti ponastavitve"</string>
     <string name="reset_options_summary" msgid="5508201367420359293">"Ponastavitev omrežja, aplikacij ali naprave"</string>
-    <string name="reset_network_title" msgid="1284233059990797263">"Ponastavi omrežje"</string>
-    <string name="reset_network_desc" msgid="602381374544634925">"S tem boste ponastavili vse omrežne nastavitve, med drugim tudi:"</string>
-    <string name="reset_network_item_wifi" msgid="7569481589699982698"><li>"Wi‑Fi"</li></string>
+    <string name="reset_network_title" msgid="3077846909739832734">"Ponastavi Wi-Fi in Bluetooth"</string>
+    <string name="reset_network_desc" msgid="3332203703135823033">"S tem bodo ponastavljene nastavitve za Wi‑Fi in Bluetooth ter odstranjene bodo shranjeni predhodno povezani elementi:"</string>
+    <string name="reset_network_item_wifi" msgid="2876370861806060314"><li>"omrežja Wi‑Fi in gesla."</li></string>
     <string name="reset_network_item_mobile" msgid="5747282716664480997"><li>"Prenos podatkov v mobilnem omrežju"</li></string>
-    <string name="reset_network_item_bluetooth" msgid="6035019931106921284"><li>"Bluetooth"</li></string>
+    <string name="reset_network_item_bluetooth" msgid="7475279871421815601"><li>"telefoni in naprave Bluetooth,"</li></string>
     <string name="reset_esim_title" msgid="8132107637911831211">"Izbris vseh kartic eSIM za vozilo"</string>
     <string name="reset_esim_desc" msgid="1437276625485586740">"S tem ne boste prekinili naročniškega paketa pri operaterju."</string>
     <string name="reset_esim_error_title" msgid="7245109418130525492">"Kartic e-SIM ni mogoče ponastaviti"</string>
@@ -574,7 +590,7 @@
     <string name="storage_clear_user_data_text" msgid="8787615136779130680">"Počisti shrambo"</string>
     <string name="storage_clear_cache_btn_text" msgid="8449547925966775612">"Izbriši vsebino predpomnilnika"</string>
     <string name="storage_clear_data_dlg_title" msgid="5863775997588969879">"Izbris podatkov aplikacije?"</string>
-    <string name="storage_clear_data_dlg_text" msgid="795055288575727801">"Vsi podatki te aplikacije bodo trajno izbrisani. To med drugim vključuje vse datoteke, nastavitve, račune in podatkovne zbirke."</string>
+    <string name="storage_clear_data_dlg_text" msgid="3255314337644212283">"Podatki te aplikacije bodo trajno izbrisani. To vključuje datoteke, nastavitve, zbirke podatkov in druge podatke aplikacije."</string>
     <string name="storage_clear_failed_dlg_text" msgid="6710485971686866306">"Shrambe za aplikacijo ni bilo mogoče počistiti."</string>
     <string name="storage_unmount_success" msgid="1553591517580407021">"To je varno izvrženo: <xliff:g id="NAME">%1$s</xliff:g>"</string>
     <string name="storage_unmount_failure" msgid="4591934911541762883">"Tega ni bilo mogoče varno izvreči: <xliff:g id="NAME">%1$s</xliff:g>"</string>
@@ -674,7 +690,8 @@
     <string name="lockpassword_clear_label" msgid="6363680971025188064">"Počisti"</string>
     <string name="lockpassword_cancel_label" msgid="5791237697404166450">"Prekliči"</string>
     <string name="lockpassword_confirm_label" msgid="5918463281546146953">"Potrdi"</string>
-    <string name="choose_lock_password_hints" msgid="3903696950202491593">"Geslo mora vsebovati najmanj 4 znake"</string>
+    <string name="choose_lock_password_hints" msgid="3903696950202491593">"Geslo mora vsebovati najmanj 4 znake."</string>
+    <string name="locktype_unavailable" msgid="2678317466336249126">"Ta vrsta zaklepanja ni na voljo."</string>
     <string name="lockpassword_pin_contains_non_digits" msgid="3044526271686839923">"Vsebovati sme samo števke od 0 do 9."</string>
     <string name="lockpassword_pin_recently_used" msgid="7901918311213276207">"Skrbnik naprave ne dovoli uporabe nedavne kode PIN."</string>
     <string name="lockpassword_pin_denylisted_by_admin" msgid="3752574009492336468">"Skrbnik za IT je blokiral pogoste kode PIN. Poskusite z drugo kodo PIN."</string>
@@ -699,7 +716,6 @@
     <string name="lockpassword_pin_too_long" msgid="8315542764465856288">"{count,plural, =1{Vsebovati mora manj kot # števko}one{Vsebovati mora manj kot # števko}two{Vsebovati mora manj kot # števki}few{Vsebovati mora manj kot # števke}other{Vsebovati mora manj kot # števk}}"</string>
     <string name="lockpassword_pin_no_sequential_digits" msgid="6511579896796310956">"Naraščajoč, padajoč ali ponavljajoč se niz števk je prepovedan."</string>
     <string name="setup_lock_settings_options_button_label" msgid="3337845811029780896">"Možnosti zaklepanja zaslona"</string>
-    <string name="build_info_fmt" msgid="5592554123908086426">"<xliff:g id="FINGERPRINT">%1$s</xliff:g>\n<xliff:g id="DATE">%2$s</xliff:g>: pred toliko dnevi: <xliff:g id="NUM_DAYS">%3$s</xliff:g>"</string>
     <string name="credentials_reset" msgid="873900550885788639">"Brisanje poverilnic"</string>
     <string name="credentials_reset_summary" msgid="6067911547500459637">"Odstranitev vseh potrdil"</string>
     <string name="credentials_reset_hint" msgid="3459271621754137661">"Želite odstraniti vso vsebino?"</string>
@@ -722,6 +738,8 @@
     <string name="exit_retail_mode_dialog_confirmation_button_text" msgid="3147249675355968649">"Zapri predstavitev"</string>
     <string name="suggestion_dismiss_button" msgid="4539412646977050641">"OPUSTI"</string>
     <string name="restricted_while_driving" msgid="6587569249519274524">"Funkcija med vožnjo ni na voljo"</string>
+    <string name="restricted_for_passenger" msgid="7240117443887727753">"Od voznika zahtevajte, da spremeni nastavitev"</string>
+    <string name="restricted_for_driver" msgid="3364388937671526800">"Tega dejanja ni mogoče izvesti"</string>
     <string name="add_user_restricted_while_driving" msgid="1037301074725362944">"Med vožnjo ni mogoče dodati profila."</string>
     <string name="default_search_query" msgid="3137420627428857068">"Iskanje"</string>
     <string name="assistant_and_voice_setting_title" msgid="737733881661819853">"Pomočnik in govor"</string>
@@ -737,6 +755,7 @@
     <string name="add_a_profile_button_text" msgid="8027395095117925114">"Dodaj profil"</string>
     <string name="delete_this_profile_text" msgid="6035404714526922665">"Izbriši ta profil"</string>
     <string name="add_profile_text" msgid="9118410102199116969">"Dodajanje profila"</string>
+    <string name="cannot_remove_driver_profile" msgid="4109363161608717969">"Ta profil je trenutno prijavljen kot voznik. Poskusite znova, ko se profil ne bo uporabljal kot voznik."</string>
     <string name="qc_display_brightness" msgid="2939655289816201170">"Svetlost zaslona"</string>
     <string name="qc_bluetooth_off_devices_info" msgid="8420985279976892700">"Če si želite ogledati naprave, vklopite Bluetooth"</string>
     <string name="qc_bluetooth_on_no_devices_info" msgid="7573736950041887300">"Če želite seznaniti napravo, odprite nastavitve za Bluetooth"</string>
@@ -769,6 +788,7 @@
     <string name="number_of_device_admins" msgid="7508826094096451485">"{count,plural, =1{# aktivirana aplikacija}one{# aktivirana aplikacija}two{# aktivirani aplikaciji}few{# aktivirane aplikacije}other{# aktiviranih aplikacij}}"</string>
     <string name="number_of_device_admins_none" msgid="5547493703413973954">"Ni aktiviranih aplikacij"</string>
     <string name="work_policy_privacy_settings" msgid="5263835989260149968">"Pravilnik o vozilih organizacije <xliff:g id="ORGANIZATION_NAME">%1$s</xliff:g>"</string>
+    <string name="work_policy_privacy_settings_no_org_name" msgid="8011687012493940230">"Pravilnik o vozilih"</string>
     <string name="work_policy_privacy_settings_summary" msgid="5321618399949880194">"Nastavitve upravlja upravitelj organizacije"</string>
     <string name="footer_learn_more_content_description" msgid="7749452309729272078">"Več o storitvi <xliff:g id="SERVICE">%1$s</xliff:g>"</string>
     <string name="enterprise_privacy_settings" msgid="6496900796150572727">"Podatki o upravljanjem vozilu"</string>

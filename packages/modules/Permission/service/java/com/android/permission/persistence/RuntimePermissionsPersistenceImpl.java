@@ -20,11 +20,16 @@ import android.annotation.NonNull;
 import android.annotation.Nullable;
 import android.content.ApexEnvironment;
 import android.content.pm.PackageManager;
+import android.os.FileUtils;
 import android.os.UserHandle;
 import android.util.ArrayMap;
 import android.util.AtomicFile;
 import android.util.Log;
 import android.util.Xml;
+
+import com.android.internal.annotations.VisibleForTesting;
+import com.android.modules.utils.build.SdkLevel;
+import com.android.server.security.FileIntegrity;
 
 import org.xmlpull.v1.XmlPullParser;
 import org.xmlpull.v1.XmlPullParserException;
@@ -53,6 +58,8 @@ public class RuntimePermissionsPersistenceImpl implements RuntimePermissionsPers
     private static final String APEX_MODULE_NAME = "com.android.permission";
 
     private static final String RUNTIME_PERMISSIONS_FILE_NAME = "runtime-permissions.xml";
+    private static final String RUNTIME_PERMISSIONS_RESERVE_COPY_FILE_NAME =
+            RUNTIME_PERMISSIONS_FILE_NAME + ".reservecopy";
 
     private static final String TAG_PACKAGE = "package";
     private static final String TAG_PERMISSION = "permission";
@@ -65,6 +72,27 @@ public class RuntimePermissionsPersistenceImpl implements RuntimePermissionsPers
     private static final String ATTRIBUTE_NAME = "name";
     private static final String ATTRIBUTE_VERSION = "version";
 
+    @VisibleForTesting
+    interface Injector {
+        void enableFsVerity(@NonNull File file) throws IOException;
+    }
+
+    @NonNull
+    private final Injector mInjector;
+
+    RuntimePermissionsPersistenceImpl() {
+        this(file -> {
+            if (SdkLevel.isAtLeastU()) {
+                FileIntegrity.setUpFsVerity(file);
+            }
+        });
+    }
+
+    @VisibleForTesting
+    RuntimePermissionsPersistenceImpl(@NonNull Injector injector) {
+        mInjector = injector;
+    }
+
     @Nullable
     @Override
     public RuntimePermissionsState readForUser(@NonNull UserHandle user) {
@@ -76,8 +104,20 @@ public class RuntimePermissionsPersistenceImpl implements RuntimePermissionsPers
         } catch (FileNotFoundException e) {
             Log.i(LOG_TAG, "runtime-permissions.xml not found");
             return null;
-        } catch (XmlPullParserException | IOException e) {
-            throw new IllegalStateException("Failed to read runtime-permissions.xml: " + file , e);
+        } catch (Exception e) {
+            File reserveFile = getReserveCopyFile(user);
+            Log.wtf(LOG_TAG, "Reading from reserve copy: " + reserveFile, e);
+            try (FileInputStream inputStream = new AtomicFile(reserveFile).openRead()) {
+                XmlPullParser parser = Xml.newPullParser();
+                parser.setInput(inputStream, null);
+                return parseXml(parser);
+            } catch (Exception exceptionReadingReserveFile) {
+                Log.e(LOG_TAG, "Failed to read reserve copy: " + reserveFile,
+                        exceptionReadingReserveFile);
+                // Reserve copy failed, rethrow the original exception wrapped as runtime.
+                throw new IllegalStateException("Failed to read runtime-permissions.xml: " + file,
+                        e);
+            }
         }
     }
 
@@ -174,6 +214,9 @@ public class RuntimePermissionsPersistenceImpl implements RuntimePermissionsPers
     @Override
     public void writeForUser(@NonNull RuntimePermissionsState runtimePermissions,
             @NonNull UserHandle user) {
+        File reserveFile = getReserveCopyFile(user);
+        reserveFile.delete();
+
         File file = getFile(user);
         AtomicFile atomicFile = new AtomicFile(file);
         FileOutputStream outputStream = null;
@@ -192,8 +235,24 @@ public class RuntimePermissionsPersistenceImpl implements RuntimePermissionsPers
             Log.wtf(LOG_TAG, "Failed to write runtime-permissions.xml, restoring backup: " + file,
                     e);
             atomicFile.failWrite(outputStream);
+            return;
         } finally {
             IoUtils.closeQuietly(outputStream);
+        }
+
+        try (FileInputStream in = new FileInputStream(file);
+             FileOutputStream out = new FileOutputStream(reserveFile)) {
+            FileUtils.copy(in, out);
+            out.getFD().sync();
+        } catch (Exception e) {
+            Log.e(LOG_TAG, "Failed to write reserve copy: " + reserveFile, e);
+        }
+
+        try {
+            mInjector.enableFsVerity(file);
+            mInjector.enableFsVerity(reserveFile);
+        } catch (Exception e) {
+            Log.e(LOG_TAG, "Failed to verity-protect runtime-permissions", e);
         }
     }
 
@@ -253,12 +312,21 @@ public class RuntimePermissionsPersistenceImpl implements RuntimePermissionsPers
     @Override
     public void deleteForUser(@NonNull UserHandle user) {
         getFile(user).delete();
+        getReserveCopyFile(user).delete();
     }
 
+    @VisibleForTesting
     @NonNull
-    private static File getFile(@NonNull UserHandle user) {
+    static File getFile(@NonNull UserHandle user) {
         ApexEnvironment apexEnvironment = ApexEnvironment.getApexEnvironment(APEX_MODULE_NAME);
         File dataDirectory = apexEnvironment.getDeviceProtectedDataDirForUser(user);
         return new File(dataDirectory, RUNTIME_PERMISSIONS_FILE_NAME);
+    }
+
+    @NonNull
+    private static File getReserveCopyFile(@NonNull UserHandle user) {
+        ApexEnvironment apexEnvironment = ApexEnvironment.getApexEnvironment(APEX_MODULE_NAME);
+        File dataDirectory = apexEnvironment.getDeviceProtectedDataDirForUser(user);
+        return new File(dataDirectory, RUNTIME_PERMISSIONS_RESERVE_COPY_FILE_NAME);
     }
 }

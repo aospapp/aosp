@@ -25,10 +25,14 @@
         android:title="@string/wifi_wakeup"
         android:icon="@drawable/ic_settings_auto_wifi"
         android:summary="@string/wifi_wakeup_summary"
-        settings:controller="com.android.car.settings.wifi.preferences.WifiWakeupTogglePreferenceController"/>
+        settings:controller="com.android.car.settings.wifi.preferences.WifiWakeupTogglePreferenceController"
+        settings:occupant_front_passenger="read"
+        settings:occupant_rear_passenger="read"/>
     <SwitchPreference
         android:key="@string/pk_wifi_cellular_fallback"
         android:summary="@string/wifi_cellular_fallback_summary"
         android:title="@string/wifi_cellular_fallback_title"
-        settings:controller="com.android.car.settings.wifi.preferences.CellularFallbackTogglePreferenceController"/>
+        settings:controller="com.android.car.settings.wifi.preferences.CellularFallbackTogglePreferenceController"
+        settings:occupant_front_passenger="read"
+        settings:occupant_rear_passenger="read"/>
 </PreferenceScreen>

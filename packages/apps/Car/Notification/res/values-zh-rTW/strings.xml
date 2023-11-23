@@ -49,4 +49,11 @@
     <string name="see_more_message" msgid="6343183827924395955">"顯示更多"</string>
     <string name="restricted_hun_message_content" msgid="631111937988857716">"新訊息"</string>
     <string name="manage_text" msgid="4225197445283791757">"管理"</string>
+    <string name="category_navigation" msgid="4406139232918521087">"navigation"</string>
+    <string name="category_call" msgid="2249490790700877973">"call"</string>
+    <string name="category_message" msgid="451360226248504859">"msg"</string>
+    <string name="hun_suppression_channel_name" msgid="8298850157350352525">"頂端通知抑制"</string>
+    <string name="hun_suppression_notification_title_park" msgid="2790860076784227523">"隨時掌握最新消息"</string>
+    <string name="hun_suppression_notification_title_drive" msgid="4403363470548899844">"專心開車"</string>
+    <string name="hun_suppression_notification_description" msgid="5269238832987802104">"系統會將某些新通知儲存到通知中心"</string>
 </resources>

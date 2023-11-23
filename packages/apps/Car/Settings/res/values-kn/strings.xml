@@ -24,14 +24,13 @@
     <string name="auto_brightness_title" msgid="9124647862844666581">"ಅಡಾಪ್ಟಿವ್‌ ಪ್ರಖರತೆ"</string>
     <string name="auto_brightness_summary" msgid="2002570577219479702">"ಪರಿಸರಕ್ಕೆ ತಕ್ಕಂತೆ ಸ್ಕ್ರೀನ್ ಪ್ರಖರತೆಯನ್ನು ಹೊಂದಿಸಿ"</string>
     <string name="condition_night_display_title" msgid="3777509730126972675">"ನೈಟ್ ಲೈಟ್ ಆನ್ ಆಗಿದೆ"</string>
-    <string name="night_mode_tile_label" msgid="6603597795502131664">"ರಾತ್ರಿ ಮೋಡ್"</string>
     <string name="network_and_internet" msgid="4229023630498537530">"ನೆಟ್‌ವರ್ಕ್ ಮತ್ತು ಇಂಟರ್ನೆಟ್"</string>
     <string name="mobile_network_settings" msgid="1708621113321368597">"ಮೊಬೈಲ್‌ ನೆಟ್‌ವರ್ಕ್‌"</string>
     <string name="mobile_network_summary_count" msgid="760865625847664029">"{count,plural, =1{# SIM}one{# SIM ಗಳು}other{# SIM ಗಳು}}"</string>
     <string name="mobile_network_active_sim" msgid="1901674954229832811">"ಸಕ್ರಿಯ / ಸಿಮ್"</string>
     <string name="mobile_network_inactive_sim" msgid="3644984830926224318">"ಸಕ್ರಿಯವಾಗಿರದ / ಸಿಮ್"</string>
-    <string name="mobile_network_active_esim" msgid="5864100786496761032">"ಸಕ್ರಿಯ / ಡೌನ್‌ಲೋಡ್ ಮಾಡಿದ SIM"</string>
-    <string name="mobile_network_inactive_esim" msgid="1397332352238119032">"ಸಕ್ರಿಯವಾಗಿರದ / ಡೌನ್‌ಲೋಡ್ ಮಾಡಿದ ಸಿಮ್"</string>
+    <string name="mobile_network_active_esim" msgid="5175362818078597096">"ಸಕ್ರಿಯ / eSIM"</string>
+    <string name="mobile_network_inactive_esim" msgid="7273712403773327964">"ನಿಷ್ಕ್ರಿಯ / eSIM"</string>
     <string name="mobile_network_list_add_more" msgid="6174294462747070655">"ಇನ್ನಷ್ಟು ಸೇರಿಸಿ"</string>
     <string name="mobile_network_toggle_title" msgid="3515647310810280063">"ಮೊಬೈಲ್ ಡೇಟಾ"</string>
     <string name="mobile_network_toggle_summary" msgid="8698267487987697148">"ಮೊಬೈಲ್ ನೆಟ್‌ವರ್ಕ್‌ ಬಳಸಿ ಡೇಟಾ ಪ್ರವೇಶಿಸಿ"</string>
@@ -136,7 +135,7 @@
     <string name="wifi_wakeup" msgid="7451825226044542000">"ವೈ-ಫೈ ಅನ್ನು ಸ್ವಯಂಚಾಲಿತವಾಗಿ ಆನ್ ಮಾಡಿ"</string>
     <string name="wifi_wakeup_summary" msgid="7237521683331291414">"ನಿಮ್ಮ ಮನೆಯ ನೆಟ್‌ವರ್ಕ್‍ನಂತಹ ಉಳಿಸಿದ ಉನ್ನತ-ಗುಣಮಟ್ಟದ ನೆಟ್‌ವರ್ಕ್‌ಗಳ ಸಮೀಪದಲ್ಲಿರುವಾಗ ವೈ-ಫೈ ಸ್ವಯಂ ಆನ್ ಆಗುತ್ತದೆ"</string>
     <string name="wifi_wakeup_summary_no_location" msgid="2821576525488435259">"ಸ್ಥಳವನ್ನು ಆಫ್ ಮಾಡಿರುವ ಕಾರಣ ಲಭ್ಯವಿಲ್ಲ. "<annotation id="link">"ಸ್ಥಳವನ್ನು"</annotation>" ಆನ್ ಮಾಡಿ."</string>
-    <string name="wifi_settings_scanning_required_title" msgid="2726782203331704928">"ವೈ-ಫೈ ಸ್ಕ್ಯಾನ್‌ ಮಾಡುವಿಕೆಯನ್ನು ಆನ್ ಮಾಡುವುದೇ?"</string>
+    <string name="wifi_settings_scanning_required_title" msgid="2726782203331704928">"ವೈ-ಫೈ ಸ್ಕ್ಯಾನ್‌ ಮಾಡುವಿಕೆಯನ್ನು ಆನ್ ಮಾಡಬೇಕೆ?"</string>
     <string name="wifi_settings_scanning_required_turn_on" msgid="4464931023377210050">"ಆನ್ ಮಾಡಿ"</string>
     <string name="wifi_settings_scanning_required_enabled" msgid="5457372118991438313">"ವೈ-ಫೈ ಸ್ಕ್ಯಾನಿಂಗ್ ಅನ್ನು ಆನ್ ಮಾಡಲಾಗಿದೆ"</string>
     <string name="wifi_cellular_fallback_title" msgid="8322675436784870862">"ಮೊಬೈಲ್ ಡೇಟಾಗೆ ಸ್ವಯಂಚಾಲಿತವಾಗಿ ಬದಲಿಸಿ"</string>
@@ -177,6 +176,7 @@
     <string name="network_connection_request_dialog_showall" msgid="776613149566461487">"ಎಲ್ಲವನ್ನೂ ತೋರಿಸಿ"</string>
     <string name="progress_scanning" msgid="7191583064717479795">"ಹುಡುಕಲಾಗುತ್ತಿದೆ"</string>
     <string name="bluetooth_settings_title" msgid="3794688574569688649">"ಬ್ಲೂಟೂತ್‌"</string>
+    <string name="bluetooth_toggle_title" msgid="1431803611346881088">"ಬ್ಲೂಟೂತ್ ಬಳಸಿ"</string>
     <string name="bluetooth_device" msgid="3178478829314083240">"ಹೆಸರಿಸದಿರುವ ಸಾಧನ"</string>
     <string name="bluetooth_paired_devices" msgid="6463199569164652410">"ಜೋಡಿಸಲಾದ ಸಾಧನಗಳು"</string>
     <string name="bluetooth_pair_new_device" msgid="6948753485443263095">"ಹೊಸ ಸಾಧನವನ್ನು ಜೋಡಿಸಿ"</string>
@@ -221,6 +221,9 @@
     <string name="bluetooth_notif_title" msgid="8374602799367803335">"ಜೋಡಣೆ ವಿನಂತಿ"</string>
     <string name="bluetooth_notif_message" msgid="1060821000510108726">"<xliff:g id="DEVICE_NAME">%1$s</xliff:g> ಜೊತೆಗೆ ಜೋಡಿ ಮಾಡಲು ಟ್ಯಾಪ್ ಮಾಡಿ."</string>
     <string name="bluetooth_device_picker" msgid="673238198452345475">"ಬ್ಲೂಟೂತ್ ಸಾಧನವನ್ನು ಆಯ್ಕೆಮಾಡಿ"</string>
+    <string name="bluetooth_bonded_bluetooth_toggle_content_description" msgid="6800772154405846597">"ಬ್ಲೂಟೂತ್"</string>
+    <string name="bluetooth_bonded_phone_toggle_content_description" msgid="8152794643249938377">"ಫೋನ್"</string>
+    <string name="bluetooth_bonded_media_toggle_content_description" msgid="7803420585378155404">"ಮೀಡಿಯಾ"</string>
     <string name="language_settings" msgid="2079258598337245546">"ಭಾಷೆಗಳು"</string>
     <string name="languages_and_input_settings" msgid="3672322610529408248">"ಭಾಷೆಗಳು &amp; ಇನ್‌ಪುಟ್"</string>
     <string name="language_picker_list_suggested_header" msgid="7593893806003415948">"ಸೂಚಿಸಲಾಗಿರುವುದು"</string>
@@ -237,12 +240,12 @@
     <string name="ring_volume_title" msgid="3135241004980719442">"ರಿಂಗ್ ವಾಲ್ಯೂಮ್"</string>
     <string name="navi_volume_title" msgid="946292066759195165">"ನ್ಯಾವಿಗೇಷನ್ ವಾಲ್ಯೂಮ್‌"</string>
     <string name="incoming_call_volume_title" msgid="6972117872424656876">"ರಿಂಗ್‌ಟೋನ್‌"</string>
-    <string name="notification_volume_title" msgid="6749411263197157876">"ಅಧಿಸೂಚನೆ"</string>
+    <string name="notification_volume_title" msgid="6749411263197157876">"ನೋಟಿಫಿಕೇಶನ್"</string>
     <string name="media_volume_title" msgid="6697416686272606865">"ಮಾಧ್ಯಮ"</string>
     <string name="media_volume_summary" msgid="2961762827637127239">"ಸಂಗೀತ ಮತ್ತು ವೀಡಿಯೊಗಳಿಗೆ ವಾಲ್ಯೂಮ್‌ ಅನ್ನು ಹೊಂದಿಸಿ"</string>
     <string name="alarm_volume_title" msgid="840384014895796587">"ಅಲಾರಮ್"</string>
     <string name="ringtone_title" msgid="8370531086214517972">"ಫೋನ್ ರಿಂಗ್‌ಟೋನ್"</string>
-    <string name="notification_ringtone_title" msgid="8661716239594010288">"ಡಿಫಾಲ್ಟ್ ಅಧಿಸೂಚನೆ ಧ್ವನಿ"</string>
+    <string name="notification_ringtone_title" msgid="8661716239594010288">"ಡಿಫಾಲ್ಟ್ ನೋಟಿಫಿಕೇಶನ್ ಧ್ವನಿ"</string>
     <string name="alarm_ringtone_title" msgid="3257364170646440908">"ಡೀಫಾಲ್ಟ್ ಅಲಾರಾಂ ಧ್ವನಿ"</string>
     <string name="ringtone_picker_save_title" msgid="4388137432517227001">"ಉಳಿಸಿ"</string>
     <string name="sound_alert_sounds" msgid="6838044721739163867">"ಅಲರ್ಟ್ ಧ್ವನಿಗಳು"</string>
@@ -300,14 +303,16 @@
     <string name="apps_and_notifications_settings" msgid="8704585874333781975">"ಆ್ಯಪ್‌ಗಳು ಮತ್ತು ಅಧಿಸೂಚನೆಗಳು"</string>
     <string name="all_applications" msgid="7798210477486822168">"ಎಲ್ಲಾ ಆ್ಯಪ್‌ಗಳನ್ನು ತೋರಿಸಿ"</string>
     <string name="default_applications" msgid="1558183275638697087">"ಡೀಫಾಲ್ಟ್ ಆ್ಯಪ್‌ಗಳು"</string>
+    <string name="performance_impacting_apps" msgid="3439260699394720569">"ಕಾರ್ಯಕ್ಷಮತೆಯ ಮೇಲೆ ಪರಿಣಾಮ ಬೀರುವ ಆ್ಯಪ್‌ಗಳು"</string>
     <string name="app_permissions" msgid="32799922508313948">"ಆ್ಯಪ್ ಅನುಮತಿಗಳು"</string>
-    <string name="app_permissions_summary" msgid="5402214755935368418">"ನಿಮ್ಮ ಡೇಟಾಗೆ ಆ್ಯಪ್ ಪ್ರವೇಶವನ್ನು ನಿಯಂತ್ರಿಸಿ"</string>
+    <string name="app_permissions_summary" msgid="5402214755935368418">"ನಿಮ್ಮ ಡೇಟಾಗೆ ಆ್ಯಪ್ ಆ್ಯಕ್ಸೆಸ್ ಅನ್ನು ನಿಯಂತ್ರಿಸಿ"</string>
     <string name="applications_settings" msgid="794261395191035632">"ಆ್ಯಪ್‍ ಮಾಹಿತಿ"</string>
-    <string name="force_stop" msgid="2153183697014720520">"ಬಲವಂತವಾಗಿ ನಿಲ್ಲಿಸಿ"</string>
-    <string name="force_stop_dialog_title" msgid="3342850939200388694">"ಬಲವಂತವಾಗಿ ಸ್ಥಗಿತಗೊಳಿಸುವುದೇ?"</string>
+    <string name="force_stop" msgid="1616958676171167028">"ಆ್ಯಪ್ ಅನ್ನು ನಿಲ್ಲಿಸಿ"</string>
+    <string name="force_stop_dialog_title" msgid="4481858344628934971">"ಆ್ಯಪ್ ಅನ್ನು ನಿಲ್ಲಿಸಬೇಕೆ?"</string>
     <string name="force_stop_dialog_text" msgid="4354954014318432599">"ಆ್ಯಪ್‍ ಅನ್ನು ಬಲವಂತವಾಗಿ ಸ್ಥಗಿತಗೊಳಿಸಿದರೆ, ಅದು ಸರಿಯಾಗಿ ಕಾರ್ಯನಿರ್ವಹಿಸದಿರಬಹುದು."</string>
-    <string name="prioritize_app_performance_dialog_title" msgid="2561577032540073080">"ಆ್ಯಪ್‌ನ ಕಾರ್ಯಕ್ಷಮತೆ ಆದ್ಯತೆ ಆನ್ ಮಾಡುವುದೇ?"</string>
-    <string name="prioritize_app_performance_dialog_text" msgid="572525689800110355">"ಅದನ್ನು ಆನ್ ಮಾಡುವುದರಿಂದ ಸಂಭಾವ್ಯ ಸಿಸ್ಟಂ ಅಸ್ಥಿರತೆ ಅಥವಾ ದೀರ್ಘಾವಧಿಯ ಹಾರ್ಡ್‌ವೇರ್ ಪರಿಣಾಮ ಉಂಟಾಗಬಹುದು. ನೀವು ಮುಂದುವರಿಸಲು ಬಯಸುತ್ತೀರಾ?"</string>
+    <string name="force_stop_success_toast_text" msgid="2986272849275894254">"<xliff:g id="APP_NAME">%1$s</xliff:g> ಅನ್ನು ನಿಲ್ಲಿಸಲಾಗಿದೆ."</string>
+    <string name="prioritize_app_performance_dialog_title" msgid="3205297520523665568">"ಆ್ಯಪ್‌ನ ಕಾರ್ಯಕ್ಷಮತೆ ಆದ್ಯತೆಗೊಳಿಸಬೇಕೇ?"</string>
+    <string name="prioritize_app_performance_dialog_text" msgid="4321564728229192878">"ಸಂಭಾವ್ಯ ಸಿಸ್ಟಂ ಅಸ್ಥಿರತೆ ಅಥವಾ ದೀರ್ಘಾವಧಿಯ ಹಾರ್ಡ್‌ವೇರ್ ಪರಿಣಾಮವನ್ನು ಇದು ಉಂಟಾಗಬಹುದು. ನೀವು ಮುಂದುವರಿಸಲು ಬಯಸುತ್ತೀರಾ?"</string>
     <string name="prioritize_app_performance_dialog_action_on" msgid="3556735049873419163">"ಹೌದು"</string>
     <string name="prioritize_app_performance_dialog_action_off" msgid="2813324718753199319">"ಬೇಡ"</string>
     <string name="disable_text" msgid="4358165448648990820">"ನಿಷ್ಕ್ರಿಯಗೊಳಿಸಿ"</string>
@@ -376,24 +381,27 @@
     <string name="apps_recently_opened" msgid="5320377037971195984">"ಇತ್ತೀಚೆಗೆ ತೆರೆದಿರುವುದು"</string>
     <string name="apps_view_all_apps_title" msgid="2322120325505230530">"ಎಲ್ಲಾ %1$d ಆ್ಯಪ್‌ಗಳನ್ನು ವೀಕ್ಷಿಸಿ"</string>
     <string name="apps_permission_manager_title" msgid="8776335943862484131">"ಅನುಮತಿ ನಿರ್ವಾಹಕರು"</string>
-    <string name="apps_permission_manager_summary" msgid="4180424218228141274">"ನಿಮ್ಮ ಡೇಟಾಗೆ ಆ್ಯಪ್ ಪ್ರವೇಶವನ್ನು ನಿಯಂತ್ರಿಸಿ"</string>
+    <string name="apps_permission_manager_summary" msgid="4180424218228141274">"ನಿಮ್ಮ ಡೇಟಾಗೆ ಆ್ಯಪ್ ಆ್ಯಕ್ಸೆಸ್ ಅನ್ನು ನಿಯಂತ್ರಿಸಿ"</string>
     <string name="apps_default_apps_summary" msgid="2017792579839972926">"Assistant ಮತ್ತು ಹೆಚ್ಚಿನವುಗಳಿಗಾಗಿ"</string>
+    <string name="performance_impacting_apps_summary" msgid="7762122057244111162">"{count,plural, =1{# ಆ್ಯಪ್‌ ಕಾರ್ಯಕ್ಷಮತೆಯ ಮೇಲೆ ಪರಿಣಾಮ ಬೀರುತ್ತಿದೆ}one{# ಆ್ಯಪ್‌ಗಳು ಕಾರ್ಯಕ್ಷಮತೆಯ ಮೇಲೆ ಪರಿಣಾಮ ಬೀರುತ್ತಿವೆ}other{# ಆ್ಯಪ್‌ಗಳು ಕಾರ್ಯಕ್ಷಮತೆಯ ಮೇಲೆ ಪರಿಣಾಮ ಬೀರುತ್ತಿವೆ}}"</string>
     <string name="apps_special_app_access_summary" msgid="6464767436309742163">"ಸಿಸ್ಟಂ ಮತ್ತು ಇತರ ಸೆಟ್ಟಿಂಗ್‌ಗಳಿಗೆ"</string>
-    <string name="special_access" msgid="5730278220917123811">"ಆ್ಯಪ್‌ಗೆ ವಿಶೇಷ ಪ್ರವೇಶ"</string>
+    <string name="special_access" msgid="5730278220917123811">"ಆ್ಯಪ್‌ಗೆ ವಿಶೇಷ ಆ್ಯಕ್ಸೆಸ್"</string>
     <string name="show_system" msgid="4401355756969485287">"ಸಿಸ್ಟಂ ತೋರಿಸಿ"</string>
     <string name="hide_system" msgid="8845453295584638040">"ಸಿಸ್ಟಂ ಮರೆಮಾಡಿ"</string>
     <string name="hide_system_apps" msgid="6583947381056154020">"ಸಿಸ್ಟಂ ಆ್ಯಪ್‌ಗಳನ್ನು ನಕಲಿಸಿ"</string>
     <string name="modify_system_settings_title" msgid="4596320571562433972">"ಸಿಸ್ಟಂ ಸೆಟ್ಟಿಂಗ್‍ ಮಾರ್ಪಡಿಸಿ"</string>
     <string name="modify_system_settings_description" msgid="5295023124419592452">"ಈ ಅನುಮತಿಯು ಸಿಸ್ಟಂ ಸೆಟ್ಟಿಂಗ್‌ಗಳನ್ನು ಮಾರ್ಪಡಿಸಲು ಆ್ಯಪ್‌ಗೆ ಅನುಮತಿಸುತ್ತದೆ."</string>
-    <string name="notification_access_title" msgid="1467340098885813473">"ಅಧಿಸೂಚನೆ ಪ್ರವೇಶ"</string>
-    <string name="notification_listener_security_warning_title" msgid="2893273335175140895">"<xliff:g id="SERVICE">%1$s</xliff:g> ಗಾಗಿ ಅಧಿಸೂಚನೆ ಪ್ರವೇಶವನ್ನು ಅನುಮತಿಸುವುದೇ?"</string>
+    <string name="notification_access_title" msgid="1467340098885813473">"ನೋಟಿಫಿಕೇಶನ್ ಆ್ಯಕ್ಸೆಸ್"</string>
+    <string name="notification_listener_security_warning_title" msgid="2893273335175140895">"<xliff:g id="SERVICE">%1$s</xliff:g> ಗಾಗಿ ನೋಟಿಫಿಕೇಶನ್ ಆ್ಯಕ್ಸೆಸ್ ಅನ್ನು ಅನುಮತಿಸುವುದೇ?"</string>
     <string name="notification_listener_security_warning_summary" msgid="7280197998063498125">"ಸಂಪರ್ಕ ಹೆಸರುಗಳು ಮತ್ತು ನೀವು ಸ್ವೀಕರಿಸುವ ಸಂದೇಶಗಳ ಪಠ್ಯದಂತಹ ವೈಯಕ್ತಿಕ ಮಾಹಿತಿ ಸೇರಿದಂತೆ <xliff:g id="NOTIFICATION_LISTENER_NAME">%1$s</xliff:g> ಗೆ ಎಲ್ಲಾ ಅಧಿಸೂಚನೆಗಳನ್ನು ಓದಲು ಸಾಧ್ಯವಾಗುತ್ತದೆ. ಇದಕ್ಕೆ ಅಧಿಸೂಚನೆಗಳನ್ನು ವಜಾ ಮಾಡಲು ಅಥವಾ ಅವುಗಳು ಹೊಂದಿರುವಂತಹ ಕ್ರಿಯೆ ಬಟನ್‌ಗಳನ್ನು ಟ್ರಿಗರ್ ಮಾಡಲು ಸಾಧ್ಯವಾಗುತ್ತದೆ.\n\nಇದು \"ಅಡಚಣೆ ಮಾಡಬೇಡಿ\" ಅನ್ನು ಆನ್ ಅಥವಾ ಆಫ್ ಮಾಡುವ ಹಾಗೂ ಸಂಬಂಧಿತ ಸೆಟ್ಟಿಂಗ್‍‍ಗಳನ್ನು ಬದಲಾಯಿಸುವ ಸಾಮರ್ಥ್ಯವನ್ನು ಸಹ ಈ ಆ್ಯಪ್‍ಗೆ ನೀಡುತ್ತದೆ."</string>
-    <string name="notification_listener_revoke_warning_summary" msgid="4904973394539125407">"<xliff:g id="NOTIFICATION_LISTENER_NAME">%1$s</xliff:g> ಗಾಗಿ ನೀವು ಅಧಿಸೂಚನೆ ಪ್ರವೇಶಿಸುವಿಕೆಯನ್ನು ಆಫ್ ಮಾಡಿದರೆ, \"ಅಡಚಣೆ ಮಾಡಬೇಡಿ\" ಪ್ರವೇಶಿಸುವಿಕೆ ಸಹ ಆಫ್ ಆಗಬಹುದು."</string>
+    <string name="notification_listener_revoke_warning_summary" msgid="4904973394539125407">"<xliff:g id="NOTIFICATION_LISTENER_NAME">%1$s</xliff:g> ಗಾಗಿ ನೀವು ನೋಟಿಫಿಕೇಶನ್ ಆ್ಯಕ್ಸೆಸ್ ಅನ್ನು ಆಫ್ ಮಾಡಿದರೆ, \"ಅಡಚಣೆ ಮಾಡಬೇಡಿ\" ಆ್ಯಕ್ಸೆಸ್ ಸಹ ಆಫ್ ಆಗಬಹುದು."</string>
     <string name="notification_listener_revoke_warning_confirm" msgid="2759583507454984812">"ಆಫ್ ಮಾಡಿ"</string>
     <string name="notification_listener_revoke_warning_cancel" msgid="4399941651358241154">"ರದ್ದುಮಾಡಿ"</string>
-    <string name="premium_sms_access_title" msgid="1409118461646148686">"ಪ್ರೀಮಿಯಂ SMS ಪ್ರವೇಶ"</string>
+    <string name="performance_impacting_apps_description" msgid="7361464904617808444">"ಈ ಆ್ಯಪ್‌ಗಳು ಸಿಸ್ಟಂ ಕಾರ್ಯಕ್ಷಮತೆಯ ಮೇಲೆ ಋಣಾತ್ಮಕವಾಗಿ ಪರಿಣಾಮ ಬೀರುತ್ತವೆ ಹಾಗೂ ಇವುಗಳನ್ನು ಹಿನ್ನೆಲೆಯಲ್ಲಿ ರನ್ ಆಗದಂತೆ ನಿರ್ಬಂಧಿಸಲಾಗಿದೆ.\nಹಿನ್ನೆಲೆ ಬಳಕೆಯನ್ನು ಅನುಮತಿಸಲು ಆ್ಯಪ್‌ಗೆ ಆದ್ಯತೆ ನೀಡಿ ಮತ್ತು ಈ ಪಟ್ಟಿಯಿಂದ ಅದನ್ನು ತೆಗೆದುಹಾಕಿ."</string>
+    <string name="performance_impacting_apps_button_label" msgid="8277507326717608783">"ಆ್ಯಪ್ ಆದ್ಯತೆಗೊಳಿಸಿ"</string>
+    <string name="premium_sms_access_title" msgid="1409118461646148686">"ಪ್ರೀಮಿಯಂ SMS ಆ್ಯಕ್ಸೆಸ್"</string>
     <string name="premium_sms_access_description" msgid="7119026067677052169">"ಪ್ರೀಮಿಯಂ SMS ನಿಮ್ಮ ವೆಚ್ಚಗಳಿಗೆ ಕಾರಣವಾಗಬಹುದು ಮತ್ತು ಇದನ್ನು ನಿಮ್ಮ ವಾಹಕ ಬಿಲ್‌ಗಳಿಗೆ ಸೇರಿಸಲಾಗುತ್ತದೆ. ನೀವು ಆ್ಯಪ್‌ಗೆ ಅನುಮತಿಯನ್ನು ಸಕ್ರಿಯಗೊಳಿಸಿದರೆ, ಆ್ಯಪ್ ಬಳಸಿಕೊಂಡು ಪ್ರೀಮಿಯಂ SMS ಕಳುಹಿಸಲು ನಿಮಗೆ ಸಾಧ್ಯವಾಗುತ್ತದೆ."</string>
-    <string name="usage_access_title" msgid="7153427122072303254">"ಬಳಕೆಯ ಡೇಟಾಗೆ ಪ್ರವೇಶ"</string>
+    <string name="usage_access_title" msgid="7153427122072303254">"ಬಳಕೆಯ ಡೇಟಾಗೆ ಆ್ಯಕ್ಸೆಸ್"</string>
     <string name="usage_access_description" msgid="2413168719257435422">"ಬಳಕೆ ಪ್ರವೇಶವು, ನೀವು ಇತರ ಯಾವ ಆ್ಯಪ್‌ಗಳನ್ನು ಬಳಸುತ್ತಿರುವಿರಿ ಮತ್ತು ಎಷ್ಟು ಬಾರಿ ಎಂಬುದನ್ನು ಅಲ್ಲದೆ ನಿಮ್ಮ ವಾಹಕ, ಭಾಷೆ ಸೆಟ್ಟಿಂಗ್‌ಗಳು ಹಾಗೂ ಇತರ ವಿವರಗಳನ್ನು ಟ್ರ್ಯಾಕ್ ಮಾಡಲು ಅನುಮತಿಸುತ್ತದೆ."</string>
     <string name="wifi_control_title" msgid="5660436566907731929">"ವೈ-ಫೈ ನಿಯಂತ್ರಣ"</string>
     <string name="wifi_control_description" msgid="6021926850423169261">"ವೈ-ಫೈ ನಿಯಂತ್ರಣವು, ವೈ-ಫೈ ಅನ್ನು ಆನ್ ಅಥವಾ ಆಫ್ ಮಾಡಲು, ವೈ-ಫೈ ನೆಟ್‌ವರ್ಕ್‌ಗಳನ್ನು ಸ್ಕ್ಯಾನ್ ಮಾಡಲು ಮತ್ತು ಸಂಪರ್ಕಿಸಲು, ನೆಟ್‌ವರ್ಕ್‌ಗಳನ್ನು ಸೇರಿಸಲು ಅಥವಾ ತೆಗೆದುಹಾಕಲು ಹಾಗೂ ಸ್ಥಳೀಯವಾದ ಹಾಟ್‌ಸ್ಪಾಟ್ ಅನ್ನು ಪ್ರಾರಂಭಿಸಲು ಈ ಆ್ಯಪ್‌ಗೆ ಅನುಮತಿಸುತ್ತದೆ."</string>
@@ -401,22 +409,27 @@
     <string name="location_settings_title" msgid="901334356682423679">"ಸ್ಥಳ"</string>
     <string name="location_toggle_title" msgid="836779750812064601">"ಸ್ಥಳ ಬಳಸಿ"</string>
     <string name="location_toggle_summary" msgid="7977868708102299495">"ನಿಮ್ಮ ಸ್ಥಳವನ್ನು ಪ್ರವೇಶಿಸಲು ನೀವು ನಿರ್ದಿಷ್ಟಪಡಿಸಿದ ಆ್ಯಪ್‌ಗಳಿಗೆ ಅನುಮತಿಸಿ"</string>
-    <string name="location_toggle_off_warning" msgid="8396854289251143748">"ನೀವು ಇದನ್ನು ಆಫ್ ಮಾಡಿದರೆ, ಇದು ಎಲ್ಲಾ ಆ್ಯಪ್‌ಗಳಿಗೆ ಸ್ಥಳ ಪ್ರವೇಶವನ್ನು ತೆಗೆದುಹಾಕುತ್ತದೆ. ಡ್ರೈವರ್‌ಗೆ ಸಹಾಯಮಾಡುವ ಫೀಚರ್‌ಗಳು ಈಗಲೂ ಪ್ರವೇಶವನ್ನು ಹೊಂದಿರುತ್ತವೆ."</string>
-    <string name="location_driver_assistance_toggle_title" msgid="9201622805420459957">"ಡ್ರೈವರ್‌ಗೆ ಸಹಾಯ ಫೀಚರ್‌ಗಾಗಿ ಡ್ರೈವರ್ ಅವರ ಸ್ಥಳವನ್ನು ಬಳಸಿ"</string>
+    <string name="location_toggle_off_warning" msgid="5959449346865136081">"ನೀವು ಇದನ್ನು ಆಫ್ ಮಾಡಿದರೆ, ಡ್ರೈವರ್‌ಗೆ ಸಹಾಯದ ಫೀಚರ್‌ಗೆ ಅಗತ್ಯವಿರುವುದನ್ನು ಹೊರತುಪಡಿಸಿ ಇದು ಎಲ್ಲಾ ಆ್ಯಪ್‌ಗಳಿಗೆ ಸ್ಥಳ ಆ್ಯಕ್ಸೆಸ್ ತೆಗೆದುಹಾಕುತ್ತದೆ"</string>
+    <string name="location_driver_assistance_toggle_title" msgid="3780157378527924932">"ಡ್ರೈವರ್‌ಗೆ ಸಹಾಯ ಫೀಚರ್‌ಗಾಗಿ ಸ್ಥಳ ಬಳಸಿ"</string>
     <string name="location_driver_assistance_toggle_off_title" msgid="2218532550578204718">"ವಾಹನದ ಸ್ಥಳ ಆಫ್ ಆಗಿದೆ"</string>
-    <string name="location_driver_assistance_toggle_off_summary" msgid="1516786816178866919">"ಡ್ರೈವರ್‌ಗೆ ಸಹಾಯ ಮಾಡುವ ಆ್ಯಪ್‌ಗಳು ನಿಮ್ಮ ಸ್ಥಳವನ್ನು ಪ್ರವೇಶಿಸಲು ಸಾಧ್ಯವಿಲ್ಲ"</string>
+    <string name="location_driver_assistance_toggle_off_summary" msgid="6040822988891113026">"ಡ್ರೈವರ್‌ಗೆ ಸಹಾಯ ಮಾಡುವ ಆ್ಯಪ್ ನಿಮ್ಮ ಸ್ಥಳ ಆ್ಯಕ್ಸೆಸ್‌ಗೆ ಸಾಧ್ಯವಿಲ್ಲ"</string>
     <string name="location_driver_assistance_action_text" msgid="1887309495010247883">"ಬದಲಾಯಿಸಿ"</string>
     <string name="location_driver_assistance_toggle_summary" msgid="2732591196508054649">"ನಿಮ್ಮ ಸ್ಥಳವನ್ನು ಪ್ರವೇಶಿಸುವಲ್ಲಿ ಡ್ರೈವಿಂಗ್‌ಗೆ ಸಹಾಯ ಮಾಡುವ ಆ್ಯಪ್‌ಗಳಿಗೆ ಅನುಮತಿಸಿ"</string>
-    <string name="location_driver_assistance_toggle_off_warning" msgid="8097738968253492982">"ನೀವು ಇದನ್ನು ಆಫ್ ಮಾಡಿದರೆ, ಸ್ಥಳ ಮಾಹಿತಿಯ ಮೇಲೆ ಅವಲಂಬಿತವಾದ ಡ್ರೈವರ್‌ಗೆ ಸಹಾಯ ಮಾಡುವ ಫೀಚರ್‌ಗಳನ್ನು ನಿಷ್ಕ್ರಿಯಗೊಳಿಸಲಾಗುತ್ತದೆ."</string>
+    <string name="location_driver_assistance_toggle_off_warning" msgid="2733124752598498356">"ನೀವು ಇದನ್ನು ಆಫ್ ಮಾಡಿದರೆ, ಸ್ಥಳ ಮಾಹಿತಿಯ ಮೇಲೆ ಅವಲಂಬಿತವಾದ ಡ್ರೈವರ್‌ಗೆ ಸಹಾಯ ಮಾಡುವ ಫೀಚರ್‌ಗಳನ್ನು ನಿಷ್ಕ್ರಿಯಗೊಳಿಸಲಾಗುತ್ತದೆ"</string>
     <string name="driver_assistance_warning_confirm_label" msgid="2873799611160864931">"ಹೇಗಿದ್ದರೂ ಆಫ್ ಮಾಡಿ"</string>
-    <string name="location_settings_recent_requests_title" msgid="6345634382240930628">"ಇತ್ತೀಚಿನ ಸ್ಥಳ ವಿನಂತಿಗಳು"</string>
-    <string name="location_settings_recent_requests_empty_message" msgid="7789667070033674910">"ಯಾವುದೇ ಇತ್ತೀಚಿನ ಸ್ಥಳ ವಿನಂತಿಗಳು ಇಲ್ಲ"</string>
+    <string name="location_recently_accessed" msgid="522888989582110975">"ಇತ್ತೀಚೆಗೆ ಪ್ರವೇಶಿಸಿರುವುದು"</string>
+    <string name="location_settings_recently_accessed_title" msgid="6016264778609426382">"ಇತ್ತೀಚೆಗೆ ಪ್ರವೇಶಿಸಿರುವುದು"</string>
+    <string name="location_settings_recently_accessed_view_all_title" msgid="6344830628885781448">"ಎಲ್ಲವನ್ನೂ ವೀಕ್ಷಿಸಿ"</string>
+    <string name="location_no_recent_access" msgid="2859914321242257931">"ಇತ್ತೀಚಿನ ಯಾವುದೇ ಆ್ಯಪ್‌ಗಳಿಲ್ಲ"</string>
+    <string name="driver_assistance_label" msgid="9217315205754658940">"<xliff:g id="TIME">%1$s</xliff:g> • ಡ್ರೈವರ್‌ಗೆ ಸಹಾಯ"</string>
+    <string name="location_driver_assistance_privacy_policy_header_content" msgid="8118086439003674350">"ಡ್ರೈವರ್‌ಗೆ ಸಹಾಯ ಫೀಚರ್‌ಗೆ ಈ ವಾಹನದ ಸ್ಥಳ ಆ್ಯಕ್ಸೆಸ್‌ಗೆ ಸ್ಥಳ ಅನುಮತಿ ಇರುವ ಆ್ಯಪ್"</string>
+    <string name="location_driver_assistance_privacy_policy_button_text" msgid="669921557502414704">"ಗೌಪ್ಯತೆ ನೀತಿ"</string>
     <string name="location_settings_app_permissions_title" msgid="6446735313354321564">"ಆ್ಯಪ್‌ ಹಂತದ ಅನುಮತಿಗಳು"</string>
     <string name="location_settings_services_title" msgid="1186133632690970468">"ಸ್ಥಳ ಸೇವೆಗಳು"</string>
     <string name="location_use_location_title" msgid="117735895374606680">"ಸ್ಥಳವನ್ನು ಬಳಸಿ"</string>
     <string name="location_settings_footer" msgid="296892848338100051">"ಸ್ಥಳವು ನಿಮ್ಮ ಸಾಧನದ ಸ್ಥಳವನ್ನು ಅಂದಾಜು ಮಾಡಲು ಸಹಾಯ ಮಾಡುವುದಕ್ಕಾಗಿ GPS, ವೈಫೈ, ಮೊಬೈಲ್ ನೆಟ್‌ವರ್ಕ್‌ಗಳು ಮತ್ತು ಸೆನ್ಸರ್‌ಗಳಂತಹ ಮೂಲಗಳನ್ನು ಬಳಸಬಹುದು."</string>
     <string name="driver_assistance_settings_title" msgid="4915804073177128915">"ಡ್ರೈವರ್‌ಗೆ ಸಹಾಯ"</string>
-    <string name="adas_settings_footer" msgid="5128483877858058534">"ಡ್ರೈವರ್‌ಗೆ ಸಹಾಯ ಮಾಡುವ ಆ್ಯಪ್‌ಗಳಿಗೆ ಕಳುಹಿಸಲಾಗುವ ಸ್ಥಳದ ಮಾಹಿತಿಯು ನಿಮ್ಮನ್ನು ಗುರುತಿಸುವಂತಹ ಮಾಹಿತಿಯನ್ನು ಒಳಗೊಂಡಿರುವುದಿಲ್ಲ. ಅಳಿಸುವ ಮೊದಲು ಅದನ್ನು ಗರಿಷ್ಠ 2 ದಿನಗಳವರೆಗೆ ಸಂಗ್ರಹಿಸಿಡಲಾಗುತ್ತದೆ."</string>
+    <string name="adas_settings_footer" msgid="6697021691244459156">"ಡ್ರೈವರ್‌ಗೆ ಸಹಾಯ ಮಾಡುವ ಆ್ಯಪ್‌ಗಳಿಗೆ ಕಳುಹಿಸಲಾಗುವ ಸ್ಥಳದ ಮಾಹಿತಿಯು ನಿಮ್ಮನ್ನು ಗುರುತಿಸುವಂತಹ ಮಾಹಿತಿಯನ್ನು ಒಳಗೊಂಡಿರುವುದಿಲ್ಲ. ಅಳಿಸುವ ಮೊದಲು ಅದನ್ನು ಗರಿಷ್ಠ 2 ದಿನಗಳವರೆಗೆ ಸಂಗ್ರಹಿಸಿಡಲಾಗುತ್ತದೆ."</string>
     <string name="microphone_settings_title" msgid="7125554350537136922">"ಮೈಕ್ರೋಫೋನ್"</string>
     <string name="microphone_toggle_title" msgid="911586035332827275">"ಮೈಕ್ರೋಫೋನ್ ಅನ್ನು ಬಳಸಿ"</string>
     <string name="microphone_toggle_summary" msgid="2682653449849128626">"ನಿಮ್ಮ ಮೈಕ್ರೊಫೋನ್ ಅನ್ನು ಪ್ರವೇಶಿಸಲು ಎಲ್ಲಾ ಆ್ಯಪ್‌ಗಳಿಗೆ ಅನುಮತಿಸಿ"</string>
@@ -432,6 +445,9 @@
     <string name="system_update_settings_title" msgid="8448588267784138855">"ಸಿಸ್ಟಂ ಅಪ್‌ಡೇಟ್‌ಗಳು"</string>
     <string name="system_advanced_title" msgid="6303355131691523362">"ಸುಧಾರಿತ"</string>
     <string name="system_advanced_summary" msgid="5833643795981791953">"ಕುರಿತು, ಕಾನೂನು ಮಾಹಿತಿ, ರೀಸೆಟ್ ಮತ್ತು ಇನ್ನಷ್ಟು"</string>
+    <string name="restart_infotainment_system_title" msgid="5174129167446756511">"ಇನ್‌ಫೋಟೈನ್‌ಮೆಂಟ್ ಸಿಸ್ಟಂ ಅನ್ನು ಮರುಪ್ರಾರಂಭಿಸಿ"</string>
+    <string name="restart_infotainment_system_dialog_text" msgid="6395281407323116808">"ನಿಮ್ಮ ಕಾರ್‌ನ ಇನ್‌ಫೋಟೈನ್‌ಮೆಂಟ್ ಸಿಸ್ಟಂ ಅನ್ನು ಮರುಪ್ರಾರಂಭಿಸಲು ಕೆಲವು ನಿಮಿಷಗಳು ಬೇಕಾಗಬಹುದು. ನೀವು ಮುಂದುವರಿಸಲು ಬಯಸುತ್ತೀರಾ?"</string>
+    <string name="continue_confirmation" msgid="1598892163951467191">"ಮುಂದುವರಿಸಿ"</string>
     <string name="firmware_version" msgid="8491753744549309333">"Android ಆವೃತ್ತಿ"</string>
     <string name="security_patch" msgid="4794276590178386903">"Android ಭದ್ರತೆ ಪ್ಯಾಚ್ ಮಟ್ಟ"</string>
     <string name="hardware_info" msgid="3973165746261507658">"ಮಾಡೆಲ್ ಮತ್ತು ಹಾರ್ಡ್‌ವೇರ್"</string>
@@ -472,11 +488,11 @@
     <string name="developer_options_settings" msgid="1530739225109118480">"ಡೆವಲಪರ್ ಆಯ್ಕೆಗಳು"</string>
     <string name="reset_options_title" msgid="4388902952861833420">"ರೀಸೆಟ್ ಆಯ್ಕೆಗಳು"</string>
     <string name="reset_options_summary" msgid="5508201367420359293">"ನೆಟ್‌ವರ್ಕ್, ಆ್ಯಪ್‌ಗಳು ಅಥವಾ ಸಾಧನಗಳ ಮರುಹೊಂದಿಸುವಿಕೆ"</string>
-    <string name="reset_network_title" msgid="1284233059990797263">"ನೆಟ್‌ವರ್ಕ್‌ ಮರುಹೊಂದಿಸಿ"</string>
-    <string name="reset_network_desc" msgid="602381374544634925">"ಇದು ನೆಟ್‌ವರ್ಕ್‌ ಸೆಟ್ಟಿಂಗ್‌ಗಳ ಎಲ್ಲವನ್ನೂ ಮರುಹೊಂದಿಸುತ್ತದೆ, ಅವುಗಳಲ್ಲಿ ಈ ಮುಂದಿನವುಗಳನ್ನು ಒಳಗೊಂಡಿರುತ್ತದೆ:"</string>
-    <string name="reset_network_item_wifi" msgid="7569481589699982698"><li>"ವೈ-ಫೈ"</li></string>
+    <string name="reset_network_title" msgid="3077846909739832734">"ವೈ-ಫೈಮತ್ತು ಬ್ಲೂಟೂತ್ ಅನ್ನು ರೀಸೆಟ್ ಮಾಡಿ"</string>
+    <string name="reset_network_desc" msgid="3332203703135823033">"ಇದು ವೈ-ಫೈ ಮತ್ತು ಬ್ಲೂಟೂತ್ ಸೆಟ್ಟಿಂಗ್‌ಗಳನ್ನು ರೀಸೆಟ್ ಮಾಡುತ್ತದೆ, ಈ ಹಿಂದೆ ಸಂಪರ್ಕಗೊಂಡಿರುವ ಮೆಮೊರಿಯನ್ನು ತೆಗೆದುಹಾಕುತ್ತದೆ:"</string>
+    <string name="reset_network_item_wifi" msgid="2876370861806060314"><li>"ವೈ-ಫೈ ನೆಟ್‌ವರ್ಕ್‌ಗಳು ಮತ್ತು ಪಾಸ್‌ವರ್ಡ್‌ಗಳು"</li></string>
     <string name="reset_network_item_mobile" msgid="5747282716664480997"><li>"ಮೊಬೈಲ್ ಡೇಟಾ"</li></string>
-    <string name="reset_network_item_bluetooth" msgid="6035019931106921284"><li>"ಬ್ಲೂಟೂತ್"</li></string>
+    <string name="reset_network_item_bluetooth" msgid="7475279871421815601"><li>"ಫೋನ್‌ಗಳು ಮತ್ತು ಇತರ ಬ್ಲೂಟೂತ್ ಸಾಧನಗಳು"</li></string>
     <string name="reset_esim_title" msgid="8132107637911831211">"ಎಲ್ಲಾ ವಾಹನದ eSIMಗಳನ್ನು ಅಳಿಸಿ"</string>
     <string name="reset_esim_desc" msgid="1437276625485586740">"ಇದು ನಿಮ್ಮ ಸೇವಾ ಯೋಜನೆಯನ್ನು ರದ್ದುಗೊಳಿಸುವುದಿಲ್ಲ."</string>
     <string name="reset_esim_error_title" msgid="7245109418130525492">"eSIM ಗಳನ್ನು ಮರುಹೊಂದಿಸಲು ಸಾಧ್ಯವಿಲ್ಲ"</string>
@@ -574,7 +590,7 @@
     <string name="storage_clear_user_data_text" msgid="8787615136779130680">"ಸಂಗ್ರಹಣೆಯನ್ನು ತೆರವುಗೊಳಿಸಿ"</string>
     <string name="storage_clear_cache_btn_text" msgid="8449547925966775612">"ಕ್ಯಾಷ್ ಅಳಿಸಿ"</string>
     <string name="storage_clear_data_dlg_title" msgid="5863775997588969879">"ಆ್ಯಪ್ ಡೇಟಾ ಅಳಿಸುವುದೇ?"</string>
-    <string name="storage_clear_data_dlg_text" msgid="795055288575727801">"ಈ ಆ್ಯಪ್‌ನ ಎಲ್ಲಾ ಡೇಟಾವನ್ನು ಶಾಶ್ವತವಾಗಿ ಅಳಿಸಲಾಗುತ್ತದೆ. ಇದರಲ್ಲಿ ಎಲ್ಲಾ ಫೈಲ್‌ಗಳು, ಸೆಟ್ಟಿಂಗ್‌ಗಳು, ಖಾತೆಗಳು, ಡೇಟಾಬೇಸ್‌ಗಳು ಇತ್ಯಾದಿಗಳನ್ನು ಒಳಗೊಂಡಿರುತ್ತದೆ."</string>
+    <string name="storage_clear_data_dlg_text" msgid="3255314337644212283">"ಈ ಆ್ಯಪ್‌ನ ಡೇಟಾವನ್ನು ಶಾಶ್ವತವಾಗಿ ಅಳಿಸಲಾಗುತ್ತದೆ. ಇದು ಫೈಲ್‌ಗಳು, ಸೆಟ್ಟಿಂಗ್‌ಗಳು, ಡೇಟಾಬೇಸ್‌ಗಳು ಮತ್ತು ಇತರ ಆ್ಯಪ್ ಡೇಟಾವನ್ನು ಒಳಗೊಂಡಿರುತ್ತದೆ."</string>
     <string name="storage_clear_failed_dlg_text" msgid="6710485971686866306">"ಆ್ಯಪ್‌ಗಾಗಿ ಸಂಗ್ರಹಣೆ ತೆರವುಗೊಳಿಸಲು ಸಾಧ್ಯವಾಗಲಿಲ್ಲ."</string>
     <string name="storage_unmount_success" msgid="1553591517580407021">"<xliff:g id="NAME">%1$s</xliff:g> ಸುರಕ್ಷಿತವಾಗಿ ತೆಗೆದುಹಾಕಲಾಗಿದೆ"</string>
     <string name="storage_unmount_failure" msgid="4591934911541762883">"<xliff:g id="NAME">%1$s</xliff:g> ಸುರಕ್ಷಿತವಾಗಿ ಇಜೆಕ್ಟ್‌ ಮಾಡಲು ಸಾಧ್ಯವಾಗಲಿಲ್ಲ"</string>
@@ -675,6 +691,7 @@
     <string name="lockpassword_cancel_label" msgid="5791237697404166450">"ರದ್ದುಮಾಡಿ"</string>
     <string name="lockpassword_confirm_label" msgid="5918463281546146953">"ದೃಢೀಕರಿಸಿ"</string>
     <string name="choose_lock_password_hints" msgid="3903696950202491593">"ಕನಿಷ್ಠ 4 ಅಕ್ಷರಗಳು ಇರಬೇಕು"</string>
+    <string name="locktype_unavailable" msgid="2678317466336249126">"ಈ ಲಾಕ್ ಪ್ರಕಾರ ಲಭ್ಯವಿಲ್ಲ."</string>
     <string name="lockpassword_pin_contains_non_digits" msgid="3044526271686839923">"ಕೇವಲ 0-9 ಅಂಕಿಗಳನ್ನು ಮಾತ್ರ ಹೊಂದಿರಬೇಕು."</string>
     <string name="lockpassword_pin_recently_used" msgid="7901918311213276207">"ಇತ್ತೀಚಿನ ಪಿನ್ ಬಳಸಲು ಸಾಧನದ ನಿರ್ವಾಹಕರು ಅನುಮತಿಸುವುದಿಲ್ಲ"</string>
     <string name="lockpassword_pin_denylisted_by_admin" msgid="3752574009492336468">"ನಿಮ್ಮ IT ನಿರ್ವಾಹಕರು ಒಂದೇ ರೀತಿಯ ಪಿನ್‌ಗಳನ್ನು ನಿರ್ಬಂಧಿಸಿದ್ದಾರೆ. ಬೇರೆಯ ಪಿನ್ ಪ್ರಯತ್ನಿಸಿ."</string>
@@ -699,7 +716,6 @@
     <string name="lockpassword_pin_too_long" msgid="8315542764465856288">"{count,plural, =1{# ಗಿಂತ ಕಡಿಮೆ ಅಂಕಿಯನ್ನು ಹೊಂದಿರಬೇಕು}one{# ಗಿಂತ ಕಡಿಮೆ ಅಂಕಿಗಳನ್ನು ಹೊಂದಿರಬೇಕು}other{# ಗಿಂತ ಕಡಿಮೆ ಅಂಕಿಗಳನ್ನು ಹೊಂದಿರಬೇಕು}}"</string>
     <string name="lockpassword_pin_no_sequential_digits" msgid="6511579896796310956">"ಅಂಕಿಗಳ ಆರೋಹಣ, ಅವರೋಹಣ ಅಥವಾ ಪುನರಾವರ್ತಿತ ಅನುಕ್ರಮವನ್ನು ನಿಷೇಧಿಸಲಾಗಿದೆ"</string>
     <string name="setup_lock_settings_options_button_label" msgid="3337845811029780896">"ಸ್ಕ್ರೀನ್ ಲಾಕ್ ಆಯ್ಕೆಗಳು"</string>
-    <string name="build_info_fmt" msgid="5592554123908086426">"<xliff:g id="FINGERPRINT">%1$s</xliff:g>\n<xliff:g id="DATE">%2$s</xliff:g> : <xliff:g id="NUM_DAYS">%3$s</xliff:g> ದಿನಗಳ ಹಿಂದೆ"</string>
     <string name="credentials_reset" msgid="873900550885788639">"ರುಜುವಾತುಗಳನ್ನು ತೆರವುಗೊಳಿಸಿ"</string>
     <string name="credentials_reset_summary" msgid="6067911547500459637">"ಎಲ್ಲಾ ಪ್ರಮಾಣಪತ್ರಗಳನ್ನು ತೆಗೆದುಹಾಕಿ"</string>
     <string name="credentials_reset_hint" msgid="3459271621754137661">"ಎಲ್ಲಾ ವಿಷಯಗಳನ್ನು ತೆಗೆದುಹಾಕುವುದೇ?"</string>
@@ -721,7 +737,9 @@
     <string name="exit_retail_mode_dialog_body" msgid="6513854703627380365">"ಇದರಿಂದ ಡೆಮೊ ಖಾತೆಯನ್ನು ಅಳಿಸಲಾಗುತ್ತದೆ ಮತ್ತು ಸಿಸ್ಟಂ ಅನ್ನು ಫ್ಯಾಕ್ಟರಿ ಡೇಟಾ ರೀಸೆಟ್ ಮಾಡಲಾಗುತ್ತದೆ. ಎಲ್ಲಾ ಪ್ರೊಫೈಲ್ ಡೇಟಾ ಕಳೆದುಹೋಗುತ್ತದೆ."</string>
     <string name="exit_retail_mode_dialog_confirmation_button_text" msgid="3147249675355968649">"ಡೆಮೊದಿಂದ ನಿರ್ಗಮಿಸಿ"</string>
     <string name="suggestion_dismiss_button" msgid="4539412646977050641">"ವಜಾಗೊಳಿಸಿ"</string>
-    <string name="restricted_while_driving" msgid="6587569249519274524">"ಡ್ರೈವ್ ಮಾಡುವಾಗ ಈ ವೈಶಿಷ್ಟ್ಯ ಲಭ್ಯವಿಲ್ಲ"</string>
+    <string name="restricted_while_driving" msgid="6587569249519274524">"ಡ್ರೈವ್ ಮಾಡುವಾಗ ಈ ಫೀಚರ್ ಲಭ್ಯವಿಲ್ಲ"</string>
+    <string name="restricted_for_passenger" msgid="7240117443887727753">"ಸೆಟ್ಟಿಂಗ್ ಬದಲಿಸಲು ಡ್ರೈವರ್‌ಗೆ ವಿನಂತಿಸಿ"</string>
+    <string name="restricted_for_driver" msgid="3364388937671526800">"ಈ ಕ್ರಿಯೆಯನ್ನು ಮಾಡಲು ನಿಮಗೆ ಸಾಧ್ಯವಾಗುವುದಿಲ್ಲ"</string>
     <string name="add_user_restricted_while_driving" msgid="1037301074725362944">"ಡ್ರೈವ್ ಮಾಡುವಾಗ ಪ್ರೊಫೈಲ್ ಸೇರಿಸಲು ಸಾಧ್ಯವಿಲ್ಲ"</string>
     <string name="default_search_query" msgid="3137420627428857068">"ಹುಡುಕಿ"</string>
     <string name="assistant_and_voice_setting_title" msgid="737733881661819853">"Assistant ಮತ್ತು ಧ್ವನಿ"</string>
@@ -737,6 +755,7 @@
     <string name="add_a_profile_button_text" msgid="8027395095117925114">"ಒಂದು ಪ್ರೊಫೈಲ್ ಅನ್ನು ಸೇರಿಸಿ"</string>
     <string name="delete_this_profile_text" msgid="6035404714526922665">"ಈ ಪ್ರೊಫೈಲ್ ಅನ್ನು ಅಳಿಸಿ"</string>
     <string name="add_profile_text" msgid="9118410102199116969">"ಪ್ರೊಫೈಲ್ ಅನ್ನು ಸೇರಿಸಿ"</string>
+    <string name="cannot_remove_driver_profile" msgid="4109363161608717969">"ಪ್ರೊಫೈಲ್ ಪ್ರಸ್ತುತ ಡ್ರೈವರ್‌ ಆಗಿ ಸೈನ್ ಇನ್ ಆಗಿದೆ. ಪ್ರೊಫೈಲ್ ಡ್ರೈವರ್ ಆಗಿ ಬಳಕೆಯಲ್ಲಿಲ್ಲದಿದ್ದಾಗ ಪುನಃ ಪ್ರಯತ್ನಿಸಿ."</string>
     <string name="qc_display_brightness" msgid="2939655289816201170">"ಡಿಸ್‌ಪ್ಲೇ ಪ್ರಖರತೆ"</string>
     <string name="qc_bluetooth_off_devices_info" msgid="8420985279976892700">"ನಿಮ್ಮ ಸಾಧನಗಳನ್ನು ನೋಡಲು, ಬ್ಲೂಟೂತ್ ಆನ್ ಮಾಡಿ"</string>
     <string name="qc_bluetooth_on_no_devices_info" msgid="7573736950041887300">"ಸಾಧನವನ್ನು ಜೋಡಿಸಲು, ಬ್ಲೂಟೂತ್ ಸೆಟ್ಟಿಂಗ್‌ಗಳನ್ನು ತೆರೆಯಿರಿ"</string>
@@ -751,9 +770,9 @@
     <string name="add_device_admin" msgid="7674707256074840333">"ಈ ಇನ್‌ಫೋಟೈನ್‌ಮೆಂಟ್ ಸಿಸ್ಟಂ ಆ್ಯಪ್ ಅನ್ನು ಸಕ್ರಿಯಗೊಳಿಸಿ"</string>
     <string name="deactivate_and_uninstall_device_admin" msgid="596399938769951696">"ನಿಷ್ಕ್ರಿಯಗೊಳಿಸಿ ಮತ್ತು ಅನ್‌ಇನ್‌ಸ್ಟಾಲ್ ಮಾಡಿ"</string>
     <string name="remove_device_admin" msgid="3595343390502030723">"ಈ ಇನ್‌ಫೋಟೈನ್‌ಮೆಂಟ್ ಸಿಸ್ಟಂ ಆ್ಯಪ್ ಅನ್ನು ನಿಷ್ಕ್ರಿಯಗೊಳಿಸಿ"</string>
-    <string name="admin_profile_owner_message" msgid="8361351256802954556">"ಸಂಸ್ಥೆಯ ನಿರ್ವಾಹಕರು ಸೆಟ್ಟಿಂಗ್‌ಗಳು, ಅನುಮತಿಗಳು, ಕಾರ್ಪೊರೇಟ್‌ ಪ್ರವೇಶ, ನೆಟ್‌‌ವರ್ಕ್‌ ಚಟುವಟಿಕೆ ಮತ್ತು ಸಾಧನದ ಸ್ಥಳ ಮಾಹಿತಿಯನ್ನು ಒಳಗೊಂಡಂತೆ ಈ ಬಳಕೆದಾರರಿಗೆ ಸಂಬಂಧಿಸಿದ ಆ್ಯಪ್‌ಗಳು ಮತ್ತು ಡೇಟಾವನ್ನು ಮೇಲ್ವಿಚಾರಣೆ ಮಾಡಬಹುದು ಮತ್ತು ನಿರ್ವಹಿಸಬಹುದು."</string>
-    <string name="admin_profile_owner_user_message" msgid="366072696508275753">"ಸಂಸ್ಥೆಯ ನಿರ್ವಾಹಕರು ಸೆಟ್ಟಿಂಗ್‌ಗಳು, ಅನುಮತಿಗಳು, ಕಾರ್ಪೊರೇಟ್‌ ಪ್ರವೇಶ, ನೆಟ್‌‌ವರ್ಕ್‌ ಚಟುವಟಿಕೆ ಮತ್ತು ಸಾಧನದ ಸ್ಥಳ ಮಾಹಿತಿಯನ್ನು ಒಳಗೊಂಡಂತೆ ಈ ಪ್ರೊಫೈಲ್‌ಗೆ ಸಂಬಂಧಿಸಿದ ಆ್ಯಪ್‌ಗಳು ಮತ್ತು ಡೇಟಾವನ್ನು ಮೇಲ್ವಿಚಾರಣೆ ಮಾಡಬಹುದು ಮತ್ತು ನಿರ್ವಹಿಸಬಹುದು."</string>
-    <string name="admin_device_owner_message" msgid="896530502350904835">"ಸಂಸ್ಥೆಯ ನಿರ್ವಾಹಕರು ಸೆಟ್ಟಿಂಗ್‌ಗಳು, ಅನುಮತಿಗಳು, ಕಾರ್ಪೊರೇಟ್‌ ಪ್ರವೇಶ, ನೆಟ್‌‌ವರ್ಕ್‌ ಚಟುವಟಿಕೆ ಮತ್ತು ವಾಹನದ ಸ್ಥಳ ಮಾಹಿತಿಯನ್ನು ಒಳಗೊಂಡಂತೆ ಈ ಇನ್‌ಫೋಟೈನ್‌ಮೆಂಟ್ ಸಿಸ್ಟಂಗೆ ಸಂಬಂಧಿಸಿದ ಆ್ಯಪ್‌ಗಳು ಮತ್ತು ಡೇಟಾವನ್ನು ಮೇಲ್ವಿಚಾರಣೆ ಮಾಡಬಹುದು ಮತ್ತು ನಿರ್ವಹಿಸಬಹುದು."</string>
+    <string name="admin_profile_owner_message" msgid="8361351256802954556">"ಸಂಸ್ಥೆಯ ನಿರ್ವಾಹಕರು ಸೆಟ್ಟಿಂಗ್‌ಗಳು, ಅನುಮತಿಗಳು, ಕಾರ್ಪೊರೇಟ್‌ ಆ್ಯಕ್ಸೆಸ್, ನೆಟ್‌‌ವರ್ಕ್‌ ಚಟುವಟಿಕೆ ಮತ್ತು ಸಾಧನದ ಸ್ಥಳ ಮಾಹಿತಿಯನ್ನು ಒಳಗೊಂಡಂತೆ ಈ ಬಳಕೆದಾರರಿಗೆ ಸಂಬಂಧಿಸಿದ ಆ್ಯಪ್‌ಗಳು ಮತ್ತು ಡೇಟಾವನ್ನು ಮೇಲ್ವಿಚಾರಣೆ ಮಾಡಬಹುದು ಮತ್ತು ನಿರ್ವಹಿಸಬಹುದು."</string>
+    <string name="admin_profile_owner_user_message" msgid="366072696508275753">"ಸಂಸ್ಥೆಯ ನಿರ್ವಾಹಕರು ಸೆಟ್ಟಿಂಗ್‌ಗಳು, ಅನುಮತಿಗಳು, ಕಾರ್ಪೊರೇಟ್‌ ಆ್ಯಕ್ಸೆಸ್, ನೆಟ್‌‌ವರ್ಕ್‌ ಚಟುವಟಿಕೆ ಮತ್ತು ಸಾಧನದ ಸ್ಥಳ ಮಾಹಿತಿಯನ್ನು ಒಳಗೊಂಡಂತೆ ಈ ಪ್ರೊಫೈಲ್‌ಗೆ ಸಂಬಂಧಿಸಿದ ಆ್ಯಪ್‌ಗಳು ಮತ್ತು ಡೇಟಾವನ್ನು ಮೇಲ್ವಿಚಾರಣೆ ಮಾಡಬಹುದು ಮತ್ತು ನಿರ್ವಹಿಸಬಹುದು."</string>
+    <string name="admin_device_owner_message" msgid="896530502350904835">"ಸಂಸ್ಥೆಯ ನಿರ್ವಾಹಕರು ಸೆಟ್ಟಿಂಗ್‌ಗಳು, ಅನುಮತಿಗಳು, ಕಾರ್ಪೊರೇಟ್‌ ಆ್ಯಕ್ಸೆಸ್, ನೆಟ್‌‌ವರ್ಕ್‌ ಚಟುವಟಿಕೆ ಮತ್ತು ವಾಹನದ ಸ್ಥಳ ಮಾಹಿತಿಯನ್ನು ಒಳಗೊಂಡಂತೆ ಈ ಇನ್‌ಫೋಟೈನ್‌ಮೆಂಟ್ ಸಿಸ್ಟಂಗೆ ಸಂಬಂಧಿಸಿದ ಆ್ಯಪ್‌ಗಳು ಮತ್ತು ಡೇಟಾವನ್ನು ಮೇಲ್ವಿಚಾರಣೆ ಮಾಡಬಹುದು ಮತ್ತು ನಿರ್ವಹಿಸಬಹುದು."</string>
     <string name="admin_financed_message" msgid="7357397436233684082">"ಸಂಸ್ಥೆಯ ನಿರ್ವಾಹಕರು ಈ ಇನ್‌ಫೋಟೈನ್‌ಮೆಂಟ್ ಸಿಸ್ಟಂಗೆ ಸಂಬಂಧಿಸಿದ ಡೇಟಾವನ್ನು ಪ್ರವೇಶಿಸಲು, ಆ್ಯಪ್‌ಗಳನ್ನು ನಿರ್ವಹಿಸಲು ಮತ್ತು ಈ ವಾಹನ ಸೆಟ್ಟಿಂಗ್‌ಗಳನ್ನು ಬದಲಾಯಿಸಲು ಸಾಧ್ಯವಾಗಬಹುದು."</string>
     <string name="disabled_by_policy_title" msgid="1121694702115232518">"ಅದು ಲಭ್ಯವಿಲ್ಲ"</string>
     <string name="disabled_by_policy_title_adjust_volume" msgid="7002865820552702232">"ಈ ನಿರ್ವಹಿಸಿದ ವಾಹನದಲ್ಲಿ ವಾಲ್ಯೂಮ್ ಬದಲಾಯಿಸಲು ಸಾಧ್ಯವಿಲ್ಲ"</string>
@@ -769,6 +788,7 @@
     <string name="number_of_device_admins" msgid="7508826094096451485">"{count,plural, =1{# ಸಕ್ರಿಯಗೊಂಡ ಆ್ಯಪ್}one{# ಸಕ್ರಿಯಗೊಂಡ ಆ್ಯಪ್‌ಗಳು}other{# ಸಕ್ರಿಯಗೊಂಡ ಆ್ಯಪ್‌ಗಳು}}"</string>
     <string name="number_of_device_admins_none" msgid="5547493703413973954">"ಯಾವುದೇ ಸಕ್ರಿಯಗೊಂಡ ಆ್ಯಪ್‌ಗಳಿಲ್ಲ"</string>
     <string name="work_policy_privacy_settings" msgid="5263835989260149968">"<xliff:g id="ORGANIZATION_NAME">%1$s</xliff:g> ವಾಹನ ನೀತಿ"</string>
+    <string name="work_policy_privacy_settings_no_org_name" msgid="8011687012493940230">"ವಾಹನ ನೀತಿ"</string>
     <string name="work_policy_privacy_settings_summary" msgid="5321618399949880194">"ಸಂಸ್ಥೆಯ ನಿರ್ವಾಹಕರಿಂದ ಸೆಟ್ಟಿಂಗ್‌ಗಳನ್ನು ನಿರ್ವಹಿಸಲಾಗಿದೆ"</string>
     <string name="footer_learn_more_content_description" msgid="7749452309729272078">"<xliff:g id="SERVICE">%1$s</xliff:g> ಕುರಿತು ಇನ್ನಷ್ಟು ತಿಳಿಯಿರಿ"</string>
     <string name="enterprise_privacy_settings" msgid="6496900796150572727">"ನಿರ್ವಹಿಸಲಾದ ವಾಹನ ಮಾಹಿತಿ"</string>
@@ -833,7 +853,7 @@
     <string name="factory_reset_later_text" msgid="6371031843489938419">"ಮುಂದಿನ ಬಾರಿ ಕಾರ್ ಆರಂಭವಾದಾಗ ಇನ್‌ಫೋಟೈನ್‌ಮೆಂಟ್ ಸಿಸ್ಟಂ ಅನ್ನು ರೀಸೆಟ್ ಮಾಡಲಾಗುತ್ತದೆ."</string>
     <string name="factory_reset_driving_text" msgid="6833832382688900191">"ರೀಸೆಟ್ ಅನ್ನು ಪ್ರಾರಂಭಿಸಲು ಕಾರ್ ಅನ್ನು ನಿಲ್ಲಿಸಿರಬೇಕು."</string>
     <string name="power_component_disabled" msgid="7084144472096800457">"ಈ ಸೆಟ್ಟಿಂಗ್‌ ಅನ್ನು ಸದ್ಯಕ್ಕೆ ಬದಲಾಯಿಸಲು ಸಾಧ್ಯವಿಲ್ಲ"</string>
-    <string name="accessibility_settings_title" msgid="2615042088419230347">"ಪ್ರವೇಶಿಸುವಿಕೆ"</string>
+    <string name="accessibility_settings_title" msgid="2615042088419230347">"ಆ್ಯಕ್ಸೆಸಿಬಿಲಿಟಿ"</string>
     <string name="accessibility_settings_captions_title" msgid="4635141293524800795">"ಶೀರ್ಷಿಕೆಗಳು"</string>
     <string name="captions_settings_title" msgid="5738067618097295831">"ಶೀರ್ಷಿಕೆ ಆದ್ಯತೆಗಳು"</string>
     <string name="captions_settings_off" msgid="7568096968016015626">"ಆಫ್ ಆಗಿದೆ"</string>

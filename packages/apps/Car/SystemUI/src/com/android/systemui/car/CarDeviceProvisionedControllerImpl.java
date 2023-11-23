@@ -17,7 +17,6 @@
 package com.android.systemui.car;
 
 import android.annotation.NonNull;
-import android.app.ActivityManager;
 import android.car.settings.CarSettings;
 import android.database.ContentObserver;
 import android.net.Uri;
@@ -32,6 +31,7 @@ import com.android.systemui.settings.UserTracker;
 import com.android.systemui.statusbar.policy.DeviceProvisionedControllerImpl;
 import com.android.systemui.util.settings.GlobalSettings;
 import com.android.systemui.util.settings.SecureSettings;
+import com.android.systemui.util.wrapper.BuildInfo;
 
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -47,6 +47,7 @@ import kotlin.Unit;
 @SysUISingleton
 public class CarDeviceProvisionedControllerImpl extends DeviceProvisionedControllerImpl implements
         CarDeviceProvisionedController {
+    private final UserTracker mUserTracker;
     private final Uri mUserSetupInProgressUri;
     private final ContentObserver mCarSettingsObserver;
     private final Handler mMainHandler;
@@ -59,12 +60,14 @@ public class CarDeviceProvisionedControllerImpl extends DeviceProvisionedControl
             GlobalSettings globalSettings,
             UserTracker userTracker,
             DumpManager dumpManager,
+            BuildInfo buildInfo,
             @Background Handler backgroundHandler,
             @Main Handler mainHandler,
             @Main Executor mainExecutor) {
-        super(secureSettings, globalSettings, userTracker, dumpManager, backgroundHandler,
-                mainExecutor);
+        super(secureSettings, globalSettings, userTracker, dumpManager, buildInfo,
+                backgroundHandler, mainExecutor);
 
+        mUserTracker = userTracker;
         mMainHandler = mainHandler;
         mSecureSettings = secureSettings;
         mUserSetupInProgressUri = mSecureSettings.getUriFor(
@@ -98,7 +101,7 @@ public class CarDeviceProvisionedControllerImpl extends DeviceProvisionedControl
 
     @Override
     public boolean isCurrentUserSetupInProgress() {
-        return isUserSetupInProgress(ActivityManager.getCurrentUser());
+        return isUserSetupInProgress(mUserTracker.getUserId());
     }
 
     @Override

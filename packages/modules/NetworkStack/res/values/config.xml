@@ -113,12 +113,16 @@
 
     <!-- An array of Denylisted EtherType, packets with EtherTypes within this array
          will be dropped
-         TODO: need to put proper values, these are for testing purposes only -->
+         TODO: are these proper values? -->
     <integer-array name="config_apfEthTypeDenyList">
         <item>0x88A2</item>
         <item>0x88A4</item>
         <item>0x88B8</item>
         <item>0x88CD</item>
+        <item>0x88E1</item>
         <item>0x88E3</item>
     </integer-array>
+
+    <!-- Whether to validate DUN networks. This is unused and always true on U+. -->
+    <bool name="config_validate_dun_networks">false</bool>
 </resources>

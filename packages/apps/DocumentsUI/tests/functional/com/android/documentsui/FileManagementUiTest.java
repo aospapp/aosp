@@ -181,20 +181,22 @@ public class FileManagementUiTest extends ActivityTest<FilesActivity> {
 
         // Files weren't copied fast enough, so gonna do some polling until they all arrive or copy
         // seems stalled.
-        while (true) {
+        int maxRetries = 10;
+        int retries = 0;
+        while (retries++ <= maxRetries) {
             Thread.sleep(200);
             List<DocumentInfo> newChildren = mDocsHelper.listChildren(target, -1);
             if (newChildren.size() == expectedCount) {
                 return;
             }
 
-            if (newChildren.size() > expectedCount) {
+            if (newChildren.size() > expectedCount && retries >= maxRetries) {
                 // Should never happen
                 fail("Something wrong with this test case. Copied file count "
                         + newChildren.size() + " exceeds expected number " + expectedCount);
             }
 
-            if (newChildren.size() <= children.size()) {
+            if (newChildren.size() <= children.size() && retries >= maxRetries) {
                 fail("Only copied " + children.size()
                         + " files, expected to copy " + expectedCount + " files.");
             }

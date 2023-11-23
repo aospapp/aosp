@@ -1,0 +1,259 @@
+{
+  "testCases": [
+    {
+      "name": "1 expired Source and 1 non-expired Sources",
+      "input": {
+        "sources": [
+          {
+            "id": "old1",
+            "eventId": 1,
+            "sourceType": "navigation",
+            "publisher": "android-app://example1.test/s1",
+            "enrollmentId": "enrollment-id-3",
+            "eventTime": 8640000001,
+            "expiryTime": 8640000030,
+            "eventReportWindow": 8640000030,
+            "priority": 100,
+            "status": 0,
+            "registrant": "android-app://com.example.abc"
+          },
+          {
+            "id": "young1",
+            "eventId": 1,
+            "sourceType": "navigation",
+            "publisher": "android-app://example1.test/s1",
+            "enrollmentId": "enrollment-id-3",
+            "eventTime": 33203622330000,
+            "expiryTime": 8640000030,
+            "eventReportWindow": 8640000030,
+            "priority": 100,
+            "status": 0,
+            "registrant": "android-app://com.example.abc"
+          }
+        ],
+        "source_destinations": [
+          {
+            "sourceId": "old1",
+            "destination": "android-app://example2.test/d1",
+            "destinationType": 0
+          },
+          {
+            "sourceId": "young1",
+            "destination": "android-app://example2.test/d1",
+            "destinationType": 0
+          }
+        ],
+        "triggers": [],
+        "event_reports": [],
+        "attributions": []
+      },
+      "output": {
+        "sources": [
+          {
+            "id": "young1",
+            "eventId": 1,
+            "sourceType": "navigation",
+            "publisher": "android-app://example1.test/s1",
+            "enrollmentId": "enrollment-id-3",
+            "eventTime": 33203622330000,
+            "expiryTime": 8640000030,
+            "eventReportWindow": 8640000030,
+            "priority": 100,
+            "status": 0,
+            "registrant": "android-app://com.example.abc"
+          }
+        ],
+        "source_destinations": [
+          {
+            "sourceId": "young1",
+            "destination": "android-app://example2.test/d1",
+            "destinationType": 0
+          }
+        ],
+        "triggers": [],
+        "event_reports": [],
+        "attributions": []
+      }
+    },
+    {
+      "name": "1 expired Trigger and 1 non-expired Trigger",
+      "input": {
+        "sources": [],
+        "source_destinations": [
+        ],
+        "triggers": [
+          {
+            "id": "old1",
+            "attributionDestination": "https://www.example2.test/d1",
+            "enrollmentId": "enrollment-id-3",
+            "priority": 101,
+            "status": 0,
+            "triggerData": 2,
+            "eventTriggers": [
+              {
+                "trigger_data": 2,
+                "priority": 101,
+                "filters": [{
+                  "key_1": ["value_1"]
+                }]
+              }
+            ],
+            "triggerTime": 8640000002,
+            "registrant": "android-app://com.example.xyz"
+          },
+          {
+            "id": "young1",
+            "attributionDestination": "https://www.example2.test/d1",
+            "enrollmentId": "enrollment-id-3",
+            "priority": 101,
+            "status": 0,
+            "triggerData": 2,
+            "eventTriggers": [
+              {
+                "trigger_data": 2,
+                "priority": 101,
+                "filters": [{
+                  "key_1": ["value_1"]
+                }]
+              }
+            ],
+            "triggerTime": 33203622330000,
+            "registrant": "android-app://com.example.xyz"
+          }
+        ],
+        "event_reports": [],
+        "attributions": []
+      },
+      "output": {
+        "sources": [],
+        "source_destinations": [
+        ],
+        "triggers": [
+          {
+            "id": "young1",
+            "attributionDestination": "https://www.example2.test/d1",
+            "enrollmentId": "enrollment-id-3",
+            "priority": 101,
+            "status": 0,
+            "triggerData": 2,
+            "eventTriggers": [
+              {
+                "trigger_data": 2,
+                "priority": 101,
+                "filters": [{
+                  "key_1": ["value_1"]
+                }]
+              }
+            ],
+            "triggerTime": 33203622330000,
+            "registrant": "android-app://com.example.xyz"
+          }
+        ],
+        "event_reports": [],
+        "attributions": []
+      }
+    },
+    {
+      "name": "Expired Aggregate Reports by report time & delivery",
+      "input": {
+        "aggregate_reports": [
+          {
+            "id": "old source registration - not deleted",
+            "publisher": "android-app://com.a",
+            "attributionDestination": "android-app://com.b",
+            "sourceRegistrationTime": 8640000002,
+            "scheduledReportTime": 33203622330000,
+            "enrollmentId": "enrollment-id-3",
+            "status": 0,
+            "debugCleartextPayload": ""
+          },
+          {
+            "id": "old report time - deleted",
+            "publisher": "android-app://do.not.remove.me",
+            "attributionDestination": "android-app://do.not.remove.me",
+            "sourceRegistrationTime": 33203622330000,
+            "scheduledReportTime": 8640000002,
+            "enrollmentId": "enrollment-id-3",
+            "status": 0,
+            "debugCleartextPayload": ""
+          },
+          {
+            "id": "delivered report - deleted",
+            "publisher": "android-app://do.not.remove.me",
+            "attributionDestination": "android-app://do.not.remove.me",
+            "sourceRegistrationTime": 33203622330000,
+            "scheduledReportTime": 33203622330000,
+            "enrollmentId": "enrollment-id-3",
+            "status": 1,
+            "debugCleartextPayload": ""
+          }
+        ]
+      },
+      "output": {
+        "aggregate_reports": [
+          {
+            "id": "old source registration - not deleted",
+            "publisher": "android-app://com.a",
+            "attributionDestination": "android-app://com.b",
+            "sourceRegistrationTime": 8640000002,
+            "scheduledReportTime": 33203622330000,
+            "enrollmentId": "enrollment-id-3",
+            "status": 0,
+            "debugCleartextPayload": ""
+          }
+        ]
+      }
+    },
+    {
+      "name": "1 expired Attribution and 1 non-expired Attribution",
+      "input": {
+        "sources": [],
+        "source_destinations": [
+        ],
+        "triggers": [],
+        "event_reports": [],
+        "attributions": [
+          {
+            "id": "old1",
+            "sourceSite": "android-app://remove.me",
+            "sourceOrigin": "android-app://remove.me",
+            "destinationSite": "android-app://remove.me",
+            "destinationOrigin": "android-app://remove.me",
+            "enrollmentId": "enrollment-id-1",
+            "triggerTime": 8640000002,
+            "registrant": "android-app://com.example.xyz"
+          },
+          {
+            "id": "young1",
+            "sourceSite": "android-app://dont.remove.me",
+            "sourceOrigin": "android-app://dont.remove.me",
+            "destinationSite": "android-app://dont.remove.me",
+            "destinationOrigin": "android-app://dont.remove.me",
+            "enrollmentId": "enrollment-id-1",
+            "triggerTime": 33203622330000,
+            "registrant": "android-app://com.example.xyz"
+          }
+        ]
+      },
+      "output": {
+        "sources": [],
+        "source_destinations": [
+        ],
+        "triggers": [],
+        "event_reports": [],
+        "attributions": [
+          {
+            "id": "young1",
+            "sourceSite": "android-app://dont.remove.me",
+            "sourceOrigin": "android-app://dont.remove.me",
+            "destinationSite": "android-app://dont.remove.me",
+            "destinationOrigin": "android-app://dont.remove.me",
+            "enrollmentId": "enrollment-id-1",
+            "triggerTime": 33203622330000,
+            "registrant": "android-app://com.example.xyz"
+          }
+        ]
+      }
+    }
+  ]
+}

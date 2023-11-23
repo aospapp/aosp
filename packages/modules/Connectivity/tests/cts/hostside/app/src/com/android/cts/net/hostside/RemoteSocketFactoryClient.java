@@ -83,9 +83,19 @@ public class RemoteSocketFactoryClient {
     public FileDescriptor openSocketFd(String host, int port, int timeoutMs)
             throws RemoteException, ErrnoException, IOException {
         // Dup the filedescriptor so ParcelFileDescriptor's finalizer doesn't garbage collect it
-        // and cause our fd to become invalid. http://b/35927643 .
-        ParcelFileDescriptor pfd = mService.openSocketFd(host, port, timeoutMs);
-        FileDescriptor fd = Os.dup(pfd.getFileDescriptor());
+        // and cause fd to become invalid. http://b/35927643.
+        final ParcelFileDescriptor pfd = mService.openSocketFd(host, port, timeoutMs);
+        final FileDescriptor fd = Os.dup(pfd.getFileDescriptor());
+        pfd.close();
+        return fd;
+    }
+
+    public FileDescriptor openDatagramSocketFd()
+            throws RemoteException, ErrnoException, IOException {
+        // Dup the filedescriptor so ParcelFileDescriptor's finalizer doesn't garbage collect it
+        // and cause fd to become invalid. http://b/35927643.
+        final ParcelFileDescriptor pfd = mService.openDatagramSocketFd();
+        final FileDescriptor fd = Os.dup(pfd.getFileDescriptor());
         pfd.close();
         return fd;
     }

@@ -276,7 +276,7 @@ public abstract class PhotoSource {
         if (max >= total) {
             return -1;
         } else {
-            return (mRNG.nextInt() % (total - max)) - 1;
+            return mRNG.nextInt(total - max) - 1;
         }
     }
 

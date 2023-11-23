@@ -24,6 +24,7 @@ import android.content.pm.PackageManager;
 import android.os.Binder;
 import android.os.IBinder;
 import android.os.RemoteException;
+import android.os.UserHandle;
 import android.provider.CallLog;
 import android.telecom.CallScreeningService;
 import android.telecom.Log;
@@ -235,12 +236,14 @@ public class CallScreeningServiceFilter extends CallFilter {
         public void onServiceDisconnected(ComponentName componentName) {
             mResultFuture.complete(mPriorStageResult);
             Log.i(this, "Service disconnected.");
+            unbindCallScreeningService();
         }
 
         @Override
         public void onBindingDied(ComponentName name) {
             mResultFuture.complete(mPriorStageResult);
             Log.i(this, "Binding died.");
+            unbindCallScreeningService();
         }
 
         @Override
@@ -316,7 +319,7 @@ public class CallScreeningServiceFilter extends CallFilter {
         CallScreeningServiceConnection connection = new CallScreeningServiceConnection(
                 resultFuture);
         if (!CallScreeningServiceHelper.bindCallScreeningService(mContext,
-                mCallsManager.getCurrentUserHandle(), mPackageName, connection)) {
+                mCall.getAssociatedUser(), mPackageName, connection)) {
             Log.i(this, "Call screening service binding failed.");
             resultFuture.complete(mPriorStageResult);
         } else {

@@ -2,7 +2,7 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="app_name" msgid="2922839697457005451">"GbaTestApp"</string>
-    <string name="label_settings" msgid="8030871890526865502">"Жөндөөлөр"</string>
+    <string name="label_settings" msgid="8030871890526865502">"Параметрлер"</string>
     <string name="label_carrier" msgid="1470455313066422804">"Байланыш операторунун конфигурациясы"</string>
     <string name="label_service" msgid="2668963955237345578">"Кызматтын конфигурациясы"</string>
     <string name="label_test" msgid="8425079572898571918">"Сыноо конфигурациясы"</string>

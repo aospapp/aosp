@@ -1,5 +1,5 @@
 <?xml version='1.0' encoding='UTF-8'?>
-<!-- Copyright (C) 2022 The Android Open Source Project
+<!-- Copyright (C) 2023 The Android Open Source Project
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
@@ -19,40 +19,70 @@ REGENERATE USING packages/apps/Car/libs/tools/rro/generate-overlayable.py
       <item type="animator" name="clear_all_animate_out"/>
       <item type="animator" name="heads_up_notification_transition_in"/>
       <item type="animator" name="heads_up_notification_transition_out"/>
+      <item type="array" name="headsup_category_immediate_show"/>
+      <item type="array" name="headsup_category_priority"/>
+      <item type="array" name="headsup_throttled_foreground_packages"/>
+      <item type="attr" name="cardBackgroundColor"/>
+      <item type="attr" name="cardCornerRadius"/>
+      <item type="attr" name="cardElevation"/>
       <item type="attr" name="categoryCall"/>
       <item type="attr" name="isHeadsUp"/>
       <item type="attr" name="maxLines"/>
       <item type="attr" name="showBigIcon"/>
+      <item type="attr" name="textColor"/>
       <item type="bool" name="config_alwaysShowNotificationDismissButton"/>
       <item type="bool" name="config_clearAllNotificationsAnimationFromBottomUp"/>
       <item type="bool" name="config_collapseShadePanelAfterClearAllNotifications"/>
+      <item type="bool" name="config_collapseShadePanelAfterManageButtonPress"/>
+      <item type="bool" name="config_dismissHeadsUpWhenNotificationCenterOpens"/>
+      <item type="bool" name="config_dismissMessageHunWhenReplyOrPlayActionButtonPressed"/>
       <item type="bool" name="config_enableCardBackgroundColorForCategoryNavigation"/>
       <item type="bool" name="config_enableCardBackgroundColorForSystemApp"/>
       <item type="bool" name="config_enableMessageNotificationDirectReply"/>
       <item type="bool" name="config_enableMessageNotificationPlay"/>
       <item type="bool" name="config_enableSmallIconAccentColor"/>
+      <item type="bool" name="config_expireHeadsUpWhenDriving"/>
+      <item type="bool" name="config_expireHeadsUpWhenParked"/>
       <item type="bool" name="config_focusHUNWhenShown"/>
+      <item type="bool" name="config_showExpansionHeader"/>
       <item type="bool" name="config_showFooterForNotifications"/>
       <item type="bool" name="config_showHeaderForNotifications"/>
       <item type="bool" name="config_showHeadsUpNotificationOnBottom"/>
       <item type="bool" name="config_showIconsInActionButtons"/>
       <item type="bool" name="config_showNavigationHeadsup"/>
       <item type="bool" name="config_showRecentAndOldHeaders"/>
+      <item type="bool" name="config_suppressAndThrottleHeadsUp"/>
+      <item type="bool" name="config_useCustomColorForMessageNotificationCountTextButton"/>
+      <item type="bool" name="config_useCustomColorsForInformationNotification"/>
+      <item type="bool" name="config_useCustomColorsForWarningNotification"/>
       <item type="bool" name="config_useLauncherIcon"/>
       <item type="color" name="action_button_background_color"/>
       <item type="color" name="call_accept_button"/>
       <item type="color" name="call_decline_button"/>
       <item type="color" name="clear_all_button_background_color"/>
+      <item type="color" name="count_text"/>
       <item type="color" name="dark_icon_tint"/>
       <item type="color" name="emergency_background_color"/>
+      <item type="color" name="emergency_primary_text_color"/>
+      <item type="color" name="emergency_secondary_text_color"/>
+      <item type="color" name="first_action_button_text_color"/>
       <item type="color" name="group_notification_background_color"/>
       <item type="color" name="icon_tint"/>
+      <item type="color" name="information_background_color"/>
+      <item type="color" name="information_primary_text_color"/>
+      <item type="color" name="information_secondary_text_color"/>
       <item type="color" name="notification_accent_color"/>
+      <item type="color" name="notification_background_color"/>
       <item type="color" name="notification_list_divider_color"/>
       <item type="color" name="notification_ripple_untinted_color"/>
       <item type="color" name="primary_text_color"/>
+      <item type="color" name="progress_bar_bg_color"/>
+      <item type="color" name="progress_bar_color"/>
       <item type="color" name="secondary_text_color"/>
       <item type="color" name="unmute_button"/>
+      <item type="color" name="warning_background_color"/>
+      <item type="color" name="warning_primary_text_color"/>
+      <item type="color" name="warning_secondary_text_color"/>
       <item type="dimen" name="action_button_height"/>
       <item type="dimen" name="action_button_min_width"/>
       <item type="dimen" name="action_button_padding"/>
@@ -78,6 +108,8 @@ REGENERATE USING packages/apps/Car/libs/tools/rro/generate-overlayable.py
       <item type="dimen" name="clear_all_button_min_width"/>
       <item type="dimen" name="clear_all_button_padding"/>
       <item type="dimen" name="clear_all_button_radius"/>
+      <item type="dimen" name="config_disabledCountTextButtonAlpha"/>
+      <item type="dimen" name="config_olderNotificationsAlpha"/>
       <item type="dimen" name="dismiss_button_diameter"/>
       <item type="dimen" name="dismiss_button_margin"/>
       <item type="dimen" name="error_factor_multiplier"/>
@@ -87,6 +119,7 @@ REGENERATE USING packages/apps/Car/libs/tools/rro/generate-overlayable.py
       <item type="dimen" name="header_small_icon_padding"/>
       <item type="dimen" name="headsup_notification_big_icon_margin"/>
       <item type="dimen" name="headsup_notification_top_margin"/>
+      <item type="dimen" name="headsup_notification_window_y_offset"/>
       <item type="dimen" name="headsup_scrim_height"/>
       <item type="dimen" name="in_group_timestamp_start_margin"/>
       <item type="dimen" name="item_spacing"/>
@@ -171,7 +204,6 @@ REGENERATE USING packages/apps/Car/libs/tools/rro/generate-overlayable.py
       <item type="id" name="footer_divider"/>
       <item type="id" name="gradient_edge"/>
       <item type="id" name="group_header"/>
-      <item type="id" name="group_toggle_button"/>
       <item type="id" name="group_toggle_icon"/>
       <item type="id" name="header_divider"/>
       <item type="id" name="header_text"/>
@@ -212,8 +244,11 @@ REGENERATE USING packages/apps/Car/libs/tools/rro/generate-overlayable.py
       <item type="integer" name="delay_between_clear_all_notifications_end_and_collapse_shade_panel_ms"/>
       <item type="integer" name="heads_up_notification_minimum_time"/>
       <item type="integer" name="headsup_alpha_enter_duration_ms"/>
+      <item type="integer" name="headsup_delay_duration"/>
       <item type="integer" name="headsup_exit_duration_ms"/>
       <item type="integer" name="headsup_notification_duration_ms"/>
+      <item type="integer" name="headsup_queue_expire_driving_duration_ms"/>
+      <item type="integer" name="headsup_queue_expire_parked_duration_ms"/>
       <item type="integer" name="headsup_total_enter_duration_ms"/>
       <item type="integer" name="max_group_children_number"/>
       <item type="integer" name="min_velocity_for_swipe_direction_detection"/>
@@ -272,18 +307,27 @@ REGENERATE USING packages/apps/Car/libs/tools/rro/generate-overlayable.py
       <item type="string" name="assist_action_play_label"/>
       <item type="string" name="assist_action_reply_label"/>
       <item type="string" name="canned_reply_message"/>
+      <item type="string" name="category_call"/>
+      <item type="string" name="category_car_emergency"/>
+      <item type="string" name="category_message"/>
+      <item type="string" name="category_navigation"/>
       <item type="string" name="clear_all"/>
       <item type="string" name="collapse_group"/>
       <item type="string" name="config_headsUpNotificationAnimationHelper"/>
       <item type="string" name="ellipsized_string"/>
       <item type="string" name="empty_notification_header"/>
       <item type="string" name="header_text_separator"/>
+      <item type="string" name="hun_suppression_channel_name"/>
+      <item type="string" name="hun_suppression_notification_description"/>
+      <item type="string" name="hun_suppression_notification_title_drive"/>
+      <item type="string" name="hun_suppression_notification_title_park"/>
       <item type="string" name="manage_text"/>
       <item type="string" name="notification_header"/>
       <item type="string" name="notification_older"/>
       <item type="string" name="notification_recents"/>
       <item type="string" name="notification_service_label"/>
       <item type="string" name="notifications"/>
+      <item type="string" name="pkg_car_dialer"/>
       <item type="string" name="restricted_hun_message_content"/>
       <item type="string" name="see_more_message"/>
       <item type="string" name="show_count_more"/>
@@ -309,6 +353,7 @@ REGENERATE USING packages/apps/Car/libs/tools/rro/generate-overlayable.py
       <item type="style" name="NotificationBodyImageIcon"/>
       <item type="style" name="NotificationBodyTitleText"/>
       <item type="style" name="NotificationCenterAppTitle"/>
+      <item type="style" name="NotificationCenterHeaderText"/>
       <item type="style" name="NotificationHeaderText"/>
       <item type="style" name="Theme.DeviceDefault.NoActionBar.Notification"/>
       <item type="xml" name="uxr_config"/>

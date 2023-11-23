@@ -23,7 +23,7 @@
     <object type="module_controller" class="com.android.tradefed.testtype.suite.module.Sdk30ModuleController" />
 
     <!-- Install test -->
-    <target_preparer class="com.android.tradefed.targetprep.TestAppInstallSetup">
+    <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller">
         <option name="test-file-name" value="PermissionControllerOutOfProcessTests.apk" />
         <option name="cleanup-apks" value="true" />
     </target_preparer>

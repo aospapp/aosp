@@ -160,8 +160,10 @@ TEST(CountMetricProducerTest, TestEventsWithNonSlicedCondition) {
 
     CountMetricProducer countProducer(kConfigKey, metric, 0, {ConditionState::kUnknown}, wizard,
                                       protoHash, bucketStartTimeNs, bucketStartTimeNs);
+    assertConditionTimer(countProducer.mConditionTimer, false, 0, 0);
 
     countProducer.onConditionChanged(true, bucketStartTimeNs);
+    assertConditionTimer(countProducer.mConditionTimer, true, 0, bucketStartTimeNs);
 
     LogEvent event1(/*uid=*/0, /*pid=*/0);
     makeLogEvent(&event1, bucketStartTimeNs + 1, /*atomId=*/1);
@@ -170,6 +172,7 @@ TEST(CountMetricProducerTest, TestEventsWithNonSlicedCondition) {
     ASSERT_EQ(0UL, countProducer.mPastBuckets.size());
 
     countProducer.onConditionChanged(false /*new condition*/, bucketStartTimeNs + 2);
+    assertConditionTimer(countProducer.mConditionTimer, false, 2, bucketStartTimeNs + 2);
 
     // Upon this match event, the matched event1 is flushed.
     LogEvent event2(/*uid=*/0, /*pid=*/0);

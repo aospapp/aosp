@@ -39,22 +39,22 @@
             android:id="@+id/home"
             android:layout_height="wrap_content"
             android:layout_width="match_parent"
-            systemui:intent="intent:#Intent;action=android.intent.action.MAIN;category=android.intent.category.HOME;launchFlags=0x14000000;end"
             android:src="@drawable/car_ic_overview"
             android:background="?android:attr/selectableItemBackground"
             android:paddingTop="30dp"
             android:paddingBottom="30dp"
-        />
+            android:contentDescription="@string/system_bar_home_label"
+            systemui:intent="intent:#Intent;action=android.intent.action.MAIN;category=android.intent.category.HOME;launchFlags=0x14000000;end"/>
 
         <com.android.systemui.car.systembar.HvacButton
             android:id="@+id/hvac"
             android:layout_height="wrap_content"
             android:layout_width="match_parent"
-            systemui:broadcast="true"
             android:src="@drawable/car_ic_hvac"
             android:background="?android:attr/selectableItemBackground"
             android:paddingTop="30dp"
             android:paddingBottom="30dp"
-        />
+            android:contentDescription="@string/system_bar_climate_control_label"
+            systemui:broadcast="true"/>
     </LinearLayout>
 </com.android.systemui.car.systembar.CarSystemBarView>

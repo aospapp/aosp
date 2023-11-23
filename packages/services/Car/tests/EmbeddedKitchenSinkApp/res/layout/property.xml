@@ -47,6 +47,13 @@
                 android:layout_width="0dp"
                 android:text="@string/property_get"
                 android:textSize="@dimen/propertyTextSize"/>
+            <Button
+                android:id="@+id/getPropertyAsync"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_width="0dp"
+                android:text="@string/property_get_async"
+                android:textSize="@dimen/propertyTextSize"/>
             <TextView
                 android:id="@+id/tvGetPropertyValue"
                 android:gravity="center"
@@ -78,6 +85,13 @@
                 android:layout_weight="1"
                 android:layout_width="0dp"
                 android:text="@string/property_set"
+                android:textSize="@dimen/propertyTextSize"/>
+            <Button
+                android:id="@+id/SetPropertyAsync"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_width="0dp"
+                android:text="@string/property_set_async"
                 android:textSize="@dimen/propertyTextSize"/>
         </LinearLayout>
 

@@ -35,5 +35,10 @@ android_test {
 
     aaptflags: ["--extra-packages com.android.car.settings"],
 
-    test_suites: ["device-tests"]
+    test_suites: [
+        "device-tests",
+        "automotive-tests",
+    ],
+
+    compile_multilib: "64",
 }

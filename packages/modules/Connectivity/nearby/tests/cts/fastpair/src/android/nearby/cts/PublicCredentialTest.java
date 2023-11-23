@@ -135,6 +135,7 @@ public class PublicCredentialTest {
                         .setIdentityType(IDENTITY_TYPE_PRIVATE)
                         .build();
         assertThat(credentialOne.equals((Object) credentialTwo)).isTrue();
+        assertThat(credentialOne.equals(null)).isFalse();
     }
 
     @Test
@@ -160,5 +161,20 @@ public class PublicCredentialTest {
                                 METADATA_ENCRYPTION_KEY_TAG)
                         .build();
         assertThat(credentialOne.equals((Object) credentialTwo)).isFalse();
+    }
+
+    @Test
+    @SdkSuppress(minSdkVersion = 32, codeName = "T")
+    public void describeContents() {
+        PublicCredential credential = mBuilder.build();
+        assertThat(credential.describeContents()).isEqualTo(0);
+    }
+
+    @Test
+    @SdkSuppress(minSdkVersion = 32, codeName = "T")
+    public void testCreatorNewArray() {
+        PublicCredential[] credentials  =
+        PublicCredential.CREATOR.newArray(2);
+        assertThat(credentials.length).isEqualTo(2);
     }
 }

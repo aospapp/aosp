@@ -16,6 +16,7 @@
 
 package com.android.server.wifi.util;
 
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
@@ -24,6 +25,9 @@ import androidx.test.filters.SmallTest;
 import com.android.server.wifi.WifiBaseTest;
 
 import org.junit.Test;
+
+import java.util.Calendar;
+import java.util.TimeZone;
 
 /**
  * Unit tests for {@link com.android.server.wifi.util.StringUtil}.
@@ -117,5 +121,31 @@ public class StringUtilTest extends WifiBaseTest {
     public void arrayWithNegativeByteIsNotPrintable() {
         assertFalse(StringUtil.isAsciiPrintable(new byte[]{-128}));
         assertFalse(StringUtil.isAsciiPrintable(new byte[]{-1}));
+    }
+
+    @Test
+    public void verifyCalendarToStringFormat() throws Exception {
+        Calendar c = Calendar.getInstance();
+        c.setTimeZone(TimeZone.getTimeZone("UTC"));
+        c.setTimeInMillis(1654647373799L);
+        assertEquals("6-8 0:16:13.799", StringUtil.calendarToString(c));
+    }
+
+    @Test
+    public void verifyDoubleToStringFormat() throws Exception {
+        assertEquals("3", StringUtil.doubleToString(3.1415926, 0));
+        assertEquals("3.1", StringUtil.doubleToString(3.1415926, 1));
+        assertEquals("3.14", StringUtil.doubleToString(3.1415926, 2));
+        assertEquals("-3", StringUtil.doubleToString(-3.1415926, 0));
+        assertEquals("-3.1", StringUtil.doubleToString(-3.1415926, 1));
+        assertEquals("-3.14", StringUtil.doubleToString(-3.1415926, 2));
+        assertEquals("-65.03", StringUtil.doubleToString(-65.03218, 2));
+        assertEquals("-65.00", StringUtil.doubleToString(-65.00018, 2));
+        assertEquals("199.001", StringUtil.doubleToString(199.00181, 3));
+        assertEquals("-199.00", StringUtil.doubleToString(-199.00181, 2));
+        assertEquals("0", StringUtil.doubleToString(0.0, 0));
+        assertEquals("0.0", StringUtil.doubleToString(0.0, 1));
+        assertEquals("-99.0099", StringUtil.doubleToString(-99.0099, 4));
+        assertEquals("Err", StringUtil.doubleToString(-99.0099, 5));
     }
 }

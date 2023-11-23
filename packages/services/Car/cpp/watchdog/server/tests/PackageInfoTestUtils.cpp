@@ -20,10 +20,10 @@ namespace android {
 namespace automotive {
 namespace watchdog {
 
-using ::android::automotive::watchdog::internal::ApplicationCategoryType;
-using ::android::automotive::watchdog::internal::ComponentType;
-using ::android::automotive::watchdog::internal::PackageInfo;
-using ::android::automotive::watchdog::internal::UidType;
+using ::aidl::android::automotive::watchdog::internal::ApplicationCategoryType;
+using ::aidl::android::automotive::watchdog::internal::ComponentType;
+using ::aidl::android::automotive::watchdog::internal::PackageInfo;
+using ::aidl::android::automotive::watchdog::internal::UidType;
 
 PackageInfo constructPackageInfo(const char* packageName, int32_t uid, UidType uidType,
                                  ComponentType componentType,

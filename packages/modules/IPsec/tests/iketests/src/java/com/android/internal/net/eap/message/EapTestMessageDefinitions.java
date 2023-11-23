@@ -19,6 +19,7 @@ package com.android.internal.net.eap.test.message;
 import static com.android.internal.net.TestUtils.hexStringToByteArray;
 import static com.android.internal.net.eap.test.message.simaka.attributes.EapTestAttributeDefinitions.AT_VERSION_LIST_DATA;
 import static com.android.internal.net.eap.test.message.simaka.attributes.EapTestAttributeDefinitions.IDENTITY_STRING;
+import static com.android.internal.net.eap.test.message.simaka.attributes.EapTestAttributeDefinitions.IV;
 import static com.android.internal.net.eap.test.message.simaka.attributes.EapTestAttributeDefinitions.NONCE_MT_STRING;
 import static com.android.internal.net.eap.test.message.simaka.attributes.EapTestAttributeDefinitions.RAND_1;
 import static com.android.internal.net.eap.test.message.simaka.attributes.EapTestAttributeDefinitions.RAND_2;
@@ -187,6 +188,7 @@ public class EapTestMessageDefinitions {
             "02" + ID + "001C" // EAP-Response | ID | length in bytes
             + "120b0000" // EAP-SIM | Challenge | 2B padding
             + "0B050000" + COMPUTED_MAC_STRING); // AT_MAC attribute
+
     public static final byte[] EAP_SIM_NOTIFICATION_REQUEST_WITH_EMPTY_MAC = hexStringToByteArray(
             "01" + ID + "0020" // EAP-Request | ID | length in bytes
                     + "120C0000" // EAP-SIM | Notification | 2B padding
@@ -196,10 +198,47 @@ public class EapTestMessageDefinitions {
             "02" + ID + "001C" // EAP-Response | ID | length in bytes
                     + "120C0000" // EAP-SIM | Notification | 2B padding
                     + "0B05000000000000000000000000000000000000"); // empty AT_MAC attribute
+
     public static final byte[] EAP_SIM_NOTIFICATION_RESPONSE_WITH_MAC = hexStringToByteArray(
             "02" + ID + "001C" // EAP-Response | ID | length in bytes
-            + "120C0000" // EAP-SIM | Notification | 2B padding
-            + "0B050000" + COMPUTED_MAC_STRING); // AT_MAC attribute
+                    + "120C0000" // EAP-SIM | Notification | 2B padding
+                    + "0B050000" + COMPUTED_MAC_STRING); // AT_MAC attribute
+
+    public static final byte[] EAP_AKA_NOTIFICATION_REQUEST_REAUTH_WITH_EMPTY_MAC =
+            hexStringToByteArray(
+                    "01" + ID + "0048" // EAP-Request | ID | length in bytes(4 4 4 20 20 20 = 72)
+                            + "170C0000" // EAP-AKA | Notification | 2B padding
+                            + "0C010000" // AT_NOTIFICATION attribute
+                            + "81050000"
+                            + IV // AT_IV attribute
+                            + "82050000"
+                            + "AF82D73A5A75AF1D3871244CA0B19338" // AT_ENCR_DATA attribute
+                            + "0B05000000000000000000000000000000000000"); // empty AT_MAC attribute
+
+    public static final byte[] EAP_AKA_NOTIFICATION_RESPONSE_REAUTH_WITH_EMPTY_MAC =
+            hexStringToByteArray(
+                    "02"
+                            + ID
+                            + "0044" // EAP-Response | ID | length in bytes(4 4 20 20 20 = 68)
+                            + "170C0000" // EAP-AKA | Notification | 2B padding
+                            + "81050000"
+                            + IV // AT_IV attribute
+                            + "82050000"
+                            + "AF82D73A5A75AF1D3871244CA0B19338" // AT_ENCR_DATA attribute
+                            + "0B05000000000000000000000000000000000000"); // empty AT_MAC attribute
+
+    public static final byte[] EAP_AKA_NOTIFICATION_RESPONSE_REAUTH_WITH_MAC =
+            hexStringToByteArray(
+                    "02"
+                            + ID
+                            + "0044" // EAP-Response | ID | length in bytes(4 4 20 20 20 = 68)
+                            + "170C0000" // EAP-AKA | Notification | 2B padding
+                            + "81050000"
+                            + IV // AT_IV attribute
+                            + "82050000"
+                            + "AF82D73A5A75AF1D3871244CA0B19338" // AT_ENCR_DATA attribute
+                            + "0B050000"
+                            + COMPUTED_MAC_STRING); // AT_MAC attribute
 
     public static final byte[] EAP_AKA_IDENTITY_RESPONSE =
             hexStringToByteArray("02" + ID + "001C" // EAP-Response | ID | length in bytes

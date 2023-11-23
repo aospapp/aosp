@@ -23,6 +23,7 @@
     <string name="bt_share_picker_label" msgid="7464438494743777696">"Bluetooth"</string>
     <string name="unknown_device" msgid="2317679521750821654">"Dispositivo desconhecido"</string>
     <string name="unknownNumber" msgid="1245183329830158661">"Desconhecido"</string>
+    <string name="not_provided" msgid="6938740494380012614">"Não fornecidos"</string>
     <string name="airplane_error_title" msgid="2570111716678850860">"Modo avião"</string>
     <string name="airplane_error_msg" msgid="4853111123699559578">"Não é possível usar o Bluetooth no modo avião."</string>
     <string name="bt_enable_title" msgid="4484289159118416315"></string>
@@ -31,20 +32,20 @@
     <string name="bt_enable_cancel" msgid="6770180540581977614">"Cancelar"</string>
     <string name="bt_enable_ok" msgid="4224374055813566166">"Ativar"</string>
     <string name="incoming_file_confirm_title" msgid="938251186275547290">"Transferência de arquivo"</string>
-    <string name="incoming_file_confirm_content" msgid="6573502088511901157">"Aceitar o arquivo recebido?"</string>
+    <string name="incoming_file_confirm_content" msgid="6573502088511901157">"Aceitar o arquivo transferido?"</string>
     <string name="incoming_file_confirm_cancel" msgid="9205906062663982692">"Recusar"</string>
     <string name="incoming_file_confirm_ok" msgid="5046926299036238623">"Aceitar"</string>
     <string name="incoming_file_confirm_timeout_ok" msgid="8612187577686515660">"OK"</string>
     <string name="incoming_file_confirm_timeout_content" msgid="3221412098281076974">"Tempo limite excedido ao receber um arquivo de \"<xliff:g id="SENDER">%1$s</xliff:g>\""</string>
-    <string name="incoming_file_confirm_Notification_title" msgid="5381395500920804895">"Arquivo recebido"</string>
+    <string name="incoming_file_confirm_Notification_title" msgid="5381395500920804895">"Recebendo arquivo"</string>
     <string name="incoming_file_confirm_Notification_content" msgid="2669135531488877921">"<xliff:g id="SENDER">%1$s</xliff:g> já pode enviar um arquivo: <xliff:g id="FILE">%2$s</xliff:g>"</string>
-    <string name="notification_receiving" msgid="8445265771083510696">"Compart. Bluetooth: recebendo <xliff:g id="FILE">%1$s</xliff:g>"</string>
-    <string name="notification_received" msgid="2330252358543000567">"Compart. Bluetooth: <xliff:g id="FILE">%1$s</xliff:g> recebido"</string>
-    <string name="notification_received_fail" msgid="9059153354809379374">"Compart. Bluetooth: o arquivo <xliff:g id="FILE">%1$s</xliff:g> não foi recebido"</string>
-    <string name="notification_sending" msgid="8269912843286868700">"Compart. Bluetooth: enviando <xliff:g id="FILE">%1$s</xliff:g>"</string>
-    <string name="notification_sent" msgid="2685202778935769332">"Compart. Bluetooth: <xliff:g id="FILE">%1$s</xliff:g> enviado"</string>
+    <string name="notification_receiving" msgid="8445265771083510696">"Bluetooth: recebendo <xliff:g id="FILE">%1$s</xliff:g>"</string>
+    <string name="notification_received" msgid="2330252358543000567">"Bluetooth: <xliff:g id="FILE">%1$s</xliff:g> recebido"</string>
+    <string name="notification_received_fail" msgid="9059153354809379374">"Bluetooth: arquivo <xliff:g id="FILE">%1$s</xliff:g> não recebido"</string>
+    <string name="notification_sending" msgid="8269912843286868700">"Bluetooth: enviando <xliff:g id="FILE">%1$s</xliff:g>"</string>
+    <string name="notification_sent" msgid="2685202778935769332">"Bluetooth: <xliff:g id="FILE">%1$s</xliff:g> enviado"</string>
     <string name="notification_sent_complete" msgid="6293391081175517098">"100% concluído"</string>
-    <string name="notification_sent_fail" msgid="7449832660578001579">"Compart. Bluetooth: o arquivo <xliff:g id="FILE">%1$s</xliff:g> não foi enviado"</string>
+    <string name="notification_sent_fail" msgid="7449832660578001579">"Bluetooth: arquivo <xliff:g id="FILE">%1$s</xliff:g> não enviado"</string>
     <string name="download_title" msgid="6449408649671518102">"Transferência de arquivo"</string>
     <string name="download_line1" msgid="6449220145685308846">"De: \"<xliff:g id="SENDER">%1$s</xliff:g>\""</string>
     <string name="download_line2" msgid="7634316500490825390">"Arquivo: <xliff:g id="FILE">%1$s</xliff:g>"</string>
@@ -100,15 +101,15 @@
     <string name="status_protocol_error" msgid="3231573735130475654">"Não é possível tratar a solicitação corretamente."</string>
     <string name="status_unknown_error" msgid="314676481744304866">"Erro desconhecido."</string>
     <string name="btopp_live_folder" msgid="4859989703965326287">"Recebido por Bluetooth"</string>
-    <string name="opp_notification_group" msgid="150067508422520653">"Compartilhamento Bluetooth"</string>
+    <string name="opp_notification_group" msgid="150067508422520653">"Envio por Bluetooth"</string>
     <string name="download_success" msgid="3438268368708549686">"<xliff:g id="FILE_SIZE">%1$s</xliff:g> Recebimento concluído."</string>
     <string name="upload_success" msgid="143787470859042049">"<xliff:g id="FILE_SIZE">%1$s</xliff:g> Envio concluído."</string>
     <string name="inbound_history_title" msgid="189623888169624862">"Transferências de entrada"</string>
     <string name="outbound_history_title" msgid="7614166584551065036">"Transferências de saída"</string>
     <string name="no_transfers" msgid="740521199933899821">"O histórico de transferências está vazio."</string>
     <string name="transfer_clear_dlg_msg" msgid="586117930961007311">"Todos os itens serão excluídos da lista."</string>
-    <string name="outbound_noti_title" msgid="2045560896819618979">"Compartilhamento Bluetooth: Arquivos enviados"</string>
-    <string name="inbound_noti_title" msgid="3730993443609581977">"Compartilhamento Bluetooth: Arquivos recebidos"</string>
+    <string name="outbound_noti_title" msgid="2045560896819618979">"Bluetooth: arquivos enviados"</string>
+    <string name="inbound_noti_title" msgid="3730993443609581977">"Bluetooth: arquivos recebidos"</string>
     <string name="noti_caption_unsuccessful" msgid="6679288016450410835">"{count,plural, =1{# falhou.}one{# falhou.}other{# falharam.}}"</string>
     <string name="noti_caption_success" msgid="7652777514009569713">"{count,plural, =1{# enviado, %1$s}one{# enviado, %1$s}other{# enviados, %1$s}}"</string>
     <string name="transfer_menu_clear_all" msgid="3014459758656427076">"Limpar lista"</string>
@@ -128,4 +129,10 @@
     <string name="a2dp_sink_mbs_label" msgid="6035366346569127155">"Áudio Bluetooth"</string>
     <string name="bluetooth_opp_file_limit_exceeded" msgid="6612109860149473930">"Não é possível transferir arquivos maiores que 4 GB"</string>
     <string name="bluetooth_connect_action" msgid="2319449093046720209">"Conectar ao Bluetooth"</string>
+    <string name="bluetooth_enabled_apm_title" msgid="6914461147844949044">"Bluetooth ativado no modo avião"</string>
+    <string name="bluetooth_enabled_apm_message" msgid="6168686193308136881">"Se você deixar o Bluetooth ativado, ele vai continuar assim na próxima vez que o modo avião for usado"</string>
+    <string name="bluetooth_stays_on_title" msgid="39720820955212918">"O Bluetooth fica ativado"</string>
+    <string name="bluetooth_stays_on_message" msgid="3669663452593157737">"O dispositivo vai manter o Bluetooth ativado no modo avião. Ele poderá ser desativado manualmente se você preferir."</string>
+    <string name="bluetooth_and_wifi_stays_on_title" msgid="5821932798860821244">"O Wi-Fi e o Bluetooth ficam ativados"</string>
+    <string name="bluetooth_and_wifi_stays_on_message" msgid="7848565203843882558">"O dispositivo vai manter o Wi-Fi e o Bluetooth ativados no modo avião. Eles podem ser desativados manualmente se você preferir."</string>
 </resources>

@@ -25,6 +25,7 @@ import static org.mockito.Mockito.verify;
 import android.graphics.drawable.Drawable;
 import android.testing.AndroidTestingRunner;
 import android.testing.TestableLooper;
+import android.view.View;
 import android.widget.ImageView;
 
 import androidx.test.filters.SmallTest;
@@ -123,6 +124,11 @@ public class StatusIconControllerTest extends SysuiTestCase {
         @Override
         protected void updateIconView(ImageView view, StatusIconData data) {
             view.setImageDrawable(data.getIconDrawable());
+        }
+
+        @Override
+        protected int getId() {
+            return View.generateViewId();
         }
     }
 }

@@ -29,6 +29,7 @@ public class CallFilteringResult {
         private boolean mShouldReject;
         private boolean mShouldAddToCallLog;
         private boolean mShouldShowNotification;
+        private boolean mDndSuppressed = false;
         private boolean mShouldSilence = false;
         private boolean mShouldScreenViaAudio = false;
         private boolean mContactExists = false;
@@ -55,6 +56,11 @@ public class CallFilteringResult {
 
         public Builder setShouldShowNotification(boolean shouldShowNotification) {
             mShouldShowNotification = shouldShowNotification;
+            return this;
+        }
+
+        public Builder setDndSuppressed(boolean shouldPerformCheck) {
+            mDndSuppressed = shouldPerformCheck;
             return this;
         }
 
@@ -101,6 +107,7 @@ public class CallFilteringResult {
                     .setShouldReject(result.shouldReject)
                     .setShouldAddToCallLog(result.shouldAddToCallLog)
                     .setShouldShowNotification(result.shouldShowNotification)
+                    .setDndSuppressed(result.shouldSuppressCallDueToDndStatus)
                     .setShouldSilence(result.shouldSilence)
                     .setCallBlockReason(result.mCallBlockReason)
                     .setShouldScreenViaAudio(result.shouldScreenViaAudio)
@@ -113,8 +120,9 @@ public class CallFilteringResult {
 
         public CallFilteringResult build() {
             return new CallFilteringResult(mShouldAllowCall, mShouldReject, mShouldSilence,
-                    mShouldAddToCallLog, mShouldShowNotification, mCallBlockReason,
-                    mCallScreeningAppName, mCallScreeningComponentName, mCallScreeningResponse,
+                    mShouldAddToCallLog, mShouldShowNotification,
+                    mDndSuppressed, mCallBlockReason, mCallScreeningAppName,
+                    mCallScreeningComponentName, mCallScreeningResponse,
                     mIsResponseFromSystemDialer, mShouldScreenViaAudio, mContactExists);
         }
     }
@@ -125,6 +133,7 @@ public class CallFilteringResult {
     public boolean shouldAddToCallLog;
     public boolean shouldScreenViaAudio = false;
     public boolean shouldShowNotification;
+    public boolean shouldSuppressCallDueToDndStatus = false;
     public int mCallBlockReason;
     public CharSequence mCallScreeningAppName;
     public String mCallScreeningComponentName;
@@ -133,8 +142,9 @@ public class CallFilteringResult {
     public boolean contactExists;
 
     private CallFilteringResult(boolean shouldAllowCall, boolean shouldReject, boolean
-            shouldSilence, boolean shouldAddToCallLog, boolean shouldShowNotification, int
-            callBlockReason, CharSequence callScreeningAppName, String callScreeningComponentName,
+            shouldSilence, boolean shouldAddToCallLog, boolean shouldShowNotification, boolean
+            shouldSuppress, int callBlockReason, CharSequence callScreeningAppName,
+            String callScreeningComponentName,
             CallScreeningService.ParcelableCallResponse callScreeningResponse,
             boolean isResponseFromSystemDialer,
             boolean shouldScreenViaAudio, boolean contactExists) {
@@ -143,6 +153,7 @@ public class CallFilteringResult {
         this.shouldSilence = shouldSilence;
         this.shouldAddToCallLog = shouldAddToCallLog;
         this.shouldShowNotification = shouldShowNotification;
+        this.shouldSuppressCallDueToDndStatus = shouldSuppress;
         this.shouldScreenViaAudio = shouldScreenViaAudio;
         this.mCallBlockReason = callBlockReason;
         this.mCallScreeningAppName = callScreeningAppName;
@@ -202,6 +213,8 @@ public class CallFilteringResult {
                 .setShouldAddToCallLog(shouldAddToCallLog && other.shouldAddToCallLog)
                 .setShouldShowNotification(shouldShowNotification && other.shouldShowNotification)
                 .setShouldScreenViaAudio(shouldScreenViaAudio || other.shouldScreenViaAudio)
+                .setDndSuppressed(shouldSuppressCallDueToDndStatus
+                        || other.shouldSuppressCallDueToDndStatus)
                 .setContactExists(contactExists || other.contactExists);
         combineScreeningResponses(b, this, other);
         return b.build();
@@ -228,6 +241,8 @@ public class CallFilteringResult {
                 .setShouldSilence(shouldSilence || other.shouldSilence)
                 .setShouldAddToCallLog(shouldAddToCallLog && other.shouldAddToCallLog)
                 .setShouldShowNotification(shouldShowNotification && other.shouldShowNotification)
+                .setDndSuppressed(shouldSuppressCallDueToDndStatus
+                        || other.shouldSuppressCallDueToDndStatus)
                 .setShouldScreenViaAudio(shouldScreenViaAudio || other.shouldScreenViaAudio)
                 .setCallBlockReason(callBlockReason)
                 .setCallScreeningAppName(callScreeningAppName)
@@ -272,6 +287,7 @@ public class CallFilteringResult {
         if (shouldSilence != that.shouldSilence) return false;
         if (shouldAddToCallLog != that.shouldAddToCallLog) return false;
         if (shouldShowNotification != that.shouldShowNotification) return false;
+        if (shouldSuppressCallDueToDndStatus != that.shouldSuppressCallDueToDndStatus) return false;
         if (mCallBlockReason != that.mCallBlockReason) return false;
         if (contactExists != that.contactExists) return false;
 
@@ -316,6 +332,10 @@ public class CallFilteringResult {
 
         if (shouldShowNotification) {
             sb.append(", notified");
+        }
+
+        if (shouldSuppressCallDueToDndStatus) {
+            sb.append(", DND suppressed");
         }
 
         if (contactExists) {

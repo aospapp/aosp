@@ -40,6 +40,10 @@ import com.android.managedprovisioning.model.ProvisioningParams;
 import com.android.managedprovisioning.provisioning.ProvisioningViewModel.ProvisioningViewModelFactory;
 import com.android.managedprovisioning.provisioning.TransitionAnimationHelper.TransitionAnimationState;
 
+import com.google.android.setupcompat.logging.ScreenKey;
+import com.google.android.setupcompat.logging.SetupMetric;
+import com.google.android.setupcompat.logging.SetupMetricsLogger;
+
 /**
  * Singleton instance that provides communications between the ongoing provisioning process and the
  * UI layer.
@@ -60,6 +64,9 @@ public class ProvisioningManager implements ProvisioningControllerCallback,
     private final TimeLogger mTimeLogger;
     private final ProvisioningManagerHelper mHelper;
     private ProvisioningViewModel mViewModel;
+    private final ScreenKey mScreenKey;
+    private static String setupMetricScreenName = "ProvisioningScreen";
+    private static String setupMetricProvisioningStartedName = "ProvisioningStarted";
 
     @GuardedBy("this")
     private AbstractProvisioningController mController;
@@ -92,6 +99,7 @@ public class ProvisioningManager implements ProvisioningControllerCallback,
         mProvisioningAnalyticsTracker = requireNonNull(analyticsTracker);
         mTimeLogger = requireNonNull(timeLogger);
         mHelper = new ProvisioningManagerHelper();
+        mScreenKey = ScreenKey.of(setupMetricScreenName, context);
     }
 
     /**
@@ -119,6 +127,8 @@ public class ProvisioningManager implements ProvisioningControllerCallback,
     public void maybeStartProvisioning(final ProvisioningParams params) {
         synchronized (this) {
             if (mController == null) {
+                SetupMetricsLogger.logMetrics(mContext, mScreenKey,
+                        SetupMetric.ofWaitingStart(setupMetricProvisioningStartedName));
                 mTimeLogger.start();
                 mController = getController(params);
                 mHelper.startNewProvisioningLocked(mController);

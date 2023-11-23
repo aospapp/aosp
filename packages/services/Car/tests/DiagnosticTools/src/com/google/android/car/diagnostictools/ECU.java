@@ -96,7 +96,7 @@ public class ECU extends SelectableRowModel {
      */
     static ECU createSampleECU(int number, Context context) {
         List<DTC> dtcs = new ArrayList<>();
-        String address = (number + 123) + "";
+        String address = Integer.toString(number + 123);
 
         ECU rtrECU = new ECU(address, dtcs, context);
 

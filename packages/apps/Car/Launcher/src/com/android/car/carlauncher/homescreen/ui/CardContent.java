@@ -16,6 +16,8 @@
 
 package com.android.car.carlauncher.homescreen.ui;
 
+import android.graphics.drawable.Drawable;
+
 /**
  * Defines the content displayed below the header on a home app's card.
  */
@@ -37,4 +39,32 @@ public abstract class CardContent {
      * Returns the type of content layout
      */
     public abstract HomeCardContentType getType();
+
+    /**
+     * Defines contents of Card background Image.
+     */
+    public static class CardBackgroundImage {
+
+        private Drawable mBackground;
+        private Drawable mForeground;
+
+        public CardBackgroundImage(Drawable foreground, Drawable background) {
+            mForeground = foreground;
+            mBackground = background;
+        }
+
+        /**
+         * Returns the drawable to use as background for the Image.
+         */
+        public Drawable getBackground() {
+            return mBackground;
+        }
+
+        /**
+         * Returns the drawable to use as content for the Image.
+         */
+        public Drawable getForeground() {
+            return mForeground;
+        }
+    }
 }

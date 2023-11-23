@@ -18,7 +18,7 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="assist_action_play_label" msgid="6278705468288338172">"Riproduci"</string>
-    <string name="assist_action_reply_label" msgid="6946087036560525072">"Risposta"</string>
+    <string name="assist_action_reply_label" msgid="6946087036560525072">"Rispondi"</string>
     <string name="action_mute_short" msgid="5239851786101022633">"Disattiva audio"</string>
     <string name="action_mute_long" msgid="6846675719189989477">"Disattiva conversazione"</string>
     <string name="action_unmute_short" msgid="7157822835069715986">"Riattiva audio"</string>
@@ -49,4 +49,11 @@
     <string name="see_more_message" msgid="6343183827924395955">"Espandi"</string>
     <string name="restricted_hun_message_content" msgid="631111937988857716">"Nuovo messaggio"</string>
     <string name="manage_text" msgid="4225197445283791757">"Gestisci"</string>
+    <string name="category_navigation" msgid="4406139232918521087">"navigation"</string>
+    <string name="category_call" msgid="2249490790700877973">"call"</string>
+    <string name="category_message" msgid="451360226248504859">"msg"</string>
+    <string name="hun_suppression_channel_name" msgid="8298850157350352525">"Notifiche di avviso disattivate"</string>
+    <string name="hun_suppression_notification_title_park" msgid="2790860076784227523">"Non perderti le ultime novità"</string>
+    <string name="hun_suppression_notification_title_drive" msgid="4403363470548899844">"Concentrati sulla guida"</string>
+    <string name="hun_suppression_notification_description" msgid="5269238832987802104">"Alcune nuove notifiche vengono salvate nel centro notifiche"</string>
 </resources>

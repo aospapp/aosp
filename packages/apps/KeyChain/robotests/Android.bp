@@ -14,4 +14,6 @@ android_robolectric_test {
     java_resource_dirs: ["config"],
 
     instrumentation_for: "KeyChain",
+
+    upstream: true,
 }

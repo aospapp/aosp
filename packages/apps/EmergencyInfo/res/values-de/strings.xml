@@ -17,7 +17,7 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="app_label" msgid="1090682794607161063">"Notfallinformationen"</string>
-    <string name="medical_info_title" msgid="3000192781136934887">"Medizinische Informationen"</string>
+    <string name="medical_info_title" msgid="3000192781136934887">"Medizinische Daten"</string>
     <string name="add_medical_info" msgid="483921612415907139">"Informationen hinzufügen"</string>
     <string name="edit_info" msgid="5973929805855224805">"Notfallinformationen bearbeiten"</string>
     <string name="tab_title_info" msgid="1402033103294855812">"Info"</string>

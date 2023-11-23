@@ -26,7 +26,9 @@ import static com.android.car.hal.test.DiagnosticJsonTestUtils.buildEmptyVehicle
 
 import static com.google.common.truth.Truth.assertThat;
 
+import android.hardware.automotive.vehicle.VehiclePropConfig;
 import android.hardware.automotive.vehicle.VehiclePropValue;
+import android.hardware.automotive.vehicle.VehicleProperty;
 import android.util.JsonReader;
 import android.util.JsonWriter;
 
@@ -38,10 +40,18 @@ import java.io.StringWriter;
 
 public final class DiagnosticJsonReaderTest {
 
+    private static final String INVALID_TYPE = "invalid_type";
+
+    @Test
+    public void testBuild_returnNullForEmptyJsonReader() throws IOException {
+        assertThat(new DiagnosticJsonReader().build(
+                buildEmptyFrameJsonReader(INVALID_TYPE, ANY_TIMESTAMP_VALUE))).isNull();
+    }
+
     @Test
     public void testBuild_freezeFrame() throws IOException {
         JsonReader jsonReader = buildEmptyFrameJsonReader(FRAME_TYPE_FREEZE, ANY_TIMESTAMP_VALUE);
-        DiagnosticJsonReader diagnosticJsonReader = new DiagnosticJsonReader();
+        DiagnosticJsonReader diagnosticJsonReader = buildDiagnosticJsonReader();
 
         VehiclePropValue actual = diagnosticJsonReader.build(jsonReader);
 
@@ -52,7 +62,7 @@ public final class DiagnosticJsonReaderTest {
     @Test
     public void testBuild_liveFrame() throws IOException {
         JsonReader jsonReader = buildEmptyFrameJsonReader(FRAME_TYPE_LIVE, ANY_TIMESTAMP_VALUE);
-        DiagnosticJsonReader diagnosticJsonReader = new DiagnosticJsonReader();
+        DiagnosticJsonReader diagnosticJsonReader = buildDiagnosticJsonReader();
 
         VehiclePropValue actual = diagnosticJsonReader.build(jsonReader);
 
@@ -70,5 +80,21 @@ public final class DiagnosticJsonReaderTest {
                 .name("timestamp")
                 .value(timestampValue).endObject();
         return new JsonReader(new StringReader(stringWriter.toString()));
+    }
+
+    private DiagnosticJsonReader buildDiagnosticJsonReader() {
+        VehiclePropConfig liveFrameConfig = new VehiclePropConfig();
+        liveFrameConfig.configString = "";
+        liveFrameConfig.prop = VehicleProperty.OBD2_LIVE_FRAME;
+        liveFrameConfig.configArray = new int[]{0, 0};  // Empty config
+
+        VehiclePropConfig freezeFrameConfig = new VehiclePropConfig();
+        freezeFrameConfig.configString = "";
+        freezeFrameConfig.prop = VehicleProperty.OBD2_FREEZE_FRAME;
+        freezeFrameConfig.configArray = new int[]{0, 0};  // Empty config
+
+        DiagnosticJsonReader diagnosticJsonReader = new DiagnosticJsonReader(liveFrameConfig,
+                freezeFrameConfig);
+        return diagnosticJsonReader;
     }
 }

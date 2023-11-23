@@ -19,14 +19,14 @@ package com.android.traceur;
 import static android.view.WindowManager.LayoutParams.SYSTEM_FLAG_HIDE_NON_SYSTEM_OVERLAY_WINDOWS;
 
 import android.app.AlertDialog;
+import android.content.ActivityNotFoundException;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
-import android.content.ActivityNotFoundException;
 import android.content.SharedPreferences;
 import android.os.Bundle;
-import android.util.Log;
 import android.preference.PreferenceManager;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.widget.CheckBox;
 import android.widget.Toast;
@@ -57,7 +57,7 @@ public class UserConsentActivityDialog extends AlertActivity
         super.onCreate(icicle);
 
         this.getWindow().addSystemFlags(SYSTEM_FLAG_HIDE_NON_SYSTEM_OVERLAY_WINDOWS);
-        mNextIntent = getIntent().getParcelableExtra(Intent.EXTRA_INTENT);
+        mNextIntent = getIntent().getParcelableExtra(Intent.EXTRA_INTENT, Intent.class);
 
         // If the user has previously indicated to never show this dialog again,
         // go ahead and start the target intent and finish this activity.
@@ -69,7 +69,7 @@ public class UserConsentActivityDialog extends AlertActivity
         final AlertController.AlertParams params = mAlertParams;
         params.mView = LayoutInflater.from(this).inflate(
             R.layout.consent_dialog_checkbox, null);
-        params.mTitle = getString(R.string.share_trace);
+        params.mTitle = getString(R.string.share_file);
         params.mMessage = getString(R.string.system_trace_sensitive_data);
         params.mPositiveButtonText = getString(R.string.share);
         params.mNegativeButtonText = getString(android.R.string.cancel);

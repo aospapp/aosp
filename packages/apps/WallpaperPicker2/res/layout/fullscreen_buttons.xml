@@ -16,7 +16,6 @@
 -->
 <LinearLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:androidprv="http://schemas.android.com/apk/prv/res/android"
     android:layout_height="@dimen/separated_tabs_height"
     android:layout_width="match_parent"
     android:orientation="horizontal"
@@ -34,7 +33,7 @@
         android:text="@string/hide_ui_preview_text"
         android:textAlignment="center"
         android:textAppearance="@style/SeparatedTabsTextAppearance"
-        android:textColor="?androidprv:attr/textColorOnAccent"
+        android:textColor="@color/text_color_on_accent"
         android:visibility="visible">
     </Button>
 
@@ -50,7 +49,7 @@
         android:text="@string/set_wallpaper_button_text"
         android:textAlignment="center"
         android:textAppearance="@style/SeparatedTabsTextAppearance"
-        android:textColor="?androidprv:attr/textColorOnAccent"
+        android:textColor="@color/text_color_on_accent"
         android:visibility="visible">
     </Button>
 </LinearLayout>

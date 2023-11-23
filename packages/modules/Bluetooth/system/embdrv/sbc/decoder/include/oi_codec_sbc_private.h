@@ -93,7 +93,7 @@ typedef union {
 } BITNEED_UNION2;
 
 static const uint16_t freq_values[] = {16000, 32000, 44100, 48000};
-static const uint8_t block_values[] = {4, 8, 12, 16};
+static const uint8_t block_values[] = {4, 8, 12, 16, 15};
 static const uint8_t channel_values[] = {1, 2, 2, 2};
 static const uint8_t band_values[] = {4, 8};
 

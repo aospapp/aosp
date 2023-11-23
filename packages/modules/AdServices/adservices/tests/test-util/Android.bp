@@ -1,0 +1,77 @@
+// Copyright (C) 2023 The Android Open Source Project
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
+filegroup {
+    name: "adservices-test-utility-sources",
+    srcs: [
+        "java/**/*.java",
+    ],
+    exclude_srcs: [
+        "java/com/android/adservices/mockito/*.java",
+    ],
+    path: "java",
+    visibility: [
+        "//packages/modules/AdServices/adservices/tests:__subpackages__",
+    ],
+}
+
+filegroup {
+    name: "adservices-mockito-sources",
+    srcs: [
+        "java/com/android/adservices/mockito/*.java",
+    ],
+    path: "java",
+    visibility: [
+        "//packages/modules/AdServices/adservices/tests:__subpackages__",
+    ],
+}
+
+android_library {
+    name: "adservices-test-utility",
+    sdk_version: "module_current",
+    min_sdk_version: "30",
+    srcs: [
+        ":adservices-test-utility-sources",
+    ],
+    libs: [
+        "error_prone_annotations",
+        "framework-adservices-lib",
+        "framework-annotations-lib",
+    ],
+    static_libs: [
+        "androidx.test.runner",
+        "compatibility-device-util-axt",
+    ],
+    apex_available: ["com.android.adservices", "com.android.extservices"],
+}
+
+java_defaults {
+    name: "adservices-extended-mockito-defaults",
+    srcs: [
+        ":adservices-mockito-sources",
+    ],
+    defaults: [
+        "modules-utils-testable-device-config-defaults",
+    ],
+    libs: [
+        "services.core.unboosted", // For LocalManagerRegistry on ExtendedMockitoExpectations
+    ],
+    visibility: [
+        "//packages/modules/AdServices/adservices/tests:__subpackages__",
+    ],
+}

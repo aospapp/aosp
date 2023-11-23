@@ -18,7 +18,7 @@ use anyhow::{bail, Result};
 use libc::getxattr;
 use std::ffi::CString;
 use std::io;
-use std::os::unix::io::RawFd;
+use std::os::unix::io::{AsRawFd, BorrowedFd};
 
 const SHA256_HASH_SIZE: usize = 32;
 
@@ -26,10 +26,10 @@ const SHA256_HASH_SIZE: usize = 32;
 pub type Sha256Digest = [u8; SHA256_HASH_SIZE];
 
 /// Returns the fs-verity measurement/digest. Currently only SHA256 is supported.
-pub fn measure(fd: RawFd) -> Result<Sha256Digest> {
+pub fn measure(fd: BorrowedFd) -> Result<Sha256Digest> {
     // TODO(b/196635431): Unfortunately, the FUSE API doesn't allow authfs to implement the standard
     // fs-verity ioctls. Until the kernel allows, use the alternative xattr that authfs provides.
-    let path = CString::new(format!("/proc/self/fd/{}", fd).as_str()).unwrap();
+    let path = CString::new(format!("/proc/self/fd/{}", fd.as_raw_fd()).as_str()).unwrap();
     let name = CString::new("authfs.fsverity.digest").unwrap();
     let mut buf = [0u8; SHA256_HASH_SIZE];
     // SAFETY: getxattr should not write beyond the given buffer size.

@@ -30,8 +30,8 @@ namespace telemetry {
 struct BufferedCarData {
     BufferedCarData(BufferedCarData&& other) = default;
     BufferedCarData(const BufferedCarData&) = default;
-    BufferedCarData& operator=(BufferedCarData&& other) = default;
-    BufferedCarData& operator=(const BufferedCarData&) = default;
+    BufferedCarData& operator=(BufferedCarData&& other) = delete;
+    BufferedCarData& operator=(const BufferedCarData&) = delete;
 
     inline bool operator==(const BufferedCarData& rhs) const {
         return std::tie(mId, mContent, mPublisherUid) ==

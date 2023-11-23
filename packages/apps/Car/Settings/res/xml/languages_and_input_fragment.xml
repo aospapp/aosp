@@ -23,7 +23,9 @@
         android:icon="@drawable/ic_translate"
         android:key="@string/pk_language_settings_entry"
         android:title="@string/language_settings"
-        settings:controller="com.android.car.settings.language.LanguageSettingsEntryPreferenceController"/>
+        settings:controller="com.android.car.settings.language.LanguageSettingsEntryPreferenceController"
+        settings:occupant_front_passenger="read"
+        settings:occupant_rear_passenger="read"/>
     <com.android.car.ui.preference.CarUiTwoActionIconPreference
         android:fragment="com.android.car.settings.applications.defaultapps.DefaultAutofillPickerFragment"
         android:key="@string/pk_autofill_picker_entry"

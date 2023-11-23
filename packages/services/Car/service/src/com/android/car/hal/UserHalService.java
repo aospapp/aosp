@@ -218,6 +218,7 @@ public final class UserHalService extends HalServiceBase {
     }
 
     @Override
+    @ExcludeFromCodeCoverageGeneratedReport(reason = DUMP_INFO)
     public void onPropertySetError(ArrayList<VehiclePropError> errors) {
         if (DBG) {
             for (VehiclePropError error : errors) {
@@ -269,9 +270,7 @@ public final class UserHalService extends HalServiceBase {
      */
     public boolean isUserAssociationSupported() {
         synchronized (mLock) {
-            if (mProperties == null) return false;
-            if (mProperties.get(USER_IDENTIFICATION_ASSOCIATION) == null) return false;
-            return true;
+            return mProperties != null && mProperties.get(USER_IDENTIFICATION_ASSOCIATION) != null;
         }
     }
 
@@ -1173,7 +1172,7 @@ public final class UserHalService extends HalServiceBase {
             if (numberPendingCallbacks == 0) {
                 writer.println("no pending callbacks");
             } else {
-                writer.printf("%d pending callbacks: %s\n", numberPendingCallbacks);
+                writer.printf("%d pending callbacks:\n", numberPendingCallbacks);
                 for (int i = 0; i < numberPendingCallbacks; i++) {
                     writer.print(indent);
                     mPendingRequests.valueAt(i).dump(writer);
@@ -1183,6 +1182,7 @@ public final class UserHalService extends HalServiceBase {
         }
     }
 
+    @ExcludeFromCodeCoverageGeneratedReport(reason = DUMP_INFO)
     private static void dumpSystemProperty(PrintWriter writer, String indent, String name,
             Optional<?> prop) {
         String value = prop.isPresent() ? prop.get().toString() : "<NOT SET>";

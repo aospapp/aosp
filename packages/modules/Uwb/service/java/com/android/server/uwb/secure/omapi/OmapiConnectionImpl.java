@@ -55,7 +55,7 @@ public class OmapiConnectionImpl implements OmapiConnection {
     @Nullable private Reader mReader;
     @Nullable private Channel mChannel;
 
-    OmapiConnectionImpl(
+    public OmapiConnectionImpl(
             Context context) {
         this.mContext = context;
     }

@@ -18,29 +18,19 @@ package com.android.networkstack.tethering;
 
 import static com.android.net.module.util.netlink.StructNlMsgHdr.NLM_F_DUMP;
 import static com.android.net.module.util.netlink.StructNlMsgHdr.NLM_F_REQUEST;
-import static com.android.networkstack.tethering.util.TetheringUtils.uint16;
 
 import android.annotation.IntDef;
 import android.annotation.NonNull;
-import android.hardware.tetheroffload.config.V1_0.IOffloadConfig;
-import android.hardware.tetheroffload.control.V1_0.IOffloadControl;
-import android.hardware.tetheroffload.control.V1_0.NatTimeoutUpdate;
-import android.hardware.tetheroffload.control.V1_0.NetworkProtocol;
-import android.hardware.tetheroffload.control.V1_0.OffloadCallbackEvent;
-import android.hardware.tetheroffload.control.V1_1.ITetheringOffloadCallback;
-import android.net.util.SharedLog;
 import android.net.util.SocketUtils;
 import android.os.Handler;
 import android.os.NativeHandle;
-import android.os.RemoteException;
 import android.system.ErrnoException;
 import android.system.Os;
 import android.system.OsConstants;
-import android.util.Log;
-import android.util.Pair;
 
 import com.android.internal.annotations.VisibleForTesting;
-import com.android.net.module.util.netlink.NetlinkSocket;
+import com.android.net.module.util.SharedLog;
+import com.android.net.module.util.netlink.NetlinkUtils;
 import com.android.net.module.util.netlink.StructNfGenMsg;
 import com.android.net.module.util.netlink.StructNlMsgHdr;
 
@@ -54,8 +44,6 @@ import java.net.SocketException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.ArrayList;
-import java.util.NoSuchElementException;
-
 
 /**
  * Capture tethering dependencies, for injection.
@@ -86,43 +74,43 @@ public class OffloadHardwareInterface {
     private final Handler mHandler;
     private final SharedLog mLog;
     private final Dependencies mDeps;
-    private IOffloadControl mOffloadControl;
+    private IOffloadHal mIOffload;
 
     // TODO: Use major-minor version control to prevent from defining new constants.
     static final int OFFLOAD_HAL_VERSION_NONE = 0;
-    static final int OFFLOAD_HAL_VERSION_1_0 = 1;
-    static final int OFFLOAD_HAL_VERSION_1_1 = 2;
+    static final int OFFLOAD_HAL_VERSION_HIDL_1_0 = 1;
+    static final int OFFLOAD_HAL_VERSION_HIDL_1_1 = 2;
+    static final int OFFLOAD_HAL_VERSION_AIDL = 3;
     /** @hide */
     @Retention(RetentionPolicy.SOURCE)
     @IntDef(prefix = "OFFLOAD_HAL_VERSION_", value = {
             OFFLOAD_HAL_VERSION_NONE,
-            OFFLOAD_HAL_VERSION_1_0,
-            OFFLOAD_HAL_VERSION_1_1
+            OFFLOAD_HAL_VERSION_HIDL_1_0,
+            OFFLOAD_HAL_VERSION_HIDL_1_1,
+            OFFLOAD_HAL_VERSION_AIDL,
     })
     public @interface OffloadHalVersion {}
-    @OffloadHalVersion
-    private int mOffloadControlVersion = OFFLOAD_HAL_VERSION_NONE;
 
     @NonNull
     static String halVerToString(int version) {
         switch(version) {
-            case OFFLOAD_HAL_VERSION_1_0:
-                return "1.0";
-            case OFFLOAD_HAL_VERSION_1_1:
-                return "1.1";
+            case OFFLOAD_HAL_VERSION_HIDL_1_0:
+                return "HIDL 1.0";
+            case OFFLOAD_HAL_VERSION_HIDL_1_1:
+                return "HIDL 1.1";
+            case OFFLOAD_HAL_VERSION_AIDL:
+                return "AIDL";
             case OFFLOAD_HAL_VERSION_NONE:
                 return "None";
             default:
                 throw new IllegalArgumentException("Unsupported version int " + version);
         }
-
     }
 
-    private TetheringOffloadCallback mTetheringOffloadCallback;
-    private ControlCallback mControlCallback;
+    private OffloadHalCallback mOffloadHalCallback;
 
     /** The callback to notify status of offload management process. */
-    public static class ControlCallback {
+    public static class OffloadHalCallback {
         /** Offload started. */
         public void onStarted() {}
         /**
@@ -179,7 +167,7 @@ public class OffloadHardwareInterface {
     }
 
     public OffloadHardwareInterface(Handler h, SharedLog log) {
-        this(h, log, new Dependencies(log));
+        this(h, log, new Dependencies(h, log));
     }
 
     OffloadHardwareInterface(Handler h, SharedLog log, Dependencies deps) {
@@ -190,51 +178,27 @@ public class OffloadHardwareInterface {
 
     /** Capture OffloadHardwareInterface dependencies, for injection. */
     static class Dependencies {
+        private final Handler mHandler;
         private final SharedLog mLog;
 
-        Dependencies(SharedLog log) {
+        Dependencies(Handler handler, SharedLog log) {
+            mHandler = handler;
             mLog = log;
         }
 
-        public IOffloadConfig getOffloadConfig() {
-            try {
-                return IOffloadConfig.getService(true /*retry*/);
-            } catch (RemoteException | NoSuchElementException e) {
-                mLog.e("getIOffloadConfig error " + e);
-                return null;
-            }
-        }
-
-        @NonNull
-        public Pair<IOffloadControl, Integer> getOffloadControl() {
-            IOffloadControl hal = null;
-            int version = OFFLOAD_HAL_VERSION_NONE;
-            try {
-                hal = android.hardware.tetheroffload.control
-                        .V1_1.IOffloadControl.getService(true /*retry*/);
-                version = OFFLOAD_HAL_VERSION_1_1;
-            } catch (NoSuchElementException e) {
-                // Unsupported by device.
-            } catch (RemoteException e) {
-                mLog.e("Unable to get offload control " + OFFLOAD_HAL_VERSION_1_1);
-            }
+        public IOffloadHal getOffload() {
+            // Prefer AIDL implementation if its service is declared.
+            IOffloadHal hal = OffloadHalAidlImpl.getIOffloadHal(mHandler, mLog);
             if (hal == null) {
-                try {
-                    hal = IOffloadControl.getService(true /*retry*/);
-                    version = OFFLOAD_HAL_VERSION_1_0;
-                } catch (NoSuchElementException e) {
-                    // Unsupported by device.
-                } catch (RemoteException e) {
-                    mLog.e("Unable to get offload control " + OFFLOAD_HAL_VERSION_1_0);
-                }
+                hal = OffloadHalHidlImpl.getIOffloadHal(mHandler, mLog);
             }
-            return new Pair<IOffloadControl, Integer>(hal, version);
+            return hal;
         }
 
         public NativeHandle createConntrackSocket(final int groups) {
             final FileDescriptor fd;
             try {
-                fd = NetlinkSocket.forProto(OsConstants.NETLINK_NETFILTER);
+                fd = NetlinkUtils.netlinkSocketForProto(OsConstants.NETLINK_NETFILTER);
             } catch (ErrnoException e) {
                 mLog.e("Unable to create conntrack socket " + e);
                 return null;
@@ -273,59 +237,8 @@ public class OffloadHardwareInterface {
         return DEFAULT_TETHER_OFFLOAD_DISABLED;
     }
 
-    /**
-     * Offload management process need to know conntrack rules to support NAT, but it may not have
-     * permission to create netlink netfilter sockets. Create two netlink netfilter sockets and
-     * share them with offload management process.
-     */
-    public boolean initOffloadConfig() {
-        final IOffloadConfig offloadConfig = mDeps.getOffloadConfig();
-        if (offloadConfig == null) {
-            mLog.e("Could not find IOffloadConfig service");
-            return false;
-        }
-        // Per the IConfigOffload definition:
-        //
-        // h1    provides a file descriptor bound to the following netlink groups
-        //       (NF_NETLINK_CONNTRACK_NEW | NF_NETLINK_CONNTRACK_DESTROY).
-        //
-        // h2    provides a file descriptor bound to the following netlink groups
-        //       (NF_NETLINK_CONNTRACK_UPDATE | NF_NETLINK_CONNTRACK_DESTROY).
-        final NativeHandle h1 = mDeps.createConntrackSocket(
-                NF_NETLINK_CONNTRACK_NEW | NF_NETLINK_CONNTRACK_DESTROY);
-        if (h1 == null) return false;
-
-        sendIpv4NfGenMsg(h1, (short) ((NFNL_SUBSYS_CTNETLINK << 8) | IPCTNL_MSG_CT_GET),
-                           (short) (NLM_F_REQUEST | NLM_F_DUMP));
-
-        final NativeHandle h2 = mDeps.createConntrackSocket(
-                NF_NETLINK_CONNTRACK_UPDATE | NF_NETLINK_CONNTRACK_DESTROY);
-        if (h2 == null) {
-            closeFdInNativeHandle(h1);
-            return false;
-        }
-
-        final CbResults results = new CbResults();
-        try {
-            offloadConfig.setHandles(h1, h2,
-                    (boolean success, String errMsg) -> {
-                        results.mSuccess = success;
-                        results.mErrMsg = errMsg;
-                    });
-        } catch (RemoteException e) {
-            record("initOffloadConfig, setHandles fail", e);
-            return false;
-        }
-        // Explicitly close FDs.
-        closeFdInNativeHandle(h1);
-        closeFdInNativeHandle(h2);
-
-        record("initOffloadConfig, setHandles results:", results);
-        return results.mSuccess;
-    }
-
     @VisibleForTesting
-    public void sendIpv4NfGenMsg(@NonNull NativeHandle handle, short type, short flags) {
+    void sendIpv4NfGenMsg(@NonNull NativeHandle handle, short type, short flags) {
         final int length = StructNlMsgHdr.STRUCT_SIZE + StructNfGenMsg.STRUCT_SIZE;
         final byte[] msg = new byte[length];
         final ByteBuffer byteBuffer = ByteBuffer.wrap(msg);
@@ -343,20 +256,45 @@ public class OffloadHardwareInterface {
         nfh.pack(byteBuffer);
 
         try {
-            NetlinkSocket.sendMessage(handle.getFileDescriptor(), msg, 0 /* offset */, length,
+            NetlinkUtils.sendMessage(handle.getFileDescriptor(), msg, 0 /* offset */, length,
                                       NETLINK_MESSAGE_TIMEOUT_MS);
         } catch (ErrnoException | InterruptedIOException e) {
             mLog.e("Unable to send netfilter message, error: " + e);
         }
     }
 
-    private void closeFdInNativeHandle(final NativeHandle h) {
-        try {
-            h.close();
-        } catch (IOException | IllegalStateException e) {
-            // IllegalStateException means fd is already closed, do nothing here.
-            // Also nothing we can do if IOException.
+    @VisibleForTesting
+    void requestSocketDump(NativeHandle handle) {
+        sendIpv4NfGenMsg(handle, (short) ((NFNL_SUBSYS_CTNETLINK << 8) | IPCTNL_MSG_CT_GET),
+                (short) (NLM_F_REQUEST | NLM_F_DUMP));
+    }
+
+    private void maybeCloseFdInNativeHandles(final NativeHandle... handles) {
+        for (NativeHandle h : handles) {
+            if (h == null) continue;
+            try {
+                h.close();
+            } catch (IOException | IllegalStateException e) {
+                // IllegalStateException means fd is already closed, do nothing here.
+                // Also nothing we can do if IOException.
+            }
         }
+    }
+
+    private int initWithHandles(NativeHandle h1, NativeHandle h2) {
+        if (h1 == null || h2 == null) {
+            mLog.e("Failed to create socket.");
+            return OFFLOAD_HAL_VERSION_NONE;
+        }
+
+        requestSocketDump(h1);
+        if (!mIOffload.initOffload(h1, h2, mOffloadHalCallback)) {
+            mIOffload.stopOffload();
+            mLog.e("Failed to initialize offload.");
+            return OFFLOAD_HAL_VERSION_NONE;
+        }
+
+        return mIOffload.getVersion();
     }
 
     /**
@@ -365,150 +303,73 @@ public class OffloadHardwareInterface {
      * @return one of {@code OFFLOAD_HAL_VERSION_*} represents the HAL version, or
      *         {@link #OFFLOAD_HAL_VERSION_NONE} if failed.
      */
-    public int initOffloadControl(ControlCallback controlCb) {
-        mControlCallback = controlCb;
-
-        if (mOffloadControl == null) {
-            final Pair<IOffloadControl, Integer> halAndVersion = mDeps.getOffloadControl();
-            mOffloadControl = halAndVersion.first;
-            mOffloadControlVersion = halAndVersion.second;
-            if (mOffloadControl == null) {
-                mLog.e("tethering IOffloadControl.getService() returned null");
+    public int initOffload(OffloadHalCallback offloadCb) {
+        if (mIOffload == null) {
+            mIOffload = mDeps.getOffload();
+            if (mIOffload == null) {
+                mLog.i("No tethering offload HAL service found.");
                 return OFFLOAD_HAL_VERSION_NONE;
             }
-            mLog.i("tethering offload control version "
-                    + halVerToString(mOffloadControlVersion) + " is supported.");
+            mLog.i("Tethering offload version "
+                    + halVerToString(mIOffload.getVersion()) + " is supported.");
         }
 
-        final String logmsg = String.format("initOffloadControl(%s)",
-                (controlCb == null) ? "null"
-                        : "0x" + Integer.toHexString(System.identityHashCode(controlCb)));
+        // Per the IOffload definition:
+        //
+        // h1    provides a file descriptor bound to the following netlink groups
+        //       (NF_NETLINK_CONNTRACK_NEW | NF_NETLINK_CONNTRACK_DESTROY).
+        //
+        // h2    provides a file descriptor bound to the following netlink groups
+        //       (NF_NETLINK_CONNTRACK_UPDATE | NF_NETLINK_CONNTRACK_DESTROY).
+        final NativeHandle h1 = mDeps.createConntrackSocket(
+                NF_NETLINK_CONNTRACK_NEW | NF_NETLINK_CONNTRACK_DESTROY);
+        final NativeHandle h2 = mDeps.createConntrackSocket(
+                NF_NETLINK_CONNTRACK_UPDATE | NF_NETLINK_CONNTRACK_DESTROY);
 
-        mTetheringOffloadCallback = new TetheringOffloadCallback(
-                mHandler, mControlCallback, mLog, mOffloadControlVersion);
-        final CbResults results = new CbResults();
-        try {
-            mOffloadControl.initOffload(
-                    mTetheringOffloadCallback,
-                    (boolean success, String errMsg) -> {
-                        results.mSuccess = success;
-                        results.mErrMsg = errMsg;
-                    });
-        } catch (RemoteException e) {
-            record(logmsg, e);
-            return OFFLOAD_HAL_VERSION_NONE;
+        mOffloadHalCallback = offloadCb;
+        final int version = initWithHandles(h1, h2);
+
+        // Explicitly close FDs for HIDL. AIDL will pass the original FDs to the service,
+        // they shouldn't be closed here.
+        if (version < OFFLOAD_HAL_VERSION_AIDL) {
+            maybeCloseFdInNativeHandles(h1, h2);
         }
-
-        record(logmsg, results);
-        return results.mSuccess ? mOffloadControlVersion : OFFLOAD_HAL_VERSION_NONE;
+        return version;
     }
 
-    /** Stop IOffloadControl. */
-    public void stopOffloadControl() {
-        if (mOffloadControl != null) {
-            try {
-                mOffloadControl.stopOffload(
-                        (boolean success, String errMsg) -> {
-                            if (!success) mLog.e("stopOffload failed: " + errMsg);
-                        });
-            } catch (RemoteException e) {
-                mLog.e("failed to stopOffload: " + e);
+    /** Stop the tethering offload HAL. */
+    public void stopOffload() {
+        if (mIOffload != null) {
+            if (!mIOffload.stopOffload()) {
+                mLog.e("Failed to stop offload.");
             }
         }
-        mOffloadControl = null;
-        mTetheringOffloadCallback = null;
-        mControlCallback = null;
-        mLog.log("stopOffloadControl()");
+        mIOffload = null;
+        mOffloadHalCallback = null;
     }
 
     /** Get Tx/Rx usage from last query. */
     public ForwardedStats getForwardedStats(String upstream) {
-        final String logmsg = String.format("getForwardedStats(%s)",  upstream);
-
-        final ForwardedStats stats = new ForwardedStats();
-        try {
-            mOffloadControl.getForwardedStats(
-                    upstream,
-                    (long rxBytes, long txBytes) -> {
-                        stats.rxBytes = (rxBytes > 0) ? rxBytes : 0;
-                        stats.txBytes = (txBytes > 0) ? txBytes : 0;
-                    });
-        } catch (RemoteException e) {
-            record(logmsg, e);
-            return stats;
-        }
-
-        return stats;
+        return mIOffload.getForwardedStats(upstream);
     }
 
     /** Set local prefixes to offload management process. */
     public boolean setLocalPrefixes(ArrayList<String> localPrefixes) {
-        final String logmsg = String.format("setLocalPrefixes([%s])",
-                String.join(",", localPrefixes));
-
-        final CbResults results = new CbResults();
-        try {
-            mOffloadControl.setLocalPrefixes(localPrefixes,
-                    (boolean success, String errMsg) -> {
-                        results.mSuccess = success;
-                        results.mErrMsg = errMsg;
-                    });
-        } catch (RemoteException e) {
-            record(logmsg, e);
-            return false;
-        }
-
-        record(logmsg, results);
-        return results.mSuccess;
+        return mIOffload.setLocalPrefixes(localPrefixes);
     }
 
     /** Set data limit value to offload management process. */
     public boolean setDataLimit(String iface, long limit) {
-
-        final String logmsg = String.format("setDataLimit(%s, %d)", iface, limit);
-
-        final CbResults results = new CbResults();
-        try {
-            mOffloadControl.setDataLimit(
-                    iface, limit,
-                    (boolean success, String errMsg) -> {
-                        results.mSuccess = success;
-                        results.mErrMsg = errMsg;
-                    });
-        } catch (RemoteException e) {
-            record(logmsg, e);
-            return false;
-        }
-
-        record(logmsg, results);
-        return results.mSuccess;
+        return mIOffload.setDataLimit(iface, limit);
     }
 
     /** Set data warning and limit value to offload management process. */
     public boolean setDataWarningAndLimit(String iface, long warning, long limit) {
-        if (mOffloadControlVersion < OFFLOAD_HAL_VERSION_1_1) {
-            throw new IllegalArgumentException(
+        if (mIOffload.getVersion() < OFFLOAD_HAL_VERSION_HIDL_1_1) {
+            throw new UnsupportedOperationException(
                     "setDataWarningAndLimit is not supported below HAL V1.1");
         }
-        final String logmsg =
-                String.format("setDataWarningAndLimit(%s, %d, %d)", iface, warning, limit);
-
-        final CbResults results = new CbResults();
-        try {
-            ((android.hardware.tetheroffload.control.V1_1.IOffloadControl) mOffloadControl)
-                    .setDataWarningAndLimit(
-                            iface, warning, limit,
-                            (boolean success, String errMsg) -> {
-                                results.mSuccess = success;
-                                results.mErrMsg = errMsg;
-                            });
-        } catch (RemoteException e) {
-            record(logmsg, e);
-            return false;
-        }
-
-        record(logmsg, results);
-        return results.mSuccess;
+        return mIOffload.setDataWarningAndLimit(iface, warning, limit);
     }
 
     /** Set upstream parameters to offload management process. */
@@ -518,178 +379,16 @@ public class OffloadHardwareInterface {
         v4addr = (v4addr != null) ? v4addr : NO_IPV4_ADDRESS;
         v4gateway = (v4gateway != null) ? v4gateway : NO_IPV4_GATEWAY;
         v6gws = (v6gws != null) ? v6gws : new ArrayList<>();
-
-        final String logmsg = String.format("setUpstreamParameters(%s, %s, %s, [%s])",
-                iface, v4addr, v4gateway, String.join(",", v6gws));
-
-        final CbResults results = new CbResults();
-        try {
-            mOffloadControl.setUpstreamParameters(
-                    iface, v4addr, v4gateway, v6gws,
-                    (boolean success, String errMsg) -> {
-                        results.mSuccess = success;
-                        results.mErrMsg = errMsg;
-                    });
-        } catch (RemoteException e) {
-            record(logmsg, e);
-            return false;
-        }
-
-        record(logmsg, results);
-        return results.mSuccess;
+        return mIOffload.setUpstreamParameters(iface, v4addr, v4gateway, v6gws);
     }
 
     /** Add downstream prefix to offload management process. */
-    public boolean addDownstreamPrefix(String ifname, String prefix) {
-        final String logmsg = String.format("addDownstreamPrefix(%s, %s)", ifname, prefix);
-
-        final CbResults results = new CbResults();
-        try {
-            mOffloadControl.addDownstream(ifname, prefix,
-                    (boolean success, String errMsg) -> {
-                        results.mSuccess = success;
-                        results.mErrMsg = errMsg;
-                    });
-        } catch (RemoteException e) {
-            record(logmsg, e);
-            return false;
-        }
-
-        record(logmsg, results);
-        return results.mSuccess;
+    public boolean addDownstream(String ifname, String prefix) {
+        return  mIOffload.addDownstream(ifname, prefix);
     }
 
     /** Remove downstream prefix from offload management process. */
-    public boolean removeDownstreamPrefix(String ifname, String prefix) {
-        final String logmsg = String.format("removeDownstreamPrefix(%s, %s)", ifname, prefix);
-
-        final CbResults results = new CbResults();
-        try {
-            mOffloadControl.removeDownstream(ifname, prefix,
-                    (boolean success, String errMsg) -> {
-                        results.mSuccess = success;
-                        results.mErrMsg = errMsg;
-                    });
-        } catch (RemoteException e) {
-            record(logmsg, e);
-            return false;
-        }
-
-        record(logmsg, results);
-        return results.mSuccess;
-    }
-
-    private void record(String msg, Throwable t) {
-        mLog.e(msg + YIELDS + "exception: " + t);
-    }
-
-    private void record(String msg, CbResults results) {
-        final String logmsg = msg + YIELDS + results;
-        if (!results.mSuccess) {
-            mLog.e(logmsg);
-        } else {
-            mLog.log(logmsg);
-        }
-    }
-
-    private static class TetheringOffloadCallback extends ITetheringOffloadCallback.Stub {
-        public final Handler handler;
-        public final ControlCallback controlCb;
-        public final SharedLog log;
-        private final int mOffloadControlVersion;
-
-        TetheringOffloadCallback(
-                Handler h, ControlCallback cb, SharedLog sharedLog, int offloadControlVersion) {
-            handler = h;
-            controlCb = cb;
-            log = sharedLog;
-            this.mOffloadControlVersion = offloadControlVersion;
-        }
-
-        private void handleOnEvent(int event) {
-            switch (event) {
-                case OffloadCallbackEvent.OFFLOAD_STARTED:
-                    controlCb.onStarted();
-                    break;
-                case OffloadCallbackEvent.OFFLOAD_STOPPED_ERROR:
-                    controlCb.onStoppedError();
-                    break;
-                case OffloadCallbackEvent.OFFLOAD_STOPPED_UNSUPPORTED:
-                    controlCb.onStoppedUnsupported();
-                    break;
-                case OffloadCallbackEvent.OFFLOAD_SUPPORT_AVAILABLE:
-                    controlCb.onSupportAvailable();
-                    break;
-                case OffloadCallbackEvent.OFFLOAD_STOPPED_LIMIT_REACHED:
-                    controlCb.onStoppedLimitReached();
-                    break;
-                case android.hardware.tetheroffload.control
-                        .V1_1.OffloadCallbackEvent.OFFLOAD_WARNING_REACHED:
-                    controlCb.onWarningReached();
-                    break;
-                default:
-                    log.e("Unsupported OffloadCallbackEvent: " + event);
-            }
-        }
-
-        @Override
-        public void onEvent(int event) {
-            // The implementation should never call onEvent()) if the event is already reported
-            // through newer callback.
-            if (mOffloadControlVersion > OFFLOAD_HAL_VERSION_1_0) {
-                Log.wtf(TAG, "onEvent(" + event + ") fired on HAL "
-                        + halVerToString(mOffloadControlVersion));
-            }
-            handler.post(() -> {
-                handleOnEvent(event);
-            });
-        }
-
-        @Override
-        public void onEvent_1_1(int event) {
-            if (mOffloadControlVersion < OFFLOAD_HAL_VERSION_1_1) {
-                Log.wtf(TAG, "onEvent_1_1(" + event + ") fired on HAL "
-                        + halVerToString(mOffloadControlVersion));
-                return;
-            }
-            handler.post(() -> {
-                handleOnEvent(event);
-            });
-        }
-
-        @Override
-        public void updateTimeout(NatTimeoutUpdate params) {
-            handler.post(() -> {
-                controlCb.onNatTimeoutUpdate(
-                        networkProtocolToOsConstant(params.proto),
-                        params.src.addr, uint16(params.src.port),
-                        params.dst.addr, uint16(params.dst.port));
-            });
-        }
-    }
-
-    private static int networkProtocolToOsConstant(int proto) {
-        switch (proto) {
-            case NetworkProtocol.TCP: return OsConstants.IPPROTO_TCP;
-            case NetworkProtocol.UDP: return OsConstants.IPPROTO_UDP;
-            default:
-                // The caller checks this value and will log an error. Just make
-                // sure it won't collide with valid OsContants.IPPROTO_* values.
-                return -Math.abs(proto);
-        }
-    }
-
-    private static class CbResults {
-        boolean mSuccess;
-        String mErrMsg;
-
-        @Override
-        public String toString() {
-            if (mSuccess) {
-                return "ok";
-            } else {
-                return "fail: " + mErrMsg;
-            }
-        }
+    public boolean removeDownstream(String ifname, String prefix) {
+        return  mIOffload.removeDownstream(ifname, prefix);
     }
 }

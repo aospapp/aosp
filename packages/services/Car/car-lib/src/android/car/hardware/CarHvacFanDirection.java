@@ -24,7 +24,7 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 
 /**
- * CarHvacFanDirection is an abstraction for car's fan directions.
+ * {@code CarHvacFanDirection} is an abstraction for car's fan directions.
  * <p>
  * {@link android.car.VehiclePropertyIds#HVAC_FAN_DIRECTION} and
  * {@link android.car.VehiclePropertyIds#HVAC_FAN_DIRECTION_AVAILABLE} use constants in

@@ -47,9 +47,10 @@
 
 #define L2CAP_MIN_MTU 48 /* Minimum acceptable MTU is 48 bytes */
 
+#define MAX_ACTIVE_AVDT_CONN 2
+
 constexpr uint16_t L2CAP_CREDIT_BASED_MIN_MTU = 64;
 constexpr uint16_t L2CAP_CREDIT_BASED_MIN_MPS = 64;
-#define L2CAP_NO_IDLE_TIMEOUT 0xFFFF
 
 /*
  * Timeout values (in milliseconds).
@@ -342,8 +343,8 @@ typedef struct t_l2c_ccb {
   uint16_t max_rx_mtu;
   uint8_t fcr_cfg_tries;          /* Max number of negotiation attempts */
   bool peer_cfg_already_rejected; /* If mode rejected once, set to true */
-  bool out_cfg_fcr_present; /* true if cfg response shoulkd include fcr options
-                               */
+  bool out_cfg_fcr_present; /* true if cfg response should include fcr options
+                             */
 
   bool is_flushable; /* true if channel is flushable */
 
@@ -397,8 +398,6 @@ typedef struct {
 #define L2CAP_GET_PRIORITY_QUOTA(pri) \
   ((L2CAP_NUM_CHNL_PRIORITY - (pri)) * L2CAP_CHNL_PRIORITY_WEIGHT)
 
-#define L2CAP_CREDIT_BASED_MAX_CIDS 5
-
 /* CCBs within the same LCB are served in round robin with priority It will make
  * sure that low priority channel (for example, HF signaling on RFCOMM) can be
  * sent to the headset even if higher priority channel (for example, AV media
@@ -431,6 +430,13 @@ typedef struct t_l2c_linkcb {
   tL2C_LINK_STATE link_state;
 
   alarm_t* l2c_lcb_timer; /* Timer entry for timeout evt */
+
+  //  This tracks if the link has ever either (a)
+  //  been used for a dynamic channel (EATT or L2CAP CoC), or (b) has been a
+  //  GATT client. If false, the local device is just a GATT server, so for
+  //  backwards compatibility we never do a link timeout.
+  bool with_active_local_clients{false};
+
  private:
   uint16_t handle_; /* The handle used with LM */
   friend void l2cu_set_lcb_handle(struct t_l2c_linkcb& p_lcb, uint16_t handle);
@@ -478,8 +484,6 @@ typedef struct t_l2c_linkcb {
       sent_not_acked = 0;
   }
 
-  bool partial_segment_being_sent; /* Set true when a partial segment */
-                                   /* is being sent. */
   bool w4_info_rsp;                /* true when info request is active */
   uint32_t peer_ext_fea;           /* Peer's extended features mask */
   list_t* link_xmit_data_q;        /* Link transmit data buffer queue */
@@ -494,6 +498,19 @@ typedef struct t_l2c_linkcb {
   bool set_priority(tL2CAP_PRIORITY priority) {
     if (acl_priority != priority) {
       acl_priority = priority;
+      return true;
+    }
+    return false;
+  }
+
+  bool use_latency_mode = false;
+  tL2CAP_LATENCY preset_acl_latency = L2CAP_LATENCY_NORMAL;
+  tL2CAP_LATENCY acl_latency = L2CAP_LATENCY_NORMAL;
+  bool is_normal_latency() const { return acl_latency == L2CAP_LATENCY_NORMAL; }
+  bool is_low_latency() const { return acl_latency == L2CAP_LATENCY_LOW; }
+  bool set_latency(tL2CAP_LATENCY latency) {
+    if (acl_latency != latency) {
+      acl_latency = latency;
       return true;
     }
     return false;
@@ -527,6 +544,19 @@ typedef struct t_l2c_linkcb {
   uint16_t timeout;
   uint16_t min_ce_len;
   uint16_t max_ce_len;
+
+#define L2C_BLE_SUBRATE_REQ_DISABLE 0x1  // disable subrate req
+#define L2C_BLE_NEW_SUBRATE_PARAM 0x2    // new subrate req parameter to be set
+#define L2C_BLE_SUBRATE_REQ_PENDING 0x4  // waiting for subrate to be completed
+
+  /* subrate req params */
+  uint16_t subrate_min;
+  uint16_t subrate_max;
+  uint16_t max_latency;
+  uint16_t cont_num;
+  uint16_t supervision_tout;
+
+  uint8_t subrate_req_mask;
 
   /* each priority group is limited burst transmission */
   /* round robin service for the same priority channels */
@@ -590,9 +620,6 @@ typedef struct {
   uint16_t num_lm_acl_bufs; /* # of ACL buffers on controller */
   uint16_t idle_timeout;    /* Idle timeout */
 
-  list_t* rcv_pending_q;       /* Recv pending queue */
-  alarm_t* receive_hold_timer; /* Timer entry for rcv hold */
-
   tL2C_LCB* p_cur_hcit_lcb;  /* Current HCI Transport buffer */
   uint16_t num_used_lcbs;    /* Number of active link control blocks */
 
@@ -646,6 +673,12 @@ typedef struct {
   uint16_t peer_mtu;     /* Peer MTU */
 } tL2C_CONN_INFO;
 
+typedef struct {
+  bool is_active;     /* is channel active */
+  uint16_t local_cid; /* Remote CID */
+  tL2C_CCB* p_ccb;    /* CCB */
+} tL2C_AVDT_CHANNEL_INFO;
+
 typedef void(tL2C_FCR_MGMT_EVT_HDLR)(uint8_t, tL2C_CCB*);
 
 /* The offset in a buffer that L2CAP will use when building commands.
@@ -665,195 +698,191 @@ extern tL2C_CB l2cb;
  ***********************************
 */
 
-extern void l2c_receive_hold_timer_timeout(void* data);
-extern void l2c_ccb_timer_timeout(void* data);
-extern void l2c_lcb_timer_timeout(void* data);
-extern void l2c_fcrb_ack_timer_timeout(void* data);
-extern uint8_t l2c_data_write(uint16_t cid, BT_HDR* p_data, uint16_t flag);
-extern void l2c_process_held_packets(bool timed_out);
+void l2c_receive_hold_timer_timeout(void* data);
+void l2c_ccb_timer_timeout(void* data);
+void l2c_lcb_timer_timeout(void* data);
+void l2c_fcrb_ack_timer_timeout(void* data);
+uint8_t l2c_data_write(uint16_t cid, BT_HDR* p_data, uint16_t flag);
 
-extern tL2C_LCB* l2cu_allocate_lcb(const RawAddress& p_bd_addr, bool is_bonding,
+tL2C_LCB* l2cu_allocate_lcb(const RawAddress& p_bd_addr, bool is_bonding,
+                            tBT_TRANSPORT transport);
+void l2cu_release_lcb(tL2C_LCB* p_lcb);
+tL2C_LCB* l2cu_find_lcb_by_bd_addr(const RawAddress& p_bd_addr,
                                    tBT_TRANSPORT transport);
-extern void l2cu_release_lcb(tL2C_LCB* p_lcb);
-extern tL2C_LCB* l2cu_find_lcb_by_bd_addr(const RawAddress& p_bd_addr,
-                                          tBT_TRANSPORT transport);
-extern tL2C_LCB* l2cu_find_lcb_by_handle(uint16_t handle);
+tL2C_LCB* l2cu_find_lcb_by_handle(uint16_t handle);
 
-extern bool l2cu_set_acl_priority(const RawAddress& bd_addr,
-                                  tL2CAP_PRIORITY priority,
-                                  bool reset_after_rs);
+bool l2cu_set_acl_priority(const RawAddress& bd_addr, tL2CAP_PRIORITY priority,
+                           bool reset_after_rs);
+bool l2cu_set_acl_latency(const RawAddress& bd_addr, tL2CAP_LATENCY latency);
 
-extern void l2cu_enqueue_ccb(tL2C_CCB* p_ccb);
-extern void l2cu_dequeue_ccb(tL2C_CCB* p_ccb);
-extern void l2cu_change_pri_ccb(tL2C_CCB* p_ccb, tL2CAP_CHNL_PRIORITY priority);
+void l2cu_enqueue_ccb(tL2C_CCB* p_ccb);
+void l2cu_dequeue_ccb(tL2C_CCB* p_ccb);
+void l2cu_change_pri_ccb(tL2C_CCB* p_ccb, tL2CAP_CHNL_PRIORITY priority);
 
-extern tL2C_CCB* l2cu_allocate_ccb(tL2C_LCB* p_lcb, uint16_t cid);
-extern void l2cu_release_ccb(tL2C_CCB* p_ccb);
-extern tL2C_CCB* l2cu_find_ccb_by_cid(tL2C_LCB* p_lcb, uint16_t local_cid);
-extern tL2C_CCB* l2cu_find_ccb_by_remote_cid(tL2C_LCB* p_lcb,
-                                             uint16_t remote_cid);
-extern bool l2c_is_cmd_rejected(uint8_t cmd_code, uint8_t id, tL2C_LCB* p_lcb);
+tL2C_CCB* l2cu_allocate_ccb(tL2C_LCB* p_lcb, uint16_t cid);
+void l2cu_release_ccb(tL2C_CCB* p_ccb);
+tL2C_CCB* l2cu_find_ccb_by_cid(tL2C_LCB* p_lcb, uint16_t local_cid);
+tL2C_CCB* l2cu_find_ccb_by_remote_cid(tL2C_LCB* p_lcb, uint16_t remote_cid);
+bool l2c_is_cmd_rejected(uint8_t cmd_code, uint8_t id, tL2C_LCB* p_lcb);
 
-extern void l2cu_send_peer_cmd_reject(tL2C_LCB* p_lcb, uint16_t reason,
-                                      uint8_t rem_id, uint16_t p1, uint16_t p2);
-extern void l2cu_send_peer_connect_req(tL2C_CCB* p_ccb);
-extern void l2cu_send_peer_connect_rsp(tL2C_CCB* p_ccb, uint16_t result,
-                                       uint16_t status);
-extern void l2cu_send_peer_config_req(tL2C_CCB* p_ccb, tL2CAP_CFG_INFO* p_cfg);
-extern void l2cu_send_peer_config_rsp(tL2C_CCB* p_ccb, tL2CAP_CFG_INFO* p_cfg);
-extern void l2cu_send_peer_config_rej(tL2C_CCB* p_ccb, uint8_t* p_data,
-                                      uint16_t data_len, uint16_t rej_len);
-extern void l2cu_send_peer_disc_req(tL2C_CCB* p_ccb);
-extern void l2cu_send_peer_disc_rsp(tL2C_LCB* p_lcb, uint8_t remote_id,
-                                    uint16_t local_cid, uint16_t remote_cid);
-extern void l2cu_send_peer_echo_rsp(tL2C_LCB* p_lcb, uint8_t id,
-                                    uint8_t* p_data, uint16_t data_len);
-extern void l2cu_send_peer_info_rsp(tL2C_LCB* p_lcb, uint8_t id,
-                                    uint16_t info_type);
-extern void l2cu_reject_connection(tL2C_LCB* p_lcb, uint16_t remote_cid,
-                                   uint8_t rem_id, uint16_t result);
-extern void l2cu_send_peer_info_req(tL2C_LCB* p_lcb, uint16_t info_type);
-extern void l2cu_set_acl_hci_header(BT_HDR* p_buf, tL2C_CCB* p_ccb);
-extern void l2cu_check_channel_congestion(tL2C_CCB* p_ccb);
-extern void l2cu_disconnect_chnl(tL2C_CCB* p_ccb);
+void l2cu_send_peer_cmd_reject(tL2C_LCB* p_lcb, uint16_t reason, uint8_t rem_id,
+                               uint16_t p1, uint16_t p2);
+void l2cu_send_peer_connect_req(tL2C_CCB* p_ccb);
+void l2cu_send_peer_connect_rsp(tL2C_CCB* p_ccb, uint16_t result,
+                                uint16_t status);
+void l2cu_send_peer_config_req(tL2C_CCB* p_ccb, tL2CAP_CFG_INFO* p_cfg);
+void l2cu_send_peer_config_rsp(tL2C_CCB* p_ccb, tL2CAP_CFG_INFO* p_cfg);
+void l2cu_send_peer_config_rej(tL2C_CCB* p_ccb, uint8_t* p_data,
+                               uint16_t data_len, uint16_t rej_len);
+void l2cu_send_peer_disc_req(tL2C_CCB* p_ccb);
+void l2cu_send_peer_disc_rsp(tL2C_LCB* p_lcb, uint8_t remote_id,
+                             uint16_t local_cid, uint16_t remote_cid);
+void l2cu_send_peer_echo_rsp(tL2C_LCB* p_lcb, uint8_t id, uint8_t* p_data,
+                             uint16_t data_len);
+void l2cu_send_peer_info_rsp(tL2C_LCB* p_lcb, uint8_t id, uint16_t info_type);
+void l2cu_reject_connection(tL2C_LCB* p_lcb, uint16_t remote_cid,
+                            uint8_t rem_id, uint16_t result);
+void l2cu_send_peer_info_req(tL2C_LCB* p_lcb, uint16_t info_type);
+void l2cu_set_acl_hci_header(BT_HDR* p_buf, tL2C_CCB* p_ccb);
+void l2cu_check_channel_congestion(tL2C_CCB* p_ccb);
+void l2cu_disconnect_chnl(tL2C_CCB* p_ccb);
 
-extern void l2cu_send_peer_ble_par_req(tL2C_LCB* p_lcb, uint16_t min_int,
-                                       uint16_t max_int, uint16_t latency,
-                                       uint16_t timeout);
-extern void l2cu_send_peer_ble_par_rsp(tL2C_LCB* p_lcb, uint16_t reason,
-                                       uint8_t rem_id);
-extern void l2cu_reject_ble_connection(tL2C_CCB* p_ccb, uint8_t rem_id,
+void l2cu_send_peer_ble_par_req(tL2C_LCB* p_lcb, uint16_t min_int,
+                                uint16_t max_int, uint16_t latency,
+                                uint16_t timeout);
+void l2cu_send_peer_ble_par_rsp(tL2C_LCB* p_lcb, uint16_t reason,
+                                uint8_t rem_id);
+void l2cu_reject_ble_connection(tL2C_CCB* p_ccb, uint8_t rem_id,
+                                uint16_t result);
+void l2cu_reject_credit_based_conn_req(tL2C_LCB* p_lcb, uint8_t rem_id,
+                                       uint8_t num_of_channels,
                                        uint16_t result);
-extern void l2cu_reject_credit_based_conn_req(tL2C_LCB* p_lcb, uint8_t rem_id,
-                                              uint8_t num_of_channels,
-                                              uint16_t result);
-extern void l2cu_reject_ble_coc_connection(tL2C_LCB* p_lcb, uint8_t rem_id,
-                                           uint16_t result);
-extern void l2cu_send_peer_ble_credit_based_conn_res(tL2C_CCB* p_ccb,
-                                                     uint16_t result);
-extern void l2cu_send_peer_credit_based_conn_res(
-    tL2C_CCB* p_ccb, std::vector<uint16_t>& accepted_lcids, uint16_t result);
+void l2cu_reject_ble_coc_connection(tL2C_LCB* p_lcb, uint8_t rem_id,
+                                    uint16_t result);
+void l2cu_send_peer_ble_credit_based_conn_res(tL2C_CCB* p_ccb, uint16_t result);
+void l2cu_send_peer_credit_based_conn_res(tL2C_CCB* p_ccb,
+                                          std::vector<uint16_t>& accepted_lcids,
+                                          uint16_t result);
 
-extern void l2cu_send_peer_ble_credit_based_conn_req(tL2C_CCB* p_ccb);
-extern void l2cu_send_peer_credit_based_conn_req(tL2C_CCB* p_ccb);
+void l2cu_send_peer_ble_credit_based_conn_req(tL2C_CCB* p_ccb);
+void l2cu_send_peer_credit_based_conn_req(tL2C_CCB* p_ccb);
 
-extern void l2cu_send_ble_reconfig_rsp(tL2C_LCB* p_lcb, uint8_t rem_id,
-                                       uint16_t result);
-extern void l2cu_send_credit_based_reconfig_req(tL2C_CCB* p_ccb,
-                                                tL2CAP_LE_CFG_INFO* p_data);
+void l2cu_send_ble_reconfig_rsp(tL2C_LCB* p_lcb, uint8_t rem_id,
+                                uint16_t result);
+void l2cu_send_credit_based_reconfig_req(tL2C_CCB* p_ccb,
+                                         tL2CAP_LE_CFG_INFO* p_data);
 
-extern void l2cu_send_peer_ble_flow_control_credit(tL2C_CCB* p_ccb,
-                                                   uint16_t credit_value);
-extern void l2cu_send_peer_ble_credit_based_disconn_req(tL2C_CCB* p_ccb);
+void l2cu_send_peer_ble_flow_control_credit(tL2C_CCB* p_ccb,
+                                            uint16_t credit_value);
+void l2cu_send_peer_ble_credit_based_disconn_req(tL2C_CCB* p_ccb);
 
-extern bool l2cu_initialize_fixed_ccb(tL2C_LCB* p_lcb, uint16_t fixed_cid);
-extern void l2cu_no_dynamic_ccbs(tL2C_LCB* p_lcb);
-extern void l2cu_process_fixed_chnl_resp(tL2C_LCB* p_lcb);
-extern bool l2cu_is_ccb_active(tL2C_CCB* p_ccb);
+bool l2cu_initialize_fixed_ccb(tL2C_LCB* p_lcb, uint16_t fixed_cid);
+void l2cu_no_dynamic_ccbs(tL2C_LCB* p_lcb);
+void l2cu_process_fixed_chnl_resp(tL2C_LCB* p_lcb);
+bool l2cu_is_ccb_active(tL2C_CCB* p_ccb);
+uint16_t le_result_to_l2c_conn(uint16_t result);
 
 /* Functions provided for Broadcom Aware
  ***************************************
 */
 
-extern tL2C_RCB* l2cu_allocate_rcb(uint16_t psm);
-extern tL2C_RCB* l2cu_find_rcb_by_psm(uint16_t psm);
-extern void l2cu_release_rcb(tL2C_RCB* p_rcb);
-extern void l2cu_release_ble_rcb(tL2C_RCB* p_rcb);
-extern tL2C_RCB* l2cu_allocate_ble_rcb(uint16_t psm);
-extern tL2C_RCB* l2cu_find_ble_rcb_by_psm(uint16_t psm);
+tL2C_RCB* l2cu_allocate_rcb(uint16_t psm);
+tL2C_RCB* l2cu_find_rcb_by_psm(uint16_t psm);
+void l2cu_release_rcb(tL2C_RCB* p_rcb);
+void l2cu_release_ble_rcb(tL2C_RCB* p_rcb);
+tL2C_RCB* l2cu_allocate_ble_rcb(uint16_t psm);
+tL2C_RCB* l2cu_find_ble_rcb_by_psm(uint16_t psm);
 
-extern uint8_t l2cu_process_peer_cfg_req(tL2C_CCB* p_ccb,
-                                         tL2CAP_CFG_INFO* p_cfg);
-extern void l2cu_process_peer_cfg_rsp(tL2C_CCB* p_ccb, tL2CAP_CFG_INFO* p_cfg);
-extern void l2cu_process_our_cfg_req(tL2C_CCB* p_ccb, tL2CAP_CFG_INFO* p_cfg);
-extern void l2cu_process_our_cfg_rsp(tL2C_CCB* p_ccb, tL2CAP_CFG_INFO* p_cfg);
+uint8_t l2cu_process_peer_cfg_req(tL2C_CCB* p_ccb, tL2CAP_CFG_INFO* p_cfg);
+void l2cu_process_peer_cfg_rsp(tL2C_CCB* p_ccb, tL2CAP_CFG_INFO* p_cfg);
+void l2cu_process_our_cfg_req(tL2C_CCB* p_ccb, tL2CAP_CFG_INFO* p_cfg);
+void l2cu_process_our_cfg_rsp(tL2C_CCB* p_ccb, tL2CAP_CFG_INFO* p_cfg);
 
-extern tL2C_LCB* l2cu_find_lcb_by_state(tL2C_LINK_STATE state);
-extern bool l2cu_lcb_disconnecting(void);
+tL2C_LCB* l2cu_find_lcb_by_state(tL2C_LINK_STATE state);
+bool l2cu_lcb_disconnecting(void);
 
-extern void l2cu_create_conn_br_edr(tL2C_LCB* p_lcb);
-extern bool l2cu_create_conn_le(tL2C_LCB* p_lcb);
-extern void l2cu_create_conn_after_switch(tL2C_LCB* p_lcb);
-extern void l2cu_adjust_out_mps(tL2C_CCB* p_ccb);
+void l2cu_create_conn_br_edr(tL2C_LCB* p_lcb);
+bool l2cu_create_conn_le(tL2C_LCB* p_lcb);
+void l2cu_create_conn_after_switch(tL2C_LCB* p_lcb);
+void l2cu_adjust_out_mps(tL2C_CCB* p_ccb);
 
 /* Functions provided by l2c_link.cc
  ***********************************
 */
-extern void l2c_link_timeout(tL2C_LCB* p_lcb);
-extern void l2c_info_resp_timer_timeout(void* data);
-extern void l2c_link_check_send_pkts(tL2C_LCB* p_lcb, uint16_t local_cid,
-                                     BT_HDR* p_buf);
-extern void l2c_link_adjust_allocation(void);
+void l2c_link_timeout(tL2C_LCB* p_lcb);
+void l2c_info_resp_timer_timeout(void* data);
+void l2c_link_check_send_pkts(tL2C_LCB* p_lcb, uint16_t local_cid,
+                              BT_HDR* p_buf);
+void l2c_link_adjust_allocation(void);
 
-extern void l2c_link_sec_comp(const RawAddress* p_bda, tBT_TRANSPORT trasnport,
-                              void* p_ref_data, tBTM_STATUS status);
-extern void l2c_link_sec_comp2(const RawAddress& p_bda, tBT_TRANSPORT trasnport,
-                               void* p_ref_data, tBTM_STATUS status);
-extern void l2c_link_adjust_chnl_allocation(void);
+void l2c_link_sec_comp(const RawAddress* p_bda, tBT_TRANSPORT trasnport,
+                       void* p_ref_data, tBTM_STATUS status);
+void l2c_link_sec_comp2(const RawAddress& p_bda, tBT_TRANSPORT trasnport,
+                        void* p_ref_data, tBTM_STATUS status);
+void l2c_link_adjust_chnl_allocation(void);
 
 #if (L2CAP_CONFORMANCE_TESTING == TRUE)
 /* Used only for conformance testing */
-extern void l2cu_set_info_rsp_mask(uint32_t mask);
+void l2cu_set_info_rsp_mask(uint32_t mask);
 #endif
 
 /* Functions provided by l2c_csm.cc
  ***********************************
 */
-extern void l2c_csm_execute(tL2C_CCB* p_ccb, tL2CEVT event, void* p_data);
+void l2c_csm_execute(tL2C_CCB* p_ccb, tL2CEVT event, void* p_data);
 
-extern void l2c_enqueue_peer_data(tL2C_CCB* p_ccb, BT_HDR* p_buf);
+void l2c_enqueue_peer_data(tL2C_CCB* p_ccb, BT_HDR* p_buf);
 
 /* Functions provided by l2c_fcr.cc
  ***********************************
 */
-extern void l2c_fcr_cleanup(tL2C_CCB* p_ccb);
-extern void l2c_fcr_proc_pdu(tL2C_CCB* p_ccb, BT_HDR* p_buf);
-extern void l2c_fcr_proc_tout(tL2C_CCB* p_ccb);
-extern void l2c_fcr_proc_ack_tout(tL2C_CCB* p_ccb);
-extern void l2c_fcr_send_S_frame(tL2C_CCB* p_ccb, uint16_t function_code,
-                                 uint16_t pf_bit);
-extern BT_HDR* l2c_fcr_clone_buf(BT_HDR* p_buf, uint16_t new_offset,
-                                 uint16_t no_of_bytes);
-extern bool l2c_fcr_is_flow_controlled(tL2C_CCB* p_ccb);
-extern BT_HDR* l2c_fcr_get_next_xmit_sdu_seg(tL2C_CCB* p_ccb,
-                                             uint16_t max_packet_length);
-extern void l2c_fcr_start_timer(tL2C_CCB* p_ccb);
-extern void l2c_lcc_proc_pdu(tL2C_CCB* p_ccb, BT_HDR* p_buf);
-extern BT_HDR* l2c_lcc_get_next_xmit_sdu_seg(tL2C_CCB* p_ccb,
-                                             bool* last_piece_of_sdu);
+void l2c_fcr_cleanup(tL2C_CCB* p_ccb);
+void l2c_fcr_proc_pdu(tL2C_CCB* p_ccb, BT_HDR* p_buf);
+void l2c_fcr_proc_tout(tL2C_CCB* p_ccb);
+void l2c_fcr_proc_ack_tout(tL2C_CCB* p_ccb);
+void l2c_fcr_send_S_frame(tL2C_CCB* p_ccb, uint16_t function_code,
+                          uint16_t pf_bit);
+BT_HDR* l2c_fcr_clone_buf(BT_HDR* p_buf, uint16_t new_offset,
+                          uint16_t no_of_bytes);
+bool l2c_fcr_is_flow_controlled(tL2C_CCB* p_ccb);
+BT_HDR* l2c_fcr_get_next_xmit_sdu_seg(tL2C_CCB* p_ccb,
+                                      uint16_t max_packet_length);
+void l2c_fcr_start_timer(tL2C_CCB* p_ccb);
+void l2c_lcc_proc_pdu(tL2C_CCB* p_ccb, BT_HDR* p_buf);
+BT_HDR* l2c_lcc_get_next_xmit_sdu_seg(tL2C_CCB* p_ccb, bool* last_piece_of_sdu);
 
 /* Configuration negotiation */
-extern uint8_t l2c_fcr_chk_chan_modes(tL2C_CCB* p_ccb);
+uint8_t l2c_fcr_chk_chan_modes(tL2C_CCB* p_ccb);
 
-extern void l2c_fcr_adj_our_rsp_options(tL2C_CCB* p_ccb,
-                                        tL2CAP_CFG_INFO* p_peer_cfg);
-extern bool l2c_fcr_renegotiate_chan(tL2C_CCB* p_ccb, tL2CAP_CFG_INFO* p_cfg);
-extern uint8_t l2c_fcr_process_peer_cfg_req(tL2C_CCB* p_ccb,
-                                            tL2CAP_CFG_INFO* p_cfg);
-extern void l2c_fcr_adj_monitor_retran_timeout(tL2C_CCB* p_ccb);
-extern void l2c_fcr_stop_timer(tL2C_CCB* p_ccb);
+void l2c_fcr_adj_our_rsp_options(tL2C_CCB* p_ccb, tL2CAP_CFG_INFO* p_peer_cfg);
+bool l2c_fcr_renegotiate_chan(tL2C_CCB* p_ccb, tL2CAP_CFG_INFO* p_cfg);
+uint8_t l2c_fcr_process_peer_cfg_req(tL2C_CCB* p_ccb, tL2CAP_CFG_INFO* p_cfg);
+void l2c_fcr_adj_monitor_retran_timeout(tL2C_CCB* p_ccb);
+void l2c_fcr_stop_timer(tL2C_CCB* p_ccb);
 
 /* Functions provided by l2c_ble.cc
  ***********************************
 */
-extern bool l2cble_create_conn(tL2C_LCB* p_lcb);
-extern void l2cble_process_sig_cmd(tL2C_LCB* p_lcb, uint8_t* p,
-                                   uint16_t pkt_len);
-extern void l2c_ble_link_adjust_allocation(void);
+bool l2cble_create_conn(tL2C_LCB* p_lcb);
+void l2cble_process_sig_cmd(tL2C_LCB* p_lcb, uint8_t* p, uint16_t pkt_len);
+void l2c_ble_link_adjust_allocation(void);
 
-extern void l2cble_credit_based_conn_req(tL2C_CCB* p_ccb);
-extern void l2cble_credit_based_conn_res(tL2C_CCB* p_ccb, uint16_t result);
-extern void l2cble_send_peer_disc_req(tL2C_CCB* p_ccb);
-extern void l2cble_send_flow_control_credit(tL2C_CCB* p_ccb,
-                                            uint16_t credit_value);
-extern tL2CAP_LE_RESULT_CODE l2ble_sec_access_req(const RawAddress& bd_addr,
-                                                  uint16_t psm,
-                                                  bool is_originator,
-                                                  tL2CAP_SEC_CBACK* p_callback,
-                                                  void* p_ref_data);
+void l2cble_credit_based_conn_req(tL2C_CCB* p_ccb);
+void l2cble_credit_based_conn_res(tL2C_CCB* p_ccb, uint16_t result);
+void l2cble_send_peer_disc_req(tL2C_CCB* p_ccb);
+void l2cble_send_flow_control_credit(tL2C_CCB* p_ccb, uint16_t credit_value);
+tL2CAP_LE_RESULT_CODE l2ble_sec_access_req(const RawAddress& bd_addr,
+                                           uint16_t psm, bool is_originator,
+                                           tL2CAP_SEC_CBACK* p_callback,
+                                           void* p_ref_data);
 
-extern void l2cble_update_data_length(tL2C_LCB* p_lcb);
+void l2cble_update_data_length(tL2C_LCB* p_lcb);
 
-extern void l2cu_process_fixed_disc_cback(tL2C_LCB* p_lcb);
+void l2cu_process_fixed_disc_cback(tL2C_LCB* p_lcb);
+
+void l2cble_process_subrate_change_evt(uint16_t handle, uint8_t status,
+                                       uint16_t subrate_factor,
+                                       uint16_t peripheral_latency,
+                                       uint16_t cont_num, uint16_t timeout);
 
 #endif

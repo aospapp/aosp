@@ -44,7 +44,7 @@ public class AdasGroupPreferenceController extends PreferenceController<Preferen
     }
 
     @Override
-    protected int getAvailabilityStatus() {
+    protected int getDefaultAvailabilityStatus() {
         return mLocationManager.isAdasGnssLocationEnabled() ? UNSUPPORTED_ON_DEVICE : AVAILABLE;
     }
 }

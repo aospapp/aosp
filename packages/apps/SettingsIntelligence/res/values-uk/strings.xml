@@ -19,7 +19,7 @@
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="applications_settings" msgid="3446736638853404682">"Про додаток"</string>
     <string name="accessibility_settings_classname" msgid="973410590374198997">"com.android.settings.accessibility.AccessibilitySettings"</string>
-    <string name="accessibility_settings" msgid="1488998032020612740">"Спеціальні можливості"</string>
+    <string name="accessibility_settings" msgid="1488998032020612740">"Доступність"</string>
     <string name="physical_keyboard_title" msgid="3955072245281785000">"Фізична клавіатура"</string>
     <string name="add_virtual_keyboard" msgid="542703692821933851">"Керувати клавіатурами"</string>
     <string name="app_name_settings_intelligence" msgid="8701735500346011661">"Пропозиції налаштувань"</string>

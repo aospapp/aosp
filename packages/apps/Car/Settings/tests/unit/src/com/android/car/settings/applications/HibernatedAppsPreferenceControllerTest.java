@@ -20,6 +20,8 @@ import static android.provider.DeviceConfig.NAMESPACE_APP_HIBERNATION;
 
 import static com.android.car.settings.applications.ApplicationsUtils.PROPERTY_APP_HIBERNATION_ENABLED;
 import static com.android.car.settings.common.PreferenceController.AVAILABLE;
+import static com.android.car.settings.common.PreferenceController.AVAILABLE_FOR_VIEWING;
+import static com.android.car.settings.common.PreferenceController.CONDITIONALLY_UNAVAILABLE;
 
 import static com.google.common.truth.Truth.assertThat;
 
@@ -89,11 +91,71 @@ public class HibernatedAppsPreferenceControllerTest {
     }
 
     @Test
+    public void getAvailabilityStatus_featureDisabled_shouldNotReturnAvailable_zoneWrite() {
+        DeviceConfig.setProperty(NAMESPACE_APP_HIBERNATION, PROPERTY_APP_HIBERNATION_ENABLED,
+                /* value= */ "false", /* makeDefault= */ true);
+        mController.setAvailabilityStatusForZone("write");
+
+        PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
+                CONDITIONALLY_UNAVAILABLE);
+    }
+
+    @Test
+    public void getAvailabilityStatus_featureDisabled_shouldNotReturnAvailable_zoneRead() {
+        DeviceConfig.setProperty(NAMESPACE_APP_HIBERNATION, PROPERTY_APP_HIBERNATION_ENABLED,
+                /* value= */ "false", /* makeDefault= */ true);
+        mController.setAvailabilityStatusForZone("read");
+
+        PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
+                CONDITIONALLY_UNAVAILABLE);
+    }
+
+    @Test
+    public void getAvailabilityStatus_featureDisabled_shouldNotReturnAvailable_zoneHidden() {
+        DeviceConfig.setProperty(NAMESPACE_APP_HIBERNATION, PROPERTY_APP_HIBERNATION_ENABLED,
+                /* value= */ "false", /* makeDefault= */ true);
+        mController.setAvailabilityStatusForZone("hidden");
+
+        PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
+                CONDITIONALLY_UNAVAILABLE);
+    }
+
+    @Test
     public void getAvailabilityStatus_featureEnabled_shouldReturnAvailable() {
         DeviceConfig.setProperty(NAMESPACE_APP_HIBERNATION, PROPERTY_APP_HIBERNATION_ENABLED,
                 /* value= */ "true", /* makeDefault= */ true);
 
         assertThat((mController).getAvailabilityStatus()).isEqualTo(AVAILABLE);
+    }
+
+    @Test
+    public void getAvailabilityStatus_featureEnabled_shouldReturnAvailable_zoneWrite() {
+        DeviceConfig.setProperty(NAMESPACE_APP_HIBERNATION, PROPERTY_APP_HIBERNATION_ENABLED,
+                /* value= */ "true", /* makeDefault= */ true);
+        mController.setAvailabilityStatusForZone("write");
+
+        PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
+                AVAILABLE);
+    }
+
+    @Test
+    public void getAvailabilityStatus_featureEnabled_shouldReturnAvailable_zoneRead() {
+        DeviceConfig.setProperty(NAMESPACE_APP_HIBERNATION, PROPERTY_APP_HIBERNATION_ENABLED,
+                /* value= */ "true", /* makeDefault= */ true);
+        mController.setAvailabilityStatusForZone("read");
+
+        PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
+                AVAILABLE_FOR_VIEWING);
+    }
+
+    @Test
+    public void getAvailabilityStatus_featureEnabled_shouldReturnAvailable_zoneHidden() {
+        DeviceConfig.setProperty(NAMESPACE_APP_HIBERNATION, PROPERTY_APP_HIBERNATION_ENABLED,
+                /* value= */ "true", /* makeDefault= */ true);
+        mController.setAvailabilityStatusForZone("hidden");
+
+        PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
+                CONDITIONALLY_UNAVAILABLE);
     }
 
     @Test

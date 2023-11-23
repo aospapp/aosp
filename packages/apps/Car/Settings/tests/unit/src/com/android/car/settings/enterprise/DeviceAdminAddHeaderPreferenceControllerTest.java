@@ -56,10 +56,64 @@ public final class DeviceAdminAddHeaderPreferenceControllerTest extends
     }
 
     @Test
+    public void testGetAvailabilityStatus_admin_zoneWrite() throws Exception {
+        mController.setAvailabilityStatusForZone("write");
+        PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
+                PreferenceController.AVAILABLE);
+    }
+
+    @Test
+    public void testGetAvailabilityStatus_admin_zoneRead() throws Exception {
+        mController.setAvailabilityStatusForZone("read");
+        PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
+                PreferenceController.AVAILABLE_FOR_VIEWING);
+    }
+
+    @Test
+    public void testGetAvailabilityStatus_admin_zoneHidden() throws Exception {
+        mController.setAvailabilityStatusForZone("hidden");
+        PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
+                PreferenceController.CONDITIONALLY_UNAVAILABLE);
+    }
+
+    @Test
     public void testGetAvailabilityStatus_noAdmin() throws Exception {
         DeviceAdminAddHeaderPreferenceController controller =
                 new DeviceAdminAddHeaderPreferenceController(mSpiedContext, mPreferenceKey,
                         mFragmentController, mUxRestrictions);
+
+        PreferenceControllerTestUtil.assertAvailability(controller.getAvailabilityStatus(),
+                PreferenceController.CONDITIONALLY_UNAVAILABLE);
+    }
+
+    @Test
+    public void testGetAvailabilityStatus_noAdmin_zoneWrite() throws Exception {
+        DeviceAdminAddHeaderPreferenceController controller =
+                new DeviceAdminAddHeaderPreferenceController(mSpiedContext, mPreferenceKey,
+                        mFragmentController, mUxRestrictions);
+        controller.setAvailabilityStatusForZone("write");
+
+        PreferenceControllerTestUtil.assertAvailability(controller.getAvailabilityStatus(),
+                PreferenceController.CONDITIONALLY_UNAVAILABLE);
+    }
+
+    @Test
+    public void testGetAvailabilityStatus_noAdmin_zoneRead() throws Exception {
+        DeviceAdminAddHeaderPreferenceController controller =
+                new DeviceAdminAddHeaderPreferenceController(mSpiedContext, mPreferenceKey,
+                        mFragmentController, mUxRestrictions);
+        controller.setAvailabilityStatusForZone("read");
+
+        PreferenceControllerTestUtil.assertAvailability(controller.getAvailabilityStatus(),
+                PreferenceController.CONDITIONALLY_UNAVAILABLE);
+    }
+
+    @Test
+    public void testGetAvailabilityStatus_noAdmin_zoneHidden() throws Exception {
+        DeviceAdminAddHeaderPreferenceController controller =
+                new DeviceAdminAddHeaderPreferenceController(mSpiedContext, mPreferenceKey,
+                        mFragmentController, mUxRestrictions);
+        controller.setAvailabilityStatusForZone("hidden");
 
         PreferenceControllerTestUtil.assertAvailability(controller.getAvailabilityStatus(),
                 PreferenceController.CONDITIONALLY_UNAVAILABLE);

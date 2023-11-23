@@ -13,12 +13,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include "AnalyzeUseCase.h"
+
+#include "ConfigManager.h"
+
 #include <hidl/HidlTransportSupport.h>
 #include <log/log.h>
 #include <utils/SystemClock.h>
-
-#include "AnalyzeUseCase.h"
-#include "ConfigManager.h"
 
 using android::hardware::configureRpcThreadpool;
 using android::hardware::joinRpcThreadpool;
@@ -28,9 +29,8 @@ namespace automotive {
 namespace evs {
 namespace support {
 
-AnalyzeUseCase::AnalyzeUseCase(string cameraId, BaseAnalyzeCallback* callback)
-              : BaseUseCase(vector<string>(1, cameraId)),
-                mAnalyzeCallback(callback) {}
+AnalyzeUseCase::AnalyzeUseCase(string cameraId, BaseAnalyzeCallback* callback) :
+      BaseUseCase(vector<string>(1, cameraId)), mAnalyzeCallback(callback) {}
 
 AnalyzeUseCase::~AnalyzeUseCase() {}
 
@@ -58,11 +58,9 @@ bool AnalyzeUseCase::initialize() {
         // Only one element is available in the camera id list.
         string cameraId = mCameraIds[0];
         if (cameraId == info.cameraId) {
-            mStreamHandler =
-                mResourceManager->obtainStreamHandler(cameraId);
+            mStreamHandler = mResourceManager->obtainStreamHandler(cameraId);
             if (mStreamHandler.get() == nullptr) {
-                ALOGE("Failed to get a valid StreamHandler for %s",
-                      cameraId.c_str());
+                ALOGE("Failed to get a valid StreamHandler for %s", cameraId.c_str());
                 return false;
             }
 
@@ -128,8 +126,8 @@ void AnalyzeUseCase::stopVideoStream() {
 
 // TODO(b/130246434): For both Analyze use case and Display use case, return a
 // pointer instead of an object.
-AnalyzeUseCase AnalyzeUseCase::createDefaultUseCase(
-    string cameraId, BaseAnalyzeCallback* callback) {
+AnalyzeUseCase AnalyzeUseCase::createDefaultUseCase(string cameraId,
+                                                    BaseAnalyzeCallback* callback) {
     return AnalyzeUseCase(cameraId, callback);
 }
 
@@ -137,4 +135,3 @@ AnalyzeUseCase AnalyzeUseCase::createDefaultUseCase(
 }  // namespace evs
 }  // namespace automotive
 }  // namespace android
-

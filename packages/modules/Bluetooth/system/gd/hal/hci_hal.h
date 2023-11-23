@@ -97,6 +97,12 @@ class HciHal : public ::bluetooth::Module {
   // V5.2, Vol 4, Part E, Section 5.4.5) to the Bluetooth controller.
   // Packets must be processed in order.
   virtual void sendIsoData(HciPacket data) = 0;
+
+  // Get the MSFT opcode (as specified in Microsoft-defined Bluetooth HCI
+  // extensions)
+  virtual uint16_t getMsftOpcode() {
+    return 0;
+  }
 };
 // LINT.ThenChange(fuzz/fuzz_hci_hal.h)
 

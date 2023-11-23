@@ -18,7 +18,10 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
      package="com.android.car.multidisplay">
 
-    <uses-sdk android:minSdkVersion="17"/>
+    <!-- for Context.startActivityAsUser() -->
+    <uses-permission android:name="android.permission.INTERACT_ACROSS_USERS"/>
+    <!-- System permission to query all installed packages -->
+    <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES"/>
 
     <application android:label="@string/app_name">
         <activity android:name=".launcher.LauncherActivity"
@@ -27,12 +30,16 @@
              android:launchMode="singleTop"
              android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|colorMode|density"
              android:exported="true">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN"/>
-                <category android:name="android.intent.category.SECONDARY_HOME"/>
-                <category android:name="android.intent.category.LAUNCHER"/>
-                <category android:name="android.intent.category.DEFAULT"/>
-            </intent-filter>
+             <meta-data
+                android:name="distractionOptimized"
+                android:value="true" />
+             <!-- This is a passenger HOME and called from CarLauncher directly. -->
+             <intent-filter>
+                 <action android:name="android.intent.action.MAIN"/>
+                 <!-- But, it still needs to handle SECONDARY_HOME for CTS. -->
+                 <category android:name="android.intent.category.SECONDARY_HOME"/>
+                 <category android:name="android.intent.category.DEFAULT"/>
+             </intent-filter>
         </activity>
     </application>
 </manifest>

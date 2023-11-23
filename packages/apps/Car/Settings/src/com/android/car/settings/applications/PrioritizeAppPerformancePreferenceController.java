@@ -24,17 +24,15 @@ import android.content.Context;
 import android.content.pm.PackageInfo;
 import android.os.UserHandle;
 
+import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 import androidx.preference.TwoStatePreference;
 
-import com.android.car.settings.R;
+import com.android.car.settings.applications.performance.PerfImpactingAppsUtils;
 import com.android.car.settings.common.ConfirmationDialogFragment;
 import com.android.car.settings.common.FragmentController;
 import com.android.car.settings.common.Logger;
 import com.android.car.settings.common.PreferenceController;
-import com.android.internal.annotations.GuardedBy;
-
-import java.util.Objects;
 
 /** Controller for preference which turns on / off prioritize app performance setting. */
 public class PrioritizeAppPerformancePreferenceController
@@ -46,15 +44,17 @@ public class PrioritizeAppPerformancePreferenceController
     static final String TURN_ON_PRIORITIZE_APP_PERFORMANCE_DIALOG_TAG =
             "com.android.car.settings.applications.TurnOnPrioritizeAppPerformanceDialogTag";
 
-    private final Object mLock = new Object();
-    @GuardedBy("mLock")
-    private CarWatchdogManager mCarWatchdogManager;
-
+    @Nullable
     private Car mCar;
+    @Nullable
+    private CarWatchdogManager mCarWatchdogManager;
     private String mPackageName;
     private UserHandle mUserHandle;
 
     private final ConfirmationDialogFragment.ConfirmListener mConfirmListener = arguments -> {
+        if (!isCarConnected()) {
+            return;
+        }
         setKillableState(false);
         getPreference().setChecked(true);
     };
@@ -67,18 +67,7 @@ public class PrioritizeAppPerformancePreferenceController
 
     @Override
     protected void onCreateInternal() {
-        if (mCar != null && mCar.isConnected()) {
-            mCar.disconnect();
-            mCar = null;
-        }
-        mCar = Car.createCar(getContext(), null, Car.CAR_WAIT_TIMEOUT_WAIT_FOREVER,
-                (car, isReady) -> {
-                    synchronized (mLock) {
-                        mCarWatchdogManager = isReady
-                                ? (CarWatchdogManager) car.getCarManager(Car.CAR_WATCHDOG_SERVICE)
-                                : null;
-                    }
-                });
+        connectToCar();
 
         ConfirmationDialogFragment dialogFragment =
                 (ConfirmationDialogFragment) getFragmentController().findDialogByTag(
@@ -111,7 +100,11 @@ public class PrioritizeAppPerformancePreferenceController
 
     @Override
     protected void updateState(TwoStatePreference preference) {
-        int killableState = getKillableState();
+        if (!isCarConnected()) {
+            return;
+        }
+        int killableState = PerfImpactingAppsUtils.getKillableState(mPackageName, mUserHandle,
+                    mCarWatchdogManager);
         preference.setChecked(killableState == PackageKillableState.KILLABLE_STATE_NO);
         preference.setEnabled(killableState != PackageKillableState.KILLABLE_STATE_NEVER);
     }
@@ -120,39 +113,42 @@ public class PrioritizeAppPerformancePreferenceController
     protected boolean handlePreferenceChanged(TwoStatePreference preference, Object newValue) {
         boolean isToggledOn = (boolean) newValue;
         if (isToggledOn) {
-            showConfirmationDialog();
+            PerfImpactingAppsUtils.showPrioritizeAppConfirmationDialog(getContext(),
+                    getFragmentController(), mConfirmListener,
+                    TURN_ON_PRIORITIZE_APP_PERFORMANCE_DIALOG_TAG);
+            return false;
+        }
+        if (!isCarConnected()) {
             return false;
         }
         setKillableState(true);
         return true;
     }
 
-    private int getKillableState() {
-        synchronized (mLock) {
-            return Objects.requireNonNull(mCarWatchdogManager)
-                    .getPackageKillableStatesAsUser(mUserHandle).stream()
-                    .filter(pks -> pks.getPackageName().equals(mPackageName))
-                    .findFirst().map(PackageKillableState::getKillableState).orElse(-1);
-        }
-    }
-
     private void setKillableState(boolean isKillable) {
-        synchronized (mLock) {
-            mCarWatchdogManager.setKillablePackageAsUser(mPackageName, mUserHandle, isKillable);
-        }
+        mCarWatchdogManager.setKillablePackageAsUser(mPackageName, mUserHandle, isKillable);
     }
 
-    private void showConfirmationDialog() {
-        ConfirmationDialogFragment dialogFragment =
-                new ConfirmationDialogFragment.Builder(getContext())
-                        .setTitle(R.string.prioritize_app_performance_dialog_title)
-                        .setMessage(R.string.prioritize_app_performance_dialog_text)
-                        .setPositiveButton(R.string.prioritize_app_performance_dialog_action_on,
-                                mConfirmListener)
-                        .setNegativeButton(R.string.prioritize_app_performance_dialog_action_off,
-                                /* rejectListener= */ null)
-                        .build();
-        getFragmentController().showDialog(
-                dialogFragment, TURN_ON_PRIORITIZE_APP_PERFORMANCE_DIALOG_TAG);
+    private boolean isCarConnected() {
+        if (mCarWatchdogManager == null) {
+            LOG.e("CarWatchdogManager is null. Could not set killable state for '" + mPackageName
+                    + "'.");
+            connectToCar();
+            return false;
+        }
+        return true;
+    }
+
+    private void connectToCar() {
+        if (mCar != null && mCar.isConnected()) {
+            mCar.disconnect();
+            mCar = null;
+        }
+        mCar = Car.createCar(getContext(), null, Car.CAR_WAIT_TIMEOUT_WAIT_FOREVER,
+                (car, isReady) -> {
+                    mCarWatchdogManager = isReady
+                            ? (CarWatchdogManager) car.getCarManager(Car.CAR_WATCHDOG_SERVICE)
+                            : null;
+                });
     }
 }

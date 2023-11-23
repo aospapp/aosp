@@ -23,6 +23,7 @@ import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.os.IBinder;
 import android.os.UserHandle;
+import android.text.TextUtils;
 
 import com.android.car.settings.common.Logger;
 import com.android.car.settings.security.PasswordHelper;
@@ -149,7 +150,8 @@ public class InitialLockSetupService extends Service {
                 LOG.v("Password already set, rejecting call to setLock");
                 return SetLockCodes.FAIL_LOCK_EXISTS;
             }
-            if (!InitialLockSetupHelper.isValidLockResultCode(checkValidLock(lockType, password))) {
+            String errorMessage = checkValidLockAndReturnError(lockType, password);
+            if (!TextUtils.isEmpty(errorMessage)) {
                 LOG.v("Password is not valid, rejecting call to setLock");
                 return SetLockCodes.FAIL_LOCK_INVALID;
             }
@@ -199,6 +201,14 @@ public class InitialLockSetupService extends Service {
             }
             Arrays.fill(password, (byte) 0);
             return success ? SetLockCodes.SUCCESS : SetLockCodes.FAIL_LOCK_GENERIC;
+        }
+
+        @Override
+        public String checkValidLockAndReturnError(@LockTypes int lockType,
+                byte[] credentialBytes) {
+            PasswordHelper passwordHelper = new PasswordHelper(getApplicationContext(),
+                    /* isPin= */ lockType == LockTypes.PIN, /* userId */ getUserId());
+            return passwordHelper.validateSetupWizardAndReturnError(lockType, credentialBytes);
         }
     }
 }

@@ -102,7 +102,9 @@ std::string Dumpsys::impl::PrintAsJson(std::string* dumpsys_data) const {
     return std::string(buf);
   }
 
-  flatbuffers::Parser parser;
+  flatbuffers::IDLOptions options{};
+  options.output_default_scalars_in_json = true;
+  flatbuffers::Parser parser{options};
   if (!parser.Deserialize(schema)) {
     char buf[255];
     snprintf(buf, sizeof(buf), "ERROR: Unable to deserialize bundle root name:%s\n", root_name.c_str());

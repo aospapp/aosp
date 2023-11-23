@@ -168,24 +168,35 @@ public class LeAudioBroadcasterNativeInterface {
     /**
      * Creates LeAudio Broadcast instance.
      *
-     * @param metadata metadata buffer with TLVs
-     * @param audioProfile broadcast audio profile
-     * @param broadcastCode optional code if broadcast should be encrypted
+     * @param isPublicBroadcast this BIG is public broadcast
+     * @param broadcastName BIG broadcast name
+     * @param broadcastCode BIG broadcast code
+     * @param publicMetadata BIG public broadcast meta data
+     * @param qualityArray BIG sub group audio quality array
+     * @param metadataArray BIG sub group metadata array
+     *
+     * qualityArray and metadataArray use the same subgroup index
      */
     @VisibleForTesting(visibility = VisibleForTesting.Visibility.PACKAGE)
-    public void createBroadcast(byte[] metadata, int audioProfile, byte[] broadcastCode) {
-        createBroadcastNative(metadata, audioProfile, broadcastCode);
+    public void createBroadcast(boolean isPublicBroadcast, String broadcastName,
+            byte[] broadcastCode, byte[] publicMetadata, int[] qualityArray,
+            byte[][] metadataArray) {
+        createBroadcastNative(isPublicBroadcast, broadcastName, broadcastCode, publicMetadata,
+                qualityArray, metadataArray);
     }
 
     /**
      * Update LeAudio Broadcast instance metadata.
      *
      * @param broadcastId broadcast instance identifier
-     * @param metadata metadata buffer with TLVs
+     * @param broadcastName BIG broadcast name
+     * @param publicMetadata BIG public broadcast meta data
+     * @param metadataArray BIG sub group metadata array
      */
     @VisibleForTesting(visibility = VisibleForTesting.Visibility.PACKAGE)
-    public void updateMetadata(int broadcastId, byte[] metadata) {
-        updateMetadataNative(broadcastId, metadata);
+    public void updateMetadata(int broadcastId, String broadcastName,
+            byte[] publicMetadata, byte[][] metadataArray) {
+        updateMetadataNative(broadcastId, broadcastName, publicMetadata, metadataArray);
     }
 
     /**
@@ -241,8 +252,11 @@ public class LeAudioBroadcasterNativeInterface {
     private native void initNative();
     private native void stopNative();
     private native void cleanupNative();
-    private native void createBroadcastNative(byte[] metadata, int profile, byte[] broadcastCode);
-    private native void updateMetadataNative(int broadcastId, byte[] metadata);
+    private native void createBroadcastNative(boolean isPublicBroadcast, String broadcastName,
+            byte[] broadcastCode, byte[] publicMetadata, int[] qualityArray,
+            byte[][] metadataArray);
+    private native void updateMetadataNative(int broadcastId, String broadcastName,
+            byte[] publicMetadata, byte[][] metadataArray);
     private native void startBroadcastNative(int broadcastId);
     private native void stopBroadcastNative(int broadcastId);
     private native void pauseBroadcastNative(int broadcastId);

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2020 The Android Open Source Project
+ * Copyright (C) 2022 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,14 +18,24 @@ package com.android.tv.settings.overlay;
 
 import androidx.annotation.Keep;
 
-import com.android.tv.settings.library.basic.BasicModeFeatureProvider;
-import com.android.tv.settings.library.basic.BasicModeFeatureProviderImplX;
-import com.android.tv.settings.library.startup.startup.StartupVerificationFeatureProvider;
-import com.android.tv.settings.library.startup.startup.StartupVerificationFeatureProviderImplX;
+import com.android.tv.settings.basic.BasicModeFeatureProvider;
+import com.android.tv.settings.basic.BasicModeFeatureProviderImplX;
+import com.android.tv.settings.startup.StartupVerificationFeatureProvider;
+import com.android.tv.settings.startup.StartupVerificationFeatureProviderImplX;
 
 /** Implementation of {@FeatureFactory} that can be utilized with resource overlay. */
 @Keep
 public class FeatureFactoryImplX extends FeatureFactoryImplTwoPanel {
 
     protected static final String TAG = "FeatureFactoryImplX";
+
+    @Override
+    public BasicModeFeatureProvider getBasicModeFeatureProvider() {
+        return new BasicModeFeatureProviderImplX();
+    }
+
+    @Override
+    public StartupVerificationFeatureProvider getStartupVerificationFeatureProvider() {
+        return new StartupVerificationFeatureProviderImplX();
+    }
 }

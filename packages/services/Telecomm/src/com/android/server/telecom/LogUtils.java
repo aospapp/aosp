@@ -88,6 +88,7 @@ public class LogUtils {
         public static final String CSW_REMOVE_CALL = "CSW.rC";
         public static final String CSW_SET_IS_CONFERENCED = "CSW.sIC";
         public static final String CSW_ADD_CONFERENCE_CALL = "CSW.aCC";
+        public static final String CSA_SET_STATE = "CSA.sSS";
     }
 
     public final static class Events {
@@ -104,10 +105,17 @@ public class LogUtils {
         public static final String SET_RINGING = "SET_RINGING";
         public static final String SET_ANSWERED = "SET_ANSWERED";
         public static final String SET_DISCONNECTED = "SET_DISCONNECTED";
+        public static final String SKIP_CALL_LOG = "SKIP_CALL_LOG";
+        public static final String LOG_CALL = "LOG_CALL";
         public static final String SET_DISCONNECTING = "SET_DISCONNECTING";
         public static final String SET_SELECT_PHONE_ACCOUNT = "SET_SELECT_PHONE_ACCOUNT";
         public static final String SET_AUDIO_PROCESSING = "SET_AUDIO_PROCESSING";
         public static final String SET_SIMULATED_RINGING = "SET_SIMULATED_RINGING";
+        public static final String REQUEST_RTT = "REQUEST_RTT";
+        public static final String RESPOND_TO_RTT_REQUEST = "RESPOND_TO_RTT_REQUEST";
+        public static final String SET_RRT_MODE = "SET_RTT_MODE";
+        public static final String ON_RTT_FAILED = "ON_RTT_FAILED";
+        public static final String ON_RTT_REQUEST = "ON_RTT_REQUEST";
         public static final String REQUEST_HOLD = "REQUEST_HOLD";
         public static final String REQUEST_UNHOLD = "REQUEST_UNHOLD";
         public static final String REQUEST_DISCONNECT = "REQUEST_DISCONNECT";
@@ -168,6 +176,8 @@ public class LogUtils {
         public static final String DIRECT_TO_VM_INITIATED = "DIRECT_TO_VM_INITIATED";
         public static final String DIRECT_TO_VM_FINISHED = "DIRECT_TO_VM_FINISHED";
         public static final String FILTERING_INITIATED = "FILTERING_INITIATED";
+        public static final String DND_PRE_CHECK_INITIATED = "DND_PRE_CHECK_INITIATED";
+        public static final String DND_PRE_CHECK_COMPLETED = "DND_PRE_CHECK_COMPLETED";
         public static final String FILTERING_COMPLETED = "FILTERING_COMPLETED";
         public static final String FILTERING_TIMED_OUT = "FILTERING_TIMED_OUT";
         public static final String REMOTELY_HELD = "REMOTELY_HELD";
@@ -209,6 +219,15 @@ public class LogUtils {
                 "CALL_DIAGNOSTIC_SERVICE_TIMEOUT";
         public static final String VERSTAT_CHANGED = "VERSTAT_CHANGED";
         public static final String SET_VOIP_MODE = "SET_VOIP_MODE";
+        public static final String STATE_TIMEOUT = "STATE_TIMEOUT";
+        public static final String ICS_EXTRAS_CHANGED = "ICS_EXTRAS_CHANGED";
+        public static final String FLASH_NOTIFICATION_START = "FLASH_NOTIFICATION_START";
+        public static final String FLASH_NOTIFICATION_STOP = "FLASH_NOTIFICATION_STOP";
+        public static final String GAINED_FGS_DELEGATION = "GAINED_FGS_DELEGATION";
+        public static final String GAIN_FGS_DELEGATION_FAILED = "GAIN_FGS_DELEGATION_FAILED";
+        public static final String LOST_FGS_DELEGATION = "LOST_FGS_DELEGATION";
+        public static final String START_STREAMING = "START_STREAMING";
+        public static final String STOP_STREAMING = "STOP_STREAMING";
 
         public static class Timings {
             public static final String ACCEPT_TIMING = "accept";
@@ -222,6 +241,7 @@ public class LogUtils {
             public static final String DIRECT_TO_VM_FINISHED_TIMING = "direct_to_vm_finished";
             public static final String BLOCK_CHECK_FINISHED_TIMING = "block_check_finished";
             public static final String FILTERING_COMPLETED_TIMING = "filtering_completed";
+            public static final String DND_PRE_CHECK_COMPLETED_TIMING = "dnd_pre_check_completed";
             public static final String FILTERING_TIMED_OUT_TIMING = "filtering_timed_out";
             public static final String START_CONNECTION_TO_REQUEST_DISCONNECT_TIMING =
                     "start_connection_to_request_disconnect";
@@ -243,6 +263,8 @@ public class LogUtils {
                             BLOCK_CHECK_FINISHED_TIMING),
                     new TimedEventPair(FILTERING_INITIATED, FILTERING_COMPLETED,
                             FILTERING_COMPLETED_TIMING),
+                    new TimedEventPair(DND_PRE_CHECK_INITIATED, DND_PRE_CHECK_COMPLETED,
+                            DND_PRE_CHECK_COMPLETED_TIMING),
                     new TimedEventPair(FILTERING_INITIATED, FILTERING_TIMED_OUT,
                             FILTERING_TIMED_OUT_TIMING, 6000L),
                     new TimedEventPair(START_CONNECTION, REQUEST_DISCONNECT,

@@ -19,9 +19,9 @@
     <string name="app_name" msgid="6963366455471441257">"Handler USB"</string>
     <string name="usb_saved_devices" msgid="2829442070749964872">"Dispozitive salvate"</string>
     <string name="usb_pref_delete_title" msgid="3885061814853467483">"Elimină aplicația de gestionare pentru dispozitivul USB"</string>
-    <string name="usb_pref_delete_message" msgid="5849493572520646218">"Sigur ștergeți aplicația prestabilită de gestionare pentru %1$s?"</string>
+    <string name="usb_pref_delete_message" msgid="5849493572520646218">"Sigur ștergi aplicația prestabilită de gestionare pentru %1$s?"</string>
     <string name="usb_pref_delete_yes" msgid="7803356145103146036">"Da"</string>
-    <string name="usb_pref_delete_cancel" msgid="5999791462730255929">"Anulați"</string>
+    <string name="usb_pref_delete_cancel" msgid="5999791462730255929">"Anulează"</string>
     <string name="usb_resolving_handlers" msgid="1943100136172948686">"Se preiau handlerele acceptate"</string>
     <string name="usb_unknown_device" msgid="4211439272338937095">"Dispozitiv USB necunoscut"</string>
     <string name="usb_boot_service_notification" msgid="8519949189071048797">"Se analizează dispozitivele USB"</string>

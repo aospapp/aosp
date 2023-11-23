@@ -151,5 +151,18 @@ TEST(L2capFuzzRegressions, ConfigurationRequestFuzz_5202709231697920) {
                                             sizeof(bluetooth_gd_fuzz_test_5747922062802944));
 }
 
+TEST(L2capFuzzRegressions, ConfigurationRequestFuzz_manual_5655429176229888) {
+  std::vector<uint8_t> vec{0xc7, 0x0f, 0x0b, 0xe8, 0xfb, 0xff};
+
+  auto shared_bytes = std::make_shared<std::vector<uint8_t>>(vec);
+  PacketView<kLittleEndian> packet_bytes_view(shared_bytes);
+
+  auto bfwf = BasicFrameWithFcsView::Create(packet_bytes_view);
+  ASSERT_FALSE(bfwf.IsValid());
+  auto sfwf = StandardFrameWithFcsView::Create(bfwf);
+  ASSERT_FALSE(sfwf.IsValid());
+  auto sif = StandardInformationFrameWithFcsView::Create(sfwf);
+  ASSERT_FALSE(sif.IsValid());
+}
 }  // namespace l2cap
 }  // namespace bluetooth

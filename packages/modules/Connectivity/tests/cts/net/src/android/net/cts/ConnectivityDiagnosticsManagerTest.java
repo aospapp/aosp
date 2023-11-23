@@ -39,6 +39,7 @@ import static android.net.NetworkCapabilities.TRANSPORT_TEST;
 import static android.net.cts.util.CtsNetUtils.TestNetworkCallback;
 
 import static com.android.compatibility.common.util.SystemUtil.callWithShellPermissionIdentity;
+import static com.android.compatibility.common.util.SystemUtil.runShellCommand;
 import static com.android.compatibility.common.util.SystemUtil.runWithShellPermissionIdentity;
 import static com.android.testutils.Cleanup.testAndCleanup;
 
@@ -70,11 +71,13 @@ import android.os.IBinder;
 import android.os.ParcelFileDescriptor;
 import android.os.PersistableBundle;
 import android.os.Process;
+import android.os.SystemClock;
 import android.platform.test.annotations.AppModeFull;
 import android.telephony.CarrierConfigManager;
 import android.telephony.SubscriptionManager;
 import android.telephony.TelephonyManager;
 import android.util.ArraySet;
+import android.util.Log;
 import android.util.Pair;
 
 import androidx.test.InstrumentationRegistry;
@@ -104,6 +107,8 @@ import java.util.concurrent.TimeUnit;
 @IgnoreUpTo(Build.VERSION_CODES.Q) // ConnectivityDiagnosticsManager did not exist in Q
 @AppModeFull(reason = "CHANGE_NETWORK_STATE, MANAGE_TEST_NETWORKS not grantable to instant apps")
 public class ConnectivityDiagnosticsManagerTest {
+    private static final String TAG = ConnectivityDiagnosticsManagerTest.class.getSimpleName();
+
     private static final int CALLBACK_TIMEOUT_MILLIS = 5000;
     private static final int NO_CALLBACK_INVOKED_TIMEOUT = 500;
     private static final long TIMESTAMP = 123456789L;
@@ -113,7 +118,7 @@ public class ConnectivityDiagnosticsManagerTest {
     private static final int UNKNOWN_DETECTION_METHOD = 4;
     private static final int FILTERED_UNKNOWN_DETECTION_METHOD = 0;
     private static final int CARRIER_CONFIG_CHANGED_BROADCAST_TIMEOUT = 5000;
-    private static final int DELAY_FOR_ADMIN_UIDS_MILLIS = 2000;
+    private static final int DELAY_FOR_BROADCAST_IDLE = 30_000;
 
     private static final Executor INLINE_EXECUTOR = x -> x.run();
 
@@ -154,6 +159,23 @@ public class ConnectivityDiagnosticsManagerTest {
     private ParcelFileDescriptor mTestNetworkFD;
 
     private List<TestConnectivityDiagnosticsCallback> mRegisteredCallbacks;
+
+    private static void waitForBroadcastIdle(final long timeoutMs) throws InterruptedException {
+        final long st = SystemClock.elapsedRealtime();
+        // am wait-for-broadcast-idle will return immediately if the queue is already idle.
+        final Thread t = new Thread(() -> runShellCommand("am wait-for-broadcast-idle"));
+        t.start();
+        // Two notes about the case where join() times out :
+        // • It is fine to continue running the test. The broadcast queue might still be busy, but
+        //   there is no way as of now to wait for a particular broadcast to have been been
+        //   processed so it's possible the one the caller is interested in is in fact done,
+        //   making it worth running the rest of the test.
+        // • The thread will continue running its course in the test process. In this case it is
+        //   fine because the wait-for-broadcast-idle command doesn't have side effects, and the
+        //   thread does nothing else.
+        t.join(timeoutMs);
+        Log.i(TAG, "Waited for broadcast idle for " + (SystemClock.elapsedRealtime() - st) + "ms");
+    }
 
     @Before
     public void setUp() throws Exception {
@@ -283,10 +305,13 @@ public class ConnectivityDiagnosticsManagerTest {
         // broadcast. CPT then needs to update the corresponding DataConnection, which then
         // updates ConnectivityService. Unfortunately, this update to the NetworkCapabilities in
         // CS does not trigger NetworkCallback#onCapabilitiesChanged as changing the
-        // administratorUids is not a publicly visible change. In lieu of a better signal to
-        // deterministically wait for, use Thread#sleep here.
-        // TODO(b/157949581): replace this Thread#sleep with a deterministic signal
-        Thread.sleep(DELAY_FOR_ADMIN_UIDS_MILLIS);
+        // administratorUids is not a publicly visible change. Start by waiting for broadcast
+        // idle to make sure Telephony has received the carrier config change broadcast ; the
+        // delay to pass this information to CS is accounted in the delay in waiting for the
+        // callback.
+        waitForBroadcastIdle(DELAY_FOR_BROADCAST_IDLE);
+
+        Thread.sleep(5_000);
 
         // TODO(b/217559768): Receiving carrier config change and immediately checking carrier
         //  privileges is racy, as the CP status is updated after receiving the same signal. Move

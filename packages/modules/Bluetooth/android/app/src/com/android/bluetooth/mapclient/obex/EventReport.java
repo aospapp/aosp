@@ -16,7 +16,10 @@
 
 package com.android.bluetooth.mapclient;
 
+import android.annotation.Nullable;
 import android.util.Log;
+
+import com.android.internal.annotations.VisibleForTesting;
 
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -38,12 +41,14 @@ import java.util.HashMap;
 public class EventReport {
     private static final String TAG = "EventReport";
     private final Type mType;
+    private final String mDateTime;
     private final String mHandle;
     private final String mFolder;
     private final String mOldFolder;
     private final Bmessage.Type mMsgType;
 
-    private EventReport(HashMap<String, String> attrs) throws IllegalArgumentException {
+    @VisibleForTesting
+    EventReport(HashMap<String, String> attrs) throws IllegalArgumentException {
         mType = parseType(attrs.get("type"));
 
         if (mType != Type.MEMORY_FULL && mType != Type.MEMORY_AVAILABLE) {
@@ -63,6 +68,8 @@ public class EventReport {
         mFolder = attrs.get("folder");
 
         mOldFolder = attrs.get("old_folder");
+
+        mDateTime = attrs.get("datetime");
 
         if (mType != Type.MEMORY_FULL && mType != Type.MEMORY_AVAILABLE) {
             String s = attrs.get("msg_type");
@@ -180,12 +187,39 @@ public class EventReport {
         return mMsgType;
     }
 
+    /**
+     * @return value corresponding to <code>datetime</code> parameter in MAP
+     * specification for NEW_MESSAGE (can be null)
+     */
+    @Nullable
+    public String getDateTime() {
+        return mDateTime;
+    }
+
+    /**
+     * @return timestamp from the value corresponding to <code>datetime</code> parameter in MAP
+     * specification for NEW_MESSAGE (can be null)
+     */
+    @Nullable
+    public Long getTimestamp() {
+        if (mDateTime != null) {
+            ObexTime obexTime = new ObexTime(mDateTime);
+            if (obexTime != null) {
+                return obexTime.getInstant().toEpochMilli();
+            }
+        }
+        return null;
+    }
+
     @Override
     public String toString() {
         JSONObject json = new JSONObject();
 
         try {
             json.put("type", mType);
+            if (mDateTime != null) {
+                json.put("datetime", mDateTime);
+            }
             json.put("handle", mHandle);
             json.put("folder", mFolder);
             json.put("old_folder", mOldFolder);
@@ -212,7 +246,7 @@ public class EventReport {
         MESSAGE_EXTENDED_DATA_CHANGED("MessageExtendedDataChanged"),
         PARTICIPANT_PRESENCE_CHANGED("ParticipantPresenceChanged"),
         PARTICIPANT_CHAT_STATE_CHANGED("ParticipantChatStateChanged"),
-        CONCERSATION_CHANGED("ConversationChanged");
+        CONVERSATION_CHANGED("ConversationChanged");
         private final String mSpecName;
 
         Type(String specName) {

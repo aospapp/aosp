@@ -1,11 +1,17 @@
 # Project owners
-sattiraju@google.com
-siyuanh@google.com
-zachoverflow@google.com
+girardier@google.com #{LAST_RESORT_SUGGESTION}
+muhammadfalam@google.com #{LAST_RESORT_SUGGESTION}
+sattiraju@google.com #{LAST_RESORT_SUGGESTION}
+siyuanh@google.com #{LAST_RESORT_SUGGESTION}
+sungsoo@google.com #{LAST_RESORT_SUGGESTION}
 
 # Per-file ownership
+
+per-file *.bp,*.xml=wescande@google.com
+per-file TEST_MAPPING,*.bp,*.xml=licorne@google.com
 
 # ChromeOS team owns Linux build files
 # - build.py is used for Linux build
 # - *.gn is for GN build rules
-per-file build.py,*.gn=file:/OWNERS_chromeos
+# - Cargo.toml is for Rust build rules
+per-file build.py,*.gn,Cargo.toml=file:/OWNERS_chromeos

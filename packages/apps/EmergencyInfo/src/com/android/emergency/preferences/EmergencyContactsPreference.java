@@ -20,6 +20,7 @@ import android.content.SharedPreferences;
 import android.content.res.TypedArray;
 import android.net.Uri;
 import androidx.annotation.NonNull;
+import android.os.UserManager;
 import androidx.preference.Preference;
 import androidx.preference.PreferenceCategory;
 import androidx.preference.PreferenceManager;
@@ -280,7 +281,10 @@ public class EmergencyContactsPreference extends PreferenceCategory
 
     @VisibleForTesting
     void persistEmergencyContacts(List<Uri> emergencyContacts) {
-        persistString(serialize(emergencyContacts));
+        // Avoid persisting emergency contacts in direct boot mode.
+        if (isUserUnlocked(getContext())) {
+            persistString(serialize(emergencyContacts));
+        }
     }
 
     private static List<Uri> deserializeAndFilter(String key, Context context,
@@ -299,11 +303,20 @@ public class EmergencyContactsPreference extends PreferenceCategory
         // in shared preferences. This deals with emergency contacts being deleted from contacts:
         // currently we have no way to being notified when this happens.
         if (filteredEmergencyContacts.size() != emergencyContactsArray.length) {
-            String emergencyContactStrings = serialize(filteredEmergencyContacts);
-            SharedPreferences sharedPreferences =
-                    PreferenceManager.getDefaultSharedPreferences(context);
-            sharedPreferences.edit().putString(key, emergencyContactStrings).commit();
+            // Avoid updating emergency contacts in direct boot mode.
+            if (isUserUnlocked(context)) {
+                String emergencyContactStrings = serialize(filteredEmergencyContacts);
+                SharedPreferences sharedPreferences =
+                        PreferenceManager.getDefaultSharedPreferences(context);
+                sharedPreferences.edit().putString(key, emergencyContactStrings).commit();
+            }
         }
         return filteredEmergencyContacts;
     }
+
+    private static boolean isUserUnlocked(Context context) {
+        UserManager userManager = context.getSystemService(UserManager.class);
+        return userManager != null && userManager.isUserUnlocked();
+    }
+
 }

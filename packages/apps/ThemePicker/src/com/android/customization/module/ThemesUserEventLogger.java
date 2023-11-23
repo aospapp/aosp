@@ -15,7 +15,6 @@
  */
 package com.android.customization.module;
 
-import com.android.customization.model.clock.Clockface;
 import com.android.customization.model.color.ColorOption;
 import com.android.customization.model.grid.GridOption;
 import com.android.customization.model.theme.ThemeBundle;
@@ -37,10 +36,6 @@ public interface ThemesUserEventLogger extends UserEventLogger {
      * @param colorOption applied color option.
      */
     void logColorApplied(int action, ColorOption colorOption);
-
-    void logClockSelected(Clockface clock);
-
-    void logClockApplied(Clockface clock);
 
     void logGridSelected(GridOption grid);
 

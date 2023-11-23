@@ -18,27 +18,43 @@ package com.android.car.radio.platform;
 
 import android.graphics.Bitmap;
 
-import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 import com.android.car.broadcastradio.support.platform.ImageResolver;
+import com.android.internal.annotations.GuardedBy;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
 
-public class ImageMemoryCache implements ImageResolver {
+/**
+ * Resolves metadata image cache for specific {@link RadioManagerExt}
+ */
+public final class ImageMemoryCache implements ImageResolver {
+    private final Object mLock = new Object();
+
     private final RadioManagerExt mRadioManager;
+
+    @GuardedBy("mLock")
     private final Map<Long, Bitmap> mCache;
 
-    public ImageMemoryCache(@NonNull RadioManagerExt radioManager, int cacheSize) {
-        mRadioManager = Objects.requireNonNull(radioManager);
+    public ImageMemoryCache(RadioManagerExt radioManager, int cacheSize) {
+        mRadioManager = Objects.requireNonNull(radioManager, "RadioManager cannot be null");
         mCache = new CacheMap<>(cacheSize);
     }
 
-    public @Nullable Bitmap resolve(long globalId) {
-        synchronized (mCache) {
-            if (mCache.containsKey(globalId)) return mCache.get(globalId);
+    /**
+     * Gets metadata image cache
+     *
+     * @param globalId Metadata image id
+     * @return Metadata image
+     */
+    @Nullable
+    public Bitmap resolve(long globalId) {
+        synchronized (mLock) {
+            if (mCache.containsKey(globalId)) {
+                return mCache.get(globalId);
+            }
 
             Bitmap bm = mRadioManager.getMetadataImage(globalId);
             mCache.put(globalId, bm);
@@ -50,7 +66,9 @@ public class ImageMemoryCache implements ImageResolver {
         private final int mMaxSize;
 
         public CacheMap(int maxSize) {
-            if (maxSize < 0) throw new IllegalArgumentException("maxSize must not be negative");
+            if (maxSize < 0) {
+                throw new IllegalArgumentException("maxSize must not be negative");
+            }
             mMaxSize = maxSize;
         }
 

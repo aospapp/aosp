@@ -15,7 +15,6 @@
      limitations under the License.
 -->
 <ripple xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:androidprv="http://schemas.android.com/apk/prv/res/android"
     android:color="?android:colorControlHighlight">
     <item>
         <selector>
@@ -27,7 +26,7 @@
             </item>
             <item android:state_selected="true">
                 <shape>
-                    <solid android:color="?androidprv:attr/colorAccentPrimary" />
+                    <solid android:color="@color/color_accent_primary" />
                     <corners android:radius="@dimen/bottom_action_button_radius" />
                 </shape>
             </item>

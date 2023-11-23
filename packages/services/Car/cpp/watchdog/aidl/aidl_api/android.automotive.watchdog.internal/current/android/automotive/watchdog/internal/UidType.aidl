@@ -34,7 +34,7 @@
 package android.automotive.watchdog.internal;
 @Backing(type="int")
 enum UidType {
-  UNKNOWN = 0,
-  NATIVE = 1,
-  APPLICATION = 2,
+  UNKNOWN,
+  NATIVE,
+  APPLICATION,
 }

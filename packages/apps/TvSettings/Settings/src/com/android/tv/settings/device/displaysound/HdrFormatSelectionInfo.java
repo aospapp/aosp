@@ -48,7 +48,14 @@ public class HdrFormatSelectionInfo {
             return R.string.hdr_format_selection_manual_summary;
         }
     }
-
+    /** A class that hosts {@link InfoFragment} for Dolby Vision hdr selection preference */
+    public static class DolbyVisionNotSupportedFragment extends
+            HdrFormatSelectionInfo.BaseInfoFragment {
+        @Override
+        protected int getSummaryResId() {
+            return R.string.selection_dolby_vision_not_supported_sidebar;
+        }
+    }
     private abstract static class BaseInfoFragment extends InfoFragment {
 
         protected abstract int getSummaryResId();

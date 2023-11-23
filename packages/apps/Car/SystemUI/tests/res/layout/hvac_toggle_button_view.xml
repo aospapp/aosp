@@ -29,7 +29,7 @@
         android:background="@drawable/hvac_panel_button_bg"
         style="@style/HvacButton"
         systemui:hvacAreaId="1"
-        systemui:hvacPropertyId="320865540"
+        systemui:hvacPropertyId="354419973"
         systemui:hvacToggleOnButtonDrawable="@drawable/ic_front_defroster_on"
         systemui:hvacToggleOffButtonDrawable="@drawable/ic_front_defroster_off"/>
 
@@ -38,7 +38,7 @@
         android:background="@drawable/hvac_panel_button_bg"
         style="@style/HvacButton"
         systemui:hvacAreaId="1"
-        systemui:hvacPropertyId="320865540"
+        systemui:hvacPropertyId="354419973"
         systemui:hvacTurnOffIfPowerOff="false"
         systemui:hvacToggleOnButtonDrawable="@drawable/ic_front_defroster_on"
         systemui:hvacToggleOffButtonDrawable="@drawable/ic_front_defroster_off"/>
@@ -48,7 +48,7 @@
         android:background="@drawable/hvac_panel_button_bg"
         style="@style/HvacButton"
         systemui:hvacAreaId="1"
-        systemui:hvacPropertyId="320865540"
+        systemui:hvacPropertyId="354419973"
         systemui:hvacTurnOffIfAutoOn="true"
         systemui:hvacToggleOnButtonDrawable="@drawable/ic_front_defroster_on"
         systemui:hvacToggleOffButtonDrawable="@drawable/ic_front_defroster_off"/>

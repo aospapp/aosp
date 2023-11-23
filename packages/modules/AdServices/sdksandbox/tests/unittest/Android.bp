@@ -16,36 +16,95 @@ package {
     default_applicable_licenses: ["Android-Apache-2.0"],
 }
 
-android_test {
-    name: "SdkSandboxManagerServiceUnitTests",
-    srcs: [
-        "src/**/*.java",
-        ":framework-sdksandbox-sources",
+java_defaults {
+    name: "SdkSandboxUnitTestsDefault",
+    min_sdk_version: "Tiramisu",
+    target_sdk_version: "Tiramisu",
+    test_suites: [
+        "mts-adservices",
+        "general-tests"
     ],
     static_libs: [
-        "service-sdksandbox.impl",
         "androidx.test.runner",
+        "compatibility-device-util-axt-minus-dexmaker",
         "mockito-target-extended-minus-junit4",
-        "SdkSandboxTestUtils",
-        "services.core",
         "truth-prebuilt",
-    ],
-    libs: [
-        "android.test.base",
-        "android.test.mock",
-        "android.test.runner",
+        "SdkSandboxTestUtils",
+        "SdkSandbox-java-lib",
     ],
     jni_libs: [
         // Required for ExtendedMockito
         "libdexmakerjvmtiagent",
         "libstaticjvmtiagent",
     ],
+    libs: [
+        "android.test.base",
+        "android.test.mock",
+        "android.test.runner",
+        "framework-sdksandbox.impl",
+        "framework-configinfrastructure",
+    ],
+    // Test coverage system runs on different devices. Need to
+    // compile for all architecture.
+    compile_multilib: "both",
+}
+
+android_test {
+    name: "SdkSandboxUnitTests",
+    srcs: [
+        "src/com/android/sdksandbox/*.java",
+        ":sdksandbox_aidl",
+        ":framework-sdksandbox-aidl-sources",
+    ],
+    defaults: ["SdkSandboxUnitTestsDefault"],
+    manifest: "SdkSandboxManifest.xml",
+    test_config: "SdkSandboxTest.xml",
+    data: [
+        ":TestProviderApp",
+    ],
+    static_libs: [
+        "androidx.core_core",
+        "androidx.test.rules",
+        "androidx.test.ext.truth",
+        "androidx.test.ext.junit",
+    ],
+}
+
+android_test {
+    name: "SdkSandboxManagerServiceUnitTests",
+    srcs: [
+        "src/com/android/server/sdksandbox/*.java",
+        ":framework-sdksandbox-aidl-sources",
+    ],
+    defaults: ["SdkSandboxUnitTestsDefault"],
+    manifest: "SdkSandboxManagerServiceManifest.xml",
+    test_config: "SdkSandboxManagerServiceTest.xml",
+    static_libs: [
+        "service-sdksandbox.impl",
+        "services.core",
+        "modules-utils-build",
+    ],
     data: [
       ":SampleCodeProviderApp",
       ":SampleServiceApp",
       ":CodeProviderWithResources",
     ],
-    min_sdk_version: "Tiramisu",
-    target_sdk_version: "current",
-    test_suites: ["general-tests"],
 }
+
+android_test {
+    name: "SdkSandboxFrameworkUnitTests",
+    srcs: [
+        "src/android/app/sdksandbox/**/*.java",
+        ":framework-sdksandbox-sources",
+    ],
+    defaults: [
+        "SdkSandboxUnitTestsDefault",
+        "framework-sdksandbox-jarjar-defaults",
+    ],
+    manifest: "SdkSandboxFrameworkManifest.xml",
+    test_config: "SdkSandboxFrameworkTest.xml",
+    data: [
+      ":CodeProviderWithResources",
+    ],
+}
+

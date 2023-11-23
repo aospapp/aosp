@@ -36,7 +36,6 @@ import android.net.LinkProperties;
 import android.net.Network;
 import android.net.NetworkCapabilities;
 import android.net.NetworkRequest;
-import android.net.util.SharedLog;
 import android.os.Handler;
 import android.util.Log;
 import android.util.SparseIntArray;
@@ -46,6 +45,7 @@ import androidx.annotation.Nullable;
 
 import com.android.internal.annotations.VisibleForTesting;
 import com.android.internal.util.StateMachine;
+import com.android.net.module.util.SharedLog;
 import com.android.networkstack.apishim.ConnectivityManagerShimImpl;
 import com.android.networkstack.apishim.common.ConnectivityManagerShim;
 import com.android.networkstack.tethering.util.PrefixUtils;
@@ -133,8 +133,6 @@ public class UpstreamNetworkMonitor {
     private boolean mIsDefaultCellularUpstream;
     // The current system default network (not really used yet).
     private Network mDefaultInternetNetwork;
-    // The current upstream network used for tethering.
-    private Network mTetheringUpstreamNetwork;
     private boolean mPreferTestNetworks;
 
     public UpstreamNetworkMonitor(Context ctx, StateMachine tgt, SharedLog log, int what) {
@@ -191,7 +189,6 @@ public class UpstreamNetworkMonitor {
         releaseCallback(mListenAllCallback);
         mListenAllCallback = null;
 
-        mTetheringUpstreamNetwork = null;
         mNetworkMap.clear();
     }
 
@@ -340,11 +337,6 @@ public class UpstreamNetworkMonitor {
         // Find a DUN network. Note that code in Tethering causes a DUN request
         // to be filed, but this might be moved into this class in future.
         return findFirstDunNetwork(mNetworkMap.values());
-    }
-
-    /** Tell UpstreamNetworkMonitor which network is the current upstream of tethering. */
-    public void setCurrentUpstream(Network upstream) {
-        mTetheringUpstreamNetwork = upstream;
     }
 
     /** Return local prefixes. */

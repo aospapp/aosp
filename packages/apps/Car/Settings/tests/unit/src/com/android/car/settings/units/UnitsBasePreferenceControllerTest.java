@@ -99,11 +99,65 @@ public class UnitsBasePreferenceControllerTest {
     }
 
     @Test
+    public void onCreate_preferenceIsConditionallyUnavailable_zoneWrite() {
+        mPreferenceController.setAvailabilityStatusForZone("write");
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(),
+                PreferenceController.CONDITIONALLY_UNAVAILABLE);
+    }
+
+    @Test
+    public void onCreate_preferenceIsConditionallyUnavailable_zoneRead() {
+        mPreferenceController.setAvailabilityStatusForZone("read");
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(),
+                PreferenceController.CONDITIONALLY_UNAVAILABLE);
+    }
+
+    @Test
+    public void onCreate_preferenceIsConditionallyUnavailable_zoneHidden() {
+        mPreferenceController.setAvailabilityStatusForZone("hidden");
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(),
+                PreferenceController.CONDITIONALLY_UNAVAILABLE);
+    }
+
+    @Test
     public void onCarServiceConnected_availableUnitsExist_preferenceIsAvailable() {
         mPreferenceController.mOnCarServiceListener.handleServiceConnected(mCarPropertyManager);
 
         assertThat(mPreferenceController.getAvailabilityStatus()).isEqualTo(
                 PreferenceController.AVAILABLE);
+    }
+
+    @Test
+    public void onCarServiceConnected_availableUnitsExist_preferenceIsAvailable_zoneWrite() {
+        mPreferenceController.setAvailabilityStatusForZone("write");
+        mPreferenceController.mOnCarServiceListener.handleServiceConnected(mCarPropertyManager);
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(),
+                PreferenceController.AVAILABLE);
+    }
+
+    @Test
+    public void onCarServiceConnected_availableUnitsExist_preferenceIsAvailable_zoneRead() {
+        mPreferenceController.setAvailabilityStatusForZone("read");
+        mPreferenceController.mOnCarServiceListener.handleServiceConnected(mCarPropertyManager);
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(),
+                PreferenceController.AVAILABLE_FOR_VIEWING);
+    }
+
+    @Test
+    public void onCarServiceConnected_availableUnitsExist_preferenceIsAvailable_zoneHidden() {
+        mPreferenceController.setAvailabilityStatusForZone("hidden");
+        mPreferenceController.mOnCarServiceListener.handleServiceConnected(mCarPropertyManager);
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(),
+                PreferenceController.CONDITIONALLY_UNAVAILABLE);
     }
 
     @Test
@@ -114,6 +168,42 @@ public class UnitsBasePreferenceControllerTest {
 
         assertThat(mPreferenceController.getAvailabilityStatus())
                 .isEqualTo(PreferenceController.CONDITIONALLY_UNAVAILABLE);
+    }
+
+    @Test
+    public void onCarServiceConnected_preferenceIsConditionallyUnavailable_zoneWrite() {
+        when(mCarUnitsManager.getUnitsSupportedByProperty(TEST_PROPERTY_ID))
+                .thenReturn(null);
+        mPreferenceController.setAvailabilityStatusForZone("write");
+        mPreferenceController.mOnCarServiceListener.handleServiceConnected(mCarPropertyManager);
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(),
+                PreferenceController.CONDITIONALLY_UNAVAILABLE);
+    }
+
+    @Test
+    public void onCarServiceConnected_preferenceIsConditionallyUnavailable_zoneRead() {
+        when(mCarUnitsManager.getUnitsSupportedByProperty(TEST_PROPERTY_ID))
+                .thenReturn(null);
+        mPreferenceController.setAvailabilityStatusForZone("read");
+        mPreferenceController.mOnCarServiceListener.handleServiceConnected(mCarPropertyManager);
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(),
+                PreferenceController.CONDITIONALLY_UNAVAILABLE);
+    }
+
+    @Test
+    public void onCarServiceConnected_preferenceIsConditionallyUnavailable_zoneHidden() {
+        when(mCarUnitsManager.getUnitsSupportedByProperty(TEST_PROPERTY_ID))
+                .thenReturn(null);
+        mPreferenceController.setAvailabilityStatusForZone("hidden");
+        mPreferenceController.mOnCarServiceListener.handleServiceConnected(mCarPropertyManager);
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(),
+                PreferenceController.CONDITIONALLY_UNAVAILABLE);
     }
 
     @Test

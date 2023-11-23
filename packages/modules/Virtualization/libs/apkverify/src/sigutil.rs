@@ -16,39 +16,30 @@
 
 //! Utilities for Signature Verification
 
-use anyhow::{anyhow, bail, Result};
+use anyhow::{anyhow, ensure, Error, Result};
 use byteorder::{LittleEndian, ReadBytesExt};
 use bytes::{Buf, BufMut, Bytes, BytesMut};
-use ring::digest;
+use openssl::hash::{DigestBytes, Hasher, MessageDigest};
 use std::cmp::min;
-use std::io::{Cursor, Read, Seek, SeekFrom, Take};
+use std::io::{self, Cursor, ErrorKind, Read, Seek, SeekFrom, Take};
 
+use crate::algorithms::SignatureAlgorithmID;
 use crate::ziputil::{set_central_directory_offset, zip_sections};
 
 const APK_SIG_BLOCK_MIN_SIZE: u32 = 32;
 const APK_SIG_BLOCK_MAGIC: u128 = 0x3234206b636f6c4220676953204b5041;
 
-// TODO(jooyung): introduce type
-pub const SIGNATURE_RSA_PSS_WITH_SHA256: u32 = 0x0101;
-pub const SIGNATURE_RSA_PSS_WITH_SHA512: u32 = 0x0102;
-pub const SIGNATURE_RSA_PKCS1_V1_5_WITH_SHA256: u32 = 0x0103;
-pub const SIGNATURE_RSA_PKCS1_V1_5_WITH_SHA512: u32 = 0x0104;
-pub const SIGNATURE_ECDSA_WITH_SHA256: u32 = 0x0201;
-pub const SIGNATURE_ECDSA_WITH_SHA512: u32 = 0x0202;
-pub const SIGNATURE_DSA_WITH_SHA256: u32 = 0x0301;
-pub const SIGNATURE_VERITY_RSA_PKCS1_V1_5_WITH_SHA256: u32 = 0x0421;
-pub const SIGNATURE_VERITY_ECDSA_WITH_SHA256: u32 = 0x0423;
-pub const SIGNATURE_VERITY_DSA_WITH_SHA256: u32 = 0x0425;
-
-// TODO(jooyung): introduce type
-const CONTENT_DIGEST_CHUNKED_SHA256: u32 = 1;
-const CONTENT_DIGEST_CHUNKED_SHA512: u32 = 2;
-const CONTENT_DIGEST_VERITY_CHUNKED_SHA256: u32 = 3;
-#[allow(unused)]
-const CONTENT_DIGEST_SHA256: u32 = 4;
-
 const CHUNK_SIZE_BYTES: u64 = 1024 * 1024;
+const CHUNK_HEADER_TOP: &[u8] = &[0x5a];
+const CHUNK_HEADER_MID: &[u8] = &[0xa5];
 
+/// The [APK structure] has four major sections:
+///
+/// | Zip contents | APK Signing Block | Central directory | EOCD(End of Central Directory) |
+///
+/// This structure contains the offset/size information of all the sections except the Zip contents.
+///
+/// [APK structure]: https://source.android.com/docs/security/apksigning/v2#apk-signing-block
 pub struct ApkSections<R> {
     inner: R,
     signing_block_offset: u32,
@@ -79,7 +70,6 @@ impl<R: Read + Seek> ApkSections<R> {
     /// and the additional information relevant for verifying the block against the file.
     pub fn find_signature(&mut self, block_id: u32) -> Result<Bytes> {
         let signing_block = self.bytes(self.signing_block_offset, self.signing_block_size)?;
-        // TODO(jooyung): propagate NotFound error so that verification can fallback to V2
         find_signature_scheme_block(Bytes::from(signing_block), block_id)
     }
 
@@ -90,9 +80,11 @@ impl<R: Read + Seek> ApkSections<R> {
     ///    chunks (little-endian uint32), and the concatenation of digests of the chunks in the
     ///    order the chunks appear in the APK.
     /// (see https://source.android.com/security/apksigning/v2#integrity-protected-contents)
-    pub fn compute_digest(&mut self, signature_algorithm_id: u32) -> Result<Vec<u8>> {
-        let digester = Digester::new(signature_algorithm_id)?;
-
+    pub(crate) fn compute_digest(
+        &mut self,
+        signature_algorithm_id: SignatureAlgorithmID,
+    ) -> Result<Vec<u8>> {
+        let digester = Digester { message_digest: signature_algorithm_id.new_message_digest() };
         let mut digests_of_chunks = BytesMut::new();
         let mut chunk_count = 0u32;
         let mut chunk = vec![0u8; CHUNK_SIZE_BYTES as usize];
@@ -107,12 +99,12 @@ impl<R: Read + Seek> ApkSections<R> {
                 let slice = &mut chunk[..(chunk_size as usize)];
                 data.read_exact(slice)?;
                 digests_of_chunks.put_slice(
-                    digester.digest(slice, CHUNK_HEADER_MID, chunk_size as u32).as_ref(),
+                    digester.digest(slice, CHUNK_HEADER_MID, chunk_size as u32)?.as_ref(),
                 );
                 chunk_count += 1;
             }
         }
-        Ok(digester.digest(&digests_of_chunks, CHUNK_HEADER_TOP, chunk_count).as_ref().into())
+        Ok(digester.digest(&digests_of_chunks, CHUNK_HEADER_TOP, chunk_count)?.as_ref().into())
     }
 
     fn zip_entries(&mut self) -> Result<Take<Box<dyn Read + '_>>> {
@@ -157,34 +149,17 @@ fn scoped_read<'a, R: Read + Seek>(
 }
 
 struct Digester {
-    algorithm: &'static digest::Algorithm,
+    message_digest: MessageDigest,
 }
 
-const CHUNK_HEADER_TOP: &[u8] = &[0x5a];
-const CHUNK_HEADER_MID: &[u8] = &[0xa5];
-
 impl Digester {
-    fn new(signature_algorithm_id: u32) -> Result<Digester> {
-        let digest_algorithm_id = to_content_digest_algorithm(signature_algorithm_id)?;
-        let algorithm = match digest_algorithm_id {
-            CONTENT_DIGEST_CHUNKED_SHA256 => &digest::SHA256,
-            CONTENT_DIGEST_CHUNKED_SHA512 => &digest::SHA512,
-            // TODO(jooyung): implement
-            CONTENT_DIGEST_VERITY_CHUNKED_SHA256 => {
-                bail!("TODO(b/190343842): CONTENT_DIGEST_VERITY_CHUNKED_SHA256: not implemented")
-            }
-            _ => bail!("Unknown digest algorithm: {}", digest_algorithm_id),
-        };
-        Ok(Digester { algorithm })
-    }
-
     // v2/v3 digests are computed after prepending "header" byte and "size" info.
-    fn digest(&self, data: &[u8], header: &[u8], size: u32) -> digest::Digest {
-        let mut ctx = digest::Context::new(self.algorithm);
-        ctx.update(header);
-        ctx.update(&size.to_le_bytes());
-        ctx.update(data);
-        ctx.finish()
+    fn digest(&self, data: &[u8], header: &[u8], size: u32) -> Result<DigestBytes> {
+        let mut hasher = Hasher::new(self.message_digest)?;
+        hasher.update(header)?;
+        hasher.update(&size.to_le_bytes())?;
+        hasher.update(data)?;
+        Ok(hasher.finish()?)
     }
 }
 
@@ -198,30 +173,30 @@ fn find_signing_block<T: Read + Seek>(
     // * @+8  bytes payload
     // * @-24 bytes uint64:    size in bytes (same as the one above)
     // * @-16 bytes uint128:   magic
-    if central_directory_offset < APK_SIG_BLOCK_MIN_SIZE {
-        bail!(
-            "APK too small for APK Signing Block. ZIP Central Directory offset: {}",
-            central_directory_offset
-        );
-    }
+    ensure!(
+        central_directory_offset >= APK_SIG_BLOCK_MIN_SIZE,
+        "APK too small for APK Signing Block. ZIP Central Directory offset: {}",
+        central_directory_offset
+    );
     reader.seek(SeekFrom::Start((central_directory_offset - 24) as u64))?;
     let size_in_footer = reader.read_u64::<LittleEndian>()? as u32;
-    if reader.read_u128::<LittleEndian>()? != APK_SIG_BLOCK_MAGIC {
-        bail!("No APK Signing Block before ZIP Central Directory")
-    }
+    ensure!(
+        reader.read_u128::<LittleEndian>()? == APK_SIG_BLOCK_MAGIC,
+        "No APK Signing Block before ZIP Central Directory"
+    );
     let total_size = size_in_footer + 8;
     let signing_block_offset = central_directory_offset
         .checked_sub(total_size)
         .ok_or_else(|| anyhow!("APK Signing Block size out of range: {}", size_in_footer))?;
     reader.seek(SeekFrom::Start(signing_block_offset as u64))?;
     let size_in_header = reader.read_u64::<LittleEndian>()? as u32;
-    if size_in_header != size_in_footer {
-        bail!(
-            "APK Signing Block sizes in header and footer do not match: {} vs {}",
-            size_in_header,
-            size_in_footer
-        );
-    }
+    // This corresponds to APK Signature Scheme v3 verification step 1a.
+    ensure!(
+        size_in_header == size_in_footer,
+        "APK Signing Block sizes in header and footer do not match: {} vs {}",
+        size_in_header,
+        size_in_footer
+    );
     Ok((signing_block_offset, total_size))
 }
 
@@ -236,9 +211,11 @@ fn find_signature_scheme_block(buf: Bytes, block_id: u32) -> Result<Bytes> {
     let mut entry_count = 0;
     while pairs.has_remaining() {
         entry_count += 1;
-        if pairs.remaining() < 8 {
-            bail!("Insufficient data to read size of APK Signing Block entry #{}", entry_count);
-        }
+        ensure!(
+            pairs.remaining() >= 8,
+            "Insufficient data to read size of APK Signing Block entry #{}",
+            entry_count
+        );
         let length = pairs.get_u64_le();
         let mut pair = pairs.split_to(length as usize);
         let id = pair.get_u32_le();
@@ -246,51 +223,87 @@ fn find_signature_scheme_block(buf: Bytes, block_id: u32) -> Result<Bytes> {
             return Ok(pair);
         }
     }
-    // TODO(jooyung): return NotFound error
-    bail!("No APK Signature Scheme block in APK Signing Block with ID: {}", block_id)
+    let context =
+        format!("No APK Signature Scheme block in APK Signing Block with ID: {}", block_id);
+    Err(Error::new(io::Error::from(ErrorKind::NotFound)).context(context))
 }
 
-pub fn is_supported_signature_algorithm(algorithm_id: u32) -> bool {
-    matches!(
-        algorithm_id,
-        SIGNATURE_RSA_PSS_WITH_SHA256
-            | SIGNATURE_RSA_PSS_WITH_SHA512
-            | SIGNATURE_RSA_PKCS1_V1_5_WITH_SHA256
-            | SIGNATURE_RSA_PKCS1_V1_5_WITH_SHA512
-            | SIGNATURE_ECDSA_WITH_SHA256
-            | SIGNATURE_ECDSA_WITH_SHA512
-            | SIGNATURE_DSA_WITH_SHA256
-            | SIGNATURE_VERITY_RSA_PKCS1_V1_5_WITH_SHA256
-            | SIGNATURE_VERITY_ECDSA_WITH_SHA256
-            | SIGNATURE_VERITY_DSA_WITH_SHA256
-    )
-}
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use byteorder::LittleEndian;
+    use std::fs::File;
+    use std::mem::size_of_val;
 
-fn to_content_digest_algorithm(algorithm_id: u32) -> Result<u32> {
-    match algorithm_id {
-        SIGNATURE_RSA_PSS_WITH_SHA256
-        | SIGNATURE_RSA_PKCS1_V1_5_WITH_SHA256
-        | SIGNATURE_ECDSA_WITH_SHA256
-        | SIGNATURE_DSA_WITH_SHA256 => Ok(CONTENT_DIGEST_CHUNKED_SHA256),
-        SIGNATURE_RSA_PSS_WITH_SHA512
-        | SIGNATURE_RSA_PKCS1_V1_5_WITH_SHA512
-        | SIGNATURE_ECDSA_WITH_SHA512 => Ok(CONTENT_DIGEST_CHUNKED_SHA512),
-        SIGNATURE_VERITY_RSA_PKCS1_V1_5_WITH_SHA256
-        | SIGNATURE_VERITY_ECDSA_WITH_SHA256
-        | SIGNATURE_VERITY_DSA_WITH_SHA256 => Ok(CONTENT_DIGEST_VERITY_CHUNKED_SHA256),
-        _ => bail!("Unknown signature algorithm: {}", algorithm_id),
+    use crate::v3::APK_SIGNATURE_SCHEME_V3_BLOCK_ID;
+
+    const CENTRAL_DIRECTORY_HEADER_SIGNATURE: u32 = 0x02014b50;
+
+    #[test]
+    fn test_apk_sections() {
+        let apk_file = File::open("tests/data/v3-only-with-ecdsa-sha512-p521.apk").unwrap();
+        let apk_sections = ApkSections::new(apk_file).unwrap();
+        let mut reader = &apk_sections.inner;
+
+        // Checks APK Signing Block.
+        assert_eq!(
+            apk_sections.signing_block_offset + apk_sections.signing_block_size,
+            apk_sections.central_directory_offset
+        );
+        let apk_signature_offset = SeekFrom::Start(
+            apk_sections.central_directory_offset as u64 - size_of_val(&APK_SIG_BLOCK_MAGIC) as u64,
+        );
+        reader.seek(apk_signature_offset).unwrap();
+        assert_eq!(reader.read_u128::<LittleEndian>().unwrap(), APK_SIG_BLOCK_MAGIC);
+
+        // Checks Central directory.
+        assert_eq!(reader.read_u32::<LittleEndian>().unwrap(), CENTRAL_DIRECTORY_HEADER_SIGNATURE);
+        assert_eq!(
+            apk_sections.central_directory_offset + apk_sections.central_directory_size,
+            apk_sections.eocd_offset
+        );
+
+        // Checks EOCD.
+        assert_eq!(
+            reader.metadata().unwrap().len(),
+            (apk_sections.eocd_offset + apk_sections.eocd_size) as u64
+        );
     }
-}
 
-pub fn rank_signature_algorithm(algo: u32) -> Result<u32> {
-    rank_content_digest_algorithm(to_content_digest_algorithm(algo)?)
-}
+    #[test]
+    fn test_apk_digest() {
+        let apk_file = File::open("tests/data/v3-only-with-dsa-sha256-1024.apk").unwrap();
+        let mut apk_sections = ApkSections::new(apk_file).unwrap();
+        let digest = apk_sections.compute_digest(SignatureAlgorithmID::DsaWithSha256).unwrap();
+        assert_eq!(
+            "0df2426ea33aedaf495d88e5be0c6a1663ff0a81c5ed12d5b2929ae4b4300f2f",
+            hex::encode(&digest[..])
+        );
+    }
 
-fn rank_content_digest_algorithm(id: u32) -> Result<u32> {
-    match id {
-        CONTENT_DIGEST_CHUNKED_SHA256 => Ok(0),
-        CONTENT_DIGEST_VERITY_CHUNKED_SHA256 => Ok(1),
-        CONTENT_DIGEST_CHUNKED_SHA512 => Ok(2),
-        _ => bail!("Unknown digest algorithm: {}", id),
+    #[test]
+    fn test_apk_sections_cannot_find_signature() {
+        let apk_file = File::open("tests/data/v2-only-two-signers.apk").unwrap();
+        let mut apk_sections = ApkSections::new(apk_file).unwrap();
+        let result = apk_sections.find_signature(APK_SIGNATURE_SCHEME_V3_BLOCK_ID);
+
+        assert!(result.is_err());
+        let error = result.unwrap_err();
+        assert_eq!(error.downcast_ref::<io::Error>().unwrap().kind(), ErrorKind::NotFound);
+        assert!(
+            error.to_string().contains(&APK_SIGNATURE_SCHEME_V3_BLOCK_ID.to_string()),
+            "Error should contain the block ID: {}",
+            error
+        );
+    }
+
+    #[test]
+    fn test_apk_sections_find_signature() {
+        let apk_file = File::open("tests/data/v3-only-with-dsa-sha256-1024.apk").unwrap();
+        let mut apk_sections = ApkSections::new(apk_file).unwrap();
+        let signature = apk_sections.find_signature(APK_SIGNATURE_SCHEME_V3_BLOCK_ID).unwrap();
+
+        let expected_v3_signature_block_size = 1289; // Only for this specific APK
+        assert_eq!(signature.len(), expected_v3_signature_block_size);
     }
 }

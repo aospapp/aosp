@@ -17,6 +17,17 @@ package {
     default_applicable_licenses: ["Android-Apache-2.0"],
 }
 
+java_library_static {
+    name: "launcher_item",
+    host_supported: true,
+    proto: {
+        type: "lite",
+    },
+    sdk_version: "module_current",
+    min_sdk_version: "31",
+    srcs: ["src/com/android/car/carlauncher/proto/launcher_item.proto"]
+}
+
 android_library {
     name: "CarLauncher-core",
     platform_apis: true,
@@ -32,7 +43,10 @@ android_library {
         "car-media-common",
         "car-telephony-common",
         "car-ui-lib",
+        "com.google.android.material_material",
         "WindowManager-Shell",
+        "launcher_item",
+        "SystemUISharedLib"
     ],
 
     libs: ["android.car"],

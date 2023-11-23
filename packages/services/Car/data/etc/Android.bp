@@ -160,6 +160,20 @@ prebuilt_etc {
 }
 
 prebuilt_etc {
+    name: "allowed_privapp_com.android.test.car.one.hotworddetectionservice",
+    sub_dir: "permissions",
+    src: "com.android.car.test.one.hotworddetectionservice.xml",
+    filename_from_src: true,
+}
+
+prebuilt_etc {
+    name: "allowed_privapp_com.android.car.oemcarservice.testapp",
+    sub_dir: "permissions",
+    src: "com.android.car.oemcarservice.testapp.xml",
+    filename_from_src: true,
+}
+
+prebuilt_etc {
     name: "allowed_privapp_com.google.android.car.kitchensink",
     sub_dir: "permissions",
     src: "com.google.android.car.kitchensink.xml",
@@ -235,5 +249,26 @@ prebuilt_etc {
     name: "allowed_privapp_com.android.car.messenger",
     sub_dir: "permissions",
     src: "com.android.car.messenger.xml",
+    filename_from_src: true,
+}
+
+prebuilt_etc {
+    name: "allowed_privapp_com.android.car.multidisplay",
+    sub_dir: "permissions",
+    src: "com.android.car.multidisplay.xml",
+    filename_from_src: true,
+}
+
+prebuilt_etc {
+    name: "allowed_privapp_com.android.car.multidisplay.controlcenter",
+    sub_dir: "permissions",
+    src: "com.android.car.multidisplay.controlcenter.xml",
+    filename_from_src: true,
+}
+
+prebuilt_etc {
+    name: "allowed_privapp_com.android.car.multidisplay.passenger",
+    sub_dir: "permissions",
+    src: "com.android.car.multidisplay.passenger.xml",
     filename_from_src: true,
 }

@@ -24,11 +24,11 @@
 #include <log/log.h>
 #include <nativehelper/ScopedLocalRef.h>
 #include <nativehelper/ScopedPrimitiveArray.h>
+#include <statslog_nfc.h>
 
 #include "JavaClassConstants.h"
 #include "nfc_brcm_defs.h"
 #include "nfc_config.h"
-#include "phNxpExtns.h"
 #include "rw_int.h"
 
 using android::base::StringPrintf;
@@ -72,6 +72,7 @@ NfcTag::NfcTag()
   memset(mTechParams, 0, sizeof(mTechParams));
   memset(mLastKovioUid, 0, NFC_KOVIO_MAX_LEN);
   memset(&mLastKovioTime, 0, sizeof(timespec));
+  mNfcStatsUtil = new NfcStatsUtil();
 }
 
 /*******************************************************************************
@@ -395,7 +396,6 @@ void NfcTag::discoverTechnologies(tNFA_ACTIVATED& activationData) {
     mTechList[mNumTechList] = TARGET_TYPE_KOVIO_BARCODE;
   } else if (NFC_PROTOCOL_MIFARE == rfDetail.protocol) {
     DLOG_IF(INFO, nfc_debug_enabled) << StringPrintf("%s: Mifare Classic", fn);
-    EXTNS_MfcInit(activationData);
     mTechList[mNumTechList] =
         TARGET_TYPE_ISO14443_3A;  // is TagTechnology.NFC_A by Java API
     mNumTechList++;
@@ -418,6 +418,8 @@ void NfcTag::discoverTechnologies(tNFA_ACTIVATED& activationData) {
         << StringPrintf("%s: index=%d; tech=%d; handle=%d; nfc type=%d", fn, i,
                         mTechList[i], mTechHandles[i], mTechLibNfcTypes[i]);
   }
+  mNfcStatsUtil->logNfcTagType(mTechLibNfcTypes[mTechListTail],
+                               mTechParams[mTechListTail].mode);
 TheEnd:
   DLOG_IF(INFO, nfc_debug_enabled) << StringPrintf("%s: exit", fn);
 }
@@ -480,6 +482,11 @@ TheEnd:
 void NfcTag::createNativeNfcTag(tNFA_ACTIVATED& activationData) {
   static const char fn[] = "NfcTag::createNativeNfcTag";
   DLOG_IF(INFO, nfc_debug_enabled) << StringPrintf("%s: enter", fn);
+
+  if (mNativeData == NULL) {
+    LOG(ERROR) << StringPrintf("%s: mNativeData is null", fn);
+    return;
+  }
 
   JNIEnv* e = NULL;
   ScopedAttach attach(mNativeData->vm, &e);
@@ -801,6 +808,13 @@ void NfcTag::fillNativeNfcTagMembers4(JNIEnv* e, jclass tag_cls, jobject tag,
   ScopedLocalRef<jclass> byteArrayClass(e, e->GetObjectClass(actBytes.get()));
   ScopedLocalRef<jobjectArray> techActBytes(
       e, e->NewObjectArray(mNumTechList, byteArrayClass.get(), 0));
+  jobject gtechActBytesObject;
+  // Restore previously selected tag information from the gtechActBytes to
+  // techActBytes.
+  for (int j = 0; j < mTechListTail; j++) {
+    gtechActBytesObject = e->GetObjectArrayElement(gtechActBytes, j);
+    e->SetObjectArrayElement(techActBytes.get(), j, gtechActBytesObject);
+  }
 
   // merging sak for combi tag
   if (activationData.activate_ntf.protocol &
@@ -818,16 +832,14 @@ void NfcTag::fillNativeNfcTagMembers4(JNIEnv* e, jclass tag_cls, jobject tag,
       e->SetObjectArrayElement(techActBytes.get(), i, actBytes.get());
     }
   }
-  jobject gtechActBytesObject;
+
   if (mTechListTail == 0) {
+    // Keep the backup of the selected tag information to restore back with
+    // multi selection.
     gtechActBytes =
         reinterpret_cast<jobjectArray>(e->NewGlobalRef(techActBytes.get()));
-  } else {
-    for (int j = 0; j < mTechListTail; j++) {
-      gtechActBytesObject = e->GetObjectArrayElement(gtechActBytes, j);
-      e->SetObjectArrayElement(techActBytes.get(), j, gtechActBytesObject);
-    }
   }
+
   for (int i = mTechListTail; i < mNumTechList; i++) {
     DLOG_IF(INFO, nfc_debug_enabled) << StringPrintf("%s: index=%d", fn, i);
     if (NFC_PROTOCOL_T1T == mTechLibNfcTypes[i] ||

@@ -92,18 +92,18 @@
     <string name="save_error" msgid="8631128801982095782">"कागजातलाई सुरक्षित गर्न सकिएन"</string>
     <string name="create_error" msgid="3092144450044861994">"फोल्डर सिर्जना गर्न सकिएन"</string>
     <string name="query_error" msgid="6625421453613879336">"यस समय सामग्री लोड गर्न सकिँदैन"</string>
-    <string name="quiet_mode_error_title" msgid="9126656325282792843">"कार्यलयको प्रोफाइल पज गरिएको छ"</string>
-    <string name="quiet_mode_button" msgid="6977115032320235420">"सक्रिय गरियोस्"</string>
+    <string name="quiet_mode_error_title" msgid="554319751414657910">"कामसम्बन्धी एपहरू पज गरिएका छन्"</string>
+    <string name="quiet_mode_button" msgid="8051436551926677305">"कामसम्बन्धी एपहरू अन गर्नुहोस्"</string>
     <string name="cant_select_work_files_error_title" msgid="6688716319549644354">"कार्यालयका फाइलहरू चयन गर्न मिल्दैन"</string>
-    <string name="cant_select_work_files_error_message" msgid="683480676150690641">"तपाईंका IT एडमिनले तपाईंलाई व्यक्तिगत अनुप्रयोगमार्फत कार्यालयका फाइलहरू प्रयोग गर्ने अनुमति दिनुभएको छैन"</string>
+    <string name="cant_select_work_files_error_message" msgid="683480676150690641">"तपाईंका IT एडमिनले तपाईंलाई व्यक्तिगत एपमार्फत कार्यालयका फाइलहरू प्रयोग गर्ने अनुमति दिनुभएको छैन"</string>
     <string name="cant_select_personal_files_error_title" msgid="3200697170148617742">"व्यक्तिगत फाइलहरू चयन गर्न सकिएन"</string>
-    <string name="cant_select_personal_files_error_message" msgid="4105905035459118209">"तपाईंका IT एडमिनले तपाईंलाई कामसम्बन्धी अनुप्रयोगमार्फत व्यक्तिगत फाइलहरू प्रयोग गर्ने अनुमति दिनुभएको छैन"</string>
+    <string name="cant_select_personal_files_error_message" msgid="4105905035459118209">"तपाईंका IT एडमिनले तपाईंलाई कामसम्बन्धी एपमार्फत व्यक्तिगत फाइलहरू प्रयोग गर्ने अनुमति दिनुभएको छैन"</string>
     <string name="cant_save_to_work_error_title" msgid="1351323070040641358">"कार्यलयको प्रोफाइलमा सुरक्षित गर्न सकिएन"</string>
     <string name="cant_save_to_work_error_message" msgid="4975583233814059890">"तपाईंका IT एडमिनले तपाईंलाई आफ्नो कार्यलयको प्रोफाइलमा रहेका एपहरूमा व्यक्तिगत फाइलहरू सुरक्षित गर्ने अनुमति दिनुभएको छैन"</string>
     <string name="cant_save_to_personal_error_title" msgid="858327493694069780">"व्यक्तिगत प्रोफाइलमा सुरक्षित गर्न सकिएन"</string>
     <string name="cant_save_to_personal_error_message" msgid="6991758723736381751">"तपाईंका IT एडमिनले तपाईंलाई आफ्नो व्यक्तिगत प्रोफाइलमा रहेका एपहरूमा कार्यालयका फाइलहरू सुरक्षित गर्ने अनुमति दिनुभएको छैन"</string>
     <string name="cross_profile_action_not_allowed_title" msgid="6611281348716476478">"यो कार्य गर्ने अनुमति छैन"</string>
-    <string name="cross_profile_action_not_allowed_message" msgid="7331275433061690947">"थप जानकारी प्राप्त गर्न आफ्ना IT प्रशासकसँग सम्पर्क गर्नुहोस्"</string>
+    <string name="cross_profile_action_not_allowed_message" msgid="7331275433061690947">"थप जानकारी प्राप्त गर्न आफ्ना IT एड्मिनलाई सम्पर्क गर्नुहोस्"</string>
     <string name="root_recent" msgid="1080156975424341623">"हालको"</string>
     <string name="root_available_bytes" msgid="8269870862691408864">"<xliff:g id="SIZE">%1$s</xliff:g> खाली छ"</string>
     <string name="root_type_service" msgid="6521366147466512289">"भण्डारण सम्बन्धी सेवाहरू"</string>
@@ -152,8 +152,8 @@
     <string name="delete_preparing" msgid="7339349837842802508">"तयार पार्दै..."</string>
     <string name="delete_progress" msgid="2627631054702306423">"<xliff:g id="COUNT_0">%1$d</xliff:g> / <xliff:g id="TOTALCOUNT">%2$d</xliff:g>"</string>
     <plurals name="copy_error_notification_title" formatted="false" msgid="3188432450429390963">
-      <item quantity="other"><xliff:g id="COUNT_1">%1$d</xliff:g> वस्तुहरूलाई प्रतिलिपि गर्न सकिएन</item>
-      <item quantity="one"><xliff:g id="COUNT_0">%1$d</xliff:g> वस्तुलाई प्रतिलिपि गर्न सकिएन</item>
+      <item quantity="other"><xliff:g id="COUNT_1">%1$d</xliff:g> वस्तुहरूलाई कपी गर्न सकिएन</item>
+      <item quantity="one"><xliff:g id="COUNT_0">%1$d</xliff:g> वस्तुलाई कपी गर्न सकिएन</item>
     </plurals>
     <plurals name="compress_error_notification_title" formatted="false" msgid="3043630066678213644">
       <item quantity="other"><xliff:g id="COUNT_1">%1$d</xliff:g> वटा फाइल कम्प्रेस गर्न सकिएन</item>
@@ -194,8 +194,8 @@
       <item quantity="one">यो फाइललाई अर्को ढाँचामा रूपान्तरण गरिएको छ: <xliff:g id="LIST_0">%1$s</xliff:g></item>
     </plurals>
     <plurals name="clipboard_files_clipped" formatted="false" msgid="4847061634862926902">
-      <item quantity="other"><xliff:g id="COUNT_1">%1$d</xliff:g> वस्तुहरूलाई क्लिपबोर्डमा प्रतिलिपि गरियो।</item>
-      <item quantity="one"><xliff:g id="COUNT_0">%1$d</xliff:g> वस्तुलाई क्लिपबोर्डमा प्रतिलिपि गरियो।</item>
+      <item quantity="other"><xliff:g id="COUNT_1">%1$d</xliff:g> वटा फाइल क्लिपबोर्डमा कपी गरिए।</item>
+      <item quantity="one"><xliff:g id="COUNT_0">%1$d</xliff:g> फाइल क्लिपबोर्डमा कपी गरियो।</item>
     </plurals>
     <string name="file_operation_rejected" msgid="4301554203329008794">"फाइल सम्बन्धी कार्य समर्थित छैन।"</string>
     <string name="file_operation_error" msgid="2234357335716533795">"फाइल सम्बन्धी कार्य असफल भयो।"</string>

@@ -18,8 +18,17 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="app_title" msgid="1995858460392177468">"Car Launcher"</string>
+    <string name="reset_appgrid_title" msgid="814562055108028366">"ஆப்ஸ் கட்டக் காட்சியை A-Z வரிசைப்படி மீட்டமைத்தல்"</string>
+    <string name="reset_appgrid_dialogue_message" msgid="8275758912490987735">"இது அனைத்துப் பிரத்தியேக வரிசைகளையும் அகற்றும். தொடர விரும்புகிறீர்களா?"</string>
     <string name="app_launcher_title_all_apps" msgid="3215107396036838217">"அனைத்து ஆப்ஸும்"</string>
     <string name="app_launcher_title_media_only" msgid="4400886555907422816">"மீடியா ஆப்ஸ்"</string>
+    <string name="app_launcher_stop_app_action" msgid="1081680842410279692">"ஆப்ஸை நிறுத்து"</string>
+    <string name="app_launcher_app_info_action" msgid="6388181061002827660">"ஆப்ஸ் தகவல்கள்"</string>
+    <string name="app_launcher_stop_app_success_toast_text" msgid="2117271772351005349">"<xliff:g id="APP_NAME">%1$s</xliff:g> ஆப்ஸ் நிறுத்தப்பட்டது."</string>
+    <string name="app_launcher_stop_app_dialog_title" msgid="8276889322638001144">"ஆப்ஸை நிறுத்தவா?"</string>
+    <string name="app_launcher_stop_app_dialog_text" msgid="3264059639436254372">"ஆப்ஸை உடனே நிறுத்தினால் அது சரியாகச் செயல்படாமல் போகக்கூடும்."</string>
+    <string name="app_launcher_stop_app_cant_stop_text" msgid="4766841417948746773">"ஆப்ஸை நிறுத்த முடியாது."</string>
+    <string name="default_media_song_title" msgid="2970305231647817808"></string>
     <string name="driving_toast_text" msgid="149483091947120092">"காரை ஓட்டும்போது <xliff:g id="APP_NAME">%1$s</xliff:g> ஆப்ஸைப் பயன்படுத்த இயலாது."</string>
     <string name="tap_for_more_info_text" msgid="2043549383814415585">"மேலும் தகவல்களுக்கு கார்டைத் தட்டவும்"</string>
     <string name="tap_to_launch_text" msgid="6910695705119260847">"தொடங்குவதற்கு கார்டைத் தட்டவும்"</string>
@@ -34,4 +43,8 @@
     <string name="fake_weather_footer_text" msgid="4570172025869749926">"மவுண்டன் வியூ • H: --° L: --°"</string>
     <string name="hide_debug_apps" msgid="6128313544379622475">"பிழைதிருத்தும் ஆப்ஸை மறை"</string>
     <string name="show_debug_apps" msgid="4521073121286325786">"பிழைதிருத்தும் ஆப்ஸைக் காட்டு"</string>
+    <string name="times_separator" msgid="6180368193321715816">"/"</string>
+    <string name="recents_empty_state_text" msgid="6703106170272215731">"சமீபத்தியவை எதுவுமில்லை"</string>
+    <string name="recents_clear_all_text" msgid="2088678071417053923">"அனைத்தையும் அழி"</string>
+    <string name="failure_opening_recent_task_message" msgid="9097595793150874357">"ஆப்ஸ் கிடைக்கவில்லை"</string>
 </resources>

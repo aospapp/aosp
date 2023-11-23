@@ -35,6 +35,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.mockito.MockitoAnnotations.initMocks;
 
+import android.content.res.Resources;
 import android.net.wifi.ScanResult;
 import android.net.wifi.WifiConfiguration;
 import android.net.wifi.WifiEnterpriseConfig;
@@ -48,14 +49,17 @@ import android.util.Pair;
 
 import androidx.test.filters.SmallTest;
 
+import com.android.server.wifi.Clock;
 import com.android.server.wifi.NetworkUpdateResult;
 import com.android.server.wifi.ScanDetail;
+import com.android.server.wifi.WifiBaseTest;
 import com.android.server.wifi.WifiCarrierInfoManager;
 import com.android.server.wifi.WifiConfigManager;
 import com.android.server.wifi.WifiConfigurationTestUtil;
 import com.android.server.wifi.hotspot2.anqp.ANQPElement;
 import com.android.server.wifi.hotspot2.anqp.Constants.ANQPElementType;
 import com.android.server.wifi.hotspot2.anqp.HSWanMetricsElement;
+import com.android.wifi.resources.R;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -74,7 +78,7 @@ import java.util.Map;
  * Unit tests for {@link PasspointNetworkNominateHelper}.
  */
 @SmallTest
-public class PasspointNetworkNominateHelperTest {
+public class PasspointNetworkNominateHelperTest extends WifiBaseTest {
     // TODO(b/140763176): should extend WifiBaseTest, but if it does then it fails with NPE
     private static final int TEST_NETWORK_ID = 1;
     private static final int TEST_NETWORK_ID2 = 2;
@@ -90,12 +94,15 @@ public class PasspointNetworkNominateHelperTest {
     private static final WifiConfiguration TEST_CONFIG2 = generateWifiConfig(TEST_FQDN2);
     private static PasspointProvider sTestProvider1;
     private static PasspointProvider sTestProvider2;
+    private static final long TEST_START_TIME_MS = 0;
 
     @Mock PasspointManager mPasspointManager;
     @Mock WifiConfigManager mWifiConfigManager;
     @Mock SubscriptionManager mSubscriptionManager;
     @Mock LocalLog mLocalLog;
     @Mock WifiCarrierInfoManager mWifiCarrierInfoManager;
+    @Mock Resources mResources;
+    @Mock Clock mClock;
     PasspointNetworkNominateHelper mNominateHelper;
 
     /**
@@ -138,7 +145,7 @@ public class PasspointNetworkNominateHelperTest {
      * @param bssid The BSSID associated with the scan
      * @return {@link ScanDetail}
      */
-    private static ScanDetail generateScanDetail(String ssid, String bssid) {
+    private ScanDetail generateScanDetail(String ssid, String bssid) {
         NetworkDetail networkDetail = mock(NetworkDetail.class);
         when(networkDetail.isInterworking()).thenReturn(true);
         when(networkDetail.getHSRelease()).thenReturn(NetworkDetail.HSRelease.R1);
@@ -153,7 +160,15 @@ public class PasspointNetworkNominateHelperTest {
         when(scanDetail.getBSSIDString()).thenReturn(bssid);
         when(scanDetail.getScanResult()).thenReturn(scanResult);
         when(scanDetail.getNetworkDetail()).thenReturn(networkDetail);
+        long currentTime = mClock.getWallClockMillis();
+        when(scanDetail.getSeen()).thenReturn(currentTime);
+        when(scanDetail.toKeyString()).thenReturn(bssid);
         return scanDetail;
+    }
+
+    private void advanceClockMs(long millis) {
+        long currentTimeMs = mClock.getWallClockMillis();
+        when(mClock.getWallClockMillis()).thenReturn(currentTimeMs + millis);
     }
 
     /**
@@ -164,11 +179,15 @@ public class PasspointNetworkNominateHelperTest {
         initMocks(this);
         sTestProvider1 = generateProvider(TEST_CONFIG1);
         sTestProvider2 = generateProvider(TEST_CONFIG2);
+        when(mResources.getStringArray(
+                R.array.config_wifiPasspointUseApWanLinkStatusAnqpElementFqdnAllowlist))
+                .thenReturn(new String[0]);
 
         mNominateHelper = new PasspointNetworkNominateHelper(mPasspointManager, mWifiConfigManager,
-                mLocalLog, mWifiCarrierInfoManager);
+                mLocalLog, mWifiCarrierInfoManager, mResources, mClock);
         // Always assume Passpoint is enabled as we don't disable it in the test.
         when(mPasspointManager.isWifiPasspointEnabled()).thenReturn(true);
+        when(mClock.getWallClockMillis()).thenReturn(TEST_START_TIME_MS);
     }
 
     /**
@@ -251,6 +270,12 @@ public class PasspointNetworkNominateHelperTest {
                 eq(TEST_NETWORK_ID), any(ScanResult.class), anyInt(), any());
         verify(mWifiConfigManager).updateScanDetailForNetwork(
                 eq(TEST_NETWORK_ID), any(ScanDetail.class));
+
+        // When Scan results time out, should be not candidate return.
+        when(mPasspointManager.matchProvider(any(ScanResult.class))).thenReturn(homeProvider);
+        candidates = mNominateHelper
+                .getPasspointNetworkCandidates(Collections.emptyList(), false);
+        assertTrue(candidates.isEmpty());
     }
 
     /**
@@ -399,7 +424,7 @@ public class PasspointNetworkNominateHelperTest {
         when(mPasspointManager.matchProvider(any(ScanResult.class))).thenReturn(homeProvider);
         when(testProvider.isSimCredential()).thenReturn(true);
         // SIM is present
-        when(mSubscriptionManager.getActiveSubscriptionInfoList())
+        when(mSubscriptionManager.getCompleteActiveSubscriptionInfoList())
                 .thenReturn(Arrays.asList(mock(SubscriptionInfo.class)));
         when(mWifiConfigManager.addOrUpdateNetwork(any(WifiConfiguration.class), anyInt(),
                 any(), eq(false))).thenReturn(new NetworkUpdateResult(TEST_NETWORK_ID));
@@ -517,32 +542,107 @@ public class PasspointNetworkNominateHelperTest {
 
     /**
      * Verify that when the WAN metrics status is 'LINK_STATUS_DOWN', it will not return as
-     * candidate.
-     * @throws Exception
+     * candidate when use wan link status.
      */
     @Test
-    public void evaluateScansWithNetworkMatchingHomeProviderWithAnqpLinkDown() throws Exception {
-        List<ScanDetail> scanDetails = Arrays.asList(generateScanDetail(TEST_SSID1, TEST_BSSID1));
+    public void evaluateScansWithNetworkMatchingHomeProviderUseAnqpLinkDown() throws Exception {
+        when(mResources.getBoolean(R.bool.config_wifiPasspointUseApWanLinkStatusAnqpElement))
+                .thenReturn(true);
+        List<ScanDetail> scanDetails = Arrays.asList(generateScanDetail(TEST_SSID1, TEST_BSSID1),
+                generateScanDetail(TEST_SSID2, TEST_BSSID2));
         // Setup matching providers for ScanDetail with TEST_SSID1.
         List<Pair<PasspointProvider, PasspointMatch>> homeProvider = new ArrayList<>();
         homeProvider.add(Pair.create(sTestProvider1, PasspointMatch.HomeProvider));
 
         when(mPasspointManager.matchProvider(any(ScanResult.class))).thenReturn(homeProvider);
         when(mWifiConfigManager.addOrUpdateNetwork(any(WifiConfiguration.class), anyInt(),
-                any(), eq(false))).thenReturn(new NetworkUpdateResult(TEST_NETWORK_ID));
-        when(mWifiConfigManager.getConfiguredNetwork(TEST_NETWORK_ID)).thenReturn(TEST_CONFIG1);
+                any(), eq(false))).thenReturn(new NetworkUpdateResult(TEST_NETWORK_ID))
+                .thenReturn(new NetworkUpdateResult(TEST_NETWORK_ID + 1));
+        when(mWifiConfigManager.getConfiguredNetwork(anyInt())).thenReturn(TEST_CONFIG1);
         // Setup WAN metrics status is 'LINK_STATUS_DOWN'
         HSWanMetricsElement wm = mock(HSWanMetricsElement.class);
         Map<ANQPElementType, ANQPElement> anqpElements = new HashMap<>();
         anqpElements.put(ANQPElementType.HSWANMetrics, wm);
-        when(mPasspointManager.getANQPElements(any(ScanResult.class)))
+        when(mPasspointManager.getANQPElements(scanDetails.get(0).getScanResult()))
                 .thenReturn(anqpElements);
         when(wm.getStatus()).thenReturn(HSWanMetricsElement.LINK_STATUS_DOWN);
         when(wm.isElementInitialized()).thenReturn(true);
 
         List<Pair<ScanDetail, WifiConfiguration>> candidates = mNominateHelper
                 .getPasspointNetworkCandidates(scanDetails, false);
-        assertEquals(0, candidates.size());
+        assertEquals(1, candidates.size());
+    }
+
+    /**
+     * Verify that when the WAN metrics status is 'LINK_STATUS_DOWN', it will return as
+     * candidate when not use wan link status.
+     */
+
+    @Test
+    public void evaluateScansWithNetworkMatchingHomeProviderNotUseAnqpLinkDown() throws Exception {
+        when(mResources.getBoolean(R.bool.config_wifiPasspointUseApWanLinkStatusAnqpElement))
+                .thenReturn(false);
+        List<ScanDetail> scanDetails = Arrays.asList(generateScanDetail(TEST_SSID1, TEST_BSSID1),
+                generateScanDetail(TEST_SSID2, TEST_BSSID2));
+        // Setup matching providers for ScanDetail with TEST_SSID1.
+        List<Pair<PasspointProvider, PasspointMatch>> homeProvider = new ArrayList<>();
+        homeProvider.add(Pair.create(sTestProvider1, PasspointMatch.HomeProvider));
+
+        when(mPasspointManager.matchProvider(any(ScanResult.class))).thenReturn(homeProvider);
+        when(mWifiConfigManager.addOrUpdateNetwork(any(WifiConfiguration.class), anyInt(),
+                any(), eq(false))).thenReturn(new NetworkUpdateResult(TEST_NETWORK_ID))
+                .thenReturn(new NetworkUpdateResult(TEST_NETWORK_ID + 1));
+        when(mWifiConfigManager.getConfiguredNetwork(anyInt())).thenReturn(TEST_CONFIG1);
+        // Setup WAN metrics status is 'LINK_STATUS_DOWN'
+        HSWanMetricsElement wm = mock(HSWanMetricsElement.class);
+        Map<ANQPElementType, ANQPElement> anqpElements = new HashMap<>();
+        anqpElements.put(ANQPElementType.HSWANMetrics, wm);
+        when(mPasspointManager.getANQPElements(scanDetails.get(0).getScanResult()))
+                .thenReturn(anqpElements);
+        when(wm.getStatus()).thenReturn(HSWanMetricsElement.LINK_STATUS_DOWN);
+        when(wm.isElementInitialized()).thenReturn(true);
+
+        List<Pair<ScanDetail, WifiConfiguration>> candidates = mNominateHelper
+                .getPasspointNetworkCandidates(scanDetails, false);
+        assertEquals(2, candidates.size());
+    }
+
+    /**
+     * Verify that when the WAN metrics status is 'LINK_STATUS_DOWN', it will not return as
+     * candidate when not use wan link status but FQDN in the allow list
+     */
+
+    @Test
+    public void evaluateScansWithNetworkMatchingHomeProviderNotUseAnqpLinkDownInFqdnList()
+            throws Exception {
+        when(mResources.getBoolean(R.bool.config_wifiPasspointUseApWanLinkStatusAnqpElement))
+                .thenReturn(false);
+        when(mResources.getStringArray(
+                R.array.config_wifiPasspointUseApWanLinkStatusAnqpElementFqdnAllowlist))
+                .thenReturn(new String[]{TEST_FQDN1});
+        List<ScanDetail> scanDetails = Arrays.asList(generateScanDetail(TEST_SSID1, TEST_BSSID1),
+                generateScanDetail(TEST_SSID2, TEST_BSSID2));
+        // Setup matching providers for ScanDetail with TEST_SSID1.
+        List<Pair<PasspointProvider, PasspointMatch>> homeProvider = new ArrayList<>();
+        homeProvider.add(Pair.create(sTestProvider1, PasspointMatch.HomeProvider));
+
+        when(mPasspointManager.matchProvider(any(ScanResult.class))).thenReturn(homeProvider);
+        when(mWifiConfigManager.addOrUpdateNetwork(any(WifiConfiguration.class), anyInt(),
+                any(), eq(false))).thenReturn(new NetworkUpdateResult(TEST_NETWORK_ID))
+                .thenReturn(new NetworkUpdateResult(TEST_NETWORK_ID + 1));
+        when(mWifiConfigManager.getConfiguredNetwork(anyInt())).thenReturn(TEST_CONFIG1);
+        // Setup WAN metrics status is 'LINK_STATUS_DOWN'
+        HSWanMetricsElement wm = mock(HSWanMetricsElement.class);
+        Map<ANQPElementType, ANQPElement> anqpElements = new HashMap<>();
+        anqpElements.put(ANQPElementType.HSWANMetrics, wm);
+        when(mPasspointManager.getANQPElements(scanDetails.get(0).getScanResult()))
+                .thenReturn(anqpElements);
+        when(wm.getStatus()).thenReturn(HSWanMetricsElement.LINK_STATUS_DOWN);
+        when(wm.isElementInitialized()).thenReturn(true);
+
+        List<Pair<ScanDetail, WifiConfiguration>> candidates = mNominateHelper
+                .getPasspointNetworkCandidates(scanDetails, false);
+        assertEquals(1, candidates.size());
     }
 
     /**
@@ -737,7 +837,7 @@ public class PasspointNetworkNominateHelperTest {
     }
 
     @Test
-    public void testRefreshPasspointNetworkCandidatesUsesLastSeenScans() {
+    public void testRefreshPasspointNetworkCandidatesUsesCachedScans() {
         List<ScanDetail> scanDetails = Arrays.asList(generateScanDetail(TEST_SSID1, TEST_BSSID1));
 
         // Setup matching providers for ScanDetail with TEST_SSID1.
@@ -747,6 +847,7 @@ public class PasspointNetworkNominateHelperTest {
         // No profiles have been added, so expect the first candidate matching to return nothing.
         assertEquals(mNominateHelper.getPasspointNetworkCandidates(
                 scanDetails, false).size(), 0);
+        verify(mPasspointManager, times(1)).matchProvider(any());
 
         // Add a homeProvider for the scan detail passed in earlier
         when(mPasspointManager.matchProvider(any(ScanResult.class))).thenReturn(homeProvider);
@@ -754,8 +855,9 @@ public class PasspointNetworkNominateHelperTest {
                 any(), eq(false))).thenReturn(new NetworkUpdateResult(TEST_NETWORK_ID));
         when(mWifiConfigManager.getConfiguredNetwork(TEST_NETWORK_ID)).thenReturn(TEST_CONFIG1);
 
-        // Refreshing the network candidates with the old scans should now result in a match
-        mNominateHelper.updateBestMatchScanDetailForProviders();
+        // Refreshing the network candidates with the cached scans should now result in a match
+        mNominateHelper.refreshWifiConfigsForProviders();
+        verify(mPasspointManager, times(2)).matchProvider(any());
         // Verify the content of the WifiConfiguration that was added to WifiConfigManager.
         ArgumentCaptor<WifiConfiguration> addedConfig =
                 ArgumentCaptor.forClass(WifiConfiguration.class);
@@ -772,6 +874,13 @@ public class PasspointNetworkNominateHelperTest {
                 eq(TEST_NETWORK_ID), any(ScanResult.class), anyInt(), any());
         verify(mWifiConfigManager).updateScanDetailForNetwork(
                 eq(TEST_NETWORK_ID), any(ScanDetail.class));
+
+        // Timeout the scan detail and verify we don't try to match the scan detail again.
+        advanceClockMs(PasspointNetworkNominateHelper.SCAN_DETAIL_EXPIRATION_MS);
+        mNominateHelper.refreshWifiConfigsForProviders();
+        verify(mPasspointManager, times(2)).matchProvider(any());
+        verify(mWifiConfigManager, times(1)).addOrUpdateNetwork(any(), anyInt(),
+                any(), eq(false));
     }
 
     /**
@@ -788,7 +897,7 @@ public class PasspointNetworkNominateHelperTest {
         when(mPasspointManager.matchProvider(any(ScanResult.class))).thenReturn(homeProvider);
         when(mWifiConfigManager.addOrUpdateNetwork(any(WifiConfiguration.class), anyInt(),
                 any(), eq(false))).thenReturn(new NetworkUpdateResult(TEST_NETWORK_ID));
-        when(mWifiConfigManager.getConfiguredNetwork(TEST_NETWORK_ID)).thenReturn(TEST_CONFIG1);
+        when(mWifiConfigManager.getConfiguredNetwork(anyInt())).thenReturn(TEST_CONFIG1);
         // Setup WAN metrics status is 'LINK_STATUS_DOWN'
         HSWanMetricsElement wm = mock(HSWanMetricsElement.class);
         Map<ANQPElementType, ANQPElement> anqpElements = new HashMap<>();

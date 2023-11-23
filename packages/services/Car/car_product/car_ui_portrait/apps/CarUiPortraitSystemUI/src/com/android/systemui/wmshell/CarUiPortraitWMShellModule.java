@@ -16,16 +16,49 @@
 
 package com.android.systemui.wmshell;
 
+import android.content.Context;
+import android.os.Handler;
+import android.view.IWindowManager;
+
+import com.android.systemui.dagger.qualifiers.Main;
+import com.android.systemui.wm.CarUiPortraitDisplaySystemBarsController;
+import com.android.systemui.wm.DisplaySystemBarsController;
+import com.android.systemui.wm.MDSystemBarsController;
+import com.android.wm.shell.common.DisplayController;
+import com.android.wm.shell.common.DisplayInsetsController;
 import com.android.wm.shell.dagger.WMShellBaseModule;
+import com.android.wm.shell.dagger.WMSingleton;
 import com.android.wm.shell.pip.Pip;
 
 import dagger.BindsOptionalOf;
 import dagger.Module;
+import dagger.Provides;
 
 /** Provides dependencies from {@link com.android.wm.shell} for CarSystemUI. */
 @Module(includes = WMShellBaseModule.class)
 public abstract class CarUiPortraitWMShellModule {
 
+    @WMSingleton
+    @Provides
+    static DisplaySystemBarsController bindDisplaySystemBarsController(
+            CarUiPortraitDisplaySystemBarsController controller) {
+        return controller;
+    }
+
+    @WMSingleton
+    @Provides
+    static CarUiPortraitDisplaySystemBarsController bindCarUiPortraitDisplaySystemBarsController(
+            Context context, IWindowManager wmService, DisplayController displayController,
+            DisplayInsetsController displayInsetsController,
+            @Main Handler mainHandler) {
+        return new CarUiPortraitDisplaySystemBarsController(context, wmService, displayController,
+                displayInsetsController, mainHandler);
+    }
+
     @BindsOptionalOf
     abstract Pip optionalPip();
+
+    @BindsOptionalOf
+    abstract  MDSystemBarsController optionalMDSystemBarsController();
+
 }

@@ -6,14 +6,15 @@ rust_defaults {
     name: "apkdmverity.defaults",
     crate_name: "apkdmverity",
     srcs: ["src/main.rs"],
-    edition: "2018",
+    edition: "2021",
     prefer_rlib: true,
     rustlibs: [
         "libanyhow",
+        "libapkverify",
         "libbitflags",
         "libclap",
         "libdata_model",
-        "libidsig",
+        "libdm_rust",
         "libitertools",
         "liblibc",
         "libnix",
@@ -42,5 +43,9 @@ rust_test {
     compile_multilib: "first",
     rustlibs: [
         "libtempfile",
+    ],
+    data: [
+        "testdata/*.apk",
+        "testdata/*.idsig",
     ],
 }

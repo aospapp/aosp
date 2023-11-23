@@ -173,7 +173,11 @@ public class ConnectivityPublisher extends AbstractPublisher {
         }
         try {
             for (QueryParam param : mSubscribers.keySet()) {
-                mTransportPreviousNetstats.put(param, getSummaryForAllUid(param));
+                RefinedStats summary = getSummaryForAllUid(param);
+                if (summary == null) {
+                    continue;
+                }
+                mTransportPreviousNetstats.put(param, summary);
             }
         } catch (RemoteException e) {
             // Can't do much if the NetworkStatsService is not available. Next netstats pull
@@ -204,7 +208,7 @@ public class ConnectivityPublisher extends AbstractPublisher {
                 continue;
             }
             PersistableBundle data = previousSessionData.getPersistableBundle(key);
-            if (!data.containsKey(SessionAnnotation.ANNOTATION_BUNDLE_KEY_SESSION_ID)) {
+            if (!data.containsKey(Constants.ANNOTATION_BUNDLE_KEY_SESSION_ID)) {
                 Slogf.e(CarLog.TAG_TELEMETRY,
                         "Session annotations is unexpectedly missing. Skipping this batch.");
                 continue;
@@ -233,13 +237,17 @@ public class ConnectivityPublisher extends AbstractPublisher {
         RefinedStats current;
         try {
             current = getSummaryForAllUid(param);
-        } catch (RemoteException | NullPointerException e) {
+        } catch (RemoteException e) {
             // If the NetworkStatsService is not available, it retries in the next pull.
             Slogf.w(CarLog.TAG_TELEMETRY, e);
             mTraceLog.traceEnd();
             return null;
         }
 
+        if (current == null) {
+            mTraceLog.traceEnd();
+            return null;
+        }
 
         // By subtracting, it calculates network usage since the last pull.
         RefinedStats diff = RefinedStats.subtract(current, previous);
@@ -260,7 +268,7 @@ public class ConnectivityPublisher extends AbstractPublisher {
      *
      * <p>TODO(b/218529196): run this method on a separate thread for better performance.
      */
-    @NonNull
+    @Nullable
     private RefinedStats getSummaryForAllUid(@NonNull QueryParam param) throws RemoteException {
         if (DEBUG) {
             Slogf.d(CarLog.TAG_TELEMETRY, "getSummaryForAllUid " + param);
@@ -273,26 +281,27 @@ public class ConnectivityPublisher extends AbstractPublisher {
                 - elapsedMillisSinceBoot
                 - NETSTATS_UID_DEFAULT_BUCKET_DURATION_MILLIS;
 
-        NetworkStatsWrapper nonTaggedStats =
-                mNetworkStatsManager.querySummary(
-                        param.buildNetworkTemplate(), startMillis, currentTimeInMillis);
-        NetworkStatsWrapper taggedStats =
-                mNetworkStatsManager.queryTaggedSummary(
-                        param.buildNetworkTemplate(), startMillis, currentTimeInMillis);
+        NetworkStatsWrapper nonTaggedStats;
+        NetworkStatsWrapper taggedStats;
+        // querySummary and queryTaggedSummary may throw NPE propagated from NetworkStatsService
+        // when its NetworkStatsRecorder failed to initialize and
+        // NetworkStatsRecorder.getOrLoadCompleteLocked() is called.
+        try {
+            nonTaggedStats =
+                    mNetworkStatsManager.querySummary(
+                            param.buildNetworkTemplate(), startMillis, currentTimeInMillis);
+            taggedStats =
+                    mNetworkStatsManager.queryTaggedSummary(
+                            param.buildNetworkTemplate(), startMillis, currentTimeInMillis);
+        } catch (NullPointerException e) {
+            Slogf.w(CarLog.TAG_TELEMETRY, e);
+            return null;
+        }
 
         RefinedStats result = new RefinedStats(startMillis, currentTimeInMillis);
         result.addNetworkStats(nonTaggedStats);
         result.addNetworkStats(taggedStats);
         return result;
-    }
-
-    private boolean isSubscribersEmpty() {
-        for (int i = 0; i < mSubscribers.size(); i++) {
-            if (!mSubscribers.valueAt(i).isEmpty()) {
-                return false;
-            }
-        }
-        return true;
     }
 
     /**

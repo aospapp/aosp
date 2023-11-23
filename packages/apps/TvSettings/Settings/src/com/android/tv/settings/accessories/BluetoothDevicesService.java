@@ -126,9 +126,8 @@ public class BluetoothDevicesService extends Service {
             } else if (BluetoothAdapter.ACTION_STATE_CHANGED.equals(action)) {
                 final int state =
                         intent.getIntExtra(BluetoothAdapter.EXTRA_STATE, BluetoothAdapter.ERROR);
-                // Actively refresh the connected devices slice. This is most useful when the
-                // bluetooth toggle is toggled back on.
-                if (state == BluetoothAdapter.STATE_ON) {
+                // Actively refresh the connected devices slice.
+                if (state == BluetoothAdapter.STATE_ON || state == BluetoothAdapter.STATE_OFF) {
                     getContentResolver().notifyChange(GENERAL_SLICE_URI, null);
                 }
             } else {

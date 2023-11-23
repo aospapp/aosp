@@ -20,10 +20,12 @@ import static com.android.server.wifi.WifiNetworkSelector.NetworkNominator.NOMIN
 
 import android.annotation.NonNull;
 import android.net.wifi.ScanResult;
+import android.net.wifi.WifiContext;
 import android.util.Log;
 
 import com.android.server.wifi.WifiCandidates.Candidate;
 import com.android.server.wifi.WifiCandidates.ScoredCandidate;
+import com.android.wifi.resources.R;
 
 import java.util.Collection;
 
@@ -32,7 +34,8 @@ import java.util.Collection;
  */
 final class ThroughputScorer implements WifiCandidates.CandidateScorer {
     private static final String TAG = "ThroughputScorer";
-    private static final boolean DBG = false;
+    private boolean mVerboseLoggingEnabled = false;
+
     /**
      * This should match WifiNetworkSelector.experimentIdFromIdentifier(getIdentifier())
      * when using the default ScoringParams.
@@ -45,6 +48,7 @@ final class ThroughputScorer implements WifiCandidates.CandidateScorer {
      */
     public static final int TOP_TIER_BASE_SCORE = 1_000_000;
 
+    private final WifiContext mWifiContext;
     private final ScoringParams mScoringParams;
 
     // config_wifi_framework_RSSI_SCORE_OFFSET
@@ -71,7 +75,8 @@ final class ThroughputScorer implements WifiCandidates.CandidateScorer {
 
     private static final boolean USE_USER_CONNECT_CHOICE = true;
 
-    ThroughputScorer(ScoringParams scoringParams) {
+    ThroughputScorer(WifiContext wifiContext, ScoringParams scoringParams) {
+        mWifiContext = wifiContext;
         mScoringParams = scoringParams;
     }
 
@@ -81,12 +86,20 @@ final class ThroughputScorer implements WifiCandidates.CandidateScorer {
     }
 
     /**
+     * Enable (or disable) verbose logging for ThroughputScorer
+     */
+    public void enableVerboseLogging(boolean verboseEnabled) {
+        mVerboseLoggingEnabled = verboseEnabled;
+    }
+
+    /**
      * Calculates an individual candidate's score.
      */
     private ScoredCandidate scoreCandidate(Candidate candidate, boolean currentNetworkHasInternet) {
         int rssiBaseScore = calculateRssiScore(candidate);
         int throughputBonusScore = calculateThroughputBonusScore(candidate);
         int rssiAndThroughputScore = rssiBaseScore + throughputBonusScore;
+        int frequencyScore = mScoringParams.getFrequencyScore(candidate.getFrequency());
 
         boolean unExpectedNoInternet = candidate.hasNoInternetAccess()
                 && !candidate.isNoInternetAccessExpected();
@@ -97,6 +110,10 @@ final class ThroughputScorer implements WifiCandidates.CandidateScorer {
                 ? mScoringParams.getBand6GhzBonus() : 0;
         int currentNetworkBoost = (candidate.isCurrentNetwork() && !unExpectedNoInternet)
                 ? currentNetworkBonus : 0;
+        int rssiBoost = (candidate.isCurrentNetwork() && unExpectedNoInternet)
+                ? 0 : rssiBaseScore;
+        int throughputBoost = (candidate.isCurrentNetwork() && unExpectedNoInternet)
+                ? 0 : throughputBonusScore;
 
         int securityAward = candidate.isOpenNetwork()
                 ? 0
@@ -149,8 +166,8 @@ final class ThroughputScorer implements WifiCandidates.CandidateScorer {
                 + notOemPaidAward + notOemPrivateAward + securityAward;
         // Within the same scoring bucket, ties are broken by the following bonus scores. The sum
         // of these scores should be capped to the buket step size to prevent overlapping bucket.
-        int scoreWithinBucket = rssiBaseScore + throughputBonusScore + currentNetworkBoost
-                + bandSpecificBonus;
+        int scoreWithinBucket = rssiBoost + throughputBoost + currentNetworkBoost
+                + bandSpecificBonus + frequencyScore;
         int score = scoreToDetermineBucket
                 + Math.min(mScoringParams.getScoringBucketStepSize(), scoreWithinBucket);
 
@@ -159,14 +176,18 @@ final class ThroughputScorer implements WifiCandidates.CandidateScorer {
             score = 0;
         }
 
-        if (candidate.getLastSelectionWeight() > 0.0) {
+        if (candidate.getLastSelectionWeight() > 0.0 && (mWifiContext.getResources().getBoolean(
+                R.bool.config_wifiThroughputScorerBoostForRecentlyUserSelectedNetwork)
+                        || !candidate.isUserSelected())) {
             // Put a recently-selected network in a tier above everything else,
             // but include rssi and throughput contributions for BSSID selection.
             score = TOP_TIER_BASE_SCORE + rssiBaseScore + throughputBonusScore;
         }
 
-        if (DBG) {
-            Log.d(TAG, " rssiScore: " + rssiBaseScore
+        if (mVerboseLoggingEnabled) {
+            Log.d(TAG, "Score for candidate: SSID: " + candidate.getKey().matchInfo.networkSsid
+                    + " BSSID: " + candidate.getKey().bssid
+                    + " rssiScore: " + rssiBaseScore
                     + " throughputScore: " + throughputBonusScore
                     + " currentNetworkBoost: " + currentNetworkBoost
                     + " securityAward: " + securityAward
@@ -175,6 +196,7 @@ final class ThroughputScorer implements WifiCandidates.CandidateScorer {
                     + " trustedAward: " + trustedAward
                     + " notOemPaidAward: " + notOemPaidAward
                     + " notOemPrivateAward: " + notOemPrivateAward
+                    + " frequencyScore: " + frequencyScore
                     + " final score: " + score);
         }
 
@@ -213,7 +235,11 @@ final class ThroughputScorer implements WifiCandidates.CandidateScorer {
     }
 
     private int calculateThroughputBonusScore(Candidate candidate) {
-        int throughput = candidate.getPredictedThroughputMbps();
+        int throughput =
+                candidate.isMultiLinkCapable() && (candidate.getPredictedMultiLinkThroughputMbps()
+                        > candidate.getPredictedThroughputMbps())
+                        ? candidate.getPredictedMultiLinkThroughputMbps()
+                        : candidate.getPredictedThroughputMbps();
         int throughputUpTo800Mbps = Math.min(800, throughput);
         int throughputMoreThan800Mbps = Math.max(0, throughput - 800);
 

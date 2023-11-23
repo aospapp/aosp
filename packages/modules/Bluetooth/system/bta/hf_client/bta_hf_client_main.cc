@@ -437,8 +437,11 @@ tBTA_STATUS bta_hf_client_api_enable(tBTA_HF_CLIENT_CBACK* p_cback,
   bta_sys_collision_register(BTA_ID_HS, bta_hf_client_collision_cback);
 
   /* Set the Audio service class bit */
-  tBTA_UTL_COD cod;
-  cod.service = BTM_COD_SERVICE_AUDIO;
+  tBTA_UTL_COD cod = {
+    .minor = BTM_COD_MINOR_UNCLASSIFIED,
+    .major = BTM_COD_MAJOR_UNCLASSIFIED,
+    .service = BTM_COD_SERVICE_AUDIO,
+  };
   utl_set_device_class(&cod, BTA_UTL_SET_COD_SERVICE_CLASS);
 
   /* start RFCOMM server */

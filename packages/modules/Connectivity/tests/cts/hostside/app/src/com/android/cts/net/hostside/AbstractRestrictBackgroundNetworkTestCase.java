@@ -54,6 +54,7 @@ import android.net.NetworkRequest;
 import android.os.BatteryManager;
 import android.os.Binder;
 import android.os.Bundle;
+import android.os.PowerManager;
 import android.os.RemoteCallback;
 import android.os.SystemClock;
 import android.provider.DeviceConfig;
@@ -61,6 +62,7 @@ import android.service.notification.NotificationListenerService;
 import android.util.Log;
 import android.util.Pair;
 
+import com.android.compatibility.common.util.AmUtils;
 import com.android.compatibility.common.util.BatteryUtils;
 import com.android.compatibility.common.util.DeviceConfigStateHelper;
 
@@ -163,6 +165,8 @@ public abstract class AbstractRestrictBackgroundNetworkTestCase {
     private int mMyUid;
     private MyServiceClient mServiceClient;
     private DeviceConfigStateHelper mDeviceIdleDeviceConfigStateHelper;
+    private PowerManager mPowerManager;
+    private PowerManager.WakeLock mLock;
 
     @Rule
     public final RuleChain mRuleChain = RuleChain.outerRule(new RequiredPropertiesRule())
@@ -181,8 +185,10 @@ public abstract class AbstractRestrictBackgroundNetworkTestCase {
         mMyUid = getUid(mContext.getPackageName());
         mServiceClient = new MyServiceClient(mContext);
         mServiceClient.bind();
+        mPowerManager = mContext.getSystemService(PowerManager.class);
         executeShellCommand("cmd netpolicy start-watching " + mUid);
         setAppIdle(false);
+        mLock = mPowerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, TAG);
 
         Log.i(TAG, "Apps status:\n"
                 + "\ttest app: uid=" + mMyUid + ", state=" + getProcessStateByUid(mMyUid) + "\n"
@@ -192,6 +198,7 @@ public abstract class AbstractRestrictBackgroundNetworkTestCase {
     protected void tearDown() throws Exception {
         executeShellCommand("cmd netpolicy stop-watching");
         mServiceClient.unbind();
+        if (mLock.isHeld()) mLock.release();
     }
 
     protected int getUid(String packageName) throws Exception {
@@ -695,11 +702,13 @@ public abstract class AbstractRestrictBackgroundNetworkTestCase {
     }
 
     protected void turnScreenOff() throws Exception {
+        if (!mLock.isHeld()) mLock.acquire();
         executeSilentShellCommand("input keyevent KEYCODE_SLEEP");
     }
 
     protected void turnScreenOn() throws Exception {
         executeSilentShellCommand("input keyevent KEYCODE_WAKEUP");
+        if (mLock.isHeld()) mLock.release();
         executeSilentShellCommand("wm dismiss-keyguard");
     }
 
@@ -710,10 +719,12 @@ public abstract class AbstractRestrictBackgroundNetworkTestCase {
         Log.i(TAG, "Setting Battery Saver Mode to " + enabled);
         if (enabled) {
             turnBatteryOn();
+            AmUtils.waitForBroadcastBarrier();
             executeSilentShellCommand("cmd power set-mode 1");
         } else {
             executeSilentShellCommand("cmd power set-mode 0");
             turnBatteryOff();
+            AmUtils.waitForBroadcastBarrier();
         }
     }
 

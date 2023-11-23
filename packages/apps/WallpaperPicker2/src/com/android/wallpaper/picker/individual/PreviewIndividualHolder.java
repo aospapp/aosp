@@ -42,7 +42,7 @@ class PreviewIndividualHolder extends IndividualHolder implements View.OnClickLi
 
     public PreviewIndividualHolder(
             Activity hostActivity, int tileHeightPx, View itemView) {
-        super(hostActivity, tileHeightPx, itemView);
+        super(hostActivity, tileHeightPx, tileHeightPx, itemView);
         mTileLayout.setOnClickListener(this);
 
         mWallpaperPersister = InjectorProvider.getInjector().getWallpaperPersister(hostActivity);

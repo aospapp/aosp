@@ -30,7 +30,7 @@
     <string name="notification_disconnectedCall_body" msgid="600491714584417536">"L\'appel à <xliff:g id="CALLER">%s</xliff:g> a été déconnecté en raison d\'un appel d\'urgence qui a été passé."</string>
     <string name="notification_disconnectedCall_generic_body" msgid="5282765206349184853">"Votre appel a été déconnecté en raison d\'un appel d\'urgence en cours de lancement."</string>
     <string name="notification_audioProcessing_title" msgid="1619035039880584575">"Appel en arrière-plan"</string>
-    <string name="notification_audioProcessing_body" msgid="6397005913770420388">"<xliff:g id="AUDIO_PROCESSING_APP_NAME">%s</xliff:g> a passé un appel en arrière-plan. Cette application peut accéder à l\'audio de l\'appel et faire jouer un contenu audio par l\'intermédiaire de l\'appel."</string>
+    <string name="notification_audioProcessing_body" msgid="8811420157964118913">"<xliff:g id="AUDIO_PROCESSING_APP_NAME">%s</xliff:g> traite un appel en arrière-plan. Cette application peut accéder à l\'audio de l\'appel et faire jouer un contenu audio par l\'intermédiaire de l\'appel."</string>
     <string name="notification_incallservice_not_responding_title" msgid="5347557574288598548">"<xliff:g id="IN_CALL_SERVICE_APP_NAME">%s</xliff:g> a arrêté de répondre"</string>
     <string name="notification_incallservice_not_responding_body" msgid="9209308270131968623">"Votre appel a utilisé l\'application Téléphone intégrée à votre appareil"</string>
     <string name="accessibility_call_muted" msgid="2968461092554300779">"Son coupé"</string>
@@ -100,6 +100,7 @@
     <string name="notification_channel_background_calls" msgid="7785659903711350506">"Appels en arrière-plan"</string>
     <string name="notification_channel_disconnected_calls" msgid="8228636543997645757">"Appels déconnectés"</string>
     <string name="notification_channel_in_call_service_crash" msgid="7313237519166984267">"Applications téléphoniques qui ont planté"</string>
+    <string name="notification_channel_call_streaming" msgid="5100510699787538991">"Diffusion en continu d\'appels"</string>
     <string name="alert_outgoing_call" msgid="5319895109298927431">"Si vous passez cet appel, vous mettrez fin à l\'appel <xliff:g id="OTHER_APP">%1$s</xliff:g>."</string>
     <string name="alert_redirect_outgoing_call_or_not" msgid="665409645789521636">"Choisissez comment passer cet appel"</string>
     <string name="alert_place_outgoing_call_with_redirection" msgid="5221065030959024121">"Rediriger l\'appel en utilisant <xliff:g id="OTHER_APP">%1$s</xliff:g>"</string>
@@ -123,4 +124,14 @@
     <string name="developer_title" msgid="9146088855661672353">"Menu Telecom Developer"</string>
     <string name="toast_emergency_can_not_pull_call" msgid="9074229465338410869">"Les appels ne peuvent pas être pris pendant un appel d\'urgence."</string>
     <string name="cancel" msgid="6733466216239934756">"Annuler"</string>
+    <string name="back" msgid="6915955601805550206">"Retour"</string>
+    <string name="callendpoint_name_earpiece" msgid="7047285080319678594">"Écouteur"</string>
+    <string name="callendpoint_name_bluetooth" msgid="210210953208913172">"Bluetooth"</string>
+    <string name="callendpoint_name_wiredheadset" msgid="6860787176412079742">"Casque d\'écoute filaire"</string>
+    <string name="callendpoint_name_speaker" msgid="1971760468695323189">"Haut-parleur"</string>
+    <string name="callendpoint_name_streaming" msgid="2337595450408275576">"Externe"</string>
+    <string name="callendpoint_name_unknown" msgid="2199074708477193852">"Inconnu"</string>
+    <string name="call_streaming_notification_body" msgid="502216105683378263">"Diffusion audio en continu vers un autre appareil en cours…"</string>
+    <string name="call_streaming_notification_action_hang_up" msgid="7017663335289063827">"Raccrocher"</string>
+    <string name="call_streaming_notification_action_switch_here" msgid="3524180754186221228">"Revenir à cet appareil"</string>
 </resources>

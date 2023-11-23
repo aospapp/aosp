@@ -275,7 +275,6 @@ public final class ProjectionStatus implements Parcelable {
     }
 
     @Override
-    @AddedInOrBefore(majorVersion = 33)
     public String toString() {
         return "ProjectionStatus{"
                 + "mPackageName='" + mPackageName + '\''
@@ -389,7 +388,6 @@ public final class ProjectionStatus implements Parcelable {
         }
 
         @Override
-        @AddedInOrBefore(majorVersion = 33)
         public String toString() {
             return "MobileDevice{"
                     + "mId=" + mId

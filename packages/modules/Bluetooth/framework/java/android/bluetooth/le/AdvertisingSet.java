@@ -20,6 +20,7 @@ import static android.bluetooth.le.BluetoothLeUtils.getSyncTimeout;
 
 import android.annotation.RequiresNoPermission;
 import android.annotation.RequiresPermission;
+import android.annotation.SystemApi;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.IBluetoothGatt;
 import android.bluetooth.IBluetoothManager;
@@ -242,11 +243,15 @@ public final class AdvertisingSet {
     }
 
     /**
-     * Returns advertiserId associated with this advertising set.
+     * Returns the advertiser ID associated with this advertising set.
+     *
+     * <p>This corresponds to the advertising set ID used at the HCI layer, in either LE Extended
+     * Advertising or Android-specific Multi-Advertising.
      *
      * @hide
      */
     @RequiresNoPermission
+    @SystemApi
     public int getAdvertiserId() {
         return mAdvertiserId;
     }

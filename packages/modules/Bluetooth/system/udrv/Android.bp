@@ -17,7 +17,6 @@ cc_library_static {
         "packages/modules/Bluetooth/system",
         "packages/modules/Bluetooth/system/gd",
         "packages/modules/Bluetooth/system/internal_include",
-        "packages/modules/Bluetooth/system/utils/include",
         "packages/modules/Bluetooth/system/stack/include",
     ],
     local_include_dirs: [
@@ -26,7 +25,7 @@ cc_library_static {
     host_supported: true,
     apex_available: [
         "//apex_available:platform",
-        "com.android.bluetooth",
+        "com.android.btservices",
     ],
-    min_sdk_version: "Tiramisu"
+    min_sdk_version: "Tiramisu",
 }

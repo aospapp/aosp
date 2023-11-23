@@ -35,6 +35,8 @@ import androidx.annotation.VisibleForTesting;
 
 import com.android.settingslib.inputmethod.InputMethodAndSubtypeUtil;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -45,9 +47,15 @@ public final class InputMethodUtil {
      */
     public static final char INPUT_METHOD_DELIMITER = ':';
     /**
-     * Google Voice Typing package name.
+     * A list of past and present Google Voice Typing package names
      */
-    public static final String GOOGLE_VOICE_TYPING = "com.google.android.carassistant";
+    public static final List<String> GVT_PACKAGE_NAMES =
+            Collections.unmodifiableList(
+                    new ArrayList<String>(){{
+                        add("com.google.android.tts");
+                        add("com.google.android.carassistant");
+                        add("com.google.android.googlequicksearchbox");
+                    }});
     /**
      * Splitter for Enabled Input Methods' concatenated string.
      */
@@ -72,7 +80,7 @@ public final class InputMethodUtil {
                         || permittedList.contains(info.getPackageName());
                 // Hide "Google voice typing" IME.
                 boolean isGoogleVoiceTyping =
-                        info.getPackageName().equals(InputMethodUtil.GOOGLE_VOICE_TYPING);
+                        InputMethodUtil.GVT_PACKAGE_NAMES.contains(info.getPackageName());
                 return isAllowedByOrganization && !isGoogleVoiceTyping;
             }).collect(Collectors.toList());
         }

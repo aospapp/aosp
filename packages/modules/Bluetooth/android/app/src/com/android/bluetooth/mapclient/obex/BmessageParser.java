@@ -57,7 +57,7 @@ class BmessageParser {
 
     private static final int CRLF_LEN = 2;
 
-    /*
+    /**
      * length of "container" for 'message' in bmessage-body-content:
      * BEGIN:MSG<CRLF> + <CRLF> + END:MSG<CRFL>
      */

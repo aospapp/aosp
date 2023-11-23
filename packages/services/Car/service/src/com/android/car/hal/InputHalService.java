@@ -20,9 +20,13 @@ import static android.hardware.automotive.vehicle.RotaryInputType.ROTARY_INPUT_T
 import static android.hardware.automotive.vehicle.RotaryInputType.ROTARY_INPUT_TYPE_SYSTEM_NAVIGATION;
 import static android.hardware.automotive.vehicle.VehicleProperty.HW_CUSTOM_INPUT;
 import static android.hardware.automotive.vehicle.VehicleProperty.HW_KEY_INPUT;
+import static android.hardware.automotive.vehicle.VehicleProperty.HW_KEY_INPUT_V2;
+import static android.hardware.automotive.vehicle.VehicleProperty.HW_MOTION_INPUT;
 import static android.hardware.automotive.vehicle.VehicleProperty.HW_ROTARY_INPUT;
 
 import static com.android.car.internal.ExcludeFromCodeCoverageGeneratedReport.DUMP_INFO;
+
+import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
 import android.car.CarOccupantZoneManager;
 import android.car.builtin.util.Slogf;
@@ -31,10 +35,18 @@ import android.car.input.CustomInputEvent;
 import android.car.input.RotaryEvent;
 import android.hardware.automotive.vehicle.VehicleDisplay;
 import android.hardware.automotive.vehicle.VehicleHwKeyInputAction;
+import android.hardware.automotive.vehicle.VehicleHwMotionButtonStateFlag;
+import android.hardware.automotive.vehicle.VehicleHwMotionInputAction;
+import android.hardware.automotive.vehicle.VehicleHwMotionInputSource;
+import android.hardware.automotive.vehicle.VehicleHwMotionToolType;
 import android.os.SystemClock;
+import android.util.Log;
 import android.util.SparseArray;
 import android.view.InputDevice;
 import android.view.KeyEvent;
+import android.view.MotionEvent;
+import android.view.MotionEvent.PointerCoords;
+import android.view.MotionEvent.PointerProperties;
 
 import com.android.car.CarLog;
 import com.android.car.CarServiceUtils;
@@ -43,8 +55,10 @@ import com.android.internal.annotations.GuardedBy;
 import com.android.internal.annotations.VisibleForTesting;
 
 import java.io.PrintWriter;
+import java.util.ArrayDeque;
 import java.util.Collection;
 import java.util.List;
+import java.util.Queue;
 import java.util.concurrent.TimeUnit;
 import java.util.function.LongSupplier;
 
@@ -53,15 +67,25 @@ import java.util.function.LongSupplier;
  */
 public class InputHalService extends HalServiceBase {
 
+    private static final int MAX_EVENTS_TO_KEEP_AS_HISTORY = 10;
     private static final String TAG = CarLog.TAG_INPUT;
-
     private static final int[] SUPPORTED_PROPERTIES = new int[]{
             HW_KEY_INPUT,
+            HW_KEY_INPUT_V2,
+            HW_MOTION_INPUT,
             HW_ROTARY_INPUT,
             HW_CUSTOM_INPUT
     };
 
     private final VehicleHal mHal;
+
+    @GuardedBy("mLock")
+    private final Queue<MotionEvent> mLastFewDispatchedMotionEvents =
+            new ArrayDeque<>(MAX_EVENTS_TO_KEEP_AS_HISTORY);
+
+    @GuardedBy("mLock")
+    private Queue<KeyEvent> mLastFewDispatchedV2KeyEvents = new ArrayDeque<>(
+            MAX_EVENTS_TO_KEEP_AS_HISTORY);
 
     /**
      * A function to retrieve the current system uptime in milliseconds - replaceable for testing.
@@ -74,6 +98,12 @@ public class InputHalService extends HalServiceBase {
     public interface InputListener {
         /** Called for key event */
         void onKeyEvent(KeyEvent event, int targetDisplay);
+
+        /** Called for key event per seat */
+        void onKeyEvent(KeyEvent event, int targetDisplay, int seat);
+
+        /** Called for motion event per seat */
+        void onMotionEvent(MotionEvent event, int targetDisplay, int seat);
 
         /** Called for rotary event */
         void onRotaryEvent(RotaryEvent event, int targetDisplay);
@@ -94,6 +124,12 @@ public class InputHalService extends HalServiceBase {
 
     @GuardedBy("mLock")
     private boolean mKeyInputSupported;
+
+    @GuardedBy("mLock")
+    private boolean mKeyInputV2Supported;
+
+    @GuardedBy("mLock")
+    private boolean mMotionInputSupported;
 
     @GuardedBy("mLock")
     private boolean mRotaryInputSupported;
@@ -122,6 +158,8 @@ public class InputHalService extends HalServiceBase {
      */
     public void setInputListener(InputListener listener) {
         boolean keyInputSupported;
+        boolean keyInputV2Supported;
+        boolean motionInputSupported;
         boolean rotaryInputSupported;
         boolean customInputSupported;
         synchronized (mLock) {
@@ -131,11 +169,19 @@ public class InputHalService extends HalServiceBase {
             }
             mListener = listener;
             keyInputSupported = mKeyInputSupported;
+            keyInputV2Supported = mKeyInputV2Supported;
+            motionInputSupported = mMotionInputSupported;
             rotaryInputSupported = mRotaryInputSupported;
             customInputSupported = mCustomInputSupported;
         }
         if (keyInputSupported) {
             mHal.subscribeProperty(this, HW_KEY_INPUT);
+        }
+        if (keyInputV2Supported) {
+            mHal.subscribeProperty(this, HW_KEY_INPUT_V2);
+        }
+        if (motionInputSupported) {
+            mHal.subscribeProperty(this, HW_MOTION_INPUT);
         }
         if (rotaryInputSupported) {
             mHal.subscribeProperty(this, HW_ROTARY_INPUT);
@@ -149,6 +195,20 @@ public class InputHalService extends HalServiceBase {
     public boolean isKeyInputSupported() {
         synchronized (mLock) {
             return mKeyInputSupported;
+        }
+    }
+
+    /** Returns whether {@code HW_KEY_INPUT_V2} is supported. */
+    public boolean isKeyInputV2Supported() {
+        synchronized (mLock) {
+            return mKeyInputV2Supported;
+        }
+    }
+
+    /** Returns whether {@code HW_MOTION_INPUT} is supported. */
+    public boolean isMotionInputSupported() {
+        synchronized (mLock) {
+            return mMotionInputSupported;
         }
     }
 
@@ -175,6 +235,8 @@ public class InputHalService extends HalServiceBase {
         synchronized (mLock) {
             mListener = null;
             mKeyInputSupported = false;
+            mKeyInputV2Supported = false;
+            mMotionInputSupported = false;
             mRotaryInputSupported = false;
             mCustomInputSupported = false;
         }
@@ -187,23 +249,27 @@ public class InputHalService extends HalServiceBase {
 
     @Override
     public void takeProperties(Collection<HalPropConfig> properties) {
-        for (HalPropConfig property : properties) {
-            switch (property.getPropId()) {
-                case HW_KEY_INPUT:
-                    synchronized (mLock) {
+        synchronized (mLock) {
+            for (HalPropConfig property : properties) {
+                switch (property.getPropId()) {
+                    case HW_KEY_INPUT:
                         mKeyInputSupported = true;
-                    }
-                    break;
-                case HW_ROTARY_INPUT:
-                    synchronized (mLock) {
+                        break;
+                    case HW_KEY_INPUT_V2:
+                        mKeyInputV2Supported = true;
+                        break;
+                    case HW_MOTION_INPUT:
+                        mMotionInputSupported = true;
+                        break;
+                    case HW_ROTARY_INPUT:
                         mRotaryInputSupported = true;
-                    }
-                    break;
-                case HW_CUSTOM_INPUT:
-                    synchronized (mLock) {
+                        break;
+                    case HW_CUSTOM_INPUT:
                         mCustomInputSupported = true;
-                    }
-                    break;
+                        break;
+                    default:
+                        break;
+                }
             }
         }
     }
@@ -223,6 +289,12 @@ public class InputHalService extends HalServiceBase {
             switch (value.getPropId()) {
                 case HW_KEY_INPUT:
                     dispatchKeyInput(listener, value);
+                    break;
+                case HW_KEY_INPUT_V2:
+                    dispatchKeyInputV2(listener, value);
+                    break;
+                case HW_MOTION_INPUT:
+                    dispatchMotionInput(listener, value);
                     break;
                 case HW_ROTARY_INPUT:
                     dispatchRotaryInput(listener, value);
@@ -251,7 +323,7 @@ public class InputHalService extends HalServiceBase {
             indentsCount = value.getInt32ValuesSize() < 4 ? 1 : value.getInt32Value(3);
             Slogf.d(TAG, "hal event code: %d, action: %d, display: %d, number of indents: %d",
                     code, action, vehicleDisplay, indentsCount);
-        } catch (IndexOutOfBoundsException e) {
+        } catch (Exception e) {
             Slogf.e(TAG, "Invalid hal key input event received, int32Values: "
                     + value.dumpInt32Values(), e);
             return;
@@ -259,6 +331,360 @@ public class InputHalService extends HalServiceBase {
         while (indentsCount > 0) {
             indentsCount--;
             dispatchKeyEvent(listener, action, code, convertDisplayType(vehicleDisplay));
+        }
+    }
+
+    private void dispatchKeyInputV2(InputListener listener, HalPropValue value) {
+        final int int32ValuesSize = 4;
+        final int int64ValuesSize = 1;
+        int seat;
+        int vehicleDisplay;
+        int keyCode;
+        int action;
+        int repeatCount;
+        long elapsedDownTimeNanos;
+        long elapsedEventTimeNanos;
+        int convertedAction;
+        int convertedVehicleDisplay;
+        try {
+            seat = value.getAreaId();
+            if (value.getInt32ValuesSize() < int32ValuesSize) {
+                Slogf.e(TAG, "Wrong int32 array size for key input v2 from vhal: %d",
+                        value.getInt32ValuesSize());
+                return;
+            }
+            vehicleDisplay = value.getInt32Value(0);
+            keyCode = value.getInt32Value(1);
+            action = value.getInt32Value(2);
+            repeatCount = value.getInt32Value(3);
+
+            if (value.getInt64ValuesSize() < int64ValuesSize) {
+                Slogf.e(TAG, "Wrong int64 array size for key input v2 from vhal: %d",
+                        value.getInt64ValuesSize());
+                return;
+            }
+            elapsedDownTimeNanos = value.getInt64Value(0);
+            if (Slogf.isLoggable(TAG, Log.DEBUG)) {
+                Slogf.d(TAG, "hal event keyCode: %d, action: %d, display: %d, repeatCount: %d"
+                                + ", elapsedDownTimeNanos: %d", keyCode, action, vehicleDisplay,
+                        repeatCount, elapsedDownTimeNanos);
+            }
+            convertedAction = convertToKeyEventAction(action);
+            convertedVehicleDisplay = convertDisplayType(vehicleDisplay);
+        } catch (Exception e) {
+            Slogf.e(TAG, "Invalid hal key input event received, int32Values: "
+                    + value.dumpInt32Values() + ", int64Values: " + value.dumpInt64Values(), e);
+            return;
+        }
+
+        if (action == VehicleHwKeyInputAction.ACTION_DOWN) {
+            // For action down, the code should make sure that event time & down time are the same
+            // to maintain the invariant as defined in KeyEvent.java.
+            elapsedEventTimeNanos = elapsedDownTimeNanos;
+        } else {
+            elapsedEventTimeNanos = value.getTimestamp();
+        }
+
+        dispatchKeyEventV2(listener, convertedAction, keyCode, convertedVehicleDisplay,
+                toUpTimeMillis(elapsedEventTimeNanos), toUpTimeMillis(elapsedDownTimeNanos),
+                repeatCount, seat);
+    }
+
+    private void dispatchMotionInput(InputListener listener, HalPropValue value) {
+        final int firstInt32ArrayOffset = 5;
+        final int int64ValuesSize = 1;
+        final int numInt32Arrays = 2;
+        final int numFloatArrays = 4;
+        int seat;
+        int vehicleDisplay;
+        int inputSource;
+        int action;
+        int buttonStateFlag;
+        int pointerCount;
+        int[] pointerIds;
+        int[] toolTypes;
+        float[] xData;
+        float[] yData;
+        float[] pressureData;
+        float[] sizeData;
+        long elapsedDownTimeNanos;
+        PointerProperties[] pointerProperties;
+        PointerCoords[] pointerCoords;
+        int convertedInputSource;
+        int convertedAction;
+        int convertedButtonStateFlag;
+        try {
+            seat = value.getAreaId();
+            if (value.getInt32ValuesSize() < firstInt32ArrayOffset) {
+                Slogf.e(TAG, "Wrong int32 array size for key input v2 from vhal: %d",
+                        value.getInt32ValuesSize());
+                return;
+            }
+            vehicleDisplay = value.getInt32Value(0);
+            inputSource = value.getInt32Value(1);
+            action = value.getInt32Value(2);
+            buttonStateFlag = value.getInt32Value(3);
+            pointerCount = value.getInt32Value(4);
+            if (pointerCount < 1) {
+                Slogf.e(TAG, "Wrong pointerCount for key input v2 from vhal: %d",
+                        pointerCount);
+                return;
+            }
+            pointerIds = new int[pointerCount];
+            toolTypes = new int[pointerCount];
+            xData = new float[pointerCount];
+            yData = new float[pointerCount];
+            pressureData = new float[pointerCount];
+            sizeData = new float[pointerCount];
+            if (value.getInt32ValuesSize() < firstInt32ArrayOffset
+                    + pointerCount * numInt32Arrays) {
+                Slogf.e(TAG, "Wrong int32 array size for key input v2 from vhal: %d",
+                        value.getInt32ValuesSize());
+                return;
+            }
+            if (value.getFloatValuesSize() < pointerCount * numFloatArrays) {
+                Slogf.e(TAG, "Wrong int32 array size for key input v2 from vhal: %d",
+                        value.getInt32ValuesSize());
+                return;
+            }
+            for (int i = 0; i < pointerCount; i++) {
+                pointerIds[i] = value.getInt32Value(firstInt32ArrayOffset + i);
+                toolTypes[i] = value.getInt32Value(firstInt32ArrayOffset + pointerCount + i);
+                xData[i] = value.getFloatValue(i);
+                yData[i] = value.getFloatValue(pointerCount + i);
+                pressureData[i] = value.getFloatValue(2 * pointerCount + i);
+                sizeData[i] = value.getFloatValue(3 * pointerCount + i);
+            }
+            if (value.getInt64ValuesSize() < int64ValuesSize) {
+                Slogf.e(TAG, "Wrong int64 array size for key input v2 from vhal: %d",
+                        value.getInt64ValuesSize());
+                return;
+            }
+            elapsedDownTimeNanos = value.getInt64Value(0);
+
+            if (Slogf.isLoggable(TAG, Log.DEBUG)) {
+                Slogf.d(TAG, "hal motion event inputSource: %d, action: %d, display: %d"
+                                + ", buttonStateFlag: %d, pointerCount: %d, elapsedDownTimeNanos: "
+                                + "%d", inputSource, action, vehicleDisplay, buttonStateFlag,
+                        pointerCount, elapsedDownTimeNanos);
+            }
+            pointerProperties = createPointerPropertiesArray(pointerCount);
+            pointerCoords = createPointerCoordsArray(pointerCount);
+            for (int i = 0; i < pointerCount; i++) {
+                pointerProperties[i].id = pointerIds[i];
+                pointerProperties[i].toolType = convertToolType(toolTypes[i]);
+                pointerCoords[i].x = xData[i];
+                pointerCoords[i].y = yData[i];
+                pointerCoords[i].pressure = pressureData[i];
+                pointerCoords[i].size = sizeData[i];
+            }
+
+            convertedAction = convertMotionAction(action);
+            convertedButtonStateFlag = convertButtonStateFlag(buttonStateFlag);
+            convertedInputSource = convertInputSource(inputSource);
+        } catch (Exception e) {
+            Slogf.e(TAG, "Invalid hal key input event received, int32Values: "
+                    + value.dumpInt32Values() + ", floatValues: " + value.dumpFloatValues()
+                    + ", int64Values: " + value.dumpInt64Values(), e);
+            return;
+        }
+        MotionEvent event = MotionEvent.obtain(toUpTimeMillis(elapsedDownTimeNanos),
+                toUpTimeMillis(value.getTimestamp()) /* eventTime */,
+                convertedAction,
+                pointerCount,
+                pointerProperties,
+                pointerCoords,
+                0 /* metaState */,
+                convertedButtonStateFlag,
+                0f /* xPrecision */,
+                0f /* yPrecision */,
+                0 /* deviceId */,
+                0 /* edgeFlags */,
+                convertedInputSource,
+                0 /* flags */);
+        listener.onMotionEvent(event, convertDisplayType(vehicleDisplay), seat);
+        saveMotionEventInHistory(event);
+    }
+
+    private void saveV2KeyInputEventInHistory(KeyEvent keyEvent) {
+        synchronized (mLock) {
+            while (mLastFewDispatchedV2KeyEvents.size() >= MAX_EVENTS_TO_KEEP_AS_HISTORY) {
+                mLastFewDispatchedV2KeyEvents.remove();
+            }
+            mLastFewDispatchedV2KeyEvents.add(keyEvent);
+        }
+    }
+
+    private void saveMotionEventInHistory(MotionEvent motionEvent) {
+        synchronized (mLock) {
+            while (mLastFewDispatchedMotionEvents.size() >= MAX_EVENTS_TO_KEEP_AS_HISTORY) {
+                mLastFewDispatchedMotionEvents.remove();
+            }
+            mLastFewDispatchedMotionEvents.add(motionEvent);
+        }
+    }
+
+    private static long toUpTimeMillis(long elapsedEventTimeNanos) {
+        final byte maxTries = 5;
+        long timeSpentInSleep1 = 0;
+        long timeSpentInSleep2 = 0;
+        long smallestTimeSpentInSleep = Integer.MAX_VALUE;
+        int tryNum;
+        for (tryNum = 0; tryNum < maxTries; tryNum++) {
+            timeSpentInSleep1 = SystemClock.elapsedRealtime() - SystemClock.uptimeMillis();
+            timeSpentInSleep2 = SystemClock.elapsedRealtime() - SystemClock.uptimeMillis();
+            if (timeSpentInSleep1 < smallestTimeSpentInSleep) {
+                smallestTimeSpentInSleep = timeSpentInSleep1;
+            }
+            if (timeSpentInSleep2 < smallestTimeSpentInSleep) {
+                smallestTimeSpentInSleep = timeSpentInSleep2;
+            }
+            if (timeSpentInSleep1 == timeSpentInSleep2) {
+                break;
+            }
+        }
+        // If maxTries was reached, use the smallest of all calculated timeSpentInSleep.
+        long eventUpTimeMillis;
+        if (tryNum == maxTries) {
+            // Assuming no sleep after elapsedEventTimeNanos.
+            eventUpTimeMillis = NANOSECONDS.toMillis(elapsedEventTimeNanos)
+                    - smallestTimeSpentInSleep;
+        } else {
+            // Assuming no sleep after elapsedEventTimeNanos.
+            eventUpTimeMillis = NANOSECONDS.toMillis(elapsedEventTimeNanos) - timeSpentInSleep1;
+        }
+        return eventUpTimeMillis;
+    }
+
+    private static PointerProperties[] createPointerPropertiesArray(int size) {
+        PointerProperties[] array = new PointerProperties[size];
+        for (int i = 0; i < size; i++) {
+            array[i] = new PointerProperties();
+        }
+        return array;
+    }
+
+    private static PointerCoords[] createPointerCoordsArray(int size) {
+        PointerCoords[] array = new PointerCoords[size];
+        for (int i = 0; i < size; i++) {
+            array[i] = new PointerCoords();
+        }
+        return array;
+    }
+
+    private int convertToKeyEventAction(int vehicleHwKeyAction) {
+        switch (vehicleHwKeyAction) {
+            case VehicleHwKeyInputAction.ACTION_DOWN:
+                return KeyEvent.ACTION_DOWN;
+            case VehicleHwKeyInputAction.ACTION_UP:
+                return KeyEvent.ACTION_UP;
+            default:
+                throw new IllegalArgumentException("Unexpected key event action: "
+                        + vehicleHwKeyAction);
+        }
+    }
+
+    private int convertInputSource(int vehicleInputSource) {
+        switch (vehicleInputSource) {
+            case VehicleHwMotionInputSource.SOURCE_KEYBOARD:
+                return InputDevice.SOURCE_KEYBOARD;
+            case VehicleHwMotionInputSource.SOURCE_DPAD:
+                return InputDevice.SOURCE_DPAD;
+            case VehicleHwMotionInputSource.SOURCE_GAMEPAD:
+                return InputDevice.SOURCE_GAMEPAD;
+            case VehicleHwMotionInputSource.SOURCE_TOUCHSCREEN:
+                return InputDevice.SOURCE_TOUCHSCREEN;
+            case VehicleHwMotionInputSource.SOURCE_MOUSE:
+                return InputDevice.SOURCE_MOUSE;
+            case VehicleHwMotionInputSource.SOURCE_STYLUS:
+                return InputDevice.SOURCE_STYLUS;
+            case VehicleHwMotionInputSource.SOURCE_BLUETOOTH_STYLUS:
+                return InputDevice.SOURCE_BLUETOOTH_STYLUS;
+            case VehicleHwMotionInputSource.SOURCE_TRACKBALL:
+                return InputDevice.SOURCE_TRACKBALL;
+            case VehicleHwMotionInputSource.SOURCE_MOUSE_RELATIVE:
+                return InputDevice.SOURCE_MOUSE_RELATIVE;
+            case VehicleHwMotionInputSource.SOURCE_TOUCHPAD:
+                return InputDevice.SOURCE_TOUCHPAD;
+            case VehicleHwMotionInputSource.SOURCE_TOUCH_NAVIGATION:
+                return InputDevice.SOURCE_TOUCH_NAVIGATION;
+            case VehicleHwMotionInputSource.SOURCE_ROTARY_ENCODER:
+                return InputDevice.SOURCE_ROTARY_ENCODER;
+            case VehicleHwMotionInputSource.SOURCE_JOYSTICK:
+                return InputDevice.SOURCE_JOYSTICK;
+            case VehicleHwMotionInputSource.SOURCE_HDMI:
+                return InputDevice.SOURCE_HDMI;
+            case VehicleHwMotionInputSource.SOURCE_SENSOR:
+                return InputDevice.SOURCE_SENSOR;
+            default:
+                return InputDevice.SOURCE_UNKNOWN;
+        }
+    }
+
+    private int convertMotionAction(int vehicleAction) {
+        switch (vehicleAction) {
+            case VehicleHwMotionInputAction.ACTION_DOWN:
+                return MotionEvent.ACTION_DOWN;
+            case VehicleHwMotionInputAction.ACTION_UP:
+                return MotionEvent.ACTION_UP;
+            case VehicleHwMotionInputAction.ACTION_MOVE:
+                return MotionEvent.ACTION_MOVE;
+            case VehicleHwMotionInputAction.ACTION_CANCEL:
+                return MotionEvent.ACTION_CANCEL;
+            case VehicleHwMotionInputAction.ACTION_POINTER_DOWN:
+                return MotionEvent.ACTION_POINTER_DOWN;
+            case VehicleHwMotionInputAction.ACTION_POINTER_UP:
+                return MotionEvent.ACTION_POINTER_UP;
+            case VehicleHwMotionInputAction.ACTION_HOVER_MOVE:
+                return MotionEvent.ACTION_HOVER_MOVE;
+            case VehicleHwMotionInputAction.ACTION_SCROLL:
+                return MotionEvent.ACTION_SCROLL;
+            case VehicleHwMotionInputAction.ACTION_HOVER_ENTER:
+                return MotionEvent.ACTION_HOVER_ENTER;
+            case VehicleHwMotionInputAction.ACTION_HOVER_EXIT:
+                return MotionEvent.ACTION_HOVER_EXIT;
+            case VehicleHwMotionInputAction.ACTION_BUTTON_PRESS:
+                return MotionEvent.ACTION_BUTTON_PRESS;
+            case VehicleHwMotionInputAction.ACTION_BUTTON_RELEASE:
+                return MotionEvent.ACTION_BUTTON_RELEASE;
+            default:
+                throw new IllegalArgumentException("Unexpected motion action: " + vehicleAction);
+        }
+    }
+
+    private int convertButtonStateFlag(int buttonStateFlag) {
+        switch (buttonStateFlag) {
+            case VehicleHwMotionButtonStateFlag.BUTTON_PRIMARY:
+                return MotionEvent.BUTTON_PRIMARY;
+            case VehicleHwMotionButtonStateFlag.BUTTON_SECONDARY:
+                return MotionEvent.BUTTON_SECONDARY;
+            case VehicleHwMotionButtonStateFlag.BUTTON_TERTIARY:
+                return MotionEvent.BUTTON_TERTIARY;
+            case VehicleHwMotionButtonStateFlag.BUTTON_FORWARD:
+                return MotionEvent.BUTTON_FORWARD;
+            case VehicleHwMotionButtonStateFlag.BUTTON_BACK:
+                return MotionEvent.BUTTON_BACK;
+            case VehicleHwMotionButtonStateFlag.BUTTON_STYLUS_PRIMARY:
+                return MotionEvent.BUTTON_STYLUS_PRIMARY;
+            case VehicleHwMotionButtonStateFlag.BUTTON_STYLUS_SECONDARY:
+                return MotionEvent.BUTTON_STYLUS_SECONDARY;
+            default:
+                return 0; // No flag set.
+        }
+    }
+
+    private int convertToolType(int toolType) {
+        switch (toolType) {
+            case VehicleHwMotionToolType.TOOL_TYPE_FINGER:
+                return MotionEvent.TOOL_TYPE_FINGER;
+            case VehicleHwMotionToolType.TOOL_TYPE_STYLUS:
+                return MotionEvent.TOOL_TYPE_STYLUS;
+            case VehicleHwMotionToolType.TOOL_TYPE_MOUSE:
+                return MotionEvent.TOOL_TYPE_MOUSE;
+            case VehicleHwMotionToolType.TOOL_TYPE_ERASER:
+                return MotionEvent.TOOL_TYPE_ERASER;
+            default:
+                return MotionEvent.TOOL_TYPE_UNKNOWN;
         }
     }
 
@@ -388,6 +814,39 @@ public class InputHalService extends HalServiceBase {
         listener.onKeyEvent(event, display);
     }
 
+    /**
+     * Dispatches a {@link KeyEvent} to the given {@code seat}.
+     *
+     * @param listener listener to dispatch the event to
+     * @param action action for the key event
+     * @param code keycode for the key event
+     * @param display target display the event is associated with
+     * @param eventTime uptime in milliseconds when the event occurred
+     * @param downTime time in milliseconds at which the key down was originally sent
+     * @param repeat A repeat count for down events For key down events, this is the repeat count
+     *               with the first down starting at 0 and counting up from there. For key up
+     *               events, this is always equal to 0.
+     * @param seat the area id this event is occurring from
+     */
+    private void dispatchKeyEventV2(InputListener listener, int action, int code,
+            @DisplayTypeEnum int display, long eventTime, long downTime, int repeat, int seat) {
+        KeyEvent event = new KeyEvent(
+                downTime,
+                eventTime,
+                action,
+                code,
+                repeat,
+                0 /* metaState */,
+                0 /* deviceId */,
+                0 /* scancode */,
+                0 /* flags */,
+                InputDevice.SOURCE_CLASS_BUTTON);
+
+        // event.displayId will be set in CarInputService#onKeyEvent
+        listener.onKeyEvent(event, display, seat);
+        saveV2KeyInputEventInHistory(event);
+    }
+
     private void dispatchCustomInput(InputListener listener, HalPropValue value) {
         Slogf.d(TAG, "Dispatching CustomInputEvent for listener: %s and value: %s",
                 listener, value);
@@ -398,7 +857,7 @@ public class InputHalService extends HalServiceBase {
             inputCode = value.getInt32Value(0);
             targetDisplayType = convertDisplayType(value.getInt32Value(1));
             repeatCounter = value.getInt32Value(2);
-        } catch (IndexOutOfBoundsException e) {
+        } catch (Exception e) {
             Slogf.e(TAG, "Invalid hal custom input event received", e);
             return;
         }
@@ -425,6 +884,12 @@ public class InputHalService extends HalServiceBase {
                 return CarOccupantZoneManager.DISPLAY_TYPE_MAIN;
             case VehicleDisplay.INSTRUMENT_CLUSTER:
                 return CarOccupantZoneManager.DISPLAY_TYPE_INSTRUMENT_CLUSTER;
+            case VehicleDisplay.HUD:
+                return CarOccupantZoneManager.DISPLAY_TYPE_HUD;
+            case VehicleDisplay.INPUT:
+                return CarOccupantZoneManager.DISPLAY_TYPE_INPUT;
+            case VehicleDisplay.AUXILIARY:
+                return CarOccupantZoneManager.DISPLAY_TYPE_AUXILIARY;
             default:
                 return CarOccupantZoneManager.DISPLAY_TYPE_UNKNOWN;
         }
@@ -437,6 +902,22 @@ public class InputHalService extends HalServiceBase {
             writer.println("*Input HAL*");
             writer.println("mKeyInputSupported:" + mKeyInputSupported);
             writer.println("mRotaryInputSupported:" + mRotaryInputSupported);
+            writer.println("mKeyInputV2Supported:" + mKeyInputV2Supported);
+            writer.println("mMotionInputSupported:" + mMotionInputSupported);
+
+            writer.println("mLastFewDispatchedV2KeyEvents:");
+            KeyEvent[] keyEvents = new KeyEvent[mLastFewDispatchedV2KeyEvents.size()];
+            mLastFewDispatchedV2KeyEvents.toArray(keyEvents);
+            for (int i = 0; i < keyEvents.length; i++) {
+                writer.println("Event [" + i + "]: " + keyEvents[i].toString());
+            }
+
+            writer.println("mLastFewDispatchedMotionEvents:");
+            MotionEvent[] motionEvents = new MotionEvent[mLastFewDispatchedMotionEvents.size()];
+            mLastFewDispatchedMotionEvents.toArray(motionEvents);
+            for (int i = 0; i < motionEvents.length; i++) {
+                writer.println("Event [" + i + "]: " + motionEvents[i].toString());
+            }
         }
     }
 }

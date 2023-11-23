@@ -72,9 +72,6 @@ public class BatteryServiceTest {
     @Before
     public void setUp() throws Exception {
         mTargetContext = InstrumentationRegistry.getTargetContext();
-        Assume.assumeTrue("Ignore test when BatteryService is not enabled",
-                BatteryService.isEnabled());
-
         if (Looper.myLooper() == null) {
             Looper.prepare();
         }
@@ -98,9 +95,6 @@ public class BatteryServiceTest {
 
     @After
     public void tearDown() throws Exception {
-        if (!BatteryService.isEnabled()) {
-            return;
-        }
         stopService();
         TestUtils.clearAdapterService(mAdapterService);
     }
@@ -130,7 +124,6 @@ public class BatteryServiceTest {
      */
     @Test
     public void testGetSetPolicy() {
-        when(mAdapterService.getDatabase()).thenReturn(mDatabaseManager);
         when(mDatabaseManager
                 .getProfileConnectionPolicy(mDevice, BluetoothProfile.BATTERY))
                 .thenReturn(BluetoothProfile.CONNECTION_POLICY_UNKNOWN);
@@ -138,7 +131,6 @@ public class BatteryServiceTest {
                 BluetoothProfile.CONNECTION_POLICY_UNKNOWN,
                 mService.getConnectionPolicy(mDevice));
 
-        when(mAdapterService.getDatabase()).thenReturn(mDatabaseManager);
         when(mDatabaseManager
                 .getProfileConnectionPolicy(mDevice, BluetoothProfile.BATTERY))
                 .thenReturn(BluetoothProfile.CONNECTION_POLICY_FORBIDDEN);
@@ -146,12 +138,25 @@ public class BatteryServiceTest {
                 BluetoothProfile.CONNECTION_POLICY_FORBIDDEN,
                 mService.getConnectionPolicy(mDevice));
 
-        when(mAdapterService.getDatabase()).thenReturn(mDatabaseManager);
         when(mDatabaseManager
                 .getProfileConnectionPolicy(mDevice, BluetoothProfile.BATTERY))
                 .thenReturn(BluetoothProfile.CONNECTION_POLICY_ALLOWED);
         Assert.assertEquals("Setting device policy to POLICY_ALLOWED",
                 BluetoothProfile.CONNECTION_POLICY_ALLOWED,
+                mService.getConnectionPolicy(mDevice));
+    }
+
+    /**
+     * Test if getProfileConnectionPolicy works after the service is stopped.
+     */
+    @Test
+    public void testGetPolicyAfterStopped() {
+        mService.stop();
+        when(mDatabaseManager
+                .getProfileConnectionPolicy(mDevice, BluetoothProfile.BATTERY))
+                .thenReturn(BluetoothProfile.CONNECTION_POLICY_UNKNOWN);
+        Assert.assertEquals("Initial device policy",
+                BluetoothProfile.CONNECTION_POLICY_UNKNOWN,
                 mService.getConnectionPolicy(mDevice));
     }
 
@@ -200,7 +205,7 @@ public class BatteryServiceTest {
      * Test that an outgoing connection to device
      */
     @Test
-    public void testConnect() {
+    public void testConnectAndDump() {
         // Update the device policy so okToConnect() returns true
         when(mAdapterService.getDatabase()).thenReturn(mDatabaseManager);
         when(mDatabaseManager
@@ -211,6 +216,9 @@ public class BatteryServiceTest {
                 .getRemoteUuids(any(BluetoothDevice.class));
         // Send a connect request
         Assert.assertTrue("Connect expected to succeed", mService.connect(mDevice));
+
+        // Test dump() is not crashed.
+        mService.dump(new StringBuilder());
     }
 
     /**
@@ -226,6 +234,31 @@ public class BatteryServiceTest {
 
         // Send a connect request
         Assert.assertFalse("Connect expected to fail", mService.connect(mDevice));
+    }
+
+    @Test
+    public void getConnectionState_whenNoDevicesAreConnected_returnsDisconnectedState() {
+        Assert.assertEquals(mService.getConnectionState(mDevice),
+                BluetoothProfile.STATE_DISCONNECTED);
+    }
+
+    @Test
+    public void getDevices_whenNoDevicesAreConnected_returnsEmptyList() {
+        Assert.assertTrue(mService.getDevices().isEmpty());
+    }
+
+    @Test
+    public void getDevicesMatchingConnectionStates() {
+        when(mAdapterService.getBondedDevices()).thenReturn(new BluetoothDevice[] {mDevice});
+        int states[] = new int[] {BluetoothProfile.STATE_DISCONNECTED};
+
+        Assert.assertTrue(mService.getDevicesMatchingConnectionStates(states).contains(mDevice));
+    }
+
+    @Test
+    public void setConnectionPolicy() {
+        Assert.assertTrue(mService.setConnectionPolicy(
+                mDevice, BluetoothProfile.CONNECTION_POLICY_FORBIDDEN));
     }
 
     /**

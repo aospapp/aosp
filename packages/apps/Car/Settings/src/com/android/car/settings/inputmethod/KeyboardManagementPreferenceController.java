@@ -129,7 +129,7 @@ public class KeyboardManagementPreferenceController extends
 
         for (InputMethodInfo inputMethodInfo : inputMethodInfos) {
             // Hide "Google voice typing" IME.
-            if (inputMethodInfo.getPackageName().equals(InputMethodUtil.GOOGLE_VOICE_TYPING)) {
+            if (InputMethodUtil.GVT_PACKAGE_NAMES.contains(inputMethodInfo.getPackageName())) {
                 continue;
             }
 

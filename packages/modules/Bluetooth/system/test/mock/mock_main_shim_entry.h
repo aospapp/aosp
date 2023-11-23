@@ -27,6 +27,7 @@ extern MockAclManager* mock_acl_manager_;
 extern MockController* mock_controller_;
 extern MockLeAdvertisingManager* mock_le_advertising_manager_;
 extern MockLeScanningManager* mock_le_scanning_manager_;
+extern MockDistanceMeasurementManager* mock_distance_measurement_manager_;
 
 }  // namespace testing
 }  // namespace hci

@@ -92,7 +92,7 @@ public abstract class SetupLayoutActivity extends AppCompatActivity {
             setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
         }
 
-        getBaseApplication().maybeKeepScreenOn(this);
+        getBaseApplication().keepScreenOn(this);
         logMetrics();
     }
 

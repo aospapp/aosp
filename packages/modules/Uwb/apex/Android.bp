@@ -35,10 +35,6 @@ apex_defaults {
     key: "com.android.uwb.key",
     certificate: ":com.android.uwb.certificate",
     defaults: ["t-launched-apex-module"],
-
-    // Indicates that pre-installed version of this apex can be compressed.
-    // Whether it actually will be compressed is controlled on per-device basis.
-    compressible: true,
 }
 
 // Mainline uwb apex module.
@@ -61,8 +57,11 @@ android_app_certificate {
 
 sdk {
     name: "uwb-module-sdk",
-    bootclasspath_fragments: ["com.android.uwb-bootclasspath-fragment"],
-    systemserverclasspath_fragments: ["com.android.uwb-systemserverclasspath-fragment"],
+    apexes: [
+        // Adds exportable dependencies of the APEX to the sdk,
+        // e.g. *classpath_fragments.
+        "com.android.uwb",
+    ],
 }
 
 // Encapsulate the contributions made by the com.android.uwb to the bootclasspath.
@@ -105,6 +104,7 @@ bootclasspath_fragment {
         // result in a build failure due to inconsistent flags.
         package_prefixes: [
             "com.android.x",
+            "android.uwb.util",
         ],
     },
 }

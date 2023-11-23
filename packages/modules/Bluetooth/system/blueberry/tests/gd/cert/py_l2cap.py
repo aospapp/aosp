@@ -20,7 +20,6 @@ from blueberry.facade.l2cap.classic import facade_pb2 as l2cap_facade_pb2
 from blueberry.facade.l2cap.classic.facade_pb2 import LinkSecurityInterfaceCallbackEventType
 from blueberry.facade.l2cap.le import facade_pb2 as l2cap_le_facade_pb2
 from blueberry.facade.l2cap.le.facade_pb2 import SecurityLevel
-from bluetooth_packets_python3 import hci_packets
 from bluetooth_packets_python3 import l2cap_packets
 from blueberry.tests.gd.cert.event_stream import FilteringEventStream
 from blueberry.tests.gd.cert.event_stream import EventStream, IEventStream
@@ -29,6 +28,7 @@ from blueberry.tests.gd.cert.py_hci import PyHci
 from blueberry.tests.gd.cert.matchers import HciMatchers
 from blueberry.tests.gd.cert.matchers import L2capMatchers
 from blueberry.tests.gd.cert.truth import assertThat
+import hci_packets as hci
 
 
 class PyL2capChannel(IEventStream):
@@ -80,7 +80,7 @@ class PyL2cap(Closable):
         self._security_connection_event_stream = EventStream(
             self._device.l2cap.FetchSecurityConnectionEvents(empty_proto.Empty()))
         if has_security == False:
-            self._hci.register_for_events(hci_packets.EventCode.LINK_KEY_REQUEST)
+            self._hci.register_for_events(hci.EventCode.LINK_KEY_REQUEST)
 
     def close(self):
         safeClose(self._l2cap_stream)
@@ -256,10 +256,9 @@ class PyLeL2cap(Closable):
                                     min_ce_length=12,
                                     max_ce_length=12):
         self._device.l2cap_le.SendConnectionParameterUpdate(
-            l2cap_le_facade_pb2.ConnectionParameter(
-                conn_interval_min=conn_interval_min,
-                conn_interval_max=conn_interval_max,
-                conn_latency=conn_latency,
-                supervision_timeout=supervision_timeout,
-                min_ce_length=min_ce_length,
-                max_ce_length=max_ce_length))
+            l2cap_le_facade_pb2.ConnectionParameter(conn_interval_min=conn_interval_min,
+                                                    conn_interval_max=conn_interval_max,
+                                                    conn_latency=conn_latency,
+                                                    supervision_timeout=supervision_timeout,
+                                                    min_ce_length=min_ce_length,
+                                                    max_ce_length=max_ce_length))

@@ -24,13 +24,14 @@ import android.annotation.Nullable;
  * @hide
  */
 public final class TextUtils {
-    private TextUtils()   {
-        throw new UnsupportedOperationException();
-    }
 
     /** Returns interned string if it's null. */
     @Nullable
-    public static String safeIntern(String s) {
+    public static String safeIntern(@Nullable String s) {
         return (s != null) ? s.intern() : null;
+    }
+
+    private TextUtils() {
+        throw new UnsupportedOperationException();
     }
 }

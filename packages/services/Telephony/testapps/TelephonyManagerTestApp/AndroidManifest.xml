@@ -26,7 +26,6 @@
     <uses-permission android:name="android.permission.CALL_PRIVILEGED"/>
     <uses-permission android:name="android.permission.READ_PRIVILEGED_PHONE_STATE"/>
 
-            android.Manifest.permission.ACCESS_FINE_LOCATION
     <application android:label="TelephonyManagerTestApp">
         <activity android:name=".TelephonyManagerTestApp"
              android:label="TelephonyManagerTestApp"

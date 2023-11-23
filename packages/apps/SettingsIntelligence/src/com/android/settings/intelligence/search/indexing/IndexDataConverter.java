@@ -34,6 +34,8 @@ import android.util.Xml;
 import com.android.settings.intelligence.search.ResultPayload;
 import com.android.settings.intelligence.search.SearchFeatureProvider;
 import com.android.settings.intelligence.search.SearchIndexableRaw;
+import com.android.settings.intelligence.search.sitemap.HighlightableMenu;
+import com.android.settings.intelligence.search.sitemap.SiteMapManager;
 import com.android.settings.intelligence.search.sitemap.SiteMapPair;
 
 import org.xmlpull.v1.XmlPullParser;
@@ -54,15 +56,17 @@ public class IndexDataConverter {
 
     private static final String TAG = "IndexDataConverter";
 
+    private static final String SETTINGS_PACKAGE_NAME = "com.android.settings";
     private static final String NODE_NAME_PREFERENCE_SCREEN = "PreferenceScreen";
     private static final String NODE_NAME_CHECK_BOX_PREFERENCE = "CheckBoxPreference";
     private static final String NODE_NAME_LIST_PREFERENCE = "ListPreference";
     private static final List<String> SKIP_NODES = Arrays.asList("intent", "extra");
 
-    private final Context mContext;
+    public IndexDataConverter() {
+    }
 
+    @Deprecated
     public IndexDataConverter(Context context) {
-        mContext = context;
     }
 
     /**
@@ -86,7 +90,7 @@ public class IndexDataConverter {
                 if (data instanceof SearchIndexableRaw) {
                     final SearchIndexableRaw rawData = (SearchIndexableRaw) data;
                     final Set<String> rawNonIndexableKeys = nonIndexableKeys.get(authority);
-                    final IndexData convertedRaw = convertRaw(mContext, authority, rawData,
+                    final IndexData convertedRaw = convertRaw(authority, rawData,
                             rawNonIndexableKeys);
                     if (convertedRaw != null) {
                         indexData.add(convertedRaw);
@@ -130,7 +134,7 @@ public class IndexDataConverter {
             classToTitleMap.put(row.className, row.screenTitle);
             if (!TextUtils.isEmpty(row.childClassName)) {
                 pairs.add(new SiteMapPair(row.className, row.screenTitle,
-                        row.childClassName, row.updatedTitle));
+                        row.childClassName, row.updatedTitle, row.highlightableMenuKey));
             }
         }
         // Step 2: Extend the sitemap pairs by adding dynamic pairs provided by
@@ -143,11 +147,32 @@ public class IndexDataConverter {
                 Log.w(TAG, "Cannot build sitemap pair for incomplete names "
                         + pair + parentName + childName);
             } else {
-                pairs.add(new SiteMapPair(pair.first, parentName, pair.second, childName));
+                pairs.add(new SiteMapPair(pair.first, parentName, pair.second, childName,
+                        null /* highlightableMenuKey*/));
             }
         }
         // Done
         return pairs;
+    }
+
+    public List<IndexData> updateIndexDataPayload(Context context, List<IndexData> indexData) {
+        final long startTime = System.currentTimeMillis();
+        final List<IndexData> updatedIndexData = new ArrayList<>(indexData);
+        for (IndexData row : indexData) {
+            String menuKey = row.highlightableMenuKey;
+            if (!TextUtils.isEmpty(menuKey)) {
+                // top level settings
+                continue;
+            }
+            menuKey = HighlightableMenu.getMenuKey(context, row);
+            if (TextUtils.isEmpty(menuKey)) {
+                continue;
+            }
+            updatedIndexData.remove(row);
+            updatedIndexData.add(row.mutate().setTopLevelMenuKey(menuKey).build());
+        }
+        Log.d(TAG, "Updating index data payload took: " + (System.currentTimeMillis() - startTime));
+        return updatedIndexData;
     }
 
     /**
@@ -156,7 +181,7 @@ public class IndexDataConverter {
      * and there is some data sanitization in the conversion.
      */
     @Nullable
-    private IndexData convertRaw(Context context, String authority, SearchIndexableRaw raw,
+    private IndexData convertRaw(String authority, SearchIndexableRaw raw,
             Set<String> nonIndexableKeys) {
         if (TextUtils.isEmpty(raw.key)) {
             Log.w(TAG, "Skipping null key for raw indexable " + authority + "/" + raw.title);
@@ -181,7 +206,7 @@ public class IndexDataConverter {
                 .setAuthority(authority)
                 .setKey(raw.key);
 
-        return builder.build(context);
+        return builder.build();
     }
 
     /**
@@ -227,6 +252,7 @@ public class IndexDataConverter {
             String keywords;
             String headerKeywords;
             String childFragment;
+            String highlightableMenuKey = null;
             @DrawableRes int iconResId;
             ResultPayload payload;
             boolean enabled;
@@ -281,6 +307,11 @@ public class IndexDataConverter {
                 enabled = !nonIndexableKeys.contains(key);
                 keywords = XmlParserUtils.getDataKeywords(context, attrs);
                 iconResId = XmlParserUtils.getDataIcon(context, attrs);
+                if (TextUtils.equals(sir.packageName, SETTINGS_PACKAGE_NAME)
+                        && SiteMapManager.isTopLevelSettings(sir.className)) {
+                    highlightableMenuKey = XmlParserUtils.getHighlightableMenuKey(context, attrs);
+                }
+
 
                 if (isHeaderUnique && TextUtils.equals(headerTitle, title)) {
                     isHeaderUnique = false;
@@ -298,6 +329,8 @@ public class IndexDataConverter {
                         .setIntentTargetPackage(sir.intentTargetPackage)
                         .setIntentTargetClass(sir.intentTargetClass)
                         .setEnabled(enabled)
+                        .setHighlightableMenuKey(highlightableMenuKey)
+                        .setTopLevelMenuKey(highlightableMenuKey)
                         .setKey(key);
 
                 if (!nodeName.equals(NODE_NAME_CHECK_BOX_PREFERENCE)) {
@@ -354,7 +387,7 @@ public class IndexDataConverter {
 
     private void tryAddIndexDataToList(List<IndexData> list, IndexData.Builder data) {
         if (!TextUtils.isEmpty(data.getKey())) {
-            list.add(data.build(mContext));
+            list.add(data.build());
         } else {
             Log.w(TAG, "Skipping index for null-key item " + data);
         }

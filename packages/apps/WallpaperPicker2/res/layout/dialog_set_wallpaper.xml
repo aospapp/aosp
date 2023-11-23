@@ -16,10 +16,9 @@
 -->
 
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:androidprv="http://schemas.android.com/apk/prv/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="?androidprv:attr/colorSurface"
+    android:background="@color/color_surface"
     android:padding="@dimen/set_wallpaper_dialog_padding">
 
     <LinearLayout
@@ -37,7 +36,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="@string/set_wallpaper_home_screen_destination"
-            android:textColor="?androidprv:attr/textColorOnAccent" />
+            android:textColor="@color/text_color_on_accent" />
 
         <Button
             android:id="@+id/set_lock_wallpaper_button"
@@ -45,7 +44,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="@string/set_wallpaper_lock_screen_destination"
-            android:textColor="?androidprv:attr/textColorOnAccent" />
+            android:textColor="@color/text_color_on_accent" />
 
         <Button
             android:id="@+id/set_both_wallpaper_button"
@@ -53,7 +52,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="@string/set_wallpaper_both_destination"
-            android:textColor="?androidprv:attr/textColorOnAccent" />
+            android:textColor="@color/text_color_on_accent" />
 
     </LinearLayout>
 

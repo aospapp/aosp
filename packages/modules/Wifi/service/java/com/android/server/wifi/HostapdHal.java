@@ -20,8 +20,6 @@ import android.content.Context;
 import android.net.MacAddress;
 import android.net.wifi.SoftApConfiguration;
 import android.net.wifi.WifiManager;
-import android.net.wifi.util.Environment;
-import android.os.Build;
 import android.os.Handler;
 import android.util.Log;
 
@@ -57,8 +55,6 @@ public class HostapdHal {
 
     /**
      * Enable/Disable verbose logging.
-     *
-     * @param enable true to enable, false to disable.
      */
     public void enableVerboseLogging(boolean verboseEnabled, boolean halVerboseEnabled) {
         synchronized (mLock) {
@@ -312,9 +308,9 @@ public class HostapdHal {
     }
 
     /**
-     * Returns whether or not the hostapd HAL supports reporting single instance died event.
+     * Returns whether the hostapd HAL supports reporting the single instance died event.
      */
     public boolean isSoftApInstanceDiedHandlerSupported() {
-        return Environment.isVndkApiLevelNewerThan(Build.VERSION_CODES.S);
+        return (mIHostapd != null) && (mIHostapd instanceof HostapdHalAidlImp);
     }
 }

@@ -34,6 +34,7 @@ import androidx.test.InstrumentationRegistry
 import com.android.compatibility.common.util.SystemUtil.runWithShellPermissionIdentity
 import com.android.testutils.DevSdkIgnoreRule.IgnoreUpTo
 import com.android.testutils.DevSdkIgnoreRunner
+import com.android.testutils.RecorderCallback.CallbackEntry
 import com.android.testutils.TestableNetworkCallback
 import com.android.testutils.TestableNetworkCallback.HasNetwork
 import org.junit.After
@@ -76,8 +77,20 @@ class NetworkScoreTest {
 
     @After
     fun tearDown() {
-        agentsToCleanUp.forEach { it.unregister() }
+        val agentCleanUpCb = TestableNetworkCallback(TIMEOUT_MS).also { cb ->
+            mCm.registerNetworkCallback(
+                NetworkRequest.Builder().clearCapabilities()
+                    .addTransportType(NetworkCapabilities.TRANSPORT_TEST).build(), cb, mHandler
+            )
+        }
+        agentsToCleanUp.forEach {
+            it.unregister()
+            agentCleanUpCb.eventuallyExpect<CallbackEntry.Lost> { cb -> cb.network == it.network }
+        }
+        mCm.unregisterNetworkCallback(agentCleanUpCb)
+
         mHandlerThread.quitSafely()
+        mHandlerThread.join()
         callbacksToCleanUp.forEach { mCm.unregisterNetworkCallback(it) }
     }
 

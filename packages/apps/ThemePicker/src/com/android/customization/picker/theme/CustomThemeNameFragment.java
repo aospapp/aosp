@@ -69,7 +69,7 @@ public class CustomThemeNameFragment extends CustomThemeStepFragment {
         mTitle = view.findViewById(R.id.component_options_title);
         mTitle.setText(mTitleResId);
         CurrentWallpaperInfoFactory currentWallpaperFactory = InjectorProvider.getInjector()
-                .getCurrentWallpaperFactory(getActivity().getApplicationContext());
+                .getCurrentWallpaperInfoFactory(getActivity().getApplicationContext());
         CustomizationInjector injector = (CustomizationInjector) InjectorProvider.getInjector();
         mCustomizationPreferences = injector.getCustomizationPreferences(getContext());
 

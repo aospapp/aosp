@@ -17,6 +17,8 @@
 package com.android.car.settings.network;
 
 import static com.android.car.settings.common.PreferenceController.AVAILABLE;
+import static com.android.car.settings.common.PreferenceController.AVAILABLE_FOR_VIEWING;
+import static com.android.car.settings.common.PreferenceController.CONDITIONALLY_UNAVAILABLE;
 import static com.android.car.settings.common.PreferenceController.DISABLED_FOR_PROFILE;
 import static com.android.car.settings.common.PreferenceController.UNSUPPORTED_ON_DEVICE;
 
@@ -146,10 +148,64 @@ public class MobileNetworkEntryPreferenceControllerTest {
     }
 
     @Test
+    public void getAvailabilityStatus_noSim_unsupported_zoneWrite() {
+        when(mTelephonyManager.getSimState()).thenReturn(TelephonyManager.SIM_STATE_ABSENT);
+        mPreferenceController.setAvailabilityStatusForZone("write");
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), UNSUPPORTED_ON_DEVICE);
+    }
+
+    @Test
+    public void getAvailabilityStatus_noSim_unsupported_zoneRead() {
+        when(mTelephonyManager.getSimState()).thenReturn(TelephonyManager.SIM_STATE_ABSENT);
+        mPreferenceController.setAvailabilityStatusForZone("read");
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), UNSUPPORTED_ON_DEVICE);
+    }
+
+    @Test
+    public void getAvailabilityStatus_noSim_unsupported_zoneHidden() {
+        when(mTelephonyManager.getSimState()).thenReturn(TelephonyManager.SIM_STATE_ABSENT);
+        mPreferenceController.setAvailabilityStatusForZone("hidden");
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), UNSUPPORTED_ON_DEVICE);
+    }
+
+    @Test
     public void getAvailabilityStatus_notAdmin_disabledForUser() {
         when(mUserManager.isAdminUser()).thenReturn(false);
 
         assertThat(mPreferenceController.getAvailabilityStatus()).isEqualTo(DISABLED_FOR_PROFILE);
+    }
+
+    @Test
+    public void getAvailabilityStatus_notAdmin_disabledForUser_zoneWrite() {
+        when(mUserManager.isAdminUser()).thenReturn(false);
+        mPreferenceController.setAvailabilityStatusForZone("write");
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), DISABLED_FOR_PROFILE);
+    }
+
+    @Test
+    public void getAvailabilityStatus_notAdmin_disabledForUser_zoneRead() {
+        when(mUserManager.isAdminUser()).thenReturn(false);
+        mPreferenceController.setAvailabilityStatusForZone("read");
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), DISABLED_FOR_PROFILE);
+    }
+
+    @Test
+    public void getAvailabilityStatus_notAdmin_disabledForUser_zoneHidden() {
+        when(mUserManager.isAdminUser()).thenReturn(false);
+        mPreferenceController.setAvailabilityStatusForZone("hidden");
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), DISABLED_FOR_PROFILE);
     }
 
     @Test
@@ -161,8 +217,59 @@ public class MobileNetworkEntryPreferenceControllerTest {
     }
 
     @Test
+    public void getAvailabilityStatus_hasRestriction_disabledForUser_zoneWrite() {
+        when(mUserManager.hasUserRestriction(UserManager.DISALLOW_CONFIG_MOBILE_NETWORKS))
+                .thenReturn(true);
+        mPreferenceController.setAvailabilityStatusForZone("write");
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), DISABLED_FOR_PROFILE);
+    }
+
+    @Test
+    public void getAvailabilityStatus_hasRestriction_disabledForUser_zoneRead() {
+        when(mUserManager.hasUserRestriction(UserManager.DISALLOW_CONFIG_MOBILE_NETWORKS))
+                .thenReturn(true);
+        mPreferenceController.setAvailabilityStatusForZone("read");
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), DISABLED_FOR_PROFILE);
+    }
+
+    @Test
+    public void getAvailabilityStatus_hasRestriction_disabledForUser_zoneHidden() {
+        when(mUserManager.hasUserRestriction(UserManager.DISALLOW_CONFIG_MOBILE_NETWORKS))
+                .thenReturn(true);
+        mPreferenceController.setAvailabilityStatusForZone("hidden");
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), DISABLED_FOR_PROFILE);
+    }
+
+    @Test
     public void getAvailabilityStatus_hasMobileNetwork_isAdmin_noRestriction_available() {
         assertThat(mPreferenceController.getAvailabilityStatus()).isEqualTo(AVAILABLE);
+    }
+
+    @Test
+    public void getAvailabilityStatus_hasMobileNetwork_noRestriction_available_zoneWrite() {
+        mPreferenceController.setAvailabilityStatusForZone("write");
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), AVAILABLE);
+    }
+
+    @Test
+    public void getAvailabilityStatus_hasMobileNetwork_noRestriction_available_zoneRead() {
+        mPreferenceController.setAvailabilityStatusForZone("read");
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), AVAILABLE_FOR_VIEWING);
+    }
+
+    @Test
+    public void getAvailabilityStatus_hasMobileNetwork_noRestriction_available_zoneHidden() {
+        mPreferenceController.setAvailabilityStatusForZone("hidden");
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), CONDITIONALLY_UNAVAILABLE);
     }
 
     @Test

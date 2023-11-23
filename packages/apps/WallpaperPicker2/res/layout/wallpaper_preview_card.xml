@@ -31,10 +31,20 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent" />
 
+    <!-- A 30% opacity black scrim that can be shown to "dim" the wallpaper. -->
+    <View
+        android:id="@+id/wallpaper_dimming_scrim"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="@color/wallpaper_preview_scrim_color"
+        android:visibility="invisible"
+        android:importantForAccessibility="noHideDescendants" />
+
     <SurfaceView
         android:id="@+id/workspace_surface"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
+        android:visibility="invisible"
         android:importantForAccessibility="noHideDescendants" />
 
     <FrameLayout
@@ -51,4 +61,14 @@
         android:layout_height="wrap_content"
         android:layout_gravity="center"
         android:visibility="gone" />
+
+    <ImageView
+        android:id="@+id/wallpaper_fadein_scrim"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="@color/color_surface"
+        android:forceHasOverlappingRendering="false"
+        android:importantForAccessibility="no"
+        android:visibility="invisible" />
+
 </androidx.cardview.widget.CardView>

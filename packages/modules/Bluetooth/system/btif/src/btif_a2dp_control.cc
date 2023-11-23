@@ -93,12 +93,6 @@ static tA2DP_CTRL_ACK btif_a2dp_control_on_start() {
     return A2DP_CTRL_ACK_INCALL_FAILURE;
   }
 
-  if (btif_a2dp_source_is_streaming()) {
-    APPL_TRACE_WARNING("%s: A2DP command start while source is streaming",
-                       __func__);
-    return A2DP_CTRL_ACK_FAILURE;
-  }
-
   if (btif_av_stream_ready()) {
     /* Setup audio data channel listener */
     UIPC_Open(*a2dp_uipc, UIPC_CH_ID_AV_AUDIO, btif_a2dp_data_cb,
@@ -128,11 +122,6 @@ static tA2DP_CTRL_ACK btif_a2dp_control_on_start() {
 }
 
 static tA2DP_CTRL_ACK btif_a2dp_control_on_stop() {
-  if (btif_av_get_peer_sep() == AVDT_TSEP_SNK &&
-      !btif_a2dp_source_is_streaming()) {
-    /* We are already stopped, just ack back */
-    return A2DP_CTRL_ACK_SUCCESS;
-  }
   btif_av_stream_stop(RawAddress::kEmpty);
   return A2DP_CTRL_ACK_SUCCESS;
 }
@@ -394,15 +383,8 @@ static void btif_a2dp_data_cb(UNUSED_ATTR tUIPC_CH_ID ch_id,
     case UIPC_CLOSE_EVT:
       APPL_TRACE_EVENT("%s: ## AUDIO PATH DETACHED ##", __func__);
       btif_a2dp_command_ack(A2DP_CTRL_ACK_SUCCESS);
-      /*
-       * Send stop request only if we are actively streaming and haven't
-       * received a stop request. Potentially, the audioflinger detached
-       * abnormally.
-       */
-      if (btif_a2dp_source_is_streaming()) {
-        /* Post stop event and wait for audio path to stop */
-        btif_av_stream_stop(RawAddress::kEmpty);
-      }
+      /* Post stop event and wait for audio path to stop */
+      btif_av_stream_stop(RawAddress::kEmpty);
       break;
 
     default:

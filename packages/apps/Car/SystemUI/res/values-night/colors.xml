@@ -16,7 +16,6 @@
   -->
 <resources xmlns:android="http://schemas.android.com/apk/res/android">
     <color name="car_accent">#356FE5</color>
-    <color name="status_bar_background_color">#ff000000</color>
     <color name="system_bar_background_opaque">#ff0c1013</color>
 
     <!-- The background color of the notification shade -->

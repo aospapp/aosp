@@ -280,7 +280,7 @@ uint16_t AVDT_DiscoverReq(const RawAddress& bd_addr, uint8_t channel_index,
 
   if (result != AVDT_SUCCESS) {
     AVDT_TRACE_ERROR("%s: result=%d address=%s", __func__, result,
-                     bd_addr.ToString().c_str());
+                     ADDRESS_TO_LOGGABLE_CSTR(bd_addr));
   }
   return result;
 }
@@ -333,7 +333,7 @@ static uint16_t avdt_get_cap_req(const RawAddress& bd_addr,
 
   if (result != AVDT_SUCCESS) {
     AVDT_TRACE_ERROR("%s: result=%d address=%s", __func__, result,
-                     bd_addr.ToString().c_str());
+                     ADDRESS_TO_LOGGABLE_CSTR(bd_addr));
   }
   return result;
 }
@@ -382,7 +382,7 @@ uint16_t AVDT_GetCapReq(const RawAddress& bd_addr, uint8_t channel_index,
 
   if (result != AVDT_SUCCESS) {
     AVDT_TRACE_ERROR("%s: result=%d address=%s", __func__, result,
-                     bd_addr.ToString().c_str());
+                     ADDRESS_TO_LOGGABLE_CSTR(bd_addr));
   }
   return result;
 }
@@ -448,7 +448,7 @@ uint16_t AVDT_OpenReq(uint8_t handle, const RawAddress& bd_addr,
   tAVDT_SCB_EVT evt;
 
   AVDT_TRACE_API("%s: address=%s avdt_handle=%d seid=%d", __func__,
-                 bd_addr.ToString().c_str(), handle, seid);
+                 ADDRESS_TO_LOGGABLE_CSTR(bd_addr), handle, seid);
 
   /* verify SEID */
   if ((seid < AVDT_SEID_MIN) || (seid > AVDT_SEID_MAX)) {
@@ -485,7 +485,7 @@ uint16_t AVDT_OpenReq(uint8_t handle, const RawAddress& bd_addr,
     avdt_scb_event(p_scb, AVDT_SCB_API_SETCONFIG_REQ_EVT, &evt);
   } else {
     AVDT_TRACE_ERROR("%s: result=%d address=%s avdt_handle=%d", __func__,
-                     result, bd_addr.ToString().c_str(), handle);
+                     result, ADDRESS_TO_LOGGABLE_CSTR(bd_addr), handle);
   }
 
   return result;
@@ -908,7 +908,7 @@ uint16_t AVDT_ConnectReq(const RawAddress& bd_addr, uint8_t channel_index,
   tAVDT_CCB_EVT evt;
 
   AVDT_TRACE_WARNING("%s: address=%s channel_index=%d", __func__,
-                     bd_addr.ToString().c_str(), channel_index);
+                     ADDRESS_TO_LOGGABLE_CSTR(bd_addr), channel_index);
 
   /* find channel control block for this bd addr; if none, allocate one */
   p_ccb = avdt_ccb_by_bd(bd_addr);
@@ -932,7 +932,7 @@ uint16_t AVDT_ConnectReq(const RawAddress& bd_addr, uint8_t channel_index,
   }
 
   AVDT_TRACE_WARNING("%s: address=%s result=%d", __func__,
-                     bd_addr.ToString().c_str(), result);
+                     ADDRESS_TO_LOGGABLE_CSTR(bd_addr), result);
 
   return result;
 }
@@ -959,11 +959,11 @@ uint16_t AVDT_DisconnectReq(const RawAddress& bd_addr,
   p_ccb = avdt_ccb_by_bd(bd_addr);
   if (p_ccb == NULL) {
     LOG_ERROR("Unable to find AVDT stream endpoint peer:%s",
-              PRIVATE_ADDRESS(bd_addr));
+              ADDRESS_TO_LOGGABLE_CSTR(bd_addr));
     result = AVDT_BAD_PARAMS;
   } else {
     LOG_DEBUG("Sending disconnect request to ccb peer:%s",
-              PRIVATE_ADDRESS(bd_addr));
+              ADDRESS_TO_LOGGABLE_CSTR(bd_addr));
     evt.disconnect.p_cback = p_cback;
     avdt_ccb_event(p_ccb, AVDT_CCB_API_DISCONNECT_REQ_EVT, &evt);
   }
@@ -1037,7 +1037,7 @@ void stack_debug_avdtp_api_dump(int fd) {
       continue;
     }
     dprintf(fd, "\n  Channel control block: %zu peer: %s\n", i,
-            ccb.peer_addr.ToString().c_str());
+            ADDRESS_TO_LOGGABLE_CSTR(ccb.peer_addr));
     dprintf(fd, "    Allocated: %s\n", ccb.allocated ? "true" : "false");
     dprintf(fd, "    State: %d\n", ccb.state);
     dprintf(fd, "    Link-layer opened: %s\n",
@@ -1074,8 +1074,9 @@ void stack_debug_avdtp_api_dump(int fd) {
                   ? "Scheduled"
                   : "Not scheduled");
       dprintf(fd, "      Channel control block peer: %s\n",
-              (scb.p_ccb != nullptr) ? scb.p_ccb->peer_addr.ToString().c_str()
-                                     : "null");
+              (scb.p_ccb != nullptr)
+                  ? ADDRESS_TO_LOGGABLE_CSTR(scb.p_ccb->peer_addr)
+                  : "null");
       dprintf(fd, "      Allocated: %s\n", scb.allocated ? "true" : "false");
       dprintf(fd, "      In use: %s\n", scb.in_use ? "true" : "false");
       dprintf(fd, "      Role: 0x%x\n", scb.role);

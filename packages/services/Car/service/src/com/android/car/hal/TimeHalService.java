@@ -118,6 +118,9 @@ public final class TimeHalService extends HalServiceBase {
             if (mExternalCarTimeSupported) {
                 HalPropValue propValue = mHal.get(EXTERNAL_CAR_TIME);
                 suggestExternalTimeLocked(propValue);
+
+                mHal.subscribeProperty(this, EXTERNAL_CAR_TIME);
+                Slogf.d(CarLog.TAG_TIME, "Subscribed to VHAL property EXTERNAL_CAR_TIME.");
             }
         }
     }
@@ -158,6 +161,8 @@ public final class TimeHalService extends HalServiceBase {
                             mExternalCarTimeSupported = true;
                         }
                     }
+                    break;
+                default:
                     break;
             }
         }

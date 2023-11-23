@@ -104,7 +104,8 @@ public class HapClientNativeInterface {
         return Utils.getBytesFromAddress(device.getAddress());
     }
 
-    private void sendMessageToService(HapClientStackEvent event) {
+    @VisibleForTesting(visibility = VisibleForTesting.Visibility.PACKAGE)
+    void sendMessageToService(HapClientStackEvent event) {
         HapClientService service = HapClientService.getHapClientService();
         if (service != null) {
             service.messageFromNative(event);

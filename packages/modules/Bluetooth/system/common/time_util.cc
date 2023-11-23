@@ -42,6 +42,13 @@ uint64_t time_gettimeofday_us() {
          static_cast<uint64_t>(tv.tv_usec);
 }
 
+uint64_t time_get_os_monotonic_raw_us() {
+  struct timespec ts_now = {};
+  clock_gettime(CLOCK_MONOTONIC_RAW, &ts_now);
+
+  return ((uint64_t)ts_now.tv_sec * 1000000L) +
+         ((uint64_t)ts_now.tv_nsec / 1000);
+}
 }  // namespace common
 
 }  // namespace bluetooth

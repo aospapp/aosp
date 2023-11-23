@@ -55,7 +55,7 @@ public class AccountGroupPreferenceController extends
     }
 
     @Override
-    protected int getAvailabilityStatus() {
+    protected int getDefaultAvailabilityStatus() {
         ProfileHelper profileHelper = getProfileHelper();
         boolean isCurrentUser = profileHelper.isCurrentProcessUser(getUserInfo());
         boolean canModifyAccounts = getProfileHelper().canCurrentProcessModifyAccounts();

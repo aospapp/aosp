@@ -27,7 +27,6 @@ import com.android.car.internal.ExcludeFromCodeCoverageGeneratedReport;
 import java.io.IOException;
 
 // Copied from frameworks/base
-
 /**
  * Wrapper class that offers to transport typical {@link Throwable} across a
  * {@link Binder} call. This class is typically used to transport exceptions

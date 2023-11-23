@@ -17,7 +17,6 @@
 package com.android.systemui.car.sideloaded;
 
 import android.app.IActivityTaskManager;
-import android.content.Context;
 import android.os.RemoteException;
 import android.util.Log;
 
@@ -30,7 +29,7 @@ import javax.inject.Inject;
  * Controller responsible for detecting unsafe apps.
  */
 @SysUISingleton
-public class SideLoadedAppController extends CoreStartable {
+public class SideLoadedAppController implements CoreStartable {
     private static final String TAG = SideLoadedAppController.class.getSimpleName();
 
     private IActivityTaskManager mActivityTaskManager;
@@ -39,13 +38,11 @@ public class SideLoadedAppController extends CoreStartable {
     private SideLoadedAppStateController mSideLoadedAppStateController;
 
     @Inject
-    public SideLoadedAppController(Context context,
+    public SideLoadedAppController(
             IActivityTaskManager activityTaskManager,
             SideLoadedAppDetector sideLoadedAppDetector,
             SideLoadedAppListener sideLoadedAppListener,
             SideLoadedAppStateController sideLoadedAppStateController) {
-        super(context);
-
         mSideLoadedAppDetector = sideLoadedAppDetector;
         mActivityTaskManager = activityTaskManager;
         mSideLoadedAppListener = sideLoadedAppListener;
@@ -57,7 +54,7 @@ public class SideLoadedAppController extends CoreStartable {
     }
 
     @Override
-    protected void onBootCompleted() {
+    public void onBootCompleted() {
         Log.i(TAG, "OnBootCompleted");
 
         try {

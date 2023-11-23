@@ -57,8 +57,12 @@
         <item name="android:windowIsTranslucent">true</item>
     </style>
 
-    <style name="GrantPermissions.Car">
-        <item name="carUiActivity">true</item>
+    <style name="GrantPermissions.Car" parent="Theme.CarUi.NoToolbar">
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <!-- The following attributes change the behavior of the dialog, hence they should not be
+             themed -->
+        <item name="android:windowIsTranslucent">true</item>
     </style>
 
     <!-- Unused since R but exposed as overlayable. -->
@@ -101,7 +105,7 @@
         <item name="android:background">@color/divider_color_primary</item>
     </style>
 
-    <style name="Theme.DeviceDefault.Dialog.Alert.DayNight" parent="@android:style/Theme.DeviceDefault.Light.Dialog.Alert" />
+    <style name="Theme.DeviceDefault.Dialog.NoActionBar.DayNight" parent="@android:style/Theme.DeviceDefault.Light.Dialog.NoActionBar" />
 
 
 <!-- Do not allow OEMs to overlay these themes.
@@ -131,10 +135,6 @@
     </style>
 
     <style name="PermissionDialog.FilterTouches">
-        <item name="android:filterTouchesWhenObscured">true</item>
-    </style>
-
-    <style name="SafetyCenter" parent="@android:style/Theme.DeviceDefault.NoActionBar">
         <item name="android:filterTouchesWhenObscured">true</item>
     </style>
 

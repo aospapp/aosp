@@ -16,12 +16,13 @@
 
 #define LOG_TAG "bt_shim_storage"
 
+#include "main/shim/dumpsys.h"
+
 #include <unordered_map>
 
-#include "main/shim/dumpsys.h"
 #include "main/shim/entry.h"
 #include "main/shim/shim.h"
-
+#include "main/shim/stack.h"
 #include "shim/dumpsys.h"
 
 namespace {
@@ -53,14 +54,16 @@ void bluetooth::shim::Dump(int fd, const char** args) {
       dumpsys.second(fd);
     }
   }
-  if (bluetooth::shim::is_gd_stack_started_up()) {
-    if (bluetooth::shim::is_gd_dumpsys_module_started()) {
-      bluetooth::shim::GetDumpsys()->Dump(fd, args);
+  bluetooth::shim::Stack::GetInstance()->LockForDumpsys([=]() {
+    if (bluetooth::shim::is_gd_stack_started_up()) {
+      if (bluetooth::shim::is_gd_dumpsys_module_started()) {
+        bluetooth::shim::GetDumpsys()->Dump(fd, args);
+      } else {
+        dprintf(fd, "%s NOTE: gd dumpsys module not loaded or started\n",
+                kModuleName);
+      }
     } else {
-      dprintf(fd, "%s NOTE: gd dumpsys module not loaded or started\n",
-              kModuleName);
+      dprintf(fd, "%s gd stack is enabled but not started\n", kModuleName);
     }
-  } else {
-    dprintf(fd, "%s gd stack is enabled but not started\n", kModuleName);
-  }
+  });
 }

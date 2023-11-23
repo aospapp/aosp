@@ -51,8 +51,6 @@
     <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
          android:targetPackage="android.networkpermission.updatestatspermission.cts"
          android:label="CTS tests for UPDATE_DEVICE_STATS permissions">
-        <meta-data android:name="listener"
-             android:value="com.android.cts.runner.CtsTestRunListener"/>
     </instrumentation>
 
 </manifest>

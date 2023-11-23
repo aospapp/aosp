@@ -87,7 +87,7 @@ public class MobileDataTogglePreferenceController extends
     }
 
     @Override
-    protected int getAvailabilityStatus() {
+    protected int getDefaultAvailabilityStatus() {
         return getSubId() != SubscriptionManager.INVALID_SUBSCRIPTION_ID ? AVAILABLE
                 : CONDITIONALLY_UNAVAILABLE;
     }

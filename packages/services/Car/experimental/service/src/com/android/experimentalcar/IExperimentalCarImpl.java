@@ -65,9 +65,6 @@ public final class IExperimentalCarImpl extends IExperimentalCar.Stub {
     private boolean mReleased;
 
     @GuardedBy("mLock")
-    private IExperimentalCarHelper mHelper;
-
-    @GuardedBy("mLock")
     private ArrayList<CarServiceBase> mRunningServices = new ArrayList<>();
 
     public IExperimentalCarImpl(Context context) {
@@ -120,7 +117,6 @@ public final class IExperimentalCarImpl extends IExperimentalCar.Stub {
                 // will be destroyed soon. Just continue and register services for possible cleanup.
             }
             synchronized (mLock) {
-                mHelper = helper;
                 mRunningServices.addAll(services);
             }
         });
@@ -146,6 +142,14 @@ public final class IExperimentalCarImpl extends IExperimentalCar.Stub {
 
     /** dump */
     public void dump(FileDescriptor fd, PrintWriter writer, String[] args) {
+        if (mContext.checkCallingOrSelfPermission(android.Manifest.permission.DUMP)
+                != PackageManager.PERMISSION_GRANTED) {
+            writer.println("Permission Denial: can't dump ExperimentalCarService from from pid="
+                    + Binder.getCallingPid() + ", uid=" + Binder.getCallingUid()
+                    + " without permission " + android.Manifest.permission.DUMP);
+            return;
+        }
+
         try (IndentingPrintWriter pw = new IndentingPrintWriter(writer)) {
             ArrayList<CarServiceBase> services;
             synchronized (mLock) {

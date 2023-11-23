@@ -65,7 +65,7 @@ public class AutoTimeZoneTogglePreferenceController extends
     }
 
     @Override
-    public int getAvailabilityStatus() {
+    public int getDefaultAvailabilityStatus() {
         return DatetimeUtils.getAvailabilityStatus(getContext());
     }
 

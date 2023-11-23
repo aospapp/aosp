@@ -129,10 +129,10 @@ public class BluetoothA2dpConnector implements BluetoothDevicePairer.BluetoothCo
 
         @Override
         public void onServiceDisconnected(int profile) {
-            Log.w(TAG, "Service disconnected, perhaps unexpectedly");
+            if (DEBUG) {
+                Log.d(TAG, "Service disconnected");
+            }
             unregisterConnectionStateReceiver();
-            closeA2dpProfileProxy();
-            failed();
         }
 
         @Override
@@ -170,6 +170,12 @@ public class BluetoothA2dpConnector implements BluetoothDevicePairer.BluetoothCo
         if (!adapter.getProfileProxy(mContext, mServiceConnection, BluetoothProfile.A2DP)) {
             failed();
         }
+    }
+
+    @Override
+    public void dispose() {
+        unregisterConnectionStateReceiver();
+        closeA2dpProfileProxy();
     }
 
     private void closeA2dpProfileProxy() {

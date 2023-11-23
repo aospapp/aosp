@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- package name must be unique so suffix with "tests" so package loader doesn't ignore us -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-          package="com.android.bluetooth.tests"
-          android:sharedUserId="android.uid.bluetooth">
+          xmlns:tools="http://schemas.android.com/tools"
+          package="com.android.bluetooth.tests">
 
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.ACCESS_BLUETOOTH_SHARE" />
@@ -58,6 +58,19 @@
                  android:autoRevokePermissions="disallowed">
         <uses-library android:name="android.test.runner" />
         <uses-library android:name="org.apache.http.legacy" android:required="false" />
+
+        <!-- Workaround for *ActivityTest failures (b/260295342) -->
+        <activity
+            android:name="androidx.test.core.app.InstrumentationActivityInvoker$BootstrapActivity"
+            tools:node="merge">
+            <intent-filter tools:node="removeAll" />
+        </activity>
+        <activity
+            android:name="androidx.test.core.app.InstrumentationActivityInvoker$EmptyActivity"
+            tools:node="merge">
+            <intent-filter tools:node="removeAll" />
+        </activity>
+
     </application>
     <!--
     This declares that this application uses the instrumentation test runner targeting

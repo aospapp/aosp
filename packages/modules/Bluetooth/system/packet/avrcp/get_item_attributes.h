@@ -23,15 +23,32 @@
 namespace bluetooth {
 namespace avrcp {
 
+template <class Builder>
+class AttributesResponseBuilderTestUser;
+
 class GetItemAttributesResponseBuilder : public BrowsePacketBuilder {
  public:
   virtual ~GetItemAttributesResponseBuilder() = default;
+  using Builder = std::unique_ptr<GetItemAttributesResponseBuilder>;
+  static Builder MakeBuilder(Status status, size_t mtu);
 
-  static std::unique_ptr<GetItemAttributesResponseBuilder> MakeBuilder(
-      Status status, size_t mtu);
+  size_t AddAttributeEntry(AttributeEntry entry);
+  size_t AddAttributeEntry(Attribute, const std::string&);
 
-  bool AddAttributeEntry(AttributeEntry entry);
-  bool AddAttributeEntry(Attribute, std::string);
+  virtual void clear() { entries_.clear(); }
+
+  static constexpr size_t kHeaderSize() {
+    size_t len = BrowsePacket::kMinSize();
+    len += 1;  // Status
+    len += 1;  // Number of attributes
+    return len;
+  }
+
+  static constexpr size_t kErrorHeaderSize() {
+    size_t len = BrowsePacket::kMinSize();
+    len += 1;  // Status
+    return len;
+  }
 
   virtual size_t size() const override;
   virtual bool Serialize(
@@ -41,6 +58,8 @@ class GetItemAttributesResponseBuilder : public BrowsePacketBuilder {
   Status status_;
   size_t mtu_;
   std::set<AttributeEntry> entries_;
+  friend class AttributesResponseBuilderTestUser<
+      GetItemAttributesResponseBuilder>;
 
   GetItemAttributesResponseBuilder(Status status, size_t mtu)
       : BrowsePacketBuilder(BrowsePdu::GET_ITEM_ATTRIBUTES),

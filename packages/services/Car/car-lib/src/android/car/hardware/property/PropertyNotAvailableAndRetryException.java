@@ -18,13 +18,16 @@ package android.car.hardware.property;
 
 import static java.lang.Integer.toHexString;
 
+import android.car.VehiclePropertyIds;
+
 /**
  * Exception thrown when device that associated with the vehicle property is temporarily
  * not available. It's likely that retrying will be successful.
  */
 public class PropertyNotAvailableAndRetryException extends IllegalStateException {
-    PropertyNotAvailableAndRetryException(int property, int areaId) {
-        super("Property 0x" + toHexString(property) + " with area: " + toHexString(areaId)
-                + " is temporarily not available. Try the operation later.");
+    PropertyNotAvailableAndRetryException(int propertyId, int areaId) {
+        super("Property ID: " + VehiclePropertyIds.toString(propertyId) + " area ID: 0x"
+                + toHexString(areaId)
+                + " - is temporarily not available. Try the operation later.");
     }
 }

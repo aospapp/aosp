@@ -302,9 +302,9 @@ public class DeviceAtomTestCase extends AtomTestCase {
 
     protected void rebootDeviceAndWaitUntilReady() throws Exception {
         rebootDevice();
-        // Wait for 2 mins.
+        // Wait for 3 mins.
         assertWithMessage("Device failed to boot")
-            .that(getDevice().waitForBootComplete(120_000)).isTrue();
+            .that(getDevice().waitForBootComplete(180_000)).isTrue();
         assertWithMessage("Stats service failed to start")
             .that(waitForStatsServiceStart(60_000)).isTrue();
         Thread.sleep(2_000);

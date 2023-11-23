@@ -15,18 +15,11 @@
  */
 package com.android.customization.model.color;
 
-import static com.android.customization.model.ResourceConstants.PATH_SIZE;
-
 import android.content.Context;
 import android.content.res.Configuration;
 import android.content.res.Resources;
 import android.graphics.Color;
-import android.graphics.Path;
 import android.graphics.PorterDuff;
-import android.graphics.drawable.Drawable;
-import android.graphics.drawable.ShapeDrawable;
-import android.graphics.drawable.shapes.PathShape;
-import android.text.TextUtils;
 import android.view.View;
 import android.widget.ImageView;
 
@@ -34,16 +27,13 @@ import androidx.annotation.ColorInt;
 import androidx.annotation.Dimension;
 import androidx.annotation.NonNull;
 import androidx.annotation.VisibleForTesting;
-import androidx.core.graphics.PathParser;
 
 import com.android.customization.model.ResourceConstants;
 import com.android.systemui.monet.Style;
 import com.android.wallpaper.R;
 
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 /**
@@ -65,15 +55,11 @@ public class ColorBundle extends ColorOption {
         Resources res = view.getContext().getResources();
         int primaryColor = mPreviewInfo.resolvePrimaryColor(res);
         int secondaryColor = mPreviewInfo.resolveSecondaryColor(res);
-        int padding = view.isActivated()
-                ? res.getDimensionPixelSize(R.dimen.color_seed_option_tile_padding_selected)
-                : res.getDimensionPixelSize(R.dimen.color_seed_option_tile_padding);
 
         for (int i = 0; i < mPreviewColorIds.length; i++) {
             ImageView colorPreviewImageView = view.findViewById(mPreviewColorIds[i]);
             int color = i % 2 == 0 ? primaryColor : secondaryColor;
             colorPreviewImageView.getDrawable().setColorFilter(color, PorterDuff.Mode.SRC);
-            colorPreviewImageView.setPadding(padding, padding, padding, padding);
         }
         view.setContentDescription(getContentDescription(view.getContext()));
     }
@@ -103,8 +89,6 @@ public class ColorBundle extends ColorOption {
         // Monet system palette and accent colors
         @ColorInt public final int primaryColorLight;
         @ColorInt public final int primaryColorDark;
-        public final List<Drawable> icons;
-        public final Drawable shapeDrawable;
         @Dimension
         public final int bottomSheetCornerRadius;
 
@@ -115,14 +99,11 @@ public class ColorBundle extends ColorOption {
 
         private PreviewInfo(
                 int secondaryColorLight, int secondaryColorDark, int colorSystemPaletteLight,
-                int primaryColorDark, List<Drawable> icons, Drawable shapeDrawable,
-                @Dimension int cornerRadius) {
+                int primaryColorDark, @Dimension int cornerRadius) {
             this.secondaryColorLight = secondaryColorLight;
             this.secondaryColorDark = secondaryColorDark;
             this.primaryColorLight = colorSystemPaletteLight;
             this.primaryColorDark = primaryColorDark;
-            this.icons = icons;
-            this.shapeDrawable = shapeDrawable;
             this.bottomSheetCornerRadius = cornerRadius;
         }
 
@@ -188,7 +169,6 @@ public class ColorBundle extends ColorOption {
         // System and Monet colors
         @ColorInt private int mPrimaryColorLight = Color.TRANSPARENT;
         @ColorInt private int mPrimaryColorDark = Color.TRANSPARENT;
-        private List<Drawable> mIcons = new ArrayList<>();
         private boolean mIsDefault;
         private Style mStyle = Style.TONAL_SPOT;
         private int mIndex;
@@ -213,26 +193,12 @@ public class ColorBundle extends ColorOption {
          * @return the {@link PreviewInfo} object
          */
         public PreviewInfo createPreviewInfo(@NonNull Context context) {
-            ShapeDrawable shapeDrawable = null;
             Resources system = context.getResources().getSystem();
-            String pathString = system.getString(
-                    system.getIdentifier(ResourceConstants.CONFIG_ICON_MASK,
-                            "string", ResourceConstants.ANDROID_PACKAGE));
-            Path path = null;
-            if (!TextUtils.isEmpty(pathString)) {
-                path = PathParser.createPathFromPathData(pathString);
-            }
-            if (path != null) {
-                PathShape shape = new PathShape(path, PATH_SIZE, PATH_SIZE);
-                shapeDrawable = new ShapeDrawable(shape);
-                shapeDrawable.setIntrinsicHeight((int) PATH_SIZE);
-                shapeDrawable.setIntrinsicWidth((int) PATH_SIZE);
-            }
             return new PreviewInfo(mSecondaryColorLight,
-                    mSecondaryColorDark, mPrimaryColorLight, mPrimaryColorDark, mIcons,
-                    shapeDrawable, system.getDimensionPixelOffset(
-                    system.getIdentifier(ResourceConstants.CONFIG_CORNERRADIUS,
-                            "dimen", ResourceConstants.ANDROID_PACKAGE)));
+                    mSecondaryColorDark, mPrimaryColorLight, mPrimaryColorDark,
+                    system.getDimensionPixelOffset(
+                            system.getIdentifier(ResourceConstants.CONFIG_CORNERRADIUS, "dimen",
+                                    ResourceConstants.ANDROID_PACKAGE)));
         }
 
         public Map<String, String> getPackages() {
@@ -294,16 +260,6 @@ public class ColorBundle extends ColorOption {
          */
         public Builder setColorPrimaryDark(@ColorInt int colorPrimaryDark) {
             mPrimaryColorDark = colorPrimaryDark;
-            return this;
-        }
-
-        /**
-         * Sets icon for bundle
-         * @param icon icon in {@link Drawable}
-         * @return this of {@link Builder}
-         */
-        public Builder addIcon(Drawable icon) {
-            mIcons.add(icon);
             return this;
         }
 

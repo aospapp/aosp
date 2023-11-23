@@ -180,7 +180,7 @@ public class NotificationDataManagerTest {
     }
 
     @Test
-    public void setNotificationsAsSeen_notificationIsSeen() {
+    public void setVisibleNotificationsAsSeen_notificationIsSeen() {
         List<NotificationGroup> notificationGroups = new ArrayList<>();
 
         NotificationGroup notificationGroup = new NotificationGroup();
@@ -188,7 +188,7 @@ public class NotificationDataManagerTest {
         notificationGroups.add(notificationGroup);
 
         mNotificationDataManager.updateUnseenNotificationGroups(notificationGroups);
-        mNotificationDataManager.setNotificationsAsSeen(
+        mNotificationDataManager.setVisibleNotificationsAsSeen(
                 Collections.singletonList(mMessageNotification));
 
         assertThat(mNotificationDataManager.getSeenNotifications()).asList().containsExactly(
@@ -204,7 +204,7 @@ public class NotificationDataManagerTest {
         notificationGroups.add(notificationGroup);
 
         mNotificationDataManager.updateUnseenNotificationGroups(notificationGroups);
-        mNotificationDataManager.setNotificationsAsSeen(
+        mNotificationDataManager.setVisibleNotificationsAsSeen(
                 Collections.singletonList(mMessageNotification));
 
         assertThat(mNotificationDataManager.isNotificationSeen(mMessageNotification)).isTrue();
@@ -222,7 +222,7 @@ public class NotificationDataManagerTest {
         notificationGroups.add(notificationGroup2);
 
         mNotificationDataManager.updateUnseenNotificationGroups(notificationGroups);
-        mNotificationDataManager.setNotificationsAsSeen(
+        mNotificationDataManager.setVisibleNotificationsAsSeen(
                 Collections.singletonList(mMessageNotification));
 
         assertThat(mNotificationDataManager.isNotificationSeen(mNonMessageNotification)).isFalse();
@@ -242,7 +242,7 @@ public class NotificationDataManagerTest {
     }
 
     @Test
-    public void setNotificationsAsSeen_notificationIsSeen_decrementsUnseenCount() {
+    public void setVisibleNotificationsAsSeen_notificationIsSeen_decrementsUnseenCount() {
         List<NotificationGroup> notificationGroups = new ArrayList<>();
 
         NotificationGroup notificationGroup = new NotificationGroup();
@@ -253,7 +253,7 @@ public class NotificationDataManagerTest {
                         Collections.singletonList(IMPORTANCE_HIGH));
 
         mNotificationDataManager.updateUnseenNotificationGroups(notificationGroups);
-        mNotificationDataManager.setNotificationsAsSeen(
+        mNotificationDataManager.setVisibleNotificationsAsSeen(
                 Collections.singletonList(mMessageNotification));
 
         assertThat(mNotificationDataManager.getNonLowImportanceUnseenNotificationCount(rankingMap))
@@ -261,7 +261,7 @@ public class NotificationDataManagerTest {
     }
 
     @Test
-    public void setNotificationsAsSeen_notificationIsSeen_notificationIsVisibleToUser() {
+    public void setVisibleNotificationsAsSeen_notificationIsSeen_notificationIsVisibleToUser() {
         List<NotificationGroup> notificationGroups = new ArrayList<>();
 
         NotificationGroup notificationGroup = new NotificationGroup();
@@ -269,7 +269,7 @@ public class NotificationDataManagerTest {
         notificationGroups.add(notificationGroup);
 
         mNotificationDataManager.updateUnseenNotificationGroups(notificationGroups);
-        mNotificationDataManager.setNotificationsAsSeen(
+        mNotificationDataManager.setVisibleNotificationsAsSeen(
                 Collections.singletonList(mMessageNotification));
 
         assertThat(mNotificationDataManager.getVisibleNotifications()).containsExactly(
@@ -327,7 +327,9 @@ public class NotificationDataManagerTest {
                     /* isConversation= */ false,
                     /* shortcutInfo= */ null,
                     /* rankingAdjustment= */ 0,
-                    /* isBubble= */ false
+                    /* isBubble= */ false,
+                    /* proposedImportance= */ 0,
+                    /* sensitiveContent= */ false
             );
             rankings[i] = ranking;
         }

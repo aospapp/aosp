@@ -17,8 +17,8 @@
 #ifndef CPP_WATCHDOG_SERVER_SRC_OVERUSECONFIGURATIONXMLHELPER_H_
 #define CPP_WATCHDOG_SERVER_SRC_OVERUSECONFIGURATIONXMLHELPER_H_
 
+#include <aidl/android/automotive/watchdog/internal/ResourceOveruseConfiguration.h>
 #include <android-base/result.h>
-#include <android/automotive/watchdog/internal/ResourceOveruseConfiguration.h>
 #include <utils/RefBase.h>
 
 namespace android {
@@ -27,14 +27,14 @@ namespace watchdog {
 
 constexpr int64_t kOneMegaByte = 1024 * 1024;
 
-class OveruseConfigurationXmlHelper final : public android::RefBase {
+class OveruseConfigurationXmlHelper final : virtual public android::RefBase {
 public:
     static android::base::Result<
-            android::automotive::watchdog::internal::ResourceOveruseConfiguration>
+            aidl::android::automotive::watchdog::internal::ResourceOveruseConfiguration>
     parseXmlFile(const char* filePath);
 
     static android::base::Result<void> writeXmlFile(
-            const android::automotive::watchdog::internal::ResourceOveruseConfiguration&
+            const aidl::android::automotive::watchdog::internal::ResourceOveruseConfiguration&
                     configuration,
             const char* filePath);
 };

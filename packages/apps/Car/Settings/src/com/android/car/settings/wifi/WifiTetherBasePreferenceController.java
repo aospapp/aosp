@@ -83,7 +83,7 @@ public abstract class WifiTetherBasePreferenceController<V extends Preference> e
     }
 
     @Override
-    protected int getAvailabilityStatus() {
+    protected int getDefaultAvailabilityStatus() {
         if (WifiUtil.isConfigWifiRestrictedByUm(getContext())
                 || WifiUtil.isConfigWifiRestrictedByDpm(getContext())) {
             return AVAILABLE_FOR_VIEWING;

@@ -30,7 +30,7 @@
     <string name="notification_disconnectedCall_body" msgid="600491714584417536">"Panggilan kepada <xliff:g id="CALLER">%s</xliff:g> telah diputuskan sambungannya kerana panggilan kecemasan sedang dibuat."</string>
     <string name="notification_disconnectedCall_generic_body" msgid="5282765206349184853">"Panggilan anda telah diputuskan sambungan kerana panggilan kecemasan sedang dibuat."</string>
     <string name="notification_audioProcessing_title" msgid="1619035039880584575">"Panggilan latar blkg"</string>
-    <string name="notification_audioProcessing_body" msgid="6397005913770420388">"<xliff:g id="AUDIO_PROCESSING_APP_NAME">%s</xliff:g> telah meletakkan panggilan dalam latar belakang Apl ini mungkin mengakses dan memainkan audio mengatasi panggilan."</string>
+    <string name="notification_audioProcessing_body" msgid="8811420157964118913">"<xliff:g id="AUDIO_PROCESSING_APP_NAME">%s</xliff:g> sedang memproses panggilan pada latar. Apl ini mungkin mengakses dan memainkan audio mengatasi panggilan."</string>
     <string name="notification_incallservice_not_responding_title" msgid="5347557574288598548">"<xliff:g id="IN_CALL_SERVICE_APP_NAME">%s</xliff:g> telah berhenti memberikan respons"</string>
     <string name="notification_incallservice_not_responding_body" msgid="9209308270131968623">"Panggilan anda telah menggunakan aplikasi telefon yang disertakan bersama peranti anda"</string>
     <string name="accessibility_call_muted" msgid="2968461092554300779">"Panggilan diredam."</string>
@@ -100,6 +100,7 @@
     <string name="notification_channel_background_calls" msgid="7785659903711350506">"Panggilan latar belakang"</string>
     <string name="notification_channel_disconnected_calls" msgid="8228636543997645757">"Panggilan diputuskan sambungan"</string>
     <string name="notification_channel_in_call_service_crash" msgid="7313237519166984267">"Aplikasi telefon yang ranap"</string>
+    <string name="notification_channel_call_streaming" msgid="5100510699787538991">"Penstriman panggilan"</string>
     <string name="alert_outgoing_call" msgid="5319895109298927431">"Membuat panggilan ini akan menamatkan panggilan <xliff:g id="OTHER_APP">%1$s</xliff:g> anda."</string>
     <string name="alert_redirect_outgoing_call_or_not" msgid="665409645789521636">"Pilih cara untuk membuat panggilan ini"</string>
     <string name="alert_place_outgoing_call_with_redirection" msgid="5221065030959024121">"Ubah hala panggilan menggunakan <xliff:g id="OTHER_APP">%1$s</xliff:g>"</string>
@@ -123,4 +124,14 @@
     <string name="developer_title" msgid="9146088855661672353">"Menu Pembangun Telekom"</string>
     <string name="toast_emergency_can_not_pull_call" msgid="9074229465338410869">"Panggilan tidak boleh dijawab semasa dalam panggilan kecemasan."</string>
     <string name="cancel" msgid="6733466216239934756">"Batal"</string>
+    <string name="back" msgid="6915955601805550206">"Kembali"</string>
+    <string name="callendpoint_name_earpiece" msgid="7047285080319678594">"Alat dengar"</string>
+    <string name="callendpoint_name_bluetooth" msgid="210210953208913172">"Bluetooth"</string>
+    <string name="callendpoint_name_wiredheadset" msgid="6860787176412079742">"Set kepala berwayar"</string>
+    <string name="callendpoint_name_speaker" msgid="1971760468695323189">"Pembesar suara"</string>
+    <string name="callendpoint_name_streaming" msgid="2337595450408275576">"Luaran"</string>
+    <string name="callendpoint_name_unknown" msgid="2199074708477193852">"Tidak diketahui"</string>
+    <string name="call_streaming_notification_body" msgid="502216105683378263">"Penstriman audio pada peranti lain"</string>
+    <string name="call_streaming_notification_action_hang_up" msgid="7017663335289063827">"Tamatkan panggilan"</string>
+    <string name="call_streaming_notification_action_switch_here" msgid="3524180754186221228">"Tukar di sini"</string>
 </resources>

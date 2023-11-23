@@ -18,12 +18,14 @@ package android.car.hardware.property;
 
 import static java.lang.Integer.toHexString;
 
+import android.car.VehiclePropertyIds;
+
 /**
  * Exception thrown when cars denied the access of properties.
  */
 public class PropertyAccessDeniedSecurityException extends SecurityException {
-    PropertyAccessDeniedSecurityException(int property, int areaId) {
-        super("Cars denied the access of property 0x"
-                + toHexString(property) + " in area: " + toHexString(areaId));
+    PropertyAccessDeniedSecurityException(int propertyId, int areaId) {
+        super("Cars denied the access of property ID: " + VehiclePropertyIds.toString(propertyId)
+                + " in area ID: 0x" + toHexString(areaId));
     }
 }

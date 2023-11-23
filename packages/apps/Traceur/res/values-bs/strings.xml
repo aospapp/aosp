@@ -4,6 +4,9 @@
     <string name="system_tracing" msgid="4719188511746319848">"Praćenje sistema"</string>
     <string name="record_system_activity" msgid="4339462312915377825">"Bilježite i kasnije analizirajte aktivnosti sistema radi poboljšanja performansi"</string>
     <string name="record_trace" msgid="6416875085186661845">"Snimi praćenje"</string>
+    <string name="record_trace_summary" msgid="6705357754827849292">"Snima trag u sistemu pomoću konfiguracije postavljene u \"Postavkama tragova\""</string>
+    <string name="record_stack_samples" msgid="3498368637185702335">"Snimi CPU profil"</string>
+    <string name="record_stack_samples_summary" msgid="7827953921526410478">"Uzorkovanje pozivnog stoga se može omogućiti i u tragovima tako što se označi kategorija \"cpu\""</string>
     <string name="start_new_trace" msgid="8177130420802170353">"Pokreni novi trag"</string>
     <string name="trace_debuggable_applications" msgid="7957069895298887899">"Pratite aplikacije u načinu rada za otklanjanje grešaka"</string>
     <string name="categories" msgid="2280163673538611008">"Kategorije"</string>
@@ -17,7 +20,9 @@
     <string name="show_quick_settings_tile" msgid="4971147332635291585">"Prikaži polje Brze postavke"</string>
     <string name="saving_trace" msgid="1468692734770800541">"Pohranjivanje praćenja"</string>
     <string name="trace_saved" msgid="5869970594780992309">"Praćenje je sačuvano"</string>
-    <string name="tap_to_share" msgid="6766732404489536899">"Dodirnite da biste podijelili praćenje"</string>
+    <string name="saving_stack_samples" msgid="8174915522390525221">"Pohranjivanje uzoraka stogova"</string>
+    <string name="stack_samples_saved" msgid="8863295751647724616">"Uzorci stogova su pohranjeni"</string>
+    <string name="tap_to_share" msgid="4440713575852187545">"Dodirnite da podijelite snimak"</string>
     <string name="attaching_to_report" msgid="2629202947947275886">"Prilaganje traga praćenja uz izvještaj o grešci"</string>
     <string name="attached_to_report" msgid="5806905349184608870">"Trag praćenja je priložen uz izvještaj o grešci"</string>
     <string name="attached_to_report_summary" msgid="7665675771190391355">"Dodirnite da otvorite BetterBug"</string>
@@ -25,18 +30,19 @@
     <string name="tracing_categories_unavailable" msgid="5609076391417077752">"Neke kategorije praćenja nisu dostupne:"</string>
     <string name="trace_is_being_recorded" msgid="5947378146009337469">"Snimanje praćenja tragova"</string>
     <string name="tap_to_stop_tracing" msgid="6533282719573871806">"Dodirnite da zaustavite praćenje tragova"</string>
-    <string name="clear_saved_traces" msgid="4809195654452260944">"Obriši sačuvane tragove"</string>
-    <string name="clear_saved_traces_summary" msgid="6035923138201219577">"Tragovi se brišu nakon mjesec dana"</string>
-    <string name="clear_saved_traces_question" msgid="2184026613055303818">"Obrisati sačuvane tragove?"</string>
-    <string name="all_traces_will_be_deleted" msgid="6646545462206955920">"Svi tragovi će se izbrisati iz /data/local/traces"</string>
+    <string name="stack_samples_are_being_recorded" msgid="8669254939248349583">"U toku je snimanje uzoraka stogova"</string>
+    <string name="tap_to_stop_stack_sampling" msgid="5911317684139059415">"Dodirnite da zaustavite uzorkovanje stogova"</string>
+    <string name="clear_saved_files" msgid="9156079311231446825">"Obriši sačuvane fajlove"</string>
+    <string name="clear_saved_files_summary" msgid="109751867417553670">"Snimci će se obrisati nakon jednog mjeseca"</string>
+    <string name="clear_saved_files_question" msgid="8586686617760838834">"Obrisati sačuvane fajlove?"</string>
+    <string name="all_recordings_will_be_deleted" msgid="7731693738485947891">"Svi snimci će se izbrisati iz foldera /data/local/traces"</string>
     <string name="clear" msgid="5484761795406948056">"Obriši"</string>
     <string name="system_traces_storage_title" msgid="8294090839883366871">"Tragovi sistema"</string>
     <string name="keywords" msgid="736547007949049535">"systrace, praćenje, performanse"</string>
-    <string name="share_trace" msgid="4528525067822044385">"Dijeliti praćenje?"</string>
+    <string name="share_file" msgid="1982029143280382271">"Podijeliti fajl?"</string>
     <string name="system_trace_sensitive_data" msgid="3069389866696009549">"Fajlovi praćenja sistema mogu sadržavati osjetljive podatke o sistemu i aplikaciji (kao što je korištenje aplikacije). Praćenje sistema dijelite samo sa osobama i aplikacijama kojima vjerujete."</string>
     <string name="share" msgid="8443979083706282338">"Dijeli"</string>
     <string name="dont_show_again" msgid="6662492041164390600">"Ne prikazuj opet"</string>
-    <string name="use_perfetto_beta" msgid="2725630143916520160">"Koristi Perfetto (beta)"</string>
     <string name="long_traces" msgid="5110949471775966329">"Dugi tragovi"</string>
     <string name="long_traces_summary" msgid="419034282946761469">"Kontinuirano čuvano u pohranu uređaja"</string>
     <string name="long_traces_summary_betterbug" msgid="445546400875135624">"Neprestano se pohranjuje u pohranu uređaja (neće se automatski priložiti izvještajima o grešci)"</string>
@@ -58,9 +64,12 @@
     <string name="sixteen_thousand_kb" msgid="7342517169232459259">"16.384 kB"</string>
     <string name="thirtytwo_thousand_kb" msgid="654328198799196150">"32.768 kB"</string>
     <string name="sixtyfive_thousand_kb" msgid="8168144138598305306">"65.536 kB"</string>
-    <string name="stop_on_bugreport" msgid="2045328149107284734">"Zaustavi praćenje izvještaja o greškama"</string>
-    <string name="stop_on_bugreport_summary" msgid="7844074306038850040">"Zaustavlja aktivnu sesiju snimanja traga praćenja kada počne pravljenje izvještaja o grešci"</string>
-    <string name="attach_to_bug_report" msgid="2953745117960948415">"Priložite tragove praćenja uz izvještaje o greškama"</string>
-    <string name="attach_to_bug_report_summary" msgid="2225208904634565377">"Automatski šaljite tragove praćenja koji su u toku BetterBugu kada se preuzme izvještaj o grešci"</string>
-    <string name="link_to_traces" msgid="6569969595898995517">"Prikaži fajlove praćenja"</string>
+    <string name="stop_on_bugreport" msgid="4591832600597126422">"Zaustavi snimanje za izvještaje o greškama"</string>
+    <string name="stop_on_bugreport_summary" msgid="1601834864982891381">"Zaustavlja aktivne snimke kada se pokrene izvještaj o grešci"</string>
+    <string name="attach_to_bug_report" msgid="5388986830016247490">"Priloži snimke izvještajima o greškama"</string>
+    <string name="attach_to_bug_report_summary" msgid="4213730623971240002">"Automatski šaljite snimke koji su u toku BetterBugu kada se prikupi izvještaj o grešci"</string>
+    <string name="link_to_traces" msgid="1404687523304348490">"Prikaži sačuvane fajlove"</string>
+    <string name="pref_category_trace_settings" msgid="6507535407023329628">"Postavke praćenja"</string>
+    <string name="pref_category_saved_files" msgid="1477491400970413291">"Sačuvani fajlovi"</string>
+    <string name="pref_category_misc" msgid="6217624054980014683">"Razno"</string>
 </resources>

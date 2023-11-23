@@ -29,4 +29,5 @@ oneway interface IWifiAwareEventCallback
     void onConnectFail(int reason);
     void onIdentityChanged(in byte[] mac);
     void onAttachTerminate();
+    void onClusterIdChanged(int clusterEventType, in byte[] clusterId);
 }

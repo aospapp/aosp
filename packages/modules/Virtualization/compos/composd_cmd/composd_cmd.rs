@@ -31,30 +31,32 @@ use android_system_composd::{
     },
 };
 use anyhow::{bail, Context, Result};
-use compos_common::timeouts::timeouts;
+use clap::Parser;
+use compos_common::timeouts::TIMEOUTS;
 use std::sync::{Arc, Condvar, Mutex};
 use std::time::Duration;
 
+#[derive(Parser)]
+enum Actions {
+    /// Compile classpath for real. Output can be used after a reboot.
+    StagedApexCompile {},
+
+    /// Compile classpath in a debugging VM. Output is ignored.
+    TestCompile {
+        /// If any APEX is staged, prefer the staged version.
+        #[clap(long)]
+        prefer_staged: bool,
+    },
+}
+
 fn main() -> Result<()> {
-    #[rustfmt::skip]
-    let app = clap::App::new("composd_cmd")
-        .subcommand(
-            clap::SubCommand::with_name("staged-apex-compile"))
-        .subcommand(
-            clap::SubCommand::with_name("test-compile")
-                .arg(clap::Arg::with_name("prefer-staged").long("prefer-staged")),
-        );
-    let args = app.get_matches();
+    let action = Actions::parse();
 
     ProcessState::start_thread_pool();
 
-    match args.subcommand() {
-        ("staged-apex-compile", _) => run_staged_apex_compile()?,
-        ("test-compile", Some(sub_matches)) => {
-            let prefer_staged = sub_matches.is_present("prefer-staged");
-            run_test_compile(prefer_staged)?;
-        }
-        _ => panic!("Unrecognized subcommand"),
+    match action {
+        Actions::StagedApexCompile {} => run_staged_apex_compile()?,
+        Actions::TestCompile { prefer_staged } => run_test_compile(prefer_staged)?,
     }
 
     println!("All Ok!");
@@ -126,6 +128,12 @@ where
         &Strong<dyn ICompilationTaskCallback>,
     ) -> BinderResult<Strong<dyn ICompilationTask>>,
 {
+    if !hypervisor_props::is_any_vm_supported()? {
+        // Give up now, before trying to start composd, or we may end up waiting forever
+        // as it repeatedly starts and then aborts (b/254599807).
+        bail!("Device doesn't support protected or non-protected VMs")
+    }
+
     let service = wait_for_interface::<dyn IIsolatedCompilationService>("android.system.composd")
         .context("Failed to connect to composd service")?;
 
@@ -147,7 +155,7 @@ where
 
     println!("Waiting");
 
-    match state.wait(timeouts()?.odrefresh_max_execution_time) {
+    match state.wait(TIMEOUTS.odrefresh_max_execution_time) {
         Ok(Outcome::Succeeded) => Ok(()),
         Ok(Outcome::TaskDied) => bail!("Compilation task died"),
         Ok(Outcome::Failed(reason, message)) => {
@@ -159,5 +167,17 @@ where
             }
             Err(e)
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use clap::CommandFactory;
+
+    #[test]
+    fn verify_actions() {
+        // Check that the command parsing has been configured in a valid way.
+        Actions::command().debug_assert();
     }
 }

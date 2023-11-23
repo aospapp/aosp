@@ -21,16 +21,16 @@
 // as if it were projected from the original sensor's point of view in the world.
 
 const char vtxShader_projectedTexture[] = ""
-        "#version 300 es                            \n"
-        "layout(location = 0) in vec4 pos;          \n"
-        "uniform mat4 cameraMat;                    \n"
-        "uniform mat4 projectionMat;                \n"
-        "out vec4 projectionSpace;                  \n"
-        "void main()                                \n"
-        "{                                          \n"
-        "   gl_Position = cameraMat * pos;          \n"
-        "   projectionSpace = projectionMat * pos;  \n"
-        "}                                          \n";
+                                          "#version 300 es                            \n"
+                                          "layout(location = 0) in vec4 pos;          \n"
+                                          "uniform mat4 cameraMat;                    \n"
+                                          "uniform mat4 projectionMat;                \n"
+                                          "out vec4 projectionSpace;                  \n"
+                                          "void main()                                \n"
+                                          "{                                          \n"
+                                          "   gl_Position = cameraMat * pos;          \n"
+                                          "   projectionSpace = projectionMat * pos;  \n"
+                                          "}                                          \n";
 
 const char pixShader_projectedTexture[] =
         "#version 300 es                                        \n"
@@ -62,4 +62,4 @@ const char pixShader_projectedTexture[] =
         "    color = texture(tex, uv);                          \n"
         "}                                                      \n";
 
-#endif // SHADER_PROJECTED_TEX_H
+#endif  // SHADER_PROJECTED_TEX_H

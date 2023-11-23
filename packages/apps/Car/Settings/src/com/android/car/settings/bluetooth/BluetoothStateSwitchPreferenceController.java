@@ -134,7 +134,7 @@ public class BluetoothStateSwitchPreferenceController extends
     }
 
     @Override
-    protected int getAvailabilityStatus() {
+    protected int getDefaultAvailabilityStatus() {
         return hasUserRestrictionByDpm(getContext(), DISALLOW_CONFIG_BLUETOOTH)
                 ? AVAILABLE_FOR_VIEWING : AVAILABLE;
     }

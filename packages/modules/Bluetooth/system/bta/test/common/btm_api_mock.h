@@ -54,6 +54,8 @@ class BtmInterface {
   virtual void AclDisconnectFromHandle(uint16_t handle, tHCI_STATUS reason) = 0;
   virtual void ConfigureDataPath(uint8_t direction, uint8_t path_id,
                                  std::vector<uint8_t> vendor_config) = 0;
+  virtual tBTM_INQ_INFO* BTM_InqDbFirst() = 0;
+  virtual tBTM_INQ_INFO* BTM_InqDbNext(tBTM_INQ_INFO* p_cur) = 0;
   virtual ~BtmInterface() = default;
 };
 
@@ -95,6 +97,9 @@ class MockBtmInterface : public BtmInterface {
   MOCK_METHOD((void), ConfigureDataPath,
               (uint8_t direction, uint8_t path_id,
                std::vector<uint8_t> vendor_config),
+              (override));
+  MOCK_METHOD((tBTM_INQ_INFO*), BTM_InqDbFirst, (), (override));
+  MOCK_METHOD((tBTM_INQ_INFO*), BTM_InqDbNext, (tBTM_INQ_INFO * p_cur),
               (override));
 };
 

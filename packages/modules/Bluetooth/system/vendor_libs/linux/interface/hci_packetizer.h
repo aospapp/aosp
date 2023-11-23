@@ -16,9 +16,10 @@
 
 #pragma once
 
-#include <functional>
-
 #include <hidl/HidlSupport.h>
+
+#include <functional>
+#include <vector>
 
 #include "hci_internals.h"
 
@@ -32,20 +33,20 @@ using HciPacketReadyCallback = std::function<void(void)>;
 
 class HciPacketizer {
  public:
-  HciPacketizer(HciPacketReadyCallback packet_cb)
-      : packet_ready_cb_(packet_cb){};
-  void OnDataReady(int fd, HciPacketType packet_type);
-  void CbHciPacket(uint8_t* data, size_t length);
+  HciPacketizer() = default;
+  bool OnDataReady(HciPacketType packet_type, const std::vector<uint8_t>& data,
+                   size_t offset);
   const hidl_vec<uint8_t>& GetPacket() const;
 
- protected:
-  enum State { HCI_PREAMBLE, HCI_PAYLOAD };
-  State state_{HCI_PREAMBLE};
-  uint8_t preamble_[HCI_PREAMBLE_SIZE_MAX];
+ private:
+  size_t fill_header(HciPacketType packet_type,
+                     const std::vector<uint8_t>& data, size_t offset);
+  void fill_payload(const std::vector<uint8_t>& data, size_t offset);
+  enum State { HCI_HEADER, HCI_PAYLOAD };
+  State state_{HCI_HEADER};
   hidl_vec<uint8_t> packet_;
+  std::vector<uint8_t> packet_buffer_;
   size_t bytes_remaining_{0};
-  size_t bytes_read_{0};
-  HciPacketReadyCallback packet_ready_cb_;
 };
 
 }  // namespace hci

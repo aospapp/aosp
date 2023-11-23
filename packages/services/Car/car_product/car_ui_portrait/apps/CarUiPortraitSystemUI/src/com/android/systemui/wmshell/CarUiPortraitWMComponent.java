@@ -16,6 +16,7 @@
 
 package com.android.systemui.wmshell;
 
+import com.android.systemui.wm.CarUiPortraitDisplaySystemBarsController;
 import com.android.wm.shell.RootTaskDisplayAreaOrganizer;
 import com.android.wm.shell.dagger.WMSingleton;
 
@@ -40,4 +41,10 @@ public interface CarUiPortraitWMComponent extends CarWMComponent {
      */
     @WMSingleton
     RootTaskDisplayAreaOrganizer getRootTaskDisplayAreaOrganizer();
+
+    /**
+     * get CarUiPortraitDisplaySystemBarsController
+     */
+    @WMSingleton
+    CarUiPortraitDisplaySystemBarsController getCarUiPortraitDisplaySystemBarsController();
 }

@@ -89,7 +89,6 @@ public final class CarEvsStatus implements Parcelable {
     }
 
     @Override
-    @AddedInOrBefore(majorVersion = 33)
     public String toString() {
         return "CarEvsStatus: mServiceType = " + mServiceType + " + mState + " + mState;
     }

@@ -24,6 +24,7 @@ import android.content.res.Resources;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.Icon;
 import android.os.Handler;
+import android.os.UserHandle;
 import android.os.Looper;
 import android.service.quickaccesswallet.GetWalletCardsError;
 import android.service.quickaccesswallet.GetWalletCardsRequest;
@@ -361,7 +362,14 @@ public class WalletPanelViewController implements
          */
         QAWalletCardViewInfo(WalletCard walletCard) {
             mWalletCard = walletCard;
-            mCardDrawable = mWalletCard.getCardImage().loadDrawable(mPluginContext);
+            Icon cardImage = mWalletCard.getCardImage();
+            if (cardImage.getType() == Icon.TYPE_URI) {
+                // Do not allow icon created with content URI.
+                mCardDrawable = null;
+            } else {
+                mCardDrawable =
+                    mWalletCard.getCardImage().loadDrawable(mPluginContext);
+            }
             Icon icon = mWalletCard.getCardIcon();
             mIconDrawable = icon == null ? null : icon.loadDrawable(mPluginContext);
         }

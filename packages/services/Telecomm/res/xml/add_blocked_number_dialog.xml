@@ -28,6 +28,8 @@
             android:text="@string/add_blocked_dialog_body"
             android:paddingBottom="@dimen/blocked_numbers_large_padding"
             android:gravity="start"
+            android:clickable="false"
+            android:longClickable="false"
             style="@style/BlockedNumbersTextPrimary2" />
     <EditText
             android:id="@+id/add_blocked_number"

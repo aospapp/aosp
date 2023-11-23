@@ -26,8 +26,6 @@
 #include <map>
 #include <string>
 
-extern std::map<std::string, int> mock_function_count_map;
-
 // Original included files, if any
 // NOTE: Since this is a mock file with mock definitions some number of
 //       include files may not be required.  The include-what-you-use
@@ -41,7 +39,7 @@ extern std::map<std::string, int> mock_function_count_map;
 #include "osi/include/future.h"
 #include "osi/include/log.h"
 #include "osi/include/osi.h"
-#include "osi/include/semaphore.h"
+#include "test/common/mock_functions.h"
 
 // Mocked compile conditionals, if any
 

@@ -17,3 +17,9 @@ bluetooth.profile.map.client.enabled=true
 bluetooth.profile.pan.nap.enabled=true
 bluetooth.profile.pan.panu.enabled=true
 bluetooth.profile.pbap.client.enabled=true
+
+# This property disables checking for link encryption when using an LE link
+# that doesn't immediaely require it. It typically results in redundant
+# Security Requests, that lead to pairing prompts and bond loss. This impacts
+# classic, LE, and Fast Pair bonding.
+bluetooth.gatt.check_encrypted_link.enabled=false

@@ -32,6 +32,7 @@
 #include "bta/include/bta_ar_api.h"
 #include "bta/include/utl.h"
 #include "btif/avrcp/avrcp_service.h"
+#include "device/include/device_iot_config.h"
 #include "osi/include/allocator.h"
 #include "osi/include/log.h"
 #include "osi/include/osi.h"  // UNUSED_ATTR
@@ -323,6 +324,9 @@ uint8_t bta_av_rc_create(tBTA_AV_CB* p_cb, uint8_t role, uint8_t shdl,
     tBTA_AV_SCB* p_scb = p_cb->p_scb[shdl - 1];
     bda = p_scb->PeerAddress();
     status = BTA_AV_RC_ROLE_INT;
+    DEVICE_IOT_CONFIG_ADDR_INT_ADD_ONE(p_scb->PeerAddress(),
+                                       IOT_CONF_KEY_AVRCP_CONN_COUNT);
+
   } else {
     p_rcb = bta_av_get_rcb_by_shdl(shdl);
     if (p_rcb != NULL) {
@@ -341,8 +345,10 @@ uint8_t bta_av_rc_create(tBTA_AV_CB* p_cb, uint8_t role, uint8_t shdl,
   ccb.control = p_cb->features & (BTA_AV_FEAT_RCTG | BTA_AV_FEAT_RCCT |
                                   BTA_AV_FEAT_METADATA | AVRC_CT_PASSIVE);
 
-  if (AVRC_Open(&rc_handle, &ccb, bda) != AVRC_SUCCESS)
+  if (AVRC_Open(&rc_handle, &ccb, bda) != AVRC_SUCCESS) {
+    DEVICE_IOT_CONFIG_ADDR_INT_ADD_ONE(bda, IOT_CONF_KEY_AVRCP_CONN_FAIL_COUNT);
     return BTA_AV_RC_HANDLE_NONE;
+  }
 
   i = rc_handle;
   p_rcb = &p_cb->rcb[i];
@@ -452,8 +458,8 @@ tBTA_AV_LCB* bta_av_find_lcb(const RawAddress& addr, uint8_t op) {
   uint8_t mask;
   tBTA_AV_LCB* p_lcb = NULL;
 
-  APPL_TRACE_DEBUG("%s: address: %s op:%d", __func__, addr.ToString().c_str(),
-                   op);
+  APPL_TRACE_DEBUG("%s: address: %s op:%d", __func__,
+                   ADDRESS_TO_LOGGABLE_CSTR(addr), op);
   for (xx = 0; xx < BTA_AV_NUM_LINKS; xx++) {
     mask = 1 << xx; /* the used mask for this lcb */
     if ((mask & p_cb->conn_lcb) && p_cb->lcb[xx].addr == addr) {
@@ -548,7 +554,7 @@ void bta_av_rc_opened(tBTA_AV_CB* p_cb, tBTA_AV_DATA* p_data) {
     p_cb->rcb[i].lidx = p_lcb->lidx;
     p_lcb->conn_msk = 1;
     APPL_TRACE_ERROR("%s: bd_addr: %s rcb[%d].lidx=%d, lcb.conn_msk=x%x",
-                     __func__, p_lcb->addr.ToString().c_str(), i,
+                     __func__, ADDRESS_TO_LOGGABLE_CSTR(p_lcb->addr), i,
                      p_cb->rcb[i].lidx, p_lcb->conn_msk);
     disc = p_data->rc_conn_chg.handle | BTA_AV_CHNL_MSK;
   }
@@ -758,6 +764,13 @@ tBTA_AV_EVT bta_av_proc_meta_cmd(tAVRC_RESPONSE* p_rc_rsp,
   uint16_t u16;
   tAVRC_MSG_VENDOR* p_vendor = &p_msg->msg.vendor;
 
+  if (p_vendor->vendor_len == 0) {
+    p_rc_rsp->rsp.status = AVRC_STS_BAD_PARAM;
+    APPL_TRACE_DEBUG("%s: p_vendor->vendor_len == 0", __func__);
+    // the caller of this function assume 0 to be an invalid event
+    return 0;
+  }
+
   pdu = *(p_vendor->p_vendor_data);
   p_rc_rsp->pdu = pdu;
   *p_ctype = AVRC_RSP_REJ;
@@ -791,7 +804,6 @@ tBTA_AV_EVT bta_av_proc_meta_cmd(tAVRC_RESPONSE* p_rc_rsp,
         /* process GetCapabilities command without reporting the event to app */
         evt = 0;
         if (p_vendor->vendor_len != 5) {
-          android_errorWriteLog(0x534e4554, "111893951");
           p_rc_rsp->get_caps.status = AVRC_STS_INTERNAL_ERR;
           break;
         }
@@ -1002,7 +1014,10 @@ void bta_av_rc_msg(tBTA_AV_CB* p_cb, tBTA_AV_DATA* p_data) {
     av.remote_cmd.rc_handle = p_data->rc_msg.handle;
     (*p_cb->p_cback)(evt, &av);
     /* If browsing message, then free the browse message buffer */
-    bta_av_rc_free_browse_msg(p_cb, p_data);
+    if (p_data->rc_msg.opcode == AVRC_OP_BROWSE &&
+        p_data->rc_msg.msg.browse.p_browse_pkt != NULL) {
+      bta_av_rc_free_browse_msg(p_cb, p_data);
+    }
   }
 }
 
@@ -1087,7 +1102,7 @@ void bta_av_stream_chg(tBTA_AV_SCB* p_scb, bool started) {
   uint8_t started_msk = BTA_AV_HNDL_TO_MSK(p_scb->hdi);
 
   APPL_TRACE_DEBUG("%s: peer %s started:%s started_msk:0x%x", __func__,
-                   p_scb->PeerAddress().ToString().c_str(),
+                   ADDRESS_TO_LOGGABLE_CSTR(p_scb->PeerAddress()),
                    logbool(started).c_str(), started_msk);
 
   if (started) {
@@ -1166,8 +1181,8 @@ void bta_av_conn_chg(tBTA_AV_DATA* p_data) {
             __func__, p_lcb_rc->conn_msk);
         /* check if the RC is connected to the scb addr */
         LOG_INFO("%s: p_lcb_rc->addr: %s conn_chg.peer_addr: %s", __func__,
-                 p_lcb_rc->addr.ToString().c_str(),
-                 p_data->conn_chg.peer_addr.ToString().c_str());
+                 ADDRESS_TO_LOGGABLE_CSTR(p_lcb_rc->addr),
+                 ADDRESS_TO_LOGGABLE_CSTR(p_data->conn_chg.peer_addr));
 
         if (p_lcb_rc->conn_msk &&
             p_lcb_rc->addr == p_data->conn_chg.peer_addr) {
@@ -1339,6 +1354,38 @@ void bta_av_api_disconnect(tBTA_AV_DATA* p_data) {
   alarm_cancel(p_scb->link_signalling_timer);
 }
 
+/*******************************************************************************
+ *
+ * Function         bta_av_set_use_latency_mode
+ *
+ * Description      Sets stream use latency mode.
+ *
+ * Returns          void
+ *
+ ******************************************************************************/
+void bta_av_set_use_latency_mode(tBTA_AV_SCB* p_scb, bool use_latency_mode) {
+  L2CA_UseLatencyMode(p_scb->PeerAddress(), use_latency_mode);
+}
+
+/*******************************************************************************
+ *
+ * Function         bta_av_api_set_latency
+ *
+ * Description      set stream latency.
+ *
+ * Returns          void
+ *
+ ******************************************************************************/
+void bta_av_api_set_latency(tBTA_AV_DATA* p_data) {
+  tBTA_AV_SCB* p_scb =
+      bta_av_hndl_to_scb(p_data->api_set_latency.hdr.layer_specific);
+
+  tL2CAP_LATENCY latency = p_data->api_set_latency.is_low_latency
+                               ? L2CAP_LATENCY_LOW
+                               : L2CAP_LATENCY_NORMAL;
+  L2CA_SetAclLatency(p_scb->PeerAddress(), latency);
+}
+
 /**
  * Find the index for the free LCB entry to use.
  *
@@ -1354,7 +1401,7 @@ void bta_av_api_disconnect(tBTA_AV_DATA* p_data) {
 static uint8_t bta_av_find_lcb_index_by_scb_and_address(
     const RawAddress& peer_address) {
   APPL_TRACE_DEBUG("%s: peer_address: %s conn_lcb: 0x%x", __func__,
-                   peer_address.ToString().c_str(), bta_av_cb.conn_lcb);
+                   ADDRESS_TO_LOGGABLE_CSTR(peer_address), bta_av_cb.conn_lcb);
 
   // Find the index if there is already SCB entry for the peer address
   for (uint8_t index = 0; index < BTA_AV_NUM_LINKS; index++) {
@@ -1408,7 +1455,7 @@ void bta_av_sig_chg(tBTA_AV_DATA* p_data) {
   APPL_TRACE_DEBUG("%s: event: %d", __func__, event);
   if (event == AVDT_CONNECT_IND_EVT) {
     APPL_TRACE_DEBUG("%s: AVDT_CONNECT_IND_EVT: peer %s", __func__,
-                     p_data->str_msg.bd_addr.ToString().c_str());
+                     ADDRESS_TO_LOGGABLE_CSTR(p_data->str_msg.bd_addr));
 
     p_lcb = bta_av_find_lcb(p_data->str_msg.bd_addr, BTA_AV_LCB_FIND);
     if (!p_lcb) {
@@ -1420,12 +1467,13 @@ void bta_av_sig_chg(tBTA_AV_DATA* p_data) {
         /* We do not have scb for this avdt connection.     */
         /* Silently close the connection.                   */
         APPL_TRACE_ERROR("%s: av scb not available for avdt connection for %s",
-                         __func__, p_data->str_msg.bd_addr.ToString().c_str());
+                         __func__,
+                         ADDRESS_TO_LOGGABLE_CSTR(p_data->str_msg.bd_addr));
         AVDT_DisconnectReq(p_data->str_msg.bd_addr, NULL);
         return;
       }
       LOG_INFO("%s: AVDT_CONNECT_IND_EVT: peer %s selected lcb_index %d",
-               __func__, p_data->str_msg.bd_addr.ToString().c_str(), xx);
+               __func__, ADDRESS_TO_LOGGABLE_CSTR(p_data->str_msg.bd_addr), xx);
 
       tBTA_AV_SCB* p_scb = p_cb->p_scb[xx];
       mask = 1 << xx;
@@ -1499,9 +1547,9 @@ void bta_av_sig_chg(tBTA_AV_DATA* p_data) {
         if (((mask & p_lcb->conn_msk) || bta_av_cb.conn_lcb) &&
             p_cb->p_scb[xx] &&
             p_cb->p_scb[xx]->PeerAddress() == p_data->str_msg.bd_addr) {
-          APPL_TRACE_WARNING("%s: Sending AVDT_DISCONNECT_EVT peer_addr=%s",
-                             __func__,
-                             p_cb->p_scb[xx]->PeerAddress().ToString().c_str());
+          APPL_TRACE_WARNING(
+              "%s: Sending AVDT_DISCONNECT_EVT peer_addr=%s", __func__,
+              ADDRESS_TO_LOGGABLE_CSTR(p_cb->p_scb[xx]->PeerAddress()));
           bta_av_ssm_execute(p_cb->p_scb[xx], BTA_AV_AVDT_DISCONNECT_EVT, NULL);
         }
       }
@@ -1538,8 +1586,8 @@ void bta_av_signalling_timer(UNUSED_ATTR tBTA_AV_DATA* p_data) {
     mask = 1 << xx;
     APPL_TRACE_DEBUG(
         "%s: index=%d conn_lcb=0x%x peer=%s conn_mask=0x%x lidx=%d", __func__,
-        xx, p_cb->conn_lcb, p_lcb->addr.ToString().c_str(), p_lcb->conn_msk,
-        p_lcb->lidx);
+        xx, p_cb->conn_lcb, ADDRESS_TO_LOGGABLE_CSTR(p_lcb->addr),
+        p_lcb->conn_msk, p_lcb->lidx);
     if (mask & p_cb->conn_lcb) {
       /* this entry is used. check if it is connected */
       if (!p_lcb->conn_msk) {
@@ -1553,8 +1601,8 @@ void bta_av_signalling_timer(UNUSED_ATTR tBTA_AV_DATA* p_data) {
         bta_av_data.pend = pend;
         APPL_TRACE_DEBUG(
             "%s: BTA_AV_PENDING_EVT for %s index=%d conn_mask=0x%x lidx=%d",
-            __func__, pend.bd_addr.ToString().c_str(), xx, p_lcb->conn_msk,
-            p_lcb->lidx);
+            __func__, ADDRESS_TO_LOGGABLE_CSTR(pend.bd_addr), xx,
+            p_lcb->conn_msk, p_lcb->lidx);
         (*p_cb->p_cback)(BTA_AV_PENDING_EVT, &bta_av_data);
       }
     }
@@ -1615,6 +1663,39 @@ static void bta_av_accept_signalling_timer_cback(void* data) {
         }
       }
     }
+  }
+}
+
+static void bta_av_store_peer_rc_version() {
+  tBTA_AV_CB* p_cb = &bta_av_cb;
+  tSDP_DISC_REC* p_rec = NULL;
+  uint16_t peer_rc_version = 0; /*Assuming Default peer version as 1.3*/
+
+  if ((p_rec = SDP_FindServiceInDb(
+           p_cb->p_disc_db, UUID_SERVCLASS_AV_REMOTE_CONTROL, NULL)) != NULL) {
+    if ((SDP_FindAttributeInRec(p_rec, ATTR_ID_BT_PROFILE_DESC_LIST)) != NULL) {
+      /* get profile version (if failure, version parameter is not updated) */
+      SDP_FindProfileVersionInRec(p_rec, UUID_SERVCLASS_AV_REMOTE_CONTROL,
+                                  &peer_rc_version);
+    }
+    if (peer_rc_version != 0)
+      DEVICE_IOT_CONFIG_ADDR_SET_HEX_IF_GREATER(
+          p_rec->remote_bd_addr, IOT_CONF_KEY_AVRCP_CTRL_VERSION,
+          peer_rc_version, IOT_CONF_BYTE_NUM_2);
+  }
+
+  peer_rc_version = 0;
+  if ((p_rec = SDP_FindServiceInDb(
+           p_cb->p_disc_db, UUID_SERVCLASS_AV_REM_CTRL_TARGET, NULL)) != NULL) {
+    if ((SDP_FindAttributeInRec(p_rec, ATTR_ID_BT_PROFILE_DESC_LIST)) != NULL) {
+      /* get profile version (if failure, version parameter is not updated) */
+      SDP_FindProfileVersionInRec(p_rec, UUID_SERVCLASS_AV_REMOTE_CONTROL,
+                                  &peer_rc_version);
+    }
+    if (peer_rc_version != 0)
+      DEVICE_IOT_CONFIG_ADDR_SET_HEX_IF_GREATER(
+          p_rec->remote_bd_addr, IOT_CONF_KEY_AVRCP_TG_VERSION, peer_rc_version,
+          IOT_CONF_BYTE_NUM_2);
   }
 }
 
@@ -1954,6 +2035,8 @@ void bta_av_rc_disc_done(UNUSED_ATTR tBTA_AV_DATA* p_data) {
     }
   }
 
+  bta_av_store_peer_rc_version();
+
   p_cb->disc = 0;
   osi_free_and_reset((void**)&p_cb->p_disc_db);
 
@@ -1972,23 +2055,44 @@ void bta_av_rc_disc_done(UNUSED_ATTR tBTA_AV_DATA* p_data) {
         if (p_lcb) {
           rc_handle = bta_av_rc_create(p_cb, AVCT_INT,
                                        (uint8_t)(p_scb->hdi + 1), p_lcb->lidx);
-          p_cb->rcb[rc_handle].peer_features = peer_features;
-          p_cb->rcb[rc_handle].cover_art_psm = cover_art_psm;
+          if (rc_handle < BTA_AV_NUM_RCB) {
+            p_cb->rcb[rc_handle].peer_features = peer_features;
+            p_cb->rcb[rc_handle].cover_art_psm = cover_art_psm;
+          } else {
+            /* cannot create valid rc_handle for current device. report failure
+             */
+            APPL_TRACE_ERROR("%s: no link resources available", __func__);
+            p_scb->use_rc = false;
+            tBTA_AV_RC_OPEN rc_open;
+            rc_open.peer_addr = p_scb->PeerAddress();
+            rc_open.peer_features = 0;
+            rc_open.cover_art_psm = 0;
+            rc_open.status = BTA_AV_FAIL_RESOURCES;
+            tBTA_AV bta_av_data;
+            bta_av_data.rc_open = rc_open;
+            (*p_cb->p_cback)(BTA_AV_RC_OPEN_EVT, &bta_av_data);
+          }
         } else {
           APPL_TRACE_ERROR("%s: can not find LCB!!", __func__);
         }
       } else if (p_scb->use_rc) {
         /* can not find AVRC on peer device. report failure */
         p_scb->use_rc = false;
-        tBTA_AV_RC_OPEN rc_open;
-        rc_open.peer_addr = p_scb->PeerAddress();
-        rc_open.peer_features = 0;
-        rc_open.cover_art_psm = 0;
-        rc_open.status = BTA_AV_FAIL_SDP;
-        tBTA_AV bta_av_data;
-        bta_av_data.rc_open = rc_open;
+        tBTA_AV bta_av_data = {
+          .rc_open = {
+            .rc_handle = BTA_AV_RC_HANDLE_NONE,
+            .cover_art_psm = 0,
+            .peer_features = 0,
+            .peer_addr = p_scb->PeerAddress(),
+            .status = BTA_AV_FAIL_SDP,
+          },
+        };
         (*p_cb->p_cback)(BTA_AV_RC_OPEN_EVT, &bta_av_data);
       }
+      if (peer_features != 0)
+        DEVICE_IOT_CONFIG_ADDR_SET_HEX(p_scb->PeerAddress(),
+                                       IOT_CONF_KEY_AVRCP_FEATURES,
+                                       peer_features, IOT_CONF_BYTE_NUM_2);
     }
   } else {
     tBTA_AV_RC_FEAT rc_feat;
@@ -2009,6 +2113,11 @@ void bta_av_rc_disc_done(UNUSED_ATTR tBTA_AV_DATA* p_data) {
     tBTA_AV bta_av_feat;
     bta_av_feat.rc_feat = rc_feat;
     (*p_cb->p_cback)(BTA_AV_RC_FEAT_EVT, &bta_av_feat);
+
+    if (peer_features != 0)
+      DEVICE_IOT_CONFIG_ADDR_SET_HEX(rc_feat.peer_addr,
+                                     IOT_CONF_KEY_AVRCP_FEATURES, peer_features,
+                                     IOT_CONF_BYTE_NUM_2);
 
     // Send PSM data
     APPL_TRACE_DEBUG("%s: Send PSM data", __func__);
@@ -2080,7 +2189,7 @@ void bta_av_rc_closed(tBTA_AV_DATA* p_data) {
         p_lcb = &p_cb->lcb[BTA_AV_NUM_LINKS];
         rc_close.peer_addr = p_msg->peer_addr;
         LOG_INFO("%s: rc_only closed bd_addr: %s", __func__,
-                 p_msg->peer_addr.ToString().c_str());
+                 ADDRESS_TO_LOGGABLE_CSTR(p_msg->peer_addr));
         p_lcb->conn_msk = 0;
         p_lcb->lidx = 0;
       }
@@ -2133,7 +2242,7 @@ void bta_av_rc_browse_opened(tBTA_AV_DATA* p_data) {
   tBTA_AV_RC_BROWSE_OPEN rc_browse_open;
 
   LOG_INFO("%s: peer_addr: %s rc_handle:%d", __func__,
-           p_msg->peer_addr.ToString().c_str(), p_msg->handle);
+           ADDRESS_TO_LOGGABLE_CSTR(p_msg->peer_addr), p_msg->handle);
 
   rc_browse_open.status = BTA_AV_SUCCESS;
   rc_browse_open.rc_handle = p_msg->handle;
@@ -2159,7 +2268,7 @@ void bta_av_rc_browse_closed(tBTA_AV_DATA* p_data) {
   tBTA_AV_RC_BROWSE_CLOSE rc_browse_close;
 
   LOG_INFO("%s: peer_addr: %s rc_handle:%d", __func__,
-           p_msg->peer_addr.ToString().c_str(), p_msg->handle);
+           ADDRESS_TO_LOGGABLE_CSTR(p_msg->peer_addr), p_msg->handle);
 
   rc_browse_close.rc_handle = p_msg->handle;
   rc_browse_close.peer_addr = p_msg->peer_addr;
@@ -2243,7 +2352,12 @@ void bta_av_rc_disc(uint8_t disc) {
 void bta_av_dereg_comp(tBTA_AV_DATA* p_data) {
   tBTA_AV_CB* p_cb = &bta_av_cb;
   tBTA_AV_SCB* p_scb;
-  tBTA_UTL_COD cod;
+  tBTA_UTL_COD cod = {
+    .minor = BTM_COD_MINOR_UNCLASSIFIED,
+    .major = BTM_COD_MAJOR_UNCLASSIFIED,
+    .service = 0,
+  };
+
   uint8_t mask;
   BT_HDR* p_buf;
 

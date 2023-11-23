@@ -15,7 +15,8 @@ cc_fuzz {
         "fuzz_ringbuffer.cc",
     ],
     static_libs: [
-        "libosi",
+        "libchrome",
         "liblog",
+        "libosi",
     ],
 }

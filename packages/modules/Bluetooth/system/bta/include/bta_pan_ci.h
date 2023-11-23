@@ -47,7 +47,7 @@
  * Returns          void
  *
  ******************************************************************************/
-extern void bta_pan_ci_tx_ready(uint16_t handle);
+void bta_pan_ci_tx_ready(uint16_t handle);
 
 /*******************************************************************************
  *
@@ -62,7 +62,7 @@ extern void bta_pan_ci_tx_ready(uint16_t handle);
  * Returns          void
  *
  ******************************************************************************/
-extern void bta_pan_ci_rx_ready(uint16_t handle);
+void bta_pan_ci_rx_ready(uint16_t handle);
 
 /*******************************************************************************
  *
@@ -79,7 +79,7 @@ extern void bta_pan_ci_rx_ready(uint16_t handle);
  * Returns          void
  *
  ******************************************************************************/
-extern void bta_pan_ci_tx_flow(uint16_t handle, bool enable);
+void bta_pan_ci_tx_flow(uint16_t handle, bool enable);
 
 /*******************************************************************************
  *
@@ -95,9 +95,9 @@ extern void bta_pan_ci_tx_flow(uint16_t handle, bool enable);
  * Returns          true if flow enabled
  *
  ******************************************************************************/
-extern void bta_pan_ci_rx_writebuf(uint16_t handle, const RawAddress& src,
-                                   const RawAddress& dst, uint16_t protocol,
-                                   BT_HDR* p_buf, bool ext);
+void bta_pan_ci_rx_writebuf(uint16_t handle, const RawAddress& src,
+                            const RawAddress& dst, uint16_t protocol,
+                            BT_HDR* p_buf, bool ext);
 
 /*******************************************************************************
  *
@@ -112,8 +112,7 @@ extern void bta_pan_ci_rx_writebuf(uint16_t handle, const RawAddress& src,
  * Returns          void
  *
  ******************************************************************************/
-extern BT_HDR* bta_pan_ci_readbuf(uint16_t handle, RawAddress& src,
-                                  RawAddress& dst, uint16_t* p_protocol,
-                                  bool* p_ext, bool* p_forward);
+BT_HDR* bta_pan_ci_readbuf(uint16_t handle, RawAddress& src, RawAddress& dst,
+                           uint16_t* p_protocol, bool* p_ext, bool* p_forward);
 
 #endif /* BTA_PAN_CI_H */

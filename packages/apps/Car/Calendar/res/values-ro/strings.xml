@@ -18,15 +18,11 @@
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="app_name" msgid="1756632159204796305">"Calendar"</string>
     <string name="no_dialler" msgid="1448265958659890310">"Nicio tastatură telefon"</string>
-    <string name="no_events" msgid="2454460886004475314">"Niciun eveniment planificat. Sunteți liber(ă)!"</string>
-    <string name="no_calendars" msgid="5059614627806215716">"Calendarul ar putea să pornească sau ar putea fi necesar să verificați setările din aplicația parteneră"</string>
+    <string name="no_events" msgid="2454460886004475314">"Niciun eveniment planificat. Ești liber(ă)!"</string>
+    <string name="no_calendars" msgid="5059614627806215716">"Calendarul ar putea să pornească sau ar putea fi necesar să verifici setările din aplicația parteneră"</string>
     <string name="all_day_event" msgid="5817490740700803034">"Toată ziua"</string>
     <!-- no translation found for phone_number (3879925006862072135) -->
     <skip />
     <string name="phone_number_with_pin" msgid="6760582665093825412">"<xliff:g id="NUMBER">%1$s</xliff:g> PIN: <xliff:g id="PIN_0">%2$s</xliff:g>"</string>
-    <plurals name="all_day_title" formatted="false" msgid="7938279592034934265">
-      <item quantity="few">%d evenimente care durează toată ziua</item>
-      <item quantity="other">%d de evenimente care durează toată ziua</item>
-      <item quantity="one">%d eveniment care durează toată ziua</item>
-    </plurals>
+    <string name="all_day_title" msgid="5963074297534975402">"{count,plural, =1{# eveniment care durează toată ziua}few{# evenimente care durează toată ziua}other{# de evenimente care durează toată ziua}}"</string>
 </resources>

@@ -105,11 +105,7 @@ public abstract class IkeUdpSocket extends IkeSocket {
             // multiple IKE sessions that send messages to different destinations.
             Os.sendto(mSocket, buffer, 0, serverAddress, getIkeServerPort());
         } catch (ErrnoException | IOException e) {
-            getIkeLog()
-                    .i(
-                            this.getClass().getSimpleName(),
-                            "Failed to send packet on network " + getIkeSocketConfig().getNetwork(),
-                            e);
+            getIkeLog().i(this.getClass().getSimpleName(), "Failed to send packet", e);
         }
     }
 
@@ -124,12 +120,7 @@ public abstract class IkeUdpSocket extends IkeSocket {
         try {
             IoUtils.close(mSocket);
         } catch (IOException e) {
-            getIkeLog()
-                    .e(
-                            this.getClass().getSimpleName(),
-                            "Failed to close UDP Socket for Network "
-                                    + getIkeSocketConfig().getNetwork(),
-                            e);
+            getIkeLog().e(this.getClass().getSimpleName(), "Failed to close UDP Socket", e);
         }
 
         // PacketReader unregisters file descriptor from listener on thread with which the Handler

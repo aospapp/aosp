@@ -19,12 +19,10 @@ package com.android.microdroid.demo;
 import android.app.Application;
 import android.os.Bundle;
 import android.os.IBinder;
-import android.os.ParcelFileDescriptor;
 import android.os.RemoteException;
 import android.system.virtualmachine.VirtualMachine;
 import android.system.virtualmachine.VirtualMachineCallback;
 import android.system.virtualmachine.VirtualMachineConfig;
-import android.system.virtualmachine.VirtualMachineConfig.DebugLevel;
 import android.system.virtualmachine.VirtualMachineException;
 import android.system.virtualmachine.VirtualMachineManager;
 import android.util.Log;
@@ -38,19 +36,16 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.lifecycle.AndroidViewModel;
 import androidx.lifecycle.LiveData;
 import androidx.lifecycle.MutableLiveData;
-import androidx.lifecycle.Observer;
 import androidx.lifecycle.ViewModelProvider;
 
 import com.android.microdroid.testservice.ITestService;
 
 import java.io.BufferedReader;
-import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
 
 /**
  * This app is to demonstrate the use of APIs in the android.system.virtualmachine library.
@@ -64,44 +59,40 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-        Button runStopButton = (Button) findViewById(R.id.runStopButton);
-        TextView consoleView = (TextView) findViewById(R.id.consoleOutput);
-        TextView logView = (TextView) findViewById(R.id.logOutput);
-        TextView payloadView = (TextView) findViewById(R.id.payloadOutput);
-        ScrollView scrollConsoleView = (ScrollView) findViewById(R.id.scrollConsoleOutput);
-        ScrollView scrollLogView = (ScrollView) findViewById(R.id.scrollLogOutput);
+        Button runStopButton = findViewById(R.id.runStopButton);
+        TextView consoleView = findViewById(R.id.consoleOutput);
+        TextView logView = findViewById(R.id.logOutput);
+        TextView payloadView = findViewById(R.id.payloadOutput);
+        ScrollView scrollConsoleView = findViewById(R.id.scrollConsoleOutput);
+        ScrollView scrollLogView = findViewById(R.id.scrollLogOutput);
 
         VirtualMachineModel model = new ViewModelProvider(this).get(VirtualMachineModel.class);
 
         // When the button is clicked, run or stop the VM
         runStopButton.setOnClickListener(
-                new View.OnClickListener() {
-                    public void onClick(View v) {
-                        if (model.getStatus().getValue() == VirtualMachine.Status.RUNNING) {
-                            model.stop();
-                        } else {
-                            CheckBox debugModeCheckBox = (CheckBox) findViewById(R.id.debugMode);
-                            final boolean debug = debugModeCheckBox.isChecked();
-                            model.run(debug);
-                        }
+                v -> {
+                    Integer status = model.getStatus().getValue();
+                    if (status != null && status == VirtualMachine.STATUS_RUNNING) {
+                        model.stop();
+                    } else {
+                        CheckBox debugModeCheckBox = findViewById(R.id.debugMode);
+                        final boolean debug = debugModeCheckBox.isChecked();
+                        model.run(debug);
                     }
                 });
 
         // When the VM status is updated, change the label of the button
         model.getStatus()
                 .observeForever(
-                        new Observer<VirtualMachine.Status>() {
-                            @Override
-                            public void onChanged(VirtualMachine.Status status) {
-                                if (status == VirtualMachine.Status.RUNNING) {
-                                    runStopButton.setText("Stop");
-                                    // Clear the outputs from the previous run
-                                    consoleView.setText("");
-                                    logView.setText("");
-                                    payloadView.setText("");
-                                } else {
-                                    runStopButton.setText("Run");
-                                }
+                        status -> {
+                            if (status == VirtualMachine.STATUS_RUNNING) {
+                                runStopButton.setText("Stop");
+                                // Clear the outputs from the previous run
+                                consoleView.setText("");
+                                logView.setText("");
+                                payloadView.setText("");
+                            } else {
+                                runStopButton.setText("Run");
                             }
                         });
 
@@ -109,30 +100,19 @@ public class MainActivity extends AppCompatActivity {
         // corresponding text view.
         model.getConsoleOutput()
                 .observeForever(
-                        new Observer<String>() {
-                            @Override
-                            public void onChanged(String line) {
-                                consoleView.append(line + "\n");
-                                scrollConsoleView.fullScroll(View.FOCUS_DOWN);
-                            }
+                        line -> {
+                            consoleView.append(line + "\n");
+                            scrollConsoleView.fullScroll(View.FOCUS_DOWN);
                         });
         model.getLogOutput()
                 .observeForever(
-                        new Observer<String>() {
-                            @Override
-                            public void onChanged(String line) {
-                                logView.append(line + "\n");
-                                scrollLogView.fullScroll(View.FOCUS_DOWN);
-                            }
+                        line -> {
+                            logView.append(line + "\n");
+                            scrollLogView.fullScroll(View.FOCUS_DOWN);
                         });
         model.getPayloadOutput()
                 .observeForever(
-                        new Observer<String>() {
-                            @Override
-                            public void onChanged(String line) {
-                                payloadView.append(line + "\n");
-                            }
-                        });
+                        line -> payloadView.append(line + "\n"));
     }
 
     /** Reads data from an input stream and posts it to the output data */
@@ -163,22 +143,22 @@ public class MainActivity extends AppCompatActivity {
 
     /** Models a virtual machine and outputs from it. */
     public static class VirtualMachineModel extends AndroidViewModel {
+        private static final String VM_NAME = "demo_vm";
         private VirtualMachine mVirtualMachine;
         private final MutableLiveData<String> mConsoleOutput = new MutableLiveData<>();
         private final MutableLiveData<String> mLogOutput = new MutableLiveData<>();
         private final MutableLiveData<String> mPayloadOutput = new MutableLiveData<>();
-        private final MutableLiveData<VirtualMachine.Status> mStatus = new MutableLiveData<>();
+        private final MutableLiveData<Integer> mStatus = new MutableLiveData<>();
         private ExecutorService mExecutorService;
 
         public VirtualMachineModel(Application app) {
             super(app);
-            mStatus.setValue(VirtualMachine.Status.DELETED);
+            mStatus.setValue(VirtualMachine.STATUS_DELETED);
         }
 
         /** Runs a VM */
         public void run(boolean debug) {
             // Create a VM and run it.
-            // TODO(jiyong): remove the call to idsigPath
             mExecutorService = Executors.newFixedThreadPool(4);
 
             VirtualMachineCallback callback =
@@ -187,16 +167,7 @@ public class MainActivity extends AppCompatActivity {
                         private final ExecutorService mService = mExecutorService;
 
                         @Override
-                        public void onPayloadStarted(
-                                VirtualMachine vm, ParcelFileDescriptor stream) {
-                            if (stream == null) {
-                                mPayloadOutput.postValue("(no output available)");
-                                return;
-                            }
-
-                            InputStream input = new FileInputStream(stream.getFileDescriptor());
-                            mService.execute(new Reader("payload", mPayloadOutput, input));
-                        }
+                        public void onPayloadStarted(VirtualMachine vm) {}
 
                         @Override
                         public void onPayloadReady(VirtualMachine vm) {
@@ -207,25 +178,13 @@ public class MainActivity extends AppCompatActivity {
                             }
                             mPayloadOutput.postValue("(Payload is ready. Testing VM service...)");
 
-                            Future<IBinder> service;
-                            try {
-                                service = vm.connectToVsockServer(ITestService.SERVICE_PORT);
-                            } catch (VirtualMachineException e) {
-                                mPayloadOutput.postValue(
-                                        String.format(
-                                                "(Exception while connecting VM's binder"
-                                                        + " service: %s)",
-                                                e.getMessage()));
-                                return;
-                            }
-
-                            mService.execute(() -> testVMService(service));
+                            mService.execute(() -> testVmService(vm));
                         }
 
-                        private void testVMService(Future<IBinder> service) {
+                        private void testVmService(VirtualMachine vm) {
                             IBinder binder;
                             try {
-                                binder = service.get();
+                                binder = vm.connectToVsockServer(ITestService.SERVICE_PORT);
                             } catch (Exception e) {
                                 if (!Thread.interrupted()) {
                                     mPayloadOutput.postValue(
@@ -274,35 +233,41 @@ public class MainActivity extends AppCompatActivity {
                         }
 
                         @Override
-                        public void onDied(VirtualMachine vm, @DeathReason int reason) {
+                        public void onStopped(VirtualMachine vm, int reason) {
                             mService.shutdownNow();
-                            mStatus.postValue(VirtualMachine.Status.STOPPED);
+                            mStatus.postValue(VirtualMachine.STATUS_STOPPED);
                         }
                     };
 
             try {
                 VirtualMachineConfig.Builder builder =
-                        new VirtualMachineConfig.Builder(getApplication(), "assets/vm_config.json");
+                        new VirtualMachineConfig.Builder(getApplication());
+                builder.setPayloadBinaryName("MicrodroidTestNativeLib.so");
+                builder.setProtectedVm(true);
                 if (debug) {
-                    builder.debugLevel(DebugLevel.FULL);
+                    builder.setDebugLevel(VirtualMachineConfig.DEBUG_LEVEL_FULL);
+                    builder.setVmOutputCaptured(true);
                 }
                 VirtualMachineConfig config = builder.build();
-                VirtualMachineManager vmm = VirtualMachineManager.getInstance(getApplication());
-                mVirtualMachine = vmm.getOrCreate("demo_vm", config);
+                VirtualMachineManager vmm =
+                        getApplication().getSystemService(VirtualMachineManager.class);
+                mVirtualMachine = vmm.getOrCreate(VM_NAME, config);
                 try {
                     mVirtualMachine.setConfig(config);
                 } catch (VirtualMachineException e) {
-                    mVirtualMachine.delete();
-                    mVirtualMachine = vmm.create("demo_vm", config);
+                    vmm.delete(VM_NAME);
+                    mVirtualMachine = vmm.create(VM_NAME, config);
                 }
                 mVirtualMachine.run();
                 mVirtualMachine.setCallback(Executors.newSingleThreadExecutor(), callback);
                 mStatus.postValue(mVirtualMachine.getStatus());
 
-                InputStream console = mVirtualMachine.getConsoleOutputStream();
-                InputStream log = mVirtualMachine.getLogOutputStream();
-                mExecutorService.execute(new Reader("console", mConsoleOutput, console));
-                mExecutorService.execute(new Reader("log", mLogOutput, log));
+                if (debug) {
+                    InputStream console = mVirtualMachine.getConsoleOutput();
+                    InputStream log = mVirtualMachine.getLogOutput();
+                    mExecutorService.execute(new Reader("console", mConsoleOutput, console));
+                    mExecutorService.execute(new Reader("log", mLogOutput, log));
+                }
             } catch (VirtualMachineException e) {
                 throw new RuntimeException(e);
             }
@@ -317,7 +282,7 @@ public class MainActivity extends AppCompatActivity {
             }
             mVirtualMachine = null;
             mExecutorService.shutdownNow();
-            mStatus.postValue(VirtualMachine.Status.STOPPED);
+            mStatus.postValue(VirtualMachine.STATUS_STOPPED);
         }
 
         /** Returns the console output from the VM */
@@ -336,7 +301,7 @@ public class MainActivity extends AppCompatActivity {
         }
 
         /** Returns the status of the VM */
-        public LiveData<VirtualMachine.Status> getStatus() {
+        public LiveData<Integer> getStatus() {
             return mStatus;
         }
     }

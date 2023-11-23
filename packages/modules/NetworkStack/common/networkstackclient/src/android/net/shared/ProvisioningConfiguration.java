@@ -270,6 +270,18 @@ public class ProvisioningConfiguration {
         }
 
         /**
+         * Specify that the configuration is for a network that only uses unique EUI-64
+         * addresses (e.g., a link-local-only network where addresses are generated via
+         * EUI-64 and where MAC addresses are guaranteed to be unique).
+         * This will disable duplicate address detection if withLinkLocalOnly() and
+         * withRandomMacAddress are also called.
+         */
+        public Builder withUniqueEui64AddressesOnly() {
+            mConfig.mUniqueEui64AddressesOnly = true;
+            return this;
+        }
+
+        /**
          * Build the configuration using previously specified parameters.
          */
         public ProvisioningConfiguration build() {
@@ -333,7 +345,7 @@ public class ProvisioningConfiguration {
 
             @Override
             public int hashCode() {
-                return Objects.hash(mId, mPayload);
+                return Objects.hash(mId, Arrays.hashCode(mPayload));
             }
 
             @Override
@@ -463,6 +475,7 @@ public class ProvisioningConfiguration {
         }
     }
 
+    public boolean mUniqueEui64AddressesOnly = false;
     public boolean mEnablePreconnection = false;
     public boolean mUsingMultinetworkPolicyTracker = true;
     public boolean mUsingIpReachabilityMonitor = true;
@@ -483,6 +496,7 @@ public class ProvisioningConfiguration {
     public ProvisioningConfiguration() {} // used by Builder
 
     public ProvisioningConfiguration(ProvisioningConfiguration other) {
+        mUniqueEui64AddressesOnly = other.mUniqueEui64AddressesOnly;
         mEnablePreconnection = other.mEnablePreconnection;
         mUsingMultinetworkPolicyTracker = other.mUsingMultinetworkPolicyTracker;
         mUsingIpReachabilityMonitor = other.mUsingIpReachabilityMonitor;
@@ -512,6 +526,7 @@ public class ProvisioningConfiguration {
         p.ipv4ProvisioningMode = mIPv4ProvisioningMode;
         p.enableIPv6 = (mIPv6ProvisioningMode != PROV_IPV6_DISABLED);
         p.ipv6ProvisioningMode = mIPv6ProvisioningMode;
+        p.uniqueEui64AddressesOnly = mUniqueEui64AddressesOnly;
         p.enablePreconnection = mEnablePreconnection;
         p.usingMultinetworkPolicyTracker = mUsingMultinetworkPolicyTracker;
         p.usingIpReachabilityMonitor = mUsingIpReachabilityMonitor;
@@ -543,6 +558,7 @@ public class ProvisioningConfiguration {
             @Nullable ProvisioningConfigurationParcelable p, int interfaceVersion) {
         if (p == null) return null;
         final ProvisioningConfiguration config = new ProvisioningConfiguration();
+        config.mUniqueEui64AddressesOnly = p.uniqueEui64AddressesOnly;
         config.mEnablePreconnection = p.enablePreconnection;
         config.mUsingMultinetworkPolicyTracker = p.usingMultinetworkPolicyTracker;
         config.mUsingIpReachabilityMonitor = p.usingIpReachabilityMonitor;
@@ -602,6 +618,7 @@ public class ProvisioningConfiguration {
         final String ipv4ProvisioningMode = ipv4ProvisioningModeToString(mIPv4ProvisioningMode);
         final String ipv6ProvisioningMode = ipv6ProvisioningModeToString(mIPv6ProvisioningMode);
         return new StringJoiner(", ", getClass().getSimpleName() + "{", "}")
+                .add("mUniqueEui64AddressesOnly: " + mUniqueEui64AddressesOnly)
                 .add("mEnablePreconnection: " + mEnablePreconnection)
                 .add("mUsingMultinetworkPolicyTracker: " + mUsingMultinetworkPolicyTracker)
                 .add("mUsingIpReachabilityMonitor: " + mUsingIpReachabilityMonitor)
@@ -647,7 +664,8 @@ public class ProvisioningConfiguration {
     public boolean equals(Object obj) {
         if (!(obj instanceof ProvisioningConfiguration)) return false;
         final ProvisioningConfiguration other = (ProvisioningConfiguration) obj;
-        return mEnablePreconnection == other.mEnablePreconnection
+        return mUniqueEui64AddressesOnly == other.mUniqueEui64AddressesOnly
+                && mEnablePreconnection == other.mEnablePreconnection
                 && mUsingMultinetworkPolicyTracker == other.mUsingMultinetworkPolicyTracker
                 && mUsingIpReachabilityMonitor == other.mUsingIpReachabilityMonitor
                 && mRequestedPreDhcpActionMs == other.mRequestedPreDhcpActionMs

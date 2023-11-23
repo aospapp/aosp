@@ -28,7 +28,7 @@
 #include <map>
 #include <string>
 
-extern std::map<std::string, int> mock_function_count_map;
+#include "test/common/mock_functions.h"
 
 // Original included files, if any
 // NOTE: Since this is a mock file with mock definitions some number of

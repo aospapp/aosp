@@ -88,7 +88,7 @@ public final class WorkPolicyInfoPreferenceController extends PreferenceControll
     };
 
     @Override
-    protected int getAvailabilityStatus() {
+    protected int getDefaultAvailabilityStatus() {
         if (!mEnabled) return UNSUPPORTED_ON_DEVICE;
 
         updateState();

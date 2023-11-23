@@ -19,6 +19,7 @@ import android.annotation.IntDef;
 import android.annotation.NonNull;
 import android.content.Context;
 import android.net.MacAddress;
+import android.net.wifi.QosPolicyParams;
 import android.net.wifi.SecurityParams;
 import android.net.wifi.WifiConfiguration;
 import android.os.Handler;
@@ -52,6 +53,8 @@ public class SupplicantStaIfaceHal {
     private final Clock mClock;
     private final WifiMetrics mWifiMetrics;
     private final WifiGlobals mWifiGlobals;
+    private final @NonNull SsidTranslator mSsidTranslator;
+    private final WifiInjector mWifiInjector;
 
     // HAL interface object - might be implemented by HIDL or AIDL
     private ISupplicantStaIfaceHal mStaIfaceHal;
@@ -706,8 +709,7 @@ public class SupplicantStaIfaceHal {
         public boolean isValid = true;
 
         public QosPolicyClassifierParams(boolean halHasSrcIp, byte[] halSrcIp, boolean halHasDstIp,
-                byte[] halDstIp, int halSrcPort, @NonNull int[] halDstPortRange,
-                int halProtocol) {
+                byte[] halDstIp, int halSrcPort, int[] halDstPortRange, int halProtocol) {
             srcPort = halSrcPort;
             protocol = halProtocol;
 
@@ -729,10 +731,12 @@ public class SupplicantStaIfaceHal {
                 }
             }
 
-            if (halDstPortRange[0] > halDstPortRange[1]) {
-                isValid = false;
-            } else {
-                dstPortRange = new Range(halDstPortRange[0], halDstPortRange[1]);
+            if (halDstPortRange != null) {
+                if (halDstPortRange[0] > halDstPortRange[1]) {
+                    isValid = false;
+                } else {
+                    dstPortRange = new Range(halDstPortRange[0], halDstPortRange[1]);
+                }
             }
         }
 
@@ -746,18 +750,82 @@ public class SupplicantStaIfaceHal {
 
     protected static class QosPolicyStatus {
         public final int policyId;
-        public final int dscpPolicyStatus;
+        public final int statusCode;
 
         public QosPolicyStatus(int id, int status) {
             policyId = id;
-            dscpPolicyStatus = status;
+            statusCode = status;
         }
+
+        @Override
+        public String toString() {
+            return "{policyId: " + policyId + ", statusCode: " + statusCode + "}";
+        }
+    }
+
+    protected static final int QOS_POLICY_SCS_REQUEST_STATUS_ERROR_UNKNOWN = -1;
+    protected static final int QOS_POLICY_SCS_REQUEST_STATUS_SENT = 0;
+    protected static final int QOS_POLICY_SCS_REQUEST_STATUS_ALREADY_ACTIVE = 1;
+    protected static final int QOS_POLICY_SCS_REQUEST_STATUS_NOT_EXIST = 2;
+    protected static final int QOS_POLICY_SCS_REQUEST_STATUS_INVALID = 3;
+
+    @IntDef(prefix = { "QOS_POLICY_SCS_REQUEST_STATUS_" }, value = {
+            QOS_POLICY_SCS_REQUEST_STATUS_ERROR_UNKNOWN,
+            QOS_POLICY_SCS_REQUEST_STATUS_SENT,
+            QOS_POLICY_SCS_REQUEST_STATUS_ALREADY_ACTIVE,
+            QOS_POLICY_SCS_REQUEST_STATUS_NOT_EXIST,
+            QOS_POLICY_SCS_REQUEST_STATUS_INVALID
+    })
+    @Retention(RetentionPolicy.SOURCE)
+    protected @interface QosPolicyScsRequestStatusCode {}
+
+    protected static final int QOS_POLICY_SCS_RESPONSE_STATUS_ERROR_UNKNOWN = -1;
+    protected static final int QOS_POLICY_SCS_RESPONSE_STATUS_SUCCESS = 0;
+    protected static final int QOS_POLICY_SCS_RESPONSE_STATUS_TCLAS_REQUEST_DECLINED = 1;
+    protected static final int QOS_POLICY_SCS_RESPONSE_STATUS_TCLAS_NOT_SUPPORTED_BY_AP = 2;
+    protected static final int QOS_POLICY_SCS_RESPONSE_STATUS_TCLAS_INSUFFICIENT_RESOURCES = 3;
+    protected static final int QOS_POLICY_SCS_RESPONSE_STATUS_TCLAS_RESOURCES_EXHAUSTED = 4;
+    protected static final int
+            QOS_POLICY_SCS_RESPONSE_STATUS_TCLAS_PROCESSING_TERMINATED_INSUFFICIENT_QOS = 5;
+    protected static final int
+            QOS_POLICY_SCS_RESPONSE_STATUS_TCLAS_PROCESSING_TERMINATED_POLICY_CONFLICT = 6;
+    protected static final int QOS_POLICY_SCS_RESPONSE_STATUS_TCLAS_PROCESSING_TERMINATED = 7;
+    protected static final int QOS_POLICY_SCS_RESPONSE_STATUS_TIMEOUT = 8;
+
+    @IntDef(prefix = { "QOS_POLICY_SCS_RESPONSE_STATUS_" }, value = {
+            QOS_POLICY_SCS_RESPONSE_STATUS_ERROR_UNKNOWN,
+            QOS_POLICY_SCS_RESPONSE_STATUS_SUCCESS,
+            QOS_POLICY_SCS_RESPONSE_STATUS_TCLAS_REQUEST_DECLINED,
+            QOS_POLICY_SCS_RESPONSE_STATUS_TCLAS_NOT_SUPPORTED_BY_AP,
+            QOS_POLICY_SCS_RESPONSE_STATUS_TCLAS_INSUFFICIENT_RESOURCES,
+            QOS_POLICY_SCS_RESPONSE_STATUS_TCLAS_RESOURCES_EXHAUSTED,
+            QOS_POLICY_SCS_RESPONSE_STATUS_TCLAS_PROCESSING_TERMINATED_INSUFFICIENT_QOS,
+            QOS_POLICY_SCS_RESPONSE_STATUS_TCLAS_PROCESSING_TERMINATED_POLICY_CONFLICT,
+            QOS_POLICY_SCS_RESPONSE_STATUS_TCLAS_PROCESSING_TERMINATED,
+            QOS_POLICY_SCS_RESPONSE_STATUS_TIMEOUT
+    })
+    @Retention(RetentionPolicy.SOURCE)
+    protected @interface QosPolicyScsResponseStatusCode {}
+
+    /**
+     * Callback to receive responses for QoS SCS transactions.
+     */
+    protected interface QosScsResponseCallback {
+        /**
+         * Called to indicate a response from the AP.
+         *
+         * @param ifaceName Name of the interface where the event occurred.
+         * @param statusList List of {@link QosPolicyStatus} objects. Status code will be
+         *                   one of {@link QosPolicyScsResponseStatusCode}.
+         */
+        void onApResponse(String ifaceName, List<QosPolicyStatus> statusList);
     }
 
     public SupplicantStaIfaceHal(Context context, WifiMonitor monitor,
             FrameworkFacade frameworkFacade, Handler handler,
             Clock clock, WifiMetrics wifiMetrics,
-            WifiGlobals wifiGlobals) {
+            WifiGlobals wifiGlobals,
+            @NonNull SsidTranslator ssidTranslator, WifiInjector wifiInjector) {
         mContext = context;
         mWifiMonitor = monitor;
         mFrameworkFacade = frameworkFacade;
@@ -765,6 +833,8 @@ public class SupplicantStaIfaceHal {
         mClock = clock;
         mWifiMetrics = wifiMetrics;
         mWifiGlobals = wifiGlobals;
+        mSsidTranslator = ssidTranslator;
+        mWifiInjector = wifiInjector;
         mStaIfaceHal = createStaIfaceHalMockable();
         if (mStaIfaceHal == null) {
             Log.wtf(TAG, "Failed to get internal ISupplicantStaIfaceHal instance.");
@@ -772,9 +842,21 @@ public class SupplicantStaIfaceHal {
     }
 
     /**
+     * Check whether the AIDL service is running at least the expected version.
+     *
+     * @param expectedVersion Version number to check.
+     * @return true if the AIDL service is available and >= the expected version, false otherwise.
+     */
+    public boolean isAidlServiceVersionAtLeast(int expectedVersion) {
+        if (mStaIfaceHal == null || mStaIfaceHal instanceof SupplicantStaIfaceHalHidlImpl) {
+            return false;
+        }
+        return ((SupplicantStaIfaceHalAidlImpl) mStaIfaceHal)
+                .isServiceVersionAtLeast(expectedVersion);
+    }
+
+    /**
      * Enable/Disable verbose logging.
-     * @param verboseEnabled Verbose flag set in overlay XML.
-     * @param halVerboseEnabled Verbose flag set by the user.
      */
     void enableVerboseLogging(boolean verboseEnabled, boolean halVerboseEnabled) {
         synchronized (mLock) {
@@ -815,12 +897,13 @@ public class SupplicantStaIfaceHal {
             if (SupplicantStaIfaceHalAidlImpl.serviceDeclared()) {
                 Log.i(TAG, "Initializing SupplicantStaIfaceHal using AIDL implementation.");
                 return new SupplicantStaIfaceHalAidlImpl(mContext, mWifiMonitor,
-                        mEventHandler, mClock, mWifiMetrics, mWifiGlobals);
+                        mEventHandler, mClock, mWifiMetrics, mWifiGlobals, mSsidTranslator,
+                        mWifiInjector);
 
             } else if (SupplicantStaIfaceHalHidlImpl.serviceDeclared()) {
                 Log.i(TAG, "Initializing SupplicantStaIfaceHal using HIDL implementation.");
                 return new SupplicantStaIfaceHalHidlImpl(mContext, mWifiMonitor, mFrameworkFacade,
-                        mEventHandler, mClock, mWifiMetrics, mWifiGlobals);
+                        mEventHandler, mClock, mWifiMetrics, mWifiGlobals, mSsidTranslator);
             }
             Log.e(TAG, "No HIDL or AIDL service available for SupplicantStaIfaceHal.");
             return null;
@@ -1834,6 +1917,7 @@ public class SupplicantStaIfaceHal {
         }
     }
 
+
     /**
      * Returns a bitmask of advanced capabilities: WPA3 SAE/SUITE B and OWE
      * Bitmask used is:
@@ -1889,7 +1973,24 @@ public class SupplicantStaIfaceHal {
     }
 
     /**
-     * Returns connection MLO links info
+     * Returns signal poll results for all Wi-Fi links of the interface.
+     *
+     * @param ifaceName Name of the interface.
+     * @return Signal poll results.
+     */
+    public WifiSignalPollResults getSignalPollResults(@NonNull String ifaceName) {
+        synchronized (mLock) {
+            String methodStr = "getSignalPollResults";
+            if (mStaIfaceHal == null) {
+                handleNullHal(methodStr);
+                return null;
+            }
+            return mStaIfaceHal.getSignalPollResults(ifaceName);
+        }
+    }
+
+    /**
+     * Returns connection MLO links info.
      *
      * @param ifaceName Name of the interface.
      * @return connection MLO links info
@@ -2187,6 +2288,45 @@ public class SupplicantStaIfaceHal {
     }
 
     /**
+     * See comments for {@link ISupplicantStaIfaceHal#addQosPolicyRequestForScs(String, List)}
+     */
+    public List<QosPolicyStatus> addQosPolicyRequestForScs(
+            @NonNull String ifaceName, @NonNull List<QosPolicyParams> policies) {
+        String methodStr = "addQosPolicyRequestForScs";
+        if (mStaIfaceHal == null) {
+            handleNullHal(methodStr);
+            return null;
+        }
+        return mStaIfaceHal.addQosPolicyRequestForScs(ifaceName, policies);
+    }
+
+    /**
+     * See comments for {@link ISupplicantStaIfaceHal#removeQosPolicyForScs(String, List)}
+     */
+    public List<QosPolicyStatus> removeQosPolicyForScs(
+            @NonNull String ifaceName, @NonNull List<Byte> policyIds) {
+        String methodStr = "removeQosPolicyForScs";
+        if (mStaIfaceHal == null) {
+            handleNullHal(methodStr);
+            return null;
+        }
+        return mStaIfaceHal.removeQosPolicyForScs(ifaceName, policyIds);
+    }
+
+    /**
+     * See comments for
+     * {@link ISupplicantStaIfaceHal#registerQosScsResponseCallback(QosScsResponseCallback)}
+     */
+    public void registerQosScsResponseCallback(@NonNull QosScsResponseCallback callback) {
+        String methodStr = "registerQosScsResponseCallback";
+        if (mStaIfaceHal == null) {
+            handleNullHal(methodStr);
+            return;
+        }
+        mStaIfaceHal.registerQosScsResponseCallback(callback);
+    }
+
+    /**
      * Generate DPP credential for network access
      *
      * @param ifaceName Name of the interface.
@@ -2210,14 +2350,17 @@ public class SupplicantStaIfaceHal {
      *
      * @param ifaceName Name of the interface.
      * @param anonymousIdentity the anonymouns identity.
+     * @param updateToNativeService write the data to the native service.
      * @return true if succeeds, false otherwise.
      */
-    public boolean setEapAnonymousIdentity(@NonNull String ifaceName, String anonymousIdentity) {
+    public boolean setEapAnonymousIdentity(@NonNull String ifaceName, String anonymousIdentity,
+            boolean updateToNativeService) {
         String methodStr = "setEapAnonymousIdentity";
         if (mStaIfaceHal == null) {
             return handleNullHal(methodStr);
         }
-        return mStaIfaceHal.setEapAnonymousIdentity(ifaceName, anonymousIdentity);
+        return mStaIfaceHal.setEapAnonymousIdentity(ifaceName, anonymousIdentity,
+                updateToNativeService);
     }
 
     private boolean handleNullHal(String methodStr) {

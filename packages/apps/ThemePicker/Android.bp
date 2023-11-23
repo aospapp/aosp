@@ -24,22 +24,14 @@ filegroup {
     srcs: [
         "src/**/*.java",
         "src/**/*.kt",
-        // Min requirement for CustomizationInjector and StatsLogUserEventLogger to build without Clock and Theme feature.
-        "src/com/android/customization/model/clock/BaseClockManager.java",
-        "src/com/android/customization/model/clock/Clockface.java",
-        "src/com/android/customization/model/clock/ClockManager.java",
-        "src/com/android/customization/model/clock/ClockProvider.java",
-        "src/com/android/customization/model/theme/OverlayManagerCompat.java",
-        "src/com/android/customization/model/theme/ThemeBundleProvider.java",
-        "src/com/android/customization/model/theme/ThemeManager.java",
-        "src/com/android/customization/model/theme/ThemeBundle.java",
-        "src/com/android/customization/model/theme/custom/CustomTheme.java",
     ],
-    exclude_srcs: [
-        "src/com/android/customization/model/clock/**/*.java",
-        "src/com/android/customization/model/theme/**/*.java",
-        "src/com/android/customization/picker/clock/**/*.java",
-        "src/com/android/customization/picker/theme/**/*.java",
+}
+
+filegroup {
+    name: "ThemePicker_src_overrides",
+    srcs: [
+        "src_override/**/*.java",
+        "src_override/**/*.kt",
     ],
 }
 
@@ -54,7 +46,7 @@ genrule {
     name: "ThemePicker_res",
     tools: ["soong_zip"],
     srcs: [
-        "res/**/*"
+        "res/**/*",
     ],
     out: ["ThemePicker_res.zip"],
     cmd: "INPUTS=($(in)) && "
@@ -62,20 +54,34 @@ genrule {
         + "$(location soong_zip) -o $(out) -C $$RES_DIR -D $$RES_DIR"
 }
 
-//
-// Build app code.
-//
-android_app {
-    name: "ThemePicker",
+genrule {
+    name: "ThemePicker_res_overrides",
+    tools: ["soong_zip"],
+    srcs: [
+        "res_override/**/*",
+    ],
+    out: ["ThemePicker_res_overrides.zip"],
+    cmd: "INPUTS=($(in)) && "
+        + "RES_DIR=$$(dirname $$(dirname $${INPUTS[0]})) && "
+        + "$(location soong_zip) -o $(out) -C $$RES_DIR -D $$RES_DIR"
+}
+
+java_defaults {
+    name: "ThemePicker_defaults",
 
     static_libs: [
         "guava",
         "monet",
-	"renderscript_toolkit",
+	    "renderscript_toolkit",
         "wallpaper-common-deps",
         "SettingsLibSettingsTheme",
         "SystemUI-statsd",
         "styleprotoslite",
+        "androidx.lifecycle_lifecycle-livedata-ktx",
+        "androidx.lifecycle_lifecycle-runtime-ktx",
+        "androidx.lifecycle_lifecycle-viewmodel-ktx",
+        "androidx.recyclerview_recyclerview",
+        "SystemUICustomizationLib",
     ],
 
     jni_libs: [
@@ -85,13 +91,12 @@ android_app {
     srcs: [
         ":WallpaperPicker2_srcs",
         ":ThemePicker_srcs",
-        "src_override/**/*.java",
-        "src_override/**/*.kt",
+        ":ThemePicker_src_overrides",
     ],
 
     use_embedded_native_libs: true,
 
-    resource_zips: [":WallpaperPicker2_res", ":ThemePicker_res"],
+    resource_zips: [":WallpaperPicker2_res", ":ThemePicker_res", ":ThemePicker_res_overrides"],
 
     optimize: {
         enabled: false,
@@ -101,6 +106,15 @@ android_app {
 
     privileged: true,
     system_ext_specific: true,
+}
+
+//
+// Build app code.
+//
+android_app {
+    name: "ThemePicker",
+    defaults: ["ThemePicker_defaults"],
+
     platform_apis: true,
     manifest: "AndroidManifest.xml",
     additional_manifests: [":WallpaperPicker2_Manifest"],

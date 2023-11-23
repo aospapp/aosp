@@ -31,7 +31,7 @@ import androidx.preference.PreferenceGroup;
 import com.android.tv.settings.R;
 import com.android.tv.settings.RadioPreference;
 import com.android.tv.settings.SettingsPreferenceFragment;
-import com.android.tv.settings.library.overlay.FlavorUtils;
+import com.android.tv.settings.overlay.FlavorUtils;
 
 /**
  * The "Text scaling" screen in TV Settings.

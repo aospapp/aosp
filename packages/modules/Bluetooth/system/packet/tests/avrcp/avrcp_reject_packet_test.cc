@@ -27,7 +27,8 @@ using TestAvrcpPacket = TestPacketType<Packet>;
 
 TEST(RejectPacketBuilderTest, buildPacketTest) {
   auto builder = RejectBuilder::MakeBuilder(
-      CommandPdu::LIST_APPLICATION_SETTING_ATTRIBUTES, Status::INVALID_COMMAND);
+      CommandPdu::LIST_PLAYER_APPLICATION_SETTING_ATTRIBUTES,
+      Status::INVALID_COMMAND);
 
   ASSERT_EQ(builder->size(), reject_player_app_settings_response.size());
 

@@ -46,6 +46,13 @@ public abstract class Category {
     }
 
     /**
+     * Returns whether user created wallpapers are supported or not.
+     */
+    public boolean supportsUserCreatedWallpapers() {
+        return false;
+    }
+
+    /**
      * Shows the UI for picking wallpapers within this category.
      *
      * @param srcActivity
@@ -151,6 +158,13 @@ public abstract class Category {
      * packageName (this only makes sense if #supportsThirdParty() returns true).
      */
     public boolean containsThirdParty(String packageName) {
+        return false;
+    }
+
+    /**
+     * Returns whether this category supports content that can be added or removed dynamically.
+     */
+    public boolean supportsWallpaperSetUpdates() {
         return false;
     }
 

@@ -17,7 +17,6 @@
  ******************************************************************************/
 
 #include "adapter/bluetooth_test.h"
-#include "service/hal/bluetooth_gatt_interface.h"
 #include "types/bluetooth/uuid.h"
 #include "types/raw_address.h"
 
@@ -25,10 +24,7 @@ namespace bttest {
 
 // This class represents the Bluetooth GATT testing framework and provides
 // helpers and callbacks for GUnit to use for testing gatt.
-class GattTest : public BluetoothTest,
-                 public bluetooth::hal::BluetoothGattInterface::ClientObserver,
-                 public bluetooth::hal::BluetoothGattInterface::ScannerObserver,
-                 public bluetooth::hal::BluetoothGattInterface::ServerObserver {
+class GattTest : public BluetoothTest {
  protected:
   GattTest() = default;
   GattTest(const GattTest&) = delete;
@@ -61,52 +57,43 @@ class GattTest : public BluetoothTest,
   // callback semaphores at the end of every test
   virtual void TearDown();
 
-  // bluetooth::hal::BluetoothGattInterface::ClientObserver overrides
-  void RegisterClientCallback(
-      bluetooth::hal::BluetoothGattInterface* /* unused */, int status,
-      int clientIf, const bluetooth::Uuid& app_uuid) override;
-  void ScanResultCallback(bluetooth::hal::BluetoothGattInterface* /* unused */,
-                          const RawAddress& bda, int rssi,
-                          std::vector<uint8_t> adv_data) override;
+  friend void RegisterClientCallback(int status, int clientIf,
+                                     const bluetooth::Uuid& app_uuid);
+  friend void ScanResultCallback(uint16_t ble_evt_type, uint8_t addr_type,
+                                 RawAddress* bda, uint8_t ble_primary_phy,
+                                 uint8_t ble_secondary_phy,
+                                 uint8_t ble_advertising_sid,
+                                 int8_t ble_tx_power, int8_t rssi,
+                                 uint16_t ble_periodic_adv_int,
+                                 std::vector<uint8_t> adv_data,
+                                 RawAddress* original_bda);
 
-  // bluetooth::hal::BluetoothGattInterface::ServerObserver overrides
-  void RegisterServerCallback(
-      bluetooth::hal::BluetoothGattInterface* /* unused */, int status,
-      int server_if, const bluetooth::Uuid& uuid) override;
-  void ServiceAddedCallback(
-      bluetooth::hal::BluetoothGattInterface* /* unused */, int status,
-      int server_if, std::vector<btgatt_db_element_t> service) override;
-  void ServiceStoppedCallback(
-      bluetooth::hal::BluetoothGattInterface* /* unused */, int status,
-      int server_if, int srvc_handle) override;
-  void ServiceDeletedCallback(
-      bluetooth::hal::BluetoothGattInterface* /* unused */, int status,
-      int server_if, int srvc_handle) override;
+  friend void RegisterServerCallback(int status, int server_if,
+                                     const bluetooth::Uuid& uuid);
+  friend void ServiceAddedCallback(int status, int server_if,
+                                   const btgatt_db_element_t* service,
+                                   size_t service_count);
+  friend void ServiceStoppedCallback(int status, int server_if,
+                                     int srvc_handle);
+  friend void ServiceDeletedCallback(int status, int server_if,
+                                     int srvc_handle);
 
   // Semaphores used to wait for specific callback execution. Each callback
   // has its own semaphore associated with it
-  semaphore_t* register_client_callback_sem_;
-  semaphore_t* scan_result_callback_sem_;
-  semaphore_t* listen_callback_sem_;
+  btsemaphore register_client_callback_sem_;
+  btsemaphore scan_result_callback_sem_;
+  btsemaphore listen_callback_sem_;
 
-  semaphore_t* register_server_callback_sem_;
-  semaphore_t* service_added_callback_sem_;
-  semaphore_t* characteristic_added_callback_sem_;
-  semaphore_t* descriptor_added_callback_sem_;
-  semaphore_t* service_started_callback_sem_;
-  semaphore_t* service_stopped_callback_sem_;
-  semaphore_t* service_deleted_callback_sem_;
+  btsemaphore register_server_callback_sem_;
+  btsemaphore service_added_callback_sem_;
+  btsemaphore characteristic_added_callback_sem_;
+  btsemaphore descriptor_added_callback_sem_;
+  btsemaphore service_started_callback_sem_;
+  btsemaphore service_stopped_callback_sem_;
+  btsemaphore service_deleted_callback_sem_;
 
  private:
-  // The btgatt_scanner_interface_t that all the tests use to interact with the
-  // HAL
-  const BleScannerInterface* gatt_scanner_interface_;
-
-  // The gatt_client_interface that all the tests use to interact with the HAL
-  const btgatt_client_interface_t* gatt_client_interface_;
-
-  // The gatt_server_interface that all the tests use to interact with the HAL
-  const btgatt_server_interface_t* gatt_server_interface_;
+  const btgatt_interface_t* gatt_interface_;
 
   // No mutex needed for these as the semaphores should ensure
   // synchronous access

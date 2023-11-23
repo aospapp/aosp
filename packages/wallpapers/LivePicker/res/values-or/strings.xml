@@ -26,13 +26,13 @@
     <string name="configure_wallpaper" msgid="4308477548538487192">"ସେଟିଂସ..."</string>
     <string name="delete_live_wallpaper" msgid="2401799265848069389">"ଡିଲିଟ୍ କରନ୍ତୁ"</string>
     <string name="preview" msgid="1067744492020029129">"ପୂର୍ବାବଲୋକନ କରନ୍ତୁ"</string>
-    <string name="wallpaper_instructions" msgid="6112878742140691445">"ୱାଲପେପର୍‍ ସେଟ୍ କରନ୍ତୁ"</string>
+    <string name="wallpaper_instructions" msgid="6112878742140691445">"ୱାଲପେପର ସେଟ କରନ୍ତୁ"</string>
     <string name="live_wallpaper_empty" msgid="8057319062274870589">"କୌଣସି ଲାଇଭ୍‌ ୱାଲପେପର୍‌ ନାହିଁ"</string>
-    <string name="set_live_wallpaper" msgid="764007409845174475">"ୱାଲପେପର୍‍ ସେଟ୍ କରନ୍ତୁ"</string>
+    <string name="set_live_wallpaper" msgid="764007409845174475">"ୱାଲପେପର ସେଟ କରନ୍ତୁ"</string>
     <string name="wallpaper_title_and_author" msgid="7606029050779779421">"<xliff:g id="TITLE">%1$s</xliff:g>ଙ୍କ <xliff:g id="AUTHOR">%2$s</xliff:g>"</string>
     <string name="live_wallpaper_loading" msgid="7218845906181560315">"ଲାଇଭ୍‌ ୱାଲପେପରଗୁଡ଼ିକୁ ଲୋଡ୍‌ କରାଯାଉଛି..."</string>
-    <string name="which_wallpaper_option_home_screen" msgid="3323619298489943624">"ହୋମ୍‌ ସ୍କ୍ରୀନ୍‌"</string>
-    <string name="which_wallpaper_option_home_screen_and_lock_screen" msgid="1650093303691767601">"ହୋମ୍‌ ସ୍କ୍ରୀନ୍‌ ଏବଂ ଲକ୍‌ ସ୍କ୍ରୀନ୍‌"</string>
+    <string name="which_wallpaper_option_home_screen" msgid="3323619298489943624">"ହୋମ ସ୍କ୍ରିନ"</string>
+    <string name="which_wallpaper_option_home_screen_and_lock_screen" msgid="1650093303691767601">"ହୋମ ସ୍କ୍ରିନ ଏବଂ ଲକ ସ୍କ୍ରିନ"</string>
     <string name="explore_further" msgid="489032063223099244">"ଏକ୍ସପ୍ଲୋର୍ କରନ୍ତୁ"</string>
     <string name="tab_info" msgid="5501369870701932475">"ସୂଚନା"</string>
     <string name="tab_customize" msgid="9007237541087328909">"କଷ୍ଟମାଇଜ୍ କରନ୍ତୁ"</string>

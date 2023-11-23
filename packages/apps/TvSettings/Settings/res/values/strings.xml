@@ -51,6 +51,10 @@
     <string name="disabled">Disabled</string>
     <!-- Title indicating a certain setting is unavailable [CHAR LIMIT = 30] -->
     <string name="unavailable">Unavailable</string>
+    <!-- Strings for Dialog allow button [CHAR LIMIT = 30] -->
+    <string name="allow">Allow</string>
+    <!-- Strings for Dialog deny button [CHAR LIMIT = 30] -->
+    <string name="deny">Deny</string>
 
     <!-- Top level headers -->
     <skip />
@@ -107,6 +111,8 @@
     <string name="applications_category_title">Apps</string>
     <!-- Title for main screen preference for device [CHAR_LIMIT_50] -->
     <string name="device_pref_category_title">Device Preferences</string>
+    <!-- Title for main screen preference for accessibilty [CHAR_LIMIT_50] -->
+    <string name="accessibility_category_title">Accessibility</string>
     <!-- Title for main screen preference for remote and accessories [CHAR_LIMIT_50] -->
     <string name="remotes_and_accessories_category_title">Remotes &amp; accessories</string>
     <!-- Title for main screen preference for display & sound [CHAR LIMIT=50] -->
@@ -240,7 +246,9 @@
     <!-- Preference which sets the device's display calibration. [CHAR LIMIT=50] -->
     <string name="device_calibration">Calibration</string>
     <!-- Preference which changes energy saver settings. [CHAR LIMIT=50] -->
-    <string name="device_energy_saver">Energy saver</string>
+    <string name="device_energy_saver">Shut-Off Timer</string>
+    <!-- Summary of the preference which changes energy saver settings. [CHAR LIMIT=80] -->
+    <string name="device_energy_saver_summary">Set timers to turn TV off and save energy</string>
     <!-- Preference which shows internal settings. [CHAR LIMIT=50] -->
     <string name="overlay_internal_slice_title"/>
     <string name="overlay_internal_slice_uri" translatable="false"/>
@@ -263,7 +271,7 @@
     <!-- Name of the DTS-HD surround sound format that is displayed to the user [CHAR LIMIT=50] -->
     <string name="surround_sound_format_dts_hd">DTS-HD</string>
     <!-- Name of the DTS ultra HD surround sound format that is displayed to the user [CHAR LIMIT=50] -->
-    <string name="surround_sound_format_dts_uhd">DTS-UHD</string>
+    <string name="surround_sound_format_dts_uhd">DTS:X</string>
     <!-- Name of the DOLBY_MAT surround sound format that is displayed to the user
         [CHAR LIMIT=50] -->
     <string name="surround_sound_format_dolby_mat">Dolby Atmos with Dolby TrueHD</string>
@@ -352,17 +360,114 @@
     <string name="advanced_sound_settings_title">Advanced sound settings</string>
     <!-- Title for preference to allow game mode for display. [CHAR LIMIT=50] -->
     <string name="game_mode_title">Allow game mode</string>
+    <!-- Title for preference for disabling/enabling HDR conversion. [CHAR LIMIT=120] -->
+    <string name="match_content_dynamic_range_title">Match content dynamic range</string>
+    <!-- Summary for preference for disabling/enabling HDR conversion. [CHAR LIMIT=500] -->
+    <string name="match_content_dynamic_range_summary">When enabling this option, the system will
+        switch between different dynamic range formats to match the content. This may cause a black
+        screen during a format switch.\n\nClick Advanced Display settings for more dynamic range
+        options.
+    </string>
+    <!-- Title for preference for HDR conversion. [CHAR LIMIT=120] -->
+    <string name="preferred_dynamic_range_title">Preferred dynamic range</string>
+    <!-- Title for preference for HDR conversion - System-Preferred/Auto. [CHAR LIMIT=120] -->
+    <string name="preferred_dynamic_range_selection_system_title">System-preferred conversion
+            </string>
+    <!-- Description for preference for HDR conversion - System-Preferred/Auto. [CHAR LIMIT=300] -->
+    <string name="preferred_dynamic_range_selection_system_desc">Let\'s the system manage the format
+        conversion
+    </string>
+    <!-- Summary for preference for HDR conversion - System-Preferred/Auto. [CHAR LIMIT=500] -->
+    <string name="preferred_dynamic_range_selection_system_summary">When this option is selected,
+        the system will determine a suitable dynamic range to be sent to your display and convert
+        content to this dynamic range as needed.
+    </string>
+    <!-- Description for preference for HDR conversion - Passthrough/No conversion. [CHAR LIMIT=300] -->
+    <string name="preferred_dynamic_range_selection_passthrough_desc">Always matches content\'s
+        format</string>
+    <!-- Title for preference for HDR conversion - Force/Manual. [CHAR LIMIT=120] -->
+    <string name="preferred_dynamic_range_selection_force_title">Force conversion</string>
+    <!-- Description for preference for HDR conversion - Force/Manual. [CHAR LIMIT=300] -->
+    <string name="preferred_dynamic_range_selection_force_desc">Forces conversion to preferred
+        format</string>
+    <!-- Summary for preference for HDR conversion - Force/Manual. [CHAR LIMIT=500] -->
+    <string name="preferred_dynamic_range_selection_force_summary">Force conversion to
+        a preferred format. Forcing conversion may affect other settings in Display Mode or HDR
+        Format.
+    </string>
+    <!-- Title for preference for SDR conversion in case of force dynamic range. [CHAR LIMIT=120] -->
+    <string name="preferred_dynamic_range_selection_force_sdr_title">Always to SDR</string>
+    <!-- Title for preference for an HDR conversion in case of force dynamic range. [CHAR LIMIT=120] -->
+    <string name="preferred_dynamic_range_selection_force_hdr_title">Always to
+        <xliff:g id="hdr_type" example="Dolby Vision">%s</xliff:g></string>
+    <!-- Dialog title for HDR conversion in case of force dynamic range. [CHAR LIMIT=120] -->
+    <string name="preferred_dynamic_range_force_dialog_title">Do you want to force the HDR
+        output?</string>
+    <!-- Dialog description for HDR conversion in case of force dynamic range. [CHAR LIMIT=300] -->
+    <string name="preferred_dynamic_range_force_dialog_desc">By default the conversion will be
+        forced to <xliff:g id="hdr_type" example="Dolby Vision">%s</xliff:g>.</string>
+    <!-- Dialog description for HDR conversion in case of force dynamic range. [CHAR LIMIT=300] -->
+    <string name="preferred_dynamic_range_force_dialog_desc_4k30_issue">Your display will run at
+        1080p 60Hz resolution. This option is not compatible with your display when running at the
+        4k 60Hz resolution.</string>
+    <!-- Sidebar description indicating that Dolby Vision selection is not allowed because current display mode[CHAR LIMIT=300] -->
+    <string name="selection_dolby_vision_not_supported_sidebar">Dolby Vision is not supported at the current
+        resolution. If you enable Dolby Vision manually, the resolution of your display will
+        be changed to 1080p 60Hz</string>
+    <!-- Dialog title for manually enabling Dolby Vision when display does not support it[CHAR LIMIT=300] -->
+    <string name="manual_dolby_vision_format_on_4k60_title">Change resolution to 1080p 60Hz?</string>
+    <!-- Title for preference for HDR conversion force [CHAR LIMIT=200] -->
+    <string name="dynamic_range_selection_force_dv_title">Always force conversion to Dolby Vision
+    </string>
+    <!-- Summary for preference for HDR conversion force - DV [CHAR LIMIT=500] -->
+    <string name="dynamic_range_selection_force_dv_summary">If Dolby Vision is disabled in HDR
+        Formats in the Advanced Display Settings, forcing conversion to Dolby Vision will re-enable
+        it.
+    </string>
+    <!-- Title for preference for HDR conversion force - HDR 10[CHAR LIMIT=200] -->
+    <string name="dynamic_range_selection_force_hdr10_title">Always force conversion to HDR10
+    </string>
+    <!-- Summary for preference for HDR conversion force - HDR 10 [CHAR LIMIT=500] -->
+    <string name="dynamic_range_selection_force_hdr10_summary">If HDR10 is disabled in HDR
+        Formats in the Advanced Display Settings, forcing conversion to HDR10 will re-enable it.
+    </string>
+    <!-- Title for preference for HDR conversion force - HLG [CHAR LIMIT=200] -->
+    <string name="dynamic_range_selection_force_hlg_title">Always force conversion to HLG
+    </string>
+    <!-- Summary for preference for HDR conversion force - HLG [CHAR LIMIT=500] -->
+    <string name="dynamic_range_selection_force_hlg_summary">If HLG is disabled in HDR
+        Formats in the Advanced Display Settings, forcing conversion to HLG will re-enable it.
+    </string>
+    <!-- Title for preference for HDR conversion force - HDR10+ [CHAR LIMIT=200] -->
+    <string name="dynamic_range_selection_force_hdr10plus_title">Always force conversion to HDR10+
+    </string>
+    <!-- Summary for preference for HDR conversion force - DV [CHAR LIMIT=500] -->
+    <string name="dynamic_range_selection_force_hdr10plus_summary">If HDR10+ is disabled in HDR
+        Formats in the Advanced Display Settings, forcing conversion to HDR10+ will re-enable it.
+    </string>
+    <!-- Title for preference for HDR conversion force - SDR [CHAR LIMIT=200] -->
+    <string name="dynamic_range_selection_force_sdr_title">Always force conversion to SDR
+    </string>
+    <!-- Summary for preference for HDR conversion force - SRD [CHAR LIMIT=500] -->
+    <string name="dynamic_range_selection_force_sdr_summary">Forcing conversion to SDR will disable all
+        formats in the HDR Formats in Advanced Display Settings.
+    </string>
+
     <!-- Title for preference for forcing a display's frame
     rate to match the content's frame rate. [CHAR LIMIT=60] -->
     <string name="match_content_frame_rate_title">Match content frame rate</string>
     <!-- Default preference for a display's frame rate to match the content's frame rate. [CHAR LIMIT=80] -->
-    <string name="match_content_frame_rate_seamless">Seamless</string>
+    <string name="match_content_frame_rate_seamless">Seamless-only</string>
     <!-- Summary for default preference for a display's frame rate to match the content's frame rate. [CHAR LIMIT=250] -->
     <string name="match_content_frame_rate_seamless_summary">If the app requests it, your device
         will match its output to the original frame rate of the content you’re watching,
         ONLY if your TV can perform a seamless transition.  </string>
+    <!-- Summary is seamless frame rate switching is not supported on connected display [CHAR LIMIT=250] -->
+    <string name="match_content_frame_rate_seamless_not_supported_summary">Your connected display
+        does not support seamless refresh rate transitions. This option will have no effect unless
+        you change to a display that supports it.</string>
     <!-- Preference to force a display's frame rate to always match the content's frame rate. [CHAR LIMIT=80] -->
-    <string name="match_content_frame_rate_non_seamless">Non-seamless</string>
+    <string name="match_content_frame_rate_non_seamless">Always</string>
     <!-- Summary for preference to force a display's frame rate to always match the content's frame rate. [CHAR LIMIT=250] -->
     <string name="match_content_frame_rate_non_seamless_summary">If the app requests it, your
         device will match its output to the original frame rate of the content you’re watching.
@@ -417,6 +522,8 @@
     <string name="hdr_format_supported_title">SUPPORTED FORMATS</string>
     <!-- Title for unsupported HDR format [CHAR LIMIT=50]-->
     <string name="hdr_format_unsupported_title">UNSUPPORTED FORMATS</string>
+    <!-- Title for HDR format type SDR [CHAR LIMIT=50]-->
+    <string name="hdr_format_sdr">SDR</string>
     <!-- Title for HDR format type HDR10 [CHAR LIMIT=50]-->
     <string name="hdr_format_hdr10">HDR10</string>
     <!-- Title for HDR format type HLG [CHAR LIMIT=50]-->
@@ -458,9 +565,23 @@
     <string name="resolution_selection_auto_title">Automatic</string>
     <!-- Title for dialog that is shown when user changes the resolution. [CHAR LIMIT=150]-->
     <string name="resolution_selection_dialog_title">Resolution has been changed</string>
+    <!-- Title for dialog that is shown when user changes the resolution and Dolby Vision is not
+    supported. [CHAR LIMIT=150]-->
+    <string name="resolution_selection_with_mode_dialog_title">Change resolution to %1$s?</string>
     <!-- Description for dialog that is shown when user changes the resolution.
         [CHAR LIMIT=300]-->
     <string name="resolution_selection_dialog_desc">Select OK to use %1$s from now on.</string>
+    <!-- Description for dialog that is shown when user changes the resolution to a mode that doesn't
+        support Dolby Vision.[CHAR LIMIT=300]-->
+    <string name="resolution_selection_disabled_dolby_vision_dialog_desc">Dolby Vision is not
+        supported at %1$s and will be disabled in \"Advanced Display Settings\"
+        </string>
+    <!-- Description of resolution mode that is shown on the side panel when user is scrolling
+        through resolution modes. It lists all HDR types that this mode supports.
+        [CHAR LIMIT=300]-->
+    <string name="resolution_hdr_description_info">This mode supports: %1$s\nOn some TVs, you may
+        need to turn on Enhanced HDMI to enable more HDR formats. Check your TV settings to see if
+        this is supported.</string>
     <!-- Cancel button title for dialog that is shown when user changes the resolution.
         [CHAR LIMIT=30]-->
     <string name="resolution_selection_dialog_cancel">Cancel</string>
@@ -469,6 +590,10 @@
     <string name="resolution_selection_dialog_ok">OK</string>
     <!-- Unit of refresh rate Hz. [CHAR LIMIT=15]-->
     <string name="resolution_selection_hz">Hz</string>
+    <!-- String for display mode. Example after substitution: 4k (60 Hz) [CHAR LIMIT=100]-->
+    <string name="resolution_display_mode">
+        <xliff:g id="resolution" example="1080p, 4k etc">%1$s</xliff:g>
+        (<xliff:g id="refresh-rate" example="60, 59.94 etc">%2$s</xliff:g> Hz)</string>
 
     <!-- Title of dialog asking user to confirm before clearing all caches. [CHAR LIMIT=48] -->
     <string name="device_storage_clear_cache_title">Clear cached data?</string>
@@ -644,8 +769,6 @@
     <string name="system_inputs_devices">Inputs &amp; Devices</string>
     <!-- Preference which manages home theater controls. [CHAR LIMIT=50] -->
     <string name="system_home_theater_control">Home theater control</string>
-    <!-- Preference which manages accessibility settings. [CHAR LIMIT=50] -->
-    <string name="system_accessibility">Accessibility</string>
     <!-- Preference which manages developer options. [CHAR LIMIT=50] -->
     <string name="system_developer_options">Developer options</string>
     <!-- Label for no accessibility color or opacity [CHAR LIMIT=50] -->
@@ -776,6 +899,8 @@
     <string name="do_disclosure_with_name">This device is managed by <xliff:g id="organization_name" example="Foo, Inc.">%s</xliff:g>.</string>
     <!-- Message indicating that the device is enterprise-managed: Space that separates the main text and the "learn more" link that follows it. [CHAR LIMIT=NONE] -->
     <string name="do_disclosure_learn_more_separator">" "</string>
+    <!-- An HDR capability[CHAR LIMIT=NONE] -->
+    <string name="hdr_capability">- %1$s</string>
     <!-- Button label to allow the user to view additional information [CHAR LIMIT=NONE BACKUP_MESSAGE_ID=2416766240581561009] -->
     <string name="learn_more">Learn more</string>
 
@@ -1447,6 +1572,8 @@
     <string name="microphone">Microphone</string>
     <!-- Title of the toggle that enables / disables microphone access for all apps [CHAR LIMIT=30] -->
     <string name="mic_toggle_title">Microphone access</string>
+    <!-- Title of the toggle that enables / disables microphone access on the remote [CHAR LIMIT=60] -->
+    <string name="mic_remote_toggle_title">Microphone access on your remote</string>
     <!-- Title for setting that opens the microphone permissions overview for all apps [CHAR LIMIT=50]-->
     <string name="open_mic_permissions">App access to microphone</string>
     <!-- Title for info box warning that microphone hardware switch is turned off [CHAR LIMIT=50]-->
@@ -1477,9 +1604,27 @@
     <string name="mic_toggle_info_title">Microphone Access:
         <xliff:g id="sensor_state" example="On">%s</xliff:g></string>
     <!-- Message shown in an info panel on the side when the microphone toggle is selected. [CHAR LIMIT=NONE] -->
-    <string name="mic_toggle_info_content">When turned on, all apps and services with permission can
-        access any microphone on this device.\n\nAudio peripherals with a custom protocol will not
-        be affected by this setting.
+    <string name="mic_toggle_info_content">When turned on, all apps and services that are allowed to
+        use the microphone will be able to access it.\n\nWhen turned off, no apps or services will
+        be able to access the microphone. But you may still be able to talk to your Google Assistant
+        by pressing the Assistant button on your remote.\n\nAudio devices using custom protocols for
+        communicating with the TV may not be affected by this setting.
+    </string>
+
+    <!-- Title of the info panel that is shown on the side when the microphone on the remote toggle is selected and enabled. [CHAR LIMIT=60]-->
+    <string name="mic_remote_toggle_on_info_title">Microphone enabled on remote</string>
+    <!-- Message shown in an info panel on the side when the microphone toggle is selected and enabled. [CHAR LIMIT=NONE] -->
+    <string name="mic_remote_toggle_on_info_content">Google Assistant is able to access the
+        microphone on your remote. You will be able to talk to your Assistant by pressing the Google
+        Assistant button on your remote.
+    </string>
+
+    <!-- Title of the info panel that is shown on the side when the microphone on the remote toggle is selected and disabled. [CHAR LIMIT=60]-->
+    <string name="mic_remote_toggle_off_info_title">Microphone disabled on remote</string>
+    <!-- Message shown in an info panel on the side when the microphone toggle is selected and disabled. [CHAR LIMIT=NONE] -->
+    <string name="mic_remote_toggle_off_info_content">You will not be able to talk to your Google
+        Assistant using your remote. To be able to use the Google Assistant button, enable
+        microphone access.
     </string>
 
     <!-- Title of the info panel that is shown on the side when the camera toggle is selected.
@@ -1542,12 +1687,61 @@
     <string name="delete_location_history_title">Delete location history</string>
     <!-- [CHAR LIMIT=300] Location history screen, description for delete location history -->
     <string name="delete_location_history_desc">This will delete all Location History has stored from this device for this Google Account. You can\'t undo this deletion. Some apps, including Google Now, will stop working.</string>
-    <!-- Title for services in accessibility settings [CHAR LIMIT=50] -->
-    <string name="system_services">Services</string>
+    <!-- Title for screen readers preference category in accessibility settings [CHAR LIMIT=50] -->
+    <string name="accessibility_screen_readers_category_title">Screen Readers</string>
+    <!-- Title for display preference category in accessibility settings [CHAR LIMIT=50] -->
+    <string name="accessibility_display_category_title">Display</string>
+    <!-- Title for interaction controls preference category in accessibility settings [CHAR LIMIT=50] -->
+    <string name="accessibility_interaction_controls_category_title">Interaction Controls</string>
+    <!-- Title for audio & onscreen text preference category in accessibility settings [CHAR LIMIT=50] -->
+    <string name="accessibility_audio_and_onscreen_text_category_title">Audio &amp; Onscreen Text</string>
+    <!-- Title for experimental preference category in accessibility settings [CHAR LIMIT=50] -->
+    <string name="accessibility_experimental_category_title">Experimental</string>
+    <!-- Title for services preference category in accessibility settings [CHAR LIMIT=50] -->
+    <string name="accessibility_services_category_title">Services</string>
     <!-- Title and description for accessibility service setting [CHAR LIMIT=50] -->
     <string name="accessibility_service_settings">Service settings</string>
+    <string name="accessibility_screen_reader_flattened_component_name">com.google.android.marvin.talkback/com.google.android.marvin.talkback.TalkBackService</string>
     <!-- Title for the accessibility preference to high contrast text. [CHAR LIMIT=35] -->
     <string name="accessibility_toggle_high_text_contrast_preference_title">High contrast text</string>
+    <!-- Title for the accessibility preference to bold text. [CHAR LIMIT=35] -->
+    <string name="accessibility_toggle_bold_text_preference_title">Bold text</string>
+    <!-- Title for the accessibility preference to color correction. [CHAR LIMIT=35] -->
+    <string name="accessibility_color_correction">Color correction</string>
+    <!-- Title for the color correction setting. [CHAR LIMIT=35] -->
+    <string name="color_correction_usage">Use color correction</string>
+    <!-- Description for color mode setting. [CHAR LIMIT=35] -->
+    <string name="color_correction_color_mode">Color Mode</string>
+    <!-- Title for color correction mode deuteranomaly. [CHAR LIMIT=35] -->
+    <string name="color_correction_mode_deuteranomaly">Deuteranomaly</string>
+    <!-- Summary for color correction mode deuteranomaly. [CHAR LIMIT=35] -->
+    <string name="color_correction_mode_deuteranomaly_summary">Red-green</string>
+    <!-- Title for color correction mode protanomaly. [CHAR LIMIT=35] -->
+    <string name="color_correction_mode_protanomaly">Protanomaly</string>
+    <!-- Summary for color correction mode protanomaly. [CHAR LIMIT=35] -->
+    <string name="color_correction_mode_protanomaly_summary">Red-green</string>
+    <!-- Title for color correction mode tritanomaly. [CHAR LIMIT=35] -->
+    <string name="color_correction_mode_tritanomaly">Tritanomaly</string>
+    <!-- Summary for color correction mode tritanomaly. [CHAR LIMIT=35] -->
+    <string name="color_correction_mode_tritanomaly_summary">Blue-yellow</string>
+    <!-- Title for color correction mode grayscale. [CHAR LIMIT=35] -->
+    <string name="color_correction_mode_grayscale">Grayscale</string>
+    <!-- Label for the color red of the palette. [CHAR LIMIT=35] -->
+    <string name="palette_color_red">Red</string>
+    <!-- Label for the color orange of the palette. [CHAR LIMIT=35] -->
+    <string name="palette_color_orange">Orange</string>
+    <!-- Label for the color yellow of the palette. [CHAR LIMIT=35] -->
+    <string name="palette_color_yellow">Yellow</string>
+    <!-- Label for the color green of the palette. [CHAR LIMIT=35] -->
+    <string name="palette_color_green">Green</string>
+    <!-- Label for the color cyan of the palette. [CHAR LIMIT=35] -->
+    <string name="palette_color_cyan">Cyan</string>
+    <!-- Label for the color blue of the palette. [CHAR LIMIT=35] -->
+    <string name="palette_color_blue">Blue</string>
+    <!-- Label for the color purple of the palette. [CHAR LIMIT=35] -->
+    <string name="palette_color_purple">Purple</string>
+    <!-- Label for the color gray of the palette. [CHAR LIMIT=35] -->
+    <string name="palette_color_gray">Gray</string>
     <!-- Title for accessibility shortcut preference and screen [CHAR LIMIT=50] -->
     <string name="accessibility_shortcut">Accessibility shortcut</string>
     <!-- Title for accessibility shortcut toggle [CHAR LIMIT=50] -->
@@ -2140,17 +2334,39 @@
     <!-- Energy saver choice for configuring the time before the device's screen goes off after dreaming [CHAR LIMIT=30] -->
     <string name="device_energy_saver_screen_off">Turn off display</string>
     <!-- Energy saver summary for configuring the time before the device's screen goes off after dreaming [CHAR LIMIT=NONE] -->
-    <string name="device_energy_saver_screen_off_description">After <xliff:g id="sleep_description" example="4 hours">%1$s</xliff:g></string>
-    <!-- Energy saver dialog title for configuring the time before the device's screen goes off after dreaming [CHAR LIMIT=30] -->
-    <string name="device_energy_saver_screen_off_dialog_title">Turn off display after</string>
-    <!-- Energy saver choice for allow turning screen off during media playback [CHAR LIMIT=NONE] -->
-    <string name="device_energy_saver_allow_turning_screen_off">Allow turning screen off</string>
-    <!-- Energy saver description for allow turning screen off during media playback [CHAR LIMIT=NONE] -->
-    <string name="device_energy_saver_allow_turning_screen_off_description">During media playback</string>
+    <string name="device_energy_saver_timeout_description"><xliff:g id="sleep_description" example="4 hours">%1$s</xliff:g></string>
     <!-- The title of dialog asking users to confirm long screen off delay. [CHAR LIMIT =70] -->
-    <string name="device_energy_saver_confirmation_title">Confirm Energy Saver setting</string>
+    <string name="device_energy_saver_confirmation_title">Confirm Power &amp; Energy setting</string>
     <!-- The description of dialog asking users to confirm long screen off delay. [CHAR LIMIT=250] -->
-    <string name="device_energy_saver_confirmation_text">Please confirm new setting to <xliff:g id="sleep_time" example="8 hours">%1$s</xliff:g>, which has the potential for increased energy use.</string>
+    <string name="device_energy_saver_confirmation_message">Leaving your TV on for a long period of time may increase energy use</string>
+    <!-- The title of dialog asking users to confirm disabling turning the screen off during media playback. [CHAR LIMIT=70] -->
+    <string name="device_energy_saver_disable_allow_turning_screen_off_title">Disable energy saver setting</string>
+    <!-- The description of dialog asking users to confirm disabling turning the screen off during media playback. [CHAR LIMIT=250] -->
+    <string name="device_energy_saver_disable_allow_turning_screen_off_text">Please confirm to prevent the display from turning off while watching, which has the potential for increased energy use.</string>
+    <!-- Energy saver choice for configuring the time before the device goes to full sleep after a period of inactivity. [CHAR LIMIT=60] -->
+    <string name="device_energy_saver_sleep_timeout">When inactive</string>
+    <!-- Energy saver choice for configuring the time before the device goes to full sleep due to user inattentiveness even if the system is holding wakelocks. [CHAR LIMIT=60] -->
+    <string name="device_energy_saver_attentive_timeout">When watching</string>
+    <!-- Energy saver settings screen category [CHAR LIMIT=100] -->
+    <string name="device_energy_saver_category_title">Automatically turn off</string>
+    <!-- Energy saver dialog title for configuring the time before the device goes to full sleep after a period of inactivity. [CHAR LIMIT=NONE] -->
+    <string name="device_energy_saver_sleep_timeout_dialog_title">Automatically turn off when inactive</string>
+    <!-- Energy saver dialog title for configuring the time before the device goes to full even if system is holding wakelocks. [CHAR LIMIT=NONE] -->
+    <string name="device_energy_saver_attentive_timeout_dialog_title">Automatically turn off when watching</string>
+    <!-- Energy saver dialog confirmation error message when sleep timer is longer than inattentive timer. [CHAR LIMIT=NONE] -->
+    <string name="device_energy_saver_validation_sleep">\"When inactive\" timer must be shorter than \"When watching\" timer</string>
+    <!-- Energy saver dialog confirmation error message when inattentive timer is shorter than sleep timer. [CHAR LIMIT=NONE] -->
+    <string name="device_energy_saver_validation_attentive">\"When watching\" timer must be longer than \"When inactive\" timer</string>
+    <!-- The title of the "Limit network connection in standby" toggle. [CHAR LIMIT=40] -->
+    <string name="limit_network_in_standby_toggle_title">Limit network connection in standby</string>
+    <!-- The subtitle of the "Limit network connection in standby" toggle. [CHAR LIMIT=60] -->
+    <string name="limit_network_in_standby_toggle_summary">Uses less energy in standby mode</string>
+    <!-- The info text for the "Limit network connection in standby" toggle. [CHAR LIMIT=NONE] -->
+    <string name="limit_network_in_standby_toggle_info">Your TV will be disconnected from your network when in standby mode, except to receive automatic updates. This may decrease your TV’s energy use, though it also means you may not be able to use functions like Cast and Google Assistant while in standby.</string>
+    <!-- The title of the confirmation dialog when disabling "Limit network connection in standby". [CHAR LIMIT=60] -->
+    <string name="limit_network_in_standby_confirm_title">Allow network connection in standby</string>
+    <!-- The message of the confirmation dialog when disabling "Limit network connection in standby". [CHAR LIMIT=NONE] -->
+    <string name="limit_network_in_standby_confirm_message">Allowing network connection in standby will increase standby energy use.</string>
     <!-- Default summary text of the "Configure backup account" setting [CHAR LIMIT=80] -->
     <string name="backup_configure_account_default_summary">No account is currently storing backed up data</string>
     <!-- Dialog title for confirmation to erase backup data from server -->
@@ -2378,6 +2594,15 @@
     <!-- Title of the preference displaying the duration of empty audio received. [CHAR LIMIT=50] -->
     <string name="empty_audio_duration_title">Duration of empty audio</string>
 
+    <!-- Title of the preference for reporting the recorded audio source. [CHAR LIMIT=50] -->
+    <string name="record_audio_source_title">Recorded audio source</string>
+
+    <!-- Title of the preference for selecting the recorded audio source. [CHAR LIMIT=50] -->
+    <string name="record_audio_source_dialog_title">Select recorded audio source for next recording</string>
+
+    <!-- Title of the preference for displaying the microphone(s) [CHAR LIMIT=50] -->
+    <string name="recorded_microphones_title">Recorded microphone(s)</string>
+
     <!-- Notification that audio recording failed to start. [CHAR LIMIT=100] -->
     <string name="show_audio_recording_start_failed">Failed to start recording audio.</string>
 
@@ -2395,6 +2620,11 @@
 
     <!-- Header info to educate users that they can connect to the internet via Wi-Fi, Ethernet, and phone's hotspot. [CHAR LIMIT=NONE] -->
     <string name="data_saver_header_info">You can connect to the internet with Wi-Fi, Ethernet, or your phone\'s hotspot."</string>
+
+    <!-- Title of dialog shown to the user whether to allow an app to enable discovery mode. [CHAR LIMIT=100] -->
+    <string name="bluetooth_ask_discovery_title">Make visible to other Bluetooth devices?</string>
+    <!-- Message of dialog shown to the user whether to allow an app to enable discovery mode. [CHAR LIMIT=NONE] -->
+    <string name="bluetooth_ask_discovery_message">An app wants to make your TV visible to other Bluetooth devices for <xliff:g id="timeout">%1$d</xliff:g> seconds.</string>
 
     <!-- Package name of slice rendering app -->
     <string name="slice_rendering_app" translatable="false"/>
@@ -2569,10 +2799,14 @@
     <string name="display_and_sound_vendor_summary">Picture, screen, sound</string>
     <!-- Title for "Picture" settings [CHAR LIMIT=60] -->
     <string name="picture_settings_title">Picture</string>
+    <!-- Intent action for vendor picture activity -->
+    <string name="picture_settings_vendor_action" translatable="false"/>
     <!-- Title for "Screen" settings [CHAR LIMIT=60] -->
     <string name="screen_settings_title">Screen</string>
     <!-- Title for "Sound" settings [CHAR LIMIT=60] -->
     <string name="sound_settings_title">Sound</string>
+    <!-- Intent action for vendor sound activity -->
+    <string name="sound_settings_vendor_action" translatable="false"/>
     <!-- Title of power and energy page [CHAR LIMIT=60] -->
     <string name="power_and_energy">Power &amp; Energy</string>
     <!-- Title of power on behavior item [CHAR LIMIT=60] -->
@@ -2588,4 +2822,15 @@
 
     <!-- Adb wireless pairing device dialog ethernet pairing code label [CHAR LIMIT=60] -->
     <string name="adb_pairing_device_dialog_ethernet_pairing_code_label">Ethernet pairing code</string>
+
+    <!-- Title for energy modes preference -->
+    <string name="energy_modes">Energy Modes</string>
+    <!-- Title for energy mode selection confirmation dialog -->
+    <string name="energy_modes_summary">Improve energy efficiency when TV is not in use</string>
+    <!-- Header for list of features enabled in the selected energy mode -->
+    <string name="energy_mode_enables">Enables:</string>
+    <!-- Warning that selecting a higher energy mode may increase power consumption -->
+    <string name="energy_mode_eco_hint">Note that this mode may increase the power consumption of the device.</string>
+    <!-- Title for energy mode selection confirmation dialog -->
+    <string name="energy_modes_confirmation_title">Enable \"<xliff:g id="energyModeName" example="Essential network features">%s</xliff:g>\"</string>
 </resources>

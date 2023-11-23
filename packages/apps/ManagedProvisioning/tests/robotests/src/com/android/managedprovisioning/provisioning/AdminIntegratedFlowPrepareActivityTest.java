@@ -65,7 +65,7 @@ public class AdminIntegratedFlowPrepareActivityTest {
     public void shouldRunPrepareActivity_wifi_returnsTrue() {
         ProvisioningParams params = createDefaultProvisioningParamsBuilder()
                 .setWifiInfo(new WifiInfo.Builder()
-                        .setSsid("ssid")
+                        .setSsid("\"ssid\"")
                         .build())
                 .build();
 

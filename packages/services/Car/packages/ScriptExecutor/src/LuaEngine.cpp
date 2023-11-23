@@ -17,6 +17,8 @@
 #include "LuaEngine.h"
 
 #include "BundleWrapper.h"
+#include "JniUtils.h"
+#include "jni.h"
 
 #include <android-base/logging.h>
 
@@ -36,9 +38,6 @@ namespace android {
 namespace car {
 namespace scriptexecutor {
 
-using ::android::base::Error;
-using ::android::base::Result;
-
 namespace {
 
 enum LuaNumReturnedResults {
@@ -47,156 +46,6 @@ enum LuaNumReturnedResults {
 
 // Prefix for logging messages coming from lua script.
 const char kLuaLogTag[] = "LUA: ";
-
-// TODO(b/199415783): Revisit the topic of limits to potentially move it to standalone file.
-constexpr int MAX_ARRAY_SIZE = 1000;
-
-// Helper method that goes over Lua table fields one by one and populates PersistableBundle
-// object wrapped in BundleWrapper.
-// It is assumed that Lua table is located on top of the Lua stack. There could be other
-// items in the stack, this function will not touch them.
-//
-// Returns false if the conversion encountered unrecoverable error.
-// Otherwise, returns true for success.
-//
-// If the function succeeds, the stack should be unchanged.
-// In case of an error, there is no need to pop elements or clean the stack. When Lua calls C,
-// the stack used to pass data between Lua and C is private for each call. According to
-// https://www.lua.org/pil/26.1.html, after C function returns back to Lua, Lua
-// removes everything that is in the stack below the returned results.
-// TODO(b/200849134): Refactor this function.
-Result<void> convertLuaTableToBundle(lua_State* lua, BundleWrapper* bundleWrapper) {
-    // Iterate over Lua table which is expected to be at the top of Lua stack.
-    // lua_next call pops the key from the top of the stack and finds the next
-    // key-value pair. It returns 0 if the next pair was not found.
-    // More on lua_next in: https://www.lua.org/manual/5.3/manual.html#lua_next
-    lua_pushnil(lua);  // First key is a null value, at index -1
-    while (lua_next(lua, /* table index = */ -2) != 0) {
-        //  'key' is at index -2 and 'value' is at index -1
-        // -1 index is the top of the stack.
-        // remove 'value' and keep 'key' for next iteration
-        // Process each key-value depending on a type and push it to Java PersistableBundle.
-        // TODO(b/199531928): Consider putting limits on key sizes as well.
-        const char* key = lua_tostring(lua, /* index = */ -2);
-        Result<void> bundleInsertionResult;
-        if (lua_isboolean(lua, /* index = */ -1)) {
-            bundleInsertionResult =
-                    bundleWrapper->putBoolean(key,
-                                              static_cast<bool>(
-                                                      lua_toboolean(lua, /* index = */ -1)));
-        } else if (lua_isinteger(lua, /* index = */ -1)) {
-            bundleInsertionResult =
-                    bundleWrapper->putLong(key,
-                                           static_cast<int64_t>(
-                                                   lua_tointeger(lua, /* index = */ -1)));
-        } else if (lua_isnumber(lua, /* index = */ -1)) {
-            bundleInsertionResult =
-                    bundleWrapper->putDouble(key,
-                                             static_cast<double>(
-                                                     lua_tonumber(lua, /* index = */ -1)));
-        } else if (lua_isstring(lua, /* index = */ -1)) {
-            // TODO(b/199415783): We need to have a limit on how long these strings could be.
-            bundleInsertionResult =
-                    bundleWrapper->putString(key, lua_tostring(lua, /* index = */ -1));
-        } else if (lua_istable(lua, /* index =*/-1)) {
-            // Lua uses tables to represent an array.
-
-            // TODO(b/199438375): Document to users that we expect tables to be either only indexed
-            // or keyed but not both. If the table contains consecutively indexed values starting
-            // from 1, we will treat it as an array. lua_rawlen call returns the size of the indexed
-            // part. We copy this part into an array, but any keyed values in this table are
-            // ignored. There is a test that documents this current behavior. If a user wants a
-            // nested table to be represented by a PersistableBundle object, they must make sure
-            // that the nested table does not contain indexed data, including no key=1.
-            const auto kTableLength = lua_rawlen(lua, -1);
-            if (kTableLength > MAX_ARRAY_SIZE) {
-                return Error()
-                        << "Returned table " << key << " exceeds maximum allowed size of "
-                        << MAX_ARRAY_SIZE
-                        << " elements. This key-value cannot be unpacked successfully. This error "
-                           "is unrecoverable.";
-            }
-            if (kTableLength <= 0) {
-                return Error() << "A value with key=" << key
-                               << " appears to be a nested table that does not represent an array "
-                                  "of data. "
-                                  "Such nested tables are not supported yet. This script error is "
-                                  "unrecoverable.";
-            }
-
-            std::vector<int64_t> longArray;
-            std::vector<std::string> stringArray;
-            int originalLuaType = LUA_TNIL;
-            for (int i = 0; i < kTableLength; i++) {
-                lua_rawgeti(lua, -1, i + 1);
-                // Lua allows arrays to have values of varying type. We need to force all Lua
-                // arrays to stick to single type within the same array. We use the first value
-                // in the array to determine the type of all values in the array that follow
-                // after. If the second, third, etc element of the array does not match the type
-                // of the first element we stop the extraction and return an error via a
-                // callback.
-                if (i == 0) {
-                    originalLuaType = lua_type(lua, /* index = */ -1);
-                }
-                int currentType = lua_type(lua, /* index= */ -1);
-                if (currentType != originalLuaType) {
-                    return Error()
-                            << "Returned Lua arrays must have elements of the same type. Returned "
-                               "table with key="
-                            << key << " has the first element of type=" << originalLuaType
-                            << ", but the element at index=" << i + 1 << " has type=" << currentType
-                            << ". Integer type codes are defined in lua.h file. This error is "
-                               "unrecoverable.";
-                }
-                switch (currentType) {
-                    case LUA_TNUMBER:
-                        if (!lua_isinteger(lua, /* index = */ -1)) {
-                            return Error() << "Returned value for key=" << key
-                                           << " contains a floating number array, which is not "
-                                              "supported yet.";
-                        } else {
-                            longArray.push_back(lua_tointeger(lua, /* index = */ -1));
-                        }
-                        break;
-                    case LUA_TSTRING:
-                        // TODO(b/200833728): Investigate optimizations to minimize string
-                        // copying. For example, populate JNI object array one element at a
-                        // time, as we go.
-                        stringArray.push_back(lua_tostring(lua, /* index = */ -1));
-                        break;
-                    default:
-                        return Error() << "Returned value for key=" << key
-                                       << " is an array with values of type="
-                                       << lua_typename(lua, lua_type(lua, /* index = */ -1))
-                                       << ", which is not supported yet.";
-                }
-                lua_pop(lua, 1);
-            }
-            switch (originalLuaType) {
-                case LUA_TNUMBER:
-                    bundleInsertionResult = bundleWrapper->putLongArray(key, longArray);
-                    break;
-                case LUA_TSTRING:
-                    bundleInsertionResult = bundleWrapper->putStringArray(key, stringArray);
-                    break;
-            }
-        } else {
-            return Error() << "key=" << key << " has a Lua type="
-                           << lua_typename(lua, lua_type(lua, /* index = */ -1))
-                           << ", which is not supported yet.";
-        }
-        // Pop value from the stack, keep the key for the next iteration.
-        lua_pop(lua, 1);
-        // The key is at index -1, the table is at index -2 now.
-
-        // Check if insertion of the current key-value into the bundle was successful. If not,
-        // fail-fast out of this extraction routine.
-        if (!bundleInsertionResult.ok()) {
-            return bundleInsertionResult;
-        }
-    }
-    return {};  // ok result
-}
 
 }  // namespace
 
@@ -278,16 +127,57 @@ int LuaEngine::run() {
     // input arguments are in the Lua stack as well in proper order.
     // On how to call Lua functions: https://www.lua.org/pil/25.2.html
     // Doc on lua_pcall: https://www.lua.org/manual/5.3/manual.html#lua_pcall
-    int status = lua_pcall(mLuaState, /* nargs= */ 2, /* nresults= */ 0, /*errfunc= */ 0);
+    int n_args = 2;
+    int n_results = 0;
+
+    // pushes the "debug" on top of the stack, so now "debug" is at index -1
+    lua_getglobal(mLuaState, "debug");
+
+    // pushes "traceback" as debug[traceback] because "debug" is the value at given index -1
+    lua_getfield(mLuaState, -1, "traceback");
+
+    // removing value "debug" from stack as we only need debug.traceback which is at index -1
+    lua_remove(mLuaState, -2);
+
+    // We need to insert err_handler (debug.traceback) before all arguments and function.
+    // Current indices (starting from top of stack): debug.traceback (-1), arg2 (-2), arg1 (-3 ==
+    // -n_args-1), function (-4 == -n_args-2) After insert (starting from top of stack): arg2 (-1),
+    // arg1 (-2 == -n_args), function (-3 == -n_args-1), debug.traceback (-4 == -n_args-2) so, we
+    // will insert error_handler at index : (-n_args - 2)
+    int err_handler_index = -n_args - 2;
+    lua_insert(mLuaState, err_handler_index);
+
+    // After lua_pcall, the function and all arguments are removed from the stack i.e. (n_args+1)
+    // If there is no error then lua_pcall pushes "n_results" elements to the stack.
+    // But in case of error, lua_pcall pushes exactly one element (error message).
+    // So, "error message" will be at top of the stack i.e. "-1".
+    // Therefore, we need to pop error_handler explicitly.
+    // error_handler will be at "-2" index from top of stack after lua_pcall,
+    // but once we pop error_message from top of stack, error_handler's new index will be "-1".
+    int status = lua_pcall(mLuaState, n_args, n_results, err_handler_index);
     if (status) {
         const char* error = lua_tostring(mLuaState, -1);
-        lua_pop(mLuaState, 1);  // pop the error object from the stack.
+        std::string s = error;
+
+        std::string delimiter = "stack traceback:";
+        // because actual delimiter is "\nstack traceback:\n\t"
+        // tried using \n and \t as part of the delimiter , but it did not work.
+        // also tried \\n and \\t in the delimiter, but it did not work.
+        // so to get error_msg string, avoided the \n in front by using dpos -1
+        // and for stack_traceback, avoided \n and \t in the tail by using delimiter.length() + 2.
+        int dpos = s.find(delimiter);
+        std::string error_msg = s.substr(0, dpos - 1);
+        std::string stack_traceback = s.substr(dpos + delimiter.length() + 2);
+
+        lua_pop(mLuaState, 2);  // pop top 2 elements (error message & error handler) from the stack
         std::ostringstream out;
         out << "Error encountered while running the script. The returned error code=" << status
             << ". Refer to lua.h file of Lua C API library for error code definitions. Error: "
-            << error;
-        sListener->onError(ERROR_TYPE_LUA_RUNTIME_ERROR, out.str().c_str(), "");
+            << error_msg.c_str();
+        sListener->onError(ERROR_TYPE_LUA_RUNTIME_ERROR, out.str().c_str(),
+                           stack_traceback.c_str());
     }
+    lua_pop(mLuaState, 1);  // pop top element (error handler) from the stack.
     return status;
 }
 
@@ -313,7 +203,7 @@ int LuaEngine::onSuccess(lua_State* lua) {
 
     // Helper object to create and populate Java PersistableBundle object.
     BundleWrapper bundleWrapper(sListener->getCurrentJNIEnv());
-    const auto status = convertLuaTableToBundle(lua, &bundleWrapper);
+    const auto status = convertLuaTableToBundle(sListener->getCurrentJNIEnv(), lua, &bundleWrapper);
     if (!status.ok()) {
         sListener->onError(ERROR_TYPE_LUA_SCRIPT_ERROR, status.error().message().c_str(), "");
         // We explicitly must tell Lua how many results we return, which is 0 in this case.
@@ -341,7 +231,7 @@ int LuaEngine::onScriptFinished(lua_State* lua) {
 
     // Helper object to create and populate Java PersistableBundle object.
     BundleWrapper bundleWrapper(sListener->getCurrentJNIEnv());
-    const auto status = convertLuaTableToBundle(lua, &bundleWrapper);
+    const auto status = convertLuaTableToBundle(sListener->getCurrentJNIEnv(), lua, &bundleWrapper);
     if (!status.ok()) {
         sListener->onError(ERROR_TYPE_LUA_SCRIPT_ERROR, status.error().message().c_str(), "");
         // We explicitly must tell Lua how many results we return, which is 0 in this case.
@@ -390,7 +280,8 @@ int LuaEngine::onMetricsReport(lua_State* lua) {
     // object.
     BundleWrapper topBundleWrapper(sListener->getCurrentJNIEnv());
     // If the helper function succeeds, it should not change the stack
-    const auto status = convertLuaTableToBundle(lua, &topBundleWrapper);
+    const auto status =
+            convertLuaTableToBundle(sListener->getCurrentJNIEnv(), lua, &topBundleWrapper);
     if (!status.ok()) {
         sListener->onError(ERROR_TYPE_LUA_SCRIPT_ERROR, status.error().message().c_str(), "");
         // We explicitly must tell Lua how many results we return, which is 0 in this case.
@@ -420,7 +311,8 @@ int LuaEngine::onMetricsReport(lua_State* lua) {
 
     // process the report
     BundleWrapper bottomBundleWrapper(sListener->getCurrentJNIEnv());
-    const auto statusBottom = convertLuaTableToBundle(lua, &bottomBundleWrapper);
+    const auto statusBottom =
+            convertLuaTableToBundle(sListener->getCurrentJNIEnv(), lua, &bottomBundleWrapper);
     if (!statusBottom.ok()) {
         sListener->onError(ERROR_TYPE_LUA_SCRIPT_ERROR, statusBottom.error().message().c_str(), "");
         // We explicitly must tell Lua how many results we return, which is 0 in this case.

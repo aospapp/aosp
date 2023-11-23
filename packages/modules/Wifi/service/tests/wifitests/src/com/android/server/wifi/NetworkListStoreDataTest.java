@@ -25,12 +25,15 @@ import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotEquals;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.anyInt;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.eq;
-import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import android.app.test.MockAnswerUtil;
 import android.content.Context;
 import android.content.pm.PackageManager;
 import android.net.MacAddress;
@@ -44,6 +47,7 @@ import androidx.test.filters.SmallTest;
 
 import com.android.internal.util.FastXmlSerializer;
 import com.android.modules.utils.build.SdkLevel;
+import com.android.server.wifi.util.EncryptedData;
 import com.android.server.wifi.util.WifiConfigStoreEncryptionUtil;
 import com.android.server.wifi.util.XmlUtilTest;
 
@@ -60,7 +64,10 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.regex.Pattern;
 
 /**
  * Unit tests for {@link com.android.server.wifi.NetworkListStoreData}.
@@ -98,15 +105,19 @@ public class NetworkListStoreDataTest extends WifiBaseTest {
                     + "<SecurityParamsList>\n"
                     + "<SecurityParams>\n"
                     + "<int name=\"SecurityType\" value=\"0\" />\n"
+                    + "<boolean name=\"IsEnabled\" value=\"true\" />\n"
                     + "<boolean name=\"SaeIsH2eOnlyMode\" value=\"false\" />\n"
                     + "<boolean name=\"SaeIsPkOnlyMode\" value=\"false\" />\n"
                     + "<boolean name=\"IsAddedByAutoUpgrade\" value=\"false\" />\n"
+                    + "<byte-array name=\"AllowedSuiteBCiphers\" num=\"0\"></byte-array>\n"
                     + "</SecurityParams>\n"
                     + "<SecurityParams>\n"
                     + "<int name=\"SecurityType\" value=\"6\" />\n"
+                    + "<boolean name=\"IsEnabled\" value=\"true\" />\n"
                     + "<boolean name=\"SaeIsH2eOnlyMode\" value=\"false\" />\n"
                     + "<boolean name=\"SaeIsPkOnlyMode\" value=\"false\" />\n"
                     + "<boolean name=\"IsAddedByAutoUpgrade\" value=\"true\" />\n"
+                    + "<byte-array name=\"AllowedSuiteBCiphers\" num=\"0\"></byte-array>\n"
                     + "</SecurityParams>\n"
                     + "</SecurityParamsList>\n"
                     + "<boolean name=\"Trusted\" value=\"true\" />\n"
@@ -169,8 +180,8 @@ public class NetworkListStoreDataTest extends WifiBaseTest {
                     + "<byte-array name=\"AllowedKeyMgmt\" num=\"1\">0c</byte-array>\n"
                     + "<byte-array name=\"AllowedProtocols\" num=\"1\">03</byte-array>\n"
                     + "<byte-array name=\"AllowedAuthAlgos\" num=\"0\"></byte-array>\n"
-                    + "<byte-array name=\"AllowedGroupCiphers\" num=\"1\">0c</byte-array>\n"
-                    + "<byte-array name=\"AllowedPairwiseCiphers\" num=\"1\">06</byte-array>\n"
+                    + "<byte-array name=\"AllowedGroupCiphers\" num=\"1\">2c</byte-array>\n"
+                    + "<byte-array name=\"AllowedPairwiseCiphers\" num=\"1\">0e</byte-array>\n"
                     + "<byte-array name=\"AllowedGroupMgmtCiphers\" num=\"0\"></byte-array>\n"
                     + "<byte-array name=\"AllowedSuiteBCiphers\" num=\"0\"></byte-array>\n"
                     + "<boolean name=\"Shared\" value=\"%s\" />\n"
@@ -181,15 +192,19 @@ public class NetworkListStoreDataTest extends WifiBaseTest {
                     + "<SecurityParamsList>\n"
                     + "<SecurityParams>\n"
                     + "<int name=\"SecurityType\" value=\"3\" />\n"
+                    + "<boolean name=\"IsEnabled\" value=\"true\" />\n"
                     + "<boolean name=\"SaeIsH2eOnlyMode\" value=\"false\" />\n"
                     + "<boolean name=\"SaeIsPkOnlyMode\" value=\"false\" />\n"
                     + "<boolean name=\"IsAddedByAutoUpgrade\" value=\"false\" />\n"
+                    + "<byte-array name=\"AllowedSuiteBCiphers\" num=\"0\"></byte-array>\n"
                     + "</SecurityParams>\n"
                     + "<SecurityParams>\n"
                     + "<int name=\"SecurityType\" value=\"9\" />\n"
+                    + "<boolean name=\"IsEnabled\" value=\"true\" />\n"
                     + "<boolean name=\"SaeIsH2eOnlyMode\" value=\"false\" />\n"
                     + "<boolean name=\"SaeIsPkOnlyMode\" value=\"false\" />\n"
                     + "<boolean name=\"IsAddedByAutoUpgrade\" value=\"true\" />\n"
+                    + "<byte-array name=\"AllowedSuiteBCiphers\" num=\"0\"></byte-array>\n"
                     + "</SecurityParams>\n"
                     + "</SecurityParamsList>\n"
                     + "<boolean name=\"Trusted\" value=\"true\" />\n"
@@ -263,6 +278,7 @@ public class NetworkListStoreDataTest extends WifiBaseTest {
                     ? "<null name=\"DecoratedIdentityPrefix\" />\n" : "")
                     + "<boolean name=\"TrustOnFirstUse\" value=\"false\" />\n"
                     + "<boolean name=\"UserApproveNoCaCert\" value=\"false\" />\n"
+                    + "<int name=\"MinimumTlsVersion\" value=\"3\" />\n"
                     + "</WifiEnterpriseConfiguration>\n"
                     + "</Network>\n";;
 
@@ -292,9 +308,11 @@ public class NetworkListStoreDataTest extends WifiBaseTest {
                     + "<SecurityParamsList>\n"
                     + "<SecurityParams>\n"
                     + "<int name=\"SecurityType\" value=\"4\" />\n"
+                    + "<boolean name=\"IsEnabled\" value=\"true\" />\n"
                     + "<boolean name=\"SaeIsH2eOnlyMode\" value=\"false\" />\n"
                     + "<boolean name=\"SaeIsPkOnlyMode\" value=\"false\" />\n"
                     + "<boolean name=\"IsAddedByAutoUpgrade\" value=\"false\" />\n"
+                    + "<byte-array name=\"AllowedSuiteBCiphers\" num=\"0\"></byte-array>\n"
                     + "</SecurityParams>\n"
                     + "</SecurityParamsList>\n"
                     + "<boolean name=\"Trusted\" value=\"true\" />\n"
@@ -369,15 +387,19 @@ public class NetworkListStoreDataTest extends WifiBaseTest {
                     + "<SecurityParamsList>\n"
                     + "<SecurityParams>\n"
                     + "<int name=\"SecurityType\" value=\"3\" />\n"
+                    + "<boolean name=\"IsEnabled\" value=\"true\" />\n"
                     + "<boolean name=\"SaeIsH2eOnlyMode\" value=\"false\" />\n"
                     + "<boolean name=\"SaeIsPkOnlyMode\" value=\"false\" />\n"
                     + "<boolean name=\"IsAddedByAutoUpgrade\" value=\"false\" />\n"
+                    + "<byte-array name=\"AllowedSuiteBCiphers\" num=\"0\"></byte-array>\n"
                     + "</SecurityParams>\n"
                     + "<SecurityParams>\n"
                     + "<int name=\"SecurityType\" value=\"9\" />\n"
+                    + "<boolean name=\"IsEnabled\" value=\"true\" />\n"
                     + "<boolean name=\"SaeIsH2eOnlyMode\" value=\"false\" />\n"
                     + "<boolean name=\"SaeIsPkOnlyMode\" value=\"false\" />\n"
                     + "<boolean name=\"IsAddedByAutoUpgrade\" value=\"true\" />\n"
+                    + "<byte-array name=\"AllowedSuiteBCiphers\" num=\"0\"></byte-array>\n"
                     + "</SecurityParams>\n"
                     + "</SecurityParamsList>\n"
                     + "<boolean name=\"Trusted\" value=\"true\" />\n"
@@ -450,6 +472,7 @@ public class NetworkListStoreDataTest extends WifiBaseTest {
                     ? "<null name=\"DecoratedIdentityPrefix\" />\n" : "")
                     + "<boolean name=\"TrustOnFirstUse\" value=\"false\" />\n"
                     + "<boolean name=\"UserApproveNoCaCert\" value=\"false\" />\n"
+                    + "<int name=\"MinimumTlsVersion\" value=\"0\" />\n"
                     + "</WifiEnterpriseConfiguration>\n"
                     + "</Network>\n";;
 
@@ -525,6 +548,9 @@ public class NetworkListStoreDataTest extends WifiBaseTest {
     private NetworkListSharedStoreData mNetworkListSharedStoreData;
     @Mock private Context mContext;
     @Mock private PackageManager mPackageManager;
+    @Mock private WifiConfigStoreEncryptionUtil mWifiConfigStoreEncryptionUtil;
+    private Map<EncryptedData, byte[]> mEncryptedDataMap = new HashMap<>();
+    private boolean mShouldEncrypt = false;
 
     @Before
     public void setUp() throws Exception {
@@ -532,6 +558,18 @@ public class NetworkListStoreDataTest extends WifiBaseTest {
         when(mContext.getPackageManager()).thenReturn(mPackageManager);
         when(mPackageManager.getNameForUid(anyInt())).thenReturn(TEST_CREATOR_NAME);
         mNetworkListSharedStoreData = new NetworkListSharedStoreData(mContext);
+        doAnswer(new MockAnswerUtil.AnswerWithArguments() {
+            public EncryptedData answer(byte[] data) {
+                EncryptedData encryptedData = new EncryptedData(data, data);
+                mEncryptedDataMap.put(encryptedData, data);
+                return encryptedData;
+            }
+        }).when(mWifiConfigStoreEncryptionUtil).encrypt(any());
+        doAnswer(new MockAnswerUtil.AnswerWithArguments() {
+            public byte[] answer(EncryptedData data) {
+                return mEncryptedDataMap.get(data);
+            }
+        }).when(mWifiConfigStoreEncryptionUtil).decrypt(any());
     }
 
     /**
@@ -544,7 +582,8 @@ public class NetworkListStoreDataTest extends WifiBaseTest {
         final XmlSerializer out = new FastXmlSerializer();
         final ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
         out.setOutput(outputStream, StandardCharsets.UTF_8.name());
-        mNetworkListSharedStoreData.serializeData(out, mock(WifiConfigStoreEncryptionUtil.class));
+        mNetworkListSharedStoreData.serializeData(out,
+                mShouldEncrypt ? mWifiConfigStoreEncryptionUtil : null);
         out.flush();
         return outputStream.toByteArray();
     }
@@ -562,7 +601,7 @@ public class NetworkListStoreDataTest extends WifiBaseTest {
         in.setInput(inputStream, StandardCharsets.UTF_8.name());
         mNetworkListSharedStoreData.deserializeData(in, in.getDepth(),
                 WifiConfigStore.ENCRYPT_CREDENTIALS_CONFIG_STORE_DATA_VERSION,
-                mock(WifiConfigStoreEncryptionUtil.class));
+                mShouldEncrypt ? mWifiConfigStoreEncryptionUtil : null);
         return mNetworkListSharedStoreData.getConfigurations();
     }
 
@@ -587,6 +626,7 @@ public class NetworkListStoreDataTest extends WifiBaseTest {
         eapNetwork.setIpConfiguration(
                 WifiConfigurationTestUtil.createDHCPIpConfigurationWithNoProxy());
         eapNetwork.setRandomizedMacAddress(TEST_RANDOMIZED_MAC);
+        eapNetwork.enterpriseConfig.setMinimumTlsVersion(WifiEnterpriseConfig.TLS_V1_3);
         WifiConfiguration saeNetwork = WifiConfigurationTestUtil.createSaeNetwork();
         saeNetwork.shared = shared;
         saeNetwork.creatorName = TEST_CREATOR_NAME;
@@ -936,20 +976,6 @@ public class NetworkListStoreDataTest extends WifiBaseTest {
                 saeNetwork.shared, saeNetwork.creatorUid,
                 saeNetwork.creatorName, saeNetwork.getRandomizedMacAddress());
 
-        saeNetworkWithOpenAuthXml.replaceAll("name=\"AllowedAuthAlgos\" num=\"0\"></byte-array>",
-                "<name=\"AllowedAuthAlgos\" num=\"1\">01</byte-array>");
-
-        saeNetworkWithOpenAuthXml.replaceAll("name=\"AllowedProtocols\" num=\"1\">02</byte-array>",
-                "name=\"AllowedProtocols\" num=\"1\">03</byte-array>");
-
-        saeNetworkWithOpenAuthXml.replaceAll(
-                "name=\"AllowedGroupCiphers\" num=\"1\">28</byte-array>",
-                "name=\"AllowedGroupCiphers\" num=\"1\">0f</byte-array>");
-
-        saeNetworkWithOpenAuthXml.replaceAll(
-                "name=\"AllowedPairwiseCiphers\" num=\"1\">0c</byte-array>",
-                "name=\"AllowedPairwiseCiphers\" num=\"1\">06</byte-array>");
-
         List<WifiConfiguration> retrievedNetworkList =
                 deserializeData(saeNetworkWithOpenAuthXml.getBytes(StandardCharsets.UTF_8));
 
@@ -999,7 +1025,7 @@ public class NetworkListStoreDataTest extends WifiBaseTest {
         pskNetwork.setRandomizedMacAddress(TEST_RANDOMIZED_MAC);
         pskNetwork.creatorName = TEST_CREATOR_NAME;
         String invalidConfigKey = pskNetwork.getKey();
-        invalidConfigKey.replace("WPA_PSK", "NONE");
+        invalidConfigKey = invalidConfigKey.replace("WPA_PSK", "NONE");
         // XML data has 2 things that needs to be corrected:
         // - ConfigKey is set to "SSID"NONE instead of "SSID"WPA_PSK
         // - KeyMgmt has KeyMgmt.OSEN bit set instead of KeyMgmt.WPA_PSK
@@ -1082,5 +1108,73 @@ public class NetworkListStoreDataTest extends WifiBaseTest {
             assertTrue(actual.isSecurityType(
                     WifiConfiguration.SECURITY_TYPE_EAP_WPA3_ENTERPRISE));
         }
+    }
+
+    /**
+     * This helper method tests the encryption of preSharedKey and wepKey are as expected.
+     */
+    private static void verifyEncryption(WifiConfiguration expected,
+            WifiConfiguration actual) {
+        assertEquals(expected.preSharedKey, actual.preSharedKey);
+        assertNotNull(expected.wepKeys);
+        assertEquals(expected.wepKeys, actual.wepKeys);
+    }
+
+    private void verifySerializeDeserializeWithEncryption(WifiConfiguration configuration)
+            throws Exception {
+        WifiConfiguration openConfig = WifiConfigurationTestUtil.createOpenNetwork();
+        List<WifiConfiguration> expected = new ArrayList<>();
+        expected.add(configuration);
+        expected.add(openConfig);
+        mShouldEncrypt = true;
+        mNetworkListSharedStoreData.setConfigurations(expected);
+        List<WifiConfiguration> retrieved = deserializeData(serializeData());
+        assertEquals(expected.size(), retrieved.size());
+        for (int i = 0; i < expected.size(); i++) {
+            verifyEncryption(expected.get(i), retrieved.get(i));
+        }
+    }
+
+    @Test
+    public void testSerializeDeserializePskNetworkWithEncryption() throws Exception {
+        verifySerializeDeserializeWithEncryption(WifiConfigurationTestUtil.createPskNetwork());
+    }
+
+    @Test
+    public void testSerializeDeserializeWepNetworkWithEncryption() throws Exception {
+        verifySerializeDeserializeWithEncryption(WifiConfigurationTestUtil.createWepNetwork());
+    }
+
+    private void verifySerializeSharedConfigurationsEncrypted(WifiConfiguration configuration,
+            String encrypted) throws Exception {
+        List<WifiConfiguration> expected = new ArrayList<>();
+        expected.add(configuration);
+        mShouldEncrypt = true;
+        mNetworkListSharedStoreData.setConfigurations(expected);
+        byte[] serializedData = serializeData();
+        String actual = new String(serializedData, StandardCharsets.UTF_8);
+        Pattern EncryptPattern = Pattern.compile(encrypted, Pattern.MULTILINE);
+        assertTrue("Serialized data " + actual + " did not contain encryption with " + encrypted,
+                EncryptPattern.matcher(actual).find());
+    }
+
+    @Test
+    public void serializeSharedConfigurationsPskEncrypted() throws Exception {
+        verifySerializeSharedConfigurationsEncrypted(WifiConfigurationTestUtil.createPskNetwork(),
+                "<null name=\"WEPKeys\" />");
+    }
+    @Test
+    public void serializeSharedConfigurationsWepEncrypted() throws Exception {
+        verifySerializeSharedConfigurationsEncrypted(WifiConfigurationTestUtil.createWepNetwork(),
+                "<WEPKeys>\n"
+                        + "<byte-array name=\"EncryptedData\" num=\"\\d+\">\\d+</byte-array>\n"
+                        + "<byte-array name=\"IV\" num=\"\\d+\">\\d+</byte-array>\n"
+                        + "<byte-array name=\"EncryptedData\" num=\"\\d+\">\\d+</byte-array>\n"
+                        + "<byte-array name=\"IV\" num=\"\\d+\">\\d+</byte-array>\n"
+                        + "<byte-array name=\"EncryptedData\" num=\"\\d+\">\\d+</byte-array>\n"
+                        + "<byte-array name=\"IV\" num=\"\\d+\">\\d+</byte-array>\n"
+                        + "<byte-array name=\"EncryptedData\" num=\"\\d+\">\\d+</byte-array>\n"
+                        + "<byte-array name=\"IV\" num=\"\\d+\">\\d+</byte-array>\n"
+                        + "</WEPKeys>");
     }
 }

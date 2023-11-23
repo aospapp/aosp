@@ -47,6 +47,7 @@ apex {
     defaults: ["t-launched-apex-module"],
     jni_libs: ["libicing"],
     prebuilts: ["current_sdkinfo"],
+    min_sdk_version: "33",
 }
 
 apex_key {

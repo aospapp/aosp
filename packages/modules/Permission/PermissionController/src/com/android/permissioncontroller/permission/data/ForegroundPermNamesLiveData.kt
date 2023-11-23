@@ -18,6 +18,7 @@ package com.android.permissioncontroller.permission.data
 
 import android.content.pm.PackageManager
 import com.android.permissioncontroller.PermissionControllerApplication
+import com.android.permissioncontroller.permission.utils.PermissionMapping
 import com.android.permissioncontroller.permission.utils.Utils
 import kotlinx.coroutines.Job
 
@@ -35,7 +36,7 @@ object ForegroundPermNamesLiveData : SmartAsyncMediatorLiveData<Map<String, List
     }
 
     override suspend fun loadDataAndPostValue(job: Job) {
-        val systemGroups = Utils.getPlatformPermissionGroups()
+        val systemGroups = PermissionMapping.getPlatformPermissionGroups()
         val permMap = mutableMapOf<String, MutableList<String>>()
         for (groupName in systemGroups) {
             val permInfos = try {

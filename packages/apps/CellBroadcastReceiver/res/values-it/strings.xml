@@ -16,11 +16,11 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="app_label" msgid="2008319089248760277">"Allerte wireless di emergenza"</string>
-    <string name="sms_cb_settings" msgid="9021266457863671070">"Allerte wireless di emergenza"</string>
-    <string name="sms_cb_sender_name_default" msgid="972946539768958828">"Allerte wireless di emergenza"</string>
-    <string name="sms_cb_sender_name_presidential" msgid="5302753979711319380">"Allerte wireless di emergenza"</string>
-    <string name="sms_cb_sender_name_emergency" msgid="2937067842997478965">"Allerte wireless di emergenza"</string>
+    <string name="app_label" msgid="2008319089248760277">"Avvisi di emergenza wireless"</string>
+    <string name="sms_cb_settings" msgid="9021266457863671070">"Avvisi di emergenza wireless"</string>
+    <string name="sms_cb_sender_name_default" msgid="972946539768958828">"Avvisi di emergenza wireless"</string>
+    <string name="sms_cb_sender_name_presidential" msgid="5302753979711319380">"Avvisi di emergenza wireless"</string>
+    <string name="sms_cb_sender_name_emergency" msgid="2937067842997478965">"Avvisi di emergenza wireless"</string>
     <string name="sms_cb_sender_name_public_safety" msgid="5230033387708907922">"Notifica informativa"</string>
     <string name="cell_broadcast_settings_not_available" msgid="3908142962162375221">"Le impostazioni per le allerte di emergenza wireless non sono disponibili per questo utente"</string>
     <string name="button_dismiss" msgid="1234221657930516287">"OK"</string>
@@ -149,7 +149,7 @@
     <item msgid="3863339891188103437">"Ogni 15 minuti"</item>
     <item msgid="7388573183644474611">"Mai"</item>
   </string-array>
-    <string name="emergency_alert_settings_title_watches" msgid="4477073412799894883">"Allerte wireless di emergenza"</string>
+    <string name="emergency_alert_settings_title_watches" msgid="4477073412799894883">"Avvisi di emergenza wireless"</string>
     <string name="enable_cmas_presidential_alerts_title" msgid="7293800023375154256">"Avvisi del presidente"</string>
     <string name="enable_cmas_presidential_alerts_summary" msgid="7900094335808247024">"Messaggi di allerta nazionale da parte del presidente. Non possono essere disattivati."</string>
     <string name="receive_cmas_in_second_language_title" msgid="1223260365527361964"></string>

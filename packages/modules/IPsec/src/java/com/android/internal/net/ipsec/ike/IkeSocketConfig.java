@@ -16,8 +16,7 @@
 
 package com.android.internal.net.ipsec.ike;
 
-
-import android.net.Network;
+import com.android.internal.net.ipsec.ike.net.IkeConnectionController;
 
 import java.util.Objects;
 
@@ -29,18 +28,18 @@ import java.util.Objects;
  */
 public final class IkeSocketConfig {
     // Network that the IKE socket will be bound to.
-    private final Network mNetwork;
+    private final IkeConnectionController mConnectionController;
     private final int mDscp;
 
     /** Construct an IkeSocketConfig. */
-    public IkeSocketConfig(Network network, int dscp) {
-        mNetwork = network;
+    public IkeSocketConfig(IkeConnectionController connectionController, int dscp) {
+        mConnectionController = connectionController;
         mDscp = dscp;
     }
 
-    /** Returns the underlying network. */
-    public Network getNetwork() {
-        return mNetwork;
+    /** Returns the connection controller. */
+    public IkeConnectionController getConnectionController() {
+        return mConnectionController;
     }
 
     /** Returns the DSCP value. */
@@ -51,7 +50,7 @@ public final class IkeSocketConfig {
     /** @hide */
     @Override
     public int hashCode() {
-        return Objects.hash(mNetwork, mDscp);
+        return Objects.hash(mConnectionController, mDscp);
     }
 
     /** @hide */
@@ -63,6 +62,6 @@ public final class IkeSocketConfig {
 
         IkeSocketConfig other = (IkeSocketConfig) o;
 
-        return mNetwork.equals(other.mNetwork) && mDscp == other.mDscp;
+        return mConnectionController.equals(other.mConnectionController) && mDscp == other.mDscp;
     }
 }

@@ -29,6 +29,8 @@
     <string name="static_wallpaper_presentation_mode_message" msgid="417940227049360906">"Valið núna"</string>
     <string name="rotating_wallpaper_presentation_mode_message" msgid="3361676041605733288">"Daglegt veggfóður"</string>
     <string name="wallpaper_destination_both" msgid="1124197176741944063">"Heima- og lásskjár"</string>
+    <string name="choose_a_wallpaper_section_title" msgid="1009823506890453891">"Veldu veggfóður"</string>
+    <string name="creative_wallpaper_title" msgid="8459226435723103934">"Búðu til veggfóður"</string>
     <string name="home_screen_message" msgid="106444102822522813">"Heimaskjár"</string>
     <string name="lock_screen_message" msgid="1534506081955058013">"Lásskjár"</string>
     <string name="home_and_lock_short_label" msgid="2937922943541927983">"Heima- og lásskjár"</string>
@@ -64,6 +66,7 @@
     <string name="explore_lock_screen" msgid="268938342103703665">"Skoða veggfóður á lásskjá"</string>
     <string name="refresh_daily_wallpaper_home_content_description" msgid="2770445044556164259">"Uppfæra daglegt veggfóður á heimaskjá"</string>
     <string name="refresh_daily_wallpaper_content_description" msgid="4362142658237147583">"Uppfæra daglegt veggfóður"</string>
+    <string name="preview_screen_description" msgid="3386387053327775919">"Forskoðunarskjár veggfóðurs"</string>
     <string name="refreshing_daily_wallpaper_dialog_message" msgid="1975910873362855761">"Uppfærir daglegt veggfóður…"</string>
     <string name="refresh_daily_wallpaper_failed_message" msgid="4749879993812557166">"Ekki tókst að endurnýja daglegt veggfóður. Athugaðu nettenginguna og reyndu aftur."</string>
     <string name="on_device_wallpapers_category_title" msgid="805819102071369004">"Veggfóður í tækinu"</string>
@@ -81,10 +84,12 @@
     <string name="tab_info" msgid="818614080690111416">"Upplýsingar"</string>
     <string name="tab_customize" msgid="2533745409174959960">"Sérsníða"</string>
     <string name="tab_effects" msgid="3213606157589233901">"Áhrif"</string>
+    <string name="tab_share" msgid="6676269624804601227">"Deila"</string>
     <string name="my_photos" msgid="8613021349284084982">"Mínar myndir"</string>
     <string name="configure_wallpaper" msgid="849882179182976621">"Stillingar…"</string>
     <string name="delete_live_wallpaper" msgid="589212696102662329">"Eyða"</string>
-    <string name="delete_wallpaper_confirmation" msgid="33790318361863778">"Viltu eyða þessu veggfóðri úr símanum?"</string>
+    <string name="edit_live_wallpaper" msgid="3132060073690558045">"Breyta"</string>
+    <string name="delete_wallpaper_confirmation" msgid="1905114562243802354">"Eyða þessu veggfóðri úr tækinu?"</string>
     <string name="bottom_action_bar_back" msgid="8237013112999946725">"Til baka"</string>
     <string name="bottom_action_bar_edit" msgid="1214742990893082138">"Breyta"</string>
     <string name="bottom_action_bar_download" msgid="3983122338076389421">"Sækja"</string>
@@ -95,11 +100,19 @@
     <string name="previous_page_content_description" msgid="1138597031571078429">"Fyrri"</string>
     <string name="wallpaper_title" msgid="6754214682228331092">"Veggfóður"</string>
     <string name="wallpaper_preview_card_content_description" msgid="6049261033541034584">"Forskoðun veggfóðurs"</string>
+    <string name="lock_wallpaper_preview_card_content_description" msgid="5236839857695985498">"Forskoðun veggfóðurs á lásskjá"</string>
+    <string name="home_wallpaper_preview_card_content_description" msgid="4059418716070821630">"Forskoðun veggfóðurs á heimaskjá"</string>
     <string name="collection_not_exist_msg" msgid="3504852962885064842">"Safnið er ekki til"</string>
+    <string name="wallpaper_exit_split_screen" msgid="1928870664619591636">"Lokaðu skjáskiptingu og reyndu aftur"</string>
     <string name="cancel" msgid="4970902691067201584">"Hætta við"</string>
     <string name="hide_ui_preview_text" msgid="6766076482511252295">"Fela forskoðun notendaviðmóts"</string>
     <string name="hint_hide_ui_preview" msgid="4527603797714586070">"Notendaviðmót falið í forskoðun. Ýttu tvisvar til að sýna"</string>
     <string name="show_ui_preview_text" msgid="5993063062417070806">"Sýna forskoðun notendaviðmóts"</string>
+    <string name="hide_preview_controls_content_description" msgid="894958599274977655">"Stýringar forskoðunar sjást. Ýttu tvisvar til að fela"</string>
+    <string name="hide_preview_controls_action" msgid="3419260118386783295">"Fela stýringar forskoðunar"</string>
+    <string name="show_preview_controls_content_description" msgid="908147864005440602">"Stýringar forskoðunar eru faldar. Ýttu tvisvar til að birta"</string>
+    <string name="show_preview_controls_action" msgid="7700775001986890400">"Sýna stýringar forskoðunar"</string>
+    <string name="hide_wallpaper_info_action" msgid="6572492484253895374">"Fela upplýsingar um veggfóður"</string>
     <string name="hint_show_ui_preview" msgid="2744155435325318349">"Notendaviðmót sýnt í forskoðun. Ýttu tvisvar til að fela"</string>
     <string name="wallpaper_picker_entry_title" msgid="5185793991582084891">"Skipta um veggfóður"</string>
     <string name="lockscreen_wallpaper_preview_card_content_description" msgid="2244890820627302245">"Forskoðun veggfóðurs á lásskjá"</string>
@@ -111,4 +124,10 @@
     <string name="settings_snackbar_description" msgid="890168814524778486">"Virkjaðu skrár og margmiðlunarefni í stillingum."</string>
     <string name="settings_snackbar_enable" msgid="5992112808061426068">"Virkja"</string>
     <string name="open_my_photos" msgid="4107196465713868381">"Opna myndirnar mínar"</string>
+    <string name="lock_screen_tab" msgid="6672930765010407652">"Lásskjár"</string>
+    <string name="home_screen_tab" msgid="1080445697837877526">"Heimaskjár"</string>
+    <string name="reset" msgid="4945445169532850631">"Endurstilla"</string>
+    <string name="reset_confirmation_dialog_title" msgid="3391905685838213712">"Endurstilla breytingar?"</string>
+    <string name="reset_confirmation_dialog_message" msgid="888669268626289603">"Breytingarnar verða ekki vistaðar"</string>
+    <string name="more_wallpapers" msgid="8116268433411881705">"Fleiri veggfóður"</string>
 </resources>

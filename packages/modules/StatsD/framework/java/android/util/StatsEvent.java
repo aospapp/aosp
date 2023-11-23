@@ -870,7 +870,7 @@ public final class StatsEvent {
 
         private void release() {
             // Recycle this Buffer if its size is MAX_PUSH_PAYLOAD_SIZE or under.
-            if (mBytes.length <= MAX_PUSH_PAYLOAD_SIZE) {
+            if (mMaxSize <= MAX_PUSH_PAYLOAD_SIZE) {
                 synchronized (sLock) {
                     if (null == sPool) {
                         sPool = this;

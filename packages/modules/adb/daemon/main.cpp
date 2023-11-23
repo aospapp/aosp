@@ -57,6 +57,7 @@
 #include "socket_spec.h"
 #include "transport.h"
 
+#include "daemon/jdwp_service.h"
 #include "daemon/mdns.h"
 #include "daemon/watchdog.h"
 
@@ -159,6 +160,9 @@ static void drop_privileges(int server_port) {
 
         if (root_seclabel != nullptr) {
             if (selinux_android_setcon(root_seclabel) < 0) {
+                // If we failed to become root, don't try again to avoid a
+                // restart loop.
+                android::base::SetProperty("service.adb.root", "0");
                 LOG(FATAL) << "Could not set SELinux context";
             }
         }
@@ -317,6 +321,7 @@ int main(int argc, char** argv) {
                 {"device_banner", required_argument, nullptr, 'b'},
                 {"version", no_argument, nullptr, 'v'},
                 {"logpostfsdata", no_argument, nullptr, 'l'},
+                {nullptr, no_argument, nullptr, 0},
         };
 
         int option_index = 0;

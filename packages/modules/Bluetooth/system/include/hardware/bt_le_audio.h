@@ -37,6 +37,7 @@ enum class ConnectionState {
 enum class GroupStatus {
   INACTIVE = 0,
   ACTIVE,
+  TURNED_IDLE_DURING_CALL,
 };
 
 enum class GroupStreamStatus {
@@ -59,6 +60,8 @@ typedef enum {
   LE_AUDIO_CODEC_INDEX_SOURCE_LC3 = 0,
   LE_AUDIO_CODEC_INDEX_SOURCE_MAX
 } btle_audio_codec_index_t;
+
+typedef enum { QUALITY_STANDARD = 0, QUALITY_HIGH } btle_audio_quality_t;
 
 typedef struct {
   btle_audio_codec_index_t codec_type;
@@ -130,6 +133,9 @@ class LeAudioClientInterface {
   /** Disconnect from LEAudio */
   virtual void Disconnect(const RawAddress& address) = 0;
 
+  /* Set enable/disable State for the LeAudio device */
+  virtual void SetEnableState(const RawAddress& address, bool enabled) = 0;
+
   /* Cleanup the LeAudio */
   virtual void Cleanup(void) = 0;
 
@@ -152,6 +158,14 @@ class LeAudioClientInterface {
 
   /* Set Ccid for context type */
   virtual void SetCcidInformation(int ccid, int context_type) = 0;
+
+  /* Set In call flag */
+  virtual void SetInCall(bool in_call) = 0;
+
+  /* Sends a preferred audio profiles change */
+  virtual void SendAudioProfilePreferences(
+      int group_id, bool is_output_preference_le_audio,
+      bool is_duplex_preference_le_audio) = 0;
 };
 
 /* Represents the broadcast source state. */
@@ -161,12 +175,6 @@ enum class BroadcastState {
   CONFIGURED,
   STOPPING,
   STREAMING,
-};
-
-/* A general hint for the codec configuration process. */
-enum class BroadcastAudioProfile {
-  SONIFICATION = 0,
-  MEDIA,
 };
 
 using BroadcastId = uint32_t;
@@ -186,6 +194,10 @@ constexpr uint8_t kLeAudioCodecLC3TypeFrameDuration = 0x02;
 constexpr uint8_t kLeAudioCodecLC3TypeAudioChannelAllocation = 0x03;
 constexpr uint8_t kLeAudioCodecLC3TypeOctetPerFrame = 0x04;
 constexpr uint8_t kLeAudioCodecLC3TypeCodecFrameBlocksPerSdu = 0x05;
+
+/* Audio quality configuration in public broadcast announcement */
+constexpr uint8_t kLeAudioQualityStandard = 0x1 << 1;
+constexpr uint8_t kLeAudioQualityHigh = 0x1 << 2;
 
 struct BasicAudioAnnouncementCodecConfig {
   /* 5 octets for the Codec ID */
@@ -219,15 +231,25 @@ struct BasicAudioAnnouncementData {
   std::vector<BasicAudioAnnouncementSubgroup> subgroup_configs;
 };
 
+struct PublicBroadcastAnnouncementData {
+  // Public Broadcast Announcement features bitmap
+  uint8_t features;
+  // Metadata
+  std::map<uint8_t, std::vector<uint8_t>> metadata;
+};
+
 struct BroadcastMetadata {
+  bool is_public;
   uint16_t pa_interval;
   RawAddress addr;
   uint8_t addr_type;
   uint8_t adv_sid;
 
   BroadcastId broadcast_id;
+  std::string broadcast_name;
   std::optional<BroadcastCode> broadcast_code;
 
+  PublicBroadcastAnnouncementData public_announcement;
   /* Presentation delay and subgroup configurations */
   BasicAudioAnnouncementData basic_audio_announcement;
 };
@@ -258,12 +280,17 @@ class LeAudioBroadcasterInterface {
   /* Cleanup the LeAudio Broadcaster */
   virtual void Cleanup(void) = 0;
   /* Create Broadcast instance */
-  virtual void CreateBroadcast(std::vector<uint8_t> metadata,
-                               BroadcastAudioProfile profile,
-                               std::optional<BroadcastCode> broadcast_code) = 0;
+  virtual void CreateBroadcast(
+      bool is_public, std::string broadcast_name,
+      std::optional<BroadcastCode> broadcast_code,
+      std::vector<uint8_t> public_metadata,
+      std::vector<uint8_t> subgroup_quality,
+      std::vector<std::vector<uint8_t>> subgroup_metadata) = 0;
   /* Update the ongoing Broadcast metadata */
-  virtual void UpdateMetadata(uint32_t broadcast_id,
-                              std::vector<uint8_t> metadata) = 0;
+  virtual void UpdateMetadata(
+      uint32_t broadcast_id, std::string broadcast_name,
+      std::vector<uint8_t> public_metadata,
+      std::vector<std::vector<uint8_t>> subgroup_metadata) = 0;
 
   /* Start the existing Broadcast stream */
   virtual void StartBroadcast(uint32_t broadcast_id) = 0;

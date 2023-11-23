@@ -35,7 +35,6 @@ import com.android.server.wifi.ActiveModeWarden.PrimaryClientModeManagerChangedC
 import com.android.server.wifi.WifiNative.ConnectionCapabilities;
 import com.android.server.wifi.proto.nano.WifiMetricsProto.WifiIsUnusableEvent;
 import com.android.server.wifi.util.InformationElementUtil.BssLoad;
-import com.android.wifi.resources.R;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -69,6 +68,7 @@ public class WifiDataStall {
     private final ThroughputPredictor mThroughputPredictor;
     private final ActiveModeWarden mActiveModeWarden;
     private final ClientModeImplMonitor mClientModeImplMonitor;
+    private final WifiGlobals mWifiGlobals;
 
     private int mLastFrequency = -1;
     private String mLastBssid;
@@ -150,7 +150,8 @@ public class WifiDataStall {
     public WifiDataStall(WifiMetrics wifiMetrics, Context context,
             DeviceConfigFacade deviceConfigFacade, WifiChannelUtilization wifiChannelUtilization,
             Clock clock, Handler handler, ThroughputPredictor throughputPredictor,
-            ActiveModeWarden activeModeWarden, ClientModeImplMonitor clientModeImplMonitor) {
+            ActiveModeWarden activeModeWarden, ClientModeImplMonitor clientModeImplMonitor,
+            WifiGlobals wifiGlobals) {
         mDeviceConfigFacade = deviceConfigFacade;
         mWifiMetrics = wifiMetrics;
         mContext = context;
@@ -160,6 +161,7 @@ public class WifiDataStall {
         mThroughputPredictor = throughputPredictor;
         mActiveModeWarden = activeModeWarden;
         mClientModeImplMonitor = clientModeImplMonitor;
+        mWifiGlobals = wifiGlobals;
         mPhoneStateListener = new PhoneStateListener(new HandlerExecutor(handler)) {
             @Override
             public void onDataConnectionStateChanged(int state, int networkType) {
@@ -427,12 +429,12 @@ public class WifiDataStall {
         mIsThroughputSufficient = isThroughputSufficientInternal(mTxTputKbps, mRxTputKbps,
                 isTxTrafficHigh, isRxTrafficHigh, timeDeltaLastTwoPollsMs, txBytes, rxBytes);
 
-        int maxTimeDeltaMs = mContext.getResources().getInteger(
-                R.integer.config_wifiPollRssiIntervalMilliseconds)
+        int maxTimeDeltaMs = mWifiGlobals.getPollRssiIntervalMillis()
                 + MAX_TIME_MARGIN_LAST_TWO_POLLS_MS;
         if (timeDeltaLastTwoPollsMs > 0 && timeDeltaLastTwoPollsMs <= maxTimeDeltaMs) {
             mWifiMetrics.incrementConnectionDuration(timeDeltaLastTwoPollsMs,
-                    mIsThroughputSufficient, mIsCellularDataAvailable);
+                    mIsThroughputSufficient, mIsCellularDataAvailable, wifiInfo.getRssi(),
+                    mTxTputKbps, mRxTputKbps);
         }
 
         boolean possibleDataStallTx = isTxTputLow
@@ -573,8 +575,8 @@ public class WifiDataStall {
             tputSufficientLowThrKbps = mDeviceConfigFacade.getRxTputSufficientLowThrKbps();
             tputSufficientHighThrKbps = mDeviceConfigFacade.getRxTputSufficientHighThrKbps();
         }
-        boolean isL3TputLow = (l3TputKbps * mDeviceConfigFacade.getTputSufficientRatioThrDen())
-                < (tputSufficientLowThrKbps * mDeviceConfigFacade.getTputSufficientRatioThrNum());
+        boolean isL3TputLow = (l3TputKbps * mDeviceConfigFacade.getTputSufficientRatioThrNum())
+                < (tputSufficientLowThrKbps * mDeviceConfigFacade.getTputSufficientRatioThrDen());
         boolean isL2TputAboveLowThr = l2TputKbps >= tputSufficientLowThrKbps;
         if (isL3TputLow) return isL2TputAboveLowThr;
 

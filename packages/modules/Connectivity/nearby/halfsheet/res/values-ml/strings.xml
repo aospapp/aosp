@@ -20,7 +20,18 @@
     <string name="fast_pair_setup_in_progress" msgid="4158762239172829807">"സജ്ജീകരിക്കൽ ആരംഭിക്കുന്നു…"</string>
     <string name="fast_pair_title_setup" msgid="2894360355540593246">"ഉപകരണം സജ്ജീകരിക്കുക"</string>
     <string name="fast_pair_device_ready" msgid="2903490346082833101">"ഉപകരണം കണക്റ്റ് ചെയ്‌തു"</string>
+    <string name="fast_pair_device_ready_with_device_name" msgid="2151967995692339422">"“%s” എന്നതിലേക്ക് കണക്റ്റ് ചെയ്‌തു"</string>
     <string name="fast_pair_title_fail" msgid="5677174346601290232">"കണക്റ്റ് ചെയ്യാനായില്ല"</string>
+    <string name="fast_pair_unable_to_connect" msgid="3661854812014294569">"കണക്റ്റ് ചെയ്യാനാകുന്നില്ല"</string>
+    <string name="fast_pair_unable_to_connect_description" msgid="3926830740860653891">"ഉപകരണം ജോടിയാക്കാൻ നേരിട്ട് ശ്രമിക്കുക"</string>
+    <string name="fast_pair_turn_on_bt_device_pairing_mode" msgid="3197372738187738030">"ഉപകരണം ജോഡിയാക്കൽ മോഡിലേക്ക് മാറ്റിയ ശേഷം ശ്രമിക്കുക"</string>
+    <string name="devices_within_reach_channel_name" msgid="876280551450910440">"പരിധിയിലുള്ള ഉപകരണങ്ങൾ"</string>
+    <string name="devices_with_your_account_channel_name" msgid="8120067812798598102">"അക്കൗണ്ട് ഉപയോഗിക്കുന്ന ഉപകരണങ്ങൾ"</string>
+    <string name="fast_pair_your_device" msgid="3662423897069320840">"സംരക്ഷിച്ച ഉപകരണം ലഭ്യമാണ്"</string>
+    <string name="common_nearby_title" msgid="5480324514713607015">"സമീപമുള്ളവ"</string>
+    <string name="common_devices" msgid="2635603125608104442">"ഉപകരണങ്ങൾ"</string>
+    <string name="common_connecting" msgid="160531481424245303">"കണക്റ്റ് ചെയ്യുന്നു…"</string>
+    <string name="common_battery_level" msgid="8748495823047456645">"ബാറ്ററി: %d%%"</string>
     <string name="paring_action_done" msgid="6888875159174470731">"പൂർത്തിയായി"</string>
     <string name="paring_action_save" msgid="6259357442067880136">"സംരക്ഷിക്കുക"</string>
     <string name="paring_action_connect" msgid="4801102939608129181">"കണക്റ്റ് ചെയ്യുക"</string>

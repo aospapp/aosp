@@ -45,7 +45,7 @@ public final class FakeAppSearchHelper extends AppSearchHelper {
     }
 
     public FakeAppSearchHelper(@NonNull Context context, int docLimit, int deleteLimit) {
-        super(context, Runnable::run);
+        super(context, Runnable::run, new TestContactsIndexerConfig());
         mDocLimit = docLimit;
         mDeleteLimit = deleteLimit;
     }

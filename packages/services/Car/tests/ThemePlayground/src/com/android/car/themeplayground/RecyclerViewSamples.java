@@ -28,8 +28,9 @@ import java.util.ArrayList;
  */
 public class RecyclerViewSamples extends AbstractSampleActivity {
 
+    private static final int DATA_TO_GENERATE = 15;
+
     private final ArrayList<String> mData = new ArrayList<>();
-    private final int mDataToGenerate = 15;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -44,7 +45,7 @@ public class RecyclerViewSamples extends AbstractSampleActivity {
     }
 
     private ArrayList<String> generatePlaceholderData() {
-        for (int i = 0; i <= mDataToGenerate; i++) {
+        for (int i = 0; i <= DATA_TO_GENERATE; i++) {
             mData.add("data" + i);
         }
         return mData;

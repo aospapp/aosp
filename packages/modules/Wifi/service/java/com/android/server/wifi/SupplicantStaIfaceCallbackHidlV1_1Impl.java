@@ -42,6 +42,10 @@ abstract class SupplicantStaIfaceCallbackHidlV1_1Impl extends
         mCallbackV10 = mStaIfaceHal.new SupplicantStaIfaceHalCallback(mIfaceName);
     }
 
+    public SupplicantStaIfaceHalHidlImpl.SupplicantStaIfaceHalCallback getCallbackV10() {
+        return mCallbackV10;
+    }
+
     @Override
     public void onNetworkAdded(int id) {
         mCallbackV10.onNetworkAdded(id);

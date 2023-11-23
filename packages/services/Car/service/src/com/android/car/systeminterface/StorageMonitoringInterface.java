@@ -16,6 +16,9 @@
 
 package com.android.car.systeminterface;
 
+import static com.android.car.internal.ExcludeFromCodeCoverageGeneratedReport.BOILERPLATE_CODE;
+
+import com.android.car.internal.ExcludeFromCodeCoverageGeneratedReport;
 import com.android.car.storagemonitoring.EMmcWearInformationProvider;
 import com.android.car.storagemonitoring.HealthServiceWearInfoProvider;
 import com.android.car.storagemonitoring.LifetimeWriteInfoProvider;
@@ -30,6 +33,7 @@ import java.io.File;
 /**
  * Interface that abstracts storage monitoring operations
  */
+@ExcludeFromCodeCoverageGeneratedReport(reason = BOILERPLATE_CODE)
 public interface StorageMonitoringInterface {
     default WearInformationProvider[] getFlashWearInformationProviders(
             String lifetimePath, String eolPath) {

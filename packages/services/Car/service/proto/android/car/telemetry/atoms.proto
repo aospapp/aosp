@@ -30,6 +30,7 @@ message Atom {
     AppCrashOccurred app_crash_occurred = 78;
     ANROccurred anr_occurred = 79;
     WTFOccurred wtf_occurred = 80;
+    ProcessStartTime process_start_time = 169;
     CarPowerStateChanged car_power_state_changed = 203;
   }
 
@@ -37,6 +38,7 @@ message Atom {
   oneof pulled {
     ProcessMemoryState process_memory_state = 10013;
     ProcessCpuTime process_cpu_time = 10035;
+    ProcessMemorySnapshot process_memory_snapshot = 10064;
   }
 }
 
@@ -79,6 +81,60 @@ message ProcessCpuTime {
   optional string process_name = 2;
   optional int64 user_time_millis = 3;
   optional int64 system_time_millis = 4;
+}
+
+// copied from frameworks/proto_logging/stats/atoms.proto
+message ProcessStartTime {
+  optional int32 uid = 1;
+  optional int32 pid = 2;
+
+  optional string process_name = 3;
+
+  enum StartType {
+    UNKNOWN = 0;
+    WARM = 1;
+    HOT = 2;
+    COLD = 3;
+  }
+
+  optional StartType type = 4;
+  optional int64 process_start_time_millis = 5;
+  optional int32 bind_application_delay_millis = 6;
+  optional int32 process_start_delay_millis = 7;
+
+  optional string hosting_type = 8 [deprecated = true];
+  optional string hosting_name = 9;
+  optional string broadcast_action_name = 10;
+
+  enum HostingTypeId {
+    HOSTING_TYPE_UNKNOWN = 0;
+    HOSTING_TYPE_ACTIVITY = 1;
+    HOSTING_TYPE_ADDED_APPLICATION = 2;
+    HOSTING_TYPE_BACKUP = 3;
+    HOSTING_TYPE_BROADCAST = 4;
+    HOSTING_TYPE_CONTENT_PROVIDER = 5;
+    HOSTING_TYPE_LINK_FAIL = 6;
+    HOSTING_TYPE_ON_HOLD = 7;
+    HOSTING_TYPE_NEXT_ACTIVITY = 8;
+    HOSTING_TYPE_NEXT_TOP_ACTIVITY = 9;
+    HOSTING_TYPE_RESTART = 10;
+    HOSTING_TYPE_SERVICE = 11;
+    HOSTING_TYPE_SYSTEM = 12;
+    HOSTING_TYPE_TOP_ACTIVITY = 13;
+    HOSTING_TYPE_EMPTY = 14;
+  }
+
+  optional HostingTypeId hosting_type_id = 11;
+
+  enum TriggerType {
+    TRIGGER_TYPE_UNKNOWN = 0;
+    TRIGGER_TYPE_ALARM = 1;
+    TRIGGER_TYPE_PUSH_MESSAGE = 2;
+    TRIGGER_TYPE_PUSH_MESSAGE_OVER_QUOTA = 3;
+    TRIGGER_TYPE_JOB = 4;
+  }
+
+  optional TriggerType trigger_type = 12;
 }
 
 // Copied from //frameworks/proto_logging/stats/enums/server/enums.proto
@@ -165,6 +221,19 @@ message WTFOccurred {
   optional string process_name = 3;
   optional int32 pid = 4;
   optional ErrorSource error_source = 5;
+}
+
+message ProcessMemorySnapshot {
+  optional int32 uid = 1;
+  optional string process_name = 2;
+  optional int32 pid = 3;
+  optional int32 oom_score_adj = 4;
+  optional int32 rss_in_kilobytes = 5;
+  optional int32 anon_rss_in_kilobytes = 6;
+  optional int32 swap_in_kilobytes = 7;
+  optional int32 anon_rss_and_swap_in_kilobytes = 8;
+  optional int32 gpu_memory_kb = 9;
+  optional bool has_foreground_services = 10;
 }
 
 message CarPowerStateChanged {

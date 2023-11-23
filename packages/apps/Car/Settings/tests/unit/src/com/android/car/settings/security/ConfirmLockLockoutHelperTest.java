@@ -128,6 +128,21 @@ public class ConfirmLockLockoutHelperTest {
         verify(mUIController).refreshUI(false);
     }
 
+    @Test
+    public void onCheckCompletedWithTimeout_timeoutIsPositive_onPauseUpdatesErrorText() {
+        runOnCheckCompletedWithTimeout(1000);
+
+        reset(mUIController);
+        CountDownTimer timer = mConfirmLockLockoutHelper.getCountDownTimer();
+        timer.onTick(1000);
+
+        verify(mUIController).setErrorText(contains("1"));
+
+        mConfirmLockLockoutHelper.onPauseUI();
+
+        verify(mUIController).setErrorText("");
+    }
+
     private void runOnCheckCompletedWithTimeout(int timeout) {
         try {
             // Needs to be called on the UI thread due to the CountDownTimer.

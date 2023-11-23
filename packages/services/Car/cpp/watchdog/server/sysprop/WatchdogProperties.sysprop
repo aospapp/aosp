@@ -17,11 +17,38 @@ owner: Platform
 
 # Interval in seconds between consecutive boot-time performance data collections.
 prop {
-    api_name: "boottimeCollectionInterval"
+    api_name: "systemEventCollectionInterval"
     type: Integer
     scope: Internal
     access: Readonly
-    prop_name: "ro.carwatchdog.boottime_collection_interval"
+    prop_name: "ro.carwatchdog.system_event_collection_interval"
+}
+
+# Duration in seconds of timeout when final signal not received during user-switch.
+prop {
+    api_name: "userSwitchTimeout"
+    type: Integer
+    scope: Internal
+    access: Readonly
+    prop_name: "ro.carwatchdog.user_switch_timeout"
+}
+
+# Duration in seconds of data collection after final signal received for system event.
+prop {
+    api_name: "postSystemEventDuration"
+    type: Integer
+    scope: Internal
+    access: Readonly
+    prop_name: "ro.carwatchdog.post_system_event_duration"
+}
+
+# Duration in seconds of data collection for a system wake up event.
+prop {
+    api_name: "wakeUpEventDuration"
+    type: Integer
+    scope: Internal
+    access: Readonly
+    prop_name: "ro.carwatchdog.wake_up_event_duration"
 }
 
 # Maximum number of periodically collected records to be cached in memory.
@@ -76,6 +103,24 @@ prop {
     scope: Internal
     access: Readonly
     prop_name: "ro.carwatchdog.top_n_stats_per_subcategory"
+}
+
+# Max cache size of user-switch events.
+prop {
+    api_name: "maxUserSwitchEvents"
+    type: Integer
+    scope: Internal
+    access: Readonly
+    prop_name: "ro.carwatchdog.max_user_switch_events"
+}
+
+# Duration in seconds that a system event's data is cached.
+prop {
+    api_name: "systemEventDataCacheDuration"
+    type: Integer
+    scope: Internal
+    access: Readonly
+    prop_name: "ro.carwatchdog.system_event_data_cache_duration"
 }
 
 # Percentage of I/O overuse threshold.

@@ -16,10 +16,10 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="app_label" msgid="1090682794607161063">"ہنگامی معلومات"</string>
+    <string name="app_label" msgid="1090682794607161063">"ایمرجنسی معلومات"</string>
     <string name="medical_info_title" msgid="3000192781136934887">"طبی معلومات"</string>
     <string name="add_medical_info" msgid="483921612415907139">"معلومات شامل کریں"</string>
-    <string name="edit_info" msgid="5973929805855224805">"ہنگامی معلومات میں ترمیم کریں"</string>
+    <string name="edit_info" msgid="5973929805855224805">"ایمرجنسی معلومات میں ترمیم کریں"</string>
     <string name="tab_title_info" msgid="1402033103294855812">"معلومات"</string>
     <string name="tab_title_contacts" msgid="4298341166404791209">"رابطے"</string>
     <string name="name" msgid="4286267457738861977">"نام"</string>
@@ -91,7 +91,7 @@
     <string name="add_emergency_contact" msgid="4063577069613981029">"رابطہ شامل کریں"</string>
     <string name="fail_load_contact_picker" msgid="817205483833876726">"رابطہ منتخب کنندہ کو تلاش نہیں کیا جا سکا"</string>
     <string name="fail_display_contact" msgid="4128854688897045879">"رابطہ کو ڈسپلے نہیں کر سکتے"</string>
-    <string name="remove_contact" msgid="6934983445723096759">"<xliff:g id="CONTACT_NAME">%1$s</xliff:g> کو ہنگامی رابطوں سے ہٹائیں؟"</string>
+    <string name="remove_contact" msgid="6934983445723096759">"<xliff:g id="CONTACT_NAME">%1$s</xliff:g> کو ایمرجنسی رابطوں سے ہٹائیں؟"</string>
     <string name="remove_contact_icon_text" msgid="4576641386490101363">"رابطہ ہٹائیں"</string>
     <string name="fail_add_contact" msgid="6511490846952942291">"رابطے کی معلومات اچھی طرح پڑھنے سے قاصر"</string>
     <string name="remove" msgid="1243949503772376064">"ہٹائیں"</string>
@@ -104,7 +104,7 @@
     <string name="clear" msgid="3648880442502887163">"صاف کریں"</string>
     <string name="clear_all_message" msgid="1548432000373861295">"تمام معلومات اور رابطے صاف کریں؟"</string>
     <string name="emergency_info_footer" msgid="8751758742506410146">"طبی معلومات اور ایمرجینسی رابطے شامل کرنے سے ایمرجینسی حالت میں پہلے جواب دہندگان کو مدد مل سکتی ہے۔\n\nآپ کے فون کو غیر مقفل کیے بغیر کوئی بھی شخص آپ کی لاک اسکرین سے یہ معلومعات پڑھ سکتا ہے اور رابطوں کے ناموں پر تھپتھپا کر انہیں ڈائل کر سکتا ہے۔"</string>
-    <string name="settings_suggestion_title" msgid="2503369576806243476">"ہنگامی معلومات شامل کریں"</string>
+    <string name="settings_suggestion_title" msgid="2503369576806243476">"ایمرجنسی معلومات شامل کریں"</string>
     <string name="settings_suggestion_body" msgid="5559349261345837716">"اولین جواب دہندگان کو اپنی معلومات دیکھنے کی سہولت دیں"</string>
     <string name="user_image_take_photo" msgid="2779924488370750102">"ایک تصویر لیں"</string>
     <string name="user_image_choose_photo" msgid="2442095378052415700">"ایک تصویر منتخب کریں"</string>

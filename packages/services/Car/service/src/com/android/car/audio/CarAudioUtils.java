@@ -18,7 +18,11 @@ package com.android.car.audio;
 
 import static android.media.AudioDeviceInfo.TYPE_BUILTIN_MIC;
 
+import android.car.media.CarVolumeGroupEvent;
+import android.car.media.CarVolumeGroupInfo;
 import android.media.AudioDeviceInfo;
+
+import java.util.List;
 
 final class CarAudioUtils {
     private CarAudioUtils() {
@@ -30,5 +34,11 @@ final class CarAudioUtils {
 
     static boolean isMicrophoneInputDevice(AudioDeviceInfo device) {
         return device.getType() == TYPE_BUILTIN_MIC;
+    }
+
+    static CarVolumeGroupEvent convertVolumeChangeToEvent(CarVolumeGroupInfo info, int flags,
+            int eventTypes) {
+        List<Integer> extraInfos = CarVolumeGroupEvent.convertFlagsToExtraInfo(flags, eventTypes);
+        return new CarVolumeGroupEvent.Builder(List.of(info), eventTypes, extraInfos).build();
     }
 }

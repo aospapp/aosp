@@ -160,6 +160,7 @@ public class DefaultDialerCache {
         packageIntentFilter.addAction(Intent.ACTION_PACKAGE_REMOVED);
         packageIntentFilter.addAction(Intent.ACTION_PACKAGE_ADDED);
         packageIntentFilter.addDataScheme("package");
+        packageIntentFilter.setPriority(IntentFilter.SYSTEM_HIGH_PRIORITY);
         context.registerReceiverAsUser(mReceiver, UserHandle.ALL, packageIntentFilter, null, null);
 
         IntentFilter bootIntentFilter = new IntentFilter(Intent.ACTION_BOOT_COMPLETED);
@@ -265,7 +266,7 @@ public class DefaultDialerCache {
             if (packageName == null ||
                     Objects.equals(packageName, mCurrentDefaultDialerPerUser.get(userId))) {
                 String newDefaultDialer = refreshCacheForUser(userId);
-                Log.i(LOG_TAG, "Refreshing default dialer for user %d: now %s",
+                Log.v(LOG_TAG, "Refreshing default dialer for user %d: now %s",
                         userId, newDefaultDialer);
             }
         }

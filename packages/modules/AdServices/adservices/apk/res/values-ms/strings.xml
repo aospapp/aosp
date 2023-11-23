@@ -1,0 +1,680 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--  Copyright (C) 2022 The Android Open Source Project
+
+     Licensed under the Apache License, Version 2.0 (the "License");
+     you may not use this file except in compliance with the License.
+     You may obtain a copy of the License at
+
+          http://www.apache.org/licenses/LICENSE-2.0
+
+     Unless required by applicable law or agreed to in writing, software
+     distributed under the License is distributed on an "AS IS" BASIS,
+     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+     See the License for the specific language governing permissions and
+     limitations under the License.
+ -->
+
+<!--  IMPORTANT! If adding new strings, then run generate_adservices_public_xml.py  -->
+
+<resources xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+    <string name="permlab_accessAdServicesTopics" msgid="1108993892369517728">"akses API Topik AdServices"</string>
+    <string name="permdesc_accessAdServicesTopics" msgid="4220466427260104683">"Membenarkan aplikasi mengakses API Topik AdServices."</string>
+    <string name="permlab_accessAdServicesAttribution" msgid="4498132091418336093">"akses API Atribusi AdServices"</string>
+    <string name="permdesc_accessAdServicesAttribution" msgid="1644434244130657749">"Membenarkan aplikasi mengakses API Atribusi AdServices."</string>
+    <string name="permlab_accessAdServicesCustomAudience" msgid="2766614780488510189">"akses API Khalayak Tersuai AdServices"</string>
+    <string name="permdesc_accessAdServicesCustomAudience" msgid="2034811807106784662">"Membenarkan aplikasi mengakses API Khalayak Tersuai AdServices."</string>
+    <string name="permlab_accessAdServicesAdId" msgid="2754825914769538156">"Akses kepada API Adld"</string>
+    <string name="permdesc_accessAdServicesAdId" msgid="7717770480967762044">"Membenarkan aplikasi mengakses API Adld."</string>
+    <string name="permlab_accessAdServicesConsent" msgid="3203633397142568707">"akses API Persetujuan AdServices"</string>
+    <string name="permdesc_accessAdServicesConsent" msgid="8440334072391708453">"Membenarkan aplikasi mengakses API Persetujuan AdServices."</string>
+    <string name="permlab_adServicesAccessAdId" msgid="1425385999072194463">"Akses kepada API ID Iklan"</string>
+    <string name="permdesc_adServicesAccessAdId" msgid="5082994464565978279">"Membenarkan aplikasi mengakses API ID Iklan."</string>
+    <string name="permlab_adServicesAccessAppSetId" msgid="1300149048751231124">"Akses kepada API ID Set Apl"</string>
+    <string name="permdesc_adServicesAccessAppSetId" msgid="7919418391145455372">"Membenarkan aplikasi mengakses API ID Set Apl."</string>
+    <string name="permlab_adServicesAccessConsentService" msgid="5994709782267864205">"Akses kepada API Perkhidmatan Persetujuan"</string>
+    <string name="permdesc_adServicesAccessConsentService" msgid="4587727715580124241">"Membenarkan aplikasi mengakses API Perkhidmatan Persetujuan."</string>
+    <string name="permlab_modifyAdServicesState" msgid="3594653261299518914">"Akses kepada API pengubahsuaian keadaan pendayaan AdService"</string>
+    <string name="permdesc_modifyAdServicesState" msgid="2485849128464307209">"Membolehkan apl mengakses API pengubahsuaian keadaan pendayaan AdService."</string>
+    <string name="permlab_accessAdServicesState" msgid="482058883975394398">"Akses kepada API keadaan pendayaan AdService"</string>
+    <string name="permdesc_accessAdServicesState" msgid="1165015604618567202">"Membolehkan aplikasi mengakses API keadaan pendayaan AdService."</string>
+    <string name="permlab_accessAdServicesManager" msgid="4816332609066703740">"Akses kepada API AdServicesManager"</string>
+    <string name="permdesc_accessAdServicesManager" msgid="2619300431637689524">"Membenarkan aplikasi mengakses API AdServicesManager."</string>
+    <string name="app_label" msgid="5985320129629013968">"Sistem Android"</string>
+    <string name="notificationUI_notification_title_eu" msgid="6328781145332100489">"Sertai beta privasi iklan Android"</string>
+    <string name="notificationUI_notification_content_eu" msgid="4119222762583017840">"Android sedang meneroka lebih banyak cara yang peribadi untuk apl memaparkan iklan kepada anda"</string>
+    <string name="notificationUI_notification_cta_eu" msgid="1294908454704864207">"Ketahui lebih lanjut"</string>
+    <string name="notificationUI_header_title_eu" msgid="4955298263079910371">"Beta privasi iklan Android"</string>
+    <string name="notificationUI_container1_title_eu" msgid="8315199862119660570">"Perkara baharu"</string>
+    <string name="notificationUI_container1_body_text_eu" msgid="1700290522706948241">"Ciri privasi baharu dalam Kotak Pasir Privasi membolehkan apl memaparkan iklan yang berkaitan kepada anda, tetapi menyekat perkara yang boleh diketahui oleh apl tersebut tentang aktiviti anda di laman web dan apl daripada pembangun lain."</string>
+    <string name="notificationUI_container1_control_text_eu" msgid="3158258148321255153">"Caranya"</string>
+    <string name="notificationUI_container2_title_eu" msgid="7198761373796187596">"Cara menyertai"</string>
+    <string name="notificationUI_container2_body_text_eu" msgid="5763735880112009239">"Tindakan menghidupkan beta membolehkan apl menguji cara baharu yang lebih peribadi ini untuk memaparkan iklan kepada anda. Anda boleh mematikan beta pada bila-bila masa dalam tetapan privasi anda."</string>
+    <string name="notificationUI_left_control_button_text_eu" msgid="3573715612232957187">"Tidak perlu"</string>
+    <string name="notificationUI_right_control_button_text_eu" msgid="8484787286437052150">"Hidupkan"</string>
+    <string name="notificationUI_more_button_text" msgid="8861584693765844519">"Lagi"</string>
+    <string name="notificationUI_confirmation_accept_title" msgid="3178322390976087463">"Terima kasih kerana mengambil bahagian"</string>
+    <string name="notificationUI_confirmation_accept_subtitle" msgid="6980730715078085252">"Anda merupakan sebahagian daripada beta privasi iklan Android. Kotak Pasir Privasi telah dihidupkan untuk peranti anda.\n\nAnda boleh mengetahui lebih lanjut atau mematikan beta pada bila-bila masa dalam tetapan privasi anda."</string>
+    <string name="notificationUI_confirmation_decline_title" msgid="6453417169877486440">"Anda telah memilih untuk tidak mengambil bahagian"</string>
+    <string name="notificationUI_confirmation_decline_subtitle" msgid="4194388733937808440">"Terima kasih atas respons anda. Kotak Pasir Privasi telah dimatikan untuk peranti anda.\n\nJika anda berubah fikiran atau ingin mengetahui lebih lanjut, pergi ke tetapan privasi anda."</string>
+    <string name="notificationUI_confirmation_left_control_button_text" msgid="7459283556129950513">"Tetapan privasi"</string>
+    <string name="notificationUI_confirmation_right_control_button_text" msgid="1390803936115621269">"OK"</string>
+    <string name="notificationUI_container2_title" msgid="3844342008598264655">"Anda merupakan sebahagian daripada beta"</string>
+    <string name="notificationUI_container2_body_text" msgid="758560159693325060">"Kotak Pasir Privasi telah dihidupkan untuk peranti anda dan apl boleh menguji cara baharu yang lebih peribadi ini untuk memaparkan iklan kepada anda. Anda boleh mematikan beta pada bila-bila masa dalam tetapan privasi anda."</string>
+    <string name="notificationUI_right_control_button_text" msgid="4418849554981401536">"OK"</string>
+    <string name="notificationUI_how_it_works_expanded_text1" msgid="5567641119079971239">"Kotak Pasir Privasi Android menyediakan ciri baharu yang boleh digunakan oleh apl untuk memaparkan iklan yang mungkin anda suka. Teknologi ini tidak menggunakan pengecam peranti.\n\nAndroid dan apl anda boleh menganggarkan jenis iklan yang mungkin anda minati dan menyimpan minat tersebut pada peranti anda buat sementara waktu. Hal ini membolehkan apl memaparkan iklan yang mungkin anda suka kepada anda tanpa menjejaki aktiviti anda merentas laman web dan apl daripada pembangun lain."</string>
+    <string name="notificationUI_how_it_works_expanded_text2" msgid="6676443093692450581">"Pemeribadian iklan dengan Kotak Pasir Privasi"</string>
+    <string name="notificationUI_how_it_works_expanded_text3" msgid="603165966360369018">"•  Minat yang dianggarkan oleh Android"</string>
+    <string name="notificationUI_how_it_works_expanded_text4" msgid="3910573920883580609">"Android menganggarkan minat teratas anda secara berkala berdasarkan apl yang anda gunakan, sebagai contoh, \"Sukan\" atau \"Perjalanan\".\n\nKemudian, apl boleh meminta kebenaran daripada Android untuk menggunakan minat tersebut bagi memaparkan iklan yang lebih berkaitan kepada anda.\n\nAnda boleh melihat senarai minat semasa dalam tetapan privasi anda dan menyekat mana-mana minat yang tidak anda sukai."</string>
+    <string name="notificationUI_how_it_works_expanded_text5" msgid="7257714040472055781">"•  Minat yang dianggarkan oleh apl"</string>
+    <string name="notificationUI_how_it_works_expanded_text6" msgid="2949292580123453023">"Apl boleh menganggarkan minat anda dan menyimpan minat ini dengan Android buat sementara waktu. Sebagai contoh, apl yang anda gunakan untuk membeli kasut lari mungkin menganggarkan minat anda sebagai \"berlari maraton\".\n\nKemudian, berdasarkan minat ini, apl lain boleh memaparkan iklan yang berkaitan dengan maraton kepada anda.\n\nDalam tetapan privasi, anda boleh mengurus senarai apl yang telah menyimpan minat."</string>
+    <string name="notificationUI_notification_ga_title" msgid="7090667803616048587">"Ciri privasi iklan baharu"</string>
+    <string name="notificationUI_notification_ga_content" msgid="3483979694272908942">"Topik iklan dan kawalan baharu memberi anda lebih banyak pilihan terhadap iklan yang anda lihat"</string>
+    <string name="notificationUI_header_ga_title" msgid="3557937325021173836">"Ciri privasi iklan baharu kini tersedia"</string>
+    <string name="notificationUI_container2_ga_introduction" msgid="2201578950159210581">"Android mengingati topik yang diminati berdasarkan apl yang anda gunakan baru-baru ini. Selain itu, apl yang anda gunakan boleh menentukan perkara yang anda sukai. Kemudian, apl boleh meminta maklumat ini untuk memaparkan iklan yang diperibadikan kepada anda. Anda boleh memilih topik dan apl yang digunakan untuk memaparkan iklan kepada anda."</string>
+    <string name="notificationUI_container3_ga_introduction" msgid="4247237824558927582">"Untuk mengukur prestasi iklan, jenis data yang terhad dikongsi antara apl."</string>
+    <string name="notificationUI_ga_container1_control_text" msgid="2711321174550177509">"Lagi tentang iklan pada Android"</string>
+    <string name="notificationUI_how_it_works_row_subtitle1" msgid="8685034725335826096">"Iklan yang lebih berguna"</string>
+    <string name="notificationUI_how_it_works_row_body1" msgid="5865369599951938718">"Apl boleh meminta maklumat daripada Android untuk membantu anda memeribadikan iklan yang anda lihat."</string>
+    <string name="notificationUI_how_it_works_row_body2" msgid="6601773212442110369">"•  Android mengingati topik yang diminati berdasarkan apl yang telah anda gunakan baru-baru ini."</string>
+    <string name="notificationUI_how_it_works_row_body3" msgid="3692457397642529055">"•  Apl yang anda gunakan juga boleh menentukan perkara yang anda sukai berdasarkan aktiviti anda pada apl tersebut. Contohnya, jika anda menggunakan apl yang menjual kasut lari jarak jauh, apl tersebut mungkin memutuskan bahawa anda berminat dalam larian maraton."</string>
+    <string name="notificationUI_how_it_works_row_body4" msgid="8731138074016839243">"Kemudian, apl yang anda gunakan boleh meminta maklumat ini — sama ada topik iklan anda atau iklan yang dicadangkan oleh apl yang telah anda gunakan."</string>
+    <string name="notificationUI_how_it_works_row_body5" msgid="4524382869577899661">"Android mengautopadam topik dan data cadangan apl secara kerap. Anda juga boleh menyekat topik dan apl tertentu yang anda tidak ingin membuat cadangan."</string>
+    <string name="notificationUI_how_it_works_subtitle2" msgid="2203542887026049927">"Mengukur prestasi iklan"</string>
+    <string name="notificationUI_how_it_works_row_body6" msgid="5368364880910986588">"Apl yang anda gunakan boleh meminta maklumat daripada Android untuk membantu apl mengukur prestasi iklan. Android membenarkan apl mengumpulkan jenis data yang terhad, seperti masa hari iklan dipaparkan kepada anda."</string>
+    <string name="notificationUI_notification_ga_title_eu" msgid="5803977334621918481">"Cuba ciri privasi iklan baharu"</string>
+    <string name="notificationUI_notification_ga_content_eu" msgid="8430705356085726474">"Topik iklan memberi anda lebih banyak pilihan terhadap iklan yang anda lihat"</string>
+    <string name="notificationUI_notification_ga_cta_eu" msgid="8494461862622985200">"Lihat Butiran"</string>
+    <string name="notificationUI_header_ga_title_eu" msgid="6246782633712559485">"Cubalah ciri privasi iklan baharu"</string>
+    <string name="notificationUI_container1_body_ga_text_eu" msgid="2461669162863900717">"Android akan melancarkan ciri privasi baharu yang memberi anda lebih banyak pilihan terhadap iklan yang anda lihat."</string>
+    <string name="notificationUI_container2_body_ga_text_eu" msgid="1692066129509373924">"Topik iklan membantu apl memaparkan iklan yang berkaitan kepada anda sambil melindungi identiti dan maklumat tentang penggunaan apl anda. Android boleh mengetahui topik yang anda minati berdasarkan apl yang anda gunakan baru-baru ini. Kemudian, apl yang anda gunakan boleh meminta topik yang berkaitan daripada Android untuk memeribadikan iklan yang anda lihat."</string>
+    <string name="notificationUI_container3_body_ga_text_eu" msgid="5992069735281496875">"Anda boleh melihat topik iklan dalam tetapan peranti anda dan menyekat topik yang tidak mahu dikongsi dengan apl. Android juga memadamkan topik iklan dengan kerap secara automatik."</string>
+    <string name="notificationUI_change_any_time_in_privacy_settings_eu" msgid="2908767337419331427">"Anda boleh mengubah fikiran pada bila-bila masa dalam tetapan privasi."</string>
+    <string name="notificationUI_container1_control_ga_text_eu" msgid="4496835418228234590">"Lagi tentang topik iklan"</string>
+    <string name="notificationUI_learn_more_from_privacy_policy" msgid="7809111628979410445">"Ketahui lebih lanjut tentang cara Android melindungi data anda dalam "<a href="https://policies.google.com/privacy">"Dasar Privasi"</a>" kami."</string>
+    <string name="notificationUI_right_control_button_ga_text_eu" msgid="7164165910760741822">"Cubalah"</string>
+    <string name="notificationUI_how_it_works_topics_expanded_text3" msgid="5620813445262745365">"•  Jenis data yang digunakan"</string>
+    <string name="notificationUI_how_it_works_topics_expanded_text4" msgid="398508225331553559">"Topik iklan anda adalah berdasarkan apl yang anda gunakan pada peranti ini baru-baru ini dan kekerapan anda menggunakan apl."</string>
+    <string name="notificationUI_how_it_works_topics_expanded_text5" msgid="5976468008939416198">"•  Cara kami menggunakan data ini"</string>
+    <string name="notificationUI_how_it_works_topics_expanded_text6" msgid="6318275524155409408">"Android mengingati topik yang anda minati semasa anda menggunakan apl anda. Label topik dipratakrifkan dan merangkumi perkara seperti Seni &amp; Hiburan, Beli-belah dan Sukan. Kemudian, apl yang anda gunakan boleh meminta Android beberapa topik anda (tetapi bukan data tentang penggunaan apl atau identiti anda) untuk memeribadikan iklan yang anda lihat."</string>
+    <string name="notificationUI_how_it_works_topics_expanded_text7" msgid="4275126336833782389">"•  Cara anda dapat mengurus data anda"</string>
+    <string name="notificationUI_how_it_works_topics_expanded_text8" msgid="2797007387412839612">"Android mengautopadam topik secara kerap. Jika anda terus menggunakan apl, topik mungkin dipaparkan semula pada senarai. Anda juga boleh menyekat topik yang anda tidak mahu Android kongsikan dengan apl dan mematikan topik iklan pada bila-bila masa dalam tetapan privasi."</string>
+    <string name="notificationUI_you_can_change_in_privacy_settings" msgid="4781410091509838647">"Anda boleh membuat perubahan dalam tetapan privasi."</string>
+    <string name="notificationUI_fledge_measurement_title" msgid="1721724915714192994">"Ciri privasi iklan yang lain kini tersedia"</string>
+    <string name="notificationUI_fledge_measurement_introduction_text1" msgid="2217529852483952185">"Android juga menawarkan cara baharu untuk mengehadkan perkara yang boleh dipelajari oleh apl tentang anda apabila aplikasi itu memaparkan iklan diperibadikan kepada anda."</string>
+    <string name="notificationUI_fledge_measurement_introduction_text2" msgid="601600895880486962">"•  Iklan yang dicadangkan apl membantu untuk melindungi identiti anda dan maklumat tentang penggunaan anda pada apl sambil mendayakan apl untuk memaparkan iklan yang berkaitan kepada anda. Berdasarkan aktiviti anda, apl yang anda gunakan boleh mencadangkan iklan yang berkaitan pada apl lain. Anda boleh melihat senarai apl dan menyekat apl dalam tetapan privasi daripada membuat cadangan."</string>
+    <string name="notificationUI_fledge_measurement_introduction_text3" msgid="956235653060248351">"•  Dengan pengukuran iklan, jenis data yang terhad akan dikongsi antara apl untuk mengukur prestasi iklan apl, seperti masa dalam sehari iklan ditunjukkan kepada anda."</string>
+    <string name="notificationUI_fledge_measurement_control_ga_text_eu" msgid="2346851728118443500">"Lagi tentang iklan cadangan apl dan pengukuran iklan"</string>
+    <string name="notificationUI_how_it_works_fledge_measurement_expanded_text0" msgid="2456923104551938349">"Iklan yang dicadangkan apl"</string>
+    <string name="notificationUI_how_it_works_fledge_measurement_expanded_text1" msgid="5606895535548790900">"•  Jenis data yang digunakan"</string>
+    <string name="notificationUI_how_it_works_fledge_measurement_expanded_text2" msgid="6309052819494439288">"Aktiviti anda dalam apl yang anda gunakan pada peranti ini."</string>
+    <string name="notificationUI_how_it_works_fledge_measurement_expanded_text3" msgid="5347980571056638783">"•  Cara apl menggunakan data ini"</string>
+    <string name="notificationUI_how_it_works_fledge_measurement_expanded_text4" msgid="4738335469671465639">"Apl boleh menyimpan maklumat tentang perkara yang anda sukai dengan Android. Contohnya, jika anda menggunakan apl tentang latihan maraton, apl tersebut mungkin memutuskan bahawa anda berminat dengan kasut lari. Kemudian, jika anda menggunakan apl lain, apl itu boleh memaparkan kepada anda iklan kasut lari yang dicadangkan oleh apl pertama."</string>
+    <string name="notificationUI_how_it_works_fledge_measurement_expanded_text5" msgid="8737925570089314631">"•  Cara anda boleh mengurus data anda"</string>
+    <string name="notificationUI_how_it_works_fledge_measurement_expanded_text6" msgid="495908587748380196">"Android mengautopadam data cadangan apl secara kerap. Apl yang anda gunakan sekali lagi mungkin akan dipaparkan semula pada senarai."</string>
+    <string name="notificationUI_how_it_works_fledge_measurement_expanded_text7" msgid="8995912218837619600">"Anda juga boleh menyekat apl daripada mencadangkan iklan untuk anda, menetapkan semula semua data yang dicadangkan iklan atau mematikan iklan yang dicadangkan apl dalam tetapan privasi pada bila-bila masa."</string>
+    <string name="notificationUI_how_it_works_fledge_measurement_expanded_text9" msgid="5709134827192739362">"Apl yang anda gunakan boleh meminta Android maklumat yang membantu apl mengukur prestasi iklan apl. Android melindungi privasi anda dengan mengehadkan maklumat yang boleh dikongsi oleh apl dengan satu sama lain."</string>
+    <string name="notificationUI_notification_ga_title_eu_v2" msgid="9132669086237883391">"Ciri privasi iklan baharu kini tersedia"</string>
+    <string name="notificationUI_notification_ga_content_eu_v2" msgid="9205285241542339861">"Dapatkan lebih banyak pilihan terhadap iklan yang anda lihat sambil melindungi identiti anda"</string>
+    <string name="notificationUI_fledge_measurement_title_v2" msgid="1097778529908285549">"Ciri privasi iklan baharu kini tersedia"</string>
+    <string name="notificationUI_fledge_measurement_introduction_text1_v2" msgid="4019531984422364790">"Android akan melancarkan cara baharu yang mengehadkan pembelajaran apl tentang anda apabila iklan diperibadikan ditayangkan kepada anda."</string>
+    <string name="notificationUI_fledge_measurement_introduction_text2_v2" msgid="7324869061552803848">"•  Dengan iklan cadangan apl, ciri privasi baharu membantu anda melindungi identiti dan maklumat tentang penggunaan apl anda semasa mendayakan apl untuk memaparkan iklan yang berkaitan kepada anda. Berdasarkan aktiviti anda, apl yang anda gunakan boleh mencadangkan iklan yang berkaitan pada apl lain. Anda boleh melihat senarai apl dan menyekat apl daripada membuat cadangan dalam tetapan privasi."</string>
+    <string name="notificationUI_fledge_measurement_introduction_text3_v2" msgid="7061185974787039681">"•  Dengan pengukuran iklan, jenis data yang terhad akan dikongsi antara apl untuk memahami prestasi iklan apl seperti masa dalam sehari iklan dipaparkan kepada anda."</string>
+    <string name="notificationUI_how_it_works_fledge_measurement_expanded_text2_v2" msgid="5467298277353569728">"Aktiviti anda dalam apl pada peranti ini boleh digunakan untuk mencadangkan iklan."</string>
+    <string name="notificationUI_header_ga_title_eu_v2" msgid="8442776546238998877">"Hidupkan ciri privasi iklan yang lain"</string>
+    <string name="notificationUI_container1_body_ga_text_eu_v2" msgid="1119632112904754361">"Android juga menawarkan ciri privasi baharu yang memberi anda lebih banyak pilihan terhadap iklan yang anda lihat."</string>
+    <string name="notificationUI_container2_body_ga_text_eu_v2" msgid="7264946073865844642">"Topik iklan membantu apl memaparkan iklan yang berkaitan kepada anda sambil melindungi identiti dan maklumat tentang penggunaan apl anda. Android boleh mengetahui topik yang anda minati berdasarkan apl yang anda gunakan baru-baru ini. Kemudian, apl yang anda gunakan boleh meminta topik yang berkaitan daripada Android untuk memaparkan lebih banyak iklan yang berkaitan kepada anda."</string>
+    <string name="notificationUI_container3_body_ga_text_eu_v2" msgid="3204499878554843655">"Anda boleh melihat topik iklan dalam tetapan peranti anda dan menyekat topik iklan yang tidak mahu dikongsi dengan apl. Android juga memadamkan topik iklan secara automatik dengan kerap."</string>
+    <string name="notificationUI_right_control_button_ga_text_eu_v2" msgid="7227289411885047121">"Hidupkan ciri"</string>
+    <string name="notificationUI_notification_ga_title_v2" msgid="7429979629916798545">"Ciri privasi iklan baharu kini tersedia"</string>
+    <string name="notificationUI_notification_ga_content_v2" msgid="4673081782304081905">"Kini terdapat lebih banyak pilihan terhadap iklan yang anda lihat sambil melindungi identiti anda"</string>
+    <string name="notificationUI_header_ga_title_v2" msgid="2079990149331373941">"Ciri privasi iklan baharu kini tersedia"</string>
+    <string name="notificationUI_container1_ga_introduction_v2" msgid="3820258766801905248">"Kini Android menawarkan ciri privasi baharu yang memberi anda lebih banyak pilihan terhadap iklan yang anda lihat."</string>
+    <string name="notificationUI_next_button_text" msgid="5564270455474313663">"Seterusnya"</string>
+    <string name="settingsUI_main_view_title" msgid="1663691082473230496">"Kotak Pasir Privasi"</string>
+    <string name="settingsUI_main_view_subtitle" msgid="2059496555507319371">"Sertai dalam beta privasi iklan Android"</string>
+    <string name="settingsUI_privacy_sandbox_beta_switch_title" msgid="5264782269528129670">"Kotak Pasir Privasi"</string>
+    <string name="settingsUI_topics_title" msgid="5996189869721397937">"Minat yang dianggarkan oleh Android"</string>
+    <string name="settingsUI_apps_title" msgid="2772289096915264175">"Apl yang menganggarkan minat"</string>
+    <string name="settingsUI_main_view_info_text8" msgid="2262800588014737545">"Pengukuran iklan"</string>
+    <string name="settingsUI_main_view_info_text9" msgid="5431131706102562540">"Apl boleh menggunakan Kotak Pasir Privasi untuk mengukur keberkesanan iklan mereka. Untuk berbuat demikian, pengiklan boleh menyimpan data pada Android tentang interaksi anda antara iklan dengan apl mereka buat sementara waktu. Jumlah data yang boleh disimpan adalah terhad dan akan dipadamkan secara berkala.\n\nAnda boleh memadamkan data ini pada bila-bila masa dengan mematikan Kotak Pasir Privasi."</string>
+    <string name="settingsUI_topics_view_subtitle" msgid="6608135144119617292">"Android menganggarkan minat teratas anda berdasarkan apl yang anda gunakan secara berkala. Apl boleh meminta kebenaran daripada Android untuk menggunakan minat tersebut bagi memaparkan iklan yang lebih berkaitan kepada anda.\n\nJika anda menyekat minat, minat itu tidak akan ditambahkan pada senarai lagi melainkan anda menyahsekat minat tersebut. Anda mungkin masih melihat beberapa iklan yang berkaitan."</string>
+    <string name="settingsUI_block_topic_title" msgid="1883542291264768402">"Sekat"</string>
+    <string name="settingsUI_unblock_topic_title" msgid="1710283575567727667">"Nyahsekat"</string>
+    <string name="settingsUI_blocked_topics_title" msgid="5030422883546261820">"Minat yang telah anda sekat"</string>
+    <string name="settingsUI_reset_topics_title" msgid="6917960006583871987">"Tetapkan semula semua minat"</string>
+    <string name="settingsUI_topics_view_no_topics_text" msgid="6954747579303498382">"Tiada minat untuk ditunjukkan sekarang."</string>
+    <string name="settingsUI_topics_view_no_topics_ga_text" msgid="8043163159679359485">"Tiada topik untuk ditunjukkan sekarang.\nKetahui lebih lanjut tentang "<a href="https://support.google.com/android?p=ad_privacy">"topik iklan"</a></string>
+    <string name="settingsUI_topics_view_info_text1" msgid="2477020249748216309">"Kotak Pasir Privasi"</string>
+    <string name="settingsUI_topics_view_info_text2" msgid="6223353589295876851">"Beta privasi iklan Android menyediakan ciri baharu yang boleh digunakan oleh apl untuk memaparkan iklan yang mungkin anda suka kepada anda. Teknologi ini tidak menggunakan pengecam peranti.\n\nAndroid boleh menganggarkan jenis iklan yang mungkin anda minati dan menyimpan minat ini pada peranti anda buat sementara waktu. Hal ini membolehkan apl memaparkan iklan yang berkaitan kepada anda tanpa menjejaki aktiviti anda merentas laman web dan apl daripada pembangun lain."</string>
+    <string name="settingsUI_topics_view_no_blocked_topics_text" msgid="6553014185055718781">"Anda tidak mempunyai minat yang disekat"</string>
+    <string name="settingsUI_no_blocked_topics_ga_text" msgid="377459829879121256">"Tiada topik yang disekat"</string>
+    <string name="settingsUI_view_blocked_topics_title" msgid="3705333677440361392">"Lihat topik yang disekat"</string>
+    <string name="settingsUI_topics_are_reset" msgid="7539323750312329931">"Minat ditetapkan semula"</string>
+    <string name="settingsUI_topics_are_reset_ga" msgid="5250296990870048195">"Topik ditetapkan semula"</string>
+    <string name="settingsUI_apps_view_subtitle" msgid="8193343057416677400">"Apl boleh menganggarkan minat anda dan menyimpan minat ini dengan Android buat sementara waktu. Kemudian, apl lain boleh memaparkan iklan berdasarkan minat ini kepada anda.\n\nJika anda menyekat apl, apl itu tidak akan menganggarkan minat lagi. Apl tersebut tidak akan ditambahkan pada senarai apl ini lagi melainkan anda menyahsekat apl. Minat yang telah dianggarkan oleh apl akan dipadamkan, tetapi anda mungkin masih melihat beberapa iklan yang berkaitan."</string>
+    <string name="settingsUI_blocked_apps_title" msgid="1260257485713408637">"Apl yang anda sekat"</string>
+    <string name="settingsUI_view_blocked_apps_title" msgid="379556513199380600">"Lihat apl yang disekat"</string>
+    <string name="settingsUI_reset_apps_title" msgid="6221704974528131179">"Tetapkan semula minat yang dianggarkan oleh apl"</string>
+    <string name="settingsUI_apps_view_no_apps_text" msgid="7460005016322426137">"Tiada apl yang menjana minat untuk anda sekarang"</string>
+    <string name="settingsUI_apps_view_no_apps_ga_text" msgid="742044210764257860">"Tiada apl untuk ditunjukkan sekarang. \nKetahui lebih lanjut tentang "<a href="https://support.google.com/android?p=ad_privacy">"iklan cadangan apl"</a></string>
+    <string name="settingsUI_apps_view_info_text1" msgid="7835635425477842692">"Kotak Pasir Privasi"</string>
+    <string name="settingsUI_apps_view_info_text2" msgid="308547275474796552">"Beta privasi iklan Android menyediakan ciri baharu yang boleh digunakan oleh apl untuk memaparkan iklan yang mungkin anda suka kepada anda. Teknologi ini tidak menggunakan pengecam peranti.\n\nApl boleh menganggarkan jenis iklan yang mungkin anda minati dan menyimpan minat ini pada peranti anda buat sementara waktu. Hal ini membolehkan apl memaparkan iklan yang berkaitan kepada anda tanpa menjejaki aktiviti anda merentas laman web dan apl daripada pembangun lain."</string>
+    <string name="settingsUI_apps_view_no_blocked_apps_text" msgid="3953560911214151396">"Anda tidak mempunyai apl yang disekat"</string>
+    <string name="settingsUI_no_blocked_apps_ga_text" msgid="7488680173653861943">"Tiada apl yang disekat"</string>
+    <string name="settingsUI_measurement_switch_title" msgid="6623116680555954932">"Benarkan pengukuran iklan"</string>
+    <string name="settingsUI_measurement_view_intro_text" msgid="3608942051176719850">"Apl dan pengiklan boleh meminta maklumat daripada Android yang membantu mereka mengukur prestasi iklan mereka.\n\nData pengukuran iklan dipadamkan dengan kerap daripada peranti anda."</string>
+    <string name="settingsUI_measurement_view_reset_title" msgid="3063374834649428050">"Tetapkan semula data pengukuran"</string>
+    <string name="settingsUI_measurement_view_footer_text" msgid="5978750159738729308">"Android melindungi privasi anda dengan mengehadkan maklumat yang boleh dikongsi oleh apl antara satu sama lain. Laporan dihantar kemudian untuk melindungi identiti anda.\n\nPenyemak imbas anda mungkin menggunakan tetapan yang serupa. Jika pengukuran iklan dihidupkan untuk Android dan penyemak imbas anda, syarikat mungkin dapat mengukur keberkesanan sesuatu iklan antara apl yang anda gunakan dengan laman yang anda lawati. Sejarah penyemakan imbas anda dirahsiakan pada peranti anda.\n\nKetahui lebih lanjut tentang cara Android melindungi data anda dalam "<a href="https://policies.google.com/privacy">"Dasar Privasi"</a>" kami."</string>
+    <string name="settingsUI_measurement_are_reset" msgid="4375330550418573499">"Data pengukuran iklan ditetapkan semula"</string>
+    <string name="settingsUI_dialog_negative_text" msgid="3014088254631375852">"Batal"</string>
+    <string name="settingsUI_dialog_opt_out_title" msgid="1862069591629418291">"Matikan Kotak Pasir Privasi?"</string>
+    <string name="settingsUI_dialog_opt_out_message" msgid="5696012172835241848">"Jika anda berubah fikiran atau ingin mengetahui lebih lanjut tentang beta privasi iklan Android, pergi ke tetapan privasi anda"</string>
+    <string name="settingsUI_dialog_opt_out_positive_text" msgid="5344259263448028614">"Matikan"</string>
+    <string name="settingsUI_dialog_block_topic_title" msgid="5744004384480280782">"Sekat <xliff:g id="TOPIC">%1$s</xliff:g>?"</string>
+    <string name="settingsUI_dialog_block_topic_message" msgid="2581824495438333677">"Topik ini akan disekat dan tidak akan ditambahkan pada senarai anda lagi, melainkan anda menambahkan topik itu semula. Anda mungkin masih akan melihat beberapa iklan yang berkaitan."</string>
+    <string name="settingsUI_dialog_block_topic_positive_text" msgid="2626152417590300510">"Sekat"</string>
+    <string name="settingsUI_dialog_unblock_topic_title" msgid="7361000923920947234">"<xliff:g id="TOPIC">%1$s</xliff:g> dinyahsekat"</string>
+    <string name="settingsUI_dialog_unblock_topic_message" msgid="1090743551997420666">"Android boleh menambahkan topik ini pada senarai anda semula, tetapi topik mungkin tidak kelihatan dengan serta-merta"</string>
+    <string name="settingsUI_dialog_unblock_topic_positive_text" msgid="2192452325573789737">"OK"</string>
+    <string name="settingsUI_dialog_reset_topic_title" msgid="8025836207966712435">"Tetapkan semula semua topik iklan?"</string>
+    <string name="settingsUI_dialog_reset_topic_message" msgid="4243744527757134000">"Senarai anda akan dikosongkan dan topik baharu akan ditambahkan pada masa akan datang. Anda mungkin masih akan melihat beberapa iklan yang berkaitan dengan topik yang anda tetapkan semula."</string>
+    <string name="settingsUI_dialog_reset_topic_positive_text" msgid="8345697359799280761">"Tetapkan semula"</string>
+    <string name="settingsUI_dialog_block_app_title" msgid="421160714549264414">"Sekat <xliff:g id="APP">%1$s</xliff:g>?"</string>
+    <string name="settingsUI_dialog_block_app_message" msgid="758788973278770119">"Apl ini tidak akan mencadangkan iklan dan iklan tidak akan ditambahkan pada senarai anda lagi, melainkan anda menyahsekat apl. Anda mungkin masih akan melihat beberapa iklan yang berkaitan."</string>
+    <string name="settingsUI_dialog_unblock_app_title" msgid="4360730780049298286">"<xliff:g id="APP">%1$s</xliff:g> dinyahsekat"</string>
+    <string name="settingsUI_dialog_unblock_app_message" msgid="5758218424845642060">"Apl ini boleh mencadangkan iklan untuk anda semula, tetapi iklan tersebut mungkin tidak kelihatan dalam senarai anda dengan serta-merta. Sedikit masa mungkin diperlukan untuk anda melihat iklan yang berkaitan."</string>
+    <string name="settingsUI_dialog_reset_app_title" msgid="5177572712117150557">"Tetapkan semula iklan yang dicadangkan oleh apl?"</string>
+    <string name="settingsUI_dialog_reset_app_message" msgid="7845329616145691006">"Data cadangan iklan daripada apl pada senarai anda akan dipadamkan dan apl akan mencadangkan iklan baharu pada masa akan datang. Anda mungkin masih akan melihat beberapa iklan yang berkaitan."</string>
+    <string name="settingsUI_apps_are_reset" msgid="1814400631145418530">"Data apl telah ditetapkan semula"</string>
+    <string name="settingsUI_dialog_topics_opt_in_title" msgid="8121927422479701361">"Topik iklan dihidupkan"</string>
+    <string name="settingsUI_dialog_topics_opt_in_message" msgid="906156509464496182">"Android akan mula mengetahui topik yang anda minati tetapi perkara ini mungkin mengambil sedikit masa sehingga topik pertama anda dapat dipaparkan."</string>
+    <string name="settingsUI_dialog_topics_opt_out_title" msgid="729119757000459089">"Matikan ciri topik iklan?"</string>
+    <string name="settingsUI_dialog_topics_opt_out_message" msgid="1536431481297878931">"Senarai topik ini akan dipadamkan. Android tidak akan mengetahui topik yang anda minati lagi tetapi anda masih boleh melihat iklan yang berkaitan."</string>
+    <string name="settingsUI_dialog_apps_opt_in_title" msgid="1802639238531107941">"Iklan yang dicadangkan oleh apl dihidupkan"</string>
+    <string name="settingsUI_dialog_apps_opt_in_message" msgid="6335861029594000364">"Apl mungkin mula mencadangkan iklan. Anda akan melihat senarai apl sebaik sahaja apl mula mencadangkan iklan."</string>
+    <string name="settingsUI_dialog_apps_opt_out_title" msgid="2152898453001885432">"Matikan ciri iklan yang dicadangkan oleh apl?"</string>
+    <string name="settingsUI_dialog_apps_opt_out_message" msgid="6894065908128443334">"Semua data cadangan iklan akan dipadamkan. Apl tidak akan dapat mencadangkan iklan lagi tetapi anda masih boleh melihat iklan yang berkaitan."</string>
+    <string name="settingsUI_dialog_measurement_opt_in_title" msgid="313317715284771681">"Pengukuran iklan dihidupkan"</string>
+    <string name="settingsUI_dialog_measurement_opt_in_message" msgid="1122570790810645916">"Android boleh berkongsi maklumat yang amat terhad sahaja dengan apl untuk membantu apl mengukur prestasi iklan mereka."</string>
+    <string name="settingsUI_dialog_measurement_opt_out_title" msgid="1629867723206716370">"Matikan ciri pengukuran iklan?"</string>
+    <string name="settingsUI_dialog_measurement_opt_out_message" msgid="1050338738668085641">"Semua laporan pengukuran iklan yang belum selesai akan dipadamkan dan tiada laporan baharu akan dijana atau dikongsi."</string>
+    <string name="settingsUI_main_view_ga_title" msgid="4149820452019697214">"Privasi iklan"</string>
+    <string name="settingsUI_topics_ga_title" msgid="7324482132761824214">"Topik iklan"</string>
+    <string name="settingsUI_apps_ga_title" msgid="1527820834800364372">"Iklan cadangan apl"</string>
+    <string name="settingsUI_main_view_ad_topics_info" msgid="2643088833140772417">"Android mengetahui topik yang anda minati berdasarkan apl yang anda gunakan baru-baru ini dan kekerapan anda menggunakan apl."</string>
+    <string name="settingsUI_main_view_apps_info" msgid="1668244327840008046">"Apl yang anda gunakan juga boleh menentukan perkara yang anda suka berdasarkan cara anda menggunakan apl."</string>
+    <string name="settingsU_main_view_measurement_info" msgid="7950104699961821635">"Apl yang anda gunakan boleh meminta maklumat daripada Android untuk membantu apl mengukur prestasi iklan apl. Android membolehkan apl mengumpulkan jenis data yang terhad."</string>
+    <string name="settingsU_main_view_learn_more" msgid="2129694798398023916">"Ketahui lebih lanjut tentang "<a href="https://support.google.com/android?p=ad_privacy">"privasi iklan pada Android"</a></string>
+    <string name="settingsUI_topics_subtitle" msgid="6545976434367750110">"Hidup / <xliff:g id="TOPICS_COUNT">%1$d</xliff:g> topik"</string>
+    <string name="settingsUI_topics_subtitle_plural" msgid="4809219115021801972">"{count,plural, =1{Hidup / # topik}other{Hidup / # topik}}"</string>
+    <string name="settingsUI_apps_subtitle" msgid="387595280958995973">"Hidup / <xliff:g id="APPS_COUNT">%1$d</xliff:g> apl"</string>
+    <string name="settingsUI_apps_subtitle_plural" msgid="3989880089023565457">"{count,plural, =1{Hidup / # apl}other{Hidup / # apl}}"</string>
+    <string name="settingsUI_subtitle_consent_on" msgid="7522464537194619022">"Hidup"</string>
+    <string name="settingsUI_subtitle_consent_off" msgid="1604274030685784887">"Mati"</string>
+    <string name="settingsUI_topics_view_ga_subtitle" msgid="3672784134413586246">"Topik yang anda minati adalah berdasarkan apl yang anda gunakan baru-baru ini dan digunakan oleh apl untuk menunjukkan iklan diperibadikan kepada anda.\n\nAnda boleh menyekat topik yang tidak ingin anda kongsikan dengan apl. Android juga autopadam topik secara kerap."</string>
+    <string name="settingsUI_topics_switch_title" msgid="5856255848598189791">"Benarkan topik iklan"</string>
+    <string name="settingsUI_blocked_topics_ga_title" msgid="7163366621282449273">"Topik iklan yang anda sekat"</string>
+    <string name="settingsUI_reset_topics_ga_title" msgid="5365554894399951300">"Tetapkan semula semua topik iklan"</string>
+    <string name="settingsU_topics_view_footer" msgid="4769146330248953561">"Android mengetahui topik yang anda minati berdasarkan apl yang telah anda gunakan dalam beberapa minggu lepas.\n\nKemudian, apl yang anda gunakan boleh meminta topik anda daripada Android untuk memeribadikan iklan yang anda lihat. Android berkongsi hingga 3 topik sambil melindungi identiti anda dan maklumat tentang penggunaan anda pada apl.\n\nAndroid mengautopadam topik secara kerap. Sementara anda terus menggunakan apl, topik mungkin dipaparkan semula pada senarai. Atau anda boleh menyekat topik yang anda tidak mahu Android berkongsi dengan apl.\n\nDalam apl anda, iklan yang anda lihat mungkin diperibadikan, bergantung pada tetapan ini, tetapan iklan cadangan apl, tetapan ID pengiklanan anda dan sama ada apl yang anda gunakan memperibadikan iklan atau tidak."</string>
+    <string name="settingsUI_apps_switch_title" msgid="1308209012769248890">"Benarkan iklan cadangan apl"</string>
+    <string name="settingsUI_apps_view_ga_subtitle" msgid="1911743837387384160">"Apl yang anda gunakan boleh menentukan perkara yang anda suka dan mencadangkan iklan pada apl lain.\n\nAnda boleh menyekat apl daripada membuat cadangan. Android juga mengautopadam data cadangan apl secara kerap."</string>
+    <string name="settingsUI_blocked_apps_ga_title" msgid="1896327995101895088">"Apl yang anda sekat"</string>
+    <string name="settingsUI_reset_apps_ga_title" msgid="371969808353100852">"Tetapkan semula data cadangan apl"</string>
+    <string name="settingsUI_apps_view_footer" msgid="6428897482766556515">"Apl yang anda gunakan biasanya akan mengingati perkara yang anda minati untuk memeribadikan pengalaman anda. Apl juga boleh menyimpan maklumat dengan Android tentang topik anda.\n\nSebagai contoh, jika anda menggunakan apl tentang latihan maraton, apl itu mungkin akan memutuskan bahawa anda berminat dengan kasut lari. Kemudian, jika anda menggunakan apl yang berbeza, apl itu boleh menunjukkan kepada anda iklan untuk kasut lari yang dicadangkan oleh apl pertama.\n\nAndroid akan autopadam data yang dicadangkan oleh apl secara kerap. Apl yang anda gunakan sekali lagi mungkin akan dipaparkan semula pada senarai. Anda juga boleh menyekat apl daripada mencadangkan iklan kepada anda.\n\nDalam apl anda, iklan yang anda lihat mungkin diperibadikan, bergantung pada tetapan ini, tetapan topik iklan, tetapan ID pengiklanan anda dan sama ada apl yang anda gunakan memeribadikan iklan."</string>
+    <string name="notificationUI_u18_notification_title" msgid="4880509503177562077">"Ciri privasi iklan baharu tersedia"</string>
+    <string name="notificationUI_u18_notification_content" msgid="6734418183242286936">"Hanya maklumat yang sangat terhad dikongsi antara apl untuk membantu apl mengukur prestasi iklan"</string>
+    <string name="notificationUI_u18_body1" msgid="5384339364319615715">"Kami melancarkan ciri privasi iklan baharu yang dipanggil pengukuran iklan. Android hanya berkongsi maklumat yang sangat terhad antara apl, seperti apabila iklan dipaparkan kepada anda, untuk membantu apl mengukur prestasi iklan."</string>
+    <string name="notificationUI_u18_body3" msgid="4511974346169641579">"Anda boleh membuat perubahan dalam tetapan privasi iklan."</string>
+    <string name="settingsUI_u18_main_view_measurement_info" msgid="1709326915590855853">"Apl yang anda gunakan boleh meminta Android maklumat untuk membantu apl mengukur prestasi iklan apl. Android membolehkan apl mengumpulkan jenis data yang terhad sahaja."</string>
+    <string name="ic_consent_notification_ga_image_description" msgid="6146488914437778539">"Ilustrasi simbol berwarna-warni yang mewakili topik yang diminati seperti muzik, berita dan sukan"</string>
+    <string name="ic_main_view_ga_image_description" msgid="1846571138870271761">"Ilustrasi berwarna-warni kunci di dalam bulatan"</string>
+    <string name="ic_placeholder_icon_for_empty_apps_list_description" msgid="8171099879240285360">"Ilustrasi kecil hitam dan putih sembilan titik yang membentuk segi empat sama"</string>
+    <string name="ic_placeholder_icon_for_empty_topics_list_description" msgid="2112218456926009271">"Ilustrasi kecil hitam dan putih bentuk mudah seperti hati, segi tiga dan segi empat sama"</string>
+    <string name="topic10001" msgid="1636806320891333775">"Seni &amp; Hiburan"</string>
+    <string name="topic10002" msgid="1226367977754287428">"Lakonan &amp; Teater"</string>
+    <string name="topic10003" msgid="6949890838957814881">"Anime &amp; Manga"</string>
+    <string name="topic10004" msgid="5397903150832181233">"Kartun"</string>
+    <string name="topic10005" msgid="6316179809581237302">"Komik"</string>
+    <string name="topic10006" msgid="7442330644172139790">"Konsert &amp; Festival Muzik"</string>
+    <string name="topic10007" msgid="5537896091418145164">"Tarian"</string>
+    <string name="topic10008" msgid="2737343278307552521">"Industri Hiburan"</string>
+    <string name="topic10009" msgid="3252367380340240453">"Keseronokan &amp; Trivia"</string>
+    <string name="topic10010" msgid="932301479153552725">"Ujian Seronok &amp; Tinjauan Lucu"</string>
+    <string name="topic10011" msgid="3123553390567261985">"Jenaka"</string>
+    <string name="topic10012" msgid="8756486271154511326">"Gambar &amp; Video Kelakar"</string>
+    <string name="topic10013" msgid="1242353161202448753">"Komedi Langsung"</string>
+    <string name="topic10014" msgid="6086156236112755291">"Acara Sukan Langsung"</string>
+    <string name="topic10015" msgid="9196350141359833832">"Magik"</string>
+    <string name="topic10016" msgid="202419376638900745">"Senarai Filem &amp; Waktu Tayangan Pawagam"</string>
+    <string name="topic10017" msgid="6737229918787540100">"Filem"</string>
+    <string name="topic10018" msgid="6823676154109177487">"Filem Aksi &amp; Pengembaraan"</string>
+    <string name="topic10019" msgid="6875960630918973127">"Filem Animasi"</string>
+    <string name="topic10020" msgid="4323870300602151489">"Filem Komedi"</string>
+    <string name="topic10021" msgid="446758643774468418">"Filem Kultus &amp; Indie"</string>
+    <string name="topic10022" msgid="3671929742155787005">"Filem Dokumentari"</string>
+    <string name="topic10023" msgid="3547616830531182863">"Filem Drama"</string>
+    <string name="topic10024" msgid="1044853632986202120">"Filem Keluarga"</string>
+    <string name="topic10025" msgid="5958629223443279316">"Filem Ngeri"</string>
+    <string name="topic10026" msgid="5685515125614860029">"Filem Romantik"</string>
+    <string name="topic10027" msgid="8846353713171614854">"Seram"</string>
+    <string name="topic10028" msgid="170404703980174756">"Muzik &amp; Audio"</string>
+    <string name="topic10029" msgid="4634600135545614665">"Blues"</string>
+    <string name="topic10030" msgid="7226438392540805771">"Muzik Klasik"</string>
+    <string name="topic10031" msgid="1488013446112025676">"Muzik Desa"</string>
+    <string name="topic10032" msgid="9053666244854789632">"Musik Tarian &amp; Elektronik"</string>
+    <string name="topic10033" msgid="440063573197454181">"Muzik Rakyat &amp; Tradisional"</string>
+    <string name="topic10034" msgid="8296307244554241197">"Jaz"</string>
+    <string name="topic10035" msgid="9171752741499923310">"Strim &amp; Muat Turun Muzik"</string>
+    <string name="topic10036" msgid="2490236112725457376">"Video Muzik"</string>
+    <string name="topic10037" msgid="1923690469725883551">"Alat Muzik"</string>
+    <string name="topic10038" msgid="2817492732688549631">"Piano &amp; Papan Nada"</string>
+    <string name="topic10039" msgid="8970033643570782019">"Muzik Pop"</string>
+    <string name="topic10040" msgid="7478395512712452137">"Radio"</string>
+    <string name="topic10041" msgid="3319379117705411886">"Radio Bual"</string>
+    <string name="topic10042" msgid="8830471038440654640">"Rap &amp; Hip-Hop"</string>
+    <string name="topic10043" msgid="8585450284346207691">"Muzik Rock"</string>
+    <string name="topic10044" msgid="3710011249220779842">"Rock Klasik &amp; Lagu Lama"</string>
+    <string name="topic10045" msgid="7593443421067822441">"Hard Rock &amp; Progresif"</string>
+    <string name="topic10046" msgid="8715621227472631784">"Muzik Indie &amp; Alternatif"</string>
+    <string name="topic10047" msgid="3518038303049899798">"Pustaka Sampel &amp; Bunyi"</string>
+    <string name="topic10048" msgid="3063505369500799094">"Soul &amp; R&amp;B"</string>
+    <string name="topic10049" msgid="8061992014977840818">"Muzik Filem"</string>
+    <string name="topic10050" msgid="3540229495848506229">"Muzik Dunia"</string>
+    <string name="topic10051" msgid="6132468331924347995">"Muzik Reggae &amp; Caribbean"</string>
+    <string name="topic10052" msgid="8213269199807045473">"Galeri Imej Dalam Talian"</string>
+    <string name="topic10053" msgid="1378192203082454197">"Video Dalam Talian"</string>
+    <string name="topic10054" msgid="3727401645405134505">"Penstriman Video Langsung"</string>
+    <string name="topic10055" msgid="4943174831732192854">"Penstriman Filem &amp; TV"</string>
+    <string name="topic10056" msgid="3066058636154255073">"Opera"</string>
+    <string name="topic10057" msgid="387445514677222034">"Panduan &amp; Rujukan TV"</string>
+    <string name="topic10058" msgid="9149178644022969766">"Rangkaian &amp; Stesen TV"</string>
+    <string name="topic10059" msgid="6300562669238320524">"Rancangan &amp; Program TV"</string>
+    <string name="topic10060" msgid="3901256055064835246">"Komedi TV"</string>
+    <string name="topic10061" msgid="8343924749123326062">"Dokumentari TV &amp; Bukan Fiksyen"</string>
+    <string name="topic10062" msgid="9183355218976951211">"Drama TV"</string>
+    <string name="topic10063" msgid="644340831620792432">"Lipur Lara TV"</string>
+    <string name="topic10064" msgid="5961885645457010998">"Rancangan TV Berorientasikan Keluarga"</string>
+    <string name="topic10065" msgid="7916343612028608044">"Rancangan Realiti TV"</string>
+    <string name="topic10066" msgid="5984396525358003559">"Rancangan TV Cereka Sains &amp; Fantasi"</string>
+    <string name="topic10067" msgid="6404637729885733437">"Seni Visual &amp; Reka Bentuk"</string>
+    <string name="topic10068" msgid="4589856961950168493">"Reka Bentuk"</string>
+    <string name="topic10069" msgid="3129378082034151991">"Seni Lukis"</string>
+    <string name="topic10070" msgid="2570256568661324147">"Seni Fotografi &amp; Digital"</string>
+    <string name="topic10071" msgid="1288722040962471254">"Kereta &amp; Kenderaan"</string>
+    <string name="topic10072" msgid="9155509766616567261">"Trak &amp; Treler Kargo"</string>
+    <string name="topic10073" msgid="3748676231341513738">"Kenderaan Klasik"</string>
+    <string name="topic10074" msgid="2040911547161463227">"Kenderaan Tersuai &amp; Prestasi"</string>
+    <string name="topic10075" msgid="1242538698445713796">"Harga Minyak &amp; Mengisi Minyak Kenderaan"</string>
+    <string name="topic10076" msgid="8674225812339579627">"Kenderaan Motor (Mengikut Jenis)"</string>
+    <string name="topic10077" msgid="3577709810751953433">"Kenderaan Berautonomi"</string>
+    <string name="topic10078" msgid="5493263845129910125">"Kereta Berhud"</string>
+    <string name="topic10079" msgid="3466838852836498580">"Kereta Coupe"</string>
+    <string name="topic10080" msgid="3515647285637163190">"Kereta Hacbek"</string>
+    <string name="topic10081" msgid="4135085035401158860">"Kenderaan Hibrid &amp; Alternatif"</string>
+    <string name="topic10082" msgid="7168659489029594320">"Kenderaan Mewah"</string>
+    <string name="topic10083" msgid="1532745144715857802">"Kereta Mikro &amp; Subkompak"</string>
+    <string name="topic10084" msgid="1984231414410381476">"Motosikal"</string>
+    <string name="topic10085" msgid="5235555028227554661">"Kenderaan Luar Jalan Raya"</string>
+    <string name="topic10086" msgid="8360336602646460411">"Trak Pikap"</string>
+    <string name="topic10087" msgid="6566900167002195406">"Skuter &amp; Basikal Berenjin"</string>
+    <string name="topic10088" msgid="2899313082601001223">"Kereta Sedan"</string>
+    <string name="topic10089" msgid="1053630346809973163">"Station Wagons"</string>
+    <string name="topic10090" msgid="4478565601243447368">"SUV &amp; Kenderaan Utiliti Lintas"</string>
+    <string name="topic10091" msgid="3812668311830832874">"Kenderaan Utiliti Lintas"</string>
+    <string name="topic10092" msgid="524130833813249539">"Van &amp; Van Mini"</string>
+    <string name="topic10093" msgid="8900143351472824542">"Khidmat Tunda &amp; Bantuan Tepi Jalan"</string>
+    <string name="topic10094" msgid="6205146188176216038">"Keselamatan Kenderaan &amp; Trafik"</string>
+    <string name="topic10095" msgid="7983070264654477553">"Alat Ganti Kenderaan &amp; Aksesori"</string>
+    <string name="topic10096" msgid="8148747014459050804">"Pembaikan &amp; Penyelenggaraan Kenderaan"</string>
+    <string name="topic10097" msgid="4716536434833425748">"Beli-belah Kenderaan"</string>
+    <string name="topic10098" msgid="6401980112135995019">"Kenderaan Terpakai"</string>
+    <string name="topic10099" msgid="8018714209926584445">"Pertunjukan Kenderaan"</string>
+    <string name="topic10100" msgid="2481422464734249871">"Kecantikan &amp; Kecergasan"</string>
+    <string name="topic10101" msgid="7889144198021629053">"Seni Badan"</string>
+    <string name="topic10102" msgid="577637051755692238">"Penjagaan Wajah &amp; Tubuh"</string>
+    <string name="topic10103" msgid="6618157344631408510">"Antipeluh"</string>
+    <string name="topic10104" msgid="6043649669944382784">"Produk Mandi &amp; Tubuh"</string>
+    <string name="topic10105" msgid="3248569527339253661">"Kecantikan Bersih"</string>
+    <string name="topic10106" msgid="1291481249483309832">"Alat Solek &amp; Kosmetik"</string>
+    <string name="topic10107" msgid="1335060201249279923">"Produk Penjagaan Kuku"</string>
+    <string name="topic10108" msgid="4996884435711154930">"Minyak Wangi &amp; Haruman"</string>
+    <string name="topic10109" msgid="7298403319989686251">"Pencukur"</string>
+    <string name="topic10110" msgid="5954355866247248022">"Fesyen &amp; Gaya"</string>
+    <string name="topic10111" msgid="4447710938881368413">"Kecergasan"</string>
+    <string name="topic10112" msgid="8816530137921714131">"Bina Badan"</string>
+    <string name="topic10113" msgid="8138889299405853557">"Arahan Kecergasan &amp; Latihan Peribadi"</string>
+    <string name="topic10114" msgid="2172821400279346865">"Produk Teknologi Kecergasan"</string>
+    <string name="topic10115" msgid="9060244278068231494">"Penjagaan Rambut"</string>
+    <string name="topic10116" msgid="116242880964485085">"Buku &amp; Sastera"</string>
+    <string name="topic10117" msgid="8933734721100160863">"Sastera Kanak-kanak"</string>
+    <string name="topic10118" msgid="4368531903547695191">"E-Buku"</string>
+    <string name="topic10119" msgid="2781095265741115471">"Majalah"</string>
+    <string name="topic10120" msgid="3099507102655270527">"Puisi"</string>
+    <string name="topic10121" msgid="4466592180799340837">"Perniagaan &amp; Industri"</string>
+    <string name="topic10122" msgid="2375136741125920744">"Pengiklanan &amp; Pemasaran"</string>
+    <string name="topic10123" msgid="6974082907852347979">"Jualan"</string>
+    <string name="topic10124" msgid="44474598156972786">"Pertanian &amp; Perhutanan"</string>
+    <string name="topic10125" msgid="9170394261421539760">"Pengeluaran Makanan"</string>
+    <string name="topic10126" msgid="2210146434071038904">"Industri Automotif"</string>
+    <string name="topic10127" msgid="5503077037318678029">"Industri Penerbangan"</string>
+    <string name="topic10128" msgid="285525650692719959">"Operasi Perniagaan"</string>
+    <string name="topic10129" msgid="3094691551566702427">"Aturan Kerja Fleksibel"</string>
+    <string name="topic10130" msgid="1922351409757117764">"Sumber Manusia"</string>
+    <string name="topic10131" msgid="8598763405951029782">"Peminjaman Komersial"</string>
+    <string name="topic10132" msgid="1476352626208153907">"Pembinaan &amp; Penyelenggaraan"</string>
+    <string name="topic10133" msgid="7089177624979453528">"Kejuruteraan Awam"</string>
+    <string name="topic10134" msgid="3833032373311037601">"Industri Pertahanan"</string>
+    <string name="topic10135" msgid="2478808072377000440">"Tenaga &amp; Utiliti"</string>
+    <string name="topic10136" msgid="9083992436834044162">"Bekalan &amp; Rawatan Air"</string>
+    <string name="topic10137" msgid="1912599316814246824">"Industri Hospitaliti"</string>
+    <string name="topic10138" msgid="7428346836350671895">"Pengilangan"</string>
+    <string name="topic10139" msgid="1396685812404869953">"Logam &amp; Perlombongan"</string>
+    <string name="topic10140" msgid="5264212052238781441">"MLM &amp; Peluang Perniagaan"</string>
+    <string name="topic10141" msgid="860058416683118730">"Farmaseutikal &amp; Bioteknologi"</string>
+    <string name="topic10142" msgid="2912550934111655896">"Percetakan &amp; Penerbitan"</string>
+    <string name="topic10143" msgid="5690610408227078117">"Perdagangan Runcit"</string>
+    <string name="topic10144" msgid="3341052306953106368">"Modal Usaha Niaga"</string>
+    <string name="topic10145" msgid="6886608911083388041">"Komputer &amp; Elektronik"</string>
+    <string name="topic10146" msgid="8202145175139144216">"Peranti Persisian Komputer"</string>
+    <string name="topic10147" msgid="4687964705548995437">"Pencetak"</string>
+    <string name="topic10148" msgid="8861628145647459323">"Keselamatan Komputer"</string>
+    <string name="topic10149" msgid="1719988773455991739">"Antivirus &amp; Perisian Hasad"</string>
+    <string name="topic10150" msgid="1482205464872465298">"Keselamatan Rangkaian"</string>
+    <string name="topic10151" msgid="1772262905623388968">"Elektronik Pengguna"</string>
+    <string name="topic10152" msgid="651152740021127086">"Kamera &amp; Kamkorder"</string>
+    <string name="topic10153" msgid="8741504768717646372">"GPS &amp; Navigasi"</string>
+    <string name="topic10154" msgid="5382029798409496090">"Pengautomatan Rumah"</string>
+    <string name="topic10155" msgid="5243817792730496258">"Sistem Panggung Rumah"</string>
+    <string name="topic10156" msgid="2497791567138856030">"MP3 &amp; Pemain Media Mudah Alih"</string>
+    <string name="topic10157" msgid="4723439422860510190">"Teknologi Boleh Dipakai"</string>
+    <string name="topic10158" msgid="5345830001295028513">"Sandaran &amp; Pemulihan Data"</string>
+    <string name="topic10159" msgid="6146958285117174314">"Komputer Meja"</string>
+    <string name="topic10160" msgid="6624820395549466426">"Komputer Riba"</string>
+    <string name="topic10161" msgid="912458758908978530">"Perangkaian"</string>
+    <string name="topic10162" msgid="6717352131379507693">"Pengkomputeran Awan &amp; Teragih"</string>
+    <string name="topic10163" msgid="6344926622025055321">"Pengaturcaraan"</string>
+    <string name="topic10164" msgid="4228888249078845459">"Perisian"</string>
+    <string name="topic10165" msgid="5507908999219967161">"Perisian Audio &amp; Muzik"</string>
+    <string name="topic10166" msgid="4768106492755849560">"Perisian Perniagaan &amp; Produktiviti"</string>
+    <string name="topic10167" msgid="8556935769754922871">"Perisian Kalendar &amp; Penjadualan"</string>
+    <string name="topic10168" msgid="7730134961167790334">"Perisian Kerjasama &amp; Persidangan"</string>
+    <string name="topic10169" msgid="5655084106378890454">"Perisian Pembentangan"</string>
+    <string name="topic10170" msgid="4638281897205909919">"Perisian Hamparan"</string>
+    <string name="topic10171" msgid="7910183120486541228">"Perisian Pemprosesan Kata"</string>
+    <string name="topic10172" msgid="3626573644414074730">"Penerbitan Desktop"</string>
+    <string name="topic10173" msgid="7320053835183057144">"Fon"</string>
+    <string name="topic10174" msgid="5770469447869586710">"Pengurus Muat Turun"</string>
+    <string name="topic10175" msgid="3475235810022334041">"Perisian Percuma &amp; Perisian Kongsi"</string>
+    <string name="topic10176" msgid="6881704501596479881">"Perisian Grafik &amp; Animasi"</string>
+    <string name="topic10177" msgid="6740430730079682579">"Pembantu Peribadi Pintar"</string>
+    <string name="topic10178" msgid="7261811053741593091">"Pemain Media"</string>
+    <string name="topic10179" msgid="2967001567120854492">"Perisian Pemantauan"</string>
+    <string name="topic10180" msgid="4197420326455130102">"Sistem Pengendalian"</string>
+    <string name="topic10181" msgid="3537573129132698830">"Perisian Foto &amp; Video"</string>
+    <string name="topic10182" msgid="7688631285131229981">"Perisian Foto"</string>
+    <string name="topic10183" msgid="5994974566140272512">"Perisian Video"</string>
+    <string name="topic10184" msgid="8685817335076871509">"Utiliti Perisian"</string>
+    <string name="topic10185" msgid="308314128178285390">"Penyemak Imbas Web"</string>
+    <string name="topic10186" msgid="3147859503481018245">"Kewangan"</string>
+    <string name="topic10187" msgid="7077128721410871032">"Perakaunan &amp; Pengauditan"</string>
+    <string name="topic10188" msgid="2206138708659457910">"Penyediaan &amp; Perancangan Cukai"</string>
+    <string name="topic10189" msgid="4001795553008246784">"Perbankan"</string>
+    <string name="topic10190" msgid="2988430661381243083">"Perkhidmatan Pindahan Wang &amp; Kirim Kawat"</string>
+    <string name="topic10191" msgid="6196081825838237614">"Kredit &amp; Peminjaman"</string>
+    <string name="topic10192" msgid="3290123244833047307">"Kad Kredit"</string>
+    <string name="topic10193" msgid="294407043381146861">"Pembiayaan Kediaman"</string>
+    <string name="topic10194" msgid="2834543407440890272">"Pinjaman Peribadi"</string>
+    <string name="topic10195" msgid="7650553060132394782">"Pinjaman Pelajar &amp; Pembiayaan Kolej"</string>
+    <string name="topic10196" msgid="5395035781876507254">"Perancangan &amp; Pengurusan Kewangan"</string>
+    <string name="topic10197" msgid="1287138667488226463">"Persaraan &amp; Pencen"</string>
+    <string name="topic10198" msgid="2523256186943366779">"Geran"</string>
+    <string name="topic10199" msgid="3746711537661530183">"Geran"</string>
+    <string name="topic10200" msgid="2394864891391267841">"Insurans"</string>
+    <string name="topic10201" msgid="4301879117376963742">"Insurans Kenderaan"</string>
+    <string name="topic10202" msgid="739808503036239379">"Insurans Kesihatan"</string>
+    <string name="topic10203" msgid="838786942776142290">"Insurans Kediaman"</string>
+    <string name="topic10204" msgid="6591131759521321677">"Insurans Nyawa"</string>
+    <string name="topic10205" msgid="3294946723815021478">"Insurans Perjalanan"</string>
+    <string name="topic10206" msgid="6166888350685752683">"Pelaburan"</string>
+    <string name="topic10207" msgid="2296385804039743999">"Perdagangan Komoditi &amp; Niaga Hadapan"</string>
+    <string name="topic10208" msgid="2717498987483479091">"Pertukaran Mata Wang Asing"</string>
+    <string name="topic10209" msgid="5204948738662951962">"Dana Lindung Nilai"</string>
+    <string name="topic10210" msgid="4607225697024266227">"Dana Bersama"</string>
+    <string name="topic10211" msgid="7475381839877166080">"Saham &amp; Bon"</string>
+    <string name="topic10212" msgid="3988751035952286047">"Makanan &amp; Minuman"</string>
+    <string name="topic10213" msgid="1358963098339995471">"Masakan &amp; Resipi"</string>
+    <string name="topic10214" msgid="8463864389138867811">"BBQ &amp; Gril"</string>
+    <string name="topic10215" msgid="3085467051491069648">"Hidangan"</string>
+    <string name="topic10216" msgid="6043130649326166680">"Hidangan Vegetarian"</string>
+    <string name="topic10217" msgid="7173870057669247536">"Hidangan Vegan"</string>
+    <string name="topic10218" msgid="5570240643247064951">"Pemakanan Sihat"</string>
+    <string name="topic10219" msgid="5896715206025463732">"Peruncit Makanan &amp; Barang Runcit"</string>
+    <string name="topic10220" msgid="3894580611467039658">"Permainan"</string>
+    <string name="topic10221" msgid="14471057764591805">"Permainan Arked &amp; Guna Syiling"</string>
+    <string name="topic10222" msgid="2704894577954508861">"Biliard"</string>
+    <string name="topic10223" msgid="202900267060220170">"Mainan Berpapan"</string>
+    <string name="topic10224" msgid="6572627325588452785">"Catur &amp; Permainan Strategi Abstrak"</string>
+    <string name="topic10225" msgid="8056906319560292131">"Permainan Kad"</string>
+    <string name="topic10226" msgid="714463563336281099">"Permainan Kad Koleksi"</string>
+    <string name="topic10227" msgid="218768654597520683">"Permainan Komputer &amp; Video"</string>
+    <string name="topic10228" msgid="850597136074192489">"Permainan Aksi &amp; Platform"</string>
+    <string name="topic10229" msgid="4284501233897149886">"Permainan Kembara"</string>
+    <string name="topic10230" msgid="7156822286576815181">"Permainan Kasual"</string>
+    <string name="topic10231" msgid="7620407218897744361">"Permainan Video Kompetitif"</string>
+    <string name="topic10232" msgid="3029734447275709941">"Permainan Pemanduan &amp; Perlumbaan"</string>
+    <string name="topic10233" msgid="8318075279868138231">"Permainan Berlawan"</string>
+    <string name="topic10234" msgid="3899847414436099153">"Rujukan &amp; Ulasan Permainan"</string>
+    <string name="topic10235" msgid="5851356242523630529">"Elat &amp; Petua Permainan Video"</string>
+    <string name="topic10236" msgid="1986665634014804954">"Permainan Berbilang Pemain Besar-besaran"</string>
+    <string name="topic10237" msgid="5569920221620447713">"Permainan Muzik &amp; Tarian"</string>
+    <string name="topic10238" msgid="7431087331656772530">"Permainan Kotak Pasir"</string>
+    <string name="topic10239" msgid="8667462879554115515">"Permainan Menembak"</string>
+    <string name="topic10240" msgid="1618985302446756520">"Permainan Simulasi"</string>
+    <string name="topic10241" msgid="8450778411063723262">"Permainan Perniagaan &amp; Taikun"</string>
+    <string name="topic10242" msgid="8860812940320018907">"Permainan Pembinaan Kota"</string>
+    <string name="topic10243" msgid="1764694148721971512">"Permainan Simulasi Hayat"</string>
+    <string name="topic10244" msgid="4308588210397969087">"Simulator Kenderaan"</string>
+    <string name="topic10245" msgid="6904368410919496658">"Permainan Sukan"</string>
+    <string name="topic10246" msgid="3381244806751528148">"Permainan Pengurusan Sukan"</string>
+    <string name="topic10247" msgid="5927502688389762068">"Permainan Strategi"</string>
+    <string name="topic10248" msgid="8471339627212674032">"Mod Permainan Video &amp; Alat Tambah"</string>
+    <string name="topic10249" msgid="5076706536204559962">"Permainan Pendidikan"</string>
+    <string name="topic10250" msgid="6083030595195401083">"Permainan &amp; Aktiviti Berorientasikan Keluarga"</string>
+    <string name="topic10251" msgid="99237306730665104">"Melukis &amp; Mewarna"</string>
+    <string name="topic10252" msgid="6543039575961394064">"Permainan Hias Diri &amp; Fesyen"</string>
+    <string name="topic10253" msgid="566596668186874227">"Teka-teki &amp; Belit-belit Akal"</string>
+    <string name="topic10254" msgid="5732147617072023634">"Permainan Lakon Peranan"</string>
+    <string name="topic10255" msgid="2890655077164103057">"Pingpong"</string>
+    <string name="topic10256" msgid="3302096971402751679">"Permainan Jubin"</string>
+    <string name="topic10257" msgid="4238531589193902619">"Permainan Kata"</string>
+    <string name="topic10258" msgid="6995329540076529056">"Hobi &amp; Santai"</string>
+    <string name="topic10259" msgid="8649688885811560410">"Ulang Tahun"</string>
+    <string name="topic10260" msgid="487999213495640080">"Hari Lahir &amp; Nama Hari"</string>
+    <string name="topic10261" msgid="8970668366745952094">"Aktiviti Menyelam &amp; Dalam Air"</string>
+    <string name="topic10262" msgid="6644046161469353448">"Seni Kain &amp; Tekstil"</string>
+    <string name="topic10263" msgid="848165976917542929">"Luar Rumah"</string>
+    <string name="topic10264" msgid="6274985117752637104">"Memancing"</string>
+    <string name="topic10265" msgid="4134876488948695674">"Memburu &amp; Menembak"</string>
+    <string name="topic10266" msgid="6617785039128074351">"Paintball"</string>
+    <string name="topic10267" msgid="488093331618885003">"Kawalan Radio &amp; Membuat Model"</string>
+    <string name="topic10268" msgid="277932389492046264">"Majlis Perkahwinan"</string>
+    <string name="topic10269" msgid="8572041514147955202">"Kediaman &amp; Taman"</string>
+    <string name="topic10270" msgid="2646715182474030951">"Berkebun"</string>
+    <string name="topic10271" msgid="1308931236810509881">"Kediaman &amp; Hiasan Dalaman"</string>
+    <string name="topic10272" msgid="8746698707390628887">"Perkakas Rumah"</string>
+    <string name="topic10273" msgid="344442071339164852">"Penambahbaikan Kediaman"</string>
+    <string name="topic10274" msgid="8982330028561451429">"Keselamatan &amp; Sekuriti Rumah"</string>
+    <string name="topic10275" msgid="8280198018937968735">"Bekalan Rumah"</string>
+    <string name="topic10276" msgid="1651598271798609235">"Reka Bentuk Landskap"</string>
+    <string name="topic10277" msgid="7675195736886448994">"Internet &amp; Telekom"</string>
+    <string name="topic10278" msgid="873251714192341707">"E-mel &amp; Pemesejan"</string>
+    <string name="topic10279" msgid="6514296374139842600">"E-mel"</string>
+    <string name="topic10280" msgid="7976787187115018267">"Teks &amp; Pemesejan Segera"</string>
+    <string name="topic10281" msgid="4013341162811169339">"Sembang Suara &amp; Video"</string>
+    <string name="topic10282" msgid="7810462611906257564">"ISP"</string>
+    <string name="topic10283" msgid="3958287780718485172">"Penyedia Perkhidmatan Telefon"</string>
+    <string name="topic10284" msgid="2415044270290467935">"Nada Dering &amp; Tema Telefon Bimbit"</string>
+    <string name="topic10285" msgid="7056449544316408821">"Enjin Carian"</string>
+    <string name="topic10286" msgid="3458688996478472971">"Telefon Pintar"</string>
+    <string name="topic10287" msgid="6766203044518402938">"Telepersidangan"</string>
+    <string name="topic10288" msgid="3883137694557636622">"Apl Web &amp; Alat Dalam Talian"</string>
+    <string name="topic10289" msgid="3392995633794787676">"Perkhidmatan Web"</string>
+    <string name="topic10290" msgid="3118880486702986341">"Storan Awan"</string>
+    <string name="topic10291" msgid="6025855926350955094">"Reka Bentuk &amp; Pembangunan Web"</string>
+    <string name="topic10292" msgid="3069720659823056935">"Pengehosan Web"</string>
+    <string name="topic10293" msgid="2489957780009828409">"Pekerjaan &amp; Pendidikan"</string>
+    <string name="topic10294" msgid="474839431177892843">"Pendidikan"</string>
+    <string name="topic10295" msgid="2215489196192620880">"Persidangan &amp; Penerbitan Akademik"</string>
+    <string name="topic10296" msgid="4494362881225210483">"Kolej &amp; Universiti"</string>
+    <string name="topic10297" msgid="8596946591674128749">"Pembelajaran Jarak Jauh"</string>
+    <string name="topic10298" msgid="6669181180128620422">"Pendidikan Awal Kanak-kanak"</string>
+    <string name="topic10299" msgid="989138215800115613">"Prasekolah"</string>
+    <string name="topic10300" msgid="8281464235308602670">"Persekolahan Di Rumah"</string>
+    <string name="topic10301" msgid="9156890858635333460">"Ujian Standard &amp; Kemasukan"</string>
+    <string name="topic10302" msgid="1325835179421990876">"Sumber Pengajaran &amp; Bilik Darjah"</string>
+    <string name="topic10303" msgid="3103839978894155537">"Pendidikan Vokasional &amp; Berterusan"</string>
+    <string name="topic10304" msgid="8831682558788062486">"Pekerjaan"</string>
+    <string name="topic10305" msgid="8415203095484493106">"Sumber &amp; Perancangan Kerjaya"</string>
+    <string name="topic10306" msgid="7426556527349374835">"Senarai Pekerjaan"</string>
+    <string name="topic10307" msgid="1187762846826735256">"Undang-undang &amp; Kerajaan"</string>
+    <string name="topic10308" msgid="3346756665358311386">"Jenayah &amp; Keadilan"</string>
+    <string name="topic10309" msgid="2041175328931014735">"Undang-undang"</string>
+    <string name="topic10310" msgid="7079570344976872062">"Perkhidmatan Perundangan"</string>
+    <string name="topic10311" msgid="2095095138677585525">"Berita"</string>
+    <string name="topic10312" msgid="939721674816307639">"Berita Ekonomi"</string>
+    <string name="topic10313" msgid="4159611985538361632">"Berita Tempatan"</string>
+    <string name="topic10314" msgid="93219947859117151">"Penggabungan &amp; Perolehan"</string>
+    <string name="topic10315" msgid="5046321177148647481">"Akhbar"</string>
+    <string name="topic10316" msgid="8592980844674525307">"Politik"</string>
+    <string name="topic10317" msgid="2412259096368647866">"Berita Sukan"</string>
+    <string name="topic10318" msgid="1508449672941031904">"Cuaca"</string>
+    <string name="topic10319" msgid="3973645291178509390">"Berita Dunia"</string>
+    <string name="topic10320" msgid="5279440074507438174">"Komuniti Dalam Talian"</string>
+    <string name="topic10321" msgid="7018890132742820265">"Lukisan Klip &amp; GIF Beranimasi"</string>
+    <string name="topic10322" msgid="1585737438943011532">"Dating &amp; Peribadi"</string>
+    <string name="topic10323" msgid="962863497957179646">"Pengagregatan Suapan &amp; Penandaan Halaman Sosial"</string>
+    <string name="topic10324" msgid="1425257460381023853">"Perkongsian &amp; Pengehosan Fail"</string>
+    <string name="topic10325" msgid="8698912164970408378">"Penyedia Forum &amp; Sembang"</string>
+    <string name="topic10326" msgid="2425798096705921796">"Pembloggan mikro"</string>
+    <string name="topic10327" msgid="8518822987595111212">"Perkongsian Foto &amp; Video"</string>
+    <string name="topic10328" msgid="8932708475346340912">"Perkongsian Foto &amp; Imej"</string>
+    <string name="topic10329" msgid="223933889758324282">"Perkongsian Video"</string>
+    <string name="topic10330" msgid="188028553492626282">"Kulit"</string>
+    <string name="topic10331" msgid="426844238985651925">"Apl Rangkaian Sosial &amp; Alat Tambah"</string>
+    <string name="topic10332" msgid="291747325781232456">"Rangkaian Sosial"</string>
+    <string name="topic10333" msgid="7950152600374846488">"Persatuan &amp; Orang"</string>
+    <string name="topic10334" msgid="8671262583721706509">"Keluarga &amp; Hubungan"</string>
+    <string name="topic10335" msgid="1526523762163185819">"Keturunan &amp; Salasiah"</string>
+    <string name="topic10336" msgid="4551233571090493177">"Perkahwinan"</string>
+    <string name="topic10337" msgid="8436172065188964882">"Keibubapaan"</string>
+    <string name="topic10338" msgid="8896269734682970">"Pengambilan Anak Angkat"</string>
+    <string name="topic10339" msgid="781900237993621300">"Bayi &amp; Kanak-kanak Bertatih"</string>
+    <string name="topic10340" msgid="6538182603360796294">"Keselamatan Internet Kanak-kanak"</string>
+    <string name="topic10341" msgid="3586543243312398568">"Kisah Cinta"</string>
+    <string name="topic10342" msgid="3695176378281477573">"Cereka Sains &amp; Fantasi"</string>
+    <string name="topic10343" msgid="2318169062960263837">"Haiwan Kesayangan &amp; Haiwan"</string>
+    <string name="topic10344" msgid="2005534117977874327">"Bekalan Makanan Haiwan Kesayangan &amp; Penjagaan Haiwan Kesayangan"</string>
+    <string name="topic10345" msgid="2397329020706244200">"Haiwan Kesayangan"</string>
+    <string name="topic10346" msgid="1323702748723563694">"Unggas"</string>
+    <string name="topic10347" msgid="3301879823396773413">"Kucing"</string>
+    <string name="topic10348" msgid="8066686305498410222">"Anjing"</string>
+    <string name="topic10349" msgid="5253723822905761195">"Ikan &amp; Akuarium"</string>
+    <string name="topic10350" msgid="6164036369108076590">"Reptilia &amp; Amfibia"</string>
+    <string name="topic10351" msgid="1132984519083501363">"Doktor Haiwan"</string>
+    <string name="topic10352" msgid="6310110390516037997">"Harta Tanah"</string>
+    <string name="topic10353" msgid="5114390804081576684">"Bidang Tanah &amp; Tanah"</string>
+    <string name="topic10354" msgid="7980778954791504082">"Hartanah Kongsi Masa &amp; Percutian"</string>
+    <string name="topic10355" msgid="7720717354548642600">"Rujukan"</string>
+    <string name="topic10356" msgid="8366981308613661935">"Penyenaraian Perniagaan &amp; Peribadi"</string>
+    <string name="topic10357" msgid="3185598234676097975">"Rujukan Umum"</string>
+    <string name="topic10358" msgid="6732669037513504019">"Kalkulator &amp; Alat Rujukan"</string>
+    <string name="topic10359" msgid="8901932349008990500">"Kamus &amp; Ensiklopedia"</string>
+    <string name="topic10360" msgid="6113408769992775754">"Sumber Pendidikan"</string>
+    <string name="topic10361" msgid="364838820459183817">"Cara"</string>
+    <string name="topic10362" msgid="3760998790588600032">"Masa &amp; Kalendar"</string>
+    <string name="topic10363" msgid="5464708619861040861">"Sumber Bahasa"</string>
+    <string name="topic10364" msgid="4685400848805560054">"Kajian Bahasa Asing"</string>
+    <string name="topic10365" msgid="5196231842716190887">"Alat &amp; Sumber Terjemahan"</string>
+    <string name="topic10366" msgid="7460927054539097025">"Maps"</string>
+    <string name="topic10367" msgid="3900361839783743700">"Sains"</string>
+    <string name="topic10368" msgid="2069447039109930660">"Realiti Terimbuh &amp; Maya"</string>
+    <string name="topic10369" msgid="5747888306428024793">"Sains Biologi"</string>
+    <string name="topic10370" msgid="4860829940151353583">"Genetik"</string>
+    <string name="topic10371" msgid="8229818210867472466">"Kimia"</string>
+    <string name="topic10372" msgid="6400467418954574231">"Ekologi &amp; Alam Sekitar"</string>
+    <string name="topic10373" msgid="6990757247198163741">"Geologi"</string>
+    <string name="topic10374" msgid="8057983193031950119">"Pembelajaran Mesin &amp; Kecerdasan Buatan"</string>
+    <string name="topic10375" msgid="8511185098682306025">"Matematik"</string>
+    <string name="topic10376" msgid="6387800251638760737">"Fizik"</string>
+    <string name="topic10377" msgid="7834619927563362042">"Robotik"</string>
+    <string name="topic10378" msgid="242496862821758873">"Beli-belah"</string>
+    <string name="topic10379" msgid="5505228335012447165">"Barang Antik &amp; Koleksi"</string>
+    <string name="topic10380" msgid="4989560205486143927">"Pakaian"</string>
+    <string name="topic10381" msgid="7585496746485093505">"Pakaian Kanak-kanak"</string>
+    <string name="topic10382" msgid="5088060295126473451">"Kostum"</string>
+    <string name="topic10383" msgid="4947104586590538143">"Pakaian Lelaki"</string>
+    <string name="topic10384" msgid="3752472493887374077">"Pakaian Wanita"</string>
+    <string name="topic10385" msgid="5275843140794803595">"Iklaneka"</string>
+    <string name="topic10386" msgid="5887032952574801982">"Sumber Pengguna"</string>
+    <string name="topic10387" msgid="8474154360410317897">"Kupon &amp; Tawaran Diskaun"</string>
+    <string name="topic10388" msgid="3650307363028796765">"Kad &amp; Program Kesetiaan"</string>
+    <string name="topic10389" msgid="1542336508240183221">"Sokongan Teknikal &amp; Pembaikan"</string>
+    <string name="topic10390" msgid="831225961168954292">"Bunga"</string>
+    <string name="topic10391" msgid="6810540242154911762">"Kad Ucapan"</string>
+    <string name="topic10392" msgid="2431377771302967625">"Bekalan Pesta &amp; Perayaan"</string>
+    <string name="topic10393" msgid="2671274205988136926">"Portal Beli-belah"</string>
+    <string name="topic10394" msgid="1530096364743244151">"Sukan"</string>
+    <string name="topic10395" msgid="316192616624062917">"Bola Sepak Amerika"</string>
+    <string name="topic10396" msgid="8042120651878490689">"Bola Sepak Australia"</string>
+    <string name="topic10397" msgid="492901976344700942">"Lumba Kereta"</string>
+    <string name="topic10398" msgid="3471795015226090296">"Besbol"</string>
+    <string name="topic10399" msgid="2126280752064021308">"Bola Keranjang"</string>
+    <string name="topic10400" msgid="5440499529264277027">"Boling"</string>
+    <string name="topic10401" msgid="166689951236922024">"Tinju"</string>
+    <string name="topic10402" msgid="2451339788231007479">"Kumpulan Penyorak"</string>
+    <string name="topic10403" msgid="6455478521804717635">"Sukan Kolej"</string>
+    <string name="topic10404" msgid="5261583496913118024">"Kriket"</string>
+    <string name="topic10405" msgid="482477447879117820">"Berbasikal"</string>
+    <string name="topic10406" msgid="8167644332387528703">"Sukan Berkuda"</string>
+    <string name="topic10407" msgid="3237734582719584272">"Sukan Lasak"</string>
+    <string name="topic10408" msgid="3859749534843254349">"Mendaki &amp; Mendaki Gunung"</string>
+    <string name="topic10409" msgid="7485614115639267976">"Sukan Fantasi"</string>
+    <string name="topic10410" msgid="5996939009229881074">"Golf"</string>
+    <string name="topic10411" msgid="2513997418184786648">"Gimnastik"</string>
+    <string name="topic10412" msgid="5411755341358248299">"Hoki"</string>
+    <string name="topic10413" msgid="3319233613448963890">"Meluncur Ais"</string>
+    <string name="topic10414" msgid="1797840816328584660">"Seni Mempertahankan Diri"</string>
+    <string name="topic10415" msgid="2886043330316735719">"Perlumbaan Motosikal"</string>
+    <string name="topic10416" msgid="3436682172863605224">"Olimpik"</string>
+    <string name="topic10417" msgid="8296644015663416236">"Ragbi"</string>
+    <string name="topic10418" msgid="8276736633218488127">"Berlari &amp; Berjalan"</string>
+    <string name="topic10419" msgid="5663062924928275215">"Bermain Ski &amp; Papan Luncur Salji"</string>
+    <string name="topic10420" msgid="2509320683543423424">"Bola Sepak"</string>
+    <string name="topic10421" msgid="6512889128030030686">"Meluncur Air"</string>
+    <string name="topic10422" msgid="8342986282852879750">"Berenang"</string>
+    <string name="topic10423" msgid="6333426807705188459">"Tenis"</string>
+    <string name="topic10424" msgid="5495511215629567375">"Balapan &amp; Padang"</string>
+    <string name="topic10425" msgid="4009138228283995179">"Bola Tampar"</string>
+    <string name="topic10426" msgid="7998590461761852196">"Gusti"</string>
+    <string name="topic10427" msgid="6711468161729797769">"Perjalanan &amp; Pengangkutan"</string>
+    <string name="topic10428" msgid="661919563628063196">"Perjalanan Pengembaraan"</string>
+    <string name="topic10429" msgid="408270392813634227">"Perjalanan Udara"</string>
+    <string name="topic10430" msgid="3046485339481297656">"Perjalanan Perniagaan"</string>
+    <string name="topic10431" msgid="7439352609169583150">"Sewaan Kereta"</string>
+    <string name="topic10432" msgid="5034961318884376752">"Pelayaran Pesiaran &amp; Carter"</string>
+    <string name="topic10433" msgid="6354590445323135986">"Perjalanan Keluarga"</string>
+    <string name="topic10434" msgid="7081309045291255264">"Percutian Bulan Madu &amp; Romantik"</string>
+    <string name="topic10435" msgid="1064605516265819020">"Hotel &amp; Penginapan"</string>
+    <string name="topic10436" msgid="9050375924140897722">"Bas &amp; Kereta Api Jarak Jauh"</string>
+    <string name="topic10437" msgid="2655664900730187701">"Perjalanan Kos Rendah &amp; Saat Akhir"</string>
+    <string name="topic10438" msgid="7944023251845122923">"Bagasi &amp; Aksesori Perjalanan"</string>
+    <string name="topic10439" msgid="7845433008088931971">"Destinasi Pelancong"</string>
+    <string name="topic10440" msgid="485118071443976808">"Pantai &amp; Pulau"</string>
+    <string name="topic10441" msgid="518643446480879895">"Taman Wilayah &amp; Kebun"</string>
+    <string name="topic10442" msgid="6534536077484540292">"Taman Tema"</string>
+    <string name="topic10443" msgid="8787722062991478596">"Zoo"</string>
+    <string name="topic10444" msgid="2075863187654728611">"Perancang Trafik &amp; Perjalanan"</string>
+    <string name="topic10445" msgid="3460421948068980869">"Agensi &amp; Perkhidmatan Pelancongan"</string>
+    <string name="topic10446" msgid="5333138740720504195">"Panduan Perjalanan &amp; Travelog"</string>
+</resources>

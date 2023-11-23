@@ -64,7 +64,7 @@
     <string name="enable_alerts_master_toggle_summary" msgid="5583168548073938617">"Receber notificações de alerta de emergência sem fios"</string>
     <string name="alert_reminder_interval_title" msgid="3283595202268218149">"Lembrete de alerta"</string>
     <string name="enable_alert_speech_title" msgid="8052104771053526941">"Dizer mensagem de alerta"</string>
-    <string name="enable_alert_speech_summary" msgid="2855629032890937297">"Utilize a síntese de voz para dizer mensagens de alertas de emergência sem fios."</string>
+    <string name="enable_alert_speech_summary" msgid="2855629032890937297">"Utilize a conversão de texto em voz para dizer mensagens de alertas de emergência sem fios."</string>
     <string name="alert_reminder_dialog_title" msgid="2299010977651377315">"Será reproduzido um som de lembrete com o volume normal"</string>
     <string name="emergency_alert_history_title" msgid="8310173569237268431">"Histórico de alertas de emergência"</string>
     <string name="alert_preferences_title" msgid="6001469026393248468">"Preferências de alerta"</string>
@@ -87,7 +87,7 @@
     <string name="enable_emergency_alerts_message_title" msgid="661894007489847468">"Alertas de emergência"</string>
     <string name="enable_emergency_alerts_message_summary" msgid="7574617515441602546">"Avisar acerca de eventos potencialmente fatais"</string>
     <string name="enable_cmas_test_alerts_title" msgid="7194966927004755266">"Alertas de teste"</string>
-    <string name="enable_cmas_test_alerts_summary" msgid="2083089933271720217">"Receber testes do operador e testes mensais do sistema de alerta de segurança"</string>
+    <string name="enable_cmas_test_alerts_summary" msgid="2083089933271720217">"Receba testes do operador e testes mensais do sistema de alerta de segurança"</string>
     <!-- no translation found for enable_exercise_test_alerts_title (6030780598569873865) -->
     <skip />
     <string name="enable_exercise_test_alerts_summary" msgid="4276766794979567304">"Receber um alerta de emergência: mensagem de simulação/exercício"</string>

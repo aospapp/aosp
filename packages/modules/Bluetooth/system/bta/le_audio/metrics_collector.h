@@ -18,6 +18,7 @@
 
 #include <hardware/bt_le_audio.h>
 
+#include <chrono>
 #include <cstdint>
 #include <memory>
 #include <unordered_map>
@@ -26,6 +27,11 @@
 #include "types/raw_address.h"
 
 namespace le_audio {
+
+namespace metrics {
+using ClockTimePoint =
+    std::chrono::time_point<std::chrono::high_resolution_clock>;
+}
 
 enum ConnectionStatus : int32_t {
   UNKNOWN = 0,
@@ -117,6 +123,13 @@ class MetricsCollector {
   void OnStreamEnded(int32_t group_id);
 
   /**
+   * When there is a change in Bluetooth LE Audio broadcast state
+   *
+   * @param started if broadcast streaming is started.
+   */
+  void OnBroadcastStateChanged(bool started);
+
+  /**
    * Flush all log to statsd
    *
    * @param group_id Group ID of the associated stream.
@@ -131,6 +144,8 @@ class MetricsCollector {
 
   std::unordered_map<int32_t, std::unique_ptr<GroupMetrics>> opened_groups_;
   std::unordered_map<int32_t, int32_t> group_size_table_;
+
+  metrics::ClockTimePoint broadcast_beginning_timepoint_;
 };
 
 }  // namespace le_audio

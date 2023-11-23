@@ -487,17 +487,23 @@ public class LinkAddress implements Parcelable {
      */
     @SystemApi
     public boolean isGlobalPreferred() {
-        /**
-         * Note that addresses flagged as IFA_F_OPTIMISTIC are
-         * simultaneously flagged as IFA_F_TENTATIVE (when the tentative
-         * state has cleared either DAD has succeeded or failed, and both
-         * flags are cleared regardless).
-         */
-        int flags = getFlags();
         return (scope == RT_SCOPE_UNIVERSE
                 && !isIpv6ULA()
-                && (flags & (IFA_F_DADFAILED | IFA_F_DEPRECATED)) == 0L
-                && ((flags & IFA_F_TENTATIVE) == 0L || (flags & IFA_F_OPTIMISTIC) != 0L));
+                && isPreferred());
+    }
+
+    /**
+     * Checks if the address is a preferred address.
+     *
+     * @hide
+     */
+    public boolean isPreferred() {
+        //  Note that addresses flagged as IFA_F_OPTIMISTIC are simultaneously flagged as
+        //  IFA_F_TENTATIVE (when the tentative state has cleared either DAD has succeeded or
+        //  failed, and both flags are cleared regardless).
+        int flags = getFlags();
+        return (flags & (IFA_F_DADFAILED | IFA_F_DEPRECATED)) == 0L
+                && ((flags & IFA_F_TENTATIVE) == 0L || (flags & IFA_F_OPTIMISTIC) != 0L);
     }
 
     /**

@@ -973,18 +973,19 @@ tSMP_STATE smp_get_state(void) { return smp_cb.state; }
  *              not NULL state, adjust the new state to the returned state. If
  *              (api_evt != MAX), call callback function.
  *
- * Returns      void.
+ * Returns      true if the event is executed and a state transition can be
+ *              expected, false if the event is ignored, state is invalid, or
+ *              the role is invalid for the control block.
  *
  ******************************************************************************/
-void smp_sm_event(tSMP_CB* p_cb, tSMP_EVENT event, tSMP_INT_DATA* p_data) {
+bool smp_sm_event(tSMP_CB* p_cb, tSMP_EVENT event, tSMP_INT_DATA* p_data) {
   uint8_t curr_state = p_cb->state;
   tSMP_SM_TBL state_table;
   uint8_t action, entry, i;
 
   if (p_cb->role >= 2) {
     SMP_TRACE_DEBUG("Invalid role: %d", p_cb->role);
-    android_errorWriteLog(0x534e4554, "74121126");
-    return;
+    return false;
   }
 
   tSMP_ENTRY_TBL entry_table = smp_entry_table[p_cb->role];
@@ -992,7 +993,7 @@ void smp_sm_event(tSMP_CB* p_cb, tSMP_EVENT event, tSMP_INT_DATA* p_data) {
   SMP_TRACE_EVENT("main smp_sm_event");
   if (curr_state >= SMP_STATE_MAX) {
     SMP_TRACE_DEBUG("Invalid state: %d", curr_state);
-    return;
+    return false;
   }
 
   SMP_TRACE_DEBUG("SMP Role: %s State: [%s (%d)], Event: [%s (%d)]",
@@ -1015,7 +1016,7 @@ void smp_sm_event(tSMP_CB* p_cb, tSMP_EVENT event, tSMP_INT_DATA* p_data) {
     SMP_TRACE_DEBUG("Ignore event [%s (%d)] in state [%s (%d)]",
                     smp_get_event_name(event), event,
                     smp_get_state_name(curr_state), curr_state);
-    return;
+    return false;
   }
 
   /* Get possible next state from state table. */
@@ -1036,6 +1037,7 @@ void smp_sm_event(tSMP_CB* p_cb, tSMP_EVENT event, tSMP_INT_DATA* p_data) {
     }
   }
   SMP_TRACE_DEBUG("result state = %s", smp_get_state_name(p_cb->state));
+  return true;
 }
 
 /*******************************************************************************

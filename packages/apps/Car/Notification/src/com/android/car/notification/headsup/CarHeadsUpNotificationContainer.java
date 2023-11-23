@@ -38,8 +38,10 @@ public abstract class CarHeadsUpNotificationContainer {
     private final ViewGroup mHunWindow;
     private final ViewGroup mHunContent;
     private final boolean mShowHunOnBottom;
+    private final Context mContext;
 
     public CarHeadsUpNotificationContainer(Context context, WindowManager windowManager) {
+        mContext = context;
         mShowHunOnBottom = context.getResources().getBoolean(
                 R.bool.config_showHeadsUpNotificationOnBottom);
         mHunWindow = (ViewGroup) LayoutInflater.from(context).inflate(
@@ -55,6 +57,10 @@ public abstract class CarHeadsUpNotificationContainer {
      * WindowManager}.
      */
     protected abstract WindowManager.LayoutParams getWindowManagerLayoutParams();
+
+    protected Context getContext() {
+        return mContext;
+    }
 
     /**
      * Displays a given notification View to the user and inserts the view at Z-index according to

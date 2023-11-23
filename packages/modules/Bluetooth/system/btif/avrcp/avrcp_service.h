@@ -54,7 +54,8 @@ class AvrcpService : public MediaCallbacks {
    */
   static ServiceInterface* GetServiceInterface();
 
-  void Init(MediaInterface* media_interface, VolumeInterface* volume_interface);
+  void Init(MediaInterface* media_interface, VolumeInterface* volume_interface,
+            PlayerSettingsInterface* player_settings_interface);
   void Cleanup();
 
   void RegisterBipServer(int psm);
@@ -72,10 +73,14 @@ class AvrcpService : public MediaCallbacks {
                         bool queue) override;
   void SendActiveDeviceChanged(const RawAddress& address) override;
 
+  void SendPlayerSettingsChanged(std::vector<PlayerAttribute> attributes,
+                                 std::vector<uint8_t> values) override;
+
   class ServiceInterfaceImpl : public ServiceInterface {
    public:
     void Init(MediaInterface* media_interface,
-              VolumeInterface* volume_interface) override;
+              VolumeInterface* volume_interface,
+              PlayerSettingsInterface* player_settings_interface) override;
     void RegisterBipServer(int psm) override;
     void UnregisterBipServer() override;
     bool ConnectDevice(const RawAddress& bdaddr) override;
@@ -103,6 +108,7 @@ class AvrcpService : public MediaCallbacks {
 
   MediaInterface* media_interface_ = nullptr;
   VolumeInterface* volume_interface_ = nullptr;
+  PlayerSettingsInterface* player_settings_interface_ = nullptr;
 
   ConnectionHandler* connection_handler_;
 };

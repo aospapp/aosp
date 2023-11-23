@@ -16,6 +16,8 @@
 
 package com.android.camera.one;
 
+import android.os.Handler;
+
 import com.android.camera.device.CameraId;
 import com.android.camera.one.OneCamera.Facing;
 
@@ -58,6 +60,12 @@ public interface OneCameraManager {
      */
     public OneCameraCharacteristics getOneCameraCharacteristics(CameraId cameraId)
           throws OneCameraAccessException;
+
+    public void setAvailabilityCallback(AvailabilityCallback callback, Handler handler);
+
+    public interface AvailabilityCallback {
+        public void onCameraAccessPrioritiesChanged();
+    }
 
     public static class Factory {
 

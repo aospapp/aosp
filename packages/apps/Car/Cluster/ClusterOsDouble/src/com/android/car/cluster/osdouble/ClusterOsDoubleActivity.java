@@ -20,23 +20,26 @@ import static android.car.VehicleAreaType.VEHICLE_AREA_TYPE_GLOBAL;
 import static android.car.cluster.ClusterHomeManager.UI_TYPE_CLUSTER_HOME;
 import static android.car.cluster.ClusterHomeManager.UI_TYPE_CLUSTER_NONE;
 import static android.hardware.display.DisplayManager.VIRTUAL_DISPLAY_FLAG_OWN_CONTENT_ONLY;
-import static android.hardware.display.DisplayManager.VIRTUAL_DISPLAY_FLAG_TRUSTED;
 
 import static com.android.car.cluster.osdouble.ClusterOsDoubleApplication.TAG;
 
 import android.car.Car;
-import android.car.cluster.navigation.NavigationState.NavigationStateProto;
 import android.car.VehiclePropertyIds;
+import android.car.cluster.navigation.NavigationState.NavigationStateProto;
 import android.car.hardware.CarPropertyValue;
 import android.car.hardware.property.CarPropertyManager;
 import android.car.hardware.property.CarPropertyManager.CarPropertyEventCallback;
+import android.content.res.CompatibilityInfo;
 import android.graphics.Insets;
 import android.graphics.Rect;
 import android.hardware.display.DisplayManager;
 import android.hardware.display.VirtualDisplay;
 import android.os.Bundle;
 import android.util.ArrayMap;
+import android.util.DisplayMetrics;
+import android.util.IntArray;
 import android.util.Log;
+import android.view.DisplayInfo;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
 import android.view.Surface;
@@ -83,19 +86,23 @@ public class ClusterOsDoubleActivity extends ComponentActivity {
     private static final int VENDOR_CLUSTER_DISPLAY_STATE = toVendorId(
             VehiclePropertyIds.CLUSTER_DISPLAY_STATE);
 
+    // For the detail, please refer to vehicle/2.0/types.hal.
+    private static final int REPORT_STATE_MAIN_UI_INDEX = 9;
+    private static final int REPORT_STATE_UI_AVAILABILITY_INDEX = 11;
+
     private DisplayManager mDisplayManager;
     private CarPropertyManager mPropertyManager;
 
     private SurfaceView mSurfaceView;
     private Rect mBounds;
     private Insets mInsets;
-    private VirtualDisplay mVirtualDisplay;
+    private static VirtualDisplay sVirtualDisplay;
 
     private ClusterViewModel mClusterViewModel;
     private final ArrayMap<Sensors.Gear, View> mGearsToIcon = new ArrayMap<>();
     private final ArrayList<View> mUiToButton = new ArrayList<>();
     int mCurrentUi = UI_TYPE_CLUSTER_HOME;
-    int mTotalUiSize;
+    private final IntArray mUiAvailability = new IntArray();
 
     private NavStateController mNavStateController;
 
@@ -143,15 +150,6 @@ public class ClusterOsDoubleActivity extends ComponentActivity {
                 findViewById(R.id.navigation_state), imageResolver);
     }
 
-    @Override
-    protected void onDestroy() {
-        if (mVirtualDisplay != null) {
-            mVirtualDisplay.release();
-            mVirtualDisplay = null;
-        }
-        super.onDestroy();
-    }
-
     private final SurfaceHolder.Callback mSurfaceViewCallback = new SurfaceHolder.Callback() {
         @Override
         public void surfaceCreated(SurfaceHolder holder) {
@@ -173,10 +171,23 @@ public class ClusterOsDoubleActivity extends ComponentActivity {
             // Adds some empty space in the boundary of the display to verify if mBounds works.
             mBounds.inset(/* dx= */ 12, /* dy= */ 12);
             mInsets = Insets.of(obscuredWidth, obscuredHeight, obscuredWidth, obscuredHeight);
-            if (mVirtualDisplay == null) {
-                mVirtualDisplay = createVirtualDisplay(holder.getSurface(), width, height);
+            if (sVirtualDisplay == null) {
+                sVirtualDisplay = createVirtualDisplay(holder.getSurface(), width, height);
             } else {
-                mVirtualDisplay.setSurface(holder.getSurface());
+                DisplayInfo displayInfo = new DisplayInfo();
+                DisplayMetrics boundsMetrics = new DisplayMetrics();
+                boolean isDisplayValid = sVirtualDisplay.getDisplay().getDisplayInfo(displayInfo);
+                displayInfo.getLogicalMetrics(boundsMetrics,
+                        CompatibilityInfo.DEFAULT_COMPATIBILITY_INFO, /* configuration= */ null);
+                if (isDisplayValid && boundsMetrics.widthPixels == width
+                        && boundsMetrics.heightPixels == height) {
+                    sVirtualDisplay.setSurface(holder.getSurface());
+                } else {
+                    // Display was resized, delete existing and create new display.
+                    // TODO(b/254931119): Resize the display instead of replacing it.
+                    sVirtualDisplay.release();
+                    sVirtualDisplay = createVirtualDisplay(holder.getSurface(), width, height);
+                }
             }
         }
 
@@ -185,7 +196,7 @@ public class ClusterOsDoubleActivity extends ComponentActivity {
             Log.i(TAG, "surfaceDestroyed, holder: " + holder + ", detaching surface from"
                     + " display, surface: " + holder.getSurface());
             // detaching surface is similar to turning off the display
-            mVirtualDisplay.setSurface(null);
+            sVirtualDisplay.setSurface(null);
         }
     };
 
@@ -234,15 +245,17 @@ public class ClusterOsDoubleActivity extends ComponentActivity {
         if (values.length < 11) {
             throw new IllegalArgumentException("Insufficient size of CLUSTER_REPORT_STATE");
         }
-        // mainUI is the 10th element, refer to vehicle/2.0/types.hal.
-        int mainUi = (Integer) values[9];
-        if (mainUi >= 0 && mainUi < mTotalUiSize) {
-            selectUiButton(mainUi);
+        int mainUi = (Integer) values[REPORT_STATE_MAIN_UI_INDEX];
+        int totalUiSize = values.length - REPORT_STATE_UI_AVAILABILITY_INDEX;
+        mUiAvailability.resize(totalUiSize);
+        for (int i = 0; i < totalUiSize; ++i) {
+            mUiAvailability.set(i, (Byte) values[i + REPORT_STATE_UI_AVAILABILITY_INDEX]);
         }
+        selectUiButton(mainUi);
     }
 
     private void selectUiButton(int mainUi) {
-        for (int i = 0; i < mTotalUiSize; ++i) {
+        for (int i = mUiToButton.size() - 1; i >= 0; --i) {
             View button = mUiToButton.get(i);
             button.setSelected(i == mainUi);
         }
@@ -264,7 +277,6 @@ public class ClusterOsDoubleActivity extends ComponentActivity {
         if (DBG) Log.d(TAG, "onClusterRequestDisplay: " + mainUi);
         sendDisplayState();
     }
-
 
     private static int toVendorId(int propId) {
         return (propId & ~MASK) | VENDOR;
@@ -300,7 +312,6 @@ public class ClusterOsDoubleActivity extends ComponentActivity {
     private void registerUi(View view) {
         int currentUi = mUiToButton.size();
         mUiToButton.add(view);
-        mTotalUiSize = mUiToButton.size();
         view.setOnTouchListener((v, event) -> {
             if (event.getAction() == MotionEvent.ACTION_DOWN) {
                 Log.d(TAG, "onTouch: " + currentUi);
@@ -329,7 +340,12 @@ public class ClusterOsDoubleActivity extends ComponentActivity {
     public boolean onKeyDown(int keyCode, KeyEvent event) {
         Log.d(TAG, "onKeyDown: " + keyCode);
         if (keyCode == KeyEvent.KEYCODE_MENU) {
-            switchUi((mCurrentUi + 1) % mTotalUiSize);
+            int nextUi = mCurrentUi;
+            do {
+                nextUi = nextUi + 1;
+                if (nextUi >= mUiToButton.size()) nextUi = 0;
+            } while (mUiAvailability.get(nextUi) == 0);
+            switchUi(nextUi);
             return true;
         }
         return super.onKeyDown(keyCode, event);

@@ -20,6 +20,7 @@ import android.annotation.IntRange;
 import android.annotation.NonNull;
 import android.annotation.Nullable;
 import android.annotation.SuppressLint;
+import android.app.appsearch.annotation.CanIgnoreReturnValue;
 import android.os.Bundle;
 import android.util.ArrayMap;
 import android.util.ArraySet;
@@ -45,24 +46,23 @@ public final class GetSchemaResponse {
     /**
      * This Set contains all schemas that are not displayed by the system. All values in the set are
      * prefixed with the package-database prefix. We do lazy fetch, the object will be created when
-     * the user first time fetch it.
+     * you first time fetch it.
      */
     @Nullable private Set<String> mSchemasNotDisplayedBySystem;
     /**
      * This map contains all schemas and {@link PackageIdentifier} that has access to the schema.
      * All keys in the map are prefixed with the package-database prefix. We do lazy fetch, the
-     * object will be created when the user first time fetch it.
+     * object will be created when you first time fetch it.
      */
     @Nullable private Map<String, Set<PackageIdentifier>> mSchemasVisibleToPackages;
 
     /**
      * This map contains all schemas and Android Permissions combinations that are required to
      * access the schema. All keys in the map are prefixed with the package-database prefix. We do
-     * lazy fetch, the object will be created when the user first time fetch it. The Map is
-     * constructed in ANY-ALL cases. The querier could read the {@link GenericDocument} objects
-     * under the {@code schemaType} if they holds ALL required permissions of ANY combinations. The
-     * value set represents {@link
-     * android.app.appsearch.SetSchemaRequest.AppSearchSupportedPermission}.
+     * lazy fetch, the object will be created when you first time fetch it. The Map is constructed
+     * in ANY-ALL cases. The querier could read the {@link GenericDocument} objects under the {@code
+     * schemaType} if they holds ALL required permissions of ANY combinations. The value set
+     * represents {@link android.app.appsearch.SetSchemaRequest.AppSearchSupportedPermission}.
      */
     @Nullable private Map<String, Set<Set<Integer>>> mSchemasVisibleToPermissions;
 
@@ -100,7 +100,8 @@ public final class GetSchemaResponse {
     @NonNull
     @SuppressWarnings("deprecation")
     public Set<AppSearchSchema> getSchemas() {
-        ArrayList<Bundle> schemaBundles = mBundle.getParcelableArrayList(SCHEMAS_FIELD);
+        ArrayList<Bundle> schemaBundles =
+                Objects.requireNonNull(mBundle.getParcelableArrayList(SCHEMAS_FIELD));
         Set<AppSearchSchema> schemas = new ArraySet<>(schemaBundles.size());
         for (int i = 0; i < schemaBundles.size(); i++) {
             schemas.add(new AppSearchSchema(schemaBundles.get(i)));
@@ -134,11 +135,12 @@ public final class GetSchemaResponse {
         checkGetVisibilitySettingSupported();
         if (mSchemasVisibleToPackages == null) {
             Bundle schemaVisibleToPackagesBundle =
-                    mBundle.getBundle(SCHEMAS_VISIBLE_TO_PACKAGES_FIELD);
+                    Objects.requireNonNull(mBundle.getBundle(SCHEMAS_VISIBLE_TO_PACKAGES_FIELD));
             Map<String, Set<PackageIdentifier>> copy = new ArrayMap<>();
             for (String key : schemaVisibleToPackagesBundle.keySet()) {
                 List<Bundle> PackageIdentifierBundles =
-                        schemaVisibleToPackagesBundle.getParcelableArrayList(key);
+                        Objects.requireNonNull(
+                                schemaVisibleToPackagesBundle.getParcelableArrayList(key));
                 Set<PackageIdentifier> packageIdentifiers =
                         new ArraySet<>(PackageIdentifierBundles.size());
                 for (int i = 0; i < PackageIdentifierBundles.size(); i++) {
@@ -184,7 +186,7 @@ public final class GetSchemaResponse {
         if (mSchemasVisibleToPermissions == null) {
             Map<String, Set<Set<Integer>>> copy = new ArrayMap<>();
             Bundle schemaVisibleToPermissionBundle =
-                    mBundle.getBundle(SCHEMAS_VISIBLE_TO_PERMISSION_FIELD);
+                    Objects.requireNonNull(mBundle.getBundle(SCHEMAS_VISIBLE_TO_PERMISSION_FIELD));
             for (String key : schemaVisibleToPermissionBundle.keySet()) {
                 ArrayList<Bundle> allRequiredPermissionsBundle =
                         schemaVisibleToPermissionBundle.getParcelableArrayList(key);
@@ -256,6 +258,7 @@ public final class GetSchemaResponse {
          *
          * <p>Default version is 0
          */
+        @CanIgnoreReturnValue
         @NonNull
         public Builder setVersion(@IntRange(from = 0) int version) {
             resetIfBuilt();
@@ -264,6 +267,7 @@ public final class GetSchemaResponse {
         }
 
         /** Adds one {@link AppSearchSchema} to the schema list. */
+        @CanIgnoreReturnValue
         @NonNull
         public Builder addSchema(@NonNull AppSearchSchema schema) {
             Objects.requireNonNull(schema);
@@ -280,6 +284,7 @@ public final class GetSchemaResponse {
          *     GetSchemaResponse}, which won't be displayed by system.
          */
         // Getter getSchemaTypesNotDisplayedBySystem returns plural objects.
+        @CanIgnoreReturnValue
         @SuppressLint("MissingGetterMatchingBuilder")
         @NonNull
         public Builder addSchemaTypeNotDisplayedBySystem(@NonNull String schemaType) {
@@ -311,6 +316,7 @@ public final class GetSchemaResponse {
          *     type.
          */
         // Getter getSchemaTypesVisibleToPackages returns a map contains all schema types.
+        @CanIgnoreReturnValue
         @SuppressLint("MissingGetterMatchingBuilder")
         @NonNull
         public Builder setSchemaTypeVisibleToPackages(
@@ -356,6 +362,7 @@ public final class GetSchemaResponse {
          *     given schema.
          */
         // Getter getRequiredPermissionsForSchemaTypeVisibility returns a map for all schemaTypes.
+        @CanIgnoreReturnValue
         @SuppressLint("MissingGetterMatchingBuilder")
         @NonNull
         public Builder setRequiredPermissionsForSchemaTypeVisibility(

@@ -14,7 +14,6 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
-from bluetooth_packets_python3 import hci_packets
 from blueberry.tests.gd.cert.event_stream import EventStream
 from blueberry.tests.gd.cert.event_stream import IEventStream
 from blueberry.tests.gd.cert.closable import Closable
@@ -23,6 +22,7 @@ from blueberry.tests.gd.cert.truth import assertThat
 from google.protobuf import empty_pb2 as empty_proto
 from blueberry.facade.hci import hci_facade_pb2 as hci_facade
 from blueberry.facade.neighbor import facade_pb2 as neighbor_facade
+import hci_packets as hci
 
 
 class InquirySession(Closable, IEventStream):
@@ -61,22 +61,12 @@ class PyNeighbor(object):
         """
         return InquirySession(self.device, inquiry_msg)
 
-    def _register_remote_host_supported_features_notification(self):
-        """
-        REMOTE_HOST_SUPPORTED_FEATURES_NOTIFICATION event will be sent when a device sends remote name request
-        """
-        if self.remote_host_supported_features_notification_registered:
-            return
-        msg = hci_facade.EventRequest(code=int(hci_packets.EventCode.REMOTE_HOST_SUPPORTED_FEATURES_NOTIFICATION))
-        self.device.hci.RequestEvent(msg)
-        self.remote_host_supported_features_notification_registered = True
-
-    def get_remote_name(self, remote_address):
+    def get_remote_name(self, remote_address: str):
         """
         Get the remote name and return a session which can be used for event queue assertion
         """
-        self._register_remote_host_supported_features_notification()
         self.device.neighbor.ReadRemoteName(
-            neighbor_facade.RemoteNameRequestMsg(
-                address=remote_address.encode('utf8'), page_scan_repetition_mode=1, clock_offset=0x6855))
+            neighbor_facade.RemoteNameRequestMsg(address=remote_address.encode('utf8'),
+                                                 page_scan_repetition_mode=1,
+                                                 clock_offset=0x6855))
         return GetRemoteNameSession(self.device)

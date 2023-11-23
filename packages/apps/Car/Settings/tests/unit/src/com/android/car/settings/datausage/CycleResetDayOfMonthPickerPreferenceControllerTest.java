@@ -27,7 +27,6 @@ import android.content.Context;
 import android.net.NetworkTemplate;
 import android.text.BidiFormatter;
 import android.text.TextDirectionHeuristics;
-import android.text.format.Time;
 
 import androidx.lifecycle.LifecycleOwner;
 import androidx.preference.ListPreference;
@@ -48,6 +47,8 @@ import org.junit.runner.RunWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+
+import java.util.TimeZone;
 
 @RunWith(AndroidJUnit4.class)
 public class CycleResetDayOfMonthPickerPreferenceControllerTest {
@@ -109,7 +110,7 @@ public class CycleResetDayOfMonthPickerPreferenceControllerTest {
 
         ArgumentCaptor<Integer> captor = ArgumentCaptor.forClass(Integer.class);
         verify(mMockPolicyEditor).setPolicyCycleDay(
-                eq(mMockNetworkTemplate), captor.capture(), eq(new Time().timezone));
+                eq(mMockNetworkTemplate), captor.capture(), eq(TimeZone.getDefault().getID()));
         assertThat(captor.getValue()).isEqualTo(newValue);
     }
 }

@@ -22,8 +22,12 @@ import android.view.View;
 import android.widget.TextView;
 
 import androidx.annotation.Nullable;
+import androidx.fragment.app.Fragment;
+import androidx.lifecycle.LifecycleOwner;
+import androidx.lifecycle.Observer;
 
 import com.android.customization.model.CustomizationManager.OptionsFetchedListener;
+import com.android.customization.model.grid.ui.fragment.GridFragment2;
 import com.android.customization.picker.grid.GridFragment;
 import com.android.customization.picker.grid.GridSectionView;
 import com.android.wallpaper.R;
@@ -38,11 +42,22 @@ public class GridSectionController implements CustomizationSectionController<Gri
 
     private final GridOptionsManager mGridOptionsManager;
     private final CustomizationSectionNavigationController mSectionNavigationController;
+    private final boolean mIsRevampedUiEnabled;
+    private final Observer<Object> mOptionChangeObserver;
+    private final LifecycleOwner mLifecycleOwner;
+    private TextView mSectionDescription;
+    private View mSectionTile;
 
-    public GridSectionController(GridOptionsManager gridOptionsManager,
-            CustomizationSectionNavigationController sectionNavigationController) {
+    public GridSectionController(
+            GridOptionsManager gridOptionsManager,
+            CustomizationSectionNavigationController sectionNavigationController,
+            LifecycleOwner lifecycleOwner,
+            boolean isRevampedUiEnabled) {
         mGridOptionsManager = gridOptionsManager;
         mSectionNavigationController = sectionNavigationController;
+        mIsRevampedUiEnabled = isRevampedUiEnabled;
+        mLifecycleOwner = lifecycleOwner;
+        mOptionChangeObserver = o -> updateUi(/* reload= */ true);
     }
 
     @Override
@@ -52,32 +67,66 @@ public class GridSectionController implements CustomizationSectionController<Gri
 
     @Override
     public GridSectionView createView(Context context) {
-        GridSectionView gridSectionView = (GridSectionView) LayoutInflater.from(context)
+        final GridSectionView gridSectionView = (GridSectionView) LayoutInflater.from(context)
                 .inflate(R.layout.grid_section_view, /* root= */ null);
-        TextView sectionDescription = gridSectionView.findViewById(R.id.grid_section_description);
-        View sectionTile = gridSectionView.findViewById(R.id.grid_section_tile);
+        mSectionDescription = gridSectionView.findViewById(R.id.grid_section_description);
+        mSectionTile = gridSectionView.findViewById(R.id.grid_section_tile);
 
         // Fetch grid options to show currently set grid.
-        mGridOptionsManager.fetchOptions(new OptionsFetchedListener<GridOption>() {
-            @Override
-            public void onOptionsLoaded(List<GridOption> options) {
-                sectionDescription.setText(getActiveOption(options).getTitle());
-            }
-
-            @Override
-            public void onError(@Nullable Throwable throwable) {
-                if (throwable != null) {
-                    Log.e(TAG, "Error loading grid options", throwable);
-                }
-                sectionDescription.setText(R.string.something_went_wrong);
-                sectionTile.setVisibility(View.GONE);
-            }
-        }, /* The result is getting when calling isAvailable(), so reload= */ false);
+        updateUi(/* The result is getting when calling isAvailable(), so reload= */ false);
+        if (mIsRevampedUiEnabled) {
+            mGridOptionsManager.getOptionChangeObservable(/* handler= */ null).observe(
+                    mLifecycleOwner,
+                    mOptionChangeObserver);
+        }
 
         gridSectionView.setOnClickListener(
-                v -> mSectionNavigationController.navigateTo(new GridFragment()));
+                v -> {
+                    final Fragment gridFragment;
+                    if (mIsRevampedUiEnabled) {
+                        gridFragment = new GridFragment2();
+                    } else {
+                        gridFragment = new GridFragment();
+                    }
+                    mSectionNavigationController.navigateTo(gridFragment);
+                });
 
         return gridSectionView;
+    }
+
+    @Override
+    public void release() {
+        if (mIsRevampedUiEnabled && mGridOptionsManager.isAvailable()) {
+            mGridOptionsManager.getOptionChangeObservable(/* handler= */ null).removeObserver(
+                    mOptionChangeObserver
+            );
+        }
+    }
+
+    @Override
+    public void onTransitionOut() {
+        CustomizationSectionController.super.onTransitionOut();
+    }
+
+    private void updateUi(final boolean reload) {
+        mGridOptionsManager.fetchOptions(
+                new OptionsFetchedListener<GridOption>() {
+                    @Override
+                    public void onOptionsLoaded(List<GridOption> options) {
+                        final String title = getActiveOption(options).getTitle();
+                        mSectionDescription.setText(title);
+                    }
+
+                    @Override
+                    public void onError(@Nullable Throwable throwable) {
+                        if (throwable != null) {
+                            Log.e(TAG, "Error loading grid options", throwable);
+                        }
+                        mSectionDescription.setText(R.string.something_went_wrong);
+                        mSectionTile.setVisibility(View.GONE);
+                    }
+                },
+                reload);
     }
 
     private GridOption getActiveOption(List<GridOption> options) {

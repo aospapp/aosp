@@ -28,6 +28,8 @@ import android.net.wifi.WifiInfo;
 import android.net.wifi.WifiManager;
 import android.os.Handler;
 import android.os.WorkSource;
+import android.text.TextUtils;
+import android.util.ArrayMap;
 import android.util.Log;
 import android.util.SparseArray;
 
@@ -38,6 +40,7 @@ import java.io.FileDescriptor;
 import java.io.PrintWriter;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
+import java.util.Map;
 
 /**
  * Manages STA + STA for multi internet networks.
@@ -84,6 +87,7 @@ public class MultiInternetManager {
         public long connectionStartTimeMillis;
         // The WorkSource of the connection requestor.
         public WorkSource requestorWorkSource;
+        public String bssid;
 
         NetworkConnectionState(WorkSource workSource) {
             this(workSource, -1L);
@@ -95,6 +99,7 @@ public class MultiInternetManager {
 
             mConnected = false;
             mValidated = false;
+            bssid = null;
         }
 
         public NetworkConnectionState setConnected(boolean connected) {
@@ -173,7 +178,9 @@ public class MultiInternetManager {
             }
             final ConcreteClientModeManager ccm = (ConcreteClientModeManager) activeModeManager;
             // TODO: b/197670907 : Add client role ROLE_CLIENT_SECONDARY_INTERNET
-            if (ccm.getRole() != ROLE_CLIENT_SECONDARY_LONG_LIVED || !ccm.isSecondaryInternet()) {
+            // Needs to call getPreviousRole here since the role is set to null after a CMM stops
+            if (ccm.getPreviousRole() != ROLE_CLIENT_SECONDARY_LONG_LIVED
+                    || !ccm.isSecondaryInternet()) {
                 return;
             }
             if (mVerboseLoggingEnabled) {
@@ -213,7 +220,7 @@ public class MultiInternetManager {
                     || !isStaConcurrencyForMultiInternetEnabled()) {
                 return;
             }
-            final WifiInfo info = clientModeManager.syncRequestConnectionInfo();
+            final WifiInfo info = clientModeManager.getConnectionInfo();
             if (info != null) {
                 final int band = ScanResult.toBand(info.getFrequency());
                 if (mNetworkConnectionStates.contains(band)) {
@@ -367,6 +374,7 @@ public class MultiInternetManager {
         if (mode == mStaConcurrencyMultiInternetMode) {
             return true;
         }
+        mStaConcurrencyMultiInternetMode = mode;
         // If the STA+STA multi internet feature was disabled, disconnect the secondary cmm.
         // TODO: b/197670907 : Add client role ROLE_CLIENT_SECONDARY_INTERNET
         if (!enabled) {
@@ -375,10 +383,6 @@ public class MultiInternetManager {
                 if (cmm.isSecondaryInternet()) {
                     cmm.disconnect();
                 }
-            }
-            for (int i = 0; i < mNetworkConnectionStates.size(); i++) {
-                // Clear the connection state for all bands.
-                mNetworkConnectionStates.setValueAt(i, new NetworkConnectionState(null));
             }
             handleConnectionStateChange(MULTI_INTERNET_STATE_NONE, null);
         } else {
@@ -389,7 +393,7 @@ public class MultiInternetManager {
                         getRequestorWorkSource(band));
             }
         }
-        mStaConcurrencyMultiInternetMode = mode;
+
         mSettingsStore.handleWifiMultiInternetMode(mode);
         // Check if there is already multi internet request then start scan for connection.
         if (hasPendingConnectionRequests()) {
@@ -422,14 +426,14 @@ public class MultiInternetManager {
         }
         // If primary CMM has associated to a new BSSID, need to check if it is in a different band
         // of secondary CMM.
-        final WifiInfo info = clientModeManager.syncRequestConnectionInfo();
+        final WifiInfo info = clientModeManager.getConnectionInfo();
         final ConcreteClientModeManager secondaryCcmm =
                 mActiveModeWarden.getClientModeManagerInRole(ROLE_CLIENT_SECONDARY_LONG_LIVED);
         // If no secondary client mode manager then it's ok
         if (secondaryCcmm == null) return;
         // If secondary client mode manager is not connected or not for secondary internet
         if (!secondaryCcmm.isConnected() || !secondaryCcmm.isSecondaryInternet()) return;
-        final WifiInfo info2 = secondaryCcmm.syncRequestConnectionInfo();
+        final WifiInfo info2 = secondaryCcmm.getConnectionInfo();
         // If secondary network is in same band as primary now
         if (ScanResult.toBand(info.getFrequency()) == ScanResult.toBand(info2.getFrequency())) {
             // Need to disconnect secondary network
@@ -450,26 +454,35 @@ public class MultiInternetManager {
     }
 
     /**
-     * Check if there is connection request on a specific band.
-     * @param band The band for the connection request.
-     * @return true if there is connection request on specific band.
-     */
-    public boolean hasConnectionRequest(int band) {
-        return mNetworkConnectionStates.contains(band)
-                ? (getRequestorWorkSource(band) != null) : false;
-    }
-
-    /**
      * Check if there is unconnected network connection request.
      * @return the band of the connection request that is still not connected.
      */
     public int findUnconnectedRequestBand() {
+        if (mStaConcurrencyMultiInternetMode == WifiManager.WIFI_MULTI_INTERNET_MODE_DISABLED) {
+            return ScanResult.UNSPECIFIED;
+        }
         for (int i = 0; i < mNetworkConnectionStates.size(); i++) {
             if (!mNetworkConnectionStates.valueAt(i).isConnected()) {
                 return mNetworkConnectionStates.keyAt(i);
             }
         }
         return ScanResult.UNSPECIFIED;
+    }
+
+    /**
+     * Return the mapping from band (one of ScanResult.WIFI_BAND_*) to the specified BSSID for that
+     * band.
+     */
+    public Map<Integer, String> getSpecifiedBssids() {
+        Map<Integer, String> result = new ArrayMap<>();
+        for (int i = 0; i < mNetworkConnectionStates.size(); i++) {
+            int band = mNetworkConnectionStates.keyAt(i);
+            String bssid = mNetworkConnectionStates.valueAt(i).bssid;
+            if (bssid != null) {
+                result.put(band, bssid);
+            }
+        }
+        return result;
     }
 
     /**
@@ -492,7 +505,7 @@ public class MultiInternetManager {
                         && !ccmm.isSecondaryInternet()) {
                     continue;
                 }
-                WifiInfo info = clientModeManager.syncRequestConnectionInfo();
+                WifiInfo info = clientModeManager.getConnectionInfo();
                 // Exclude the network that is not connected or restricted.
                 if (info == null || !clientModeManager.isConnected()
                         ||  info.isRestricted()) continue;
@@ -534,14 +547,15 @@ public class MultiInternetManager {
      * @param requestorWs The requestor's WorkSource. Null to clear a network request for a
      * a band.
      */
-    public void setMultiInternetConnectionWorksource(int band, WorkSource requestorWs) {
+    public void setMultiInternetConnectionWorksource(int band, String targetBssid,
+            WorkSource requestorWs) {
         if (!isStaConcurrencyForMultiInternetEnabled()) {
             Log.w(TAG, "MultInternet is not enabled.");
             return;
         }
         if (mVerboseLoggingEnabled) {
-            Log.v(TAG, "setMultiInternetConnectionWorksource: band=" + band + ", requestorWs="
-                    + requestorWs);
+            Log.v(TAG, "setMultiInternetConnectionWorksource: band=" + band + ", bssid="
+                    + targetBssid + ", requestorWs=" + requestorWs);
         }
         if (requestorWs == null) {
             // Disconnect secondary network if the request is removed.
@@ -559,10 +573,46 @@ public class MultiInternetManager {
         }
         if (mNetworkConnectionStates.contains(band)) {
             Log.w(TAG, "band " + band + " already requested.");
+            if (TextUtils.equals(mNetworkConnectionStates.get(band).bssid, targetBssid)) {
+                // No change in BSSID field, so early return to avoid unnecessary scanning.
+                return;
+            }
+            disconnectSecondaryIfNeeded(band, targetBssid);
         }
-        mNetworkConnectionStates.put(band, new NetworkConnectionState(requestorWs,
-                    mClock.getElapsedSinceBootMillis()));
+        NetworkConnectionState connectionState = new NetworkConnectionState(requestorWs,
+                mClock.getElapsedSinceBootMillis());
+        connectionState.bssid = targetBssid;
+        mNetworkConnectionStates.put(band, connectionState);
         startConnectivityScan();
+    }
+
+    /**
+     * Disconnect the secondary that's connected to the same band but different bssid.
+     */
+    private void disconnectSecondaryIfNeeded(int band, String targetBssid) {
+        if (targetBssid == null) {
+            return;
+        }
+        for (ConcreteClientModeManager cmm : mActiveModeWarden.getClientModeManagersInRoles(
+                ROLE_CLIENT_SECONDARY_LONG_LIVED)) {
+            if (cmm.isSecondaryInternet()) {
+                WifiInfo wifiInfo = cmm.getConnectionInfo();
+                if (band != ScanResult.toBand(wifiInfo.getFrequency())) {
+                    continue;
+                }
+                String connectingBssid = cmm.getConnectingBssid();
+                String connectedBssid = cmm.getConnectedBssid();
+                if ((connectingBssid != null && !connectingBssid.equals(targetBssid))
+                        || (connectedBssid != null && !connectedBssid.equals(targetBssid))) {
+                    if (mVerboseLoggingEnabled) {
+                        Log.v(TAG, "Disconnect secondary client mode manager due to specified"
+                                + " BSSID in the same band");
+                    }
+                    cmm.disconnect();
+                    break;
+                }
+            }
+        }
     }
 
     /** Returns the band of the secondary network connected. */
@@ -572,7 +622,7 @@ public class MultiInternetManager {
         if (secondaryCcmm == null) {
             return ScanResult.UNSPECIFIED;
         }
-        final WifiInfo info = secondaryCcmm.syncRequestConnectionInfo();
+        final WifiInfo info = secondaryCcmm.getConnectionInfo();
         // Make sure secondary network is connected.
         if (info == null || !secondaryCcmm.isConnected() || !secondaryCcmm.isSecondaryInternet()) {
             return ScanResult.UNSPECIFIED;
@@ -624,7 +674,8 @@ public class MultiInternetManager {
         pw.println(TAG + ": mStaConcurrencyMultiInternetMode "
                 + mStaConcurrencyMultiInternetMode);
         for (int i = 0; i < mNetworkConnectionStates.size(); i++) {
-            pw.println("band " + mNetworkConnectionStates.keyAt(i) + " connected "
+            pw.println("band " + mNetworkConnectionStates.keyAt(i) + " bssid "
+                    + mNetworkConnectionStates.valueAt(i).bssid + " connected "
                     + mNetworkConnectionStates.valueAt(i).isConnected()
                     + " validated " + mNetworkConnectionStates.valueAt(i).isValidated());
         }

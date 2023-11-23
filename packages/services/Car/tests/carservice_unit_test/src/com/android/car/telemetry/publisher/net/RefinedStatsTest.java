@@ -28,6 +28,7 @@ import android.car.test.mocks.AbstractExtendedMockitoTestCase;
 import android.os.PersistableBundle;
 
 import com.android.car.telemetry.UidPackageMapper;
+import com.android.car.telemetry.publisher.Constants;
 import com.android.internal.util.FastXmlSerializer;
 
 import org.junit.Before;
@@ -79,14 +80,15 @@ public class RefinedStatsTest extends AbstractExtendedMockitoTestCase {
         PersistableBundle result = mRefinedStats.toPersistableBundle(mMockUidMapper);
 
         PersistableBundle expected = new PersistableBundle();
-        expected.putLong("startMillis", 10_000);
-        expected.putLong("endMillis", 20_000);
-        expected.putInt("size", 2);
-        expected.putIntArray("uid", new int[] {UID_0, UID_1});
-        expected.putStringArray("packages", new String[] {"pkg1,pkg2", "pkg1,pkg2"});
-        expected.putIntArray("tag", new int[] {TAG_1, TAG_NONE});
-        expected.putLongArray("rxBytes", new long[] {14096, 4095});
-        expected.putLongArray("txBytes", new long[] {12048, 2047});
+        expected.putLong(Constants.CONNECTIVITY_BUNDLE_KEY_START_MILLIS, 10_000);
+        expected.putLong(Constants.CONNECTIVITY_BUNDLE_KEY_END_MILLIS, 20_000);
+        expected.putInt(Constants.CONNECTIVITY_BUNDLE_KEY_SIZE, 2);
+        expected.putIntArray(Constants.CONNECTIVITY_BUNDLE_KEY_UID, new int[] {UID_0, UID_1});
+        expected.putStringArray(Constants.CONNECTIVITY_BUNDLE_KEY_PACKAGES,
+                new String[] {"pkg1,pkg2", "pkg1,pkg2"});
+        expected.putIntArray(Constants.CONNECTIVITY_BUNDLE_KEY_TAG, new int[] {TAG_1, TAG_NONE});
+        expected.putLongArray(Constants.CONNECTIVITY_BUNDLE_KEY_RX_BYTES, new long[] {14096, 4095});
+        expected.putLongArray(Constants.CONNECTIVITY_BUNDLE_KEY_TX_BYTES, new long[] {12048, 2047});
         assertThat(bundleToXml(result)).isEqualTo(bundleToXml(expected));
     }
 
@@ -122,15 +124,21 @@ public class RefinedStatsTest extends AbstractExtendedMockitoTestCase {
         RefinedStats diff = RefinedStats.subtract(mRefinedStats, other);
 
         PersistableBundle expected = new PersistableBundle();
-        expected.putLong("startMillis", 10_000);
-        expected.putLong("endMillis", 20_000);
-        expected.putInt("size", 3); // the same size as "mRefinedStats"
-        expected.putIntArray("uid", new int[] {UID_1, UID_1, UID_2});
-        expected.putStringArray("packages", new String[] {"pkg1,pkg2", "pkg1,pkg2", "pkg1,pkg2"});
-        expected.putIntArray("tag", new int[] {TAG_NONE, TAG_1, TAG_NONE});
+        expected.putLong(Constants.CONNECTIVITY_BUNDLE_KEY_START_MILLIS, 10_000);
+        expected.putLong(Constants.CONNECTIVITY_BUNDLE_KEY_END_MILLIS, 20_000);
+        // the same size as "mRefinedStats"
+        expected.putInt(Constants.CONNECTIVITY_BUNDLE_KEY_SIZE, 3);
+        expected.putIntArray(Constants.CONNECTIVITY_BUNDLE_KEY_UID,
+                new int[] {UID_1, UID_1, UID_2});
+        expected.putStringArray(Constants.CONNECTIVITY_BUNDLE_KEY_PACKAGES,
+                new String[] {"pkg1,pkg2", "pkg1,pkg2", "pkg1,pkg2"});
+        expected.putIntArray(Constants.CONNECTIVITY_BUNDLE_KEY_TAG,
+                new int[] {TAG_NONE, TAG_1, TAG_NONE});
         // Handles negative values too (hence 0).
-        expected.putLongArray("rxBytes", new long[] {4090, 0, 4096});
-        expected.putLongArray("txBytes", new long[] {2040, 0, 2048});
+        expected.putLongArray(Constants.CONNECTIVITY_BUNDLE_KEY_RX_BYTES,
+                new long[] {4090, 0, 4096});
+        expected.putLongArray(Constants.CONNECTIVITY_BUNDLE_KEY_TX_BYTES,
+                new long[] {2040, 0, 2048});
         assertThat(bundleToXml(diff.toPersistableBundle(mMockUidMapper)))
                 .isEqualTo(bundleToXml(expected));
     }

@@ -64,16 +64,6 @@ public class FastPairCacheManager {
     }
 
     /**
-     * Checks if the entry can be auto deleted from the cache
-     */
-    public boolean isDeletable(Cache.ServerResponseDbItem entry) {
-        if (!entry.getExpirable()) {
-            return false;
-        }
-        return true;
-    }
-
-    /**
      * Save discovery item into database. Discovery item is item that discovered through Ble before
      * pairing success.
      */

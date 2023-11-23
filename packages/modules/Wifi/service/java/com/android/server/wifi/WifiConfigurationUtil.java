@@ -30,6 +30,7 @@ import android.net.wifi.WifiEnterpriseConfig;
 import android.net.wifi.WifiManager;
 import android.net.wifi.WifiNetworkSpecifier;
 import android.net.wifi.WifiScanner;
+import android.net.wifi.WifiSsid;
 import android.os.PatternMatcher;
 import android.text.TextUtils;
 import android.util.Log;
@@ -79,6 +80,7 @@ public class WifiConfigurationUtil {
             new Pair<>(MacAddress.BROADCAST_ADDRESS, MacAddress.BROADCAST_ADDRESS);
     private static final Pair<MacAddress, MacAddress> MATCH_ALL_BSSID_PATTERN =
             new Pair<>(ALL_ZEROS_MAC_ADDRESS, ALL_ZEROS_MAC_ADDRESS);
+    private static final String SYSTEM_CA_STORE_PATH = "/system/etc/security/cacerts";
 
     /**
      * Checks if the provided |wepKeys| array contains any non-null value;
@@ -129,9 +131,20 @@ public class WifiConfigurationUtil {
 
     /**
      * Helper method to check if the provided |config| corresponds to a EAP network or not.
+     *
+     * Attention: This method returns true only for WiFi configuration with traditional EAP methods.
+     * It returns false for passpoint WiFi configuration. Please consider to use
+     * isConfigForEnterpriseNetwork() if necessary.
      */
     public static boolean isConfigForEapNetwork(WifiConfiguration config) {
         return config.isSecurityType(WifiConfiguration.SECURITY_TYPE_EAP);
+    }
+
+    /**
+     * Helper method to check if the provided |config| corresponds to an enterprise network or not.
+     */
+    public static boolean isConfigForEnterpriseNetwork(WifiConfiguration config) {
+        return config.getDefaultSecurityParams().isEnterpriseSecurityType();
     }
 
     /**
@@ -267,8 +280,13 @@ public class WifiConfigurationUtil {
                 return true;
             }
             if (existingEnterpriseConfig.isAuthenticationSimBased()) {
-                // The anonymous identity will be decorated with 3gpp realm in the service.
-                if (!TextUtils.equals(existingEnterpriseConfig.getAnonymousIdentity(),
+                // On Pre-T devices consider it as a credential change so that the network
+                // configuration is reloaded in wpa_supplicant during reconnection. This is to
+                // ensure that the updated anonymous identity is sent to wpa_supplicant. On newer
+                // releases the anonymous identity is updated immediately after connection
+                // completion event.
+                if (!SdkLevel.isAtLeastT()
+                        && !TextUtils.equals(existingEnterpriseConfig.getAnonymousIdentity(),
                         newEnterpriseConfig.getAnonymousIdentity())) {
                     return true;
                 }
@@ -312,6 +330,10 @@ public class WifiConfigurationUtil {
                 return true;
             }
             if (newEnterpriseConfig.getOcsp() != existingEnterpriseConfig.getOcsp()) {
+                return true;
+            }
+            if (!TextUtils.equals(newEnterpriseConfig.getDomainSuffixMatch(),
+                    existingEnterpriseConfig.getDomainSuffixMatch())) {
                 return true;
             }
         } else {
@@ -404,34 +426,20 @@ public class WifiConfigurationUtil {
             Log.e(TAG, "validateSsid failed: empty string");
             return false;
         }
-        if (ssid.startsWith("\"")) {
-            // UTF-8 SSID string
-            byte[] ssidBytes = ssid.getBytes(StandardCharsets.UTF_8);
-            if (ssidBytes.length < SSID_UTF_8_MIN_LEN) {
-                Log.e(TAG, "validateSsid failed: utf-8 ssid string size too small: "
-                        + ssidBytes.length);
-                return false;
-            }
-            if (ssidBytes.length > SSID_UTF_8_MAX_LEN) {
-                Log.e(TAG, "validateSsid failed: utf-8 ssid string size too large: "
-                        + ssidBytes.length);
-                return false;
-            }
-        } else {
-            // HEX SSID string
-            if (ssid.length() < SSID_HEX_MIN_LEN) {
-                Log.e(TAG, "validateSsid failed: hex string size too small: " + ssid.length());
-                return false;
-            }
-            if (ssid.length() > SSID_HEX_MAX_LEN) {
-                Log.e(TAG, "validateSsid failed: hex string size too large: " + ssid.length());
-                return false;
-            }
+        if (!ssid.startsWith("\"") && ssid.length() > SSID_HEX_MAX_LEN) {
+            Log.e(TAG, "validateSsid failed: hex ssid " + ssid + " longer than 32 bytes");
+            return false;
         }
+        WifiSsid wifiSsid;
         try {
-            NativeUtil.decodeSsid(ssid);
+            wifiSsid = WifiSsid.fromString(ssid);
         } catch (IllegalArgumentException e) {
             Log.e(TAG, "validateSsid failed: malformed string: " + ssid);
+            return false;
+        }
+        int ssidLength = wifiSsid.getBytes().length;
+        if (ssidLength == 0) {
+            Log.e(TAG, "validateSsid failed: ssid 0 length!");
             return false;
         }
         return true;
@@ -467,7 +475,8 @@ public class WifiConfigurationUtil {
         return true;
     }
 
-    private static boolean validatePassword(String password, boolean isAdd, boolean isSae) {
+    private static boolean validatePassword(String password, boolean isAdd, boolean isSae,
+            boolean isWapi) {
         if (isAdd) {
             if (password == null) {
                 Log.e(TAG, "validatePassword: null string");
@@ -509,7 +518,14 @@ public class WifiConfigurationUtil {
             }
         } else {
             // HEX PSK string
-            if (password.length() != PSK_SAE_HEX_LEN) {
+            if (isWapi) {
+                // Protect system against malicious actors injecting arbitrarily large passwords.
+                if (password.length() > 100) {
+                    Log.e(TAG, "validatePassword failed: WAPI hex string too long: "
+                            + password.length());
+                    return false;
+                }
+            } else if (password.length() != PSK_SAE_HEX_LEN) {
                 Log.e(TAG, "validatePassword failed: hex string size mismatch: "
                         + password.length());
                 return false;
@@ -629,9 +645,8 @@ public class WifiConfigurationUtil {
                 Log.e(TAG, "validateKeyMgmt failed: not WPA_EAP");
                 return false;
             }
-            if (!keyMgmnt.get(WifiConfiguration.KeyMgmt.IEEE8021X)
-                    && !keyMgmnt.get(WifiConfiguration.KeyMgmt.WPA_PSK)) {
-                Log.e(TAG, "validateKeyMgmt failed: not PSK or 8021X");
+            if (!keyMgmnt.get(WifiConfiguration.KeyMgmt.IEEE8021X)) {
+                Log.e(TAG, "validateKeyMgmt failed: not 8021X");
                 return false;
             }
             // SUITE-B keymgmt must be WPA_EAP + IEEE8021X + SUITE_B_192.
@@ -642,6 +657,11 @@ public class WifiConfigurationUtil {
                 Log.e(TAG, "validateKeyMgmt failed: not SUITE_B_192");
                 return false;
             }
+        }
+        // There should be at least one keymgmt.
+        if (keyMgmnt.cardinality() == 0) {
+            Log.e(TAG, "validateKeyMgmt failed: cardinality = 0");
+            return false;
         }
         return true;
     }
@@ -713,11 +733,15 @@ public class WifiConfigurationUtil {
             return false;
         }
         if (config.isSecurityType(WifiConfiguration.SECURITY_TYPE_PSK)
-                && !validatePassword(config.preSharedKey, isAdd, false)) {
+                && !validatePassword(config.preSharedKey, isAdd, false, false)) {
             return false;
         }
         if (config.isSecurityType(WifiConfiguration.SECURITY_TYPE_SAE)
-                && !validatePassword(config.preSharedKey, isAdd, true)) {
+                && !validatePassword(config.preSharedKey, isAdd, true, false)) {
+            return false;
+        }
+        if (config.isSecurityType(WifiConfiguration.SECURITY_TYPE_WAPI_PSK)
+                && !validatePassword(config.preSharedKey, isAdd, false, true)) {
             return false;
         }
         if (config.isSecurityType(WifiConfiguration.SECURITY_TYPE_DPP)
@@ -827,9 +851,11 @@ public class WifiConfigurationUtil {
      * 12. {@link WifiConfiguration#getIpConfiguration()}
      *
      * @param specifier Instance of {@link WifiNetworkSpecifier}.
+     * @param maxChannelsAllowed The max number allowed to set in a WifiNetworkSpecifier
      * @return true if the parameters are valid, false otherwise.
      */
-    public static boolean validateNetworkSpecifier(WifiNetworkSpecifier specifier) {
+    public static boolean validateNetworkSpecifier(WifiNetworkSpecifier specifier,
+            int maxChannelsAllowed) {
         if (!isValidNetworkSpecifier(specifier)) {
             Log.e(TAG, "validateNetworkSpecifier failed : invalid network specifier");
             return false;
@@ -843,6 +869,9 @@ public class WifiConfigurationUtil {
             return false;
         }
         if (!WifiNetworkSpecifier.validateBand(getBand(specifier))) {
+            return false;
+        }
+        if (specifier.getPreferredChannelFrequenciesMhz().length > maxChannelsAllowed) {
             return false;
         }
         WifiConfiguration config = specifier.wifiConfiguration;
@@ -876,11 +905,11 @@ public class WifiConfigurationUtil {
             return false;
         }
         if (config.isSecurityType(WifiConfiguration.SECURITY_TYPE_PSK)
-                && !validatePassword(config.preSharedKey, true, false)) {
+                && !validatePassword(config.preSharedKey, true, false, false)) {
             return false;
         }
         if (config.isSecurityType(WifiConfiguration.SECURITY_TYPE_SAE)
-                && !validatePassword(config.preSharedKey, true, true)) {
+                && !validatePassword(config.preSharedKey, true, true, false)) {
             return false;
         }
         // TBD: Validate some enterprise params as well in the future here.
@@ -1093,21 +1122,33 @@ public class WifiConfigurationUtil {
      * the merged configs directly.
      *
      * @param configs the list of multi-type configurations.
+     * @param ignoreDisabledType indicates whether or not disabled types should be ignored.
      * @return a list of Wi-Fi configurations with a single security type,
      *         that may contain multiple configurations with the same network ID.
      */
     public static List<WifiConfiguration> convertMultiTypeConfigsToLegacyConfigs(
-            List<WifiConfiguration> configs) {
+            List<WifiConfiguration> configs, boolean ignoreDisabledType) {
         if (!SdkLevel.isAtLeastS()) {
             return configs;
         }
         List<WifiConfiguration> legacyConfigs = new ArrayList<>();
         for (WifiConfiguration config : configs) {
             for (SecurityParams params: config.getSecurityParamsList()) {
-                if (!params.isEnabled()) continue;
+                if (ignoreDisabledType && !params.isEnabled()) continue;
                 if (shouldOmitAutoUpgradeParams(params)) continue;
                 WifiConfiguration legacyConfig = new WifiConfiguration(config);
                 legacyConfig.setSecurityParams(params);
+                if (!params.isEnabled()) {
+                    legacyConfig.getNetworkSelectionStatus().setNetworkSelectionStatus(
+                            WifiConfiguration.NetworkSelectionStatus
+                                    .NETWORK_SELECTION_PERMANENTLY_DISABLED);
+                    legacyConfig.getNetworkSelectionStatus().setNetworkSelectionDisableReason(
+                            WifiConfiguration.NetworkSelectionStatus
+                                    .DISABLED_TRANSITION_DISABLE_INDICATION);
+                    legacyConfig.getNetworkSelectionStatus().setDisableReasonCounter(
+                            WifiConfiguration.NetworkSelectionStatus
+                                    .DISABLED_TRANSITION_DISABLE_INDICATION, 1);
+                }
                 legacyConfigs.add(legacyConfig);
             }
         }
@@ -1145,5 +1186,41 @@ public class WifiConfigurationUtil {
             }
         }
         return true;
+    }
+
+    /**
+     * Indicate that this configuration could be linked.
+     *
+     * @param config the configuartion to be checked.
+     * @return true if it's linkable; otherwise false.
+     */
+    public static boolean isConfigLinkable(WifiConfiguration config) {
+        WifiGlobals wifiGlobals = WifiInjector.getInstance().getWifiGlobals();
+        if (config.isSecurityType(WifiConfiguration.SECURITY_TYPE_PSK)
+                && config.getSecurityParams(WifiConfiguration.SECURITY_TYPE_PSK)
+                .isEnabled()) {
+            return true;
+        }
+
+        // If SAE offload is supported, link SAE type also.
+        if (wifiGlobals.isWpa3SaeUpgradeOffloadEnabled()) {
+            if (config.isSecurityType(WifiConfiguration.SECURITY_TYPE_SAE)
+                    && config.getSecurityParams(WifiConfiguration.SECURITY_TYPE_SAE)
+                    .isEnabled()) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Get the system trust store path which can be used when setting the CA path of an Enterprise
+     * Wi-Fi connection {@link WifiEnterpriseConfig#setCaPath(String)}
+     *
+     * @return The system trust store path
+     */
+    public static String getSystemTrustStorePath() {
+        return SYSTEM_CA_STORE_PATH;
     }
 }

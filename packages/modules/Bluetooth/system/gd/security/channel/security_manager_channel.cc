@@ -43,7 +43,7 @@ void SecurityManagerChannel::Connect(hci::Address address) {
   ASSERT_LOG(l2cap_security_interface_ != nullptr, "L2cap Security Interface is null!");
   auto entry = link_map_.find(address);
   if (entry != link_map_.end()) {
-    LOG_WARN("Already connected to '%s'", address.ToString().c_str());
+    LOG_WARN("Already connected to '%s'", ADDRESS_TO_LOGGABLE_CSTR(address));
     entry->second->Hold();
     entry->second->EnsureAuthenticated();
     return;
@@ -55,7 +55,7 @@ void SecurityManagerChannel::Connect(hci::Address address) {
 void SecurityManagerChannel::Release(hci::Address address) {
   auto entry = link_map_.find(address);
   if (entry == link_map_.end()) {
-    LOG_WARN("Unknown address '%s'", address.ToString().c_str());
+    LOG_WARN("Unknown address '%s'", ADDRESS_TO_LOGGABLE_CSTR(address));
     return;
   }
   entry->second->Release();
@@ -65,7 +65,7 @@ void SecurityManagerChannel::Disconnect(hci::Address address) {
   outgoing_pairing_remote_devices_.erase(address);
   auto entry = link_map_.find(address);
   if (entry == link_map_.end()) {
-    LOG_WARN("Unknown address '%s'", address.ToString().c_str());
+    LOG_WARN("Unknown address '%s'", ADDRESS_TO_LOGGABLE_CSTR(address));
     return;
   }
   entry->second->Disconnect();
@@ -105,7 +105,7 @@ void SecurityManagerChannel::OnLinkConnected(std::unique_ptr<l2cap::classic::Lin
 void SecurityManagerChannel::OnLinkDisconnected(hci::Address address) {
   auto entry = link_map_.find(address);
   if (entry == link_map_.end()) {
-    LOG_WARN("Unknown address '%s'", address.ToString().c_str());
+    LOG_WARN("Unknown address '%s'", ADDRESS_TO_LOGGABLE_CSTR(address));
     return;
   }
   entry->second.reset();

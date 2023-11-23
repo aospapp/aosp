@@ -170,6 +170,7 @@ class HasDevice : public GattServiceDevice {
   uint16_t active_preset_ccc_handle = GAP_INVALID_HANDLE;
   uint16_t cp_handle = GAP_INVALID_HANDLE;
   uint16_t cp_ccc_handle = GAP_INVALID_HANDLE;
+  uint8_t cp_ccc_val = 0;
   uint16_t features_handle = GAP_INVALID_HANDLE;
   uint16_t features_ccc_handle = GAP_INVALID_HANDLE;
 

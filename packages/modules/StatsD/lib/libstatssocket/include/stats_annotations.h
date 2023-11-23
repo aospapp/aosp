@@ -80,6 +80,116 @@ enum AnnotationIds : uint8_t {
      * Introduced in API 31.
      */
     ASTATSLOG_ANNOTATION_ID_STATE_NESTED = 8,
+
+    /**
+     * Annotation ID constant to indicate the restriction category of an atom.
+     * This annotation must only be attached to the atom id. This is an int annotation.
+     *
+     * Introduced in API 34.
+     */
+    ASTATSLOG_ANNOTATION_ID_RESTRICTION_CATEGORY = 9,
+
+    /**
+     * Annotation ID to indicate that a field of an atom contains peripheral device info.
+     * This is a bool annotation.
+     *
+     * Introduced in API 34.
+     */
+    ASTATSLOG_ANNOTATION_ID_FIELD_RESTRICTION_PERIPHERAL_DEVICE_INFO = 10,
+
+    /**
+     * Annotation ID to indicate that a field of an atom contains app usage information.
+     * This is a bool annotation.
+     *
+     * Introduced in API 34.
+     */
+    ASTATSLOG_ANNOTATION_ID_FIELD_RESTRICTION_APP_USAGE = 11,
+
+    /**
+     * Annotation ID to indicate that a field of an atom contains app activity information.
+     * This is a bool annotation.
+     *
+     * Introduced in API 34.
+     */
+    ASTATSLOG_ANNOTATION_ID_FIELD_RESTRICTION_APP_ACTIVITY = 12,
+
+    /**
+     * Annotation ID to indicate that a field of an atom contains health connect information.
+     * This is a bool annotation.
+     *
+     * Introduced in API 34.
+     */
+    ASTATSLOG_ANNOTATION_ID_FIELD_RESTRICTION_HEALTH_CONNECT = 13,
+
+    /**
+     * Annotation ID to indicate that a field of an atom contains accessibility information.
+     * This is a bool annotation.
+     *
+     * Introduced in API 34.
+     */
+    ASTATSLOG_ANNOTATION_ID_FIELD_RESTRICTION_ACCESSIBILITY = 14,
+
+    /**
+     * Annotation ID to indicate that a field of an atom contains system search information.
+     * This is a bool annotation.
+     *
+     * Introduced in API 34.
+     */
+    ASTATSLOG_ANNOTATION_ID_FIELD_RESTRICTION_SYSTEM_SEARCH = 15,
+
+    /**
+     * Annotation ID to indicate that a field of an atom contains user engagement information.
+     * This is a bool annotation.
+     *
+     * Introduced in API 34.
+     */
+    ASTATSLOG_ANNOTATION_ID_FIELD_RESTRICTION_USER_ENGAGEMENT = 16,
+
+    /**
+     * Annotation ID to indicate that a field of an atom contains ambient sensing information.
+     * This is a bool annotation.
+     *
+     * Introduced in API 34.
+     */
+    ASTATSLOG_ANNOTATION_ID_FIELD_RESTRICTION_AMBIENT_SENSING = 17,
+
+    /**
+     * Annotation ID to indicate that a field of an atom contains demographic classification
+     * information. This is a bool annotation.
+     *
+     * Introduced in API 34.
+     */
+    ASTATSLOG_ANNOTATION_ID_FIELD_RESTRICTION_DEMOGRAPHIC_CLASSIFICATION = 18,
 };
 
+enum AStatsLogRestrictionCategory : uint32_t {
+    /**
+     * Restriction category for atoms about diagnostics.
+     *
+     * Introduced in API 34.
+     */
+    ASTATSLOG_RESTRICTION_CATEGORY_DIAGNOSTIC = 1,
+
+    /**
+     * Restriction category for atoms about system intelligence.
+     *
+     * Introduced in API 34.
+     */
+    ASTATSLOG_RESTRICTION_CATEGORY_SYSTEM_INTELLIGENCE = 2,
+
+    /**
+     * Restriction category for atoms about authentication.
+     *
+     * Introduced in API 34.
+     */
+    ASTATSLOG_RESTRICTION_CATEGORY_AUTHENTICATION = 3,
+
+    /**
+     * Restriction category for atoms about fraud and abuse.
+     *
+     * Introduced in API 34.
+     */
+    ASTATSLOG_RESTRICTION_CATEGORY_FRAUD_AND_ABUSE = 4,
+
+};
 __END_DECLS

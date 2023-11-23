@@ -49,4 +49,11 @@
     <string name="see_more_message" msgid="6343183827924395955">"ເບິ່ງເພີ່ມເຕີມ"</string>
     <string name="restricted_hun_message_content" msgid="631111937988857716">"ຂໍ້ຄວາມໃໝ່"</string>
     <string name="manage_text" msgid="4225197445283791757">"ຈັດການ"</string>
+    <string name="category_navigation" msgid="4406139232918521087">"ການນຳທາງ"</string>
+    <string name="category_call" msgid="2249490790700877973">"ໂທ"</string>
+    <string name="category_message" msgid="451360226248504859">"ຂໍ້ຄວາມ"</string>
+    <string name="hun_suppression_channel_name" msgid="8298850157350352525">"ການລະງັບແຈ້ງເຕືອນ"</string>
+    <string name="hun_suppression_notification_title_park" msgid="2790860076784227523">"ຕິດຕາມຂໍ້ມູນຫຼ້າສຸດ"</string>
+    <string name="hun_suppression_notification_title_drive" msgid="4403363470548899844">"ກະລຸນາມີສະມາທິໃນການຂັບຂີ່"</string>
+    <string name="hun_suppression_notification_description" msgid="5269238832987802104">"ການແຈ້ງເຕືອນໃໝ່ບາງລາຍການແມ່ນຖືກບັນທຶກໄວ້ໃນສູນການແຈ້ງເຕືອນ"</string>
 </resources>

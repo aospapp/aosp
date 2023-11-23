@@ -1,9 +1,20 @@
-use crate::RPCProxy;
+use btstack::RPCProxy;
+
+use std::sync::{Arc, Mutex};
+
+use crate::bluetooth_manager::BluetoothManager;
 
 #[derive(Debug, Default)]
 pub struct AdapterWithEnabled {
     pub hci_interface: i32,
     pub enabled: bool,
+}
+
+/// A mixin of the several interfaces. The naming of the fields in the mixin must match
+/// what is listed in the `generate_dbus_exporter` invocation.
+pub struct BluetoothManagerMixin {
+    pub manager: Arc<Mutex<Box<BluetoothManager>>>,
+    pub experimental: Arc<Mutex<Box<BluetoothManager>>>,
 }
 
 /// Bluetooth stack management API.
@@ -28,10 +39,28 @@ pub trait IBluetoothManager {
 
     /// Returns a list of available HCI devices and if they are enabled.
     fn get_available_adapters(&mut self) -> Vec<AdapterWithEnabled>;
+
+    /// Get the default adapter to use for activity. The default adapter should
+    /// be used for all device management and will be the |desired_adapter|, if
+    /// present/enabled on the system, or the lowest numbered hci interface otherwise.
+    fn get_default_adapter(&mut self) -> i32;
+
+    /// Set the preferred default adapter.
+    fn set_desired_default_adapter(&mut self, hci_interface: i32);
 }
 
 /// Interface of Bluetooth Manager callbacks.
 pub trait IBluetoothManagerCallback: RPCProxy {
-    fn on_hci_device_changed(&self, hci_interface: i32, present: bool);
-    fn on_hci_enabled_changed(&self, hci_interface: i32, enabled: bool);
+    /// HCI device presence has changed.
+    fn on_hci_device_changed(&mut self, hci_interface: i32, present: bool);
+
+    /// HCI device is enabled or disabled.
+    fn on_hci_enabled_changed(&mut self, hci_interface: i32, enabled: bool);
+
+    /// The default adapter has changed. At start-up, if the default adapter is
+    /// already available, this won't be sent out. This will only be sent in two
+    /// cases:
+    ///   * Default adapter is no longer available and we need to use a backup.
+    ///   * Desired default adapter re-appears and we should switch back.
+    fn on_default_adapter_changed(&mut self, hci_interface: i32);
 }

@@ -1,0 +1,7 @@
+{
+  "avf-presubmit" : [
+    {
+      "name" : "libdm_rust.test"
+    }
+  ]
+}

@@ -23,20 +23,27 @@
         android:title="@string/wifi_settings"
         style="@style/ColoredSwitchPreferenceStyle"
         settings:controller="com.android.car.settings.wifi.WifiStateSwitchPreferenceController"
+        settings:occupant_front_passenger="read"
+        settings:occupant_rear_passenger="read"
         settings:searchable="false"/>
-    <com.android.car.settings.common.DividerPreference/>
     <com.android.car.ui.preference.CarUiPreference
         android:key="@string/pk_wifi_status"
         settings:controller="com.android.car.settings.wifi.WifiStatusPreferenceController"
+        settings:occupant_front_passenger="read"
+        settings:occupant_rear_passenger="read"
         settings:showChevron="false"/>
     <com.android.car.settings.common.LogicalPreferenceGroup
         android:key="@string/pk_wifi_list"
-        settings:controller="com.android.car.settings.wifi.WifiEntryListPreferenceController"/>
+        settings:controller="com.android.car.settings.wifi.WifiEntryListPreferenceController"
+        settings:occupant_front_passenger="read"
+        settings:occupant_rear_passenger="read"/>
     <com.android.car.ui.preference.CarUiPreference
         android:fragment="com.android.car.settings.wifi.AddWifiFragment"
         android:icon="@drawable/ic_add"
         android:key="@string/pk_add_wifi"
         android:title="@string/wifi_setup_add_network"
         settings:controller="com.android.car.settings.wifi.AddWifiPreferenceController"
+        settings:occupant_front_passenger="read"
+        settings:occupant_rear_passenger="read"
         settings:showChevron="false"/>
 </PreferenceScreen>

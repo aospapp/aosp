@@ -58,6 +58,7 @@ android_library {
         "SystemUI-proto",
         "dagger2",
         "//external/kotlinc:kotlin-annotations",
+        "animationlib",
     ],
 
     libs: [
@@ -94,6 +95,7 @@ android_library {
         "SystemUIPluginLib",
         "SystemUISharedLib",
         "SettingsLib",
+        "android.car.test.utils",
         "androidx.legacy_legacy-support-v4",
         "androidx.recyclerview_recyclerview",
         "androidx.preference_preference",
@@ -115,9 +117,10 @@ android_library {
         "SystemUI-proto",
         "metrics-helper-lib",
         "androidx.test.rules", "hamcrest-library",
-        "mockito-target-inline-minus-junit4",
+        "mockito-target-extended-minus-junit4",
         "testables",
         "truth-prebuilt",
+        "testng",
         "dagger2",
         "//external/kotlinc:kotlin-annotations",
     ],

@@ -28,8 +28,10 @@ import androidx.lifecycle.LiveData;
 
 import com.android.car.broadcastradio.support.Program;
 import com.android.car.broadcastradio.support.platform.ProgramInfoExt;
+import com.android.car.broadcastradio.support.platform.ProgramSelectorExt;
 import com.android.car.radio.bands.ProgramType;
 import com.android.car.radio.bands.RegionConfig;
+import com.android.car.radio.media.TunerSession;
 import com.android.car.radio.service.RadioAppService;
 import com.android.car.radio.service.RadioAppServiceWrapper;
 import com.android.car.radio.service.RadioAppServiceWrapper.ConnectionState;
@@ -91,6 +93,14 @@ public class RadioController {
      */
     public void shutdown() {
         mAppService.unbind();
+    }
+
+    /**
+     * See {@link RadioAppServiceWrapper#getConnectionState}.
+     */
+    @NonNull
+    public LiveData<Integer> getConnectionState() {
+        return mAppService.getConnectionState();
     }
 
     /**
@@ -169,7 +179,7 @@ public class RadioController {
             mDisplayController.setChannel(sel);
 
             mDisplayController.setStationName(
-                    ProgramInfoExt.getProgramName(info, ProgramInfoExt.NAME_NO_CHANNEL_FALLBACK));
+                    ProgramSelectorExt.getDisplayName(sel, info.getChannel()));
 
             if (meta.containsKey(RadioMetadata.METADATA_KEY_TITLE)
                     || meta.containsKey(RadioMetadata.METADATA_KEY_ARTIST)) {
@@ -177,7 +187,8 @@ public class RadioController {
                         meta.getString(RadioMetadata.METADATA_KEY_TITLE),
                         meta.getString(RadioMetadata.METADATA_KEY_ARTIST));
             } else {
-                mDisplayController.setDetails(meta.getString(RadioMetadata.METADATA_KEY_RDS_RT));
+                mDisplayController.setDetails(ProgramInfoExt.getProgramName(info, /* flags= */ 0,
+                        TunerSession.PROGRAM_NAME_ORDER));
             }
 
             mDisplayController.setCurrentIsFavorite(mRadioStorage.isFavorite(sel));

@@ -63,6 +63,21 @@ public class AdditionalDataEncoderTest {
 
     @Test
     @SdkSuppress(minSdkVersion = 32, codeName = "T")
+    public void inputNullSecretKeyToEncode_mustThrowException() {
+        byte[] rawData = base16().decode("00112233445566778899AABBCCDDEEFF");
+
+        GeneralSecurityException exception =
+                assertThrows(
+                        GeneralSecurityException.class,
+                        () -> AdditionalDataEncoder.encodeAdditionalDataPacket(null, rawData));
+
+        assertThat(exception)
+                .hasMessageThat()
+                .contains("Incorrect secret for encoding additional data packet");
+    }
+
+    @Test
+    @SdkSuppress(minSdkVersion = 32, codeName = "T")
     public void inputIncorrectKeySizeToEncode_mustThrowException() {
         byte[] secret = new byte[KEY_LENGTH - 1];
         byte[] rawData = base16().decode("00112233445566778899AABBCCDDEEFF");
@@ -75,6 +90,54 @@ public class AdditionalDataEncoderTest {
         assertThat(exception)
                 .hasMessageThat()
                 .contains("Incorrect secret for encoding additional data packet");
+    }
+
+    @Test
+    @SdkSuppress(minSdkVersion = 32, codeName = "T")
+    public void inputNullAdditionalDataToEncode_mustThrowException()
+            throws GeneralSecurityException {
+        byte[] secret = AesCtrMultipleBlockEncryption.generateKey();
+
+        GeneralSecurityException exception =
+                assertThrows(
+                        GeneralSecurityException.class,
+                        () -> AdditionalDataEncoder.encodeAdditionalDataPacket(secret, null));
+
+        assertThat(exception)
+                .hasMessageThat()
+                .contains("Invalid data for encoding additional data packet");
+    }
+
+    @Test
+    @SdkSuppress(minSdkVersion = 32, codeName = "T")
+    public void inputInvalidAdditionalDataSizeToEncode_mustThrowException()
+            throws GeneralSecurityException {
+        byte[] secret = AesCtrMultipleBlockEncryption.generateKey();
+        byte[] rawData = base16().decode("");
+        GeneralSecurityException exception =
+                assertThrows(
+                        GeneralSecurityException.class,
+                        () -> AdditionalDataEncoder.encodeAdditionalDataPacket(secret, rawData));
+
+        assertThat(exception)
+                .hasMessageThat()
+                .contains("Invalid data for encoding additional data packet");
+    }
+
+    @Test
+    @SdkSuppress(minSdkVersion = 32, codeName = "T")
+    public void inputTooLargeAdditionalDataSizeToEncode_mustThrowException()
+            throws GeneralSecurityException {
+        byte[] secret = AesCtrMultipleBlockEncryption.generateKey();
+        byte[] rawData = new byte[MAX_LENGTH_OF_DATA + 1];
+        GeneralSecurityException exception =
+                assertThrows(
+                        GeneralSecurityException.class,
+                        () -> AdditionalDataEncoder.encodeAdditionalDataPacket(secret, rawData));
+
+        assertThat(exception)
+                .hasMessageThat()
+                .contains("Invalid data for encoding additional data packet");
     }
 
     @Test

@@ -21,6 +21,7 @@
 #include "src/StatsLogProcessor.h"
 #include "src/StatsService.h"
 #include "src/anomaly/DurationAnomalyTracker.h"
+#include "src/packages/UidMap.h"
 #include "src/stats_log_util.h"
 #include "tests/statsd_test_util.h"
 
@@ -33,9 +34,6 @@ namespace statsd {
 #ifdef __ANDROID__
 
 namespace {
-
-const int kConfigKey = 789130124;
-const int kCallingUid = 0;
 
 StatsdConfig CreateStatsdConfig(int num_buckets,
                                 uint64_t threshold_ns,
@@ -97,24 +95,19 @@ MetricDimensionKey dimensionKey2(
                                            (int32_t)0x02010101), Value((int32_t)222))}),
     DEFAULT_DIMENSION_KEY);
 
-void sendConfig(shared_ptr<StatsService>& service, const StatsdConfig& config) {
-    string str;
-    config.SerializeToString(&str);
-    std::vector<uint8_t> configAsVec(str.begin(), str.end());
-    service->addConfiguration(kConfigKey, configAsVec, kCallingUid);
-}
-
 }  // namespace
 
-TEST(AnomalyDetectionE2eTest, TestDurationMetric_SUM_single_bucket) {
+// Setup for test fixture.
+class AnomalyDurationDetectionE2eTest : public StatsServiceConfigTest {};
+
+TEST_F(AnomalyDurationDetectionE2eTest, TestDurationMetric_SUM_single_bucket) {
     const int num_buckets = 1;
     const uint64_t threshold_ns = NS_PER_SEC;
     auto config = CreateStatsdConfig(num_buckets, threshold_ns, DurationMetric::SUM, true);
     const uint64_t alert_id = config.alert(0).id();
     const uint32_t refractory_period_sec = config.alert(0).refractory_period_secs();
 
-    shared_ptr<StatsService> service = SharedRefBase::make<StatsService>(nullptr, nullptr);
-    sendConfig(service, config);
+    sendConfig(config);
 
     auto processor = service->mProcessor;
     ASSERT_EQ(processor->mMetricsManagers.size(), 1u);
@@ -289,15 +282,14 @@ TEST(AnomalyDetectionE2eTest, TestDurationMetric_SUM_single_bucket) {
     EXPECT_EQ(0u, anomalyTracker->getAlarmTimestampSec(dimensionKey1));
 }
 
-TEST(AnomalyDetectionE2eTest, TestDurationMetric_SUM_multiple_buckets) {
+TEST_F(AnomalyDurationDetectionE2eTest, TestDurationMetric_SUM_multiple_buckets) {
     const int num_buckets = 3;
     const uint64_t threshold_ns = NS_PER_SEC;
     auto config = CreateStatsdConfig(num_buckets, threshold_ns, DurationMetric::SUM, true);
     const uint64_t alert_id = config.alert(0).id();
     const uint32_t refractory_period_sec = config.alert(0).refractory_period_secs();
 
-    shared_ptr<StatsService> service = SharedRefBase::make<StatsService>(nullptr, nullptr);
-    sendConfig(service, config);
+    sendConfig(config);
 
     auto processor = service->mProcessor;
     ASSERT_EQ(processor->mMetricsManagers.size(), 1u);
@@ -412,15 +404,14 @@ TEST(AnomalyDetectionE2eTest, TestDurationMetric_SUM_multiple_buckets) {
               anomalyTracker->getRefractoryPeriodEndsSec(dimensionKey1));
 }
 
-TEST(AnomalyDetectionE2eTest, TestDurationMetric_SUM_partial_bucket) {
+TEST_F(AnomalyDurationDetectionE2eTest, TestDurationMetric_SUM_partial_bucket) {
     const int num_buckets = 1;
     const uint64_t threshold_ns = NS_PER_SEC;
     auto config = CreateStatsdConfig(num_buckets, threshold_ns, DurationMetric::SUM, true);
     const uint64_t alert_id = config.alert(0).id();
     const uint32_t refractory_period_sec = config.alert(0).refractory_period_secs();
 
-    shared_ptr<StatsService> service = SharedRefBase::make<StatsService>(nullptr, nullptr);
-    sendConfig(service, config);
+    sendConfig(config);
 
     auto processor = service->mProcessor;
     ASSERT_EQ(processor->mMetricsManagers.size(), 1u);
@@ -501,7 +492,7 @@ TEST(AnomalyDetectionE2eTest, TestDurationMetric_SUM_partial_bucket) {
               anomalyTracker->getRefractoryPeriodEndsSec(dimensionKey1));
 }
 
-TEST(AnomalyDetectionE2eTest, TestDurationMetric_SUM_long_refractory_period) {
+TEST_F(AnomalyDurationDetectionE2eTest, TestDurationMetric_SUM_long_refractory_period) {
     const int num_buckets = 2;
     const uint64_t threshold_ns = 3 * NS_PER_SEC;
     auto config = CreateStatsdConfig(num_buckets, threshold_ns, DurationMetric::SUM, false);
@@ -510,8 +501,7 @@ TEST(AnomalyDetectionE2eTest, TestDurationMetric_SUM_long_refractory_period) {
     const uint32_t refractory_period_sec = 3 * bucketSizeNs / NS_PER_SEC;
     config.mutable_alert(0)->set_refractory_period_secs(refractory_period_sec);
 
-    shared_ptr<StatsService> service = SharedRefBase::make<StatsService>(nullptr, nullptr);
-    sendConfig(service, config);
+    sendConfig(config);
 
     auto processor = service->mProcessor;
     ASSERT_EQ(processor->mMetricsManagers.size(), 1u);

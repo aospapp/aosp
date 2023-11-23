@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--  Copyright (C) 2023 The Android Open Source Project
+
+     Licensed under the Apache License, Version 2.0 (the "License");
+     you may not use this file except in compliance with the License.
+     You may obtain a copy of the License at
+
+          http://www.apache.org/licenses/LICENSE-2.0
+
+     Unless required by applicable law or agreed to in writing, software
+     distributed under the License is distributed on an "AS IS" BASIS,
+     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+     See the License for the specific language governing permissions and
+     limitations under the License.
+ -->
+
+<resources xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+    <string name="energy_mode_low_title" msgid="2408371934616917432">"ฟีเจอร์ที่สำคัญของเครือข่าย"</string>
+    <string name="energy_mode_low_subtitle" msgid="3541491740634993554">"ใช้พลังงานลดลง"</string>
+    <string name="energy_mode_low_info" msgid="7336221780506353827">"ปิดการเชื่อมต่อเครือข่ายเมื่อไม่ได้ใช้งานทีวี"</string>
+  <string-array name="energy_mode_low_features">
+    <item msgid="4976202876230149030">"การอัปเดตและฟังก์ชันที่สำคัญ"</item>
+  </string-array>
+    <string name="energy_mode_low_eco_hint" msgid="2421460758847643655"></string>
+    <string name="energy_mode_moderate_title" msgid="6131212898797802584">"ฟีเจอร์ที่แนะนำของเครือข่าย"</string>
+    <string name="energy_mode_moderate_subtitle" msgid="8452759001885415587">"ใช้พลังงานเหมาะสม"</string>
+    <string name="energy_mode_moderate_info" msgid="8606735947366228051">"เปิดฟีเจอร์ที่ปลุกระบบทีวีผ่านเครือข่าย (โหมดสแตนด์บายที่เชื่อมต่อเครือข่าย)"</string>
+  <string-array name="energy_mode_moderate_features">
+    <item msgid="2654586107956150296">"[ใส่ฟีเจอร์ 1]"</item>
+    <item msgid="8724721267222341891">"[ใส่ฟีเจอร์ 2]"</item>
+  </string-array>
+    <string name="energy_mode_moderate_eco_hint" msgid="252189162446856286"></string>
+    <string name="energy_mode_high_title" msgid="4428472238583662129">"ฟีเจอร์เพิ่มเติมของเครือข่าย"</string>
+    <string name="energy_mode_high_subtitle" msgid="3146607061198429672">"ใช้พลังงานมากขึ้น"</string>
+    <string name="energy_mode_high_info" msgid="3151321275701804406">"นอกจากฟีเจอร์ที่แนะนำแล้ว ตัวเลือกนี้จะเปิดฟีเจอร์เพิ่มเติมเมื่อไม่ได้ใช้งานทีวีด้วย ซึ่งอาจทำให้ใช้พลังงานมากขึ้น"</string>
+  <string-array name="energy_mode_high_features">
+    <item msgid="3018897868803319747">"[ใส่ฟีเจอร์ 1]"</item>
+    <item msgid="170760143032597722">"[ใส่ฟีเจอร์ 2]"</item>
+  </string-array>
+    <!-- no translation found for energy_mode_high_eco_hint (3266580507783627848) -->
+    <skip />
+</resources>

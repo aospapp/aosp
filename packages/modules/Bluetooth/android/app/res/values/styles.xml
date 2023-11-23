@@ -31,7 +31,7 @@
         <item name="android:paddingTop">10dip</item>
         <item name="android:textAlignment">viewStart</item>
         <item name="android:textAppearance">@android:style/TextAppearance.Material.Body1</item>
-        <item name="android:textColor">@*android:color/secondary_text_default_material_light</item>
+        <item name="android:textColor">?android:attr/textColorSecondary</item>
     </style>
 
     <style name="file_transfer_item_content">
@@ -42,7 +42,7 @@
         <item name="android:paddingBottom">10dip</item>
         <item name="android:textAlignment">viewStart</item>
         <item name="android:textAppearance">@android:style/TextAppearance.Material.Subhead</item>
-        <item name="android:textColor">@*android:color/primary_text_default_material_light</item>
+        <item name="android:textColor">?android:attr/textColorPrimary</item>
     </style>
 
     <style name="dialog" parent="android:style/Theme.Material.Light.Dialog.Alert" />

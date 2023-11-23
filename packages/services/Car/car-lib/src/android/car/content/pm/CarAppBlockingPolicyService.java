@@ -20,7 +20,6 @@ import android.app.Service;
 import android.car.Car;
 import android.car.annotation.AddedInOrBefore;
 import android.content.Intent;
-import android.os.Handler;
 import android.os.IBinder;
 import android.os.RemoteException;
 import android.util.Log;
@@ -43,7 +42,6 @@ public abstract class CarAppBlockingPolicyService extends Service {
             "android.car.content.pm.CarAppBlockingPolicyService";
 
     private final ICarAppBlockingPolicyImpl mBinder = new ICarAppBlockingPolicyImpl();
-    private Handler mHandler;
 
     /**
      * Return the app blocking policy. This is called from binder thread.

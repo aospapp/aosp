@@ -30,7 +30,7 @@ import com.android.internal.annotations.VisibleForTesting;
  * Copy of frameworks/base/core/java/com/android/server/LocalServices.java
  * This is for accessing other car service components.
  */
-public class CarLocalServices {
+public final class CarLocalServices {
     private static final boolean DBG = false;
 
     private static final String TAG = CarLog.tagFor(CarLocalServices.class);

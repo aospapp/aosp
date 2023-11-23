@@ -40,8 +40,9 @@ import androidx.preference.PreferenceScreen;
 
 import com.android.permissioncontroller.R;
 import com.android.permissioncontroller.permission.utils.Utils;
-import com.android.permissioncontroller.role.model.Role;
-import com.android.permissioncontroller.role.model.Roles;
+import com.android.permissioncontroller.role.utils.RoleUiBehaviorUtils;
+import com.android.role.controller.model.Role;
+import com.android.role.controller.model.Roles;
 
 import java.util.List;
 import java.util.Objects;
@@ -186,8 +187,8 @@ public class DefaultAppListChildFragment<PF extends PreferenceFragmentCompat
                 preference.setIcon(Utils.getBadgedIcon(context, holderApplicationInfo));
                 preference.setSummary(Utils.getAppLabel(holderApplicationInfo, context));
             }
-            role.preparePreferenceAsUser((TwoTargetPreference) preference, user, context);
-
+            RoleUiBehaviorUtils.preparePreferenceAsUser(role, (TwoTargetPreference) preference,
+                    user, context);
             preferenceGroup.addPreference(preference);
         }
     }
@@ -198,7 +199,7 @@ public class DefaultAppListChildFragment<PF extends PreferenceFragmentCompat
         Context context = requireContext();
         Role role = Roles.get(context).get(roleName);
         UserHandle user = preference.getExtras().getParcelable(Intent.EXTRA_USER);
-        Intent intent = role.getManageIntentAsUser(user, context);
+        Intent intent = RoleUiBehaviorUtils.getManageIntentAsUser(role, user, context);
         if (intent == null) {
             intent = DefaultAppActivity.createIntent(roleName, user, context);
         }

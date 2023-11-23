@@ -41,6 +41,7 @@ import static com.android.testutils.MiscAsserts.assertThrows;
 
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 import static org.mockito.ArgumentMatchers.anyBoolean;
@@ -72,6 +73,7 @@ import android.os.Process;
 
 import androidx.test.filters.SmallTest;
 
+import com.android.internal.util.test.BroadcastInterceptingContext;
 import com.android.testutils.DevSdkIgnoreRule;
 import com.android.testutils.DevSdkIgnoreRunner;
 
@@ -81,6 +83,8 @@ import org.junit.runner.RunWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+
+import java.lang.ref.WeakReference;
 
 @RunWith(DevSdkIgnoreRunner.class)
 @SmallTest
@@ -460,5 +464,50 @@ public class ConnectivityManagerTest {
             fail("expected exception of type " + throwableType + ", but was " + t.getClass());
         }
         fail("expected exception of type " + throwableType);
+    }
+
+    private static class MockContext extends BroadcastInterceptingContext {
+        MockContext(Context base) {
+            super(base);
+        }
+
+        @Override
+        public Context getApplicationContext() {
+            return mock(Context.class);
+        }
+    }
+
+    private WeakReference<Context> makeConnectivityManagerAndReturnContext() {
+        // Mockito may have an internal reference to the mock, creating MockContext for testing.
+        final Context c = new MockContext(mock(Context.class));
+
+        new ConnectivityManager(c, mService);
+
+        return new WeakReference<>(c);
+    }
+
+    private void forceGC() {
+        // First GC ensures that objects are collected for finalization, then second GC ensures
+        // they're garbage-collected after being finalized.
+        System.gc();
+        System.runFinalization();
+        System.gc();
+    }
+
+    @Test
+    public void testConnectivityManagerDoesNotLeakContext() throws Exception {
+        final WeakReference<Context> ref = makeConnectivityManagerAndReturnContext();
+
+        final int attempts = 600;
+        final long waitIntervalMs = 50;
+        for (int i = 0; i < attempts; i++) {
+            forceGC();
+            if (ref.get() == null) break;
+
+            Thread.sleep(waitIntervalMs);
+        }
+
+        assertNull("ConnectivityManager weak reference still not null after " + attempts
+                    + " attempts", ref.get());
     }
 }

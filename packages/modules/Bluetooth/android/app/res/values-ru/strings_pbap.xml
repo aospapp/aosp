@@ -13,4 +13,6 @@
     <string name="localPhoneName" msgid="9119254982537191352">"Мое название"</string>
     <string name="defaultnumber" msgid="5348816189286607406">"000000"</string>
     <string name="pbap_notification_group" msgid="4215789331721465381">"Передача контактов по Bluetooth"</string>
+    <string name="phonebook_advance_feature_support" msgid="8129553051734505128">"Поддерживается продвинутая функция телефонной книги"</string>
+    <string name="repair_for_adv_phonebook_feature" msgid="3489797973131684927">"Восстановление продвинутой функции телефонной книги"</string>
 </resources>

@@ -49,7 +49,7 @@ public class DefaultWallpaperInfo extends WallpaperInfo {
 
     public DefaultWallpaperInfo() {}
 
-    private DefaultWallpaperInfo(Parcel in) {
+    protected DefaultWallpaperInfo(Parcel in) {
         super(in);
     }
 

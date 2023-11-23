@@ -20,36 +20,55 @@ package {
     default_applicable_licenses: ["Android-Apache-2.0"],
 }
 
-android_test {
-    name: "WallpaperPicker2Tests",
+android_library {
+    name: "WallpaperPicker2TestLib",
 
+    defaults: ["WallpaperPicker2_defaults"],
+    srcs: [
+        "src/com/android/wallpaper/testing/**/*.java",
+        "src/com/android/wallpaper/testing/**/*.kt",
+    ],
     static_libs: [
         "androidx.annotation_annotation",
-        "androidx.test.core",
-        "androidx.test.runner",
-        "androidx.test.rules",
-        "androidx.test.espresso.contrib",
-        "androidx.test.espresso.intents",
-        "mockito-target-minus-junit4",
-        "androidx.test.espresso.core",
-        "hamcrest-library",
-        "hamcrest",
-        "wallpaper-common-deps",
+        "kotlinx_coroutines_test",
+        "truth-prebuilt",
     ],
 
     platform_apis: true,
+}
 
+android_test {
+    name: "WallpaperPicker2Tests",
 
-    optimize: {
-        enabled: false,
-    },
-
+    defaults: ["WallpaperPicker2_defaults"],
     srcs: [
         "src/**/*.java",
         "src/**/*.kt",
     ],
+    exclude_srcs: [
+        "src/com/android/wallpaper/testing/**/*.java",
+        "src/com/android/wallpaper/testing/**/*.kt",
+    ],
+    static_libs: [
+        "WallpaperPicker2TestLib",
+        "androidx.test.espresso.core",
+        "androidx.test.espresso.contrib",
+        "androidx.test.espresso.intents",
+        "androidx.test.rules",
+        "hamcrest-library",
+        "hamcrest",
+        "mockito-target-minus-junit4",
+        "ub-uiautomator",
+        "junit",
+        "kotlinx_coroutines_test",
+        "truth-prebuilt",
+    ],
+    libs: [
+        "android.test.runner",
+        "android.test.base",
+        "android.test.mock",
+    ],
 
-    manifest: "AndroidManifest.xml",
-
-    instrumentation_for: "WallpaperPicker2",
+    platform_apis: true,
+    test_suites: ["device-tests"],
 }

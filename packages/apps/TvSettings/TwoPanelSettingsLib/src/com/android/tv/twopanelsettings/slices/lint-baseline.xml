@@ -3,13 +3,10 @@
 
     <issue
         id="NewApi"
-        message="Call requires API level 26 (current min is 21): `setTtl`"
-        errorLine1="        mImpl.setTtl(ttl);"
-        errorLine2="              ~~~~~~">
+        message="Call requires API level 26 (current min is 21): `setTtl`">
         <location
             file="packages/apps/TvSettings/TwoPanelSettingsLib/src/com/android/tv/twopanelsettings/slices/builders/PreferenceSliceBuilder.java"
-            line="111"
-            column="15"/>
+            line="112"/>
     </issue>
 
 </issues>

@@ -23,7 +23,6 @@ import android.hardware.radio.RadioTuner;
 import android.os.Handler;
 import android.os.Looper;
 
-import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 import com.android.car.radio.util.Log;
@@ -42,7 +41,7 @@ import java.util.concurrent.atomic.AtomicReference;
  *
  * They might eventually get pushed to the framework.
  */
-class TunerCallbackAdapterExt extends RadioTuner.Callback {
+final class TunerCallbackAdapterExt extends RadioTuner.Callback {
     private static final String TAG = "BcRadioApp.tunerext";
     private static final int INIT_TIMEOUT_MS = 10000;  // 10s
 
@@ -67,8 +66,8 @@ class TunerCallbackAdapterExt extends RadioTuner.Callback {
         void onProgramInfoChanged(RadioManager.ProgramInfo info);
     }
 
-    TunerCallbackAdapterExt(@NonNull RadioTuner.Callback callback, @Nullable Handler handler) {
-        mCallback = Objects.requireNonNull(callback);
+    TunerCallbackAdapterExt(RadioTuner.Callback callback, @Nullable Handler handler) {
+        mCallback = Objects.requireNonNull(callback, "Callback cannot be null");
         if (handler == null) {
             mHandler = new Handler(Looper.getMainLooper());
         } else {
@@ -175,7 +174,7 @@ class TunerCallbackAdapterExt extends RadioTuner.Callback {
         mHandler.post(() -> mCallback.onProgramListChanged());
     }
 
-    public void onParametersUpdated(@NonNull Map<String, String> parameters) {
+    public void onParametersUpdated(Map<String, String> parameters) {
         mHandler.post(() -> mCallback.onParametersUpdated(parameters));
     }
 }

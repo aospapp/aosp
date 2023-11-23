@@ -88,10 +88,7 @@ class SimpleUploaderAsyncTask extends AsyncTask<Void, Void, Boolean> {
             throws IOException {
         InputStreamContent mediaContent = new InputStreamContent("application/zip", data);
 
-        String bucket = mContext.getString(R.string.config_gcs_bucket);
-        if (TextUtils.isEmpty(bucket)) {
-            throw new RuntimeException("config_gcs_bucket is empty.");
-        }
+        String bucket = getGcsBucket();
 
         // Create GCS MetaData.
         Map<String, String> metadata = ImmutableMap.of(
@@ -111,6 +108,19 @@ class SimpleUploaderAsyncTask extends AsyncTask<Void, Void, Boolean> {
         insertObject.getMediaHttpUploader().setDisableGZipContent(true);
         Log.v(TAG, "started uploading object " + uploadName + " to bucket " + bucket);
         return insertObject.execute();
+    }
+
+    private String getGcsBucket() {
+        String propGcsBucket = Config.getPropGcsBucket();
+        if (!TextUtils.isEmpty(propGcsBucket)) {
+            return propGcsBucket;
+        }
+
+        String gcsBucket = mContext.getString(R.string.config_gcs_bucket);
+        if (TextUtils.isEmpty(gcsBucket)) {
+            throw new RuntimeException("config_gcs_bucket is empty.");
+        }
+        return gcsBucket;
     }
 
     private static void deleteFileQuietly(File file) {

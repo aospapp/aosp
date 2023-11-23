@@ -16,30 +16,17 @@
 
 package com.android.server.wifi.aware;
 
-import android.hardware.wifi.V1_0.NanClusterEventInd;
-import android.hardware.wifi.V1_0.NanClusterEventType;
-import android.hardware.wifi.V1_0.NanDataPathConfirmInd;
-import android.hardware.wifi.V1_0.NanDataPathRequestInd;
-import android.hardware.wifi.V1_0.NanFollowupReceivedInd;
-import android.hardware.wifi.V1_0.NanMatchInd;
-import android.hardware.wifi.V1_0.NanStatusType;
-import android.hardware.wifi.V1_0.WifiNanStatus;
-import android.hardware.wifi.V1_2.NanDataPathScheduleUpdateInd;
-import android.hardware.wifi.V1_6.IWifiNanIfaceEventCallback;
-import android.hardware.wifi.V1_6.NanCipherSuiteType;
-import android.hardware.wifi.V1_6.WifiChannelWidthInMhz;
-import android.net.MacAddress;
-import android.net.wifi.ScanResult;
-import android.net.wifi.WifiAnnotations;
-import android.net.wifi.aware.Characteristics;
+import android.net.wifi.aware.AwarePairingConfig;
+import android.net.wifi.aware.IdentityChangedListener;
 import android.net.wifi.aware.WifiAwareChannelInfo;
-import android.net.wifi.util.HexEncoding;
-import android.os.RemoteException;
 import android.util.Log;
 import android.util.SparseArray;
 import android.util.SparseIntArray;
 
 import com.android.modules.utils.BasicShellCommandHandler;
+import com.android.server.wifi.hal.WifiNanIface;
+import com.android.server.wifi.hal.WifiNanIface.NanClusterEventType;
+import com.android.server.wifi.hal.WifiNanIface.NanStatusCode;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -48,20 +35,15 @@ import org.json.JSONObject;
 import java.io.FileDescriptor;
 import java.io.PrintWriter;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 
 /**
- * Manages the callbacks from Wi-Fi Aware HIDL (HAL).
+ * Manages the callbacks from Wi-Fi Aware HAL.
  */
-public class WifiAwareNativeCallback extends IWifiNanIfaceEventCallback.Stub implements
+public class WifiAwareNativeCallback implements WifiNanIface.Callback,
         WifiAwareShellCommand.DelegatedShellCommand {
     private static final String TAG = "WifiAwareNativeCallback";
-    private boolean mDbg = false;
-
-    /* package */ boolean mIsHal12OrLater = false;
-    /* package */ boolean mIsHal15OrLater = false;
-    /* package */ boolean mIsHal16OrLater = false;
+    private boolean mVerboseHalLoggingEnabled = false;
 
     private final WifiAwareStateManager mWifiAwareStateManager;
 
@@ -70,12 +52,12 @@ public class WifiAwareNativeCallback extends IWifiNanIfaceEventCallback.Stub imp
     }
 
     /**
-     * Enable verbose logging.
+     * Enable/Disable verbose logging.
+     *
      */
-    public void enableVerboseLogging(boolean verbose) {
-        mDbg = verbose;
+    public void enableVerboseLogging(boolean verboseEnabled, boolean halVerboseEnabled) {
+        mVerboseHalLoggingEnabled = halVerboseEnabled;
     }
-
 
     /*
      * Counts of callbacks from HAL. Retrievable through shell command.
@@ -93,8 +75,8 @@ public class WifiAwareNativeCallback extends IWifiNanIfaceEventCallback.Stub imp
     private static final int CB_EV_DATA_PATH_TERMINATED = 10;
     private static final int CB_EV_DATA_PATH_SCHED_UPDATE = 11;
 
-    private SparseIntArray mCallbackCounter = new SparseIntArray();
-    private SparseArray<List<WifiAwareChannelInfo>> mChannelInfoPerNdp = new SparseArray<>();
+    private final SparseIntArray mCallbackCounter = new SparseIntArray();
+    private final SparseArray<List<WifiAwareChannelInfo>> mChannelInfoPerNdp = new SparseArray<>();
 
     private void incrementCbCount(int callbackId) {
         mCallbackCounter.put(callbackId, mCallbackCounter.get(callbackId) + 1);
@@ -172,596 +154,290 @@ public class WifiAwareNativeCallback extends IWifiNanIfaceEventCallback.Stub imp
     }
 
     @Override
-    public void notifyCapabilitiesResponse(short id, WifiNanStatus status,
-            android.hardware.wifi.V1_0.NanCapabilities capabilities) {
-        if (mDbg) {
-            Log.v(TAG, "notifyCapabilitiesResponse: id=" + id + ", status=" + statusString(status)
-                    + ", capabilities=" + capabilities);
-        }
-
-        if (mIsHal15OrLater) {
-            Log.wtf(TAG, "notifyCapabilitiesResponse should not be called by a >=1.5 HAL!");
-        }
-
-        if (status.status == NanStatusType.SUCCESS) {
-            Capabilities frameworkCapabilities = toFrameworkCapability10(capabilities);
-
-            mWifiAwareStateManager.onCapabilitiesUpdateResponse(id, frameworkCapabilities);
-        } else {
-            Log.e(TAG, "notifyCapabilitiesResponse: error code=" + status.status + " ("
-                    + status.description + ")");
-        }
+    public void notifyCapabilitiesResponse(short id, Capabilities capabilities) {
+        mWifiAwareStateManager.onCapabilitiesUpdateResponse(id, capabilities);
     }
 
     @Override
-    public void notifyCapabilitiesResponse_1_5(short id, WifiNanStatus status,
-            android.hardware.wifi.V1_5.NanCapabilities capabilities) throws RemoteException {
-        if (mDbg) {
-            Log.v(TAG, "notifyCapabilitiesResponse_1_5: id=" + id + ", status="
-                    + statusString(status) + ", capabilities=" + capabilities);
-        }
-
-        if (!mIsHal15OrLater) {
-            Log.wtf(TAG, "notifyCapabilitiesResponse_1_5 should not be called by a <1.5 HAL!");
-            return;
-        }
-
-        if (status.status == NanStatusType.SUCCESS) {
-            Capabilities frameworkCapabilities = toFrameworkCapability10(capabilities.V1_0);
-            frameworkCapabilities.isInstantCommunicationModeSupported =
-                    capabilities.instantCommunicationModeSupportFlag;
-
-            mWifiAwareStateManager.onCapabilitiesUpdateResponse(id, frameworkCapabilities);
-        } else {
-            Log.e(TAG, "notifyCapabilitiesResponse_1_5: error code=" + status.status + " ("
-                    + status.description + ")");
-        }
-    }
-
-    @Override
-    public void notifyCapabilitiesResponse_1_6(short id, WifiNanStatus status,
-            android.hardware.wifi.V1_6.NanCapabilities capabilities) throws RemoteException {
-        if (mDbg) {
-            Log.v(TAG, "notifyCapabilitiesResponse_1_6: id=" + id + ", status="
-                    + statusString(status) + ", capabilities=" + capabilities);
-        }
-
-        if (!mIsHal16OrLater) {
-            Log.wtf(TAG, "notifyCapabilitiesResponse_1_6 should not be called by a <1.6 HAL!");
-            return;
-        }
-
-        if (status.status == NanStatusType.SUCCESS) {
-            Capabilities frameworkCapabilities = toFrameworkCapability1_6(capabilities);
-
-            mWifiAwareStateManager.onCapabilitiesUpdateResponse(id, frameworkCapabilities);
-        } else {
-            Log.e(TAG, "notifyCapabilitiesResponse_1_6: error code=" + status.status + " ("
-                    + status.description + ")");
-        }
-    }
-
-    private Capabilities toFrameworkCapability1_6(
-            android.hardware.wifi.V1_6.NanCapabilities capabilities) {
-        Capabilities frameworkCapabilities = new Capabilities();
-        frameworkCapabilities.maxConcurrentAwareClusters = capabilities.maxConcurrentClusters;
-        frameworkCapabilities.maxPublishes = capabilities.maxPublishes;
-        frameworkCapabilities.maxSubscribes = capabilities.maxSubscribes;
-        frameworkCapabilities.maxServiceNameLen = capabilities.maxServiceNameLen;
-        frameworkCapabilities.maxMatchFilterLen = capabilities.maxMatchFilterLen;
-        frameworkCapabilities.maxTotalMatchFilterLen = capabilities.maxTotalMatchFilterLen;
-        frameworkCapabilities.maxServiceSpecificInfoLen =
-                capabilities.maxServiceSpecificInfoLen;
-        frameworkCapabilities.maxExtendedServiceSpecificInfoLen =
-                capabilities.maxExtendedServiceSpecificInfoLen;
-        frameworkCapabilities.maxNdiInterfaces = capabilities.maxNdiInterfaces;
-        frameworkCapabilities.maxNdpSessions = capabilities.maxNdpSessions;
-        frameworkCapabilities.maxAppInfoLen = capabilities.maxAppInfoLen;
-        frameworkCapabilities.maxQueuedTransmitMessages =
-                capabilities.maxQueuedTransmitFollowupMsgs;
-        frameworkCapabilities.maxSubscribeInterfaceAddresses =
-                capabilities.maxSubscribeInterfaceAddresses;
-        frameworkCapabilities.supportedCipherSuites = toPublicCipherSuites(
-                capabilities.supportedCipherSuites);
-        frameworkCapabilities.isInstantCommunicationModeSupported =
-                capabilities.instantCommunicationModeSupportFlag;
-        return frameworkCapabilities;
-    }
-
-    private Capabilities toFrameworkCapability10(
-            android.hardware.wifi.V1_0.NanCapabilities capabilities) {
-        Capabilities frameworkCapabilities = new Capabilities();
-        frameworkCapabilities.maxConcurrentAwareClusters = capabilities.maxConcurrentClusters;
-        frameworkCapabilities.maxPublishes = capabilities.maxPublishes;
-        frameworkCapabilities.maxSubscribes = capabilities.maxSubscribes;
-        frameworkCapabilities.maxServiceNameLen = capabilities.maxServiceNameLen;
-        frameworkCapabilities.maxMatchFilterLen = capabilities.maxMatchFilterLen;
-        frameworkCapabilities.maxTotalMatchFilterLen = capabilities.maxTotalMatchFilterLen;
-        frameworkCapabilities.maxServiceSpecificInfoLen =
-                capabilities.maxServiceSpecificInfoLen;
-        frameworkCapabilities.maxExtendedServiceSpecificInfoLen =
-                capabilities.maxExtendedServiceSpecificInfoLen;
-        frameworkCapabilities.maxNdiInterfaces = capabilities.maxNdiInterfaces;
-        frameworkCapabilities.maxNdpSessions = capabilities.maxNdpSessions;
-        frameworkCapabilities.maxAppInfoLen = capabilities.maxAppInfoLen;
-        frameworkCapabilities.maxQueuedTransmitMessages =
-                capabilities.maxQueuedTransmitFollowupMsgs;
-        frameworkCapabilities.maxSubscribeInterfaceAddresses =
-                capabilities.maxSubscribeInterfaceAddresses;
-        frameworkCapabilities.supportedCipherSuites = toPublicCipherSuites(
-                capabilities.supportedCipherSuites);
-        frameworkCapabilities.isInstantCommunicationModeSupported = false;
-        return frameworkCapabilities;
-    }
-
-    private int toPublicCipherSuites(int nativeCipherSuites) {
-        int publicCipherSuites = 0;
-
-        if ((nativeCipherSuites & NanCipherSuiteType.SHARED_KEY_128_MASK) != 0) {
-            publicCipherSuites |= Characteristics.WIFI_AWARE_CIPHER_SUITE_NCS_SK_128;
-        }
-        if ((nativeCipherSuites & NanCipherSuiteType.SHARED_KEY_256_MASK) != 0) {
-            publicCipherSuites |= Characteristics.WIFI_AWARE_CIPHER_SUITE_NCS_SK_256;
-        }
-        if ((nativeCipherSuites & NanCipherSuiteType.PUBLIC_KEY_128_MASK) != 0) {
-            publicCipherSuites |= Characteristics.WIFI_AWARE_CIPHER_SUITE_NCS_PK_128;
-        }
-        if ((nativeCipherSuites & NanCipherSuiteType.PUBLIC_KEY_256_MASK) != 0) {
-            publicCipherSuites |= Characteristics.WIFI_AWARE_CIPHER_SUITE_NCS_PK_256;
-        }
-
-        return publicCipherSuites;
-    }
-
-    @Override
-    public void notifyEnableResponse(short id, WifiNanStatus status) {
-        if (mDbg) Log.v(TAG, "notifyEnableResponse: id=" + id + ", status=" + statusString(status));
-
-        if (status.status == NanStatusType.ALREADY_ENABLED) {
-            Log.wtf(TAG, "notifyEnableResponse: id=" + id + ", already enabled!?");
-        }
-
-        if (status.status == NanStatusType.SUCCESS
-                || status.status == NanStatusType.ALREADY_ENABLED) {
+    public void notifyEnableResponse(short id, int status) {
+        if (status == NanStatusCode.SUCCESS
+                || status == NanStatusCode.ALREADY_ENABLED) {
             mWifiAwareStateManager.onConfigSuccessResponse(id);
         } else {
-            mWifiAwareStateManager.onConfigFailedResponse(id, status.status);
+            mWifiAwareStateManager.onConfigFailedResponse(id, status);
         }
     }
 
     @Override
-    public void notifyConfigResponse(short id, WifiNanStatus status) {
-        if (mDbg) Log.v(TAG, "notifyConfigResponse: id=" + id + ", status=" + statusString(status));
-
-        if (status.status == NanStatusType.SUCCESS) {
+    public void notifyConfigResponse(short id, int status) {
+        if (status == NanStatusCode.SUCCESS) {
             mWifiAwareStateManager.onConfigSuccessResponse(id);
         } else {
-            mWifiAwareStateManager.onConfigFailedResponse(id, status.status);
+            mWifiAwareStateManager.onConfigFailedResponse(id, status);
         }
     }
 
     @Override
-    public void notifyDisableResponse(short id, WifiNanStatus status) {
-        if (mDbg) {
-            Log.v(TAG, "notifyDisableResponse: id=" + id + ", status=" + statusString(status));
-        }
-
-        if (status.status != NanStatusType.SUCCESS) {
-            Log.e(TAG, "notifyDisableResponse: failure - code=" + status.status + " ("
-                    + status.description + ")");
-        }
-        mWifiAwareStateManager.onDisableResponse(id, status.status);
+    public void notifyDisableResponse(short id, int status) {
+        mWifiAwareStateManager.onDisableResponse(id, status);
     }
 
     @Override
-    public void notifyStartPublishResponse(short id, WifiNanStatus status, byte publishId) {
-        if (mDbg) {
-            Log.v(TAG, "notifyStartPublishResponse: id=" + id + ", status=" + statusString(status)
-                    + ", publishId=" + publishId);
-        }
-
-        if (status.status == NanStatusType.SUCCESS) {
+    public void notifyStartPublishResponse(short id, int status, byte publishId) {
+        if (status == NanStatusCode.SUCCESS) {
             mWifiAwareStateManager.onSessionConfigSuccessResponse(id, true, publishId);
         } else {
-            mWifiAwareStateManager.onSessionConfigFailResponse(id, true, status.status);
+            mWifiAwareStateManager.onSessionConfigFailResponse(id, true, status);
         }
     }
 
     @Override
-    public void notifyStopPublishResponse(short id, WifiNanStatus status) {
-        if (mDbg) {
-            Log.v(TAG, "notifyStopPublishResponse: id=" + id + ", status=" + statusString(status));
-        }
-
-        if (status.status == NanStatusType.SUCCESS) {
-            // NOP
-        } else {
-            Log.e(TAG, "notifyStopPublishResponse: failure - code=" + status.status + " ("
-                    + status.description + ")");
-        }
-    }
-
-    @Override
-    public void notifyStartSubscribeResponse(short id, WifiNanStatus status, byte subscribeId) {
-        if (mDbg) {
-            Log.v(TAG, "notifyStartSubscribeResponse: id=" + id + ", status=" + statusString(status)
-                    + ", subscribeId=" + subscribeId);
-        }
-
-        if (status.status == NanStatusType.SUCCESS) {
+    public void notifyStartSubscribeResponse(short id, int status, byte subscribeId) {
+        if (status == NanStatusCode.SUCCESS) {
             mWifiAwareStateManager.onSessionConfigSuccessResponse(id, false, subscribeId);
         } else {
-            mWifiAwareStateManager.onSessionConfigFailResponse(id, false, status.status);
+            mWifiAwareStateManager.onSessionConfigFailResponse(id, false, status);
         }
     }
 
     @Override
-    public void notifyStopSubscribeResponse(short id, WifiNanStatus status) {
-        if (mDbg) {
-            Log.v(TAG, "notifyStopSubscribeResponse: id=" + id + ", status="
-                    + statusString(status));
-        }
-
-        if (status.status == NanStatusType.SUCCESS) {
-            // NOP
-        } else {
-            Log.e(TAG, "notifyStopSubscribeResponse: failure - code=" + status.status + " ("
-                    + status.description + ")");
-        }
-    }
-
-    @Override
-    public void notifyTransmitFollowupResponse(short id, WifiNanStatus status) {
-        if (mDbg) {
-            Log.v(TAG, "notifyTransmitFollowupResponse: id=" + id + ", status="
-                    + statusString(status));
-        }
-
-        if (status.status == NanStatusType.SUCCESS) {
+    public void notifyTransmitFollowupResponse(short id, int status) {
+        if (status == NanStatusCode.SUCCESS) {
             mWifiAwareStateManager.onMessageSendQueuedSuccessResponse(id);
         } else {
-            mWifiAwareStateManager.onMessageSendQueuedFailResponse(id, status.status);
+            mWifiAwareStateManager.onMessageSendQueuedFailResponse(id, status);
         }
     }
 
     @Override
-    public void notifyCreateDataInterfaceResponse(short id, WifiNanStatus status) {
-        if (mDbg) {
-            Log.v(TAG, "notifyCreateDataInterfaceResponse: id=" + id + ", status="
-                    + statusString(status));
-        }
-
+    public void notifyCreateDataInterfaceResponse(short id, int status) {
         mWifiAwareStateManager.onCreateDataPathInterfaceResponse(id,
-                status.status == NanStatusType.SUCCESS, status.status);
+                status == NanStatusCode.SUCCESS, status);
     }
 
     @Override
-    public void notifyDeleteDataInterfaceResponse(short id, WifiNanStatus status) {
-        if (mDbg) {
-            Log.v(TAG, "notifyDeleteDataInterfaceResponse: id=" + id + ", status="
-                    + statusString(status));
-        }
-
+    public void notifyDeleteDataInterfaceResponse(short id, int status) {
         mWifiAwareStateManager.onDeleteDataPathInterfaceResponse(id,
-                status.status == NanStatusType.SUCCESS, status.status);
+                status == NanStatusCode.SUCCESS, status);
     }
 
     @Override
-    public void notifyInitiateDataPathResponse(short id, WifiNanStatus status,
+    public void notifyInitiateDataPathResponse(short id, int status,
             int ndpInstanceId) {
-        if (mDbg) {
-            Log.v(TAG, "notifyInitiateDataPathResponse: id=" + id + ", status="
-                    + statusString(status) + ", ndpInstanceId=" + ndpInstanceId);
-        }
-
-        if (status.status == NanStatusType.SUCCESS) {
+        if (status == NanStatusCode.SUCCESS) {
             mWifiAwareStateManager.onInitiateDataPathResponseSuccess(id, ndpInstanceId);
         } else {
-            mWifiAwareStateManager.onInitiateDataPathResponseFail(id, status.status);
+            mWifiAwareStateManager.onInitiateDataPathResponseFail(id, status);
         }
     }
 
     @Override
-    public void notifyRespondToDataPathIndicationResponse(short id, WifiNanStatus status) {
-        if (mDbg) {
-            Log.v(TAG, "notifyRespondToDataPathIndicationResponse: id=" + id
-                    + ", status=" + statusString(status));
-        }
-
+    public void notifyRespondToDataPathIndicationResponse(short id, int status) {
         mWifiAwareStateManager.onRespondToDataPathSetupRequestResponse(id,
-                status.status == NanStatusType.SUCCESS, status.status);
+                status == NanStatusCode.SUCCESS, status);
     }
 
     @Override
-    public void notifyTerminateDataPathResponse(short id, WifiNanStatus status) {
-        if (mDbg) {
-            Log.v(TAG, "notifyTerminateDataPathResponse: id=" + id + ", status="
-                    + statusString(status));
-        }
-
-        mWifiAwareStateManager.onEndDataPathResponse(id, status.status == NanStatusType.SUCCESS,
-                status.status);
+    public void notifyTerminateDataPathResponse(short id, int status) {
+        mWifiAwareStateManager.onEndDataPathResponse(id, status == NanStatusCode.SUCCESS,
+                status);
     }
 
     @Override
-    public void eventClusterEvent(NanClusterEventInd event) {
-        if (mDbg) {
-            Log.v(TAG, "eventClusterEvent: eventType=" + event.eventType + ", addr="
-                    + String.valueOf(HexEncoding.encode(event.addr)));
-        }
-        incrementCbCount(CB_EV_CLUSTER);
-
-        if (event.eventType == NanClusterEventType.DISCOVERY_MAC_ADDRESS_CHANGED) {
-            mWifiAwareStateManager.onInterfaceAddressChangeNotification(event.addr);
-        } else if (event.eventType == NanClusterEventType.STARTED_CLUSTER) {
-            mWifiAwareStateManager.onClusterChangeNotification(
-                    WifiAwareClientState.CLUSTER_CHANGE_EVENT_STARTED, event.addr);
-        } else if (event.eventType == NanClusterEventType.JOINED_CLUSTER) {
-            mWifiAwareStateManager.onClusterChangeNotification(
-                    WifiAwareClientState.CLUSTER_CHANGE_EVENT_JOINED, event.addr);
+    public void notifyInitiatePairingResponse(short id, int status,
+            int pairingInstanceId) {
+        if (status == NanStatusCode.SUCCESS) {
+            mWifiAwareStateManager.onInitiatePairingResponseSuccess(id, pairingInstanceId);
         } else {
-            Log.e(TAG, "eventClusterEvent: invalid eventType=" + event.eventType);
+            mWifiAwareStateManager.onInitiatePairingResponseFail(id, status);
+        }
+
+    }
+
+    @Override
+    public void notifyRespondToPairingIndicationResponse(short id, int status) {
+        if (status == NanStatusCode.SUCCESS) {
+            mWifiAwareStateManager.onRespondToPairingIndicationResponseSuccess(id);
+        } else {
+            mWifiAwareStateManager.onRespondToPairingIndicationResponseFail(id, status);
         }
     }
 
     @Override
-    public void eventDisabled(WifiNanStatus status) {
-        if (mDbg) Log.v(TAG, "eventDisabled: status=" + statusString(status));
+    public void notifyInitiateBootstrappingResponse(short id, int status,
+            int bootstrappingInstanceId) {
+        if (status == NanStatusCode.SUCCESS) {
+            mWifiAwareStateManager.onInitiateBootStrappingResponseSuccess(id,
+                    bootstrappingInstanceId);
+        } else {
+            mWifiAwareStateManager.onInitiateBootStrappingResponseFail(id, status);
+        }
+    }
+
+    @Override
+    public void notifyRespondToBootstrappingIndicationResponse(short id, int status) {
+        if (status == NanStatusCode.SUCCESS) {
+            mWifiAwareStateManager.onRespondToBootstrappingIndicationResponseSuccess(id);
+        } else {
+            mWifiAwareStateManager.onRespondToBootstrappingIndicationResponseFail(id, status);
+        }
+    }
+
+    @Override
+    public void notifySuspendResponse(short id, int status) {
+        mWifiAwareStateManager.onSuspendResponse(id, status);
+    }
+
+    @Override
+    public void notifyResumeResponse(short id, int status) {
+        mWifiAwareStateManager.onResumeResponse(id, status);
+    }
+
+    @Override
+    public void notifyTerminatePairingResponse(short id, int status) {
+        mWifiAwareStateManager.onEndPairingResponse(id, status == NanStatusCode.SUCCESS,
+                status);
+    }
+
+    @Override
+    public void eventClusterEvent(int eventType, byte[] addr) {
+        incrementCbCount(CB_EV_CLUSTER);
+        if (eventType == NanClusterEventType.DISCOVERY_MAC_ADDRESS_CHANGED) {
+            mWifiAwareStateManager.onInterfaceAddressChangeNotification(addr);
+        } else if (eventType == NanClusterEventType.STARTED_CLUSTER) {
+            mWifiAwareStateManager.onClusterChangeNotification(
+                    IdentityChangedListener.CLUSTER_CHANGE_EVENT_STARTED, addr);
+        } else if (eventType == NanClusterEventType.JOINED_CLUSTER) {
+            mWifiAwareStateManager.onClusterChangeNotification(
+                    IdentityChangedListener.CLUSTER_CHANGE_EVENT_JOINED, addr);
+        } else {
+            Log.e(TAG, "eventClusterEvent: invalid eventType=" + eventType);
+        }
+    }
+
+    @Override
+    public void eventDisabled(int status) {
         incrementCbCount(CB_EV_DISABLED);
-
-        mWifiAwareStateManager.onAwareDownNotification(status.status);
+        mWifiAwareStateManager.onAwareDownNotification(status);
     }
 
     @Override
-    public void eventPublishTerminated(byte sessionId, WifiNanStatus status) {
-        if (mDbg) {
-            Log.v(TAG, "eventPublishTerminated: sessionId=" + sessionId + ", status="
-                    + statusString(status));
-        }
+    public void eventPublishTerminated(byte sessionId, int status) {
         incrementCbCount(CB_EV_PUBLISH_TERMINATED);
-
-        mWifiAwareStateManager.onSessionTerminatedNotification(sessionId, status.status, true);
+        mWifiAwareStateManager.onSessionTerminatedNotification(sessionId, status, true);
     }
 
     @Override
-    public void eventSubscribeTerminated(byte sessionId, WifiNanStatus status) {
-        if (mDbg) {
-            Log.v(TAG, "eventSubscribeTerminated: sessionId=" + sessionId + ", status="
-                    + statusString(status));
-        }
+    public void eventSubscribeTerminated(byte sessionId, int status) {
         incrementCbCount(CB_EV_SUBSCRIBE_TERMINATED);
-
-        mWifiAwareStateManager.onSessionTerminatedNotification(sessionId, status.status, false);
+        mWifiAwareStateManager.onSessionTerminatedNotification(sessionId, status, false);
     }
 
     @Override
-    public void eventMatch(NanMatchInd event) {
-        if (mDbg) {
-            Log.v(TAG, "eventMatch: discoverySessionId=" + event.discoverySessionId + ", peerId="
-                    + event.peerId + ", addr=" + String.valueOf(HexEncoding.encode(event.addr))
-                    + ", serviceSpecificInfo=" + Arrays.toString(
-                    convertArrayListToNativeByteArray(event.serviceSpecificInfo)) + ", ssi.size()="
-                    + (event.serviceSpecificInfo == null ? 0 : event.serviceSpecificInfo.size())
-                    + ", matchFilter=" + Arrays.toString(
-                    convertArrayListToNativeByteArray(event.matchFilter)) + ", mf.size()=" + (
-                    event.matchFilter == null ? 0 : event.matchFilter.size())
-                    + ", rangingIndicationType=" + event.rangingIndicationType
-                    + ", rangingMeasurementInCm=" + event.rangingMeasurementInCm);
-        }
+    public void eventMatch(byte discoverySessionId, int peerId, byte[] addr,
+            byte[] serviceSpecificInfo, byte[] matchFilter, int rangingIndicationType,
+            int rangingMeasurementInMm, byte[] scid, int peerCipherType, byte[] nonce, byte[] tag,
+            AwarePairingConfig pairingConfig) {
         incrementCbCount(CB_EV_MATCH);
-
-        // TODO: b/69428593 get rid of conversion once HAL moves from CM to MM
-        mWifiAwareStateManager.onMatchNotification(event.discoverySessionId, event.peerId,
-                event.addr, convertArrayListToNativeByteArray(event.serviceSpecificInfo),
-                convertArrayListToNativeByteArray(event.matchFilter), event.rangingIndicationType,
-                event.rangingMeasurementInCm * 10, new byte[0], 0);
-    }
-
-    @Override
-    public void eventMatch_1_6(android.hardware.wifi.V1_6.NanMatchInd event) {
-        if (mDbg) {
-            Log.v(TAG, "eventMatch_1_6: discoverySessionId=" + event.discoverySessionId
-                    + ", peerId=" + event.peerId
-                    + ", addr=" + String.valueOf(HexEncoding.encode(event.addr))
-                    + ", serviceSpecificInfo=" + Arrays.toString(
-                    convertArrayListToNativeByteArray(event.serviceSpecificInfo)) + ", ssi.size()="
-                    + (event.serviceSpecificInfo == null ? 0 : event.serviceSpecificInfo.size())
-                    + ", matchFilter=" + Arrays.toString(
-                    convertArrayListToNativeByteArray(event.matchFilter)) + ", mf.size()=" + (
-                    event.matchFilter == null ? 0 : event.matchFilter.size())
-                    + ", rangingIndicationType=" + event.rangingIndicationType
-                    + ", rangingMeasurementInCm=" + event.rangingMeasurementInMm + ", "
-                    + "scid=" + Arrays.toString(convertArrayListToNativeByteArray(event.scid)));
-        }
-        incrementCbCount(CB_EV_MATCH);
-
-        // TODO: b/69428593 get rid of conversion once HAL moves from CM to MM
-        mWifiAwareStateManager.onMatchNotification(event.discoverySessionId, event.peerId,
-                event.addr, convertArrayListToNativeByteArray(event.serviceSpecificInfo),
-                convertArrayListToNativeByteArray(event.matchFilter), event.rangingIndicationType,
-                event.rangingMeasurementInMm,
-                convertArrayListToNativeByteArray(event.scid),
-                toPublicCipherSuites(event.peerCipherType));
+        mWifiAwareStateManager.onMatchNotification(discoverySessionId, peerId,
+                addr, serviceSpecificInfo, matchFilter, rangingIndicationType,
+                rangingMeasurementInMm, scid, peerCipherType, nonce, tag, pairingConfig);
     }
 
     @Override
     public void eventMatchExpired(byte discoverySessionId, int peerId) {
-        if (mDbg) {
-            Log.v(TAG, "eventMatchExpired: discoverySessionId=" + discoverySessionId
-                    + ", peerId=" + peerId);
-        }
         incrementCbCount(CB_EV_MATCH_EXPIRED);
         mWifiAwareStateManager.onMatchExpiredNotification(discoverySessionId, peerId);
     }
 
     @Override
-    public void eventFollowupReceived(NanFollowupReceivedInd event) {
-        if (mDbg) {
-            Log.v(TAG, "eventFollowupReceived: discoverySessionId=" + event.discoverySessionId
-                    + ", peerId=" + event.peerId + ", addr=" + String.valueOf(
-                    HexEncoding.encode(event.addr)) + ", serviceSpecificInfo=" + Arrays.toString(
-                    convertArrayListToNativeByteArray(event.serviceSpecificInfo)) + ", ssi.size()="
-                    + (event.serviceSpecificInfo == null ? 0 : event.serviceSpecificInfo.size()));
-        }
+    public void eventFollowupReceived(byte discoverySessionId, int peerId, byte[] addr,
+            byte[] serviceSpecificInfo) {
         incrementCbCount(CB_EV_FOLLOWUP_RECEIVED);
-
-        mWifiAwareStateManager.onMessageReceivedNotification(event.discoverySessionId, event.peerId,
-                event.addr, convertArrayListToNativeByteArray(event.serviceSpecificInfo));
+        mWifiAwareStateManager.onMessageReceivedNotification(discoverySessionId, peerId,
+                addr, serviceSpecificInfo);
     }
 
     @Override
-    public void eventTransmitFollowup(short id, WifiNanStatus status) {
-        if (mDbg) {
-            Log.v(TAG, "eventTransmitFollowup: id=" + id + ", status=" + statusString(status));
-        }
+    public void eventTransmitFollowup(short id, int status) {
         incrementCbCount(CB_EV_TRANSMIT_FOLLOWUP);
-
-        if (status.status == NanStatusType.SUCCESS) {
+        if (status == NanStatusCode.SUCCESS) {
             mWifiAwareStateManager.onMessageSendSuccessNotification(id);
         } else {
-            mWifiAwareStateManager.onMessageSendFailNotification(id, status.status);
+            mWifiAwareStateManager.onMessageSendFailNotification(id, status);
         }
     }
 
     @Override
-    public void eventDataPathRequest(NanDataPathRequestInd event) {
-        if (mDbg) {
-            Log.v(TAG, "eventDataPathRequest: discoverySessionId=" + event.discoverySessionId
-                    + ", peerDiscMacAddr=" + String.valueOf(
-                    HexEncoding.encode(event.peerDiscMacAddr)) + ", ndpInstanceId="
-                    + event.ndpInstanceId + ", appInfo.size()=" + event.appInfo.size());
-        }
+    public void eventDataPathRequest(byte discoverySessionId, byte[] peerDiscMacAddr,
+            int ndpInstanceId, byte[] appInfo) {
         incrementCbCount(CB_EV_DATA_PATH_REQUEST);
-
-        mWifiAwareStateManager.onDataPathRequestNotification(event.discoverySessionId,
-                event.peerDiscMacAddr, event.ndpInstanceId,
-                convertArrayListToNativeByteArray(event.appInfo));
+        mWifiAwareStateManager.onDataPathRequestNotification(discoverySessionId,
+                peerDiscMacAddr, ndpInstanceId, appInfo);
     }
 
     @Override
-    public void eventDataPathConfirm(NanDataPathConfirmInd event) {
-        if (mDbg) {
-            Log.v(TAG, "onDataPathConfirm: ndpInstanceId=" + event.ndpInstanceId
-                    + ", peerNdiMacAddr=" + String.valueOf(HexEncoding.encode(event.peerNdiMacAddr))
-                    + ", dataPathSetupSuccess=" + event.dataPathSetupSuccess + ", reason="
-                    + event.status.status + ", appInfo.size()=" + event.appInfo.size());
-        }
-        if (mIsHal12OrLater) {
-            Log.wtf(TAG, "eventDataPathConfirm should not be called by a >=1.2 HAL!");
-        }
+    public void eventDataPathConfirm(int status, int ndpInstanceId, boolean dataPathSetupSuccess,
+            byte[] peerNdiMacAddr, byte[] appInfo,
+            List<WifiAwareChannelInfo> channelInfos) {
         incrementCbCount(CB_EV_DATA_PATH_CONFIRM);
-
-        mWifiAwareStateManager.onDataPathConfirmNotification(event.ndpInstanceId,
-                event.peerNdiMacAddr, event.dataPathSetupSuccess, event.status.status,
-                convertArrayListToNativeByteArray(event.appInfo), null);
+        if (channelInfos != null) {
+            mChannelInfoPerNdp.put(ndpInstanceId, channelInfos);
+        }
+        mWifiAwareStateManager.onDataPathConfirmNotification(ndpInstanceId,
+                peerNdiMacAddr, dataPathSetupSuccess, status, appInfo, channelInfos);
     }
 
     @Override
-    public void eventDataPathConfirm_1_2(android.hardware.wifi.V1_2.NanDataPathConfirmInd event) {
-        if (mDbg) {
-            Log.v(TAG, "eventDataPathConfirm_1_2: ndpInstanceId=" + event.V1_0.ndpInstanceId
-                    + ", peerNdiMacAddr=" + String.valueOf(
-                    HexEncoding.encode(event.V1_0.peerNdiMacAddr)) + ", dataPathSetupSuccess="
-                    + event.V1_0.dataPathSetupSuccess + ", reason=" + event.V1_0.status.status
-                    + ", appInfo.size()=" + event.V1_0.appInfo.size()
-                    + ", channelInfo" + event.channelInfo);
-        }
-        if (!mIsHal12OrLater) {
-            Log.wtf(TAG, "eventDataPathConfirm_1_2 should not be called by a <1.2 HAL!");
-            return;
-        }
-
-        List<WifiAwareChannelInfo> wifiAwareChannelInfos =
-                convertHalChannelInfo_1_2(event.channelInfo);
-        incrementCbCount(CB_EV_DATA_PATH_CONFIRM);
-        mChannelInfoPerNdp.put(event.V1_0.ndpInstanceId, wifiAwareChannelInfos);
-
-        mWifiAwareStateManager.onDataPathConfirmNotification(event.V1_0.ndpInstanceId,
-                event.V1_0.peerNdiMacAddr, event.V1_0.dataPathSetupSuccess,
-                event.V1_0.status.status, convertArrayListToNativeByteArray(event.V1_0.appInfo),
-                wifiAwareChannelInfos);
-    }
-
-    @Override
-    public void eventDataPathConfirm_1_6(android.hardware.wifi.V1_6.NanDataPathConfirmInd event) {
-        if (mDbg) {
-            Log.v(TAG, "eventDataPathConfirm_1_6: ndpInstanceId=" + event.V1_0.ndpInstanceId
-                    + ", peerNdiMacAddr=" + String.valueOf(
-                    HexEncoding.encode(event.V1_0.peerNdiMacAddr)) + ", dataPathSetupSuccess="
-                    + event.V1_0.dataPathSetupSuccess + ", reason=" + event.V1_0.status.status
-                    + ", appInfo.size()=" + event.V1_0.appInfo.size()
-                    + ", channelInfo" + event.channelInfo);
-        }
-        if (!mIsHal16OrLater) {
-            Log.wtf(TAG, "eventDataPathConfirm_1_6 should not be called by a <1.6 HAL!");
-            return;
-        }
-
-        List<WifiAwareChannelInfo> wifiAwareChannelInfos =
-                convertHalChannelInfo_1_6(event.channelInfo);
-        incrementCbCount(CB_EV_DATA_PATH_CONFIRM);
-        mChannelInfoPerNdp.put(event.V1_0.ndpInstanceId, wifiAwareChannelInfos);
-
-        mWifiAwareStateManager.onDataPathConfirmNotification(event.V1_0.ndpInstanceId,
-                event.V1_0.peerNdiMacAddr, event.V1_0.dataPathSetupSuccess,
-                event.V1_0.status.status, convertArrayListToNativeByteArray(event.V1_0.appInfo),
-                wifiAwareChannelInfos);
-    }
-
-    @Override
-    public void eventDataPathScheduleUpdate(NanDataPathScheduleUpdateInd event) {
-        if (mDbg) {
-            Log.v(TAG, "eventDataPathScheduleUpdate: peerMac="
-                    + MacAddress.fromBytes(event.peerDiscoveryAddress).toString()
-                    + ", ndpIds=" + event.ndpInstanceIds + ", channelInfo=" + event.channelInfo);
-        }
-        if (!mIsHal12OrLater) {
-            Log.wtf(TAG, "eventDataPathScheduleUpdate should not be called by a <1.2 HAL!");
-            return;
-        }
-
-        List<WifiAwareChannelInfo> wifiAwareChannelInfos =
-                convertHalChannelInfo_1_2(event.channelInfo);
+    public void eventDataPathScheduleUpdate(byte[] peerDiscoveryAddress,
+            ArrayList<Integer> ndpInstanceIds, List<WifiAwareChannelInfo> channelInfo) {
         incrementCbCount(CB_EV_DATA_PATH_SCHED_UPDATE);
-        for (int ndpInstanceId : event.ndpInstanceIds) {
-            mChannelInfoPerNdp.put(ndpInstanceId, wifiAwareChannelInfos);
+        for (int ndpInstanceId : ndpInstanceIds) {
+            mChannelInfoPerNdp.put(ndpInstanceId, channelInfo);
         }
-
-        mWifiAwareStateManager.onDataPathScheduleUpdateNotification(event.peerDiscoveryAddress,
-                event.ndpInstanceIds, wifiAwareChannelInfos);
-    }
-
-    @Override
-    public void eventDataPathScheduleUpdate_1_6(
-            android.hardware.wifi.V1_6.NanDataPathScheduleUpdateInd event) {
-        if (mDbg) {
-            Log.v(TAG, "eventDataPathScheduleUpdate_1_6: peerMac="
-                    + MacAddress.fromBytes(event.peerDiscoveryAddress).toString()
-                    + ", ndpIds=" + event.ndpInstanceIds + ", channelInfo=" + event.channelInfo);
-        }
-        if (!mIsHal16OrLater) {
-            Log.wtf(TAG, "eventDataPathScheduleUpdate_1_6 should not be called by a <1.6 HAL!");
-            return;
-        }
-
-        List<WifiAwareChannelInfo> wifiAwareChannelInfos =
-                convertHalChannelInfo_1_6(event.channelInfo);
-        incrementCbCount(CB_EV_DATA_PATH_SCHED_UPDATE);
-        for (int ndpInstanceId : event.ndpInstanceIds) {
-            mChannelInfoPerNdp.put(ndpInstanceId, wifiAwareChannelInfos);
-        }
-
-        mWifiAwareStateManager.onDataPathScheduleUpdateNotification(event.peerDiscoveryAddress,
-                event.ndpInstanceIds, wifiAwareChannelInfos);
+        mWifiAwareStateManager.onDataPathScheduleUpdateNotification(peerDiscoveryAddress,
+                ndpInstanceIds, channelInfo);
     }
 
     @Override
     public void eventDataPathTerminated(int ndpInstanceId) {
-        if (mDbg) Log.v(TAG, "eventDataPathTerminated: ndpInstanceId=" + ndpInstanceId);
         incrementCbCount(CB_EV_DATA_PATH_TERMINATED);
         mChannelInfoPerNdp.remove(ndpInstanceId);
-
         mWifiAwareStateManager.onDataPathEndNotification(ndpInstanceId);
+    }
+
+    @Override
+    public void eventPairingRequest(int discoverySessionId, int peerId, byte[] peerDiscMacAddr,
+            int ndpInstanceId, int requestType, boolean enableCache, byte[] nonce, byte[] tag) {
+        mWifiAwareStateManager.onPairingRequestNotification(discoverySessionId, peerId,
+                peerDiscMacAddr, ndpInstanceId, requestType, enableCache, nonce, tag);
+    }
+
+    @Override
+    public void eventPairingConfirm(int pairingId, boolean accept, int reason, int requestType,
+            boolean enableCache,
+            PairingConfigManager.PairingSecurityAssociationInfo npksa) {
+        mWifiAwareStateManager.onPairingConfirmNotification(pairingId, accept, reason, requestType,
+                enableCache, npksa);
+    }
+
+    @Override
+    public void eventBootstrappingRequest(int discoverySessionId, int peerId,
+            byte[] peerDiscMacAddr, int bootstrappingInstanceId, int method) {
+        mWifiAwareStateManager.onBootstrappingRequestNotification(discoverySessionId, peerId,
+                peerDiscMacAddr, bootstrappingInstanceId, method);
+    }
+
+    @Override
+    public void eventBootstrappingConfirm(int bootstrappingId, int responseCode, int reason,
+            int comebackDelay, byte[] cookie) {
+        mWifiAwareStateManager.onBootstrappingConfirmNotification(bootstrappingId, responseCode,
+                reason, comebackDelay, cookie);
+    }
+
+    @Override
+    public void eventSuspensionModeChanged(boolean isSuspended) {
+        mWifiAwareStateManager.onSuspensionModeChangedNotification(isSuspended);
     }
 
     /**
@@ -782,34 +458,6 @@ public class WifiAwareNativeCallback extends IWifiNanIfaceEventCallback.Stub imp
 
 
     // utilities
-
-    /**
-     * Converts an ArrayList<Byte> to a byte[].
-     *
-     * @param from The input ArrayList<Byte></Byte> to convert from.
-     *
-     * @return A newly allocated byte[].
-     */
-    private byte[] convertArrayListToNativeByteArray(ArrayList<Byte> from) {
-        if (from == null) {
-            return null;
-        }
-
-        byte[] to = new byte[from.size()];
-        for (int i = 0; i < from.size(); ++i) {
-            to[i] = from.get(i);
-        }
-        return to;
-    }
-
-    private static String statusString(WifiNanStatus status) {
-        if (status == null) {
-            return "status=null";
-        }
-        StringBuilder sb = new StringBuilder();
-        sb.append(status.status).append(" (").append(status.description).append(")");
-        return sb.toString();
-    }
 
     /**
      * Transfer the channel Info dict into a Json String which can be decoded by Json reader.
@@ -835,57 +483,5 @@ public class WifiAwareNativeCallback extends IWifiNanIfaceEventCallback.Stub imp
             Log.e(TAG, "onCommand: get_channel_info e=" + e);
         }
         return channelInfoJson.toString();
-    }
-
-    /**
-     * Convert HAL channelBandwidth to framework enum
-     */
-    private @WifiAnnotations.ChannelWidth int getChannelBandwidthFromHal(int channelBandwidth) {
-        switch(channelBandwidth) {
-            case WifiChannelWidthInMhz.WIDTH_40:
-                return ScanResult.CHANNEL_WIDTH_40MHZ;
-            case WifiChannelWidthInMhz.WIDTH_80:
-                return ScanResult.CHANNEL_WIDTH_80MHZ;
-            case WifiChannelWidthInMhz.WIDTH_160:
-                return ScanResult.CHANNEL_WIDTH_160MHZ;
-            case WifiChannelWidthInMhz.WIDTH_80P80:
-                return ScanResult.CHANNEL_WIDTH_80MHZ_PLUS_MHZ;
-            case WifiChannelWidthInMhz.WIDTH_320:
-                return ScanResult.CHANNEL_WIDTH_320MHZ;
-            default:
-                return ScanResult.CHANNEL_WIDTH_20MHZ;
-        }
-    }
-    /**
-     * Convert HAL V1_2 NanDataPathChannelInfo to WifiAwareChannelInfo
-     */
-    private List<WifiAwareChannelInfo> convertHalChannelInfo_1_2(
-            List<android.hardware.wifi.V1_2.NanDataPathChannelInfo> channelInfos) {
-        List<WifiAwareChannelInfo> wifiAwareChannelInfos = new ArrayList<>();
-        if (channelInfos == null) {
-            return null;
-        }
-        for (android.hardware.wifi.V1_2.NanDataPathChannelInfo channelInfo : channelInfos) {
-            wifiAwareChannelInfos.add(new WifiAwareChannelInfo(channelInfo.channelFreq,
-                    getChannelBandwidthFromHal(channelInfo.channelBandwidth),
-                    channelInfo.numSpatialStreams));
-        }
-        return wifiAwareChannelInfos;
-    }
-    /**
-     * Convert HAL V1_6 NanDataPathChannelInfo to WifiAwareChannelInfo
-     */
-    private List<WifiAwareChannelInfo> convertHalChannelInfo_1_6(
-            List<android.hardware.wifi.V1_6.NanDataPathChannelInfo> channelInfos) {
-        List<WifiAwareChannelInfo> wifiAwareChannelInfos = new ArrayList<>();
-        if (channelInfos == null) {
-            return null;
-        }
-        for (android.hardware.wifi.V1_6.NanDataPathChannelInfo channelInfo : channelInfos) {
-            wifiAwareChannelInfos.add(new WifiAwareChannelInfo(channelInfo.channelFreq,
-                    getChannelBandwidthFromHal(channelInfo.channelBandwidth),
-                    channelInfo.numSpatialStreams));
-        }
-        return wifiAwareChannelInfos;
     }
 }

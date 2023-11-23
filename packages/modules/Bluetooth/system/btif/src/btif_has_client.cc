@@ -15,8 +15,8 @@
  * limitations under the License.
  */
 
-#include <base/bind.h>
 #include <base/bind_helpers.h>
+#include <base/functional/bind.h>
 #include <base/location.h>
 #include <base/logging.h>
 #include <hardware/bluetooth.h>
@@ -28,7 +28,7 @@
 
 #include "bta_has_api.h"
 #include "btif_common.h"
-#include "btif_storage.h"
+#include "btif_profile_storage.h"
 #include "stack/include/btu.h"
 
 using base::Bind;
@@ -64,7 +64,7 @@ class HearingAaccessClientServiceInterfaceImpl : public HasClientInterface,
   }
 
   void Connect(const RawAddress& addr) override {
-    DVLOG(2) << __func__ << " addr: " << addr;
+    DVLOG(2) << __func__ << " addr: " << ADDRESS_TO_LOGGABLE_STR(addr);
     do_in_main_thread(FROM_HERE, Bind(&HasClient::Connect,
                                       Unretained(HasClient::Get()), addr));
 
@@ -73,7 +73,7 @@ class HearingAaccessClientServiceInterfaceImpl : public HasClientInterface,
   }
 
   void Disconnect(const RawAddress& addr) override {
-    DVLOG(2) << __func__ << " addr: " << addr;
+    DVLOG(2) << __func__ << " addr: " << ADDRESS_TO_LOGGABLE_STR(addr);
     do_in_main_thread(FROM_HERE, Bind(&HasClient::Disconnect,
                                       Unretained(HasClient::Get()), addr));
 
@@ -110,7 +110,7 @@ class HearingAaccessClientServiceInterfaceImpl : public HasClientInterface,
   }
 
   void GetPresetInfo(const RawAddress& addr, uint8_t preset_index) override {
-    DVLOG(2) << __func__ << " addr: " << addr
+    DVLOG(2) << __func__ << " addr: " << ADDRESS_TO_LOGGABLE_STR(addr)
              << " preset_index: " << preset_index;
 
     do_in_main_thread(
@@ -130,7 +130,7 @@ class HearingAaccessClientServiceInterfaceImpl : public HasClientInterface,
   }
 
   void RemoveDevice(const RawAddress& addr) override {
-    DVLOG(2) << __func__ << " addr: " << addr;
+    DVLOG(2) << __func__ << " addr: " << ADDRESS_TO_LOGGABLE_STR(addr);
 
     /* RemoveDevice can be called on devices that don't have BAS enabled */
     if (HasClient::IsHasClientRunning()) {
@@ -148,20 +148,21 @@ class HearingAaccessClientServiceInterfaceImpl : public HasClientInterface,
 
   void OnConnectionState(ConnectionState state,
                          const RawAddress& addr) override {
-    DVLOG(2) << __func__ << " addr: " << addr;
+    DVLOG(2) << __func__ << " addr: " << ADDRESS_TO_LOGGABLE_STR(addr);
     do_in_jni_thread(FROM_HERE, Bind(&HasClientCallbacks::OnConnectionState,
                                      Unretained(callbacks_), state, addr));
   }
 
   void OnDeviceAvailable(const RawAddress& addr, uint8_t features) override {
-    DVLOG(2) << __func__ << " addr: " << addr << " features: " << features;
+    DVLOG(2) << __func__ << " addr: " << ADDRESS_TO_LOGGABLE_STR(addr)
+             << " features: " << features;
 
     do_in_jni_thread(FROM_HERE, Bind(&HasClientCallbacks::OnDeviceAvailable,
                                      Unretained(callbacks_), addr, features));
   }
 
   void OnFeaturesUpdate(const RawAddress& addr, uint8_t features) override {
-    DVLOG(2) << __func__ << " addr: " << addr
+    DVLOG(2) << __func__ << " addr: " << ADDRESS_TO_LOGGABLE_STR(addr)
              << " ha_features: " << std::bitset<8>(features);
 
     do_in_jni_thread(FROM_HERE, Bind(&HasClientCallbacks::OnFeaturesUpdate,

@@ -30,7 +30,6 @@ import static java.lang.Math.min;
 import android.net.IpPrefix;
 import android.net.MacAddress;
 import android.net.dhcp.DhcpServer.Clock;
-import android.net.util.SharedLog;
 import android.os.RemoteCallbackList;
 import android.os.RemoteException;
 import android.util.ArrayMap;
@@ -38,6 +37,8 @@ import android.util.ArrayMap;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
+
+import com.android.net.module.util.SharedLog;
 
 import java.net.Inet4Address;
 import java.util.ArrayList;

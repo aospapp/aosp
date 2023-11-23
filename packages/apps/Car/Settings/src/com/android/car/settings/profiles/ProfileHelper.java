@@ -41,6 +41,7 @@ import android.sysprop.CarProperties;
 import android.util.Log;
 import android.widget.Toast;
 
+import com.android.car.internal.user.UserHelper;
 import com.android.car.settings.R;
 import com.android.car.settings.common.FragmentController;
 import com.android.car.settings.enterprise.EnterpriseUtils;
@@ -154,7 +155,7 @@ public class ProfileHelper {
 
         // Try to create a new admin before deleting the current one.
         if (userInfo.isAdmin() && getAllAdminProfiles().size() <= 1) {
-            return replaceLastAdmin(userInfo);
+            return replaceLastAdmin(context, userInfo);
         }
 
         if (!mUserManager.isAdminUser() && !isCurrentProcessUser(userInfo)) {
@@ -288,13 +289,13 @@ public class ProfileHelper {
     }
 
     @RemoveProfileResult
-    private int replaceLastAdmin(UserInfo userInfo) {
+    private int replaceLastAdmin(Context context, UserInfo userInfo) {
         if (Log.isLoggable(TAG, Log.INFO)) {
             Log.i(TAG, "Profile " + userInfo.id
                     + " is the last admin profile on device. Creating a new admin.");
         }
 
-        UserInfo newAdmin = createNewAdminProfile(mDefaultAdminName);
+        UserInfo newAdmin = createNewAdminProfile(context, mDefaultAdminName);
         if (newAdmin == null) {
             Log.w(TAG, "Couldn't create another admin, cannot delete current profile.");
             return REMOVE_PROFILE_RESULT_FAILED;
@@ -320,7 +321,7 @@ public class ProfileHelper {
      * @return Newly created admin profile, null if failed to create a profile.
      */
     @Nullable
-    private UserInfo createNewAdminProfile(String userName) {
+    private UserInfo createNewAdminProfile(Context context, String userName) {
         if (!(mUserManager.isAdminUser() || mUserManager.isSystemUser())) {
             // Only Admins or System profile can create other privileged profiles.
             Log.e(TAG, "Only admin profiles and system profile can create other admins.");
@@ -331,7 +332,7 @@ public class ProfileHelper {
         if (result == null) return null;
         UserInfo user = mUserManager.getUserInfo(result.getUser().getIdentifier());
 
-        new ProfileIconProvider().assignDefaultIcon(mUserManager, mResources, user);
+        UserHelper.assignDefaultIcon(context, user.getUserHandle());
         return user;
     }
 
@@ -351,7 +352,7 @@ public class ProfileHelper {
                 : mUserManager.getUserInfo(result.getUser().getIdentifier());
 
         if (newGuest != null) {
-            new ProfileIconProvider().assignDefaultIcon(mUserManager, mResources, newGuest);
+            UserHelper.assignDefaultIcon(context, newGuest.getUserHandle());
             return newGuest;
         }
 
@@ -425,6 +426,8 @@ public class ProfileHelper {
             filteredListStream =
                     filteredListStream.filter(userInfo -> userInfo.id != UserHandle.USER_SYSTEM);
         }
+        filteredListStream = filteredListStream.sorted(
+                (u1, u2) -> Long.signum(u1.creationTime - u2.creationTime));
         return filteredListStream.collect(Collectors.toList());
     }
 

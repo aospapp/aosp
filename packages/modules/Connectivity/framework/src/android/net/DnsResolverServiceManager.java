@@ -29,7 +29,7 @@ public class DnsResolverServiceManager {
 
     private final IBinder mResolver;
 
-    DnsResolverServiceManager(IBinder resolver) {
+    public DnsResolverServiceManager(IBinder resolver) {
         mResolver = resolver;
     }
 

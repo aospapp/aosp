@@ -17,7 +17,7 @@ package {
 android_app {
     name: "CarUiPortraitDialerRRO",
     resource_dirs: ["res"],
-    platform_apis: true,
+    sdk_version: "current",
     aaptflags: [
         "--no-resource-deduping",
         "--no-resource-removal"
@@ -27,5 +27,6 @@ android_app {
         "androidx-constraintlayout_constraintlayout-solver",
         "car-apps-common",
         "car-ui-lib",
+        "car-portrait-ui-common"
     ],
 }

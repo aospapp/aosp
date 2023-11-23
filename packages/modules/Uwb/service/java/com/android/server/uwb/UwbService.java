@@ -19,11 +19,13 @@ package com.android.server.uwb;
 import android.content.Context;
 import android.util.Log;
 
+import com.android.internal.annotations.Keep;
 import com.android.server.SystemService;
 
 /**
  * Uwb System service.
  */
+@Keep
 public class UwbService extends SystemService {
     private static final String TAG = "UwbService";
 
@@ -45,5 +47,15 @@ public class UwbService extends SystemService {
         if (phase == SystemService.PHASE_BOOT_COMPLETED) {
             mImpl.initialize();
         }
+    }
+
+    @Override
+    public void onUserSwitching(TargetUser from, TargetUser to) {
+        mImpl.handleUserSwitch(to.getUserHandle().getIdentifier());
+    }
+
+    @Override
+    public void onUserUnlocking(TargetUser user) {
+        mImpl.handleUserUnlock(user.getUserHandle().getIdentifier());
     }
 }

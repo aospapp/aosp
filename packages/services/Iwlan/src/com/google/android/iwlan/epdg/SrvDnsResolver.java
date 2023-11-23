@@ -36,6 +36,7 @@ import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -146,7 +147,7 @@ final class SrvDnsResolver {
         // Parses the Answers section of a DnsPacket to construct and return a mapping
         // of Domain Name strings to their corresponding SRV record.
         public @NonNull Map<String, SrvRecord> parseSrvRecords() throws ParseException {
-            final HashMap<String, SrvRecord> targetNameToSrvRecord = new HashMap<>();
+            final HashMap<String, SrvRecord> targetNameToSrvRecord = new LinkedHashMap<>();
             if (mHeader.getRecordCount(ANSECTION) == 0) return targetNameToSrvRecord;
 
             for (final DnsRecord ansSec : mRecords[ANSECTION]) {

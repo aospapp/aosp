@@ -20,12 +20,15 @@
 
     <uses-permission android:name="android.Manifest.permission.MODIFY_AUDIO_ROUTING"/>
     <uses-permission android:name="android.car.permission.ACCESS_PRIVATE_DISPLAY_ID"/>
+    <uses-permission android:name="android.car.permission.MANAGE_THREAD_PRIORITY"/>
     <uses-permission android:name="android.car.permission.CONTROL_CAR_CLIMATE"/>
     <uses-permission android:name="android.car.permission.CONTROL_CAR_DOORS"/>
     <uses-permission android:name="android.car.permission.CONTROL_CAR_WINDOWS"/>
     <uses-permission android:name="android.car.permission.CONTROL_CAR_MIRRORS"/>
     <uses-permission android:name="android.car.permission.CONTROL_CAR_SEATS"/>
+    <uses-permission android:name="android.car.permission.CONTROL_CAR_ENERGY_PORTS"/>
     <uses-permission android:name="android.car.permission.CAR_ENERGY"/>
+    <uses-permission android:name="android.car.permission.CAR_EPOCH_TIME"/>
     <uses-permission android:name="android.car.permission.CAR_SPEED"/>
     <uses-permission android:name="android.car.permission.CONTROL_APP_BLOCKING"/>
     <uses-permission android:name="android.car.permission.CAR_CONTROL_AUDIO_VOLUME"/>
@@ -37,6 +40,7 @@
     <uses-permission android:name="android.car.permission.CONTROL_SHUTDOWN_PROCESS"/>
     <uses-permission android:name="android.car.permission.GET_CAR_VENDOR_CATEGORY_1"/>
     <uses-permission android:name="android.car.permission.SET_CAR_VENDOR_CATEGORY_1"/>
+    <uses-permission android:name="android.car.permission.CAR_TIRES"/>
 
     <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
          android:targetPackage="com.android.car.test"
@@ -44,7 +48,8 @@
 
     <application android:label="@string/app_title"
          android:name=".CarServiceTestApp"
-         android:debuggable="true">
+         android:debuggable="true"
+         android:testOnly="true">
         <uses-library android:name="android.test.runner"/>
         <service android:name="com.android.car.TestAppBlockingPolicyService"
              android:permission="android.car.permission.CONTROL_APP_BLOCKING"
@@ -57,7 +62,8 @@
         <activity
             android:name="com.android.car.pm.CarPackageManagerServiceTest$NonDoNoHistoryActivity"
             android:noHistory="true"/>
-        <activity android:name="com.android.car.pm.CarPackageManagerServiceTest$NonDoActivity"/>
+        <activity android:name="com.android.car.pm.CarPackageManagerServiceTest$NonDoActivity"
+            android:taskAffinity=""/>
         <activity android:name="com.android.car.pm.CarPackageManagerServiceTest$DoActivity"
              android:label="DoActivity">
             <meta-data android:name="distractionOptimized"

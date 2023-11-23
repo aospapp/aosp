@@ -19,17 +19,17 @@
  *   Functions generated:4
  */
 
-#include <map>
-#include <string>
-
-extern std::map<std::string, int> mock_function_count_map;
-
 #include <base/logging.h>
+
 #include <iomanip>
+#include <map>
 #include <sstream>
+#include <string>
 #include <utility>
+
 #include "common/stop_watch_legacy.h"
 #include "osi/include/log.h"
+#include "test/common/mock_functions.h"
 
 #ifndef UNUSED_ATTR
 #define UNUSED_ATTR
@@ -42,14 +42,12 @@ StopWatchLegacy::StopWatchLegacy(std::string text)
     : text_(std::move(text)),
       timestamp_(std::chrono::system_clock::now()),
       start_timestamp_(std::chrono::high_resolution_clock::now()) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
 }
-StopWatchLegacy::~StopWatchLegacy() { mock_function_count_map[__func__]++; }
-void StopWatchLegacy::DumpStopWatchLog() {
-  mock_function_count_map[__func__]++;
-}
+StopWatchLegacy::~StopWatchLegacy() { inc_func_call_count(__func__); }
+void StopWatchLegacy::DumpStopWatchLog() { inc_func_call_count(__func__); }
 void StopWatchLegacy::RecordLog(StopWatchLog log) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
 }
 
 }  // namespace common

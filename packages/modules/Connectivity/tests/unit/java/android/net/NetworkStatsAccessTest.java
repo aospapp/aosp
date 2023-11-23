@@ -19,6 +19,7 @@ package android.net;
 import static com.android.testutils.DevSdkIgnoreRuleKt.SC_V2;
 
 import static org.junit.Assert.assertEquals;
+import static org.mockito.Mockito.doCallRealMethod;
 import static org.mockito.Mockito.when;
 
 import android.Manifest;
@@ -66,6 +67,10 @@ public class NetworkStatsAccessTest {
         when(mContext.getSystemServiceName(DevicePolicyManager.class))
                 .thenReturn(Context.DEVICE_POLICY_SERVICE);
         when(mContext.getSystemService(Context.DEVICE_POLICY_SERVICE)).thenReturn(mDpm);
+        if (mContext.getSystemService(DevicePolicyManager.class) == null) {
+            // Test is using mockito-extended
+            doCallRealMethod().when(mContext).getSystemService(DevicePolicyManager.class);
+        }
 
         setHasCarrierPrivileges(false);
         setIsDeviceOwner(false);
@@ -73,6 +78,7 @@ public class NetworkStatsAccessTest {
         setHasAppOpsPermission(AppOpsManager.MODE_DEFAULT, false);
         setHasReadHistoryPermission(false);
         setHasNetworkStackPermission(false);
+        setHasMainlineNetworkStackPermission(false);
     }
 
     @After
@@ -149,6 +155,10 @@ public class NetworkStatsAccessTest {
         setHasNetworkStackPermission(false);
         assertEquals(NetworkStatsAccess.Level.DEFAULT,
                 NetworkStatsAccess.checkAccessLevel(mContext, TEST_PID, TEST_UID, TEST_PKG));
+
+        setHasMainlineNetworkStackPermission(true);
+        assertEquals(NetworkStatsAccess.Level.DEVICE,
+                NetworkStatsAccess.checkAccessLevel(mContext, TEST_PID, TEST_UID, TEST_PKG));
     }
 
     private void setHasCarrierPrivileges(boolean hasPrivileges) {
@@ -181,6 +191,12 @@ public class NetworkStatsAccessTest {
 
     private void setHasNetworkStackPermission(boolean hasPermission) {
         when(mContext.checkPermission(android.Manifest.permission.NETWORK_STACK,
+                TEST_PID, TEST_UID)).thenReturn(hasPermission ? PackageManager.PERMISSION_GRANTED
+                : PackageManager.PERMISSION_DENIED);
+    }
+
+    private void setHasMainlineNetworkStackPermission(boolean hasPermission) {
+        when(mContext.checkPermission(NetworkStack.PERMISSION_MAINLINE_NETWORK_STACK,
                 TEST_PID, TEST_UID)).thenReturn(hasPermission ? PackageManager.PERMISSION_GRANTED
                 : PackageManager.PERMISSION_DENIED);
     }

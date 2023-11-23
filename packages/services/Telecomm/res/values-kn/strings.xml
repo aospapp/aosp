@@ -30,7 +30,7 @@
     <string name="notification_disconnectedCall_body" msgid="600491714584417536">"ತುರ್ತು ಕರೆಯನ್ನು ಮಾಡುತ್ತಿರುವ ಕಾರಣ <xliff:g id="CALLER">%s</xliff:g> ಗೆ ಕರೆಯ ಕನೆಕ್ಷನ್ ಅನ್ನು ಕಡಿತಗೊಳಿಸಲಾಗಿದೆ."</string>
     <string name="notification_disconnectedCall_generic_body" msgid="5282765206349184853">"ತುರ್ತು ಕರೆಯನ್ನು ಮಾಡುತ್ತಿರುವ ಕಾರಣ ನಿಮ್ಮ ಕರೆಯನ್ನು ಕಡಿತಗೊಳಿಸಲಾಗಿದೆ."</string>
     <string name="notification_audioProcessing_title" msgid="1619035039880584575">"ಹಿನ್ನೆಲೆ ಕರೆ"</string>
-    <string name="notification_audioProcessing_body" msgid="6397005913770420388">"<xliff:g id="AUDIO_PROCESSING_APP_NAME">%s</xliff:g> ಆ್ಯಪ್, ಕರೆಯನ್ನು ಹಿನ್ನೆಲೆಯಲ್ಲಿ ಇರಿಸಿದೆ. ಈ ಆ್ಯಪ್ ಕರೆಯ ಮೂಲಕ ಆಡಿಯೊವನ್ನು ಪ್ರವೇಶಿಸಬಹುದು ಮತ್ತು ಪ್ಲೇ ಮಾಡಬಹುದು."</string>
+    <string name="notification_audioProcessing_body" msgid="8811420157964118913">"<xliff:g id="AUDIO_PROCESSING_APP_NAME">%s</xliff:g> ಹಿನ್ನೆಲೆಯಲ್ಲಿ ಕರೆಯನ್ನು ಪ್ರಕ್ರಿಯೆಗೊಳಿಸುತ್ತಿದೆ. ಈ ಆ್ಯಪ್ ಕರೆಯ ಮೂಲಕ ಆಡಿಯೊವನ್ನು ಪ್ರವೇಶಿಸಬಹುದು ಮತ್ತು ಪ್ಲೇ ಮಾಡಬಹುದು."</string>
     <string name="notification_incallservice_not_responding_title" msgid="5347557574288598548">"<xliff:g id="IN_CALL_SERVICE_APP_NAME">%s</xliff:g> ಪ್ರತಿಕ್ರಿಯಿಸುವುದನ್ನು ನಿಲ್ಲಿಸಿದೆ"</string>
     <string name="notification_incallservice_not_responding_body" msgid="9209308270131968623">"ನಿಮ್ಮ ಕರೆಯು ಸಾಧನದ ಜೊತೆಗೆ ನೀಡಲಾದ ಫೋನ್ ಆ್ಯಪ್ ಅನ್ನು ಬಳಸಿದೆ."</string>
     <string name="accessibility_call_muted" msgid="2968461092554300779">"ಕರೆಯನ್ನು ಮ್ಯೂಟ್ ಮಾಡಲಾಗಿದೆ."</string>
@@ -53,7 +53,7 @@
     <string name="no_vm_number" msgid="2179959110602180844">"ಧ್ವನಿಮೇಲ್‌ ಸಂಖ್ಯೆಯು ಕಾಣೆಯಾಗಿದೆ"</string>
     <string name="no_vm_number_msg" msgid="1339245731058529388">"ಸಿಮ್‌ ಕಾರ್ಡ್‌ನಲ್ಲಿ ಯಾವುದೇ ಧ್ವನಿಮೇಲ್‌ ಸಂಖ್ಯೆಯನ್ನು ಸಂಗ್ರಹಿಸಿಲ್ಲ."</string>
     <string name="add_vm_number_str" msgid="5179510133063168998">"ಸಂಖ್ಯೆಯನ್ನು ಸೇರಿಸಿ"</string>
-    <string name="change_default_dialer_dialog_title" msgid="5861469279421508060">"<xliff:g id="NEW_APP">%s</xliff:g> ಅನ್ನು ನಿಮ್ಮ ಡಿಫಾಲ್ಟ್ ಫೋನ್ ಅಪ್ಲಿಕೇಶನ್ ಆಗಿ ಮಾಡುವುದೇ?"</string>
+    <string name="change_default_dialer_dialog_title" msgid="5861469279421508060">"<xliff:g id="NEW_APP">%s</xliff:g> ಅನ್ನು ನಿಮ್ಮ ಡಿಫಾಲ್ಟ್ ಫೋನ್ ಆ್ಯಪ್ ಆಗಿ ಮಾಡಬೇಕೆ?"</string>
     <string name="change_default_dialer_dialog_affirmative" msgid="8604665314757739550">"ಡಿಫಾಲ್ಟ್ ಹೊಂದಿಸಿ"</string>
     <string name="change_default_dialer_dialog_negative" msgid="8648669840052697821">"ರದ್ದುಮಾಡಿ"</string>
     <string name="change_default_dialer_warning_message" msgid="8461963987376916114">"<xliff:g id="NEW_APP">%s</xliff:g> ಗೆ ನಿಮ್ಮ ಕರೆಗಳ ಎಲ್ಲಾ ಅಂಶಗಳನ್ನು ನಿಯಂತ್ರಿಸಲು ಮತ್ತು ಕರೆಗಳನ್ನು ಮಾಡಲು ಸಾಧ್ಯವಾಗುತ್ತದೆ. ನೀವು ವಿಶ್ವಾಸವಿರಿಸಿರುವಂತಹ ಅಪ್ಲಿಕೇಶನ್‌ಗಳನ್ನು ಮಾತ್ರ ನಿಮ್ಮ ಡಿಫಾಲ್ಟ್ ಅಪ್ಲಿಕೇಶನ್ ಆಗಿ ಹೊಂದಿಸಬೇಕು."</string>
@@ -100,6 +100,7 @@
     <string name="notification_channel_background_calls" msgid="7785659903711350506">"ಹಿನ್ನೆಲೆ ಕರೆಗಳು"</string>
     <string name="notification_channel_disconnected_calls" msgid="8228636543997645757">"ಡಿಸ್ಕನೆಕ್ಟ್ ಮಾಡಲಾದ ಕರೆಗಳು"</string>
     <string name="notification_channel_in_call_service_crash" msgid="7313237519166984267">"ಕ್ರ್ಯಾಶ್ ಆಗಿರುವ ಫೋನ್ ಆ್ಯಪ್‌ಗಳು"</string>
+    <string name="notification_channel_call_streaming" msgid="5100510699787538991">"ಕರೆ ಸ್ಟ್ರೀಮಿಂಗ್"</string>
     <string name="alert_outgoing_call" msgid="5319895109298927431">"ಈ ಕರೆಯನ್ನು ಮಾಡುವುದರಿಂದ ನಿಮ್ಮ <xliff:g id="OTHER_APP">%1$s</xliff:g> ಕರೆಯು ಅಂತ್ಯಗೊಳ್ಳುತ್ತದೆ."</string>
     <string name="alert_redirect_outgoing_call_or_not" msgid="665409645789521636">"ಈ ಕರೆ ಮಾಡುವುದು ಹೇಗೆ ಎಂಬುದನ್ನು ಆಯ್ಕೆಮಾಡಿ"</string>
     <string name="alert_place_outgoing_call_with_redirection" msgid="5221065030959024121">"<xliff:g id="OTHER_APP">%1$s</xliff:g> ಬಳಸಿಕೊಂಡು ಕರೆಯನ್ನು ಮರುನಿರ್ದೇರ್ಶಿಸಿ"</string>
@@ -123,4 +124,14 @@
     <string name="developer_title" msgid="9146088855661672353">"ಟೆಲಿಕಾಂ ಡೆವಲಪರ್ ಮೆನು"</string>
     <string name="toast_emergency_can_not_pull_call" msgid="9074229465338410869">"ತುರ್ತು ಕರೆಯಲ್ಲಿರುವಾಗ ಕರೆಗಳನ್ನು ಸ್ವೀಕರಿಸಲು ಸಾಧ್ಯವಿಲ್ಲ."</string>
     <string name="cancel" msgid="6733466216239934756">"ರದ್ದುಮಾಡಿ"</string>
+    <string name="back" msgid="6915955601805550206">"ಹಿಂದಕ್ಕೆ"</string>
+    <string name="callendpoint_name_earpiece" msgid="7047285080319678594">"ಇಯರ್‌ಪೀಸ್"</string>
+    <string name="callendpoint_name_bluetooth" msgid="210210953208913172">"ಬ್ಲೂಟೂತ್"</string>
+    <string name="callendpoint_name_wiredheadset" msgid="6860787176412079742">"ವೈಯರ್ಡ್ ಹೆಡ್‌ಸೆಟ್"</string>
+    <string name="callendpoint_name_speaker" msgid="1971760468695323189">"ಸ್ಪೀಕರ್"</string>
+    <string name="callendpoint_name_streaming" msgid="2337595450408275576">"ಬಾಹ್ಯ"</string>
+    <string name="callendpoint_name_unknown" msgid="2199074708477193852">"ಅಪರಿಚಿತ"</string>
+    <string name="call_streaming_notification_body" msgid="502216105683378263">"ಇತರ ಸಾಧನಕ್ಕೆ ಆಡಿಯೊವನ್ನು ಸ್ಟ್ರೀಮ್ ಮಾಡಲಾಗುತ್ತಿದೆ"</string>
+    <string name="call_streaming_notification_action_hang_up" msgid="7017663335289063827">"ಹ್ಯಾಂಗ್ ಅಪ್"</string>
+    <string name="call_streaming_notification_action_switch_here" msgid="3524180754186221228">"ಇಲ್ಲಿಗೆ ಬದಲಾಯಿಸಿ"</string>
 </resources>

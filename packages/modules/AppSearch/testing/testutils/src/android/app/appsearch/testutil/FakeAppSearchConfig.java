@@ -16,7 +16,12 @@
 
 package android.app.appsearch.testutil;
 
+import android.os.Build;
+
 import com.android.server.appsearch.AppSearchConfig;
+import com.android.server.appsearch.Denylist;
+import com.android.server.appsearch.external.localstorage.IcingOptionsConfig;
+import com.android.server.appsearch.AppSearchRateLimitConfig;
 
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -30,6 +35,11 @@ import java.util.concurrent.atomic.AtomicBoolean;
  */
 public final class FakeAppSearchConfig implements AppSearchConfig {
     private final AtomicBoolean mIsClosed = new AtomicBoolean();
+    private static final AppSearchRateLimitConfig DEFAULT_APPSEARCH_RATE_LIMIT_CONFIG =
+            AppSearchRateLimitConfig.create(
+                    DEFAULT_RATE_LIMIT_TASK_QUEUE_TOTAL_CAPACITY,
+                    DEFAULT_RATE_LIMIT_TASK_QUEUE_PER_PACKAGE_CAPACITY_PERCENTAGE,
+                    DEFAULT_RATE_LIMIT_API_COSTS_STRING);
 
     @Override
     public void close() {
@@ -62,14 +72,14 @@ public final class FakeAppSearchConfig implements AppSearchConfig {
 
     @Override
     public int getCachedSamplingIntervalForInitializeStats() {
-            throwIfClosed();
-            return getCachedSamplingIntervalDefault();
+        throwIfClosed();
+        return getCachedSamplingIntervalDefault();
     }
 
     @Override
     public int getCachedSamplingIntervalForSearchStats() {
-            throwIfClosed();
-            return getCachedSamplingIntervalDefault();
+        throwIfClosed();
+        return getCachedSamplingIntervalDefault();
     }
 
     @Override
@@ -85,15 +95,21 @@ public final class FakeAppSearchConfig implements AppSearchConfig {
     }
 
     @Override
-    public int getCachedLimitConfigMaxDocumentSizeBytes() {
+    public int getMaxDocumentSizeBytes() {
         throwIfClosed();
         return DEFAULT_LIMIT_CONFIG_MAX_DOCUMENT_SIZE_BYTES;
     }
 
     @Override
-    public int getCachedLimitConfigMaxDocumentCount() {
+    public int getMaxDocumentCount() {
         throwIfClosed();
         return DEFAULT_LIMIT_CONFIG_MAX_DOCUMENT_COUNT;
+    }
+
+    @Override
+    public int getMaxSuggestionCount() {
+        throwIfClosed();
+        return DEFAULT_LIMIT_CONFIG_MAX_SUGGESTION_COUNT;
     }
 
     @Override
@@ -112,6 +128,95 @@ public final class FakeAppSearchConfig implements AppSearchConfig {
     public int getCachedDocCountOptimizeThreshold() {
         throwIfClosed();
         return DEFAULT_DOC_COUNT_OPTIMIZE_THRESHOLD;
+    }
+
+    @Override
+    public int getCachedMinTimeOptimizeThresholdMs() {
+        throwIfClosed();
+        return DEFAULT_MIN_TIME_OPTIMIZE_THRESHOLD_MILLIS;
+    }
+
+    @Override
+    public int getCachedApiCallStatsLimit() {
+        throwIfClosed();
+        return DEFAULT_API_CALL_STATS_LIMIT;
+    }
+
+    @Override
+    public Denylist getCachedDenylist() {
+        return Denylist.EMPTY_INSTANCE;
+    }
+
+    @Override
+    public int getMaxTokenLength() {
+        throwIfClosed();
+        return IcingOptionsConfig.DEFAULT_MAX_TOKEN_LENGTH;
+    }
+
+    @Override
+    public int getIndexMergeSize() {
+        throwIfClosed();
+        return IcingOptionsConfig.DEFAULT_INDEX_MERGE_SIZE;
+    }
+
+    @Override
+    public boolean getDocumentStoreNamespaceIdFingerprint() {
+        throwIfClosed();
+        return IcingOptionsConfig.DEFAULT_DOCUMENT_STORE_NAMESPACE_ID_FINGERPRINT;
+    }
+
+    @Override
+    public float getOptimizeRebuildIndexThreshold() {
+        throwIfClosed();
+        return IcingOptionsConfig.DEFAULT_OPTIMIZE_REBUILD_INDEX_THRESHOLD;
+    }
+
+    @Override
+    public int getCompressionLevel() {
+        throwIfClosed();
+        return IcingOptionsConfig.DEFAULT_COMPRESSION_LEVEL;
+    }
+
+    @Override
+    public boolean getAllowCircularSchemaDefinitions() {
+        throwIfClosed();
+        return Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE;
+    }
+
+    @Override
+    public boolean getUseReadOnlySearch() {
+        throwIfClosed();
+        return DEFAULT_ICING_CONFIG_USE_READ_ONLY_SEARCH;
+    }
+
+    @Override
+    public boolean getUsePreMappingWithFileBackedVector() {
+        throwIfClosed();
+        return IcingOptionsConfig.DEFAULT_USE_PREMAPPING_WITH_FILE_BACKED_VECTOR;
+    }
+
+    @Override
+    public boolean getUsePersistentHashMap() {
+        throwIfClosed();
+        return IcingOptionsConfig.DEFAULT_USE_PERSISTENT_HASH_MAP;
+    }
+
+    @Override
+    public int getMaxPageBytesLimit() {
+        throwIfClosed();
+        return IcingOptionsConfig.DEFAULT_MAX_PAGE_BYTES_LIMIT;
+    }
+
+    @Override
+    public boolean getCachedRateLimitEnabled() {
+        throwIfClosed();
+        return DEFAULT_RATE_LIMIT_ENABLED;
+    }
+
+    @Override
+    public AppSearchRateLimitConfig getCachedRateLimitConfig() {
+        throwIfClosed();
+        return DEFAULT_APPSEARCH_RATE_LIMIT_CONFIG;
     }
 
     private void throwIfClosed() {

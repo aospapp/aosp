@@ -20,9 +20,7 @@ package com.android.bluetooth.gatt;
  * These are held during congestion and reported when congestion clears.
  * @hide
  */
-/*package*/
-
-class CallbackInfo {
+/* package */ class CallbackInfo {
     public String address;
     public int status;
     public int handle;
@@ -58,6 +56,6 @@ class CallbackInfo {
         this.address = address;
         this.status = status;
         this.handle = handle;
+        this.value = value;
     }
 }
-

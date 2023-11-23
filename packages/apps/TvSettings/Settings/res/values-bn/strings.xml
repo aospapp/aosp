@@ -31,6 +31,8 @@
     <string name="enabled" msgid="5127188665060746381">"চালু করা আছে"</string>
     <string name="disabled" msgid="4589065923272201387">"বন্ধ করা আছে"</string>
     <string name="unavailable" msgid="1610732303812180196">"উপলভ্য নয়"</string>
+    <string name="allow" msgid="6982558814345894019">"অনুমতি দিন"</string>
+    <string name="deny" msgid="8291577308813053917">"বাতিল করুন"</string>
     <string name="header_category_suggestions" msgid="106077820663753645">"প্রস্তাবনা"</string>
     <string name="header_category_quick_settings" msgid="3785334008768367890">"দ্রুত সেটিংস"</string>
     <string name="header_category_general_settings" msgid="3897615781153506434">"সাধারণ সেটিংস"</string>
@@ -51,6 +53,7 @@
     <string name="sound_category_title" msgid="7899816751041939518">"সাউন্ড"</string>
     <string name="applications_category_title" msgid="7112019490898586223">"অ্যাপ"</string>
     <string name="device_pref_category_title" msgid="8292572846154873762">"ডিভাইস সম্পর্কিত পছন্দ"</string>
+    <string name="accessibility_category_title" msgid="1552664829936369592">"অ্যাক্সেসিবিলিটি"</string>
     <string name="remotes_and_accessories_category_title" msgid="4795119810430255047">"রিমোট ও অ্যাক্সেসরি"</string>
     <string name="display_and_sound_category_title" msgid="9203309625380755860">"ডিসপ্লে এবং সাউন্ড"</string>
     <string name="help_and_feedback_category_title" msgid="7036505833991003031">"সহায়তা ও মতামত"</string>
@@ -109,7 +112,8 @@
     <string name="device_backup_restore" msgid="3634531946308269398">"ব্যাক-আপ নিন ও ফিরিয়ে আনুন"</string>
     <string name="device_factory_reset" msgid="1110189450013225971">"ফ্যাক্টরি ডেটা রিসেট করুন"</string>
     <string name="device_calibration" msgid="2907914144048739705">"ক্রমাঙ্কন"</string>
-    <string name="device_energy_saver" msgid="1105023232841036991">"পাওয়ার সেভার"</string>
+    <string name="device_energy_saver" msgid="6611757996220443028">"বন্ধ করার টাইমার"</string>
+    <string name="device_energy_saver_summary" msgid="5306058475316008429">"টিভি বন্ধ ও এনার্জি সাশ্রয় করতে টাইমার সেট করুন"</string>
     <string name="overlay_internal_slice_title" msgid="6427352417573831625"></string>
     <string name="device_fastpair" msgid="1235240814051277047">"ডিভাইস"</string>
     <string name="surround_sound_select_formats" msgid="6070283650131226239">"ফর্ম্যাট বেছে নিন"</string>
@@ -118,7 +122,7 @@
     <string name="surround_sound_format_e_ac3" msgid="6923129088903887242">"ডলবি ডিজিটাল প্লাস"</string>
     <string name="surround_sound_format_dts" msgid="8331816247117135587">"DTS"</string>
     <string name="surround_sound_format_dts_hd" msgid="4268947520371740146">"DTS-HD"</string>
-    <string name="surround_sound_format_dts_uhd" msgid="2844983210044263719">"DTS-UHD"</string>
+    <string name="surround_sound_format_dts_uhd" msgid="4340749818133578788">"DTS:X"</string>
     <string name="surround_sound_format_dolby_mat" msgid="3029804841912462928">"Dolby TrueHD সহ Dolby Atmos"</string>
     <string name="surround_sound_format_dolby_truehd" msgid="5113046743572967088">"Dolby TrueHD"</string>
     <string name="surround_sound_format_e_ac3_joc" msgid="3360344066462262996">"Dolby Digital Plus সহ Dolby Atmos"</string>
@@ -147,10 +151,38 @@
     <string name="hdmi_cec_settings_title" msgid="7120729705063868627">"HDMI-CEC"</string>
     <string name="advanced_sound_settings_title" msgid="319921303039469139">"উন্নত সাউন্ড সেটিংস"</string>
     <string name="game_mode_title" msgid="7280816243531315755">"গেম মোডে অনুমতি দিন"</string>
+    <string name="match_content_dynamic_range_title" msgid="2794980556561655838">"কন্টেন্ট ডায়নামিক রেঞ্জ ম্যাচ করুন"</string>
+    <string name="match_content_dynamic_range_summary" msgid="2255683926227355398">"এই বিকল্প চালু করলে, কন্টেন্টের সাথে মানানসই ফলাফল দেখানোর জন্য সিস্টেমটি বিভিন্ন ডায়নামিক রেঞ্জ ফর্ম্যাটের মধ্যে পরিবর্তিত হবে। কোনও ফর্ম্যাটে পরিবর্তন করার সময়, সিস্টেমের স্ক্রিন কালো হয়ে যেতে পারে।\n\nডায়নামিক রেঞ্জের আরও বিকল্প দেখতে, \'অ্যাডভান্স ডিসপ্লে\' সেটিংসে ক্লিক করুন।"</string>
+    <string name="preferred_dynamic_range_title" msgid="5064883672337010588">"পছন্দের ডায়নামিক রেঞ্জ"</string>
+    <string name="preferred_dynamic_range_selection_system_title" msgid="4505030483876080996">"সিস্টেমের সাথে মানানসই কনভার্সন"</string>
+    <string name="preferred_dynamic_range_selection_system_desc" msgid="5712920601553613576">"সিস্টেমকে ফর্ম্যাট কনভার্সন ম্যানেজ করতে দিন"</string>
+    <string name="preferred_dynamic_range_selection_system_summary" msgid="4509062596428781094">"এই বিকল্পটি বেছে নেওয়া হলে, সিস্টেমটি আপনার ডিসপ্লেতে পাঠানোর জন্য উপযুক্ত ডায়নামিক রেঞ্জ নির্ধারণ করবে এবং প্রয়োজন অনুসারে এই ডায়নামিক রেঞ্জে কন্টেন্ট কনভার্ট করবে।"</string>
+    <string name="preferred_dynamic_range_selection_passthrough_desc" msgid="4831260397179583737">"সবসময় কন্টেন্ট ফর্ম্যাটের সাথে ম্যাচ করে"</string>
+    <string name="preferred_dynamic_range_selection_force_title" msgid="4448836594133973103">"কনভার্সন চালু করা"</string>
+    <string name="preferred_dynamic_range_selection_force_desc" msgid="1418542349290684513">"পছন্দের ফর্ম্যাটে কনভার্সন চালু করা"</string>
+    <string name="preferred_dynamic_range_selection_force_summary" msgid="8381058061765216239">"পছন্দের ফর্ম্যাটে কনভার্সন চালু করা। কনভার্সন চালু করা হলে, \'ডিসপ্লে মোড\' বা HDR ফর্ম্যাটে অন্যান্য সেটিংসে প্রভাব ফেলতে পারে।"</string>
+    <string name="preferred_dynamic_range_selection_force_sdr_title" msgid="3135104063034317252">"সবসময়ে SDR-এ"</string>
+    <string name="preferred_dynamic_range_selection_force_hdr_title" msgid="1032587815433139859">"সবসময় <xliff:g id="HDR_TYPE">%s</xliff:g>-এ"</string>
+    <string name="preferred_dynamic_range_force_dialog_title" msgid="6865110024863661702">"আপনি কি HDR আউটপুট চালু করতে চান?"</string>
+    <string name="preferred_dynamic_range_force_dialog_desc" msgid="7758323258282201656">"সাধারণত, কনভার্সন <xliff:g id="HDR_TYPE">%s</xliff:g>-এ চালু করা হয়।"</string>
+    <string name="preferred_dynamic_range_force_dialog_desc_4k30_issue" msgid="4938418395391206131">"আপনার ডিসপ্লে 1080p 60Hz রেজোলিউশনে চলবে। 4k 60Hz রেজোলিউশনে চলাকালীন এই বিকল্পটি আপনার ডিসপ্লের সাথে সামঞ্জস্যপূর্ণ নয়।"</string>
+    <string name="selection_dolby_vision_not_supported_sidebar" msgid="8994591316574824115">"বর্তমান রেজোলিউশনে Dolby Vision কাজ করে না। ম্যানুয়ালি Dolby Vision চালু করলে, আপনার ডিসপ্লের রেজোলিউশন পরিবর্তিত হয়ে ১০৮০পিক্সেল ৬০হার্জ হবে"</string>
+    <string name="manual_dolby_vision_format_on_4k60_title" msgid="4172263676512376500">"রেজোলিউশন পরিবর্তন করে ১০৮০পিক্সেল ৬০হার্জ করতে চান?"</string>
+    <string name="dynamic_range_selection_force_dv_title" msgid="8070148109262327094">"সবসময় Dolby ভিশনে কনভার্সন চালু করা"</string>
+    <string name="dynamic_range_selection_force_dv_summary" msgid="1052851029985095562">"অ্যাডভান্সড ডিসপ্লে সেটিংসে HDR ফর্ম্যাটে Dolby ভিশন বন্ধ করা থাকলে, Dolby ভিশনে কনভার্সন এটিকে আবার চালু করবে।"</string>
+    <string name="dynamic_range_selection_force_hdr10_title" msgid="1221688206945051384">"HDR10-এ সবসময় কনভার্সন চালু করা"</string>
+    <string name="dynamic_range_selection_force_hdr10_summary" msgid="7784573527636502784">"অ্যাডভান্সড ডিসপ্লে সেটিংসে HDR ফর্ম্যাটে HDR10 বন্ধ করা থাকলে, HDR10-এ কনভার্সন এটিকে আবার চালু করবে।"</string>
+    <string name="dynamic_range_selection_force_hlg_title" msgid="3976190987768712696">"HLG-এ সবসময় কনভার্সন চালু করা"</string>
+    <string name="dynamic_range_selection_force_hlg_summary" msgid="5371949016689544001">"অ্যাডভান্সড ডিসপ্লে সেটিংসে HDR ফর্ম্যাটে HLG বন্ধ করা থাকলে, HLG-এ কনভার্সন এটিকে আবার চালু করবে।"</string>
+    <string name="dynamic_range_selection_force_hdr10plus_title" msgid="1305556000063625735">"HDR10+-এ সবসময় কনভার্সন চালু করা"</string>
+    <string name="dynamic_range_selection_force_hdr10plus_summary" msgid="918038386222537401">"অ্যাডভান্সড ডিসপ্লে সেটিংসে HDR ফর্ম্যাটে HDR10+ বন্ধ করা থাকলে, HDR10+-এ কনভার্সন এটিকে আবার চালু করবে।"</string>
+    <string name="dynamic_range_selection_force_sdr_title" msgid="1063579223517652945">"SDR-এ সবসময় কনভার্সন চালু করা"</string>
+    <string name="dynamic_range_selection_force_sdr_summary" msgid="2874771365465898941">"SDR-এ কনভার্সন চালু করলে উন্নত ডিসপ্লে সেটিংসে সমস্ত HDR ফর্ম্যাট বন্ধ করবে।"</string>
     <string name="match_content_frame_rate_title" msgid="153291168560947689">"মিলে যাওয়া কন্টেন্টের ফ্রেম রেট"</string>
-    <string name="match_content_frame_rate_seamless" msgid="5900012519258795448">"নিরবচ্ছিন্ন"</string>
+    <string name="match_content_frame_rate_seamless" msgid="5577846750811067585">"ডিফল্ট পছন্দ"</string>
     <string name="match_content_frame_rate_seamless_summary" msgid="2737466163964133210">"অ্যাপ অনুরোধ করলে, আপনি যে কন্টেন্ট দেখছেন তার প্রকৃত ফ্রেম রেটের সঙ্গে এর আউটপুট মেলানোর চেষ্টা ডিভাইস করবে, শুধুমাত্র যদি আপনার টিভি নিরবচ্ছিন্ন ট্রানজ্যাকশন করতে পারে।"</string>
-    <string name="match_content_frame_rate_non_seamless" msgid="1534300397118594640">"নিরবচ্ছিন্ন নয়"</string>
+    <string name="match_content_frame_rate_seamless_not_supported_summary" msgid="98559950465123792">"আপনার কানেক্ট করা ডিসপ্লেতে \'সিমলেস রিফ্রেশ রেট ট্রানজিশন\' বিকল্প কাজ করে না। কাজ করে এমন কোনও ডিসপ্লের সাথে কানেক্ট না করা পর্যন্ত এই বিকল্পের কোনও প্রভাব থাকবে না।"</string>
+    <string name="match_content_frame_rate_non_seamless" msgid="2702658727234710031">"সবসময়"</string>
     <string name="match_content_frame_rate_non_seamless_summary" msgid="6831699459487130055">"অ্যাপ অনুরোধ করলে, আপনি যে কন্টেন্ট দেখছেন তার প্রকৃত ফ্রেম রেটের সঙ্গে এর আউটপুট মেলানোর চেষ্টা ডিভাইস করবে। এর ফলে চালু বা কোনও ভিডিও প্লেব্যাকে ঢুকলে আপনার স্ক্রিন এক সেকেন্ডের জন্য ফাঁকা হয়ে যেতে পারে।"</string>
     <string name="match_content_frame_rate_never" msgid="1678354793095148423">"কখনই নয়"</string>
     <string name="match_content_frame_rate_never_summary" msgid="742977618080396095">"এমনকি অ্যাপও যদি অনুরোধ করে তাও, আপনি যে কন্টেন্ট দেখছেন কখনও তার প্রকৃত ফ্রেম রেটের সঙ্গে এর আউটপুট মেলানোর চেষ্টা ডিভাইস করবে না।"</string>
@@ -167,6 +199,7 @@
     <string name="hdr_format_selection_manual_desc" msgid="8865649615882146772">"উপলভ্য ফর্ম্যাট থেকে ম্যানুয়ালি ফর্ম্যাট বেছে নিন"</string>
     <string name="hdr_format_supported_title" msgid="1458594819224612431">"কাজ করে এমন ফর্ম্যাট"</string>
     <string name="hdr_format_unsupported_title" msgid="715318408107924941">"কাজ করে না এমন ফর্ম্যাট"</string>
+    <string name="hdr_format_sdr" msgid="7211377112392255102">"SDR"</string>
     <string name="hdr_format_hdr10" msgid="8063543267227491062">"HDR10"</string>
     <string name="hdr_format_hlg" msgid="454510079939620321">"HLG"</string>
     <string name="hdr_format_hdr10plus" msgid="4371652089162162876">"HDR10+"</string>
@@ -182,10 +215,14 @@
     <string name="resolution_selection_title" msgid="2873993320284587853">"রেজোলিউশন"</string>
     <string name="resolution_selection_auto_title" msgid="4738671207331027385">"অটোমেটিক"</string>
     <string name="resolution_selection_dialog_title" msgid="4029798035133645272">"রেজোলিউশন পরিবর্তন করা হয়েছে"</string>
+    <string name="resolution_selection_with_mode_dialog_title" msgid="5011192408613100514">"%1$s-এ রেজোলিউশন পরিবর্তন করবেন?"</string>
     <string name="resolution_selection_dialog_desc" msgid="3667357611495669701">"এখন থেকে %1$s ব্যবহার করার জন্য \'ঠিক আছে\' বিকল্প বেছে নিন।"</string>
+    <string name="resolution_selection_disabled_dolby_vision_dialog_desc" msgid="7952404018654828187">"%1$s-এ Dolby Vision কাজ করে না এবং \"উন্নত ডিসপ্লে সেটিংস\" থেকে তা বন্ধ করে দেওয়া হবে"</string>
+    <string name="resolution_hdr_description_info" msgid="2408761621976850238">"%1$s: এই মোডে কাজ করবে\nকিছু টিভিতে, আরও HDR ফর্ম্যাট চালু করতে, আপনাকে উন্নত HDMI চালু করতে হতে পারে। এটি কাজ করবে কিনা তা দেখতে, আপনার টিভির সেটিংস চেক করুন।"</string>
     <string name="resolution_selection_dialog_cancel" msgid="3683616572317946129">"বাতিল করুন"</string>
     <string name="resolution_selection_dialog_ok" msgid="3123351228545013492">"ঠিক আছে"</string>
     <string name="resolution_selection_hz" msgid="4425902505388495637">"Hz"</string>
+    <string name="resolution_display_mode" msgid="6633857172598855480">"<xliff:g id="RESOLUTION">%1$s</xliff:g> (<xliff:g id="REFRESH_RATE">%2$s</xliff:g> Hz)"</string>
     <string name="device_storage_clear_cache_title" msgid="14370154552302965">"ক্যাশে করা ডেটা সাফ করবেন?"</string>
     <string name="device_storage_clear_cache_message" msgid="4352802738505831032">"এটি সব অ্যাপ্লিকেশানগুলি থেকে ক্যাশে করা ডেটা সাফ করে দেবে।"</string>
     <string name="default_audio_output_settings_title" msgid="5441937324539531999"></string>
@@ -226,7 +263,7 @@
     <string name="bluetooth_known_devices_category" msgid="6895470515631452961">"অ্যাক্সেসরি"</string>
     <string name="bluetooth_official_remote_category" msgid="5817814488268307170">"রিমোট কন্ট্রোল"</string>
     <string name="bluetooth_official_remote_entry_title" msgid="6699700335229570038">"রিমোট কন্ট্রোল সেটিংস"</string>
-    <string name="bluetooth_ir_entry_title" msgid="6927284710576530479">"রিমোটের বোতাম সেটআপ করুন"</string>
+    <string name="bluetooth_ir_entry_title" msgid="6927284710576530479">"রিমোটের বোতাম সেট-আপ করুন"</string>
     <string name="bluetooth_ir_entry_subtitle" msgid="4606207128353416151">"ভলিউম, পাওয়ার, টিভির ইনপুট, রিসিভার ও সাউন্ডবার কন্ট্রোল করুন"</string>
     <string name="bluetooth_connect_action_title" msgid="7715342395313781643">"কানেক্ট করুন"</string>
     <string name="bluetooth_connect_confirm" msgid="4769958536295137386">"%1$s-এ কানেক্ট করুন"</string>
@@ -257,7 +294,6 @@
     <string name="system_inputs" msgid="5552840337357572096">"ইনপুট"</string>
     <string name="system_inputs_devices" msgid="2158421111699829399">"ইনপুট ও ডিভাইস"</string>
     <string name="system_home_theater_control" msgid="6228949628173590310">"হোম থিয়েটারের নিয়ন্ত্রণ"</string>
-    <string name="system_accessibility" msgid="3081009195560501010">"অ্যাক্সেসিবিলিটি"</string>
     <string name="system_developer_options" msgid="8480844257066475479">"ডেভেলপারের বিকল্পগুলি"</string>
     <string name="accessibility_none" msgid="6355646833528306702">"কিছুই নয়"</string>
     <string name="system_diagnostic" msgid="1654842813331919958">"ব্যবহার &amp; ডায়াগনসটিক্স"</string>
@@ -307,6 +343,7 @@
     <string name="do_disclosure_generic" msgid="8390478119591845948">"আপনার প্রতিষ্ঠান এই ডিভাইসটি পরিচালনা করে।"</string>
     <string name="do_disclosure_with_name" msgid="4755509039938948975">"এই ডিভাইসটি <xliff:g id="ORGANIZATION_NAME">%s</xliff:g> দ্বারা পরিচালিত।"</string>
     <string name="do_disclosure_learn_more_separator" msgid="4226390963162716446">" "</string>
+    <string name="hdr_capability" msgid="3331021013422460270">"- %1$s"</string>
     <string name="learn_more" msgid="820336467414665686">"আরও জানুন"</string>
     <string name="default_camera_app_title" msgid="4573905807226306484">"{count,plural, =1{ক্যামেরা অ্যাপ}one{ক্যামেরা অ্যাপ}other{ক্যামেরা অ্যাপ}}"</string>
     <string name="default_calendar_app_title" msgid="1533912443930743532">"ক্যালেন্ডার অ্যাপ"</string>
@@ -590,6 +627,7 @@
     <string name="recently_accessed_show_all" msgid="5234849189704717855">"সবকটি দেখুন"</string>
     <string name="microphone" msgid="7893752847683941214">"মাইক্রোফোন"</string>
     <string name="mic_toggle_title" msgid="7193417007060235665">"মাইক্রোফোনের অ্যাক্সেস"</string>
+    <string name="mic_remote_toggle_title" msgid="7153283895012570080">"আপনার রিমোটের মাইক্রোফোন সংক্রান্ত অ্যাক্সেস"</string>
     <string name="open_mic_permissions" msgid="8121871594807641073">"অ্যাপের জন্য মাইক্রোফোন অ্যাক্সেসের অনুমতি"</string>
     <string name="microphone_physical_privacy_enabled_title" msgid="6135130916399886772">"মাইক্রোফোনের অ্যাক্সেস ব্লক করা হয়েছে"</string>
     <string name="microphone_physical_privacy_enabled_text" msgid="401238365312924088">"আনব্লক করার জন্য মাইক্রোফোন অ্যাক্সেসের অনুমতি দিতে, আপনার ডিভাইসের প্রাইভেসি সুইচ \'মাইক্রোফোন চালু রয়েছে\' অবস্থানে সরান।"</string>
@@ -599,7 +637,11 @@
     <string name="camera_physical_privacy_enabled_title" msgid="1944155695921165511">"ক্যামেরার অ্যাক্সেস ব্লক করা হয়েছে"</string>
     <string name="camera_physical_privacy_enabled_text" msgid="6692088634676282779">"আনব্লক করার জন্য ক্যামেরা অ্যাক্সেসের অনুমতি দিতে, আপনার ডিভাইসের প্রাইভেসি সুইচ \'ক্যামেরা চালু রয়েছে\' অবস্থানে সরান।"</string>
     <string name="mic_toggle_info_title" msgid="1086545614315873599">"মাইক্রোফোনের অ্যাক্সেস: <xliff:g id="SENSOR_STATE">%s</xliff:g>"</string>
-    <string name="mic_toggle_info_content" msgid="4699624900513326055">"চালু করা থাকলে, অনুমতি পাওয়া সব অ্যাপ ও পরিষেবা এই ডিভাইসের যেকোনও মাইক্রোফোন অ্যাক্সেস করতে পারবে।\n\nএই সেটিংয়ের প্রভাব কাস্টম প্রোটোকল সহ প্লাগ-ইন অডিও পেরিফেরালের উপর পড়বে না।"</string>
+    <string name="mic_toggle_info_content" msgid="3187791167208947239">"চালু করা হলে, ব্যবহারের অনুমতি দেওয়া আছে এমন সবকটি অ্যাপ ও পরিষেবা মাইক্রোফোন অ্যাক্সেস করতে পারবে।\n\nবন্ধ করা হলে, কোনও অ্যাপ বা পরিষেবা মাইক্রোফোন অ্যাক্সেস করতে পারবে না। আপনি এখনও হয়ত আপনার রিমোটের Assistant বোতাম প্রেস করে Google Assistant-এর সাথে কথা বলতে পরাবেন।\n\nটিভির সাথে যোগাযোগ করার জন্য কাস্টম প্রোটোকল ব্যবহার করে এমন অডিও ডিভাইসগুলি এই সেটিংয়ের জন্য প্রভাবিত নাও হতে পারে।"</string>
+    <string name="mic_remote_toggle_on_info_title" msgid="8503441878870972046">"রিমোটের মাইক্রোফোন চালু আছে"</string>
+    <string name="mic_remote_toggle_on_info_content" msgid="2715872916376493679">"Google Assistant আপনার রিমোটের মাইক্রোফোন অ্যাক্সেস করতে পারবে। আপনার রিমোটের Google Assistant বোতাম প্রেস করে আপনি Assistant-এর সাথে কথা বলতে পারবেন।"</string>
+    <string name="mic_remote_toggle_off_info_title" msgid="4902909833546393713">"রিমোটের মাইক্রোফোন বন্ধ আছে"</string>
+    <string name="mic_remote_toggle_off_info_content" msgid="8062526350553191004">"রিমোট ব্যবহার করে আপনি Google Assistant-এর সাথে কথা বলতে পারবেন না। Google Assistant-এর বোতাম ব্যবহার করতে, মাইক্রোফোন অ্যাক্সেস করতে দিন।"</string>
     <string name="camera_toggle_info_title" msgid="3871317082313736088">"ক্যামেরার অ্যাক্সেস: <xliff:g id="SENSOR_STATE">%s</xliff:g>"</string>
     <string name="camera_toggle_info_content" msgid="2999965953853204003">"চালু করা থাকলে, অনুমতি পাওয়া সব অ্যাপ ও পরিষেবা এই ডিভাইসের যেকোনও ক্যামেরা অ্যাক্সেস করতে পারবে।\n\nএই সেটিংয়ের প্রভাব কাস্টম প্রোটোকল সহ প্লাগ-ইন ক্যামেরা পেরিফেরালের উপর পড়বে না।"</string>
     <string name="sensor_toggle_info_on" msgid="4568111889147132257">"চালু আছে"</string>
@@ -625,9 +667,34 @@
     <string name="location_history_desc" msgid="926674012916014270">"এই অ্যাকাউন্টের ক্ষেত্রে লোকেশনের ইতিহাস চালু থাকাকালীন, আপনার অ্যাপ্লিকেশানগুলি যাতে ব্যবহার করতে পারে সেজন্য Google আপনার ডিভাইসের লোকেশন সম্পর্কিত ডেটা সঞ্চয় করতে পারে৷\n\nউদাহরণস্বরূপ, Google ম্যাপ আপনাকে দিকনির্দেশ করতে পারে এবং Google Now আপনাকে আপনার যাতায়াতের ক্ষেত্রে ট্র্যাফিকের অবস্থা সম্পর্কে জানাতে পারে৷\n\nআপনি যেকোনো সময় লোকেশনের ইতিহাস বন্ধ করে দিতে পারেন, কিন্তু এমনটি করলেও এটি মুছে যাবে না৷ আপনার লোকেশনের ইতিহাস দেখতে এবং পরিচালনা করতে, maps.google.com/locationhistory এ যান৷"</string>
     <string name="delete_location_history_title" msgid="707559064715633152">"অবস্থানের ইতিহাস মুছে দিন"</string>
     <string name="delete_location_history_desc" msgid="4035229731487113147">"এর ফলে এই Google অ্যাকাউন্টের জন্য সঞ্চিত সকল \'লোকেশন ইতিহাস\' তথ্য এই ডিভাইস থেকে মুছে যাবে। আপনি এই মুছে ফেলা অকার্যকর করতে পারবেন না। ‘Google এখন’ সহ কিছু অ্যাপ্লিকেশান কাজ করা বন্ধ করে দেবে।"</string>
-    <string name="system_services" msgid="5754310941186053151">"পরিষেবাগুলি"</string>
+    <string name="accessibility_screen_readers_category_title" msgid="7742526514873922018">"স্ক্রিন রিডার"</string>
+    <string name="accessibility_display_category_title" msgid="593444602101558017">"ডিসপ্লে"</string>
+    <string name="accessibility_interaction_controls_category_title" msgid="5290687835178852745">"ইন্ট্যার‌্যাকশন কন্ট্রোল"</string>
+    <string name="accessibility_audio_and_onscreen_text_category_title" msgid="113841605896486212">"অডিও ও অন-স্ক্রিন টেক্সট"</string>
+    <string name="accessibility_experimental_category_title" msgid="3401773834179170206">"পরীক্ষামূলক"</string>
+    <string name="accessibility_services_category_title" msgid="8813843874978910442">"পরিষেবা"</string>
     <string name="accessibility_service_settings" msgid="3251334786870932423">"পরিষেবা সেটিংস"</string>
+    <string name="accessibility_screen_reader_flattened_component_name" msgid="6834614827111101213">"com.google.android.marvin.talkback/com.google.android.marvin.talkback.TalkBackService"</string>
     <string name="accessibility_toggle_high_text_contrast_preference_title" msgid="9200419191468995574">"উচ্চ কনট্রাস্ট যুক্ত পাঠ্য"</string>
+    <string name="accessibility_toggle_bold_text_preference_title" msgid="3328992531170432669">"মোটা হরফে লেখা টেক্সট"</string>
+    <string name="accessibility_color_correction" msgid="6765093204922184119">"কালার কারেকশন"</string>
+    <string name="color_correction_usage" msgid="4160611639548748657">"\'কালার কারেকশন\' ফিচার ব্যবহার করা"</string>
+    <string name="color_correction_color_mode" msgid="5081377780734779169">"কালার মোড"</string>
+    <string name="color_correction_mode_deuteranomaly" msgid="1513793544554228224">"ডিউটারনোম্যালি"</string>
+    <string name="color_correction_mode_deuteranomaly_summary" msgid="5991561481464520986">"লাল-সবুজ"</string>
+    <string name="color_correction_mode_protanomaly" msgid="8105793166015115037">"প্রোটানোম্যালি"</string>
+    <string name="color_correction_mode_protanomaly_summary" msgid="3247619910784115563">"লাল-সবুজ"</string>
+    <string name="color_correction_mode_tritanomaly" msgid="757769418392736089">"ট্রিট্যানোম্যালি"</string>
+    <string name="color_correction_mode_tritanomaly_summary" msgid="137712354510881252">"নীল-হলুদ"</string>
+    <string name="color_correction_mode_grayscale" msgid="2592973844160514484">"গ্রেস্কেল"</string>
+    <string name="palette_color_red" msgid="507196433434979086">"লাল"</string>
+    <string name="palette_color_orange" msgid="6209196069366109835">"কমলা"</string>
+    <string name="palette_color_yellow" msgid="298466132578870590">"হলুদ"</string>
+    <string name="palette_color_green" msgid="4904783063036825668">"সবুজ"</string>
+    <string name="palette_color_cyan" msgid="3212217287628948203">"নীলাভ সবুজ"</string>
+    <string name="palette_color_blue" msgid="8836682634988540630">"নীল"</string>
+    <string name="palette_color_purple" msgid="2123828754639683555">"বেগুনি"</string>
+    <string name="palette_color_gray" msgid="4014534773994261194">"ধূসর"</string>
     <string name="accessibility_shortcut" msgid="5856158637840030531">"অ্যাক্সেসিবিলিটি শর্টকাট"</string>
     <string name="accessibility_shortcut_enable" msgid="6603542432267329986">"অ্যাক্সেসিবিলিটি শর্টকাট চালু করুন"</string>
     <string name="accessibility_shortcut_service" msgid="2053250146891420311">"শর্টকাট পরিষেবা"</string>
@@ -885,12 +952,24 @@
     <string name="device_daydreams_sleep_description" msgid="6237610484915504587">"এত সময় ধরে নিষ্ক্রিয় থাকার পরে স্ক্রিন সেভার শুরু হয়।যদি কোনো স্ক্রিন সেভার নিবাচিত না করা থাকে তাহলে প্রদর্শন বন্ধ হয়ে যাবে৷"</string>
     <string name="device_daydreams_sleep_summary" msgid="3081688734381995693">"<xliff:g id="SLEEP_DESCRIPTION">%1$s</xliff:g> সময় নিষ্ক্রিয়তার পরে"</string>
     <string name="device_energy_saver_screen_off" msgid="6908468996426629480">"ডিসপ্লে ফিচার বন্ধ করুন"</string>
-    <string name="device_energy_saver_screen_off_description" msgid="4469679706899396071">"<xliff:g id="SLEEP_DESCRIPTION">%1$s</xliff:g>-এর পর"</string>
-    <string name="device_energy_saver_screen_off_dialog_title" msgid="4092476553760123309">"এর পর ডিসপ্লে ফিচার বন্ধ করুন:"</string>
-    <string name="device_energy_saver_allow_turning_screen_off" msgid="3832490233158066073">"স্ক্রিন বন্ধ করার অনুমতি দিন"</string>
-    <string name="device_energy_saver_allow_turning_screen_off_description" msgid="6369746832941270786">"মিডিয়া প্লেব্যাকের সময়"</string>
-    <string name="device_energy_saver_confirmation_title" msgid="3888708298070409591">"পাওয়ার সেভার সেটিং কনফার্ম করুন"</string>
-    <string name="device_energy_saver_confirmation_text" msgid="3157546670441493125">"<xliff:g id="SLEEP_TIME">%1$s</xliff:g> সময়ের জন্য নতুন সেটিং কনফার্ম করুন, এর ফলে বিদ্যুৎ খরচ বেশি হতে পারে।"</string>
+    <!-- no translation found for device_energy_saver_timeout_description (3206609135199137514) -->
+    <skip />
+    <string name="device_energy_saver_confirmation_title" msgid="7614859812773584773">"\'পাওয়ার ও এনার্জি\' সেটিং কনফার্ম করুন"</string>
+    <string name="device_energy_saver_confirmation_message" msgid="7789453187001013951">"দীর্ঘক্ষণ ধরে আপনার টিভি চালু রাখলে বিদ্যুতের খরচ বাড়তে পারে"</string>
+    <string name="device_energy_saver_disable_allow_turning_screen_off_title" msgid="1468097048101593731">"পাওয়ার সেভার সেটিং বন্ধ করুন"</string>
+    <string name="device_energy_saver_disable_allow_turning_screen_off_text" msgid="6334963903866002164">"দেখার সময় ডিসপ্লে যাতে বন্ধ না হয়ে যায় তা নিশ্চিত করুন, এর জন্য ব্যাটারি বেশি খরচ হওয়ার সম্ভাবনা আছে।"</string>
+    <string name="device_energy_saver_sleep_timeout" msgid="1841900768718452039">"অ্যাক্টিভ না থাকার সময়"</string>
+    <string name="device_energy_saver_attentive_timeout" msgid="3649486668821348087">"দেখার সময়"</string>
+    <string name="device_energy_saver_category_title" msgid="170076161677525986">"অটোমেটিক বন্ধ হয়ে যায়"</string>
+    <string name="device_energy_saver_sleep_timeout_dialog_title" msgid="6588352532253294558">"চালু না থাকলে অটোমেটিক বন্ধ হয়ে যায়"</string>
+    <string name="device_energy_saver_attentive_timeout_dialog_title" msgid="3273988875711109352">"দেখার সময় অটোমেটিক বন্ধ হয়ে যায়"</string>
+    <string name="device_energy_saver_validation_sleep" msgid="7490897287741107840">"\"বন্ধ থাকার সময়\" টাইমার অবশ্যই \"দেখার সময়\" টাইমারের চেয়ে কম হওয়া উচিত"</string>
+    <string name="device_energy_saver_validation_attentive" msgid="1461105528087097435">"\"দেখার সময়\" টাইমার অবশ্যই \"বন্ধ থাকার সময়\" টাইমারের চেয়ে দীর্ঘ হওয়া উচিত"</string>
+    <string name="limit_network_in_standby_toggle_title" msgid="6587185599397355336">"\'স্ট্যান্ডবাই\' মোডে নেটওয়ার্ক কানেকশন সীমিত করা"</string>
+    <string name="limit_network_in_standby_toggle_summary" msgid="9127792748675581174">"\'স্ট্যান্ডবাই\' মোডে কম এনার্জি ব্যবহার করে"</string>
+    <string name="limit_network_in_standby_toggle_info" msgid="566947772381093991">"অটোমেটিক আপডেট পাওয়া ছাড়া, \'স্ট্যান্ডবাই\' মোডে থাকাকালীন আপনার টিভি নেটওয়ার্ক থেকে ডিসকানেক্ট হয়ে যাবে। এরফলে আপনার টিভি কম এনার্জি ব্যবহার করতে পারে, যদিও \'স্ট্যান্ডবাই\' মোডে থাকাকালীন Cast ও Google Assistant-এর মতো ফাংশন আপনি হয়ত ব্যবহার করতে পারবেন না।"</string>
+    <string name="limit_network_in_standby_confirm_title" msgid="789232987058850322">"নেটওয়ার্ক কানেকশন \'স্ট্যান্ডবাই\' মোডে রাখার অনুমতি দিন"</string>
+    <string name="limit_network_in_standby_confirm_message" msgid="7176699480768019689">"নেটওয়ার্ক কানেকশন \'স্ট্যান্ডবাই\' মোডে রাখার অনুমতি দিলে তা স্ট্যান্ডবাই এনার্জির ব্যবহার বাড়িয়ে দেবে।"</string>
     <string name="backup_configure_account_default_summary" msgid="2170733614341544296">"বর্তমানে কোনো অ্যাকাউন্টই ব্যাক আপ করা ডেটা সংরক্ষণ করছে না"</string>
     <string name="backup_erase_dialog_title" msgid="6008454053276987100"></string>
     <string name="backup_erase_dialog_message" msgid="222169533402624861">"আপনার ওয়াই-ফাই পাসওয়ার্ড, বুকমার্ক, অন্যান্য সেটিংস, এবং অ্যাপ্লিকেশান ডেটা ব্যাক আপ করা বন্ধ করে Google সার্ভারে থাকা সব অনুলিপি মুছে ফেলবেন?"</string>
@@ -919,7 +998,7 @@
     <string name="change_setting" msgid="7211706374208138343">"পরিবর্তন করুন"</string>
     <string name="keep_settings" msgid="703474489210093961">"পরিবর্তন করবেন না"</string>
     <string name="apps_permissions" msgid="7876407267050498394">"অনুমতিগুলি"</string>
-    <string name="device_apps_permissions" msgid="8421323706003063878">"অ্যাপ্লিকেশানের অনুমতি"</string>
+    <string name="device_apps_permissions" msgid="8421323706003063878">"অ্যাপের অনুমতি"</string>
     <string name="app_permissions_group_summary" msgid="6818210080117761117">"<xliff:g id="COUNT_1">%2$d</xliff:g>টির মধ্যে <xliff:g id="COUNT_0">%1$d</xliff:g>টি অ্যাপ্লিকেশান মঞ্জুরিপ্রাপ্ত"</string>
     <string name="bluetooth_permission_request" msgid="7788089036741496993">"ব্লুটুথ অনুমতির অনুরোধ"</string>
     <string name="security_patch" msgid="8924741264829495392">"Android TV OS সিকিউরিটি প্যাচ লেভেল"</string>
@@ -978,12 +1057,17 @@
     <string name="time_to_start_read_title" msgid="6565449163802837806">"এখন পড়ার সময়"</string>
     <string name="time_to_valid_audio_title" msgid="7246101824813414348">"অডিও রেকর্ড করার আগে কত টাইম আছে"</string>
     <string name="empty_audio_duration_title" msgid="9024377320171450683">"খালি অডিওয়ের সময়কাল"</string>
+    <string name="record_audio_source_title" msgid="9087784503276397929">"রেকর্ড করা অডিও সোর্স"</string>
+    <string name="record_audio_source_dialog_title" msgid="6556408220589197097">"পরের রেকর্ডিংয়ের জন্য রেকর্ড করা অডিও সোর্স বাছুন"</string>
+    <string name="recorded_microphones_title" msgid="5466988146086215426">"রেকর্ড করা মাইক্রোফোন"</string>
     <string name="show_audio_recording_start_failed" msgid="9131762831381326605">"অডিও রেকর্ডিং চালু করা যায়নি।"</string>
     <string name="show_audio_recording_failed" msgid="8128216664039868681">"অডিও রেকর্ডিং করা যায়নি।"</string>
     <string name="title_data_saver" msgid="7500278996154002792">"ডেটা সেভার"</string>
     <string name="summary_data_saver" msgid="6793558728898207405">"কম মোবাইল ডেটা ব্যবহার করতে অটোমেটিক ভিডিও কোয়ালিটি অ্যাডজাস্ট করুন"</string>
     <string name="title_data_alert" msgid="8262081890052682475">"ডেটার ব্যবহার এবং সতর্কতা"</string>
     <string name="data_saver_header_info" msgid="2706725187498535785">"ওয়াই-ফাই, ইথারনেট বা আপনার ফোনের হটস্পট ব্যবহার করে আপনি ইন্টারনেটে কানেক্ট করতে পারেন।"</string>
+    <string name="bluetooth_ask_discovery_title" msgid="4955540555242269694">"অন্যান্য ব্লুটুথ ডিভাইসে দেখাবেন?"</string>
+    <string name="bluetooth_ask_discovery_message" msgid="8609666862877703398">"একটি অ্যাপ আপনার টিভিকে অন্যান্য ব্লুটুথ ডিভাইসের কাছে <xliff:g id="TIMEOUT">%1$d</xliff:g> সেকেন্ডের জন্য দেখাতে চায়।"</string>
     <string name="help_center_title" msgid="6109822142761302433"></string>
     <string name="disabled_by_policy_title" msgid="2220484346213756472">"কাজটি অনুমোদিত নয়"</string>
     <string name="disabled_by_policy_title_adjust_volume" msgid="4229779946666263271">"ভলিউম পরিবর্তন করা যাবে না"</string>
@@ -1034,4 +1118,9 @@
     <string name="power_on_behavior" msgid="927607372303160716">"চালু হওয়ার সময় যা যা হবে"</string>
     <string name="reset_options_title" msgid="7632580482285108955">"রিসেট করুন"</string>
     <string name="adb_pairing_device_dialog_ethernet_pairing_code_label" msgid="7551782499828944838">"ইথারনেট পেয়ারিং কোড"</string>
+    <string name="energy_modes" msgid="1331693860386361744">"পাওয়ার মোড"</string>
+    <string name="energy_modes_summary" msgid="7196407759836930799">"টিভি ব্যবহার না হলে পাওয়ার দক্ষতা উন্নত করুন"</string>
+    <string name="energy_mode_enables" msgid="357960364751477627">"চালু করে:"</string>
+    <string name="energy_mode_eco_hint" msgid="1461517905015359947">"মনে রাখবেন যে এই মোড ডিভাইসের শক্তি খরচ বাড়াতে পারে।"</string>
+    <string name="energy_modes_confirmation_title" msgid="4520280098781914825">"\"<xliff:g id="ENERGYMODENAME">%s</xliff:g>\" চালু করুন"</string>
 </resources>

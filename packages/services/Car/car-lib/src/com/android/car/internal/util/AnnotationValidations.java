@@ -40,7 +40,7 @@ import java.lang.annotation.Annotation;
  *
  * @hide
  */
-public class AnnotationValidations {
+public final class AnnotationValidations {
     private AnnotationValidations() {
     }
 
@@ -79,6 +79,8 @@ public class AnnotationValidations {
                     invalid(annotation, value, paramName, param);
                 }
                 break;
+            default:
+                break;
         }
     }
 
@@ -107,6 +109,8 @@ public class AnnotationValidations {
                     invalid(annotation, value, paramName, param);
                 }
                 break;
+            default:
+                break;
         }
     }
 
@@ -126,6 +130,8 @@ public class AnnotationValidations {
                 break;
             case "to":
                 if (value > param) invalid(annotation, value, paramName, param);
+                break;
+            default:
                 break;
         }
     }
@@ -164,6 +170,8 @@ public class AnnotationValidations {
                 if (value % param != 0) invalid(annotation, value, paramName, param);
             }
             break;
+            default:
+                break;
         }
     }
 

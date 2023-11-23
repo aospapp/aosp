@@ -37,19 +37,19 @@ extern const int32_t gas32CoeffFor8SBs[];
 
 /* Global functions*/
 
-extern void sbc_enc_bit_alloc_mono(SBC_ENC_PARAMS* CodecParams);
-extern void sbc_enc_bit_alloc_ste(SBC_ENC_PARAMS* CodecParams);
+void sbc_enc_bit_alloc_mono(SBC_ENC_PARAMS* CodecParams);
+void sbc_enc_bit_alloc_ste(SBC_ENC_PARAMS* CodecParams);
 
-extern void SbcAnalysisInit(void);
+void SbcAnalysisInit(void);
 
-extern void SbcAnalysisFilter4(SBC_ENC_PARAMS* strEncParams, int16_t* input);
-extern void SbcAnalysisFilter8(SBC_ENC_PARAMS* strEncParams, int16_t* input);
+void SbcAnalysisFilter4(SBC_ENC_PARAMS* strEncParams, int16_t* input);
+void SbcAnalysisFilter8(SBC_ENC_PARAMS* strEncParams, int16_t* input);
 
-extern void SBC_FastIDCT8(int32_t* pInVect, int32_t* pOutVect);
-extern void SBC_FastIDCT4(int32_t* x0, int32_t* pOutVect);
+void SBC_FastIDCT8(int32_t* pInVect, int32_t* pOutVect);
+void SBC_FastIDCT4(int32_t* x0, int32_t* pOutVect);
 
-extern uint32_t EncPacking(SBC_ENC_PARAMS* strEncParams, uint8_t* output);
-extern void EncQuantizer(SBC_ENC_PARAMS*);
+uint32_t EncPacking(SBC_ENC_PARAMS* strEncParams, uint8_t* output);
+void EncQuantizer(SBC_ENC_PARAMS*);
 #if (SBC_DSP_OPT == TRUE)
 int32_t SBC_Multiply_32_16_Simplified(int32_t s32In2Temp, int32_t s32In1Temp);
 #endif

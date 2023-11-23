@@ -20,6 +20,7 @@ import static com.android.car.telemetry.AtomsProto.WTFOccurred.ERROR_SOURCE_FIEL
 import static com.android.car.telemetry.AtomsProto.WTFOccurred.PROCESS_NAME_FIELD_NUMBER;
 import static com.android.car.telemetry.AtomsProto.WTFOccurred.TAG_FIELD_NUMBER;
 import static com.android.car.telemetry.AtomsProto.WTFOccurred.UID_FIELD_NUMBER;
+import static com.android.car.telemetry.publisher.Constants.STATS_BUNDLE_KEY_PREFIX;
 
 import static com.google.common.truth.Truth.assertThat;
 
@@ -76,15 +77,20 @@ public class WtfOccurredConverterTest {
         PersistableBundle bundle = mConverter.convert(atomsList, null, null, null);
 
         assertThat(bundle.size()).isEqualTo(4);
-        assertThat(bundle.getIntArray(accessorMap.get(UID_FIELD_NUMBER).getFieldName()))
-                .asList().containsExactly(1000, 2000).inOrder();
-        assertThat(Arrays.asList(
-                bundle.getStringArray(accessorMap.get(PROCESS_NAME_FIELD_NUMBER).getFieldName())))
-                .containsExactly(PACKAGE_NAME_1, PACKAGE_NAME_2).inOrder();
-        assertThat(bundle.getStringArray(accessorMap.get(TAG_FIELD_NUMBER).getFieldName()))
-                .asList().containsExactly("tag1", "tag2").inOrder();
-        assertThat(bundle.getIntArray(accessorMap.get(ERROR_SOURCE_FIELD_NUMBER).getFieldName()))
-                .asList().containsExactly(1, 2).inOrder();  // DATA_APP=1, SYSTEM_APP=2
+        assertThat(bundle.getIntArray(
+                STATS_BUNDLE_KEY_PREFIX + accessorMap.get(UID_FIELD_NUMBER).getFieldName()))
+            .asList().containsExactly(1000, 2000).inOrder();
+        assertThat(Arrays.asList(bundle.getStringArray(
+                STATS_BUNDLE_KEY_PREFIX + accessorMap.get(
+                        PROCESS_NAME_FIELD_NUMBER).getFieldName())))
+            .containsExactly(PACKAGE_NAME_1, PACKAGE_NAME_2).inOrder();
+        assertThat(bundle.getStringArray(
+                STATS_BUNDLE_KEY_PREFIX + accessorMap.get(TAG_FIELD_NUMBER).getFieldName()))
+            .asList().containsExactly("tag1", "tag2").inOrder();
+        assertThat(bundle.getIntArray(
+                STATS_BUNDLE_KEY_PREFIX + accessorMap.get(
+                        ERROR_SOURCE_FIELD_NUMBER).getFieldName()))
+            .asList().containsExactly(1, 2).inOrder();  // DATA_APP=1, SYSTEM_APP=2
     }
 
     @Test

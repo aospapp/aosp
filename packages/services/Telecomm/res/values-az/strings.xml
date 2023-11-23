@@ -30,7 +30,7 @@
     <string name="notification_disconnectedCall_body" msgid="600491714584417536">"Hazırda təcili zəng edildiyi üçün <xliff:g id="CALLER">%s</xliff:g> ilə zəng kəsilib."</string>
     <string name="notification_disconnectedCall_generic_body" msgid="5282765206349184853">"Təcili zəng edildiyinə görə zənginizin əlaqəsi kəsildi."</string>
     <string name="notification_audioProcessing_title" msgid="1619035039880584575">"Arxa fon zəngi"</string>
-    <string name="notification_audioProcessing_body" msgid="6397005913770420388">"<xliff:g id="AUDIO_PROCESSING_APP_NAME">%s</xliff:g> arxa fonda zəng edib. Bu tətbiq zəng ilə daxil ola və oxuda bilər."</string>
+    <string name="notification_audioProcessing_body" msgid="8811420157964118913">"<xliff:g id="AUDIO_PROCESSING_APP_NAME">%s</xliff:g> arxa fonda zəngi qəbul edir. Bu tətbiq zəng zamanı audioya daxil ola və oxuda bilər."</string>
     <string name="notification_incallservice_not_responding_title" msgid="5347557574288598548">"<xliff:g id="IN_CALL_SERVICE_APP_NAME">%s</xliff:g> tətbiqində xəta baş verdi"</string>
     <string name="notification_incallservice_not_responding_body" msgid="9209308270131968623">"Zəng üçün cihazda əvvəlcədən quraşdırılan telefon tətbiqindən istifadə edildi"</string>
     <string name="accessibility_call_muted" msgid="2968461092554300779">"Səssiz zəng edin."</string>
@@ -100,6 +100,7 @@
     <string name="notification_channel_background_calls" msgid="7785659903711350506">"Arxa fon zəngləri"</string>
     <string name="notification_channel_disconnected_calls" msgid="8228636543997645757">"Kəsilmiş zənglər"</string>
     <string name="notification_channel_in_call_service_crash" msgid="7313237519166984267">"Tətbiq xətaları"</string>
+    <string name="notification_channel_call_streaming" msgid="5100510699787538991">"Zəng yayımı"</string>
     <string name="alert_outgoing_call" msgid="5319895109298927431">"Bu zəngin yerləşdirilməsi <xliff:g id="OTHER_APP">%1$s</xliff:g> zəngini sonlandıracaq."</string>
     <string name="alert_redirect_outgoing_call_or_not" msgid="665409645789521636">"Bu zəngi necə etməyi seçin"</string>
     <string name="alert_place_outgoing_call_with_redirection" msgid="5221065030959024121">"<xliff:g id="OTHER_APP">%1$s</xliff:g> istifadə edərək zəngi yönləndirin"</string>
@@ -123,4 +124,14 @@
     <string name="developer_title" msgid="9146088855661672353">"Telecom Tərtibatçı Menyusu"</string>
     <string name="toast_emergency_can_not_pull_call" msgid="9074229465338410869">"Təcili zəng zamanı zəng edilə bilməz."</string>
     <string name="cancel" msgid="6733466216239934756">"Ləğv edin"</string>
+    <string name="back" msgid="6915955601805550206">"Geri"</string>
+    <string name="callendpoint_name_earpiece" msgid="7047285080319678594">"Qulaqlıq"</string>
+    <string name="callendpoint_name_bluetooth" msgid="210210953208913172">"Bluetooth"</string>
+    <string name="callendpoint_name_wiredheadset" msgid="6860787176412079742">"Simli qulaqlıq"</string>
+    <string name="callendpoint_name_speaker" msgid="1971760468695323189">"Dinamik"</string>
+    <string name="callendpoint_name_streaming" msgid="2337595450408275576">"Xarici"</string>
+    <string name="callendpoint_name_unknown" msgid="2199074708477193852">"Naməlum"</string>
+    <string name="call_streaming_notification_body" msgid="502216105683378263">"Audio digər cihaza ötürülür"</string>
+    <string name="call_streaming_notification_action_hang_up" msgid="7017663335289063827">"Zəngi sonlandırın"</string>
+    <string name="call_streaming_notification_action_switch_here" msgid="3524180754186221228">"Buraya keçin"</string>
 </resources>

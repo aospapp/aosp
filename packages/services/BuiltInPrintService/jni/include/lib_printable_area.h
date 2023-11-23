@@ -24,8 +24,8 @@
 /*
  * Fills printable area parameter in job_params given margins
  */
-extern void printable_area_get(wprint_job_params_t *job_params, float top_margin,
-        float left_margin, float right_margin, float bottom_margin);
+extern void printable_area_get(wprint_job_params_t *job_params,
+        float top_margin, float left_margin, float right_margin, float bottom_margin);
 
 /*
  * Returns default margins for given printer specified in the job params struct

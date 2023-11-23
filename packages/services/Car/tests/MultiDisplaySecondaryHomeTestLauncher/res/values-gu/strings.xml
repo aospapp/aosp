@@ -25,4 +25,5 @@
     <string name="set_wallpaper" msgid="3650915172749345197">"વૉલપેપર સેટ કરો"</string>
     <string name="new_instance" msgid="1924479866055190730">"નવી આવૃત્તિમાં લૉન્ચ કરવાની વિનંતી કરો"</string>
     <string name="wallpaper_description" msgid="5885164573334720996">"એકથી વધુ ડિસ્પ્લે માટે વૉલપેપરનો નમૂનો"</string>
+    <string name="exit" msgid="3648703694102318310">"બહાર નીકળો"</string>
 </resources>

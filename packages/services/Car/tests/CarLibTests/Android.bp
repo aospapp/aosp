@@ -35,9 +35,6 @@ android_robolectric_test {
 
     libs: [
         "android.car",
-        "Robolectric_all-target",
-        "robolectric_android-all-stub",
-        "mockito-robolectric-prebuilt",
         "truth-prebuilt",
         "androidx.test.core",
         "android.car.testapi",
@@ -45,5 +42,6 @@ android_robolectric_test {
     ],
 
     instrumentation_for: "CarLibTestApp",
+    upstream: true,
 
 }

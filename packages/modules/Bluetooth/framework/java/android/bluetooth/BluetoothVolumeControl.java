@@ -205,7 +205,14 @@ public final class BluetoothVolumeControl implements BluetoothProfile, AutoClose
         close();
     }
 
+    /**
+     * Close this VolumeControl server instance.
+     *
+     * <p>Application should call this method as early as possible after it is done with this
+     * VolumeControl server.
+     */
     @RequiresPermission(Manifest.permission.BLUETOOTH_PRIVILEGED)
+    @Override
     public void close() {
         if (VDBG) log("close()");
 
@@ -220,7 +227,9 @@ public final class BluetoothVolumeControl implements BluetoothProfile, AutoClose
         mProfileConnector.disconnect();
     }
 
-    private IBluetoothVolumeControl getService() { return mProfileConnector.getService(); }
+    private IBluetoothVolumeControl getService() {
+        return mProfileConnector.getService();
+    }
 
     /**
      * Get the list of connected devices. Currently at most one.

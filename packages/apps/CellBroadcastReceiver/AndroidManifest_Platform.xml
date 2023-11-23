@@ -42,6 +42,7 @@
   <uses-permission android:name="android.permission.BLUETOOTH" />
   <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
   <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+  <uses-permission android:name="android.permission.WAKE_LOCK" />
 
   <uses-sdk android:minSdkVersion="21"/>
 
@@ -123,6 +124,7 @@
 
     <!-- Container activity for CMAS opt-in/opt-out dialog. -->
     <activity android:name="CellBroadcastOptOutActivity"
+        android:excludeFromRecents="true"
         android:exported="false" />
 
     <receiver android:name="CellBroadcastReceiver"

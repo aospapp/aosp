@@ -1062,7 +1062,7 @@ public class CallLogManagerTest extends TelecomTestCase {
         when(fakeCall.getVideoStateHistory()).thenReturn(callVideoState);
         when(fakeCall.getPostDialDigits()).thenReturn(postDialDigits);
         when(fakeCall.getViaNumber()).thenReturn(viaNumber);
-        when(fakeCall.getInitiatingUser()).thenReturn(initiatingUser);
+        when(fakeCall.getAssociatedUser()).thenReturn(initiatingUser);
         when(fakeCall.getCallDataUsage()).thenReturn(callDataUsage);
         when(fakeCall.isEmergencyCall()).thenReturn(
                 phoneAccountHandle.equals(EMERGENCY_ACCT_HANDLE));

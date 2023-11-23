@@ -29,7 +29,7 @@
     <string name="next" msgid="1004321437324424398">"Tovább"</string>
     <string name="setting_up_workspace" msgid="7862472373642601041">"Munkaprofil beállítása…"</string>
     <string name="admin_has_ability_to_monitor_profile" msgid="1018585795537086728">"A rendszergazda felügyelheti és kezelheti a profillal kapcsolatos beállításokat, vállalati hozzáférést, alkalmazásokat, engedélyeket, adatokat és hálózati tevékenységeket, valamint a híváslistát és névjegykeresési előzményeket. Vegye fel a kapcsolatot rendszergazdájával, ha további információt szeretne megtudni, és tájékozódni szeretne szervezete adatvédelmi irányelveiről."</string>
-    <string name="admin_has_ability_to_monitor_device" msgid="6303112630697870695">"A rendszergazda figyelheti és kezelheti a beállításokat, a vállalati hozzáférést, az alkalmazásokat, az engedélyeket, az ehhez az eszközhöz tartozó adatokat, például a hálózati tevékenységet, az eszköz helyadatait, a híváselőzményeket és a névjegykeresési előzményeket.<xliff:g id="LINE_BREAK">
+    <string name="admin_has_ability_to_monitor_device" msgid="7786186939607332934">"A rendszergazda figyelheti és kezelheti a beállításokat, a vállalati hozzáférést, az alkalmazásokat, az engedélyeket, az ehhez a(z) <xliff:g id="DEVICE_NAME">%1$s</xliff:g> eszközhöz tartozó adatokat, például a hálózati tevékenységet, az eszköz helyadatait, a híváselőzményeket és a névjegykeresési előzményeket.<xliff:g id="LINE_BREAK">
 
 </xliff:g>Ha további információra van szüksége (például a szervezete adatvédelmi irányelveivel kapcsolatban), vegye fel a kapcsolatot a rendszergazdával."</string>
     <string name="theft_protection_disabled_warning" msgid="3708092473574738478">"A lopásvédelmi funkciók használatához jelszavas képernyőzárat kell beállítania eszközén."</string>
@@ -50,8 +50,8 @@
     <string name="sure_you_want_to_delete_profile" msgid="6927697984573575564">"Ha folytatja, a profilban tárolt valamennyi alkalmazás és adat törlődik."</string>
     <string name="delete_profile" msgid="2299218578684663459">"Törlés"</string>
     <string name="cancel_delete_profile" msgid="5155447537894046036">"Mégse"</string>
-    <string name="encrypt_device_text_for_profile_owner_setup" msgid="7828515754696057140">"Munkaprofil beállítása előtt az eszközt titkosítani kell. Ez időigényes lehet."</string>
-    <string name="encrypt_device_text_for_device_owner_setup" msgid="5194673142404735676">"Beállítás előtt az eszközt titkosítani kell. Ez időigényes lehet."</string>
+    <string name="encrypt_device_text_for_profile_owner_setup" msgid="6865483664167134470">"Munkaprofil beállítása előtt a(z) <xliff:g id="DEVICE_NAME">%1$s</xliff:g> eszközt titkosítani kell. Ez időigényes lehet."</string>
+    <string name="encrypt_device_text_for_device_owner_setup" msgid="230099563510460941">"Beállítás előtt a(z) <xliff:g id="DEVICE_NAME">%1$s</xliff:g> eszközt titkosítani kell. Ez időigényes lehet."</string>
     <string name="encrypt_this_device_question" msgid="8719916619866892601">"Eszköz titkosítása?"</string>
     <string name="encrypt" msgid="1749320161747489212">"Titkosítás"</string>
     <string name="continue_provisioning_notify_title" msgid="5191449100153186648">"A titkosítás kész"</string>
@@ -59,7 +59,7 @@
     <string name="managed_provisioning_error_text" msgid="7063621174570680890">"Munkaprofil beállítása sikertelen. Forduljon az informatikai részleghez, vagy próbálja újra később."</string>
     <string name="cant_add_work_profile" msgid="9217268909964154934">"Nem lehet munkaprofilt hozzáadni"</string>
     <string name="cant_replace_or_remove_work_profile" msgid="7861054306792698290">"A munkahelyi profilt nem lehet lecserélni és eltávolítani"</string>
-    <string name="work_profile_cant_be_added_contact_admin" msgid="5393019630297157418">"Nem lehet munkaprofilt hozzáadni az eszközhöz. Kérdéseivel forduljon rendszergazdájához."</string>
+    <string name="work_profile_cant_be_added_contact_admin" msgid="4866281518235832928">"Nem lehet munkaprofilt hozzáadni a(z) <xliff:g id="DEVICE_NAME">%1$s</xliff:g> eszközhöz. Kérdéseivel forduljon rendszergazdájához."</string>
     <string name="change_device_launcher" msgid="4523563368433637980">"Módosítsa az eszköz indítóját"</string>
     <string name="launcher_app_cant_be_used_by_work_profile" msgid="3524366082000739743">"Az indítóalkalmazás nem használható a munkaprofillal"</string>
     <string name="cancel_provisioning" msgid="3408069559452653724">"Mégse"</string>
@@ -67,9 +67,9 @@
     <string name="user_setup_incomplete" msgid="6494920045526591079">"A felhasználóbeállítás hiányos"</string>
     <string name="default_owned_device_username" msgid="3915120202811807955">"A munkahelyi eszköz felhasználója"</string>
     <string name="setup_work_device" msgid="6003988351437862369">"Munkához használt eszköz beállítása…"</string>
-    <string name="device_doesnt_allow_encryption_contact_admin" msgid="5124643338424539794">"Az eszköz nem engedélyezi a titkosítást, amelyre azonban szükség van a beállításhoz. Segítségért forduljon a rendszergazdához."</string>
-    <string name="stop_setup_reset_device_question" msgid="7547191251522623210">"Leállítja a beállítást és visszaállítja az eszközt?"</string>
-    <string name="this_will_reset_take_back_first_screen" msgid="4623290347188404725">"Ezzel visszaállítja az eszközt, és visszakerül az elsőként látott képernyőre"</string>
+    <string name="device_doesnt_allow_encryption_contact_admin" msgid="410347019947997299">"A(z) <xliff:g id="DEVICE_NAME">%1$s</xliff:g> eszköz nem engedélyezi a titkosítást, amelyre azonban szükség van a beállításhoz. Segítségért forduljon a rendszergazdához."</string>
+    <string name="stop_setup_reset_device_question" msgid="2323844935990001069">"Befejezi a beállítást, és visszaállítja a(z) <xliff:g id="DEVICE_NAME">%1$s</xliff:g> eszközt?"</string>
+    <string name="this_will_reset_take_back_first_screen" msgid="5881727570968119259">"Ezzel visszaállítja a(z) <xliff:g id="DEVICE_NAME">%1$s</xliff:g> eszközt, és visszakerül az elsőként látott képernyőre"</string>
     <string name="device_owner_cancel_message" msgid="2529288571742712065">"Megszakítja a beállítást és törli az eszköz adatait?"</string>
     <string name="device_owner_cancel_cancel" msgid="1052951540909389275">"Mégse"</string>
     <string name="device_owner_error_ok" msgid="2002250763093787051">"OK"</string>
@@ -79,10 +79,10 @@
     <string name="something_went_wrong" msgid="3593223774041784329">"Hiba történt"</string>
     <string name="couldnt_set_up_device" msgid="5137950404283642302">"Nem sikerült az eszköz beállítása. Segítségért forduljon a rendszergazdához."</string>
     <string name="contact_your_admin_for_help" msgid="2009904021552323731">"Kérjen segítséget a rendszergazdától."</string>
-    <string name="reset_device" msgid="5483853913241939262">"Állítsa vissza az eszközt, és próbálja meg újra beállítani"</string>
-    <string name="device_already_set_up" msgid="507881934487140294">"Az eszköz beállítása már megtörtént"</string>
+    <string name="reset_device" msgid="265029891515486543">"Állítsa vissza alaphelyzetbe <xliff:g id="DEVICE_NAME">%1$s</xliff:g> eszközét, és próbálja meg újra beállítani"</string>
+    <string name="device_already_set_up" msgid="2916285974248611835">"A(z) <xliff:g id="DEVICE_NAME">%1$s</xliff:g> már be van állítva"</string>
     <string name="error_wifi" msgid="1850288843966836571">"Nem sikerült csatlakozni a Wi-Fi-hálózathoz"</string>
-    <string name="device_has_reset_protection_contact_admin" msgid="2662050020376475656">"Az eszközön be van kapcsolva a gyárialapérték-visszaállítási védelem. Segítségért forduljon a rendszergazdához."</string>
+    <string name="device_has_reset_protection_contact_admin" msgid="5922267426079555686">"A(z) <xliff:g id="DEVICE_NAME">%1$s</xliff:g> eszközön be van kapcsolva a gyárialapérték-visszaállítási védelem. Segítségért forduljon a rendszergazdához."</string>
     <string name="frp_clear_progress_title" msgid="8628074089458234965">"Törlés"</string>
     <string name="frp_clear_progress_text" msgid="1740164332830598827">"Kérjük, várjon…"</string>
     <string name="error_hash_mismatch" msgid="1145488923243178454">"Ellenőrzési hiba miatt nem lehetett használni a rendszergazdai alkalmazást. Segítségért forduljon a rendszergazdához."</string>
@@ -128,9 +128,9 @@
     <string name="comp_profile_benefits_description" msgid="379837075456998273">"Munkaprofil használatával a munkahelyi alkalmazásait egy helyen tarthatja"</string>
     <string name="setup_profile_encryption" msgid="5241291404536277038">"Állítsa be profilját. Titkosítás"</string>
     <string name="setup_profile_progress" msgid="7742718527853325656">"Állítsa be profilját. Előrehaladás megjelenítése"</string>
-    <string name="setup_device" msgid="6725265673245816366">"Eszköz beállítása"</string>
-    <string name="setup_device_encryption" msgid="7852944465414197103">"Állítsa be eszközét. Titkosítás"</string>
-    <string name="setup_device_progress" msgid="7035335208571175393">"Állítsa be eszközét. Előrehaladás megjelenítése"</string>
+    <string name="setup_device" msgid="1679201701102889156">"A következő beállítása: <xliff:g id="DEVICE_NAME">%1$s</xliff:g>"</string>
+    <string name="setup_device_encryption" msgid="2628196093806001835">"A következő beállítása: <xliff:g id="DEVICE_NAME">%1$s</xliff:g>. Titkosítás"</string>
+    <string name="setup_device_progress" msgid="8792474713196537598">"A következő beállítása: <xliff:g id="DEVICE_NAME">%1$s</xliff:g>. Előrehaladás megjelenítése"</string>
     <string name="learn_more_label" msgid="2723716758654655009">"„További információ” gomb"</string>
     <string name="mdm_icon_label" msgid="3399134595549660561">"<xliff:g id="ICON_LABEL">%1$s</xliff:g> ikon"</string>
     <string name="section_heading" msgid="3924666803774291908">"<xliff:g id="SECTION_HEADING">%1$s</xliff:g> szakaszcím."</string>
@@ -158,42 +158,45 @@
     <string name="brand_screen_header" msgid="8865808542690116648">"Az eszköz a szervezet tulajdona"</string>
     <string name="brand_screen_subheader" msgid="7664792208784456436">"A következő alkalmazást a telefon kezelésére és figyelésére fogják használni"</string>
     <string name="account_management_disclaimer_header" msgid="8013083414694316564">"Fiókja felügyelet alatt áll"</string>
-    <string name="account_management_disclaimer_subheader" msgid="5146471918840236988">"Rendszergazdája mobileszköz-kezelést használ a biztonsági házirendek betartatásához"</string>
+    <string name="account_management_disclaimer_subheader" msgid="8991450067243733878">"Rendszergazdája mobilkezelést használ a biztonsági házirendek betartatásához"</string>
     <string name="downloading_administrator_header" msgid="8660294318893902915">"Felkészülés a munkahelyi használatra való beállításra…"</string>
     <string name="work_profile_provisioning_accept_header_post_suw" msgid="1353127953275291089">"Munkaprofil beállítása"</string>
     <string name="work_profile_provisioning_step_1_header" msgid="7914961694921466366">"A munkahelyi alkalmazásokat a munkaprofil tárolja"</string>
     <string name="work_profile_provisioning_step_2_header" msgid="6001172190404670248">"Munkahelyi alkalmazások szüneteltetése a munkanap végén"</string>
-    <string name="work_profile_provisioning_step_3_header" msgid="4316106639726774330">"A munkaprofilban lévő adatok láthatók a rendszergazda számára"</string>
+    <string name="work_profile_provisioning_step_3_header" msgid="4316106639726774330">"A munkaprofil adatait láthatja a rendszergazda"</string>
     <string name="work_profile_provisioning_progress_label" msgid="2627905308998389193">"Munkaprofil beállítása…"</string>
-    <string name="work_profile_provisioning_summary" msgid="3436190271657388747">"A munkahelyi alkalmazásokat a munkaprofil tárolja. A munkanap végén szüneteltetheti ezeket az alkalmazásokat. A munkaprofilban lévő adatok láthatók a rendszergazda számára."</string>
+    <string name="work_profile_provisioning_summary" msgid="3436190271657388747">"A munkahelyi alkalmazásokat a munkaprofil tárolja. A munkanap végén szüneteltetheti ezeket az alkalmazásokat. A munkaprofilban lévő adatokat láthatja a rendszergazda."</string>
     <string name="fully_managed_device_provisioning_accept_header" msgid="2944032660440403130">"A munkahelyi eszköz beállításának megkezdése"</string>
     <string name="fully_managed_device_provisioning_step_1_header" msgid="6396274703116708592">"Munkahelyi alkalmazások karnyújtásnyira"</string>
-    <string name="fully_managed_device_provisioning_step_2_header" msgid="7165472083121590030">"Ez az eszköz nem privát"</string>
-    <string name="fully_managed_device_provisioning_step_2_subheader" msgid="2848998570491578119">"Rendszergazdája láthatja az eszközön végzett tevékenységeit és a rajta tárolt adatait."</string>
+    <string name="fully_managed_device_provisioning_step_2_header" msgid="142633978260399682">"Ez a(z) <xliff:g id="DEVICE_NAME">%1$s</xliff:g> eszköz nem privát"</string>
+    <string name="fully_managed_device_provisioning_step_2_subheader" msgid="3981784440341141618">"Rendszergazdája láthatja a(z) <xliff:g id="DEVICE_NAME">%1$s</xliff:g> eszközön végzett tevékenységeit és a rajta tárolt adatait."</string>
     <string name="fully_managed_device_provisioning_permissions_header" msgid="2852101532084770993">"Az Ön tevékenységei és adatai"</string>
     <string name="fully_managed_device_provisioning_permissions_secondary_header" msgid="4419374850927705136">"Alkalmazásengedélyek"</string>
-    <string name="fully_managed_device_provisioning_permissions_secondary_subheader" msgid="8328298923037335068">"A rendszergazdája beállíthat engedélyeket az ezen az eszközön található alkalmazások számára (például mikrofon- és kamerahasználati, valamint helymeghatározási jogosultságokat)."</string>
+    <string name="fully_managed_device_provisioning_permissions_secondary_subheader" msgid="1973320148595109400">"A rendszergazdája beállíthat engedélyeket az ezen a(z) <xliff:g id="DEVICE_NAME">%1$s</xliff:g> eszközön található alkalmazások számára (például mikrofon- és kamerahasználati, valamint helymeghatározási jogosultságokat)."</string>
     <string name="fully_managed_device_provisioning_progress_label" msgid="3925516135130021966">"Az eszköz beállítása folyamatban van…"</string>
-    <string name="fully_managed_device_provisioning_summary" msgid="1090645190066781456">"Ezzel az eszközzel könnyen hozzáférhet munkahelyi alkalmazásaihoz. Az eszköz nem privát, így a rendszergazdája láthatja az Ön adatait és tevékenységeit."</string>
-    <string name="fully_managed_device_with_permission_control_provisioning_summary" msgid="6634797147105465856">"Ezzel az eszközzel könnyen hozzáférhet munkahelyi alkalmazásaihoz. Az eszköz nem privát, így a rendszergazdája láthatja az Ön tevékenységeit és adatait. A rendszergazdája szintén beállíthat engedélyeket az ezen az eszközön található alkalmazások számára (például mikrofon- és kamerahasználati, valamint helymeghatározási jogosultságokat)."</string>
+    <string name="fully_managed_device_provisioning_summary" msgid="2532673962822596806">"Ezzel a(z) <xliff:g id="DEVICE_NAME_0">%1$s</xliff:g> eszközzel könnyen hozzáférhet munkahelyi alkalmazásaihoz. A(z) <xliff:g id="DEVICE_NAME_1">%1$s</xliff:g> eszköz nem privát, így a rendszergazdája láthatja az Ön adatait és tevékenységeit."</string>
+    <string name="fully_managed_device_with_permission_control_provisioning_summary" msgid="3487964472228264628">"Ezzel a(z) <xliff:g id="DEVICE_NAME_0">%1$s</xliff:g> eszközzel könnyen hozzáférhet munkahelyi alkalmazásaihoz. A(z) <xliff:g id="DEVICE_NAME_1">%1$s</xliff:g> eszköz nem privát, így a rendszergazdája láthatja az Ön tevékenységeit és adatait. A rendszergazdája emellett beállíthat engedélyeket az ezen az eszközön található alkalmazások számára (például mikrofon- és kamerahasználati, valamint helymeghatározási jogosultságokat)."</string>
     <string name="fully_managed_device_provisioning_return_device_title" msgid="8500829014794276683">"Küldje vissza az eszközt a rendszergazdájának"</string>
     <string name="fully_managed_device_provisioning_return_device_subheader" msgid="6194410367910957686">"Lépjen vissza az előző képernyőre, vagy állítsa vissza az eszköz gyári beállításait, és küldje vissza az eszközt a rendszergazdájának."</string>
     <string name="fully_managed_device_cancel_setup_button" msgid="4910041382610777599">"Beállítás leállítása"</string>
     <string name="fully_managed_device_reset_and_return_button" msgid="6451125722998550681">"Eszköz visszaállítása és visszaküldése"</string>
+    <string name="fully_managed_device_unsupported_DPC_in_headless_mode_header" msgid="7938653381656306039">"Az eszközt nem lehet beállítani"</string>
+    <string name="fully_managed_device_unsupported_DPC_in_headless_mode_subheader" msgid="5158035482490079567">"Ezen az eszközön nem lehet bekapcsolni a teljes felügyelet módot. Állítsa vissza eszköze gyári beállításait, és forduljon a rendszergazdához."</string>
+    <string name="fully_managed_device_reset_button" msgid="5957116315144904542">"Gyári beállítások visszaállítása"</string>
     <string name="cope_provisioning_step_1_header" msgid="1945759718804756423">"A munkahelyi appok a munkaprofilban vannak, rendszergazda kezeli őket"</string>
     <string name="cope_provisioning_step_2_header" msgid="2388399739294883042">"A személyes appok külön vannak a munkahelyi alkalmazásoktól"</string>
     <string name="cope_provisioning_step_3_header" msgid="7161795433847296201">"A rendszergazda kezeli ezt az eszközt, és letilthat appokat"</string>
-    <string name="cope_provisioning_summary" msgid="993014104601034878">"A munkahelyi alkalmazások a munkaprofiljában találhatók, és a rendszergazdája kezeli őket. A személyes alkalmazások elkülönítve találhatók, és el vannak rejtve a munkahelyi alkalmazások elől Rendszergazdája vezérelheti ezt az eszközt, és letilthat bizonyos alkalmazásokat"</string>
+    <string name="cope_provisioning_summary" msgid="4993405755138454918">"A munkahelyi alkalmazások a munkaprofiljában találhatók, és a rendszergazdája kezeli őket. A személyes alkalmazások elkülönítve találhatók, és el vannak rejtve a munkahelyi alkalmazások elől. Rendszergazdája vezérelheti ezt a(z) <xliff:g id="DEVICE_NAME">%1$s</xliff:g> eszközt, és letilthat bizonyos alkalmazásokat."</string>
     <string name="just_a_sec" msgid="6244676028626237220">"Egy pillanat…"</string>
     <string name="fully_managed_device_provisioning_privacy_title" msgid="4017627906103556021">"Adatvédelmi emlékeztető"</string>
-    <string name="fully_managed_device_provisioning_privacy_body" msgid="2219074604343348608">"Rendszergazdája láthatja az eszközön végzett tevékenységeit és a rajta tárolt adatait"</string>
-    <string name="financed_device_screen_header" msgid="6875169548352717124">"Ezt az eszközt a(z) <xliff:g id="CREDITOR_NAME">%s</xliff:g> szervezet biztosítja"</string>
-    <string name="financed_make_payments_subheader_title" msgid="7880606710044254210">"Fizethet az eszközzel"</string>
-    <string name="financed_make_payments_subheader_description" msgid="1222254084091306375">"A(z) <xliff:g id="CREDITOR_NAME_0">%1$s</xliff:g> telepítheti a(z) <xliff:g id="CREDITOR_NAME_1">%2$s</xliff:g> alkalmazást annak érdekében, hogy Ön kifizethesse az eszközre vonatkozó tartozását."</string>
-    <string name="financed_restrict_device_subheader_title" msgid="2138828664816418195">"Ez az eszköz le lehet tiltva"</string>
-    <string name="financed_restrict_device_subheader_description" msgid="5683975693718163300">"A(z) <xliff:g id="CREDITOR_NAME">%1$s</xliff:g> korlátozhatja az Ön eszközhöz való hozzáférését, ha nem fizet."</string>
-    <string name="error_role_holder_hash_mismatch" msgid="6201584198247885437">"Nem sikerült beállítani az eszközt. Vegye fel a kapcsolatot a rendszergazdával, és hivatkozzon a következőre: „Érvénytelen ellenőrző összeg”."</string>
+    <string name="fully_managed_device_provisioning_privacy_body" msgid="2107315052054483060">"Rendszergazdája láthatja a(z) <xliff:g id="DEVICE_NAME">%1$s</xliff:g> eszközön végzett tevékenységeit és a rajta tárolt adatait"</string>
+    <string name="financed_device_screen_header" msgid="5934940812896302344">"Ezt a(z) <xliff:g id="DEVICE_NAME">%1$s</xliff:g> eszközt a következő biztosítja: <xliff:g id="CREDITOR_NAME">%2$s</xliff:g>"</string>
+    <string name="financed_make_payments_subheader_title" msgid="743966229235451097">"Kiegyenlítheti a(z) <xliff:g id="DEVICE_NAME">%1$s</xliff:g> eszközre vonatkozó tartozását"</string>
+    <string name="financed_make_payments_subheader_description" msgid="7391276584735956742">"A(z) <xliff:g id="CREDITOR_NAME_0">%1$s</xliff:g> telepítheti a(z) <xliff:g id="CREDITOR_NAME_1">%2$s</xliff:g> alkalmazást annak érdekében, hogy Ön kifizethesse a(z) <xliff:g id="DEVICE_NAME">%3$s</xliff:g> eszközre vonatkozó tartozását."</string>
+    <string name="financed_restrict_device_subheader_title" msgid="4248650736543742083">"Ez a(z) <xliff:g id="DEVICE_NAME">%1$s</xliff:g> eszköz korlátozható"</string>
+    <string name="financed_restrict_device_subheader_description" msgid="1539908048861880628">"A(z) <xliff:g id="CREDITOR_NAME">%1$s</xliff:g> korlátozhatja az Ön <xliff:g id="DEVICE_NAME">%2$s</xliff:g> eszközhöz való hozzáférését, ha nem fizet."</string>
+    <string name="error_role_holder_hash_mismatch" msgid="5098975629103567172">"A(z) <xliff:g id="DEVICE_NAME">%1$s</xliff:g> beállítása sikertelen. Vegye fel a kapcsolatot a rendszergazdával, és hivatkozzon a következőre: „Érvénytelen ellenőrzési hiba”."</string>
     <string name="error_role_holder_download_install_failed" msgid="8151968372180693228">"Próbálja újra később, vagy kérjen segítséget a rendszergazdától"</string>
-    <string name="error_role_holder_package_invalid" msgid="2631207759497988833">"Nem sikerült beállítani az eszközt. Vegye fel a kapcsolatot a rendszergazdával, és hivatkozzon a következőre: „Hiányzó vagy sérült összetevők”."</string>
+    <string name="error_role_holder_package_invalid" msgid="8159929740916126242">"A(z) <xliff:g id="DEVICE_NAME">%1$s</xliff:g> beállítása sikertelen. Vegye fel a kapcsolatot a rendszergazdával, és hivatkozzon a következőre: „Hiányzó vagy sérült összetevők”."</string>
     <string name="setting_up" msgid="1478847967385506664">"Beállítás…"</string>
 </resources>

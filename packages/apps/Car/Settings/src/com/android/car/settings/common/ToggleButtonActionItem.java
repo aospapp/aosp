@@ -23,7 +23,9 @@ import android.view.ViewGroup;
 import android.widget.FrameLayout;
 
 import androidx.annotation.DrawableRes;
+import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.annotation.StringRes;
 import androidx.preference.Preference;
 
 import com.android.car.settings.R;
@@ -43,6 +45,9 @@ public final class ToggleButtonActionItem extends BaseActionItem {
 
     @Nullable
     private Drawable mDrawable;
+
+    @Nullable
+    private String mContentDescription;
 
     public ToggleButtonActionItem(ActionItemInfoChangeListener actionItemInfoChangeListener) {
         super(actionItemInfoChangeListener);
@@ -64,6 +69,7 @@ public final class ToggleButtonActionItem extends BaseActionItem {
         toggleButton.setChecked(mIsChecked);
         toggleButton.setEnabled(isEnabled());
         toggleButton.setAllowClickWhenDisabled(true);
+        toggleButton.setContentDescription(mContentDescription);
         toggleButton.setOnCheckedChangeListener((view, isChecked) -> {
             onClick();
             toggleButton.setChecked(mIsChecked);
@@ -161,6 +167,29 @@ public final class ToggleButtonActionItem extends BaseActionItem {
             mDrawable = drawable;
             update();
         }
+    }
+
+    /**
+     * Get the ToggleButton content description.
+     */
+    @Nullable
+    public String getContentDescription() {
+        return mContentDescription;
+    }
+
+    /**
+     * Set the ToggleButton content description.
+     */
+    public void setContentDescription(@Nullable String contentDescription) {
+        mContentDescription = contentDescription;
+    }
+
+    /**
+     * Set the ToggleButton content description.
+     */
+    public void setContentDescription(@NonNull Context context,
+            @StringRes int contentDescriptionResId) {
+        mContentDescription = context.getString(contentDescriptionResId);
     }
 
     /**

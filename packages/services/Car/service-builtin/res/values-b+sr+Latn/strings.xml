@@ -16,6 +16,14 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+    <string name="car_permission_label_bind_projection_service" msgid="6976251734714662552">"povezivanje sa uslugom projekcije"</string>
+    <string name="car_permission_desc_bind_projection_service" msgid="4610418233070289810">"Dozvoljava vlasniku da se poveže sa interfejsom usluge projekcije najvišeg nivoa. Uobičajene aplikacije nikada ne bi trebalo da je koriste."</string>
+    <string name="car_permission_label_bind_vms_client" msgid="1298928874094319701">"VMS usluga za klijente"</string>
+    <string name="car_permission_desc_bind_vms_client" msgid="7758142590449847602">"Povezuje sa VMS klijentima"</string>
+    <string name="car_permission_label_bind_instrument_cluster_rendering" msgid="6723392540805279625">"Prikazivanje na instrument tabli"</string>
+    <string name="car_permission_desc_bind_instrument_cluster_rendering" msgid="2583711303360788080">"Prima podatke sa instrument table"</string>
+    <string name="car_permission_label_bind_input_service" msgid="6647238478703096557">"Usluga automobilskog unosa"</string>
+    <string name="car_permission_desc_bind_input_service" msgid="8460218104132496613">"Upravlja događajima unosa"</string>
     <string name="activity_blocked_text" msgid="5991043857905412794">"Ne možete da koristite ovu funkciju dok vozite"</string>
     <string name="exit_button_message" msgid="5375678491245394542">"Da biste ponovo počeli sa bezbednim funkcijama aplikacije, izaberite <xliff:g id="EXIT_BUTTON">%s</xliff:g>."</string>
     <string name="exit_button" msgid="3491899413031549265">"Nazad"</string>
@@ -30,11 +38,7 @@
     <string name="factory_reset_warning" msgid="8463356329619149262">"Uređaj će biti obrisan"</string>
     <string name="factory_reset_message" msgid="1972536809866779972">"Ne možete da koristite ovu aplikaciju za administratore. Uređaj će sada biti obrisan.\n\nAko imate pitanja, obratite se administratoru organizacije."</string>
     <string name="resource_overuse_notification_title" msgid="1622015333965744463">"<xliff:g id="ID_1">^1</xliff:g> utiče na performanse sistema"</string>
-    <string name="resource_overuse_notification_text_disable_app" msgid="6230392052741662158">"Onemogućite aplikaciju da biste poboljšali performanse sistema. Aplikaciju možete ponovo da omogućite u Podešavanjima."</string>
-    <string name="resource_overuse_notification_text_prioritize_app" msgid="5712958688473220136">"Dajte prioritet aplikaciji da biste nastavili da je koristite."</string>
-    <string name="resource_overuse_notification_text_uninstall_app" msgid="7571808726595158942">"Deinstalirajte aplikaciju da biste poboljšali performanse sistema."</string>
-    <string name="resource_overuse_notification_button_disable_app" msgid="7366883746281232189">"Onemogući aplikaciju"</string>
+    <string name="resource_overuse_notification_text_disabled_app" msgid="9058683477901746549">"Pokretanje ove aplikacije u pozadini je sprečeno. Dajte prioritet aplikaciji da biste nastavili korišćenje u pozadini."</string>
+    <string name="resource_overuse_notification_button_close_app" msgid="131355952730826999">"Zatvori"</string>
     <string name="resource_overuse_notification_button_prioritize_app" msgid="1093325910457794796">"Dajte prioritet aplikaciji"</string>
-    <string name="resource_overuse_notification_button_uninstall_app" msgid="5259756814713178196">"Deinstalirajte aplikaciju"</string>
-    <string name="resource_overuse_toast_disable_app_now" msgid="5020071090614971772">"Aplikacija <xliff:g id="ID_1">^1</xliff:g> je onemogućena. Možete ponovo da je omogućite u Podešavanjima."</string>
 </resources>

@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<issues format="6" by="lint 8.0.0-dev" type="baseline" dependencies="true" variant="all" version="8.0.0-dev">
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 34 (current min is 31): `android.os.UserManager#isAdminUser`"
+        errorLine1="                if (!mUm.isAdminUser()) {"
+        errorLine2="                         ~~~~~~~~~~~">
+        <location
+            file="packages/apps/TvSettings/SettingsAPI/java/com/android/tv/settings/library/about/AboutState.java"
+            line="329"
+            column="26"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 34 (current min is 31): `android.os.UserManager#isAdminUser`"
+        errorLine1="        final boolean isAdmin = um.isAdminUser();"
+        errorLine2="                                   ~~~~~~~~~~~">
+        <location
+            file="packages/apps/TvSettings/SettingsAPI/java/com/android/tv/settings/library/about/DevelopmentSettingsEnabler.java"
+            line="47"
+            column="36"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 34 (current min is 31): `android.os.UserManager#isAdminUser`"
+        errorLine1="        if (!mUm.isAdminUser()) {"
+        errorLine2="                 ~~~~~~~~~~~">
+        <location
+            file="packages/apps/TvSettings/SettingsAPI/java/com/android/tv/settings/library/system/DevelopmentState.java"
+            line="260"
+            column="18"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 34 (current min is 31): `android.os.UserManager#isAdminUser`"
+        errorLine1="        if (mUm.isAdminUser()) {"
+        errorLine2="                ~~~~~~~~~~~">
+        <location
+            file="packages/apps/TvSettings/SettingsAPI/java/com/android/tv/settings/library/about/AboutState.java"
+            line="207"
+            column="17"/>
+    </issue>
+
+</issues>

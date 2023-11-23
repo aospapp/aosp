@@ -17,18 +17,6 @@ package {
     default_applicable_licenses: ["Android-Apache-2.0"],
 }
 
-filegroup {
-    name: "service-bluetooth-tests-sources",
-    srcs: [
-        "src/**/*.java",
-    ],
-    visibility: [
-        "//frameworks/base",
-        "//frameworks/base/services",
-        "//frameworks/base/services/tests/servicestests",
-    ],
-}
-
 android_test {
     name: "ServiceBluetoothTests",
 
@@ -42,15 +30,13 @@ android_test {
 
     static_libs: [
         "androidx.test.rules",
-        "collector-device-lib",
-        "hamcrest-library",
+        "frameworks-base-testutils",
         "mockito-target-extended-minus-junit4",
         "platform-test-annotations",
-        "frameworks-base-testutils",
         "truth-prebuilt",
 
         // Statically link service-bluetooth-pre-jarjar since we want to test the working copy of
-        // service-uwb, not the on-device copy.
+        // service-bluetooth, not the on-device copy.
         // Use pre-jarjar version so that we can reference symbols before they are renamed.
         // Then, the jarjar_rules here will perform the rename for the entire APK
         // i.e. service-bluetooth + test code
@@ -60,19 +46,22 @@ android_test {
     jarjar_rules: ":bluetooth-jarjar-rules",
 
     libs: [
-        "android.test.runner",
         "android.test.base",
         "android.test.mock",
+        "android.test.runner",
         "framework-bluetooth-pre-jarjar",
     ],
 
     jni_libs: [
         // these are needed for Extended Mockito
         "libbluetooth_jni",
+        "libdexmakerjvmtiagent",
+        "libstaticjvmtiagent",
     ],
     compile_multilib: "both",
+    certificate: ":com.android.bluetooth.certificate",
 
-    min_sdk_version: "current",
+    min_sdk_version: "Tiramisu",
 
     test_suites: [
         "general-tests",

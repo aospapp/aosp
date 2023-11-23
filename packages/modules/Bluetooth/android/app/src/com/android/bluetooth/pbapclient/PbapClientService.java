@@ -34,6 +34,7 @@ import android.provider.CallLog;
 import android.sysprop.BluetoothProperties;
 import android.util.Log;
 
+import com.android.bluetooth.BluetoothMethodProxy;
 import com.android.bluetooth.R;
 import com.android.bluetooth.Utils;
 import com.android.bluetooth.btservice.AdapterService;
@@ -41,6 +42,7 @@ import com.android.bluetooth.btservice.ProfileService;
 import com.android.bluetooth.btservice.storage.DatabaseManager;
 import com.android.bluetooth.hfpclient.HfpClientConnectionService;
 import com.android.bluetooth.sdp.SdpManager;
+import com.android.internal.annotations.VisibleForTesting;
 import com.android.modules.utils.SynchronousResultReceiver;
 
 import java.util.ArrayList;
@@ -69,10 +71,12 @@ public class PbapClientService extends ProfileService {
 
     // MAXIMUM_DEVICES set to 10 to prevent an excessive number of simultaneous devices.
     private static final int MAXIMUM_DEVICES = 10;
-    private Map<BluetoothDevice, PbapClientStateMachine> mPbapClientStateMachineMap =
+    @VisibleForTesting
+    Map<BluetoothDevice, PbapClientStateMachine> mPbapClientStateMachineMap =
             new ConcurrentHashMap<>();
     private static PbapClientService sPbapClientService;
-    private PbapBroadcastReceiver mPbapBroadcastReceiver = new PbapBroadcastReceiver();
+    @VisibleForTesting
+    PbapBroadcastReceiver mPbapBroadcastReceiver = new PbapBroadcastReceiver();
     private int mSdpHandle = -1;
 
     private DatabaseManager mDatabaseManager;
@@ -132,6 +136,7 @@ public class PbapClientService extends ProfileService {
         setComponentAvailable(AUTHENTICATOR_SERVICE, true);
 
         IntentFilter filter = new IntentFilter();
+        filter.setPriority(IntentFilter.SYSTEM_HIGH_PRIORITY);
         filter.addAction(BluetoothDevice.ACTION_ACL_DISCONNECTED);
         // delay initial download until after the user is unlocked to add an account.
         filter.addAction(Intent.ACTION_USER_UNLOCKED);
@@ -162,6 +167,7 @@ public class PbapClientService extends ProfileService {
         for (PbapClientStateMachine pbapClientStateMachine : mPbapClientStateMachineMap.values()) {
             pbapClientStateMachine.doQuit();
         }
+        mPbapClientStateMachineMap.clear();
         cleanupAuthenicationService();
         setComponentAvailable(AUTHENTICATOR_SERVICE, false);
         return true;
@@ -243,7 +249,8 @@ public class PbapClientService extends ProfileService {
                 + CallLog.Calls.PHONE_ACCOUNT_COMPONENT_NAME + "=?";
         String[] selectionArgs = new String[]{accountName, componentName.flattenToString()};
         try {
-            getContentResolver().delete(CallLog.Calls.CONTENT_URI, selectionFilter, selectionArgs);
+            BluetoothMethodProxy.getInstance().contentResolverDelete(getContentResolver(),
+                    CallLog.Calls.CONTENT_URI, selectionFilter, selectionArgs);
         } catch (IllegalArgumentException e) {
             Log.w(TAG, "Call Logs could not be deleted, they may not exist yet.");
         }
@@ -278,7 +285,8 @@ public class PbapClientService extends ProfileService {
     }
 
 
-    private class PbapBroadcastReceiver extends BroadcastReceiver {
+    @VisibleForTesting
+    class PbapBroadcastReceiver extends BroadcastReceiver {
         @Override
         public void onReceive(Context context, Intent intent) {
             String action = intent.getAction();
@@ -314,7 +322,8 @@ public class PbapClientService extends ProfileService {
     /**
      * Handler for incoming service calls
      */
-    private static class BluetoothPbapClientBinder extends IBluetoothPbapClient.Stub
+    @VisibleForTesting
+    static class BluetoothPbapClientBinder extends IBluetoothPbapClient.Stub
             implements IProfileServiceBinder {
         private PbapClientService mService;
 
@@ -329,8 +338,11 @@ public class PbapClientService extends ProfileService {
 
         @RequiresPermission(android.Manifest.permission.BLUETOOTH_CONNECT)
         private PbapClientService getService(AttributionSource source) {
-            if (!Utils.checkCallerIsSystemOrActiveUser(TAG)
-                    || !Utils.checkServiceAvailable(mService, TAG)
+            if (Utils.isInstrumentationTestMode()) {
+                return mService;
+            }
+            if (!Utils.checkServiceAvailable(mService, TAG)
+                    || !Utils.checkCallerIsSystemOrActiveOrManagedUser(mService, TAG)
                     || !Utils.checkConnectPermissionForDataDelivery(mService, source, TAG)) {
                 return null;
             }
@@ -461,7 +473,8 @@ public class PbapClientService extends ProfileService {
         return sPbapClientService;
     }
 
-    private static synchronized void setPbapClientService(PbapClientService instance) {
+    @VisibleForTesting
+    static synchronized void setPbapClientService(PbapClientService instance) {
         if (VDBG) {
             Log.v(TAG, "setPbapClientService(): set to: " + instance);
         }
@@ -511,7 +524,6 @@ public class PbapClientService extends ProfileService {
         if (pbapClientStateMachine != null) {
             pbapClientStateMachine.disconnect(device);
             return true;
-
         } else {
             Log.w(TAG, "disconnect() called on unconnected device.");
             return false;
@@ -523,7 +535,8 @@ public class PbapClientService extends ProfileService {
         return getDevicesMatchingConnectionStates(desiredStates);
     }
 
-    private List<BluetoothDevice> getDevicesMatchingConnectionStates(int[] states) {
+    @VisibleForTesting
+    List<BluetoothDevice> getDevicesMatchingConnectionStates(int[] states) {
         List<BluetoothDevice> deviceList = new ArrayList<BluetoothDevice>(0);
         for (Map.Entry<BluetoothDevice, PbapClientStateMachine> stateMachineEntry :
                 mPbapClientStateMachineMap

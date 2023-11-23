@@ -41,6 +41,7 @@ public class IncomingCallFilterGraph {
                     .setShouldReject(false)
                     .setShouldAddToCallLog(true)
                     .setShouldShowNotification(true)
+                    .setDndSuppressed(false)
                     .build();
 
     private final CallFilterResultCallback mListener;
@@ -143,6 +144,7 @@ public class IncomingCallFilterGraph {
                 .setShouldSilence(false)
                 .setShouldAddToCallLog(true)
                 .setShouldShowNotification(true)
+                .setDndSuppressed(false)
                 .build();
         for (CallFilter dependencyFilter : filter.getDependencies()) {
             result = result.combine(dependencyFilter.getResult());

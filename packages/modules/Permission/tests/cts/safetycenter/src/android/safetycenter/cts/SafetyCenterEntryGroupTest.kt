@@ -19,21 +19,19 @@ package android.safetycenter.cts
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
-import android.os.Build.VERSION_CODES.TIRAMISU
 import android.safetycenter.SafetyCenterEntry
 import android.safetycenter.SafetyCenterEntryGroup
-import android.safetycenter.cts.testing.EqualsHashCodeToStringTester
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.ext.truth.os.ParcelableSubject.assertThat
-import androidx.test.filters.SdkSuppress
+import com.android.safetycenter.testing.EqualsHashCodeToStringTester
 import com.google.common.truth.Truth.assertThat
 import kotlin.test.assertFailsWith
 import org.junit.Test
 import org.junit.runner.RunWith
 
+/** CTS tests for [SafetyCenterEntryGroup]. */
 @RunWith(AndroidJUnit4::class)
-@SdkSuppress(minSdkVersion = TIRAMISU, codeName = "Tiramisu")
 class SafetyCenterEntryGroupTest {
     private val context: Context = ApplicationProvider.getApplicationContext()
 
@@ -97,13 +95,15 @@ class SafetyCenterEntryGroupTest {
                 SafetyCenterEntryGroup.Builder(entryGroup1)
                     .setSeverityLevel(SafetyCenterEntry.ENTRY_SEVERITY_LEVEL_RECOMMENDATION)
                     .build()
-                    .severityLevel)
+                    .severityLevel
+            )
             .isEqualTo(SafetyCenterEntry.ENTRY_SEVERITY_LEVEL_RECOMMENDATION)
         assertThat(
                 SafetyCenterEntryGroup.Builder(entryGroup1)
                     .setSeverityLevel(SafetyCenterEntry.ENTRY_SEVERITY_LEVEL_UNSPECIFIED)
                     .build()
-                    .severityLevel)
+                    .severityLevel
+            )
             .isEqualTo(SafetyCenterEntry.ENTRY_SEVERITY_LEVEL_UNSPECIFIED)
     }
 
@@ -114,9 +114,11 @@ class SafetyCenterEntryGroupTest {
         assertThat(
                 SafetyCenterEntryGroup.Builder(entryGroup1)
                     .setSeverityUnspecifiedIconType(
-                        SafetyCenterEntry.SEVERITY_UNSPECIFIED_ICON_TYPE_PRIVACY)
+                        SafetyCenterEntry.SEVERITY_UNSPECIFIED_ICON_TYPE_PRIVACY
+                    )
                     .build()
-                    .severityUnspecifiedIconType)
+                    .severityUnspecifiedIconType
+            )
             .isEqualTo(SafetyCenterEntry.SEVERITY_UNSPECIFIED_ICON_TYPE_PRIVACY)
     }
 
@@ -171,35 +173,46 @@ class SafetyCenterEntryGroupTest {
 
     @Test
     fun equalsHashCodeToString_usingEqualsHashCodeToStringTester() {
-        EqualsHashCodeToStringTester()
+        EqualsHashCodeToStringTester.ofParcelable(
+                parcelableCreator = SafetyCenterEntryGroup.CREATOR,
+                createCopy = { SafetyCenterEntryGroup.Builder(it).build() }
+            )
             .addEqualityGroup(
                 entryGroup1,
-                SafetyCenterEntryGroup.Builder(entryGroup1).build(),
                 SafetyCenterEntryGroup.Builder(groupId1, "A group title")
                     .setSummary("A group summary")
                     .setSeverityLevel(SafetyCenterEntry.ENTRY_SEVERITY_LEVEL_OK)
                     .setEntries(listOf(entry1))
-                    .build())
+                    .build()
+            )
             .addEqualityGroup(entryGroup2)
             .addEqualityGroup(
-                SafetyCenterEntryGroup.Builder(entryGroup1).setId("different!").build())
+                SafetyCenterEntryGroup.Builder(entryGroup1).setId("different!").build()
+            )
             .addEqualityGroup(
-                SafetyCenterEntryGroup.Builder(entryGroup1).setTitle("different!").build())
+                SafetyCenterEntryGroup.Builder(entryGroup1).setTitle("different!").build()
+            )
             .addEqualityGroup(
-                SafetyCenterEntryGroup.Builder(entryGroup1).setSummary("different!").build())
+                SafetyCenterEntryGroup.Builder(entryGroup1).setSummary("different!").build()
+            )
             .addEqualityGroup(
                 SafetyCenterEntryGroup.Builder(entryGroup1)
                     .setSeverityLevel(SafetyCenterEntry.ENTRY_SEVERITY_LEVEL_UNKNOWN)
-                    .build())
+                    .build()
+            )
             .addEqualityGroup(
                 SafetyCenterEntryGroup.Builder(entryGroup1)
                     .setSeverityUnspecifiedIconType(
-                        SafetyCenterEntry.SEVERITY_UNSPECIFIED_ICON_TYPE_PRIVACY)
-                    .build())
+                        SafetyCenterEntry.SEVERITY_UNSPECIFIED_ICON_TYPE_PRIVACY
+                    )
+                    .build()
+            )
             .addEqualityGroup(
-                SafetyCenterEntryGroup.Builder(entryGroup1).setEntries(listOf(entry2)).build())
+                SafetyCenterEntryGroup.Builder(entryGroup1).setEntries(listOf(entry2)).build()
+            )
             .addEqualityGroup(
-                SafetyCenterEntryGroup.Builder(entryGroup1).setEntries(emptyList()).build())
+                SafetyCenterEntryGroup.Builder(entryGroup1).setEntries(emptyList()).build()
+            )
             .test()
     }
 }

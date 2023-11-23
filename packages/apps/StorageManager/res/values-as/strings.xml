@@ -42,7 +42,7 @@
     <string name="deletion_helper_upsell_summary" msgid="2301597713694474407">"এতিয়া ষ্ট’ৰেজত <xliff:g id="USED">%1$s</xliff:g> ঠাই খালী হৈছে৷ আপোনাৰ ডিভাইচৰ পৰা বেক আপ লোৱা সমল আঁতৰাই ষ্ট’ৰেজ মেনেজাৰক স্বয়ংক্ৰিয়ভাৱে খালী ঠাই উলিয়াবলৈ দিবনে?"</string>
     <string name="deletion_helper_upsell_cancel" msgid="7084167642850053889">"নালাগে, ধন্যবাদ"</string>
     <string name="deletion_helper_upsell_activate" msgid="7157360257760895976">"অন কৰক"</string>
-    <string name="deletion_helper_apps_group_title" msgid="2578309121350341258">"সঘনাই ব্যৱহাৰ নোহোৱা এপসমূহ"</string>
+    <string name="deletion_helper_apps_group_title" msgid="2578309121350341258">"সঘনাই ব্যৱহাৰ নোহোৱা এপ্‌সমূহ"</string>
     <!-- no translation found for deletion_helper_apps_group_summary (360315517252452356) -->
     <skip />
     <string name="deletion_helper_automatic_title" msgid="4610119358490679299">"স্বয়ংক্ৰিয়"</string>
@@ -62,6 +62,6 @@
     <string name="automatic_storage_manager_activation_warning" msgid="7657017408180001078">"আপোনাৰ ষ্ট’ৰেজ এতিয়া ষ্ট’ৰেজ মেনেজাৰে পৰিচালনা কৰিছে"</string>
     <string name="empty_state_title" msgid="4033285438176545309">"আঁতৰাব লগা একোৱেই নাই"</string>
     <string name="empty_state_review_items_link" msgid="8411186441239304545">"শেহতীয়া বস্তুবোৰৰ সমীক্ষা কৰক"</string>
-    <string name="empty_state_summary" msgid="8439893007424243790">"আঁতৰাব লগা কোনো পুৰণা ফাইল নাই৷ খালী ঠাই উলিয়াবলৈ, শেহতীয়া ফট\', ভিডিঅ\' আৰু এপসমূহ আঁতৰাওক৷"</string>
+    <string name="empty_state_summary" msgid="8439893007424243790">"আঁতৰাব লগা কোনো পুৰণা ফাইল নাই৷ খালী ঠাই উলিয়াবলৈ, শেহতীয়া ফট\', ভিডিঅ\' আৰু এপ্‌সমূহ আঁতৰাওক৷"</string>
     <string name="app_requesting_space" msgid="857425181289960167">"<xliff:g id="APP">%1$s</xliff:g>ক <xliff:g id="CLEARABLE_BYTES">%2$s</xliff:g> খালী ঠাইৰ প্ৰয়োজন"</string>
 </resources>

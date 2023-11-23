@@ -32,6 +32,7 @@ import com.android.modules.utils.build.SdkLevel;
 import com.android.networkstack.apishim.VpnServiceBuilderShimImpl;
 import com.android.networkstack.apishim.common.UnsupportedApiLevelException;
 import com.android.networkstack.apishim.common.VpnServiceBuilderShim;
+import com.android.testutils.PacketReflector;
 
 import java.io.IOException;
 import java.net.InetAddress;

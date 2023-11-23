@@ -21,7 +21,7 @@
 
 #include <gtest/gtest.h>
 
-#include <base/bind.h>
+#include <base/functional/bind.h>
 #include <base/threading/platform_thread.h>
 #include <sys/capability.h>
 #include <syscall.h>

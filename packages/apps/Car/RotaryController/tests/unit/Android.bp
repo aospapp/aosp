@@ -32,5 +32,10 @@ android_test {
 
     aaptflags: ["--extra-packages com.android.car.rotary"],
 
-    test_suites: ["device-tests"]
+    test_suites: [
+        "device-tests",
+        "automotive-tests",
+    ],
+
+    compile_multilib: "both",
 }

@@ -54,13 +54,6 @@ public final class NotificationHelper extends NotificationHelperBase {
     public static final int FACTORY_RESET_NOTIFICATION_ID = 42;
     public static final int NEW_USER_DISCLAIMER_NOTIFICATION_ID = 108;
 
-    public static final String INTENT_EXTRA_NOTIFICATION_ID = "notification_id";
-    public static final String CAR_WATCHDOG_ACTION_DISMISS_RESOURCE_OVERUSE_NOTIFICATION =
-            "com.android.car.watchdog.ACTION_DISMISS_RESOURCE_OVERUSE_NOTIFICATION";
-    public static final String CAR_WATCHDOG_ACTION_LAUNCH_APP_SETTINGS =
-            "com.android.car.watchdog.ACTION_LAUNCH_APP_SETTINGS";
-    public static final String CAR_WATCHDOG_ACTION_RESOURCE_OVERUSE_DISABLE_APP =
-            "com.android.car.watchdog.ACTION_RESOURCE_OVERUSE_DISABLE_APP";
     public static final String CAR_SERVICE_PACKAGE_NAME = "com.android.car";
     @VisibleForTesting
     public static final String CHANNEL_ID_DEFAULT = "channel_id_default";
@@ -229,20 +222,12 @@ public final class NotificationHelper extends NotificationHelperBase {
                 context.getSystemService(NotificationManager.class);
 
         CharSequence titleTemplate = context.getText(R.string.resource_overuse_notification_title);
-        String textPrioritizeApp =
-                context.getString(R.string.resource_overuse_notification_text_prioritize_app);
-        String textDisableApp =
-                context.getString(R.string.resource_overuse_notification_text_disable_app) + " "
-                        + textPrioritizeApp;
-        String textUninstallApp =
-                context.getString(R.string.resource_overuse_notification_text_uninstall_app) + " "
-                        + textPrioritizeApp;
+        String textDisabledApp =
+                context.getString(R.string.resource_overuse_notification_text_disabled_app);
         String actionTitlePrioritizeApp =
                 context.getString(R.string.resource_overuse_notification_button_prioritize_app);
-        String actionTitleDisableApp =
-                context.getString(R.string.resource_overuse_notification_button_disable_app);
-        String actionTitleUninstallApp =
-                context.getString(R.string.resource_overuse_notification_button_uninstall_app);
+        String actionTitleCloseNotification =
+                context.getString(R.string.resource_overuse_notification_button_close_app);
 
         for (int i = 0; i < packagesByImportance.size(); i++) {
             int importance = packagesByImportance.keyAt(i);
@@ -250,46 +235,32 @@ public final class NotificationHelper extends NotificationHelperBase {
             for (int pkgIdx = 0; pkgIdx < packagesById.size(); pkgIdx++) {
                 int notificationId = packagesById.keyAt(pkgIdx);
                 String packageName = packagesById.valueAt(pkgIdx);
-                String text = textUninstallApp;
-                String negativeActionText = actionTitleUninstallApp;
 
                 CharSequence appName;
-                PendingIntent positiveActionPendingIntent;
-                PendingIntent negativeActionPendingIntent;
                 try {
                     ApplicationInfo info = packageManager.getApplicationInfoAsUser(packageName,
                             /* flags= */ 0, user);
                     appName = info.loadLabel(packageManager);
-                    negativeActionPendingIntent = positiveActionPendingIntent =
-                            getPendingIntent(context, CAR_WATCHDOG_ACTION_LAUNCH_APP_SETTINGS, user,
-                                    packageName, notificationId);
-                    // Apps with SYSTEM flag are considered bundled apps by car settings and
-                    // bundled apps have disable button rather than uninstall button.
-                    if ((info.flags & ApplicationInfo.FLAG_SYSTEM) != 0) {
-                        text = textDisableApp;
-                        negativeActionText = actionTitleDisableApp;
-                        negativeActionPendingIntent = getPendingIntent(context,
-                                CAR_WATCHDOG_ACTION_RESOURCE_OVERUSE_DISABLE_APP, user, packageName,
-                                notificationId);
-                    }
                 } catch (PackageManager.NameNotFoundException e) {
                     Slogf.e(TAG, e, "Package '%s' not found for user %s", packageName, user);
                     continue;
                 }
-                PendingIntent deletePendingIntent = getPendingIntent(context,
+                PendingIntent closeActionPendingIntent = getPendingIntent(context,
                         CAR_WATCHDOG_ACTION_DISMISS_RESOURCE_OVERUSE_NOTIFICATION, user,
                         packageName, notificationId);
+                PendingIntent prioritizeActionPendingIntent = getPendingIntent(context,
+                        CAR_WATCHDOG_ACTION_LAUNCH_APP_SETTINGS, user, packageName, notificationId);
                 Notification notification = NotificationHelper
                         .newNotificationBuilder(context, importance)
                         .setSmallIcon(R.drawable.car_ic_warning)
                         .setContentTitle(TextUtils.expandTemplate(titleTemplate, appName))
-                        .setContentText(text)
+                        .setContentText(textDisabledApp)
                         .setCategory(Notification.CATEGORY_CAR_WARNING)
                         .addAction(new Notification.Action.Builder(/* icon= */ null,
-                                actionTitlePrioritizeApp, positiveActionPendingIntent).build())
+                                actionTitleCloseNotification, closeActionPendingIntent).build())
                         .addAction(new Notification.Action.Builder(/* icon= */ null,
-                                negativeActionText, negativeActionPendingIntent).build())
-                        .setDeleteIntent(deletePendingIntent)
+                                actionTitlePrioritizeApp, prioritizeActionPendingIntent).build())
+                        .setDeleteIntent(closeActionPendingIntent)
                         .build();
 
                 notificationManager.notifyAsUser(TAG, notificationId, notification, user);
@@ -300,8 +271,8 @@ public final class NotificationHelper extends NotificationHelperBase {
                                     + "user %s.\nNotification { App name: %s, Importance: %d, "
                                     + "Description: %s, Positive button text: %s, Negative button "
                                     + "text: %s }",
-                            notificationId, user, appName, importance, text,
-                            actionTitlePrioritizeApp, negativeActionText);
+                            notificationId, user, appName, importance, textDisabledApp,
+                            actionTitleCloseNotification, actionTitlePrioritizeApp);
                 }
             }
         }

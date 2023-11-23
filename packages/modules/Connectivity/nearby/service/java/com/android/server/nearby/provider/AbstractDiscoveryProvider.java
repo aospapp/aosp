@@ -20,6 +20,7 @@ import static com.android.server.nearby.NearbyService.TAG;
 
 import android.content.Context;
 import android.nearby.NearbyDeviceParcelable;
+import android.nearby.ScanCallback;
 import android.nearby.ScanFilter;
 import android.nearby.ScanRequest;
 import android.util.Log;
@@ -40,15 +41,6 @@ public abstract class AbstractDiscoveryProvider {
     protected final DiscoveryProviderController mController;
     protected final Executor mExecutor;
     protected Listener mListener;
-    protected List<ScanFilter> mScanFilters;
-
-    /** Interface for listening to discovery providers. */
-    public interface Listener {
-        /**
-         * Called when a provider has a new nearby device available. May be invoked from any thread.
-         */
-        void onNearbyDeviceDiscovered(NearbyDeviceParcelable nearbyDevice);
-    }
 
     protected AbstractDiscoveryProvider(Context context, Executor executor) {
         mContext = context;
@@ -77,12 +69,31 @@ public abstract class AbstractDiscoveryProvider {
     protected void invalidateScanMode() {}
 
     /**
+     * Callback invoked to inform the provider of new provider scan filters which replaces any prior
+     * provider filters. Always invoked on the provider executor.
+     */
+    protected void onSetScanFilters(List<ScanFilter> filters) {}
+
+    /**
      * Retrieves the controller for this discovery provider. Should never be invoked by subclasses,
      * as a discovery provider should not be controlling itself. Using this method from subclasses
      * could also result in deadlock.
      */
-    protected DiscoveryProviderController getController() {
+    public DiscoveryProviderController getController() {
         return mController;
+    }
+
+    /** Interface for listening to discovery providers. */
+    public interface Listener {
+        /**
+         * Called when a provider has a new nearby device available. May be invoked from any thread.
+         */
+        void onNearbyDeviceDiscovered(NearbyDeviceParcelable nearbyDevice);
+
+        /**
+         * Called when a provider found error from the scan.
+         */
+        void onError(@ScanCallback.ErrorCode int errorCode);
     }
 
     private class Controller implements DiscoveryProviderController {
@@ -120,6 +131,12 @@ public abstract class AbstractDiscoveryProvider {
             mExecutor.execute(AbstractDiscoveryProvider.this::onStop);
         }
 
+        @ScanRequest.ScanMode
+        @Override
+        public int getProviderScanMode() {
+            return mScanMode;
+        }
+
         @Override
         public void setProviderScanMode(@ScanRequest.ScanMode int scanMode) {
             if (mScanMode == scanMode) {
@@ -130,15 +147,9 @@ public abstract class AbstractDiscoveryProvider {
             mExecutor.execute(AbstractDiscoveryProvider.this::invalidateScanMode);
         }
 
-        @ScanRequest.ScanMode
-        @Override
-        public int getProviderScanMode() {
-            return mScanMode;
-        }
-
         @Override
         public void setProviderScanFilters(List<ScanFilter> filters) {
-            mScanFilters = filters;
+            mExecutor.execute(() -> onSetScanFilters(filters));
         }
     }
 }

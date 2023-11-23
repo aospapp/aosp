@@ -26,6 +26,7 @@ import android.os.Parcelable;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 
@@ -132,6 +133,54 @@ public final class PresenceDevice extends NearbyDevice implements Parcelable {
     @NonNull
     public List<DataElement> getExtendedProperties() {
         return mExtendedProperties;
+    }
+
+    /**
+     * This can only be hidden because this is the System API,
+     * which cannot be changed in T timeline.
+     *
+     * @hide
+     */
+    @Override
+    public boolean equals(Object other) {
+        if (other instanceof PresenceDevice) {
+            PresenceDevice otherDevice = (PresenceDevice) other;
+            if (super.equals(otherDevice)) {
+                return Arrays.equals(mSalt, otherDevice.mSalt)
+                        && Arrays.equals(mSecretId, otherDevice.mSecretId)
+                        && Arrays.equals(mEncryptedIdentity, otherDevice.mEncryptedIdentity)
+                        && Objects.equals(mDeviceId, otherDevice.mDeviceId)
+                        && mDeviceType == otherDevice.mDeviceType
+                        && Objects.equals(mDeviceImageUrl, otherDevice.mDeviceImageUrl)
+                        && mDiscoveryTimestampMillis == otherDevice.mDiscoveryTimestampMillis
+                        && Objects.equals(mExtendedProperties, otherDevice.mExtendedProperties);
+            }
+        }
+        return false;
+    }
+
+    /**
+     * This can only be hidden because this is the System API,
+     * which cannot be changed in T timeline.
+     *
+     * @hide
+     *
+     * @return The unique hash value of the {@link PresenceDevice}
+     */
+    @Override
+    public int hashCode() {
+        return Objects.hash(
+                getName(),
+                getMediums(),
+                getRssi(),
+                Arrays.hashCode(mSalt),
+                Arrays.hashCode(mSecretId),
+                Arrays.hashCode(mEncryptedIdentity),
+                mDeviceId,
+                mDeviceType,
+                mDeviceImageUrl,
+                mDiscoveryTimestampMillis,
+                mExtendedProperties);
     }
 
     private PresenceDevice(String deviceName, List<Integer> mMediums, int rssi, String deviceId,
@@ -326,7 +375,6 @@ public final class PresenceDevice extends NearbyDevice implements Parcelable {
             return this;
         }
 
-
         /**
          * Sets the image url of the discovered Presence device.
          *
@@ -338,7 +386,6 @@ public final class PresenceDevice extends NearbyDevice implements Parcelable {
             return this;
         }
 
-
         /**
          * Sets discovery timestamp, the clock is based on elapsed time.
          *
@@ -349,7 +396,6 @@ public final class PresenceDevice extends NearbyDevice implements Parcelable {
             mDiscoveryTimestampMillis = discoveryTimestampMillis;
             return this;
         }
-
 
         /**
          * Adds an extended property of the discovered presence device.

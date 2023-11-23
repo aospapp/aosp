@@ -17,6 +17,9 @@
 package android.safetycenter.config;
 
 import static android.os.Build.VERSION_CODES.TIRAMISU;
+import static android.os.Build.VERSION_CODES.UPSIDE_DOWN_CAKE;
+
+import static java.util.Objects.requireNonNull;
 
 import android.annotation.IntDef;
 import android.annotation.NonNull;
@@ -26,12 +29,17 @@ import android.annotation.SystemApi;
 import android.content.res.Resources;
 import android.os.Parcel;
 import android.os.Parcelable;
+import android.util.ArraySet;
 
 import androidx.annotation.RequiresApi;
 
+import com.android.modules.utils.build.SdkLevel;
+
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
+import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 
 /**
  * Data class used to represent the initial configuration of a safety source.
@@ -152,20 +160,29 @@ public final class SafetySource implements Parcelable {
                 @Override
                 public SafetySource createFromParcel(Parcel in) {
                     int type = in.readInt();
-                    return new Builder(type)
-                            .setId(in.readString())
-                            .setPackageName(in.readString())
-                            .setTitleResId(in.readInt())
-                            .setTitleForWorkResId(in.readInt())
-                            .setSummaryResId(in.readInt())
-                            .setIntentAction(in.readString())
-                            .setProfile(in.readInt())
-                            .setInitialDisplayState(in.readInt())
-                            .setMaxSeverityLevel(in.readInt())
-                            .setSearchTermsResId(in.readInt())
-                            .setLoggingAllowed(in.readBoolean())
-                            .setRefreshOnPageOpenAllowed(in.readBoolean())
-                            .build();
+                    Builder builder =
+                            new Builder(type)
+                                    .setId(in.readString())
+                                    .setPackageName(in.readString())
+                                    .setTitleResId(in.readInt())
+                                    .setTitleForWorkResId(in.readInt())
+                                    .setSummaryResId(in.readInt())
+                                    .setIntentAction(in.readString())
+                                    .setProfile(in.readInt())
+                                    .setInitialDisplayState(in.readInt())
+                                    .setMaxSeverityLevel(in.readInt())
+                                    .setSearchTermsResId(in.readInt())
+                                    .setLoggingAllowed(in.readBoolean())
+                                    .setRefreshOnPageOpenAllowed(in.readBoolean());
+                    if (SdkLevel.isAtLeastU()) {
+                        builder.setNotificationsAllowed(in.readBoolean());
+                        builder.setDeduplicationGroup(in.readString());
+                        List<String> certs = in.createStringArrayList();
+                        for (int i = 0; i < certs.size(); i++) {
+                            builder.addPackageCertificateHash(certs.get(i));
+                        }
+                    }
+                    return builder.build();
                 }
 
                 @Override
@@ -187,6 +204,9 @@ public final class SafetySource implements Parcelable {
     @StringRes private final int mSearchTermsResId;
     private final boolean mLoggingAllowed;
     private final boolean mRefreshOnPageOpenAllowed;
+    private final boolean mNotificationsAllowed;
+    @Nullable final String mDeduplicationGroup;
+    @NonNull private final Set<String> mPackageCertificateHashes;
 
     private SafetySource(
             @SafetySourceType int type,
@@ -201,7 +221,10 @@ public final class SafetySource implements Parcelable {
             int maxSeverityLevel,
             @StringRes int searchTermsResId,
             boolean loggingAllowed,
-            boolean refreshOnPageOpenAllowed) {
+            boolean refreshOnPageOpenAllowed,
+            boolean notificationsAllowed,
+            @Nullable String deduplicationGroup,
+            @NonNull Set<String> packageCertificateHashes) {
         mType = type;
         mId = id;
         mPackageName = packageName;
@@ -215,6 +238,9 @@ public final class SafetySource implements Parcelable {
         mSearchTermsResId = searchTermsResId;
         mLoggingAllowed = loggingAllowed;
         mRefreshOnPageOpenAllowed = refreshOnPageOpenAllowed;
+        mNotificationsAllowed = notificationsAllowed;
+        mDeduplicationGroup = deduplicationGroup;
+        mPackageCertificateHashes = Set.copyOf(packageCertificateHashes);
     }
 
     /** Returns the type of this safety source. */
@@ -236,10 +262,14 @@ public final class SafetySource implements Parcelable {
     /**
      * Returns the package name of this safety source.
      *
-     * <p>This is the package that owns the source. The package will receive refresh requests and it
-     * can send set requests for the source.
+     * <p>This is the package that owns the source. The package will receive refresh requests, and
+     * it can send set requests for the source. The package is also used to create an explicit
+     * pending intent from the intent action in the package context.
      *
-     * <p>Throws an {@link UnsupportedOperationException} if the source is of type static.
+     * @throws UnsupportedOperationException if the source is of type {@link
+     *     SafetySource#SAFETY_SOURCE_TYPE_STATIC} even if the optional package name field for the
+     *     source is set, for sources of type {@link SafetySource#SAFETY_SOURCE_TYPE_STATIC} use
+     *     {@link SafetySource#getOptionalPackageName()}
      */
     @NonNull
     public String getPackageName() {
@@ -251,13 +281,36 @@ public final class SafetySource implements Parcelable {
     }
 
     /**
+     * Returns the package name of this safety source or null if undefined.
+     *
+     * <p>This is the package that owns the source.
+     *
+     * <p>The package is always defined for sources of type dynamic and issue-only. The package will
+     * receive refresh requests, and it can send set requests for sources of type dynamic and
+     * issue-only. The package is also used to create an explicit pending intent in the package
+     * context from the intent action if defined.
+     *
+     * <p>The package is optional for sources of type static. If present, the package is used to
+     * create an explicit pending intent in the package context from the intent action.
+     */
+    @Nullable
+    @RequiresApi(UPSIDE_DOWN_CAKE)
+    public String getOptionalPackageName() {
+        if (!SdkLevel.isAtLeastU()) {
+            throw new UnsupportedOperationException();
+        }
+        return mPackageName;
+    }
+
+    /**
      * Returns the resource id of the title of this safety source.
      *
      * <p>The id refers to a string resource that is either accessible from any resource context or
      * that is accessible from the same resource context that was used to load the Safety Center
      * configuration. The id is {@link Resources#ID_NULL} when a title is not provided.
      *
-     * <p>Throws an {@link UnsupportedOperationException} if the source is of type issue-only.
+     * @throws UnsupportedOperationException if the source is of type {@link
+     *     SafetySource#SAFETY_SOURCE_TYPE_ISSUE_ONLY}
      */
     @StringRes
     public int getTitleResId() {
@@ -275,8 +328,9 @@ public final class SafetySource implements Parcelable {
      * that is accessible from the same resource context that was used to load the Safety Center
      * configuration. The id is {@link Resources#ID_NULL} when a title for work is not provided.
      *
-     * <p>Throws an {@link UnsupportedOperationException} if the source is of type issue-only or if
-     * the profile property of the source is set to {@link SafetySource#PROFILE_PRIMARY}.
+     * @throws UnsupportedOperationException if the source is of type {@link
+     *     SafetySource#SAFETY_SOURCE_TYPE_ISSUE_ONLY} or if the profile property of the source is
+     *     set to {@link SafetySource#PROFILE_PRIMARY}
      */
     @StringRes
     public int getTitleForWorkResId() {
@@ -298,7 +352,8 @@ public final class SafetySource implements Parcelable {
      * that is accessible from the same resource context that was used to load the Safety Center
      * configuration. The id is {@link Resources#ID_NULL} when a summary is not provided.
      *
-     * <p>Throws an {@link UnsupportedOperationException} if the source is of type issue-only.
+     * @throws UnsupportedOperationException if the source is of type {@link
+     *     SafetySource#SAFETY_SOURCE_TYPE_ISSUE_ONLY}
      */
     @StringRes
     public int getSummaryResId() {
@@ -316,7 +371,8 @@ public final class SafetySource implements Parcelable {
      * source is displayed as an entry in the Safety Center page, and if the action is set to {@code
      * null} or if it does not resolve to an activity the source will be marked as disabled.
      *
-     * <p>Throws an {@link UnsupportedOperationException} if the source is of type issue-only.
+     * @throws UnsupportedOperationException if the source is of type {@link
+     *     SafetySource#SAFETY_SOURCE_TYPE_ISSUE_ONLY}
      */
     @Nullable
     public String getIntentAction() {
@@ -336,8 +392,9 @@ public final class SafetySource implements Parcelable {
     /**
      * Returns the initial display state of this safety source.
      *
-     * <p>Throws an {@link UnsupportedOperationException} if the source is of type static or
-     * issue-only.
+     * @throws UnsupportedOperationException if the source is of type {@link
+     *     SafetySource#SAFETY_SOURCE_TYPE_STATIC} or {@link
+     *     SafetySource#SAFETY_SOURCE_TYPE_ISSUE_ONLY}
      */
     @InitialDisplayState
     public int getInitialDisplayState() {
@@ -361,7 +418,8 @@ public final class SafetySource implements Parcelable {
      * android.safetycenter.SafetySourceData#SEVERITY_LEVEL_INFORMATION} even if the maximum
      * severity level is set to a lower value.
      *
-     * <p>Throws an {@link UnsupportedOperationException} if the source is of type static.
+     * @throws UnsupportedOperationException if the source is of type {@link
+     *     SafetySource#SAFETY_SOURCE_TYPE_STATIC}
      */
     public int getMaxSeverityLevel() {
         if (mType == SAFETY_SOURCE_TYPE_STATIC) {
@@ -378,7 +436,8 @@ public final class SafetySource implements Parcelable {
      * that is accessible from the same resource context that was used to load the Safety Center
      * configuration. The id is {@link Resources#ID_NULL} when search terms are not provided.
      *
-     * <p>Throws an {@link UnsupportedOperationException} if the source is of type issue-only.
+     * @throws UnsupportedOperationException if the source is of type {@link
+     *     SafetySource#SAFETY_SOURCE_TYPE_ISSUE_ONLY}
      */
     @StringRes
     public int getSearchTermsResId() {
@@ -392,7 +451,8 @@ public final class SafetySource implements Parcelable {
     /**
      * Returns the logging allowed property of this safety source.
      *
-     * <p>Throws an {@link UnsupportedOperationException} if the source is of type static.
+     * @throws UnsupportedOperationException if the source is of type {@link
+     *     SafetySource#SAFETY_SOURCE_TYPE_STATIC}
      */
     public boolean isLoggingAllowed() {
         if (mType == SAFETY_SOURCE_TYPE_STATIC) {
@@ -408,7 +468,8 @@ public final class SafetySource implements Parcelable {
      * <p>If set to {@code true}, a refresh request will be sent to the source when the Safety
      * Center page is opened.
      *
-     * <p>Throws an {@link UnsupportedOperationException} if the source is of type static.
+     * @throws UnsupportedOperationException if the source is of type {@link
+     *     SafetySource#SAFETY_SOURCE_TYPE_STATIC}
      */
     public boolean isRefreshOnPageOpenAllowed() {
         if (mType == SAFETY_SOURCE_TYPE_STATIC) {
@@ -416,6 +477,57 @@ public final class SafetySource implements Parcelable {
                     "isRefreshOnPageOpenAllowed unsupported for static safety source");
         }
         return mRefreshOnPageOpenAllowed;
+    }
+
+    /**
+     * Returns whether Safety Center may post Notifications about issues reported by this {@link
+     * SafetySource}.
+     *
+     * @see Builder#setNotificationsAllowed(boolean)
+     */
+    @RequiresApi(UPSIDE_DOWN_CAKE)
+    public boolean areNotificationsAllowed() {
+        if (!SdkLevel.isAtLeastU()) {
+            throw new UnsupportedOperationException();
+        }
+        return mNotificationsAllowed;
+    }
+
+    /**
+     * Returns the deduplication group this source belongs to.
+     *
+     * <p>Sources which are part of the same deduplication group can coordinate to deduplicate their
+     * issues.
+     */
+    @Nullable
+    @RequiresApi(UPSIDE_DOWN_CAKE)
+    public String getDeduplicationGroup() {
+        if (!SdkLevel.isAtLeastU()) {
+            throw new UnsupportedOperationException();
+        }
+        return mDeduplicationGroup;
+    }
+
+    /**
+     * Returns a set of package certificate hashes representing valid signed packages that represent
+     * this {@link SafetySource}.
+     *
+     * <p>If one or more certificate hashes are set, Safety Center will validate that a package
+     * calling {@link android.safetycenter.SafetyCenterManager#setSafetySourceData} is signed with
+     * one of the certificates provided.
+     *
+     * <p>The default value is an empty {@code Set}, in which case only the package name is
+     * validated.
+     *
+     * @see Builder#addPackageCertificateHash(String)
+     */
+    @NonNull
+    @RequiresApi(UPSIDE_DOWN_CAKE)
+    public Set<String> getPackageCertificateHashes() {
+        if (!SdkLevel.isAtLeastU()) {
+            throw new UnsupportedOperationException();
+        }
+        return mPackageCertificateHashes;
     }
 
     @Override
@@ -435,7 +547,10 @@ public final class SafetySource implements Parcelable {
                 && mMaxSeverityLevel == that.mMaxSeverityLevel
                 && mSearchTermsResId == that.mSearchTermsResId
                 && mLoggingAllowed == that.mLoggingAllowed
-                && mRefreshOnPageOpenAllowed == that.mRefreshOnPageOpenAllowed;
+                && mRefreshOnPageOpenAllowed == that.mRefreshOnPageOpenAllowed
+                && mNotificationsAllowed == that.mNotificationsAllowed
+                && Objects.equals(mDeduplicationGroup, that.mDeduplicationGroup)
+                && Objects.equals(mPackageCertificateHashes, that.mPackageCertificateHashes);
     }
 
     @Override
@@ -453,7 +568,10 @@ public final class SafetySource implements Parcelable {
                 mMaxSeverityLevel,
                 mSearchTermsResId,
                 mLoggingAllowed,
-                mRefreshOnPageOpenAllowed);
+                mRefreshOnPageOpenAllowed,
+                mNotificationsAllowed,
+                mDeduplicationGroup,
+                mPackageCertificateHashes);
     }
 
     @Override
@@ -461,21 +579,18 @@ public final class SafetySource implements Parcelable {
         return "SafetySource{"
                 + "mType="
                 + mType
-                + ", mId='"
+                + ", mId="
                 + mId
-                + '\''
-                + ", mPackageName='"
+                + ", mPackageName="
                 + mPackageName
-                + '\''
                 + ", mTitleResId="
                 + mTitleResId
                 + ", mTitleForWorkResId="
                 + mTitleForWorkResId
                 + ", mSummaryResId="
                 + mSummaryResId
-                + ", mIntentAction='"
+                + ", mIntentAction="
                 + mIntentAction
-                + '\''
                 + ", mProfile="
                 + mProfile
                 + ", mInitialDisplayState="
@@ -488,6 +603,12 @@ public final class SafetySource implements Parcelable {
                 + mLoggingAllowed
                 + ", mRefreshOnPageOpenAllowed="
                 + mRefreshOnPageOpenAllowed
+                + ", mNotificationsAllowed="
+                + mNotificationsAllowed
+                + ", mDeduplicationGroup="
+                + mDeduplicationGroup
+                + ", mPackageCertificateHashes="
+                + mPackageCertificateHashes
                 + '}';
     }
 
@@ -511,6 +632,11 @@ public final class SafetySource implements Parcelable {
         dest.writeInt(mSearchTermsResId);
         dest.writeBoolean(mLoggingAllowed);
         dest.writeBoolean(mRefreshOnPageOpenAllowed);
+        if (SdkLevel.isAtLeastU()) {
+            dest.writeBoolean(mNotificationsAllowed);
+            dest.writeString(mDeduplicationGroup);
+            dest.writeStringList(List.copyOf(mPackageCertificateHashes));
+        }
     }
 
     /** Builder class for {@link SafetySource}. */
@@ -529,10 +655,38 @@ public final class SafetySource implements Parcelable {
         @Nullable @StringRes private Integer mSearchTermsResId;
         @Nullable private Boolean mLoggingAllowed;
         @Nullable private Boolean mRefreshOnPageOpenAllowed;
+        @Nullable private Boolean mNotificationsAllowed;
+        @Nullable private String mDeduplicationGroup;
+        @NonNull private final ArraySet<String> mPackageCertificateHashes = new ArraySet<>();
 
         /** Creates a {@link Builder} for a {@link SafetySource}. */
         public Builder(@SafetySourceType int type) {
             mType = type;
+        }
+
+        /** Creates a {@link Builder} with the values from the given {@link SafetySource}. */
+        @RequiresApi(UPSIDE_DOWN_CAKE)
+        public Builder(@NonNull SafetySource safetySource) {
+            if (!SdkLevel.isAtLeastU()) {
+                throw new UnsupportedOperationException();
+            }
+            requireNonNull(safetySource);
+            mType = safetySource.mType;
+            mId = safetySource.mId;
+            mPackageName = safetySource.mPackageName;
+            mTitleResId = safetySource.mTitleResId;
+            mTitleForWorkResId = safetySource.mTitleForWorkResId;
+            mSummaryResId = safetySource.mSummaryResId;
+            mIntentAction = safetySource.mIntentAction;
+            mProfile = safetySource.mProfile;
+            mInitialDisplayState = safetySource.mInitialDisplayState;
+            mMaxSeverityLevel = safetySource.mMaxSeverityLevel;
+            mSearchTermsResId = safetySource.mSearchTermsResId;
+            mLoggingAllowed = safetySource.mLoggingAllowed;
+            mRefreshOnPageOpenAllowed = safetySource.mRefreshOnPageOpenAllowed;
+            mNotificationsAllowed = safetySource.mNotificationsAllowed;
+            mDeduplicationGroup = safetySource.mDeduplicationGroup;
+            mPackageCertificateHashes.addAll(safetySource.mPackageCertificateHashes);
         }
 
         /**
@@ -717,6 +871,61 @@ public final class SafetySource implements Parcelable {
         }
 
         /**
+         * Sets the {@link #areNotificationsAllowed()} property of this {@link SafetySource}.
+         *
+         * <p>If set to {@code true} Safety Center may post Notifications about issues reported by
+         * this source.
+         *
+         * <p>The default value is {@code false}.
+         *
+         * @see #areNotificationsAllowed()
+         */
+        @NonNull
+        @RequiresApi(UPSIDE_DOWN_CAKE)
+        public Builder setNotificationsAllowed(boolean notificationsAllowed) {
+            if (!SdkLevel.isAtLeastU()) {
+                throw new UnsupportedOperationException();
+            }
+            mNotificationsAllowed = notificationsAllowed;
+            return this;
+        }
+
+        /**
+         * Sets the deduplication group for this source.
+         *
+         * <p>Sources which are part of the same deduplication group can coordinate to deduplicate
+         * issues that they're sending to SafetyCenter by providing the same deduplication
+         * identifier with those issues.
+         *
+         * <p>The deduplication group property is prohibited for sources of type static.
+         */
+        @NonNull
+        @RequiresApi(UPSIDE_DOWN_CAKE)
+        public Builder setDeduplicationGroup(@Nullable String deduplicationGroup) {
+            if (!SdkLevel.isAtLeastU()) {
+                throw new UnsupportedOperationException();
+            }
+            mDeduplicationGroup = deduplicationGroup;
+            return this;
+        }
+
+        /**
+         * Adds a package certificate hash to the {@link #getPackageCertificateHashes()} property of
+         * this {@link SafetySource}.
+         *
+         * @see #getPackageCertificateHashes()
+         */
+        @NonNull
+        @RequiresApi(UPSIDE_DOWN_CAKE)
+        public Builder addPackageCertificateHash(@NonNull String packageCertificateHash) {
+            if (!SdkLevel.isAtLeastU()) {
+                throw new UnsupportedOperationException();
+            }
+            mPackageCertificateHashes.add(packageCertificateHash);
+            return this;
+        }
+
+        /**
          * Creates the {@link SafetySource} defined by this {@link Builder}.
          *
          * <p>Throws an {@link IllegalStateException} if any constraint on the safety source is
@@ -724,19 +933,25 @@ public final class SafetySource implements Parcelable {
          */
         @NonNull
         public SafetySource build() {
-            if (mType != SAFETY_SOURCE_TYPE_STATIC
-                    && mType != SAFETY_SOURCE_TYPE_DYNAMIC
-                    && mType != SAFETY_SOURCE_TYPE_ISSUE_ONLY) {
+            int type = mType;
+            if (type != SAFETY_SOURCE_TYPE_STATIC
+                    && type != SAFETY_SOURCE_TYPE_DYNAMIC
+                    && type != SAFETY_SOURCE_TYPE_ISSUE_ONLY) {
                 throw new IllegalStateException("Unexpected type");
             }
-            boolean isStatic = mType == SAFETY_SOURCE_TYPE_STATIC;
-            boolean isDynamic = mType == SAFETY_SOURCE_TYPE_DYNAMIC;
-            boolean isIssueOnly = mType == SAFETY_SOURCE_TYPE_ISSUE_ONLY;
+            boolean isStatic = type == SAFETY_SOURCE_TYPE_STATIC;
+            boolean isDynamic = type == SAFETY_SOURCE_TYPE_DYNAMIC;
+            boolean isIssueOnly = type == SAFETY_SOURCE_TYPE_ISSUE_ONLY;
 
-            BuilderUtils.validateAttribute(mId, "id", true, false);
+            String id = mId;
+            BuilderUtils.validateId(id, "id", true, false);
 
+            String packageName = mPackageName;
             BuilderUtils.validateAttribute(
-                    mPackageName, "packageName", isDynamic || isIssueOnly, isStatic);
+                    packageName,
+                    "packageName",
+                    isDynamic || isIssueOnly,
+                    isStatic && !SdkLevel.isAtLeastU());
 
             int initialDisplayState =
                     BuilderUtils.validateIntDef(
@@ -784,8 +999,9 @@ public final class SafetySource implements Parcelable {
                     BuilderUtils.validateResId(
                             mSummaryResId, "summary", isDynamicNotHidden, isIssueOnly);
 
+            String intentAction = mIntentAction;
             BuilderUtils.validateAttribute(
-                    mIntentAction,
+                    intentAction,
                     "intentAction",
                     (isDynamic && isEnabled) || isStatic,
                     isIssueOnly);
@@ -810,20 +1026,41 @@ public final class SafetySource implements Parcelable {
                             isStatic,
                             false);
 
+            String deduplicationGroup = mDeduplicationGroup;
+            boolean notificationsAllowed = false;
+            Set<String> packageCertificateHashes = Set.copyOf(mPackageCertificateHashes);
+            if (SdkLevel.isAtLeastU()) {
+                notificationsAllowed =
+                        BuilderUtils.validateBoolean(
+                                mNotificationsAllowed,
+                                "notificationsAllowed",
+                                false,
+                                isStatic,
+                                false);
+
+                BuilderUtils.validateAttribute(
+                        deduplicationGroup, "deduplicationGroup", false, isStatic);
+                BuilderUtils.validateCollection(
+                        packageCertificateHashes, "packageCertificateHashes", false, isStatic);
+            }
+
             return new SafetySource(
-                    mType,
-                    mId,
-                    mPackageName,
+                    type,
+                    id,
+                    packageName,
                     titleResId,
                     titleForWorkResId,
                     summaryResId,
-                    mIntentAction,
+                    intentAction,
                     profile,
                     initialDisplayState,
                     maxSeverityLevel,
                     searchTermsResId,
                     loggingAllowed,
-                    refreshOnPageOpenAllowed);
+                    refreshOnPageOpenAllowed,
+                    notificationsAllowed,
+                    deduplicationGroup,
+                    packageCertificateHashes);
         }
     }
 }

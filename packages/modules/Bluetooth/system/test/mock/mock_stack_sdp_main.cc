@@ -19,12 +19,10 @@
  *   Functions generated:5
  */
 
+#include <string.h>
+
 #include <map>
 #include <string>
-
-extern std::map<std::string, int> mock_function_count_map;
-
-#include <string.h>
 
 #include "bt_target.h"
 #include "l2c_api.h"
@@ -33,6 +31,7 @@ extern std::map<std::string, int> mock_function_count_map;
 #include "sdp_api.h"
 #include "stack/btm/btm_sec.h"
 #include "stack/sdp/sdpint.h"
+#include "test/common/mock_functions.h"
 #include "types/raw_address.h"
 
 #ifndef UNUSED_ATTR
@@ -40,12 +39,12 @@ extern std::map<std::string, int> mock_function_count_map;
 #endif
 
 tCONN_CB* sdp_conn_originate(const RawAddress& p_bd_addr) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return nullptr;
 }
-void sdp_conn_timer_timeout(void* data) { mock_function_count_map[__func__]++; }
+void sdp_conn_timer_timeout(void* data) { inc_func_call_count(__func__); }
 void sdp_disconnect(tCONN_CB* p_ccb, uint16_t reason) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
 }
-void sdp_free(void) { mock_function_count_map[__func__]++; }
-void sdp_init(void) { mock_function_count_map[__func__]++; }
+void sdp_free(void) { inc_func_call_count(__func__); }
+void sdp_init(void) { inc_func_call_count(__func__); }

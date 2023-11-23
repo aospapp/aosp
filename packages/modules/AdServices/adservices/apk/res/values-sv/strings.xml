@@ -1,0 +1,680 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--  Copyright (C) 2022 The Android Open Source Project
+
+     Licensed under the Apache License, Version 2.0 (the "License");
+     you may not use this file except in compliance with the License.
+     You may obtain a copy of the License at
+
+          http://www.apache.org/licenses/LICENSE-2.0
+
+     Unless required by applicable law or agreed to in writing, software
+     distributed under the License is distributed on an "AS IS" BASIS,
+     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+     See the License for the specific language governing permissions and
+     limitations under the License.
+ -->
+
+<!--  IMPORTANT! If adding new strings, then run generate_adservices_public_xml.py  -->
+
+<resources xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+    <string name="permlab_accessAdServicesTopics" msgid="1108993892369517728">"få åtkomst till AdServices Topics API"</string>
+    <string name="permdesc_accessAdServicesTopics" msgid="4220466427260104683">"Tillåter att en app får åtkomst till AdServices Topics API."</string>
+    <string name="permlab_accessAdServicesAttribution" msgid="4498132091418336093">"få åtkomst till AdServices Attribution API:er"</string>
+    <string name="permdesc_accessAdServicesAttribution" msgid="1644434244130657749">"Tillåter att en app får åtkomst till AdServices Attribution API:er."</string>
+    <string name="permlab_accessAdServicesCustomAudience" msgid="2766614780488510189">"få åtkomst till AdServices Custom Audience API"</string>
+    <string name="permdesc_accessAdServicesCustomAudience" msgid="2034811807106784662">"Tillåter att en app får åtkomst till AdServices Custom Audience API."</string>
+    <string name="permlab_accessAdServicesAdId" msgid="2754825914769538156">"Få åtkomst till Ad ID API"</string>
+    <string name="permdesc_accessAdServicesAdId" msgid="7717770480967762044">"Tillåter att en app får åtkomst till Ad ID API."</string>
+    <string name="permlab_accessAdServicesConsent" msgid="3203633397142568707">"få åtkomst till AdServices Consent API"</string>
+    <string name="permdesc_accessAdServicesConsent" msgid="8440334072391708453">"Tillåter att en app får åtkomst till AdServices Consent API."</string>
+    <string name="permlab_adServicesAccessAdId" msgid="1425385999072194463">"Få åtkomst till Ad ID API"</string>
+    <string name="permdesc_adServicesAccessAdId" msgid="5082994464565978279">"Tillåter att en app får åtkomst till Ad ID API."</string>
+    <string name="permlab_adServicesAccessAppSetId" msgid="1300149048751231124">"Få åtkomst till App Set ID API"</string>
+    <string name="permdesc_adServicesAccessAppSetId" msgid="7919418391145455372">"Tillåter att en app får åtkomst till App Set ID API."</string>
+    <string name="permlab_adServicesAccessConsentService" msgid="5994709782267864205">"Få åtkomst till Consent Service API"</string>
+    <string name="permdesc_adServicesAccessConsentService" msgid="4587727715580124241">"Tillåter att en app får åtkomst till Consent Service API."</string>
+    <string name="permlab_modifyAdServicesState" msgid="3594653261299518914">"Åtkomst till AdServices API för ändring av aktiveringsstatus"</string>
+    <string name="permdesc_modifyAdServicesState" msgid="2485849128464307209">"Tillåter att en app får åtkomst till AdServices API för ändring av aktiveringsstatus."</string>
+    <string name="permlab_accessAdServicesState" msgid="482058883975394398">"Åtkomst till AdServices API för aktiveringsstatus"</string>
+    <string name="permdesc_accessAdServicesState" msgid="1165015604618567202">"Tillåter att en app får åtkomst till AdServices API för aktiveringsstatus."</string>
+    <string name="permlab_accessAdServicesManager" msgid="4816332609066703740">"Åtkomst till AdServicesManagers API:er"</string>
+    <string name="permdesc_accessAdServicesManager" msgid="2619300431637689524">"Tillåter att en app får åtkomst till AdServicesManagers API:er."</string>
+    <string name="app_label" msgid="5985320129629013968">"Android-system"</string>
+    <string name="notificationUI_notification_title_eu" msgid="6328781145332100489">"Gå med i Androids betaprogram för annonsintegritet"</string>
+    <string name="notificationUI_notification_content_eu" msgid="4119222762583017840">"Android utforskar mer privata sätt för appar att visa annonser."</string>
+    <string name="notificationUI_notification_cta_eu" msgid="1294908454704864207">"Läs mer"</string>
+    <string name="notificationUI_header_title_eu" msgid="4955298263079910371">"Androids betaprogram för annonsintegritet"</string>
+    <string name="notificationUI_container1_title_eu" msgid="8315199862119660570">"Nyheter"</string>
+    <string name="notificationUI_container1_body_text_eu" msgid="1700290522706948241">"De nya integritetsfunktionerna i Privacy Sandbox gör det möjligt för appar att visa relevanta annonser, men de begränsar vilken information dessa appar kan få om dina aktiviteter på webbplatser och i appar från andra utvecklare."</string>
+    <string name="notificationUI_container1_control_text_eu" msgid="3158258148321255153">"Så fungerar det"</string>
+    <string name="notificationUI_container2_title_eu" msgid="7198761373796187596">"Så här deltar du"</string>
+    <string name="notificationUI_container2_body_text_eu" msgid="5763735880112009239">"Om du aktiverar betaprogrammet kan appar testa dessa nya, privatare metoderna för att visa annonser. Du kan inaktivera betaprogammet när du vill i integritetsinställningarna."</string>
+    <string name="notificationUI_left_control_button_text_eu" msgid="3573715612232957187">"Nej tack"</string>
+    <string name="notificationUI_right_control_button_text_eu" msgid="8484787286437052150">"Aktivera"</string>
+    <string name="notificationUI_more_button_text" msgid="8861584693765844519">"Mer"</string>
+    <string name="notificationUI_confirmation_accept_title" msgid="3178322390976087463">"Tack för ditt deltagande"</string>
+    <string name="notificationUI_confirmation_accept_subtitle" msgid="6980730715078085252">"Du deltar i Androids betaprogram för annonsintegritet. Privacy Sandbox har aktiverats för enheten.\n\nDu kan läsa mer eller inaktivera betaprogrammet när du vill i integritetsinställningarna."</string>
+    <string name="notificationUI_confirmation_decline_title" msgid="6453417169877486440">"Du har valt att inte delta"</string>
+    <string name="notificationUI_confirmation_decline_subtitle" msgid="4194388733937808440">"Tack för ditt svar. Privacy Sandbox har inaktiverats för enheten.\n\nOm du ändrar dig eller vill läsa mer kan du öppna integritetsinställningar."</string>
+    <string name="notificationUI_confirmation_left_control_button_text" msgid="7459283556129950513">"Integritetsinställningar"</string>
+    <string name="notificationUI_confirmation_right_control_button_text" msgid="1390803936115621269">"OK"</string>
+    <string name="notificationUI_container2_title" msgid="3844342008598264655">"Du deltar i betaprogrammet"</string>
+    <string name="notificationUI_container2_body_text" msgid="758560159693325060">"Privacy Sandbox har aktiverats för din enhet, och appar kan testa dessa nya, privatare metoderna för att visa annonser. Du kan inaktivera betaprogammet när du vill i integritetsinställningarna."</string>
+    <string name="notificationUI_right_control_button_text" msgid="4418849554981401536">"OK"</string>
+    <string name="notificationUI_how_it_works_expanded_text1" msgid="5567641119079971239">"Androids Privacy Sandbox tillhandahåller nya funktioner som appar kan använda för att visa annonser som kan intressera dig. Med dessa funktioner används inte enhetsidentifierare.\n\nAndroid och dina appar kan uppskatta vilka typer av annonser du kan vara intresserad av och spara dina intressen tillfälligt på enheten. Det innebär att appar kan visa annonser som du kanske gillar, utan att spåra dina aktivitet på webbplatser och i appar från andra utvecklare."</string>
+    <string name="notificationUI_how_it_works_expanded_text2" msgid="6676443093692450581">"Annonsanpassning med Privacy Sandbox"</string>
+    <string name="notificationUI_how_it_works_expanded_text3" msgid="603165966360369018">"•  Intressen uppskattas av Android"</string>
+    <string name="notificationUI_how_it_works_expanded_text4" msgid="3910573920883580609">"Android uppskattar regelbundet dina främsta intressen utifrån de appar du använder, till exempel sport eller resor.\n\nSedan kan en app begära att få använda dessa intressen från Android för att visa mer relevanta annonser.\n\nDu kan se listan med befintliga intressen i integritetsinställningarna och blockera alla du inte gillar."</string>
+    <string name="notificationUI_how_it_works_expanded_text5" msgid="7257714040472055781">"•  Intressen uppskattas av appar"</string>
+    <string name="notificationUI_how_it_works_expanded_text6" msgid="2949292580123453023">"Appar kan uppskatta dina intressen och spara dem tillfälligt med Android. Om du till exempel använder en app för att köpa löparskor kan den uppskatta dina intressen som ”springa maraton”.\n\nSedan kan en annan app visa en annons relaterad till maraton utifrån detta intresse.\n\nDu kan hantera listan över appar som har sparade intressen i integritetsinställningarna."</string>
+    <string name="notificationUI_notification_ga_title" msgid="7090667803616048587">"Nya funktioner för annonsintegritet"</string>
+    <string name="notificationUI_notification_ga_content" msgid="3483979694272908942">"Annonsämnen och nya inställningar ger dig mer kontroll över annonserna som visas"</string>
+    <string name="notificationUI_header_ga_title" msgid="3557937325021173836">"Nya funktioner för annonsintegritet är nu tillgängliga"</string>
+    <string name="notificationUI_container2_ga_introduction" msgid="2201578950159210581">"Android registrerar ämnen du är intresserad av baserat på appar du nyligen har använt. Appar som du använder kan också bedöma vad du gillar. Senare kan appar be om denna information för att visa anpassade annonser för dig. Du kan välja vilka ämnen och appar som ska användas för att visa annonser."</string>
+    <string name="notificationUI_container3_ga_introduction" msgid="4247237824558927582">"För att mäta en annons resultat delas begränsade typer av data mellan appar."</string>
+    <string name="notificationUI_ga_container1_control_text" msgid="2711321174550177509">"Mer om annonser på Android"</string>
+    <string name="notificationUI_how_it_works_row_subtitle1" msgid="8685034725335826096">"Mer användbara annonser"</string>
+    <string name="notificationUI_how_it_works_row_body1" msgid="5865369599951938718">"Appar kan be Android om information för att anpassa vilka annonser som visas."</string>
+    <string name="notificationUI_how_it_works_row_body2" msgid="6601773212442110369">"•  Android registrerar ämnen du är intresserad av baserat på vilka appar du nyligen har använt."</string>
+    <string name="notificationUI_how_it_works_row_body3" msgid="3692457397642529055">"•  Appar som du använder kan också bedöma vad du gillar baserat på hur du använder dem. Om du till exempel använder en app som säljer löparskor kan appen göra bedömningen att du är intresserad av att springa maraton."</string>
+    <string name="notificationUI_how_it_works_row_body4" msgid="8731138074016839243">"Senare kan en app be om denna information – antingen dina annonsämnen eller annonser som föreslås av appar du har använt."</string>
+    <string name="notificationUI_how_it_works_row_body5" msgid="4524382869577899661">"Android raderar automatiskt ämnen och data om annonsförslag regelbundet. Du kan även blockera specifika ämnen och appar som du inte vill ska ge förslag."</string>
+    <string name="notificationUI_how_it_works_subtitle2" msgid="2203542887026049927">"Mäta hur bra resultatet är för en annons"</string>
+    <string name="notificationUI_how_it_works_row_body6" msgid="5368364880910986588">"Appar du använder kan be Android om information för att hjälpa dem att mäta annonsernas resultat. Android tillåter att appar samlar in begränsade typer av data, till exempel vilken tidpunkt en annons visades."</string>
+    <string name="notificationUI_notification_ga_title_eu" msgid="5803977334621918481">"Testa nya funktioner för annonsintegritet"</string>
+    <string name="notificationUI_notification_ga_content_eu" msgid="8430705356085726474">"Annonsämnen ger dig större kontroll över vilka annonser du ser"</string>
+    <string name="notificationUI_notification_ga_cta_eu" msgid="8494461862622985200">"Visa information"</string>
+    <string name="notificationUI_header_ga_title_eu" msgid="6246782633712559485">"Testa nya funktioner för annonsintegritet"</string>
+    <string name="notificationUI_container1_body_ga_text_eu" msgid="2461669162863900717">"Android lanserar nya integritetsfunktioner som ger dig större kontroll över vilka annonser du ser."</string>
+    <string name="notificationUI_container2_body_ga_text_eu" msgid="1692066129509373924">"Annonsämnen hjälper appar att visa relevanta annonser samtidigt som din appanvändning och identitet skyddas. Android kan registrera ämnen du är intresserad av baserat på vilka appar du nyligen har använt. Senare kan en app be Android om relevanta ämnen för att anpassa vilka annonser som visas."</string>
+    <string name="notificationUI_container3_body_ga_text_eu" msgid="5992069735281496875">"Du kan se annonsämnen i enhetsinställningarna och blockera dem som du inte vill ska delas med appar. Android raderar även annonsämnen regelbundet och automatiskt."</string>
+    <string name="notificationUI_change_any_time_in_privacy_settings_eu" msgid="2908767337419331427">"Du kan ångra dig när som helst i integritetsinställningarna."</string>
+    <string name="notificationUI_container1_control_ga_text_eu" msgid="4496835418228234590">"Mer om annonsämnen"</string>
+    <string name="notificationUI_learn_more_from_privacy_policy" msgid="7809111628979410445">"Läs mer om hur Android skyddar din data i vår "<a href="https://policies.google.com/privacy">"integritetspolicy"</a>"."</string>
+    <string name="notificationUI_right_control_button_ga_text_eu" msgid="7164165910760741822">"Prova nu"</string>
+    <string name="notificationUI_how_it_works_topics_expanded_text3" msgid="5620813445262745365">"•  Vilken data används?"</string>
+    <string name="notificationUI_how_it_works_topics_expanded_text4" msgid="398508225331553559">"Dina annonsämnen baseras på vilka appar du nyligen har använt på den här enheten och hur ofta du använder dem."</string>
+    <string name="notificationUI_how_it_works_topics_expanded_text5" msgid="5976468008939416198">"•  Så här använder vi denna data"</string>
+    <string name="notificationUI_how_it_works_topics_expanded_text6" msgid="6318275524155409408">"Android registrerar ämnen du är intresserad av när du använder dina appar. Ämnesetiketter är fördefinierade och inkluderar bl.a. Konst och underhållning, Shopping och Sport. Senare kan en app be Android om några av dina ämnen (men inte data om din appanvändning eller identitet) för att anpassa vilka annonser som visas."</string>
+    <string name="notificationUI_how_it_works_topics_expanded_text7" msgid="4275126336833782389">"•  Så här kan du hantera din data"</string>
+    <string name="notificationUI_how_it_works_topics_expanded_text8" msgid="2797007387412839612">"Android raderar ämnen automatiskt och regelbundet. När du använder appar kan ett ämne dyka upp på listan igen. Du kan också blockera ämnen som du inte vill att Android ska dela med appar och inaktivera annonsämnen när som helst i integritetsinställningarna."</string>
+    <string name="notificationUI_you_can_change_in_privacy_settings" msgid="4781410091509838647">"Du kan göra ändringar i integritetsinställningarna."</string>
+    <string name="notificationUI_fledge_measurement_title" msgid="1721724915714192994">"Andra funktioner för annonsintegritet är nu tillgängliga"</string>
+    <string name="notificationUI_fledge_measurement_introduction_text1" msgid="2217529852483952185">"Android erbjuder även nya sätt att begränsa vilken information appar kan få om dig när de visar anpassade annonser."</string>
+    <string name="notificationUI_fledge_measurement_introduction_text2" msgid="601600895880486962">"•  Föreslagna annonser i appar bidrar till att skydda din identitet och appanvändning samtidigt som appar kan visa relevanta annonser. Utifrån din aktivitet kan en app föreslå relaterade annonser i andra appar. I integritetsinställningarna kan du se en lista över appar och blockera dem från att ge förslag."</string>
+    <string name="notificationUI_fledge_measurement_introduction_text3" msgid="956235653060248351">"•  Med annonsmätning delas begränsade typer av data mellan appar för att mäta annonsernas resultat, till exempel vilken tidpunkt en annons visades för dig."</string>
+    <string name="notificationUI_fledge_measurement_control_ga_text_eu" msgid="2346851728118443500">"Mer om föreslagna annonser i appar och annonsmätning"</string>
+    <string name="notificationUI_how_it_works_fledge_measurement_expanded_text0" msgid="2456923104551938349">"Föreslagna annonser i appar"</string>
+    <string name="notificationUI_how_it_works_fledge_measurement_expanded_text1" msgid="5606895535548790900">"•  Vilken data som används"</string>
+    <string name="notificationUI_how_it_works_fledge_measurement_expanded_text2" msgid="6309052819494439288">"Din aktivitet i en app som du använder på den här enheten."</string>
+    <string name="notificationUI_how_it_works_fledge_measurement_expanded_text3" msgid="5347980571056638783">"•  Så här använder appar denna data"</string>
+    <string name="notificationUI_how_it_works_fledge_measurement_expanded_text4" msgid="4738335469671465639">"Appar kan lagra information om saker du gillar i Android. Om du till exempel använder en app om maratonträning kan appen göra bedömningen att du är intresserad av löparskor. Om du senare använder en annan app kan den appen visa en annons för löparskor utifrån den första appens förslag."</string>
+    <string name="notificationUI_how_it_works_fledge_measurement_expanded_text5" msgid="8737925570089314631">"•  Så här kan du hantera din data"</string>
+    <string name="notificationUI_how_it_works_fledge_measurement_expanded_text6" msgid="495908587748380196">"Android raderar föreslagen data från appar automatiskt och regelbundet. Om du använder en app på nytt kan den dyka upp på listan igen."</string>
+    <string name="notificationUI_how_it_works_fledge_measurement_expanded_text7" msgid="8995912218837619600">"Du kan även blockera en app från att föreslå annonser för dig, återställa all data om annonsförslag eller inaktivera föreslagna annonser i appar när som helst i integritetsinställningarna."</string>
+    <string name="notificationUI_how_it_works_fledge_measurement_expanded_text9" msgid="5709134827192739362">"Appar du använder kan be Android om information som hjälper dem att mäta annonsernas resultat. Android skyddar din integritet genom att begränsa informationen som appar kan dela med varandra."</string>
+    <string name="notificationUI_notification_ga_title_eu_v2" msgid="9132669086237883391">"Nya funktioner för annonsintegritet är nu tillgängliga"</string>
+    <string name="notificationUI_notification_ga_content_eu_v2" msgid="9205285241542339861">"Få större kontroll över vilka annonser du ser och skydda din identitet"</string>
+    <string name="notificationUI_fledge_measurement_title_v2" msgid="1097778529908285549">"Nya funktioner för annonsintegritet är nu tillgängliga"</string>
+    <string name="notificationUI_fledge_measurement_introduction_text1_v2" msgid="4019531984422364790">"Android lanserar nya sätt att begränsa vilken information appar kan få om dig när de visar anpassade annonser."</string>
+    <string name="notificationUI_fledge_measurement_introduction_text2_v2" msgid="7324869061552803848">"•  Med föreslagna annonser i appar bidrar de nya integritetsfunktionerna till att skydda din identitet och appanvändning samtidigt som webbplatser kan visa relevanta annonser. Utifrån din aktivitet kan en app föreslå relaterade annonser i andra appar. I integritetsinställningarna kan du se en lista över appar och blockera dem från att ge förslag."</string>
+    <string name="notificationUI_fledge_measurement_introduction_text3_v2" msgid="7061185974787039681">"•  Med annonsmätning delas begränsade typer av data mellan appar för att tolka annonsernas resultat, till exempel vilken tidpunkt en annons visades för dig."</string>
+    <string name="notificationUI_how_it_works_fledge_measurement_expanded_text2_v2" msgid="5467298277353569728">"Din aktivitet i en app på den här enheten kan användas för att föreslå annonser."</string>
+    <string name="notificationUI_header_ga_title_eu_v2" msgid="8442776546238998877">"Aktivera en till funktion för annonsintegritet"</string>
+    <string name="notificationUI_container1_body_ga_text_eu_v2" msgid="1119632112904754361">"Android erbjuder även en ny integritetsfunktion som ger dig större kontroll över vilka annonser du ser."</string>
+    <string name="notificationUI_container2_body_ga_text_eu_v2" msgid="7264946073865844642">"Annonsämnen hjälper appar att visa relevanta annonser samtidigt som din appanvändning och identitet skyddas. Android kan registrera ämnen du är intresserad av baserat på appar du nyligen har använt. Senare kan en app be Android om relevanta ämnen för att visa mer relevanta annonser."</string>
+    <string name="notificationUI_container3_body_ga_text_eu_v2" msgid="3204499878554843655">"Du kan se annonsämnen i integritetsinställningarna och blockera dem som du inte vill ska delas med appar. Android raderar också annonsämnen automatiskt och regelbundet."</string>
+    <string name="notificationUI_right_control_button_ga_text_eu_v2" msgid="7227289411885047121">"Aktivera"</string>
+    <string name="notificationUI_notification_ga_title_v2" msgid="7429979629916798545">"Nya funktioner för annonsintegritet är nu tillgängliga"</string>
+    <string name="notificationUI_notification_ga_content_v2" msgid="4673081782304081905">"Nu får du större kontroll över vilka annonser du ser samtidigt som du skyddar din identitet"</string>
+    <string name="notificationUI_header_ga_title_v2" msgid="2079990149331373941">"Nya funktioner för annonsintegritet är nu tillgängliga"</string>
+    <string name="notificationUI_container1_ga_introduction_v2" msgid="3820258766801905248">"Android erbjuder nu nya integritetsfunktioner som ger dig större kontroll över vilka annonser du ser."</string>
+    <string name="notificationUI_next_button_text" msgid="5564270455474313663">"Nästa"</string>
+    <string name="settingsUI_main_view_title" msgid="1663691082473230496">"Privacy Sandbox"</string>
+    <string name="settingsUI_main_view_subtitle" msgid="2059496555507319371">"Delta i Androids betaprogram för annonsintegritet"</string>
+    <string name="settingsUI_privacy_sandbox_beta_switch_title" msgid="5264782269528129670">"Privacy Sandbox"</string>
+    <string name="settingsUI_topics_title" msgid="5996189869721397937">"Intressen som uppskattats av Android"</string>
+    <string name="settingsUI_apps_title" msgid="2772289096915264175">"Appar som uppskattar intressen"</string>
+    <string name="settingsUI_main_view_info_text8" msgid="2262800588014737545">"Annonsmätning"</string>
+    <string name="settingsUI_main_view_info_text9" msgid="5431131706102562540">"Appar kan använda Privacy Sandbox för att mäta hur effektiva annonserna i dem är. För att göra detta kan annonsörer tillfälligt spara data via Android om dina interaktioner med annonserna och apparna. Hur mycket data som kan sparas begränsas och datan raderas regelbundet.\n\nDu kan radera denna data när du vill genom att inaktivera Privacy Sandbox."</string>
+    <string name="settingsUI_topics_view_subtitle" msgid="6608135144119617292">"Android uppskattar regelbundet dina främsta intressen utifrån de appar du använder. Appar kan begära att få använda dessa intressen från Android för att visa mer relevanta annonser.\n\nOm du blockerar ett intresse läggs det inte till i listan igen förrän du tar bort blockeringen. Du kanske fortfarande ser relaterade annonser."</string>
+    <string name="settingsUI_block_topic_title" msgid="1883542291264768402">"Blockera"</string>
+    <string name="settingsUI_unblock_topic_title" msgid="1710283575567727667">"Avblockera"</string>
+    <string name="settingsUI_blocked_topics_title" msgid="5030422883546261820">"Intressen som du har blockerat"</string>
+    <string name="settingsUI_reset_topics_title" msgid="6917960006583871987">"Återställ alla intressen"</string>
+    <string name="settingsUI_topics_view_no_topics_text" msgid="6954747579303498382">"Det finns inga intressen att visa just nu."</string>
+    <string name="settingsUI_topics_view_no_topics_ga_text" msgid="8043163159679359485">"Det finns inga ämnen att visa just nu.\nLäs mer om "<a href="https://support.google.com/android?p=ad_privacy">"annonsämnen"</a></string>
+    <string name="settingsUI_topics_view_info_text1" msgid="2477020249748216309">"Privacy Sandbox"</string>
+    <string name="settingsUI_topics_view_info_text2" msgid="6223353589295876851">"Androids betaprogram för annonsintegritet tillhandahåller nya funktioner som appar kan använda för att visa annonser som kan intressera dig. Med dessa funktioner används inte enhetsidentifierare.\n\nAndroid kan uppskatta vilka typer av annonser du kan vara intresserad av och spara dessa intressen tillfälligt på enheten. Det innebär att appar kan visa relevanta annonser, utan att spåra dina aktivitet på webbplatser och i appar från andra utvecklare."</string>
+    <string name="settingsUI_topics_view_no_blocked_topics_text" msgid="6553014185055718781">"Du har inga blockerade intressen"</string>
+    <string name="settingsUI_no_blocked_topics_ga_text" msgid="377459829879121256">"Inga blockerade ämnen"</string>
+    <string name="settingsUI_view_blocked_topics_title" msgid="3705333677440361392">"Se blockerade ämnen"</string>
+    <string name="settingsUI_topics_are_reset" msgid="7539323750312329931">"Intressen återställs"</string>
+    <string name="settingsUI_topics_are_reset_ga" msgid="5250296990870048195">"Ämnena har återställts"</string>
+    <string name="settingsUI_apps_view_subtitle" msgid="8193343057416677400">"Appar kan uppskatta dina intressen och spara dem tillfälligt med Android. Sedan kan en annan app visa annonser utifrån dessa intressen.\n\nOm du blockerar en app uppskattar den inte längre dina intressen. Den läggs inte till i den här applistan igen såvida du inte tar bort blockeringen. Intressen som redan uppskattats av appen raderas, men du kan fortfarande se relaterade annonser."</string>
+    <string name="settingsUI_blocked_apps_title" msgid="1260257485713408637">"Appar du har blockerat"</string>
+    <string name="settingsUI_view_blocked_apps_title" msgid="379556513199380600">"Visa blockerade appar"</string>
+    <string name="settingsUI_reset_apps_title" msgid="6221704974528131179">"Återställ intressen som uppskattats av appar"</string>
+    <string name="settingsUI_apps_view_no_apps_text" msgid="7460005016322426137">"Inga appar genererar intressen för dig just nu"</string>
+    <string name="settingsUI_apps_view_no_apps_ga_text" msgid="742044210764257860">"Det finns inga appar att visa just nu. \nLäs mer om "<a href="https://support.google.com/android?p=ad_privacy">"föreslagna annonser i appar"</a></string>
+    <string name="settingsUI_apps_view_info_text1" msgid="7835635425477842692">"Privacy Sandbox"</string>
+    <string name="settingsUI_apps_view_info_text2" msgid="308547275474796552">"Androids betaprogram för annonsintegritet tillhandahåller nya funktioner som appar kan använda för att visa annonser som kan intressera dig. Med dessa funktioner används inte enhetsidentifierare.\n\nAndroid kan uppskatta vilka typer av annonser du kan vara intresserad av och spara dessa intressen tillfälligt på enheten. Det innebär att appar kan visa relevanta annonser, utan att spåra dina aktivitet på webbplatser och i appar från andra utvecklare."</string>
+    <string name="settingsUI_apps_view_no_blocked_apps_text" msgid="3953560911214151396">"Du har inga blockerade appar"</string>
+    <string name="settingsUI_no_blocked_apps_ga_text" msgid="7488680173653861943">"Inga blockerade appar"</string>
+    <string name="settingsUI_measurement_switch_title" msgid="6623116680555954932">"Tillåt annonsmätning"</string>
+    <string name="settingsUI_measurement_view_intro_text" msgid="3608942051176719850">"Appar och annonsörer kan be om information från Android som hjälper dem att mäta annonsresultat.\n\nAnnonsresultatdata raderas regelbundet från enheten."</string>
+    <string name="settingsUI_measurement_view_reset_title" msgid="3063374834649428050">"Återställ mätdata"</string>
+    <string name="settingsUI_measurement_view_footer_text" msgid="5978750159738729308">"Android skyddar din integritet genom att begränsa informationen som appar kan dela med varandra. Rapporter skickas med en fördröjning för att skydda din identitet.\n\nDin webbläsare kan ha en liknande inställning. Om annonsmätning är aktiverat för både Android och webbläsaren kan ett företag mäta en annons effektivitet baserat på appar du använder och webbplatser du besöker. Din webbhistorik hålls privat på din enhet.\n\nLäs mer om hur Android skyddar din data i vår "<a href="https://policies.google.com/privacy">"integritetspolicy"</a>"."</string>
+    <string name="settingsUI_measurement_are_reset" msgid="4375330550418573499">"Annonsmätningsdata har återställts"</string>
+    <string name="settingsUI_dialog_negative_text" msgid="3014088254631375852">"Avbryt"</string>
+    <string name="settingsUI_dialog_opt_out_title" msgid="1862069591629418291">"Vill du inaktivera Privacy Sandbox?"</string>
+    <string name="settingsUI_dialog_opt_out_message" msgid="5696012172835241848">"Om du ändrar dig eller vill läsa mer om Androids betaprogram för annonsintegritet, kan du gå till dina integritetsinställningar"</string>
+    <string name="settingsUI_dialog_opt_out_positive_text" msgid="5344259263448028614">"Inaktivera"</string>
+    <string name="settingsUI_dialog_block_topic_title" msgid="5744004384480280782">"Vill du blockera <xliff:g id="TOPIC">%1$s</xliff:g>?"</string>
+    <string name="settingsUI_dialog_block_topic_message" msgid="2581824495438333677">"Det här ämnet blockeras och läggs inte till i listan igen såvida du inte lägger till det själv. Du kanske fortfarande ser relaterade annonser."</string>
+    <string name="settingsUI_dialog_block_topic_positive_text" msgid="2626152417590300510">"Blockera"</string>
+    <string name="settingsUI_dialog_unblock_topic_title" msgid="7361000923920947234">"Blockeringen av <xliff:g id="TOPIC">%1$s</xliff:g> har tagits bort"</string>
+    <string name="settingsUI_dialog_unblock_topic_message" msgid="1090743551997420666">"Android kan lägga till det här ämnet i listan igen, men det dyker kanske inte upp omedelbart"</string>
+    <string name="settingsUI_dialog_unblock_topic_positive_text" msgid="2192452325573789737">"OK"</string>
+    <string name="settingsUI_dialog_reset_topic_title" msgid="8025836207966712435">"Vill du återställa alla annonsämnen?"</string>
+    <string name="settingsUI_dialog_reset_topic_message" msgid="4243744527757134000">"Listan rensas och nya ämnen läggs till från och med nu. Du kanske fortfarande ser en del annonser som är relaterade till de återställda ämnena."</string>
+    <string name="settingsUI_dialog_reset_topic_positive_text" msgid="8345697359799280761">"Återställ"</string>
+    <string name="settingsUI_dialog_block_app_title" msgid="421160714549264414">"Vill du blockera <xliff:g id="APP">%1$s</xliff:g>?"</string>
+    <string name="settingsUI_dialog_block_app_message" msgid="758788973278770119">"Den här appen kommer inte att föreslå annonser eller läggas till i listan igen såvida du inte tar bort blockeringen. Du kanske fortfarande ser relaterade annonser."</string>
+    <string name="settingsUI_dialog_unblock_app_title" msgid="4360730780049298286">"Blockeringen av <xliff:g id="APP">%1$s</xliff:g> har tagits bort"</string>
+    <string name="settingsUI_dialog_unblock_app_message" msgid="5758218424845642060">"Den här appen kan föreslå annonser för dig igen, men de dyker kanske inte upp i listan omedelbart. Det kan ta ett tag innan du ser relaterade annonser."</string>
+    <string name="settingsUI_dialog_reset_app_title" msgid="5177572712117150557">"Vill du återställa annonsförslag från appar?"</string>
+    <string name="settingsUI_dialog_reset_app_message" msgid="7845329616145691006">"All data om annonsförslag från apparna på listan raderas och apparna föreslår nya annonser från och med nu. Du kanske fortfarande ser relaterade annonser."</string>
+    <string name="settingsUI_apps_are_reset" msgid="1814400631145418530">"Appdata har återställts"</string>
+    <string name="settingsUI_dialog_topics_opt_in_title" msgid="8121927422479701361">"Annonsämnen är aktiverat"</string>
+    <string name="settingsUI_dialog_topics_opt_in_message" msgid="906156509464496182">"Android börjar identifiera ämnen du är intresserad av, men det kan ta ett tag innan de första ämnena visas."</string>
+    <string name="settingsUI_dialog_topics_opt_out_title" msgid="729119757000459089">"Vill du inaktivera annonsämnen?"</string>
+    <string name="settingsUI_dialog_topics_opt_out_message" msgid="1536431481297878931">"Listan över ämnen raderas. Android identifierar inte ämnen du är intresserad av längre, men relevanta annonser kanske fortsätter att visas."</string>
+    <string name="settingsUI_dialog_apps_opt_in_title" msgid="1802639238531107941">"Föreslagna annonser i appar är aktiverat"</string>
+    <string name="settingsUI_dialog_apps_opt_in_message" msgid="6335861029594000364">"Du kan få förslag på annonser i appar. Du kan se en lista över dessa appar när annonserna börjar föreslås."</string>
+    <string name="settingsUI_dialog_apps_opt_out_title" msgid="2152898453001885432">"Vill du inaktivera föreslagna annonser i appar?"</string>
+    <string name="settingsUI_dialog_apps_opt_out_message" msgid="6894065908128443334">"All data för annonsförslag raderas. Du får inte längre förslag på annonser i apparna, men relevanta annonser kanske fortsätter att visas."</string>
+    <string name="settingsUI_dialog_measurement_opt_in_title" msgid="313317715284771681">"Annonsmätning är aktiverat"</string>
+    <string name="settingsUI_dialog_measurement_opt_in_message" msgid="1122570790810645916">"Android delar endast mycket begränsad information med apparna så att annonsprestandan kan mätas för apparna."</string>
+    <string name="settingsUI_dialog_measurement_opt_out_title" msgid="1629867723206716370">"Vill du inaktivera annonsmätning?"</string>
+    <string name="settingsUI_dialog_measurement_opt_out_message" msgid="1050338738668085641">"Alla väntande annonsmätningsrapporter raderas och inga nya rapporter skapas eller delas."</string>
+    <string name="settingsUI_main_view_ga_title" msgid="4149820452019697214">"Annonsintegritet"</string>
+    <string name="settingsUI_topics_ga_title" msgid="7324482132761824214">"Annonsämnen"</string>
+    <string name="settingsUI_apps_ga_title" msgid="1527820834800364372">"Föreslagna annonser i appar"</string>
+    <string name="settingsUI_main_view_ad_topics_info" msgid="2643088833140772417">"Android noterar ämnen du är intresserad av baserat på vilka appar du nyligen har använt och hur ofta du använder dem."</string>
+    <string name="settingsUI_main_view_apps_info" msgid="1668244327840008046">"Appar som du använder kan också bedöma vad du gillar baserat på hur du använder dem."</string>
+    <string name="settingsU_main_view_measurement_info" msgid="7950104699961821635">"Appar du använder kan be Android om information för att hjälpa dem att mäta annonsernas resultat. Android tillåter att appar samlar in begränsade typer av data."</string>
+    <string name="settingsU_main_view_learn_more" msgid="2129694798398023916">"Läs mer om "<a href="https://support.google.com/android?p=ad_privacy">"annonsintegritet på Android"</a></string>
+    <string name="settingsUI_topics_subtitle" msgid="6545976434367750110">"På/<xliff:g id="TOPICS_COUNT">%1$d</xliff:g> ämnen"</string>
+    <string name="settingsUI_topics_subtitle_plural" msgid="4809219115021801972">"{count,plural, =1{På/# ämne}other{På/# ämnen}}"</string>
+    <string name="settingsUI_apps_subtitle" msgid="387595280958995973">"På/<xliff:g id="APPS_COUNT">%1$d</xliff:g> appar"</string>
+    <string name="settingsUI_apps_subtitle_plural" msgid="3989880089023565457">"{count,plural, =1{På/# app}other{På/# appar}}"</string>
+    <string name="settingsUI_subtitle_consent_on" msgid="7522464537194619022">"På"</string>
+    <string name="settingsUI_subtitle_consent_off" msgid="1604274030685784887">"Av"</string>
+    <string name="settingsUI_topics_view_ga_subtitle" msgid="3672784134413586246">"De ämnen du är intresserad av baseras på vilka appar du nyligen har använt och de används av apparna för att visa dig anpassade annonser.\n\nDu kan blockera ämnen som du inte vill dela med appar. Android raderar också ämnen automatiskt och regelbundet."</string>
+    <string name="settingsUI_topics_switch_title" msgid="5856255848598189791">"Tillåt annonsämnen"</string>
+    <string name="settingsUI_blocked_topics_ga_title" msgid="7163366621282449273">"Annonsämnen du har blockerat"</string>
+    <string name="settingsUI_reset_topics_ga_title" msgid="5365554894399951300">"Återställ alla annonsämnen"</string>
+    <string name="settingsU_topics_view_footer" msgid="4769146330248953561">"Android registrerar ämnen du är intresserad av baserat på vilka appar du har använt de senaste veckorna.\n\nSenare kan en app du använder fråga Android om dina ämnen för att anpassa annonserna som visas. Android delar upp till tre ämnen, samtidigt som din identitet och information om din appanvändning skyddas.\n\nAndroid raderar automatiskt ämnen regelbundet. När du använder appar kan ett ämne dyka upp på listan igen. Du kan också blockera ämnen som du inte vill att Android ska dela med appar.\n\nEn annons som du ser i en app kan vara anpassad – det beror på den här inställningen, inställningen för annonsämnen, dina inställningar för reklam-id och huruvida appen du använder anpassar annonser."</string>
+    <string name="settingsUI_apps_switch_title" msgid="1308209012769248890">"Tillåt annonsförslag från appar"</string>
+    <string name="settingsUI_apps_view_ga_subtitle" msgid="1911743837387384160">"Appar som du använder kan bedöma vad du gillar och sedan föreslå annonser i andra appar.\n\nDu kan blockera appar från att ge förslag. Android raderar data om annonsförslag automatiskt och regelbundet."</string>
+    <string name="settingsUI_blocked_apps_ga_title" msgid="1896327995101895088">"Appar du har blockerat"</string>
+    <string name="settingsUI_reset_apps_ga_title" msgid="371969808353100852">"Återställ föreslagen data från appar"</string>
+    <string name="settingsUI_apps_view_footer" msgid="6428897482766556515">"Det är vanligt att appar du använder kommer ihåg vad du är intresserad av för att anpassa din upplevelse. Appar kan även lagra information om dina ämnen med Android.\n\nOm du till exempel använder en app om maratonträning kan appen göra bedömningen att du är intresserad av löparskor. Om du senare använder en annan app kan den appen visa en annons för löparskor utifrån den första appens förslag.\n\nAndroid raderar föreslagen data från appar automatiskt och regelbundet. Om du använder en app på nytt kan den dyka upp på listan igen. Du kan även blockera en app från att föreslå annonser för dig.\n\nEn annons som du ser i en app kan vara anpassad – det beror på den här inställningen, inställningen för annonsämnen, dina inställningar för reklam-id och huruvida appen du använder anpassar annonser."</string>
+    <string name="notificationUI_u18_notification_title" msgid="4880509503177562077">"Det finns nya funktioner för annonsintegritet"</string>
+    <string name="notificationUI_u18_notification_content" msgid="6734418183242286936">"Endast väldigt begränsad information delas mellan appar i syfte att mäta annonsresultat"</string>
+    <string name="notificationUI_u18_body1" msgid="5384339364319615715">"Vi lanserar en ny funktion för annonsintegritet som kallas annonsmätning. Android delar endast väldigt begränsad information mellan appar, till exempel när en annons visades för dig, så att appar kan mäta annonsers resultat."</string>
+    <string name="notificationUI_u18_body3" msgid="4511974346169641579">"Du kan göra ändringar i inställningarna för annonsintegritet."</string>
+    <string name="settingsUI_u18_main_view_measurement_info" msgid="1709326915590855853">"Appar du använder kan be Android om information för att hjälpa dem att mäta annonsernas resultat. Android tillåter endast att appar samlar in begränsade typer av data."</string>
+    <string name="ic_consent_notification_ga_image_description" msgid="6146488914437778539">"Färgglad illustration av symboler som representerar intressanta ämnen som musik, nyheter och sport"</string>
+    <string name="ic_main_view_ga_image_description" msgid="1846571138870271761">"Färgglad illustration av ett lås inuti en cirkel"</string>
+    <string name="ic_placeholder_icon_for_empty_apps_list_description" msgid="8171099879240285360">"Liten, svartvit illustration av nio punkter som bildar en kvadrat"</string>
+    <string name="ic_placeholder_icon_for_empty_topics_list_description" msgid="2112218456926009271">"Liten, svartvit illustration av enkla former som ett hjärta, en triangel och en kvadrat"</string>
+    <string name="topic10001" msgid="1636806320891333775">"Konst och underhållning"</string>
+    <string name="topic10002" msgid="1226367977754287428">"Skådespeleri och teater"</string>
+    <string name="topic10003" msgid="6949890838957814881">"Anime och manga"</string>
+    <string name="topic10004" msgid="5397903150832181233">"Tecknat"</string>
+    <string name="topic10005" msgid="6316179809581237302">"Tecknade serier"</string>
+    <string name="topic10006" msgid="7442330644172139790">"Konserter och musikfestivaler"</string>
+    <string name="topic10007" msgid="5537896091418145164">"Dans"</string>
+    <string name="topic10008" msgid="2737343278307552521">"Nöjesindustri"</string>
+    <string name="topic10009" msgid="3252367380340240453">"Nöje och frågesport"</string>
+    <string name="topic10010" msgid="932301479153552725">"Roliga tester och fåniga undersökningar"</string>
+    <string name="topic10011" msgid="3123553390567261985">"Humor"</string>
+    <string name="topic10012" msgid="8756486271154511326">"Roliga bilder och videor"</string>
+    <string name="topic10013" msgid="1242353161202448753">"Ståuppkomedi"</string>
+    <string name="topic10014" msgid="6086156236112755291">"Sportevenemang"</string>
+    <string name="topic10015" msgid="9196350141359833832">"Magi"</string>
+    <string name="topic10016" msgid="202419376638900745">"Film- och teaterutbud"</string>
+    <string name="topic10017" msgid="6737229918787540100">"Filmer"</string>
+    <string name="topic10018" msgid="6823676154109177487">"Action- och äventyrsfilm"</string>
+    <string name="topic10019" msgid="6875960630918973127">"Animerad film"</string>
+    <string name="topic10020" msgid="4323870300602151489">"Komedifilm"</string>
+    <string name="topic10021" msgid="446758643774468418">"Kult- och indiefilm"</string>
+    <string name="topic10022" msgid="3671929742155787005">"Dokumentärfilm"</string>
+    <string name="topic10023" msgid="3547616830531182863">"Dramafilm"</string>
+    <string name="topic10024" msgid="1044853632986202120">"Familjefilm"</string>
+    <string name="topic10025" msgid="5958629223443279316">"Skräckfilm"</string>
+    <string name="topic10026" msgid="5685515125614860029">"Romantisk film"</string>
+    <string name="topic10027" msgid="8846353713171614854">"Thriller"</string>
+    <string name="topic10028" msgid="170404703980174756">"Musik och ljud"</string>
+    <string name="topic10029" msgid="4634600135545614665">"Blues"</string>
+    <string name="topic10030" msgid="7226438392540805771">"Klassisk musik"</string>
+    <string name="topic10031" msgid="1488013446112025676">"Countrymusik"</string>
+    <string name="topic10032" msgid="9053666244854789632">"Dansmusik och elektronisk musik"</string>
+    <string name="topic10033" msgid="440063573197454181">"Folkmusik och traditionell musik"</string>
+    <string name="topic10034" msgid="8296307244554241197">"Jazz"</string>
+    <string name="topic10035" msgid="9171752741499923310">"Streamad musik och nedladdningar"</string>
+    <string name="topic10036" msgid="2490236112725457376">"Musikvideor"</string>
+    <string name="topic10037" msgid="1923690469725883551">"Musikinstrument"</string>
+    <string name="topic10038" msgid="2817492732688549631">"Pianon och klaviaturer"</string>
+    <string name="topic10039" msgid="8970033643570782019">"Popmusik"</string>
+    <string name="topic10040" msgid="7478395512712452137">"Radio"</string>
+    <string name="topic10041" msgid="3319379117705411886">"Pratradio"</string>
+    <string name="topic10042" msgid="8830471038440654640">"Rap och hiphop"</string>
+    <string name="topic10043" msgid="8585450284346207691">"Rockmusik"</string>
+    <string name="topic10044" msgid="3710011249220779842">"Klassisk rock och gamla godingar"</string>
+    <string name="topic10045" msgid="7593443421067822441">"Hårdrock och progressiv musik"</string>
+    <string name="topic10046" msgid="8715621227472631784">"Indie och alternativ musik"</string>
+    <string name="topic10047" msgid="3518038303049899798">"Samplingar och ljudbibliotek"</string>
+    <string name="topic10048" msgid="3063505369500799094">"Jazz och R&amp;B"</string>
+    <string name="topic10049" msgid="8061992014977840818">"Filmmusik"</string>
+    <string name="topic10050" msgid="3540229495848506229">"Världsmusik"</string>
+    <string name="topic10051" msgid="6132468331924347995">"Reggae och karibisk musik"</string>
+    <string name="topic10052" msgid="8213269199807045473">"Bildgallerier online"</string>
+    <string name="topic10053" msgid="1378192203082454197">"Onlinevideo"</string>
+    <string name="topic10054" msgid="3727401645405134505">"Livestreaming"</string>
+    <string name="topic10055" msgid="4943174831732192854">"Film- och tv-streaming"</string>
+    <string name="topic10056" msgid="3066058636154255073">"Opera"</string>
+    <string name="topic10057" msgid="387445514677222034">"Tv-guider och referensmaterial"</string>
+    <string name="topic10058" msgid="9149178644022969766">"Tv-bolag och tv-kanaler"</string>
+    <string name="topic10059" msgid="6300562669238320524">"Tv-serier och tv-program"</string>
+    <string name="topic10060" msgid="3901256055064835246">"Tv-komedier"</string>
+    <string name="topic10061" msgid="8343924749123326062">"Tv-dokumentärer och faktaprogram"</string>
+    <string name="topic10062" msgid="9183355218976951211">"Tv-drama"</string>
+    <string name="topic10063" msgid="644340831620792432">"Tv-såpor"</string>
+    <string name="topic10064" msgid="5961885645457010998">"Familjevänliga tv-program"</string>
+    <string name="topic10065" msgid="7916343612028608044">"Reality-tv"</string>
+    <string name="topic10066" msgid="5984396525358003559">"Science fiction- och fantasy-serier"</string>
+    <string name="topic10067" msgid="6404637729885733437">"Visuell konst och design"</string>
+    <string name="topic10068" msgid="4589856961950168493">"Design"</string>
+    <string name="topic10069" msgid="3129378082034151991">"Måleri"</string>
+    <string name="topic10070" msgid="2570256568661324147">"Fotografisk och digital konst"</string>
+    <string name="topic10071" msgid="1288722040962471254">"Bilar och fordon"</string>
+    <string name="topic10072" msgid="9155509766616567261">"Lastbilar och släp"</string>
+    <string name="topic10073" msgid="3748676231341513738">"Veteranfordon"</string>
+    <string name="topic10074" msgid="2040911547161463227">"Specialutrustade bilar och sportbilar"</string>
+    <string name="topic10075" msgid="1242538698445713796">"Bensinpriser och fordonsbränsle"</string>
+    <string name="topic10076" msgid="8674225812339579627">"Motorfordon (efter typ)"</string>
+    <string name="topic10077" msgid="3577709810751953433">"Självkörande fordon"</string>
+    <string name="topic10078" msgid="5493263845129910125">"Cabrioleter"</string>
+    <string name="topic10079" msgid="3466838852836498580">"Kupébilar"</string>
+    <string name="topic10080" msgid="3515647285637163190">"Halvkombi"</string>
+    <string name="topic10081" msgid="4135085035401158860">"Hybridfordon och alternativa fordon"</string>
+    <string name="topic10082" msgid="7168659489029594320">"Lyxfordon"</string>
+    <string name="topic10083" msgid="1532745144715857802">"Mikrobilar och mindre småbilar"</string>
+    <string name="topic10084" msgid="1984231414410381476">"Motorcyklar"</string>
+    <string name="topic10085" msgid="5235555028227554661">"Terrängfordon"</string>
+    <string name="topic10086" msgid="8360336602646460411">"Pickuper"</string>
+    <string name="topic10087" msgid="6566900167002195406">"Skotrar och mopeder"</string>
+    <string name="topic10088" msgid="2899313082601001223">"Sedanbilar"</string>
+    <string name="topic10089" msgid="1053630346809973163">"Kombi"</string>
+    <string name="topic10090" msgid="4478565601243447368">"Stadsjeepar och crossoverbilar"</string>
+    <string name="topic10091" msgid="3812668311830832874">"Crossoverbilar"</string>
+    <string name="topic10092" msgid="524130833813249539">"Skåpbilar och minibussar"</string>
+    <string name="topic10093" msgid="8900143351472824542">"Bärgning och vägassistans"</string>
+    <string name="topic10094" msgid="6205146188176216038">"Fordons- och trafiksäkerhet"</string>
+    <string name="topic10095" msgid="7983070264654477553">"Fordonsdelar och tillbehör"</string>
+    <string name="topic10096" msgid="8148747014459050804">"Fordonsreparation och fordonsvård"</string>
+    <string name="topic10097" msgid="4716536434833425748">"Bilhandel"</string>
+    <string name="topic10098" msgid="6401980112135995019">"Begagnade fordon"</string>
+    <string name="topic10099" msgid="8018714209926584445">"Fordonsmässor"</string>
+    <string name="topic10100" msgid="2481422464734249871">"Skönhet och träning"</string>
+    <string name="topic10101" msgid="7889144198021629053">"Kroppskonst"</string>
+    <string name="topic10102" msgid="577637051755692238">"Ansikts- och kroppsvård"</string>
+    <string name="topic10103" msgid="6618157344631408510">"Antiperspiranter"</string>
+    <string name="topic10104" msgid="6043649669944382784">"Bad- och kroppsprodukter"</string>
+    <string name="topic10105" msgid="3248569527339253661">"Naturlig skönhetsvård"</string>
+    <string name="topic10106" msgid="1291481249483309832">"Smink och kosmetika"</string>
+    <string name="topic10107" msgid="1335060201249279923">"Nagelvårdsprodukter"</string>
+    <string name="topic10108" msgid="4996884435711154930">"Parfymer och dofter"</string>
+    <string name="topic10109" msgid="7298403319989686251">"Rakhyvlar och rakapparater"</string>
+    <string name="topic10110" msgid="5954355866247248022">"Mode och stil"</string>
+    <string name="topic10111" msgid="4447710938881368413">"Träning"</string>
+    <string name="topic10112" msgid="8816530137921714131">"Bodybuilding"</string>
+    <string name="topic10113" msgid="8138889299405853557">"Träningsanvisningar och personlig träning"</string>
+    <string name="topic10114" msgid="2172821400279346865">"Teknikprodukter för träning"</string>
+    <string name="topic10115" msgid="9060244278068231494">"Hårvård"</string>
+    <string name="topic10116" msgid="116242880964485085">"Böcker och litteratur"</string>
+    <string name="topic10117" msgid="8933734721100160863">"Barnböcker"</string>
+    <string name="topic10118" msgid="4368531903547695191">"E-böcker"</string>
+    <string name="topic10119" msgid="2781095265741115471">"Tidskrifter"</string>
+    <string name="topic10120" msgid="3099507102655270527">"Poesi"</string>
+    <string name="topic10121" msgid="4466592180799340837">"Företag och industri"</string>
+    <string name="topic10122" msgid="2375136741125920744">"Annonsering och marknadsföring"</string>
+    <string name="topic10123" msgid="6974082907852347979">"Försäljning"</string>
+    <string name="topic10124" msgid="44474598156972786">"Lant- och skogsbruk"</string>
+    <string name="topic10125" msgid="9170394261421539760">"Livsmedelsproduktion"</string>
+    <string name="topic10126" msgid="2210146434071038904">"Fordonsindustri"</string>
+    <string name="topic10127" msgid="5503077037318678029">"Luftfartsindustri"</string>
+    <string name="topic10128" msgid="285525650692719959">"Affärsverksamhet"</string>
+    <string name="topic10129" msgid="3094691551566702427">"Flexibla arbetsarrangemang"</string>
+    <string name="topic10130" msgid="1922351409757117764">"Personal/bemanning"</string>
+    <string name="topic10131" msgid="8598763405951029782">"Kommersiell långivning"</string>
+    <string name="topic10132" msgid="1476352626208153907">"Byggnad och underhåll"</string>
+    <string name="topic10133" msgid="7089177624979453528">"Väg- och vattenbyggnad"</string>
+    <string name="topic10134" msgid="3833032373311037601">"Försvarsindustri"</string>
+    <string name="topic10135" msgid="2478808072377000440">"El och energi"</string>
+    <string name="topic10136" msgid="9083992436834044162">"Vattenförsörjning och vattenbehandling"</string>
+    <string name="topic10137" msgid="1912599316814246824">"Hotellbranschen"</string>
+    <string name="topic10138" msgid="7428346836350671895">"Tillverkning"</string>
+    <string name="topic10139" msgid="1396685812404869953">"Metaller och gruvdrift"</string>
+    <string name="topic10140" msgid="5264212052238781441">"MLM och affärsmöjligheter"</string>
+    <string name="topic10141" msgid="860058416683118730">"Läkemedelsindustrin och bioteknik"</string>
+    <string name="topic10142" msgid="2912550934111655896">"Tryck och utgivning"</string>
+    <string name="topic10143" msgid="5690610408227078117">"Detaljhandel"</string>
+    <string name="topic10144" msgid="3341052306953106368">"Riskkapital"</string>
+    <string name="topic10145" msgid="6886608911083388041">"Datorer och elektronik"</string>
+    <string name="topic10146" msgid="8202145175139144216">"Datorkringutrustning"</string>
+    <string name="topic10147" msgid="4687964705548995437">"Skrivare"</string>
+    <string name="topic10148" msgid="8861628145647459323">"Datorsäkerhet"</string>
+    <string name="topic10149" msgid="1719988773455991739">"Antivirus och skadliga program"</string>
+    <string name="topic10150" msgid="1482205464872465298">"Nätverkssäkerhet"</string>
+    <string name="topic10151" msgid="1772262905623388968">"Hemelektronik"</string>
+    <string name="topic10152" msgid="651152740021127086">"Kameror och videokameror"</string>
+    <string name="topic10153" msgid="8741504768717646372">"GPS och navigering"</string>
+    <string name="topic10154" msgid="5382029798409496090">"Hemautomatisering"</string>
+    <string name="topic10155" msgid="5243817792730496258">"Hemmabiosystem"</string>
+    <string name="topic10156" msgid="2497791567138856030">"MP3-spelare och bärbara mediespelare"</string>
+    <string name="topic10157" msgid="4723439422860510190">"Smarta accessoarer"</string>
+    <string name="topic10158" msgid="5345830001295028513">"Säkerhetskopiering och återställning av data"</string>
+    <string name="topic10159" msgid="6146958285117174314">"Stationära datorer"</string>
+    <string name="topic10160" msgid="6624820395549466426">"Laptops och notebook-datorer"</string>
+    <string name="topic10161" msgid="912458758908978530">"Nätverk"</string>
+    <string name="topic10162" msgid="6717352131379507693">"Distribuerade system och molnteknik"</string>
+    <string name="topic10163" msgid="6344926622025055321">"Programmering"</string>
+    <string name="topic10164" msgid="4228888249078845459">"Programvara"</string>
+    <string name="topic10165" msgid="5507908999219967161">"Ljud- och musikprogram"</string>
+    <string name="topic10166" msgid="4768106492755849560">"Företags- och produktivitetsprogram"</string>
+    <string name="topic10167" msgid="8556935769754922871">"Kalender- och planeringsprogram"</string>
+    <string name="topic10168" msgid="7730134961167790334">"Samarbets- och konferensprogram"</string>
+    <string name="topic10169" msgid="5655084106378890454">"Presentationsprogram"</string>
+    <string name="topic10170" msgid="4638281897205909919">"Kalkylarksprogram"</string>
+    <string name="topic10171" msgid="7910183120486541228">"Ordbehandlingsprogram"</string>
+    <string name="topic10172" msgid="3626573644414074730">"Desktop Publishing"</string>
+    <string name="topic10173" msgid="7320053835183057144">"Teckensnitt"</string>
+    <string name="topic10174" msgid="5770469447869586710">"Nedladdningshanterare"</string>
+    <string name="topic10175" msgid="3475235810022334041">"Freeware och shareware"</string>
+    <string name="topic10176" msgid="6881704501596479881">"Grafik- och animationsprogram"</string>
+    <string name="topic10177" msgid="6740430730079682579">"Smarta personliga assistenter"</string>
+    <string name="topic10178" msgid="7261811053741593091">"Mediespelare"</string>
+    <string name="topic10179" msgid="2967001567120854492">"Övervakningsprogram"</string>
+    <string name="topic10180" msgid="4197420326455130102">"Operativsystem"</string>
+    <string name="topic10181" msgid="3537573129132698830">"Foto- och videoprogram"</string>
+    <string name="topic10182" msgid="7688631285131229981">"Fotoprogram"</string>
+    <string name="topic10183" msgid="5994974566140272512">"Videoprogram"</string>
+    <string name="topic10184" msgid="8685817335076871509">"Programverktyg"</string>
+    <string name="topic10185" msgid="308314128178285390">"Webbläsare"</string>
+    <string name="topic10186" msgid="3147859503481018245">"Ekonomi"</string>
+    <string name="topic10187" msgid="7077128721410871032">"Bokföring och revision"</string>
+    <string name="topic10188" msgid="2206138708659457910">"Skattefrågor och skatteplanering"</string>
+    <string name="topic10189" msgid="4001795553008246784">"Bankärenden"</string>
+    <string name="topic10190" msgid="2988430661381243083">"Penningöverföring och elektronisk överföring"</string>
+    <string name="topic10191" msgid="6196081825838237614">"Krediter och långivning"</string>
+    <string name="topic10192" msgid="3290123244833047307">"Kreditkort"</string>
+    <string name="topic10193" msgid="294407043381146861">"Bostadslån"</string>
+    <string name="topic10194" msgid="2834543407440890272">"Privatlån"</string>
+    <string name="topic10195" msgid="7650553060132394782">"Studielån och stipendier"</string>
+    <string name="topic10196" msgid="5395035781876507254">"Finansiell planering och förvaltning"</string>
+    <string name="topic10197" msgid="1287138667488226463">"Pension"</string>
+    <string name="topic10198" msgid="2523256186943366779">"Bidrag"</string>
+    <string name="topic10199" msgid="3746711537661530183">"Bidrag"</string>
+    <string name="topic10200" msgid="2394864891391267841">"Försäkring"</string>
+    <string name="topic10201" msgid="4301879117376963742">"Fordonsförsäkring"</string>
+    <string name="topic10202" msgid="739808503036239379">"Sjukförsäkring"</string>
+    <string name="topic10203" msgid="838786942776142290">"Hemförsäkringar"</string>
+    <string name="topic10204" msgid="6591131759521321677">"Livförsäkringar"</string>
+    <string name="topic10205" msgid="3294946723815021478">"Reseförsäkringar"</string>
+    <string name="topic10206" msgid="6166888350685752683">"Investeringar"</string>
+    <string name="topic10207" msgid="2296385804039743999">"Handel med varor och terminer"</string>
+    <string name="topic10208" msgid="2717498987483479091">"Valutor och valutaväxling"</string>
+    <string name="topic10209" msgid="5204948738662951962">"Hedgefonder"</string>
+    <string name="topic10210" msgid="4607225697024266227">"Aktiefonder"</string>
+    <string name="topic10211" msgid="7475381839877166080">"Aktier och obligationer"</string>
+    <string name="topic10212" msgid="3988751035952286047">"Mat och dryck"</string>
+    <string name="topic10213" msgid="1358963098339995471">"Matlagning och recept"</string>
+    <string name="topic10214" msgid="8463864389138867811">"Grillning"</string>
+    <string name="topic10215" msgid="3085467051491069648">"Kokkonst"</string>
+    <string name="topic10216" msgid="6043130649326166680">"Vegetarisk matlagning"</string>
+    <string name="topic10217" msgid="7173870057669247536">"Vegansk matlagning"</string>
+    <string name="topic10218" msgid="5570240643247064951">"Hälsosam kost"</string>
+    <string name="topic10219" msgid="5896715206025463732">"Livsmedelshandlare och livsmedelskedjor"</string>
+    <string name="topic10220" msgid="3894580611467039658">"Spel"</string>
+    <string name="topic10221" msgid="14471057764591805">"Arkad- och myntspel"</string>
+    <string name="topic10222" msgid="2704894577954508861">"Biljard"</string>
+    <string name="topic10223" msgid="202900267060220170">"Brädspel"</string>
+    <string name="topic10224" msgid="6572627325588452785">"Schack och abstrakta strategispel"</string>
+    <string name="topic10225" msgid="8056906319560292131">"Kortspel"</string>
+    <string name="topic10226" msgid="714463563336281099">"Samlarkortspel"</string>
+    <string name="topic10227" msgid="218768654597520683">"Dator- och tv-spel"</string>
+    <string name="topic10228" msgid="850597136074192489">"Action- och plattformsspel"</string>
+    <string name="topic10229" msgid="4284501233897149886">"Äventyrsspel"</string>
+    <string name="topic10230" msgid="7156822286576815181">"Småspel"</string>
+    <string name="topic10231" msgid="7620407218897744361">"E-sport"</string>
+    <string name="topic10232" msgid="3029734447275709941">"Bil- och racingspel"</string>
+    <string name="topic10233" msgid="8318075279868138231">"Krigsspel"</string>
+    <string name="topic10234" msgid="3899847414436099153">"Spelreferenser och spelrecensioner"</string>
+    <string name="topic10235" msgid="5851356242523630529">"Fusk och knep till tv-spel"</string>
+    <string name="topic10236" msgid="1986665634014804954">"Massiva multiplayer-spel"</string>
+    <string name="topic10237" msgid="5569920221620447713">"Musik- och dansspel"</string>
+    <string name="topic10238" msgid="7431087331656772530">"Sandlådespel"</string>
+    <string name="topic10239" msgid="8667462879554115515">"Skjutspel"</string>
+    <string name="topic10240" msgid="1618985302446756520">"Simuleringsspel"</string>
+    <string name="topic10241" msgid="8450778411063723262">"Företags- och företagsledarspel"</string>
+    <string name="topic10242" msgid="8860812940320018907">"Stadsbyggnadsspel"</string>
+    <string name="topic10243" msgid="1764694148721971512">"Livssimuleringsspel"</string>
+    <string name="topic10244" msgid="4308588210397969087">"Fordonssimulatorer"</string>
+    <string name="topic10245" msgid="6904368410919496658">"Sportspel"</string>
+    <string name="topic10246" msgid="3381244806751528148">"Klubbledningsspel"</string>
+    <string name="topic10247" msgid="5927502688389762068">"Strategispel"</string>
+    <string name="topic10248" msgid="8471339627212674032">"Moddar och tillägg till tv-spel"</string>
+    <string name="topic10249" msgid="5076706536204559962">"Pedagogiska spel"</string>
+    <string name="topic10250" msgid="6083030595195401083">"Familjevänliga spel och aktiviteter"</string>
+    <string name="topic10251" msgid="99237306730665104">"Rita och måla"</string>
+    <string name="topic10252" msgid="6543039575961394064">"Utklädnings- och modespel"</string>
+    <string name="topic10253" msgid="566596668186874227">"Tankenötter"</string>
+    <string name="topic10254" msgid="5732147617072023634">"Rollspel"</string>
+    <string name="topic10255" msgid="2890655077164103057">"Bordtennis"</string>
+    <string name="topic10256" msgid="3302096971402751679">"Brickspel"</string>
+    <string name="topic10257" msgid="4238531589193902619">"Ordlekar"</string>
+    <string name="topic10258" msgid="6995329540076529056">"Hobby och fritid"</string>
+    <string name="topic10259" msgid="8649688885811560410">"Årsdagar"</string>
+    <string name="topic10260" msgid="487999213495640080">"Födelsedagar och namnsdagar"</string>
+    <string name="topic10261" msgid="8970668366745952094">"Dykning och undervattensaktiviteter"</string>
+    <string name="topic10262" msgid="6644046161469353448">"Fiber- och textilkonst"</string>
+    <string name="topic10263" msgid="848165976917542929">"Friluftsliv"</string>
+    <string name="topic10264" msgid="6274985117752637104">"Fiske"</string>
+    <string name="topic10265" msgid="4134876488948695674">"Jakt och skytte"</string>
+    <string name="topic10266" msgid="6617785039128074351">"Paintball"</string>
+    <string name="topic10267" msgid="488093331618885003">"Radiostyrda fordon och modellbygge"</string>
+    <string name="topic10268" msgid="277932389492046264">"Bröllop"</string>
+    <string name="topic10269" msgid="8572041514147955202">"Hem och trädgård"</string>
+    <string name="topic10270" msgid="2646715182474030951">"Trädgårdsarbete"</string>
+    <string name="topic10271" msgid="1308931236810509881">"Heminredning"</string>
+    <string name="topic10272" msgid="8746698707390628887">"Hushållsapparater"</string>
+    <string name="topic10273" msgid="344442071339164852">"Hemrenovering"</string>
+    <string name="topic10274" msgid="8982330028561451429">"Hemsäkerhet"</string>
+    <string name="topic10275" msgid="8280198018937968735">"Hushållsartiklar"</string>
+    <string name="topic10276" msgid="1651598271798609235">"Landskapsarkitektur"</string>
+    <string name="topic10277" msgid="7675195736886448994">"Internet och telekom"</string>
+    <string name="topic10278" msgid="873251714192341707">"E-post och meddelanden"</string>
+    <string name="topic10279" msgid="6514296374139842600">"E-post"</string>
+    <string name="topic10280" msgid="7976787187115018267">"Sms och snabbmeddelanden"</string>
+    <string name="topic10281" msgid="4013341162811169339">"Röst- och videochatt"</string>
+    <string name="topic10282" msgid="7810462611906257564">"Internetleverantörer"</string>
+    <string name="topic10283" msgid="3958287780718485172">"Teletjänstleverantörer"</string>
+    <string name="topic10284" msgid="2415044270290467935">"Ringsignaler och mobilteman"</string>
+    <string name="topic10285" msgid="7056449544316408821">"Sökmotorer"</string>
+    <string name="topic10286" msgid="3458688996478472971">"Smartphone"</string>
+    <string name="topic10287" msgid="6766203044518402938">"Telefonkonferens"</string>
+    <string name="topic10288" msgid="3883137694557636622">"Webbappar och onlineverktyg"</string>
+    <string name="topic10289" msgid="3392995633794787676">"Webbtjänster"</string>
+    <string name="topic10290" msgid="3118880486702986341">"Molnlagring"</string>
+    <string name="topic10291" msgid="6025855926350955094">"Webbdesign och webbutveckling"</string>
+    <string name="topic10292" msgid="3069720659823056935">"Webbhotell"</string>
+    <string name="topic10293" msgid="2489957780009828409">"Arbete och utbildning"</string>
+    <string name="topic10294" msgid="474839431177892843">"Utbildning"</string>
+    <string name="topic10295" msgid="2215489196192620880">"Akademiska konferenser och publikationer"</string>
+    <string name="topic10296" msgid="4494362881225210483">"Universitet och högskolor"</string>
+    <string name="topic10297" msgid="8596946591674128749">"Distansutbildning"</string>
+    <string name="topic10298" msgid="6669181180128620422">"Pedagogik för yngre barn"</string>
+    <string name="topic10299" msgid="989138215800115613">"Förskola"</string>
+    <string name="topic10300" msgid="8281464235308602670">"Hemundervisning"</string>
+    <string name="topic10301" msgid="9156890858635333460">"Standardprov och inträdesprov"</string>
+    <string name="topic10302" msgid="1325835179421990876">"Undervisningsresurser"</string>
+    <string name="topic10303" msgid="3103839978894155537">"Yrkes- och vidareutbildning"</string>
+    <string name="topic10304" msgid="8831682558788062486">"Jobb"</string>
+    <string name="topic10305" msgid="8415203095484493106">"Yrkesvägledning"</string>
+    <string name="topic10306" msgid="7426556527349374835">"Jobbannonser"</string>
+    <string name="topic10307" msgid="1187762846826735256">"Juridik och myndigheter"</string>
+    <string name="topic10308" msgid="3346756665358311386">"Brott och rättsväsende"</string>
+    <string name="topic10309" msgid="2041175328931014735">"Juridik"</string>
+    <string name="topic10310" msgid="7079570344976872062">"Juridiska tjänster"</string>
+    <string name="topic10311" msgid="2095095138677585525">"Nyheter"</string>
+    <string name="topic10312" msgid="939721674816307639">"Ekonominyheter"</string>
+    <string name="topic10313" msgid="4159611985538361632">"Lokala nyheter"</string>
+    <string name="topic10314" msgid="93219947859117151">"Företagsfusioner och förvärv"</string>
+    <string name="topic10315" msgid="5046321177148647481">"Dagstidningar"</string>
+    <string name="topic10316" msgid="8592980844674525307">"Politik"</string>
+    <string name="topic10317" msgid="2412259096368647866">"Sportnyheter"</string>
+    <string name="topic10318" msgid="1508449672941031904">"Väder"</string>
+    <string name="topic10319" msgid="3973645291178509390">"Världsnyheter"</string>
+    <string name="topic10320" msgid="5279440074507438174">"Internetgrupper"</string>
+    <string name="topic10321" msgid="7018890132742820265">"Clip art och animerade GIF-bilder"</string>
+    <string name="topic10322" msgid="1585737438943011532">"Dejting och personligt"</string>
+    <string name="topic10323" msgid="962863497957179646">"Flödessamlare och sociala bokmärken"</string>
+    <string name="topic10324" msgid="1425257460381023853">"Fildelning och värdlagring"</string>
+    <string name="topic10325" msgid="8698912164970408378">"Forum- och chattleverantörer"</string>
+    <string name="topic10326" msgid="2425798096705921796">"Mikrobloggar"</string>
+    <string name="topic10327" msgid="8518822987595111212">"Foto- och videodelning"</string>
+    <string name="topic10328" msgid="8932708475346340912">"Foto- och bilddelning"</string>
+    <string name="topic10329" msgid="223933889758324282">"Videodelning"</string>
+    <string name="topic10330" msgid="188028553492626282">"Skins"</string>
+    <string name="topic10331" msgid="426844238985651925">"Appar och tillägg för sociala nätverk"</string>
+    <string name="topic10332" msgid="291747325781232456">"Sociala nätverk"</string>
+    <string name="topic10333" msgid="7950152600374846488">"Folk och samhälle"</string>
+    <string name="topic10334" msgid="8671262583721706509">"Familj och relationer"</string>
+    <string name="topic10335" msgid="1526523762163185819">"Förfäder och släktforskning"</string>
+    <string name="topic10336" msgid="4551233571090493177">"Äktenskap"</string>
+    <string name="topic10337" msgid="8436172065188964882">"Föräldraskap"</string>
+    <string name="topic10338" msgid="8896269734682970">"Adoption"</string>
+    <string name="topic10339" msgid="781900237993621300">"Spädbarn och småbarn"</string>
+    <string name="topic10340" msgid="6538182603360796294">"Säkerhet för barn på internet"</string>
+    <string name="topic10341" msgid="3586543243312398568">"Romantik"</string>
+    <string name="topic10342" msgid="3695176378281477573">"Science fiction och fantasy"</string>
+    <string name="topic10343" msgid="2318169062960263837">"Djur och husdjur"</string>
+    <string name="topic10344" msgid="2005534117977874327">"Djurfoder och djurvårdsmaterial"</string>
+    <string name="topic10345" msgid="2397329020706244200">"Husdjur"</string>
+    <string name="topic10346" msgid="1323702748723563694">"Fåglar"</string>
+    <string name="topic10347" msgid="3301879823396773413">"Katter"</string>
+    <string name="topic10348" msgid="8066686305498410222">"Hundar"</string>
+    <string name="topic10349" msgid="5253723822905761195">"Fiskar och akvarier"</string>
+    <string name="topic10350" msgid="6164036369108076590">"Reptiler och amfibier"</string>
+    <string name="topic10351" msgid="1132984519083501363">"Veterinärer"</string>
+    <string name="topic10352" msgid="6310110390516037997">"Fastigheter"</string>
+    <string name="topic10353" msgid="5114390804081576684">"Tomter och mark"</string>
+    <string name="topic10354" msgid="7980778954791504082">"Andels- och semesterhus"</string>
+    <string name="topic10355" msgid="7720717354548642600">"Referens"</string>
+    <string name="topic10356" msgid="8366981308613661935">"Förteckningar över företag och privatpersoner"</string>
+    <string name="topic10357" msgid="3185598234676097975">"Allmänt referensmaterial"</string>
+    <string name="topic10358" msgid="6732669037513504019">"Kalkylatorer och referensverktyg"</string>
+    <string name="topic10359" msgid="8901932349008990500">"Ordböcker och uppslagsverk"</string>
+    <string name="topic10360" msgid="6113408769992775754">"Utbildningsresurser"</string>
+    <string name="topic10361" msgid="364838820459183817">"Gör så här"</string>
+    <string name="topic10362" msgid="3760998790588600032">"Tid och kalendrar"</string>
+    <string name="topic10363" msgid="5464708619861040861">"Språkresurser"</string>
+    <string name="topic10364" msgid="4685400848805560054">"Språkstudier"</string>
+    <string name="topic10365" msgid="5196231842716190887">"Verktyg och resurser för översättning"</string>
+    <string name="topic10366" msgid="7460927054539097025">"Kartor"</string>
+    <string name="topic10367" msgid="3900361839783743700">"Vetenskap"</string>
+    <string name="topic10368" msgid="2069447039109930660">"Förstärkt och virtuell verklighet"</string>
+    <string name="topic10369" msgid="5747888306428024793">"Biologi"</string>
+    <string name="topic10370" msgid="4860829940151353583">"Genetik"</string>
+    <string name="topic10371" msgid="8229818210867472466">"Kemi"</string>
+    <string name="topic10372" msgid="6400467418954574231">"Ekologi och miljö"</string>
+    <string name="topic10373" msgid="6990757247198163741">"Geologi"</string>
+    <string name="topic10374" msgid="8057983193031950119">"Maskininlärning och artificiell intelligens"</string>
+    <string name="topic10375" msgid="8511185098682306025">"Matematik"</string>
+    <string name="topic10376" msgid="6387800251638760737">"Fysik"</string>
+    <string name="topic10377" msgid="7834619927563362042">"Robotik"</string>
+    <string name="topic10378" msgid="242496862821758873">"Shopping"</string>
+    <string name="topic10379" msgid="5505228335012447165">"Antikviteter och samlarobjekt"</string>
+    <string name="topic10380" msgid="4989560205486143927">"Kläder"</string>
+    <string name="topic10381" msgid="7585496746485093505">"Barnkläder"</string>
+    <string name="topic10382" msgid="5088060295126473451">"Dräkter"</string>
+    <string name="topic10383" msgid="4947104586590538143">"Herrkläder"</string>
+    <string name="topic10384" msgid="3752472493887374077">"Damkläder"</string>
+    <string name="topic10385" msgid="5275843140794803595">"Radannonser"</string>
+    <string name="topic10386" msgid="5887032952574801982">"Resurser för konsumenter"</string>
+    <string name="topic10387" msgid="8474154360410317897">"Kuponger och rabatterbjudanden"</string>
+    <string name="topic10388" msgid="3650307363028796765">"Stamkundskort och stamkundsprogram"</string>
+    <string name="topic10389" msgid="1542336508240183221">"Teknisk support och reparation"</string>
+    <string name="topic10390" msgid="831225961168954292">"Blommor"</string>
+    <string name="topic10391" msgid="6810540242154911762">"Gratulationskort"</string>
+    <string name="topic10392" msgid="2431377771302967625">"Fest- och semesterprodukter"</string>
+    <string name="topic10393" msgid="2671274205988136926">"Shoppingportaler"</string>
+    <string name="topic10394" msgid="1530096364743244151">"Sport"</string>
+    <string name="topic10395" msgid="316192616624062917">"Amerikansk fotboll"</string>
+    <string name="topic10396" msgid="8042120651878490689">"Australisk fotboll"</string>
+    <string name="topic10397" msgid="492901976344700942">"Bilracing"</string>
+    <string name="topic10398" msgid="3471795015226090296">"Baseboll"</string>
+    <string name="topic10399" msgid="2126280752064021308">"Basket"</string>
+    <string name="topic10400" msgid="5440499529264277027">"Bowling"</string>
+    <string name="topic10401" msgid="166689951236922024">"Boxning"</string>
+    <string name="topic10402" msgid="2451339788231007479">"Cheerleading"</string>
+    <string name="topic10403" msgid="6455478521804717635">"Skolsport"</string>
+    <string name="topic10404" msgid="5261583496913118024">"Cricket"</string>
+    <string name="topic10405" msgid="482477447879117820">"Cykel"</string>
+    <string name="topic10406" msgid="8167644332387528703">"Ridsport"</string>
+    <string name="topic10407" msgid="3237734582719584272">"Extremsporter"</string>
+    <string name="topic10408" msgid="3859749534843254349">"Klättring och bergsbestigning"</string>
+    <string name="topic10409" msgid="7485614115639267976">"Fantasysport"</string>
+    <string name="topic10410" msgid="5996939009229881074">"Golf"</string>
+    <string name="topic10411" msgid="2513997418184786648">"Gymnastik"</string>
+    <string name="topic10412" msgid="5411755341358248299">"Hockey"</string>
+    <string name="topic10413" msgid="3319233613448963890">"Skridskor"</string>
+    <string name="topic10414" msgid="1797840816328584660">"Kampsport"</string>
+    <string name="topic10415" msgid="2886043330316735719">"Motorcykelracing"</string>
+    <string name="topic10416" msgid="3436682172863605224">"Olympiska spelen"</string>
+    <string name="topic10417" msgid="8296644015663416236">"Rugby"</string>
+    <string name="topic10418" msgid="8276736633218488127">"Löpning och gång"</string>
+    <string name="topic10419" msgid="5663062924928275215">"Skidor och snowboard"</string>
+    <string name="topic10420" msgid="2509320683543423424">"Fotboll"</string>
+    <string name="topic10421" msgid="6512889128030030686">"Surfing"</string>
+    <string name="topic10422" msgid="8342986282852879750">"Simning"</string>
+    <string name="topic10423" msgid="6333426807705188459">"Tennis"</string>
+    <string name="topic10424" msgid="5495511215629567375">"Friidrott"</string>
+    <string name="topic10425" msgid="4009138228283995179">"Volleyboll"</string>
+    <string name="topic10426" msgid="7998590461761852196">"Brottning"</string>
+    <string name="topic10427" msgid="6711468161729797769">"Resor och transport"</string>
+    <string name="topic10428" msgid="661919563628063196">"Äventyrsresor"</string>
+    <string name="topic10429" msgid="408270392813634227">"Flygresor"</string>
+    <string name="topic10430" msgid="3046485339481297656">"Affärsresor"</string>
+    <string name="topic10431" msgid="7439352609169583150">"Biluthyrning"</string>
+    <string name="topic10432" msgid="5034961318884376752">"Kryssningar och charterresor"</string>
+    <string name="topic10433" msgid="6354590445323135986">"Familjeresor"</string>
+    <string name="topic10434" msgid="7081309045291255264">"Smekmånader och romantiska resor"</string>
+    <string name="topic10435" msgid="1064605516265819020">"Hotell och boenden"</string>
+    <string name="topic10436" msgid="9050375924140897722">"Långdistansresor med buss och tåg"</string>
+    <string name="topic10437" msgid="2655664900730187701">"Budget- och sista minuten-resor"</string>
+    <string name="topic10438" msgid="7944023251845122923">"Bagage och resetillbehör"</string>
+    <string name="topic10439" msgid="7845433008088931971">"Turistmål"</string>
+    <string name="topic10440" msgid="485118071443976808">"Stränder och öar"</string>
+    <string name="topic10441" msgid="518643446480879895">"Parker och trädgårdar"</string>
+    <string name="topic10442" msgid="6534536077484540292">"Temaparker"</string>
+    <string name="topic10443" msgid="8787722062991478596">"Djurparker"</string>
+    <string name="topic10444" msgid="2075863187654728611">"Trafik- och ruttplanerare"</string>
+    <string name="topic10445" msgid="3460421948068980869">"Resebyråer och resetjänster"</string>
+    <string name="topic10446" msgid="5333138740720504195">"Resehandböcker och reseskildringar"</string>
+</resources>

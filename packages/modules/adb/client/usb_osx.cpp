@@ -110,6 +110,16 @@ static void AndroidInterfaceAdded(io_iterator_t iterator);
 static std::unique_ptr<usb_handle> CheckInterface(IOUSBInterfaceInterface550** iface, UInt16 vendor,
                                                   UInt16 product);
 
+// Flag-guarded (using host env variable) feature that turns on
+// the ability to clear the device-side endpoint also before
+// starting. See public bug https://issuetracker.google.com/issues/37055927
+// for historical context.
+static bool clear_endpoints() {
+    static const char* env(getenv("ADB_OSX_USB_CLEAR_ENDPOINTS"));
+    static bool result = env && strcmp("1", env) == 0;
+    return result;
+}
+
 static bool FindUSBDevices() {
     // Create the matching dictionary to find the Android device's adb interface.
     CFMutableDictionaryRef matchingDict = IOServiceMatching(kIOUSBInterfaceClassName);
@@ -176,9 +186,8 @@ AndroidInterfaceAdded(io_iterator_t iterator)
         kr = (*iface)->GetInterfaceSubClass(iface, &subclass);
         kr = (*iface)->GetInterfaceProtocol(iface, &protocol);
         if (!is_adb_interface(if_class, subclass, protocol)) {
-            // Ignore non-ADB devices.
-            LOG(DEBUG) << "Ignoring interface with incorrect class/subclass/protocol - " << if_class
-                       << ", " << subclass << ", " << protocol;
+            // Ignore non-ADB devices (interface with incorrect
+            // class/subclass/protocol).
             (*iface)->Release(iface);
             continue;
         }
@@ -323,7 +332,17 @@ AndroidInterfaceAdded(io_iterator_t iterator)
 // Used to clear both the endpoints before starting.
 // When adb quits, we might clear the host endpoint but not the device.
 // So we make sure both sides are clear before starting up.
+// Returns true if:
+//      - the feature is disabled (OSX/host only)
+//      - the feature is enabled and successfully clears both endpoints
+// Returns false otherwise (if an error is encountered)
 static bool ClearPipeStallBothEnds(IOUSBInterfaceInterface550** interface, UInt8 bulkEp) {
+    // If feature-disabled, (silently) bypass clearing both
+    // endpoints (including device-side).
+    if (!clear_endpoints()) {
+        return true;
+    }
+
     IOReturn rc = (*interface)->ClearPipeStallBothEnds(interface, bulkEp);
     if (rc != kIOReturnSuccess) {
         LOG(ERROR) << "Could not clear pipe stall both ends: " << std::hex << rc;
@@ -377,19 +396,34 @@ static std::unique_ptr<usb_handle> CheckInterface(IOUSBInterfaceInterface550** i
 
     //* Iterate over the endpoints for this interface and find the first
     //* bulk in/out pipes available.  These will be our read/write pipes.
-    for (endpoint = 1; endpoint <= interfaceNumEndpoints; endpoint++) {
+    for (endpoint = 1; endpoint <= interfaceNumEndpoints; ++endpoint) {
         UInt8   transferType;
-        UInt16  maxPacketSize;
+        UInt16  endPointMaxPacketSize = 0;
         UInt8   interval;
+
+        // Attempt to retrieve the 'true' packet-size from supported interface.
+        kr = (*interface)
+                 ->GetEndpointProperties(interface, 0, endpoint,
+                    kUSBOut,
+                    &transferType,
+                    &endPointMaxPacketSize, &interval);
+        if (kr == kIOReturnSuccess) {
+            CHECK_NE(0, endPointMaxPacketSize);
+        }
+
+        UInt16  pipePropMaxPacketSize;
         UInt8   number;
         UInt8   direction;
         UInt8 maxBurst;
         UInt8 mult;
         UInt16 bytesPerInterval;
 
-        kr = (*interface)
-                 ->GetPipePropertiesV2(interface, endpoint, &direction, &number, &transferType,
-                                       &maxPacketSize, &interval, &maxBurst, &mult,
+        // Proceed with extracting the transfer direction, so we can fill in the
+        // appropriate fields (bulkIn or bulkOut).
+        kr = (*interface)->GetPipePropertiesV2(interface, endpoint,
+                                       &direction, &number, &transferType,
+                                       &pipePropMaxPacketSize, &interval,
+                                       &maxBurst, &mult,
                                        &bytesPerInterval);
         if (kr != kIOReturnSuccess) {
             LOG(ERROR) << "FindDeviceInterface - could not get pipe properties: "
@@ -401,23 +435,31 @@ static std::unique_ptr<usb_handle> CheckInterface(IOUSBInterfaceInterface550** i
 
         if (kUSBIn == direction) {
             handle->bulkIn = endpoint;
-            if (!ClearPipeStallBothEnds(interface, handle->bulkIn)) goto err_get_pipe_props;
+
+            if (!ClearPipeStallBothEnds(interface, handle->bulkIn)) {
+                goto err_get_pipe_props;
+            }
         }
 
         if (kUSBOut == direction) {
             handle->bulkOut = endpoint;
-            if (!ClearPipeStallBothEnds(interface, handle->bulkOut)) goto err_get_pipe_props;
+
+            if (!ClearPipeStallBothEnds(interface, handle->bulkOut)) {
+                goto err_get_pipe_props;
+            }
         }
 
-        if (maxBurst != 0)
+        // Compute the packet-size, in case the system did not return the correct value.
+        if (endPointMaxPacketSize == 0 && maxBurst != 0) {
             // bMaxBurst is the number of additional packets in the burst.
-            maxPacketSize /= (maxBurst + 1);
+            endPointMaxPacketSize = pipePropMaxPacketSize / (maxBurst + 1);
+        }
 
         // mult is only relevant for isochronous endpoints.
         CHECK_EQ(0, mult);
 
-        handle->zero_mask = maxPacketSize - 1;
-        handle->max_packet_size = maxPacketSize;
+        handle->zero_mask = endPointMaxPacketSize - 1;
+        handle->max_packet_size = endPointMaxPacketSize;
     }
 
     handle->interface = interface;

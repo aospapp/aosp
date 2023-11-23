@@ -20,7 +20,10 @@ import static android.Manifest.permission.ACCESS_FINE_LOCATION;
 import static android.Manifest.permission.ACCESS_WIFI_STATE;
 import static android.Manifest.permission.CHANGE_WIFI_STATE;
 import static android.Manifest.permission.NEARBY_WIFI_DEVICES;
+import static android.Manifest.permission.OVERRIDE_WIFI_CONFIG;
 
+import android.annotation.CallbackExecutor;
+import android.annotation.IntRange;
 import android.annotation.NonNull;
 import android.annotation.Nullable;
 import android.annotation.RequiresPermission;
@@ -36,6 +39,8 @@ import com.android.internal.annotations.VisibleForTesting;
 
 import java.lang.ref.Reference;
 import java.lang.ref.WeakReference;
+import java.util.concurrent.Executor;
+import java.util.function.Consumer;
 
 /**
  * This class represents a Wi-Fi Aware session - an attachment to the Wi-Fi Aware service through
@@ -237,6 +242,53 @@ public class WifiAwareSession implements AutoCloseable {
         }
         mgr.subscribe(mClientId, (handler == null) ? Looper.getMainLooper() : handler.getLooper(),
                 subscribeConfig, callback);
+    }
+
+    /**
+     * Set the master preference of the current Aware session. Device will use the highest master
+     * preference among all the active sessions on the device. The permitted range is 0 (the
+     * default) to 255 with 1 and 255 excluded (reserved).
+     *
+     * @param masterPreference The requested master preference
+     * @hide
+     */
+    @SystemApi
+    @RequiresPermission(OVERRIDE_WIFI_CONFIG)
+    public void setMasterPreference(@IntRange(from = 0, to = 254) int masterPreference) {
+        WifiAwareManager mgr = mMgr.get();
+        if (mgr == null) {
+            Log.e(TAG, "publish: called post GC on WifiAwareManager");
+            return;
+        }
+        if (mTerminated) {
+            Log.e(TAG, "publish: called after termination");
+            return;
+        }
+        mgr.setMasterPreference(mClientId, mBinder, masterPreference);
+    }
+
+    /**
+     * Get the master preference of the current Aware session. Which configured by
+     * {@link #setMasterPreference(int)}.
+     *
+     * @param executor The executor on which callback will be invoked.
+     * @param resultsCallback An asynchronous callback that will return boolean
+     * @hide
+     */
+    @SystemApi
+    @RequiresPermission(OVERRIDE_WIFI_CONFIG)
+    public void getMasterPreference(@NonNull @CallbackExecutor Executor executor,
+            @NonNull Consumer<Integer> resultsCallback) {
+        WifiAwareManager mgr = mMgr.get();
+        if (mgr == null) {
+            Log.e(TAG, "publish: called post GC on WifiAwareManager");
+            return;
+        }
+        if (mTerminated) {
+            Log.e(TAG, "publish: called after termination");
+            return;
+        }
+        mgr.getMasterPreference(mClientId, mBinder, executor, resultsCallback);
     }
 
     /**

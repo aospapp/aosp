@@ -33,7 +33,10 @@ android_test {
     target_sdk_version: "30",
     min_sdk_version: "30",
 
-    srcs: ["src/**/*.kt"],
+    srcs: [
+        "src/**/*.kt",
+        "src/com/android/permissioncontroller/permission/compat/LinkMovementMethodCompatTest.java",
+    ],
 
     libs: [
         "android.test.base",
@@ -44,10 +47,16 @@ android_test {
         "androidx.test.rules",
         "androidx.test.ext.truth",
         "androidx.test.ext.junit",
-        "androidx.test.uiautomator",
+        "androidx.test.uiautomator_uiautomator",
         "compatibility-device-util-axt",
+        "kotlin-test",
         "permission-test-util-lib",
     ],
+
+    data: [
+        ":AppThatUsesCameraPermission",
+    ],
+    per_testcase_directory: true,
 
     certificate: "platform",
 

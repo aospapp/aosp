@@ -135,6 +135,7 @@ public class HidDeviceTest {
 
         // Set up the Connection State Changed receiver
         IntentFilter filter = new IntentFilter();
+        filter.setPriority(IntentFilter.SYSTEM_HIGH_PRIORITY);
         filter.addAction(BluetoothHidDevice.ACTION_CONNECTION_STATE_CHANGED);
         mConnectionStateChangedReceiver = new ConnectionStateChangedReceiver();
         mTargetContext.registerReceiver(mConnectionStateChangedReceiver, filter);

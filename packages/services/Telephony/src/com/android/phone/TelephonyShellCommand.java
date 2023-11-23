@@ -21,6 +21,8 @@ import static com.android.internal.telephony.d2d.Communicator.MESSAGE_CALL_RADIO
 import static com.android.internal.telephony.d2d.Communicator.MESSAGE_DEVICE_BATTERY_STATE;
 import static com.android.internal.telephony.d2d.Communicator.MESSAGE_DEVICE_NETWORK_COVERAGE;
 
+import static java.util.Map.entry;
+
 import android.Manifest;
 import android.content.Context;
 import android.net.Uri;
@@ -55,14 +57,16 @@ import com.android.internal.telephony.emergency.EmergencyNumberTracker;
 import com.android.internal.telephony.util.TelephonyUtils;
 import com.android.modules.utils.BasicShellCommandHandler;
 import com.android.phone.callcomposer.CallComposerPictureManager;
+import com.android.phone.euicc.EuiccUiDispatcherActivity;
+import com.android.phone.utils.CarrierAllowListInfo;
 
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
@@ -95,6 +99,12 @@ public class TelephonyShellCommand extends BasicShellCommandHandler {
     private static final String ENABLE = "enable";
     private static final String DISABLE = "disable";
     private static final String QUERY = "query";
+    private static final String CARRIER_RESTRICTION_STATUS_TEST = "carrier_restriction_status_test";
+    private static final String SET_CARRIER_SERVICE_PACKAGE_OVERRIDE =
+            "set-carrier-service-package-override";
+    private static final String CLEAR_CARRIER_SERVICE_PACKAGE_OVERRIDE =
+            "clear-carrier-service-package-override";
+    private final String QUOTES = "\"";
 
     private static final String CALL_COMPOSER_TEST_MODE = "test-mode";
     private static final String CALL_COMPOSER_SIMULATE_CALL = "simulate-outgoing-call";
@@ -115,6 +125,9 @@ public class TelephonyShellCommand extends BasicShellCommandHandler {
     private static final String CC_SET_VALUE = "set-value";
     private static final String CC_SET_VALUES_FROM_XML = "set-values-from-xml";
     private static final String CC_CLEAR_VALUES = "clear-values";
+
+    private static final String EUICC_SUBCOMMAND = "euicc";
+    private static final String EUICC_SET_UI_COMPONENT = "set-euicc-uicomponent";
 
     private static final String GBA_SUBCOMMAND = "gba";
     private static final String GBA_SET_SERVICE = "set-service";
@@ -166,13 +179,28 @@ public class TelephonyShellCommand extends BasicShellCommandHandler {
     private static final String THERMAL_MITIGATION_COMMAND = "thermal-mitigation";
     private static final String ALLOW_THERMAL_MITIGATION_PACKAGE_SUBCOMMAND = "allow-package";
     private static final String DISALLOW_THERMAL_MITIGATION_PACKAGE_SUBCOMMAND = "disallow-package";
+    private static final String SET_SATELLITE_SERVICE_PACKAGE_NAME =
+            "set-satellite-service-package-name";
+    private static final String SET_SATELLITE_GATEWAY_SERVICE_PACKAGE_NAME =
+            "set-satellite-gateway-service-package-name";
+    private static final String SET_SATELLITE_LISTENING_TIMEOUT_DURATION =
+            "set-satellite-listening-timeout-duration";
+    private static final String SET_SATELLITE_POINTING_UI_CLASS_NAME =
+            "set-satellite-pointing-ui-class-name";
+    private static final String SET_SATELLITE_DEVICE_ALIGNED_TIMEOUT_DURATION =
+            "set-satellite-device-aligned-timeout-duration";
+
+    private static final String INVALID_ENTRY_ERROR = "An emergency number (only allow '0'-'9', "
+            + "'*', '#' or '+') needs to be specified after -a in the command ";
+
+    private static final int[] ROUTING_TYPES = {EmergencyNumber.EMERGENCY_CALL_ROUTING_UNKNOWN,
+            EmergencyNumber.EMERGENCY_CALL_ROUTING_EMERGENCY,
+            EmergencyNumber.EMERGENCY_CALL_ROUTING_NORMAL};
 
     private static final String GET_ALLOWED_NETWORK_TYPES_FOR_USER =
             "get-allowed-network-types-for-users";
     private static final String SET_ALLOWED_NETWORK_TYPES_FOR_USER =
             "set-allowed-network-types-for-users";
-    // Check if telephony new data stack is enabled.
-    private static final String GET_DATA_MODE = "get-data-mode";
     private static final String GET_IMEI = "get-imei";
     private static final String GET_SIM_SLOTS_MAPPING = "get-sim-slots-mapping";
     // Take advantage of existing methods that already contain permissions checks when possible.
@@ -198,33 +226,32 @@ public class TelephonyShellCommand extends BasicShellCommandHandler {
     // For instance: "xxxx_string", "xxxx_string_array", etc.
     // The carrier config keys in this map does not follow this convention. It is therefore not
     // possible to infer the type for these keys by looking at the string.
-    private static final Map<String, CcType> CC_TYPE_MAP = new HashMap<String, CcType>() {{
-            put(CarrierConfigManager.Gps.KEY_A_GLONASS_POS_PROTOCOL_SELECT_STRING, CcType.STRING);
-            put(CarrierConfigManager.Gps.KEY_ES_EXTENSION_SEC_STRING, CcType.STRING);
-            put(CarrierConfigManager.Gps.KEY_GPS_LOCK_STRING, CcType.STRING);
-            put(CarrierConfigManager.Gps.KEY_LPP_PROFILE_STRING, CcType.STRING);
-            put(CarrierConfigManager.Gps.KEY_NFW_PROXY_APPS_STRING, CcType.STRING);
-            put(CarrierConfigManager.Gps.KEY_SUPL_ES_STRING, CcType.STRING);
-            put(CarrierConfigManager.Gps.KEY_SUPL_HOST_STRING, CcType.STRING);
-            put(CarrierConfigManager.Gps.KEY_SUPL_MODE_STRING, CcType.STRING);
-            put(CarrierConfigManager.Gps.KEY_SUPL_PORT_STRING, CcType.STRING);
-            put(CarrierConfigManager.Gps.KEY_SUPL_VER_STRING, CcType.STRING);
-            put(CarrierConfigManager.Gps.KEY_USE_EMERGENCY_PDN_FOR_EMERGENCY_SUPL_STRING,
-                    CcType.STRING);
-            put(CarrierConfigManager.KEY_CARRIER_APP_NO_WAKE_SIGNAL_CONFIG_STRING_ARRAY,
-                    CcType.STRING_ARRAY);
-            put(CarrierConfigManager.KEY_CARRIER_APP_WAKE_SIGNAL_CONFIG_STRING_ARRAY,
-                    CcType.STRING_ARRAY);
-            put(CarrierConfigManager.KEY_CARRIER_CALL_SCREENING_APP_STRING, CcType.STRING);
-            put(CarrierConfigManager.KEY_MMS_EMAIL_GATEWAY_NUMBER_STRING, CcType.STRING);
-            put(CarrierConfigManager.KEY_MMS_HTTP_PARAMS_STRING, CcType.STRING);
-            put(CarrierConfigManager.KEY_MMS_NAI_SUFFIX_STRING, CcType.STRING);
-            put(CarrierConfigManager.KEY_MMS_UA_PROF_TAG_NAME_STRING, CcType.STRING);
-            put(CarrierConfigManager.KEY_MMS_UA_PROF_URL_STRING, CcType.STRING);
-            put(CarrierConfigManager.KEY_MMS_USER_AGENT_STRING, CcType.STRING);
-            put(CarrierConfigManager.KEY_RATCHET_RAT_FAMILIES, CcType.STRING_ARRAY);
-        }
-    };
+    private static final Map<String, CcType> CC_TYPE_MAP = Map.ofEntries(
+            entry(CarrierConfigManager.Gps.KEY_A_GLONASS_POS_PROTOCOL_SELECT_STRING,
+                    CcType.STRING),
+            entry(CarrierConfigManager.Gps.KEY_ES_EXTENSION_SEC_STRING, CcType.STRING),
+            entry(CarrierConfigManager.Gps.KEY_GPS_LOCK_STRING, CcType.STRING),
+            entry(CarrierConfigManager.Gps.KEY_LPP_PROFILE_STRING, CcType.STRING),
+            entry(CarrierConfigManager.Gps.KEY_NFW_PROXY_APPS_STRING, CcType.STRING),
+            entry(CarrierConfigManager.Gps.KEY_SUPL_ES_STRING, CcType.STRING),
+            entry(CarrierConfigManager.Gps.KEY_SUPL_HOST_STRING, CcType.STRING),
+            entry(CarrierConfigManager.Gps.KEY_SUPL_MODE_STRING, CcType.STRING),
+            entry(CarrierConfigManager.Gps.KEY_SUPL_PORT_STRING, CcType.STRING),
+            entry(CarrierConfigManager.Gps.KEY_SUPL_VER_STRING, CcType.STRING),
+            entry(CarrierConfigManager.Gps.KEY_USE_EMERGENCY_PDN_FOR_EMERGENCY_SUPL_STRING,
+                    CcType.STRING),
+            entry(CarrierConfigManager.KEY_CARRIER_APP_NO_WAKE_SIGNAL_CONFIG_STRING_ARRAY,
+                    CcType.STRING_ARRAY),
+            entry(CarrierConfigManager.KEY_CARRIER_APP_WAKE_SIGNAL_CONFIG_STRING_ARRAY,
+                    CcType.STRING_ARRAY),
+            entry(CarrierConfigManager.KEY_CARRIER_CALL_SCREENING_APP_STRING, CcType.STRING),
+            entry(CarrierConfigManager.KEY_MMS_EMAIL_GATEWAY_NUMBER_STRING, CcType.STRING),
+            entry(CarrierConfigManager.KEY_MMS_HTTP_PARAMS_STRING, CcType.STRING),
+            entry(CarrierConfigManager.KEY_MMS_NAI_SUFFIX_STRING, CcType.STRING),
+            entry(CarrierConfigManager.KEY_MMS_UA_PROF_TAG_NAME_STRING, CcType.STRING),
+            entry(CarrierConfigManager.KEY_MMS_UA_PROF_URL_STRING, CcType.STRING),
+            entry(CarrierConfigManager.KEY_MMS_USER_AGENT_STRING, CcType.STRING),
+            entry(CarrierConfigManager.KEY_RATCHET_RAT_FAMILIES, CcType.STRING_ARRAY));
 
     /**
      * Map from a shorthand string to the feature tags required in registration required in order
@@ -304,6 +331,8 @@ public class TelephonyShellCommand extends BasicShellCommandHandler {
                 return handleDataTestModeCommand();
             case END_BLOCK_SUPPRESSION:
                 return handleEndBlockSuppressionCommand();
+            case EUICC_SUBCOMMAND:
+                return handleEuiccCommand();
             case GBA_SUBCOMMAND:
                 return handleGbaCommand();
             case D2D_SUBCOMMAND:
@@ -329,14 +358,28 @@ public class TelephonyShellCommand extends BasicShellCommandHandler {
             case GET_ALLOWED_NETWORK_TYPES_FOR_USER:
             case SET_ALLOWED_NETWORK_TYPES_FOR_USER:
                 return handleAllowedNetworkTypesCommand(cmd);
-            case GET_DATA_MODE:
-                return handleGetDataMode();
             case GET_IMEI:
                 return handleGetImei();
             case GET_SIM_SLOTS_MAPPING:
                 return handleGetSimSlotsMapping();
             case RADIO_SUBCOMMAND:
                 return handleRadioCommand();
+            case CARRIER_RESTRICTION_STATUS_TEST:
+                return handleCarrierRestrictionStatusCommand();
+            case SET_CARRIER_SERVICE_PACKAGE_OVERRIDE:
+                return setCarrierServicePackageOverride();
+            case CLEAR_CARRIER_SERVICE_PACKAGE_OVERRIDE:
+                return clearCarrierServicePackageOverride();
+            case SET_SATELLITE_SERVICE_PACKAGE_NAME:
+                return handleSetSatelliteServicePackageNameCommand();
+            case SET_SATELLITE_GATEWAY_SERVICE_PACKAGE_NAME:
+                return handleSetSatelliteGatewayServicePackageNameCommand();
+            case SET_SATELLITE_LISTENING_TIMEOUT_DURATION:
+                return handleSetSatelliteListeningTimeoutDuration();
+            case SET_SATELLITE_POINTING_UI_CLASS_NAME:
+                return handleSetSatellitePointingUiClassNameCommand();
+            case SET_SATELLITE_DEVICE_ALIGNED_TIMEOUT_DURATION:
+                return handleSettSatelliteDeviceAlignedTimeoutDuration();
             default: {
                 return handleDefaultCommands(cmd);
             }
@@ -390,6 +433,7 @@ public class TelephonyShellCommand extends BasicShellCommandHandler {
         onHelpAllowedNetworkTypes();
         onHelpRadio();
         onHelpImei();
+        onHelpSatellite();
     }
 
     private void onHelpD2D() {
@@ -599,6 +643,15 @@ public class TelephonyShellCommand extends BasicShellCommandHandler {
         pw.println("          is specified, it will choose the default voice SIM slot.");
     }
 
+    private void onHelpEuicc() {
+        PrintWriter pw = getOutPrintWriter();
+        pw.println("Euicc Commands:");
+        pw.println("  euicc set-euicc-uicomponent COMPONENT_NAME PACKAGE_NAME");
+        pw.println("  Sets the Euicc Ui-Component which handles EuiccService Actions.");
+        pw.println("  COMPONENT_NAME: The component name which handles UI Actions.");
+        pw.println("  PACKAGE_NAME: THe package name in which ui component belongs.");
+    }
+
     private void onHelpGba() {
         PrintWriter pw = getOutPrintWriter();
         pw.println("Gba Commands:");
@@ -701,6 +754,33 @@ public class TelephonyShellCommand extends BasicShellCommandHandler {
         pw.println("    the result would be 'unknown'.");
     }
 
+    private void onHelpSatellite() {
+        PrintWriter pw = getOutPrintWriter();
+        pw.println("Satellite Commands:");
+        pw.println("  set-satellite-service-package-name [-s SERVICE_PACKAGE_NAME]");
+        pw.println("    Sets the package name of satellite service defined in");
+        pw.println("    SERVICE_PACKAGE_NAME to be bound. Options are:");
+        pw.println("      -s: the satellite service package name that Telephony will bind to.");
+        pw.println("          If no option is specified, it will bind to the default.");
+        pw.println("  set-satellite-gateway-service-package-name [-s SERVICE_PACKAGE_NAME]");
+        pw.println("    Sets the package name of satellite gateway service defined in");
+        pw.println("    SERVICE_PACKAGE_NAME to be bound. Options are:");
+        pw.println("      -s: the satellite gateway service package name that Telephony will bind");
+        pw.println("           to. If no option is specified, it will bind to the default.");
+        pw.println("  set-satellite-listening-timeout-duration [-t TIMEOUT_MILLIS]");
+        pw.println("    Sets the timeout duration in millis that satellite will stay at listening");
+        pw.println("    mode. Options are:");
+        pw.println("      -t: the timeout duration in milliseconds.");
+        pw.println("          If no option is specified, it will use the default values.");
+        pw.println("  set-satellite-pointing-ui-class-name [-p PACKAGE_NAME -c CLASS_NAME]");
+        pw.println("    Sets the package and class name of satellite pointing UI app defined in");
+        pw.println("    PACKAGE_NAME and CLASS_NAME to be launched. Options are:");
+        pw.println("      -p: the satellite pointing UI app package name that Telephony will");
+        pw.println("           launch. If no option is specified, it will launch the default.");
+        pw.println("      -c: the satellite pointing UI app class name that Telephony will");
+        pw.println("           launch.");
+    }
+
     private void onHelpImei() {
         PrintWriter pw = getOutPrintWriter();
         pw.println("IMEI Commands:");
@@ -789,6 +869,24 @@ public class TelephonyShellCommand extends BasicShellCommandHandler {
         return 0;
     }
 
+    private void removeEmergencyNumberTestMode(String emergencyNumber) {
+        PrintWriter errPw = getErrPrintWriter();
+        for (int routingType : ROUTING_TYPES) {
+            try {
+                mInterface.updateEmergencyNumberListTestMode(
+                        EmergencyNumberTracker.REMOVE_EMERGENCY_NUMBER_TEST_MODE,
+                        new EmergencyNumber(emergencyNumber, "", "",
+                                EmergencyNumber.EMERGENCY_SERVICE_CATEGORY_UNSPECIFIED,
+                                new ArrayList<String>(),
+                                EmergencyNumber.EMERGENCY_NUMBER_SOURCE_TEST,
+                                routingType));
+            } catch (RemoteException ex) {
+                Log.w(LOG_TAG, "emergency-number-test-mode " + "error " + ex.getMessage());
+                errPw.println("Exception: " + ex.getMessage());
+            }
+        }
+    }
+
     private int handleEmergencyNumberTestModeCommand() {
         PrintWriter errPw = getErrPrintWriter();
         String opt = getNextOption();
@@ -796,26 +894,52 @@ public class TelephonyShellCommand extends BasicShellCommandHandler {
             onHelpEmergencyNumber();
             return 0;
         }
-
         switch (opt) {
             case "-a": {
                 String emergencyNumberCmd = getNextArgRequired();
-                if (emergencyNumberCmd == null
-                        || !EmergencyNumber.validateEmergencyNumberAddress(emergencyNumberCmd)) {
-                    errPw.println("An emergency number (only allow '0'-'9', '*', '#' or '+') needs"
-                            + " to be specified after -a in the command ");
+                if (emergencyNumberCmd == null){
+                    errPw.println(INVALID_ENTRY_ERROR);
                     return -1;
+                }
+                String[] params = emergencyNumberCmd.split(":");
+                String emergencyNumber;
+                if (params[0] == null ||
+                        !EmergencyNumber.validateEmergencyNumberAddress(params[0])){
+                    errPw.println(INVALID_ENTRY_ERROR);
+                    return -1;
+                } else {
+                    emergencyNumber = params[0];
+                }
+                removeEmergencyNumberTestMode(emergencyNumber);
+                int emergencyCallRouting = EmergencyNumber.EMERGENCY_CALL_ROUTING_UNKNOWN;
+                if (params.length > 1) {
+                    switch (params[1].toLowerCase(Locale.ROOT)) {
+                        case "emergency":
+                            emergencyCallRouting = EmergencyNumber.EMERGENCY_CALL_ROUTING_EMERGENCY;
+                            break;
+                        case "normal":
+                            emergencyCallRouting = EmergencyNumber.EMERGENCY_CALL_ROUTING_NORMAL;
+                            break;
+                        case "unknown":
+                            break;
+                        default:
+                            errPw.println("\"" + params[1] + "\" is not a valid specification for "
+                                    + "emergency call routing. Please enter either \"normal\", "
+                                    + "\"unknown\", or \"emergency\" for call routing. "
+                                    + "(-a 1234:normal)");
+                            return -1;
+                    }
                 }
                 try {
                     mInterface.updateEmergencyNumberListTestMode(
                             EmergencyNumberTracker.ADD_EMERGENCY_NUMBER_TEST_MODE,
-                            new EmergencyNumber(emergencyNumberCmd, "", "",
+                            new EmergencyNumber(emergencyNumber, "", "",
                                     EmergencyNumber.EMERGENCY_SERVICE_CATEGORY_UNSPECIFIED,
                                     new ArrayList<String>(),
                                     EmergencyNumber.EMERGENCY_NUMBER_SOURCE_TEST,
-                                    EmergencyNumber.EMERGENCY_CALL_ROUTING_UNKNOWN));
+                                    emergencyCallRouting));
                 } catch (RemoteException ex) {
-                    Log.w(LOG_TAG, "emergency-number-test-mode -a " + emergencyNumberCmd
+                    Log.w(LOG_TAG, "emergency-number-test-mode -a " + emergencyNumber
                             + ", error " + ex.getMessage());
                     errPw.println("Exception: " + ex.getMessage());
                     return -1;
@@ -841,20 +965,7 @@ public class TelephonyShellCommand extends BasicShellCommandHandler {
                             + " to be specified after -r in the command ");
                     return -1;
                 }
-                try {
-                    mInterface.updateEmergencyNumberListTestMode(
-                            EmergencyNumberTracker.REMOVE_EMERGENCY_NUMBER_TEST_MODE,
-                            new EmergencyNumber(emergencyNumberCmd, "", "",
-                                    EmergencyNumber.EMERGENCY_SERVICE_CATEGORY_UNSPECIFIED,
-                                    new ArrayList<String>(),
-                                    EmergencyNumber.EMERGENCY_NUMBER_SOURCE_TEST,
-                                    EmergencyNumber.EMERGENCY_CALL_ROUTING_UNKNOWN));
-                } catch (RemoteException ex) {
-                    Log.w(LOG_TAG, "emergency-number-test-mode -r " + emergencyNumberCmd
-                            + ", error " + ex.getMessage());
-                    errPw.println("Exception: " + ex.getMessage());
-                    return -1;
-                }
+                removeEmergencyNumberTestMode(emergencyNumberCmd);
                 break;
             }
             case "-p": {
@@ -1064,7 +1175,7 @@ public class TelephonyShellCommand extends BasicShellCommandHandler {
     private int handleBarringSendCommand() {
         PrintWriter errPw = getErrPrintWriter();
         int slotId = getDefaultSlot();
-        int subId = SubscriptionManager.getSubId(slotId)[0];
+        int subId = SubscriptionManager.getSubscriptionId(slotId);
         @BarringInfo.BarringServiceInfo.BarringType int barringType =
                 BarringInfo.BarringServiceInfo.BARRING_TYPE_UNCONDITIONAL;
         boolean isConditionallyBarred = false;
@@ -1076,7 +1187,7 @@ public class TelephonyShellCommand extends BasicShellCommandHandler {
                 case "-s": {
                     try {
                         slotId = Integer.parseInt(getNextArgRequired());
-                        subId = SubscriptionManager.getSubId(slotId)[0];
+                        subId = SubscriptionManager.getSubscriptionId(slotId);
                     } catch (NumberFormatException e) {
                         errPw.println("barring send requires an integer as a SLOT_ID.");
                         return -1;
@@ -1143,7 +1254,7 @@ public class TelephonyShellCommand extends BasicShellCommandHandler {
             return 0;
         }
 
-        boolean isEnabled = "true".equals(arg.toLowerCase());
+        boolean isEnabled = "true".equals(arg.toLowerCase(Locale.ROOT));
         try {
             mInterface.setDeviceToDeviceForceEnabled(isEnabled);
         } catch (RemoteException e) {
@@ -1646,7 +1757,7 @@ public class TelephonyShellCommand extends BasicShellCommandHandler {
         String tag = CARRIER_CONFIG_SUBCOMMAND + " " + CC_SET_VALUES_FROM_XML + ": ";
 
         // Parse all options
-        CcOptionParseResult options = parseCcOptions(tag, false);
+        CcOptionParseResult options = parseCcOptions(tag, true);
         if (options == null) {
             return -1;
         }
@@ -2018,6 +2129,35 @@ public class TelephonyShellCommand extends BasicShellCommandHandler {
         return 0;
     }
 
+    private int handleEuiccCommand() {
+        String arg = getNextArg();
+        if (arg == null) {
+            onHelpEuicc();
+            return 0;
+        }
+
+        switch (arg) {
+            case EUICC_SET_UI_COMPONENT: {
+                return handleEuiccServiceCommand();
+            }
+        }
+        return -1;
+    }
+
+    private int handleEuiccServiceCommand() {
+        String uiComponent = getNextArg();
+        String packageName = getNextArg();
+        if (packageName == null || uiComponent == null) {
+            return -1;
+        }
+        EuiccUiDispatcherActivity.setTestEuiccUiComponent(packageName, uiComponent);
+        if (VDBG) {
+            Log.v(LOG_TAG, "euicc set-euicc-uicomponent " + uiComponent +" "
+                    + packageName);
+        }
+        return 0;
+    }
+
     private int handleRestartModemCommand() {
         // Verify that the user is allowed to run the command. Only allowed in rooted device in a
         // non user build.
@@ -2127,8 +2267,7 @@ public class TelephonyShellCommand extends BasicShellCommandHandler {
                 return SubscriptionManager.INVALID_SUBSCRIPTION_ID;
             }
         }
-        int[] subIds = SubscriptionManager.getSubId(slotId);
-        return subIds[0];
+        return SubscriptionManager.getSubscriptionId(slotId);
     }
 
     private int handleGbaSetServiceCommand() {
@@ -2913,24 +3052,6 @@ public class TelephonyShellCommand extends BasicShellCommandHandler {
         }
     }
 
-    private int handleGetDataMode() {
-        if (!checkShellUid()) {
-            return -1;
-        }
-
-        boolean newDataStackEnabled = false;
-        try {
-            newDataStackEnabled = mInterface.isUsingNewDataStack();
-        } catch (RemoteException e) {
-            getOutPrintWriter().println("Something went wrong. " + e);
-            return -1;
-        }
-
-        getOutPrintWriter().println("Telephony is running with the "
-                + (newDataStackEnabled ? "new" : "old") + " data stack.");
-        return 0;
-    }
-
     private int handleRadioSetModemServiceCommand() {
         PrintWriter errPw = getErrPrintWriter();
         String serviceName = null;
@@ -2994,5 +3115,329 @@ public class TelephonyShellCommand extends BasicShellCommandHandler {
         }
 
         return -1;
+    }
+
+    private int handleSetSatelliteServicePackageNameCommand() {
+        PrintWriter errPw = getErrPrintWriter();
+        String serviceName = null;
+
+        String opt;
+        while ((opt = getNextOption()) != null) {
+            switch (opt) {
+                case "-s": {
+                    serviceName = getNextArgRequired();
+                    break;
+                }
+            }
+        }
+        Log.d(LOG_TAG, "handleSetSatelliteServicePackageNameCommand: serviceName="
+                + serviceName);
+
+        try {
+            boolean result = mInterface.setSatelliteServicePackageName(serviceName);
+            if (VDBG) {
+                Log.v(LOG_TAG, "SetSatelliteServicePackageName " + serviceName
+                        + ", result = " + result);
+            }
+            getOutPrintWriter().println(result);
+        } catch (RemoteException e) {
+            Log.w(LOG_TAG, "SetSatelliteServicePackageName: " + serviceName
+                    + ", error = " + e.getMessage());
+            errPw.println("Exception: " + e.getMessage());
+            return -1;
+        }
+        return 0;
+    }
+
+    private int handleSetSatelliteGatewayServicePackageNameCommand() {
+        PrintWriter errPw = getErrPrintWriter();
+        String serviceName = null;
+
+        String opt;
+        while ((opt = getNextOption()) != null) {
+            switch (opt) {
+                case "-s": {
+                    serviceName = getNextArgRequired();
+                    break;
+                }
+            }
+        }
+        Log.d(LOG_TAG, "handleSetSatelliteGatewayServicePackageNameCommand: serviceName="
+                + serviceName);
+
+        try {
+            boolean result = mInterface.setSatelliteGatewayServicePackageName(serviceName);
+            if (VDBG) {
+                Log.v(LOG_TAG, "setSatelliteGatewayServicePackageName " + serviceName
+                        + ", result = " + result);
+            }
+            getOutPrintWriter().println(result);
+        } catch (RemoteException e) {
+            Log.w(LOG_TAG, "setSatelliteGatewayServicePackageName: " + serviceName
+                    + ", error = " + e.getMessage());
+            errPw.println("Exception: " + e.getMessage());
+            return -1;
+        }
+        return 0;
+    }
+
+    private int handleSetSatellitePointingUiClassNameCommand() {
+        PrintWriter errPw = getErrPrintWriter();
+        String packageName = null;
+        String className = null;
+
+        String opt;
+        while ((opt = getNextOption()) != null) {
+            switch (opt) {
+                case "-p": {
+                    packageName = getNextArgRequired();
+                    break;
+                }
+                case "-c": {
+                    className = getNextArgRequired();
+                    break;
+                }
+            }
+        }
+        Log.d(LOG_TAG, "handleSetSatellitePointingUiClassNameCommand: packageName="
+                + packageName + ", className=" + className);
+
+        try {
+            boolean result = mInterface.setSatellitePointingUiClassName(packageName, className);
+            if (VDBG) {
+                Log.v(LOG_TAG, "setSatellitePointingUiClassName result =" + result);
+            }
+            getOutPrintWriter().println(result);
+        } catch (RemoteException e) {
+            Log.e(LOG_TAG, "setSatellitePointingUiClassName: " + packageName
+                    + ", error = " + e.getMessage());
+            errPw.println("Exception: " + e.getMessage());
+            return -1;
+        }
+        return 0;
+    }
+
+    private int handleSetSatelliteListeningTimeoutDuration() {
+        PrintWriter errPw = getErrPrintWriter();
+        long timeoutMillis = 0;
+
+        String opt;
+        while ((opt = getNextOption()) != null) {
+            switch (opt) {
+                case "-t": {
+                    timeoutMillis = Long.parseLong(getNextArgRequired());
+                    break;
+                }
+            }
+        }
+        Log.d(LOG_TAG, "handleSetSatelliteListeningTimeoutDuration: timeoutMillis="
+                + timeoutMillis);
+
+        try {
+            boolean result = mInterface.setSatelliteListeningTimeoutDuration(timeoutMillis);
+            if (VDBG) {
+                Log.v(LOG_TAG, "setSatelliteListeningTimeoutDuration " + timeoutMillis
+                        + ", result = " + result);
+            }
+            getOutPrintWriter().println(result);
+        } catch (RemoteException e) {
+            Log.w(LOG_TAG, "setSatelliteListeningTimeoutDuration: " + timeoutMillis
+                    + ", error = " + e.getMessage());
+            errPw.println("Exception: " + e.getMessage());
+            return -1;
+        }
+        return 0;
+    }
+
+    private int handleSettSatelliteDeviceAlignedTimeoutDuration() {
+        PrintWriter errPw = getErrPrintWriter();
+        long timeoutMillis = 0;
+
+        String opt;
+        while ((opt = getNextOption()) != null) {
+            switch (opt) {
+                case "-t": {
+                    timeoutMillis = Long.parseLong(getNextArgRequired());
+                    break;
+                }
+            }
+        }
+        Log.d(LOG_TAG, "handleSettSatelliteDeviceAlignedTimeoutDuration: timeoutMillis="
+                + timeoutMillis);
+
+        try {
+            boolean result = mInterface.setSatelliteDeviceAlignedTimeoutDuration(timeoutMillis);
+            if (VDBG) {
+                Log.v(LOG_TAG, "setSatelliteDeviceAlignedTimeoutDuration " + timeoutMillis
+                        + ", result = " + result);
+            }
+            getOutPrintWriter().println(result);
+        } catch (RemoteException e) {
+            Log.w(LOG_TAG, "setSatelliteDeviceAlignedTimeoutDuration: " + timeoutMillis
+                    + ", error = " + e.getMessage());
+            errPw.println("Exception: " + e.getMessage());
+            return -1;
+        }
+        return 0;
+    }
+
+    private int handleCarrierRestrictionStatusCommand() {
+        try {
+            String MOCK_MODEM_SERVICE_NAME = "android.telephony.mockmodem.MockModemService";
+            if (!(checkShellUid() && MOCK_MODEM_SERVICE_NAME.equalsIgnoreCase(
+                    mInterface.getModemService()))) {
+                Log.v(LOG_TAG,
+                        "handleCarrierRestrictionStatusCommand, MockModem service check fails or "
+                                + " checkShellUid fails");
+                return -1;
+            }
+        } catch (RemoteException ex) {
+            ex.printStackTrace();
+        }
+        String callerInfo = getNextOption();
+        CarrierAllowListInfo allowListInfo = CarrierAllowListInfo.loadInstance(mContext);
+        if (TextUtils.isEmpty(callerInfo)) {
+            // reset the Json content after testing
+            allowListInfo.updateJsonForTest(null);
+            return 0;
+        }
+        if (callerInfo.startsWith("--")) {
+            callerInfo = callerInfo.replace("--", "");
+        }
+        String params[] = callerInfo.split(",");
+        StringBuffer jsonStrBuffer = new StringBuffer();
+        String tokens;
+        for (int index = 0; index < params.length; index++) {
+            tokens = convertToJsonString(index, params[index]);
+            if (TextUtils.isEmpty(tokens)) {
+                // received wrong format from CTS
+                if (VDBG) {
+                    Log.v(LOG_TAG,
+                            "handleCarrierRestrictionStatusCommand, Shell command parsing error");
+                }
+                return -1;
+            }
+            jsonStrBuffer.append(tokens);
+        }
+        int result = allowListInfo.updateJsonForTest(jsonStrBuffer.toString());
+        return result;
+    }
+
+    // set-carrier-service-package-override
+    private int setCarrierServicePackageOverride() {
+        PrintWriter errPw = getErrPrintWriter();
+        int subId = SubscriptionManager.getDefaultSubscriptionId();
+
+        String opt;
+        while ((opt = getNextOption()) != null) {
+            switch (opt) {
+                case "-s":
+                    try {
+                        subId = Integer.parseInt(getNextArgRequired());
+                    } catch (NumberFormatException e) {
+                        errPw.println(
+                                "set-carrier-service-package-override requires an integer as a"
+                                        + " subscription ID.");
+                        return -1;
+                    }
+                    break;
+            }
+        }
+
+        String packageName = getNextArg();
+        if (packageName == null) {
+            errPw.println("set-carrier-service-package-override requires a override package name.");
+            return -1;
+        }
+
+        try {
+            mInterface.setCarrierServicePackageOverride(
+                    subId, packageName, mContext.getOpPackageName());
+
+            if (VDBG) {
+                Log.v(
+                        LOG_TAG,
+                        "set-carrier-service-package-override -s " + subId + " " + packageName);
+            }
+        } catch (RemoteException | IllegalArgumentException | IllegalStateException e) {
+            Log.w(
+                    LOG_TAG,
+                    "set-carrier-service-package-override -s "
+                            + subId
+                            + " "
+                            + packageName
+                            + ", error"
+                            + e.getMessage());
+            errPw.println("Exception: " + e.getMessage());
+            return -1;
+        }
+        return 0;
+    }
+
+    // clear-carrier-service-package-override
+    private int clearCarrierServicePackageOverride() {
+        PrintWriter errPw = getErrPrintWriter();
+        int subId = getDefaultSlot();
+
+        String opt;
+        while ((opt = getNextOption()) != null) {
+            switch (opt) {
+                case "-s":
+                    try {
+                        subId = Integer.parseInt(getNextArgRequired());
+                    } catch (NumberFormatException e) {
+                        errPw.println(
+                                "clear-carrier-service-package-override requires an integer as a"
+                                        + " subscription ID.");
+                        return -1;
+                    }
+                    break;
+            }
+        }
+
+        try {
+            mInterface.setCarrierServicePackageOverride(subId, null, mContext.getOpPackageName());
+
+            if (VDBG) {
+                Log.v(LOG_TAG, "clear-carrier-service-package-override -s " + subId);
+            }
+        } catch (RemoteException | IllegalArgumentException | IllegalStateException e) {
+            Log.w(
+                    LOG_TAG,
+                    "clear-carrier-service-package-override -s "
+                            + subId
+                            + ", error"
+                            + e.getMessage());
+            errPw.println("Exception: " + e.getMessage());
+            return -1;
+        }
+        return 0;
+    }
+
+    /**
+     * Building the string that can be used to build the JsonObject which supports to stub the data
+     * in CarrierAllowListInfo for CTS testing. sample format is like
+     * {"com.android.example":{"carrierId":"10000","callerSHA1Id":["XXXXXXXXXXXXXX"]}}
+     */
+    private String convertToJsonString(int index, String param) {
+
+        String token[] = param.split(":");
+        String jSonString;
+        switch (index) {
+            case 0:
+                jSonString = "{" + QUOTES + token[1] + QUOTES + ":";
+                break;
+            case 1:
+                jSonString =
+                        "{" + QUOTES + token[0] + QUOTES + ":" + QUOTES + token[1] + QUOTES + ",";
+                break;
+            case 2:
+                jSonString =
+                        QUOTES + token[0] + QUOTES + ":" + "[" + QUOTES + token[1] + QUOTES + "]}}";
+                break;
+            default:
+                jSonString = null;
+        }
+        return jSonString;
     }
 }

@@ -16,11 +16,13 @@
  * limitations under the License.
  */
 -->
+
+<!-- versionCode is set to placeholder module version which will
+     be replaced during build. Do not change it!  -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
   package="com.android.networkstack"
   android:sharedUserId="android.uid.networkstack"
-  android:versionCode="339990000"
-  android:versionName="339990000"
+  android:versionCode="0"
   coreApp="true"
 >
     <!--- Defines the MAINLINE_NETWORK_STACK permission used by the networkstack process. -->
@@ -58,14 +60,15 @@
              The service is protected by NETWORK_SETTINGS permissions as there is no better
              networking-related permission that exists on Q, is sufficiently protected (signature),
              and can be obtained via shell permissions. -->
-        <service android:name="com.android.server.TestNetworkStackService"
+        <!-- (The name starting with a dot means the package prefix is the APK package name) -->
+        <service android:name=".TestNetworkStackService"
                  android:permission="android.permission.NETWORK_SETTINGS"
                  android:exported="true">
             <intent-filter>
                 <action android:name="android.net.INetworkStackConnector.Test"/>
             </intent-filter>
         </service>
-        <service android:name="com.android.server.connectivity.ipmemorystore.RegularMaintenanceJobService"
+        <service android:name=".ipmemorystore.RegularMaintenanceJobService"
                  android:permission="android.permission.BIND_JOB_SERVICE" >
         </service>
     </application>

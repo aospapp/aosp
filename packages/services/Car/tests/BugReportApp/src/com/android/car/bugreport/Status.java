@@ -20,19 +20,19 @@ public enum Status {
     // Bugreport is being written
     STATUS_WRITE_PENDING(0),
 
-    // Writing bugreport failed. This is the final state.
+    // Writing bugreport failed. This is a final state.
     STATUS_WRITE_FAILED(1),
 
-    // Bugreport is waiting to be uploaded
+    // Bugreport is waiting to be uploaded, or is currently uploading.
     STATUS_UPLOAD_PENDING(2),
 
-    // Bugreport uploaded successfully. This is the final state.
+    // Bugreport uploaded successfully. This is a final state.
     STATUS_UPLOAD_SUCCESS(3),
 
-    // Bugreport failed to upload. This is the final state.
+    // Bugreport failed to upload. This is a final state.
     STATUS_UPLOAD_FAILED(4),
 
-    // Bugreport is cancelled by user. This is the final state.
+    // Bugreport is cancelled by user. This is a final state.
     STATUS_USER_CANCELLED(5),
 
     // Bugreport is pending user choice on whether to upload or copy.
@@ -41,7 +41,7 @@ public enum Status {
     // Bugreport was moved successfully.
     STATUS_MOVE_SUCCESSFUL(7),
 
-    // Bugreport move has failed. This is the final state.
+    // Bugreport move has failed. This is a final state.
     STATUS_MOVE_FAILED(8),
 
     // Bugreport is moving to USB drive.
@@ -83,7 +83,7 @@ public enum Status {
             case 1:
                 return "Write failed";
             case 2:
-                return "Upload pending";
+                return "Uploading, or waiting for network";
             case 3:
                 return "Upload successful";
             case 4:
@@ -102,6 +102,8 @@ public enum Status {
                 return "Expired";
             case 11:
                 return "Audio message pending";
+            default:
+                break;
         }
         return "unknown";
     }

@@ -156,6 +156,7 @@ class TetheringNotificationUpdaterTest {
     @After
     fun tearDown() {
         fakeTetheringThread.quitSafely()
+        fakeTetheringThread.join()
     }
 
     private fun verifyActivityPendingIntent(intent: Intent, flags: Int) {

@@ -108,32 +108,34 @@ public class CarNotificationItemTouchListener extends RecyclerView.SimpleOnItemT
                 ServiceManager.getService(Context.STATUS_BAR_SERVICE));
 
         mDismissAnimationHelper = new DismissAnimationHelper(context, (viewHolder) -> {
-            if (viewHolder.isDismissible()) {
-                AlertEntry notification = viewHolder.getAlertEntry();
-                // The grouped notification view holder returns a notification representing the
-                // group (SummaryNotification) when viewHolder.getAlertEntry() is
-                // called. The platform will clear all notifications sharing the group key
-                // attached to this notification. Since grouping is not strictly based on
-                // group key, it is preferred to dismiss notifications bound to the view holder
-                // individually.
-                if (viewHolder instanceof GroupNotificationViewHolder) {
-                    NotificationGroup notificationGroup =
-                            ((GroupNotificationViewHolder) viewHolder).getNotificationGroup();
-                    AlertEntry summaryNotification =
-                            notificationGroup.getGroupSummaryNotification();
-                    if (summaryNotification != null) {
-                        clearNotification(summaryNotification);
-                    }
-
-                    for (AlertEntry alertEntry
-                            : notificationGroup.getChildNotifications()) {
-                        clearNotification(alertEntry);
-                    }
-
-                } else {
-                    clearNotification(notification);
-                }
+            if (!viewHolder.isDismissible()) {
+                return;
             }
+            AlertEntry notification = viewHolder.getAlertEntry();
+            // The grouped notification view holder returns a notification representing the
+            // group (SummaryNotification) when viewHolder.getAlertEntry() is
+            // called. The platform will clear all notifications sharing the group key
+            // attached to this notification. Since grouping is not strictly based on
+            // group key, it is preferred to dismiss notifications bound to the view holder
+            // individually.
+            if (viewHolder instanceof GroupNotificationViewHolder) {
+                NotificationGroup notificationGroup =
+                        ((GroupNotificationViewHolder) viewHolder).getNotificationGroup();
+                AlertEntry summaryNotification =
+                        notificationGroup.getGroupSummaryNotification();
+                if (summaryNotification != null && mAdapter.shouldRemoveGroupSummary(
+                        notificationGroup.getGroupKey())) {
+                    clearNotification(summaryNotification);
+                    return;
+                }
+
+                for (AlertEntry alertEntry
+                        : notificationGroup.getChildNotifications()) {
+                    clearNotification(alertEntry);
+                }
+                return;
+            }
+            clearNotification(notification);
         });
 
         Resources res = context.getResources();

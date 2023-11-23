@@ -18,7 +18,6 @@ cc_defaults {
     ],
     srcs: [
         "src/device_class.cc",
-        "src/hal_util.cc",
         "src/module.cc",
         "src/osi_module.cc",
         "src/property.cc",
@@ -26,7 +25,30 @@ cc_defaults {
     header_libs: ["libbluetooth_headers"],
     host_supported: true,
     apex_available: [
-        "com.android.bluetooth",
+        "com.android.btservices",
+    ],
+    target: {
+        host_linux: {
+            cflags: ["-D_GNU_SOURCE"],
+        },
+    },
+}
+
+cc_library_static {
+    name: "libbthalutils",
+    defaults: ["fluoride_basic_defaults"],
+    srcs: [
+        "src/hal_util.cc",
+    ],
+    local_include_dirs: ["include"],
+    include_dirs: [
+        "packages/modules/Bluetooth/system",
+        "packages/modules/Bluetooth/system/gd",
+    ],
+    header_libs: ["libbluetooth_headers"],
+    host_supported: true,
+    apex_available: [
+        "com.android.btservices",
     ],
     target: {
         host_linux: {
@@ -37,12 +59,12 @@ cc_defaults {
 
 cc_library_static {
     name: "libbtcore",
-    visibility:[
+    visibility: [
         "//packages/apps/Test/connectivity/sl4n",
         "//packages/modules/Bluetooth:__subpackages__",
     ],
     defaults: ["libbtcore_defaults"],
-    min_sdk_version: "Tiramisu"
+    min_sdk_version: "Tiramisu",
 }
 
 cc_library_headers {
@@ -53,7 +75,7 @@ cc_library_headers {
     host_supported: true,
     apex_available: [
         "//apex_available:platform",
-        "com.android.bluetooth",
+        "com.android.btservices",
     ],
     min_sdk_version: "30",
 }
@@ -65,6 +87,7 @@ cc_test {
     name: "net_test_btcore",
     test_suites: ["device-tests"],
     defaults: [
+        "bluetooth_gtest_x86_asan_workaround",
         "fluoride_defaults",
         "mts_defaults",
     ],
@@ -75,14 +98,13 @@ cc_test {
         "test/property_test.cc",
     ],
     shared_libs: [
-        "android.hardware.bluetooth@1.0",
-        "android.hardware.bluetooth@1.1",
         "liblog",
     ],
     static_libs: [
+        "libbtcore",
+        "libchrome",
         "libosi",
         "libosi-AllocationTestHarness",
-        "libbtcore",
     ],
     host_supported: true,
     test_options: {

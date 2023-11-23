@@ -41,7 +41,7 @@ public interface RoleManagerAdapter {
      * redirection role.
      * @return the package name of the app filling the role, {@code null} otherwise}.
      */
-    String getDefaultCallRedirectionApp();
+    String getDefaultCallRedirectionApp(UserHandle userHandle);
 
     /**
      * Override the {@link android.app.role.RoleManager} call redirection app with another value.
@@ -56,7 +56,7 @@ public interface RoleManagerAdapter {
      * screening role.
      * @return the package name of the app filling the role, {@code null} otherwise}.
      */
-    String getDefaultCallScreeningApp();
+    String getDefaultCallScreeningApp(UserHandle userHandle);
 
     /**
      * Override the {@link android.app.role.RoleManager} call screening app with another value.

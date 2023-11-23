@@ -52,6 +52,11 @@ public class AdapterApp extends Application {
         if (DBG) {
             Log.d(TAG, "onCreate");
         }
+        try {
+            DataMigration.run(this);
+        } catch (Exception e) {
+            Log.e(TAG, "Migration failure: ", e);
+        }
         Config.init(this);
     }
 

@@ -22,37 +22,21 @@ filegroup {
         "proto/car_rotary_controller.proto",
     ],
 }
-gensrcs {
+
+java_library {
     name: "rotary-service-javastream-protos",
-    depfile: true,
-
-    tools: [
-        "aprotoc",
-        "protoc-gen-javastream",
-        "soong_zip",
-    ],
-
-    cmd: "mkdir -p $(genDir)/$(in) " +
-        "&& $(location aprotoc) " +
-        "  --plugin=$(location protoc-gen-javastream) " +
-        "  --dependency_out=$(depfile) " +
-        "  --javastream_out=$(genDir)/$(in) " +
-        "  -Iexternal/protobuf/src " +
-        "  -I . " +
-        "  $(in) " +
-        "&& $(location soong_zip) -jar -o $(out) -C $(genDir)/$(in) -D $(genDir)/$(in)",
-
-    srcs: [
-        ":rotary-service-proto-source",
-    ],
-    output_extension: "srcjar",
+    proto: {
+        type: "stream",
+    },
+    srcs: [":rotary-service-proto-source"],
+    installable: false,
+    platform_apis: true,
 }
 
 android_app {
     name: "CarRotaryController",
     srcs: [
         "src/**/*.java",
-        ":rotary-service-javastream-protos",
     ],
     resource_dirs: ["res"],
 
@@ -80,6 +64,7 @@ android_app {
     ],
     static_libs: [
         "car-ui-lib",
+        "rotary-service-javastream-protos",
     ],
     product_variables: {
         pdk: {
@@ -95,7 +80,6 @@ android_library {
 
     srcs: [
         "src/**/*.java",
-        ":rotary-service-javastream-protos",
     ],
 
     resource_dirs: [
@@ -116,6 +100,7 @@ android_library {
     ],
     static_libs: [
         "car-ui-lib",
+        "rotary-service-javastream-protos",
     ],
     product_variables: {
         pdk: {

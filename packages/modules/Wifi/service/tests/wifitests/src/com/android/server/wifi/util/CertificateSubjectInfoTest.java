@@ -40,17 +40,51 @@ public class CertificateSubjectInfoTest extends WifiBaseTest {
     private static final String TEST_LOCATION = "TW";
     private static final String TEST_ORGANIZATION = "AndroidWiFi";
     private static final String TEST_EMAIL = "info@androidwifi.dev";
+    private static final String TEST_IGNORED_RDNS = ",BB=cc,XYZ=123456,1.2.3.4.5=#7.8.9.0";
+    private static final String TEST_IGNORED_DUPLICATE_RDNS = ",CN=bank.com,O=bank";
 
-    /** Verifies that normal subject string could be parsed correctly. */
+    /** Verifies that a standard subject string could be parsed correctly. */
     @Test
-    public void verifyNormalSubjectInfoString() {
+    public void verifyStandardSubjectInfoString() {
         CertificateSubjectInfo info = CertificateSubjectInfo.parse(TEST_SUBJECT_INFO);
+        verifySubjectInfoString(info);
+    }
+
+    /** Verifies that a subject string with unhandled Relative Distinguished Names (RDNs) could be
+     *  parsed correctly. */
+    @Test
+    public void verifySubjectInfoStringWithIgnoredRdns() {
+        CertificateSubjectInfo info =
+                CertificateSubjectInfo.parse(TEST_SUBJECT_INFO + TEST_IGNORED_RDNS);
+        verifySubjectInfoString(info);
+    }
+
+    /** Verifies that a subject string with duplicate Relative Distinguished Names (RDNs) could be
+     *  parsed correctly. */
+    @Test
+    public void verifySubjectInfoStringWithDuplicateRdns() {
+        CertificateSubjectInfo info = CertificateSubjectInfo.parse(TEST_SUBJECT_INFO
+                + TEST_IGNORED_DUPLICATE_RDNS);
+        verifySubjectInfoString(info);
+    }
+
+    private void verifySubjectInfoString(CertificateSubjectInfo info) {
         assertEquals(info.commonName, TEST_COMMON_NAME);
         assertEquals(info.organization, TEST_ORGANIZATION);
         assertEquals(info.location, TEST_LOCATION);
         assertEquals(info.state, TEST_STATE);
         assertEquals(info.country, TEST_COUNTRY);
         assertEquals(info.email, TEST_EMAIL);
+    }
+
+    /** Verifies that a malicious CN=anotherName is parsed under the right RDN */
+    @Test
+    public void verifySubjectInfoStringWithMaliciousRdns() {
+        final String subjectInfo =
+                "CN=commonName,C=TW,ST=Taiwan,L=TW,O=AndroidWiFi\\,CN=anotherName";
+        CertificateSubjectInfo info = CertificateSubjectInfo.parse(subjectInfo);
+        assertEquals("commonName", info.commonName);
+        assertEquals("AndroidWiFi,CN=anotherName", info.organization);
     }
 
     /** Verifies that null is returned for a subject string without a common name. */
@@ -63,16 +97,18 @@ public class CertificateSubjectInfoTest extends WifiBaseTest {
 
     /** Verifies that escaped string can be restored correctly. */
     @Test
-    public void testEscpaedSubjectString() {
+    public void testEscapedSubjectString() {
         final String subjectInfo =
-                "C=TW,ST=Taiwan,L=TW,O=AndroidWiFi,CN=commonName/emailAddress\\=test@wifi.com";
+                "C=TW,ST=Taiwan,L=TW,O=AndroidWiFi,CN=commonName\\, with a comma"
+                        + "/emailAddress\\=test@wifi.com";
         CertificateSubjectInfo info = CertificateSubjectInfo.parse(subjectInfo);
-        assertEquals("commonName/emailAddress=test@wifi.com", info.commonName);
+        assertEquals("commonName, with a comma/emailAddress=test@wifi.com",
+                info.commonName);
     }
 
     /** Verifies that escaped string can be restored correctly. */
     @Test
-    public void testEscpaedSubjectStringWithDoubleTrailingSlash() {
+    public void testEscapedSubjectStringWithDoubleTrailingSlash() {
         final String subjectInfo =
                 "C=TW,ST=Taiwan,L=TW,O=AndroidWiFi,CN=commonName/emailAddress=test@wifi.com\\\\";
         CertificateSubjectInfo info = CertificateSubjectInfo.parse(subjectInfo);
@@ -81,7 +117,7 @@ public class CertificateSubjectInfoTest extends WifiBaseTest {
 
     /** Verifies that invalid escaped string returns null. */
     @Test
-    public void testInvalidEscpaedSubjectString() {
+    public void testInvalidEscapedSubjectString() {
         // trailing '\'
         assertNull(CertificateSubjectInfo.parse(
                 "C=TW,ST=Taiwan,L=TW,O=AndroidWiFi,CN=commonName/emailAddress\\=test@wifi.com\\"));

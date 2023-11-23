@@ -23,9 +23,8 @@ import static android.app.admin.DevicePolicyManager.FLAG_SUPPORTED_MODES_DEVICE_
 import static android.app.admin.DevicePolicyManager.FLAG_SUPPORTED_MODES_ORGANIZATION_OWNED;
 import static android.content.pm.PackageManager.MATCH_HIDDEN_UNTIL_INSTALLED_COMPONENTS;
 import static android.content.pm.PackageManager.MATCH_UNINSTALLED_PACKAGES;
-import static android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET;
-import static android.net.NetworkCapabilities.NET_CAPABILITY_VALIDATED;
-import static android.net.NetworkCapabilities.TRANSPORT_CELLULAR;
+
+import static java.util.Objects.requireNonNull;
 
 import android.annotation.NonNull;
 import android.annotation.Nullable;
@@ -69,11 +68,13 @@ import com.android.managedprovisioning.model.CustomizationParams;
 import com.android.managedprovisioning.model.PackageDownloadInfo;
 import com.android.managedprovisioning.model.ProvisioningParams;
 import com.android.managedprovisioning.preprovisioning.WebActivity;
+import com.android.managedprovisioning.util.LazyStringResource;
 
 import com.google.android.setupcompat.template.FooterBarMixin;
 import com.google.android.setupcompat.template.FooterButton;
 import com.google.android.setupcompat.template.FooterButton.ButtonType;
 import com.google.android.setupdesign.GlifLayout;
+import com.google.android.setupdesign.util.DeviceHelper;
 
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -166,7 +167,7 @@ public class Utils {
         try {
             ipm.setComponentEnabledSetting(toDisable,
                     enabledSetting, PackageManager.DONT_KILL_APP,
-                    userId);
+                    userId, "managedprovisioning");
         } catch (RemoteException neverThrown) {
             ProvisionLogger.loge("This should not happen.", neverThrown);
         } catch (Exception e) {
@@ -449,7 +450,7 @@ public class Utils {
      * Factory resets the device.
      */
     public void factoryReset(Context context, String reason) {
-        context.getSystemService(DevicePolicyManager.class).wipeData(/* flags=*/ 0, reason);
+        context.getSystemService(DevicePolicyManager.class).wipeDevice(/* flags=*/ 0);
     }
 
     /**
@@ -487,29 +488,23 @@ public class Utils {
         final ConnectivityManager connectivityManager =
                 (ConnectivityManager) context.getSystemService(Context.CONNECTIVITY_SERVICE);
         return Arrays.stream(connectivityManager.getAllNetworks())
-                .filter(network -> {
-                    return Objects.nonNull(connectivityManager.getNetworkCapabilities(network));
-                })
                 .map(connectivityManager::getNetworkCapabilities)
-                .filter(this::isCellularNetwork)
-                .anyMatch(this::isConnectedToInternet);
-    }
-
-    private boolean isConnectedToInternet(NetworkCapabilities capabilities) {
-        return capabilities.hasCapability(NET_CAPABILITY_INTERNET)
-                && capabilities.hasCapability(NET_CAPABILITY_VALIDATED);
-    }
-
-    private boolean isCellularNetwork(NetworkCapabilities capabilities) {
-        return capabilities.hasTransport(TRANSPORT_CELLULAR);
+                .filter(Objects::nonNull)
+                .anyMatch(this::isNetworkConnectedToInternetViaCellular);
     }
 
     /**
-     * Returns whether the device is currently connected to specific network type, such as {@link
-     * ConnectivityManager.TYPE_WIFI} or {@link ConnectivityManager.TYPE_ETHERNET}
+     * Returns whether the device is currently connected to specific network type, such as
+     * {@link ConnectivityManager#TYPE_WIFI} or {@link ConnectivityManager#TYPE_ETHERNET}
      *
      * {@see ConnectivityManager}
+     *
+     * @deprecated use one of
+     * {@link #isNetworkConnectedToInternetViaEthernet(NetworkCapabilities)},
+     * {@link #isNetworkConnectedToInternetViaWiFi(NetworkCapabilities)}
+     * {@link #isNetworkConnectedToInternetViaCellular(NetworkCapabilities)}
      */
+    @Deprecated
     public boolean isNetworkTypeConnected(Context context, int... types) {
         final NetworkInfo networkInfo = getActiveNetworkInfo(context);
         if (networkInfo != null && networkInfo.isConnected()) {
@@ -524,12 +519,61 @@ public class Utils {
     }
 
     /**
-     * Returns the active network info of the device.
+     * Checks if the network is active (can receive and send data)
      */
+    public boolean isNetworkActive(NetworkCapabilities network) {
+        return network.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+                && network.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED);
+    }
+
+    /**
+     * Checks if the network has transport {@link NetworkCapabilities#TRANSPORT_ETHERNET} and
+     * {@link #isNetworkActive}
+     */
+    public boolean isNetworkConnectedToInternetViaEthernet(NetworkCapabilities network) {
+        return network.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET)
+                && isNetworkActive(network);
+    }
+
+    /**
+     * Checks if the network has transport {@link NetworkCapabilities#TRANSPORT_WIFI} and
+     * {@link #isNetworkActive}
+     */
+    public boolean isNetworkConnectedToInternetViaWiFi(NetworkCapabilities network) {
+        return network.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)
+                && isNetworkActive(network);
+    }
+
+    /**
+     * Checks if the network has transport {@link NetworkCapabilities#TRANSPORT_CELLULAR} and
+     * {@link #isNetworkActive}
+     */
+    public boolean isNetworkConnectedToInternetViaCellular(NetworkCapabilities network) {
+        return network.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR)
+                && isNetworkActive(network);
+    }
+
+    /**
+     * Returns the active network info of the device.
+     *
+     * @deprecated use {@link #getActiveNetworkCapabilities(Context)}
+     */
+    @Deprecated
     public NetworkInfo getActiveNetworkInfo(Context context) {
         ConnectivityManager cm =
                 (ConnectivityManager) context.getSystemService(Context.CONNECTIVITY_SERVICE);
         return cm.getActiveNetworkInfo();
+    }
+
+    /**
+     * Retrieves {@link NetworkCapabilities} of the currently active network
+     * or `null` if there is no active network
+     */
+    @Nullable
+    public NetworkCapabilities getActiveNetworkCapabilities(Context context) {
+        var cn = requireNonNull(context.getSystemService(ConnectivityManager.class),
+                "Unable to obtain ConnectivityManager");
+        return cn.getNetworkCapabilities(cn.getActiveNetwork());
     }
 
     /**
@@ -629,7 +673,7 @@ public class Utils {
     public byte[] computeHashOfFile(String fileLocation, String hashType) {
         InputStream fis = null;
         MessageDigest md;
-        byte hash[] = null;
+        byte[] hash = null;
         try {
             md = MessageDigest.getInstance(hashType);
         } catch (NoSuchAlgorithmException e) {
@@ -782,9 +826,9 @@ public class Utils {
 
     /** Adds a primary "Cancel setup" button */
     public static FooterButton addResetButton(GlifLayout layout,
-            @NonNull OnClickListener listener) {
+            @NonNull OnClickListener listener, @StringRes int resetButtonString) {
         return setPrimaryButton(layout, listener, ButtonType.CANCEL,
-                R.string.fully_managed_device_reset_and_return_button);
+                resetButtonString);
     }
 
     private static FooterButton setPrimaryButton(GlifLayout layout, OnClickListener listener,
@@ -823,19 +867,29 @@ public class Utils {
         return secondaryButton;
     }
 
-    public SimpleDialog.Builder createCancelProvisioningResetDialogBuilder() {
+    public SimpleDialog.Builder createCancelProvisioningResetDialogBuilder(Context context) {
+        CharSequence deviceName = DeviceHelper.getDeviceName(context);
         final int positiveResId = R.string.reset;
         final int negativeResId = R.string.device_owner_cancel_cancel;
-        final int dialogMsgResId = R.string.this_will_reset_take_back_first_screen;
-        return getBaseDialogBuilder(positiveResId, negativeResId, dialogMsgResId)
-                .setTitle(R.string.stop_setup_reset_device_question);
+        return getBaseDialogBuilder(positiveResId, negativeResId)
+                .setMessage(
+                        LazyStringResource.of(R.string.this_will_reset_take_back_first_screen,
+                                deviceName))
+                .setTitle(
+                        LazyStringResource.of(R.string.stop_setup_reset_device_question,
+                                deviceName));
     }
 
+    /**
+     * Create a builder for cancel provisioning dialog
+     *
+     * @return builder
+     */
     public SimpleDialog.Builder createCancelProvisioningDialogBuilder() {
         final int positiveResId = R.string.profile_owner_cancel_ok;
         final int negativeResId = R.string.profile_owner_cancel_cancel;
         final int dialogMsgResId = R.string.profile_owner_cancel_message;
-        return getBaseDialogBuilder(positiveResId, negativeResId, dialogMsgResId);
+        return getBaseDialogBuilder(positiveResId, negativeResId).setMessage(dialogMsgResId);
     }
 
     public boolean shouldShowOwnershipDisclaimerScreen(ProvisioningParams params) {
@@ -875,11 +929,9 @@ public class Utils {
         }
     }
 
-    private SimpleDialog.Builder getBaseDialogBuilder(
-            int positiveResId, int negativeResId, int dialogMsgResId) {
+    private SimpleDialog.Builder getBaseDialogBuilder(int positiveResId, int negativeResId) {
         return new SimpleDialog.Builder()
                 .setCancelable(false)
-                .setMessage(dialogMsgResId)
                 .setNegativeButtonMessage(negativeResId)
                 .setPositiveButtonMessage(positiveResId);
     }

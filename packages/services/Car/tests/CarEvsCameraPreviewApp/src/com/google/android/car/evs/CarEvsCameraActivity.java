@@ -16,8 +16,11 @@
 
 package com.google.android.car.evs;
 
+import static android.car.evs.CarEvsManager.ERROR_NONE;
+
 import android.app.Activity;
 import android.car.Car;
+import android.car.Car.CarServiceLifecycleListener;
 import android.car.evs.CarEvsManager;
 import android.os.Bundle;
 import android.util.Log;
@@ -26,21 +29,42 @@ public class CarEvsCameraActivity extends Activity {
     private static final String TAG = CarEvsCameraActivity.class.getSimpleName();
     private static final int CAR_WAIT_TIMEOUT_MS = 3_000;
 
+    /** CarService status listener  */
+    private final CarServiceLifecycleListener mCarServiceLifecycleListener = (car, ready) -> {
+        if (!ready) {
+            return;
+        }
+
+        try {
+            CarEvsManager evsManager = (CarEvsManager) car.getCarManager(
+                    Car.CAR_EVS_SERVICE);
+            if (evsManager.startActivity(CarEvsManager.SERVICE_TYPE_REARVIEW) != ERROR_NONE) {
+                Log.e(TAG, "Failed to start a camera preview activity");
+            }
+        } finally {
+            mCar = car;
+            finish();
+        }
+    };
+
+    private Car mCar;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
         Car.createCar(getApplicationContext(), /* handler = */ null, CAR_WAIT_TIMEOUT_MS,
-                (car, ready) -> {
-                    if (!ready) {
-                        finish();
-                        return;
-                    }
-                    CarEvsManager evsManager = (CarEvsManager) car.getCarManager(
-                            Car.CAR_EVS_SERVICE);
-                    int result = evsManager.startActivity(CarEvsManager.SERVICE_TYPE_REARVIEW);
-                    Log.i(TAG, "startActivity(): " + result);
-                    finish();
-                });
+                mCarServiceLifecycleListener);
+    }
+
+    @Override
+    protected void onDestroy() {
+        Log.d(TAG, "onDestroy");
+        if (mCar != null) {
+            // Explicitly stops monitoring the car service's status
+            mCar.disconnect();
+        }
+
+        super.onDestroy();
     }
 }

@@ -16,8 +16,8 @@
 
 package com.android.systemui.car.hvac.toggle;
 
+import static android.car.VehiclePropertyIds.HVAC_AC_ON;
 import static android.car.VehiclePropertyIds.HVAC_AUTO_ON;
-import static android.car.VehiclePropertyIds.HVAC_DEFROSTER;
 import static android.car.VehiclePropertyIds.HVAC_POWER_ON;
 
 import static org.mockito.ArgumentMatchers.anyBoolean;
@@ -51,7 +51,7 @@ import org.mockito.MockitoAnnotations;
 public class HvacBooleanToggleButtonTest extends SysuiTestCase {
     private static final int GLOBAL_AREA_ID = 117;
     private static final int AREA_ID = 1;
-    private static final int PROPERTY_ID = HVAC_DEFROSTER;
+    private static final int PROPERTY_ID = HVAC_AC_ON;
 
     private View mTestLayout;
     private HvacBooleanToggleButton mDefaultButton;

@@ -99,6 +99,21 @@ public final class MloLink implements Parcelable {
     private int mChannel;
 
     /**
+     * Received Signal Strength Indicator
+     */
+    private int mRssi;
+
+    /**
+     * Rx(receive) Link speed in Mbps
+     */
+    private int mRxLinkSpeed;
+
+    /**
+     * Tx(transmit) Link speed in Mbps
+     */
+    private int mTxLinkSpeed;
+
+    /**
      * Constructor for a MloLInk.
      */
     public MloLink() {
@@ -108,6 +123,9 @@ public final class MloLink implements Parcelable {
         mApMacAddress = null;
         mStaMacAddress = null;
         mLinkId = INVALID_MLO_LINK_ID;
+        mRssi =  WifiInfo.INVALID_RSSI;
+        mRxLinkSpeed = WifiInfo.LINK_SPEED_UNKNOWN;
+        mTxLinkSpeed = WifiInfo.LINK_SPEED_UNKNOWN;
     }
 
     /**
@@ -120,6 +138,9 @@ public final class MloLink implements Parcelable {
         mChannel = source.mChannel;
         mLinkId = source.mLinkId;
         mState = source.mState;
+        mRssi = source.mRssi;
+        mRxLinkSpeed = source.mRxLinkSpeed;
+        mTxLinkSpeed = source.mTxLinkSpeed;
 
         mStaMacAddress = ((redactions & NetworkCapabilities.REDACT_FOR_LOCAL_MAC_ADDRESS) != 0)
                 || source.mStaMacAddress == null
@@ -247,6 +268,66 @@ public final class MloLink implements Parcelable {
         mStaMacAddress = address;
     }
 
+    /**
+     * Update the last received packet bit rate in Mbps.
+     * @hide
+     */
+    public void setRxLinkSpeedMbps(int rxLinkSpeed) {
+        mRxLinkSpeed = rxLinkSpeed;
+    }
+
+    /**
+     * Returns the current receive link speed in Mbps.
+     * @return the Rx link speed or {@link WifiInfo#LINK_SPEED_UNKNOWN} if link speed is unknown.
+     * @see WifiInfo#LINK_SPEED_UNKNOWN
+     */
+    @IntRange(from = -1)
+    public int getRxLinkSpeedMbps() {
+        return mRxLinkSpeed;
+    }
+
+    /**
+     * Update the last transmitted packet bit rate in Mbps.
+     * @hide
+     */
+    public void setTxLinkSpeedMbps(int txLinkSpeed) {
+        mTxLinkSpeed = txLinkSpeed;
+    }
+
+    /**
+     * Returns the current transmit link speed in Mbps.
+     * @return the Tx link speed or {@link WifiInfo#LINK_SPEED_UNKNOWN} if link speed is unknown.
+     * @see WifiInfo#LINK_SPEED_UNKNOWN
+     */
+    @IntRange(from = -1)
+    public int getTxLinkSpeedMbps() {
+        return mTxLinkSpeed;
+    }
+
+    /**
+     * Sets the RSSI of the link.
+     *
+     * @param rssi RSSI in dBM.
+     * @hide
+     */
+    public void setRssi(int rssi) {
+        if (rssi < WifiInfo.INVALID_RSSI) rssi = WifiInfo.INVALID_RSSI;
+        if (rssi > WifiInfo.MAX_RSSI) rssi = WifiInfo.MAX_RSSI;
+        mRssi = rssi;
+    }
+
+    /**
+     * Returns the RSSI of the link.
+     *
+     * <p>Use {@link android.net.wifi.WifiManager#calculateSignalLevel} to convert this number into
+     * an absolute signal level which can be displayed to a user.
+     *
+     * @return RSSI in dBM.
+     */
+    public int getRssi() {
+        return mRssi;
+    }
+
     @Override
     public boolean equals(@Nullable Object o) {
         if (this == o) return true;
@@ -257,7 +338,10 @@ public final class MloLink implements Parcelable {
                 && mLinkId == that.mLinkId
                 && Objects.equals(mApMacAddress, that.mApMacAddress)
                 && Objects.equals(mStaMacAddress, that.mStaMacAddress)
-                && mState == that.mState;
+                && mState == that.mState
+                && mRssi == that.mRssi
+                && mRxLinkSpeed == that.mRxLinkSpeed
+                && mTxLinkSpeed == that.mTxLinkSpeed;
     }
 
     @Override
@@ -309,6 +393,11 @@ public final class MloLink implements Parcelable {
         sb.append(", channel: ").append(mChannel);
         sb.append(", id: ").append(mLinkId);
         sb.append(", state: ").append(getStateString(mState));
+        sb.append(", RSSI: ").append(getRssi());
+        sb.append(", Rx Link speed: ").append(getRxLinkSpeedMbps()).append(
+                WifiInfo.LINK_SPEED_UNITS);
+        sb.append(", Tx Link speed: ").append(getTxLinkSpeedMbps()).append(
+                WifiInfo.LINK_SPEED_UNITS);
         if (mApMacAddress != null) {
             sb.append(", AP MAC Address: ").append(mApMacAddress.toString());
         }
@@ -332,6 +421,9 @@ public final class MloLink implements Parcelable {
         dest.writeInt(mChannel);
         dest.writeInt(mLinkId);
         dest.writeInt(mState);
+        dest.writeInt(mRssi);
+        dest.writeInt(mRxLinkSpeed);
+        dest.writeInt(mTxLinkSpeed);
         dest.writeParcelable(mApMacAddress, flags);
         dest.writeParcelable(mStaMacAddress, flags);
     }
@@ -345,6 +437,9 @@ public final class MloLink implements Parcelable {
                     link.mChannel = in.readInt();
                     link.mLinkId = in.readInt();
                     link.mState = in.readInt();
+                    link.mRssi = in.readInt();
+                    link.mRxLinkSpeed = in.readInt();
+                    link.mTxLinkSpeed = in.readInt();
                     link.mApMacAddress = in.readParcelable(MacAddress.class.getClassLoader());
                     link.mStaMacAddress = in.readParcelable(MacAddress.class.getClassLoader());
                     return link;

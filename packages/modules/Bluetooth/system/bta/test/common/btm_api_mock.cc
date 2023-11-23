@@ -100,3 +100,12 @@ void btm_configure_data_path(uint8_t direction, uint8_t path_id,
   LOG_ASSERT(btm_interface) << "Mock btm interface not set!";
   return btm_interface->ConfigureDataPath(direction, path_id, vendor_config);
 }
+
+tBTM_INQ_INFO* BTM_InqDbFirst(void) {
+  LOG_ASSERT(btm_interface) << "Mock btm interface not set!";
+  return btm_interface->BTM_InqDbFirst();
+}
+tBTM_INQ_INFO* BTM_InqDbNext(tBTM_INQ_INFO* p_cur) {
+  LOG_ASSERT(btm_interface) << "Mock btm interface not set!";
+  return btm_interface->BTM_InqDbNext(p_cur);
+}

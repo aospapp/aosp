@@ -118,7 +118,7 @@ public class ThemedIconSwitchProvider {
      *
      * <p>The value would also be stored in SharedPreferences.
      */
-    protected void setThemedIconEnabled(boolean enabled) {
+    public void setThemedIconEnabled(boolean enabled) {
         mExecutorService.submit(() -> {
             ContentValues values = new ContentValues();
             values.put(COL_ICON_THEMED_VALUE, enabled);

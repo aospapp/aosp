@@ -130,7 +130,7 @@ typedef union {
  *                  application as for a central service management.
  *
  ******************************************************************************/
-extern tGATT_STATUS srvc_eng_init(void);
+tGATT_STATUS srvc_eng_init(void);
 
 /*****************************************************************************
  *  DIS Server Function
@@ -143,7 +143,7 @@ extern tGATT_STATUS srvc_eng_init(void);
  * Description      Initializa the Device Information Service Server.
  *
  ******************************************************************************/
-extern tDIS_STATUS DIS_SrInit(tDIS_ATTR_MASK dis_attr_mask);
+tDIS_STATUS DIS_SrInit(tDIS_ATTR_MASK dis_attr_mask);
 /*******************************************************************************
  *
  * Function         DIS_SrUpdate
@@ -151,7 +151,7 @@ extern tDIS_STATUS DIS_SrInit(tDIS_ATTR_MASK dis_attr_mask);
  * Description      Update the DIS server attribute values
  *
  ******************************************************************************/
-extern tDIS_STATUS DIS_SrUpdate(tDIS_ATTR_BIT dis_attr_bit, tDIS_ATTR* p_info);
+tDIS_STATUS DIS_SrUpdate(tDIS_ATTR_BIT dis_attr_bit, tDIS_ATTR* p_info);
 /*****************************************************************************
  *  DIS Client Function
  ****************************************************************************/
@@ -164,7 +164,7 @@ extern tDIS_STATUS DIS_SrUpdate(tDIS_ATTR_BIT dis_attr_bit, tDIS_ATTR* p_info);
  * Returns          void
  *
  ******************************************************************************/
-extern bool DIS_ReadDISInfo(const RawAddress& peer_bda,
-                            tDIS_READ_CBACK* p_cback, tDIS_ATTR_MASK mask);
+bool DIS_ReadDISInfo(const RawAddress& peer_bda, tDIS_READ_CBACK* p_cback,
+                     tDIS_ATTR_MASK mask);
 
 #endif

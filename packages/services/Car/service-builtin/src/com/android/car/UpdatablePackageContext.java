@@ -40,7 +40,7 @@ import java.util.List;
 import java.util.Set;
 
 /** Context for updatable package */
-public class UpdatablePackageContext extends ContextWrapper {
+public final class UpdatablePackageContext extends ContextWrapper {
     private static final String TAG = UpdatablePackageContext.class.getSimpleName();
 
     // This is the package context of the com.android.car.updatable

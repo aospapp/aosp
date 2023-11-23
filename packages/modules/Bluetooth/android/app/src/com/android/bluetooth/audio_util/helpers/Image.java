@@ -35,7 +35,6 @@ import java.io.InputStream;
  */
 public class Image {
     private static final String TAG = "Image";
-    private static final boolean DEBUG = false;
 
     public static int SOURCE_NONE = 0;
     public static int SOURCE_URI = 1;
@@ -251,14 +250,12 @@ public class Image {
     /**
      * Determine if two image objects are the same.
      */
-    @Override
-    public boolean equals(Object o) {
-        if (o == null) return false;
-        if (!(o instanceof Image)) return false;
-        final Image image = (Image) o;
-        final Bitmap bmp = image.getImage();
-        if (bmp == null) return (mImage == null);
-        return bmp.sameAs(mImage);
+    public static boolean sameAs(Image l, Image r) {
+        if (l == null && r == null) return true;
+        if (l == null || r == null) return false;
+        final Bitmap bmp = l.getImage();
+        if (bmp == null) return (r.getImage() == null);
+        return bmp.sameAs(r.getImage());
     }
 
     /**

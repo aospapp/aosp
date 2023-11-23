@@ -98,4 +98,8 @@ public class WifiSecurityUtil {
     public static boolean isOpen(int wifiSecurity) {
         return wifiSecurity == AccessPoint.SECURITY_NONE;
     }
+
+    public static boolean isEnhancedOpen(int wifiSecurity) {
+        return wifiSecurity == AccessPoint.SECURITY_OWE;
+    }
 }

@@ -319,6 +319,11 @@ public class NetworkProvider {
      * if it could beat any of them, and may be advantageous to the provider's implementation that
      * can rely on no longer receiving callbacks for a network that they can't bring up anyways.
      *
+     * Warning: This method executes asynchronously. The NetworkOfferCallback object can continue
+     * receiving onNetworkNeeded and onNetworkUnneeded callbacks even after this method has
+     * returned. In this case, it is on the caller to take appropriate steps in order to prevent
+     * bringing up a network.
+     *
      * @hide
      */
     @SystemApi
@@ -326,7 +331,9 @@ public class NetworkProvider {
     public void unregisterNetworkOffer(final @NonNull NetworkOfferCallback callback) {
         final NetworkOfferCallbackProxy proxy = findProxyForCallback(callback);
         if (null == proxy) return;
-        mProxies.remove(proxy);
+        synchronized (mProxies) {
+            mProxies.remove(proxy);
+        }
         mContext.getSystemService(ConnectivityManager.class).unofferNetwork(proxy);
     }
 }

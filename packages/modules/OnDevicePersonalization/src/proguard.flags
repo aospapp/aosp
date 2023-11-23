@@ -1,0 +1,9 @@
+-keep class com.android.ondevicepersonalization.services.process.OnDevicePersonalizationPlugin
+
+-keep class org.apache.velocity.runtime.** {
+    <init>(...);
+}
+
+-keep class org.apache.velocity.util.introspection.** {
+    <init>(...);
+}

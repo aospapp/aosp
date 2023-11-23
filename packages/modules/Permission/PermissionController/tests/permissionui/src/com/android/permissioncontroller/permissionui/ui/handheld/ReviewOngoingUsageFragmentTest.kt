@@ -18,9 +18,9 @@ package com.android.permissioncontroller.permissionui.ui.handheld
 
 import android.Manifest.permission.CAMERA
 import android.content.Intent
-import android.support.test.uiautomator.By
+import androidx.test.uiautomator.By
 import com.android.compatibility.common.util.SystemUtil.runWithShellPermissionIdentity
-import com.android.compatibility.common.util.UiAutomatorUtils.waitFindObject
+import com.android.compatibility.common.util.UiAutomatorUtils2.waitFindObject
 import com.android.permissioncontroller.permissionui.PermissionHub2Test
 import com.android.permissioncontroller.permissionui.ui.CAMERA_TEST_APP_LABEL
 import com.android.permissioncontroller.permissionui.ui.grantTestAppPermission

@@ -16,6 +16,14 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+    <string name="car_permission_label_bind_projection_service" msgid="6976251734714662552">"프로젝션 서비스에 연결"</string>
+    <string name="car_permission_desc_bind_projection_service" msgid="4610418233070289810">"권한을 가진 프로그램이 프로젝션 서비스의 최상위 인터페이스에 연결되도록 허용합니다. 일반 앱에는 필요하지 않습니다."</string>
+    <string name="car_permission_label_bind_vms_client" msgid="1298928874094319701">"VMS 클라이언트 서비스"</string>
+    <string name="car_permission_desc_bind_vms_client" msgid="7758142590449847602">"VMS 클라이언트에 연결"</string>
+    <string name="car_permission_label_bind_instrument_cluster_rendering" msgid="6723392540805279625">"계기판 렌더링"</string>
+    <string name="car_permission_desc_bind_instrument_cluster_rendering" msgid="2583711303360788080">"계기판 데이터 수신"</string>
+    <string name="car_permission_label_bind_input_service" msgid="6647238478703096557">"차량 입력 서비스"</string>
+    <string name="car_permission_desc_bind_input_service" msgid="8460218104132496613">"입력 이벤트 처리"</string>
     <string name="activity_blocked_text" msgid="5991043857905412794">"운전 중에는 이 기능을 사용하실 수 없습니다."</string>
     <string name="exit_button_message" msgid="5375678491245394542">"안전한 앱 기능으로 다시 시작하려면 <xliff:g id="EXIT_BUTTON">%s</xliff:g>을(를) 선택하세요."</string>
     <string name="exit_button" msgid="3491899413031549265">"뒤로"</string>
@@ -30,11 +38,7 @@
     <string name="factory_reset_warning" msgid="8463356329619149262">"기기가 삭제됩니다."</string>
     <string name="factory_reset_message" msgid="1972536809866779972">"관리자 앱을 사용할 수 없습니다. 곧 기기가 삭제됩니다.\n\n궁금한 점이 있으면 조직의 관리자에게 문의하세요."</string>
     <string name="resource_overuse_notification_title" msgid="1622015333965744463">"<xliff:g id="ID_1">^1</xliff:g> 앱이 시스템 성능에 영향을 미침"</string>
-    <string name="resource_overuse_notification_text_disable_app" msgid="6230392052741662158">"앱을 사용 중지하여 시스템 성능을 개선하세요. 설정에서 앱을 다시 한번 사용 설정할 수 있습니다."</string>
-    <string name="resource_overuse_notification_text_prioritize_app" msgid="5712958688473220136">"앱을 계속 사용하려면 앱을 우선순위로 지정하세요."</string>
-    <string name="resource_overuse_notification_text_uninstall_app" msgid="7571808726595158942">"앱을 제거하여 시스템 성능을 개선하세요."</string>
-    <string name="resource_overuse_notification_button_disable_app" msgid="7366883746281232189">"앱 사용 중지"</string>
+    <string name="resource_overuse_notification_text_disabled_app" msgid="9058683477901746549">"앱의 백그라운드 실행이 차단되었습니다. 백그라운드에서 계속 실행하려면 앱에 우선순위를 지정하세요."</string>
+    <string name="resource_overuse_notification_button_close_app" msgid="131355952730826999">"닫기"</string>
     <string name="resource_overuse_notification_button_prioritize_app" msgid="1093325910457794796">"앱 우선순위 지정"</string>
-    <string name="resource_overuse_notification_button_uninstall_app" msgid="5259756814713178196">"앱 제거"</string>
-    <string name="resource_overuse_toast_disable_app_now" msgid="5020071090614971772">"<xliff:g id="ID_1">^1</xliff:g> 앱이 사용 중지되었습니다. 설정에서 다시 사용 설정할 수 있습니다."</string>
 </resources>

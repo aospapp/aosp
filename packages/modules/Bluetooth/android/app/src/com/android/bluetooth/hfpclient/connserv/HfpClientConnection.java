@@ -29,7 +29,7 @@ import java.util.UUID;
 
 public class HfpClientConnection extends Connection {
     private static final String TAG = "HfpClientConnection";
-    private static final boolean DBG = false;
+    private static final boolean DBG = Log.isLoggable(TAG, Log.DEBUG);
 
     private static final String EVENT_SCO_CONNECT = "com.android.bluetooth.hfpclient.SCO_CONNECT";
     private static final String EVENT_SCO_DISCONNECT =

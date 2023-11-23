@@ -21,12 +21,15 @@
     <com.android.car.settings.common.ColoredSwitchPreference
         android:key="@string/pk_wifi_tether_state_switch"
         style="@style/ColoredSwitchPreferenceStyle"
+        settings:occupant_front_passenger="read"
+        settings:occupant_rear_passenger="read"
         settings:controller="com.android.car.settings.wifi.WifiTetherStateSwitchPreferenceController"
         settings:searchable="false"/>
-    <com.android.car.settings.common.DividerPreference/>
     <com.android.car.settings.common.ValidatedEditTextPreference
         android:key="@string/pk_wifi_tether_name"
         android:title="@string/wifi_hotspot_name_title"
+        settings:occupant_front_passenger="read"
+        settings:occupant_rear_passenger="read"
         settings:controller="com.android.car.settings.wifi.WifiTetherNamePreferenceController"
         settings:showChevron="false"/>
     <ListPreference
@@ -34,11 +37,15 @@
         android:title="@string/wifi_hotspot_security_title"
         android:dialogTitle="@string/wifi_hotspot_security_title"
         android:persistent="false"
+        settings:occupant_front_passenger="read"
+        settings:occupant_rear_passenger="read"
         settings:controller="com.android.car.settings.wifi.WifiTetherSecurityPreferenceController"/>
     <com.android.car.settings.common.ValidatedEditTextPreference
         android:key="@string/pk_wifi_tether_password"
         android:title="@string/wifi_hotspot_password_title"
         android:persistent="false"
+        settings:occupant_front_passenger="read"
+        settings:occupant_rear_passenger="read"
         settings:controller="com.android.car.settings.wifi.WifiTetherPasswordPreferenceController"
         settings:showChevron="false"/>
     <SwitchPreference
@@ -46,11 +53,15 @@
         android:title="@string/wifi_hotspot_auto_off_title"
         android:summary="@string/wifi_hotspot_auto_off_summary"
         android:persistent="false"
+        settings:occupant_front_passenger="read"
+        settings:occupant_rear_passenger="read"
         settings:controller="com.android.car.settings.wifi.WifiTetherAutoOffPreferenceController"/>
     <ListPreference
         android:key="@string/pk_wifi_tether_ap_band"
         android:title="@string/wifi_hotspot_ap_band_title"
         android:dialogTitle="@string/wifi_hotspot_ap_band_title"
         android:persistent="false"
+        settings:occupant_front_passenger="read"
+        settings:occupant_rear_passenger="read"
         settings:controller="com.android.car.settings.wifi.WifiTetherApBandPreferenceController"/>
 </PreferenceScreen>

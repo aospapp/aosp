@@ -249,11 +249,61 @@ public class ScanResultUtil {
     }
 
     /**
+     * Helper method to check if the provided |scanResult| corresponds to only WPA-Personal network.
+     * This checks if the provided capabilities string contains WPA and not RSN.
+     */
+    public static boolean isScanResultForWpaPersonalOnlyNetwork(@NonNull ScanResult scanResult) {
+        return isScanResultForPskNetwork(scanResult) && !scanResult.capabilities.contains("RSN");
+    }
+
+    /**
      *  Helper method to check if the provided |scanResult| corresponds to an unknown amk network.
      *  This checks if the provided capabilities string contains ? or not.
      */
     public static boolean isScanResultForUnknownAkmNetwork(@NonNull ScanResult scanResult) {
         return scanResult.capabilities.contains("?");
+    }
+
+    /**
+     *  Helper method to check if the provided |scanResult| corresponds to a pure PSK network.
+     */
+    public static boolean isScanResultForPskOnlyNetwork(@NonNull ScanResult r) {
+        return ScanResultUtil.isScanResultForPskNetwork(r)
+                && !ScanResultUtil.isScanResultForSaeNetwork(r);
+    }
+
+    /**
+     *  Helper method to check if the provided |scanResult| corresponds to a pure SAE network.
+     */
+    public static boolean isScanResultForSaeOnlyNetwork(@NonNull ScanResult r) {
+        return !ScanResultUtil.isScanResultForPskNetwork(r)
+                && ScanResultUtil.isScanResultForSaeNetwork(r);
+    }
+
+    /**
+     *  Helper method to check if the provided |scanResult| corresponds to a pure OPEN network.
+     */
+    public static boolean isScanResultForOpenOnlyNetwork(@NonNull ScanResult r) {
+        return ScanResultUtil.isScanResultForOpenNetwork(r)
+                && !ScanResultUtil.isScanResultForOweNetwork(r);
+    }
+
+    /**
+     *  Helper method to check if the provided |scanResult| corresponds to a pure OWE network.
+     */
+    public static boolean isScanResultForOweOnlyNetwork(@NonNull ScanResult r) {
+        return !ScanResultUtil.isScanResultForOweTransitionNetwork(r)
+                && ScanResultUtil.isScanResultForOweNetwork(r);
+    }
+
+    /**
+     *  Helper method to check if the provided |scanResult| corresponds to a pure
+     *  WPA2 Enterprise network.
+     */
+    public static boolean isScanResultForWpa2EnterpriseOnlyNetwork(@NonNull ScanResult r) {
+        return ScanResultUtil.isScanResultForEapNetwork(r)
+                && !ScanResultUtil.isScanResultForWpa3EnterpriseTransitionNetwork(r)
+                && !ScanResultUtil.isScanResultForWpa3EnterpriseOnlyNetwork(r);
     }
 
     /**

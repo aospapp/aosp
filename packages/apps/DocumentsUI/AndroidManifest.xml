@@ -19,11 +19,12 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
         package="com.android.documentsui">
 
-    <uses-sdk android:minSdkVersion="29" android:targetSdkVersion="30"/>
+    <uses-sdk android:minSdkVersion="29"/>
 
     <uses-permission android:name="android.permission.MANAGE_DOCUMENTS" />
     <uses-permission android:name="android.permission.REMOVE_TASKS" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC"/>
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.CACHE_CONTENT" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
@@ -201,6 +202,7 @@
         <service
             android:name=".services.FileOperationService"
             android:exported="false"
+            android:foregroundServiceType="dataSync"
             android:process=":com.android.documentsui.services">
         </service>
 

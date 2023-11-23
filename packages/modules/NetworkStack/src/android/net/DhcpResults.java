@@ -18,8 +18,6 @@ package android.net;
 
 import android.annotation.Nullable;
 import android.annotation.SuppressLint;
-import android.compat.annotation.UnsupportedAppUsage;
-import android.os.Build;
 import android.os.Parcel;
 import android.os.Parcelable;
 import android.text.TextUtils;
@@ -42,30 +40,22 @@ import java.util.Objects;
 public final class DhcpResults implements Parcelable {
     private static final String TAG = "DhcpResults";
 
-    @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.R, trackingBug = 170729553)
     public LinkAddress ipAddress;
 
-    @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.R, trackingBug = 170729553)
     public InetAddress gateway;
 
-    @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.R, trackingBug = 170729553)
     public final ArrayList<InetAddress> dnsServers = new ArrayList<>();
 
-    @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.R, trackingBug = 170729553)
     public String domains;
 
-    @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.R, trackingBug = 170729553)
     public Inet4Address serverAddress;
 
     /** Vendor specific information (from RFC 2132). */
-    @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.R, trackingBug = 170729553)
     public String vendorInfo;
 
-    @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.R, trackingBug = 170729553)
     public int leaseDuration;
 
     /** Link MTU option. 0 means unset. */
-    @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.R, trackingBug = 170729553)
     public int mtu;
 
     public String serverHostName;

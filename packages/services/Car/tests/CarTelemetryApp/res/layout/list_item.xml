@@ -21,11 +21,30 @@
     android:layout_height="wrap_content"
     android:orientation="vertical">
   <Button
+      android:id="@+id/add_config_button"
+      android:layout_width="wrap_content"
+      android:layout_height="wrap_content"
+      android:text="@string/add_button"
+      app:layout_constraintHorizontal_bias="0"
+      app:layout_constraintStart_toStartOf="parent"
+      app:layout_constraintTop_toTopOf="@+id/barrier2" />
+  <Button
+      android:id="@+id/remove_config_button"
+      android:layout_width="wrap_content"
+      android:layout_height="wrap_content"
+      android:text="@string/remove_button"
+      app:layout_constraintHorizontal_bias="0"
+      app:layout_constraintEnd_toStartOf="@+id/guideline"
+      app:layout_constraintStart_toEndOf="@+id/add_config_button"
+      app:layout_constraintTop_toTopOf="@+id/barrier2" />
+  <Button
       android:id="@+id/show_info_button"
       android:layout_width="wrap_content"
       android:layout_height="wrap_content"
       android:text="@string/history_button"
-      app:layout_constraintStart_toStartOf="parent"
+      app:layout_constraintHorizontal_bias="1"
+      app:layout_constraintStart_toEndOf="@+id/guideline"
+      app:layout_constraintEnd_toStartOf="@+id/clear_info_button"
       app:layout_constraintTop_toTopOf="@+id/barrier2" />
   <Button
       android:id="@+id/clear_info_button"
@@ -33,11 +52,13 @@
       android:layout_height="wrap_content"
       android:text="@string/clear_button"
       app:layout_constraintEnd_toEndOf="parent"
+      app:layout_constraintHorizontal_bias="1"
       app:layout_constraintTop_toTopOf="@+id/barrier2" />
   <CheckBox
       android:id="@+id/checkbox"
       android:layout_width="wrap_content"
       android:layout_height="wrap_content"
+      android:enabled="false"
       app:layout_constraintStart_toStartOf="parent"
       app:layout_constraintTop_toTopOf="parent" />
   <TextView
@@ -102,6 +123,8 @@
       android:background="@android:color/darker_gray"
       app:layout_constraintBottom_toBottomOf="@+id/errors_text"
       app:layout_constraintEnd_toStartOf="@+id/errors_text"
+      app:layout_constraintHorizontal_bias="1"
+      app:layout_constraintStart_toEndOf="@+id/sent_bytes_text"
       app:layout_constraintTop_toTopOf="@+id/barrier1" />
   <androidx.constraintlayout.widget.Barrier
       android:id="@+id/barrier1"
@@ -120,4 +143,10 @@
           "results_text,on_ready_times_text,divider,sent_bytes_text,error_count_text"
       tools:layout_editor_absoluteX="135dp"
       tools:layout_editor_absoluteY="85dp" />
+  <androidx.constraintlayout.widget.Guideline
+      android:id="@+id/guideline"
+      android:layout_width="wrap_content"
+      android:layout_height="wrap_content"
+      android:orientation="vertical"
+      app:layout_constraintGuide_percent="0.5" />
 </androidx.constraintlayout.widget.ConstraintLayout>

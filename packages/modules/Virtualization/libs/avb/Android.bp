@@ -1,0 +1,54 @@
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
+rust_defaults {
+    name: "libavb_bindgen.defaults",
+    wrapper_src: "bindgen/avb.h",
+    crate_name: "avb_bindgen",
+    edition: "2021",
+    visibility: ["//packages/modules/Virtualization:__subpackages__"],
+    source_stem: "bindings",
+    bindgen_flags: [
+        "--size_t-is-usize",
+        "--default-enum-style rust",
+        "--allowlist-function=.*",
+        "--allowlist-var=AVB.*",
+        "--use-core",
+        "--raw-line=#![no_std]",
+        "--ctypes-prefix=core::ffi",
+    ],
+    cflags: ["-DBORINGSSL_NO_CXX"],
+}
+
+rust_bindgen {
+    name: "libavb_bindgen",
+    defaults: ["libavb_bindgen.defaults"],
+    host_supported: true,
+    static_libs: [
+        "libavb",
+    ],
+    shared_libs: [
+        "libcrypto",
+    ],
+}
+
+rust_bindgen {
+    name: "libavb_bindgen_nostd",
+    defaults: ["libavb_bindgen.defaults"],
+    static_libs: [
+        "libavb_baremetal",
+        "libcrypto_baremetal",
+    ],
+}
+
+rust_test {
+    name: "libavb_bindgen_test",
+    srcs: [":libavb_bindgen"],
+    crate_name: "avb_bindgen_test",
+    edition: "2021",
+    test_suites: ["general-tests"],
+    auto_gen_config: true,
+    clippy_lints: "none",
+    lints: "none",
+}

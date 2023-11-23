@@ -132,7 +132,7 @@ public abstract class UnitsBasePreferenceController extends PreferenceController
     }
 
     @Override
-    protected int getAvailabilityStatus() {
+    protected int getDefaultAvailabilityStatus() {
         return mSupportedUnits != null && mSupportedUnits.length > 0
                 ? AVAILABLE : CONDITIONALLY_UNAVAILABLE;
     }

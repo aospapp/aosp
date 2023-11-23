@@ -149,6 +149,33 @@ public class MobileDataRowTest extends BaseSettingsQCItemTestCase {
         verify(mDataUsageController).setMobileDataEnabled(true);
     }
 
+    @Test
+    public void getQCItem_createsRow_zoneWrite() {
+        when(mDataUsageController.isMobileDataSupported()).thenReturn(true);
+        mMobileDataRow.setAvailabilityStatusForZone("write");
+        QCRow row = getRow();
+        QCActionItem actionItem = row.getEndItems().get(0);
+        assertThat(actionItem.isEnabled()).isTrue();
+    }
+
+    @Test
+    public void getQCItem_createsRow_zoneRead() {
+        when(mDataUsageController.isMobileDataSupported()).thenReturn(true);
+        mMobileDataRow.setAvailabilityStatusForZone("read");
+        QCRow row = getRow();
+        QCActionItem actionItem = row.getEndItems().get(0);
+        assertThat(actionItem.isEnabled()).isFalse();
+        assertThat(actionItem.isClickableWhileDisabled()).isTrue();
+    }
+
+    @Test
+    public void getQCItem_createsRow_zoneHidden() {
+        when(mDataUsageController.isMobileDataSupported()).thenReturn(true);
+        mMobileDataRow.setAvailabilityStatusForZone("hidden");
+        QCItem item = mMobileDataRow.getQCItem();
+        assertThat(item).isNull();
+    }
+
     private QCRow getRow() {
         QCItem item = mMobileDataRow.getQCItem();
         assertThat(item).isNotNull();

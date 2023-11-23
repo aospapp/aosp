@@ -17,30 +17,46 @@ package com.android.launcher3.views;
 
 import static android.view.ViewGroup.LayoutParams.MATCH_PARENT;
 
+import static com.android.launcher3.LauncherAnimUtils.SCALE_PROPERTY;
 import static com.android.launcher3.LauncherAnimUtils.SUCCESS_TRANSITION_PROGRESS;
 import static com.android.launcher3.LauncherAnimUtils.TABLET_BOTTOM_SHEET_SUCCESS_TRANSITION_PROGRESS;
+import static com.android.launcher3.allapps.AllAppsTransitionController.REVERT_SWIPE_ALL_APPS_TO_HOME_ANIMATION_DURATION_MS;
 import static com.android.launcher3.anim.Interpolators.scrollInterpolatorForVelocity;
+import static com.android.launcher3.util.ScrollableLayoutManager.PREDICTIVE_BACK_MIN_SCALE;
 
 import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
 import android.animation.ObjectAnimator;
 import android.animation.PropertyValuesHolder;
 import android.content.Context;
+import android.graphics.Canvas;
+import android.graphics.Outline;
+import android.graphics.drawable.Drawable;
+import android.os.Build;
 import android.util.AttributeSet;
 import android.util.Property;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.ViewOutlineProvider;
 import android.view.animation.Interpolator;
+import android.window.BackEvent;
+
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+import androidx.annotation.Px;
+import androidx.annotation.RequiresApi;
 
 import com.android.launcher3.AbstractFloatingView;
 import com.android.launcher3.Utilities;
+import com.android.launcher3.anim.AnimatedFloat;
 import com.android.launcher3.anim.Interpolators;
 import com.android.launcher3.touch.BaseSwipeDetector;
 import com.android.launcher3.touch.SingleAxisSwipeDetector;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 /**
  * Extension of {@link AbstractFloatingView} with common methods for sliding in from bottom.
@@ -65,6 +81,7 @@ public abstract class AbstractSlideInView<T extends Context & ActivityContext>
             };
     protected static final float TRANSLATION_SHIFT_CLOSED = 1f;
     protected static final float TRANSLATION_SHIFT_OPENED = 0f;
+    private static final float VIEW_NO_SCALE = 1f;
 
     protected final T mActivityContext;
 
@@ -79,7 +96,26 @@ public abstract class AbstractSlideInView<T extends Context & ActivityContext>
     protected float mTranslationShift = TRANSLATION_SHIFT_CLOSED;
 
     protected boolean mNoIntercept;
+    protected @Nullable OnCloseListener mOnCloseBeginListener;
     protected List<OnCloseListener> mOnCloseListeners = new ArrayList<>();
+
+    protected final AnimatedFloat mSlideInViewScale =
+            new AnimatedFloat(this::onScaleProgressChanged, VIEW_NO_SCALE);
+    protected boolean mIsBackProgressing;
+    @Nullable private Drawable mContentBackground;
+    @Nullable private View mContentBackgroundParentView;
+
+    protected final ViewOutlineProvider mViewOutlineProvider = new ViewOutlineProvider() {
+        @Override
+        public void getOutline(View view, Outline outline) {
+            outline.setRect(
+                    0,
+                    0,
+                    view.getMeasuredWidth(),
+                    view.getMeasuredHeight() + getBottomOffsetPx()
+            );
+        }
+    };
 
     public AbstractSlideInView(Context context, AttributeSet attrs, int defStyleAttr) {
         super(context, attrs, defStyleAttr);
@@ -128,6 +164,7 @@ public abstract class AbstractSlideInView<T extends Context & ActivityContext>
         if (mColorScrim != null) {
             mColorScrim.setAlpha(1 - mTranslationShift);
         }
+        invalidate();
     }
 
     @Override
@@ -155,6 +192,80 @@ public abstract class AbstractSlideInView<T extends Context & ActivityContext>
             }
         }
         return true;
+    }
+
+    @Override
+    @RequiresApi(Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
+    public void onBackProgressed(BackEvent backEvent) {
+        final float progress = backEvent.getProgress();
+        float deceleratedProgress =
+                Interpolators.PREDICTIVE_BACK_DECELERATED_EASE.getInterpolation(progress);
+        mIsBackProgressing = progress > 0f;
+        mSlideInViewScale.updateValue(PREDICTIVE_BACK_MIN_SCALE
+                + (1 - PREDICTIVE_BACK_MIN_SCALE) * (1 - deceleratedProgress));
+    }
+
+    protected void onScaleProgressChanged() {
+        float scaleProgress = mSlideInViewScale.value;
+        SCALE_PROPERTY.set(this, scaleProgress);
+        setClipChildren(!mIsBackProgressing);
+        mContent.setClipChildren(!mIsBackProgressing);
+        invalidate();
+    }
+
+    @Override
+    public void onBackInvoked() {
+        super.onBackInvoked();
+        animateSlideInViewToNoScale();
+    }
+
+    @Override
+    public void onBackCancelled() {
+        super.onBackCancelled();
+        animateSlideInViewToNoScale();
+    }
+
+    protected void animateSlideInViewToNoScale() {
+        mSlideInViewScale.animateToValue(1f)
+                .setDuration(REVERT_SWIPE_ALL_APPS_TO_HOME_ANIMATION_DURATION_MS)
+                .start();
+    }
+
+    @Override
+    protected void dispatchDraw(Canvas canvas) {
+        drawScaledBackground(canvas);
+        super.dispatchDraw(canvas);
+    }
+
+    /**
+     * Set slide in view's background {@link Drawable} which will be draw onto a parent view in
+     * {@link #dispatchDraw(Canvas)}
+     */
+    protected void setContentBackgroundWithParent(
+            @NonNull Drawable drawable, @NonNull View parentView) {
+        mContentBackground = drawable;
+        mContentBackgroundParentView = parentView;
+    }
+
+    /** Draw scaled background during predictive back animation. */
+    private void drawScaledBackground(Canvas canvas) {
+        if (mContentBackground == null || mContentBackgroundParentView == null) {
+            return;
+        }
+        mContentBackground.setBounds(
+                mContentBackgroundParentView.getLeft(),
+                mContentBackgroundParentView.getTop() + (int) mContent.getTranslationY(),
+                mContentBackgroundParentView.getRight(),
+                mContentBackgroundParentView.getBottom()
+                        + (mIsBackProgressing ? getBottomOffsetPx() : 0));
+        mContentBackground.draw(canvas);
+    }
+
+    /** Return extra space revealed during predictive back animation. */
+    @Px
+    protected int getBottomOffsetPx() {
+        final int height = getMeasuredHeight();
+        return (int) ((height / PREDICTIVE_BACK_MIN_SCALE - height) / 2);
     }
 
     /**
@@ -204,6 +315,11 @@ public abstract class AbstractSlideInView<T extends Context & ActivityContext>
         }
     }
 
+    /** Callback invoked when the view is beginning to close (e.g. close animation is started). */
+    public void setOnCloseBeginListener(@Nullable OnCloseListener onCloseBeginListener) {
+        mOnCloseBeginListener = onCloseBeginListener;
+    }
+
     /** Registers an {@link OnCloseListener}. */
     public void addOnCloseListener(OnCloseListener listener) {
         mOnCloseListeners.add(listener);
@@ -213,6 +329,8 @@ public abstract class AbstractSlideInView<T extends Context & ActivityContext>
         if (!mIsOpen) {
             return;
         }
+        Optional.ofNullable(mOnCloseBeginListener).ifPresent(OnCloseListener::onSlideInViewClosed);
+
         if (!animate) {
             mOpenCloseAnimator.cancel();
             setTranslationShift(TRANSLATION_SHIFT_CLOSED);

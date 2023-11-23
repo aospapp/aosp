@@ -18,12 +18,10 @@ package com.android.managedprovisioning.provisioning;
 
 import android.app.Activity;
 
-import com.android.car.setupwizardlib.CarSetupWizardCompatLayout;
 import com.android.managedprovisioning.R;
 import com.android.managedprovisioning.common.CarSetupWizardLayoutHelper;
 import com.android.managedprovisioning.common.InitializeLayoutConsumerHandler;
 import com.android.managedprovisioning.common.Utils;
-import com.android.managedprovisioning.model.CustomizationParams;
 import com.android.managedprovisioning.model.ProvisioningParams;
 
 import com.google.auto.value.AutoValue;
@@ -37,20 +35,19 @@ abstract class CarResetAndReturnDeviceActivityBridgeImpl
         implements ResetAndReturnDeviceActivityBridge {
 
     abstract Utils getUtils();
+
     abstract ProvisioningParams getParams();
+
     abstract ResetAndReturnDeviceActivityBridgeCallback getBridgeCallback();
+
     abstract InitializeLayoutConsumerHandler getInitializeLayoutParamsConsumer();
 
     @Override
     public void initiateUi(Activity activity) {
-        CustomizationParams customizationParams =
-                CustomizationParams.createInstance(getParams(), activity, getUtils());
-        int mainLayoutId = CarSetupWizardLayoutHelper.MAIN_LAYOUT_RES_ID;
-
         // Set the base layout
         CarSetupWizardLayoutHelper layoutHelper = new CarSetupWizardLayoutHelper(activity);
-        CarSetupWizardCompatLayout layout = layoutHelper.setBaseLayout(
-                /* mainLayoutResId= */ CarSetupWizardLayoutHelper.MAIN_LAYOUT_RES_ID,
+        layoutHelper.setBaseLayout(
+                /* mainLayoutId= */ CarSetupWizardLayoutHelper.MAIN_LAYOUT_RES_ID,
                 /* columnLayoutId= */ R.layout.single_column_left_layout,
                 /* subLayoutId= */ R.layout.empty_layout);
         layoutHelper.setHeaderText(
@@ -69,10 +66,14 @@ abstract class CarResetAndReturnDeviceActivityBridgeImpl
     @AutoValue.Builder
     abstract static class Builder {
         abstract Builder setUtils(Utils utils);
+
         abstract Builder setParams(ProvisioningParams params);
+
         abstract Builder setInitializeLayoutParamsConsumer(
                 InitializeLayoutConsumerHandler initializeLayoutParamsConsumer);
+
         abstract Builder setBridgeCallback(ResetAndReturnDeviceActivityBridgeCallback callback);
+
         abstract CarResetAndReturnDeviceActivityBridgeImpl build();
     }
 }

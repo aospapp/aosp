@@ -71,7 +71,7 @@
     <string name="sort_dimension_name" msgid="6325591541414177579">"Անունը"</string>
     <string name="sort_dimension_summary" msgid="7724534446881397860">"Ամփոփագիր"</string>
     <string name="sort_dimension_file_type" msgid="5779709622922085381">"Տեսակը"</string>
-    <string name="sort_dimension_size" msgid="2190547351159472884">"Չափը"</string>
+    <string name="sort_dimension_size" msgid="2190547351159472884">"Չափսը"</string>
     <string name="sort_dimension_date" msgid="4231005651895254033">"Փոփոխվել է"</string>
     <string name="sort_dimension_name_ascending" msgid="3715725253270614742">"ֆայլի անվան (Ա – Ֆ)"</string>
     <string name="sort_dimension_file_type_ascending" msgid="3466973933402894292">"տեսակի (Ա – Ֆ)"</string>
@@ -92,8 +92,8 @@
     <string name="save_error" msgid="8631128801982095782">"Չհաջողվեց պահել փաստաթուղթը"</string>
     <string name="create_error" msgid="3092144450044861994">"Չհաջողվեց ստեղծել պանակը"</string>
     <string name="query_error" msgid="6625421453613879336">"Այս պահին հնարավոր չէ բեռնել բովանդակությունը"</string>
-    <string name="quiet_mode_error_title" msgid="9126656325282792843">"Աշխատանքային պրոֆիլը դադարեցված է"</string>
-    <string name="quiet_mode_button" msgid="6977115032320235420">"Միացնել"</string>
+    <string name="quiet_mode_error_title" msgid="554319751414657910">"Աշխատանքային հավելվածները դադարեցված են"</string>
+    <string name="quiet_mode_button" msgid="8051436551926677305">"Միացնել աշխատանքային հավելվածները"</string>
     <string name="cant_select_work_files_error_title" msgid="6688716319549644354">"Հնարավոր չէ աշխատանքային ֆայլեր ընտրել"</string>
     <string name="cant_select_work_files_error_message" msgid="683480676150690641">"Ձեր ՏՏ ադմինիստրատորը չի թույլատրում աշխատանքային ֆայլերի օգտագործումը անձնական հավելվածներից"</string>
     <string name="cant_select_personal_files_error_title" msgid="3200697170148617742">"Հնարավոր չէ անձնական ֆայլեր ընտրել"</string>
@@ -200,7 +200,7 @@
     <string name="file_operation_rejected" msgid="4301554203329008794">"Ֆայլի աշխատանքը չի աջակցվում:"</string>
     <string name="file_operation_error" msgid="2234357335716533795">"Չհաջողվեց գործարկել ֆայլը:"</string>
     <string name="rename_error" msgid="6700093173508118635">"Չհաջողվեց վերանվանել փաստաթուղթը"</string>
-    <string name="menu_eject_root" msgid="9215040039374893613">"Անջատել"</string>
+    <string name="menu_eject_root" msgid="9215040039374893613">"Հանել"</string>
     <string name="notification_copy_files_converted_title" msgid="6916768494891833365">"Որոշ ֆայլեր փոխարկվել են"</string>
     <string name="open_external_dialog_request" msgid="8173558471322861268">"<xliff:g id="APPNAME"><b>^1</b></xliff:g> հավելվածին տրամադրե՞լ <xliff:g id="STORAGE"><i>^3</i></xliff:g>-ի <xliff:g id="DIRECTORY"><i>^2</i></xliff:g> գրացուցակն օգտագործելու թույլտվություն:"</string>
     <string name="open_external_dialog_request_primary_volume" msgid="2240992164087948176">"<xliff:g id="APPNAME"><b>^1</b></xliff:g> հավելվածին տրամադրե՞լ <xliff:g id="DIRECTORY"><i>^2</i></xliff:g> գրացուցակն օգտագործելու թույլտվություն:"</string>

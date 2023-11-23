@@ -29,6 +29,7 @@
         android:supportsRtl="true">
 
         <activity android:name=".CarCalendarActivity"
+            android:exported="true"
             android:launchMode="singleTask">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>

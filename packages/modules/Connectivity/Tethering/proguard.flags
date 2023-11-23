@@ -1,7 +1,10 @@
 # Keep class's integer static field for MessageUtils to parsing their name.
--keep class com.android.networkstack.tethering.Tethering$TetherMainSM {
-    static final int CMD_*;
-    static final int EVENT_*;
+-keepclassmembers class com.android.server.**,android.net.**,com.android.networkstack.** {
+    static final % POLICY_*;
+    static final % NOTIFY_TYPE_*;
+    static final % TRANSPORT_*;
+    static final % CMD_*;
+    static final % EVENT_*;
 }
 
 -keep class com.android.networkstack.tethering.util.BpfMap {
@@ -19,10 +22,6 @@
 }
 -keepclassmembers public class * extends com.android.networkstack.tethering.util.Struct {
     *;
-}
-
--keepclassmembers class android.net.ip.IpServer {
-    static final int CMD_*;
 }
 
 # The lite proto runtime uses reflection to access fields based on the names in

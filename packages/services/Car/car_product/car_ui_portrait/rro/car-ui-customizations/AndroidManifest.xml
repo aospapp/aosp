@@ -18,11 +18,12 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
           package="will.be.replaced">
     <application android:hasCode="false"/>
-    <overlay android:priority="10"
+    <overlay android:priority="11"
              android:targetName="car-ui-lib"
              android:targetPackage="will.be.replaced.too"
+             android:category="will.be.replaced"
              android:resourcesMap="@xml/overlays"
-             android:isStatic="true"
+             android:isStatic="false"
              android:requiredSystemPropertyName="ro.build.car_ui_rros_enabled"
              android:requiredSystemPropertyValue="true"/>
 </manifest>

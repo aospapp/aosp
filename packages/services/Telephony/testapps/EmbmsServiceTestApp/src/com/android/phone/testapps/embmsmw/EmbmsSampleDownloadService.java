@@ -58,9 +58,8 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class EmbmsSampleDownloadService extends Service {
-    private static final Set<String> ALLOWED_PACKAGES = new HashSet<String>() {{
-        add("com.android.phone.testapps.embmsdownload");
-    }};
+    private static final Set<String> ALLOWED_PACKAGES = Set.of(
+            "com.android.phone.testapps.embmsdownload");
 
     private static final String LOG_TAG = "EmbmsSampleDownload";
     private static final long INITIALIZATION_DELAY = 200;

@@ -22,7 +22,7 @@
 
     <LinearLayout
         style="?android:attr/buttonBarButtonStyle"
-        android:orientation="horizontal"
+        android:orientation="vertical"
         android:layout_width="match_parent"
         android:layout_height="wrap_content">
 
@@ -31,19 +31,61 @@
             android:layout_height="wrap_content"
             android:layout_width="wrap_content"
             style="?android:attr/buttonBarButtonStyle"
-            android:text="@string/load_code_provider" />
+            android:text="@string/load_code_provider"
+            android:textAllCaps="false" />
 
         <Button
             android:id="@+id/request_surface_button"
             android:layout_height="wrap_content"
             android:layout_width="wrap_content"
             style="?android:attr/buttonBarButtonStyle"
-            android:text="@string/load_surface_package" />
+            android:text="@string/load_surface_package"
+            android:textAllCaps="false" />
+
+        <Button
+          android:id="@+id/play_video_button"
+          android:layout_height="wrap_content"
+          android:layout_width="wrap_content"
+          style="?android:attr/buttonBarButtonStyle"
+          android:text="@string/play_video"
+          android:textAllCaps="false" />
+
+        <Button
+            android:id="@+id/create_file_button"
+            android:layout_height="wrap_content"
+            android:layout_width="wrap_content"
+            style="?android:attr/buttonBarButtonStyle"
+            android:text="@string/create_file"
+            android:textAllCaps="false" />
+
+        <Button
+            android:id="@+id/enable_sdk_sdk_button"
+            android:layout_height="wrap_content"
+            android:layout_width="wrap_content"
+            style="?android:attr/buttonBarButtonStyle"
+            android:text="@string/enable_sdk_sdk"
+            android:textAllCaps="false" />
+
+        <Button
+                android:id="@+id/sync_keys_button"
+                android:layout_height="wrap_content"
+                android:layout_width="wrap_content"
+                style="?android:attr/buttonBarButtonStyle"
+                android:text="@string/sync_keys"
+                android:textAllCaps="false" />
+
+        <Button
+            android:id="@+id/start_activity"
+            android:layout_height="wrap_content"
+            android:layout_width="wrap_content"
+            style="?android:attr/buttonBarButtonStyle"
+            android:text="@string/start_activity"
+            android:textAllCaps="false" />
     </LinearLayout>
 
     <SurfaceView
         android:id="@+id/rendered_view"
-        android:layout_width="200dp"
-        android:layout_height="200dp" />
+        android:layout_width="match_parent"
+        android:layout_height="match_parent" />
 
 </LinearLayout>

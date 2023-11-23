@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="app_name" msgid="5832002141924282426">"CaptivePortalLogin"</string>
+    <string name="app_name" msgid="9113573340518078598">"क्याप्टिभ पोर्टल लग इन"</string>
     <string name="action_use_network" msgid="8239049683838236305">"यो सञ्जाल जस्तो छ प्रयोग गर्नुहोस्"</string>
     <string name="action_do_not_use_network" msgid="6324702363356892396">"यो सञ्जाल प्रयोग नगर्नुहोस्"</string>
     <string name="action_bar_label" msgid="2023171629563754892">"सञ्जालमा साइन इन गर्नुहोस्"</string>
@@ -20,7 +20,7 @@
     <string name="ssl_security_warning_title" msgid="7912335118289529802">"सुरक्षासम्बन्धी चेतावनी"</string>
     <string name="ssl_error_view_certificate" msgid="3447891108083278449">"प्रमाणपत्र हेर्नुहोस्‌"</string>
     <string name="custom_scheme_warning" msgid="1809266150423969087">"तपाईं जोडिन खोजिरहनुभएको नेटवर्कले अर्को एप खोल्न अनुरोध गरिरहेको छ।"</string>
-    <string name="custom_scheme_example" msgid="7126568152528588592">"उदाहरणका लागि, लग इन पृष्ठले कुनै निश्चित अनुप्रयोगमार्फत परिचय प्रमाणित गर्न आवश्यकता जनाउन सक्छ"</string>
+    <string name="custom_scheme_example" msgid="7126568152528588592">"उदाहरणका लागि, लग इन पृष्ठले कुनै निश्चित एपमार्फत परिचय प्रमाणित गर्न आवश्यकता जनाउन सक्छ"</string>
     <string name="ok" msgid="6584612582120777209">"ठिक छ"</string>
     <string name="page_info_address" msgid="1290683284404217554">"ठेगाना:"</string>
     <string name="page_info" msgid="46593086046896385">"पृष्ठको जानकारी"</string>

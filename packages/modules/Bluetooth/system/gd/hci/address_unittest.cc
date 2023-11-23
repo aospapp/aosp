@@ -16,12 +16,14 @@
  *
  ******************************************************************************/
 
-#include <unordered_map>
+#include "hci/address.h"
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
-#include "hci/address.h"
+#include <cstdint>
+#include <string>
+#include <unordered_map>
 
 using bluetooth::hci::Address;
 
@@ -232,4 +234,15 @@ TEST(AddressTest, BdAddrHashDifferentForDifferentAddressesFullAddr) {
 TEST(AddressTest, BdAddrHashDifferentForDifferentAddressesZeroAndFullAddr) {
   struct std::hash<Address> hasher;
   ASSERT_NE(hasher(Address::kEmpty), hasher(Address::kAny));
+}
+
+TEST(AddressTest, ToStringForLoggingTestOutputUnderDebuggablePropAndInitFlag) {
+  Address addr{{0xab, 0x55, 0x44, 0x33, 0x22, 0x11}};
+  const std::string redacted_loggable_str = "xx:xx:xx:xx:55:ab";
+  const std::string loggable_str = "11:22:33:44:55:ab";
+
+  std::string ret1 = addr.ToStringForLogging();
+  ASSERT_STREQ(ret1.c_str(), loggable_str.c_str());
+  std::string ret2 = addr.ToRedactedStringForLogging();
+  ASSERT_STREQ(ret2.c_str(), redacted_loggable_str.c_str());
 }

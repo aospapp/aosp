@@ -19,6 +19,8 @@ package android.car.builtin.util;
 import android.annotation.AppIdInt;
 import android.annotation.SystemApi;
 import android.annotation.UserIdInt;
+import android.car.builtin.annotation.AddedIn;
+import android.car.builtin.annotation.PlatformVersion;
 import android.os.UserHandle;
 
 /**
@@ -33,12 +35,14 @@ public final class ValidationHelper {
     }
 
     /** Returns true if passed userId is valid */
+    @AddedIn(PlatformVersion.TIRAMISU_0)
     public static boolean isUserIdValid(@UserIdInt int userId) {
         return !((userId != UserHandle.USER_NULL && userId < UserHandle.USER_CURRENT_OR_SELF)
                 || userId > Integer.MAX_VALUE / UserHandle.PER_USER_RANGE);
     }
 
     /** Returns true if passed appId is valid */
+    @AddedIn(PlatformVersion.TIRAMISU_0)
     public static boolean isAppIdValid(@AppIdInt int appId) {
         return !(appId / UserHandle.PER_USER_RANGE != 0 || appId < 0);
     }

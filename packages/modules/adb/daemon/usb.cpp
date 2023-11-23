@@ -61,10 +61,10 @@ using android::base::StringPrintf;
 // Also, each submitted operation does an allocation in the kernel of that size, so we want to
 // minimize our queue depth while still maintaining a deep enough queue to keep the USB stack fed.
 static constexpr size_t kUsbReadQueueDepth = 8;
-static constexpr size_t kUsbReadSize = 4 * PAGE_SIZE;
+static constexpr size_t kUsbReadSize = 16384;
 
 static constexpr size_t kUsbWriteQueueDepth = 8;
-static constexpr size_t kUsbWriteSize = 4 * PAGE_SIZE;
+static constexpr size_t kUsbWriteSize = 16384;
 
 static const char* to_string(enum usb_functionfs_event_type type) {
     switch (type) {
@@ -567,6 +567,10 @@ struct UsbFfsConnection : public Connection {
                 memcpy(&msg, block->payload.data(), sizeof(msg));
                 LOG(DEBUG) << "USB read:" << dump_header(&msg);
                 incoming_header_ = msg;
+
+                if (msg.command == A_CNXN) {
+                    CancelWrites();
+                }
             } else {
                 size_t bytes_left = incoming_header_->data_length - incoming_payload_.size();
                 if (block->payload.size() > bytes_left) {
@@ -673,6 +677,17 @@ struct UsbFfsConnection : public Connection {
         } else if (rc != writes_to_submit) {
             LOG(FATAL) << "failed to submit all writes: wanted to submit " << writes_to_submit
                        << ", actually submitted " << rc;
+        }
+    }
+
+    void CancelWrites() {
+        std::lock_guard<std::mutex> lock(write_mutex_);
+        for (size_t i = 0; i < writes_submitted_; ++i) {
+            struct io_event res;
+            if (write_requests_[i].pending == true) {
+                LOG(INFO) << "cancelling pending write# " << i;
+                io_cancel(aio_context_.get(), &write_requests_[i].control, &res);
+            }
         }
     }
 

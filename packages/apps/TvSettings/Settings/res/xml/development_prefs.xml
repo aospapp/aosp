@@ -94,8 +94,7 @@
         <Preference
             android:key="toggle_adb_wireless"
             android:title="@string/enable_adb_wireless"
-            android:summary="@string/connectivity_summary_no_network_connected"
-            android:fragment="com.android.tv.settings.system.development.WirelessDebuggingFragment" />
+            android:summary="@string/connectivity_summary_no_network_connected" />
 
         <com.android.tv.settings.widget.SwitchWithSoundPreference
             android:key="enable_terminal"
@@ -254,7 +253,7 @@
             android:entries="@array/show_non_rect_clip_entries"
             android:entryValues="@array/show_non_rect_clip_values" />
 
-        <SwitchPreference
+        <com.android.tv.settings.widget.SwitchWithSoundPreference
             android:key="window_blurs"
             android:title="@string/window_blurs"/>
 
@@ -295,6 +294,14 @@
             android:title="@string/record_audio"
             android:summaryOn="@string/record_audio_summary_on"
             android:summaryOff="@string/record_audio_summary_off"/>
+        <ListPreference
+            android:key="record_audio_source"
+            android:title="@string/record_audio_source_title"
+            android:dialogTitle="@string/record_audio_source_dialog_title"
+            android:summary="%s"
+            android:defaultValue="0"
+            android:entries="@array/record_audio_source_entries"
+            android:entryValues="@array/record_audio_source_values" />
         <Preference
             android:key="play_recorded_audio"
             android:title="@string/play_recorded_audio_title"/>

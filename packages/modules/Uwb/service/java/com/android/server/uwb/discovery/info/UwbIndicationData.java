@@ -51,9 +51,6 @@ public class UwbIndicationData {
     private static final byte CAPABILITIES_RESERVED_FIELD_DATA = 0x0;
     private static final byte DUAL_GAP_ROLE_SUPPORT_BITMASK = 0x01;
 
-    // Elements of the secure component field list within UWB indication data.
-    private static final int SECURE_COMPONENT_ELEMENT_SIZE = 2;
-
     public final boolean firaUwbSupport;
     public final boolean iso14443Support;
     public final boolean uwbRegulartoryInfoAvailableInAd;
@@ -108,11 +105,11 @@ public class UwbIndicationData {
 
         int bluetoothRssiThresholdDbm = (int) byteBuffer.get();
 
-        int info_size = (bytes.length - UWB_INDICATION_DATA_SIZE) / SECURE_COMPONENT_ELEMENT_SIZE;
+        int info_size = (bytes.length - UWB_INDICATION_DATA_SIZE) / SecureComponentInfo.size();
         List<SecureComponentInfo> infos = new ArrayList<>();
 
         for (int i = 0; i < info_size; i++) {
-            byte[] secureComponentInfoBytes = new byte[SECURE_COMPONENT_ELEMENT_SIZE];
+            byte[] secureComponentInfoBytes = new byte[SecureComponentInfo.size()];
             byteBuffer.get(secureComponentInfoBytes);
             SecureComponentInfo info = SecureComponentInfo.fromBytes(secureComponentInfoBytes);
             if (info != null) {

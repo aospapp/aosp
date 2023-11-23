@@ -36,6 +36,5 @@ java_library {
     // Access to SystemService, ServiceManager#waitForService etc
     libs: ["services"],
     sdk_version: "",
-    platform_apis: true,
     installable: true,
 }

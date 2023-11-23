@@ -68,7 +68,10 @@ static const char *pattrs[] = {
         "pwg-raster-document-sheet-back",
         "document-format-details-supported",
         "media-ready",
-        "media-col-ready"
+        "media-col-ready",
+        "print-scaling-supported",
+        "print-scaling-default",
+        "job-pages-per-set-supported"
 };
 
 static void _init(const ifc_printer_capabilities_t *this_p,

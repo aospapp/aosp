@@ -29,7 +29,11 @@ android_app_certificate {
 
 sdk {
     name: "ondevicepersonalization-module-sdk",
-    bootclasspath_fragments: ["com.android.ondevicepersonalization-bootclasspath-fragment"],
+    apexes: [
+        // Adds exportable dependencies of the APEX to the sdk,
+        // e.g. *classpath_fragments.
+        "com.android.ondevicepersonalization",
+    ],
 }
 
 bootclasspath_fragment {
@@ -63,18 +67,30 @@ bootclasspath_fragment {
         // classes into an API surface, e.g. public, system, etc.. Doing so will
         // result in a build failure due to inconsistent flags.
         package_prefixes: [
+	    "android.app.ondevicepersonalization",
             "android.ondevicepersonalization",
+            "com.android.ondevicepersonalization.internal",
+            "android.federatedcompute",
         ],
     },
+}
+
+systemserverclasspath_fragment {
+    name: "com.android.ondevicepersonalization-systemserverclasspath-fragment",
+    contents: [
+        "service-ondevicepersonalization",
+    ],
+    apex_available: ["com.android.ondevicepersonalization"],
 }
 
 apex {
     name: "com.android.ondevicepersonalization",
     manifest: "manifest.json",
-    apps: ["OnDevicePersonalization"],
+    apps: ["OnDevicePersonalization", "FederatedCompute"],
     file_contexts: ":com.android.ondevicepersonalization-file_contexts",
     key: "com.android.ondevicepersonalization.key",
     bootclasspath_fragments: ["com.android.ondevicepersonalization-bootclasspath-fragment"],
+    systemserverclasspath_fragments: ["com.android.ondevicepersonalization-systemserverclasspath-fragment"],
     defaults: ["t-launched-apex-module"],
     prebuilts: ["current_sdkinfo"],
 }

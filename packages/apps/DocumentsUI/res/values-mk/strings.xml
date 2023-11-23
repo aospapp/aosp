@@ -56,7 +56,7 @@
     <string name="menu_paste_from_clipboard" msgid="360947260414135827">"Залепи"</string>
     <string name="menu_paste_into_folder" msgid="8000644546983240101">"Залепи во папка"</string>
     <string name="menu_advanced_show" msgid="7558626506462906726">"Прикажи внатрешен капацитет"</string>
-    <string name="menu_advanced_hide" msgid="6488381508009246334">"Сокриј внатр. меморија"</string>
+    <string name="menu_advanced_hide" msgid="6488381508009246334">"Скриј внатр. меморија"</string>
     <string name="button_select" msgid="240863497069321364">"Избери"</string>
     <string name="button_copy" msgid="8219059853840996027">"Копирај"</string>
     <string name="button_compress" msgid="8951561310857223966">"Компримирај"</string>
@@ -88,12 +88,12 @@
     <string name="sort_direction_descending" msgid="1729187589765894076">"Опаѓачко"</string>
     <string name="open_external_app" msgid="7107920381038980086">"Отворете <xliff:g id="APPNAME">%1$s</xliff:g>"</string>
     <string name="drawer_open" msgid="8071673398187261741">"Прикажи корени"</string>
-    <string name="drawer_close" msgid="4263880768630848848">"Сокриј корени"</string>
+    <string name="drawer_close" msgid="4263880768630848848">"Скриј корени"</string>
     <string name="save_error" msgid="8631128801982095782">"Документот не успеа да се зачува"</string>
     <string name="create_error" msgid="3092144450044861994">"Папката не успеа да се создаде"</string>
     <string name="query_error" msgid="6625421453613879336">"Во моментов не може да се вчита содржината."</string>
-    <string name="quiet_mode_error_title" msgid="9126656325282792843">"Работниот профил е паузиран"</string>
-    <string name="quiet_mode_button" msgid="6977115032320235420">"Вклучи"</string>
+    <string name="quiet_mode_error_title" msgid="554319751414657910">"Работните апликации се паузирани"</string>
+    <string name="quiet_mode_button" msgid="8051436551926677305">"Вклучете ги работните апликации"</string>
     <string name="cant_select_work_files_error_title" msgid="6688716319549644354">"Не може да се изберат работни датотеки"</string>
     <string name="cant_select_work_files_error_message" msgid="683480676150690641">"IT-администраторот не ви дозволува да пристапувате до работни датотеки од лична апликација"</string>
     <string name="cant_select_personal_files_error_title" msgid="3200697170148617742">"Не може да се изберат лични датотеки"</string>

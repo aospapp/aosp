@@ -126,6 +126,9 @@ public class SideLoadedAppDetector {
             if (initiatingPackageName == null) {
                 Log.w(TAG, packageName + " does not have an installer name.");
                 return false;
+            } else if (initiatingPackageName.equals("com.android.shell")) {
+                Log.w(TAG, packageName + " installed from shell.");
+                return false;
             }
 
             return mAllowedAppInstallSources.contains(initiatingPackageName);

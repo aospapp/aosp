@@ -72,6 +72,9 @@ java_library {
     srcs: [
         "src/main/java/**/*.java",
     ],
+    libs: [
+        "androidx.annotation_annotation",
+    ],
     static_libs: [
         "offlinelocationtimezoneprovider",
     ],

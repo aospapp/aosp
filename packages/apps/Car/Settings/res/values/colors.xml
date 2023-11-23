@@ -16,6 +16,9 @@
   -->
 
 <resources>
+    <!-- Background color for launcher icon. -->
+    <color name="ic_launcher_settings_background">#1A73E8</color>
+
     <!--
         Default CarSettings icon color.
         A color resource is used instead of an attribute since certain CarSettings drawables may be

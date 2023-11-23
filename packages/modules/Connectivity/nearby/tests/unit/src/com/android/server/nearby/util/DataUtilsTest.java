@@ -30,6 +30,7 @@ import service.proto.Rpcs.GetObservedDeviceResponse;
 
 public final class DataUtilsTest {
     private static final String BLUETOOTH_ADDRESS = "00:11:22:33:FF:EE";
+    private static final String MODEL_ID = "model_id";
     private static final String APP_PACKAGE = "test_package";
     private static final String APP_ACTION_URL =
             "intent:#Intent;action=cto_be_set%3AACTION_MAGIC_PAIR;"
@@ -57,15 +58,11 @@ public final class DataUtilsTest {
     private static final String MESSAGE_RETROACTIVE_PAIR_DESCRIPTION = "message 7";
     private static final String MESSAGE_WAIT_LAUNCH_COMPANION_APP_DESCRIPTION = "message 8";
     private static final String MESSAGE_FAIL_CONNECT_DESCRIPTION = "message 9";
-    private static final String MESSAGE_FAST_PAIR_TV_CONNECT_DEVICE_NO_ACCOUNT_DESCRIPTION =
-            "message 10";
-    private static final String MESSAGE_ASSISTANT_HALF_SHEET_DESCRIPTION = "message 11";
-    private static final String MESSAGE_ASSISTANT_NOTIFICATION_DESCRIPTION = "message 12";
 
     @Test
     public void test_toScanFastPairStoreItem_withAccount() {
         Cache.ScanFastPairStoreItem item = DataUtils.toScanFastPairStoreItem(
-                createObservedDeviceResponse(), BLUETOOTH_ADDRESS, ACCOUNT);
+                createObservedDeviceResponse(), BLUETOOTH_ADDRESS, MODEL_ID, ACCOUNT);
         assertThat(item.getAddress()).isEqualTo(BLUETOOTH_ADDRESS);
         assertThat(item.getActionUrl()).isEqualTo(APP_ACTION_URL);
         assertThat(item.getDeviceName()).isEqualTo(DEVICE_NAME);
@@ -97,7 +94,7 @@ public final class DataUtilsTest {
     @Test
     public void test_toScanFastPairStoreItem_withoutAccount() {
         Cache.ScanFastPairStoreItem item = DataUtils.toScanFastPairStoreItem(
-                createObservedDeviceResponse(), BLUETOOTH_ADDRESS, /* account= */ null);
+                createObservedDeviceResponse(), BLUETOOTH_ADDRESS, MODEL_ID, /* account= */ null);
         FastPairStrings strings = item.getFastPairStrings();
         assertThat(strings.getInitialPairingDescription())
                 .isEqualTo(MESSAGE_INIT_NOTIFY_DESCRIPTION_NO_ACCOUNT);
@@ -106,7 +103,25 @@ public final class DataUtilsTest {
     @Test
     public void test_toString() {
         Cache.ScanFastPairStoreItem item = DataUtils.toScanFastPairStoreItem(
-                createObservedDeviceResponse(), BLUETOOTH_ADDRESS, ACCOUNT);
+                createObservedDeviceResponse(), BLUETOOTH_ADDRESS, MODEL_ID, ACCOUNT);
+
+        assertThat(DataUtils.toString(item))
+                .isEqualTo("ScanFastPairStoreItem=[address:00:11:22:33:FF:EE, "
+                        + "actionUrl:intent:#Intent;action=cto_be_set%3AACTION_MAGIC_PAIR;"
+                        + "package=to_be_set;component=to_be_set;"
+                        + "to_be_set%3AEXTRA_COMPANION_APP=test_package;"
+                        + "end, deviceName:My device, "
+                        + "iconFifeUrl:device_image_url, "
+                        + "fastPairStrings:FastPairStrings[tapToPairWithAccount=message 1, "
+                        + "tapToPairWithoutAccount=message 2, "
+                        + "initialPairingDescription=message 3 My device, "
+                        + "pairingFinishedCompanionAppInstalled=message 4, "
+                        + "pairingFinishedCompanionAppNotInstalled=message 5, "
+                        + "subsequentPairingDescription=message 6, "
+                        + "retroactivePairingDescription=message 7, "
+                        + "waitAppLaunchDescription=message 8, "
+                        + "pairingFailDescription=message 9]]");
+
         FastPairStrings strings = item.getFastPairStrings();
 
         assertThat(DataUtils.toString(strings))

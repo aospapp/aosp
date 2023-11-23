@@ -64,11 +64,22 @@ public class AnomalyDetectionTests extends AtomTestCase {
     private static final int ANOMALY_EVENT_ID = 101;
     private static final int INCIDENTD_SECTION = -1;
 
+    private boolean defaultSystemTracingConfigurationHasChanged = false;
+
     @Override
     protected void setUp() throws Exception {
         super.setUp();
         if (!INCIDENTD_TESTS_ENABLED) {
             CLog.w(TAG, TAG + " anomaly tests are disabled by a flag. Change flag to true to run");
+        }
+        if (PERFETTO_TESTS_ENABLED) {
+            // Default Android configuration can only change for device type that doesn't require SystemTracingEnabled
+            // by default in CDD.
+            String chars = getDevice().getProperty("ro.build.characteristics");
+            if (!isSystemTracingEnabled() && chars.contains("automotive")) {
+                enableSystemTracing();
+                defaultSystemTracingConfigurationHasChanged = true;
+            }
         }
     }
 
@@ -76,7 +87,11 @@ public class AnomalyDetectionTests extends AtomTestCase {
     protected void tearDown() throws Exception {
         super.tearDown();
         if (PERFETTO_TESTS_ENABLED) {
-            //Deadline to finish trace collection
+            // Disable SystemTracing if previously enabled at test setUp()
+            if (defaultSystemTracingConfigurationHasChanged) {
+                disableSystemTracing();
+            }
+            // Deadline to finish trace collection
             final long deadLine = System.currentTimeMillis() + 10000;
             while (isSystemTracingEnabled()) {
                 if (System.currentTimeMillis() > deadLine) {

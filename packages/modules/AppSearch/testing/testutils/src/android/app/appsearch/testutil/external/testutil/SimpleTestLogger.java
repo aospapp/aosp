@@ -18,6 +18,7 @@ package android.app.appsearch.testutil;
 
 import android.annotation.NonNull;
 import android.annotation.Nullable;
+import android.app.appsearch.stats.SchemaMigrationStats;
 
 import com.android.server.appsearch.external.localstorage.AppSearchLogger;
 import com.android.server.appsearch.external.localstorage.stats.CallStats;
@@ -27,6 +28,9 @@ import com.android.server.appsearch.external.localstorage.stats.PutDocumentStats
 import com.android.server.appsearch.external.localstorage.stats.RemoveStats;
 import com.android.server.appsearch.external.localstorage.stats.SearchStats;
 import com.android.server.appsearch.external.localstorage.stats.SetSchemaStats;
+
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Non-thread-safe simple logger implementation for testing.
@@ -47,7 +51,9 @@ public final class SimpleTestLogger implements AppSearchLogger {
     /** Holds {@link OptimizeStats} after logging. */
     @Nullable public OptimizeStats mOptimizeStats;
     /** Holds {@link SetSchemaStats} after logging. */
-    @Nullable public SetSchemaStats mSetSchemaStats;
+    @NonNull public List<SetSchemaStats> mSetSchemaStats = new ArrayList<>();
+    /** Holds {@link android.app.appsearch.stats.SchemaMigrationStats} after logging. */
+    @Nullable public SchemaMigrationStats mSchemaMigrationStats;
 
     @Override
     public void logStats(@NonNull CallStats stats) {
@@ -81,6 +87,11 @@ public final class SimpleTestLogger implements AppSearchLogger {
 
     @Override
     public void logStats(@NonNull SetSchemaStats stats) {
-        mSetSchemaStats = stats;
+        mSetSchemaStats.add(stats);
+    }
+
+    @Override
+    public void logStats(@NonNull SchemaMigrationStats stats) {
+        mSchemaMigrationStats = stats;
     }
 }

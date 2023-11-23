@@ -104,7 +104,7 @@ public final class QosFilterParcelable implements Parcelable {
         if (mQosFilter instanceof QosSocketFilter) {
             dest.writeInt(QOS_SOCKET_FILTER);
             final QosSocketFilter qosSocketFilter = (QosSocketFilter) mQosFilter;
-            qosSocketFilter.getQosSocketInfo().writeToParcel(dest, 0);
+            qosSocketFilter.getQosSocketInfo().writeToParcelWithoutFd(dest, 0);
             return;
         }
         dest.writeInt(NO_FILTER_PRESENT);

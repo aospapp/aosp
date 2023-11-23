@@ -16,12 +16,14 @@
 
 package com.android.car.settings.sound;
 
+import static android.car.media.CarAudioManager.AUDIO_FEATURE_DYNAMIC_ROUTING;
 import static android.car.media.CarAudioManager.AUDIO_FEATURE_VOLUME_GROUP_MUTING;
 import static android.car.media.CarAudioManager.PRIMARY_AUDIO_ZONE;
 import static android.os.UserManager.DISALLOW_ADJUST_VOLUME;
 
 import static com.android.car.settings.common.PreferenceController.AVAILABLE;
 import static com.android.car.settings.common.PreferenceController.AVAILABLE_FOR_VIEWING;
+import static com.android.car.settings.common.PreferenceController.CONDITIONALLY_UNAVAILABLE;
 import static com.android.car.settings.enterprise.ActionDisabledByAdminDialogFragment.DISABLED_BY_ADMIN_CONFIRM_DIALOG_TAG;
 
 import static com.google.common.truth.Truth.assertThat;
@@ -35,7 +37,6 @@ import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import android.car.Car;
 import android.car.CarNotConnectedException;
 import android.car.drivingstate.CarUxRestrictions;
 import android.car.media.CarAudioManager;
@@ -52,6 +53,7 @@ import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.platform.app.InstrumentationRegistry;
 
+import com.android.car.settings.CarSettingsApplication;
 import com.android.car.settings.R;
 import com.android.car.settings.common.FragmentController;
 import com.android.car.settings.common.LogicalPreferenceGroup;
@@ -73,7 +75,7 @@ import org.mockito.quality.Strictness;
 public class VolumeSettingsPreferenceControllerTest {
 
     private static final int ZONE_ID = PRIMARY_AUDIO_ZONE;
-    private static final int INVALID_ZONE_ID = 1;
+    private static final int INVALID_ZONE_ID = -1;
     private static final int GROUP_ID = 0;
     private static final int TEST_MIN_VOLUME = 0;
     private static final int TEST_VOLUME = 40;
@@ -92,8 +94,6 @@ public class VolumeSettingsPreferenceControllerTest {
     @Mock
     private FragmentController mFragmentController;
     @Mock
-    private Car mCar;
-    @Mock
     private CarAudioManager mCarAudioManager;
     @Mock
     private VolumeSettingsRingtoneManager mRingtoneManager;
@@ -101,6 +101,8 @@ public class VolumeSettingsPreferenceControllerTest {
     private UserManager mMockUserManager;
     @Mock
     private Toast mMockToast;
+    @Mock
+    private CarSettingsApplication mCarSettingsApplication;
 
     @Before
     @UiThreadTest
@@ -115,15 +117,23 @@ public class VolumeSettingsPreferenceControllerTest {
                 .mockStatic(Toast.class)
                 .strictness(Strictness.LENIENT)
                 .startMocking();
-        when(mCar.getCarManager(Car.AUDIO_SERVICE)).thenReturn(mCarAudioManager);
-        when(mCarAudioManager.getVolumeGroupCount()).thenReturn(1);
-        when(mCarAudioManager.getUsagesForVolumeGroupId(GROUP_ID)).thenReturn(new int[]{1, 2});
-        when(mCarAudioManager.getGroupMinVolume(GROUP_ID)).thenReturn(TEST_MIN_VOLUME);
-        when(mCarAudioManager.getGroupVolume(GROUP_ID)).thenReturn(TEST_VOLUME);
-        when(mCarAudioManager.getGroupMaxVolume(GROUP_ID)).thenReturn(TEST_MAX_VOLUME);
-        when(mCarAudioManager.isVolumeGroupMuted(PRIMARY_AUDIO_ZONE, GROUP_ID)).thenReturn(false);
+
+        when(mCarAudioManager.getVolumeGroupCount(ZONE_ID)).thenReturn(1);
+        when(mCarAudioManager.getUsagesForVolumeGroupId(ZONE_ID, GROUP_ID))
+                .thenReturn(new int[]{1, 2});
+        when(mCarAudioManager.getGroupMinVolume(ZONE_ID, GROUP_ID)).thenReturn(TEST_MIN_VOLUME);
+        when(mCarAudioManager.getGroupVolume(ZONE_ID, GROUP_ID)).thenReturn(TEST_VOLUME);
+        when(mCarAudioManager.getGroupMaxVolume(ZONE_ID, GROUP_ID)).thenReturn(TEST_MAX_VOLUME);
+        when(mCarAudioManager.isVolumeGroupMuted(ZONE_ID, GROUP_ID)).thenReturn(false);
         when(mCarAudioManager.isAudioFeatureEnabled(AUDIO_FEATURE_VOLUME_GROUP_MUTING))
                 .thenReturn(true);
+        when(mCarAudioManager.isAudioFeatureEnabled(AUDIO_FEATURE_DYNAMIC_ROUTING))
+                .thenReturn(false);
+        when(mCarAudioManager.isPlaybackOnVolumeGroupActive(ZONE_ID, GROUP_ID)).thenReturn(false);
+
+        when(mContext.getApplicationContext()).thenReturn(mCarSettingsApplication);
+        when(mCarSettingsApplication.getCarAudioManager()).thenReturn(mCarAudioManager);
+        when(mCarSettingsApplication.getMyAudioZoneId()).thenReturn(ZONE_ID);
 
         when(mContext.getSystemService(UserManager.class)).thenReturn(mMockUserManager);
         when(Toast.makeText(any(), anyString(), anyInt())).thenReturn(mMockToast);
@@ -133,7 +143,7 @@ public class VolumeSettingsPreferenceControllerTest {
         mPreferenceGroup = new LogicalPreferenceGroup(mContext);
         screen.addPreference(mPreferenceGroup);
         mPreferenceController = new TestVolumeSettingsPreferenceController(mContext,
-                "key", mFragmentController, mCarUxRestrictions, mCar, mRingtoneManager);
+                "key", mFragmentController, mCarUxRestrictions, mRingtoneManager);
         PreferenceControllerTestUtil.assignPreference(mPreferenceController, mPreferenceGroup);
     }
 
@@ -148,6 +158,7 @@ public class VolumeSettingsPreferenceControllerTest {
     @Test
     public void testRefreshUi_serviceNotStarted() {
         mPreferenceController.refreshUi();
+
         assertThat(mPreferenceGroup.getPreferenceCount()).isEqualTo(0);
     }
 
@@ -155,6 +166,7 @@ public class VolumeSettingsPreferenceControllerTest {
     public void testRefreshUi_serviceStarted() {
         mPreferenceController.onCreate(mLifecycleOwner);
         mPreferenceController.refreshUi();
+
         assertThat(mPreferenceGroup.getPreferenceCount()).isEqualTo(1);
     }
 
@@ -174,6 +186,7 @@ public class VolumeSettingsPreferenceControllerTest {
         // Calling this multiple times shouldn't increase the number of elements.
         mPreferenceController.refreshUi();
         mPreferenceController.refreshUi();
+
         assertThat(mPreferenceGroup.getPreferenceCount()).isEqualTo(1);
     }
 
@@ -181,6 +194,7 @@ public class VolumeSettingsPreferenceControllerTest {
     public void testRefreshUi_createdPreferenceHasMinMax() {
         mPreferenceController.onCreate(mLifecycleOwner);
         mPreferenceController.refreshUi();
+
         SeekBarPreference preference = (SeekBarPreference) mPreferenceGroup.getPreference(0);
         assertThat(preference.getMin()).isEqualTo(TEST_MIN_VOLUME);
         assertThat(preference.getValue()).isEqualTo(TEST_VOLUME);
@@ -188,11 +202,40 @@ public class VolumeSettingsPreferenceControllerTest {
     }
 
     @Test
-    public void testOnPreferenceChange_ringtonePlays() {
+    public void testOnPreferenceChange_noDynamicAudio_ringtonePlays() {
         mPreferenceController.onCreate(mLifecycleOwner);
         mPreferenceController.refreshUi();
         SeekBarPreference preference = (SeekBarPreference) mPreferenceGroup.getPreference(0);
         preference.getOnPreferenceChangeListener().onPreferenceChange(preference, TEST_NEW_VOLUME);
+
+        verify(mRingtoneManager).playAudioFeedback(anyInt(), anyInt());
+    }
+
+    @Test
+    public void testOnPreferenceChange_dynamicAudio_playbackActive_ringtoneDoesNotPlay() {
+        when(mCarAudioManager.isAudioFeatureEnabled(AUDIO_FEATURE_DYNAMIC_ROUTING))
+                .thenReturn(true);
+        when(mCarAudioManager.isPlaybackOnVolumeGroupActive(ZONE_ID, GROUP_ID)).thenReturn(true);
+
+        mPreferenceController.onCreate(mLifecycleOwner);
+        mPreferenceController.refreshUi();
+        SeekBarPreference preference = (SeekBarPreference) mPreferenceGroup.getPreference(0);
+        preference.getOnPreferenceChangeListener().onPreferenceChange(preference, TEST_NEW_VOLUME);
+
+        verify(mRingtoneManager, never()).playAudioFeedback(anyInt(), anyInt());
+    }
+
+    @Test
+    public void testOnPreferenceChange_dynamicAudio_playbackNotActive_ringtonePlays() {
+        when(mCarAudioManager.isAudioFeatureEnabled(AUDIO_FEATURE_DYNAMIC_ROUTING))
+                .thenReturn(true);
+        when(mCarAudioManager.isPlaybackOnVolumeGroupActive(ZONE_ID, GROUP_ID)).thenReturn(false);
+
+        mPreferenceController.onCreate(mLifecycleOwner);
+        mPreferenceController.refreshUi();
+        SeekBarPreference preference = (SeekBarPreference) mPreferenceGroup.getPreference(0);
+        preference.getOnPreferenceChangeListener().onPreferenceChange(preference, TEST_NEW_VOLUME);
+
         verify(mRingtoneManager).playAudioFeedback(anyInt(), anyInt());
     }
 
@@ -202,7 +245,8 @@ public class VolumeSettingsPreferenceControllerTest {
         mPreferenceController.refreshUi();
         SeekBarPreference preference = (SeekBarPreference) mPreferenceGroup.getPreference(0);
         preference.getOnPreferenceChangeListener().onPreferenceChange(preference, TEST_NEW_VOLUME);
-        verify(mCarAudioManager).setGroupVolume(GROUP_ID, TEST_NEW_VOLUME, 0);
+
+        verify(mCarAudioManager).setGroupVolume(ZONE_ID, GROUP_ID, TEST_NEW_VOLUME, 0);
     }
 
     @Test
@@ -218,9 +262,10 @@ public class VolumeSettingsPreferenceControllerTest {
 
     @Test
     public void onGroupVolumeChanged_differentValue_updatesVolumeSeekbar() {
+        when(mCarAudioManager.getGroupVolume(ZONE_ID, GROUP_ID)).thenReturn(TEST_NEW_VOLUME);
+
         mPreferenceController.onCreate(mLifecycleOwner);
         mPreferenceController.refreshUi();
-        when(mCarAudioManager.getGroupVolume(GROUP_ID)).thenReturn(TEST_NEW_VOLUME);
         mPreferenceController.mVolumeChangeCallback.onGroupVolumeChanged(ZONE_ID,
                 GROUP_ID, /* flags= */ 0);
         InstrumentationRegistry.getInstrumentation().waitForIdleSync();
@@ -231,9 +276,10 @@ public class VolumeSettingsPreferenceControllerTest {
 
     @Test
     public void onGroupVolumeChanged_invalidZoneId_doesNotUpdateVolumeSeekbar() {
+        when(mCarAudioManager.getGroupVolume(ZONE_ID, GROUP_ID)).thenReturn(TEST_NEW_VOLUME);
+
         mPreferenceController.onCreate(mLifecycleOwner);
         mPreferenceController.refreshUi();
-        when(mCarAudioManager.getGroupVolume(GROUP_ID)).thenReturn(TEST_NEW_VOLUME);
         mPreferenceController.mVolumeChangeCallback.onGroupVolumeChanged(INVALID_ZONE_ID,
                 GROUP_ID, /* flags= */ 0);
         InstrumentationRegistry.getInstrumentation().waitForIdleSync();
@@ -257,9 +303,10 @@ public class VolumeSettingsPreferenceControllerTest {
 
     @Test
     public void onGroupMuteChanged_differentValue_updatesMutedState() {
+        when(mCarAudioManager.isVolumeGroupMuted(ZONE_ID, GROUP_ID)).thenReturn(true);
+
         mPreferenceController.onCreate(mLifecycleOwner);
         mPreferenceController.refreshUi();
-        when(mCarAudioManager.isVolumeGroupMuted(PRIMARY_AUDIO_ZONE, GROUP_ID)).thenReturn(true);
         mPreferenceController.mVolumeChangeCallback.onGroupMuteChanged(ZONE_ID,
                 GROUP_ID, /* flags= */ 0);
         InstrumentationRegistry.getInstrumentation().waitForIdleSync();
@@ -273,7 +320,7 @@ public class VolumeSettingsPreferenceControllerTest {
     public void onGroupMuteChanged_differentValue_muteFeatureDisabled_doesNotUpdatesMutedState() {
         mPreferenceController.onCreate(mLifecycleOwner);
         mPreferenceController.refreshUi();
-        when(mCarAudioManager.isVolumeGroupMuted(PRIMARY_AUDIO_ZONE, GROUP_ID)).thenReturn(true);
+        when(mCarAudioManager.isVolumeGroupMuted(ZONE_ID, GROUP_ID)).thenReturn(true);
         when(mCarAudioManager.isAudioFeatureEnabled(AUDIO_FEATURE_VOLUME_GROUP_MUTING))
                 .thenReturn(false);
         mPreferenceController.mVolumeChangeCallback.onGroupMuteChanged(ZONE_ID,
@@ -289,7 +336,7 @@ public class VolumeSettingsPreferenceControllerTest {
     public void onGroupMuteChanged_invalidZoneId_doesNotUpdateMutedState() {
         mPreferenceController.onCreate(mLifecycleOwner);
         mPreferenceController.refreshUi();
-        when(mCarAudioManager.isVolumeGroupMuted(PRIMARY_AUDIO_ZONE, GROUP_ID)).thenReturn(true);
+        when(mCarAudioManager.isVolumeGroupMuted(ZONE_ID, GROUP_ID)).thenReturn(true);
         mPreferenceController.mVolumeChangeCallback.onGroupMuteChanged(ZONE_ID,
                 GROUP_ID, /* flags= */ 0);
         InstrumentationRegistry.getInstrumentation().waitForIdleSync();
@@ -311,6 +358,42 @@ public class VolumeSettingsPreferenceControllerTest {
     }
 
     @Test
+    public void testGetAvailabilityStatus_restrictedByUm_unavailable_zoneWrite() {
+        mockUserRestrictionSetByUm(true);
+        mPreferenceController.setAvailabilityStatusForZone("write");
+        mPreferenceController.onCreate(mLifecycleOwner);
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), AVAILABLE_FOR_VIEWING);
+        VolumeSeekBarPreference preference =
+                spy((VolumeSeekBarPreference) mPreferenceGroup.getPreference(0));
+        assertThat(preference.isEnabled()).isFalse();
+    }
+
+    @Test
+    public void testGetAvailabilityStatus_restrictedByUm_unavailable_zoneRead() {
+        mockUserRestrictionSetByUm(true);
+        mPreferenceController.setAvailabilityStatusForZone("read");
+        mPreferenceController.onCreate(mLifecycleOwner);
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), AVAILABLE_FOR_VIEWING);
+        VolumeSeekBarPreference preference =
+                spy((VolumeSeekBarPreference) mPreferenceGroup.getPreference(0));
+        assertThat(preference.isEnabled()).isFalse();
+    }
+
+    @Test
+    public void testGetAvailabilityStatus_restrictedByUm_unavailable_zoneHidden() {
+        mockUserRestrictionSetByUm(true);
+        mPreferenceController.setAvailabilityStatusForZone("hidden");
+        mPreferenceController.onCreate(mLifecycleOwner);
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), CONDITIONALLY_UNAVAILABLE);
+    }
+
+    @Test
     public void testGetAvailabilityStatus_restrictedByDpm_unavailable() {
         mockUserRestrictionSetByDpm(true);
         mPreferenceController.onCreate(mLifecycleOwner);
@@ -319,6 +402,42 @@ public class VolumeSettingsPreferenceControllerTest {
         VolumeSeekBarPreference preference =
                 spy((VolumeSeekBarPreference) mPreferenceGroup.getPreference(0));
         assertThat(preference.isEnabled()).isFalse();
+    }
+
+    @Test
+    public void testGetAvailabilityStatus_restrictedByDpm_unavailable_zoneWrite() {
+        mockUserRestrictionSetByDpm(true);
+        mPreferenceController.setAvailabilityStatusForZone("write");
+        mPreferenceController.onCreate(mLifecycleOwner);
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), AVAILABLE_FOR_VIEWING);
+        VolumeSeekBarPreference preference =
+                spy((VolumeSeekBarPreference) mPreferenceGroup.getPreference(0));
+        assertThat(preference.isEnabled()).isFalse();
+    }
+
+    @Test
+    public void testGetAvailabilityStatus_restrictedByDpm_unavailable_zoneRead() {
+        mockUserRestrictionSetByDpm(true);
+        mPreferenceController.setAvailabilityStatusForZone("read");
+        mPreferenceController.onCreate(mLifecycleOwner);
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), AVAILABLE_FOR_VIEWING);
+        VolumeSeekBarPreference preference =
+                spy((VolumeSeekBarPreference) mPreferenceGroup.getPreference(0));
+        assertThat(preference.isEnabled()).isFalse();
+    }
+
+    @Test
+    public void testGetAvailabilityStatus_restrictedByDpm_unavailable_zoneHidden() {
+        mockUserRestrictionSetByDpm(true);
+        mPreferenceController.setAvailabilityStatusForZone("hidden");
+        mPreferenceController.onCreate(mLifecycleOwner);
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), CONDITIONALLY_UNAVAILABLE);
     }
 
     @Test
@@ -334,13 +453,52 @@ public class VolumeSettingsPreferenceControllerTest {
     }
 
     @Test
+    public void testGetAvailabilityStatus_unrestricted_available_zoneWrite() {
+        mockUserRestrictionSetByDpm(false);
+
+        mPreferenceController.setAvailabilityStatusForZone("write");
+        mPreferenceController.onCreate(mLifecycleOwner);
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), AVAILABLE);
+        VolumeSeekBarPreference preference =
+                spy((VolumeSeekBarPreference) mPreferenceGroup.getPreference(0));
+        assertThat(preference.isEnabled()).isTrue();
+    }
+
+    @Test
+    public void testGetAvailabilityStatus_unrestricted_available_zoneRead() {
+        mockUserRestrictionSetByDpm(false);
+
+        mPreferenceController.setAvailabilityStatusForZone("read");
+        mPreferenceController.onCreate(mLifecycleOwner);
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), AVAILABLE_FOR_VIEWING);
+        VolumeSeekBarPreference preference =
+                spy((VolumeSeekBarPreference) mPreferenceGroup.getPreference(0));
+        assertThat(preference.isEnabled()).isFalse();
+    }
+
+    @Test
+    public void testGetAvailabilityStatus_unrestricted_available_zoneHidden() {
+        mockUserRestrictionSetByDpm(false);
+
+        mPreferenceController.setAvailabilityStatusForZone("hidden");
+        mPreferenceController.onCreate(mLifecycleOwner);
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), CONDITIONALLY_UNAVAILABLE);
+    }
+
+    @Test
     @UiThreadTest
     public void testDisabledClick_restrictedByDpm_showDialog() {
         mockUserRestrictionSetByDpm(true);
+
         mPreferenceController.onCreate(mLifecycleOwner);
         VolumeSeekBarPreference preference =
                 spy((VolumeSeekBarPreference) mPreferenceGroup.getPreference(0));
-
         preference.performClick();
 
         assertShowingDisabledByAdminDialog();
@@ -350,10 +508,10 @@ public class VolumeSettingsPreferenceControllerTest {
     @UiThreadTest
     public void testDisabledClick_restrictedByUm_showToast() {
         mockUserRestrictionSetByUm(true);
+
         mPreferenceController.onCreate(mLifecycleOwner);
         VolumeSeekBarPreference preference =
                 spy((VolumeSeekBarPreference) mPreferenceGroup.getPreference(0));
-
         preference.performClick();
 
         assertShowingBlockedToast();
@@ -363,10 +521,9 @@ public class VolumeSettingsPreferenceControllerTest {
             VolumeSettingsPreferenceController {
 
         TestVolumeSettingsPreferenceController(Context context, String preferenceKey,
-                FragmentController fragmentController,
-                CarUxRestrictions uxRestrictions, Car car,
+                FragmentController fragmentController, CarUxRestrictions uxRestrictions,
                 VolumeSettingsRingtoneManager ringtoneManager) {
-            super(context, preferenceKey, fragmentController, uxRestrictions, car, ringtoneManager);
+            super(context, preferenceKey, fragmentController, uxRestrictions, ringtoneManager);
         }
 
         @Override

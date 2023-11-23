@@ -20,11 +20,13 @@ import android.view.accessibility.AccessibilityEvent;
 
 import com.android.car.CarLocalServices;
 import com.android.car.internal.CarSafetyAccessibilityServiceImplBase;
+import com.android.internal.annotations.Keep;
 
 /**
  * An accessibility service to notify the Car Service of any change in the window state. The car
  * safety related code can read the events sent from this service and take the necessary actions.
  */
+@Keep
 public final class CarSafetyAccessibilityServiceImpl extends CarSafetyAccessibilityServiceImplBase {
     @Override
     public void onAccessibilityEvent(AccessibilityEvent event) {

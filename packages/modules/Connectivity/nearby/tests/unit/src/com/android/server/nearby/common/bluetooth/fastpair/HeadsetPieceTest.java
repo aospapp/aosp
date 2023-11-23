@@ -196,5 +196,63 @@ public class HeadsetPieceTest {
 
         assertThat(headsetPiece.isBatteryLow()).isFalse();
     }
+    @Test
+    @SdkSuppress(minSdkVersion = 32, codeName = "T")
+    public void describeContents() {
+        HeadsetPiece headsetPiece =
+                HeadsetPiece.builder()
+                        .setLowLevelThreshold(30)
+                        .setBatteryLevel(18)
+                        .setImageUrl("http://fake.image.path/image.png")
+                        .setCharging(true)
+                        .build();
+        assertThat(headsetPiece.describeContents()).isEqualTo(0);
+    }
+
+    @Test
+    @SdkSuppress(minSdkVersion = 32, codeName = "T")
+    public void hashcode() {
+        HeadsetPiece headsetPiece =
+                HeadsetPiece.builder()
+                        .setLowLevelThreshold(30)
+                        .setBatteryLevel(18)
+                        .setImageUrl("http://fake.image.path/image.png")
+                        .setCharging(true)
+                        .build();
+        HeadsetPiece headsetPiece1 =
+                HeadsetPiece.builder()
+                        .setLowLevelThreshold(30)
+                        .setBatteryLevel(18)
+                        .setImageUrl("http://fake.image.path/image.png")
+                        .setCharging(true)
+                        .build();
+        assertThat(headsetPiece.hashCode()).isEqualTo(headsetPiece1.hashCode());
+    }
+
+    @Test
+    @SdkSuppress(minSdkVersion = 32, codeName = "T")
+    public void testToString() {
+        HeadsetPiece headsetPiece =
+                HeadsetPiece.builder()
+                        .setLowLevelThreshold(30)
+                        .setBatteryLevel(18)
+                        .setImageUrl("http://fake.image.path/image.png")
+                        .setCharging(true)
+                        .build();
+        assertThat(headsetPiece.toString())
+                .isEqualTo("HeadsetPiece{lowLevelThreshold=30,"
+                        + " batteryLevel=18,"
+                        + " imageUrl=http://fake.image.path/image.png,"
+                        + " charging=true,"
+                        + " imageContentUri=null}");
+    }
+
+    @Test
+    @SdkSuppress(minSdkVersion = 32, codeName = "T")
+    public void testCreatorNewArray() {
+        HeadsetPiece[]  headsetPieces =
+                HeadsetPiece.CREATOR.newArray(2);
+        assertThat(headsetPieces.length).isEqualTo(2);
+    }
 }
 

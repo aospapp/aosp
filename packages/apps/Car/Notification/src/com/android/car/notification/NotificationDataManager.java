@@ -115,12 +115,7 @@ public class NotificationDataManager {
                 mUnseenNotificationMap.put(alertEntry.getKey(), true);
                 mVisibleNotifications.add(alertEntry);
 
-                if (mOnUnseenCountUpdateListener != null) {
-                    if (DEBUG) {
-                        Log.d(TAG, "Unseen notification map: " + mUnseenNotificationMap);
-                    }
-                    mOnUnseenCountUpdateListener.onUnseenCountUpdate();
-                }
+                notifyUnseenCountUpdateListeners();
             }
         }
     }
@@ -128,12 +123,7 @@ public class NotificationDataManager {
     void untrackUnseenNotification(AlertEntry alertEntry) {
         if (mUnseenNotificationMap.containsKey(alertEntry.getKey())) {
             mUnseenNotificationMap.remove(alertEntry.getKey());
-            if (mOnUnseenCountUpdateListener != null) {
-                if (DEBUG) {
-                    Log.d(TAG, "UnseenNotificationMap: " + mUnseenNotificationMap);
-                }
-                mOnUnseenCountUpdateListener.onUnseenCountUpdate();
-            }
+            notifyUnseenCountUpdateListeners();
         }
     }
 
@@ -169,12 +159,7 @@ public class NotificationDataManager {
             mUnseenNotificationMap.remove(notificationKey);
         }
 
-        if (mOnUnseenCountUpdateListener != null) {
-            if (DEBUG) {
-                Log.d(TAG, "UnseenNotificationMap: " + mUnseenNotificationMap);
-            }
-            mOnUnseenCountUpdateListener.onUnseenCountUpdate();
-        }
+        notifyUnseenCountUpdateListeners();
     }
 
     boolean isNotificationSeen(AlertEntry alertEntry) {
@@ -219,15 +204,15 @@ public class NotificationDataManager {
         mUnseenNotificationMap.clear();
         mVisibleNotifications.clear();
 
-        if (mOnUnseenCountUpdateListener != null) {
-            if (DEBUG) {
-                Log.d(TAG, "Unseen notifications cleared");
-            }
-            mOnUnseenCountUpdateListener.onUnseenCountUpdate();
-        }
+        notifyUnseenCountUpdateListeners();
     }
 
-    void setNotificationsAsSeen(List<AlertEntry> alertEntries) {
+    /**
+     * Uses the {@code alertEntries} to reset the visible notifications and marks them as seen.
+     *
+     * @param alertEntries List of {@link AlertEntry} that are currently visible to be marked seen.
+     */
+    void setVisibleNotificationsAsSeen(List<AlertEntry> alertEntries) {
         mVisibleNotifications.clear();
         for (AlertEntry alertEntry : alertEntries) {
             if (mUnseenNotificationMap.containsKey(alertEntry.getKey())) {
@@ -235,12 +220,15 @@ public class NotificationDataManager {
                 mVisibleNotifications.add(alertEntry);
             }
         }
-        if (mOnUnseenCountUpdateListener != null) {
-            if (DEBUG) {
-                Log.d(TAG, "Unseen notification map: " + mUnseenNotificationMap);
-            }
-            mOnUnseenCountUpdateListener.onUnseenCountUpdate();
-        }
+        notifyUnseenCountUpdateListeners();
+    }
+
+    /**
+     * @param alertEntry {@link AlertEntry} to be marked seen and notify listeners.
+     */
+    void setNotificationAsSeen(AlertEntry alertEntry) {
+        mUnseenNotificationMap.put(alertEntry.getKey(), false);
+        notifyUnseenCountUpdateListeners();
     }
 
     /**
@@ -282,5 +270,15 @@ public class NotificationDataManager {
                 .filter(map -> !map.getValue())
                 .map(map -> map.getKey())
                 .toArray(String[]::new);
+    }
+
+    private void notifyUnseenCountUpdateListeners() {
+        if (mOnUnseenCountUpdateListener == null) {
+            return;
+        }
+        if (DEBUG) {
+            Log.d(TAG, "Unseen notifications cleared");
+        }
+        mOnUnseenCountUpdateListener.onUnseenCountUpdate();
     }
 }

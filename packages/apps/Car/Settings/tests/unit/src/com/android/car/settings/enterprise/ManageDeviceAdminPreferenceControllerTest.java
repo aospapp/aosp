@@ -16,6 +16,8 @@
 package com.android.car.settings.enterprise;
 
 import static com.android.car.settings.common.PreferenceController.AVAILABLE;
+import static com.android.car.settings.common.PreferenceController.AVAILABLE_FOR_VIEWING;
+import static com.android.car.settings.common.PreferenceController.CONDITIONALLY_UNAVAILABLE;
 import static com.android.car.settings.common.PreferenceController.UNSUPPORTED_ON_DEVICE;
 
 import android.content.ComponentName;
@@ -79,11 +81,65 @@ public final class ManageDeviceAdminPreferenceControllerTest
     }
 
     @Test
+    public void testGetAvailabilityStatus_deviceAdminDisabled_zoneWrite() {
+        ManageDeviceAdminPreferenceController controller = newControllerWithFeatureDisabled();
+        controller.setAvailabilityStatusForZone("write");
+
+        PreferenceControllerTestUtil.assertAvailability(controller.getAvailabilityStatus(),
+                UNSUPPORTED_ON_DEVICE);
+    }
+
+    @Test
+    public void testGetAvailabilityStatus_deviceAdminDisabled_zoneRead() {
+        ManageDeviceAdminPreferenceController controller = newControllerWithFeatureDisabled();
+        controller.setAvailabilityStatusForZone("read");
+
+        PreferenceControllerTestUtil.assertAvailability(controller.getAvailabilityStatus(),
+                UNSUPPORTED_ON_DEVICE);
+    }
+
+    @Test
+    public void testGetAvailabilityStatus_deviceAdminDisabled_zoneHidden() {
+        ManageDeviceAdminPreferenceController controller = newControllerWithFeatureDisabled();
+        controller.setAvailabilityStatusForZone("hidden");
+
+        PreferenceControllerTestUtil.assertAvailability(controller.getAvailabilityStatus(),
+                UNSUPPORTED_ON_DEVICE);
+    }
+
+    @Test
     public void testGetAvailabilityStatus_deviceAdminEnabled() {
         ManageDeviceAdminPreferenceController controller = newControllerWithFeatureEnabled();
 
         PreferenceControllerTestUtil.assertAvailability(controller.getAvailabilityStatus(),
                 AVAILABLE);
+    }
+
+    @Test
+    public void testGetAvailabilityStatus_deviceAdminEnabled_zoneWrite() {
+        ManageDeviceAdminPreferenceController controller = newControllerWithFeatureEnabled();
+        controller.setAvailabilityStatusForZone("write");
+
+        PreferenceControllerTestUtil.assertAvailability(controller.getAvailabilityStatus(),
+                AVAILABLE);
+    }
+
+    @Test
+    public void testGetAvailabilityStatus_deviceAdminEnabled_zoneRead() {
+        ManageDeviceAdminPreferenceController controller = newControllerWithFeatureEnabled();
+        controller.setAvailabilityStatusForZone("read");
+
+        PreferenceControllerTestUtil.assertAvailability(controller.getAvailabilityStatus(),
+                AVAILABLE_FOR_VIEWING);
+    }
+
+    @Test
+    public void testGetAvailabilityStatus_deviceAdminEnabled_zoneHidden() {
+        ManageDeviceAdminPreferenceController controller = newControllerWithFeatureEnabled();
+        controller.setAvailabilityStatusForZone("hidden");
+
+        PreferenceControllerTestUtil.assertAvailability(controller.getAvailabilityStatus(),
+                CONDITIONALLY_UNAVAILABLE);
     }
 
     private ManageDeviceAdminPreferenceController newControllerWithFeatureDisabled() {

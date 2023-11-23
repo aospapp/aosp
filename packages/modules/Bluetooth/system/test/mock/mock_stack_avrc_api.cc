@@ -19,13 +19,11 @@
  *   Functions generated:14
  */
 
-#include <map>
-#include <string>
-
-extern std::map<std::string, int> mock_function_count_map;
-
 #include <base/logging.h>
 #include <string.h>
+
+#include <map>
+#include <string>
 
 #include "osi/include/fixed_queue.h"
 #include "osi/include/log.h"
@@ -34,51 +32,63 @@ extern std::map<std::string, int> mock_function_count_map;
 #include "stack/avrc/avrc_int.h"
 #include "stack/include/avrc_api.h"
 #include "stack/include/bt_hdr.h"
+#include "test/common/mock_functions.h"
 #include "types/raw_address.h"
 
 #ifndef UNUSED_ATTR
 #define UNUSED_ATTR
 #endif
 
+bool avrcp_absolute_volume_is_enabled() {
+  inc_func_call_count(__func__);
+  return true;
+}
 uint16_t AVRC_Close(uint8_t handle) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return 0;
 }
 uint16_t AVRC_CloseBrowse(uint8_t handle) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
+  return 0;
+}
+uint16_t AVRC_GetControlProfileVersion() {
+  inc_func_call_count(__func__);
   return 0;
 }
 uint16_t AVRC_GetProfileVersion() {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return 0;
 }
 uint16_t AVRC_MsgReq(uint8_t handle, uint8_t label, uint8_t ctype,
                      BT_HDR* p_pkt) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return 0;
 }
 uint16_t AVRC_Open(uint8_t* p_handle, tAVRC_CONN_CB* p_ccb,
                    const RawAddress& peer_addr) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return 0;
 }
 uint16_t AVRC_OpenBrowse(uint8_t handle, uint8_t conn_role) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return 0;
 }
+void AVRC_SaveControllerVersion(const RawAddress& bdaddr, uint16_t version) {
+  inc_func_call_count(__func__);
+}
 uint16_t AVRC_PassCmd(uint8_t handle, uint8_t label, tAVRC_MSG_PASS* p_msg) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return 0;
 }
 uint16_t AVRC_PassRsp(uint8_t handle, uint8_t label, tAVRC_MSG_PASS* p_msg) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return 0;
 }
-void avrc_flush_cmd_q(uint8_t handle) { mock_function_count_map[__func__]++; }
-void avrc_process_timeout(void* data) { mock_function_count_map[__func__]++; }
+void avrc_flush_cmd_q(uint8_t handle) { inc_func_call_count(__func__); }
+void avrc_process_timeout(void* data) { inc_func_call_count(__func__); }
 void avrc_send_next_vendor_cmd(uint8_t handle) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
 }
 void avrc_start_cmd_timer(uint8_t handle, uint8_t label, uint8_t msg_mask) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
 }

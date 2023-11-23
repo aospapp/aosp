@@ -21,8 +21,16 @@ use std::process::{Command, Stdio};
 const COMPOS_KEY_HELPER_PATH: &str = "/apex/com.android.compos/bin/compos_key_helper";
 
 pub fn get_public_key() -> Result<Vec<u8>> {
+    get_data_from_helper("public_key")
+}
+
+pub fn get_attestation_chain() -> Result<Vec<u8>> {
+    get_data_from_helper("bcc")
+}
+
+fn get_data_from_helper(command: &str) -> Result<Vec<u8>> {
     let child = Command::new(COMPOS_KEY_HELPER_PATH)
-        .arg("public_key")
+        .arg(command)
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())

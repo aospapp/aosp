@@ -17,7 +17,7 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="grant_dialog_button_deny_dont_ask_again" msgid="747769682501286250">"拒絕，不要再詢問"</string>
-    <string name="grant_dialog_how_to_change" msgid="997462845048160559">"您稍後可以在 [設定] &gt; [應用程式] 中變更這項設定"</string>
+    <string name="grant_dialog_how_to_change" msgid="997462845048160559">"你稍後可以在 [設定] &gt; [應用程式] 中變更這項設定"</string>
     <string name="current_permission_template" msgid="6240787325714651204">"<xliff:g id="CURRENT_PERMISSION_INDEX">%1$s</xliff:g> / <xliff:g id="PERMISSION_COUNT">%2$s</xliff:g>"</string>
     <string name="preference_show_system_apps" msgid="4262140518693221093">"顯示系統應用程式"</string>
     <string name="app_permissions_decor_title" msgid="7438716722786036814">"應用程式權限"</string>

@@ -30,7 +30,7 @@
     <string name="callFailed_number_unreachable" msgid="2855741498610643943">"Número incontactável"</string>
     <string name="callFailed_invalid_credentials" msgid="1915881596632385418">"Nome de utilizador ou palavra-passe incorretos"</string>
     <string name="callFailed_out_of_network" msgid="3725361800376129141">"Chamada fora de rede"</string>
-    <string name="callFailed_server_error" msgid="8449565039784274698">"Erro do servidor. Tente novamente mais tarde."</string>
+    <string name="callFailed_server_error" msgid="8449565039784274698">"Erro do servidor. Tente mais tarde."</string>
     <string name="callFailed_noSignal" msgid="7700332004458210245">"Sem sinal"</string>
     <string name="callFailed_limitExceeded" msgid="2877263157928717415">"Limite de ACM excedido"</string>
     <string name="callFailed_powerOff" msgid="2212239757387143765">"Rádio desativado"</string>

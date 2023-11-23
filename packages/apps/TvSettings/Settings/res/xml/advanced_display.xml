@@ -18,6 +18,11 @@
 <PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:custom="http://schemas.android.com/apk/res-auto"
     android:title="@string/advanced_display_settings_title">
+    <Preference
+        android:fragment="com.android.tv.settings.device.displaysound.PreferredDynamicRangeFragment"
+        android:key="preferred_dynamic_range_selection"
+        android:persistent="true"
+        android:title="@string/preferred_dynamic_range_title"/>
     <com.android.tv.settings.widget.SwitchWithSoundPreference
         android:key="game_mode"
         android:persistent="true"

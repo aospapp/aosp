@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#define LOG_TAG "BTAudioClientIf"
+#define LOG_TAG "BTAudioClientAIDL"
 
 #include "client_interface_aidl.h"
 
@@ -46,6 +46,7 @@ std::ostream& operator<<(std::ostream& os, const BluetoothAudioCtrlAck& ack) {
 BluetoothAudioClientInterface::BluetoothAudioClientInterface(
     IBluetoothTransportInstance* instance)
     : provider_(nullptr),
+      provider_factory_(nullptr),
       session_started_(false),
       data_mq_(nullptr),
       transport_(instance) {
@@ -54,9 +55,8 @@ BluetoothAudioClientInterface::BluetoothAudioClientInterface(
 }
 
 bool BluetoothAudioClientInterface::is_aidl_available() {
-  auto service = AServiceManager_checkService(
+  return AServiceManager_isDeclared(
       kDefaultAudioProviderFactoryInterface.c_str());
-  return (service != nullptr);
 }
 
 std::vector<AudioCapabilities>
@@ -71,7 +71,7 @@ BluetoothAudioClientInterface::GetAudioCapabilities(SessionType session_type) {
     return capabilities;
   }
   auto provider_factory = IBluetoothAudioProviderFactory::fromBinder(
-      ::ndk::SpAIBinder(AServiceManager_getService(
+      ::ndk::SpAIBinder(AServiceManager_waitForService(
           kDefaultAudioProviderFactoryInterface.c_str())));
 
   if (provider_factory == nullptr) {
@@ -90,16 +90,15 @@ BluetoothAudioClientInterface::GetAudioCapabilities(SessionType session_type) {
 }
 
 void BluetoothAudioClientInterface::FetchAudioProvider() {
-  if (provider_ != nullptr) {
-    LOG(WARNING) << __func__ << ": refetch";
-  } else if (!is_aidl_available()) {
-    // AIDL availability should only be checked at the beginning.
-    // When refetching, AIDL may not be ready *yet* but it's expected to be
-    // available later.
+  if (!is_aidl_available()) {
+    LOG(ERROR) << __func__ << ": aidl is not supported on this platform.";
     return;
   }
+  if (provider_ != nullptr) {
+    LOG(WARNING) << __func__ << ": refetch";
+  }
   auto provider_factory = IBluetoothAudioProviderFactory::fromBinder(
-      ::ndk::SpAIBinder(AServiceManager_getService(
+      ::ndk::SpAIBinder(AServiceManager_waitForService(
           kDefaultAudioProviderFactoryInterface.c_str())));
 
   if (provider_factory == nullptr) {
@@ -134,8 +133,12 @@ void BluetoothAudioClientInterface::FetchAudioProvider() {
   }
   CHECK(provider_ != nullptr);
 
-  AIBinder_linkToDeath(provider_factory->asBinder().get(),
-                       death_recipient_.get(), this);
+  binder_status_t binder_status = AIBinder_linkToDeath(
+     provider_factory->asBinder().get(), death_recipient_.get(), this);
+  if (binder_status != STATUS_OK) {
+    LOG(ERROR) << "Failed to linkToDeath " << static_cast<int>(binder_status);
+  }
+  provider_factory_ = std::move(provider_factory);
 
   LOG(INFO) << "IBluetoothAudioProvidersFactory::openProvider() returned "
             << provider_.get()
@@ -150,8 +153,8 @@ BluetoothAudioSinkClientInterface::BluetoothAudioSinkClientInterface(
 }
 
 BluetoothAudioSinkClientInterface::~BluetoothAudioSinkClientInterface() {
-  if (provider_ != nullptr) {
-    AIBinder_unlinkToDeath(provider_->asBinder().get(), death_recipient_.get(),
+  if (provider_factory_ != nullptr) {
+    AIBinder_unlinkToDeath(provider_factory_->asBinder().get(), death_recipient_.get(),
                            nullptr);
   }
 }
@@ -164,8 +167,8 @@ BluetoothAudioSourceClientInterface::BluetoothAudioSourceClientInterface(
 }
 
 BluetoothAudioSourceClientInterface::~BluetoothAudioSourceClientInterface() {
-  if (provider_ != nullptr) {
-    AIBinder_unlinkToDeath(provider_->asBinder().get(), death_recipient_.get(),
+  if (provider_factory_ != nullptr) {
+    AIBinder_unlinkToDeath(provider_factory_->asBinder().get(), death_recipient_.get(),
                            nullptr);
   }
 }
@@ -196,13 +199,14 @@ bool BluetoothAudioClientInterface::UpdateAudioConfig(
   bool is_a2dp_offload_session =
       (transport_->GetSessionType() ==
        SessionType::A2DP_HARDWARE_OFFLOAD_ENCODING_DATAPATH);
-  bool is_leaudio_offload_session =
+  bool is_leaudio_unicast_offload_session =
       (transport_->GetSessionType() ==
            SessionType::LE_AUDIO_HARDWARE_OFFLOAD_ENCODING_DATAPATH ||
        transport_->GetSessionType() ==
-           SessionType::LE_AUDIO_HARDWARE_OFFLOAD_DECODING_DATAPATH ||
-       transport_->GetSessionType() ==
-           SessionType::LE_AUDIO_BROADCAST_HARDWARE_OFFLOAD_ENCODING_DATAPATH);
+           SessionType::LE_AUDIO_HARDWARE_OFFLOAD_DECODING_DATAPATH);
+  bool is_leaudio_broadcast_offload_session =
+      (transport_->GetSessionType() ==
+       SessionType::LE_AUDIO_BROADCAST_HARDWARE_OFFLOAD_ENCODING_DATAPATH);
   auto audio_config_tag = audio_config.getTag();
   bool is_software_audio_config =
       (is_software_session &&
@@ -210,11 +214,15 @@ bool BluetoothAudioClientInterface::UpdateAudioConfig(
   bool is_a2dp_offload_audio_config =
       (is_a2dp_offload_session &&
        audio_config_tag == AudioConfiguration::a2dpConfig);
-  bool is_leaudio_offload_audio_config =
-      (is_leaudio_offload_session &&
+  bool is_leaudio_unicast_offload_audio_config =
+      (is_leaudio_unicast_offload_session &&
        audio_config_tag == AudioConfiguration::leAudioConfig);
+  bool is_leaudio_broadcast_offload_audio_config =
+      (is_leaudio_broadcast_offload_session &&
+       audio_config_tag == AudioConfiguration::leAudioBroadcastConfig);
   if (!is_software_audio_config && !is_a2dp_offload_audio_config &&
-      !is_leaudio_offload_audio_config) {
+      !is_leaudio_unicast_offload_audio_config &&
+      !is_leaudio_broadcast_offload_audio_config) {
     return false;
   }
   transport_->UpdateAudioConfiguration(audio_config);
@@ -248,6 +256,31 @@ bool BluetoothAudioClientInterface::SetLowLatencyModeAllowed(bool allowed) {
                <<"and it will be sent to BluetoothAudioHal at StartSession.";
   }
   return true;
+}
+
+int BluetoothAudioClientInterface::GetAidlInterfaceVersion() {
+  int aidl_version = -1;
+  if (!is_aidl_available()) {
+    return aidl_version;
+  }
+
+  auto provider_factory = IBluetoothAudioProviderFactory::fromBinder(
+      ::ndk::SpAIBinder(AServiceManager_waitForService(
+          kDefaultAudioProviderFactoryInterface.c_str())));
+
+  if (provider_factory == nullptr) {
+    LOG(ERROR) << __func__ << ", can't get aidl version from unknown factory";
+    return aidl_version;
+  }
+
+  auto aidl_retval = provider_factory->getInterfaceVersion(&aidl_version);
+  if (!aidl_retval.isOk()) {
+    LOG(FATAL) << __func__
+               << ": BluetoothAudioHal::getInterfaceVersion failure: "
+               << aidl_retval.getDescription();
+  }
+
+  return aidl_version;
 }
 
 int BluetoothAudioClientInterface::StartSession() {
@@ -293,7 +326,10 @@ int BluetoothAudioClientInterface::StartSession() {
              transport_->GetSessionType() ==
                  SessionType::LE_AUDIO_HARDWARE_OFFLOAD_DECODING_DATAPATH ||
              transport_->GetSessionType() ==
-                 SessionType::LE_AUDIO_HARDWARE_OFFLOAD_ENCODING_DATAPATH) {
+                 SessionType::LE_AUDIO_HARDWARE_OFFLOAD_ENCODING_DATAPATH ||
+             transport_->GetSessionType() ==
+                 SessionType::
+                     LE_AUDIO_BROADCAST_HARDWARE_OFFLOAD_ENCODING_DATAPATH) {
     transport_->ResetPresentationPosition();
     session_started_ = true;
     return 0;
@@ -382,7 +418,9 @@ void BluetoothAudioClientInterface::FlushAudioData() {
   if (transport_->GetSessionType() ==
           SessionType::LE_AUDIO_HARDWARE_OFFLOAD_ENCODING_DATAPATH ||
       transport_->GetSessionType() ==
-          SessionType::LE_AUDIO_HARDWARE_OFFLOAD_DECODING_DATAPATH) {
+          SessionType::LE_AUDIO_HARDWARE_OFFLOAD_DECODING_DATAPATH ||
+      transport_->GetSessionType() ==
+          SessionType::LE_AUDIO_BROADCAST_HARDWARE_OFFLOAD_ENCODING_DATAPATH) {
     return;
   }
 

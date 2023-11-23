@@ -19,11 +19,27 @@ message EccInfo {
         AIEC = 7;
     }
 
+    enum Routing {
+        UNKNOWN = 0;
+        EMERGENCY = 1;
+        NORMAL= 2;
+    }
+
     // Required: Every EccInfo shall contain a phone number.
     optional string phone_number = 1;
 
     // Extra rules: Every Ecc should have at least 1 valid type.
     repeated Type types = 2 [packed=true];
+
+
+    //Optional: By default, routing is assumed to be 'UNKNOWN'
+    optional Routing routing = 3 [default = UNKNOWN];
+
+    //Optional: This field is evaluated only if routing is set to NORMAL
+    //If the field is empty, NORMAL routing is used for all MNCs
+    //Else normal routing is used only for list of MNCs specified
+    repeated string normal_routing_mncs = 4;
+
 }
 
 // CountryInfo represents available ECCs of a country/region, recognized
@@ -44,6 +60,13 @@ message CountryInfo {
     // Per http://www.etsi.org/deliver/etsi_ts/122100_122199/122101/09.01.00_60/ts_122101v090100p.pdf,
     // 112 and 911 shall always be available.
     optional string ecc_fallback = 3;
+
+    // Required: Every CountryInfo shall specify whether emergency numbers sourced from modem config
+    // should be ignored.
+    //
+    // If this value is set to true, we have a pretty good authority of emergency numbers in the
+    // android emergency number db for this country.
+    optional bool ignore_modem_config = 4 [default = false];
 }
 
 message AllInfo {

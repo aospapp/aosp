@@ -16,9 +16,15 @@
 
 package com.android.server.wifi;
 
+import static android.net.wifi.WifiScanner.WIFI_BAND_ALL;
+import static android.net.wifi.WifiScanner.WIFI_BAND_UNSPECIFIED;
+
 import static com.android.internal.util.Preconditions.checkNotNull;
 import static com.android.server.wifi.ActiveModeManager.ROLE_CLIENT_LOCAL_ONLY;
 import static com.android.server.wifi.ActiveModeManager.ROLE_CLIENT_PRIMARY;
+import static com.android.server.wifi.WifiMetrics.ConnectionEvent.FAILURE_AUTHENTICATION_FAILURE;
+import static com.android.server.wifi.proto.nano.WifiMetricsProto.ConnectionEvent.AUTH_FAILURE_WRONG_PSWD;
+import static com.android.server.wifi.proto.nano.WifiMetricsProto.ConnectionEvent.FAILURE_REASON_UNKNOWN;
 import static com.android.server.wifi.util.NativeUtil.addEnclosingQuotes;
 
 import static java.lang.Math.toIntExact;
@@ -41,6 +47,7 @@ import android.net.NetworkFactory;
 import android.net.NetworkRequest;
 import android.net.NetworkSpecifier;
 import android.net.wifi.IActionListener;
+import android.net.wifi.ILocalOnlyConnectionStatusListener;
 import android.net.wifi.INetworkRequestMatchCallback;
 import android.net.wifi.INetworkRequestUserSelectionCallback;
 import android.net.wifi.ScanResult;
@@ -48,6 +55,7 @@ import android.net.wifi.SecurityParams;
 import android.net.wifi.WifiConfiguration;
 import android.net.wifi.WifiConfiguration.SecurityType;
 import android.net.wifi.WifiContext;
+import android.net.wifi.WifiManager;
 import android.net.wifi.WifiNetworkSpecifier;
 import android.net.wifi.WifiScanner;
 import android.net.wifi.util.ScanResultUtil;
@@ -165,6 +173,7 @@ public class WifiNetworkFactory extends NetworkFactory {
     @Nullable private NetworkRequest mConnectedSpecificNetworkRequest;
     @Nullable private WifiNetworkSpecifier mConnectedSpecificNetworkRequestSpecifier;
     @Nullable private WifiConfiguration mUserSelectedNetwork;
+    private boolean mShouldHaveInternetCapabilities = false;
     private Set<Integer> mConnectedUids = new ArraySet<>();
     private int mUserSelectedNetworkConnectRetryCount;
     // Map of bssid to latest scan results for all scan results matching a request. Will be
@@ -190,6 +199,10 @@ public class WifiNetworkFactory extends NetworkFactory {
      * Indicates that we have new data to serialize.
      */
     private boolean mHasNewDataToSerialize = false;
+
+    private final HashMap<String, RemoteCallbackList<ILocalOnlyConnectionStatusListener>>
+            mLocalOnlyStatusListenerPerApp = new HashMap<>();
+    private final HashMap<String, String> mFeatureIdPerApp = new HashMap<>();
 
     /**
      * Helper class to store an access point that the user previously approved for a specific app.
@@ -304,7 +317,9 @@ public class WifiNetworkFactory extends NetworkFactory {
         public void onAlarm() {
             Log.e(TAG, "Timed-out connecting to network");
             if (mUserSelectedNetwork != null) {
-                handleNetworkConnectionFailure(mUserSelectedNetwork, mUserSelectedNetwork.BSSID);
+                handleNetworkConnectionFailure(mUserSelectedNetwork, mUserSelectedNetwork.BSSID,
+                        WifiMetrics.ConnectionEvent.FAILURE_ASSOCIATION_TIMED_OUT,
+                        FAILURE_REASON_UNKNOWN);
             } else {
                 Log.wtf(TAG, "mUserSelectedNetwork is null, when connection time out");
             }
@@ -360,7 +375,8 @@ public class WifiNetworkFactory extends NetworkFactory {
                 Log.e(TAG, "mUserSelectedNetwork is null, when connection failure");
                 return;
             }
-            handleNetworkConnectionFailure(mUserSelectedNetwork, mUserSelectedNetwork.BSSID);
+            handleNetworkConnectionFailure(mUserSelectedNetwork, mUserSelectedNetwork.BSSID,
+                    reason, FAILURE_REASON_UNKNOWN);
         }
     }
 
@@ -372,10 +388,23 @@ public class WifiNetworkFactory extends NetworkFactory {
                 // Remove the mode manager if the associated request is no longer active.
                 if (mActiveSpecificNetworkRequest == null
                         && mConnectedSpecificNetworkRequest == null) {
-                    Log.w(TAG, "Client mode manager request answer received with no active"
-                            + " requests");
+                    Log.w(TAG, "Client mode manager request answer received with no active and "
+                            + "connected requests, remove the manager");
                     mActiveModeWarden.removeClientModeManager(modeManager);
                     return;
+                }
+                if (mActiveSpecificNetworkRequest == null) {
+                    Log.w(TAG, "Client mode manager request answer received with no active"
+                            + " requests, but has connected request. ");
+                    if (modeManager != mClientModeManager) {
+                        // If clientModeManager changes, teardown the current connection
+                        mActiveModeWarden.removeClientModeManager(modeManager);
+                    }
+                    return;
+                }
+                if (modeManager != mClientModeManager) {
+                    // If clientModeManager changes, teardown the current connection
+                    removeClientModeManagerIfNecessary();
                 }
                 mClientModeManager = modeManager;
                 mClientModeManagerRole = modeManager.getRole();
@@ -711,7 +740,8 @@ public class WifiNetworkFactory extends NetworkFactory {
             Log.e(TAG, "Requesting specific frequency bands is not yet supported. Rejecting");
             return false;
         }
-        if (!WifiConfigurationUtil.validateNetworkSpecifier(wns)) {
+        if (!WifiConfigurationUtil.validateNetworkSpecifier(wns, mContext.getResources()
+                .getInteger(R.integer.config_wifiNetworkSpecifierMaxPreferredChannels))) {
             Log.e(TAG, "Invalid wifi network specifier: " + wns + ". Rejecting ");
             return false;
         }
@@ -726,6 +756,8 @@ public class WifiNetworkFactory extends NetworkFactory {
     @Override
     public boolean acceptRequest(NetworkRequest networkRequest) {
         NetworkSpecifier ns = networkRequest.getNetworkSpecifier();
+        boolean isFromSetting = mWifiPermissionsUtil.checkNetworkSettingsPermission(
+                networkRequest.getRequestorUid());
         if (ns == null) {
             // Generic wifi request. Always accept.
         } else {
@@ -736,12 +768,18 @@ public class WifiNetworkFactory extends NetworkFactory {
             }
             // MultiInternet Request to be handled by MultiInternetWifiNetworkFactory.
             if (mMultiInternetManager.isStaConcurrencyForMultiInternetEnabled()
-                    && MultiInternetWifiNetworkFactory.isWifiMultiInternetRequest(networkRequest)) {
+                    && MultiInternetWifiNetworkFactory.isWifiMultiInternetRequest(networkRequest,
+                    isFromSetting)) {
                 return false;
             }
             // Invalid request with wifi network specifier.
             if (!isRequestWithWifiNetworkSpecifierValid(networkRequest)) {
                 Log.e(TAG, "Invalid network specifier: " + ns + ". Rejecting");
+                releaseRequestAsUnfulfillableByAnyFactory(networkRequest);
+                return false;
+            }
+            if (mWifiPermissionsUtil.isGuestUser()) {
+                Log.e(TAG, "network specifier from guest user, reject");
                 releaseRequestAsUnfulfillableByAnyFactory(networkRequest);
                 return false;
             }
@@ -800,6 +838,8 @@ public class WifiNetworkFactory extends NetworkFactory {
     @Override
     protected void needNetworkFor(NetworkRequest networkRequest) {
         NetworkSpecifier ns = networkRequest.getNetworkSpecifier();
+        boolean isFromSetting = mWifiPermissionsUtil.checkNetworkSettingsPermission(
+                networkRequest.getRequestorUid());
         if (ns == null) {
             // Generic wifi request. Turn on auto-join if necessary.
             if (++mGenericConnectionReqCount == 1) {
@@ -813,12 +853,18 @@ public class WifiNetworkFactory extends NetworkFactory {
             }
             // MultiInternet Request to be handled by MultiInternetWifiNetworkFactory.
             if (mMultiInternetManager.isStaConcurrencyForMultiInternetEnabled()
-                    && MultiInternetWifiNetworkFactory.isWifiMultiInternetRequest(networkRequest)) {
+                    && MultiInternetWifiNetworkFactory.isWifiMultiInternetRequest(networkRequest,
+                    isFromSetting)) {
                 return;
             }
             // Invalid request with wifi network specifier.
             if (!isRequestWithWifiNetworkSpecifierValid(networkRequest)) {
                 Log.e(TAG, "Invalid network specifier: " + ns + ". Rejecting");
+                releaseRequestAsUnfulfillableByAnyFactory(networkRequest);
+                return;
+            }
+            if (mWifiPermissionsUtil.isGuestUser()) {
+                Log.e(TAG, "network specifier from guest user, reject");
                 releaseRequestAsUnfulfillableByAnyFactory(networkRequest);
                 return;
             }
@@ -843,7 +889,7 @@ public class WifiNetworkFactory extends NetworkFactory {
             WifiNetworkSpecifier wns = (WifiNetworkSpecifier) ns;
             mActiveSpecificNetworkRequestSpecifier = new WifiNetworkSpecifier(
                     wns.ssidPatternMatcher, wns.bssidPatternMatcher, wns.getBand(),
-                    wns.wifiConfiguration);
+                    wns.wifiConfiguration, wns.getPreferredChannelFrequenciesMhz());
             mSkipUserDialogue = false;
             mWifiMetrics.incrementNetworkRequestApiNumRequest();
 
@@ -994,6 +1040,14 @@ public class WifiNetworkFactory extends NetworkFactory {
         return Collections.emptySet();
     }
 
+    /**
+     * Return whether if current network request should have the internet capabilities due to a
+     * same saved/suggestion network is present.
+     */
+    public boolean shouldHaveInternetCapabilities() {
+        return mShouldHaveInternetCapabilities;
+    }
+
     // Helper method to add the provided network configuration to WifiConfigManager, if it does not
     // already exist & return the allocated network ID. This ID will be used in the CONNECT_NETWORK
     // request to ClientModeImpl.
@@ -1114,10 +1168,28 @@ public class WifiNetworkFactory extends NetworkFactory {
             Log.v(TAG,
                     "Requesting new ClientModeManager instance - didUserSeeUi = " + didUserSeeUi);
         }
+        mShouldHaveInternetCapabilities = false;
+        ClientModeManagerRequestListener listener = new ClientModeManagerRequestListener();
+        if (mWifiPermissionsUtil.checkEnterCarModePrioritized(mActiveSpecificNetworkRequest
+                .getRequestorUid())) {
+            mShouldHaveInternetCapabilities = hasNetworkForInternet(mUserSelectedNetwork);
+            if (mShouldHaveInternetCapabilities) {
+                listener.onAnswer(mActiveModeWarden.getPrimaryClientModeManager());
+                return;
+            }
+        }
         WorkSource ws = new WorkSource(mActiveSpecificNetworkRequest.getRequestorUid(),
                 mActiveSpecificNetworkRequest.getRequestorPackageName());
         mActiveModeWarden.requestLocalOnlyClientModeManager(new ClientModeManagerRequestListener(),
                 ws, networkToConnect.SSID, networkToConnect.BSSID, didUserSeeUi);
+    }
+
+    private boolean hasNetworkForInternet(WifiConfiguration network) {
+        List<WifiConfiguration> networks = mWifiConfigManager.getConfiguredNetworksWithPasswords();
+        return networks.stream().anyMatch(a -> Objects.equals(a.SSID, network.SSID)
+                && !WifiConfigurationUtil.hasCredentialChanged(a, network)
+                && !a.fromWifiNetworkSpecifier
+                && !a.noInternetAccessExpected);
     }
 
     private void handleConnectToNetworkUserSelection(WifiConfiguration network,
@@ -1159,11 +1231,12 @@ public class WifiNetworkFactory extends NetworkFactory {
      * Invoked by {@link ClientModeImpl} on end of connection attempt to a network.
      */
     public void handleConnectionAttemptEnded(
-            int failureCode, @NonNull WifiConfiguration network, @NonNull String bssid) {
+            int failureCode, @NonNull WifiConfiguration network, @NonNull String bssid,
+            int failureReason) {
         if (failureCode == WifiMetrics.ConnectionEvent.FAILURE_NONE) {
             handleNetworkConnectionSuccess(network, bssid);
         } else {
-            handleNetworkConnectionFailure(network, bssid);
+            handleNetworkConnectionFailure(network, bssid, failureCode, failureReason);
         }
     }
 
@@ -1191,8 +1264,8 @@ public class WifiNetworkFactory extends NetworkFactory {
      * Invoked by {@link ClientModeImpl} on failure to connect to a network.
      */
     private void handleNetworkConnectionFailure(@NonNull WifiConfiguration failedNetwork,
-            @NonNull String failedBssid) {
-        if (mUserSelectedNetwork == null || failedNetwork == null || !mPendingConnectionSuccess) {
+            @NonNull String failedBssid, int failureCode, int failureReason) {
+        if (mUserSelectedNetwork == null || failedNetwork == null) {
             return;
         }
         if (!isUserSelectedNetwork(failedNetwork, failedBssid)) {
@@ -1200,8 +1273,20 @@ public class WifiNetworkFactory extends NetworkFactory {
                     + ". Ignoring...");
             return;
         }
+
+        if (!mPendingConnectionSuccess) {
+            if (mConnectedSpecificNetworkRequest != null) {
+                Log.w(TAG, "Connection is terminated, cancelling "
+                        + mConnectedSpecificNetworkRequest);
+                teardownForConnectedNetwork();
+            }
+            return;
+        }
+        boolean isCredentialWrong = failureCode == FAILURE_AUTHENTICATION_FAILURE
+                && failureReason == AUTH_FAILURE_WRONG_PSWD;
         Log.w(TAG, "Failed to connect to network " + mUserSelectedNetwork);
-        if (mUserSelectedNetworkConnectRetryCount++ < USER_SELECTED_NETWORK_CONNECT_RETRY_MAX) {
+        if (!isCredentialWrong && mUserSelectedNetworkConnectRetryCount++
+                < USER_SELECTED_NETWORK_CONNECT_RETRY_MAX) {
             Log.i(TAG, "Retrying connection attempt, attempt# "
                     + mUserSelectedNetworkConnectRetryCount);
             connectToNetwork(mUserSelectedNetwork);
@@ -1220,6 +1305,9 @@ public class WifiNetworkFactory extends NetworkFactory {
             }
             mRegisteredCallbacks.finishBroadcast();
         }
+        sendConnectionFailureIfAllowed(mActiveSpecificNetworkRequest.getRequestorPackageName(),
+                mActiveSpecificNetworkRequest.getRequestorUid(),
+                mActiveSpecificNetworkRequestSpecifier, failureCode);
         teardownForActiveRequest();
     }
 
@@ -1269,7 +1357,6 @@ public class WifiNetworkFactory extends NetworkFactory {
         mActiveSpecificNetworkRequest = null;
         mActiveSpecificNetworkRequestSpecifier = null;
         mSkipUserDialogue = false;
-        mUserSelectedNetwork = null;
         mUserSelectedNetworkConnectRetryCount = 0;
         mIsPeriodicScanEnabled = false;
         mIsPeriodicScanPaused = false;
@@ -1484,8 +1571,20 @@ public class WifiNetworkFactory extends NetworkFactory {
             mScanSettings.hiddenNetworks.add(new WifiScanner.ScanSettings.HiddenNetwork(
                     addEnclosingQuotes(wns.ssidPatternMatcher.getPath())));
         }
+        int[] channelFreqs = wns.getPreferredChannelFrequenciesMhz();
+        if (channelFreqs.length > 0) {
+            int index = 0;
+            mScanSettings.channels = new WifiScanner.ChannelSpec[channelFreqs.length];
+            for (int freq : channelFreqs) {
+                mScanSettings.channels[index++] = new WifiScanner.ChannelSpec(freq);
+            }
+            mScanSettings.band = WIFI_BAND_UNSPECIFIED;
+        }
         mIsPeriodicScanEnabled = true;
         startScan();
+        // Clear the channel settings to perform a full band scan.
+        mScanSettings.channels = new WifiScanner.ChannelSpec[0];
+        mScanSettings.band = WIFI_BAND_ALL;
     }
 
     private void cancelPeriodicScans() {
@@ -1951,13 +2050,95 @@ public class WifiNetworkFactory extends NetworkFactory {
     }
 
     /**
-     * Remove all user approved access points for the specified app.
+     * Remove all user approved access points and listener for the specified app.
      */
-    public void removeUserApprovedAccessPointsForApp(@NonNull String packageName) {
+    public void removeApp(@NonNull String packageName) {
         if (mUserApprovedAccessPointMap.remove(packageName) != null) {
             Log.i(TAG, "Removing all approved access points for " + packageName);
         }
+        RemoteCallbackList<ILocalOnlyConnectionStatusListener> listenerTracker =
+                mLocalOnlyStatusListenerPerApp.remove(packageName);
+        if (listenerTracker != null) listenerTracker.kill();
+        mFeatureIdPerApp.remove(packageName);
         saveToStore();
+    }
+
+    /**
+     * Add a listener to get the connection failure of the local-only conncetion
+     */
+    public void addLocalOnlyConnectionStatusListener(
+            @NonNull ILocalOnlyConnectionStatusListener listener, String packageName,
+            String featureId) {
+        RemoteCallbackList<ILocalOnlyConnectionStatusListener> listenersTracker =
+                mLocalOnlyStatusListenerPerApp.get(packageName);
+        if (listenersTracker == null) {
+            listenersTracker = new RemoteCallbackList<>();
+        }
+        listenersTracker.register(listener);
+        mLocalOnlyStatusListenerPerApp.put(packageName, listenersTracker);
+        if (!mFeatureIdPerApp.containsKey(packageName)) {
+            mFeatureIdPerApp.put(packageName, featureId);
+        }
+    }
+
+    /**
+     * Remove a listener which added before
+     */
+    public void removeLocalOnlyConnectionStatusListener(
+            @NonNull ILocalOnlyConnectionStatusListener listener, String packageName) {
+        RemoteCallbackList<ILocalOnlyConnectionStatusListener> listenersTracker =
+                mLocalOnlyStatusListenerPerApp.get(packageName);
+        if (listenersTracker == null || !listenersTracker.unregister(listener)) {
+            Log.w(TAG, "removeLocalOnlyConnectionFailureListener: Listener from " + packageName
+                    + " already unregister.");
+        }
+        if (listenersTracker != null && listenersTracker.getRegisteredCallbackCount() == 0) {
+            mLocalOnlyStatusListenerPerApp.remove(packageName);
+            mFeatureIdPerApp.remove(packageName);
+        }
+    }
+
+    private void sendConnectionFailureIfAllowed(String packageName,
+            int uid, @NonNull WifiNetworkSpecifier networkSpecifier, int connectionEvent) {
+        RemoteCallbackList<ILocalOnlyConnectionStatusListener> listenersTracker =
+                mLocalOnlyStatusListenerPerApp.get(packageName);
+        if (listenersTracker == null || listenersTracker.getRegisteredCallbackCount() == 0) {
+            return;
+        }
+
+        if (mVerboseLoggingEnabled) {
+            Log.v(TAG, "Sending connection failure event to " + packageName);
+        }
+        final int n = listenersTracker.beginBroadcast();
+        for (int i = 0; i < n; i++) {
+            try {
+                listenersTracker.getBroadcastItem(i).onConnectionStatus(networkSpecifier,
+                        internalConnectionEventToLocalOnlyFailureCode(connectionEvent));
+            } catch (RemoteException e) {
+                Log.e(TAG, "sendNetworkCallback: remote exception -- " + e);
+            }
+        }
+        listenersTracker.finishBroadcast();
+    }
+
+    private @WifiManager.LocalOnlyConnectionStatusCode int
+            internalConnectionEventToLocalOnlyFailureCode(int connectionEvent) {
+        switch (connectionEvent) {
+            case WifiMetrics.ConnectionEvent.FAILURE_ASSOCIATION_REJECTION:
+            case WifiMetrics.ConnectionEvent.FAILURE_ASSOCIATION_TIMED_OUT:
+                return WifiManager.STATUS_LOCAL_ONLY_CONNECTION_FAILURE_ASSOCIATION;
+            case WifiMetrics.ConnectionEvent.FAILURE_SSID_TEMP_DISABLED:
+            case FAILURE_AUTHENTICATION_FAILURE:
+                return WifiManager.STATUS_LOCAL_ONLY_CONNECTION_FAILURE_AUTHENTICATION;
+            case WifiMetrics.ConnectionEvent.FAILURE_DHCP:
+                return WifiManager.STATUS_LOCAL_ONLY_CONNECTION_FAILURE_IP_PROVISIONING;
+            case WifiMetrics.ConnectionEvent.FAILURE_NETWORK_NOT_FOUND:
+                return WifiManager.STATUS_LOCAL_ONLY_CONNECTION_FAILURE_NOT_FOUND;
+            case WifiMetrics.ConnectionEvent.FAILURE_NO_RESPONSE:
+                return WifiManager.STATUS_LOCAL_ONLY_CONNECTION_FAILURE_NO_RESPONSE;
+            default:
+                return WifiManager.STATUS_LOCAL_ONLY_CONNECTION_FAILURE_UNKNOWN;
+        }
     }
 
     /**
@@ -1966,6 +2147,12 @@ public class WifiNetworkFactory extends NetworkFactory {
     public void clear() {
         mUserApprovedAccessPointMap.clear();
         mApprovedApp = null;
+        for (RemoteCallbackList<ILocalOnlyConnectionStatusListener> listenerTracker
+                : mLocalOnlyStatusListenerPerApp.values()) {
+            listenerTracker.kill();
+        }
+        mLocalOnlyStatusListenerPerApp.clear();
+        mFeatureIdPerApp.clear();
         Log.i(TAG, "Cleared all internal state");
         saveToStore();
     }

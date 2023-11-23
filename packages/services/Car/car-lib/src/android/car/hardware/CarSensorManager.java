@@ -336,9 +336,6 @@ public final class CarSensorManager extends CarManagerBase {
         }
     }
 
-    private void handleOnErrorEvent(int propertyId, int zone) {
-
-    }
     /** @hide */
     public CarSensorManager(Car car, IBinder service) {
         super(car);

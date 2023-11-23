@@ -17,6 +17,8 @@
 package com.android.car.settings.security;
 
 import static com.android.car.settings.common.PreferenceController.AVAILABLE;
+import static com.android.car.settings.common.PreferenceController.AVAILABLE_FOR_VIEWING;
+import static com.android.car.settings.common.PreferenceController.CONDITIONALLY_UNAVAILABLE;
 import static com.android.car.settings.common.PreferenceController.DISABLED_FOR_PROFILE;
 
 import static com.google.common.truth.Truth.assertThat;
@@ -60,10 +62,58 @@ public class SecurityEntryPreferenceControllerTest {
     }
 
     @Test
+    public void getAvailabilityStatus_guestUser_disabledForUser_zoneWrite() {
+        mController.setAvailabilityStatusForZone("write");
+        getShadowUserManager().addUser(UserHandle.myUserId(), "name", UserInfo.FLAG_GUEST);
+
+        assertThat(mController.getAvailabilityStatus()).isEqualTo(DISABLED_FOR_PROFILE);
+    }
+
+    @Test
+    public void getAvailabilityStatus_guestUser_disabledForUser_zoneRead() {
+        mController.setAvailabilityStatusForZone("read");
+        getShadowUserManager().addUser(UserHandle.myUserId(), "name", UserInfo.FLAG_GUEST);
+
+        assertThat(mController.getAvailabilityStatus()).isEqualTo(DISABLED_FOR_PROFILE);
+    }
+
+    @Test
+    public void getAvailabilityStatus_guestUser_disabledForUser_zoneHidden() {
+        mController.setAvailabilityStatusForZone("hidden");
+        getShadowUserManager().addUser(UserHandle.myUserId(), "name", UserInfo.FLAG_GUEST);
+
+        assertThat(mController.getAvailabilityStatus()).isEqualTo(DISABLED_FOR_PROFILE);
+    }
+
+    @Test
     public void getAvailabilityStatus_nonGuestUser_available() {
         getShadowUserManager().addUser(UserHandle.myUserId(), "name", /* flags= */ 0);
 
         assertThat(mController.getAvailabilityStatus()).isEqualTo(AVAILABLE);
+    }
+
+    @Test
+    public void getAvailabilityStatus_nonGuestUser_available_zoneWrite() {
+        mController.setAvailabilityStatusForZone("write");
+        getShadowUserManager().addUser(UserHandle.myUserId(), "name", /* flags= */ 0);
+
+        assertThat(mController.getAvailabilityStatus()).isEqualTo(AVAILABLE);
+    }
+
+    @Test
+    public void getAvailabilityStatus_nonGuestUser_available_zoneRead() {
+        mController.setAvailabilityStatusForZone("read");
+        getShadowUserManager().addUser(UserHandle.myUserId(), "name", /* flags= */ 0);
+
+        assertThat(mController.getAvailabilityStatus()).isEqualTo(AVAILABLE_FOR_VIEWING);
+    }
+
+    @Test
+    public void getAvailabilityStatus_nonGuestUser_available_zoneHidden() {
+        mController.setAvailabilityStatusForZone("hidden");
+        getShadowUserManager().addUser(UserHandle.myUserId(), "name", /* flags= */ 0);
+
+        assertThat(mController.getAvailabilityStatus()).isEqualTo(CONDITIONALLY_UNAVAILABLE);
     }
 
     private ShadowUserManager getShadowUserManager() {

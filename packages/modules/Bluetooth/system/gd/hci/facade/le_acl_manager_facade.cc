@@ -264,7 +264,8 @@ class LeAclManagerFacadeService : public LeAclManagerFacade::Service, public LeC
   }
 
   void on_incoming_acl(std::shared_ptr<LeAclConnection> connection, uint16_t handle) {
-    LOG_INFO("handle=%d, addr=%s", connection->GetHandle(), connection->GetRemoteAddress().ToString().c_str());
+    LOG_INFO("handle=%d, addr=%s", connection->GetHandle(),
+              ADDRESS_TO_LOGGABLE_CSTR(connection->GetRemoteAddress()));
     auto packet = connection->GetAclQueueEnd()->TryDequeue();
     auto connection_tracker = acl_connections_.find(handle);
     ASSERT_LOG(connection_tracker != acl_connections_.end(), "handle %d", handle);
@@ -275,7 +276,8 @@ class LeAclManagerFacadeService : public LeAclManagerFacade::Service, public LeC
   }
 
   void OnLeConnectSuccess(AddressWithType peer, std::unique_ptr<LeAclConnection> connection) override {
-    LOG_INFO("handle=%d, addr=%s", connection->GetHandle(), peer.ToString().c_str());
+    LOG_INFO("handle=%d, addr=%s", connection->GetHandle(),
+             ADDRESS_TO_LOGGABLE_CSTR(peer));
     std::unique_lock<std::mutex> lock(acl_connections_mutex_);
     std::shared_ptr<LeAclConnection> shared_connection = std::move(connection);
     uint16_t handle = shared_connection->GetHandle();
@@ -293,7 +295,9 @@ class LeAclManagerFacadeService : public LeAclManagerFacade::Service, public LeC
       per_connection_events_.emplace(peer, direct_connection_events_);
       direct_connection_events_.reset();
     } else {
-      ASSERT_LOG(per_connection_events_.count(peer) > 0, "No connection request for %s", peer.ToString().c_str());
+      ASSERT_LOG(
+          per_connection_events_.count(peer) > 0,
+          "No connection request for %s", ADDRESS_TO_LOGGABLE_CSTR(peer));
     }
     acl_connections_.erase(handle);
     acl_connections_.emplace(
@@ -315,7 +319,8 @@ class LeAclManagerFacadeService : public LeAclManagerFacade::Service, public LeC
   }
 
   void OnLeConnectFail(AddressWithType address, ErrorCode reason) override {
-    LOG_INFO("addr=%s, reason=%s", address.ToString().c_str(), ErrorCodeText(reason).c_str());
+    LOG_INFO("addr=%s, reason=%s",
+             ADDRESS_TO_LOGGABLE_CSTR(address), ErrorCodeText(reason).c_str());
     std::unique_ptr<BasePacketBuilder> builder = LeConnectionCompleteBuilder::Create(
         reason, 0, Role::CENTRAL, address.GetAddressType(), address.GetAddress(), 0, 0, 0, ClockAccuracy::PPM_20);
     LeConnectionEvent fail;
@@ -353,7 +358,6 @@ class LeAclManagerFacadeService : public LeAclManagerFacade::Service, public LeC
     }
 
     void OnPhyUpdate(hci::ErrorCode hci_status, uint8_t tx_phy, uint8_t rx_phy) override {}
-    void OnLocalAddressUpdate(AddressWithType address_with_type) override {}
     void OnDisconnection(ErrorCode reason) override {
       LOG_INFO("reason: %s", ErrorCodeText(reason).c_str());
       std::unique_ptr<BasePacketBuilder> builder =
@@ -369,6 +373,21 @@ class LeAclManagerFacadeService : public LeAclManagerFacade::Service, public LeC
 
     LeConnectionManagementCallbacks* GetCallbacks() {
       return this;
+    }
+    void OnLeSubrateChange(
+        hci::ErrorCode hci_status,
+        uint16_t subrate_factor,
+        uint16_t peripheral_latency,
+        uint16_t continuation_number,
+        uint16_t supervision_timeout) override {
+      LOG_INFO(
+          "hci_status: %s, subrate_factor: %#hx, peripheral_latency: %#hx, continuation_number: %#hx, "
+          "supervision_timeout: %#hx",
+          ErrorCodeText(hci_status).c_str(),
+          subrate_factor,
+          peripheral_latency,
+          continuation_number,
+          supervision_timeout);
     }
 
     uint16_t handle_;

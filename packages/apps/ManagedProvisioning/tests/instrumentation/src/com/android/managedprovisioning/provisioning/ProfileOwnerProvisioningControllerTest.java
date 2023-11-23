@@ -141,7 +141,7 @@ public class ProfileOwnerProvisioningControllerTest extends ProvisioningControll
 
         // THEN the activity should be informed about the error
         verify(mCallback).error(R.string.cant_set_up_profile,
-                R.string.managed_provisioning_error_text, false);
+                mContext.getString(R.string.managed_provisioning_error_text), false);
     }
 
     @SmallTest

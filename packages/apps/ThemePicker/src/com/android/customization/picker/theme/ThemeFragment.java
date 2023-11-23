@@ -115,7 +115,7 @@ public class ThemeFragment extends AppbarFragment {
         mLoading = view.findViewById(R.id.loading_indicator);
         mError = view.findViewById(R.id.error_section);
         mCurrentWallpaperFactory = InjectorProvider.getInjector()
-                .getCurrentWallpaperFactory(getActivity().getApplicationContext());
+                .getCurrentWallpaperInfoFactory(getActivity().getApplicationContext());
         mOptionsContainer = view.findViewById(R.id.options_container);
 
         mThemeOptionPreviewer = new ThemeOptionPreviewer(

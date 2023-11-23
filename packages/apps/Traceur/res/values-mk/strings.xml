@@ -2,8 +2,11 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="system_tracing" msgid="4719188511746319848">"Следење на системот"</string>
-    <string name="record_system_activity" msgid="4339462312915377825">"Снимајте ја системската активност и анализирајте ја подоцна за да ја подобрите изведбата"</string>
+    <string name="record_system_activity" msgid="4339462312915377825">"Евидентирајте ја системската активност и анализирајте ја подоцна за да ја подобрите изведбата"</string>
     <string name="record_trace" msgid="6416875085186661845">"Сними трага"</string>
+    <string name="record_trace_summary" msgid="6705357754827849292">"Снима системска трага преку конфигурацијата поставена во „Поставки за траги“"</string>
+    <string name="record_stack_samples" msgid="3498368637185702335">"Снимај го профилот на ЦПУ"</string>
+    <string name="record_stack_samples_summary" msgid="7827953921526410478">"Семплирањето купче со повици може да се овозможи во траги со штиклирање на категоријата „цпу“"</string>
     <string name="start_new_trace" msgid="8177130420802170353">"Започни нова трага"</string>
     <string name="trace_debuggable_applications" msgid="7957069895298887899">"Трагај по апликации со грешки за отстранување"</string>
     <string name="categories" msgid="2280163673538611008">"Категории"</string>
@@ -17,7 +20,9 @@
     <string name="show_quick_settings_tile" msgid="4971147332635291585">"Прикажи плочка Брзи поставки"</string>
     <string name="saving_trace" msgid="1468692734770800541">"Зачувување на трагата"</string>
     <string name="trace_saved" msgid="5869970594780992309">"Трагата е зачувана"</string>
-    <string name="tap_to_share" msgid="6766732404489536899">"Допрете за да ја споделите трагата"</string>
+    <string name="saving_stack_samples" msgid="8174915522390525221">"Се зачувуваат семпловите за купчето"</string>
+    <string name="stack_samples_saved" msgid="8863295751647724616">"Семпловите за купчето се зачувани"</string>
+    <string name="tap_to_share" msgid="4440713575852187545">"Допрете за да ја споделите снимката"</string>
     <string name="attaching_to_report" msgid="2629202947947275886">"Се прикачува трага во извештајот за грешка"</string>
     <string name="attached_to_report" msgid="5806905349184608870">"Прикачена трага во извештај за грешка"</string>
     <string name="attached_to_report_summary" msgid="7665675771190391355">"Допрете за отворање BetterBug"</string>
@@ -25,18 +30,19 @@
     <string name="tracing_categories_unavailable" msgid="5609076391417077752">"Некои категории на траги се недостапни:"</string>
     <string name="trace_is_being_recorded" msgid="5947378146009337469">"Запишување трага"</string>
     <string name="tap_to_stop_tracing" msgid="6533282719573871806">"Допрете за да го запрете следењето"</string>
-    <string name="clear_saved_traces" msgid="4809195654452260944">"Избриши ги зачуваните траги"</string>
-    <string name="clear_saved_traces_summary" msgid="6035923138201219577">"Трагите се бришат по еден месец"</string>
-    <string name="clear_saved_traces_question" msgid="2184026613055303818">"Да се исчистат зачуваните траги?"</string>
-    <string name="all_traces_will_be_deleted" msgid="6646545462206955920">"Ќе се избришат сите траги од /data/local/traces"</string>
+    <string name="stack_samples_are_being_recorded" msgid="8669254939248349583">"Семпловите за купчето се снимаат"</string>
+    <string name="tap_to_stop_stack_sampling" msgid="5911317684139059415">"Допрете за да го запрете семплирањето на купчето"</string>
+    <string name="clear_saved_files" msgid="9156079311231446825">"Избриши ги зачуваните датотеки"</string>
+    <string name="clear_saved_files_summary" msgid="109751867417553670">"Снимките се бришат по еден месец"</string>
+    <string name="clear_saved_files_question" msgid="8586686617760838834">"Да се избришат зачуваните датотеки?"</string>
+    <string name="all_recordings_will_be_deleted" msgid="7731693738485947891">"Ќе се избришат сите снимки од /data/local/traces"</string>
     <string name="clear" msgid="5484761795406948056">"Избриши"</string>
     <string name="system_traces_storage_title" msgid="8294090839883366871">"Системски траги"</string>
     <string name="keywords" msgid="736547007949049535">"systrace, следење, изведба"</string>
-    <string name="share_trace" msgid="4528525067822044385">"Дали да се сподели трага?"</string>
+    <string name="share_file" msgid="1982029143280382271">"Да се сподели датотеката?"</string>
     <string name="system_trace_sensitive_data" msgid="3069389866696009549">"Датотеките за следење на системот може да вклучуваат чувствителни системски и апликациски податоци (како што е користење на апликациите). Споделувајте датотеки за следење на системот само со луѓе и апликации во кои имате доверба."</string>
     <string name="share" msgid="8443979083706282338">"Сподели"</string>
     <string name="dont_show_again" msgid="6662492041164390600">"Не прикажувај повторно"</string>
-    <string name="use_perfetto_beta" msgid="2725630143916520160">"Користете Perfetto (Бета)"</string>
     <string name="long_traces" msgid="5110949471775966329">"Долги траги"</string>
     <string name="long_traces_summary" msgid="419034282946761469">"Постојано зачувување во капацитетот на уредот"</string>
     <string name="long_traces_summary_betterbug" msgid="445546400875135624">"Се зачувува континуирано во капацитетот на уредот (нема автоматски да се приложува во извештаи за грешки)"</string>
@@ -58,9 +64,12 @@
     <string name="sixteen_thousand_kb" msgid="7342517169232459259">"16.384 KB"</string>
     <string name="thirtytwo_thousand_kb" msgid="654328198799196150">"32.768 KB"</string>
     <string name="sixtyfive_thousand_kb" msgid="8168144138598305306">"65.536 KB"</string>
-    <string name="stop_on_bugreport" msgid="2045328149107284734">"Престани да трагаш по извештаи за грешки"</string>
-    <string name="stop_on_bugreport_summary" msgid="7844074306038850040">"Ги завршува активните снимки на трагање кога ќе се започне извештај за грешки"</string>
-    <string name="attach_to_bug_report" msgid="2953745117960948415">"Прикачи траги на извештаите за грешки"</string>
-    <string name="attach_to_bug_report_summary" msgid="2225208904634565377">"Автоматски испраќај траги во тек во BetterBug кога ќе се прибере извештај за грешки"</string>
-    <string name="link_to_traces" msgid="6569969595898995517">"Прикажи датотеки со траги"</string>
+    <string name="stop_on_bugreport" msgid="4591832600597126422">"Престани со снимање за извештаите за грешки"</string>
+    <string name="stop_on_bugreport_summary" msgid="1601834864982891381">"Ги завршува активните снимки кога ќе се започне извештај за грешки"</string>
+    <string name="attach_to_bug_report" msgid="5388986830016247490">"Прикачете ги снимките во извештаите за грешки"</string>
+    <string name="attach_to_bug_report_summary" msgid="4213730623971240002">"Автоматски испраќај снимки во тек во BetterBug кога ќе се прибере извештај за грешки"</string>
+    <string name="link_to_traces" msgid="1404687523304348490">"Прикажи ги зачуваните датотеки"</string>
+    <string name="pref_category_trace_settings" msgid="6507535407023329628">"Поставки за трага"</string>
+    <string name="pref_category_saved_files" msgid="1477491400970413291">"Зачувани апликации"</string>
+    <string name="pref_category_misc" msgid="6217624054980014683">"Разно"</string>
 </resources>

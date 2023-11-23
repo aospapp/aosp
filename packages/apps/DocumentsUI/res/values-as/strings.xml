@@ -92,8 +92,8 @@
     <string name="save_error" msgid="8631128801982095782">"নথি-পত্ৰ ছেভ কৰিব পৰা নগ\'ল"</string>
     <string name="create_error" msgid="3092144450044861994">"ফ\'ল্ডাৰ সৃষ্টি কৰিব পৰা নগ\'ল"</string>
     <string name="query_error" msgid="6625421453613879336">"এই মুহূৰ্তত সমল ল\'ড কৰিব নোৱাৰি"</string>
-    <string name="quiet_mode_error_title" msgid="9126656325282792843">"কৰ্মস্থানৰ প্ৰ\'ফাইলটো পজ কৰা আছে"</string>
-    <string name="quiet_mode_button" msgid="6977115032320235420">"অন কৰক"</string>
+    <string name="quiet_mode_error_title" msgid="554319751414657910">"কৰ্মস্থানৰ এপ্‌সমূহ পজ কৰা আছে"</string>
+    <string name="quiet_mode_button" msgid="8051436551926677305">"কৰ্মস্থানৰ এপ্‌সমূহ অন কৰক"</string>
     <string name="cant_select_work_files_error_title" msgid="6688716319549644354">"কৰ্মস্থানৰ ফাইলসমূহ বাছনি কৰিব নোৱাৰি"</string>
     <string name="cant_select_work_files_error_message" msgid="683480676150690641">"আপোনাৰ আইটি প্ৰশাসকে আপোনাক কোনো ব্যক্তিগত এপৰ পৰা কর্মস্থানৰ ফাইলসমূহলৈ এক্সেছ কৰিবলৈ অনুমতি নিদিয়ে"</string>
     <string name="cant_select_personal_files_error_title" msgid="3200697170148617742">"ব্যক্তিগত ফাইলসমূহ বাছনি কৰিব নোৱাৰি"</string>

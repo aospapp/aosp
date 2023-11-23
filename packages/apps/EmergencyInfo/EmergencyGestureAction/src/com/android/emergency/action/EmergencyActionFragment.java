@@ -23,7 +23,6 @@ import android.content.res.Configuration;
 import android.os.Bundle;
 import android.os.CountDownTimer;
 import android.support.v4.app.Fragment;
-import android.telecom.TelecomManager;
 import android.util.DisplayMetrics;
 import android.util.Log;
 import android.view.LayoutInflater;
@@ -51,7 +50,6 @@ public class EmergencyActionFragment extends Fragment implements OnSlideComplete
     private static final String STATE_MILLIS_LEFT = "STATE_MILLIS_LEFT";
 
     private EmergencyActionAlarmHelper mEmergencyActionAlarmHelper;
-    private TelecomManager mTelecomManager;
     private CountDownTimer mCountDownTimer;
     private EmergencyNumberUtils mEmergencyNumberUtils;
     private long mCountDownMillisLeft;
@@ -65,7 +63,6 @@ public class EmergencyActionFragment extends Fragment implements OnSlideComplete
         EmergencyActionForegroundService.stopService(context);
         mEmergencyActionAlarmHelper = new EmergencyActionAlarmHelper(context);
         mEmergencyNumberUtils = new EmergencyNumberUtils(context);
-        mTelecomManager = context.getSystemService(TelecomManager.class);
     }
 
     @Override

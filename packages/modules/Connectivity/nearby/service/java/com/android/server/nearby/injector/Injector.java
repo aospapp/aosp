@@ -18,6 +18,7 @@ package com.android.server.nearby.injector;
 
 import android.app.AppOpsManager;
 import android.bluetooth.BluetoothAdapter;
+import android.hardware.location.ContextHubManager;
 
 /**
  * Nearby dependency injector. To be used for accessing various Nearby class instances and as a
@@ -29,7 +30,7 @@ public interface Injector {
     BluetoothAdapter getBluetoothAdapter();
 
     /** Get the ContextHubManagerAdapter for ChreDiscoveryProvider to scan. */
-    ContextHubManagerAdapter getContextHubManagerAdapter();
+    ContextHubManager getContextHubManager();
 
     /** Get the AppOpsManager to control access. */
     AppOpsManager getAppOpsManager();

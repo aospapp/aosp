@@ -30,7 +30,6 @@
 
         <!-- Car-specific apps -->
         <item>com.android.car.bugreport</item>
-        <item>com.android.car.acast.source</item>
         <item>com.android.car.calendar</item>
         <item>com.android.car.dialer</item>
         <item>com.android.car.messenger</item>

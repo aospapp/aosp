@@ -129,11 +129,8 @@ public class FastPairController {
                                 Log.d(TAG, "Incorrect state, ignore pairing");
                                 return;
                             }
-                            boolean useLargeNotifications =
-                                    item.getAuthenticationPublicKeySecp256R1() != null;
                             FastPairNotificationManager fastPairNotificationManager =
-                                    new FastPairNotificationManager(mContext, item,
-                                            useLargeNotifications);
+                                    Locator.get(mContext, FastPairNotificationManager.class);
                             FastPairHalfSheetManager fastPairHalfSheetManager =
                                     Locator.get(mContext, FastPairHalfSheetManager.class);
                             mFastPairCacheManager.saveDiscoveryItem(item);
@@ -169,7 +166,7 @@ public class FastPairController {
             @Nullable byte[] accountKey,
             @Nullable String companionApp) {
         FastPairNotificationManager fastPairNotificationManager =
-                new FastPairNotificationManager(mContext, item, false);
+                Locator.get(mContext, FastPairNotificationManager.class);
         FastPairHalfSheetManager fastPairHalfSheetManager =
                 Locator.get(mContext, FastPairHalfSheetManager.class);
         PairingProgressHandlerBase pairingProgressHandlerBase =

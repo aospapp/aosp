@@ -56,7 +56,7 @@ import java.util.stream.Stream;
  */
 public class MediaControlProfile implements MediaControlServiceCallbacks {
     private static final String TAG = "MediaControlProfile";
-    private static final boolean DBG = true;
+    private static final boolean DBG = Log.isLoggable(TAG, Log.DEBUG);
     private final Context mContext;
 
     // Media players data
@@ -345,13 +345,15 @@ public class MediaControlProfile implements MediaControlServiceCallbacks {
         long actions = mCurrentData.state.getActions();
         switch (request.getOpcode()) {
             case Request.Opcodes.PLAY:
-                if ((actions & PlaybackState.ACTION_PLAY) != 0) {
+                if ((actions & PlaybackState.ACTION_PLAY) != 0
+                        || (actions & PlaybackState.ACTION_PLAY_PAUSE) != 0) {
                     mMediaPlayerList.getActivePlayer().playCurrent();
                     status = Request.Results.SUCCESS;
                 }
                 break;
             case Request.Opcodes.PAUSE:
-                if ((actions & PlaybackState.ACTION_PAUSE) != 0) {
+                if ((actions & PlaybackState.ACTION_PAUSE) != 0
+                        || (actions & PlaybackState.ACTION_PLAY_PAUSE) != 0) {
                     // Notice: Pause may function as Pause/Play toggle switch when triggered on
                     // a Media Player which is already in Paused state.
                     if (mCurrentData.state.getState() != PlaybackState.STATE_PAUSED) {
@@ -465,11 +467,13 @@ public class MediaControlProfile implements MediaControlServiceCallbacks {
             opcodesSupported |= Request.SupportedOpcodes.STOP;
         }
 
-        if ((supportedPlayerActions & PlaybackState.ACTION_PAUSE) != 0) {
+        if ((supportedPlayerActions & PlaybackState.ACTION_PAUSE) != 0
+                || (supportedPlayerActions & PlaybackState.ACTION_PLAY_PAUSE) != 0) {
             opcodesSupported |= Request.SupportedOpcodes.PAUSE;
         }
 
-        if ((supportedPlayerActions & PlaybackState.ACTION_PLAY) != 0) {
+        if ((supportedPlayerActions & PlaybackState.ACTION_PLAY) != 0
+                || (supportedPlayerActions & PlaybackState.ACTION_PLAY_PAUSE) != 0) {
             opcodesSupported |= Request.SupportedOpcodes.PLAY;
         }
 
@@ -495,7 +499,6 @@ public class MediaControlProfile implements MediaControlServiceCallbacks {
 
         // This Android media session actions can't be mapped to LE Audio:
         // PlaybackState.ACTION_SET_RATING
-        // PlaybackState.ACTION_PLAY_PAUSE
         // PlaybackState.ACTION_PLAY_FROM_MEDIA_ID
         // PlaybackState.ACTION_PLAY_FROM_SEARCH
         // PlaybackState.ACTION_SKIP_TO_QUEUE_ITEM
@@ -677,7 +680,7 @@ public class MediaControlProfile implements MediaControlServiceCallbacks {
 
             // Instantiate a Service Instance and it's state machine
             int ccid = ContentControlIdKeeper.acquireCcid(BluetoothUuid.GENERIC_MEDIA_CONTROL,
-                    BluetoothLeAudio.CONTEXT_TYPE_MEDIA);
+                    BluetoothLeAudio.CONTEXT_TYPE_MEDIA | BluetoothLeAudio.CONTEXT_TYPE_LIVE);
             if (ccid == ContentControlIdKeeper.CCID_INVALID) {
                 Log.e(TAG, "Unable to acquire valid CCID!");
                 return;

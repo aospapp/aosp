@@ -27,7 +27,7 @@
 
 #define LOG_TAG "bt_btu_hcif"
 
-#include <base/bind.h>
+#include <base/functional/bind.h>
 #include <base/location.h>
 #include <base/logging.h>
 
@@ -36,6 +36,7 @@
 #include "btif/include/btif_config.h"
 #include "common/metrics.h"
 #include "device/include/controller.h"
+#include "gd/common/init_flags.h"
 #include "main/shim/hci_layer.h"
 #include "osi/include/allocator.h"
 #include "osi/include/log.h"
@@ -71,8 +72,6 @@ void acl_disconnect_from_handle(uint16_t handle, tHCI_STATUS reason,
 /******************************************************************************/
 static void btu_hcif_inquiry_comp_evt(uint8_t* p);
 
-static void btu_hcif_connection_request_evt(const uint8_t* p);
-static void btu_hcif_disconnection_comp_evt(uint8_t* p);
 static void btu_hcif_authentication_comp_evt(uint8_t* p);
 static void btu_hcif_rmt_name_request_comp_evt(const uint8_t* p,
                                                uint16_t evt_len);
@@ -93,10 +92,10 @@ static void btu_hcif_esco_connection_chg_evt(uint8_t* p);
 static void btu_hcif_io_cap_request_evt(const uint8_t* p);
 
 static void btu_ble_ll_conn_param_upd_evt(uint8_t* p, uint16_t evt_len);
-static void btu_ble_proc_ltk_req(uint8_t* p);
+static void btu_ble_proc_ltk_req(uint8_t* p, uint16_t evt_len);
 static void btu_hcif_encryption_key_refresh_cmpl_evt(uint8_t* p);
 static void btu_ble_data_length_change_evt(uint8_t* p, uint16_t evt_len);
-static void btu_ble_rc_param_req_evt(uint8_t* p);
+static void btu_ble_rc_param_req_evt(uint8_t* p, uint8_t len);
 
 /**
  * Log HCI event metrics that are not handled in special functions
@@ -148,29 +147,6 @@ void btu_hcif_log_event_metrics(uint8_t evt_code, const uint8_t* p_event) {
                                 encryption_enabled);
       break;
     }
-    case HCI_CONNECTION_REQUEST_EVT: {
-      DEV_CLASS dc;
-      uint8_t link_type;
-      STREAM_TO_BDADDR(bda, p_event);
-      STREAM_TO_DEVCLASS(dc, p_event);
-      STREAM_TO_UINT8(link_type, p_event);
-      log_link_layer_connection_event(
-          &bda, bluetooth::common::kUnknownConnectionHandle,
-          android::bluetooth::DIRECTION_INCOMING, link_type, cmd, evt_code,
-          android::bluetooth::hci::BLE_EVT_UNKNOWN, status, reason);
-      break;
-    }
-    case HCI_DISCONNECTION_COMP_EVT: {
-      STREAM_TO_UINT8(status, p_event);
-      STREAM_TO_UINT16(handle, p_event);
-      STREAM_TO_UINT8(reason, p_event);
-      handle = HCID_GET_HANDLE(handle);
-      log_link_layer_connection_event(
-          nullptr, handle, android::bluetooth::DIRECTION_UNKNOWN,
-          android::bluetooth::LINK_TYPE_UNKNOWN, cmd, evt_code,
-          android::bluetooth::hci::BLE_EVT_UNKNOWN, status, reason);
-      break;
-    }
     case HCI_ESCO_CONNECTION_COMP_EVT: {
       uint8_t link_type;
       STREAM_TO_UINT8(status, p_event);
@@ -197,6 +173,8 @@ void btu_hcif_log_event_metrics(uint8_t evt_code, const uint8_t* p_event) {
       break;
     }
     case HCI_CONNECTION_COMP_EVT:  // EventCode::CONNECTION_COMPLETE
+    case HCI_CONNECTION_REQUEST_EVT:  // EventCode::CONNECTION_REQUEST
+    case HCI_DISCONNECTION_COMP_EVT:  // EventCode::DISCONNECTION_COMPLETE
     default:
       LOG_ERROR(
           "Unexpectedly received event_code:0x%02x that should not be "
@@ -246,12 +224,6 @@ void btu_hcif_process_event(UNUSED_ATTR uint8_t controller_id,
     case HCI_EXTENDED_INQUIRY_RESULT_EVT:
       btm_process_inq_results(p, hci_evt_len, BTM_INQ_RESULT_EXTENDED);
       break;
-    case HCI_CONNECTION_REQUEST_EVT:
-      btu_hcif_connection_request_evt(p);
-      break;
-    case HCI_DISCONNECTION_COMP_EVT:
-      btu_hcif_disconnection_comp_evt(p);
-      break;
     case HCI_AUTHENTICATION_COMP_EVT:
       btu_hcif_authentication_comp_evt(p);
       break;
@@ -281,9 +253,6 @@ void btu_hcif_process_event(UNUSED_ATTR uint8_t controller_id,
       break;
     case HCI_HARDWARE_ERROR_EVT:
       btu_hcif_hardware_error_evt(p);
-      break;
-    case HCI_NUM_COMPL_DATA_PKTS_EVT:
-      acl_process_num_completed_pkts(p, hci_evt_len);
       break;
     case HCI_MODE_CHANGE_EVT:
       btu_hcif_mode_change_evt(p);
@@ -343,16 +312,16 @@ void btu_hcif_process_event(UNUSED_ATTR uint8_t controller_id,
           btm_ble_process_adv_pkt(ble_evt_len, p);
           break;
         case HCI_BLE_LL_CONN_PARAM_UPD_EVT:
-          btu_ble_ll_conn_param_upd_evt(p, hci_evt_len);
+          btu_ble_ll_conn_param_upd_evt(p, ble_evt_len);
           break;
         case HCI_BLE_READ_REMOTE_FEAT_CMPL_EVT:
-          btm_ble_read_remote_features_complete(p);
+          btm_ble_read_remote_features_complete(p, ble_evt_len);
           break;
         case HCI_BLE_LTK_REQ_EVT: /* received only at peripheral device */
-          btu_ble_proc_ltk_req(p);
+          btu_ble_proc_ltk_req(p, ble_evt_len);
           break;
         case HCI_BLE_RC_PARAM_REQ_EVT:
-          btu_ble_rc_param_req_evt(p);
+          btu_ble_rc_param_req_evt(p, ble_evt_len);
           break;
         case HCI_BLE_DATA_LENGTH_CHANGE_EVT:
           btu_ble_data_length_change_evt(p, hci_evt_len);
@@ -409,6 +378,7 @@ void btu_hcif_process_event(UNUSED_ATTR uint8_t controller_id,
           // Events are now captured by gd/hci/le_acl_connection_interface.h
         case HCI_BLE_CONN_COMPLETE_EVT:  // SubeventCode::CONNECTION_COMPLETE
         case HCI_BLE_ENHANCED_CONN_COMPLETE_EVT:  // SubeventCode::ENHANCED_CONNECTION_COMPLETE
+        case HCI_LE_SUBRATE_CHANGE_EVT:  // SubeventCode::LE_SUBRATE_CHANGE
         default:
           LOG_ERROR(
               "Unexpectedly received LE sub_event_code:0x%02x that should not "
@@ -423,10 +393,13 @@ void btu_hcif_process_event(UNUSED_ATTR uint8_t controller_id,
       break;
 
       // Events now captured by gd::hci_layer module
+    case HCI_NUM_COMPL_DATA_PKTS_EVT:  // EventCode::NUMBER_OF_COMPLETED_PACKETS
     case HCI_CONNECTION_COMP_EVT:  // EventCode::CONNECTION_COMPLETE
+    case HCI_CONNECTION_REQUEST_EVT:      // EventCode::CONNECTION_REQUEST
     case HCI_READ_RMT_FEATURES_COMP_EVT:  // EventCode::READ_REMOTE_SUPPORTED_FEATURES_COMPLETE
     case HCI_READ_RMT_VERSION_COMP_EVT:  // EventCode::READ_REMOTE_VERSION_INFORMATION_COMPLETE
     case HCI_ROLE_CHANGE_EVT:            // EventCode::ROLE_CHANGE
+    case HCI_DISCONNECTION_COMP_EVT:     // EventCode::DISCONNECTION_COMPLETE
     default:
       LOG_ERROR(
           "Unexpectedly received event_code:0x%02x that should not be "
@@ -573,37 +546,6 @@ static void btu_hcif_log_command_metrics(uint16_t opcode, const uint8_t* p_cmd,
             android::bluetooth::hci::STATUS_UNKNOWN);
       }
       break;
-    case HCI_BLE_CLEAR_ACCEPTLIST:
-      log_link_layer_connection_event(
-          nullptr, bluetooth::common::kUnknownConnectionHandle,
-          android::bluetooth::DIRECTION_INCOMING,
-          android::bluetooth::LINK_TYPE_ACL, opcode, hci_event, kUnknownBleEvt,
-          cmd_status, android::bluetooth::hci::STATUS_UNKNOWN);
-      break;
-    case HCI_BLE_ADD_ACCEPTLIST:
-    case HCI_BLE_REMOVE_ACCEPTLIST: {
-      uint8_t peer_addr_type;
-      STREAM_TO_UINT8(peer_addr_type, p_cmd);
-      STREAM_TO_BDADDR(bd_addr, p_cmd);
-      const RawAddress* bd_addr_p = nullptr;
-      // When peer_addr_type is 0xFF, bd_addr should be ignored per BT spec
-      if (peer_addr_type != BLE_ADDR_ANONYMOUS) {
-        bd_addr_p = &bd_addr;
-        bool addr_is_rpa = peer_addr_type == BLE_ADDR_RANDOM &&
-                           BTM_BLE_IS_RESOLVE_BDA(bd_addr);
-        // Only try to match identity address for pseudo if address is not RPA
-        if (!addr_is_rpa) {
-          // if identity address is not matched, this should be a static address
-          btm_identity_addr_to_random_pseudo(&bd_addr, &peer_addr_type, false);
-        }
-      }
-      log_link_layer_connection_event(
-          bd_addr_p, bluetooth::common::kUnknownConnectionHandle,
-          android::bluetooth::DIRECTION_INCOMING,
-          android::bluetooth::LINK_TYPE_ACL, opcode, hci_event, kUnknownBleEvt,
-          cmd_status, android::bluetooth::hci::STATUS_UNKNOWN);
-      break;
-    }
     case HCI_READ_LOCAL_OOB_DATA:
       log_classic_pairing_event(RawAddress::kEmpty,
                                 bluetooth::common::kUnknownConnectionHandle,
@@ -744,20 +686,8 @@ static void btu_hcif_log_command_complete_metrics(
   uint16_t status = android::bluetooth::hci::STATUS_UNKNOWN;
   uint16_t reason = android::bluetooth::hci::STATUS_UNKNOWN;
   uint16_t hci_event = android::bluetooth::hci::EVT_COMMAND_COMPLETE;
-  uint16_t hci_ble_event = android::bluetooth::hci::BLE_EVT_UNKNOWN;
   RawAddress bd_addr = RawAddress::kEmpty;
   switch (opcode) {
-    case HCI_BLE_CLEAR_ACCEPTLIST:
-    case HCI_BLE_ADD_ACCEPTLIST:
-    case HCI_BLE_REMOVE_ACCEPTLIST: {
-      STREAM_TO_UINT8(status, p_return_params);
-      log_link_layer_connection_event(
-          nullptr, bluetooth::common::kUnknownConnectionHandle,
-          android::bluetooth::DIRECTION_INCOMING,
-          android::bluetooth::LINK_TYPE_ACL, opcode, hci_event, hci_ble_event,
-          status, reason);
-      break;
-    }
     case HCI_DELETE_STORED_LINK_KEY:
     case HCI_READ_LOCAL_OOB_DATA:
     case HCI_WRITE_SIMPLE_PAIRING_MODE:
@@ -916,55 +846,6 @@ static void btu_hcif_inquiry_comp_evt(uint8_t* p) {
 
 /*******************************************************************************
  *
- * Function         btu_hcif_connection_request_evt
- *
- * Description      Process event HCI_CONNECTION_REQUEST_EVT
- *
- * Returns          void
- *
- ******************************************************************************/
-static void btu_hcif_connection_request_evt(const uint8_t* p) {
-  RawAddress bda;
-  DEV_CLASS dc;
-  uint8_t link_type;
-
-  STREAM_TO_BDADDR(bda, p);
-  STREAM_TO_DEVCLASS(dc, p);
-  STREAM_TO_UINT8(link_type, p);
-
-  if (link_type == HCI_LINK_TYPE_ACL) {
-    btm_acl_connection_request(bda, dc);
-  } else {
-    btm_sco_conn_req(bda, dc, link_type);
-  }
-}
-
-/*******************************************************************************
- *
- * Function         btu_hcif_disconnection_comp_evt
- *
- * Description      Process event HCI_DISCONNECTION_COMP_EVT
- *
- * Returns          void
- *
- ******************************************************************************/
-static void btu_hcif_disconnection_comp_evt(uint8_t* p) {
-  uint8_t status;
-  uint16_t handle;
-  uint8_t reason;
-
-  STREAM_TO_UINT8(status, p);
-  STREAM_TO_UINT16(handle, p);
-  STREAM_TO_UINT8(reason, p);
-
-  handle = HCID_GET_HANDLE(handle);
-
-  btm_acl_disconnected(static_cast<tHCI_STATUS>(status), handle,
-                       static_cast<tHCI_STATUS>(reason));
-}
-
-/*******************************************************************************
- *
  * Function         btu_hcif_authentication_comp_evt
  *
  * Description      Process event HCI_AUTHENTICATION_COMP_EVT
@@ -1027,7 +908,6 @@ static void read_encryption_key_size_complete_after_encryption_change(uint8_t st
   }
 
   if (key_size < MIN_KEY_SIZE) {
-    android_errorWriteLog(0x534e4554, "124301137");
     LOG(ERROR) << __func__ << " encryption key too short, disconnecting. handle: " << loghex(handle)
                << " key_size: " << +key_size;
 
@@ -1062,7 +942,13 @@ static void btu_hcif_encryption_change_evt(uint8_t* p) {
   STREAM_TO_UINT16(handle, p);
   STREAM_TO_UINT8(encr_enable, p);
 
-  if (status != HCI_SUCCESS || encr_enable == 0 || BTM_IsBleConnection(handle)) {
+  if (status != HCI_SUCCESS || encr_enable == 0 ||
+      BTM_IsBleConnection(handle) ||
+      (bluetooth::common::init_flags::read_encryption_key_size_is_enabled() &&
+       !controller_get_interface()->supports_read_encryption_key_size()) ||
+      // Skip encryption key size check when using set_min_encryption_key_size
+      (bluetooth::common::init_flags::set_min_encryption_is_enabled() &&
+       controller_get_interface()->supports_set_min_encryption_key_size())) {
     if (status == HCI_ERR_CONNECTION_TOUT) {
       smp_cancel_start_encryption_attempt();
       return;
@@ -1073,7 +959,9 @@ static void btu_hcif_encryption_change_evt(uint8_t* p) {
     btm_sec_encrypt_change(handle, static_cast<tHCI_STATUS>(status),
                            encr_enable);
   } else {
-    btsnd_hcic_read_encryption_key_size(handle, base::Bind(&read_encryption_key_size_complete_after_encryption_change));
+    btsnd_hcic_read_encryption_key_size(
+        handle,
+        base::Bind(&read_encryption_key_size_complete_after_encryption_change));
   }
 }
 
@@ -1129,6 +1017,11 @@ static void btu_hcif_esco_connection_comp_evt(const uint8_t* p) {
   STREAM_SKIP_UINT8(p);   // air_mode
 
   handle = HCID_GET_HANDLE(handle);
+  ASSERT_LOG(
+      handle <= HCI_HANDLE_MAX,
+      "Received eSCO connection complete event with invalid handle: 0x%X "
+      "that should be <= 0x%X",
+      handle, HCI_HANDLE_MAX);
 
   data.bd_addr = bda;
   if (status == HCI_SUCCESS) {
@@ -1188,7 +1081,7 @@ static void btu_hcif_hdl_command_complete(uint16_t opcode, uint8_t* p,
       break;
 
     case HCI_DELETE_STORED_LINK_KEY:
-      btm_delete_stored_link_key_complete(p);
+      btm_delete_stored_link_key_complete(p, evt_len);
       break;
 
     case HCI_READ_LOCAL_NAME:
@@ -1196,11 +1089,11 @@ static void btu_hcif_hdl_command_complete(uint16_t opcode, uint8_t* p,
       break;
 
     case HCI_GET_LINK_QUALITY:
-      btm_read_link_quality_complete(p);
+      btm_read_link_quality_complete(p, evt_len);
       break;
 
     case HCI_READ_RSSI:
-      btm_read_rssi_complete(p);
+      btm_read_rssi_complete(p, evt_len);
       break;
 
     case HCI_READ_FAILED_CONTACT_COUNTER:
@@ -1212,15 +1105,15 @@ static void btu_hcif_hdl_command_complete(uint16_t opcode, uint8_t* p,
       break;
 
     case HCI_READ_TRANSMIT_POWER_LEVEL:
-      btm_read_tx_power_complete(p, false);
+      btm_read_tx_power_complete(p, evt_len, false);
       break;
 
     case HCI_CREATE_CONNECTION_CANCEL:
-      btm_create_conn_cancel_complete(p);
+      btm_create_conn_cancel_complete(p, evt_len);
       break;
 
     case HCI_READ_LOCAL_OOB_DATA:
-      btm_read_local_oob_complete(p);
+      btm_read_local_oob_complete(p, evt_len);
       break;
 
     case HCI_READ_INQ_TX_POWER_LEVEL:
@@ -1229,31 +1122,21 @@ static void btu_hcif_hdl_command_complete(uint16_t opcode, uint8_t* p,
     /* BLE Commands sComplete*/
     case HCI_BLE_RAND:
     case HCI_BLE_ENCRYPT:
-      btm_ble_rand_enc_complete(p, opcode, (tBTM_RAND_ENC_CB*)p_cplt_cback);
+      btm_ble_rand_enc_complete(p, evt_len, opcode, (tBTM_RAND_ENC_CB*)p_cplt_cback);
       break;
 
     case HCI_BLE_READ_ADV_CHNL_TX_POWER:
-      btm_read_tx_power_complete(p, true);
+      btm_read_tx_power_complete(p, evt_len, true);
       break;
 
     case HCI_BLE_WRITE_ADV_ENABLE:
-      btm_ble_write_adv_enable_complete(p);
+      btm_ble_write_adv_enable_complete(p, evt_len);
       break;
 
     case HCI_BLE_CREATE_LL_CONN:
     case HCI_LE_EXTENDED_CREATE_CONNECTION:
       // No command complete event for those commands according to spec
       LOG(ERROR) << "No command complete expected, but received!";
-      break;
-
-    case HCI_BLE_CREATE_CONN_CANCEL:
-      btm_ble_create_conn_cancel_complete(p);
-      break;
-
-    case HCI_BLE_TRANSMITTER_TEST:
-    case HCI_BLE_RECEIVER_TEST:
-    case HCI_BLE_TEST_END:
-      btm_ble_test_command_complete(p);
       break;
 
     case HCI_BLE_ADD_DEV_RESOLVING_LIST:
@@ -1275,6 +1158,14 @@ static void btu_hcif_hdl_command_complete(uint16_t opcode, uint8_t* p,
     case HCI_BLE_READ_RESOLVABLE_ADDR_LOCAL:
     case HCI_BLE_SET_ADDR_RESOLUTION_ENABLE:
     case HCI_BLE_SET_RAND_PRIV_ADDR_TIMOUT:
+      break;
+
+    case HCI_BLE_CREATE_CONN_CANCEL:
+      LOG_ERROR(
+          "Unexpectedly received command complete for opcode:0x%02x that "
+          "should not be "
+          "handled here",
+          opcode);
       break;
     default:
       if ((opcode & HCI_GRP_VENDOR_SPECIFIC) == HCI_GRP_VENDOR_SPECIFIC)
@@ -1602,7 +1493,6 @@ static void read_encryption_key_size_complete_after_key_refresh(uint8_t status, 
   }
 
   if (key_size < MIN_KEY_SIZE) {
-    android_errorWriteLog(0x534e4554, "124301137");
     LOG(ERROR) << __func__ << " encryption key too short, disconnecting. handle: " << loghex(handle)
                << " key_size: " << +key_size;
 
@@ -1623,7 +1513,9 @@ static void btu_hcif_encryption_key_refresh_cmpl_evt(uint8_t* p) {
   STREAM_TO_UINT8(status, p);
   STREAM_TO_UINT16(handle, p);
 
-  if (status != HCI_SUCCESS || BTM_IsBleConnection(handle)) {
+  if (status != HCI_SUCCESS || BTM_IsBleConnection(handle) ||
+      // Skip encryption key size check when using set_min_encryption_key_size
+      controller_get_interface()->supports_set_min_encryption_key_size()) {
     btm_sec_encrypt_change(handle, static_cast<tHCI_STATUS>(status),
                            (status == HCI_SUCCESS) ? 1 : 0);
   } else {
@@ -1635,10 +1527,6 @@ static void btu_hcif_encryption_key_refresh_cmpl_evt(uint8_t* p) {
  * BLE Events
  **********************************************/
 
-extern void gatt_notify_conn_update(const RawAddress& remote, uint16_t interval,
-                                    uint16_t latency, uint16_t timeout,
-                                    tHCI_STATUS status);
-
 static void btu_ble_ll_conn_param_upd_evt(uint8_t* p, uint16_t evt_len) {
   /* LE connection update has completed successfully as a central. */
   /* We can enable the update request if the result is a success. */
@@ -1648,6 +1536,11 @@ static void btu_ble_ll_conn_param_upd_evt(uint8_t* p, uint16_t evt_len) {
   uint16_t interval;
   uint16_t latency;
   uint16_t timeout;
+
+  if (evt_len < 9) {
+     LOG_ERROR("Malformated event packet, too short");
+     return;
+  }
 
   STREAM_TO_UINT8(status, p);
   STREAM_TO_UINT16(handle, p);
@@ -1659,9 +1552,21 @@ static void btu_ble_ll_conn_param_upd_evt(uint8_t* p, uint16_t evt_len) {
                                 interval, latency, timeout);
 }
 
-static void btu_ble_proc_ltk_req(uint8_t* p) {
+static void btu_ble_proc_ltk_req(uint8_t* p, uint16_t evt_len) {
   uint16_t ediv, handle;
   uint8_t* pp;
+
+  // following the spec in Core_v5.3/Vol 4/Part E
+  // / 7.7.65.5 LE Long Term Key Request event
+  // A BLE Long Term Key Request event contains:
+  // - 1-byte subevent (already consumed in btu_hcif_process_event)
+  // - 2-byte connection handler
+  // - 8-byte random number
+  // - 2 byte Encrypted_Diversifier
+  if (evt_len < 2 + 8 + 2) {
+    LOG_ERROR("Event packet too short");
+    return;
+  }
 
   STREAM_TO_UINT16(handle, p);
   pp = p + 8;
@@ -1691,9 +1596,14 @@ static void btu_ble_data_length_change_evt(uint8_t* p, uint16_t evt_len) {
 /**********************************************
  * End of BLE Events Handler
  **********************************************/
-static void btu_ble_rc_param_req_evt(uint8_t* p) {
+static void btu_ble_rc_param_req_evt(uint8_t* p, uint8_t len) {
   uint16_t handle;
   uint16_t int_min, int_max, latency, timeout;
+
+  if (len < 10) {
+    LOG(ERROR) << __func__ << "bogus event packet, too short";
+    return;
+  }
 
   STREAM_TO_UINT16(handle, p);
   STREAM_TO_UINT16(int_min, p);

@@ -108,7 +108,7 @@ public class DataUsageSummaryPreferenceController extends
     }
 
     @Override
-    protected int getAvailabilityStatus() {
+    protected int getDefaultAvailabilityStatus() {
         return NetworkUtils.hasSim(getTelephonyManager()) ? AVAILABLE : CONDITIONALLY_UNAVAILABLE;
     }
 

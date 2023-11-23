@@ -18,6 +18,7 @@ package android.os;
 
 import android.app.PendingIntent;
 import android.os.IPullAtomCallback;
+import android.os.IStatsQueryCallback;
 
 /**
   * Binder interface to communicate with the Java-based statistics service helper.
@@ -131,6 +132,31 @@ interface IStatsManagerService {
     oneway void registerPullAtomCallback(int atomTag, long coolDownMillis, long timeoutMillis,
             in int[] additiveFields, IPullAtomCallback pullerCallback);
 
-    /** Tell StatsManagerService to unregister the pulller for the given atom tag from statsd. */
+    /** Tell StatsManagerService to unregister the puller for the given atom tag from statsd. */
     oneway void unregisterPullAtomCallback(int atomTag);
+
+    /** Section for restricted-logging methods. */
+
+    /** Queries data from underlying statsd sql store. */
+    oneway void querySql(in String sqlQuery, in int minSqlClientVersion,
+        in @nullable byte[] policyConfig, in IStatsQueryCallback queryCallback,
+        in long configKey, in String configPackage);
+
+    /**
+     * Registers the operation that is called whenever there is a change in the restricted metrics
+     * for a specified config that are present for this client. This operation allows statsd to
+     * inform the client about the current restricted metrics available to be queried for
+     * the specified config.
+     *
+     * Requires Manifest.permission.READ_RESTRICTED_STATS.
+     */
+    long[] setRestrictedMetricsChangedOperation(in PendingIntent pendingIntent, in long configKey,
+            in String configPackage);
+
+    /**
+     * Removes the restricted metrics changed operation for the specified config key/package.
+     *
+     * Requires Manifest.permission.READ_RESTRICTED_STATS.
+     */
+    void removeRestrictedMetricsChangedOperation(in long configKey, in String configPackage);
 }

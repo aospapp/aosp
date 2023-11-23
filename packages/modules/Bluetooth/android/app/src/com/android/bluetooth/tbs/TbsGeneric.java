@@ -32,7 +32,10 @@ import android.os.ParcelUuid;
 import android.os.RemoteException;
 import android.util.Log;
 
+import com.android.bluetooth.btservice.ServiceFactory;
 import com.android.bluetooth.le_audio.ContentControlIdKeeper;
+import com.android.bluetooth.le_audio.LeAudioService;
+import com.android.internal.annotations.VisibleForTesting;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -52,7 +55,11 @@ public class TbsGeneric {
 
     private static final String UCI = "GTBS";
     private static final String DEFAULT_PROVIDER_NAME = "none";
-    private static final int DEFAULT_BEARER_TECHNOLOGY = 0x00;
+    /* Use GSM as default technology value. It is used only
+     * when bearer is not registered. It will be updated on the phone call
+     */
+    private static final int DEFAULT_BEARER_TECHNOLOGY =
+            BluetoothLeCallControlProxy.BEARER_TECHNOLOGY_GSM;
     private static final String UNKNOWN_FRIENDLY_NAME = "unknown";
 
     /** Class representing the pending request sent to the application */
@@ -118,6 +125,8 @@ public class TbsGeneric {
     private List<String> mUriSchemes = new ArrayList<>(Arrays.asList("tel"));
     private Receiver mReceiver = null;
     private int mStoredRingerMode = -1;
+    private final ServiceFactory mFactory = new ServiceFactory();
+    private LeAudioService mLeAudioService;
 
     private final class Receiver extends BroadcastReceiver {
         @Override
@@ -153,7 +162,7 @@ public class TbsGeneric {
         mTbsGatt = tbsGatt;
 
         int ccid = ContentControlIdKeeper.acquireCcid(new ParcelUuid(TbsGatt.UUID_GTBS),
-                BluetoothLeAudio.CONTEXT_TYPE_COMMUNICATION);
+                BluetoothLeAudio.CONTEXT_TYPE_CONVERSATIONAL);
         if (!isCcidValid(ccid)) {
             Log.e(TAG, " CCID is not valid");
             cleanup();
@@ -183,12 +192,10 @@ public class TbsGeneric {
             mTbsGatt.clearSilentModeFlag();
         }
 
-        // Android supports inband ringtone
-        mTbsGatt.setInbandRingtoneFlag();
-
         mReceiver = new Receiver();
-        mTbsGatt.getContext().registerReceiver(mReceiver,
-                new IntentFilter(AudioManager.RINGER_MODE_CHANGED_ACTION));
+        IntentFilter filter = new IntentFilter(AudioManager.RINGER_MODE_CHANGED_ACTION);
+        filter.setPriority(IntentFilter.SYSTEM_HIGH_PRIORITY);
+        mTbsGatt.getContext().registerReceiver(mReceiver, filter);
 
         mIsInitialized = true;
         return true;
@@ -208,6 +215,46 @@ public class TbsGeneric {
         }
 
         mIsInitialized = false;
+    }
+
+    /**
+     * Inform TBS GATT instance about authorization change for device.
+     *
+     * @param device device for which authorization is changed
+     */
+    public void onDeviceAuthorizationSet(BluetoothDevice device) {
+        // Notify TBS GATT service instance in case of pending operations
+        if (mTbsGatt != null) {
+            mTbsGatt.onDeviceAuthorizationSet(device);
+        }
+    }
+
+    /**
+     * Set inband ringtone for the device.
+     * When set, notification will be sent to given device.
+     *
+     * @param device    device for which inband ringtone has been set
+     */
+    public synchronized void setInbandRingtoneSupport(BluetoothDevice device) {
+        if (mTbsGatt == null) {
+            Log.w(TAG, "setInbandRingtoneSupport, mTbsGatt is null");
+            return;
+        }
+        mTbsGatt.setInbandRingtoneFlag(device);
+    }
+
+    /**
+     * Clear inband ringtone for the device.
+     * When set, notification will be sent to given device.
+     *
+     * @param device    device for which inband ringtone has been cleared
+     */
+    public synchronized void clearInbandRingtoneSupport(BluetoothDevice device) {
+        if (mTbsGatt == null) {
+            Log.w(TAG, "setInbandRingtoneSupport, mTbsGatt is null");
+            return;
+        }
+        mTbsGatt.clearInbandRingtoneFlag(device);
     }
 
     private synchronized boolean isSilentModeEnabled() {
@@ -276,7 +323,7 @@ public class TbsGeneric {
         // Acquire CCID for TbsObject. The CCID is released on remove()
         Bearer bearer = new Bearer(token, callback, uci, uriSchemes, capabilities, providerName,
                 technology, ContentControlIdKeeper.acquireCcid(new ParcelUuid(UUID.randomUUID()),
-                        BluetoothLeAudio.CONTEXT_TYPE_COMMUNICATION));
+                        BluetoothLeAudio.CONTEXT_TYPE_CONVERSATIONAL));
         if (isCcidValid(bearer.ccid)) {
             mBearerList.add(bearer);
 
@@ -727,7 +774,7 @@ public class TbsGeneric {
             mLastIndexAssigned = requestId;
         }
 
-
+        setActiveLeDevice(device);
         return TbsGatt.CALL_CONTROL_POINT_RESULT_SUCCESS;
     }
 
@@ -740,6 +787,16 @@ public class TbsGeneric {
                     Log.d(TAG, "onServiceAdded: success=" + success);
                 }
             }
+        }
+
+        @Override
+        public boolean isInbandRingtoneEnabled(BluetoothDevice device) {
+            if (!isLeAudioServiceAvailable()) {
+                Log.i(TAG, "LeAudio service not available");
+                return false;
+            }
+            int groupId = mLeAudioService.getGroupId(device);
+            return mLeAudioService.isInbandRingtoneEnabled(groupId);
         }
 
         @Override
@@ -786,6 +843,7 @@ public class TbsGeneric {
                         Request request = new Request(device, callId, opcode, callIndex);
                         try {
                             if (opcode == TbsGatt.CALL_CONTROL_POINT_OPCODE_ACCEPT) {
+                                setActiveLeDevice(device);
                                 bearer.callback.onAcceptCall(requestId, new ParcelUuid(callId));
                             } else if (opcode == TbsGatt.CALL_CONTROL_POINT_OPCODE_TERMINATE) {
                                 bearer.callback.onTerminateCall(requestId, new ParcelUuid(callId));
@@ -831,6 +889,7 @@ public class TbsGeneric {
 
                         Map.Entry<UUID, Bearer> firstEntry = null;
                         List<ParcelUuid> parcelUuids = new ArrayList<>();
+                        result = TbsGatt.CALL_CONTROL_POINT_RESULT_SUCCESS;
                         for (int callIndex : args) {
                             Map.Entry<UUID, Bearer> entry = getCallIdByIndex(callIndex);
                             if (entry == null) {
@@ -852,6 +911,10 @@ public class TbsGeneric {
                             }
 
                             parcelUuids.add(new ParcelUuid(entry.getKey()));
+                        }
+
+                        if (result != TbsGatt.CALL_CONTROL_POINT_RESULT_SUCCESS) {
+                            break;
                         }
 
                         Bearer bearer = firstEntry.getValue();
@@ -1001,10 +1064,38 @@ public class TbsGeneric {
         mForegroundBearer = bearer;
     }
 
+    private boolean isLeAudioServiceAvailable() {
+        if (mLeAudioService != null) {
+            return true;
+        }
+
+        mLeAudioService = mFactory.getLeAudioService();
+        if (mLeAudioService == null) {
+            Log.e(TAG, "leAudioService not available");
+            return false;
+        }
+
+        return true;
+    }
+
+    @VisibleForTesting
+    void setLeAudioServiceForTesting(LeAudioService leAudioService) {
+        mLeAudioService = leAudioService;
+    }
+
     private synchronized void notifyCclc() {
         if (DBG) {
             Log.d(TAG, "notifyCclc");
         }
+
+        if (isLeAudioServiceAvailable()) {
+            if (mCurrentCallsList.size() > 0) {
+                mLeAudioService.setInCall(true);
+            } else {
+                mLeAudioService.setInCall(false);
+            }
+        }
+
         mTbsGatt.setCallState(mCurrentCallsList);
         mTbsGatt.setBearerListCurrentCalls(mCurrentCallsList);
     }
@@ -1023,6 +1114,18 @@ public class TbsGeneric {
 
         mUriSchemes = new ArrayList<>(newUriSchemes);
         mTbsGatt.setBearerUriSchemesSupportedList(mUriSchemes);
+    }
+
+    private void setActiveLeDevice(BluetoothDevice device) {
+        if (device == null) {
+            Log.w(TAG, "setActiveLeDevice: ignore null device");
+            return;
+        }
+        if (!isLeAudioServiceAvailable()) {
+            Log.w(TAG, "mLeAudioService not available");
+            return;
+        }
+        mLeAudioService.setActiveDevice(device);
     }
 
     private static boolean isCallStateTransitionValid(int callState, int requestedOpcode) {
@@ -1057,5 +1160,24 @@ public class TbsGeneric {
         }
 
         return false;
+    }
+
+    /**
+     * Dump status of TBS service along with related objects
+     *
+     * @param sb string builder object that TBS module will be appending
+     */
+    public void dump(StringBuilder sb) {
+        sb.append("\tRinger Mode: " + mStoredRingerMode);
+
+        sb.append("\n\tCurrent call list:");
+        for (TbsCall call : mCurrentCallsList.values()) {
+            sb.append("\n\t\tFriendly name: " + call.getSafeFriendlyName());
+            sb.append("\n\t\t\tState: " + TbsCall.stateToString(call.getState()));
+            sb.append("\n\t\t\tURI: " +  call.getSafeUri());
+            sb.append("\n\t\t\tFlags: " + TbsCall.flagsToString(call.getFlags()));
+        }
+
+        mTbsGatt.dump(sb);
     }
 }

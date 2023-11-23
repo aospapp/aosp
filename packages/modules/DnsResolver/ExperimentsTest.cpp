@@ -23,13 +23,13 @@
 #include <android-base/test_utils.h>
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include <netdutils/NetNativeTestBase.h>
 
 #include "Experiments.h"
-#include "tests/resolv_test_base.h"
 
 namespace android::net {
 
-class ExperimentsTest : public ResolvTestBase {
+class ExperimentsTest : public NetNativeTestBase {
   public:
     ExperimentsTest() : mExperiments(fakeGetExperimentFlagInt) {}
 

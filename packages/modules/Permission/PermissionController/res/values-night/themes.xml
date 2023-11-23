@@ -40,5 +40,5 @@
         <item name="android:background">@color/divider_color_secondary</item>
     </style>
 
-    <style name="Theme.DeviceDefault.Dialog.Alert.DayNight" parent="@android:style/Theme.DeviceDefault.Dialog.Alert" />
+    <style name="Theme.DeviceDefault.Dialog.NoActionBar.DayNight" parent="@android:style/Theme.DeviceDefault.Dialog.NoActionBar" />
 </resources>

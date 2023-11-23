@@ -56,9 +56,15 @@ public class SensorToggleActivity extends TvSettingsActivity {
 
         Bundle args = new Bundle();
         args.putObject(SensorFragment.TOGGLE_EXTRA, toggle);
-        return com.android.tv.settings.overlay.FlavorUtils.getFeatureFactory(
-                this).getSettingsFragmentProvider()
-                .newSettingsFragment(SensorFragment.class.getName(), args);
+        if (toggle == PrivacyToggle.MIC_TOGGLE) {
+            return com.android.tv.settings.overlay.FlavorUtils.getFeatureFactory(
+                    this).getSettingsFragmentProvider()
+                    .newSettingsFragment(MicrophoneFragment.class.getName(), args);
+        } else {
+            return com.android.tv.settings.overlay.FlavorUtils.getFeatureFactory(
+                    this).getSettingsFragmentProvider()
+                    .newSettingsFragment(SensorFragment.class.getName(), args);
+        }
     }
 
 }

@@ -66,7 +66,7 @@ public:
      *
      * @param The ids for the desired EVS cameras.
      */
-    BaseUseCase(vector<string> cameraIds) : mCameraIds(cameraIds) {};
+    BaseUseCase(vector<string> cameraIds) : mCameraIds(cameraIds){};
 
     virtual ~BaseUseCase() {}
 

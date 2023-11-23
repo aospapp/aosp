@@ -26,6 +26,9 @@ import android.provider.Telephony.CanonicalAddressesColumns;
 import android.provider.Telephony.MmsSms;
 import android.util.Log;
 
+import com.android.bluetooth.BluetoothMethodProxy;
+import com.android.internal.annotations.VisibleForTesting;
+
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.regex.Pattern;
@@ -40,12 +43,14 @@ public class SmsMmsContacts {
     private static final String TAG = "SmsMmsContacts";
 
     private HashMap<Long, String> mPhoneNumbers = null;
-    private final HashMap<String, MapContact> mNames = new HashMap<String, MapContact>(10);
+    @VisibleForTesting
+    final HashMap<String, MapContact> mNames = new HashMap<String, MapContact>(10);
 
     private static final Uri ADDRESS_URI =
             MmsSms.CONTENT_URI.buildUpon().appendPath("canonical-addresses").build();
 
-    private static final String[] ADDRESS_PROJECTION = {
+    @VisibleForTesting
+    static final String[] ADDRESS_PROJECTION = {
             CanonicalAddressesColumns._ID, CanonicalAddressesColumns.ADDRESS
     };
     private static final int COL_ADDR_ID =
@@ -53,7 +58,8 @@ public class SmsMmsContacts {
     private static final int COL_ADDR_ADDR =
             Arrays.asList(ADDRESS_PROJECTION).indexOf(CanonicalAddressesColumns.ADDRESS);
 
-    private static final String[] CONTACT_PROJECTION = {Contacts._ID, Contacts.DISPLAY_NAME};
+    @VisibleForTesting
+    static final String[] CONTACT_PROJECTION = {Contacts._ID, Contacts.DISPLAY_NAME};
     private static final String CONTACT_SEL_VISIBLE = Contacts.IN_VISIBLE_GROUP + "=1";
     private static final int COL_CONTACT_ID =
             Arrays.asList(CONTACT_PROJECTION).indexOf(Contacts._ID);
@@ -78,7 +84,8 @@ public class SmsMmsContacts {
 
     public static String getPhoneNumberUncached(ContentResolver resolver, long id) {
         String where = CanonicalAddressesColumns._ID + " = " + id;
-        Cursor c = resolver.query(ADDRESS_URI, ADDRESS_PROJECTION, where, null, null);
+        Cursor c = BluetoothMethodProxy.getInstance().contentResolverQuery(resolver, ADDRESS_URI,
+                ADDRESS_PROJECTION, where, null, null);
         try {
             if (c != null) {
                 if (c.moveToPosition(0)) {
@@ -111,8 +118,10 @@ public class SmsMmsContacts {
      * a new query.
      * @param resolver the ContantResolver to be used.
      */
-    private void fillPhoneCache(ContentResolver resolver) {
-        Cursor c = resolver.query(ADDRESS_URI, ADDRESS_PROJECTION, null, null, null);
+    @VisibleForTesting
+    void fillPhoneCache(ContentResolver resolver) {
+        Cursor c = BluetoothMethodProxy.getInstance().contentResolverQuery(resolver, ADDRESS_URI,
+                ADDRESS_PROJECTION, null, null, null);
         if (mPhoneNumbers == null) {
             int size = 0;
             if (c != null) {
@@ -184,7 +193,8 @@ public class SmsMmsContacts {
             selectionArgs = new String[]{"%" + contactNameFilter.replace("*", "%") + "%"};
         }
 
-        Cursor c = resolver.query(uri, CONTACT_PROJECTION, selection, selectionArgs, null);
+        Cursor c = BluetoothMethodProxy.getInstance().contentResolverQuery(resolver, uri,
+                CONTACT_PROJECTION, selection, selectionArgs, null);
         try {
             if (c != null && c.getCount() >= 1) {
                 c.moveToFirst();

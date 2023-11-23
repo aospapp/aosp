@@ -33,12 +33,17 @@
     <dimen name="options_container_width">0dp</dimen>
     <dimen name="option_bottom_margin">8dp</dimen>
     <dimen name="option_padding_horizontal">2dp</dimen>
-    <dimen name="option_tile_width">82dp</dimen>
+    <dimen name="option_tile_width">80dp</dimen>
     <dimen name="option_tile_radius">20dp</dimen>
     <dimen name="option_tile_margin_horizontal">6dp</dimen>
     <dimen name="option_tile_padding_vertical">12dp</dimen>
     <dimen name="option_tile_padding_horizontal">12dp</dimen>
-    <dimen name="option_tile_grid_padding_horizontal">4dp</dimen>
+    <!-- Spacing between tiles in linear layout -->
+    <dimen name="option_tile_linear_padding_horizontal">4dp</dimen>
+    <!-- Minimum padding around entire tile in grid layout -->
+    <dimen name="option_tile_grid_tile_padding_min">2dp</dimen>
+    <!-- Minimum padding around icon within tile in grid layout -->
+    <dimen name="option_tile_grid_icon_padding_min">4dp</dimen>
     <dimen name="option_icon_size">16dp</dimen>
     <dimen name="theme_option_icon_sample_height">22dp</dimen>
     <dimen name="theme_option_icon_sample_width">22dp</dimen>
@@ -125,14 +130,54 @@
     <dimen name="beta_tag_background_width">46dp</dimen>
     <dimen name="beta_tag_background_height">24dp</dimen>
 
-    <!-- For the color option section -->
+    <!-- For the color picker section -->
+    <!-- Dimension for the original color picker section -->
     <dimen name="color_options_container_top_margin">24dp</dimen>
-
-    <!-- For the color page. -->
     <dimen name="color_page_indicator_margin_top">16dp</dimen>
-
-    <dimen name="component_color_chip_small_size_default">29dp</dimen>
-    <dimen name="color_seed_option_tile_padding">10dp</dimen>
-    <dimen name="color_seed_option_tile_padding_selected">6dp</dimen>
+    <!-- Dimension for the original color chip resource -->
+    <dimen name="component_color_chip_small_radius_default">29dp</dimen>
+    <dimen name="component_color_chip_small_diameter_default">58dp</dimen>
     <dimen name="color_seed_chip_margin">14dp</dimen>
+    <!-- Dimension for the revamped UI color chip -->
+    <dimen name="component_color_overflow_small_radius_default">20dp</dimen>
+    <dimen name="component_color_overflow_small_diameter_default">40dp</dimen>
+    <dimen name="component_color_selected_small_radius_default">22dp</dimen>
+    <dimen name="component_color_selected_small_diameter_default">44dp</dimen>
+
+    <!-- For the color picker page. -->
+    <!-- Dimension for the revamped UI color chip -->
+    <dimen name="component_color_chip_small_radius_default2">24dp</dimen>
+    <dimen name="component_color_chip_small_diameter_default2">48dp</dimen>
+    <dimen name="color_seed_chip_margin2">11dp</dimen>
+
+    <!-- Keyguard quick affordances -->
+    <!-- Size for the container for the icon of a quick affordance for the lock screen in the picker experience. -->
+    <dimen name="keyguard_quick_affordance_icon_container_size">74dp</dimen>
+    <!-- Size for the icon of a quick affordance for the lock screen in the picker experience. -->
+    <dimen name="keyguard_quick_affordance_icon_size">24dp</dimen>
+
+    <dimen name="clock_carousel_item_width">190dp</dimen>
+    <dimen name="clock_carousel_item_margin">16dp</dimen>
+    <dimen name="clock_carousel_guideline_margin">100dp</dimen>
+    <dimen name="clock_carousel_item_card_width">100dp</dimen>
+    <dimen name="clock_carousel_item_card_height">108dp</dimen>
+    <dimen name="clock_carousel_guideline_margin_for_2_pane_small_width">122dp</dimen>
+
+    <!-- Clock color and size button -->
+    <dimen name="clock_color_size_button_min_height">32dp</dimen>
+    <dimen name="clock_color_size_button_horizontal_padding">12dp</dimen>
+    <dimen name="clock_color_size_button_vertical_padding">6dp</dimen>
+    <dimen name="clock_color_size_button_corner_radius">16dp</dimen>
+    <dimen name="clock_color_size_button_icon_size">20dp</dimen>
+    <dimen name="clock_color_size_button_icon_margin_end">12dp</dimen>
+
+    <!--
+    Dimension for clock translationY when swiping clock carousel in picker,
+    copied from sysui resources
+    -->
+    <dimen name="keyguard_large_clock_top_margin">-60dp</dimen>
+    <!-- Dimension for the clock view, copied from sysui resources. -->
+    <dimen name="small_clock_height">114dp</dimen>
+    <dimen name="small_clock_padding_top">28dp</dimen>
+    <dimen name="clock_padding_start">28dp</dimen>
 </resources>

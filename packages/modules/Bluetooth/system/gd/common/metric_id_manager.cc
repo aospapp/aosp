@@ -69,9 +69,13 @@ bool MetricIdManager::Init(
   next_id_ = kMinId;
   for (const auto& p : paired_device_map) {
     if (p.second < kMinId || p.second > kMaxId) {
-      LOG_ALWAYS_FATAL("Invalid Bluetooth Metric Id in config. "
-                       "Id %d of %s is out of range [%d, %d]",
-                       p.second, p.first.ToString().c_str(), kMinId, kMaxId);
+      LOG_ALWAYS_FATAL(
+          "Invalid Bluetooth Metric Id in config. "
+          "Id %d of %s is out of range [%d, %d]",
+          p.second,
+          ADDRESS_TO_LOGGABLE_CSTR(p.first),
+          kMinId,
+          kMaxId);
     }
     auto evicted = paired_device_cache_.insert_or_assign(p.first, p.second);
     if (evicted) {

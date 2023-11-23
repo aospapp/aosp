@@ -12,6 +12,10 @@ LIBSTATSPULL {
         AStatsEventList_addStatsEvent; # apex # introduced=30
         AStatsManager_setPullAtomCallback; # apex # introduced=30
         AStatsManager_clearPullAtomCallback; # apex # introduced=30
+
+        AStatsManager_addSubscription; # apex # introduced=UpsideDownCake
+        AStatsManager_removeSubscription; # apex # introduced=UpsideDownCake
+        AStatsManager_flushSubscription; # apex # introduced=UpsideDownCake
     local:
         *;
 };

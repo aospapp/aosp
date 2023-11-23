@@ -20,6 +20,8 @@ import static android.car.media.CarAudioManager.AUDIO_FEATURE_VOLUME_GROUP_MUTIN
 import static android.media.AudioManager.FLAG_PLAY_SOUND;
 
 import android.car.media.CarAudioManager;
+import android.car.media.CarVolumeGroupEvent;
+import android.car.media.CarVolumeGroupInfo;
 import android.media.AudioAttributes;
 import android.media.AudioAttributes.AttributeUsage;
 import android.media.AudioManager;
@@ -43,6 +45,8 @@ import com.android.internal.annotations.GuardedBy;
 import com.google.android.car.kitchensink.R;
 import com.google.android.car.kitchensink.volume.VolumeTestFragment.CarAudioZoneVolumeInfo;
 
+import java.util.List;
+
 public final class CarAudioZoneVolumeFragment extends Fragment {
     private static final String TAG = "CarVolumeTest."
             + CarAudioZoneVolumeFragment.class.getSimpleName();
@@ -53,6 +57,7 @@ public final class CarAudioZoneVolumeFragment extends Fragment {
     private static final int MSG_FOCUS_CHANGED = 2;
     private static final int MSG_STOP_RINGTONE = 3;
     private static final int MSG_ADJUST_VOLUME = 4;
+    private static final int MSG_EVENT_RECEIVED = 5;
     private static final long RINGTONE_STOP_TIME_MS = 3_000;
     private static final int ADJUST_VOLUME_UP = 0;
     private static final int ADJUST_VOLUME_DOWN = 1;
@@ -82,6 +87,10 @@ public final class CarAudioZoneVolumeFragment extends Fragment {
     void adjustVolumeDown(int groupId) {
         mHandler.sendMessage(mHandler
                 .obtainMessage(MSG_ADJUST_VOLUME, groupId, ADJUST_VOLUME_DOWN));
+    }
+
+    void sendEventReceivedMessage(CarVolumeGroupEvent event) {
+        mHandler.sendMessage(mHandler.obtainMessage(MSG_EVENT_RECEIVED, event));
     }
 
     private class VolumeHandler extends Handler {
@@ -120,9 +129,14 @@ public final class CarAudioZoneVolumeFragment extends Fragment {
                 case MSG_ADJUST_VOLUME:
                     adjustVolumeByOne(msg.arg1, msg.arg2 == ADJUST_VOLUME_UP);
                     break;
+                case MSG_EVENT_RECEIVED:
+                    CarVolumeGroupEvent event = (CarVolumeGroupEvent) msg.obj;
+                    handleVolumeGroupEventReceived(event);
+                    break;
                 default:
                     Log.wtf(TAG, "VolumeHandler handleMessage called with unknown message"
                             + msg.what);
+                    break;
             }
         }
     }
@@ -162,26 +176,35 @@ public final class CarAudioZoneVolumeFragment extends Fragment {
 
         int i = 1;
         for (int groupId = 0; groupId < volumeGroupCount; groupId++) {
-            CarAudioZoneVolumeInfo volumeInfo = new CarAudioZoneVolumeInfo();
+            CarVolumeGroupInfo groupInfo = mCarAudioManager.getVolumeGroupInfo(mZoneId, groupId);
+            mVolumeInfos[i] = createCarAudioZoneVolumeInfo(groupInfo);
             mGroupIdIndexMap.put(groupId, i);
-            volumeInfo.groupId = groupId;
-            volumeInfo.id = String.valueOf(groupId);
-            int current = mCarAudioManager.getGroupVolume(mZoneId, groupId);
-            int max = mCarAudioManager.getGroupMaxVolume(mZoneId, groupId);
-            int min = mCarAudioManager.getGroupMinVolume(mZoneId, groupId);
-            volumeInfo.currentGain = String.valueOf(current);
-            volumeInfo.maxGain = max;
-            volumeInfo.minGain = min;
-            volumeInfo.isMuted = mCarAudioManager.isVolumeGroupMuted(mZoneId, groupId);
-
-            mVolumeInfos[i] = volumeInfo;
-            if (DEBUG) {
-                Log.d(TAG, groupId + " max: " + volumeInfo.maxGain + " current: "
-                        + volumeInfo.currentGain + " is muted " + volumeInfo.isMuted);
-            }
             i++;
         }
         mCarAudioZoneVolumeAdapter.refreshVolumes(mVolumeInfos);
+    }
+
+    private CarAudioZoneVolumeInfo createCarAudioZoneVolumeInfo(CarVolumeGroupInfo info) {
+        CarAudioZoneVolumeInfo volumeInfo = new CarAudioZoneVolumeInfo();
+
+        volumeInfo.groupId = info.getId();
+        volumeInfo.id = String.valueOf(info.getId());
+        volumeInfo.currentGain = String.valueOf(info.getVolumeGainIndex());
+        volumeInfo.maxGain = info.getMaxVolumeGainIndex();
+        volumeInfo.minGain = info.getMinVolumeGainIndex();
+        volumeInfo.isMuted = info.isMuted();
+        volumeInfo.isAttenuated = info.isAttenuated();
+        volumeInfo.isBlocked = info.isBlocked();
+        volumeInfo.isHalMuted = info.isBlocked() && info.isMuted();
+        if (DEBUG) {
+            Log.d(TAG, "createCarAudioZoneVolumeInfo: Group Id: " + info.getId()
+                    + " max: " + volumeInfo.maxGain + " current: " + volumeInfo.currentGain
+                    + " is muted " + volumeInfo.isMuted
+                    + " is attenuated " + volumeInfo.isAttenuated
+                    + " is blocked " + volumeInfo.isBlocked
+                    + " is muted by hal " + volumeInfo.isHalMuted);
+        }
+        return volumeInfo;
     }
 
     private void adjustVolumeByOne(int groupId, boolean up) {
@@ -266,10 +289,17 @@ public final class CarAudioZoneVolumeFragment extends Fragment {
             Log.d(TAG, "Start ringtone for zone " + mZoneId + " and usage "
                     + AudioAttributes.usageToString(usage));
         }
-        AudioAttributes attributes = new AudioAttributes.Builder()
-                .setUsage(usage)
-                .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
-                .build();
+
+        AudioAttributes.Builder builder = new AudioAttributes.Builder()
+                .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION);
+
+        if (AudioAttributes.isSystemUsage(usage)) {
+            builder.setSystemUsage(usage);
+        } else {
+            builder.setUsage(usage);
+        }
+
+        AudioAttributes attributes = builder.build();
 
         Uri uri = RingtoneManager.getActualDefaultRingtoneUri(getContext(),
                 AudioAttributes.toLegacyStreamType(attributes));
@@ -319,5 +349,29 @@ public final class CarAudioZoneVolumeFragment extends Fragment {
                 Log.e(TAG, "Audio focus request failed");
             }
         }
+    }
+
+    private void handleVolumeGroupEventReceived(CarVolumeGroupEvent event) {
+        if (DEBUG) {
+            Log.d(TAG, "Handling volume group event: " + event);
+        }
+
+        if ((event.getEventTypes() & CarVolumeGroupEvent.EVENT_TYPE_ZONE_CONFIGURATION_CHANGED)
+                == CarVolumeGroupEvent.EVENT_TYPE_ZONE_CONFIGURATION_CHANGED) {
+            initVolumeInfo();
+            return;
+        }
+
+        int flags = CarVolumeGroupEvent.convertExtraInfoToFlags(event.getExtraInfos());
+        List<CarVolumeGroupInfo> infos = event.getCarVolumeGroupInfos();
+        for (int index = 0; index < infos.size(); index++) {
+            CarVolumeGroupInfo info = infos.get(index);
+            int groupId = info.getId();
+            if (info.getZoneId() == mZoneId) {
+                mVolumeInfos[groupId + 1] = createCarAudioZoneVolumeInfo(info);
+                playRingtoneForGroup(groupId, flags);
+            }
+        }
+        mCarAudioZoneVolumeAdapter.refreshVolumes(mVolumeInfos);
     }
 }

@@ -101,7 +101,6 @@ public final class ProvisioningParams extends PersistableBundlable {
     public static final boolean DEFAULT_EXTRA_PROVISIONING_SKIP_OWNERSHIP_DISCLAIMER = false;
     public static final boolean DEFAULT_EXTRA_PROVISIONING_RETURN_BEFORE_POLICY_COMPLIANCE = false;
     public static final boolean DEFAULT_EXTRA_PROVISIONING_PERMISSION_GRANT_OPT_OUT = false;
-    public static final boolean DEFAULT_EXTRA_PROVISIONING_KEEP_SCREEN_ON = false;
     public static final boolean DEFAULT_EXTRA_ALLOW_OFFLINE = false;
     public static final boolean DEFAULT_EXTRA_PROVISIONING_SHOULD_LAUNCH_RESULT_INTENT = false;
 
@@ -153,7 +152,6 @@ public final class ProvisioningParams extends PersistableBundlable {
             "provisioning-return-before-policy-compliance";
     private static final String TAG_DEVICE_OWNER_PERMISSION_GRANT_OPT_OUT =
             "device-owner-opt-out-of-permission-grants";
-    private static final String TAG_KEEP_SCREEN_ON = "keep-screen-on";
     private static final String TAG_ALLOW_OFFLINE = "allow-offline";
     private static final String TAG_ROLE_HOLDER_PACKAGE_DOWNLOAD_INFO =
             "role-holder-download-info";
@@ -326,10 +324,6 @@ public final class ProvisioningParams extends PersistableBundlable {
      */
     public final boolean deviceOwnerPermissionGrantOptOut;
 
-    /**
-     * {@code true} if the screen should be on throughout the provisioning flow
-     */
-    public final boolean keepScreenOn;
 
     /**
      * {@code true} if offline provisioning is allowed
@@ -422,7 +416,6 @@ public final class ProvisioningParams extends PersistableBundlable {
         skipOwnershipDisclaimer = builder.mSkipOwnershipDisclaimer;
         returnBeforePolicyCompliance = builder.mReturnBeforePolicyCompliance;
         deviceOwnerPermissionGrantOptOut = builder.mDeviceOwnerPermissionGrantOptOut;
-        keepScreenOn = builder.mKeepScreenOn;
         allowOffline = builder.mAllowOffline;
         roleHolderDownloadInfo = builder.mRoleHolderDownloadInfo;
         provisioningShouldLaunchResultIntent = builder.mProvisioningShouldLaunchResultIntent;
@@ -487,7 +480,6 @@ public final class ProvisioningParams extends PersistableBundlable {
                 returnBeforePolicyCompliance);
         bundle.putBoolean(TAG_DEVICE_OWNER_PERMISSION_GRANT_OPT_OUT,
                 deviceOwnerPermissionGrantOptOut);
-        bundle.putBoolean(TAG_KEEP_SCREEN_ON, keepScreenOn);
         bundle.putBoolean(TAG_ALLOW_OFFLINE, allowOffline);
         putPersistableBundlableIfNotNull(bundle, TAG_ROLE_HOLDER_PACKAGE_DOWNLOAD_INFO,
                 roleHolderDownloadInfo);
@@ -549,7 +541,6 @@ public final class ProvisioningParams extends PersistableBundlable {
                 TAG_PROVISIONING_RETURN_BEFORE_POLICY_COMPLIANCE));
         builder.setDeviceOwnerPermissionGrantOptOut(
                 bundle.getBoolean(TAG_DEVICE_OWNER_PERMISSION_GRANT_OPT_OUT));
-        builder.setKeepScreenOn(bundle.getBoolean(TAG_KEEP_SCREEN_ON));
         builder.setAllowOffline(bundle.getBoolean(TAG_ALLOW_OFFLINE));
         builder.setRoleHolderDownloadInfo(getObjectAttrFromPersistableBundle(
                 bundle,
@@ -688,7 +679,6 @@ public final class ProvisioningParams extends PersistableBundlable {
                 DEFAULT_EXTRA_PROVISIONING_RETURN_BEFORE_POLICY_COMPLIANCE;
         private boolean mDeviceOwnerPermissionGrantOptOut =
                 DEFAULT_EXTRA_PROVISIONING_PERMISSION_GRANT_OPT_OUT;
-        private boolean mKeepScreenOn = DEFAULT_EXTRA_PROVISIONING_KEEP_SCREEN_ON;
         private boolean mAllowOffline = DEFAULT_EXTRA_ALLOW_OFFLINE;
         public PackageDownloadInfo mRoleHolderDownloadInfo;
         private boolean mProvisioningShouldLaunchResultIntent =
@@ -866,14 +856,6 @@ public final class ProvisioningParams extends PersistableBundlable {
          */
         public Builder setDeviceOwnerPermissionGrantOptOut(boolean optout) {
             mDeviceOwnerPermissionGrantOptOut = optout;
-            return this;
-        }
-
-        /**
-         * Setter for whether the screen should be on throughout the provisioning flow.
-         */
-        public Builder setKeepScreenOn(boolean keepScreenOn) {
-            mKeepScreenOn = keepScreenOn;
             return this;
         }
 

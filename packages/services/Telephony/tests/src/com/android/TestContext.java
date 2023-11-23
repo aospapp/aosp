@@ -17,6 +17,7 @@
 package com.android;
 
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doAnswer;
 
 import android.content.AttributionSource;
@@ -31,6 +32,7 @@ import android.os.Handler;
 import android.os.Looper;
 import android.os.PersistableBundle;
 import android.os.Process;
+import android.os.UserManager;
 import android.telecom.TelecomManager;
 import android.telephony.CarrierConfigManager;
 import android.telephony.SubscriptionManager;
@@ -58,8 +60,13 @@ public class TestContext extends MockContext {
     @Mock TelephonyManager mMockTelephonyManager;
     @Mock SubscriptionManager mMockSubscriptionManager;
     @Mock ImsManager mMockImsManager;
+    @Mock UserManager mMockUserManager;
 
-    private SparseArray<PersistableBundle> mCarrierConfigs = new SparseArray<>();
+    private final SparseArray<PersistableBundle> mCarrierConfigs = new SparseArray<>();
+
+    private Intent mIntent;
+
+    private BroadcastReceiver mReceiver;
 
     private final HashSet<String> mPermissionTable = new HashSet<>();
 
@@ -67,13 +74,12 @@ public class TestContext extends MockContext {
         MockitoAnnotations.initMocks(this);
         doAnswer((Answer<PersistableBundle>) invocation -> {
             int subId = (int) invocation.getArguments()[0];
-            if (subId < 0) {
-                return new PersistableBundle();
-            }
-            PersistableBundle b = mCarrierConfigs.get(subId);
-
-            return (b != null ? b : new PersistableBundle());
+            return getTestConfigs(subId);
         }).when(mMockCarrierConfigManager).getConfigForSubId(anyInt());
+        doAnswer((Answer<PersistableBundle>) invocation -> {
+            int subId = (int) invocation.getArguments()[0];
+            return getTestConfigs(subId);
+        }).when(mMockCarrierConfigManager).getConfigForSubId(anyInt(), anyString());
     }
 
     @Override
@@ -103,25 +109,39 @@ public class TestContext extends MockContext {
     }
 
     @Override
+    public void sendBroadcast(Intent intent) {
+        mIntent = intent;
+    }
+
+    @Override
     public Intent registerReceiver(BroadcastReceiver receiver, IntentFilter filter) {
+        mReceiver = receiver;
         return null;
     }
 
     @Override
     public Intent registerReceiver(BroadcastReceiver receiver, IntentFilter filter, int flags) {
+        mReceiver = receiver;
         return null;
     }
 
     @Override
     public Intent registerReceiver(BroadcastReceiver receiver, IntentFilter filter,
             String broadcastPermission, Handler scheduler) {
+        mReceiver = receiver;
         return null;
     }
 
     @Override
     public Intent registerReceiver(BroadcastReceiver receiver, IntentFilter filter,
             String broadcastPermission, Handler scheduler, int flags) {
+        mReceiver = receiver;
         return null;
+    }
+
+    @Override
+    public void unregisterReceiver(BroadcastReceiver receiver) {
+        mReceiver = null;
     }
 
     @Override
@@ -132,20 +152,23 @@ public class TestContext extends MockContext {
     @Override
     public Object getSystemService(String name) {
         switch (name) {
-            case (Context.CARRIER_CONFIG_SERVICE) : {
+            case Context.CARRIER_CONFIG_SERVICE: {
                 return mMockCarrierConfigManager;
             }
-            case (Context.TELECOM_SERVICE) : {
+            case Context.TELECOM_SERVICE: {
                 return mMockTelecomManager;
             }
-            case (Context.TELEPHONY_SERVICE) : {
+            case Context.TELEPHONY_SERVICE: {
                 return mMockTelephonyManager;
             }
-            case (Context.TELEPHONY_SUBSCRIPTION_SERVICE) : {
+            case Context.TELEPHONY_SUBSCRIPTION_SERVICE: {
                 return mMockSubscriptionManager;
             }
-            case(Context.TELEPHONY_IMS_SERVICE) : {
+            case Context.TELEPHONY_IMS_SERVICE: {
                 return mMockImsManager;
+            }
+            case Context.USER_SERVICE: {
+                return mMockUserManager;
             }
         }
         return null;
@@ -164,6 +187,12 @@ public class TestContext extends MockContext {
         }
         if (serviceClass == SubscriptionManager.class) {
             return Context.TELEPHONY_SUBSCRIPTION_SERVICE;
+        }
+        if (serviceClass == ImsManager.class) {
+            return Context.TELEPHONY_IMS_SERVICE;
+        }
+        if (serviceClass == UserManager.class) {
+            return Context.USER_SERVICE;
         }
         return null;
     }
@@ -223,18 +252,16 @@ public class TestContext extends MockContext {
 
     public void grantPermission(String permission) {
         synchronized (mPermissionTable) {
-            if (mPermissionTable != null && permission != null) {
-                mPermissionTable.remove(STUB_PERMISSION_ENABLE_ALL);
-                mPermissionTable.add(permission);
-            }
+            if (permission == null) return;
+            mPermissionTable.remove(STUB_PERMISSION_ENABLE_ALL);
+            mPermissionTable.add(permission);
         }
     }
 
     public void revokePermission(String permission) {
         synchronized (mPermissionTable) {
-            if (mPermissionTable != null && permission != null) {
-                mPermissionTable.remove(permission);
-            }
+            if (permission == null) return;
+            mPermissionTable.remove(permission);
         }
     }
 
@@ -242,6 +269,22 @@ public class TestContext extends MockContext {
         synchronized (mPermissionTable) {
             mPermissionTable.clear();
         }
+    }
+
+    public Intent getBroadcast() {
+        return mIntent;
+    }
+
+    public BroadcastReceiver getBroadcastReceiver() {
+        return mReceiver;
+    }
+
+    private PersistableBundle getTestConfigs(int subId) {
+        if (subId < 0) {
+            return new PersistableBundle();
+        }
+        PersistableBundle b = getCarrierConfig(subId);
+        return (b != null ? b : new PersistableBundle());
     }
 
     private static void logd(String s) {

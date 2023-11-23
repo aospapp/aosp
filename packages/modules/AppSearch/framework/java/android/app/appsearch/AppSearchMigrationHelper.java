@@ -21,16 +21,19 @@ import static android.os.ParcelFileDescriptor.MODE_READ_ONLY;
 import static android.os.ParcelFileDescriptor.MODE_WRITE_ONLY;
 
 import android.annotation.NonNull;
+import android.annotation.Nullable;
 import android.annotation.WorkerThread;
 import android.app.appsearch.aidl.AppSearchResultParcel;
 import android.app.appsearch.aidl.IAppSearchManager;
 import android.app.appsearch.aidl.IAppSearchResultCallback;
 import android.app.appsearch.exceptions.AppSearchException;
+import android.app.appsearch.stats.SchemaMigrationStats;
 import android.content.AttributionSource;
 import android.os.Bundle;
 import android.os.Parcel;
 import android.os.ParcelFileDescriptor;
 import android.os.RemoteException;
+import android.os.SystemClock;
 import android.os.UserHandle;
 import android.util.ArraySet;
 
@@ -45,8 +48,9 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * The helper class for {@link AppSearchSchema} migration.
@@ -61,7 +65,7 @@ public class AppSearchMigrationHelper implements Closeable {
     private final UserHandle mUserHandle;
     private final File mMigratedFile;
     private final Set<String> mDestinationTypes;
-    private boolean mAreDocumentsMigrated = false;
+    private int mTotalNeedMigratedDocumentCount = 0;
 
     AppSearchMigrationHelper(@NonNull IAppSearchManager service,
             @NonNull UserHandle userHandle,
@@ -90,15 +94,19 @@ public class AppSearchMigrationHelper implements Closeable {
      *                   need to be migrated.
      * @param migrator The {@link Migrator} that will upgrade or downgrade a {@link
      *     GenericDocument} to new version.
+     * @param schemaMigrationStatsBuilder    The {@link SchemaMigrationStats.Builder} contains
+     *                                       schema migration stats information
      */
     @WorkerThread
-    public void queryAndTransform(@NonNull String schemaType, @NonNull Migrator migrator,
-            int currentVersion, int finalVersion)
+    void queryAndTransform(@NonNull String schemaType, @NonNull Migrator migrator,
+            int currentVersion, int finalVersion,
+            @Nullable SchemaMigrationStats.Builder schemaMigrationStatsBuilder)
             throws IOException, AppSearchException, InterruptedException, ExecutionException {
         File queryFile = File.createTempFile(/*prefix=*/"appsearch", /*suffix=*/null);
         try (ParcelFileDescriptor fileDescriptor =
                      ParcelFileDescriptor.open(queryFile, MODE_WRITE_ONLY)) {
-            CompletableFuture<AppSearchResult<Void>> future = new CompletableFuture<>();
+            CountDownLatch latch = new CountDownLatch(1);
+            AtomicReference<AppSearchResult<Void>> resultReference = new AtomicReference<>();
             mService.writeQueryResultsToFile(mCallerAttributionSource, mDatabaseName,
                     fileDescriptor,
                     /*queryExpression=*/ "",
@@ -107,17 +115,21 @@ public class AppSearchMigrationHelper implements Closeable {
                             .setTermMatch(SearchSpec.TERM_MATCH_EXACT_ONLY)
                             .build().getBundle(),
                     mUserHandle,
+                    /*binderCallStartTimeMillis=*/ SystemClock.elapsedRealtime(),
                     new IAppSearchResultCallback.Stub() {
                         @Override
                         public void onResult(AppSearchResultParcel resultParcel) {
-                            future.complete(resultParcel.getResult());
+                            resultReference.set(resultParcel.getResult());
+                            latch.countDown();
                         }
                     });
-            AppSearchResult<Void> result = future.get();
+            latch.await();
+            AppSearchResult<Void> result = resultReference.get();
             if (!result.isSuccess()) {
                 throw new AppSearchException(result.getResultCode(), result.getErrorMessage());
             }
-            readAndTransform(queryFile, migrator, currentVersion, finalVersion);
+            readAndTransform(queryFile, migrator, currentVersion, finalVersion,
+                    schemaMigrationStatsBuilder);
         } catch (RemoteException e) {
             throw e.rethrowFromSystemServer();
         } finally {
@@ -135,30 +147,43 @@ public class AppSearchMigrationHelper implements Closeable {
      *                        function with any
      *                        {@link android.app.appsearch.SetSchemaResponse.MigrationFailure}
      *                        added in.
+     * @param schemaMigrationStatsBuilder    The {@link SchemaMigrationStats.Builder} contains
+     *                                       schema migration stats information
+     * @param totalLatencyStartTimeMillis start timestamp to calculate total migration latency in
+     *     Millis
      * @return the {@link SetSchemaResponse} for {@link AppSearchSession#setSchema} call.
      */
     @NonNull
     AppSearchResult<SetSchemaResponse> putMigratedDocuments(
-            @NonNull SetSchemaResponse.Builder responseBuilder) {
-        if (!mAreDocumentsMigrated) {
+            @NonNull SetSchemaResponse.Builder responseBuilder,
+            @NonNull SchemaMigrationStats.Builder schemaMigrationStatsBuilder,
+            long totalLatencyStartTimeMillis) {
+        if (mTotalNeedMigratedDocumentCount == 0) {
             return AppSearchResult.newSuccessfulResult(responseBuilder.build());
         }
         try (ParcelFileDescriptor fileDescriptor =
                      ParcelFileDescriptor.open(mMigratedFile, MODE_READ_ONLY)) {
-            CompletableFuture<AppSearchResult<List<Bundle>>> future = new CompletableFuture<>();
+            CountDownLatch latch = new CountDownLatch(1);
+            AtomicReference<AppSearchResult<List<Bundle>>> resultReference =
+                    new AtomicReference<>();
             mService.putDocumentsFromFile(mCallerAttributionSource, mDatabaseName, fileDescriptor,
                     mUserHandle,
+                    schemaMigrationStatsBuilder.build().getBundle(),
+                    totalLatencyStartTimeMillis,
+                    /*binderCallStartTimeMillis=*/ SystemClock.elapsedRealtime(),
                     new IAppSearchResultCallback.Stub() {
                         @Override
                         public void onResult(AppSearchResultParcel resultParcel) {
-                            future.complete(resultParcel.getResult());
+                            resultReference.set(resultParcel.getResult());
+                            latch.countDown();
                         }
                     });
-            AppSearchResult<List<Bundle>> result = future.get();
+            latch.await();
+            AppSearchResult<List<Bundle>> result = resultReference.get();
             if (!result.isSuccess()) {
                 return AppSearchResult.newFailedResult(result);
             }
-            List<Bundle> migratedFailureBundles = result.getResultValue();
+            List<Bundle> migratedFailureBundles = Objects.requireNonNull(result.getResultValue());
             for (int i = 0; i < migratedFailureBundles.size(); i++) {
                 responseBuilder.addMigrationFailure(
                         new SetSchemaResponse.MigrationFailure(migratedFailureBundles.get(i)));
@@ -181,7 +206,8 @@ public class AppSearchMigrationHelper implements Closeable {
      * <p>Save migrated {@link GenericDocument}s to the {@link #mMigratedFile}.
      */
     private void readAndTransform(@NonNull File file, @NonNull Migrator migrator,
-            int currentVersion, int finalVersion)
+            int currentVersion, int finalVersion,
+            @Nullable SchemaMigrationStats.Builder schemaMigrationStatsBuilder)
             throws IOException, AppSearchException {
         try (DataInputStream inputStream = new DataInputStream(new FileInputStream(file));
              DataOutputStream outputStream = new DataOutputStream(new FileOutputStream(
@@ -202,6 +228,7 @@ public class AppSearchMigrationHelper implements Closeable {
                     // currentVersion == finalVersion case won't trigger migration and get here.
                     newDocument = migrator.onDowngrade(currentVersion, finalVersion, document);
                 }
+                ++mTotalNeedMigratedDocumentCount;
 
                 if (!mDestinationTypes.contains(newDocument.getSchemaType())) {
                     // we exit before the new schema has been set to AppSearch. So no
@@ -216,7 +243,10 @@ public class AppSearchMigrationHelper implements Closeable {
                 }
                 writeBundleToOutputStream(outputStream, newDocument.getBundle());
             }
-            mAreDocumentsMigrated = true;
+        }
+        if (schemaMigrationStatsBuilder != null) {
+            schemaMigrationStatsBuilder.setTotalNeedMigratedDocumentCount(
+                    mTotalNeedMigratedDocumentCount);
         }
     }
 

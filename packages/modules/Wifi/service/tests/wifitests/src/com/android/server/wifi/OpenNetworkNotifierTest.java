@@ -605,8 +605,11 @@ public class OpenNetworkNotifierTest extends WifiBaseTest {
         mBroadcastReceiver.onReceive(mContext, createIntent(ACTION_PICK_WIFI_NETWORK));
 
         ArgumentCaptor<Intent> pickerIntentCaptor = ArgumentCaptor.forClass(Intent.class);
-        verify(mContext).startActivity(pickerIntentCaptor.capture());
+        ArgumentCaptor<UserHandle> userHandleCaptor = ArgumentCaptor.forClass(UserHandle.class);
+        verify(mContext).startActivityAsUser(
+                pickerIntentCaptor.capture(), userHandleCaptor.capture());
         assertEquals(pickerIntentCaptor.getValue().getAction(), Settings.ACTION_WIFI_SETTINGS);
+        assertEquals(UserHandle.CURRENT, userHandleCaptor.getValue());
         verify(mWifiMetrics).incrementConnectToNetworkNotificationAction(OPEN_NET_NOTIFIER_TAG,
                 ConnectToNetworkNotificationAndActionCount.NOTIFICATION_RECOMMEND_NETWORK,
                 ConnectToNetworkNotificationAndActionCount.ACTION_PICK_WIFI_NETWORK);
@@ -783,8 +786,11 @@ public class OpenNetworkNotifierTest extends WifiBaseTest {
                 createIntent(ACTION_PICK_WIFI_NETWORK_AFTER_CONNECT_FAILURE));
 
         ArgumentCaptor<Intent> pickerIntentCaptor = ArgumentCaptor.forClass(Intent.class);
-        verify(mContext).startActivity(pickerIntentCaptor.capture());
+        ArgumentCaptor<UserHandle> userHandleCaptor = ArgumentCaptor.forClass(UserHandle.class);
+        verify(mContext).startActivityAsUser(
+                pickerIntentCaptor.capture(), userHandleCaptor.capture());
         assertEquals(pickerIntentCaptor.getValue().getAction(), Settings.ACTION_WIFI_SETTINGS);
+        assertEquals(UserHandle.CURRENT, userHandleCaptor.getValue());
         verify(mWifiMetrics).incrementConnectToNetworkNotificationAction(OPEN_NET_NOTIFIER_TAG,
                 ConnectToNetworkNotificationAndActionCount.NOTIFICATION_FAILED_TO_CONNECT,
                 ConnectToNetworkNotificationAndActionCount

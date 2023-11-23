@@ -20,6 +20,6 @@
   <string-array name="premium_sms_access_values">
     <item msgid="1035030245423608806">"అడగండి"</item>
     <item msgid="933409503308401889">"ఎప్పటికీ అనుమతించవద్దు"</item>
-    <item msgid="1154273129608299386">"ఎల్లప్పుడూ అనుమతించు"</item>
+    <item msgid="1154273129608299386">"ఎల్లప్పుడూ అనుమతించండి"</item>
   </string-array>
 </resources>

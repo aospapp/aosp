@@ -1,0 +1,680 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--  Copyright (C) 2022 The Android Open Source Project
+
+     Licensed under the Apache License, Version 2.0 (the "License");
+     you may not use this file except in compliance with the License.
+     You may obtain a copy of the License at
+
+          http://www.apache.org/licenses/LICENSE-2.0
+
+     Unless required by applicable law or agreed to in writing, software
+     distributed under the License is distributed on an "AS IS" BASIS,
+     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+     See the License for the specific language governing permissions and
+     limitations under the License.
+ -->
+
+<!--  IMPORTANT! If adding new strings, then run generate_adservices_public_xml.py  -->
+
+<resources xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+    <string name="permlab_accessAdServicesTopics" msgid="1108993892369517728">"AdServices Topics API प्रयोग गर्ने अनुमति"</string>
+    <string name="permdesc_accessAdServicesTopics" msgid="4220466427260104683">"एपलाई AdServices Topics API प्रयोग गर्ने अनुमति दिन्छ।"</string>
+    <string name="permlab_accessAdServicesAttribution" msgid="4498132091418336093">"AdServices Attribution API प्रयोग गर्ने अनुमति"</string>
+    <string name="permdesc_accessAdServicesAttribution" msgid="1644434244130657749">"एपलाई AdServices Attribution API प्रयोग गर्ने अनुमति दिन्छ।"</string>
+    <string name="permlab_accessAdServicesCustomAudience" msgid="2766614780488510189">"AdServices Custom Audience API प्रयोग गर्ने अनुमति"</string>
+    <string name="permdesc_accessAdServicesCustomAudience" msgid="2034811807106784662">"एपलाई AdServices Custom Audiences API प्रयोग गर्ने अनुमति दिन्छ।"</string>
+    <string name="permlab_accessAdServicesAdId" msgid="2754825914769538156">"AdId API प्रयोग गर्ने अनुमति"</string>
+    <string name="permdesc_accessAdServicesAdId" msgid="7717770480967762044">"एपलाई AdId API प्रयोग गर्ने अनुमति दिन्छ।"</string>
+    <string name="permlab_accessAdServicesConsent" msgid="3203633397142568707">"AdServices Consent API प्रयोग गर्ने अनुमति"</string>
+    <string name="permdesc_accessAdServicesConsent" msgid="8440334072391708453">"एपलाई AdServices Consent API प्रयोग गर्ने अनुमति दिन्छ।"</string>
+    <string name="permlab_adServicesAccessAdId" msgid="1425385999072194463">"Ad ID API प्रयोग गर्ने अनुमति"</string>
+    <string name="permdesc_adServicesAccessAdId" msgid="5082994464565978279">"एपलाई Ad ID API प्रयोग गर्ने अनुमति दिन्छ।"</string>
+    <string name="permlab_adServicesAccessAppSetId" msgid="1300149048751231124">"App Set ID API प्रयोग गर्ने अनुमति"</string>
+    <string name="permdesc_adServicesAccessAppSetId" msgid="7919418391145455372">"एपलाई App Set ID API प्रयोग गर्ने अनुमति दिन्छ।"</string>
+    <string name="permlab_adServicesAccessConsentService" msgid="5994709782267864205">"Consent Service API प्रयोग गर्ने अनुमति"</string>
+    <string name="permdesc_adServicesAccessConsentService" msgid="4587727715580124241">"एपलाई Consent Service API प्रयोग गर्ने अनुमति दिन्छ।"</string>
+    <string name="permlab_modifyAdServicesState" msgid="3594653261299518914">"AdService को enablement state modification API प्रयोग गर्ने अनुमति"</string>
+    <string name="permdesc_modifyAdServicesState" msgid="2485849128464307209">"यसले कुनै एपलाई AdService को enablement state modification API प्रयोग गर्ने अनुमति दिन्छ।"</string>
+    <string name="permlab_accessAdServicesState" msgid="482058883975394398">"AdService को enablement state API प्रयोग गर्ने अनुमति"</string>
+    <string name="permdesc_accessAdServicesState" msgid="1165015604618567202">"यसले कुनै एपलाई AdService को enablement state API प्रयोग गर्ने अनुमति दिन्छ।"</string>
+    <string name="permlab_accessAdServicesManager" msgid="4816332609066703740">"AdServicesManager का API हरू प्रयोग गर्ने अनुमति"</string>
+    <string name="permdesc_accessAdServicesManager" msgid="2619300431637689524">"एपलाई AdServicesManager का API हरू प्रयोग गर्ने अनुमति दिन्छ।"</string>
+    <string name="app_label" msgid="5985320129629013968">"Android सिस्टम"</string>
+    <string name="notificationUI_notification_title_eu" msgid="6328781145332100489">"Android को विज्ञापनको गोपनीयतासम्बन्धी सुविधाको बिटा संस्करणमा सामेल हुनुहोस्"</string>
+    <string name="notificationUI_notification_content_eu" msgid="4119222762583017840">"Android ले एपहरूले तपाईंलाई विज्ञापन देखाउन सक्ने अझ गोप्य तरिकाहरूका बारेमा अन्वेषण गर्दै छ"</string>
+    <string name="notificationUI_notification_cta_eu" msgid="1294908454704864207">"थप जान्नुहोस्"</string>
+    <string name="notificationUI_header_title_eu" msgid="4955298263079910371">"Android को विज्ञापनको गोपनीयतासम्बन्धी सुविधाको बिटा संस्करण"</string>
+    <string name="notificationUI_container1_title_eu" msgid="8315199862119660570">"नयाँ के छ"</string>
+    <string name="notificationUI_container1_body_text_eu" msgid="1700290522706948241">"प्राइभेसी स्यान्डबक्समा भएका गोपनीयतासम्बन्धी नयाँ सुविधाहरूले एपहरूलाई तपाईंलाई सान्दर्भिक विज्ञापनहरू देखाउन दिन्छन् तर ती एपलाई अन्य विकासकर्ताका वेबसाइट तथा एपहरूमा तपाईंले गर्ने क्रियाकलापका बारेमा थाहा पाउन भने दिँदैनन्।"</string>
+    <string name="notificationUI_container1_control_text_eu" msgid="3158258148321255153">"यसले कसरी काम गर्छ"</string>
+    <string name="notificationUI_container2_title_eu" msgid="7198761373796187596">"सहभागी हुन के गर्नु पर्छ"</string>
+    <string name="notificationUI_container2_body_text_eu" msgid="5763735880112009239">"तपाईंले यो बिटा सुविधा अन गर्नुभयो भने एपहरू तपाईंलाई विज्ञापन देखाउने यी नयाँ अनि अझ गोप्य तरिकाको परीक्षण गर्न सक्छन्। तपाईं जुनसुकै बेला गोपनीयतासम्बन्धी सेटिङमा गई यो बिटा सुविधा अफ गर्न सक्नुहुन्छ।"</string>
+    <string name="notificationUI_left_control_button_text_eu" msgid="3573715612232957187">"पर्दैन"</string>
+    <string name="notificationUI_right_control_button_text_eu" msgid="8484787286437052150">"अन गर्नुहोस्"</string>
+    <string name="notificationUI_more_button_text" msgid="8861584693765844519">"थप देखाइयोस्"</string>
+    <string name="notificationUI_confirmation_accept_title" msgid="3178322390976087463">"सामेल हुनुभएकोमा धन्यवाद"</string>
+    <string name="notificationUI_confirmation_accept_subtitle" msgid="6980730715078085252">"तपाईं Android को विज्ञापनसम्बन्धी गोपनीयता सुविधाको बिटा संस्करणको सदस्य बन्नुभएको छ। तपाईंको डिभाइसमा प्राइभेसी स्यान्डबक्स अन गरिएको छ।\n\nतपाईं जुनसुकै बेला गोपनीयतासम्बन्धी सेटिङमा गई यसका बारेमा थप जान्न वा यसलाई अफ गर्न सक्नुहुन्छ।"</string>
+    <string name="notificationUI_confirmation_decline_title" msgid="6453417169877486440">"तपाईंले यस कार्यक्रममा सामेल नहुने विकल्प छनौट गर्नुभएको छ"</string>
+    <string name="notificationUI_confirmation_decline_subtitle" msgid="4194388733937808440">"प्रतिक्रिया दिनुभएकोमा धन्यवाद। तपाईंको डिभाइसमा प्राइभेसी स्यान्डबक्स अफ गरिएको छ।\n\nतपाईंलाई पछि प्राइभेसी स्यान्डबक्स अन गर्न वा यसका बारेमा थप जान्न मन लाग्यो भने तपाईं गोपनीयतासम्बन्धी सेटिङमा जान सक्नुहुन्छ।"</string>
+    <string name="notificationUI_confirmation_left_control_button_text" msgid="7459283556129950513">"गोपनीयतासम्बन्धी सेटिङ"</string>
+    <string name="notificationUI_confirmation_right_control_button_text" msgid="1390803936115621269">"बुझेँ"</string>
+    <string name="notificationUI_container2_title" msgid="3844342008598264655">"तपाईं यस बिटा सुविधाको सदस्य हुनुहुन्छ"</string>
+    <string name="notificationUI_container2_body_text" msgid="758560159693325060">"तपाईंको डिभाइसमा प्राइभेसी स्यान्डबक्स अन गरिएको छ र एपहरू तपाईंलाई विज्ञापन देखाउने यी नयाँ अनि अझ गोप्य तरिकाको परीक्षण गर्न सक्छन्। तपाईं जुनसुकै बेला गोपनीयतासम्बन्धी सेटिङमा गई यो बिटा सुविधा अफ गर्न सक्नुहुन्छ।"</string>
+    <string name="notificationUI_right_control_button_text" msgid="4418849554981401536">"बुझेँ"</string>
+    <string name="notificationUI_how_it_works_expanded_text1" msgid="5567641119079971239">"Android को प्राइभेसी स्यान्डबक्सले एपहरूले तपाईंलाई मन पर्न सक्ने विज्ञापनहरू देखाउनका निम्ति प्रयोग गर्न सक्ने नयाँ सुविधाहरू उपलब्ध गराउँछ। यी प्रविधिले डिभाइस आइडेन्टिफायर प्रयोग गर्दैनन्।\n\nAndroid तथा तपाईंका एपहरूले तपाईंको रुचि हुन सक्ने विज्ञापनहरूका बारेमा अनुमान लगाउन र ती रुचिहरू अस्थायी रूपमा तपाईंको डिभाइसमा सेभ गर्न सक्छन्। यसले गर्दा एपहरूले अन्य विकासकर्ताका वेबसाइट तथा एपहरूमा तपाईंले गर्ने क्रियाकलाप ट्र्याक नगरिकनै तपाईंलाई मन पर्न सक्ने विज्ञापनहरू देखाउन सक्छन्।"</string>
+    <string name="notificationUI_how_it_works_expanded_text2" msgid="6676443093692450581">"प्राइभेसी स्यान्डबक्स प्रयोग गरी विज्ञापनको पर्सनलाइजेसन गर्ने प्रक्रिया"</string>
+    <string name="notificationUI_how_it_works_expanded_text3" msgid="603165966360369018">"•  Android ले अनुमान गरेका रुचिहरू"</string>
+    <string name="notificationUI_how_it_works_expanded_text4" msgid="3910573920883580609">"Android ले तपाईंले प्रयोग गर्ने एपहरूका आधारमा नियमित रूपमा तपाईंका शीर्ष रुचिहरूको अनुमान गर्छ। उदाहरणका लागि, \"खेलकुद\" वा \"यात्रा।\"\n\nपछि कुनै एपले तपाईंलाई अझ सान्दर्भिक विज्ञापनहरू देखाउनका निम्ति Android सँग ती रुचि प्रयोग गर्ने अनुमति माग्न सक्छ।\n\nतपाईं गोपनीयतासम्बन्धी सेटिङमा गई हालका रुचिहरूको सूची हेर्न र त्यहाँ भएका रुचिमध्ये आफूलाई मन नपर्ने रुचिहरू ब्लक गर्न सक्नुहुन्छ।"</string>
+    <string name="notificationUI_how_it_works_expanded_text5" msgid="7257714040472055781">"•  एपहरूले अनुमान गरेका रुचिहरू"</string>
+    <string name="notificationUI_how_it_works_expanded_text6" msgid="2949292580123453023">"एपहरूले तपाईंका रुचिका बारेमा अनुमान लगाउन र ती रुचिहरू अस्थायी रूपमा Android मा सेभ गर्न सक्छन्। उदाहरणका लागि, तपाईंले दौडिँदा लगाउने जुत्ता किन्न प्रयोग गर्ने एपले तपाईंलाई \"म्याराथन दौड\" मा रुचि भएको कुरा अनुमान गर्न सक्छ।\n\nयो रुचिका आधारमा पछि कुनै अर्को एपले तपाईंलाई म्याराथनसँग सम्बन्धित विज्ञापन देखाउन सक्छ।\n\nतपाईं गोपनीयतासम्बन्धी सेटिङमा गई जुन जुन एपले रुचिहरू सेभ गरेका छन् ती एपहरूको सूची व्यवस्थापन गर्न सक्नुहुन्छ।"</string>
+    <string name="notificationUI_notification_ga_title" msgid="7090667803616048587">"विज्ञापनको गोपनीयतासम्बन्धी नयाँ सुविधाहरू"</string>
+    <string name="notificationUI_notification_ga_content" msgid="3483979694272908942">"तपाईं विषयअनुसारका विज्ञापन देखाउने सुविधा र नयाँ कन्ट्रोलहरूका सहायताले आफूलाई कस्ता विज्ञापन देखाइन्छ भन्ने कुरा नियन्त्रण गर्न सक्नुहुन्छ"</string>
+    <string name="notificationUI_header_ga_title" msgid="3557937325021173836">"विज्ञापनको गोपनीयतासम्बन्धी नयाँ सुविधाहरू उपलब्ध भएका छन्"</string>
+    <string name="notificationUI_container2_ga_introduction" msgid="2201578950159210581">"Android ले तपाईंले हालसालै चलाउनुभएका एपका आधारमा तपाईंका रुचिका विषयहरू थाहा पाउँछ। साथै, तपाईंले चलाउने एपहरूले तपाईंलाई मन पर्ने कुराहरू निर्धारण गर्न पनि सक्छन्। एपहरूले पछि तपाईंलाई पर्सनलाइज गरिएका विज्ञापनहरू देखाउने प्रयोजनका लागि यो जानकारी माग्न सक्छन्। तपाईं आफूलाई विज्ञापनहरू देखाउनका निम्ति प्रयोग गरिने विषय तथा एपहरू छनौट गर्न सक्नुहुन्छ।"</string>
+    <string name="notificationUI_container3_ga_introduction" msgid="4247237824558927582">"कुनै विज्ञापनको पर्फर्मेन्स मापन गर्ने प्रयोजनका लागि एपहरूका बिचमा सीमित प्रकारका जानकारी सेयर गरिन्छ।"</string>
+    <string name="notificationUI_ga_container1_control_text" msgid="2711321174550177509">"Android मा देखाइने विज्ञापनका बारेमा थप जानकारी"</string>
+    <string name="notificationUI_how_it_works_row_subtitle1" msgid="8685034725335826096">"थप उपयोगी विज्ञापनहरू"</string>
+    <string name="notificationUI_how_it_works_row_body1" msgid="5865369599951938718">"एपहरूले तपाईंलाई देखाइने विज्ञापनहरू पर्सनलाइज गर्न Android सँग जानकारी माग्न सक्छन्।"</string>
+    <string name="notificationUI_how_it_works_row_body2" msgid="6601773212442110369">"•  Android ले तपाईंले हालसालै चलाउनुभएका एपका आधारमा तपाईंका रुचिका विषयहरू थाहा पाउँछ।"</string>
+    <string name="notificationUI_how_it_works_row_body3" msgid="3692457397642529055">"•  तपाईंले चलाउने एपहरूले तपाईंले एपमा गरेका क्रियाकलापका आधारमा तपाईंलाई मन पर्ने कुराहरू निर्धारण गर्न पनि सक्छन्। उदाहरणका लागि, तपाईं लामो दूरीको दौडमा लगाइने जुत्ता बेच्ने कुनै एपमा जानुभयो भने उक्त एपले तपाईं म्याराथन दौडमा रुचि राख्नुहुन्छ भन्ने कुरा बुझ्न सक्छ।"</string>
+    <string name="notificationUI_how_it_works_row_body4" msgid="8731138074016839243">"तपाईंले यसपछि चलाउने एपले यो जानकारी (तपाईंका विज्ञापनका विषय वा तपाईंले चलाएर एपले सिफारिस गरेका विज्ञापनहरू) माग्न सक्छ।"</string>
+    <string name="notificationUI_how_it_works_row_body5" msgid="4524382869577899661">"Android ले विषयहरू तथा एपले सिफारिस गरेका डेटा नियमित रूपमा स्वतः मेटाउँछ। तपाईं कुनै खास विषयका बारेमा वा कुनै खास एपलाई सिफारिस गर्न दिन चाहनुहुन्न भने उक्त विषय वा एप ब्लक गर्न पनि सक्नुहुन्छ।"</string>
+    <string name="notificationUI_how_it_works_subtitle2" msgid="2203542887026049927">"विज्ञापनको पर्फर्मेन्स कत्तिको राम्रो छ भन्ने कुरा मापन गर्ने तरिका"</string>
+    <string name="notificationUI_how_it_works_row_body6" msgid="5368364880910986588">"तपाईंले चलाउने एपहरूले Android सँग आफ्ना विज्ञापनहरूको पर्फर्मेन्स मापन गर्न सघाउने जानकारी माग्न सक्छन्। Android ले एपहरूलाई तपाईंलाई कुनै विज्ञापन दिनको कुन समयमा विज्ञापन देखाइएको थियो भन्नेलगायतका सीमित प्रकारका जानकारी सङ्कलन गर्ने अनुमति दिन्छ।"</string>
+    <string name="notificationUI_notification_ga_title_eu" msgid="5803977334621918481">"विज्ञापनको गोपनीयतासम्बन्धी नयाँ सुविधाहरू चलाई हेर्नुहोस्"</string>
+    <string name="notificationUI_notification_ga_content_eu" msgid="8430705356085726474">"तपाईं विषयअनुसारका विज्ञापन देखाउने सुविधाका सहायताले आफूलाई कस्ता विज्ञापन देखाइन्छ भन्ने कुरा नियन्त्रण गर्न सक्नुहुन्छ"</string>
+    <string name="notificationUI_notification_ga_cta_eu" msgid="8494461862622985200">"विवरणहरू हेर्नुहोस्"</string>
+    <string name="notificationUI_header_ga_title_eu" msgid="6246782633712559485">"विज्ञापनको गोपनीयतासम्बन्धी नयाँ सुविधाहरू चलाई हेर्नुहोस्"</string>
+    <string name="notificationUI_container1_body_ga_text_eu" msgid="2461669162863900717">"Android ले तपाईंलाई देखाइने विज्ञापनका सम्बन्धमा तपाईंलाई थप नियन्त्रण प्रदान गर्न गोपनीयतासम्बन्धी नयाँ सुविधाहरू ल्याउँदै छ।"</string>
+    <string name="notificationUI_container2_body_ga_text_eu" msgid="1692066129509373924">"\"विज्ञापनका विषयहरू\" अन गरिएका खण्डमा एपहरू तपाईंको पहिचान र तपाईंले गर्ने एपको प्रयोगसम्बन्धी जानकारी गोप्य राख्दै तपाईंलाई सान्दर्भिक विज्ञापन देखाउन सक्छन्। Android ले तपाईंले हालसालै चलाउनुभएका एपका आधारमा तपाईंका रुचिका विषयहरू याद राख्न सक्छ। तपाईंले यसपछि चलाउने कुनै एपले तपाईंलाई देखाइने विज्ञापनहरू पर्सनलाइज गर्ने प्रयोजनका लागि Android सँग सान्दर्भिक विषयसम्बन्धी जानकारी माग्न सक्छ।"</string>
+    <string name="notificationUI_container3_body_ga_text_eu" msgid="5992069735281496875">"तपाईं आफ्नो डिभाइसका सेटिङमा गई विज्ञापनका विषयहरू हेर्न र आफूले एपहरूसँग सेयर नगरियोस् भनी चाहेका विषयहरू ब्लक गर्न सक्नुहुन्छ। Android ले पनि विज्ञापनका विषयहरू नियमित रूपमा स्वतः मेटाउँछ।"</string>
+    <string name="notificationUI_change_any_time_in_privacy_settings_eu" msgid="2908767337419331427">"तपाईं गोपनीयतासम्बन्धी सेटिङमा गई जुनसुकै बेला आफ्नो सहमति फिर्ता लिन सक्नुहुन्छ।"</string>
+    <string name="notificationUI_container1_control_ga_text_eu" msgid="4496835418228234590">"\"विज्ञापनका विषयहरू\" का बारेमा थप जानकारी"</string>
+    <string name="notificationUI_learn_more_from_privacy_policy" msgid="7809111628979410445">"हाम्रो "<a href="https://policies.google.com/privacy">"गोपनीयता नीति"</a>" पढेर Android ले तपाईंको जानकारीको सुरक्षा गर्ने तरिकाका बारेमा थप जान्नुहोस्।"</string>
+    <string name="notificationUI_right_control_button_ga_text_eu" msgid="7164165910760741822">"प्रयोग गरी हेर्नुहोस्"</string>
+    <string name="notificationUI_how_it_works_topics_expanded_text3" msgid="5620813445262745365">"•  कुन कुन जानकारी प्रयोग गरिन्छ"</string>
+    <string name="notificationUI_how_it_works_topics_expanded_text4" msgid="398508225331553559">"तपाईंका विज्ञापनका विषयहरू तपाईंले यो डिभाइसमा हालसालै चलाउनुभएका एप र तपाईं ती एप कुन अन्तरालमा चलाउनुहुन्छ भन्ने कुरामा आधारित हुन्छन्।"</string>
+    <string name="notificationUI_how_it_works_topics_expanded_text5" msgid="5976468008939416198">"•  हामीले यो जानकारी प्रयोग गर्ने तरिका"</string>
+    <string name="notificationUI_how_it_works_topics_expanded_text6" msgid="6318275524155409408">"Android ले तपाईंले विभिन्न एपहरू ब्राउज गर्ने क्रममा तपाईंका रुचिका विषयहरू थाहा पाउँछ। ती विषयका लेबलहरू पहिले नै तोकिएका हुन्छन् र यसअन्तर्गत कला तथा मनोरञ्जन, किनमेल तथा खेलकुदलगायतका कुराहरू समावेश हुन्छन्। तपाईंले यसपछि खोल्ने एपले Chrome सँग तपाईंलाई देखाइने विज्ञापनहरू पर्सनलाइज गर्ने प्रयोजनका लागि तपाईंका केही विषयसम्बन्धी जानकारी (तर एप प्रयोगको हिस्ट्री भने होइन) माग्न सक्छ।"</string>
+    <string name="notificationUI_how_it_works_topics_expanded_text7" msgid="4275126336833782389">"•  तपाईं आफ्नो डेटा कसरी व्यवस्थापन गर्न सक्नुहुन्छ"</string>
+    <string name="notificationUI_how_it_works_topics_expanded_text8" msgid="2797007387412839612">"Android ले विज्ञापनका विषयहरू नियमित रूपमा स्वतः मेटाउँछ। तपाईंले विभिन्न एपहरू चलाइराख्ने क्रममा कुनै विषय यो सूचीमा फेरि देखिन सक्छ। तपाईं Android ले कुनै विषय एपहरूसँग सेयर नगरोस् भन्ने चाहनुहुन्छ भने तपाईं उक्त विषय ब्लक गर्न र गोपनीयतासम्बन्धी सेटिङमा गई जुनसुकै बेला विज्ञापनको विषय अफ गर्न पनि सक्नुहुन्छ।"</string>
+    <string name="notificationUI_you_can_change_in_privacy_settings" msgid="4781410091509838647">"तपाईं गोपनीयतासम्बन्धी सेटिङमा गई यी कुरा परिवर्तन गर्न सक्नुहुन्छ।"</string>
+    <string name="notificationUI_fledge_measurement_title" msgid="1721724915714192994">"विज्ञापनको गोपनीयतासम्बन्धी अन्य सुविधाहरू उपलब्ध भएका छन्"</string>
+    <string name="notificationUI_fledge_measurement_introduction_text1" msgid="2217529852483952185">"Android ले एपहरूले तपाईंलाई पर्सनलाइज गरिएका विज्ञापन देखाउँदा तपाईंका बारेमा थाहा पाउने जानकारी सीमित पार्ने नयाँ सुविधा पनि ल्याएको छ।"</string>
+    <string name="notificationUI_fledge_measurement_introduction_text2" msgid="601600895880486962">"•  \"एपलेले सिफारिस गरेका विज्ञापनहरू\" अन गरिएका खण्डमा एपहरूले तपाईंको ब्राउजिङ हिस्ट्री तथा पहिचान सुरक्षित राखेर तपाईंलाई सान्दर्भिक विज्ञापनहरू देखाउन सक्छन्। तपाईंले प्रयोग गर्ने कुनै एपले तपाईंको गतिविधिका आधारमा अन्य एपमा सम्बन्धित विज्ञापनहरू सिफारिस गर्न सक्छ। तपाईं सेटिङमा गई यी एपहरूको सूची हेर्न सक्नुहुन्छ। साथै, तपाईं जुन जुन एपबाट विज्ञापनका सिफारिस प्राप्त गर्न चाहनुहुन्न तपाईं ती एप ब्लक गर्न पनि सक्नुहुन्छ।"</string>
+    <string name="notificationUI_fledge_measurement_introduction_text3" msgid="956235653060248351">"•  \"विज्ञापनको पर्फर्मेन्स मापन गर्ने सुविधा\" अन गरिएका खण्डमा एपहरूलाई उनीहरूको विज्ञापनको पर्फर्मेन्स मापन गर्न दिने प्रयोजनका लागि एपहरूसँग तपाईंलाई कुनै विज्ञापन दिनको कुन बेला देखाइएको थियो भन्नेलगायतका सीमित प्रकारका जानकारी सेयर गरिन्छ।"</string>
+    <string name="notificationUI_fledge_measurement_control_ga_text_eu" msgid="2346851728118443500">"\"एपले सिफारिस गरेका विज्ञापनहरू\" र \"विज्ञापनको पर्फर्मेन्स मापन गर्ने सुविधा\" का बारेमा थप जानकारी"</string>
+    <string name="notificationUI_how_it_works_fledge_measurement_expanded_text0" msgid="2456923104551938349">"एपले सिफारिस गरेका विज्ञापनहरू"</string>
+    <string name="notificationUI_how_it_works_fledge_measurement_expanded_text1" msgid="5606895535548790900">"•  के कस्ता जानकारी प्रयोग गरिन्छ"</string>
+    <string name="notificationUI_how_it_works_fledge_measurement_expanded_text2" msgid="6309052819494439288">"तपाईंले यो डिभाइसमा प्रयोग गर्ने कुनै एपमा गरेको गतिविधि।"</string>
+    <string name="notificationUI_how_it_works_fledge_measurement_expanded_text3" msgid="5347980571056638783">"• एपहरूले यो जानकारी कसरी प्रयोग गर्छन्"</string>
+    <string name="notificationUI_how_it_works_fledge_measurement_expanded_text4" msgid="4738335469671465639">"एपहरूले Android मा तपाईंलाई मन पर्ने कुरासम्बन्धी जानकारी भण्डारण गर्न पनि सक्छन्। उदाहरणका लागि, तपाईंले म्याराथन दौडको प्रशिक्षणसम्बन्धी कुनै एप चलाउनुभयो भने उक्त एपले तपाईं म्याराथन दौडमा लगाइने जुत्तामा रुचि राख्नुहुन्छ भन्ने कुरा बुझ्न सक्छ। तपाईंले पछि अर्कै एप चलाउनुभयो भने उक्त एपले तपाईंलाई पहिलो एपले सिफारिस गरेको दौडिँदा लगाइने जुत्ताको विज्ञापन देखाउन सक्छ।"</string>
+    <string name="notificationUI_how_it_works_fledge_measurement_expanded_text5" msgid="8737925570089314631">"•  तपाईं आफ्नो जानकारी कसरी व्यवस्थापन गर्न सक्नुहुन्छ"</string>
+    <string name="notificationUI_how_it_works_fledge_measurement_expanded_text6" msgid="495908587748380196">"Android ले एपले सिफारिस गरेका डेटा नियमित रूपमा स्वतः मेटाउँछ। तपाईंले कुनै एप फेरि चलाउनुभयो भने यो सूचीमा उक्त एप फेरि देखिन सक्छ।"</string>
+    <string name="notificationUI_how_it_works_fledge_measurement_expanded_text7" msgid="8995912218837619600">"तपाईं जुनसुकै बेला गोपनीयतासम्बन्धी सेटिङमा गई कुनै एपले तपाईंलाई विज्ञापन सिफारिस गर्न नपाउने गरी उक्त एप ब्लक गर्न, विज्ञापनको सिफारिससम्बन्धी सबै डेटा रिसेट गर्न वा \"एपले सिफारिस गरेका विज्ञापनहरू\" अफ गर्न पनि सक्नुहुन्छ।"</string>
+    <string name="notificationUI_how_it_works_fledge_measurement_expanded_text9" msgid="5709134827192739362">"तपाईंले चलाउने एपहरूले आफ्ना विज्ञापनको पर्फर्मेन्स मापन गर्न Android सँग जानकारी माग्न सक्छन्। Android ले एपहरूलाई एक अर्काका बिचमा सीमित जानकारी मात्र सेयर गर्न दिएर तपाईंको गोपनीयता सुरक्षित राख्छ।"</string>
+    <string name="notificationUI_notification_ga_title_eu_v2" msgid="9132669086237883391">"विज्ञापनको गोपनीयतासम्बन्धी नयाँ सुविधाहरू उपलब्ध भएका छन्"</string>
+    <string name="notificationUI_notification_ga_content_eu_v2" msgid="9205285241542339861">"आफ्नो पहिचान गोप्य राख्दै आफूलाई देखाइने विज्ञापनका सम्बन्धमा थप नियन्त्रण प्राप्त गर्नुहोस्"</string>
+    <string name="notificationUI_fledge_measurement_title_v2" msgid="1097778529908285549">"विज्ञापनको गोपनीयतासम्बन्धी नयाँ सुविधाहरू उपलब्ध भएका छन्"</string>
+    <string name="notificationUI_fledge_measurement_introduction_text1_v2" msgid="4019531984422364790">"Android ले एपहरूले तपाईंलाई पर्सनलाइज गरिएका विज्ञापन देखाउँदा तपाईंका बारेमा थाहा पाउने जानकारी सीमित पार्ने नयाँ सुविधाको सुरुवात गर्दै छ।"</string>
+    <string name="notificationUI_fledge_measurement_introduction_text2_v2" msgid="7324869061552803848">"•  तपाईंले एपहरूलाई विज्ञापन सिफारिस गर्ने अनुमति दिनुभयो भने गोपनीयतासम्बन्धी नयाँ सुविधाहरूले तपाईंको एप प्रयोग गर्ने तरिका वा तपाईंको पहिचानसम्बन्धी जानकारी गोप्य राख्न मद्दत गर्छन् र एपहरूले तपाईंलाई सान्दर्भिक विज्ञापन देखाउन सक्छन्। तपाईंले प्रयोग गर्ने कुनै एपले तपाईंको गतिविधिका आधारमा अन्य एपमा सम्बन्धित विज्ञापनहरू सिफारिस गर्न सक्छ। तपाईं गोपनीयतासम्बन्धी सेटिङमा गई विज्ञापन सिफारिस गर्ने अनुमति दिइएका एपको सूची हेर्न र ती एपलाई विज्ञापन सिफारिस गर्न रोक लगाउन सक्नुहुन्छ।"</string>
+    <string name="notificationUI_fledge_measurement_introduction_text3_v2" msgid="7061185974787039681">"•  \"विज्ञापनको पर्फर्मेन्स मापन गर्ने सुविधा\" अन गरिएका खण्डमा एपहरूलाई उनीहरूको विज्ञापनको पर्फर्मेन्सका बारेमा बुझ्न सघाउने प्रयोजनका लागि एपहरूसँग तपाईंलाई कुनै विज्ञापन दिनको कुन बेला देखाइएको थियो भन्नेलगायतका सीमित प्रकारका जानकारी सेयर गरिन्छ।"</string>
+    <string name="notificationUI_how_it_works_fledge_measurement_expanded_text2_v2" msgid="5467298277353569728">"तपाईंले यो डिभाइसमा भएको एपमा गर्ने गतिविधिका आधारमा तपाईंलाई विज्ञापन सिफारिस गरिन सक्छ।"</string>
+    <string name="notificationUI_header_ga_title_eu_v2" msgid="8442776546238998877">"विज्ञापनको गोपनीयतासम्बन्धी अर्को सुविधा अन गर्नुहोस्"</string>
+    <string name="notificationUI_container1_body_ga_text_eu_v2" msgid="1119632112904754361">"तपाईंलाई देखाइने विज्ञापनका सम्बन्धमा तपाईंलाई थप नियन्त्रण प्रदान गर्न Android ले गोपनीयतासम्बन्धी नयाँ सुविधा पनि ल्याएको छ।"</string>
+    <string name="notificationUI_container2_body_ga_text_eu_v2" msgid="7264946073865844642">"विज्ञापनका विषयहरूका सहायताले एपहरू तपाईंको पहिचान र तपाईंले गर्ने एपको प्रयोगसम्बन्धी जानकारी गोप्य राख्दै तपाईंलाई सान्दर्भिक विज्ञापन देखाउन सक्छन्। Android ले तपाईंले हालसालै चलाउनुभएका एपका आधारमा तपाईंका रुचिका विषयहरू याद राख्न सक्छ। पछि तपाईंलाई अझ सान्दर्भिक विज्ञापनहरू देखाउने प्रयोजनका लागि तपाईंले चलाउने कुनै एपले Android सँग सान्दर्भिक विषयसम्बन्धी जानकारी माग्न सक्छ।"</string>
+    <string name="notificationUI_container3_body_ga_text_eu_v2" msgid="3204499878554843655">"तपाईं आफ्नो गोपनीयतासम्बन्धी सेटिङमा गई विज्ञापनका विषयहरू हेर्न र आफूले एपहरूसँग सेयर नगरियोस् भन्ने चाहेका विषयहरू ब्लक गर्न सक्नुहुन्छ। Android ले पनि विज्ञापनका विषयहरू नियमित रूपमा स्वतः मेटाउँछ।"</string>
+    <string name="notificationUI_right_control_button_ga_text_eu_v2" msgid="7227289411885047121">"यो सुविधा अन गर्नुहोस्"</string>
+    <string name="notificationUI_notification_ga_title_v2" msgid="7429979629916798545">"विज्ञापनको गोपनीयतासम्बन्धी नयाँ सुविधाहरू उपलब्ध भएका छन्"</string>
+    <string name="notificationUI_notification_ga_content_v2" msgid="4673081782304081905">"तपाईं अब आफ्नो पहिचान गोप्य राख्दै आफूलाई देखाइने विज्ञापनका सम्बन्धमा थप नियन्त्रण प्राप्त गर्न सक्नुहुन्छ"</string>
+    <string name="notificationUI_header_ga_title_v2" msgid="2079990149331373941">"विज्ञापनको गोपनीयतासम्बन्धी नयाँ सुविधाहरू उपलब्ध भएका छन्"</string>
+    <string name="notificationUI_container1_ga_introduction_v2" msgid="3820258766801905248">"तपाईंलाई देखाइने विज्ञापनका सम्बन्धमा तपाईंलाई थप नियन्त्रण प्रदान गर्न Android ले गोपनीयतासम्बन्धी नयाँ सुविधाहरू ल्याएको छ।"</string>
+    <string name="notificationUI_next_button_text" msgid="5564270455474313663">"अर्को"</string>
+    <string name="settingsUI_main_view_title" msgid="1663691082473230496">"प्राइभेसी स्यान्डबक्स"</string>
+    <string name="settingsUI_main_view_subtitle" msgid="2059496555507319371">"Android को विज्ञापनसम्बन्धी गोपनीयता सुविधाको बिटा संस्करणमा सहभागी हुनुहोस्"</string>
+    <string name="settingsUI_privacy_sandbox_beta_switch_title" msgid="5264782269528129670">"प्राइभेसी स्यान्डबक्स"</string>
+    <string name="settingsUI_topics_title" msgid="5996189869721397937">"Android ले अनुमान गरेका रुचिहरू"</string>
+    <string name="settingsUI_apps_title" msgid="2772289096915264175">"रुचिका बारेमा अनुमान गर्ने एपहरू"</string>
+    <string name="settingsUI_main_view_info_text8" msgid="2262800588014737545">"विज्ञापनको पर्फर्मेन्स मापन"</string>
+    <string name="settingsUI_main_view_info_text9" msgid="5431131706102562540">"एपहरूले प्राइभेसी स्यान्डबक्स प्रयोग गरी आफ्ना विज्ञापन कत्तिको प्रभावकारी छन् भन्ने कुरा मापन गर्न सक्छन्। यसका निम्ति विज्ञापनदाताहरूले तपाईंले तिनका विज्ञापन तथा एपहरूमा गर्ने अन्तर्क्रियासम्बन्धी डेटा अस्थायी रूपमा Android मा सेभ गर्न सक्छन्। उनीहरू सीमित परिमाणका डेटा मात्र सेभ गर्न पाउँछन् र उक्त डेटा नियमित रूपमा मेटाइन्छ।\n\nतपाईं प्राइभेसी स्यान्डबक्स अफ गरेर यो डेटा जुनसुकै बेला मेटाउन सक्नुहुन्छ।"</string>
+    <string name="settingsUI_topics_view_subtitle" msgid="6608135144119617292">"Android ले तपाईंले प्रयोग गर्ने एपहरूका आधारमा नियमित रूपमा तपाईंका शीर्ष रुचिहरूको अनुमान गर्छ। एपहरूले तपाईंलाई अझ सान्दर्भिक विज्ञापनहरू देखाउनका निम्ति Android सँग ती रुचि प्रयोग गर्ने अनुमति माग्न सक्छन्।\n\nतपाईंले कुनै रुचि ब्लक गर्नुभयो भने तपाईंले सो रुचि अनब्लक नगरेसम्म त्यसलाई फेरि यो सूचीमा समावेश गरिने छैन। तपाईं त्यसपछि पनि उक्त रुचिसँग सम्बन्धित केही विज्ञापनहरू देख्न सक्नुहुन्छ।"</string>
+    <string name="settingsUI_block_topic_title" msgid="1883542291264768402">"ब्लक गर्नुहोस्"</string>
+    <string name="settingsUI_unblock_topic_title" msgid="1710283575567727667">"अनब्लक गर्नुहोस्"</string>
+    <string name="settingsUI_blocked_topics_title" msgid="5030422883546261820">"तपाईंले ब्लक गर्नुभएका रुचिहरू"</string>
+    <string name="settingsUI_reset_topics_title" msgid="6917960006583871987">"सबै रुचिहरू रिसेट गर्नुहोस्"</string>
+    <string name="settingsUI_topics_view_no_topics_text" msgid="6954747579303498382">"यस बखत देखाउनका लागि कुनै पनि रुचि छैन।"</string>
+    <string name="settingsUI_topics_view_no_topics_ga_text" msgid="8043163159679359485">"यस बखत देखाउनका लागि कुनै पनि विषय छैन।\n"<a href="https://support.google.com/android?p=ad_privacy">"विज्ञापनको विषय"</a>"का बारेमा थप जान्नुहोस्"</string>
+    <string name="settingsUI_topics_view_info_text1" msgid="2477020249748216309">"प्राइभेसी स्यान्डबक्स"</string>
+    <string name="settingsUI_topics_view_info_text2" msgid="6223353589295876851">"Android को विज्ञापनको गोपनीयतासम्बन्धी सुविधाको बिटा संस्करणले एपहरूले तपाईंलाई मन पर्न सक्ने विज्ञापनहरू देखाउनका निम्ति प्रयोग गर्न सक्ने नयाँ सुविधाहरू उपलब्ध गराउँछ। यी प्रविधिले डिभाइस आइडेन्टिफायर प्रयोग गर्दैनन्।\n\nAndroid ले तपाईंको रुचि हुन सक्ने विज्ञापनहरूका बारेमा अनुमान लगाउन र ती रुचिहरू अस्थायी रूपमा तपाईंको डिभाइसमा सेभ गर्न सक्छ। यसले गर्दा एपहरूले अन्य विकासकर्ताका वेबसाइट तथा एपहरूमा तपाईंले गर्ने क्रियाकलाप ट्र्याक नगरिकनै तपाईंलाई सान्दर्भिक विज्ञापनहरू देखाउन सक्छन्।"</string>
+    <string name="settingsUI_topics_view_no_blocked_topics_text" msgid="6553014185055718781">"तपाईंले कुनै पनि रुचि ब्लक गर्नुभएको छैन"</string>
+    <string name="settingsUI_no_blocked_topics_ga_text" msgid="377459829879121256">"कुनै पनि विषय ब्लक गरिएको छैन"</string>
+    <string name="settingsUI_view_blocked_topics_title" msgid="3705333677440361392">"ब्लक गरिएका विषयहरू हेर्नुहोस्"</string>
+    <string name="settingsUI_topics_are_reset" msgid="7539323750312329931">"रुचिका विषयहरू रिसेट गरिएका छन्"</string>
+    <string name="settingsUI_topics_are_reset_ga" msgid="5250296990870048195">"विषयहरू रिसेट गरिए"</string>
+    <string name="settingsUI_apps_view_subtitle" msgid="8193343057416677400">"एपहरूले तपाईंका रुचिका बारेमा अनुमान लगाउन र ती रुचिहरू अस्थायी रूपमा Android मा सेभ गर्न सक्छन्। पछि अर्कै एपले ती रुचिका आधारमा तपाईंलाई कुनै विज्ञापन देखाउन सक्छ।\n\nतपाईंले कुनै एप ब्लक गर्नुभयो भने उक्त एपले थप रुचिहरू हाल्ने छैन। तपाईंले सो एप अनब्लक नगरेसम्म त्यसलाई फेरि एपहरूको यो सूचीमा समावेश गरिने छैन। उक्त एपले अनुमान गरिसकेका रुचिहरू मेटाइने छन् तर तपाईं अझै पनि ती रूचिसँग सम्बन्धित केही विज्ञापनहरू देख्न सक्नुहुन्छ।"</string>
+    <string name="settingsUI_blocked_apps_title" msgid="1260257485713408637">"तपाईंले ब्लक गर्नुभएका एपहरू"</string>
+    <string name="settingsUI_view_blocked_apps_title" msgid="379556513199380600">"ब्लक गरिएका एपहरू हेर्नुहोस्"</string>
+    <string name="settingsUI_reset_apps_title" msgid="6221704974528131179">"एपहरूले अनुमान गरेका रुचि रिसेट गर्नुहोस्"</string>
+    <string name="settingsUI_apps_view_no_apps_text" msgid="7460005016322426137">"हाल कुनै पनि एपले तपाईंका रुचिहरू सिर्जना गरिरहेका छैनन्"</string>
+    <string name="settingsUI_apps_view_no_apps_ga_text" msgid="742044210764257860">"यस बखत देखाउनका लागि कुनै पनि एप छैन। \n"<a href="https://support.google.com/android?p=ad_privacy">"एपले सिफारिस गरेका विज्ञापनहरू"</a>"का बारेमा थप जान्नुहोस्"</string>
+    <string name="settingsUI_apps_view_info_text1" msgid="7835635425477842692">"प्राइभेसी स्यान्डबक्स"</string>
+    <string name="settingsUI_apps_view_info_text2" msgid="308547275474796552">"Android को विज्ञापनको गोपनीयतासम्बन्धी सुविधाको बिटा संस्करणले एपहरूले तपाईंलाई मन पर्न सक्ने विज्ञापनहरू देखाउनका निम्ति प्रयोग गर्न सक्ने नयाँ सुविधाहरू उपलब्ध गराउँछ। यी प्रविधिले डिभाइस आइडेन्टिफायर प्रयोग गर्दैनन्।\n\nएपहरूले तपाईंको रुचि हुन सक्ने विज्ञापनहरूका बारेमा अनुमान लगाउन र ती रुचिहरू अस्थायी रूपमा तपाईंको डिभाइसमा सेभ गर्न सक्छन्। यसले गर्दा एपहरूले अन्य विकासकर्ताका वेबसाइट तथा एपहरूमा तपाईंले गर्ने क्रियाकलाप ट्र्याक नगरिकनै तपाईंलाई सान्दर्भिक विज्ञापनहरू देखाउन सक्छन्।"</string>
+    <string name="settingsUI_apps_view_no_blocked_apps_text" msgid="3953560911214151396">"तपाईंले कुनै पनि एप ब्लक गर्नुभएको छैन"</string>
+    <string name="settingsUI_no_blocked_apps_ga_text" msgid="7488680173653861943">"कुनै पनि एप ब्लक गरिएको छैन"</string>
+    <string name="settingsUI_measurement_switch_title" msgid="6623116680555954932">"विज्ञापनको पर्फर्मेन्स मापन गर्न दिइयोस्"</string>
+    <string name="settingsUI_measurement_view_intro_text" msgid="3608942051176719850">"एप तथा विज्ञापनदाताहरूले आफ्ना विज्ञापनको पर्फर्मेन्स मापन गर्न Android सँग जानकारी माग्न सक्छन्।\n\nतपाईंको डिभाइसबाट विज्ञापनको पर्फर्मेन्सको मापनसम्बन्धी डेटा नियमित रूपमा मेटाइन्छ।"</string>
+    <string name="settingsUI_measurement_view_reset_title" msgid="3063374834649428050">"विज्ञापनको पर्फर्मेन्ससम्बन्धी डेटा रिसेट गर्नुहोस्"</string>
+    <string name="settingsUI_measurement_view_footer_text" msgid="5978750159738729308">"Android ले एपहरूलाई एक अर्काका बिचमा सीमित जानकारी मात्र सेयर गर्न दिएर तपाईंको गोपनीयता सुरक्षित राख्छ। तपाईंको पहिचानको सुरक्षार्थ रिपोर्टहरू ढिला पठाइन्छन्।\n\nतपाईंको ब्राउजरमा यस्तै सेटिङ हुन सक्छ। Android र तपाईंको ब्राउजर दुवैमा विज्ञापनको पर्फर्मेन्स मापन गर्ने सुविधा अन गरिएको छ भने कुनै कम्पनीले तपाईंले प्रयोग गर्ने एप र तपाईंले खोल्ने साइटमा देखाइने विज्ञापनको प्रभावकारिता मापन गर्न सक्षम हुन सक्छ। तपाईंको ब्राउजिङ हिस्ट्री तपाईंको डिभाइसमा गोप्य राखिन्छ। \n\n"<a href="https://policies.google.com/privacy">"गोपनीयतासम्बन्धी हाम्रो नीति"</a>" पढेर Android ले तपाईंको जानकारीको सुरक्षा गर्ने तरिकाका बारेमा थप जान्नुहोस्।"</string>
+    <string name="settingsUI_measurement_are_reset" msgid="4375330550418573499">"विज्ञापनको पर्फर्मेन्स मापनसम्बन्धी डेटा रिसेट गरियो"</string>
+    <string name="settingsUI_dialog_negative_text" msgid="3014088254631375852">"रद्द गर्नुहोस्"</string>
+    <string name="settingsUI_dialog_opt_out_title" msgid="1862069591629418291">"प्राइभेसी स्यान्डबक्स अफ गर्ने हो?"</string>
+    <string name="settingsUI_dialog_opt_out_message" msgid="5696012172835241848">"तपाईंलाई पछि प्राइभेसी स्यान्डबक्स अन गर्न वा Android को विज्ञापनको गोपनीयतासम्बन्धी सुविधाको बिटा संस्करणका बारेमा थप जान्न मन लाग्यो भने तपाईं गोपनीयतासम्बन्धी सेटिङमा जान सक्नुहुन्छ"</string>
+    <string name="settingsUI_dialog_opt_out_positive_text" msgid="5344259263448028614">"अफ गर्नुहोस्"</string>
+    <string name="settingsUI_dialog_block_topic_title" msgid="5744004384480280782">"<xliff:g id="TOPIC">%1$s</xliff:g> ब्लक गर्ने हो?"</string>
+    <string name="settingsUI_dialog_block_topic_message" msgid="2581824495438333677">"यो विषय ब्लक गरिने छ र तपाईंले यसलाई फेरि आफ्नो सूचीमा नहालेसम्म यसलाई सो सूचीमा हालिने छैन। तपाईं अझै पनि ती रूचिसँग सम्बन्धित केही विज्ञापनहरू देख्न सक्नुहुन्छ।"</string>
+    <string name="settingsUI_dialog_block_topic_positive_text" msgid="2626152417590300510">"ब्लक गर्नुहोस्"</string>
+    <string name="settingsUI_dialog_unblock_topic_title" msgid="7361000923920947234">"<xliff:g id="TOPIC">%1$s</xliff:g> अनब्लक गरिएको छ"</string>
+    <string name="settingsUI_dialog_unblock_topic_message" msgid="1090743551997420666">"Android ले तपाईंको सूचीमा यो विषय फेरि हाल्न सक्छ तर तपाईंको सूचीमा सो विषय तुरुन्तै नदेखिन सक्छ"</string>
+    <string name="settingsUI_dialog_unblock_topic_positive_text" msgid="2192452325573789737">"ठिक छ"</string>
+    <string name="settingsUI_dialog_reset_topic_title" msgid="8025836207966712435">"विज्ञापनका सबै विषयहरू रिसेट गर्ने हो?"</string>
+    <string name="settingsUI_dialog_reset_topic_message" msgid="4243744527757134000">"तपाईंको सूचीमा भएका सबै विषय हटाइने छन् र नयाँ विषयहरू हालिने छन्। तर तपाईं अझै पनि आफूले हटाएका विषयसँग सम्बन्धित केही विज्ञापन देख्न सक्नुहुन्छ।"</string>
+    <string name="settingsUI_dialog_reset_topic_positive_text" msgid="8345697359799280761">"रिसेट गर्नुहोस्"</string>
+    <string name="settingsUI_dialog_block_app_title" msgid="421160714549264414">"<xliff:g id="APP">%1$s</xliff:g> ब्लक गर्ने हो?"</string>
+    <string name="settingsUI_dialog_block_app_message" msgid="758788973278770119">"तपाईंले यो एप अनब्लक नगरेसम्म यो एपले विज्ञापनहरू सिफारिस गर्ने छैन र यसलाई तपाईंको सूचीमा फेरि हालिने छैन। तपाईं त्यसपछि पनि उक्त रुचिसँग सम्बन्धित केही विज्ञापनहरू देख्न सक्नुहुन्छ।"</string>
+    <string name="settingsUI_dialog_unblock_app_title" msgid="4360730780049298286">"<xliff:g id="APP">%1$s</xliff:g> अनब्लक गरिएको छ"</string>
+    <string name="settingsUI_dialog_unblock_app_message" msgid="5758218424845642060">"यो एपले फेरि तपाईंलाई विज्ञापनहरू सिफारिस गर्न सक्छ तर ती विज्ञापन तपाईंको सूचीमा तुरुन्तै नदेखिन सक्छ। तपाईं केही बेरपछि मात्र त्यससँग सम्बन्धित विज्ञापनहरू देख्न सक्नुहुन्छ।"</string>
+    <string name="settingsUI_dialog_reset_app_title" msgid="5177572712117150557">"एपले सिफारिस गरेका विज्ञापन रिसेट गर्ने हो?"</string>
+    <string name="settingsUI_dialog_reset_app_message" msgid="7845329616145691006">"तपाईंको सूचीमा रहेका एपहरूले सिफारिस गरेका विज्ञापनसम्बन्धी डेटा मेटाइने छन् र ती एपले अबदेखि नयाँ विज्ञापनहरू सिफारिस गर्ने छन्। तपाईं अझै पनि ती रूचिसँग सम्बन्धित केही विज्ञापनहरू देख्न सक्नुहुन्छ।"</string>
+    <string name="settingsUI_apps_are_reset" msgid="1814400631145418530">"एपसम्बन्धी डेटा रिसेट गरियो"</string>
+    <string name="settingsUI_dialog_topics_opt_in_title" msgid="8121927422479701361">"\"विज्ञापनका विषयहरू\" नामक सुविधा अन छ"</string>
+    <string name="settingsUI_dialog_topics_opt_in_message" msgid="906156509464496182">"Android ले तपाईंका रुचिका विषय याद राख्न थाल्ने छ तर तपाईंको पहिलो विषय देखिन केही समय लाग्न सक्छ।"</string>
+    <string name="settingsUI_dialog_topics_opt_out_title" msgid="729119757000459089">"\"विज्ञापनका विषयहरू\" अफ गर्ने हो?"</string>
+    <string name="settingsUI_dialog_topics_opt_out_message" msgid="1536431481297878931">"विषयहरूको यो सूची मेटाइने छ। Android ले अब तपाईंका रुचिका विषय याद राख्ने छैन तर तपाईंले अझै पनि सान्दर्भिक विज्ञापनहरू देख्ने सम्भावना हुन्छ।"</string>
+    <string name="settingsUI_dialog_apps_opt_in_title" msgid="1802639238531107941">"एपले सिफारिस गरेका विज्ञापनहरू नामक सुविधा अन छ"</string>
+    <string name="settingsUI_dialog_apps_opt_in_message" msgid="6335861029594000364">"एपहरूले विज्ञापन सिफारिस गर्न थाल्न सक्छन्। एपहरूले विज्ञापन सिफारिस गर्न थालेपछि तपाईं ती एपको सूची देख्नुहुने छ।"</string>
+    <string name="settingsUI_dialog_apps_opt_out_title" msgid="2152898453001885432">"एपले सिफारिस गरेका विज्ञापनहरू नामक सुविधा अफ गर्ने हो?"</string>
+    <string name="settingsUI_dialog_apps_opt_out_message" msgid="6894065908128443334">"एपहरूले सिफारिस गरेका विज्ञापनसम्बन्धी सबै डेटा मेटाइने छ। एपहरूले अब विज्ञापन सिफारिस गर्न सक्ने छैनन् तर तपाईंले अझै पनि सान्दर्भिक विज्ञापनहरू देख्ने सम्भावना हुन्छ।"</string>
+    <string name="settingsUI_dialog_measurement_opt_in_title" msgid="313317715284771681">"विज्ञापनको पर्फर्मेन्स मापन गर्ने सुविधा अन छ"</string>
+    <string name="settingsUI_dialog_measurement_opt_in_message" msgid="1122570790810645916">"Android ले एपहरूसँग उनीहरूको विज्ञापनको पर्फर्मेन्स मापन गर्न सघाउने ज्यादै सीमित जानकारी मात्र सेयर गर्न सक्छ।"</string>
+    <string name="settingsUI_dialog_measurement_opt_out_title" msgid="1629867723206716370">"विज्ञापनको पर्फर्मेन्स मापन गर्ने सुविधा अफ गर्ने हो?"</string>
+    <string name="settingsUI_dialog_measurement_opt_out_message" msgid="1050338738668085641">"विज्ञापनको मापनसम्बन्धी सबै विचाराधीन रिपोर्टहरू मेटाइने छ र कुनै पनि नयाँ रिपोर्ट बनाइने छैन वा सेयर गरिने छैन।"</string>
+    <string name="settingsUI_main_view_ga_title" msgid="4149820452019697214">"विज्ञापनको गोपनीयता"</string>
+    <string name="settingsUI_topics_ga_title" msgid="7324482132761824214">"विज्ञापनका विषयहरू"</string>
+    <string name="settingsUI_apps_ga_title" msgid="1527820834800364372">"एपले सिफारिस गरेका विज्ञापनहरू"</string>
+    <string name="settingsUI_main_view_ad_topics_info" msgid="2643088833140772417">"Android ले तपाईंले यो डिभाइसमा हालसालै चलाउनुभएका एप र तपाईं ती एप कति अन्तरालमा चलाउनुहुन्छ भन्ने कुराका आधारमा तपाईंका रुचिका विषयहरू थाहा पाउँछ।"</string>
+    <string name="settingsUI_main_view_apps_info" msgid="1668244327840008046">"तपाईंले चलाउने एपहरूले तपाईंले एपमा गरेका क्रियाकलापका आधारमा तपाईंलाई मन पर्ने कुराहरू निर्धारण गर्न पनि सक्छन्।"</string>
+    <string name="settingsU_main_view_measurement_info" msgid="7950104699961821635">"तपाईंले चलाउने एपहरूले Android सँग उनीहरूका विज्ञापनहरूको पर्फर्मेन्स मापन गर्न सघाउने जानकारी माग्न सक्छन्। Android ले एपहरूलाई सीमित प्रकारका डेटा सङ्कलन गर्ने अनुमति दिन्छ।"</string>
+    <string name="settingsU_main_view_learn_more" msgid="2129694798398023916"><a href="https://support.google.com/android?p=ad_privacy">"Android मा विज्ञापनको गोपनीयता"</a>"का बारेमा थप जान्नुहोस्"</string>
+    <string name="settingsUI_topics_subtitle" msgid="6545976434367750110">"अन / <xliff:g id="TOPICS_COUNT">%1$d</xliff:g> वटा विषय"</string>
+    <string name="settingsUI_topics_subtitle_plural" msgid="4809219115021801972">"{count,plural, =1{अन / # विषय}other{अन / # वटा विषय}}"</string>
+    <string name="settingsUI_apps_subtitle" msgid="387595280958995973">"अन / <xliff:g id="APPS_COUNT">%1$d</xliff:g> वटा एप"</string>
+    <string name="settingsUI_apps_subtitle_plural" msgid="3989880089023565457">"{count,plural, =1{अन / # एप}other{अन / # वटा एप}}"</string>
+    <string name="settingsUI_subtitle_consent_on" msgid="7522464537194619022">"अन"</string>
+    <string name="settingsUI_subtitle_consent_off" msgid="1604274030685784887">"अफ"</string>
+    <string name="settingsUI_topics_view_ga_subtitle" msgid="3672784134413586246">"रुचिका विषयहरू तपाईंले हालसालै प्रयोग गर्नुभएका एपमा आधारित हुन्छन् र एपहरूले तपाईंलाई पर्सनलाइज गरिएका विज्ञापनहरू देखाउने प्रयोजनका लागि ती विषय प्रयोग गर्छन्।\n\nतपाईं आफूले एपहरूसँग सेयर गर्न नचाहेका विषयहरू ब्लक गर्न सक्नुहुन्छ। Android ले पनि विषयहरू नियमित रूपमा स्वतः मेटाउँछ।"</string>
+    <string name="settingsUI_topics_switch_title" msgid="5856255848598189791">"चयन गरिएका विषयसम्बन्धी विज्ञापन देखाउन दिइयोस्"</string>
+    <string name="settingsUI_blocked_topics_ga_title" msgid="7163366621282449273">"तपाईंले ब्लक गर्नुभएका विज्ञापनका विषयहरू"</string>
+    <string name="settingsUI_reset_topics_ga_title" msgid="5365554894399951300">"विज्ञापनका सबै विषयहरू रिसेट गर्नुहोस्"</string>
+    <string name="settingsU_topics_view_footer" msgid="4769146330248953561">"Android ले तपाईंले विगत केही हप्तामा चलाउनुभएका एपका आधारमा तपाईंका रुचिका विषयहरू थाहा पाउँछ।\n\nतपाईंले यसपछि चलाउने कुनै एपले तपाईंलाई देखाइने विज्ञापनहरू पर्सनलाइज गर्ने प्रयोजनका लागि Android सँग तपाईंका विषयसम्बन्धी जानकारी माग्न सक्छ। Android ले तपाईंको पहिचान र तपाईंले गर्ने एपको प्रयोगसम्बन्धी जानकारी गोप्य राख्दै बढीमा ३ वटा विषय सेयर गर्छ।\n\nAndroid ले विषयहरू नियमित रूपमा स्वतः मेटाउँछ। तपाईंले विभिन्न एपहरू चलाइराख्ने क्रममा कुनै विषय यो सूचीमा फेरि देखिन सक्छ। अथवा तपाईं Android ले कुनै विषय एपहरूसँग सेयर नगरोस् भन्ने चाहनुहुन्छ भने तपाईं उक्त विषय ब्लक गर्न सक्नुहुन्छ।\n\nतपाईंका एपहरूमा तपाईंलाई देखाइने कुनै विज्ञापन पर्सनलाइज गरिएको हुन सक्छ। विज्ञापन पर्सनलाइज गरिन्छ कि गरिँदैन भन्ने कुरा यो सेटिङ, एपले सिफारिस गरेका विज्ञापनसम्बन्धी सेटिङ, तपाईंको विज्ञापन ID सम्बन्धी सेटिङ र तपाईंले चलाइरहनुभएको एपले विज्ञापन पर्सनलाइज गर्छ कि गर्दैन भन्ने कुरामा भर पर्छ।"</string>
+    <string name="settingsUI_apps_switch_title" msgid="1308209012769248890">"एपले सिफारिस गरेका विज्ञापन देखाउन दिइयोस्"</string>
+    <string name="settingsUI_apps_view_ga_subtitle" msgid="1911743837387384160">"तपाईंले चलाउने एपहरूले तपाईंलाई मन पर्ने कुराहरू निर्धारण गर्न र अन्य एपहरूलाई तपाईंको रुचिअनुसारका विज्ञापन सिफारिस गर्न सक्छन्।\n\nतपाईं एपहरू ब्लक गरी तिनलाई विज्ञापन सिफारिस गर्न नदिन सक्नुहुन्छ। Android ले पनि एपले सिफारिस गरेका डेटा नियमित रूपमा स्वतः मेटाउँछ।"</string>
+    <string name="settingsUI_blocked_apps_ga_title" msgid="1896327995101895088">"तपाईंले ब्लक गर्नुभएका एपहरू"</string>
+    <string name="settingsUI_reset_apps_ga_title" msgid="371969808353100852">"एपले सिफारिस गरेका डेटा रिसेट गर्नुहोस्"</string>
+    <string name="settingsUI_apps_view_footer" msgid="6428897482766556515">"तपाईंले चलाउने एपहरूले तपाईंलाई उपलब्ध गराइने सुविधा पर्सनलाइज गर्ने प्रयोजनका लागि तपाईंको रुचि भएका कुराहरू याद राख्नु सामान्य कुरा हो। एपहरूले Android मा तपाईंका विषयसम्बन्धी जानकारी भण्डारण गर्न पनि सक्छन्।\n\nउदाहरणका लागि, तपाईंले म्याराथन दौडको प्रशिक्षणसम्बन्धी कुनै एप चलाउनुभयो भने उक्त एपले तपाईं म्याराथन दौडमा लगाइने जुत्तामा रुचि राख्नुहुन्छ भन्ने कुरा बुझ्न सक्छ। तपाईंले पछि अर्कै एप चलाउनुभयो भने उक्त एपले तपाईंलाई पहिलो एपले सिफारिस गरेको दौडिँदा लगाइने जुत्ताको विज्ञापन देखाउन सक्छ।\n\nAndroid ले एपले सिफारिस गरेका डेटा नियमित रूपमा स्वतः मेटाउँछ। तपाईंले कुनै एप फेरि चलाउनुभयो भने यो सूचीमा उक्त एप फेरि देखिन सक्छ। वा तपाईं कुनै एपले तपाईंलाई विज्ञापन सिफारिस गर्न नपाउने गरी उक्त एप ब्लक गर्न सक्नुहुन्छ।\n\nतपाईंका एपहरूमा तपाईंलाई देखाइने कुनै विज्ञापन पर्सनलाइज गरिएको हुन सक्छ। विज्ञापन पर्सनलाइज गरिन्छ कि गरिँदैन भन्ने कुरा यो सेटिङ, विज्ञापनका विषयसम्बन्धी सेटिङ, तपाईंको विज्ञापन ID सम्बन्धी सेटिङ र तपाईंले चलाइरहनुभएको एपले विज्ञापन पर्सनलाइज गर्छ कि गर्दैन भन्ने कुरामा भर पर्छ।"</string>
+    <string name="notificationUI_u18_notification_title" msgid="4880509503177562077">"विज्ञापनको गोपनीयता कायम राख्नेसम्बन्धी नयाँ सुविधाहरू उपलब्ध छन्"</string>
+    <string name="notificationUI_u18_notification_content" msgid="6734418183242286936">"विज्ञापनको पर्फर्मेन्स मापन गर्न मद्दत गर्ने प्रयोजनका लागि एपहरूका बिचमा अत्यन्तै सीमित जानकारी मात्र सेयर गरिन्छ"</string>
+    <string name="notificationUI_u18_body1" msgid="5384339364319615715">"हामी \"विज्ञापनको मापन\" नामक विज्ञापनको गोपनीयता कायम राख्नेसम्बन्धी नयाँ सुविधा लन्च गर्दै छौँ। Android ले एपहरूलाई विज्ञापनको पर्फर्मेन्स मापन गर्न मद्दत गर्ने प्रयोजनका लागि एपहरूका बिचमा तपाईंलाई कुनै विज्ञापन कुन बेला देखाइएको थियो भन्ने जस्ता अत्यन्तै सीमित जानकारी मात्र सेयर गर्छ।"</string>
+    <string name="notificationUI_u18_body3" msgid="4511974346169641579">"तपाईं विज्ञापनको गोपनीयतासम्बन्धी सेटिङमा गई यी कुरा परिवर्तन गर्न सक्नुहुन्छ।"</string>
+    <string name="settingsUI_u18_main_view_measurement_info" msgid="1709326915590855853">"तपाईंले चलाउने एपहरूले Android सँग उनीहरूका विज्ञापनहरूको पर्फर्मेन्स मापन गर्न सघाउने जानकारी माग्न सक्छन्। Android ले एपहरूलाई सीमित किसिमका जानकारी मात्र सङ्कलन गर्ने अनुमति दिन्छ।"</string>
+    <string name="ic_consent_notification_ga_image_description" msgid="6146488914437778539">"सङ्गीत, समाचार र खेलकुद जस्ता तपाईंलाई रुचि लाग्ने विषयहरू जनाउने प्रतीकहरूको रङ्गीन चित्रण"</string>
+    <string name="ic_main_view_ga_image_description" msgid="1846571138870271761">"वृत्तभित्र लक जनाउने प्रतीक भएको रङ्गीन चित्रण"</string>
+    <string name="ic_placeholder_icon_for_empty_apps_list_description" msgid="8171099879240285360">"नौ वटा बिन्दुले बनाइएको वर्ग आकारको सानो श्यामश्वेत चित्रण"</string>
+    <string name="ic_placeholder_icon_for_empty_topics_list_description" msgid="2112218456926009271">"पानको पात, त्रिभुज र वर्ग जस्ता सरल आकारहरूको सानो श्यामश्वेत चित्रण"</string>
+    <string name="topic10001" msgid="1636806320891333775">"कला तथा मनोरञ्जन"</string>
+    <string name="topic10002" msgid="1226367977754287428">"अभिनय तथा रङ्गमञ्च"</string>
+    <string name="topic10003" msgid="6949890838957814881">"एनिम तथा माङ्गा"</string>
+    <string name="topic10004" msgid="5397903150832181233">"कार्टुनहरू"</string>
+    <string name="topic10005" msgid="6316179809581237302">"कमिक्स"</string>
+    <string name="topic10006" msgid="7442330644172139790">"कन्सर्ट तथा सङ्गीत महोत्सवहरू"</string>
+    <string name="topic10007" msgid="5537896091418145164">"नृत्य"</string>
+    <string name="topic10008" msgid="2737343278307552521">"मनोरञ्जन उद्योग"</string>
+    <string name="topic10009" msgid="3252367380340240453">"मनोरञ्जन तथा ट्रिभिया"</string>
+    <string name="topic10010" msgid="932301479153552725">"रमाइला परीक्षण तथा सर्वेक्षणहरू"</string>
+    <string name="topic10011" msgid="3123553390567261985">"हास्य"</string>
+    <string name="topic10012" msgid="8756486271154511326">"हास्यास्पद तस्विर तथा भिडियोहरू"</string>
+    <string name="topic10013" msgid="1242353161202448753">"लाइभ हास्यव्यङ्ग"</string>
+    <string name="topic10014" msgid="6086156236112755291">"लाइभ खेलकुद कार्यक्रमहरू"</string>
+    <string name="topic10015" msgid="9196350141359833832">"जादु"</string>
+    <string name="topic10016" msgid="202419376638900745">"चलचित्र तथा नाटकघरको समयतालिका"</string>
+    <string name="topic10017" msgid="6737229918787540100">"चलचित्रहरू"</string>
+    <string name="topic10018" msgid="6823676154109177487">"एक्सन तथा साहसिक चलचित्रहरू"</string>
+    <string name="topic10019" msgid="6875960630918973127">"एनिमेटेड चलचित्रहरू"</string>
+    <string name="topic10020" msgid="4323870300602151489">"हास्य चलचित्रहरू"</string>
+    <string name="topic10021" msgid="446758643774468418">"कल्ट तथा इन्डी चलचित्रहरू"</string>
+    <string name="topic10022" msgid="3671929742155787005">"वृत्तचित्र चलचित्रहरू"</string>
+    <string name="topic10023" msgid="3547616830531182863">"नाटक चलचित्रहरू"</string>
+    <string name="topic10024" msgid="1044853632986202120">"परिवारिक चलचित्रहरू"</string>
+    <string name="topic10025" msgid="5958629223443279316">"डरलाग्दा चलचित्रहरू"</string>
+    <string name="topic10026" msgid="5685515125614860029">"रोमान्स चलचित्रहरू"</string>
+    <string name="topic10027" msgid="8846353713171614854">"थ्रिलर"</string>
+    <string name="topic10028" msgid="170404703980174756">"सङ्गीत तथा अडियो"</string>
+    <string name="topic10029" msgid="4634600135545614665">"ब्लुज"</string>
+    <string name="topic10030" msgid="7226438392540805771">"शास्त्रीय सङ्गीत"</string>
+    <string name="topic10031" msgid="1488013446112025676">"कन्ट्री सङ्गीत"</string>
+    <string name="topic10032" msgid="9053666244854789632">"नृत्य तथा इलेक्ट्रोनिक सङ्गीत"</string>
+    <string name="topic10033" msgid="440063573197454181">"लोक तथा परम्परागत सङ्गीत"</string>
+    <string name="topic10034" msgid="8296307244554241197">"ज्याज"</string>
+    <string name="topic10035" msgid="9171752741499923310">"सङ्गीत सुन्ने तथा डाउनलोड गर्ने सेवा"</string>
+    <string name="topic10036" msgid="2490236112725457376">"म्युजिक भिडियोहरू"</string>
+    <string name="topic10037" msgid="1923690469725883551">"बाजाहरू"</string>
+    <string name="topic10038" msgid="2817492732688549631">"पियानो तथा किबोर्डहरू"</string>
+    <string name="topic10039" msgid="8970033643570782019">"पप सङ्गीत"</string>
+    <string name="topic10040" msgid="7478395512712452137">"रेडियो"</string>
+    <string name="topic10041" msgid="3319379117705411886">"रेडियो कुराकानी"</string>
+    <string name="topic10042" msgid="8830471038440654640">"र्‍याप तथा हिप-हप"</string>
+    <string name="topic10043" msgid="8585450284346207691">"रक सङ्गीत"</string>
+    <string name="topic10044" msgid="3710011249220779842">"क्लासिक रक तथा ओल्डिज"</string>
+    <string name="topic10045" msgid="7593443421067822441">"हार्ड रक तथा प्रोग्रेसिभ"</string>
+    <string name="topic10046" msgid="8715621227472631784">"इन्डी तथा अल्टर्नेटिभ सङ्गीत"</string>
+    <string name="topic10047" msgid="3518038303049899798">"नमुना तथा साउन्ड लाइब्रेरीहरू"</string>
+    <string name="topic10048" msgid="3063505369500799094">"सोल तथा R&amp;B"</string>
+    <string name="topic10049" msgid="8061992014977840818">"साउन्डट्र्याकहरू"</string>
+    <string name="topic10050" msgid="3540229495848506229">"विश्व सङ्गीत"</string>
+    <string name="topic10051" msgid="6132468331924347995">"रेगे तथा क्यारेबियाली सङ्गीत"</string>
+    <string name="topic10052" msgid="8213269199807045473">"अनलाइन फोटो ग्यालरीहरू"</string>
+    <string name="topic10053" msgid="1378192203082454197">"अनलाइन भिडियो"</string>
+    <string name="topic10054" msgid="3727401645405134505">"लाइभ भिडियो स्ट्रिमिङ"</string>
+    <string name="topic10055" msgid="4943174831732192854">"चलचित्र तथा टिभी स्ट्रिमिङ"</string>
+    <string name="topic10056" msgid="3066058636154255073">"ओपेरा"</string>
+    <string name="topic10057" msgid="387445514677222034">"टिभीसम्बन्धी गाइड तथा सन्दर्भ"</string>
+    <string name="topic10058" msgid="9149178644022969766">"टिभीका नेटवर्क तथा स्टेसनहरू"</string>
+    <string name="topic10059" msgid="6300562669238320524">"टिभी सो तथा कार्यक्रमहरू"</string>
+    <string name="topic10060" msgid="3901256055064835246">"हास्य टिभी कार्यक्रमहरू"</string>
+    <string name="topic10061" msgid="8343924749123326062">"टिभी वृत्तचित्र तथा गैरआख्यान"</string>
+    <string name="topic10062" msgid="9183355218976951211">"टेलिनाटकहरू"</string>
+    <string name="topic10063" msgid="644340831620792432">"धारावाहिक टेलिश्रृङ्खला"</string>
+    <string name="topic10064" msgid="5961885645457010998">"परिवारका लागि बनाइएका टिभी कार्यक्रमहरू"</string>
+    <string name="topic10065" msgid="7916343612028608044">"टिभी रियालिटी सोहरू"</string>
+    <string name="topic10066" msgid="5984396525358003559">"विज्ञान कथा तथा स्वैरकल्पनासम्बन्धी टिभी सोहरू"</string>
+    <string name="topic10067" msgid="6404637729885733437">"भिजुअल आर्ट तथा डिजाइन"</string>
+    <string name="topic10068" msgid="4589856961950168493">"डिजाइन"</string>
+    <string name="topic10069" msgid="3129378082034151991">"चित्रकला"</string>
+    <string name="topic10070" msgid="2570256568661324147">"फोटोग्राफी तथा डिजिटल कला"</string>
+    <string name="topic10071" msgid="1288722040962471254">"अटो तथा सवारी साधनहरू"</string>
+    <string name="topic10072" msgid="9155509766616567261">"कार्गो ट्रक तथा ट्रेलरहरू"</string>
+    <string name="topic10073" msgid="3748676231341513738">"क्लासिक सवारी साधनहरू"</string>
+    <string name="topic10074" msgid="2040911547161463227">"कस्टम तथा उच्चस्तरीय सवारी साधनहरू"</string>
+    <string name="topic10075" msgid="1242538698445713796">"पेट्रोलको मूल्य तथा इन्धनसम्बन्धी स्रोतसाधनहरू"</string>
+    <string name="topic10076" msgid="8674225812339579627">"मोटर गाडीहरू (प्रकारअनुसार)"</string>
+    <string name="topic10077" msgid="3577709810751953433">"चालकविहीन सवारी साधनहरू"</string>
+    <string name="topic10078" msgid="5493263845129910125">"छत निकाल्न मिल्ने सवारी साधनहरू"</string>
+    <string name="topic10079" msgid="3466838852836498580">"कुप कारहरू"</string>
+    <string name="topic10080" msgid="3515647285637163190">"ह्याचब्याक कारहरू"</string>
+    <string name="topic10081" msgid="4135085035401158860">"हाइब्रिड तथा वैकल्पिक सवारी साधनहरू"</string>
+    <string name="topic10082" msgid="7168659489029594320">"विलासी सवारी साधनहरू"</string>
+    <string name="topic10083" msgid="1532745144715857802">"माइक्रोकार तथा सबकम्प्याक्टहरू"</string>
+    <string name="topic10084" msgid="1984231414410381476">"मोटरसाइकलहरू"</string>
+    <string name="topic10085" msgid="5235555028227554661">"कच्ची सडकमा चलाइने सवारी साधनहरू"</string>
+    <string name="topic10086" msgid="8360336602646460411">"पिकअप ट्रकहरू"</string>
+    <string name="topic10087" msgid="6566900167002195406">"स्कुटर तथा मोपेडहरू"</string>
+    <string name="topic10088" msgid="2899313082601001223">"सेडान कारहरू"</string>
+    <string name="topic10089" msgid="1053630346809973163">"स्टेसन वागन कारहरू"</string>
+    <string name="topic10090" msgid="4478565601243447368">"SUV तथा क्रसओभर गाडीहरू"</string>
+    <string name="topic10091" msgid="3812668311830832874">"क्रसओभर गाडीहरू"</string>
+    <string name="topic10092" msgid="524130833813249539">"भ्यान तथा मिनिभ्यानहरू"</string>
+    <string name="topic10093" msgid="8900143351472824542">"सडकमा बिग्रिएका सवारी साधन तान्ने र मद्दत गर्ने सेवा"</string>
+    <string name="topic10094" msgid="6205146188176216038">"सवारी साधन तथा यातायात सुरक्षा"</string>
+    <string name="topic10095" msgid="7983070264654477553">"गाडीका पाटपुर्जा तथा सहायक उपकरणहरू"</string>
+    <string name="topic10096" msgid="8148747014459050804">"सवारी साधनको मर्मतसम्भार"</string>
+    <string name="topic10097" msgid="4716536434833425748">"सवारी साधन किनमेल"</string>
+    <string name="topic10098" msgid="6401980112135995019">"पुराना सवारी साधनहरू"</string>
+    <string name="topic10099" msgid="8018714209926584445">"सवारी साधनका प्रदर्शनीहरू"</string>
+    <string name="topic10100" msgid="2481422464734249871">"सौन्दर्य तथा तन्दुरुस्ती"</string>
+    <string name="topic10101" msgid="7889144198021629053">"शरीरमा बनाइने कला"</string>
+    <string name="topic10102" msgid="577637051755692238">"अनुहार तथा शरीरको हेरचाह"</string>
+    <string name="topic10103" msgid="6618157344631408510">"एन्टिपर्स्पिरेन्ट्स्"</string>
+    <string name="topic10104" msgid="6043649669944382784">"नुहाउने तथा शरीरमा लगाइने उत्पादनहरू"</string>
+    <string name="topic10105" msgid="3248569527339253661">"स्वास्थ्य तथा वातावरणमैत्री सौन्दर्य प्रसाधन"</string>
+    <string name="topic10106" msgid="1291481249483309832">"मेकअप तथा सौन्दर्य सामग्री"</string>
+    <string name="topic10107" msgid="1335060201249279923">"नङको हेरचाहसम्बन्धी उत्पादनहरू"</string>
+    <string name="topic10108" msgid="4996884435711154930">"अत्तर तथा सुगन्धहरू"</string>
+    <string name="topic10109" msgid="7298403319989686251">"दाह्री काट्ने तथा रौँ खौरने रेजर"</string>
+    <string name="topic10110" msgid="5954355866247248022">"फेसन तथा शैली"</string>
+    <string name="topic10111" msgid="4447710938881368413">"तन्दुरुस्ती"</string>
+    <string name="topic10112" msgid="8816530137921714131">"शारीरिक सुगठन"</string>
+    <string name="topic10113" msgid="8138889299405853557">"तन्दुरुस्तीसम्बन्धी निर्देशन र निजी प्रशिक्षण"</string>
+    <string name="topic10114" msgid="2172821400279346865">"तन्दुरुस्ती प्रविधिसम्बन्धी उत्पादनहरू"</string>
+    <string name="topic10115" msgid="9060244278068231494">"कपालको हेरचाह"</string>
+    <string name="topic10116" msgid="116242880964485085">"पुस्तक तथा साहित्य"</string>
+    <string name="topic10117" msgid="8933734721100160863">"बाल साहित्य"</string>
+    <string name="topic10118" msgid="4368531903547695191">"इ-पुस्तकहरू"</string>
+    <string name="topic10119" msgid="2781095265741115471">"पत्रिकाहरू"</string>
+    <string name="topic10120" msgid="3099507102655270527">"कविता"</string>
+    <string name="topic10121" msgid="4466592180799340837">"व्यापार तथा उद्योगधन्दा"</string>
+    <string name="topic10122" msgid="2375136741125920744">"विज्ञापन तथा मार्केटिङ"</string>
+    <string name="topic10123" msgid="6974082907852347979">"सेल्स"</string>
+    <string name="topic10124" msgid="44474598156972786">"कृषि तथा वन विज्ञान"</string>
+    <string name="topic10125" msgid="9170394261421539760">"खाद्यवस्तुको उत्पादन"</string>
+    <string name="topic10126" msgid="2210146434071038904">"मोटरकारसम्बन्धी उद्योग"</string>
+    <string name="topic10127" msgid="5503077037318678029">"उड्डयन उद्योग"</string>
+    <string name="topic10128" msgid="285525650692719959">"व्यावसायिक क्रियाकलाप"</string>
+    <string name="topic10129" msgid="3094691551566702427">"पायक पर्ने समयमा काम गर्ने सुविधा"</string>
+    <string name="topic10130" msgid="1922351409757117764">"मानव स्रोत"</string>
+    <string name="topic10131" msgid="8598763405951029782">"व्यापारिक ऋण"</string>
+    <string name="topic10132" msgid="1476352626208153907">"भवन निर्माण तथा मर्मतसम्भार"</string>
+    <string name="topic10133" msgid="7089177624979453528">"सिभिल इन्जिनियरिङ"</string>
+    <string name="topic10134" msgid="3833032373311037601">"रक्षा उद्योग"</string>
+    <string name="topic10135" msgid="2478808072377000440">"ऊर्जा तथा युटिलिटीहरू"</string>
+    <string name="topic10136" msgid="9083992436834044162">"पानी आपूर्ति तथा शुद्ध पार्ने काम"</string>
+    <string name="topic10137" msgid="1912599316814246824">"आतिथ्य उद्योग"</string>
+    <string name="topic10138" msgid="7428346836350671895">"उत्पादन"</string>
+    <string name="topic10139" msgid="1396685812404869953">"धातु तथा खानी"</string>
+    <string name="topic10140" msgid="5264212052238781441">"MLM तथा व्यवसायिक अवसरहरू"</string>
+    <string name="topic10141" msgid="860058416683118730">"औषधि तथा जैविक प्रविधि"</string>
+    <string name="topic10142" msgid="2912550934111655896">"मुद्रण तथा प्रकाशन"</string>
+    <string name="topic10143" msgid="5690610408227078117">"खुद्रा व्यापार"</string>
+    <string name="topic10144" msgid="3341052306953106368">"भेन्चर क्यापिटल"</string>
+    <string name="topic10145" msgid="6886608911083388041">"कम्प्युटर तथा इलेक्ट्रोनिक्स"</string>
+    <string name="topic10146" msgid="8202145175139144216">"कम्प्युटरका पार्टपुर्जाहरू"</string>
+    <string name="topic10147" msgid="4687964705548995437">"प्रिन्टरहरू"</string>
+    <string name="topic10148" msgid="8861628145647459323">"कम्प्युटरको सुरक्षा"</string>
+    <string name="topic10149" msgid="1719988773455991739">"एन्टिभाइरस तथा वालवेयर"</string>
+    <string name="topic10150" msgid="1482205464872465298">"नेटवर्कको सुरक्षा"</string>
+    <string name="topic10151" msgid="1772262905623388968">"उपभोक्ता इलेक्ट्रोनिक्स"</string>
+    <string name="topic10152" msgid="651152740021127086">"क्यामेरा तथा क्यामकोर्डरहरू"</string>
+    <string name="topic10153" msgid="8741504768717646372">"GPS तथा नेभिगेसन"</string>
+    <string name="topic10154" msgid="5382029798409496090">"घरका स्वचालित डिभाइसहरू"</string>
+    <string name="topic10155" msgid="5243817792730496258">"होम थिएटर सिस्टमहरू"</string>
+    <string name="topic10156" msgid="2497791567138856030">"MP3 तथा पोर्टेबल मिडिया प्लेयरहरू"</string>
+    <string name="topic10157" msgid="4723439422860510190">"लगाउन मिल्ने प्रविधि"</string>
+    <string name="topic10158" msgid="5345830001295028513">"डेटा ब्याकअप तथा रिकभरी"</string>
+    <string name="topic10159" msgid="6146958285117174314">"डेस्कटप कम्प्युटरहरू"</string>
+    <string name="topic10160" msgid="6624820395549466426">"ल्याप्टप तथा नोटबुकहरू"</string>
+    <string name="topic10161" msgid="912458758908978530">"नेटवर्किङ"</string>
+    <string name="topic10162" msgid="6717352131379507693">"डिस्ट्रिब्युटेड एन्ड क्लाउड कम्प्युटिङ"</string>
+    <string name="topic10163" msgid="6344926622025055321">"प्रोग्रामिङ"</string>
+    <string name="topic10164" msgid="4228888249078845459">"सफ्टवेयर"</string>
+    <string name="topic10165" msgid="5507908999219967161">"अडियो तथा सङ्गीतसम्बन्धी सफ्टवेयर"</string>
+    <string name="topic10166" msgid="4768106492755849560">"व्यवसाय तथा उत्पादकत्वसम्बन्धी सफ्टवेयर"</string>
+    <string name="topic10167" msgid="8556935769754922871">"पात्रो तथा समयतालिका निर्धारण गर्ने सफ्टवेयर"</string>
+    <string name="topic10168" msgid="7730134961167790334">"सहकार्य तथा सम्मेलन कलसम्बन्धु सुविधा उपलब्ध गराउने सफ्टवेयर"</string>
+    <string name="topic10169" msgid="5655084106378890454">"प्रेजेन्टेसन सफ्टवेयर"</string>
+    <string name="topic10170" msgid="4638281897205909919">"स्प्रेडसिट सफ्टवेयर"</string>
+    <string name="topic10171" msgid="7910183120486541228">"वर्ड प्रोसेसिङ सफ्टवेयर"</string>
+    <string name="topic10172" msgid="3626573644414074730">"डेस्कटप पब्लिसिङ"</string>
+    <string name="topic10173" msgid="7320053835183057144">"फन्टहरू"</string>
+    <string name="topic10174" msgid="5770469447869586710">"डाउनलोड म्यानेजरहरू"</string>
+    <string name="topic10175" msgid="3475235810022334041">"फ्रिवेयर तथा सेयरवेयर"</string>
+    <string name="topic10176" msgid="6881704501596479881">"ग्राफिक्स र एनिमेसन सफ्टवेयर"</string>
+    <string name="topic10177" msgid="6740430730079682579">"बुद्धिमानी व्यक्तिगत एसिस्टेन्टहरू"</string>
+    <string name="topic10178" msgid="7261811053741593091">"मिडिया प्लेयरहरू"</string>
+    <string name="topic10179" msgid="2967001567120854492">"निरीक्षण सफ्टवेयर"</string>
+    <string name="topic10180" msgid="4197420326455130102">"आपरेटिङ सिस्टमहरू"</string>
+    <string name="topic10181" msgid="3537573129132698830">"फोटो तथा भिडियो सफ्टवेयर"</string>
+    <string name="topic10182" msgid="7688631285131229981">"फोटो सफ्टवेयर"</string>
+    <string name="topic10183" msgid="5994974566140272512">"भिडियो सफ्टवेयर"</string>
+    <string name="topic10184" msgid="8685817335076871509">"सफ्टवेयरका युटिलिटीहरू"</string>
+    <string name="topic10185" msgid="308314128178285390">"वेब ब्राउजरहरू"</string>
+    <string name="topic10186" msgid="3147859503481018245">"वित्त"</string>
+    <string name="topic10187" msgid="7077128721410871032">"लेखा तथा लेखा परीक्षण"</string>
+    <string name="topic10188" msgid="2206138708659457910">"करको तयारी तथा योजना"</string>
+    <string name="topic10189" msgid="4001795553008246784">"बैंकिङ"</string>
+    <string name="topic10190" msgid="2988430661381243083">"रकम स्थानान्तरण तथा वायर सेवाहरू"</string>
+    <string name="topic10191" msgid="6196081825838237614">"क्रेडिट तथा ऋण"</string>
+    <string name="topic10192" msgid="3290123244833047307">"क्रेडिट कार्डहरू"</string>
+    <string name="topic10193" msgid="294407043381146861">"घर कर्जा"</string>
+    <string name="topic10194" msgid="2834543407440890272">"व्यक्तिगत ऋणहरू"</string>
+    <string name="topic10195" msgid="7650553060132394782">"विद्यार्थी तथा शैक्षिक कर्जा"</string>
+    <string name="topic10196" msgid="5395035781876507254">"वित्तीय योजना तथा व्यवस्थापन"</string>
+    <string name="topic10197" msgid="1287138667488226463">"सेवानिवृत्ति तथा पेन्सन"</string>
+    <string name="topic10198" msgid="2523256186943366779">"अनुदानहरू"</string>
+    <string name="topic10199" msgid="3746711537661530183">"अनुदानहरू"</string>
+    <string name="topic10200" msgid="2394864891391267841">"बीमा"</string>
+    <string name="topic10201" msgid="4301879117376963742">"कारको बीमा"</string>
+    <string name="topic10202" msgid="739808503036239379">"स्वास्थ्य बीमा"</string>
+    <string name="topic10203" msgid="838786942776142290">"घरको बीमा"</string>
+    <string name="topic10204" msgid="6591131759521321677">"जीवन बीमा"</string>
+    <string name="topic10205" msgid="3294946723815021478">"यात्रा बीमा"</string>
+    <string name="topic10206" msgid="6166888350685752683">"लगानी"</string>
+    <string name="topic10207" msgid="2296385804039743999">"कमोडिटी तथा फ्युचर्सको खरिदबिक्री"</string>
+    <string name="topic10208" msgid="2717498987483479091">"मुद्रा तथा विदेशी विनिमय"</string>
+    <string name="topic10209" msgid="5204948738662951962">"हेज फन्डहरू"</string>
+    <string name="topic10210" msgid="4607225697024266227">"म्युचुअल फन्डहरू"</string>
+    <string name="topic10211" msgid="7475381839877166080">"सेयर तथा बचतपत्र"</string>
+    <string name="topic10212" msgid="3988751035952286047">"खाद्य तथा पेय पदार्थ"</string>
+    <string name="topic10213" msgid="1358963098339995471">"पकवान तथा पाकविधिहरू"</string>
+    <string name="topic10214" msgid="8463864389138867811">"बार्बिक्यू तथा पोलेका परिकार"</string>
+    <string name="topic10215" msgid="3085467051491069648">"परिकारहरू"</string>
+    <string name="topic10216" msgid="6043130649326166680">"शाकाहारी परिकार"</string>
+    <string name="topic10217" msgid="7173870057669247536">"शुद्ध शाकाहारी परिकार"</string>
+    <string name="topic10218" msgid="5570240643247064951">"स्वस्थ खानपान"</string>
+    <string name="topic10219" msgid="5896715206025463732">"खाद्य तथा किराना सामग्रीका खुद्रा विक्रेताहरू"</string>
+    <string name="topic10220" msgid="3894580611467039658">"खेलहरू"</string>
+    <string name="topic10221" msgid="14471057764591805">"आर्केड तथा कोइन-अप गेमहरू"</string>
+    <string name="topic10222" msgid="2704894577954508861">"बिलियार्ड्स"</string>
+    <string name="topic10223" msgid="202900267060220170">"बोर्ड गेमहरू"</string>
+    <string name="topic10224" msgid="6572627325588452785">"चेस तथा अमूर्त रणनीति बनाउने गेमहरू"</string>
+    <string name="topic10225" msgid="8056906319560292131">"ताससम्बन्धी गेमहरू"</string>
+    <string name="topic10226" msgid="714463563336281099">"सङ्कलन गर्न मिल्ने ताससम्बन्धी गेमहरू"</string>
+    <string name="topic10227" msgid="218768654597520683">"कम्प्युटर तथा भिडियो गेमहरू"</string>
+    <string name="topic10228" msgid="850597136074192489">"एक्सन तथा प्लेटफर्म गेमहरू"</string>
+    <string name="topic10229" msgid="4284501233897149886">"साहसिक खेलहरू"</string>
+    <string name="topic10230" msgid="7156822286576815181">"क्याजुअल गेमहरू"</string>
+    <string name="topic10231" msgid="7620407218897744361">"प्रतिस्पर्धात्मक भिडियो गेमिङ"</string>
+    <string name="topic10232" msgid="3029734447275709941">"ड्राइभिङ तथा रेसिङ गेमहरू"</string>
+    <string name="topic10233" msgid="8318075279868138231">"भिडन्त गर्नु पर्ने गेमहरू"</string>
+    <string name="topic10234" msgid="3899847414436099153">"गेमिङका सन्दर्भ र रिभ्यूहरू"</string>
+    <string name="topic10235" msgid="5851356242523630529">"भिडियो गेमका चिट कोड तथा संकेतहरू"</string>
+    <string name="topic10236" msgid="1986665634014804954">"अत्यन्तै धेरै मान्छेले एकसाथ खेल्न मिल्ने गेमहरू"</string>
+    <string name="topic10237" msgid="5569920221620447713">"सङ्गीत तथा नृत्यसम्बन्धी गेमहरू"</string>
+    <string name="topic10238" msgid="7431087331656772530">"स्यान्डबक्स गेमहरू"</string>
+    <string name="topic10239" msgid="8667462879554115515">"सुटर गेमहरू"</string>
+    <string name="topic10240" msgid="1618985302446756520">"सिमुलेसन गेमहरू"</string>
+    <string name="topic10241" msgid="8450778411063723262">"व्यापार तथा टाइकुन गेमहरू"</string>
+    <string name="topic10242" msgid="8860812940320018907">"सहर बनाउने गेमहरू"</string>
+    <string name="topic10243" msgid="1764694148721971512">"लाइफ सिमुलेसन गेमहरू"</string>
+    <string name="topic10244" msgid="4308588210397969087">"सवारी साधन सिमुलेटरहरू"</string>
+    <string name="topic10245" msgid="6904368410919496658">"खेलकुदसम्बन्धी गेमहरू"</string>
+    <string name="topic10246" msgid="3381244806751528148">"खेलकुद व्यवस्थापनसम्बन्धी गेमहरू"</string>
+    <string name="topic10247" msgid="5927502688389762068">"अमूर्त रणनीति बनाउने गेमहरू"</string>
+    <string name="topic10248" msgid="8471339627212674032">"भिडियो गेम मड तथा एडअनहरू"</string>
+    <string name="topic10249" msgid="5076706536204559962">"शैक्षिक गेमहरू"</string>
+    <string name="topic10250" msgid="6083030595195401083">"परिवारका लागि बनाइएका गेम तथा क्रियाकलापहरू"</string>
+    <string name="topic10251" msgid="99237306730665104">"चित्र कोर्ने तथा रङ भर्ने काम"</string>
+    <string name="topic10252" msgid="6543039575961394064">"ड्रेस-अप तथा फेसनसम्बन्धी गेमहरू"</string>
+    <string name="topic10253" msgid="566596668186874227">"पजल तथा दिमाग खियाउने गेमहरू"</string>
+    <string name="topic10254" msgid="5732147617072023634">"भूमिका निभाउनु पर्ने गेमहरू"</string>
+    <string name="topic10255" msgid="2890655077164103057">"टेबल टेनिस"</string>
+    <string name="topic10256" msgid="3302096971402751679">"टाइल गेमहरू"</string>
+    <string name="topic10257" msgid="4238531589193902619">"शब्दसम्बन्धी खेलहरू"</string>
+    <string name="topic10258" msgid="6995329540076529056">"सोख तथा आराम"</string>
+    <string name="topic10259" msgid="8649688885811560410">"वार्षिकोत्सवहरू"</string>
+    <string name="topic10260" msgid="487999213495640080">"जन्मदिन तथा न्वाराम"</string>
+    <string name="topic10261" msgid="8970668366745952094">"डाइभिङ तथा पानीमुनि गरिने क्रियाकलापहरू"</string>
+    <string name="topic10262" msgid="6644046161469353448">"फाइबर तथा वस्त्र कलाहरू"</string>
+    <string name="topic10263" msgid="848165976917542929">"घरबाहिर गरिने क्रियाकलाप"</string>
+    <string name="topic10264" msgid="6274985117752637104">"माछा मार्ने कार्य"</string>
+    <string name="topic10265" msgid="4134876488948695674">"शिकार तथा सुटिङ"</string>
+    <string name="topic10266" msgid="6617785039128074351">"पेन्टबल"</string>
+    <string name="topic10267" msgid="488093331618885003">"रेडियो कन्ट्रोल तथा मोडलिङ"</string>
+    <string name="topic10268" msgid="277932389492046264">"विवाहहरू"</string>
+    <string name="topic10269" msgid="8572041514147955202">"घर तथा बगैँचा"</string>
+    <string name="topic10270" msgid="2646715182474030951">"बगैँचाको रेखदेख"</string>
+    <string name="topic10271" msgid="1308931236810509881">"घर तथा घरको भित्री भागको सजाव"</string>
+    <string name="topic10272" msgid="8746698707390628887">"घरायसी उपकरणहरू"</string>
+    <string name="topic10273" msgid="344442071339164852">"घरको मर्मतसम्भार"</string>
+    <string name="topic10274" msgid="8982330028561451429">"घरको सुरक्षा"</string>
+    <string name="topic10275" msgid="8280198018937968735">"घरायसी सामग्रीहरू"</string>
+    <string name="topic10276" msgid="1651598271798609235">"ल्यान्डस्केप डिजाइन"</string>
+    <string name="topic10277" msgid="7675195736886448994">"इन्टरनेट तथा टेलिसञ्चार"</string>
+    <string name="topic10278" msgid="873251714192341707">"इमेल तथा म्यासेजिङ"</string>
+    <string name="topic10279" msgid="6514296374139842600">"इमेल"</string>
+    <string name="topic10280" msgid="7976787187115018267">"टेक्स्ट तथा इन्स्ट्यान्ट म्यासेजिङ"</string>
+    <string name="topic10281" msgid="4013341162811169339">"भ्वाइस तथा भिडियो च्याट"</string>
+    <string name="topic10282" msgid="7810462611906257564">"ISP हरू"</string>
+    <string name="topic10283" msgid="3958287780718485172">"फोन सेवा प्रदायकहरू"</string>
+    <string name="topic10284" msgid="2415044270290467935">"रिङटोन तथा मोबाइलका थिमहरू"</string>
+    <string name="topic10285" msgid="7056449544316408821">"खोज इन्जिनहरू"</string>
+    <string name="topic10286" msgid="3458688996478472971">"स्मार्ट फोनहरू"</string>
+    <string name="topic10287" msgid="6766203044518402938">"टेलिकन्फ्रेन्सिङ"</string>
+    <string name="topic10288" msgid="3883137694557636622">"वेब एप तथा अनलाइन टुलहरू"</string>
+    <string name="topic10289" msgid="3392995633794787676">"वेबसम्बन्धी सेवाहरू"</string>
+    <string name="topic10290" msgid="3118880486702986341">"क्लाउड भण्डारणमा उपलब्ध खाली ठाउँ"</string>
+    <string name="topic10291" msgid="6025855926350955094">"वेब डिजाइन तथा विकास"</string>
+    <string name="topic10292" msgid="3069720659823056935">"वेब होस्टिङ"</string>
+    <string name="topic10293" msgid="2489957780009828409">"जागिर तथा शिक्षा"</string>
+    <string name="topic10294" msgid="474839431177892843">"शिक्षा"</string>
+    <string name="topic10295" msgid="2215489196192620880">"शैक्षिक सम्मेलन तथा प्रकाशनहरू"</string>
+    <string name="topic10296" msgid="4494362881225210483">"कलेज तथा विश्वविद्यालयहरू"</string>
+    <string name="topic10297" msgid="8596946591674128749">"दूर शिक्षा"</string>
+    <string name="topic10298" msgid="6669181180128620422">"प्रारम्भिक बाल शिक्षा"</string>
+    <string name="topic10299" msgid="989138215800115613">"पूर्वप्राथमिक विद्यालय"</string>
+    <string name="topic10300" msgid="8281464235308602670">"होमस्कुलिङ"</string>
+    <string name="topic10301" msgid="9156890858635333460">"मानकीकृत तथा प्रवेश परीक्षा"</string>
+    <string name="topic10302" msgid="1325835179421990876">"शिक्षा तथा कक्षाकोठासम्बन्धी स्रोतसाधनहरू"</string>
+    <string name="topic10303" msgid="3103839978894155537">"व्यावसायिक तथा निरन्तर शिक्षा"</string>
+    <string name="topic10304" msgid="8831682558788062486">"जागिरहरू"</string>
+    <string name="topic10305" msgid="8415203095484493106">"करिअरसम्बन्धी स्रोतसाधन तथा योजना"</string>
+    <string name="topic10306" msgid="7426556527349374835">"जागरिका सूचीहरू"</string>
+    <string name="topic10307" msgid="1187762846826735256">"कानुन तथा सरकार"</string>
+    <string name="topic10308" msgid="3346756665358311386">"अपराध तथा न्याय"</string>
+    <string name="topic10309" msgid="2041175328931014735">"कानुनी"</string>
+    <string name="topic10310" msgid="7079570344976872062">"कानूनी सेवाहरू"</string>
+    <string name="topic10311" msgid="2095095138677585525">"समाचार"</string>
+    <string name="topic10312" msgid="939721674816307639">"आर्थिक समाचार"</string>
+    <string name="topic10313" msgid="4159611985538361632">"स्थानीय समाचार"</string>
+    <string name="topic10314" msgid="93219947859117151">"एक आपसमा गाभ्ने गाभिने तथा प्राप्ति गर्ने कार्य"</string>
+    <string name="topic10315" msgid="5046321177148647481">"समाचार पत्र"</string>
+    <string name="topic10316" msgid="8592980844674525307">"राजनीति"</string>
+    <string name="topic10317" msgid="2412259096368647866">"खेलकुदसम्बन्धी समाचार"</string>
+    <string name="topic10318" msgid="1508449672941031904">"मौसम"</string>
+    <string name="topic10319" msgid="3973645291178509390">"विश्व समाचार"</string>
+    <string name="topic10320" msgid="5279440074507438174">"अनलाइन समुदायहरू"</string>
+    <string name="topic10321" msgid="7018890132742820265">"क्लिप आर्ट तथा एनिमेटेड GIF हरू"</string>
+    <string name="topic10322" msgid="1585737438943011532">"डेटिङ तथा व्यक्तिगत कुराहरू"</string>
+    <string name="topic10323" msgid="962863497957179646">"फिड एकत्रीकरण तथा सामाजिक बुकमार्किङ"</string>
+    <string name="topic10324" msgid="1425257460381023853">"फाइल सेयर गर्ने तथा होस्ट गर्ने सेवा"</string>
+    <string name="topic10325" msgid="8698912164970408378">"फोरम तथा च्याट प्रदायकहरू"</string>
+    <string name="topic10326" msgid="2425798096705921796">"माइक्रोब्लगिङ"</string>
+    <string name="topic10327" msgid="8518822987595111212">"फोटो तथा भिडियो सेयर गर्ने सुविधा"</string>
+    <string name="topic10328" msgid="8932708475346340912">"फोटो सेयर गर्ने सुविधा"</string>
+    <string name="topic10329" msgid="223933889758324282">"भिडियो सेयर गर्ने सुविधा"</string>
+    <string name="topic10330" msgid="188028553492626282">"स्किनहरू"</string>
+    <string name="topic10331" msgid="426844238985651925">"सामाजिक सञ्जालसम्बन्धी एप तथा एडअनहरू"</string>
+    <string name="topic10332" msgid="291747325781232456">"सामाजिक सञ्जालहरू"</string>
+    <string name="topic10333" msgid="7950152600374846488">"मान्छे तथा समाज"</string>
+    <string name="topic10334" msgid="8671262583721706509">"परिवार तथा सम्बन्धहरू"</string>
+    <string name="topic10335" msgid="1526523762163185819">"पूर्वज तथा वंशावली"</string>
+    <string name="topic10336" msgid="4551233571090493177">"विवाह"</string>
+    <string name="topic10337" msgid="8436172065188964882">"पालनपोषण"</string>
+    <string name="topic10338" msgid="8896269734682970">"धर्मसन्तान ग्रहण"</string>
+    <string name="topic10339" msgid="781900237993621300">"शिशु तथा भर्खरै हिँड्न थालेका बच्चाहरू"</string>
+    <string name="topic10340" msgid="6538182603360796294">"इन्टरनेटमा बालबालिकाको सुरक्षा"</string>
+    <string name="topic10341" msgid="3586543243312398568">"रोमान्स"</string>
+    <string name="topic10342" msgid="3695176378281477573">"विज्ञान कथा तथा स्वैरकल्पना"</string>
+    <string name="topic10343" msgid="2318169062960263837">"घरपालुवा जनावर तथा पशुहरू"</string>
+    <string name="topic10344" msgid="2005534117977874327">"घरपालुवा जनावरको खाना तथा हेरचाहका सामग्री"</string>
+    <string name="topic10345" msgid="2397329020706244200">"घरपालुवा जनावरहरू"</string>
+    <string name="topic10346" msgid="1323702748723563694">"चराहरू"</string>
+    <string name="topic10347" msgid="3301879823396773413">"बिरालोहरू"</string>
+    <string name="topic10348" msgid="8066686305498410222">"कुकुरहरू"</string>
+    <string name="topic10349" msgid="5253723822905761195">"माछा तथा एक्वारियम"</string>
+    <string name="topic10350" msgid="6164036369108076590">"सरीसृप तथा उभयचरहरू"</string>
+    <string name="topic10351" msgid="1132984519083501363">"पशु चिकित्सकहरू"</string>
+    <string name="topic10352" msgid="6310110390516037997">"घरजग्गा लगानी"</string>
+    <string name="topic10353" msgid="5114390804081576684">"प्लट तथा जग्गा"</string>
+    <string name="topic10354" msgid="7980778954791504082">"टाइमसेयर तथा बिदा मनाउने आवासहरू"</string>
+    <string name="topic10355" msgid="7720717354548642600">"सन्दर्भ"</string>
+    <string name="topic10356" msgid="8366981308613661935">"व्यवसाय तथा व्यक्तिगत कारोबारका लागि उपलब्ध घरजग्गाका सूचीहरू"</string>
+    <string name="topic10357" msgid="3185598234676097975">"सामान्य सन्दर्भ"</string>
+    <string name="topic10358" msgid="6732669037513504019">"क्याल्कुलेटर तथा सन्दर्भसम्बन्धी टुलहरू"</string>
+    <string name="topic10359" msgid="8901932349008990500">"शब्दकोष तथा विश्वकोषहरू"</string>
+    <string name="topic10360" msgid="6113408769992775754">"शैक्षिक स्रोतसाधनहरू"</string>
+    <string name="topic10361" msgid="364838820459183817">"कसरी-गर्ने"</string>
+    <string name="topic10362" msgid="3760998790588600032">"समय तथा पात्रोहरू"</string>
+    <string name="topic10363" msgid="5464708619861040861">"भाषासम्बन्धी स्रोतसाधनहरू"</string>
+    <string name="topic10364" msgid="4685400848805560054">"विदेशी भाषा अध्ययन"</string>
+    <string name="topic10365" msgid="5196231842716190887">"अनुवादसम्बन्धी टुल तथा स्रोतसाधनहरू"</string>
+    <string name="topic10366" msgid="7460927054539097025">"नक्सा"</string>
+    <string name="topic10367" msgid="3900361839783743700">"विज्ञान"</string>
+    <string name="topic10368" msgid="2069447039109930660">"अग्मेन्टेड तथा भर्चुअल रियालिटी"</string>
+    <string name="topic10369" msgid="5747888306428024793">"जीव विज्ञान"</string>
+    <string name="topic10370" msgid="4860829940151353583">"आनुवंशिक विज्ञान"</string>
+    <string name="topic10371" msgid="8229818210867472466">"रसायन शास्त्र"</string>
+    <string name="topic10372" msgid="6400467418954574231">"पर्यावरण विज्ञान तथा वातावरण"</string>
+    <string name="topic10373" msgid="6990757247198163741">"भूगर्भशास्त्र"</string>
+    <string name="topic10374" msgid="8057983193031950119">"मेसिन लर्निङ र आर्टिफिसियल इन्टेलिजेन्स"</string>
+    <string name="topic10375" msgid="8511185098682306025">"गणित"</string>
+    <string name="topic10376" msgid="6387800251638760737">"भौतिक शास्त्र"</string>
+    <string name="topic10377" msgid="7834619927563362042">"रोबोटिक्स"</string>
+    <string name="topic10378" msgid="242496862821758873">"किनमेल"</string>
+    <string name="topic10379" msgid="5505228335012447165">"प्राचीन तथा सङ्ग्रहणीय वस्तुहरू"</string>
+    <string name="topic10380" msgid="4989560205486143927">"लुगा"</string>
+    <string name="topic10381" msgid="7585496746485093505">"बालबालिकाका लुगा"</string>
+    <string name="topic10382" msgid="5088060295126473451">"पोशाकहरू"</string>
+    <string name="topic10383" msgid="4947104586590538143">"पुरुषका लुगा"</string>
+    <string name="topic10384" msgid="3752472493887374077">"महिलाका लुगा"</string>
+    <string name="topic10385" msgid="5275843140794803595">"वर्गीकृत"</string>
+    <string name="topic10386" msgid="5887032952574801982">"उपभोक्ता स्रोतसाधनहरू"</string>
+    <string name="topic10387" msgid="8474154360410317897">"कुपन तथा छुट अफरहरू"</string>
+    <string name="topic10388" msgid="3650307363028796765">"लोयल्टी कार्ड तथा कार्यक्रमहरू"</string>
+    <string name="topic10389" msgid="1542336508240183221">"प्राविधिक सहायता तता मर्मत"</string>
+    <string name="topic10390" msgid="831225961168954292">"फूलहरू"</string>
+    <string name="topic10391" msgid="6810540242154911762">"अभिवादन कार्डहरू"</string>
+    <string name="topic10392" msgid="2431377771302967625">"पार्टी तथा बिदा मनाउन चाहिने सामग्रीहरू"</string>
+    <string name="topic10393" msgid="2671274205988136926">"किनमेल पोर्टलहरू"</string>
+    <string name="topic10394" msgid="1530096364743244151">"खेलकुद"</string>
+    <string name="topic10395" msgid="316192616624062917">"अमेरिकी फुटबल"</string>
+    <string name="topic10396" msgid="8042120651878490689">"अस्ट्रेलियन फुटबल"</string>
+    <string name="topic10397" msgid="492901976344700942">"अटो रेसिङ"</string>
+    <string name="topic10398" msgid="3471795015226090296">"बेसबल"</string>
+    <string name="topic10399" msgid="2126280752064021308">"बास्केटबल"</string>
+    <string name="topic10400" msgid="5440499529264277027">"बलिङ"</string>
+    <string name="topic10401" msgid="166689951236922024">"बक्सिङ"</string>
+    <string name="topic10402" msgid="2451339788231007479">"चियरलिडिङ"</string>
+    <string name="topic10403" msgid="6455478521804717635">"कलेज खेलकुद"</string>
+    <string name="topic10404" msgid="5261583496913118024">"क्रिकेट"</string>
+    <string name="topic10405" msgid="482477447879117820">"साइक्लिङ"</string>
+    <string name="topic10406" msgid="8167644332387528703">"इक्वेस्ट्रियन"</string>
+    <string name="topic10407" msgid="3237734582719584272">"खतरनाक खेलकुद"</string>
+    <string name="topic10408" msgid="3859749534843254349">"पर्वतारोहण तथा चढाइ"</string>
+    <string name="topic10409" msgid="7485614115639267976">"काल्पनिक गेमहरू"</string>
+    <string name="topic10410" msgid="5996939009229881074">"गल्फ"</string>
+    <string name="topic10411" msgid="2513997418184786648">"जिम्नास्टिक्स"</string>
+    <string name="topic10412" msgid="5411755341358248299">"हकी"</string>
+    <string name="topic10413" msgid="3319233613448963890">"आइस स्केटिङ"</string>
+    <string name="topic10414" msgid="1797840816328584660">"मार्सल आर्ट्स"</string>
+    <string name="topic10415" msgid="2886043330316735719">"मोटरसाइकल रेसिङ"</string>
+    <string name="topic10416" msgid="3436682172863605224">"ओलम्पिक"</string>
+    <string name="topic10417" msgid="8296644015663416236">"रग्बी"</string>
+    <string name="topic10418" msgid="8276736633218488127">"दौड तथा हिँड्डुल"</string>
+    <string name="topic10419" msgid="5663062924928275215">"स्किइङ तथा स्नोबोर्डिङ"</string>
+    <string name="topic10420" msgid="2509320683543423424">"फुटबल"</string>
+    <string name="topic10421" msgid="6512889128030030686">"सर्फिङ"</string>
+    <string name="topic10422" msgid="8342986282852879750">"पौडी"</string>
+    <string name="topic10423" msgid="6333426807705188459">"टेनिस"</string>
+    <string name="topic10424" msgid="5495511215629567375">"ट्र्याक तथा मैदान"</string>
+    <string name="topic10425" msgid="4009138228283995179">"भलिबल"</string>
+    <string name="topic10426" msgid="7998590461761852196">"कुस्ती"</string>
+    <string name="topic10427" msgid="6711468161729797769">"यात्रा तथा ढुवानी"</string>
+    <string name="topic10428" msgid="661919563628063196">"साहसिक यात्रा"</string>
+    <string name="topic10429" msgid="408270392813634227">"हवाई यात्रा"</string>
+    <string name="topic10430" msgid="3046485339481297656">"व्यावसायिक यात्रा"</string>
+    <string name="topic10431" msgid="7439352609169583150">"कार भाडामा दिने कम्पनी"</string>
+    <string name="topic10432" msgid="5034961318884376752">"क्रुज तथा चार्टर गरिएका जलयातायातका साधन"</string>
+    <string name="topic10433" msgid="6354590445323135986">"पारिवारिक यात्रा"</string>
+    <string name="topic10434" msgid="7081309045291255264">"हनिमुन तथा रोमान्टिक यात्राहरू"</string>
+    <string name="topic10435" msgid="1064605516265819020">"होटेल तथा आवासहरू"</string>
+    <string name="topic10436" msgid="9050375924140897722">"लामो दूरीका बस तथा रेल"</string>
+    <string name="topic10437" msgid="2655664900730187701">"सस्ता र अन्तिम समयमा उपलब्ध यात्रासम्बन्धी अफरहरू"</string>
+    <string name="topic10438" msgid="7944023251845122923">"झोला तथा यात्रासम्बन्धी सामग्रीहरू"</string>
+    <string name="topic10439" msgid="7845433008088931971">"पर्यटकीय स्थलहरू"</string>
+    <string name="topic10440" msgid="485118071443976808">"समुद्री तट तथा टापुहरू"</string>
+    <string name="topic10441" msgid="518643446480879895">"क्षेत्रीय उद्यान तथा बगैँचाहरू"</string>
+    <string name="topic10442" msgid="6534536077484540292">"मनोरञ्जन पार्कहरू"</string>
+    <string name="topic10443" msgid="8787722062991478596">"चिडियाखानाहरू"</string>
+    <string name="topic10444" msgid="2075863187654728611">"ट्राफिक तथा मार्ग प्लानरहरू"</string>
+    <string name="topic10445" msgid="3460421948068980869">"ट्राभल एजेन्सी तथा सेवाहरू"</string>
+    <string name="topic10446" msgid="5333138740720504195">"यात्रा मार्गदर्शक तथा नियात्राहरू"</string>
+</resources>

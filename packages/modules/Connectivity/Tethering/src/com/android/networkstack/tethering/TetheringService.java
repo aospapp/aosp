@@ -137,7 +137,7 @@ public class TetheringService extends Service {
                 return;
             }
 
-            mTethering.startTethering(request, listener);
+            mTethering.startTethering(request, callerPkg, listener);
         }
 
         @Override
@@ -237,7 +237,7 @@ public class TetheringService extends Service {
                     listener.onResult(TETHER_ERROR_NO_CHANGE_TETHERING_PERMISSION);
                     return true;
                 }
-                if (!mTethering.isTetheringSupported()) {
+                if (!mTethering.isTetheringSupported() || !mTethering.isTetheringAllowed()) {
                     listener.onResult(TETHER_ERROR_UNSUPPORTED);
                     return true;
                 }
@@ -255,7 +255,7 @@ public class TetheringService extends Service {
                 receiver.send(TETHER_ERROR_NO_CHANGE_TETHERING_PERMISSION, null);
                 return true;
             }
-            if (!mTethering.isTetheringSupported()) {
+            if (!mTethering.isTetheringSupported() || !mTethering.isTetheringAllowed()) {
                 receiver.send(TETHER_ERROR_UNSUPPORTED, null);
                 return true;
             }

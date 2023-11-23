@@ -22,6 +22,17 @@ java_defaults {
     lint: {
         strict_updatability_linting: true,
     },
+    plugins: [
+        "staledataclass-annotation-processor",
+    ],
+    // Exports needed for staledataclass-annotation-processor, see b/139342589.
+    javacflags: [
+        "-J--add-modules=jdk.compiler",
+        "-J--add-exports=jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED",
+        "-J--add-exports=jdk.compiler/com.sun.tools.javac.model=ALL-UNNAMED",
+        "-J--add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED",
+        "-J--add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED",
+    ],
     min_sdk_version: "Tiramisu",
 }
 
@@ -29,18 +40,72 @@ filegroup {
     name: "ondevicepersonalization-sources",
     srcs: [
         "src/**/*.java",
+        "src/**/*.aidl",
+        "src/com/android/ondevicepersonalization/services/policyengine/**/*.kt"
     ],
     path: "src",
+}
+
+filegroup {
+    name: "chronicle-sources",
+    srcs: [
+        "src/com/android/libraries/**/*.kt",
+    ],
+    path: "src",
+}
+
+java_library {
+    name: "ondevicepersonalization-protos",
+    proto: {
+        type: "lite",
+    },
+    sdk_version: "system_current",
+    min_sdk_version: "Tiramisu",
+    srcs: ["src/**/*.proto"],
+    apex_available: [
+        "com.android.ondevicepersonalization",
+    ]
+}
+
+java_genrule {
+    name: "ondevicepersonalization-fbs",
+    tools: [
+        "flatc",
+        "soong_zip",
+    ],
+    host_supported: true,
+    srcs: ["src/**/*.fbs"],
+    out: ["ondevicepersonalization-fbs.srcjar"],
+    cmd: "$(location flatc) -o $(genDir) --java $(in) " +
+        "&& $(location soong_zip) -o $(out) -C $(genDir) -D $(genDir)",
 }
 
 android_app {
     name: "OnDevicePersonalization",
     srcs: [
         ":ondevicepersonalization-sources",
-        ":framework-ondevicepersonalization-aidl",
+        ":chronicle-sources",
+        ":ondevicepersonalization-fbs",
     ],
     libs: [
-        "framework-ondevicepersonalization",
+        "framework-ondevicepersonalization.impl",
+        "framework-annotations-lib",
+        "framework-configinfrastructure",
+        "framework-connectivity.stubs.module_lib",
+        "kotlin-annotations",
+    ],
+    static_libs: [
+        "androidx.concurrent_concurrent-futures",
+        "guava",
+        "kotlin-stdlib",
+        "kotlinx_coroutines",
+        "kotlinx-coroutines-android",
+        "ondevicepersonalization-protos",
+        "mobile_data_downloader_lib",
+        "ondevicepersonalization-plugin-lib",
+        "flatbuffers-java",
+        "apache-velocity-engine-core",
+        "owasp-java-encoder",
     ],
     sdk_version: "module_current",
     min_sdk_version: "Tiramisu",
@@ -50,4 +115,8 @@ android_app {
     defaults: [
         "ondevicepersonalization-java-defaults",
     ],
+    optimize: {
+        shrink_resources: true,
+        proguard_flags_files: ["src/proguard.flags"],
+    },
 }

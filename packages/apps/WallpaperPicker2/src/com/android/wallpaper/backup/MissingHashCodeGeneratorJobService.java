@@ -30,6 +30,9 @@ import android.graphics.drawable.Drawable;
 import android.os.ParcelFileDescriptor;
 import android.util.Log;
 
+import androidx.annotation.Nullable;
+import androidx.annotation.VisibleForTesting;
+
 import com.android.wallpaper.asset.BitmapUtils;
 import com.android.wallpaper.compat.WallpaperManagerCompat;
 import com.android.wallpaper.module.Injector;
@@ -41,9 +44,6 @@ import com.android.wallpaper.util.DiskBasedLogger;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
-
-import androidx.annotation.Nullable;
-import androidx.annotation.VisibleForTesting;
 
 /**
  * {@link android.app.job.JobScheduler} job for generating missing hash codes for static wallpapers
@@ -57,7 +57,7 @@ public class MissingHashCodeGeneratorJobService extends JobService {
     private Thread mWorkerThread;
 
     public static void schedule(Context context) {
-        JobScheduler scheduler = (JobScheduler) context.getSystemService(Context.JOB_SCHEDULER_SERVICE);
+        JobScheduler scheduler = context.getSystemService(JobScheduler.class);
         JobInfo newJob = new JobInfo.Builder(
                 JobSchedulerJobIds.JOB_ID_GENERATE_MISSING_HASH_CODES,
                 new ComponentName(context, MissingHashCodeGeneratorJobService.class))
@@ -76,29 +76,34 @@ public class MissingHashCodeGeneratorJobService extends JobService {
         final WallpaperManager wallpaperManager = (WallpaperManager) context.getSystemService(
                 Context.WALLPAPER_SERVICE);
 
-        // Generate missing hash codes on a plain worker thread because we need to do some long-running
-        // disk I/O and can call #jobFinished from a background thread.
+        // Generate missing hash codes on a plain worker thread because we need to do some
+        // long-running disk I/O and can call #jobFinished from a background thread.
         mWorkerThread = new Thread(new Runnable() {
             @Override
             public void run() {
                 Injector injector = InjectorProvider.getInjector();
-                WallpaperManagerCompat wallpaperManagerCompat = injector.getWallpaperManagerCompat(context);
+                WallpaperManagerCompat wallpaperManagerCompat = injector.getWallpaperManagerCompat(
+                        context);
                 WallpaperPreferences wallpaperPreferences = injector.getPreferences(context);
 
                 boolean isLiveWallpaperSet = wallpaperManager.getWallpaperInfo() != null;
 
-                // Generate and set a home wallpaper hash code if there's no live wallpaper set and no hash
-                // code stored already for the home wallpaper.
+                // Generate and set a home wallpaper hash code if there's no live wallpaper set
+                // and no hash code stored already for the home wallpaper.
                 if (!isLiveWallpaperSet && wallpaperPreferences.getHomeWallpaperHashCode() == 0) {
                     wallpaperManager.forgetLoadedWallpaper();
 
                     Drawable wallpaperDrawable = wallpaperManagerCompat.getDrawable();
-                    // No work to do if the drawable returned is null due to an underlying platform issue --
-                    // being extra defensive with this check due to instability and variability of underlying
-                    // platform.
+                    // No work to do if the drawable returned is null due to an underlying
+                    // platform issue -- being extra defensive with this check due to instability
+                    // and variability of underlying platform.
                     if (wallpaperDrawable == null) {
-                        DiskBasedLogger.e(TAG, "WallpaperManager#getDrawable returned null and there's no live "
-                                + "wallpaper set", context);
+                        DiskBasedLogger.e(
+                                TAG,
+                                "WallpaperManager#getDrawable returned null and there's no live "
+                                        + "wallpaper set",
+                                context
+                        );
                         jobFinished(jobParameters, false /* needsReschedule */);
                         return;
                     }
@@ -112,10 +117,12 @@ public class MissingHashCodeGeneratorJobService extends JobService {
                 // Generate and set a lock wallpaper hash code if there's none saved.
                 if (wallpaperPreferences.getLockWallpaperHashCode() == 0) {
                     ParcelFileDescriptor parcelFd =
-                            wallpaperManagerCompat.getWallpaperFile(WallpaperManagerCompat.FLAG_LOCK);
+                            wallpaperManagerCompat.getWallpaperFile(
+                                    WallpaperManagerCompat.FLAG_LOCK);
                     boolean isLockWallpaperSet = parcelFd != null;
 
-                    // Copy the home wallpaper's hash code to lock if there's no distinct lock wallpaper set.
+                    // Copy the home wallpaper's hash code to lock if there's no distinct lock
+                    // wallpaper set.
                     if (!isLockWallpaperSet) {
                         wallpaperPreferences.setLockWallpaperHashCode(
                                 wallpaperPreferences.getHomeWallpaperHashCode());
@@ -138,13 +145,17 @@ public class MissingHashCodeGeneratorJobService extends JobService {
                             try {
                                 fileStream.close();
                             } catch (IOException e) {
-                                Log.e(TAG, "IO exception when closing input stream for lock screen wallpaper.", e);
+                                Log.e(TAG,
+                                        "IO exception when closing input stream for lock screen "
+                                                + "wallpaper.",
+                                        e);
                             }
                         }
                     }
 
                     if (lockBitmap != null) {
-                        wallpaperPreferences.setLockWallpaperHashCode(BitmapUtils.generateHashCode(lockBitmap));
+                        wallpaperPreferences.setLockWallpaperHashCode(
+                                BitmapUtils.generateHashCode(lockBitmap));
                     }
                     mWorkerThread = null;
 
@@ -162,15 +173,15 @@ public class MissingHashCodeGeneratorJobService extends JobService {
     @Override
     public boolean onStopJob(JobParameters jobParameters) {
         // This job has no special execution parameters (i.e., network capability, device idle or
-        // charging), so Android should never call this method to stop the execution of this job early.
-        // Return "false" to indicate that this job should not be rescheduled when it's stopped because
-        // we have to provide an implementation of this method.
+        // charging), so Android should never call this method to stop the execution of this job
+        // early. Return "false" to indicate that this job should not be rescheduled when it's
+        // stopped because we have to provide an implementation of this method.
         return false;
     }
 
     @Nullable
     @VisibleForTesting
-  /* package */ Thread getWorkerThread() {
+        /* package */ Thread getWorkerThread() {
         return mWorkerThread;
     }
 }

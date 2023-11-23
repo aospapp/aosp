@@ -57,7 +57,7 @@ public class UserSwitchTransitionViewMediatorTest extends SysuiTestCase {
     public void setUp() {
         MockitoAnnotations.initMocks(this);
 
-        mUserSwitchTransitionViewMediator = new UserSwitchTransitionViewMediator(
+        mUserSwitchTransitionViewMediator = new UserSwitchTransitionViewMediator(mContext,
                 mCarServiceProvider, mCarDeviceProvisionedController,
                 mUserSwitchTransitionViewController);
         when(mCarDeviceProvisionedController.getCurrentUser()).thenReturn(TEST_USER);

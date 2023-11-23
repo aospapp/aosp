@@ -82,8 +82,8 @@ OUT_TARGET="${ANDROID_BUILD_TOP}/out/target"
 TEST_CONFIG="${ANDROID_BUILD_TOP}/packages/modules/Bluetooth/system/blueberry/tests/gd/host_config.yaml"
 TEST_FILTER="--presubmit"
 TEST_RUNNER="blueberry/tests/gd/gd_test_runner.py"
-CPP_BUILD_TARGET="bluetooth_stack_with_facade root-canal bluetooth_packets_python3"
-RUST_BUILD_TARGET="bluetooth_with_facades root-canal bluetooth_packets_python3 bt_topshim_facade"
+CPP_BUILD_TARGET="bluetooth_stack_with_facade root-canal bluetooth_packets_python3 gd_hci_packets_python3_gen"
+RUST_BUILD_TARGET="bluetooth_with_facades root-canal bluetooth_packets_python3 bt_topshim_facade gd_hci_packets_python3_gen"
 BUILD_TARGET=$CPP_BUILD_TARGET
 
 CLEAN_VENV=false
@@ -130,6 +130,8 @@ function parse_options {
         echo -e "${BLUE}  --sl4a_sl4a${NOCOLOR}"
         echo -e "    Run SL$A combination tests using the default sl4a_sl4a config."
         echo -e "    Please install the correct SL4A build to DUT and cert manually before running tests."
+        echo -e "${BLUE}  --topshim${NOCOLOR}"
+        echo -e "    Run Topshim combination tests using the default topshim config."
         echo -e "${BLUE}  --rust${NOCOLOR}"
         echo -e "    Run the test using the rust implementation on the 2 real devices."
         echo -e "${BLUE}  --rhost${NOCOLOR}"
@@ -143,10 +145,10 @@ function parse_options {
         echo -e "${BLUE}  --verbose${NOCOLOR}"
         echo -e "    Displays device logs and test logs to output."
         echo
-        echo -e "Usage: $0 [--clean|--host|--repeat=<N>|--test_config=<config>] [TestGroupName[:IndividualTestName]]"
+        echo -e "Usage: $0 [--clean|--repeat=<N>|--test_config=<config>] [TestGroupName[.IndividualTestName]]"
         echo -e "        ${YELLOW}e.g."
-        echo -e "         $0 --host --clean SecurityTest"
-        echo -e "         $0 --host --verbose SecurityTest:test_dut_initiated_display_only_display_only ${NOCOLOR}"
+        echo -e "         $0 --clean SecurityTest"
+        echo -e "         $0 --verbose SecurityTest:test_dut_initiated_display_only_display_only ${NOCOLOR}"
         echo
         shift
         exit 0
@@ -203,6 +205,11 @@ function parse_options {
         TEST_RUNNER="blueberry/tests/sl4a_sl4a/sl4a_sl4a_test_runner.py"
         DEVICE_TEST=true
         shift # past argument
+        ;;
+        --topshim)
+        TEST_CONFIG="${ANDROID_BUILD_TOP}/packages/modules/Bluetooth/system/blueberry/tests/topshim/topshim_host_config.yaml"
+        TEST_RUNNER="blueberry/tests/topshim/topshim_test_runner.py"
+        shift
         ;;
         # This will log everything to both log file and stdout
         --verbose)
@@ -268,13 +275,13 @@ function select_devices {
 
 function soong_build {
     if [ "$CLEAN_VENV" == true ] ; then
-        $ANDROID_BUILD_TOP/build/soong/soong_ui.bash --build-mode --"modules-in-a-dir" --dir="${ANDROID_BUILD_TOP}/packages/modules/Bluetooth/system" dist $BUILD_TARGET -j20
+        $ANDROID_BUILD_TOP/build/soong/soong_ui.bash --build-mode --"modules-in-a-dir" --dir="${ANDROID_BUILD_TOP}/packages/modules/Bluetooth/system" dist $BUILD_TARGET -j $(nproc)
         if [[ $? -ne 0 ]] ; then
             echo -e "${RED}Failed to build ${BUILD_TARGET}${NOCOLOR}"
             exit 1
         fi
     else
-        $ANDROID_BUILD_TOP/build/soong/soong_ui.bash --build-mode --"all-modules" --dir="${ANDROID_BUILD_TOP}/packages/modules/Bluetooth/system" $BUILD_TARGET -j20
+        $ANDROID_BUILD_TOP/build/soong/soong_ui.bash --build-mode --"all-modules" --dir="${ANDROID_BUILD_TOP}/packages/modules/Bluetooth/system" dist $BUILD_TARGET -j $(nproc)
         if [[ $? -ne 0 ]] ; then
             echo -e "${RED}Failed to build ${BUILD_TARGET}${NOCOLOR}"
             exit 1
@@ -355,7 +362,6 @@ function incremental_venv {
     cp {$HOST_LIB,$DEST_LIB_DIR}/libprotobuf-cpp-full.so
     cp {$HOST_LIB,$DEST_LIB_DIR}/libunwindstack.so
     cp {$HOST_LIB,$DEST_LIB_DIR}/liblzma.so
-    cp {$HOST_LIB,$DEST_LIB_DIR}/libbacktrace.so
 
     i="${ANDROID_BUILD_TOP}/packages/modules/Bluetooth/system/setup.py"
     cp {${ANDROID_BUILD_TOP}/packages/modules/Bluetooth/system,$DEST_DIR}${i#${ANDROID_BUILD_TOP}/packages/modules/Bluetooth/system}

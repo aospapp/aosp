@@ -37,7 +37,6 @@ import android.graphics.Color;
 import android.graphics.ColorFilter;
 import android.graphics.Path;
 import android.graphics.Picture;
-import android.graphics.Point;
 import android.graphics.Rect;
 import android.graphics.drawable.AdaptiveIconDrawable;
 import android.graphics.drawable.ColorDrawable;
@@ -56,7 +55,6 @@ import androidx.dynamicanimation.animation.FloatPropertyCompat;
 import androidx.dynamicanimation.animation.SpringAnimation;
 import androidx.dynamicanimation.animation.SpringForce;
 
-import com.android.launcher3.LauncherSettings;
 import com.android.launcher3.R;
 import com.android.launcher3.Utilities;
 import com.android.launcher3.anim.Interpolators;
@@ -84,20 +82,23 @@ public abstract class DragView<T extends Context & ActivityContext> extends Fram
     protected final int mRegistrationX;
     protected final int mRegistrationY;
     private final float mInitialScale;
+    private final float mEndScale;
     protected final float mScaleOnDrop;
     protected final int[] mTempLoc = new int[2];
 
     private final RunnableList mOnDragStartCallback = new RunnableList();
 
-    private Point mDragVisualizeOffset = null;
+    private boolean mHasDragOffset;
     private Rect mDragRegion = null;
     protected final T mActivity;
     private final BaseDragLayer<T> mDragLayer;
     private boolean mHasDrawn = false;
 
-    final ValueAnimator mAnim;
+    final ValueAnimator mScaleAnim;
+    final ValueAnimator mShiftAnim;
+
     // Whether mAnim has started. Unlike mAnim.isStarted(), this is true even after mAnim ends.
-    private boolean mAnimStarted;
+    private boolean mScaleAnimStarted;
     private Runnable mOnAnimEndCallback = null;
 
     private int mLastTouchX;
@@ -159,27 +160,27 @@ public abstract class DragView<T extends Context & ActivityContext> extends Fram
             setClipToPadding(false);
         }
 
-        final float scale = (width + finalScaleDps) / width;
+        mEndScale = (width + finalScaleDps) / width;
 
         // Set the initial scale to avoid any jumps
         setScaleX(initialScale);
         setScaleY(initialScale);
 
         // Animate the view into the correct position
-        mAnim = ValueAnimator.ofFloat(0f, 1f);
-        mAnim.setDuration(VIEW_ZOOM_DURATION);
-        mAnim.addUpdateListener(animation -> {
+        mScaleAnim = ValueAnimator.ofFloat(0f, 1f);
+        mScaleAnim.setDuration(VIEW_ZOOM_DURATION);
+        mScaleAnim.addUpdateListener(animation -> {
             final float value = (Float) animation.getAnimatedValue();
-            setScaleX(initialScale + (value * (scale - initialScale)));
-            setScaleY(initialScale + (value * (scale - initialScale)));
+            setScaleX(Utilities.mapRange(value, initialScale, mEndScale));
+            setScaleY(Utilities.mapRange(value, initialScale, mEndScale));
             if (!isAttachedToWindow()) {
                 animation.cancel();
             }
         });
-        mAnim.addListener(new AnimatorListenerAdapter() {
+        mScaleAnim.addListener(new AnimatorListenerAdapter() {
             @Override
             public void onAnimationStart(Animator animation) {
-                mAnimStarted = true;
+                mScaleAnimStarted = true;
             }
 
             @Override
@@ -190,6 +191,8 @@ public abstract class DragView<T extends Context & ActivityContext> extends Fram
                 }
             }
         });
+        // Set up the shift animator.
+        mShiftAnim = ValueAnimator.ofFloat(0f, 1f);
 
         setDragRegion(new Rect(0, 0, width, height));
 
@@ -218,12 +221,6 @@ public abstract class DragView<T extends Context & ActivityContext> extends Fram
      */
     @TargetApi(Build.VERSION_CODES.O)
     public void setItemInfo(final ItemInfo info) {
-        if (info.itemType != LauncherSettings.Favorites.ITEM_TYPE_APPLICATION
-                && info.itemType != LauncherSettings.Favorites.ITEM_TYPE_SEARCH_ACTION
-                && info.itemType != LauncherSettings.Favorites.ITEM_TYPE_DEEP_SHORTCUT
-                && info.itemType != LauncherSettings.Favorites.ITEM_TYPE_FOLDER) {
-            return;
-        }
         // Load the adaptive icon on a background thread and add the view in ui thread.
         MODEL_EXECUTOR.getHandler().postAtFrontOfQueue(() -> {
             Object[] outObj = new Object[1];
@@ -325,12 +322,12 @@ public abstract class DragView<T extends Context & ActivityContext> extends Fram
         return mDragRegion.height();
     }
 
-    public void setDragVisualizeOffset(Point p) {
-        mDragVisualizeOffset = p;
+    public void setHasDragOffset(boolean hasDragOffset) {
+        mHasDragOffset = hasDragOffset;
     }
 
-    public Point getDragVisualizeOffset() {
-        return mDragVisualizeOffset;
+    public boolean getHasDragOffset() {
+        return mHasDragOffset;
     }
 
     public void setDragRegion(Rect r) {
@@ -363,7 +360,10 @@ public abstract class DragView<T extends Context & ActivityContext> extends Fram
             // If the content is already removed, ignore
             return;
         }
-        View newContent = getViewFromDrawable(getContext(), crossFadeDrawable);
+        ImageView newContent = getViewFromDrawable(getContext(), crossFadeDrawable);
+        // We need to fill the ImageView with the content, otherwise the shapes of the final view
+        // and the drag view might not match exactly
+        newContent.setScaleType(ImageView.ScaleType.FIT_XY);
         newContent.measure(makeMeasureSpec(mWidth, EXACTLY), makeMeasureSpec(mHeight, EXACTLY));
         newContent.layout(0, 0, mWidth, mHeight);
         addViewInLayout(newContent, 0, new LayoutParams(mWidth, mHeight));
@@ -395,22 +395,29 @@ public abstract class DragView<T extends Context & ActivityContext> extends Fram
 
         if (mContent != null) {
             // At the drag start, the source view visibility is set to invisible.
-            mContent.setVisibility(VISIBLE);
+            if (getHasDragOffset()) {
+                // If there is any dragOffset, this means the content will show away of the original
+                // icon location, otherwise it's fine since original content would just show at the
+                // same spot.
+                mContent.setVisibility(INVISIBLE);
+            } else {
+                mContent.setVisibility(VISIBLE);
+            }
         }
 
         move(touchX, touchY);
         // Post the animation to skip other expensive work happening on the first frame
-        post(mAnim::start);
+        post(mScaleAnim::start);
     }
 
     public void cancelAnimation() {
-        if (mAnim != null && mAnim.isRunning()) {
-            mAnim.cancel();
+        if (mScaleAnim != null && mScaleAnim.isRunning()) {
+            mScaleAnim.cancel();
         }
     }
 
-    public boolean isAnimationFinished() {
-        return mAnimStarted && !mAnim.isRunning();
+    public boolean isScaleAnimationFinished() {
+        return mScaleAnimStarted && !mScaleAnim.isRunning();
     }
 
     /**
@@ -437,13 +444,15 @@ public abstract class DragView<T extends Context & ActivityContext> extends Fram
             int duration);
 
     public void animateShift(final int shiftX, final int shiftY) {
-        if (mAnim.isStarted()) {
-            return;
-        }
+        if (mShiftAnim.isStarted()) return;
+
+        // Set mContent visibility to visible to show icon regardless in case it is INVISIBLE.
+        if (mContent != null) mContent.setVisibility(VISIBLE);
+
         mAnimatedShiftX = shiftX;
         mAnimatedShiftY = shiftY;
         applyTranslation();
-        mAnim.addUpdateListener(new AnimatorUpdateListener() {
+        mShiftAnim.addUpdateListener(new AnimatorUpdateListener() {
             @Override
             public void onAnimationUpdate(ValueAnimator animation) {
                 float fraction = 1 - animation.getAnimatedFraction();
@@ -452,6 +461,7 @@ public abstract class DragView<T extends Context & ActivityContext> extends Fram
                 applyTranslation();
             }
         });
+        mShiftAnim.start();
     }
 
     private void applyTranslation() {
@@ -512,6 +522,10 @@ public abstract class DragView<T extends Context & ActivityContext> extends Fram
         return mInitialScale;
     }
 
+    public float getEndScale() {
+        return mEndScale;
+    }
+
     @Override
     public boolean hasOverlappingRendering() {
         return false;
@@ -565,7 +579,8 @@ public abstract class DragView<T extends Context & ActivityContext> extends Fram
                     .setSpring(new SpringForce(0)
                             .setDampingRatio(DAMPENING_RATIO)
                             .setStiffness(STIFFNESS));
-            mDelta = view.getResources().getDisplayMetrics().density * PARALLAX_MAX_IN_DP;
+            mDelta = Math.min(
+                    range, view.getResources().getDisplayMetrics().density * PARALLAX_MAX_IN_DP);
         }
 
         public void animateToPos(float value) {
@@ -573,7 +588,7 @@ public abstract class DragView<T extends Context & ActivityContext> extends Fram
         }
     }
 
-    private static View getViewFromDrawable(Context context, Drawable drawable) {
+    private static ImageView getViewFromDrawable(Context context, Drawable drawable) {
         ImageView iv = new ImageView(context);
         iv.setImageDrawable(drawable);
         return iv;

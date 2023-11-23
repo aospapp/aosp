@@ -28,6 +28,8 @@ import android.os.Bundle;
 import android.os.IBinder;
 import android.os.RemoteException;
 import android.os.ServiceManager;
+import android.os.UserHandle;
+import android.os.UserManager;
 import android.widget.Toast;
 
 import androidx.annotation.VisibleForTesting;
@@ -37,6 +39,8 @@ import com.android.car.settings.R;
 import com.android.car.settings.common.Logger;
 import com.android.car.settings.common.SettingsFragment;
 import com.android.car.ui.toolbar.MenuItem;
+import com.android.settingslib.RestrictedLockUtils;
+import com.android.settingslib.RestrictedLockUtilsInternal;
 
 import java.lang.ref.WeakReference;
 import java.util.Collections;
@@ -70,8 +74,27 @@ public class ResetAppPrefFragment extends SettingsFragment {
 
         mResetButton = new MenuItem.Builder(getContext())
                 .setTitle(R.string.reset_app_pref_button_text)
-                .setOnClickListener(i -> resetAppPreferences())
+                .setOnClickListener(i -> resetAppPreferencesIfAllowed())
                 .build();
+    }
+
+    private void resetAppPreferencesIfAllowed() {
+        if (getActivity() == null) {
+            LOG.w("Unable to reset app preferences. Null activity");
+            return;
+        }
+        boolean appsControlDisallowedBySystem =
+                RestrictedLockUtilsInternal.hasBaseUserRestriction(getActivity(),
+                        UserManager.DISALLOW_APPS_CONTROL, UserHandle.myUserId());
+        RestrictedLockUtils.EnforcedAdmin appsControlDisallowedAdmin =
+                RestrictedLockUtilsInternal.checkIfRestrictionEnforced(getActivity(),
+                        UserManager.DISALLOW_APPS_CONTROL, UserHandle.myUserId());
+        if (appsControlDisallowedAdmin != null && !appsControlDisallowedBySystem) {
+            RestrictedLockUtils.sendShowAdminSupportDetailsIntent(
+                    getActivity(), appsControlDisallowedAdmin);
+        } else {
+            resetAppPreferences();
+        }
     }
 
     private void resetAppPreferences() {

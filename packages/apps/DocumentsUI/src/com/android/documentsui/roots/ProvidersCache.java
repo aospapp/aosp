@@ -89,12 +89,11 @@ public class ProvidersCache implements ProvidersAccess, LookupApplicationName {
     // Not all providers are equally well written. If a provider returns
     // empty results we don't cache them...unless they're in this magical list
     // of beloved providers.
-    private static final List<String> PERMIT_EMPTY_CACHE = new ArrayList<String>() {{
+    private static final List<String> PERMIT_EMPTY_CACHE = List.of(
         // MTP provider commonly returns no roots (if no devices are attached).
-        add(Providers.AUTHORITY_MTP);
+        Providers.AUTHORITY_MTP,
         // ArchivesProvider doesn't support any roots.
-        add(ArchivesProvider.AUTHORITY);
-    }};
+        ArchivesProvider.AUTHORITY);
     private static final int FIRST_LOAD_TIMEOUT_MS = 5000;
 
     private final Context mContext;

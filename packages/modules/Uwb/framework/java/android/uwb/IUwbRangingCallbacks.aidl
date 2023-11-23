@@ -258,4 +258,7 @@ oneway interface IUwbRangingCallbacks {
   void onServiceDiscovered(in SessionHandle sessionHandle, in PersistableBundle parameters);
 
   void onServiceConnected(in SessionHandle sessionHandle, in PersistableBundle parameters);
+
+  void onRangingRoundsUpdateDtTagStatus(in SessionHandle sessionHandle,
+            in PersistableBundle parameters);
 }

@@ -21,8 +21,8 @@
     <application android:debuggable="true"
          android:largeHeap="true">
         <uses-library android:name="android.test.runner"/>
-        <activity android:label="BluetoothTestDummyLabel"
-             android:name="BluetoothTestDummyName"
+        <activity android:label="BluetoothTestFakeLabel"
+             android:name="BluetoothTestFakeName"
              android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
@@ -31,12 +31,13 @@
         </activity>
     </application>
 
-    <instrumentation android:name="com.android.server.bluetooth.CustomTestRunner"
+     <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
          android:targetPackage="com.android.server.bluetooth.test"
-         android:label="Service Bluetooth Tests">
-    </instrumentation>
+         android:label="Service Bluetooth Tests"/>
 
-    <uses-permission android:name="android.permission.READ_PHONE_STATE"/>
+    <uses-permission android:name="android.permission.INTERACT_ACROSS_USERS"/>
     <uses-permission android:name="android.permission.INTERNET"/>
+    <uses-permission android:name="android.permission.READ_PHONE_STATE"/>
+    <uses-permission android:name="android.permission.WRITE_SECURE_SETTINGS"/>
 
 </manifest>

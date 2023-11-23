@@ -20,8 +20,10 @@ import static android.Manifest.permission.CAMERA;
 import static android.Manifest.permission.RECORD_AUDIO;
 import static android.app.AppOpsManager.OPSTR_PHONE_CALL_CAMERA;
 import static android.app.AppOpsManager.OPSTR_PHONE_CALL_MICROPHONE;
+import static android.health.connect.HealthPermissions.HEALTH_PERMISSION_GROUP;
 
 import static com.android.permissioncontroller.Constants.OPSTR_RECEIVE_AMBIENT_TRIGGER_AUDIO;
+import static com.android.permissioncontroller.permission.utils.Utils.isHealthPermissionUiEnabled;
 
 import android.app.AppOpsManager;
 import android.app.AppOpsManager.HistoricalOps;
@@ -233,7 +235,9 @@ public final class PermissionUsages implements LoaderCallbacks<List<AppPermissio
             for (int groupIdx = 0; groupIdx < groupCount; groupIdx++) {
                 final PermissionGroup group = groups.get(groupIdx);
                 // Filter out third party permissions
-                if (!group.getDeclaringPackage().equals(Utils.OS_PKG)) {
+                if (!(group.getDeclaringPackage().equals(Utils.OS_PKG)
+                        || (isHealthPermissionUiEnabled() && HEALTH_PERMISSION_GROUP.equals(
+                        group.getName())))) {
                     continue;
                 }
 

@@ -112,3 +112,39 @@ cc_library_shared {
         "libneuralnetworks_cl",
     ],
 }
+
+cc_fuzz {
+    name: "android.hardware.neuralnetworks-service.example_fuzzer",
+    host_supported: true,
+    defaults: [
+        "neuralnetworks_defaults",
+        "neuralnetworks_use_latest_utils_hal_aidl",
+        "service_fuzzer_defaults",
+    ],
+    header_libs: [
+        "libneuralnetworks_headers",
+    ],
+    shared_libs: [
+        "liblog",
+        "libtextclassifier_hash",
+    ],
+    static_libs: [
+        "libaidlcommonsupport",
+        "libneuralnetworks_common",
+        "neuralnetworks_canonical_sample_driver",
+        "neuralnetworks_utils_hal_adapter_aidl",
+    ],
+    target: {
+        android: {
+            shared_libs: [
+                "libnativewindow",
+            ],
+        },
+    },
+    srcs: ["Fuzzer.cpp"],
+    fuzz_config: {
+        cc: [
+            "butlermichael@google.com",
+        ],
+    },
+}

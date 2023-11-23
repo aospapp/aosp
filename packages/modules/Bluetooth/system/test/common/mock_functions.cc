@@ -14,19 +14,31 @@
  * limitations under the License.
  */
 
+#include "test/common/mock_functions.h"
+
 #include <map>
 
 #include "osi/include/log.h"
-#include "test/common/mock_functions.h"
 
-std::map<std::string, int> mock_function_count_map;
+static std::map<std::string, int>& _get_func_call_count_map() {
+  static std::map<std::string, int> mock_function_count_map;
+  return mock_function_count_map;
+}
 
-void reset_mock_function_count_map() { mock_function_count_map.clear(); }
+int get_func_call_count(const char* fn) {
+  return _get_func_call_count_map()[fn];
+}
+void inc_func_call_count(const char* fn) { _get_func_call_count_map()[fn]++; }
+
+void reset_mock_function_count_map() { _get_func_call_count_map().clear(); }
+
+int get_func_call_size() { return _get_func_call_count_map().size(); }
 
 void dump_mock_function_count_map() {
-  LOG_INFO("Mock function count map size:%zu", mock_function_count_map.size());
+  LOG_INFO("Mock function count map size:%zu",
+           _get_func_call_count_map().size());
 
-  for (auto it : mock_function_count_map) {
+  for (const auto& it : _get_func_call_count_map()) {
     LOG_INFO("function:%s: call_count:%d", it.first.c_str(), it.second);
   }
 }

@@ -25,4 +25,5 @@
     <string name="set_wallpaper" msgid="3650915172749345197">"Установить обои"</string>
     <string name="new_instance" msgid="1924479866055190730">"Запросить запуск в новом экземпляре"</string>
     <string name="wallpaper_description" msgid="5885164573334720996">"Образец обоев MultiDisplay"</string>
+    <string name="exit" msgid="3648703694102318310">"Выйти"</string>
 </resources>

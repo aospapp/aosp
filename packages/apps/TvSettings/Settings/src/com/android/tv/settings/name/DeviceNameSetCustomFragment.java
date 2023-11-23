@@ -34,6 +34,7 @@ import androidx.leanback.widget.GuidedActionsStylist;
 
 import com.android.tv.settings.R;
 import com.android.tv.settings.name.setup.DeviceNameFlowStartActivity;
+import com.android.tv.settings.util.AccessibilityHelper;
 import com.android.tv.settings.util.GuidedActionsAlignUtil;
 
 import java.util.List;
@@ -60,6 +61,11 @@ public class DeviceNameSetCustomFragment extends GuidedStepSupportFragment {
             @Override
             public int onProvideItemLayoutId() {
                 return R.layout.guided_step_input_action;
+            }
+            @Override
+            protected void setupImeOptions(GuidedActionsStylist.ViewHolder vh,
+                    GuidedAction action) {
+                // keep defaults
             }
         };
     }
@@ -132,6 +138,9 @@ public class DeviceNameSetCustomFragment extends GuidedStepSupportFragment {
 
     @Override
     public void onGuidedActionEditCanceled(GuidedAction action) {
+        // We need to ensure the IME is closed before navigating back. See b/233207859.
+        AccessibilityHelper.dismissKeyboard(getActivity(), getView());
+
         // We need to "pop to" current fragment with INCLUSIVE flag instead of popping to previous
         // fragment because DeviceNameSetFragment was set to be root and not added on backstack.
         popBackStackToGuidedStepSupportFragment(

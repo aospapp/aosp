@@ -27,7 +27,7 @@ import android.util.SparseIntArray;
  */
 public class TestUtils {
     public static class MonitoredWifiAwareNativeApi extends WifiAwareNativeApi {
-        private SparseIntArray mTransactionIds = new SparseIntArray();
+        private final SparseIntArray mTransactionIds = new SparseIntArray();
 
         MonitoredWifiAwareNativeApi() {
             super(null); // doesn't matter - mocking parent
@@ -51,7 +51,7 @@ public class TestUtils {
         public boolean enableAndConfigure(short transactionId, ConfigRequest configRequest,
                 boolean notifyIdentityChange, boolean initialConfiguration, boolean isInteractive,
                 boolean isIdle, boolean rangingEnabled, boolean isInstantCommunicationEnabled,
-                int instantModeChannel) {
+                int instantModeChannel, int clusterId) {
             addTransactionId(transactionId);
             return true;
         }
@@ -61,13 +61,14 @@ public class TestUtils {
             return true;
         }
 
-        public boolean publish(short transactionId, byte publishId, PublishConfig publishConfig) {
+        public boolean publish(short transactionId, byte publishId, PublishConfig publishConfig,
+                byte[] nik) {
             addTransactionId(transactionId);
             return true;
         }
 
         public boolean subscribe(short transactionId, byte subscribeId,
-                SubscribeConfig subscribeConfig) {
+                SubscribeConfig subscribeConfig, byte[] nik) {
             addTransactionId(transactionId);
             return true;
         }
@@ -106,7 +107,7 @@ public class TestUtils {
         public boolean initiateDataPath(short transactionId, int peerId, int channelRequestType,
                 int channel, byte[] peer, String interfaceName,
                 boolean isOutOfBand, byte[] appInfo, Capabilities capabilities,
-                WifiAwareDataPathSecurityConfig securityConfig) {
+                WifiAwareDataPathSecurityConfig securityConfig, byte pubSubId) {
             addTransactionId(transactionId);
             return true;
         }
@@ -114,12 +115,48 @@ public class TestUtils {
         public boolean respondToDataPathRequest(short transactionId, boolean accept, int ndpId,
                 String interfaceName, byte[] appInfo,
                 boolean isOutOfBand, Capabilities capabilities,
-                WifiAwareDataPathSecurityConfig securityConfig) {
+                WifiAwareDataPathSecurityConfig securityConfig, byte pubSubId) {
             addTransactionId(transactionId);
             return true;
         }
 
         public boolean endDataPath(short transactionId, int ndpId) {
+            addTransactionId(transactionId);
+            return true;
+        }
+
+        public boolean respondToPairingRequest(short transactionId, int pairingId, boolean accept,
+                byte[] pairingIdentityKey, boolean enablePairingCache, int requestType, byte[] pmk,
+                String password, int akm, int cipherSuite) {
+            addTransactionId(transactionId);
+            return true;
+        }
+
+        public boolean initiatePairing(short transactionId, int peerId, byte[] peer,
+                byte[] pairingIdentityKey, boolean enablePairingCache, int requestType, byte[] pmk,
+                String password, int akm, int cipherSuite) {
+            addTransactionId(transactionId);
+            return true;
+        }
+
+        public boolean respondToBootstrappingRequest(short transactionId, int bootstrappingId,
+                boolean accept) {
+            addTransactionId(transactionId);
+            return true;
+        }
+
+        public boolean initiateBootstrapping(short transactionId, int peerId, byte[] peer,
+                int method, byte[] cookie) {
+            addTransactionId(transactionId);
+            return true;
+        }
+
+        public boolean suspendRequest(short transactionId, byte pubSubId) {
+            addTransactionId(transactionId);
+            return true;
+        }
+
+        public boolean resumeRequest(short transactionId, byte pubSubId) {
             addTransactionId(transactionId);
             return true;
         }

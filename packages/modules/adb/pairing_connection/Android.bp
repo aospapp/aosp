@@ -176,7 +176,7 @@ cc_library {
 
     static_libs: [
         // Statically link libadb_crypto because it is not
-	// ABI-stable.
+        // ABI-stable.
         "libadb_crypto",
         "libadb_protos",
     ],

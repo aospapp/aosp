@@ -32,7 +32,7 @@ public class WallpaperMetadata {
     private final String mActionUrl;
     private final String mCollectionId;
     private final String mBackingFileName;
-    private final android.app.WallpaperInfo mWallpaperComponent;
+    protected final android.app.WallpaperInfo mWallpaperComponent;
     @StringRes private final int mActionLabelRes;
     @DrawableRes private final int mActionIconRes;
 
@@ -101,6 +101,6 @@ public class WallpaperMetadata {
      * describes an image wallpaper.
      */
     public WallpaperInfo getWallpaperComponent() {
-        return mWallpaperComponent;
+        throw new UnsupportedOperationException("Not implemented for static wallpapers");
     }
 }

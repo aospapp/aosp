@@ -18,10 +18,19 @@ package com.android.car;
 
 import android.content.Intent;
 
+import com.android.internal.os.BinderInternal;
+
 /** Proxy service for CarServciceImpl */
 public class CarService extends ServiceProxy {
+
+    // Binder threads are set to 31. system_server is also using 31.
+    // check sMaxBinderThreads in SystemServer.java
+    private  static final int MAX_BINDER_THREADS = 31;
+
     public CarService() {
         super(UpdatablePackageDependency.CAR_SERVICE_IMPL_CLASS);
+        // Increase the number of binder threads in car service
+        BinderInternal.setMaxThreads(MAX_BINDER_THREADS);
     }
 
     @Override

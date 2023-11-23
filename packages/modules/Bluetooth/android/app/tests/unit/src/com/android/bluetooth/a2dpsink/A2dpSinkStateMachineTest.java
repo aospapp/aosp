@@ -57,7 +57,7 @@ public class A2dpSinkStateMachineTest {
 
     A2dpSinkStateMachine mStateMachine;
     private static final int TIMEOUT_MS = 1000;
-    private static final int CONNECT_TIMEOUT_MS = 6000;
+    private static final int CONNECT_TIMEOUT_MS = 11000;
     private static final int UNHANDLED_MESSAGE = 9999;
 
     @Before

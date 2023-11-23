@@ -17,6 +17,7 @@
 package com.android.car.settings.applications.assist;
 
 import static com.android.car.settings.common.PreferenceController.AVAILABLE;
+import static com.android.car.settings.common.PreferenceController.AVAILABLE_FOR_VIEWING;
 import static com.android.car.settings.common.PreferenceController.CONDITIONALLY_UNAVAILABLE;
 
 import static com.google.common.truth.Truth.assertThat;
@@ -103,10 +104,61 @@ public class AssistConfigBasePreferenceControllerTest {
     }
 
     @Test
+    public void getAvailabilityStatus_hasAssistComponent_isAvailable_zoneWrite() {
+        when(mMockAssistUtils.getAssistComponentForUser(mUserId)).thenReturn(mComponentName);
+        mPreferenceController.setAvailabilityStatusForZone("write");
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), AVAILABLE);
+    }
+
+    @Test
+    public void getAvailabilityStatus_hasAssistComponent_isAvailable_zoneRead() {
+        when(mMockAssistUtils.getAssistComponentForUser(mUserId)).thenReturn(mComponentName);
+        mPreferenceController.setAvailabilityStatusForZone("read");
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), AVAILABLE_FOR_VIEWING);
+    }
+
+    @Test
+    public void getAvailabilityStatus_hasAssistComponent_isAvailable_zoneHidden() {
+        when(mMockAssistUtils.getAssistComponentForUser(mUserId)).thenReturn(mComponentName);
+        mPreferenceController.setAvailabilityStatusForZone("hidden");
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), CONDITIONALLY_UNAVAILABLE);
+    }
+
+    @Test
     public void getAvailabilityStatus_noAssistComponent_conditionallyUnavailable() {
         when(mMockAssistUtils.getAssistComponentForUser(mUserId)).thenReturn(null);
         assertThat(mPreferenceController.getAvailabilityStatus())
                 .isEqualTo(CONDITIONALLY_UNAVAILABLE);
+    }
+
+    @Test
+    public void getAvailabilityStatus_noAssistComponent_conditionallyUnavailable_zoneWrite() {
+        when(mMockAssistUtils.getAssistComponentForUser(mUserId)).thenReturn(null);
+        mPreferenceController.setAvailabilityStatusForZone("write");
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), CONDITIONALLY_UNAVAILABLE);
+    }
+
+    @Test
+    public void getAvailabilityStatus_noAssistComponent_conditionallyUnavailable_zoneRead() {
+        when(mMockAssistUtils.getAssistComponentForUser(mUserId)).thenReturn(null);
+        mPreferenceController.setAvailabilityStatusForZone("read");
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), CONDITIONALLY_UNAVAILABLE);
+    }
+
+    @Test
+    public void getAvailabilityStatus_noAssistComponent_conditionallyUnavailable_zoneHidden() {
+        when(mMockAssistUtils.getAssistComponentForUser(mUserId)).thenReturn(null);
+        mPreferenceController.setAvailabilityStatusForZone("hidden");
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), CONDITIONALLY_UNAVAILABLE);
     }
 
     @Test

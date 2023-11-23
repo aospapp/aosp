@@ -17,10 +17,10 @@
 #ifndef CPP_WATCHDOG_SERVER_TESTS_PACKAGEINFOTESTUTILS_H_
 #define CPP_WATCHDOG_SERVER_TESTS_PACKAGEINFOTESTUTILS_H_
 
-#include <android/automotive/watchdog/internal/ApplicationCategoryType.h>
-#include <android/automotive/watchdog/internal/ComponentType.h>
-#include <android/automotive/watchdog/internal/PackageInfo.h>
-#include <android/automotive/watchdog/internal/UidType.h>
+#include <aidl/android/automotive/watchdog/internal/ApplicationCategoryType.h>
+#include <aidl/android/automotive/watchdog/internal/ComponentType.h>
+#include <aidl/android/automotive/watchdog/internal/PackageInfo.h>
+#include <aidl/android/automotive/watchdog/internal/UidType.h>
 #include <gmock/gmock.h>
 
 #include <string>
@@ -30,21 +30,22 @@ namespace android {
 namespace automotive {
 namespace watchdog {
 
-android::automotive::watchdog::internal::PackageInfo constructPackageInfo(
+aidl::android::automotive::watchdog::internal::PackageInfo constructPackageInfo(
         const char* packageName, int32_t uid,
-        android::automotive::watchdog::internal::UidType uidType =
-                android::automotive::watchdog::internal::UidType::UNKNOWN,
-        android::automotive::watchdog::internal::ComponentType componentType =
-                android::automotive::watchdog::internal::ComponentType::UNKNOWN,
-        android::automotive::watchdog::internal::ApplicationCategoryType appCategoryType =
-                android::automotive::watchdog::internal::ApplicationCategoryType::OTHERS,
+        aidl::android::automotive::watchdog::internal::UidType uidType =
+                aidl::android::automotive::watchdog::internal::UidType::UNKNOWN,
+        aidl::android::automotive::watchdog::internal::ComponentType componentType =
+                aidl::android::automotive::watchdog::internal::ComponentType::UNKNOWN,
+        aidl::android::automotive::watchdog::internal::ApplicationCategoryType appCategoryType =
+                aidl::android::automotive::watchdog::internal::ApplicationCategoryType::OTHERS,
         std::vector<std::string> sharedUidPackages = {});
 
-android::automotive::watchdog::internal::PackageInfo constructAppPackageInfo(
+aidl::android::automotive::watchdog::internal::PackageInfo constructAppPackageInfo(
         const char* packageName,
-        const android::automotive::watchdog::internal::ComponentType componentType,
-        const android::automotive::watchdog::internal::ApplicationCategoryType appCategoryType =
-                android::automotive::watchdog::internal::ApplicationCategoryType::OTHERS,
+        const aidl::android::automotive::watchdog::internal::ComponentType componentType,
+        const aidl::android::automotive::watchdog::internal::ApplicationCategoryType
+                appCategoryType = aidl::android::automotive::watchdog::internal::
+                        ApplicationCategoryType::OTHERS,
         const std::vector<std::string>& sharedUidPackages = {});
 
 MATCHER_P(PackageIdentifierEq, expected, "") {

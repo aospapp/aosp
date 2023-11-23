@@ -160,4 +160,8 @@
     <color name="dvr_detail_default_background_scrim">#CC000000</color>
     <color name="dvr_recording_failed_text_color">#FFCDD2</color>
     <color name="dvr_recording_conflict_text_color">#FFE082</color>
+
+    <!-- TV IAPP dialog -->
+    <color name="tv_iapp_dialog_background">#384248</color>
+    <color name="tv_iapp_dialog_text_color">#C0EEEEEE</color>
 </resources>

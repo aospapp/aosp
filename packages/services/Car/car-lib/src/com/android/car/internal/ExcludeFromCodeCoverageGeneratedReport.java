@@ -34,12 +34,14 @@ public @interface ExcludeFromCodeCoverageGeneratedReport {
     int BOILERPLATE_CODE = 1;
     int DUMP_INFO = 2;
     int DEBUGGING_CODE = 3;
+    int PRIVATE_CONSTRUCTOR = 4;
 
     @IntDef(prefix = "REASON_", value = {
             DEPRECATED_CODE,
             BOILERPLATE_CODE,
             DUMP_INFO,
-            DEBUGGING_CODE
+            DEBUGGING_CODE,
+            PRIVATE_CONSTRUCTOR
     })
     @interface Reason { }
 
@@ -54,6 +56,8 @@ public @interface ExcludeFromCodeCoverageGeneratedReport {
      * code like {@link java.lang.Object} methods, {@link android.os.Parcel} methods, etc
      * <li>{@link ExcludeFromCodeCoverageGeneratedReport#DUMP_INFO} to exclude dump info methods
      * <li>{@link ExcludeFromCodeCoverageGeneratedReport#DEBUGGING_CODE} to exclude debugging
+     * <li>{@link ExcludeFromCodeCoverageGeneratedReport#PRIVATE_CONSTRUCTOR} to exclude private
+     * constructors from classes that only provide static methods
      * purpose
      * code
      * </ul><p>

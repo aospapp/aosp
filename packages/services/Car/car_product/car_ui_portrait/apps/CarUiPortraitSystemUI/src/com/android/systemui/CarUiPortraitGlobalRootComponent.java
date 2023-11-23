@@ -16,12 +16,13 @@
 
 package com.android.systemui;
 
+import com.android.systemui.car.dagger.CarGlobalModule;
 import com.android.systemui.dagger.GlobalModule;
 import com.android.systemui.wmshell.CarUiPortraitWMComponent;
 
-import javax.inject.Singleton;
-
 import dagger.Component;
+
+import javax.inject.Singleton;
 
 /**
  * Root Component for Dagger injection for CarUiPortraitSystemUI
@@ -30,6 +31,7 @@ import dagger.Component;
 @Component(
         modules = {
                 GlobalModule.class,
+                CarGlobalModule.class,
                 CarUiPortraitSysUIComponentModule.class
         })
 interface CarUiPortraitGlobalRootComponent extends CarGlobalRootComponent {

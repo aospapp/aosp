@@ -19,11 +19,11 @@ package {
 android_test_helper_app {
     name: "FailingSdkProvider",
     defaults: ["platform_app_defaults"],
-    // TODO(b/215372846): Create our own signing key.
-    certificate: ":cts-keyset-test-b",
+    certificate: ":sdksandbox-test",
     srcs: [
        "src/**/*.java",
-       ":framework-sdksandbox-sources",
     ],
     platform_apis: true,
+    min_sdk_version: "33",
+    target_sdk_version: "33",
 }

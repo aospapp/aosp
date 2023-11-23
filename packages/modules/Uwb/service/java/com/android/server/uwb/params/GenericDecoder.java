@@ -18,6 +18,8 @@ package com.android.server.uwb.params;
 
 import static com.android.server.uwb.config.CapabilityParam.SUPPORTED_POWER_STATS_QUERY;
 
+import android.util.Log;
+
 import com.google.uwb.support.base.Params;
 import com.google.uwb.support.ccc.CccParams;
 import com.google.uwb.support.ccc.CccSpecificationParams;
@@ -26,6 +28,8 @@ import com.google.uwb.support.fira.FiraSpecificationParams;
 import com.google.uwb.support.generic.GenericSpecificationParams;
 
 public class GenericDecoder extends TlvDecoder {
+    private static final String TAG = "GenericDecoder";
+
     @Override
     public <T extends Params> T getParams(TlvDecoderBuffer tlvs, Class<T> paramType) {
         if (GenericSpecificationParams.class.equals(paramType)) {
@@ -36,14 +40,22 @@ public class GenericDecoder extends TlvDecoder {
 
     private GenericSpecificationParams getSpecificationParamsFromTlvBuffer(TlvDecoderBuffer tlvs) {
         GenericSpecificationParams.Builder builder = new GenericSpecificationParams.Builder();
-        FiraSpecificationParams firaSpecificationParams =
-                TlvDecoder.getDecoder(FiraParams.PROTOCOL_NAME).getParams(
-                        tlvs, FiraSpecificationParams.class);
-        builder.setFiraSpecificationParams(firaSpecificationParams);
-        CccSpecificationParams cccSpecificationParams =
-                TlvDecoder.getDecoder(CccParams.PROTOCOL_NAME).getParams(
-                        tlvs, CccSpecificationParams.class);
-        builder.setCccSpecificationParams(cccSpecificationParams);
+        try {
+            FiraSpecificationParams firaSpecificationParams =
+                    TlvDecoder.getDecoder(FiraParams.PROTOCOL_NAME).getParams(
+                            tlvs, FiraSpecificationParams.class);
+            builder.setFiraSpecificationParams(firaSpecificationParams);
+        } catch (IllegalArgumentException e) {
+            Log.e(TAG, "Failed to decode FIRA capabilities", e);
+        }
+        try {
+            CccSpecificationParams cccSpecificationParams =
+                    TlvDecoder.getDecoder(CccParams.PROTOCOL_NAME).getParams(
+                            tlvs, CccSpecificationParams.class);
+            builder.setCccSpecificationParams(cccSpecificationParams);
+        } catch (IllegalArgumentException e) {
+            Log.e(TAG, "Failed to decode CCC capabilities", e);
+        }
         try {
             byte supported_power_stats_query = tlvs.getByte(SUPPORTED_POWER_STATS_QUERY);
             if (supported_power_stats_query != 0) {

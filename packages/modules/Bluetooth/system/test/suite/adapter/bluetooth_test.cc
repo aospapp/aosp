@@ -26,19 +26,65 @@
 #include "btcore/include/property.h"
 #include "types/raw_address.h"
 
-namespace {
+extern bt_interface_t bluetoothInterface;
 
-// Mutex lock used by callbacks to protect |callback_semaphores_| from
-// racey behaviour caused when Wait and Notify are called at the same time
-std::mutex callback_lock;
-
-}  // namespace
+void semaphore_wait(btsemaphore &s) {
+  s.wait();
+}
+void semaphore_post(btsemaphore &s) {
+  s.post();
+}
+void semaphore_try_wait(btsemaphore &s) {
+  s.try_wait();
+}
 
 namespace bttest {
 
+static BluetoothTest* instance = nullptr;
+
+void AdapterStateChangedCallback(bt_state_t new_state) {
+  instance->state_ = new_state;
+  semaphore_post(instance->adapter_state_changed_callback_sem_);
+}
+
+void AdapterPropertiesCallback(bt_status_t status, int num_properties,
+                               bt_property_t* new_properties) {
+  property_free_array(instance->last_changed_properties_,
+                      instance->properties_changed_count_);
+  instance->last_changed_properties_ =
+      property_copy_array(new_properties, num_properties);
+  instance->properties_changed_count_ = num_properties;
+  semaphore_post(instance->adapter_properties_callback_sem_);
+}
+
+void RemoteDevicePropertiesCallback(bt_status_t status,
+                                    RawAddress* remote_bd_addr,
+                                    int num_properties,
+                                    bt_property_t* properties) {
+  instance->curr_remote_device_ = *remote_bd_addr;
+  property_free_array(instance->remote_device_last_changed_properties_,
+                      instance->remote_device_properties_changed_count_);
+  instance->remote_device_last_changed_properties_ =
+      property_copy_array(properties, num_properties);
+  instance->remote_device_properties_changed_count_ = num_properties;
+  semaphore_post(instance->remote_device_properties_callback_sem_);
+}
+
+void DiscoveryStateChangedCallback(bt_discovery_state_t state) {
+  instance->discovery_state_ = state;
+  semaphore_post(instance->discovery_state_changed_callback_sem_);
+}
+
+static bt_callbacks_t callbacks = {
+    .size = sizeof(bt_callbacks_t),
+    .adapter_state_changed_cb = AdapterStateChangedCallback,
+    .adapter_properties_cb = AdapterPropertiesCallback,
+    .remote_device_properties_cb = RemoteDevicePropertiesCallback,
+    .discovery_state_changed_cb = DiscoveryStateChangedCallback,
+};
+
 void BluetoothTest::SetUp() {
   android::ProcessState::self()->startThreadPool();
-  bt_interface_ = nullptr;
   state_ = BT_STATE_OFF;
   properties_changed_count_ = 0;
   last_changed_properties_ = nullptr;
@@ -51,37 +97,27 @@ void BluetoothTest::SetUp() {
   remove("/data/misc/bluedroid/bt_config.conf.encrypted-checksum");
   remove("/data/misc/bluedroid/bt_config.bak.encrypted-checksum");
 
-  bluetooth::hal::BluetoothInterface::Initialize();
-  ASSERT_TRUE(bluetooth::hal::BluetoothInterface::IsInitialized());
-  adapter_properties_callback_sem_ = semaphore_new(0);
-  remote_device_properties_callback_sem_ = semaphore_new(0);
-  adapter_state_changed_callback_sem_ = semaphore_new(0);
-  discovery_state_changed_callback_sem_ = semaphore_new(0);
-
-  auto bt_hal_interface = bluetooth::hal::BluetoothInterface::Get();
-  bt_hal_interface->AddObserver(this);
-  bt_interface_ = bt_hal_interface->GetHALInterface();
-  ASSERT_NE(nullptr, bt_interface_) << "bt_interface is null.";
+  instance = this;
+  int status = bluetoothInterface.init(&callbacks, false, false, 0, nullptr,
+                                       false, nullptr);
+  ASSERT_EQ(status, BT_STATUS_SUCCESS);
 }
 
 void BluetoothTest::TearDown() {
-  semaphore_free(adapter_properties_callback_sem_);
-  semaphore_free(remote_device_properties_callback_sem_);
-  semaphore_free(adapter_state_changed_callback_sem_);
-  semaphore_free(discovery_state_changed_callback_sem_);
-
-  auto bt_hal_interface = bluetooth::hal::BluetoothInterface::Get();
-  bt_hal_interface->RemoveObserver(this);
-  bt_hal_interface->CleanUp();
-  ASSERT_FALSE(bt_hal_interface->IsInitialized());
+  bluetoothInterface.cleanup();
+  instance = nullptr;
 }
 
-void BluetoothTest::ClearSemaphore(semaphore_t* sem) {
-  while (semaphore_try_wait(sem))
+void BluetoothTest::ClearSemaphore(btsemaphore& sem) {
+  while (sem.try_wait())
     ;
 }
 
-const bt_interface_t* BluetoothTest::bt_interface() { return bt_interface_; }
+const bt_interface_t* BluetoothTest::bt_interface() {
+  return &bluetoothInterface;
+}
+
+bt_callbacks_t* BluetoothTest::bt_callbacks() { return &callbacks; }
 
 bt_state_t BluetoothTest::GetState() { return state_; }
 
@@ -119,41 +155,4 @@ bt_acl_state_t BluetoothTest::GetAclState() { return acl_state_; }
 // Returns the device bond state.
 bt_bond_state_t BluetoothTest::GetBondState() { return bond_state_; }
 
-// callback
-void BluetoothTest::AdapterStateChangedCallback(bt_state_t new_state) {
-  state_ = new_state;
-  semaphore_post(adapter_state_changed_callback_sem_);
-}
-
-// callback
-void BluetoothTest::AdapterPropertiesCallback(bt_status_t status,
-                                              int num_properties,
-                                              bt_property_t* new_properties) {
-  property_free_array(last_changed_properties_, properties_changed_count_);
-  last_changed_properties_ =
-      property_copy_array(new_properties, num_properties);
-  properties_changed_count_ = num_properties;
-  semaphore_post(adapter_properties_callback_sem_);
-}
-
-// callback
-void BluetoothTest::RemoteDevicePropertiesCallback(bt_status_t status,
-                                                   RawAddress* remote_bd_addr,
-                                                   int num_properties,
-                                                   bt_property_t* properties) {
-  curr_remote_device_ = *remote_bd_addr;
-  property_free_array(remote_device_last_changed_properties_,
-                      remote_device_properties_changed_count_);
-  remote_device_last_changed_properties_ =
-      property_copy_array(properties, num_properties);
-  remote_device_properties_changed_count_ = num_properties;
-  semaphore_post(remote_device_properties_callback_sem_);
-}
-
-// callback
-void BluetoothTest::DiscoveryStateChangedCallback(bt_discovery_state_t state) {
-  discovery_state_ = state;
-  semaphore_post(discovery_state_changed_callback_sem_);
-}
-
-}  // bttest
+}  // namespace bttest

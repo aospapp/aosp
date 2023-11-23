@@ -41,7 +41,7 @@ public class MockingLocator extends Locator {
     }
 
     @SuppressWarnings("nullness") // due to passing in this before initialized.
-    private MockingLocator(Context context, Locator locator) {
+    public MockingLocator(Context context, Locator locator) {
         super(context, locator);
         this.mLocatorContextWrapper = new LocatorContextWrapper(context, this);
     }

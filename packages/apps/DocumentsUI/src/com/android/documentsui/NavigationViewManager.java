@@ -19,20 +19,28 @@ package com.android.documentsui;
 import static com.android.documentsui.base.SharedMinimal.VERBOSE;
 
 import android.content.res.Resources;
+import android.content.res.TypedArray;
 import android.graphics.Outline;
+import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.Drawable;
 import android.util.Log;
 import android.view.View;
 import android.view.ViewOutlineProvider;
+import android.view.Window;
+import android.view.WindowManager;
 import android.widget.FrameLayout;
 
+import androidx.annotation.ColorRes;
 import androidx.annotation.Nullable;
 import androidx.appcompat.widget.Toolbar;
+import androidx.core.content.ContextCompat;
 
 import com.android.documentsui.base.RootInfo;
 import com.android.documentsui.base.State;
 import com.android.documentsui.base.UserId;
 import com.android.documentsui.dirlist.AnimationView;
+import com.android.documentsui.util.VersionUtils;
+import com.android.modules.utils.build.SdkLevel;
 
 import com.google.android.material.appbar.AppBarLayout;
 import com.google.android.material.appbar.CollapsingToolbarLayout;
@@ -42,12 +50,13 @@ import java.util.function.IntConsumer;
 /**
  * A facade over the portions of the app and drawer toolbars.
  */
-public class NavigationViewManager {
+public class NavigationViewManager implements AppBarLayout.OnOffsetChangedListener {
 
     private static final String TAG = "NavigationViewManager";
 
     private final DrawerController mDrawer;
     private final Toolbar mToolbar;
+    private final BaseActivity mActivity;
     private final View mHeader;
     private final State mState;
     private final NavigationViewManager.Environment mEnv;
@@ -61,6 +70,7 @@ public class NavigationViewManager {
     private final boolean mShowSearchBar;
 
     private boolean mIsActionModeActivated = false;
+    private @ColorRes int mDefaultStatusBarColorResId;
 
     public NavigationViewManager(
             BaseActivity activity,
@@ -71,6 +81,7 @@ public class NavigationViewManager {
             View tabLayoutContainer,
             UserIdManager userIdManager) {
 
+        mActivity = activity;
         mToolbar = activity.findViewById(R.id.toolbar);
         mHeader = activity.findViewById(R.id.directory_header);
         mDrawer = drawer;
@@ -93,6 +104,15 @@ public class NavigationViewManager {
         mDefaultOutlineProvider = mToolbar.getOutlineProvider();
         mShowSearchBar = activity.getResources().getBoolean(R.bool.show_search_bar);
 
+        final int[] styledAttrs = {android.R.attr.statusBarColor};
+        TypedArray a = mActivity.obtainStyledAttributes(styledAttrs);
+        mDefaultStatusBarColorResId = a.getResourceId(0, -1);
+        if (mDefaultStatusBarColorResId == -1) {
+            Log.w(TAG, "Retrieve statusBarColorResId from theme failed, assigned default");
+            mDefaultStatusBarColorResId = R.color.app_background_color;
+        }
+        a.recycle();
+
         final Resources resources = mToolbar.getResources();
         final int radius = resources.getDimensionPixelSize(R.dimen.search_bar_radius);
         final int marginStart =
@@ -108,8 +128,47 @@ public class NavigationViewManager {
         };
     }
 
+    @Override
+    public void onOffsetChanged(AppBarLayout appBarLayout, int offset) {
+        if (!VersionUtils.isAtLeastS()) {
+            return;
+        }
+
+        // For S+ Only. Change toolbar color dynamically based on scroll offset.
+        // Usually this can be done in xml using app:contentScrim and app:statusBarScrim, however
+        // in our case since we also put directory_header.xml inside the CollapsingToolbarLayout,
+        // the scrim will also cover the directory header. Long term need to think about how to
+        // move directory_header out of the AppBarLayout.
+
+        Window window = mActivity.getWindow();
+        View actionBar = window.getDecorView().findViewById(R.id.action_mode_bar);
+        int dynamicHeaderColor = ContextCompat.getColor(mActivity,
+                offset == 0 ? mDefaultStatusBarColorResId : R.color.color_surface_header);
+        if (actionBar != null) {
+            // Action bar needs to be updated separately for selection mode.
+            actionBar.setBackgroundColor(dynamicHeaderColor);
+        }
+
+        window.addFlags(WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS);
+        window.setStatusBarColor(dynamicHeaderColor);
+        if (shouldShowSearchBar()) {
+            // Do not change search bar background.
+        } else {
+            mToolbar.setBackground(new ColorDrawable(dynamicHeaderColor));
+        }
+    }
+
     public void setSearchBarClickListener(View.OnClickListener listener) {
         mSearchBarView.setOnClickListener(listener);
+        if (SdkLevel.isAtLeastU()) {
+            try {
+                mSearchBarView.setHandwritingDelegatorCallback(
+                        () -> listener.onClick(mSearchBarView));
+            } catch (LinkageError e) {
+                // Running on a device with an older build of Android U
+                // TODO(b/274154553): Remove try/catch block after Android U Beta 1 is released
+            }
+        }
     }
 
     public ProfileTabsAddons getProfileTabsAddons() {

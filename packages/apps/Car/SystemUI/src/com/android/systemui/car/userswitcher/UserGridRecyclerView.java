@@ -22,10 +22,11 @@ import static android.os.UserManager.DISALLOW_ADD_USER;
 import static android.os.UserManager.SWITCHABILITY_STATUS_OK;
 import static android.view.WindowInsets.Type.statusBars;
 
+import static com.android.systemui.car.users.CarSystemUIUserUtil.getCurrentUserHandle;
+
 import android.annotation.IntDef;
 import android.annotation.Nullable;
 import android.annotation.UserIdInt;
-import android.app.ActivityManager;
 import android.app.AlertDialog;
 import android.app.AlertDialog.Builder;
 import android.app.Dialog;
@@ -65,6 +66,7 @@ import com.android.car.internal.user.UserHelper;
 import com.android.internal.util.UserIcons;
 import com.android.settingslib.utils.StringUtil;
 import com.android.systemui.R;
+import com.android.systemui.settings.UserTracker;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -81,6 +83,8 @@ public class UserGridRecyclerView extends RecyclerView {
     private static final String TAG = UserGridRecyclerView.class.getSimpleName();
     private static final int TIMEOUT_MS = CarProperties.user_hal_timeout().orElse(5_000) + 500;
 
+    @Nullable
+    private UserTracker mUserTracker;
     private UserSelectionListener mUserSelectionListener;
     private UserAdapter mAdapter;
     private CarUserManager mCarUserManager;
@@ -135,12 +139,13 @@ public class UserGridRecyclerView extends RecyclerView {
     private List<UserInfo> getUsersForUserGrid() {
         return mUserManager.getAliveUsers()
                 .stream()
-                .filter(UserInfo::supportsSwitchToByUser)
+                .filter(userInfo -> userInfo.supportsSwitchTo() && userInfo.isFull())
+                .sorted((u1, u2) -> Long.signum(u1.creationTime - u2.creationTime))
                 .collect(Collectors.toList());
     }
 
     private List<UserRecord> createUserRecords(List<UserInfo> userInfoList) {
-        int fgUserId = ActivityManager.getCurrentUser();
+        int fgUserId = getCurrentUserId();
         UserHandle fgUserHandle = UserHandle.of(fgUserId);
         List<UserRecord> userRecords = new ArrayList<>();
 
@@ -174,7 +179,7 @@ public class UserGridRecyclerView extends RecyclerView {
     }
 
     private UserRecord createForegroundUserRecord() {
-        return new UserRecord(mUserManager.getUserInfo(ActivityManager.getCurrentUser()),
+        return new UserRecord(mUserManager.getUserInfo(getCurrentUserId()),
                 UserRecord.FOREGROUND_USER);
     }
 
@@ -192,6 +197,10 @@ public class UserGridRecyclerView extends RecyclerView {
         return new UserRecord(null /* userInfo */, UserRecord.ADD_USER);
     }
 
+    public void setUserTracker(UserTracker userTracker) {
+        mUserTracker = userTracker;
+    }
+
     public void setUserSelectionListener(UserSelectionListener userSelectionListener) {
         mUserSelectionListener = userSelectionListener;
     }
@@ -201,7 +210,14 @@ public class UserGridRecyclerView extends RecyclerView {
         mCarUserManager = carUserManager;
     }
 
+    private int getCurrentUserId() {
+        return getCurrentUserHandle(mContext, mUserTracker).getIdentifier();
+    }
+
     private void onUsersUpdate() {
+        if (mAdapter == null) {
+            return;
+        }
         mAdapter.clearUsers();
         mAdapter.updateUsers(createUserRecords(getUsersForUserGrid()));
         mAdapter.notifyDataSetChanged();
@@ -461,8 +477,7 @@ public class UserGridRecyclerView extends RecyclerView {
             // CreateGuest will return null if a guest already exists.
             UserInfo newGuest = getUserInfo(future);
             if (newGuest != null) {
-                new UserIconProvider().assignDefaultIcon(
-                        mUserManager, context.getResources(), newGuest);
+                UserHelper.assignDefaultIcon(context, newGuest.getUserHandle());
                 return newGuest;
             }
 

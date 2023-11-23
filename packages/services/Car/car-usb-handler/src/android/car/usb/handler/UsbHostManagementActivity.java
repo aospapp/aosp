@@ -118,6 +118,7 @@ public class UsbHostManagementActivity extends Activity {
         mHandlersList.setOnItemClickListener(mHandlerClickListener);
         mController = new UsbHostController(this, new UsbCallbacks());
         mPackageManager = getPackageManager();
+        hideDialog();
     }
 
     @Override
@@ -150,6 +151,21 @@ public class UsbHostManagementActivity extends Activity {
         }
     }
 
+    private void hideDialog() {
+        setTheme(android.R.style.Theme_Translucent);
+        if (mUsbHandlersDialog != null) {
+            mUsbHandlersDialog.setVisibility(View.GONE);
+        }
+    }
+
+    private void showDialog() {
+        setTranslucent(false);
+        setTheme(android.R.style.Theme_DeviceDefault_Dialog);
+        if (mUsbHandlersDialog != null) {
+            mUsbHandlersDialog.setVisibility(View.VISIBLE);
+        }
+    }
+
     class UsbCallbacks implements UsbHostController.UsbHostControllerCallbacks {
         private boolean mProcessing = false;
 
@@ -170,7 +186,7 @@ public class UsbHostManagementActivity extends Activity {
                 @Override
                 public void run() {
                     if (mProcessing && !mListAdapter.isEmpty()) {
-                        mUsbHandlersDialog.setVisibility(View.VISIBLE);
+                        showDialog();
                     }
                 }
             });
@@ -188,7 +204,7 @@ public class UsbHostManagementActivity extends Activity {
                     @Override
                     public void run() {
                         if (mProcessing) {
-                            mUsbHandlersDialog.setVisibility(View.VISIBLE);
+                            showDialog();
                         }
                         mListAdapter.clear();
                         mListAdapter.addAll(options);

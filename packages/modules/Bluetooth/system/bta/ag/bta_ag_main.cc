@@ -159,6 +159,7 @@ static tBTA_AG_SCB* bta_ag_scb_alloc(void) {
           alarm_new("bta_ag.scb_codec_negotiation_timer");
       /* set eSCO mSBC setting to T2 as the preferred */
       p_scb->codec_msbc_settings = BTA_AG_SCO_MSBC_SETTINGS_T2;
+      p_scb->codec_lc3_settings = BTA_AG_SCO_LC3_SETTINGS_T2;
       APPL_TRACE_DEBUG("bta_ag_scb_alloc %d", bta_ag_scb_to_idx(p_scb));
       break;
     }
@@ -167,7 +168,7 @@ static tBTA_AG_SCB* bta_ag_scb_alloc(void) {
   if (i == BTA_AG_MAX_NUM_CLIENTS) {
     /* out of scbs */
     p_scb = nullptr;
-    APPL_TRACE_WARNING("%s: Out of scbs", __func__);
+    LOG_WARN("Out of scbs");
   }
   return p_scb;
 }
@@ -316,7 +317,7 @@ bool bta_ag_other_scb_open(tBTA_AG_SCB* p_curr_scb) {
     }
   }
   /* no other scb found */
-  APPL_TRACE_DEBUG("No other ag scb open");
+  LOG_DEBUG("No other ag scb open");
   return false;
 }
 
@@ -401,6 +402,7 @@ void bta_ag_resume_open(tBTA_AG_SCB* p_scb) {
  ******************************************************************************/
 void bta_ag_api_enable(tBTA_AG_CBACK* p_cback) {
   /* initialize control block */
+  LOG_INFO("AG api enable");
   for (tBTA_AG_SCB& scb : bta_ag_cb.scb) {
     alarm_free(scb.ring_timer);
     alarm_free(scb.codec_negotiation_timer);
@@ -473,8 +475,9 @@ void bta_ag_api_register(tBTA_SERVICE_MASK services, tBTA_AG_FEAT features,
                          const std::vector<std::string>& service_names,
                          uint8_t app_id) {
   tBTA_AG_SCB* p_scb = bta_ag_scb_alloc();
+  LOG_DEBUG("bta_ag_api_register: p_scb allocation %s",
+            p_scb == nullptr ? "failed" : "success");
   if (p_scb) {
-    APPL_TRACE_DEBUG("bta_ag_api_register: p_scb 0x%08x ", p_scb);
     tBTA_AG_DATA data = {};
     data.api_register.features = features;
     data.api_register.services = services;
@@ -559,6 +562,7 @@ static void bta_ag_better_state_machine(tBTA_AG_SCB* p_scb, uint16_t event,
           bta_ag_sco_listen(p_scb, data);
           break;
         case BTA_AG_SCO_OPEN_EVT:
+          LOG_INFO("Opening sco for EVT BTA_AG_SCO_OPEN_EVT");
           bta_ag_sco_conn_open(p_scb, data);
           break;
         case BTA_AG_SCO_CLOSE_EVT:
@@ -596,6 +600,7 @@ static void bta_ag_better_state_machine(tBTA_AG_SCB* p_scb, uint16_t event,
           bta_ag_rfc_fail(p_scb, data);
           break;
         case BTA_AG_SCO_OPEN_EVT:
+          LOG_INFO("Opening sco for EVT BTA_AG_SCO_OPEN_EVT");
           bta_ag_sco_conn_open(p_scb, data);
           break;
         case BTA_AG_SCO_CLOSE_EVT:
@@ -654,6 +659,7 @@ static void bta_ag_better_state_machine(tBTA_AG_SCB* p_scb, uint16_t event,
           bta_ag_rfc_data(p_scb, data);
           break;
         case BTA_AG_SCO_OPEN_EVT:
+          LOG_INFO("Opening sco for EVT BTA_AG_SCO_OPEN_EVT");
           bta_ag_sco_conn_open(p_scb, data);
           bta_ag_post_sco_open(p_scb, data);
           break;
@@ -689,6 +695,7 @@ static void bta_ag_better_state_machine(tBTA_AG_SCB* p_scb, uint16_t event,
           bta_ag_rfc_close(p_scb, data);
           break;
         case BTA_AG_SCO_OPEN_EVT:
+          LOG_INFO("Opening sco for EVT BTA_AG_SCO_OPEN_EVT");
           bta_ag_sco_conn_open(p_scb, data);
           break;
         case BTA_AG_SCO_CLOSE_EVT:
@@ -728,7 +735,7 @@ void bta_ag_sm_execute(tBTA_AG_SCB* p_scb, uint16_t event,
   LOG_DEBUG(
       "Execute AG event handle:0x%04x bd_addr:%s state:%s[0x%02x]"
       " event:%s[0x%04x] result:%s[0x%02x]",
-      bta_ag_scb_to_idx(p_scb), PRIVATE_ADDRESS(p_scb->peer_addr),
+      bta_ag_scb_to_idx(p_scb), ADDRESS_TO_LOGGABLE_CSTR(p_scb->peer_addr),
       bta_ag_state_str(p_scb->state), p_scb->state, bta_ag_evt_str(event),
       event, bta_ag_res_str(data.api_result.result), data.api_result.result);
 
@@ -739,7 +746,7 @@ void bta_ag_sm_execute(tBTA_AG_SCB* p_scb, uint16_t event,
         "State changed handle:0x%04x bd_addr:%s "
         "state_change:%s[0x%02x]->%s[0x%02x]"
         " event:%s[0x%04x] result:%s[0x%02x]",
-        bta_ag_scb_to_idx(p_scb), PRIVATE_ADDRESS(p_scb->peer_addr),
+        bta_ag_scb_to_idx(p_scb), ADDRESS_TO_LOGGABLE_CSTR(p_scb->peer_addr),
         bta_ag_state_str(previous_state), previous_state,
         bta_ag_state_str(p_scb->state), p_scb->state,
         bta_ag_evt_str(previous_event), previous_event,

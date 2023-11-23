@@ -17,6 +17,9 @@
 package com.android.server.nearby.provider;
 
 import static android.bluetooth.le.ScanSettings.CALLBACK_TYPE_ALL_MATCHES;
+import static android.nearby.ScanCallback.ERROR_UNKNOWN;
+
+import static com.google.common.truth.Truth.assertThat;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.times;
@@ -30,10 +33,13 @@ import android.bluetooth.BluetoothManager;
 import android.bluetooth.le.ScanRecord;
 import android.bluetooth.le.ScanResult;
 import android.content.Context;
+import android.hardware.location.ContextHubManager;
+import android.nearby.PresenceScanFilter;
+import android.nearby.PublicCredential;
+import android.nearby.ScanFilter;
 
 import androidx.test.platform.app.InstrumentationRegistry;
 
-import com.android.server.nearby.injector.ContextHubManagerAdapter;
 import com.android.server.nearby.injector.Injector;
 
 import org.junit.Before;
@@ -42,6 +48,8 @@ import org.mockito.Mock;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.util.ArrayList;
+import java.util.List;
 
 public final class BleDiscoveryProviderTest {
 
@@ -49,6 +57,8 @@ public final class BleDiscoveryProviderTest {
     private BleDiscoveryProvider mBleDiscoveryProvider;
     @Mock
     private AbstractDiscoveryProvider.Listener mListener;
+//    @Mock
+//    private BluetoothAdapter mBluetoothAdapter;
 
     @Before
     public void setup() {
@@ -61,7 +71,7 @@ public final class BleDiscoveryProviderTest {
     }
 
     @Test
-    public void test_callback() throws InterruptedException {
+    public void test_callback_found() throws InterruptedException {
         mBleDiscoveryProvider.getController().setListener(mListener);
         mBleDiscoveryProvider.onStart();
         mBleDiscoveryProvider.getScanCallback()
@@ -73,9 +83,37 @@ public final class BleDiscoveryProviderTest {
     }
 
     @Test
+    public void test_callback_failed() throws InterruptedException {
+        mBleDiscoveryProvider.getController().setListener(mListener);
+        mBleDiscoveryProvider.onStart();
+        mBleDiscoveryProvider.getScanCallback().onScanFailed(1);
+
+
+        // Wait for callback to be invoked
+        Thread.sleep(500);
+        verify(mListener, times(1)).onError(ERROR_UNKNOWN);
+    }
+
+    @Test
     public void test_stopScan() {
         mBleDiscoveryProvider.onStart();
         mBleDiscoveryProvider.onStop();
+    }
+
+    @Test
+    public void test_stopScan_filersReset() {
+        List<ScanFilter> filterList = new ArrayList<>();
+        filterList.add(getSanFilter());
+
+        mBleDiscoveryProvider.getController().setProviderScanFilters(filterList);
+        mBleDiscoveryProvider.onStart();
+        mBleDiscoveryProvider.onStop();
+        assertThat(mBleDiscoveryProvider.getFiltersLocked()).isNull();
+    }
+
+    @Test
+    public void testInvalidateScanMode() {
+        mBleDiscoveryProvider.invalidateScanMode();
     }
 
     private class TestInjector implements Injector {
@@ -85,7 +123,7 @@ public final class BleDiscoveryProviderTest {
         }
 
         @Override
-        public ContextHubManagerAdapter getContextHubManagerAdapter() {
+        public ContextHubManager getContextHubManager() {
             return null;
         }
 
@@ -124,5 +162,23 @@ public final class BleDiscoveryProviderTest {
                 | InvocationTargetException e) {
             return null;
         }
+    }
+
+    private static PresenceScanFilter getSanFilter() {
+        return new PresenceScanFilter.Builder()
+                .setMaxPathLoss(70)
+                .addCredential(getPublicCredential())
+                .addPresenceAction(124)
+                .build();
+    }
+
+    private static PublicCredential getPublicCredential() {
+        return new PublicCredential.Builder(
+                new byte[]{1, 2},
+                new byte[]{1, 2},
+                new byte[]{1, 2},
+                new byte[]{1, 2},
+                new byte[]{1, 2})
+                .build();
     }
 }

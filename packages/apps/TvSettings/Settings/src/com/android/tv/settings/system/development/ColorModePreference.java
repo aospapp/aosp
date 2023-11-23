@@ -24,13 +24,12 @@ import android.os.Looper;
 import android.util.AttributeSet;
 import android.view.Display;
 
-import androidx.preference.SwitchPreference;
-
 import com.android.tv.settings.R;
+import com.android.tv.settings.widget.SwitchWithSoundPreference;
 
 import java.util.ArrayList;
 
-public class ColorModePreference extends SwitchPreference implements DisplayListener {
+public class ColorModePreference extends SwitchWithSoundPreference implements DisplayListener {
 
     private DisplayManager mDisplayManager;
     private Display mDisplay;

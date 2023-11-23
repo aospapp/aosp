@@ -16,7 +16,7 @@
 
 //! Provides extension methods Bytes::read<T>(), which calls back ReadFromBytes::read_from_byte()
 
-use anyhow::{bail, Result};
+use anyhow::{ensure, Result};
 use bytes::{Buf, Bytes};
 use std::ops::Deref;
 
@@ -29,6 +29,13 @@ impl<T> Deref for LengthPrefixed<T> {
     type Target = T;
     fn deref(&self) -> &Self::Target {
         &self.inner
+    }
+}
+
+impl<T> LengthPrefixed<T> {
+    /// Consumes the `LengthPrefixed` instance, returning the wrapped value.
+    pub fn into_inner(self) -> T {
+        self.inner
     }
 }
 
@@ -79,20 +86,18 @@ impl ReadFromBytes for Bytes {
 }
 
 fn read_length_prefixed_slice(buf: &mut Bytes) -> Result<Bytes> {
-    if buf.remaining() < 4 {
-        bail!(
-            "Remaining buffer too short to contain length of length-prefixed field. Remaining: {}",
-            buf.remaining()
-        );
-    }
+    ensure!(
+        buf.remaining() >= 4,
+        "Remaining buffer too short to contain length of length-prefixed field. Remaining: {}",
+        buf.remaining()
+    );
     let len = buf.get_u32_le() as usize;
-    if len > buf.remaining() {
-        bail!(
-            "length-prefixed field longer than remaining buffer. Field length: {}, remaining: {}",
-            len,
-            buf.remaining()
-        );
-    }
+    ensure!(
+        buf.remaining() >= len,
+        "length-prefixed field longer than remaining buffer. Field length: {}, remaining: {}",
+        len,
+        buf.remaining()
+    );
     Ok(buf.split_to(len))
 }
 

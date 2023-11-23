@@ -17,13 +17,13 @@
 #ifndef CAR_LIB_EVS_SUPPORT_RESOURCEMANAGER_H
 #define CAR_LIB_EVS_SUPPORT_RESOURCEMANAGER_H
 
-#include <utils/RefBase.h>
-#include <unordered_map>
-#include <mutex>
+#include "StreamHandler.h"
 
 #include <android/hardware/automotive/evs/1.0/IEvsEnumerator.h>
+#include <utils/RefBase.h>
 
-#include "StreamHandler.h"
+#include <mutex>
+#include <unordered_map>
 
 namespace android {
 namespace automotive {
@@ -31,8 +31,11 @@ namespace evs {
 namespace support {
 
 using ::android::sp;
-using ::std::string;
+using ::android::hardware::automotive::evs::V1_0::IEvsCamera;
+using ::android::hardware::automotive::evs::V1_0::IEvsDisplay;
+using ::android::hardware::automotive::evs::V1_0::IEvsEnumerator;
 using ::std::mutex;
+using ::std::string;
 using ::std::unordered_map;
 
 /*
@@ -125,8 +128,7 @@ private:
             ALOGD("StreamHandler::onLastStrongRef");
 
             handler->shutdown();
-            ALOGD("Stream handler for camera id (%s) has been shutdown",
-                  cameraId.c_str());
+            ALOGD("Stream handler for camera id (%s) has been shutdown", cameraId.c_str());
 
             getEvsEnumerator()->closeCamera(camera);
             ALOGD("Camera with id (%s) has been closed", cameraId.c_str());
@@ -143,4 +145,4 @@ private:
 }  // namespace automotive
 }  // namespace android
 
-#endif //CAR_LIB_EVS_SUPPORT_RESOURCEMANAGER_H
+#endif  // CAR_LIB_EVS_SUPPORT_RESOURCEMANAGER_H

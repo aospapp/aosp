@@ -19,14 +19,14 @@
  *   Functions generated:3
  */
 
+#include <sys/time.h>
+#include <time.h>
+
 #include <map>
 #include <string>
 
-extern std::map<std::string, int> mock_function_count_map;
-
-#include <sys/time.h>
-#include <time.h>
 #include "common/time_util.h"
+#include "test/common/mock_functions.h"
 
 #ifndef UNUSED_ATTR
 #define UNUSED_ATTR
@@ -36,15 +36,19 @@ namespace bluetooth {
 namespace common {
 
 uint64_t time_get_os_boottime_ms() {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return 0;
 }
 uint64_t time_get_os_boottime_us() {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return 0;
 }
 uint64_t time_gettimeofday_us() {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
+  return 0;
+}
+uint64_t time_get_os_monotonic_raw_us() {
+  inc_func_call_count(__func__);
   return 0;
 }
 

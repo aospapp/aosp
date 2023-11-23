@@ -87,11 +87,11 @@ public final class EstablishNetworkConnectionController extends AbstractProvisio
     }
 
     @Override
-    protected int getErrorMsgId(AbstractProvisioningTask task, int errorCode) {
+    protected String getErrorMsgId(AbstractProvisioningTask task, int errorCode) {
         if (task instanceof AddWifiNetworkTask) {
-            return R.string.error_wifi;
+            return mContext.getString(R.string.error_wifi);
         }
-        return R.string.cant_set_up_device;
+        return mContext.getString(R.string.cant_set_up_device);
     }
 
     @Override

@@ -177,6 +177,9 @@ public class AdapterStateListener extends IUwbAdapterStateCallbacks.Stub {
             case StateChangeReason.SYSTEM_BOOT:
                 return AdapterStateCallback.STATE_CHANGED_REASON_SYSTEM_BOOT;
 
+            case StateChangeReason.SYSTEM_REGULATION:
+                return AdapterStateCallback.STATE_CHANGED_REASON_SYSTEM_REGULATION;
+
             case StateChangeReason.UNKNOWN:
             default:
                 return AdapterStateCallback.STATE_CHANGED_REASON_ERROR_UNKNOWN;

@@ -18,8 +18,8 @@ package com.android.car.garagemode;
 
 import static android.car.user.CarUserManager.USER_LIFECYCLE_EVENT_TYPE_STOPPED;
 
+import static com.android.car.CarServiceUtils.isEventOfType;
 import static com.android.car.internal.ExcludeFromCodeCoverageGeneratedReport.DUMP_INFO;
-import static com.android.car.util.Utils.isEventOfType;
 
 import android.car.builtin.job.JobSchedulerHelper;
 import android.car.builtin.util.EventLogHelper;
@@ -45,7 +45,6 @@ import com.android.internal.annotations.VisibleForTesting;
 
 import java.time.Clock;
 import java.util.ArrayList;
-import java.util.List;
 
 /**
  * Class that interacts with JobScheduler through JobSchedulerHelper, controls system idleness and
@@ -92,8 +91,6 @@ class GarageMode {
     private int mAdditionalChecksToDo = ADDITIONAL_CHECKS_TO_DO;
     @GuardedBy("mLock")
     private boolean mIdleCheckerIsRunning;
-    @GuardedBy("mLock")
-    private List<String> mPendingJobs = new ArrayList<>();
 
     private final GarageModeRecorder mGarageModeRecorder;
 
@@ -267,8 +264,9 @@ class GarageMode {
     @ExcludeFromCodeCoverageGeneratedReport(reason = DUMP_INFO)
     void dump(IndentingPrintWriter writer) {
         synchronized (mLock) {
+            writer.printf("GarageMode is %sactive\n", (mGarageModeActive ? "" : "not "));
             mGarageModeRecorder.dump(writer);
-            if (!mGarageModeActive) { //TODO(b/217739337) print value of mGarageModeActive
+            if (!mGarageModeActive) {
                 return;
             }
             writer.printf("GarageMode idle checker is %srunning\n",

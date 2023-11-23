@@ -26,8 +26,6 @@
 #include <map>
 #include <string>
 
-extern std::map<std::string, int> mock_function_count_map;
-
 // Mock include file to share data between tests and mock
 #include "test/mock/mock_osi_config.h"
 
@@ -68,22 +66,22 @@ struct section_t_Set section_t_Set;
 
 // Mocked functions, if any
 std::string checksum_read(const char* filename) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return test::mock::osi_config::checksum_read(filename);
 }
 bool checksum_save(const std::string& checksum, const std::string& filename) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return test::mock::osi_config::checksum_save(checksum, filename);
 }
 bool config_get_bool(const config_t& config, const std::string& section,
                      const std::string& key, bool def_value) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return test::mock::osi_config::config_get_bool(config, section, key,
                                                  def_value);
 }
 int config_get_int(const config_t& config, const std::string& section,
                    const std::string& key, int def_value) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return test::mock::osi_config::config_get_int(config, section, key,
                                                 def_value);
 }
@@ -91,88 +89,88 @@ const std::string* config_get_string(const config_t& config,
                                      const std::string& section,
                                      const std::string& key,
                                      const std::string* def_value) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return test::mock::osi_config::config_get_string(config, section, key,
                                                    def_value);
 }
 uint64_t config_get_uint64(const config_t& config, const std::string& section,
                            const std::string& key, uint64_t def_value) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return test::mock::osi_config::config_get_uint64(config, section, key,
                                                    def_value);
 }
 bool config_has_key(const config_t& config, const std::string& section,
                     const std::string& key) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return test::mock::osi_config::config_has_key(config, section, key);
 }
 bool config_has_section(const config_t& config, const std::string& section) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return test::mock::osi_config::config_has_section(config, section);
 }
 std::unique_ptr<config_t> config_new(const char* filename) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return test::mock::osi_config::config_new(filename);
 }
 std::unique_ptr<config_t> config_new_clone(const config_t& src) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return test::mock::osi_config::config_new_clone(src);
 }
 std::unique_ptr<config_t> config_new_empty(void) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return test::mock::osi_config::config_new_empty();
 }
 bool config_remove_key(config_t* config, const std::string& section,
                        const std::string& key) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return test::mock::osi_config::config_remove_key(config, section, key);
 }
 bool config_remove_section(config_t* config, const std::string& section) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return test::mock::osi_config::config_remove_section(config, section);
 }
 bool config_save(const config_t& config, const std::string& filename) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return test::mock::osi_config::config_save(config, filename);
 }
 void config_set_bool(config_t* config, const std::string& section,
                      const std::string& key, bool value) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   test::mock::osi_config::config_set_bool(config, section, key, value);
 }
 void config_set_int(config_t* config, const std::string& section,
                     const std::string& key, int value) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   test::mock::osi_config::config_set_int(config, section, key, value);
 }
 void config_set_string(config_t* config, const std::string& section,
                        const std::string& key, const std::string& value) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   test::mock::osi_config::config_set_string(config, section, key, value);
 }
 void config_set_uint64(config_t* config, const std::string& section,
                        const std::string& key, uint64_t value) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   test::mock::osi_config::config_set_uint64(config, section, key, value);
 }
 std::list<section_t>::iterator config_t::Find(const std::string& section) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return test::mock::osi_config::config_t_Find(section);
 }
 bool config_t::Has(const std::string& key) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return test::mock::osi_config::config_t_Has(key);
 }
 std::list<entry_t>::iterator section_t::Find(const std::string& key) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return test::mock::osi_config::section_t_Find(key);
 }
 bool section_t::Has(const std::string& key) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return test::mock::osi_config::section_t_Has(key);
 }
 void section_t::Set(std::string key, std::string value) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   test::mock::osi_config::section_t_Set(key, value);
 }
 // Mocked functions complete

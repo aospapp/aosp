@@ -20,6 +20,10 @@
    <target_preparer class="com.android.compatibility.common.tradefed.targetprep.FilePusher">
        <option name="cleanup" value="true" />
        <option name="push" value="resolv_gold_test->/data/local/tmp/resolv_gold_test" />
+       <option name="append-bitness" value="true" />
+   </target_preparer>
+   <target_preparer class="com.android.compatibility.common.tradefed.targetprep.FilePusher">
+       <option name="cleanup" value="true" />
        <!-- Temporary solotuon for b/151392634 -->
        <option name="push" value="testdata->/data/local/tmp/testdata/" />
    </target_preparer>

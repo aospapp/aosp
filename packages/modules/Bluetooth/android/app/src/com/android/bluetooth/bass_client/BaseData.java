@@ -104,9 +104,9 @@ class BaseData {
             presentationDelay = new byte[3];
             codecId = new byte[5];
             codecConfigLength = 0;
-            codecConfigInfo = null;
+            codecConfigInfo = new byte[0];
             metaDataLength = 0;
-            metaData = null;
+            metaData = new byte[0];
             numSubGroups = 0;
             bisIndices = null;
             index = (byte) 0xFF;

@@ -16,7 +16,10 @@
 
 package com.android.internal.net.ipsec.ike.net;
 
+import android.annotation.NonNull;
+import android.net.LinkProperties;
 import android.net.Network;
+import android.net.NetworkCapabilities;
 
 import java.net.InetAddress;
 
@@ -35,7 +38,39 @@ import java.net.InetAddress;
  */
 public class IkeSpecificNetworkCallback extends IkeNetworkCallbackBase {
     public IkeSpecificNetworkCallback(
-            IkeNetworkUpdater ikeNetworkUpdater, Network currNetwork, InetAddress currAddress) {
-        super(ikeNetworkUpdater, currNetwork, currAddress);
+            IkeNetworkUpdater ikeNetworkUpdater,
+            Network currNetwork,
+            InetAddress currAddress,
+            LinkProperties currLp,
+            NetworkCapabilities currNc) {
+        super(ikeNetworkUpdater, currNetwork, currAddress, currLp, currNc);
+    }
+
+    @Override
+    public void onCapabilitiesChanged(
+            @NonNull Network network, @NonNull NetworkCapabilities networkCapabilities) {
+        // This LinkProperties update is only meaningful if it's for the current Network
+        if (!mCurrNetwork.equals(network)) {
+            return;
+        }
+
+        logd("onCapabilitiesChanged: " + network + "networkCapabilities " + networkCapabilities);
+        mCurrNc = networkCapabilities;
+        mIkeNetworkUpdater.onCapabilitiesUpdated(mCurrNc);
+    }
+
+    @Override
+    public void onLinkPropertiesChanged(
+            @NonNull Network network, @NonNull LinkProperties linkProperties) {
+        // This LinkProperties update is only meaningful if it's for the current Network
+        if (!mCurrNetwork.equals(network)) {
+            return;
+        }
+
+        logd("onLinkPropertiesChanged: " + network);
+        mCurrLp = linkProperties;
+        if (isCurrentAddressLost(linkProperties)) {
+            mIkeNetworkUpdater.onUnderlyingNetworkUpdated(mCurrNetwork, mCurrLp, mCurrNc);
+        }
     }
 }

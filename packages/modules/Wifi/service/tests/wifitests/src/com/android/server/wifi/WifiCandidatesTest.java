@@ -53,6 +53,9 @@ import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.mockito.MockitoSession;
 
+import java.util.ArrayList;
+import java.util.List;
+
 /**
  * Unit tests for {@link com.android.server.wifi.WifiCandidates}.
  */
@@ -414,13 +417,13 @@ public class WifiCandidatesTest extends WifiBaseTest {
         WifiCandidates.Candidate candidate;
         // Make sure the CarrierOrPrivileged false is remembered
         assertTrue(mWifiCandidates.add(key, mConfig1, 0, -50, 2412,
-                ScanResult.CHANNEL_WIDTH_20MHZ, 0.0, false, false, 100));
+                ScanResult.CHANNEL_WIDTH_20MHZ, 0.0, false, false, 100, null));
         candidate = mWifiCandidates.getCandidates().get(0);
         assertFalse(candidate.isCarrierOrPrivileged());
         mWifiCandidates.remove(candidate);
         // Make sure the CarrierOrPrivileged true is remembered
         assertTrue(mWifiCandidates.add(key, mConfig1, 0, -50, 2412,
-                ScanResult.CHANNEL_WIDTH_20MHZ, 0.0, false, true, 100));
+                ScanResult.CHANNEL_WIDTH_20MHZ, 0.0, false, true, 100, null));
         candidate = mWifiCandidates.getCandidates().get(0);
         assertTrue(candidate.isCarrierOrPrivileged());
         mWifiCandidates.remove(candidate);
@@ -435,9 +438,72 @@ public class WifiCandidatesTest extends WifiBaseTest {
         WifiCandidates.Candidate candidate;
 
         assertTrue(mWifiCandidates.add(key, mConfig1, 0, -50, testFrequency,
-                testChannelWidth, 0.0, false, false, 100));
+                testChannelWidth, 0.0, false, false, 100, null));
         candidate = mWifiCandidates.getCandidates().get(0);
         assertEquals(testFrequency, candidate.getFrequency());
         assertEquals(testChannelWidth, candidate.getChannelWidth());
+    }
+
+    /**
+     * Unit test to validate multi-link candidate behavior.
+     */
+    @Test
+    public void testMultiLinkCandidates() {
+        final MacAddress mldAddr1 = MacAddress.fromString("00:AA:BB:CC:DD:00");
+        // Verify default behavior.
+        assertTrue(mWifiCandidates.getMultiLinkCandidates().isEmpty());
+        assertNull(mWifiCandidates.getMultiLinkCandidates(mldAddr1));
+        for (WifiCandidates.Candidate candidate : mWifiCandidates.getCandidates()) {
+            assertFalse(candidate.isMultiLinkCapable());
+        }
+        // Verify non MLO candidates are handled properly.
+        assertTrue(mWifiCandidates.add(mScanDetail1, mConfig1, 2, 0.0, false, 200));
+        assertTrue(mWifiCandidates.getMultiLinkCandidates().isEmpty());
+        // Configure first set of Multi-Link candidates.
+        ScanResult mScanResult1_1 = new ScanResult(mScanResult1);
+        mScanResult1_1.BSSID = "00:00:00:00:00:02";
+        mScanResult1_1.setApMldMacAddress(mldAddr1);
+        ScanResult mScanResult1_2 = new ScanResult(mScanResult1);
+        mScanResult1_2.BSSID = "00:00:00:00:00:03";
+        mScanResult1_2.setApMldMacAddress(mldAddr1);
+        doReturn(mScanResult1_1).when(mScanDetail1).getScanResult();
+        assertTrue(mWifiCandidates.add(mScanDetail1, mConfig1, 2, 0.0, false, 200));
+        doReturn(mScanResult1_2).when(mScanDetail1).getScanResult();
+        assertTrue(mWifiCandidates.add(mScanDetail1, mConfig1, 2, 0.0, false, 100));
+        for (WifiCandidates.Candidate candidate : mWifiCandidates.getMultiLinkCandidates(
+                mldAddr1)) {
+            candidate.setPredictedMultiLinkThroughputMbps(300);
+        }
+        // Configure second set of Multi-Link candidates.
+        final MacAddress mldAddr2 = MacAddress.fromString("00:AA:BB:CC:DD:01");
+        ScanResult mScanResult2_1 = new ScanResult(mScanResult1);
+        mScanResult2_1.BSSID = "00:00:00:00:00:04";
+        mScanResult2_1.setApMldMacAddress(mldAddr2);
+        ScanResult mScanResult2_2 = new ScanResult(mScanResult1);
+        mScanResult2_2.BSSID = "00:00:00:00:00:05";
+        mScanResult2_2.setApMldMacAddress(mldAddr2);
+        doReturn(mScanResult2_1).when(mScanDetail1).getScanResult();
+        assertTrue(mWifiCandidates.add(mScanDetail1, mConfig1, 2, 0.0, false, 400));
+        doReturn(mScanResult2_2).when(mScanDetail1).getScanResult();
+        assertTrue(mWifiCandidates.add(mScanDetail1, mConfig1, 2, 0.0, false, 100));
+        for (WifiCandidates.Candidate candidate : mWifiCandidates.getMultiLinkCandidates(
+                mldAddr2)) {
+            candidate.setPredictedMultiLinkThroughputMbps(400);
+        }
+        // Test that we can get two sets of Multi-link candidates.
+        assertEquals(new ArrayList<>(mWifiCandidates.getMultiLinkCandidates()),
+                List.of(mWifiCandidates.getMultiLinkCandidates(mldAddr1),
+                        mWifiCandidates.getMultiLinkCandidates(mldAddr2)));
+        // Verify predicted multi-link throughput.
+        for (WifiCandidates.Candidate candidate : mWifiCandidates.getMultiLinkCandidates(
+                mldAddr1)) {
+            assertTrue(candidate.isMultiLinkCapable());
+            assertEquals(candidate.getPredictedMultiLinkThroughputMbps(), 300);
+        }
+        for (WifiCandidates.Candidate candidate : mWifiCandidates.getMultiLinkCandidates(
+                mldAddr2)) {
+            assertTrue(candidate.isMultiLinkCapable());
+            assertEquals(candidate.getPredictedMultiLinkThroughputMbps(), 400);
+        }
     }
 }

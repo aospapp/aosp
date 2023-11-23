@@ -47,7 +47,7 @@ import java.security.cert.X509Certificate;
 import java.security.spec.InvalidKeySpecException;
 import java.security.spec.PKCS8EncodedKeySpec;
 import java.util.ArrayList;
-import java.util.Arrays;
+import java.util.Collections;
 import java.util.concurrent.CancellationException;
 
 import javax.security.auth.x500.X500Principal;
@@ -230,7 +230,7 @@ public final class KeyChainActivityTest {
             KeyStore keyStore, X500Principal issuer) {
         return new CertificateParametersFilter(
                 keyStore, new String[] {},
-                new ArrayList<byte[]>(Arrays.asList(issuer.getEncoded())));
+                new ArrayList<byte[]>(Collections.singletonList(issuer.getEncoded())));
     }
 
     private static X509Certificate parseCertificate(byte[] certificateBytes) {

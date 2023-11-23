@@ -16,6 +16,7 @@
 package com.android.car.settings.enterprise;
 
 import static com.android.car.settings.common.PreferenceController.AVAILABLE;
+import static com.android.car.settings.common.PreferenceController.AVAILABLE_FOR_VIEWING;
 import static com.android.car.settings.common.PreferenceController.CONDITIONALLY_UNAVAILABLE;
 import static com.android.car.settings.common.PreferenceController.DISABLED_FOR_PROFILE;
 
@@ -81,6 +82,63 @@ abstract class BaseAdminGrantedPermissionsPreferenceControllerTestCase
     }
 
     @Test
+    public void testGetAvailabilityStatus_noPermissionsGranted_zoneWrite() {
+        NumberOfAppsCallbackHolder callbackHolder =
+                mockCalculateNumberOfAppsWithAdminGrantedPermissions();
+        mSpiedController.setAvailabilityStatusForZone("write");
+
+        // Assert initial state
+        PreferenceControllerTestUtil.assertAvailability(mSpiedController.getAvailabilityStatus(),
+                CONDITIONALLY_UNAVAILABLE);
+
+        // Unblock async call
+        callbackHolder.release(0);
+
+        // Assert post-callback result
+        PreferenceControllerTestUtil.assertAvailability(mSpiedController.getAvailabilityStatus(),
+                DISABLED_FOR_PROFILE);
+        assertUiNotRefreshed(mSpiedController);
+    }
+
+    @Test
+    public void testGetAvailabilityStatus_noPermissionsGranted_zoneRead() {
+        NumberOfAppsCallbackHolder callbackHolder =
+                mockCalculateNumberOfAppsWithAdminGrantedPermissions();
+        mSpiedController.setAvailabilityStatusForZone("read");
+
+        // Assert initial state
+        PreferenceControllerTestUtil.assertAvailability(mSpiedController.getAvailabilityStatus(),
+                CONDITIONALLY_UNAVAILABLE);
+
+        // Unblock async call
+        callbackHolder.release(0);
+
+        // Assert post-callback result
+        PreferenceControllerTestUtil.assertAvailability(mSpiedController.getAvailabilityStatus(),
+                DISABLED_FOR_PROFILE);
+        assertUiNotRefreshed(mSpiedController);
+    }
+
+    @Test
+    public void testGetAvailabilityStatus_noPermissionsGranted_zoneHidden() {
+        NumberOfAppsCallbackHolder callbackHolder =
+                mockCalculateNumberOfAppsWithAdminGrantedPermissions();
+        mSpiedController.setAvailabilityStatusForZone("hidden");
+
+        // Assert initial state
+        PreferenceControllerTestUtil.assertAvailability(mSpiedController.getAvailabilityStatus(),
+                CONDITIONALLY_UNAVAILABLE);
+
+        // Unblock async call
+        callbackHolder.release(0);
+
+        // Assert post-callback result
+        PreferenceControllerTestUtil.assertAvailability(mSpiedController.getAvailabilityStatus(),
+                DISABLED_FOR_PROFILE);
+        assertUiNotRefreshed(mSpiedController);
+    }
+
+    @Test
     public void testGetAvailabilityStatus_permissionsGranted() {
         expectUiRefreshed(mSpiedController);
         NumberOfAppsCallbackHolder callbackHolder =
@@ -96,6 +154,66 @@ abstract class BaseAdminGrantedPermissionsPreferenceControllerTestCase
         // Assert post-callback result
         PreferenceControllerTestUtil.assertAvailability(mSpiedController.getAvailabilityStatus(),
                 AVAILABLE);
+        assertUiRefreshed(mSpiedController);
+    }
+
+    @Test
+    public void testGetAvailabilityStatus_permissionsGranted_zoneWrite() {
+        expectUiRefreshed(mSpiedController);
+        NumberOfAppsCallbackHolder callbackHolder =
+                mockCalculateNumberOfAppsWithAdminGrantedPermissions();
+        mSpiedController.setAvailabilityStatusForZone("write");
+
+        // Assert initial state
+        PreferenceControllerTestUtil.assertAvailability(mSpiedController.getAvailabilityStatus(),
+                CONDITIONALLY_UNAVAILABLE);
+
+        // Unblock async call
+        callbackHolder.release(42);
+
+        // Assert post-callback result
+        PreferenceControllerTestUtil.assertAvailability(mSpiedController.getAvailabilityStatus(),
+                AVAILABLE);
+        assertUiRefreshed(mSpiedController);
+    }
+
+    @Test
+    public void testGetAvailabilityStatus_permissionsGranted_zoneRead() {
+        expectUiRefreshed(mSpiedController);
+        NumberOfAppsCallbackHolder callbackHolder =
+                mockCalculateNumberOfAppsWithAdminGrantedPermissions();
+        mSpiedController.setAvailabilityStatusForZone("read");
+
+        // Assert initial state
+        PreferenceControllerTestUtil.assertAvailability(mSpiedController.getAvailabilityStatus(),
+                CONDITIONALLY_UNAVAILABLE);
+
+        // Unblock async call
+        callbackHolder.release(42);
+
+        // Assert post-callback result
+        PreferenceControllerTestUtil.assertAvailability(mSpiedController.getAvailabilityStatus(),
+                AVAILABLE_FOR_VIEWING);
+        assertUiRefreshed(mSpiedController);
+    }
+
+    @Test
+    public void testGetAvailabilityStatus_permissionsGranted_zoneHidden() {
+        expectUiRefreshed(mSpiedController);
+        NumberOfAppsCallbackHolder callbackHolder =
+                mockCalculateNumberOfAppsWithAdminGrantedPermissions();
+        mSpiedController.setAvailabilityStatusForZone("hidden");
+
+        // Assert initial state
+        PreferenceControllerTestUtil.assertAvailability(mSpiedController.getAvailabilityStatus(),
+                CONDITIONALLY_UNAVAILABLE);
+
+        // Unblock async call
+        callbackHolder.release(42);
+
+        // Assert post-callback result
+        PreferenceControllerTestUtil.assertAvailability(mSpiedController.getAvailabilityStatus(),
+                CONDITIONALLY_UNAVAILABLE);
         assertUiRefreshed(mSpiedController);
     }
 

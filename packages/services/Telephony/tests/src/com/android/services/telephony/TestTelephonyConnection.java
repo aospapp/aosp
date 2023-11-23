@@ -50,8 +50,6 @@ import com.android.internal.telephony.imsphone.ImsPhoneConnection;
 
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
-import org.mockito.invocation.InvocationOnMock;
-import org.mockito.stubbing.Answer;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -107,6 +105,7 @@ public class TestTelephonyConnection extends TelephonyConnection {
     private List<Bundle> mLastConnectionEventExtras = new ArrayList<>();
     private Object mLock = new Object();
     private PersistableBundle mCarrierConfig = new PersistableBundle();
+    private boolean mOriginalConnectionCleared;
 
     @Override
     public com.android.internal.telephony.Connection getOriginalConnection() {
@@ -211,7 +210,15 @@ public class TestTelephonyConnection extends TelephonyConnection {
 
     @Override
     void clearOriginalConnection() {
-        // Do nothing since the original connection is mock object
+        mOriginalConnectionCleared = true;
+    }
+
+    boolean isOriginalConnectionCleared() {
+        return mOriginalConnectionCleared;
+    }
+
+    void resetOriginalConnectionCleared() {
+        mOriginalConnectionCleared = false;
     }
 
     @Override

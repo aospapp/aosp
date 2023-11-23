@@ -39,7 +39,6 @@ import com.android.systemui.theme.ThemeOverlayController;
 import com.android.systemui.toast.ToastUI;
 import com.android.systemui.usb.StorageNotification;
 import com.android.systemui.util.NotificationChannels;
-import com.android.systemui.util.leak.GarbageMonitor;
 import com.android.systemui.volume.VolumeUI;
 import com.android.systemui.wmshell.WMShell;
 
@@ -65,12 +64,6 @@ abstract class SystemUIGoCoreStartableModule {
     @IntoMap
     @ClassKey(ClipboardListener.class)
     abstract CoreStartable bindClipboardListener(ClipboardListener clipboardListener);
-
-    /** Inject into GarbageMonitor.Service. */
-    @Binds
-    @IntoMap
-    @ClassKey(GarbageMonitor.class)
-    abstract CoreStartable bindGarbageMonitorService(GarbageMonitor.Service garbageMonitorService);
 
     /** Inject into GlobalActionsComponent. */
     @Binds

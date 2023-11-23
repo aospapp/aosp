@@ -17,9 +17,30 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="app_name" msgid="1647136562008520313">"الخلفية والنمط"</string>
+    <string name="app_name" msgid="1647136562008520313">"الخلفية والأسلوب"</string>
     <string name="theme_title" msgid="2144932106319405101">"النمط"</string>
-    <string name="clock_title" msgid="2126046720254613991">"الساعة"</string>
+    <string name="clock_title" msgid="1974314575211361352">"خلفية شاشة ساعة مخصّصة"</string>
+    <string name="clock_description" msgid="3563839327378948">"اختيار خلفية شاشة ساعة مخصّصة"</string>
+    <string name="clock_picker_entry_content_description" msgid="8377139273468595734">"تغيير خلفية شاشة ساعة مخصّصة"</string>
+    <string name="select_clock_action_description" msgid="5025888763471843648">"خيار تصميم الساعة: <xliff:g id="ID_1">%1$s</xliff:g>"</string>
+    <string name="clock_settings_title" msgid="2050906379377120431">"لون الساعة وحجمها"</string>
+    <string name="clock_color_and_size_title" msgid="7146791234905111351">"لون الساعة وحجمها"</string>
+    <string name="clock_color_and_size_description" msgid="6578061553012886817">"<xliff:g id="ID_1">%1$s</xliff:g> و<xliff:g id="ID_2">%2$s</xliff:g>"</string>
+    <string name="clock_color" msgid="8081608867289156163">"اللون"</string>
+    <string name="clock_color_red" msgid="3843504214807597810">"أحمر"</string>
+    <string name="clock_color_orange" msgid="4175805201144275804">"برتقالي"</string>
+    <string name="clock_color_yellow" msgid="7391699163247349977">"أصفر"</string>
+    <string name="clock_color_green" msgid="1991157556500156596">"أخضر"</string>
+    <string name="clock_color_blue" msgid="4037792003465759149">"أزرق"</string>
+    <string name="clock_color_indigo" msgid="8910855386698452917">"نيلي"</string>
+    <string name="clock_color_violet" msgid="3454503847169375826">"بنفسجي"</string>
+    <string name="clock_color_gray" msgid="9221530636948859231">"رمادي"</string>
+    <string name="clock_color_teal" msgid="7499223425741344251">"أزرق مخضرّ"</string>
+    <string name="clock_size" msgid="5028923902364418263">"الحجم"</string>
+    <string name="clock_size_dynamic" msgid="1023930312455061642">"ديناميكي"</string>
+    <string name="clock_size_dynamic_description" msgid="2776620745774561662">"يتغير حجم الساعة وفقًا للمحتوى على شاشة القفل."</string>
+    <string name="clock_size_large" msgid="3143248715744138979">"كبير"</string>
+    <string name="clock_size_small" msgid="2280449912094164133">"صغير"</string>
     <string name="grid_title" msgid="1688173478777254123">"شبكة التطبيقات"</string>
     <string name="apply_theme_btn" msgid="6293081192321303991">"تطبيق"</string>
     <string name="edit_custom_theme_lbl" msgid="5211377705710775224">"انقُر للتعديل."</string>
@@ -85,8 +106,34 @@
     <string name="beta_title" msgid="8703819523760746458">"تجريبي"</string>
     <string name="gird_picker_entry_content_description" msgid="9087651470212293439">"تغيير شبكة التطبيقات"</string>
     <string name="wallpaper_color_tab" msgid="1447926591721403840">"ألوان الخلفية"</string>
+    <string name="wallpaper_color_subheader" msgid="4044464573669965670">"تتطابق الأيقونات والنصوص والمزيد مع الألوان في الخلفية."</string>
     <string name="wallpaper_color_title" msgid="5687965239180986458">"لون الخلفية"</string>
     <string name="preset_color_tab" msgid="3133391839341329314">"الألوان الأساسية"</string>
+    <string name="preset_color_tab_2" msgid="1444107326712562538">"ألوان أخرى"</string>
+    <string name="preset_color_subheader" msgid="8230588536141279371">"اختَر أي لون للرموز والساعة وغير ذلك."</string>
     <string name="color_changed" msgid="7029571720331641235">"تم تغيير اللون."</string>
     <string name="adaptive_color_title" msgid="1336508599235896205">"ألوان ديناميكية"</string>
+    <string name="color_picker_title" msgid="6666830057938082864">"ألوان النظام"</string>
+    <string name="keyguard_slot_name_bottom_start" msgid="8747677880200629719">"اختصار اليمين"</string>
+    <string name="keyguard_slot_name_bottom_end" msgid="2525487375680217083">"اختصار اليسار"</string>
+    <string name="keyguard_affordance_none" msgid="1751643933430782312">"بدون أزرار"</string>
+    <string name="keyguard_affordance_enablement_dialog_headline" msgid="365379085932610314">"تعذُّر إضافة الاختصار"</string>
+    <string name="keyguard_affordance_enablement_dialog_action_template" msgid="8117011931337357438">"فتح <xliff:g id="APPNAME">%1$s</xliff:g>"</string>
+    <string name="keyguard_affordance_enablement_dialog_message" msgid="6136286758939253570">"لإضافة تطبيق \"<xliff:g id="APPNAME">%1$s</xliff:g>\" كاختصار، تأكَّد من"</string>
+    <string name="keyguard_affordance_enablement_dialog_dismiss_button" msgid="629754625264422508">"تم"</string>
+    <string name="keyguard_quick_affordance_title" msgid="4242813186995735584">"الاختصارات"</string>
+    <string name="keyguard_quick_affordance_section_title" msgid="2806304242671717309">"الاختصارات"</string>
+    <string name="keyguard_quick_affordance_two_selected_template" msgid="1757099194522296363">"\"<xliff:g id="FIRST">%1$s</xliff:g>\" و\"<xliff:g id="SECOND">%2$s</xliff:g>\""</string>
+    <string name="keyguard_quick_affordance_none_selected" msgid="8494127020144112003">"بدون اختصارات"</string>
+    <string name="show_notifications_on_lock_screen" msgid="4157744243084646720">"إظهار الإشعارات على شاشة القفل"</string>
+    <string name="hide_notifications_on_lock_screen" msgid="7413548956484779174">"إخفاء الإشعارات على شاشة القفل"</string>
+    <string name="more_settings_section_title" msgid="1331425454775815958">"المزيد من خيارات شاشة القفل"</string>
+    <string name="more_settings_section_description" msgid="1860115709122398325">"الخصوصية وميزة \"التعرّف التلقائي على الموسيقى\" وغير ذلك"</string>
+    <string name="more_colors" msgid="3191071655353004591">"المزيد من الألوان"</string>
+    <string name="content_description_dynamic_color_option" msgid="2191721655642529886">"مظهر ديناميكي أساسي"</string>
+    <string name="content_description_neutral_color_option" msgid="3385443834001275301">"مظهر أساسي محايد"</string>
+    <string name="content_description_vibrant_color_option" msgid="2230249305878632821">"مظهر أساسي نابض بالحياة"</string>
+    <string name="content_description_expressive_color_option" msgid="6081295313456341282">"مظهر أساسي معبِّر"</string>
+    <string name="content_description_default_color_option" msgid="7011899327541080695">"خيار اللون التلقائي"</string>
+    <string name="content_description_color_option" msgid="4169813692012119578">"خيار اللون <xliff:g id="ID_1">%1$d</xliff:g>"</string>
 </resources>

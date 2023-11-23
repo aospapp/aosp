@@ -17,6 +17,7 @@
 package com.android.emergency.action;
 
 import static com.android.settingslib.emergencynumber.EmergencyNumberUtils.EMERGENCY_SETTING_ON;
+import static com.android.settingslib.emergencynumber.EmergencyNumberUtils.EMERGENCY_SETTING_OFF;
 
 import android.annotation.Nullable;
 import android.os.Bundle;
@@ -26,6 +27,7 @@ import android.util.Log;
 import android.view.WindowInsets;
 import android.view.WindowInsetsController;
 
+import com.android.emergency.action.EmergencyActionUtils;
 import com.android.emergency.R;
 
 /**
@@ -40,7 +42,9 @@ public class EmergencyActionActivity extends FragmentActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.emergency_action_activity);
         if (Settings.Secure.getInt(getContentResolver(),
-                Settings.Secure.EMERGENCY_GESTURE_ENABLED, EMERGENCY_SETTING_ON)
+                Settings.Secure.EMERGENCY_GESTURE_ENABLED,
+                EmergencyActionUtils.isDefaultEmergencyGestureEnabled(this) ?
+                        EMERGENCY_SETTING_ON : EMERGENCY_SETTING_OFF)
                 != EMERGENCY_SETTING_ON) {
             Log.w(TAG, "Emergency gesture is not enabled, exiting");
             finish();

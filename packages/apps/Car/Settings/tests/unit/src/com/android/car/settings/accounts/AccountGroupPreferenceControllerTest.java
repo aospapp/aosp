@@ -20,6 +20,7 @@ import static android.content.pm.UserInfo.FLAG_INITIALIZED;
 
 import static com.android.car.settings.common.PreferenceController.AVAILABLE;
 import static com.android.car.settings.common.PreferenceController.AVAILABLE_FOR_VIEWING;
+import static com.android.car.settings.common.PreferenceController.CONDITIONALLY_UNAVAILABLE;
 import static com.android.car.settings.common.PreferenceController.DISABLED_FOR_PROFILE;
 
 import static com.google.common.truth.Truth.assertThat;
@@ -99,6 +100,51 @@ public class AccountGroupPreferenceControllerTest {
     }
 
     @Test
+    public void getAvailabilityStatus_currentUser_noRestriction_available_zoneWrite() {
+        UserInfo userInfo = new UserInfo(/* id= */ 10, TEST_USERNAME, FLAG_INITIALIZED);
+        when(mMockProfileHelper.isCurrentProcessUser(userInfo)).thenReturn(true);
+        when(mMockProfileHelper.canCurrentProcessModifyAccounts()).thenReturn(true);
+        mController.setUserInfo(userInfo);
+        PreferenceControllerTestUtil.assignPreference(mController, mPreference);
+        mController.setAvailabilityStatusForZone("write");
+
+        mController.onCreate(mLifecycleOwner);
+
+        PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
+                AVAILABLE);
+    }
+
+    @Test
+    public void getAvailabilityStatus_currentUser_noRestriction_available_zoneRead() {
+        UserInfo userInfo = new UserInfo(/* id= */ 10, TEST_USERNAME, FLAG_INITIALIZED);
+        when(mMockProfileHelper.isCurrentProcessUser(userInfo)).thenReturn(true);
+        when(mMockProfileHelper.canCurrentProcessModifyAccounts()).thenReturn(true);
+        mController.setUserInfo(userInfo);
+        PreferenceControllerTestUtil.assignPreference(mController, mPreference);
+        mController.setAvailabilityStatusForZone("read");
+
+        mController.onCreate(mLifecycleOwner);
+
+        PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
+                AVAILABLE_FOR_VIEWING);
+    }
+
+    @Test
+    public void getAvailabilityStatus_currentUser_noRestriction_available_zoneHidden() {
+        UserInfo userInfo = new UserInfo(/* id= */ 10, TEST_USERNAME, FLAG_INITIALIZED);
+        when(mMockProfileHelper.isCurrentProcessUser(userInfo)).thenReturn(true);
+        when(mMockProfileHelper.canCurrentProcessModifyAccounts()).thenReturn(true);
+        mController.setUserInfo(userInfo);
+        PreferenceControllerTestUtil.assignPreference(mController, mPreference);
+        mController.setAvailabilityStatusForZone("hidden");
+
+        mController.onCreate(mLifecycleOwner);
+
+        PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
+                CONDITIONALLY_UNAVAILABLE);
+    }
+
+    @Test
     public void getAvailabilityStatus_notCurrentUser_notAvailable() {
         UserInfo userInfo = new UserInfo(/* id= */ 10, TEST_USERNAME, FLAG_INITIALIZED);
         when(mMockProfileHelper.isCurrentProcessUser(userInfo)).thenReturn(false);
@@ -108,6 +154,48 @@ public class AccountGroupPreferenceControllerTest {
         mController.onCreate(mLifecycleOwner);
 
         assertThat(mController.getAvailabilityStatus()).isEqualTo(DISABLED_FOR_PROFILE);
+    }
+
+    @Test
+    public void getAvailabilityStatus_notCurrentUser_notAvailable_zoneWrite() {
+        UserInfo userInfo = new UserInfo(/* id= */ 10, TEST_USERNAME, FLAG_INITIALIZED);
+        when(mMockProfileHelper.isCurrentProcessUser(userInfo)).thenReturn(false);
+        mController.setUserInfo(userInfo);
+        PreferenceControllerTestUtil.assignPreference(mController, mPreference);
+        mController.setAvailabilityStatusForZone("write");
+
+        mController.onCreate(mLifecycleOwner);
+
+        PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
+                DISABLED_FOR_PROFILE);
+    }
+
+    @Test
+    public void getAvailabilityStatus_notCurrentUser_notAvailable_zoneRead() {
+        UserInfo userInfo = new UserInfo(/* id= */ 10, TEST_USERNAME, FLAG_INITIALIZED);
+        when(mMockProfileHelper.isCurrentProcessUser(userInfo)).thenReturn(false);
+        mController.setUserInfo(userInfo);
+        PreferenceControllerTestUtil.assignPreference(mController, mPreference);
+        mController.setAvailabilityStatusForZone("read");
+
+        mController.onCreate(mLifecycleOwner);
+
+        PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
+                DISABLED_FOR_PROFILE);
+    }
+
+    @Test
+    public void getAvailabilityStatus_notCurrentUser_notAvailable_zoneHidden() {
+        UserInfo userInfo = new UserInfo(/* id= */ 10, TEST_USERNAME, FLAG_INITIALIZED);
+        when(mMockProfileHelper.isCurrentProcessUser(userInfo)).thenReturn(false);
+        mController.setUserInfo(userInfo);
+        PreferenceControllerTestUtil.assignPreference(mController, mPreference);
+        mController.setAvailabilityStatusForZone("hidden");
+
+        mController.onCreate(mLifecycleOwner);
+
+        PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
+                DISABLED_FOR_PROFILE);
     }
 
     @Test
@@ -124,6 +212,51 @@ public class AccountGroupPreferenceControllerTest {
     }
 
     @Test
+    public void getAvailabilityStatus_currentUser_restricedByUserType_notAvailable_zoneWrite() {
+        UserInfo userInfo = new UserInfo(/* id= */ 10, TEST_USERNAME, FLAG_INITIALIZED);
+        when(mMockProfileHelper.isCurrentProcessUser(userInfo)).thenReturn(true);
+        mController.setUserInfo(userInfo);
+        when(mMockProfileHelper.isDemoOrGuest()).thenReturn(true);
+        PreferenceControllerTestUtil.assignPreference(mController, mPreference);
+        mController.setAvailabilityStatusForZone("write");
+
+        mController.onCreate(mLifecycleOwner);
+
+        PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
+                DISABLED_FOR_PROFILE);
+    }
+
+    @Test
+    public void getAvailabilityStatus_currentUser_restricedByUserType_notAvailable_zoneRead() {
+        UserInfo userInfo = new UserInfo(/* id= */ 10, TEST_USERNAME, FLAG_INITIALIZED);
+        when(mMockProfileHelper.isCurrentProcessUser(userInfo)).thenReturn(true);
+        mController.setUserInfo(userInfo);
+        when(mMockProfileHelper.isDemoOrGuest()).thenReturn(true);
+        PreferenceControllerTestUtil.assignPreference(mController, mPreference);
+        mController.setAvailabilityStatusForZone("read");
+
+        mController.onCreate(mLifecycleOwner);
+
+        PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
+                DISABLED_FOR_PROFILE);
+    }
+
+    @Test
+    public void getAvailabilityStatus_currentUser_restricedByUserType_notAvailable_zoneHidden() {
+        UserInfo userInfo = new UserInfo(/* id= */ 10, TEST_USERNAME, FLAG_INITIALIZED);
+        when(mMockProfileHelper.isCurrentProcessUser(userInfo)).thenReturn(true);
+        mController.setUserInfo(userInfo);
+        when(mMockProfileHelper.isDemoOrGuest()).thenReturn(true);
+        PreferenceControllerTestUtil.assignPreference(mController, mPreference);
+        mController.setAvailabilityStatusForZone("hidden");
+
+        mController.onCreate(mLifecycleOwner);
+
+        PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
+                DISABLED_FOR_PROFILE);
+    }
+
+    @Test
     public void getAvailabilityStatus_currentUser_restrictedByUm_notAvailable() {
         UserInfo userInfo = new UserInfo(/* id= */ 10, TEST_USERNAME, FLAG_INITIALIZED);
         when(mMockProfileHelper.isCurrentProcessUser(userInfo)).thenReturn(true);
@@ -135,6 +268,54 @@ public class AccountGroupPreferenceControllerTest {
         mController.onCreate(mLifecycleOwner);
 
         assertThat(mController.getAvailabilityStatus()).isEqualTo(DISABLED_FOR_PROFILE);
+    }
+
+    @Test
+    public void getAvailabilityStatus_currentUser_restrictedByUm_notAvailable_zoneWrite() {
+        UserInfo userInfo = new UserInfo(/* id= */ 10, TEST_USERNAME, FLAG_INITIALIZED);
+        when(mMockProfileHelper.isCurrentProcessUser(userInfo)).thenReturn(true);
+        mController.setUserInfo(userInfo);
+        EnterpriseTestUtils
+                .mockUserRestrictionSetByUm(mMockUserManager, TEST_RESTRICTION, true);
+        PreferenceControllerTestUtil.assignPreference(mController, mPreference);
+        mController.setAvailabilityStatusForZone("write");
+
+        mController.onCreate(mLifecycleOwner);
+
+        PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
+                DISABLED_FOR_PROFILE);
+    }
+
+    @Test
+    public void getAvailabilityStatus_currentUser_restrictedByUm_notAvailable_zoneRead() {
+        UserInfo userInfo = new UserInfo(/* id= */ 10, TEST_USERNAME, FLAG_INITIALIZED);
+        when(mMockProfileHelper.isCurrentProcessUser(userInfo)).thenReturn(true);
+        mController.setUserInfo(userInfo);
+        EnterpriseTestUtils
+                .mockUserRestrictionSetByUm(mMockUserManager, TEST_RESTRICTION, true);
+        PreferenceControllerTestUtil.assignPreference(mController, mPreference);
+        mController.setAvailabilityStatusForZone("read");
+
+        mController.onCreate(mLifecycleOwner);
+
+        PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
+                DISABLED_FOR_PROFILE);
+    }
+
+    @Test
+    public void getAvailabilityStatus_currentUser_restrictedByUm_notAvailable_zoneHidden() {
+        UserInfo userInfo = new UserInfo(/* id= */ 10, TEST_USERNAME, FLAG_INITIALIZED);
+        when(mMockProfileHelper.isCurrentProcessUser(userInfo)).thenReturn(true);
+        mController.setUserInfo(userInfo);
+        EnterpriseTestUtils
+                .mockUserRestrictionSetByUm(mMockUserManager, TEST_RESTRICTION, true);
+        PreferenceControllerTestUtil.assignPreference(mController, mPreference);
+        mController.setAvailabilityStatusForZone("hidden");
+
+        mController.onCreate(mLifecycleOwner);
+
+        PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
+                DISABLED_FOR_PROFILE);
     }
 
     @Test
@@ -155,6 +336,63 @@ public class AccountGroupPreferenceControllerTest {
     }
 
     @Test
+    public void getAvailabilityStatus_currentUser_restricedByDpm_availableForViewing_zoneWrite() {
+        UserInfo userInfo = new UserInfo(/* id= */ 10, TEST_USERNAME, FLAG_INITIALIZED);
+        when(mMockProfileHelper.isCurrentProcessUser(userInfo)).thenReturn(true);
+        mController.setUserInfo(userInfo);
+        when(mMockProfileHelper.isDemoOrGuest()).thenReturn(false);
+        EnterpriseTestUtils
+                .mockUserRestrictionSetByUm(mMockUserManager, TEST_RESTRICTION, false);
+        EnterpriseTestUtils
+                .mockUserRestrictionSetByDpm(mMockUserManager, TEST_RESTRICTION, true);
+        PreferenceControllerTestUtil.assignPreference(mController, mPreference);
+
+        mController.onCreate(mLifecycleOwner);
+        mController.setAvailabilityStatusForZone("write");
+
+        PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
+                AVAILABLE_FOR_VIEWING);
+    }
+
+    @Test
+    public void getAvailabilityStatus_currentUser_restricedByDpm_availableForViewing_zoneRead() {
+        UserInfo userInfo = new UserInfo(/* id= */ 10, TEST_USERNAME, FLAG_INITIALIZED);
+        when(mMockProfileHelper.isCurrentProcessUser(userInfo)).thenReturn(true);
+        mController.setUserInfo(userInfo);
+        when(mMockProfileHelper.isDemoOrGuest()).thenReturn(false);
+        EnterpriseTestUtils
+                .mockUserRestrictionSetByUm(mMockUserManager, TEST_RESTRICTION, false);
+        EnterpriseTestUtils
+                .mockUserRestrictionSetByDpm(mMockUserManager, TEST_RESTRICTION, true);
+        PreferenceControllerTestUtil.assignPreference(mController, mPreference);
+
+        mController.onCreate(mLifecycleOwner);
+        mController.setAvailabilityStatusForZone("read");
+
+        PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
+                AVAILABLE_FOR_VIEWING);
+    }
+
+    @Test
+    public void getAvailabilityStatus_currentUser_restricedByDpm_availableForViewing_zoneHidden() {
+        UserInfo userInfo = new UserInfo(/* id= */ 10, TEST_USERNAME, FLAG_INITIALIZED);
+        when(mMockProfileHelper.isCurrentProcessUser(userInfo)).thenReturn(true);
+        mController.setUserInfo(userInfo);
+        when(mMockProfileHelper.isDemoOrGuest()).thenReturn(false);
+        EnterpriseTestUtils
+                .mockUserRestrictionSetByUm(mMockUserManager, TEST_RESTRICTION, false);
+        EnterpriseTestUtils
+                .mockUserRestrictionSetByDpm(mMockUserManager, TEST_RESTRICTION, true);
+        PreferenceControllerTestUtil.assignPreference(mController, mPreference);
+
+        mController.onCreate(mLifecycleOwner);
+        mController.setAvailabilityStatusForZone("hidden");
+
+        PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
+                CONDITIONALLY_UNAVAILABLE);
+    }
+
+    @Test
     public void getAvailabilityStatus_currentUser_restricedByUserTypeAndDpm_notAvailable() {
         UserInfo userInfo = new UserInfo(/* id= */ 10, TEST_USERNAME, FLAG_INITIALIZED);
         when(mMockProfileHelper.isCurrentProcessUser(userInfo)).thenReturn(true);
@@ -167,6 +405,57 @@ public class AccountGroupPreferenceControllerTest {
         mController.onCreate(mLifecycleOwner);
 
         assertThat(mController.getAvailabilityStatus()).isEqualTo(DISABLED_FOR_PROFILE);
+    }
+
+    @Test
+    public void getAvailabilityStatus_currentUser_notAvailable_zoneWrite() {
+        UserInfo userInfo = new UserInfo(/* id= */ 10, TEST_USERNAME, FLAG_INITIALIZED);
+        when(mMockProfileHelper.isCurrentProcessUser(userInfo)).thenReturn(true);
+        mController.setUserInfo(userInfo);
+        when(mMockProfileHelper.isDemoOrGuest()).thenReturn(true);
+        EnterpriseTestUtils
+                .mockUserRestrictionSetByDpm(mMockUserManager, TEST_RESTRICTION, true);
+        PreferenceControllerTestUtil.assignPreference(mController, mPreference);
+
+        mController.onCreate(mLifecycleOwner);
+        mController.setAvailabilityStatusForZone("write");
+
+        PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
+                DISABLED_FOR_PROFILE);
+    }
+
+    @Test
+    public void getAvailabilityStatus_currentUser_notAvailable_zoneRead() {
+        UserInfo userInfo = new UserInfo(/* id= */ 10, TEST_USERNAME, FLAG_INITIALIZED);
+        when(mMockProfileHelper.isCurrentProcessUser(userInfo)).thenReturn(true);
+        mController.setUserInfo(userInfo);
+        when(mMockProfileHelper.isDemoOrGuest()).thenReturn(true);
+        EnterpriseTestUtils
+                .mockUserRestrictionSetByDpm(mMockUserManager, TEST_RESTRICTION, true);
+        PreferenceControllerTestUtil.assignPreference(mController, mPreference);
+
+        mController.onCreate(mLifecycleOwner);
+        mController.setAvailabilityStatusForZone("read");
+
+        PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
+                DISABLED_FOR_PROFILE);
+    }
+
+    @Test
+    public void getAvailabilityStatus_currentUser_notAvailable_zoneHidden() {
+        UserInfo userInfo = new UserInfo(/* id= */ 10, TEST_USERNAME, FLAG_INITIALIZED);
+        when(mMockProfileHelper.isCurrentProcessUser(userInfo)).thenReturn(true);
+        mController.setUserInfo(userInfo);
+        when(mMockProfileHelper.isDemoOrGuest()).thenReturn(true);
+        EnterpriseTestUtils
+                .mockUserRestrictionSetByDpm(mMockUserManager, TEST_RESTRICTION, true);
+        PreferenceControllerTestUtil.assignPreference(mController, mPreference);
+
+        mController.onCreate(mLifecycleOwner);
+        mController.setAvailabilityStatusForZone("hidden");
+
+        PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
+                DISABLED_FOR_PROFILE);
     }
 
     private class TestAccountGroupPreferenceController extends AccountGroupPreferenceController {

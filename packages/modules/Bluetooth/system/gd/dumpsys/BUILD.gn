@@ -18,7 +18,6 @@ import("//bt/system/gd/dumpsys/bundler/bundler.gni")
 source_set("BluetoothDumpsysSources") {
   sources = [
     "filter.cc",
-    "init_flags.cc",
     "internal/filter_internal.cc",
     "reflection_schema.cc",
   ]

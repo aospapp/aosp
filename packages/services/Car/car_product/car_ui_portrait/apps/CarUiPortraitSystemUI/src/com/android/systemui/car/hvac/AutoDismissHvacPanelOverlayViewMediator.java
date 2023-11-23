@@ -16,9 +16,12 @@
 
 package com.android.systemui.car.hvac;
 
+import android.content.Context;
+
 import com.android.systemui.broadcast.BroadcastDispatcher;
 import com.android.systemui.car.systembar.CarSystemBarController;
 import com.android.systemui.dagger.SysUISingleton;
+import com.android.systemui.settings.UserTracker;
 
 import javax.inject.Inject;
 
@@ -31,9 +34,12 @@ public class AutoDismissHvacPanelOverlayViewMediator extends HvacPanelOverlayVie
 
     @Inject
     public AutoDismissHvacPanelOverlayViewMediator(
+            Context context,
             CarSystemBarController carSystemBarController,
             AutoDismissHvacPanelOverlayViewController hvacPanelOverlayViewController,
-            BroadcastDispatcher broadcastDispatcher) {
-        super(carSystemBarController, hvacPanelOverlayViewController, broadcastDispatcher);
+            BroadcastDispatcher broadcastDispatcher,
+            UserTracker userTracker) {
+        super(context, carSystemBarController, hvacPanelOverlayViewController, broadcastDispatcher,
+                userTracker);
     }
 }

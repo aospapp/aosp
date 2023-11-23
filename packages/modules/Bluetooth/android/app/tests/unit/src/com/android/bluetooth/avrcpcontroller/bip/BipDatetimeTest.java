@@ -53,9 +53,9 @@ public class BipDatetimeTest {
         cal.setTime(makeDate(month, day, year, hours, min, sec));
         cal.setTimeZone(TimeZone.getDefault());
         return String.format(Locale.US, "%04d%02d%02dT%02d%02d%02d", cal.get(Calendar.YEAR),
-                    cal.get(Calendar.MONTH) + 1, cal.get(Calendar.DATE),
-                    cal.get(Calendar.HOUR_OF_DAY), cal.get(Calendar.MINUTE),
-                    cal.get(Calendar.SECOND));
+                cal.get(Calendar.MONTH) + 1, cal.get(Calendar.DATE),
+                cal.get(Calendar.HOUR_OF_DAY), cal.get(Calendar.MINUTE),
+                cal.get(Calendar.SECOND));
     }
 
     private void testParse(String date, Date expectedDate, boolean isUtc, String expectedStr) {
@@ -175,5 +175,38 @@ public class BipDatetimeTest {
         testCreate(makeDate(1, 1, 2000, 6, 0, 0, utc), "20000101T060000Z");
         testCreate(makeDate(1, 1, 2000, 23, 59, 59, utc), "20000101T235959Z");
         testCreate(makeDate(11, 27, 2050, 23, 59, 59, utc), "20501127T235959Z");
+    }
+
+    @Test
+    public void testEquals_withSameInstance() {
+        TimeZone utc = TimeZone.getTimeZone("UTC");
+        utc.setRawOffset(0);
+
+        BipDateTime bipDate = new BipDateTime(makeDate(1, 1, 2000, 6, 1, 15, utc));
+
+        Assert.assertTrue(bipDate.equals(bipDate));
+    }
+
+    @Test
+    public void testEquals_withDifferentClass() {
+        TimeZone utc = TimeZone.getTimeZone("UTC");
+        utc.setRawOffset(0);
+
+        BipDateTime bipDate = new BipDateTime(makeDate(1, 1, 2000, 6, 1, 15, utc));
+        String notBipDate = "notBipDate";
+
+        Assert.assertFalse(bipDate.equals(notBipDate));
+    }
+
+    @Test
+    public void testEquals_withSameInfo() {
+        TimeZone utc = TimeZone.getTimeZone("UTC");
+        utc.setRawOffset(0);
+        Date date = makeDate(1, 1, 2000, 6, 1, 15, utc);
+
+        BipDateTime bipDate = new BipDateTime(date);
+        BipDateTime bipDateEqual = new BipDateTime(date);
+
+        Assert.assertTrue(bipDate.equals(bipDateEqual));
     }
 }

@@ -31,6 +31,8 @@
     <string name="enabled" msgid="5127188665060746381">"Iespējots"</string>
     <string name="disabled" msgid="4589065923272201387">"Atspējots"</string>
     <string name="unavailable" msgid="1610732303812180196">"Nav pieejams"</string>
+    <string name="allow" msgid="6982558814345894019">"Atļaut"</string>
+    <string name="deny" msgid="8291577308813053917">"Neatļaut"</string>
     <string name="header_category_suggestions" msgid="106077820663753645">"Ieteikumi"</string>
     <string name="header_category_quick_settings" msgid="3785334008768367890">"Ātrie iestatījumi"</string>
     <string name="header_category_general_settings" msgid="3897615781153506434">"Vispārīgi iestatījumi"</string>
@@ -51,6 +53,7 @@
     <string name="sound_category_title" msgid="7899816751041939518">"Skaņa"</string>
     <string name="applications_category_title" msgid="7112019490898586223">"Lietotnes"</string>
     <string name="device_pref_category_title" msgid="8292572846154873762">"Ierīces preferences"</string>
+    <string name="accessibility_category_title" msgid="1552664829936369592">"Pieejamība"</string>
     <string name="remotes_and_accessories_category_title" msgid="4795119810430255047">"Tālvadības ierīces un piederumi"</string>
     <string name="display_and_sound_category_title" msgid="9203309625380755860">"Displejs un skaņa"</string>
     <string name="help_and_feedback_category_title" msgid="7036505833991003031">"Palīdzība un atsauksmes"</string>
@@ -109,7 +112,8 @@
     <string name="device_backup_restore" msgid="3634531946308269398">"Dublēšana un atjaunošana"</string>
     <string name="device_factory_reset" msgid="1110189450013225971">"Rūpnīcas datu atiestatīšana"</string>
     <string name="device_calibration" msgid="2907914144048739705">"Kalibrēšana"</string>
-    <string name="device_energy_saver" msgid="1105023232841036991">"Enerģijas taupīšana"</string>
+    <string name="device_energy_saver" msgid="6611757996220443028">"Izslēgšanas taimeris"</string>
+    <string name="device_energy_saver_summary" msgid="5306058475316008429">"Iestatiet taimerus, lai izslēgtu televizoru un taupītu enerģiju."</string>
     <string name="overlay_internal_slice_title" msgid="6427352417573831625"></string>
     <string name="device_fastpair" msgid="1235240814051277047">"Ierīces"</string>
     <string name="surround_sound_select_formats" msgid="6070283650131226239">"Formātu atlase"</string>
@@ -118,7 +122,7 @@
     <string name="surround_sound_format_e_ac3" msgid="6923129088903887242">"Dolby Digital Plus"</string>
     <string name="surround_sound_format_dts" msgid="8331816247117135587">"DTS"</string>
     <string name="surround_sound_format_dts_hd" msgid="4268947520371740146">"DTS-HD"</string>
-    <string name="surround_sound_format_dts_uhd" msgid="2844983210044263719">"DTS-UHD"</string>
+    <string name="surround_sound_format_dts_uhd" msgid="4340749818133578788">"DTS:X"</string>
     <string name="surround_sound_format_dolby_mat" msgid="3029804841912462928">"Dolby Atmos ar Dolby TrueHD"</string>
     <string name="surround_sound_format_dolby_truehd" msgid="5113046743572967088">"Dolby TrueHD"</string>
     <string name="surround_sound_format_e_ac3_joc" msgid="3360344066462262996">"Dolby Atmos ar Dolby Digital Plus"</string>
@@ -147,10 +151,38 @@
     <string name="hdmi_cec_settings_title" msgid="7120729705063868627">"HDMI-CEC"</string>
     <string name="advanced_sound_settings_title" msgid="319921303039469139">"Skaņas papildiestatījumi"</string>
     <string name="game_mode_title" msgid="7280816243531315755">"Atļaut spēles režīmu"</string>
+    <string name="match_content_dynamic_range_title" msgid="2794980556561655838">"Satura dinamiskā diapazona atbilstības atrašana"</string>
+    <string name="match_content_dynamic_range_summary" msgid="2255683926227355398">"Iespējojot šo opciju, sistēma pārslēgs dažādus dinamiskā diapazona formātus, lai atrastu satura atbilstību. Formātu pārslēgšanas laikā var tikt rādīts melns ekrāns.\n\nNoklikšķiniet uz displeja papildiestatījumiem, lai skatītu citas dinamiskā diapazona opcijas."</string>
+    <string name="preferred_dynamic_range_title" msgid="5064883672337010588">"Vēlamais dinamiskais diapazons"</string>
+    <string name="preferred_dynamic_range_selection_system_title" msgid="4505030483876080996">"Sistēmas pārvaldīta konvertēšana"</string>
+    <string name="preferred_dynamic_range_selection_system_desc" msgid="5712920601553613576">"Ļauj sistēmai pārvaldīt formāta konvertēšanu"</string>
+    <string name="preferred_dynamic_range_selection_system_summary" msgid="4509062596428781094">"Ja ir atlasīta šī opcija, sistēma noteiks piemēroto uz displeju nosūtāmo diapazonu un konvertēs saturu atbilstoši vajadzīgajam dinamiskajam diapazonam."</string>
+    <string name="preferred_dynamic_range_selection_passthrough_desc" msgid="4831260397179583737">"Vienmēr atbilst satura formātam"</string>
+    <string name="preferred_dynamic_range_selection_force_title" msgid="4448836594133973103">"Piespiedu konvertēšana"</string>
+    <string name="preferred_dynamic_range_selection_force_desc" msgid="1418542349290684513">"Veic piespiedu konvertēšanu uz vēlamo formātu"</string>
+    <string name="preferred_dynamic_range_selection_force_summary" msgid="8381058061765216239">"Piespiedu konvertēšana vēlamajā formātā. Piespiedu konvertēšana var ietekmēt citus iestatījumus sadaļā Attēlošanas režīms un HDR formāts."</string>
+    <string name="preferred_dynamic_range_selection_force_sdr_title" msgid="3135104063034317252">"Vienmēr konvertēt SDR formātā"</string>
+    <string name="preferred_dynamic_range_selection_force_hdr_title" msgid="1032587815433139859">"Vienmēr konvertēt šajā formātā: <xliff:g id="HDR_TYPE">%s</xliff:g>"</string>
+    <string name="preferred_dynamic_range_force_dialog_title" msgid="6865110024863661702">"Vai veikt piespiedu konvertēšanu uz HDR formātu?"</string>
+    <string name="preferred_dynamic_range_force_dialog_desc" msgid="7758323258282201656">"Pēc noklusējuma tiks veikta piespiedu konvertēšana uz šo formātu: <xliff:g id="HDR_TYPE">%s</xliff:g>."</string>
+    <string name="preferred_dynamic_range_force_dialog_desc_4k30_issue" msgid="4938418395391206131">"Displejā tiks lietota 1080p, 60Hz izšķirtspēja. Šī opcija nav saderīga ar displeju, ja tajā tiek izmantota 4K, 60Hz izšķirtspēja."</string>
+    <string name="selection_dolby_vision_not_supported_sidebar" msgid="8994591316574824115">"Tehnoloģija Dolby Vision netiek atbalstīta pašreizējā izšķirtspējā. Ja manuāli iespējosiet Dolby Vision, jūsu displeja izšķirtspēja tiks mainīta uz 1080p (60 Hz)."</string>
+    <string name="manual_dolby_vision_format_on_4k60_title" msgid="4172263676512376500">"Vai mainīt izšķirtspēju uz 1080p (60 Hz)?"</string>
+    <string name="dynamic_range_selection_force_dv_title" msgid="8070148109262327094">"Vienmēr veikt piespiedu konvertēšanu formātā Dolby Vision"</string>
+    <string name="dynamic_range_selection_force_dv_summary" msgid="1052851029985095562">"Ja sadaļas “Displeja papildiestatījumi” HDR formātu sarakstā ir atspējots formāts Dolby Vision, tad, veicot piespiedu konvertēšanu formātā Dolby Vision, tas tiks iespējots."</string>
+    <string name="dynamic_range_selection_force_hdr10_title" msgid="1221688206945051384">"Vienmēr veikt piespiedu konvertēšanu formātā HDR10"</string>
+    <string name="dynamic_range_selection_force_hdr10_summary" msgid="7784573527636502784">"Ja sadaļas “Displeja papildiestatījumi” HDR formātu sarakstā ir atspējots formāts HDR10, tad, veicot piespiedu konvertēšanu formātā HDR10, tas tiks iespējots."</string>
+    <string name="dynamic_range_selection_force_hlg_title" msgid="3976190987768712696">"Vienmēr veikt piespiedu konvertēšanu formātā HLG"</string>
+    <string name="dynamic_range_selection_force_hlg_summary" msgid="5371949016689544001">"Ja sadaļas “Displeja papildiestatījumi” HDR formātu sarakstā ir atspējots formāts HLG, tad, veicot piespiedu konvertēšanu formātā HLG, tas tiks iespējots."</string>
+    <string name="dynamic_range_selection_force_hdr10plus_title" msgid="1305556000063625735">"Vienmēr veikt piespiedu konvertēšanu formātā HDR10+"</string>
+    <string name="dynamic_range_selection_force_hdr10plus_summary" msgid="918038386222537401">"Ja sadaļas “Displeja papildiestatījumi” HDR formātu sarakstā ir atspējots formāts HDR10+, tad, veicot piespiedu konvertēšanu formātā HDR10+, tas tiks iespējots."</string>
+    <string name="dynamic_range_selection_force_sdr_title" msgid="1063579223517652945">"Vienmēr veikt piespiedu konvertēšanu uz standarta dinamisko diapazonu"</string>
+    <string name="dynamic_range_selection_force_sdr_summary" msgid="2874771365465898941">"Veicot piespiedu konvertēšanu uz standarta dinamisko diapazonu, tiks atspējoti visi formāti, kas iekļauti sadaļas “Displeja papildiestatījumi” HDR formātu sarakstā."</string>
     <string name="match_content_frame_rate_title" msgid="153291168560947689">"Atrast atbilstību satura atskaņošanas ātrumam"</string>
-    <string name="match_content_frame_rate_seamless" msgid="5900012519258795448">"Vienmērīgi"</string>
+    <string name="match_content_frame_rate_seamless" msgid="5577846750811067585">"Tikai tad, ja izmaiņas var veikt nemanāmi"</string>
     <string name="match_content_frame_rate_seamless_summary" msgid="2737466163964133210">"Jūsu ierīce piemēros izvades veidu atbilstoši jūsu skatītā satura sākotnējam kadru ātrumam sekundē, ja lietotne to pieprasīs, taču TIKAI ar nosacījumu, ka jūsu televizorā var veikt vienmērīgu pāreju."</string>
-    <string name="match_content_frame_rate_non_seamless" msgid="1534300397118594640">"Nevienmērīgi"</string>
+    <string name="match_content_frame_rate_seamless_not_supported_summary" msgid="98559950465123792">"Jūsu pievienotais displejs neatbalsta vienmērīgas atsvaidzināšanas biežuma pārejas. Šī opcija nedarbosies, ja vien nepievienosiet displeju, kas to atbalsta."</string>
+    <string name="match_content_frame_rate_non_seamless" msgid="2702658727234710031">"Vienmēr"</string>
     <string name="match_content_frame_rate_non_seamless_summary" msgid="6831699459487130055">"Jūsu ierīce piemēros izvades veidu atbilstoši jūsu skatītā satura sākotnējam kadru ātrumam sekundē, ja lietotne to pieprasīs. Pārtraucot vai sākot video atskaņošanu, jūsu ekrāns uz īsu brīdi var kļūt tukšs."</string>
     <string name="match_content_frame_rate_never" msgid="1678354793095148423">"Nekad"</string>
     <string name="match_content_frame_rate_never_summary" msgid="742977618080396095">"Jūsu ierīce nekad nemēģinās piemērot izvades veidu atbilstoši jūsu skatītā satura sākotnējam kadru ātrumam sekundē, pat ja lietotne to pieprasīs."</string>
@@ -167,6 +199,7 @@
     <string name="hdr_format_selection_manual_desc" msgid="8865649615882146772">"Manuāli izvēlēties formātus no pieejamajiem formātiem"</string>
     <string name="hdr_format_supported_title" msgid="1458594819224612431">"ATBALSTĪTIE FORMĀTI"</string>
     <string name="hdr_format_unsupported_title" msgid="715318408107924941">"NEATBALSTĪTIE FORMĀTI"</string>
+    <string name="hdr_format_sdr" msgid="7211377112392255102">"SDR"</string>
     <string name="hdr_format_hdr10" msgid="8063543267227491062">"HDR10"</string>
     <string name="hdr_format_hlg" msgid="454510079939620321">"HLG"</string>
     <string name="hdr_format_hdr10plus" msgid="4371652089162162876">"HDR10+"</string>
@@ -182,10 +215,14 @@
     <string name="resolution_selection_title" msgid="2873993320284587853">"Izšķirtspēja"</string>
     <string name="resolution_selection_auto_title" msgid="4738671207331027385">"Automātiska"</string>
     <string name="resolution_selection_dialog_title" msgid="4029798035133645272">"Izšķirtspēja ir mainīta"</string>
+    <string name="resolution_selection_with_mode_dialog_title" msgid="5011192408613100514">"Vai mainīt izšķirtspēju uz %1$s?"</string>
     <string name="resolution_selection_dialog_desc" msgid="3667357611495669701">"Atlasiet “Labi”, lai turpmāk izmantotu šādu izšķirtspēju: %1$s."</string>
+    <string name="resolution_selection_disabled_dolby_vision_dialog_desc" msgid="7952404018654828187">"Tehnoloģija Dolby Vision netiek atbalstīta režīmā %1$s, un tā būs atspējota displeja papildiestatījumos"</string>
+    <string name="resolution_hdr_description_info" msgid="2408761621976850238">"Šis režīms atbalsta: %1$s\nDažos televizoros, iespējams, būs jāieslēdz uzlabotais HDMI, lai iespējotu vairāk HDR formātu. Pārbaudiet sava televizora iestatījumus, lai uzzinātu, vai tas tiek atbalstīts."</string>
     <string name="resolution_selection_dialog_cancel" msgid="3683616572317946129">"Atcelt"</string>
     <string name="resolution_selection_dialog_ok" msgid="3123351228545013492">"Labi"</string>
     <string name="resolution_selection_hz" msgid="4425902505388495637">"Hz"</string>
+    <string name="resolution_display_mode" msgid="6633857172598855480">"<xliff:g id="RESOLUTION">%1$s</xliff:g> (<xliff:g id="REFRESH_RATE">%2$s</xliff:g> Hz)"</string>
     <string name="device_storage_clear_cache_title" msgid="14370154552302965">"Vai dzēst kešatmiņā ievietotos datus?"</string>
     <string name="device_storage_clear_cache_message" msgid="4352802738505831032">"Tiks dzēsti kešatmiņā ievietotie lietotņu dati."</string>
     <string name="default_audio_output_settings_title" msgid="5441937324539531999"></string>
@@ -226,7 +263,7 @@
     <string name="bluetooth_known_devices_category" msgid="6895470515631452961">"Piederumi"</string>
     <string name="bluetooth_official_remote_category" msgid="5817814488268307170">"Tālvadības ierīce"</string>
     <string name="bluetooth_official_remote_entry_title" msgid="6699700335229570038">"Tālvadības ierīces iestatījumi"</string>
-    <string name="bluetooth_ir_entry_title" msgid="6927284710576530479">"Tālvadības ierīces pogu iestatīšana"</string>
+    <string name="bluetooth_ir_entry_title" msgid="6927284710576530479">"Tālvadības pogu iestatīšana"</string>
     <string name="bluetooth_ir_entry_subtitle" msgid="4606207128353416151">"Kontrolējiet skaļumu, ieslēgšanu un izslēgšanu, kā arī televizora, uztvērēju un skaņas joslu ieejas avotus"</string>
     <string name="bluetooth_connect_action_title" msgid="7715342395313781643">"Izveidot savienojumu"</string>
     <string name="bluetooth_connect_confirm" msgid="4769958536295137386">"Izveidot savienojumu ar “%1$s”"</string>
@@ -257,7 +294,6 @@
     <string name="system_inputs" msgid="5552840337357572096">"Ieejas"</string>
     <string name="system_inputs_devices" msgid="2158421111699829399">"Ieejas un ierīces"</string>
     <string name="system_home_theater_control" msgid="6228949628173590310">"Mājas kinozāles vadīklas"</string>
-    <string name="system_accessibility" msgid="3081009195560501010">"Pieejamība"</string>
     <string name="system_developer_options" msgid="8480844257066475479">"Izstrādātāju opcijas"</string>
     <string name="accessibility_none" msgid="6355646833528306702">"Nav"</string>
     <string name="system_diagnostic" msgid="1654842813331919958">"Lietojums un diagnostika"</string>
@@ -307,6 +343,7 @@
     <string name="do_disclosure_generic" msgid="8390478119591845948">"Šo ierīci pārvalda jūsu organizācija."</string>
     <string name="do_disclosure_with_name" msgid="4755509039938948975">"Šo ierīci pārvalda <xliff:g id="ORGANIZATION_NAME">%s</xliff:g>."</string>
     <string name="do_disclosure_learn_more_separator" msgid="4226390963162716446">" "</string>
+    <string name="hdr_capability" msgid="3331021013422460270">"- %1$s"</string>
     <string name="learn_more" msgid="820336467414665686">"Uzzināt vairāk"</string>
     <string name="default_camera_app_title" msgid="4573905807226306484">"{count,plural, =1{Kameras lietotne}zero{Kameras lietotnes}one{Kameras lietotnes}other{Kameras lietotnes}}"</string>
     <string name="default_calendar_app_title" msgid="1533912443930743532">"Kalendāra lietotne"</string>
@@ -590,6 +627,7 @@
     <string name="recently_accessed_show_all" msgid="5234849189704717855">"Skatīt visas"</string>
     <string name="microphone" msgid="7893752847683941214">"Mikrofons"</string>
     <string name="mic_toggle_title" msgid="7193417007060235665">"Piekļuve mikrofonam"</string>
+    <string name="mic_remote_toggle_title" msgid="7153283895012570080">"Piekļuve tālvadības ierīces mikrofonam"</string>
     <string name="open_mic_permissions" msgid="8121871594807641073">"Lietotņu piekļuve mikrofonam"</string>
     <string name="microphone_physical_privacy_enabled_title" msgid="6135130916399886772">"Piekļuve mikrofonam bloķēta"</string>
     <string name="microphone_physical_privacy_enabled_text" msgid="401238365312924088">"Lai atbloķētu piekļuvi, ierīcē pavirziet konfidencialitātes slēdzi uz mikrofonu, lai atļautu piekļuvi mikrofonam."</string>
@@ -599,7 +637,11 @@
     <string name="camera_physical_privacy_enabled_title" msgid="1944155695921165511">"Piekļuve kamerai bloķēta"</string>
     <string name="camera_physical_privacy_enabled_text" msgid="6692088634676282779">"Lai atbloķētu piekļuvi, ierīcē pavirziet konfidencialitātes slēdzi uz kameru, lai atļautu piekļuvi kamerai."</string>
     <string name="mic_toggle_info_title" msgid="1086545614315873599">"Piekļuve mikrofonam: <xliff:g id="SENSOR_STATE">%s</xliff:g>"</string>
-    <string name="mic_toggle_info_content" msgid="4699624900513326055">"Ja šis iestatījums ir ieslēgts, visas lietotnes un pakalpojumi, kam ir attiecīgā atļauja, var piekļūt jebkuram šīs ierīces mikrofonam.\n\nŠis iestatījums neietekmēs perifērās audio ierīces, kurām ir pielāgots protokols."</string>
+    <string name="mic_toggle_info_content" msgid="3187791167208947239">"Ja slēdzis ir ieslēgts, visas lietotnes un pakalpojumi, kuriem ir piešķirta atļauja izmantot mikrofonu, varēs tam piekļūt.\n\nJa tas ir izslēgts, mikrofonam nevarēs piekļūt neviena lietotne vai pakalpojums. Tomēr, iespējams, varēsiet runāt ar Google asistentu, nospiežot Asistenta pogu uz tālvadības ierīces.\n\nŠis iestatījums, iespējams, neietekmēs audio ierīces, kuras saziņai ar televizoru izmanto pielāgotus protokolus."</string>
+    <string name="mic_remote_toggle_on_info_title" msgid="8503441878870972046">"Tālvadības ierīces mikrofons ir iespējots"</string>
+    <string name="mic_remote_toggle_on_info_content" msgid="2715872916376493679">"Google asistents var piekļūt jūsu tālvadības ierīces mikrofonam. Nospiežot Google asistenta pogu uz tālvadības ierīces, varēsiet runāt ar Asistentu."</string>
+    <string name="mic_remote_toggle_off_info_title" msgid="4902909833546393713">"Tālvadības ierīces mikrofons ir atspējots"</string>
+    <string name="mic_remote_toggle_off_info_content" msgid="8062526350553191004">"Izmantojot savu tālvadības ierīci, nevarēsiet runāt ar Google asistentu. Lai varētu izmantot Google asistenta pogu, iespējojiet piekļuvi mikrofonam."</string>
     <string name="camera_toggle_info_title" msgid="3871317082313736088">"Piekļuve kamerai: <xliff:g id="SENSOR_STATE">%s</xliff:g>"</string>
     <string name="camera_toggle_info_content" msgid="2999965953853204003">"Ja šis iestatījums ir ieslēgts, visas lietotnes un pakalpojumi, kam ir attiecīgā atļauja, var piekļūt jebkurai šīs ierīces kamerai.\n\nŠis iestatījums neietekmēs perifērās ierīces ar kameru, kurām ir pielāgots protokols."</string>
     <string name="sensor_toggle_info_on" msgid="4568111889147132257">"Ieslēgta"</string>
@@ -625,16 +667,41 @@
     <string name="location_history_desc" msgid="926674012916014270">"Kad šim kontam ir ieslēgta atrašanās vietu vēsture, Google var saglabāt jūsu ierīces atrašanās vietas datus izmantošanai jūsu lietotnēs.\n\nPiemēram, varat saņemt norādes pakalpojumā Google Maps, kā arī pakalpojumā “Google tagad” saņemt informāciju par satiksmi.\n\nJebkurā brīdī varat izslēgt atrašanās vietu vēsturi, taču ar šo darbību tā netiks dzēsta. Lai skatītu un pārvaldītu atrašanās vietu vēsturi, apmeklējiet vietni maps.google.com/locationhistory."</string>
     <string name="delete_location_history_title" msgid="707559064715633152">"Atrašanās vietu vēstures dzēšana"</string>
     <string name="delete_location_history_desc" msgid="4035229731487113147">"Šādi tiks dzēsta visa šīs ierīces atrašanās vietu vēsture saistībā ar šo Google kontu. Dzēšanu nevar atsaukt. Dažas lietotnes, tostarp “Google tagad”, vairs nedarbosies."</string>
-    <string name="system_services" msgid="5754310941186053151">"Pakalpojumi"</string>
+    <string name="accessibility_screen_readers_category_title" msgid="7742526514873922018">"Ekrāna lasītāji"</string>
+    <string name="accessibility_display_category_title" msgid="593444602101558017">"Displejs"</string>
+    <string name="accessibility_interaction_controls_category_title" msgid="5290687835178852745">"Mijiedarbības vadīklas"</string>
+    <string name="accessibility_audio_and_onscreen_text_category_title" msgid="113841605896486212">"Audio un ekrānā redzamais teksts"</string>
+    <string name="accessibility_experimental_category_title" msgid="3401773834179170206">"Eksperimentāls"</string>
+    <string name="accessibility_services_category_title" msgid="8813843874978910442">"Pakalpojumi"</string>
     <string name="accessibility_service_settings" msgid="3251334786870932423">"Pakalpojumu iestatījumi"</string>
+    <string name="accessibility_screen_reader_flattened_component_name" msgid="6834614827111101213">"com.google.android.marvin.talkback/com.google.android.marvin.talkback.TalkBackService"</string>
     <string name="accessibility_toggle_high_text_contrast_preference_title" msgid="9200419191468995574">"Liela kontrasta teksts"</string>
+    <string name="accessibility_toggle_bold_text_preference_title" msgid="3328992531170432669">"Teksts treknrakstā"</string>
+    <string name="accessibility_color_correction" msgid="6765093204922184119">"Krāsu korekcija"</string>
+    <string name="color_correction_usage" msgid="4160611639548748657">"Izmantot krāsu korekciju"</string>
+    <string name="color_correction_color_mode" msgid="5081377780734779169">"Krāsu režīms"</string>
+    <string name="color_correction_mode_deuteranomaly" msgid="1513793544554228224">"Deiteranomālija"</string>
+    <string name="color_correction_mode_deuteranomaly_summary" msgid="5991561481464520986">"Sarkana/zaļa krāsa"</string>
+    <string name="color_correction_mode_protanomaly" msgid="8105793166015115037">"Protanomālija"</string>
+    <string name="color_correction_mode_protanomaly_summary" msgid="3247619910784115563">"Sarkana/zaļa krāsa"</string>
+    <string name="color_correction_mode_tritanomaly" msgid="757769418392736089">"Tritanomālija"</string>
+    <string name="color_correction_mode_tritanomaly_summary" msgid="137712354510881252">"Zila/dzeltena krāsa"</string>
+    <string name="color_correction_mode_grayscale" msgid="2592973844160514484">"Pelēktoņu iestatījums"</string>
+    <string name="palette_color_red" msgid="507196433434979086">"Sarkana"</string>
+    <string name="palette_color_orange" msgid="6209196069366109835">"Oranža"</string>
+    <string name="palette_color_yellow" msgid="298466132578870590">"Dzeltena"</string>
+    <string name="palette_color_green" msgid="4904783063036825668">"Zaļa"</string>
+    <string name="palette_color_cyan" msgid="3212217287628948203">"Ciānzila"</string>
+    <string name="palette_color_blue" msgid="8836682634988540630">"Zila"</string>
+    <string name="palette_color_purple" msgid="2123828754639683555">"Violeta"</string>
+    <string name="palette_color_gray" msgid="4014534773994261194">"Pelēka"</string>
     <string name="accessibility_shortcut" msgid="5856158637840030531">"Pieejamības īsinājumtaustiņš"</string>
     <string name="accessibility_shortcut_enable" msgid="6603542432267329986">"Iespējot pieejamības īsinājumtaustiņu"</string>
     <string name="accessibility_shortcut_service" msgid="2053250146891420311">"Īsinājumtaustiņa pakalpojums"</string>
     <string name="accessibility_shortcut_description" msgid="2050424178481510046">"Kad īsinājumtaustiņš ir ieslēgts, varat uz 3 sekundēm nospiest pogu Atpakaļ un skaļuma samazināšanas pogu, lai aktivizētu pieejamības funkciju."</string>
     <string name="accessibility_captions" msgid="3411554568812306549">"Subtitri"</string>
     <string name="accessibility_captions_description" msgid="3827820027578548160">"Videoklipa subtitru teksta pārklājuma iestatījumi"</string>
-    <string name="captions_display" msgid="2598662495450633375">"Displejs"</string>
+    <string name="captions_display" msgid="2598662495450633375">"Rādīt"</string>
     <string name="captions_display_on" msgid="480438033345455728">"Ieslēgti"</string>
     <string name="captions_display_off" msgid="87881163874948539">"Izslēgti"</string>
     <string name="display_options" msgid="2645282080948371603">"Attēlojuma opcijas"</string>
@@ -885,12 +952,24 @@
     <string name="device_daydreams_sleep_description" msgid="6237610484915504587">"Ja šajā laika posmā ierīce nav bijusi aktīva, tiek aktivizēts ekrānsaudzētājs. Ja ekrānsaudzētājs nav atlasīts, displejs tiek izslēgts."</string>
     <string name="device_daydreams_sleep_summary" msgid="3081688734381995693">"Pēc šāda neaktivitātes posma: <xliff:g id="SLEEP_DESCRIPTION">%1$s</xliff:g>"</string>
     <string name="device_energy_saver_screen_off" msgid="6908468996426629480">"Izslēgt displeju"</string>
-    <string name="device_energy_saver_screen_off_description" msgid="4469679706899396071">"Pēc šāda perioda: <xliff:g id="SLEEP_DESCRIPTION">%1$s</xliff:g>"</string>
-    <string name="device_energy_saver_screen_off_dialog_title" msgid="4092476553760123309">"Displeja izslēgšana"</string>
-    <string name="device_energy_saver_allow_turning_screen_off" msgid="3832490233158066073">"Atļaut izslēgt ekrānu"</string>
-    <string name="device_energy_saver_allow_turning_screen_off_description" msgid="6369746832941270786">"Multivides atskaņošanas laikā"</string>
-    <string name="device_energy_saver_confirmation_title" msgid="3888708298070409591">"Enerģijas taupīšanas iestatījuma apstiprināšana"</string>
-    <string name="device_energy_saver_confirmation_text" msgid="3157546670441493125">"Apstipriniet iestatījumu jaunajam laikam (<xliff:g id="SLEEP_TIME">%1$s</xliff:g>), kurā iespējams enerģijas lietojuma pieaugums."</string>
+    <!-- no translation found for device_energy_saver_timeout_description (3206609135199137514) -->
+    <skip />
+    <string name="device_energy_saver_confirmation_title" msgid="7614859812773584773">"Barošanas un enerģijas iestatījuma apstiprināšana"</string>
+    <string name="device_energy_saver_confirmation_message" msgid="7789453187001013951">"Ilgu laika periodu atstājot televizoru ieslēgtu, var tikt palielināts enerģijas patēriņš."</string>
+    <string name="device_energy_saver_disable_allow_turning_screen_off_title" msgid="1468097048101593731">"Enerģijas taupīšanas iestatījuma atspējošana"</string>
+    <string name="device_energy_saver_disable_allow_turning_screen_off_text" msgid="6334963903866002164">"Lūdzu, apstipriniet atspējošanu, lai displejs netiktu izslēgts skatīšanās laikā. Tādējādi var būt iespējams enerģijas lietojuma pieaugums."</string>
+    <string name="device_energy_saver_sleep_timeout" msgid="1841900768718452039">"Neaktivitātes laikā"</string>
+    <string name="device_energy_saver_attentive_timeout" msgid="3649486668821348087">"Skatīšanās laikā"</string>
+    <string name="device_energy_saver_category_title" msgid="170076161677525986">"Automātiski izslēgt"</string>
+    <string name="device_energy_saver_sleep_timeout_dialog_title" msgid="6588352532253294558">"Automātiska izslēgšana neaktivitātes laikā"</string>
+    <string name="device_energy_saver_attentive_timeout_dialog_title" msgid="3273988875711109352">"Automātiska izslēgšana skatīšanās laikā"</string>
+    <string name="device_energy_saver_validation_sleep" msgid="7490897287741107840">"Iestatījuma “Neaktivitātes laikā” taimerim ir jābūt īsākam par iestatījuma “Skatīšanās laikā” taimeri."</string>
+    <string name="device_energy_saver_validation_attentive" msgid="1461105528087097435">"Iestatījuma “Skatīšanās laikā” taimerim ir jābūt ilgākam par iestatījuma “Neaktivitātes laikā” taimeri."</string>
+    <string name="limit_network_in_standby_toggle_title" msgid="6587185599397355336">"Ierobežot tīkla savienojumu gaidstāvē"</string>
+    <string name="limit_network_in_standby_toggle_summary" msgid="9127792748675581174">"Patērē mazāk enerģijas gaidstāves režīmā"</string>
+    <string name="limit_network_in_standby_toggle_info" msgid="566947772381093991">"Televizors būs atvienots no tīkla gaidstāves režīmā, izņemot automātisko atjauninājumu saņemšanai. Tādējādi var samazināties televizora enerģijas patēriņš, tomēr nevarēsiet izmantot tādas funkcijas kā Cast un Google asistents."</string>
+    <string name="limit_network_in_standby_confirm_title" msgid="789232987058850322">"Tīkla savienojuma atļaušana gaidstāvē"</string>
+    <string name="limit_network_in_standby_confirm_message" msgid="7176699480768019689">"Atļaujot tīkla savienojumu gaidstāvē, tiks palielināts gaidstāves enerģijas patēriņš."</string>
     <string name="backup_configure_account_default_summary" msgid="2170733614341544296">"Pašlaik nevienā kontā netiek uzglabāti dublēti dati."</string>
     <string name="backup_erase_dialog_title" msgid="6008454053276987100"></string>
     <string name="backup_erase_dialog_message" msgid="222169533402624861">"Vai pārtraukt jūsu Wi-Fi paroļu, grāmatzīmju, citu iestatījumu un lietotņu datu dublēšanu un dzēst visas kopijas Google serveros?"</string>
@@ -978,12 +1057,17 @@
     <string name="time_to_start_read_title" msgid="6565449163802837806">"Laiks sākt lasīšanu"</string>
     <string name="time_to_valid_audio_title" msgid="7246101824813414348">"Laiks pārbaudīt audio datus"</string>
     <string name="empty_audio_duration_title" msgid="9024377320171450683">"Tukša audio ilgums"</string>
+    <string name="record_audio_source_title" msgid="9087784503276397929">"Ierakstītā audio avots"</string>
+    <string name="record_audio_source_dialog_title" msgid="6556408220589197097">"Atlasīt ierakstītā audio avotu nākamajam ierakstam"</string>
+    <string name="recorded_microphones_title" msgid="5466988146086215426">"Ierakstīšanai izmantotie mikrofoni"</string>
     <string name="show_audio_recording_start_failed" msgid="9131762831381326605">"Neizdevās palaist audio ierakstīšanu."</string>
     <string name="show_audio_recording_failed" msgid="8128216664039868681">"Neizdevās ierakstīt audio."</string>
     <string name="title_data_saver" msgid="7500278996154002792">"Datu lietojuma samazinātājs"</string>
     <string name="summary_data_saver" msgid="6793558728898207405">"Automātiski pielāgot video kvalitāti, lai izmantotu mazāk mobilo datu"</string>
     <string name="title_data_alert" msgid="8262081890052682475">"Datu lietojums un brīdinājumi"</string>
     <string name="data_saver_header_info" msgid="2706725187498535785">"Varat izveidot savienojumu ar internetu, izmantojot Wi-Fi, tīklu Ethernet vai tālruņa tīklāju."</string>
+    <string name="bluetooth_ask_discovery_title" msgid="4955540555242269694">"Vai padarīt redzamu citām Bluetooth ierīcēm?"</string>
+    <string name="bluetooth_ask_discovery_message" msgid="8609666862877703398">"Lietotne mēģina uz <xliff:g id="TIMEOUT">%1$d</xliff:g> sekundēm padarīt jūsu televizoru redzamu citām Bluetooth ierīcēm."</string>
     <string name="help_center_title" msgid="6109822142761302433"></string>
     <string name="disabled_by_policy_title" msgid="2220484346213756472">"Darbība nav atļauta"</string>
     <string name="disabled_by_policy_title_adjust_volume" msgid="4229779946666263271">"Nevar mainīt skaļumu"</string>
@@ -1034,4 +1118,9 @@
     <string name="power_on_behavior" msgid="927607372303160716">"Ieslēgšanas rīcība"</string>
     <string name="reset_options_title" msgid="7632580482285108955">"Atiestatīšana"</string>
     <string name="adb_pairing_device_dialog_ethernet_pairing_code_label" msgid="7551782499828944838">"Tīkla Ethernet kods savienošanai pārī"</string>
+    <string name="energy_modes" msgid="1331693860386361744">"Enerģijas patēriņa režīmi"</string>
+    <string name="energy_modes_summary" msgid="7196407759836930799">"Energoefektivitātes uzlabošana, kad televizors netiek lietots"</string>
+    <string name="energy_mode_enables" msgid="357960364751477627">"Tiek iespējotas šādas funkcijas:"</string>
+    <string name="energy_mode_eco_hint" msgid="1461517905015359947">"Ņemiet vērā, ka, izmantojot šo režīmu, var tikt palielināts ierīces enerģijas patēriņš."</string>
+    <string name="energy_modes_confirmation_title" msgid="4520280098781914825">"Režīma “<xliff:g id="ENERGYMODENAME">%s</xliff:g>” iespējošana"</string>
 </resources>

@@ -15,14 +15,10 @@
  */
 package com.android.car.bluetooth;
 
-import static com.android.dx.mockito.inline.extended.ExtendedMockito.doReturn;
-import static com.android.dx.mockito.inline.extended.ExtendedMockito.mockitoSession;
-
 import static org.mockito.Mockito.when;
 
-import android.annotation.NonNull;
 import android.annotation.Nullable;
-import android.car.test.mocks.AbstractExtendedMockitoTestCase;
+import android.car.AbstractExtendedMockitoCarServiceTestCase;
 import android.content.BroadcastReceiver;
 import android.content.ContentResolver;
 import android.content.Context;
@@ -34,36 +30,26 @@ import android.os.UserHandle;
 import android.os.UserManager;
 import android.provider.Settings;
 import android.test.mock.MockContentResolver;
-import android.util.Log;
 
-import com.android.car.CarLocalServices;
-import com.android.dx.mockito.inline.extended.StaticMockitoSessionBuilder;
-import com.android.internal.util.Preconditions;
 import com.android.internal.util.test.BroadcastInterceptingContext;
 import com.android.internal.util.test.FakeSettingsProvider;
 
-import org.junit.After;
-import org.junit.Before;
+import org.junit.Rule;
+import org.junit.rules.TestRule;
+import org.junit.runner.Description;
+import org.junit.runners.model.Statement;
 import org.mockito.Mock;
-import org.mockito.MockitoSession;
-import org.mockito.quality.Strictness;
-import org.mockito.session.MockitoSessionBuilder;
 
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
 
 /**
  * Base class for Bluetooth tests, provides mocking of BluetoothAdapter. Also provides CarService,
  * and Settings-related, helpers.
- * <p>
- * Uses {@link com.android.dx.mockito.inline.extended.ExtendedMockito} to mock static and/or final
- * classes and methods.
- * <p>
- * Would have liked to extend {@link AbstractExtendedMockitoTestCase}, but there was
- * incompatibility between our Fake {@code Settings} and their {@code Spy} of {@code Settings}.
- * <p>
- * <b>Note: </b>when using this class, you must include the following
+ *
+ * <p>Uses {@link com.android.dx.mockito.inline.extended.ExtendedMockito} to mock static and/or
+ * final classes and methods.
+ *
+ * <p><b>Note: </b>when using this class, you must include the following
  * dependencies in {@code Android.bp} (or {@code Android.mk}:
  * <pre><code>
     jni_libs: [
@@ -76,119 +62,30 @@ import java.util.List;
       libstaticjvmtiagent \
  *  </code></pre>
  */
-public abstract class AbstractExtendedMockitoBluetoothTestCase {
-    private static final String TAG = AbstractExtendedMockitoBluetoothTestCase.class
-            .getSimpleName();
-    private static final boolean VERBOSE = false;
+abstract class AbstractExtendedMockitoBluetoothTestCase
+        extends AbstractExtendedMockitoCarServiceTestCase {
 
-    final int mUserId = 16;
-    @Mock UserManager mMockUserManager;
+    protected static final int USER_ID = 116;
 
-    private final List<Class<?>> mStaticSpiedClasses = new ArrayList<>();
-    private MockitoSession mSession;
+    @Mock protected UserManager mMockUserManager;
 
-    @Before
-    public final void startSession() {
-        mSession = newSessionBuilder().startMocking();
-    }
+    // TODO(b/268515318): withoug this rule, BluetoothConnectionRetryManagerTest would fail, even
+    // thouch AbstractExtendedMockitoTestCase clears it at the end. This is a hack, but it wouldn't
+    // be needed if we adpt a @Rule based approach (as FrameworksMockingServicesTests is doing on
+    // commit 70f1052679bfab11bbbef0d16f4709a7e45b7a1d)
+    @Rule
+    public final TestRule mClearInlineMocksRule = new TestRule() {
 
-    @After
-    public final void finishSession() {
-        if (mSession != null) {
-            mSession.finishMocking();
-        } else {
-            Log.w(TAG, getClass().getSimpleName() + ".finishSession(): no session");
+        @Override
+        public Statement apply(Statement base, Description description) {
+            return new Statement() {
+                @Override
+                public void evaluate() throws Throwable {
+                    clearInlineMocks("AbstractExtendedMockitoBluetoothTestCase's rule");
+                }
+            };
         }
-    }
-
-    /**
-     * Subclasses can use this method to initialize the Mockito session that's started before every
-     * test on {@link #startSession()}.
-     *
-     * <p>Typically, it should be overridden when mocking static methods.
-     */
-    protected void onSessionBuilder(@NonNull CustomMockitoSessionBuilder session) {
-        if (VERBOSE) Log.v(TAG, "onSessionBuilder()");
-    }
-
-    /**
-     * Changes the value of the session created by
-     * {@link #onSessionBuilder(CustomMockitoSessionBuilder)}.
-     *
-     * <p>By default it's set to {@link Strictness.LENIENT}, but subclasses can overwrite this
-     * method to change the behavior.
-     */
-    @NonNull
-    protected Strictness getSessionStrictness() {
-        return Strictness.LENIENT;
-    }
-
-    @NonNull
-    private MockitoSessionBuilder newSessionBuilder() {
-        StaticMockitoSessionBuilder builder = mockitoSession()
-                .strictness(getSessionStrictness());
-
-        CustomMockitoSessionBuilder customBuilder =
-                new CustomMockitoSessionBuilder(builder, mStaticSpiedClasses);
-
-        onSessionBuilder(customBuilder);
-
-        if (VERBOSE) Log.v(TAG, "spied classes" + customBuilder.mStaticSpiedClasses);
-
-        return builder.initMocks(this);
-    }
-
-    /**
-     * Asserts the given class is being spied in the Mockito session.
-     */
-    protected void assertSpied(Class<?> clazz) {
-        Preconditions.checkArgument(mStaticSpiedClasses.contains(clazz),
-                "did not call spyStatic() on %s", clazz.getName());
-    }
-
-    /**
-     * Custom {@code MockitoSessionBuilder} used to make sure some pre-defined mock stations fail
-     * if the test case didn't explicitly set it to spy / mock the required classes.
-     *
-     * <p><b>NOTE: </b>for now it only provides simple {@link #spyStatic(Class)}, but more methods
-     * (as provided by {@link StaticMockitoSessionBuilder}) could be provided as needed.
-     */
-    public static final class CustomMockitoSessionBuilder {
-        private final StaticMockitoSessionBuilder mBuilder;
-        private final List<Class<?>> mStaticSpiedClasses;
-
-        private CustomMockitoSessionBuilder(StaticMockitoSessionBuilder builder,
-                List<Class<?>> staticSpiedClasses) {
-            mBuilder = builder;
-            mStaticSpiedClasses = staticSpiedClasses;
-        }
-
-        /**
-         * Same as {@link StaticMockitoSessionBuilder#spyStatic(Class)}.
-         */
-        public <T> CustomMockitoSessionBuilder spyStatic(Class<T> clazz) {
-            Preconditions.checkState(!mStaticSpiedClasses.contains(clazz),
-                    "already called spyStatic() on " + clazz);
-            mStaticSpiedClasses.add(clazz);
-            mBuilder.spyStatic(clazz);
-            return this;
-        }
-    }
-
-    /**
-     * Mocks a call to {@link CarLocalServices#getService(Class)}.
-     *
-     * @throws IllegalStateException if class didn't override {@link #newSessionBuilder()} and
-     * called {@code spyStatic(CarLocalServices.class)} on the session passed to it.
-     *
-     * (Same as {@link AbstractExtendedMockitoCarServiceTestCase#mockGetCarLocalService})
-     */
-    protected final <T> void mockGetCarLocalService(@NonNull Class<T> type, @NonNull T service) {
-        if (VERBOSE) Log.v(TAG, "mockGetLocalService(" + type.getName() + ")");
-        assertSpied(CarLocalServices.class);
-
-        doReturn(service).when(() -> CarLocalServices.getService(type));
-    }
+    };
 
     /**
      * Set the status of a user ID

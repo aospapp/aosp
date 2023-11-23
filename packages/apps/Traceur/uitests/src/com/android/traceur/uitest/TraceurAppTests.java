@@ -25,13 +25,13 @@ import android.content.pm.PackageManager;
 import android.os.RemoteException;
 import android.os.SystemClock;
 import android.platform.test.annotations.Presubmit;
-import android.support.test.uiautomator.By;
-import android.support.test.uiautomator.UiDevice;
-import android.support.test.uiautomator.UiObject2;
-import android.support.test.uiautomator.UiObjectNotFoundException;
-import android.support.test.uiautomator.UiSelector;
-import android.support.test.uiautomator.UiScrollable;
-import android.support.test.uiautomator.Until;
+import androidx.test.uiautomator.By;
+import androidx.test.uiautomator.UiDevice;
+import androidx.test.uiautomator.UiObject2;
+import androidx.test.uiautomator.UiObjectNotFoundException;
+import androidx.test.uiautomator.UiSelector;
+import androidx.test.uiautomator.UiScrollable;
+import androidx.test.uiautomator.Until;
 
 import androidx.test.InstrumentationRegistry;
 import androidx.test.runner.AndroidJUnit4;
@@ -48,11 +48,14 @@ import java.util.regex.Pattern;
 public class TraceurAppTests {
 
     private static final String TRACEUR_PACKAGE = "com.android.traceur";
+    private static final String RECYCLERVIEW_ID = "com.android.traceur:id/recycler_view";
     private static final int LAUNCH_TIMEOUT_MS = 10000;
     private static final int UI_TIMEOUT_MS = 7500;
     private static final int SHORT_PAUSE_MS = 1000;
+    private static final int MAX_SCROLL_SWIPES = 10;
 
     private UiDevice mDevice;
+    private UiScrollable mScrollableMainScreen;
 
     @Before
     public void setUp() throws Exception {
@@ -83,9 +86,22 @@ public class TraceurAppTests {
         // Wait for the app to appear.
         assertTrue(mDevice.wait(Until.hasObject(By.pkg(TRACEUR_PACKAGE).depth(0)),
                   LAUNCH_TIMEOUT_MS));
+
+        // The ID for the scrollable RecyclerView is used to find the specific view that we want,
+        // because scrollable views may exist higher in the view hierarchy.
+        mScrollableMainScreen =
+                new UiScrollable(new UiSelector().scrollable(true).resourceId(RECYCLERVIEW_ID));
+        if (mScrollableMainScreen.exists()) {
+            mScrollableMainScreen.setAsVerticalList();
+            mScrollableMainScreen.setMaxSearchSwipes(MAX_SCROLL_SWIPES);
+        }
+
         // Default trace categories are restored in case a previous test modified them and
         // terminated early.
         restoreDefaultCategories();
+
+        // Ensure that the test begins at the top of the main screen.
+        returnToTopOfMainScreen();
     }
 
     @After
@@ -104,74 +120,24 @@ public class TraceurAppTests {
     @Presubmit
     @Test
     public void testElementsOnMainScreen() throws Exception {
-        UiScrollable scrollableMainScreen = new UiScrollable(new UiSelector().scrollable(true));
-
-        if (scrollableMainScreen.exists()) {
-            scrollableMainScreen.setAsVerticalList();
-            scrollableMainScreen.setMaxSearchSwipes(10);
-
-            boolean recordFound = scrollableMainScreen.scrollTextIntoView("Record trace");
-            assertTrue("Record trace switch not found.", recordFound);
-
-            boolean applicationsFound =
-                    scrollableMainScreen.scrollTextIntoView("Trace debuggable applications");
-            assertTrue("Applications element not found.", applicationsFound);
-
-            boolean categoriesFound = scrollableMainScreen.scrollTextIntoView("Categories");
-            assertTrue("Categories element not found.", categoriesFound);
-
-            boolean restoreFound = scrollableMainScreen.scrollTextIntoView("Restore default categories");
-            assertTrue("Restore default categories element not found.", restoreFound);
-
-            boolean bufferSizeFound = scrollableMainScreen.scrollTextIntoView("Per-CPU buffer size");
-            assertTrue("Per-CPU buffer size element not found.", bufferSizeFound);
-
-            boolean clearFound = scrollableMainScreen.scrollTextIntoView("Clear saved traces");
-            assertTrue("Clear saved traces element not found.", clearFound);
-
-            boolean longTraceFound = scrollableMainScreen.scrollTextIntoView("Long traces");
-            assertTrue("Long traces element not found.", longTraceFound);
-
-            boolean maxTraceSizeFound = scrollableMainScreen.scrollTextIntoView("Maximum long trace size");
-            assertTrue("Maximum long trace size element not found.", maxTraceSizeFound);
-
-            boolean maxTraceDurationFound =
-                    scrollableMainScreen.scrollTextIntoView("Maximum long trace duration");
-            assertTrue("Maximum long trace duration element not found.", maxTraceDurationFound);
-
-            boolean quickSettingsFound = scrollableMainScreen.scrollTextIntoView("Show Quick Settings tile");
-            assertTrue("Show Quick Settings tile switch not found.", quickSettingsFound);
-        } else {
-            assertNotNull("Record trace switch not found.",
-                    mDevice.wait(Until.findObject(By.text("Record trace")),
-                    UI_TIMEOUT_MS));
-            assertNotNull("Applications element not found.",
-                    mDevice.wait(Until.findObject(By.text("Trace debuggable applications")),
-                    UI_TIMEOUT_MS));
-            assertNotNull("Categories element not found.",
-                    mDevice.wait(Until.findObject(By.text("Categories")),
-                    UI_TIMEOUT_MS));
-            assertNotNull("Restore default categories element not found.",
-                    mDevice.wait(Until.findObject(By.text("Restore default categories")),
-                    UI_TIMEOUT_MS));
-            assertNotNull("Per-CPU buffer size element not found.",
-                    mDevice.wait(Until.findObject(By.text("Per-CPU buffer size")),
-                    UI_TIMEOUT_MS));
-            assertNotNull("Clear saved traces element not found.",
-                    mDevice.wait(Until.findObject(By.text("Clear saved traces")),
-                    UI_TIMEOUT_MS));
-            assertNotNull("Long traces element not found.",
-                    mDevice.wait(Until.findObject(By.text("Long traces")),
-                    UI_TIMEOUT_MS));
-            assertNotNull("Maximum long trace size element not found.",
-                    mDevice.wait(Until.findObject(By.text("Maximum long trace size")),
-                    UI_TIMEOUT_MS));
-            assertNotNull("Maximum long trace duration element not found.",
-                    mDevice.wait(Until.findObject(By.text("Maximum long trace duration")),
-                    UI_TIMEOUT_MS));
-            assertNotNull("Show Quick Settings tile switch not found.",
-                    mDevice.wait(Until.findObject(By.text("Show Quick Settings tile")),
-                    UI_TIMEOUT_MS));
+        String[] elementTitles = {
+            "Record trace",
+            "Record CPU profile",
+            "Trace debuggable applications",
+            "Categories",
+            "Restore default categories",
+            "Per-CPU buffer size",
+            "Long traces",
+            "Maximum long trace size",
+            "Maximum long trace duration",
+            "View saved files",
+            "Clear saved files",
+            // This is intentionally disabled because it can differ between internal and AOSP.
+            // "Stop recording for bug reports",
+            "Show Quick Settings tile",
+        };
+        for (String title : elementTitles) {
+            assertNotNull(title + " element not found.", findObjectOnMainScreenByText(title));
         }
     }
 
@@ -184,8 +150,7 @@ public class TraceurAppTests {
     @Presubmit
     @Test
     public void testSuccessfulTracing() throws Exception {
-        UiObject2 recordTraceSwitch = mDevice.wait(Until.findObject(By.text("Record trace")),
-                UI_TIMEOUT_MS);
+        UiObject2 recordTraceSwitch = findObjectOnMainScreenByText("Record trace");
         assertNotNull("Record trace switch not found.", recordTraceSwitch);
         recordTraceSwitch.click();
 
@@ -194,49 +159,45 @@ public class TraceurAppTests {
         mDevice.wait(Until.hasObject(By.text("Trace is being recorded")), UI_TIMEOUT_MS);
         mDevice.wait(Until.gone(By.text("Trace is being recorded")), UI_TIMEOUT_MS);
 
-        recordTraceSwitch = mDevice.wait(Until.findObject(By.text("Record trace")), UI_TIMEOUT_MS);
+        recordTraceSwitch = findObjectOnMainScreenByText("Record trace");
         assertNotNull("Record trace switch not found.", recordTraceSwitch);
         recordTraceSwitch.click();
 
         mDevice.waitForIdle();
 
-        // Wait for the popover notification to appear and then disappear,
-        // so we can reliably click the notification in the notification shade.
-        mDevice.wait(Until.hasObject(By.text("Tap to share your trace")), UI_TIMEOUT_MS);
-        mDevice.wait(Until.gone(By.text("Tap to share your trace")), UI_TIMEOUT_MS);
+        waitForShareHUN();
+        tapShareNotification();
+        clickThroughShareSteps();
+    }
 
-        mDevice.openNotification();
-        UiObject2 shareNotification = mDevice.wait(Until.findObject(
-                By.text("Tap to share your trace")),
-                UI_TIMEOUT_MS);
-        assertNotNull("Share notification not found.", shareNotification);
-        shareNotification.click();
+    /**
+     * Checks that stack samples can be recorded and shared.
+     * This test records stack samples by toggling 'Record CPU profile' in the UI, taps on the share
+     * notification once the trace is saved, then (on non-AOSP) verifies that a share dialog
+     * appears.
+     */
+    @Presubmit
+    @Test
+    public void testSuccessfulCpuProfiling() throws Exception {
+        UiObject2 recordCpuProfileSwitch = findObjectOnMainScreenByText("Record CPU profile");
+        assertNotNull("Record CPU profile switch not found.", recordCpuProfileSwitch);
+        recordCpuProfileSwitch.click();
 
         mDevice.waitForIdle();
 
-        UiObject2 shareDialog = mDevice.wait(Until.findObject(
-                By.textContains("Only share system traces with people and apps you trust.")),
-                UI_TIMEOUT_MS);
-        assertNotNull("Share dialog not found.", shareDialog);
+        // The full "Stack samples are being recorded" text may be cut off.
+        mDevice.wait(Until.hasObject(By.textContains("Stack samples are")), UI_TIMEOUT_MS);
+        mDevice.wait(Until.gone(By.textContains("Stack samples are")), UI_TIMEOUT_MS);
 
-        // The buttons on dialogs sometimes have their capitalization manipulated by themes.
-        UiObject2 shareButton = mDevice.wait(Until.findObject(
-                By.text(Pattern.compile("share", Pattern.CASE_INSENSITIVE))), UI_TIMEOUT_MS);
-        assertNotNull("Share button not found.", shareButton);
-        shareButton.click();
+        recordCpuProfileSwitch = findObjectOnMainScreenByText("Record CPU profile");
+        assertNotNull("Record CPU profile switch not found.", recordCpuProfileSwitch);
+        recordCpuProfileSwitch.click();
 
-        // The share sheet will not appear on AOSP builds, as there are no apps available to share
-        // traces with. This checks if Gmail is installed (i.e. if the build is non-AOSP) before
-        // verifying that the share sheet exists.
-        try {
-            Context context = InstrumentationRegistry.getContext();
-            context.getPackageManager().getApplicationInfo("com.google.android.gm", 0);
-            UiObject2 shareSheet = mDevice.wait(Until.findObject(
-                    By.res("android:id/profile_tabhost")), UI_TIMEOUT_MS);
-            assertNotNull("Share sheet not found.", shareSheet);
-        } catch (PackageManager.NameNotFoundException e) {
-            // Gmail is not installed, so the device is on an AOSP build.
-        }
+        mDevice.waitForIdle();
+
+        waitForShareHUN();
+        tapShareNotification();
+        clickThroughShareSteps();
     }
 
     /**
@@ -244,7 +205,7 @@ public class TraceurAppTests {
      */
     @Presubmit
     @Test
-    public void testTraceCategoriesExist() {
+    public void testTraceCategoriesExist() throws Exception {
         openTraceCategories();
         List<UiObject2> categories = getTraceCategories();
         assertNotNull("List of categories not found.", categories);
@@ -259,7 +220,7 @@ public class TraceurAppTests {
      */
     @Presubmit
     @Test
-    public void testCorrectCategoriesSummary() {
+    public void testCorrectCategoriesSummary() throws Exception {
         UiObject2 summary = getCategoriesSummary();
         assertTrue("Expected 'Default' summary not found on startup.",
                 summary.getText().contains("Default"));
@@ -287,7 +248,7 @@ public class TraceurAppTests {
      */
     @Presubmit
     @Test
-    public void testRestoreDefaultCategories() {
+    public void testRestoreDefaultCategories() throws Exception {
         openTraceCategories();
         toggleFirstTraceCategory();
 
@@ -296,6 +257,7 @@ public class TraceurAppTests {
                 summary.getText().contains("selected"));
 
         restoreDefaultCategories();
+        returnToTopOfMainScreen();
 
         // The summary must be reset after the toggle because the reference will be stale.
         summary = getCategoriesSummary();
@@ -304,11 +266,88 @@ public class TraceurAppTests {
     }
 
     /**
+     * Returns to the top of the main Traceur screen if it is scrollable.
+     */
+    private void returnToTopOfMainScreen() throws Exception {
+        if (mScrollableMainScreen.exists()) {
+            mScrollableMainScreen.setAsVerticalList();
+            mScrollableMainScreen.scrollToBeginning(10);
+        }
+    }
+
+    /**
+     * Finds and returns the specified element by text, scrolling down if needed.
+     * This method makes the assumption that Traceur's main screen is open, and shouldn't be used as
+     * a general way to find UI elements elsewhere.
+     */
+    private UiObject2 findObjectOnMainScreenByText(String text)
+            throws Exception {
+        if (mScrollableMainScreen.exists()) {
+            mScrollableMainScreen.scrollTextIntoView(text);
+        }
+        return mDevice.wait(Until.findObject(By.text(text)), UI_TIMEOUT_MS);
+    }
+
+    /**
+     * This method waits for the share heads-up notification to appear and disappear.
+     * This is intended to allow for the notification in the shade to be reliably clicked, and is
+     * only used in testSuccessfulTracing and testSuccessfulCpuProfiling.
+     */
+    private void waitForShareHUN() throws Exception {
+        mDevice.wait(Until.hasObject(By.text("Tap to share your recording")), UI_TIMEOUT_MS);
+        mDevice.wait(Until.gone(By.text("Tap to share your recording")), UI_TIMEOUT_MS);
+    }
+
+    /**
+     * This method opens the notification shade and taps on the share notification.
+     * This is only used in testSuccessfulTracing and testSuccessfulCpuProfiling.
+     */
+    private void tapShareNotification() throws Exception {
+        mDevice.openNotification();
+        UiObject2 shareNotification = mDevice.wait(Until.findObject(
+                By.text("Tap to share your recording")),
+                UI_TIMEOUT_MS);
+        assertNotNull("Share notification not found.", shareNotification);
+        shareNotification.click();
+
+        mDevice.waitForIdle();
+    }
+
+    /**
+     * This method clicks through the share dialog steps.
+     * This is only used in testSuccessfulTracing and testSuccessfulCpuProfiling.
+     */
+    private void clickThroughShareSteps() throws Exception {
+        UiObject2 shareDialog = mDevice.wait(Until.findObject(
+                By.textContains("Only share system traces with people and apps you trust.")),
+                UI_TIMEOUT_MS);
+        assertNotNull("Share dialog not found.", shareDialog);
+
+        // The buttons on dialogs sometimes have their capitalization manipulated by themes.
+        UiObject2 shareButton = mDevice.wait(Until.findObject(
+                By.text(Pattern.compile("share", Pattern.CASE_INSENSITIVE))), UI_TIMEOUT_MS);
+        assertNotNull("Share button not found.", shareButton);
+        shareButton.click();
+
+        // The share sheet will not appear on AOSP builds, as there are no apps available to share
+        // traces with. This checks if Gmail is installed (i.e. if the build is non-AOSP) before
+        // verifying that the share sheet exists.
+        try {
+            Context context = InstrumentationRegistry.getContext();
+            context.getPackageManager().getApplicationInfo("com.google.android.gm", 0);
+            UiObject2 shareSheet = mDevice.wait(Until.findObject(
+                    By.res("android:id/profile_tabhost")), UI_TIMEOUT_MS);
+            assertNotNull("Share sheet not found.", shareSheet);
+        } catch (PackageManager.NameNotFoundException e) {
+            // Gmail is not installed, so the device is on an AOSP build.
+        }
+    }
+
+    /**
      * Taps on the 'Categories' button.
      */
-    private void openTraceCategories() {
-        UiObject2 categoriesButton = mDevice.wait(Until.findObject(
-                By.text("Categories")), UI_TIMEOUT_MS);
+    private void openTraceCategories() throws Exception {
+        UiObject2 categoriesButton = findObjectOnMainScreenByText("Categories");
         assertNotNull("Categories button not found.", categoriesButton);
         categoriesButton.click();
 
@@ -318,10 +357,9 @@ public class TraceurAppTests {
     /**
      * Taps on the 'Restore default categories' button.
      */
-    private void restoreDefaultCategories() {
-        UiObject2 restoreButton = mDevice.wait(Until.findObject(
-                By.text("Restore default categories")), UI_TIMEOUT_MS);
-        assertNotNull("'Restore default categories' button not found.", restoreButton);
+    private void restoreDefaultCategories() throws Exception {
+        UiObject2 restoreButton = findObjectOnMainScreenByText("Restore default categories");
+        assertNotNull("Restore default categories button not found.", restoreButton);
         restoreButton.click();
 
         mDevice.waitForIdle();
@@ -334,10 +372,10 @@ public class TraceurAppTests {
      * Returns the UiObject2 of the summary for 'Categories'.
      * This must only be used on Traceur's main page.
      */
-    private UiObject2 getCategoriesSummary() {
-        UiObject2 categoriesButton = mDevice.wait(Until.findObject(
-                By.text("Categories")), UI_TIMEOUT_MS);
+    private UiObject2 getCategoriesSummary() throws Exception {
+        UiObject2 categoriesButton = findObjectOnMainScreenByText("Categories");
         assertNotNull("Categories button not found.", categoriesButton);
+
         // The summary text is a sibling view of 'Categories' and can be found through their parent.
         UiObject2 categoriesSummary = categoriesButton.getParent().wait(Until.findObject(
                 By.res("android:id/summary")), UI_TIMEOUT_MS);
@@ -360,7 +398,7 @@ public class TraceurAppTests {
      * Toggles the first checkbox in the list of trace categories.
      * This must only be used after openTraceCategories() has been called.
      */
-    private void toggleFirstTraceCategory() {
+    private void toggleFirstTraceCategory() throws Exception {
         getTraceCategories().get(0).click();
 
         mDevice.waitForIdle();

@@ -20,6 +20,7 @@ import android.nearby.IBroadcastListener;
 import android.nearby.IScanListener;
 import android.nearby.BroadcastRequestParcelable;
 import android.nearby.ScanRequest;
+import android.nearby.aidl.IOffloadCallback;
 
 /**
  * Interface for communicating with the nearby services.
@@ -37,4 +38,6 @@ interface INearbyManager {
             in IBroadcastListener callback, String packageName, @nullable String attributionTag);
 
     void stopBroadcast(in IBroadcastListener callback, String packageName, @nullable String attributionTag);
+
+    void queryOffloadCapability(in IOffloadCallback callback) ;
 }

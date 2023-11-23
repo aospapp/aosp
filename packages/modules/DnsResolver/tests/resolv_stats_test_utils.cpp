@@ -172,4 +172,26 @@ void PrintTo(const NetworkDnsEventReported& event, std::ostream* os) {
     *os << "}";
 }
 
+void PrintTo(const Servers& event, std::ostream* os) {
+    *os << "Servers: {\n";
+    *os << "  server_size: " << event.server_size() << "\n";
+    *os << "}\n";
+}
+
+void PrintTo(const Server& event, std::ostream* os) {
+    *os << "Server: {\n";
+    *os << "  protocol: " << event.protocol() << "\n";
+    *os << "  index: " << event.index() << "\n";
+    *os << "  validated: " << event.validated() << "\n";
+    *os << "}\n";
+}
+
+void PrintTo(const NetworkDnsServerSupportReported& event, std::ostream* os) {
+    *os << "NetworkDnsServerSupportReported: {\n";
+    *os << "  network_type: " << event.network_type() << "\n";
+    *os << "  private_dns_modes: " << event.private_dns_modes() << "\n";
+    *os << "  server_size: " << event.servers().server_size() << "\n";
+    *os << "}\n";
+}
+
 }  // namespace android::net

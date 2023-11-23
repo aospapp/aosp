@@ -134,14 +134,16 @@ typedef struct {
     color_space_t color_space;
     media_tray_t media_tray;
     unsigned int num_copies;
+    unsigned int job_pages_per_set;
     bool borderless;
     unsigned int render_flags;
     float job_top_margin;
     float job_left_margin;
     float job_right_margin;
     float job_bottom_margin;
+    bool preserve_scaling;
 
-    bool renderInReverseOrder;
+    bool face_down_tray;
 
     // these values are pixels
     unsigned int print_top_margin;
@@ -190,6 +192,7 @@ typedef struct {
     const char *useragent;
     char docCategory[10];
     const char *media_default;
+    char print_scaling[MAX_PRINT_SCALING_LENGTH];
 
     // Expected certificate if any
     uint8 *certificate;
@@ -203,6 +206,9 @@ typedef struct {
     bool accepts_app_version;
     bool accepts_os_name;
     bool accepts_os_version;
+
+    float source_width;
+    float source_height;
 } wprint_job_params_t;
 
 typedef struct wprint_connect_info_st wprint_connect_info_t;
@@ -218,7 +224,8 @@ struct wprint_connect_info_st {
     /* Timeout per retry in milliseconds */
     long timeout;
     /* Return non-0 if the received certificate is not acceptable. */
-    int (*validate_certificate)(struct wprint_connect_info_st *connect_info, uint8 *data, int data_len);
+    int (*validate_certificate)(struct wprint_connect_info_st *connect_info,
+                                uint8 *data, int data_len);
     /* User-supplied data. */
     void *user;
 };
@@ -246,7 +253,6 @@ typedef struct
    int                 current_page;
    int                 total_pages;
    int                 page_total_update;
-
 } wprint_page_info_t;
 
 typedef struct {
@@ -287,8 +293,8 @@ typedef struct {
     status_t (*print_page)(wprint_job_params_t *job_params, const char *mime_type,
             const char *pathname);
 
-    status_t (*print_blank_page)(wJob_t job_handle,
-            wprint_job_params_t *job_params);
+    status_t (*print_blank_page)(wJob_t job_handle, wprint_job_params_t *job_params,
+            const char *mime_type, const char *pathname);
 
     status_t (*end_job)(wprint_job_params_t *job_params);
 } wprint_plugin_t;
@@ -309,6 +315,12 @@ bool wprintIsRunning();
  */
 status_t wprintGetCapabilities(const wprint_connect_info_t *connect_info,
         printer_capabilities_t *printer_cap);
+
+/*
+ * Returns a preferred print format supported by the printer
+ */
+char *_get_print_format(const char *mime_type, const wprint_job_params_t *job_params,
+                        const printer_capabilities_t *cap);
 
 /*
  * Fills in the job params structure with default values.
@@ -363,6 +375,18 @@ status_t wprintExit(void);
  * Supplies info about the sending application and OS name
  */
 void wprintSetSourceInfo(const char *appName, const char *appVersion, const char *osName);
+
+/*
+ * Returns true, if a blank page to be printed in duplex print for PCLm
+ */
+bool wprintBlankPageForPclm(const wprint_job_params_t *job_params,
+        const printer_capabilities_t *printer_cap);
+
+/*
+ * Returns true, if a blank page to be printed in duplex print for PWG
+ */
+bool wprintBlankPageForPwg(const wprint_job_params_t *job_params,
+        const printer_capabilities_t *printer_cap);
 
 /* Global variables to hold API, application, and OS details */
 extern int g_API_version;

@@ -8,3 +8,5 @@ binder_service(cartelemetryd)  # allow binder IPC to the various system services
 add_service(cartelemetryd, cartelemetryd_service)
 
 init_daemon_domain(cartelemetryd)
+
+allow cartelemetryd carservice_app:binder call;

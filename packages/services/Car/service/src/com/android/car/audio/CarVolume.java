@@ -16,26 +16,44 @@
 
 package com.android.car.audio;
 
+import static android.media.AudioAttributes.USAGE_ALARM;
+import static android.media.AudioAttributes.USAGE_ANNOUNCEMENT;
+import static android.media.AudioAttributes.USAGE_ASSISTANCE_NAVIGATION_GUIDANCE;
+import static android.media.AudioAttributes.USAGE_ASSISTANCE_SONIFICATION;
+import static android.media.AudioAttributes.USAGE_ASSISTANT;
+import static android.media.AudioAttributes.USAGE_EMERGENCY;
+import static android.media.AudioAttributes.USAGE_MEDIA;
+import static android.media.AudioAttributes.USAGE_NOTIFICATION;
+import static android.media.AudioAttributes.USAGE_NOTIFICATION_RINGTONE;
+import static android.media.AudioAttributes.USAGE_SAFETY;
+import static android.media.AudioAttributes.USAGE_VEHICLE_STATUS;
+import static android.media.AudioAttributes.USAGE_VOICE_COMMUNICATION;
 import static android.telephony.TelephonyManager.CALL_STATE_OFFHOOK;
 import static android.telephony.TelephonyManager.CALL_STATE_RINGING;
 
-import static com.android.car.audio.CarAudioService.DEFAULT_AUDIO_CONTEXT;
+import static com.android.car.audio.CarAudioService.CAR_DEFAULT_AUDIO_ATTRIBUTE;
 import static com.android.car.audio.CarAudioService.SystemClockWrapper;
 import static com.android.car.audio.CarAudioUtils.hasExpired;
+import static com.android.car.internal.ExcludeFromCodeCoverageGeneratedReport.DUMP_INFO;
 
 import android.annotation.IntDef;
-import android.annotation.NonNull;
+import android.media.AudioAttributes;
 import android.media.AudioPlaybackConfiguration;
+import android.util.ArraySet;
 import android.util.SparseIntArray;
 
 import com.android.car.CarLog;
+import com.android.car.CarServiceUtils;
 import com.android.car.audio.CarAudioContext.AudioContext;
-import com.android.car.internal.annotation.AttributeUsage;
+import com.android.car.internal.ExcludeFromCodeCoverageGeneratedReport;
+import com.android.car.internal.util.IndentingPrintWriter;
 import com.android.internal.annotations.GuardedBy;
 import com.android.internal.util.Preconditions;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -49,36 +67,38 @@ final class CarVolume {
     private static final int CONTEXT_NOT_PRIORITIZED = -1;
 
     static final int VERSION_ONE = 1;
-    private static final int[] AUDIO_CONTEXT_VOLUME_PRIORITY_V1 = {
-            CarAudioContext.NAVIGATION,
-            CarAudioContext.CALL,
-            CarAudioContext.MUSIC,
-            CarAudioContext.ANNOUNCEMENT,
-            CarAudioContext.VOICE_COMMAND,
-            CarAudioContext.CALL_RING,
-            CarAudioContext.SYSTEM_SOUND,
-            CarAudioContext.SAFETY,
-            CarAudioContext.ALARM,
-            CarAudioContext.NOTIFICATION,
-            CarAudioContext.VEHICLE_STATUS,
-            CarAudioContext.EMERGENCY,
-            // CarAudioContext.INVALID is intentionally not prioritized as it is not routed by
-            // CarAudioService and is not expected to be used.
-    };
+    private static final List<AudioAttributes> AUDIO_ATTRIBUTE_VOLUME_PRIORITY_V1 = List.of(
+            // CarAudioContext.getInvalidContext() is intentionally not prioritized
+            // as it is not routed by CarAudioService and is not expected to be used.
+            CarAudioContext.getAudioAttributeFromUsage(USAGE_ASSISTANCE_NAVIGATION_GUIDANCE),
+            CarAudioContext.getAudioAttributeFromUsage(USAGE_VOICE_COMMUNICATION),
+            CarAudioContext.getAudioAttributeFromUsage(USAGE_MEDIA),
+            CarAudioContext.getAudioAttributeFromUsage(USAGE_ANNOUNCEMENT),
+            CarAudioContext.getAudioAttributeFromUsage(USAGE_ASSISTANT),
+            CarAudioContext.getAudioAttributeFromUsage(USAGE_NOTIFICATION_RINGTONE),
+            CarAudioContext.getAudioAttributeFromUsage(USAGE_ASSISTANCE_SONIFICATION),
+            CarAudioContext.getAudioAttributeFromUsage(USAGE_SAFETY),
+            CarAudioContext.getAudioAttributeFromUsage(USAGE_ALARM),
+            CarAudioContext.getAudioAttributeFromUsage(USAGE_NOTIFICATION),
+            CarAudioContext.getAudioAttributeFromUsage(USAGE_VEHICLE_STATUS),
+            CarAudioContext.getAudioAttributeFromUsage(USAGE_EMERGENCY)
+    );
 
     static final int VERSION_TWO = 2;
-    private static final int[] AUDIO_CONTEXT_VOLUME_PRIORITY_V2 = {
-            CarAudioContext.CALL,
-            CarAudioContext.MUSIC,
-            CarAudioContext.ANNOUNCEMENT,
-            CarAudioContext.VOICE_COMMAND,
-    };
+    private static final List<AudioAttributes> AUDIO_ATTRIBUTE_VOLUME_PRIORITY_V2 = List.of(
+            CarAudioContext.getAudioAttributeFromUsage(USAGE_VOICE_COMMUNICATION),
+            CarAudioContext.getAudioAttributeFromUsage(USAGE_MEDIA),
+            CarAudioContext.getAudioAttributeFromUsage(USAGE_ANNOUNCEMENT),
+            CarAudioContext.getAudioAttributeFromUsage(USAGE_ASSISTANT)
+    );
 
     private final SparseIntArray mVolumePriorityByAudioContext = new SparseIntArray();
     private final SystemClockWrapper mClock;
     private final Object mLock = new Object();
     private final int mVolumeKeyEventTimeoutMs;
     private final int mLowestPriority;
+    private final CarAudioContext mCarAudioContext;
+    private final int mAudioVolumeAdjustmentContextsVersion;
     @GuardedBy("mLock")
     @AudioContext private int mLastActiveContext;
     @GuardedBy("mLock")
@@ -86,18 +106,22 @@ final class CarVolume {
 
     /**
      * Creates car volume for management of volume priority and last selected audio context.
+     *
+     * @param carAudioContext car audio context for the logical grouping of audio usages
      * @param clockWrapper time keeper for expiration of last selected context.
      * @param audioVolumeAdjustmentContextsVersion audio priority list version number, can be
      *      any version defined in {@link CarVolumeListVersion}
      * @param volumeKeyEventTimeoutMs timeout in ms used to measure expiration of last selected
      *      context
      */
-    CarVolume(@NonNull SystemClockWrapper clockWrapper,
+    CarVolume(CarAudioContext carAudioContext, SystemClockWrapper clockWrapper,
             @CarVolumeListVersion int audioVolumeAdjustmentContextsVersion,
             int volumeKeyEventTimeoutMs) {
+        mCarAudioContext = Objects.requireNonNull(carAudioContext,
+                "Car audio context must not be null");
         mClock = Objects.requireNonNull(clockWrapper, "Clock must not be null.");
         mVolumeKeyEventTimeoutMs = Preconditions.checkArgumentNonnegative(volumeKeyEventTimeoutMs);
-        mLastActiveContext = CarAudioContext.INVALID;
+        mLastActiveContext = CarAudioContext.getInvalidContext();
         mLastActiveContextStartTime = mClock.uptimeMillis();
         @AudioContext int[] contextVolumePriority =
                 getContextPriorityList(audioVolumeAdjustmentContextsVersion);
@@ -108,23 +132,42 @@ final class CarVolume {
         }
 
         mLowestPriority = CONTEXT_HIGHEST_PRIORITY + mVolumePriorityByAudioContext.size();
+        mAudioVolumeAdjustmentContextsVersion = audioVolumeAdjustmentContextsVersion;
 
     }
 
-    private static int[] getContextPriorityList(int audioVolumeAdjustmentContextsVersion) {
+    private int[] getContextPriorityList(int audioVolumeAdjustmentContextsVersion) {
         Preconditions.checkArgumentInRange(audioVolumeAdjustmentContextsVersion, 1, 2,
                 "audioVolumeAdjustmentContextsVersion");
         if (audioVolumeAdjustmentContextsVersion == VERSION_TWO) {
-            return AUDIO_CONTEXT_VOLUME_PRIORITY_V2;
+            return convertAttributesToContexts(AUDIO_ATTRIBUTE_VOLUME_PRIORITY_V2);
         }
-        return AUDIO_CONTEXT_VOLUME_PRIORITY_V1;
+        return convertAttributesToContexts(AUDIO_ATTRIBUTE_VOLUME_PRIORITY_V1);
+    }
+
+    private int[] convertAttributesToContexts(List<AudioAttributes> audioAttributesPriorities) {
+        ArraySet<Integer> contexts = new ArraySet<>();
+        List<Integer> contextByPriority = new ArrayList<>();
+        for (int index = 0; index < audioAttributesPriorities.size(); index++) {
+            int context = mCarAudioContext.getContextForAudioAttribute(
+                    audioAttributesPriorities.get(index));
+            if (contexts.contains(context)) {
+                // Audio attribute was already group into another context,
+                // use the higher priority if so.
+                continue;
+            }
+            contexts.add(context);
+            contextByPriority.add(context);
+        }
+
+        return CarServiceUtils.toIntArray(contextByPriority);
     }
 
     /**
-     * @see {@link CarAudioService#resetSelectedVolumeContext()}
+     * @see CarAudioService#resetSelectedVolumeContext()
      */
     public void resetSelectedVolumeContext() {
-        setAudioContextStillActive(CarAudioContext.INVALID);
+        setAudioContextStillActive(CarAudioContext.getInvalidContext());
     }
 
     /**
@@ -137,21 +180,20 @@ final class CarVolume {
      * <p> Note that if an active context is found it be will saved and retrieved later on.
      */
     @AudioContext int getSuggestedAudioContextAndSaveIfFound(
-            @NonNull List<Integer> activePlaybackContexts, int callState,
-            @NonNull @AttributeUsage int[] activeHalUsages) {
+            List<AudioAttributes> activePlaybackAttributes, int callState,
+            List<AudioAttributes> activeHalAttributes) {
 
         int activeContext = getAudioContextStillActive();
-        if (activeContext != CarAudioContext.INVALID) {
+        if (!CarAudioContext.isInvalidContextId(activeContext)) {
             setAudioContextStillActive(activeContext);
             return activeContext;
         }
 
-        Set<Integer> activeContexts = getActiveContexts(activePlaybackContexts, callState,
-                activeHalUsages);
+        ArraySet<AudioAttributes> activeAttributes =
+                getActiveAttributes(activePlaybackAttributes, callState, activeHalAttributes);
 
-
-        @AudioContext int context =
-                findActiveContextWithHighestPriority(activeContexts, mVolumePriorityByAudioContext);
+        @AudioContext int context = findActiveContextWithHighestPriority(activeAttributes,
+                        mVolumePriorityByAudioContext);
 
         setAudioContextStillActive(context);
 
@@ -159,11 +201,14 @@ final class CarVolume {
     }
 
     private @AudioContext int findActiveContextWithHighestPriority(
-            Set<Integer> activeContexts, SparseIntArray contextPriorities) {
-        int currentContext = DEFAULT_AUDIO_CONTEXT;
+            ArraySet<AudioAttributes> activeAttributes, SparseIntArray contextPriorities) {
+        int currentContext = mCarAudioContext.getContextForAttributes(
+                CAR_DEFAULT_AUDIO_ATTRIBUTE);
         int currentPriority = mLowestPriority;
 
-        for (@AudioContext int context : activeContexts) {
+        for (int index = 0; index < activeAttributes.size(); index++) {
+            @AudioContext int context = mCarAudioContext.getContextForAudioAttribute(
+                    activeAttributes.valueAt(index));
             int priority = contextPriorities.get(context, CONTEXT_NOT_PRIORITIZED);
             if (priority == CONTEXT_NOT_PRIORITIZED) {
                 continue;
@@ -189,40 +234,55 @@ final class CarVolume {
         }
     }
 
-    public static boolean isAnyContextActive(@NonNull @AudioContext int [] contexts,
-            @NonNull List<Integer> activePlaybackContext, int callState,
-            @NonNull @AttributeUsage int[] activeHalUsages) {
-        Objects.nonNull(contexts);
-        Preconditions.checkArgument(contexts.length != 0,
-                "contexts can not be empty.");
-        Set<Integer> activeContexts = getActiveContexts(activePlaybackContext,
-                callState, activeHalUsages);
-        for (@AudioContext int context : contexts) {
-            if (activeContexts.contains(context)) {
+    boolean isAnyContextActive(@AudioContext int [] contexts,
+            List<AudioAttributes> activePlaybackContext, int callState,
+            List<AudioAttributes> activeHalAudioAttributes) {
+        Objects.requireNonNull(contexts, "Contexts can not be null");
+        Preconditions.checkArgument(contexts.length != 0, "Contexts can not be empty");
+        Objects.requireNonNull(activeHalAudioAttributes, "Audio attributes can not be null");
+
+        ArraySet<AudioAttributes> activeAttributes = getActiveAttributes(activePlaybackContext,
+                callState, activeHalAudioAttributes);
+
+        Set<Integer> activeContexts = new ArraySet<>(activeAttributes.size());
+
+        for (int index = 0; index < activeAttributes.size(); index++) {
+            activeContexts.add(mCarAudioContext
+                    .getContextForAttributes(activeAttributes.valueAt(index)));
+        }
+
+        for (int index = 0; index < contexts.length; index++) {
+            if (activeContexts.contains(contexts[index])) {
                 return true;
             }
         }
+
         return false;
     }
 
-    private static Set<Integer> getActiveContexts(@NonNull List<Integer> activePlaybackContexts,
-            int callState, @NonNull @AttributeUsage int[] activeHalUsages) {
-        Objects.nonNull(activePlaybackContexts);
-        Objects.nonNull(activeHalUsages);
+    private static ArraySet<AudioAttributes> getActiveAttributes(
+            List<AudioAttributes> activeAttributes, int callState,
+            List<AudioAttributes> activeHalAudioAttributes) {
+        Objects.requireNonNull(activeAttributes, "Playback audio attributes can not be null");
+        Objects.requireNonNull(activeHalAudioAttributes, "Active HAL contexts can not be null");
 
-        Set<Integer> contexts = CarAudioContext.getUniqueContextsForUsages(activeHalUsages);
+        ArraySet<AudioAttributes> attributes = new ArraySet<>(activeHalAudioAttributes);
 
         switch (callState) {
             case CALL_STATE_RINGING:
-                contexts.add(CarAudioContext.CALL_RING);
+                attributes.add(CarAudioContext
+                        .getAudioAttributeFromUsage(USAGE_NOTIFICATION_RINGTONE));
                 break;
             case CALL_STATE_OFFHOOK:
-                contexts.add(CarAudioContext.CALL);
+                attributes.add(CarAudioContext
+                        .getAudioAttributeFromUsage(USAGE_VOICE_COMMUNICATION));
+                break;
+            default:
                 break;
         }
 
-        contexts.addAll(activePlaybackContexts);
-        return contexts;
+        attributes.addAll(activeAttributes);
+        return attributes;
     }
 
     private @AudioContext int getAudioContextStillActive() {
@@ -233,15 +293,56 @@ final class CarVolume {
             contextStartTime = mLastActiveContextStartTime;
         }
 
-        if (context == CarAudioContext.INVALID) {
-            return CarAudioContext.INVALID;
+        if (CarAudioContext.isInvalidContextId(context)) {
+            return CarAudioContext.getInvalidContext();
         }
 
         if (hasExpired(contextStartTime, mClock.uptimeMillis(), mVolumeKeyEventTimeoutMs)) {
-            return CarAudioContext.INVALID;
+            return CarAudioContext.getInvalidContext();
         }
 
         return context;
+    }
+
+    @ExcludeFromCodeCoverageGeneratedReport(reason = DUMP_INFO)
+    void dump(IndentingPrintWriter writer) {
+        writer.println("CarVolume");
+        writer.increaseIndent();
+
+        writer.printf("Volume priority list version %d\n",
+                mAudioVolumeAdjustmentContextsVersion);
+        writer.printf("Volume key event timeout %d ms\n", mVolumeKeyEventTimeoutMs);
+        writer.println("Car audio contexts priorities");
+
+        writer.increaseIndent();
+        dumpSortedContexts(writer);
+        writer.decreaseIndent();
+
+        writer.decreaseIndent();
+    }
+
+    @ExcludeFromCodeCoverageGeneratedReport(reason = DUMP_INFO)
+    private void dumpSortedContexts(IndentingPrintWriter writer) {
+        List<Integer> sortedContexts = new ArrayList<>(mVolumePriorityByAudioContext.size());
+        for (int index = 0; index < mVolumePriorityByAudioContext.size(); index++) {
+            int contextId = mVolumePriorityByAudioContext.keyAt(index);
+            sortedContexts.add(contextId);
+        }
+        sortedContexts.sort(Comparator.comparingInt(mVolumePriorityByAudioContext::get));
+
+        for (int index = 0; index < sortedContexts.size(); index++) {
+            int contextId = sortedContexts.get(index);
+            int priority = mVolumePriorityByAudioContext.get(contextId);
+            writer.printf("Car audio context %s[id=%d] priority %d\n",
+                    mCarAudioContext.toString(contextId), contextId, priority);
+            AudioAttributes[] attributes =
+                    mCarAudioContext.getAudioAttributesForContext(contextId);
+            writer.increaseIndent();
+            for (int counter = 0; counter < attributes.length; counter++) {
+                writer.printf("Attribute: %s\n", attributes[counter]);
+            }
+            writer.decreaseIndent();
+        }
     }
 
     @IntDef({

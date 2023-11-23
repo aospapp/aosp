@@ -17,6 +17,7 @@
 package com.android.car.themeplayground;
 
 import android.os.Bundle;
+import android.util.Log;
 import android.widget.ArrayAdapter;
 import android.widget.AutoCompleteTextView;
 import android.widget.Button;
@@ -35,6 +36,8 @@ import java.util.List;
  * the theme is not available in the auto-complete.
  */
 public class DefaultThemeSamples extends AbstractSampleActivity {
+
+    private static final String TAG = DefaultThemeSamples.class.getSimpleName();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -72,7 +75,7 @@ public class DefaultThemeSamples extends AbstractSampleActivity {
                 list.add(data);
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            Log.e(TAG, "Failed listing theme names", e);
         }
         return list.toArray(new String[0]);
     }

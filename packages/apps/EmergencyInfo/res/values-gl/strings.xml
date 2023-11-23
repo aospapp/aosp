@@ -19,7 +19,7 @@
     <string name="app_label" msgid="1090682794607161063">"Información de emerxencia"</string>
     <string name="medical_info_title" msgid="3000192781136934887">"Información médica"</string>
     <string name="add_medical_info" msgid="483921612415907139">"Engadir información"</string>
-    <string name="edit_info" msgid="5973929805855224805">"Editar información de emerxencia"</string>
+    <string name="edit_info" msgid="5973929805855224805">"Editar información para emerxencias"</string>
     <string name="tab_title_info" msgid="1402033103294855812">"Información"</string>
     <string name="tab_title_contacts" msgid="4298341166404791209">"Contactos"</string>
     <string name="name" msgid="4286267457738861977">"Nome"</string>
@@ -104,7 +104,7 @@
     <string name="clear" msgid="3648880442502887163">"Borrar"</string>
     <string name="clear_all_message" msgid="1548432000373861295">"Queres borrar toda a información e os contactos?"</string>
     <string name="emergency_info_footer" msgid="8751758742506410146">"Engadir contactos de emerxencia e información médica pode resultar útil para os servizos de emerxencias en caso dunha emerxencia.\n\nCalquera persoa pode ler esta información na túa pantalla de bloqueo e tocar os nomes dos contactos para marcar os seus números sen necesidade de desbloquear o teléfono."</string>
-    <string name="settings_suggestion_title" msgid="2503369576806243476">"Engadir información de emerxencia"</string>
+    <string name="settings_suggestion_title" msgid="2503369576806243476">"Engadir información para emerxencias"</string>
     <string name="settings_suggestion_body" msgid="5559349261345837716">"Permite que os servizos de emerxencias vexan os teus datos"</string>
     <string name="user_image_take_photo" msgid="2779924488370750102">"Tirar unha foto"</string>
     <string name="user_image_choose_photo" msgid="2442095378052415700">"Escoller unha imaxe"</string>

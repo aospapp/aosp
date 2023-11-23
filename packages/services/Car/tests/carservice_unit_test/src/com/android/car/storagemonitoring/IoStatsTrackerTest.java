@@ -23,6 +23,7 @@ import android.util.SparseArray;
 
 import com.android.car.procfsinspector.ProcessInfo;
 import com.android.car.systeminterface.SystemStateInterface;
+import com.android.internal.annotations.GuardedBy;
 
 import junit.framework.TestCase;
 
@@ -294,7 +295,13 @@ public class IoStatsTrackerTest extends TestCase {
     }
 
     private final class MockSystemStateInterface implements SystemStateInterface {
+
+        private final Object mLock = new Object();
+
+        @GuardedBy("mLock")
         private final List<ProcessInfo> mProcesses = new ArrayList<>();
+
+        @GuardedBy("mLock")
         private final SparseArray<UidIoRecord> mIoRecords = new SparseArray<>();
 
         @Override
@@ -326,26 +333,37 @@ public class IoStatsTrackerTest extends TestCase {
         }
 
         @Override
-        public synchronized List<ProcessInfo> getRunningProcesses() {
-            return mProcesses;
+        public List<ProcessInfo> getRunningProcesses() {
+            synchronized (mLock) {
+                return mProcesses;
+            }
         }
 
-        synchronized void addProcess(ProcessInfo processInfo) {
-            mProcesses.add(processInfo);
+        void addProcess(ProcessInfo processInfo) {
+            synchronized (mLock) {
+                mProcesses.add(processInfo);
+            }
         }
 
-        synchronized void removeUserProcesses(int uid) {
-            mProcesses.removeAll(
-                    mProcesses.stream().filter(pi -> pi.uid == uid).collect(Collectors.toList()));
+        void removeUserProcesses(int uid) {
+            synchronized (mLock) {
+                mProcesses.removeAll(
+                        mProcesses.stream().filter(pi -> pi.uid == uid).collect(
+                                Collectors.toList()));
+            }
         }
 
-        synchronized void addIoRecord(UidIoRecord record) {
-            mIoRecords.put(record.uid, record);
+        void addIoRecord(UidIoRecord record) {
+            synchronized (mLock) {
+                mIoRecords.put(record.uid, record);
+            }
         }
 
-        synchronized void clear() {
-            mProcesses.clear();
-            mIoRecords.clear();
+        void clear() {
+            synchronized (mLock) {
+                mProcesses.clear();
+                mIoRecords.clear();
+            }
         }
     }
 }

@@ -28,7 +28,6 @@
         settings:controller=
             "com.android.car.settings.privacy.CameraTogglePreferenceController"
         settings:searchable="false"/>
-    <com.android.car.settings.common.DividerPreference/>
     <PreferenceCategory
         android:key="@string/pk_camera_recent_accesses_category"
         android:title="@string/camera_recently_accessed"

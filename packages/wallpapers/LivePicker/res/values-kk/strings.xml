@@ -25,7 +25,7 @@
     <string name="live_wallpaper_preview_title" msgid="908570871421455329">"Анимациялық артқы фондарды алдын ала көру"</string>
     <string name="configure_wallpaper" msgid="4308477548538487192">"Параметрлер"</string>
     <string name="delete_live_wallpaper" msgid="2401799265848069389">"Жою"</string>
-    <string name="preview" msgid="1067744492020029129">"Алдын ала қарау"</string>
+    <string name="preview" msgid="1067744492020029129">"Алдын ала көру"</string>
     <string name="wallpaper_instructions" msgid="6112878742140691445">"Тұсқағаз орнату"</string>
     <string name="live_wallpaper_empty" msgid="8057319062274870589">"Анимациялық тұсқағаз жоқ."</string>
     <string name="set_live_wallpaper" msgid="764007409845174475">"Тұсқағаз орнату"</string>

@@ -20,9 +20,11 @@
     <string name="ok" msgid="1936281769725676272">"ओके"</string>
     <string name="permission_search_keyword" msgid="1214451577494730543">"परवानग्या"</string>
     <string name="cancel" msgid="8943320028373963831">"रद्द करा"</string>
-    <string name="back" msgid="6249950659061523680">"परत"</string>
+    <string name="back" msgid="6249950659061523680">"मागे जा"</string>
     <string name="available" msgid="6007778121920339498">"उपलब्ध आहे"</string>
     <string name="blocked" msgid="9195547604866033708">"ब्लॉक केला आहे"</string>
+    <string name="on" msgid="280241003226755921">"सुरू आहे"</string>
+    <string name="off" msgid="1438489226422866263">"बंद करा"</string>
     <string name="uninstall_or_disable" msgid="4496612999740858933">"अनइंस्टॉल करा किंवा बंद करा"</string>
     <string name="app_not_found_dlg_title" msgid="6029482906093859756">"अ‍ॅप आढळले नाही"</string>
     <string name="grant_dialog_button_deny" msgid="88262611492697192">"अनुमती देऊ नका"</string>
@@ -30,6 +32,11 @@
     <string name="grant_dialog_button_no_upgrade" msgid="8344732743633736625">"“ॲप वापरत असताना” ठेवा"</string>
     <string name="grant_dialog_button_no_upgrade_one_time" msgid="5125892775684968694">"“फक्त यावेळेपुरते” ठेवा"</string>
     <string name="grant_dialog_button_more_info" msgid="213350268561945193">"अधिक माहिती"</string>
+    <string name="grant_dialog_button_allow_all" msgid="5939066403732409516">"सर्वांना अनुमती द्या"</string>
+    <string name="grant_dialog_button_always_allow_all" msgid="1719900027660252167">"नेहमी सर्वांना अनुमती द्या"</string>
+    <string name="grant_dialog_button_allow_selected_photos" msgid="5497042471576153842">"फोटो आणि व्हिडिओ निवडा"</string>
+    <string name="grant_dialog_button_allow_more_selected_photos" msgid="5145657877588697709">"आणखी निवडा"</string>
+    <string name="grant_dialog_button_dont_select_more" msgid="6643552729129461268">"आणखी निवडू नका"</string>
     <string name="grant_dialog_button_deny_anyway" msgid="7225905870668915151">"तरीही अनुमती देऊ नका"</string>
     <string name="grant_dialog_button_dismiss" msgid="1930399742250226393">"डिसमिस करा"</string>
     <string name="current_permission_template" msgid="7452035392573329375">"<xliff:g id="CURRENT_PERMISSION_INDEX">%1$s</xliff:g> पैकी <xliff:g id="PERMISSION_COUNT">%2$s</xliff:g>"</string>
@@ -107,9 +114,6 @@
     <string name="all_permissions" msgid="6911125611996872522">"सर्व परवानग्या"</string>
     <string name="other_permissions" msgid="2901186127193849594">"अन्य अ‍ॅप क्षमता"</string>
     <string name="permission_request_title" msgid="8790310151025020126">"परवानगीची विनंती"</string>
-    <string name="screen_overlay_title" msgid="6977038513913222078">"स्क्रीन ओव्हरले आढळले"</string>
-    <string name="screen_overlay_message" msgid="5622563069757142102">"हे परवानगी सेटिंग बदलण्‍यासाठी, तुम्हाला सेटिंग्ज &gt; अ‍ॅप्स मधून स्क्रीन ओव्हरले बंद करावे लागेल"</string>
-    <string name="screen_overlay_button" msgid="4655005928054025250">"सेटिंग्ज उघडा"</string>
     <string name="wear_not_allowed_dlg_title" msgid="1429467891296932713">"Android Wear"</string>
     <string name="wear_not_allowed_dlg_text" msgid="512340555334769098">"इंस्टॉल करा/अनइंस्टॉल करा क्रिया Wear वर सपोर्ट करत नाहीत."</string>
     <string name="permission_review_title_template_install" msgid="1284337937156289081">"&lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; ला काय अ‍ॅक्सेस करण्‍याची परवानगी द्यावी ते निवडा"</string>
@@ -130,21 +134,20 @@
     <string name="permission_group_usage_subtitle_7d" msgid="1465828402260324654">"ॲप्सनी मागील सात दिवसांमध्ये तुमचे <xliff:g id="PERMGROUP">%1$s</xliff:g> वापरलेल्याची टाइमलाइन"</string>
     <string name="permission_usage_access_dialog_subtitle" msgid="4171772805196955753">"या ॲपने तुमची <xliff:g id="PERMGROUP">%1$s</xliff:g> परवानगी वापरली तेव्हा"</string>
     <string name="permission_usage_access_dialog_learn_more" msgid="7121468469493184613">"अधिक जाणून घ्या"</string>
+    <string name="learn_more_content_description" msgid="8673699744544502539">"<xliff:g id="PERMGROUP">%1$s</xliff:g> बद्दल अधिक जाणून घ्या"</string>
     <string name="manage_permission_summary" msgid="4117555482684114317">"तुमच्या <xliff:g id="PERMGROUP">%1$s</xliff:g> साठीचा ॲप अ‍ॅक्सेस नियंत्रित करा"</string>
     <string name="auto_permission_usage_timeline_summary" msgid="2713135806453218703">"<xliff:g id="ACCESS_TIME">%1$s</xliff:g> • <xliff:g id="SUMMARY_TEXT">%2$s</xliff:g>"</string>
     <string name="history_preference_subtext_2" msgid="1521763591164293683">"<xliff:g id="APP_NAME">%1$s</xliff:g> • <xliff:g id="TRUNCATED_TIME">%2$s</xliff:g>"</string>
     <string name="history_preference_subtext_3" msgid="758761785983094351">"<xliff:g id="ATTRIBUTION_NAME">%1$s</xliff:g> • <xliff:g id="APP_NAME">%2$s</xliff:g> • <xliff:g id="TRUNCATED_TIME">%3$s</xliff:g>"</string>
-    <string name="duration_used_days" msgid="8293010131040301793">"{count,plural, =1{एक दिवस}other{# दिवस}}"</string>
-    <string name="duration_used_hours" msgid="1128716208752263576">"{count,plural, =1{एक तास}other{# तास}}"</string>
-    <string name="duration_used_minutes" msgid="5335824115042576567">"{count,plural, =1{एक मिनिट}other{# मिनिटे}}"</string>
-    <string name="duration_used_seconds" msgid="6543746449171675028">"{count,plural, =1{एक सेकंद}other{# सेकंद}}"</string>
+    <string name="duration_used_days" msgid="8238355545812998877">"{count,plural, =1{# दिवस}other{# दिवस}}"</string>
+    <string name="duration_used_hours" msgid="4983814806123370332">"{count,plural, =1{# तास}other{# तास}}"</string>
+    <string name="duration_used_minutes" msgid="1701379522897227819">"{count,plural, =1{# मिनिट}other{# मिनिटे}}"</string>
+    <string name="duration_used_seconds" msgid="4067390990568727715">"{count,plural, =1{# सेकंद}other{# सेकंद}}"</string>
     <string name="permission_usage_any_permission" msgid="6358023078298106997">"कोणतीही परवानगी"</string>
     <string name="permission_usage_any_time" msgid="3802087027301631827">"कधीही"</string>
-    <string name="permission_usage_last_7_days" msgid="7386221251886130065">"शेवटचे सात दिवस"</string>
-    <string name="permission_usage_last_day" msgid="1512880889737305115">"गेल्या २४ तासात"</string>
-    <string name="permission_usage_last_hour" msgid="3866005205535400264">"शेवटचा एक तास"</string>
-    <string name="permission_usage_last_15_minutes" msgid="9077554653436200702">"शेवटची १५ मिनिटे"</string>
-    <string name="permission_usage_last_minute" msgid="7297055967335176238">"शेवटचा एक मिनिट"</string>
+    <string name="permission_usage_last_n_days" msgid="7882626467375714145">"{count,plural, =1{शेवटचा # दिवस}other{शेवटचे # दिवस}}"</string>
+    <string name="permission_usage_last_n_hours" msgid="8490466053680267858">"{count,plural, =1{मागील # तासामधील}other{मागील # तासांमधील}}"</string>
+    <string name="permission_usage_last_n_minutes" msgid="7817864229878281983">"{count,plural, =1{मागील # मिनिटामधील}other{मागील # मिनिटांमधील}}"</string>
     <string name="no_permission_usages" msgid="9119517454177289331">"वापराची परवानगी नाही"</string>
     <string name="permission_usage_list_title_any_time" msgid="8718257027381592407">"कोणत्याही वेळी सर्वात अलीकडील अ‍ॅक्सेस"</string>
     <string name="permission_usage_list_title_last_7_days" msgid="9048542342670890615">"मागील सात दिवसांतील सर्वात अलीकडील अ‍ॅक्सेस"</string>
@@ -158,8 +161,8 @@
     <string name="permission_usage_bar_chart_title_last_hour" msgid="6571647509660009185">"मागील एका तासातील परवानगी वापर"</string>
     <string name="permission_usage_bar_chart_title_last_15_minutes" msgid="2743143675412824819">"मागील १५ मिनिटांतील परवानगी वापर"</string>
     <string name="permission_usage_bar_chart_title_last_minute" msgid="820450867183487607">"मागील एका मिनिटातील परवानगी वापर"</string>
-    <string name="permission_usage_preference_summary_not_used_24h" msgid="3087783232178611025">"मागील २४ तासांमध्ये न वापरलेली"</string>
-    <string name="permission_usage_preference_summary_not_used_7d" msgid="4592301300810120096">"मागील सात दिवसांमध्ये न वापरलेली"</string>
+    <string name="permission_usage_preference_summary_not_used_in_past_n_days" msgid="4771868094611359651">"{count,plural, =1{मागील # दिवसामध्ये न वापरलेली}other{मागील # दिवसांमध्ये न वापरलेली}}"</string>
+    <string name="permission_usage_preference_summary_not_used_in_past_n_hours" msgid="3828973177433435742">"{count,plural, =1{मागील # तासामध्ये न वापरलेली}other{मागील # तासांमध्ये न वापरलेली}}"</string>
     <string name="permission_usage_preference_label" msgid="8343167938128676378">"{count,plural, =1{एका अ‍ॅपने वापरल्या}other{# अ‍ॅप्सनी वापरल्या}}"</string>
     <string name="permission_usage_view_details" msgid="6675335735468752787">"डॅशबोर्डमध्ये सर्व पहा"</string>
     <string name="app_permission_usage_filter_label" msgid="7182861154638631550">"यानुसार फिल्टर केले: <xliff:g id="PERM">%1$s</xliff:g>"</string>
@@ -185,6 +188,7 @@
     <string name="app_permission_button_allow_media_only" msgid="2834282724426046154">"फक्त मीडिया ॲक्सेस करण्यासाठी अनुमती द्या"</string>
     <string name="app_permission_button_allow_always" msgid="4573292371734011171">"सर्व वेळी अनुमती द्या"</string>
     <string name="app_permission_button_allow_foreground" msgid="1991570451498943207">"फक्त अ‍ॅप वापरत असताना अनुमती द्या"</string>
+    <string name="app_permission_button_always_allow_all" msgid="4905699259378428855">"सर्वांना नेहमी अनुमती द्या"</string>
     <string name="app_permission_button_ask" msgid="3342950658789427">"प्रत्येक वेळी विचारा"</string>
     <string name="app_permission_button_deny" msgid="6016454069832050300">"अनुमती देऊ नका"</string>
     <string name="precise_image_description" msgid="6349638632303619872">"अचूक स्थान"</string>
@@ -192,7 +196,7 @@
     <string name="app_permission_location_accuracy" msgid="7166912915040018669">"अचूक स्थान वापरा"</string>
     <string name="app_permission_location_accuracy_subtitle" msgid="2654077606404987210">"अचूक स्थान बंद असते, तेव्हा ॲप्स तुमचे अंदाजे स्थान अ‍ॅक्सेस करू शकतात"</string>
     <string name="app_permission_title" msgid="2090897901051370711">"<xliff:g id="PERM">%1$s</xliff:g> परवानगी"</string>
-    <string name="app_permission_header" msgid="2951363137032603806">"या अ‍ॅपसाठी <xliff:g id="PERM">%1$s</xliff:g> चा अ‍ॅक्सेस द्या"</string>
+    <string name="app_permission_header" msgid="2951363137032603806">"या अ‍ॅपसाठी <xliff:g id="PERM">%1$s</xliff:g> अ‍ॅक्सेस द्या"</string>
     <string name="app_permission_footer_app_permissions_link" msgid="4926890342636587393">"सर्व <xliff:g id="APP">%1$s</xliff:g> परवानग्या पहा"</string>
     <string name="app_permission_footer_permission_apps_link" msgid="3941988129992794327">"ही परवानगी असलेली सर्व अ‍ॅप्स पहा"</string>
     <string name="assistant_mic_label" msgid="1011432357152323896">"Assistant ने मायक्रोफोनचा केलेला वापर दाखवा"</string>
@@ -211,14 +215,13 @@
     <string name="auto_revocable_permissions_two" msgid="4874067408752041716">"<xliff:g id="PERM_0">%1$s</xliff:g> आणि <xliff:g id="PERM_1">%2$s</xliff:g> परवानग्या काढून टाकल्या जातील."</string>
     <string name="auto_revocable_permissions_many" msgid="1521807896206032992">"परवानग्या काढून टाकल्या जातील: <xliff:g id="PERMS">%1$s</xliff:g>."</string>
     <string name="auto_manage_title" msgid="7693181026874842935">"परवानग्या आपोआप व्यवस्थापित करा"</string>
-    <string name="off" msgid="1438489226422866263">"बंद करा"</string>
     <string name="auto_revoked_app_summary_one" msgid="7093213590301252970">"<xliff:g id="PERMISSION_NAME">%s</xliff:g> परवानग्या काढल्या गेल्या"</string>
     <string name="auto_revoked_app_summary_two" msgid="1910545340763709389">"<xliff:g id="PERMISSION_NAME_0">%1$s</xliff:g> आणि <xliff:g id="PERMISSION_NAME_1">%2$s</xliff:g> परवानग्या काढल्या गेल्या"</string>
     <string name="auto_revoked_app_summary_many" msgid="5930976230827378798">"<xliff:g id="PERMISSION_NAME">%1$s</xliff:g> आणि इतर <xliff:g id="NUMBER">%2$s</xliff:g> परवानग्या काढल्या गेल्या"</string>
     <string name="unused_apps_page_title" msgid="6986983535677572559">"न वापरलेली अ‍ॅप्स"</string>
     <string name="unused_apps_page_summary" msgid="1867593913217272155">"ॲप काही महिन्यांमध्ये वापरले गेले नसल्यास:\n\n• तुमच्या डेटाचे संरक्षण करण्यासाठी परवानग्या काढून टाकल्या जातात\n• बॅटरीची बचत करण्यासाठी सूचना थांबवल्या जातात\n• जागा मोकळी करण्यासाठी तात्पुरत्या फाइल काढून टाकल्या जातात\n\nपरवानग्या आणि सूचना यांना पुन्हा अनुमती देण्यासाठी ॲप उघडा."</string>
-    <string name="unused_apps_page_tv_summary" msgid="3685907153054355671">"एखादे ॲप काही महिन्यांसाठी वापरले गेले नसल्यास:\n\n• तुमच्या डेटाचे संरक्षण करण्यासाठी परवानग्या काढून टाकल्या जातात\n• जागा मोकळी करण्याकरिता तात्पुरत्या फाइल काढून टाकल्या जातात\n\nपुन्हा परवानग्या देण्यासाठी, ॲप उघडा."</string>
-    <string name="last_opened_category_title" msgid="7871347400611202595">"शेवटची <xliff:g id="NUMBER">%s</xliff:g> महिन्यांपूर्वी उघडली गेली"</string>
+    <string name="unused_apps_page_tv_summary" msgid="2624911608663778308">"एखादे ॲप एका महिन्यांसाठी वापरले गेले नसल्यास:\n\n• तुमच्या डेटाचे संरक्षण करण्यासाठी परवानग्या काढून टाकल्या जातात\n• जागा मोकळी करण्याकरिता तात्पुरत्या फाइल काढून टाकल्या जातात\n\nपुन्हा परवानग्या देण्यासाठी, ॲप उघडा."</string>
+    <string name="last_opened_category_title" msgid="8796557894614236128">"{count,plural, =1{शेवटचे # महिन्यापूर्वीपेक्षा आधी उघडले}other{शेवटचे # महिन्यांपूर्वीपेक्षा आधी उघडले}}"</string>
     <string name="last_opened_summary" msgid="5248984030024968808">"<xliff:g id="DATE">%s</xliff:g> रोजी ॲप शेवटचे उघडलेले"</string>
     <string name="last_opened_summary_short" msgid="1646067226191176825">"<xliff:g id="DATE">%s</xliff:g> रोजी शेवटचे उघडलेले"</string>
     <string name="app_permission_footer_special_file_access" msgid="1884202176147657788">"तुम्ही सर्व फाइल व्यवस्थापित करण्यासाठी अनुमती दिल्यास, हे ॲप या डिव्हाइसवर किंवा कनेक्ट केलेल्या स्टोरेज डिव्हाइसवर सामान्य स्टोरेजमधील कोणत्याही फाइल ॲक्सेस करू, सुधारित करू आणि हटवू शकते. ॲप कदाचित तुम्हाला न विचारता फाइल ॲक्सेस करू शकते."</string>
@@ -251,9 +254,9 @@
     <string name="denied_header" msgid="903209608358177654">"अनुमती नाही"</string>
     <string name="storage_footer_hyperlink_text" msgid="8873343987957834810">"सर्व फाइलचा ॲक्सेस असलेली आणखी ॲप्स पहा"</string>
     <string name="days" msgid="609563020985571393">"{count,plural, =1{एक दिवस}other{# दिवस}}"</string>
-    <string name="hours" msgid="3447767892295843282">"{count,plural, =1{एक तास}other{# तास}}"</string>
-    <string name="minutes" msgid="4408293038068503157">"{count,plural, =1{एक मिनिट}other{# मिनिटे}}"</string>
-    <string name="seconds" msgid="5397771912131132690">"{count,plural, =1{एक सेकंद}other{# सेकंद}}"</string>
+    <string name="hours" msgid="7302866489666950038">"{count,plural, =1{# तास}other{# तास}}"</string>
+    <string name="minutes" msgid="4868414855445375753">"{count,plural, =1{# मिनिट}other{# मिनिटे}}"</string>
+    <string name="seconds" msgid="5893958182059842734">"{count,plural, =1{# सेकंद}other{# सेकंद}}"</string>
     <string name="permission_reminders" msgid="6528257957664832636">"परवानगी रिमाइंडर"</string>
     <string name="auto_revoke_permission_reminder_notification_title_one" msgid="6690347469376854137">"एक न वापरलेले ॲप"</string>
     <string name="auto_revoke_permission_reminder_notification_title_many" msgid="6062217713645069960">"<xliff:g id="NUMBER_OF_APPS">%s</xliff:g> न वापरलेली अ‍ॅप्स"</string>
@@ -262,6 +265,9 @@
     <string name="auto_revoke_permission_notification_content" msgid="5125990886047799375">"काही ॲप्‍स काही महिन्यांत वापरलेली नाहीत. परीक्षण करण्यासाठी टॅप करा."</string>
     <string name="unused_apps_notification_title" msgid="4314832015894238019">"{count,plural, =1{# न वापरलेले ॲप}other{# न वापरलेली ॲप्स}}"</string>
     <string name="unused_apps_notification_content" msgid="9195026773244581246">"परवानग्या आणि तात्पुरत्या फाइल काढून टाकल्या व सूचना थांबवल्या होत्या. पुनरावलोकन करण्यासाठी टॅप करा."</string>
+    <string name="unused_apps_safety_center_card_title" msgid="5638409355530099149">"परवानग्या काढून टाकलेल्या अ‍ॅप्सचे पुनरावलोकन करा"</string>
+    <string name="unused_apps_safety_center_card_content" msgid="1088557243627427820">"तुम्ही काही काळासाठी न वापरलेल्या अ‍ॅप्ससाठी, परवानग्या आणि तात्पुरत्या फाइल काढून टाकल्या गेल्या व सूचना थांबवल्या गेल्या."</string>
+    <string name="unused_apps_safety_center_action_title" msgid="8865914432518993194">"अ‍ॅप्सचे पुनरावलोकन करा"</string>
     <string name="post_drive_permission_decision_reminder_title" msgid="1290697371418139976">"अलीकडील परवानग्या तपासा"</string>
     <string name="post_drive_permission_decision_reminder_summary_1_app_1_permission" msgid="670521503734140711">"ड्राइव्ह करताना, तुम्ही <xliff:g id="APP">%1$s</xliff:g> ला <xliff:g id="PERMISSION">%2$s</xliff:g> चा अ‍ॅक्सेस दिला आहे"</string>
     <string name="post_drive_permission_decision_reminder_summary_1_app_2_permissions" msgid="671791184670801301">"ड्राइव्ह करताना, तुम्ही <xliff:g id="APP">%1$s</xliff:g> ला <xliff:g id="PERMISSION_1">%2$s</xliff:g> &amp; <xliff:g id="PERMISSION_2">%3$s</xliff:g> चा अ‍ॅक्सेस दिला आहे"</string>
@@ -276,6 +282,19 @@
     <string name="auto_revoke_preference_summary" msgid="5517958331781391481">"तुमच्या गोपनीयतेचे संरक्षण करण्यासाठी परवानग्या काढून टाकल्या आहेत"</string>
     <string name="background_location_access_reminder_notification_title" msgid="1140797924301941262">"<xliff:g id="APP_NAME">%s</xliff:g> ने बॅकग्राउंडमध्ये तुमचे स्थान मिळवले"</string>
     <string name="background_location_access_reminder_notification_content" msgid="7787084707336546245">"हे अ‍ॅप नेहमी तुमचे स्थान अ‍ॅक्सेस करू शकते. बदलण्यासाठी टॅप करा."</string>
+    <string name="notification_listener_reminder_notification_title" msgid="3747210460187479091">"तुमच्या सूचनांचा अ‍ॅक्सेस असलेल्या अ‍ॅपचे पुनरावलोकन करा"</string>
+    <string name="notification_listener_reminder_notification_content" msgid="831476101108863427">"<xliff:g id="APP_NAME">%s</xliff:g> तुमच्या सूचनांमधील आशय डिसमिस करू शकते, त्यावर कारवाई करू शकते आणि तो अ‍ॅक्सेस करू शकते"</string>
+    <string name="notification_listener_warning_card_content" msgid="7840973324284115893">"हे अ‍ॅप तुमच्या सूचनांमधील आशय डिसमिस करू शकते, त्यावर कारवाई करू शकते आणि तो अ‍ॅक्सेस करू शकते. उद्देशानुरूप काम करण्यासाठी काही अ‍ॅप्सना याप्रकारच्या अ‍ॅक्सेसची आवश्यकता आहे."</string>
+    <string name="notification_listener_remove_access_button_label" msgid="7101898782417817097">"अ‍ॅक्सेस काढून टाका"</string>
+    <string name="notification_listener_review_app_button_label" msgid="3433073281029143924">"आणखी पर्याय पहा"</string>
+    <string name="notification_listener_remove_access_success_label" msgid="2477611529875633107">"अ‍ॅक्सेस काढून टाकला"</string>
+    <string name="accessibility_access_reminder_notification_title" msgid="2971317234668807566">"पूर्ण डिव्हाइस अ‍ॅक्सेससह अ‍ॅपचे पुनरावलोकन करा"</string>
+    <string name="accessibility_access_reminder_notification_content" msgid="7389454158175306720">"<xliff:g id="APP_NAME">%s</xliff:g> तुमची स्क्रीन पाहू शकते आणि तुमच्या डिव्हाइसवर कृती करू शकते. अ‍ॅक्सेसिबिलिटी अ‍ॅप्सना उद्देशानुरूप काम करण्यासाठी याप्रकारच्या अ‍ॅक्सेसची आवश्यकता आहे."</string>
+    <string name="accessibility_access_warning_card_content" msgid="4370327190293217358">"हे अ‍ॅप तुमची स्क्रीन पाहू शकते आणि तुमच्या डिव्हाइसवर कृती करू शकते. अ‍ॅक्सेसिबिलिटी अ‍ॅप्सना उद्देशानुरूप काम करण्यासाठी या प्रकारच्या अ‍ॅक्सेसची आवश्यकता आहे, पण अ‍ॅप तपासा आणि तुमचा त्यावर विश्वास असल्याची खात्री करा."</string>
+    <string name="accessibility_remove_access_button_label" msgid="44145801526711640">"अ‍ॅक्सेस काढून टाका"</string>
+    <string name="accessibility_show_all_apps_button_label" msgid="960067249326392280">"पूर्ण अ‍ॅक्सेससह अ‍ॅप्स पहा"</string>
+    <string name="accessibility_remove_access_success_label" msgid="4380995302917014670">"अ‍ॅक्सेस काढून टाकला"</string>
+    <string name="safety_center_notification_app_label" msgid="2457720616141926534">"Android सिस्‍टीम"</string>
     <string name="auto_revoke_after_notification_title" msgid="5417761027669887431">"गोपनीयता संरक्षित करण्यासाठी अ‍ॅप परवानग्या काढून टाकल्या"</string>
     <string name="auto_revoke_after_notification_content_one" msgid="6804038707453662753">"<xliff:g id="APP_NAME">%s</xliff:g> काही महिन्यांपासून वापरलेले नाही. परीक्षण करण्यासाठी टॅप करा."</string>
     <string name="auto_revoke_after_notification_content_two" msgid="9108709764831425172">"<xliff:g id="APP_NAME">%s</xliff:g> आणि एक इतर ॲप काही महिन्यांपासून वापरलेले नाही. परीक्षण करण्यासाठी टॅप करा."</string>
@@ -378,6 +397,10 @@
     <string name="role_watch_description" msgid="267003778693177779">"<xliff:g id="APP_NAME">%1$s</xliff:g> ला तुमच्या सूचनांशी संवाद साधण्याची आणि तुमचा फोन, एसएमएस, संपर्क आणि Calendar च्या परवानग्या अ‍ॅक्सेस करण्याची अनुमती मिळेल."</string>
     <string name="role_app_streaming_description" msgid="7341638576226183992">"<xliff:g id="APP_NAME">%1$s</xliff:g> ला तुमच्या सूचनांशी संवाद साधण्याची आणि कनेक्‍ट केलेल्या डिव्हाइसवर तुमची ॲप्स स्ट्रीम करण्याची अनुमती दिली जाईल."</string>
     <string name="role_companion_device_computer_description" msgid="416099879217066377">"ही सेवा तुमचे फोटो, मीडिया आणि सूचना तुमच्या फोनवरून दुसऱ्या डिव्हाइसवर शेअर करते."</string>
+    <string name="role_notes_label" msgid="7451627001058089536">"टिपांसाठी डीफॉल्ट अ‍ॅप"</string>
+    <string name="role_notes_short_label" msgid="8796604147546125285">"टिपांचे अ‍ॅप"</string>
+    <string name="role_notes_description" msgid="8496852798616883551">"तुमच्या डिव्हाइसवर तुम्हाला टिपा घेण्याची अनुमती देणारी अ‍ॅप्स"</string>
+    <string name="role_notes_search_keywords" msgid="7710756695666744631">"टिपा"</string>
     <string name="request_role_current_default" msgid="738722892438247184">"सद्य डीफॉल्ट"</string>
     <string name="request_role_dont_ask_again" msgid="3556017886029520306">"पुन्हा विचारू नका"</string>
     <string name="request_role_set_as_default" msgid="4253949643984172880">"डीफॉल्ट सेट करा"</string>
@@ -452,6 +475,7 @@
     <string name="permgrouprequest_storage_pre_q" msgid="168130651144569428">"&lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; ला या डिव्हाइसवरील &lt;b&gt;फोटो, व्हिडिओ, संगीत, ऑडिओ व इतर फाइल&lt;/b&gt; अ‍ॅक्सेस करू द्यायच्या?"</string>
     <string name="permgrouprequest_read_media_aural" msgid="2593365397347577812">"&lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; ला या डिव्हाइसवरील संगीत आणि ऑडिओ अ‍ॅक्सेस करण्याची अनुमती द्यायची आहे का?"</string>
     <string name="permgrouprequest_read_media_visual" msgid="5548780620779729975">"&lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; ला या डिव्हाइसवरील फोटो आणि व्हिडिओ अ‍ॅक्सेस करण्याची अनुमती द्यायची आहे का?"</string>
+    <string name="permgrouprequest_more_photos" msgid="128933814654231321">"&lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; ला या डिव्हाइसवरील अधिक फोटो आणि व्हिडिओ अ‍ॅक्सेस करण्याची अनुमती द्यायची आहे का?"</string>
     <string name="permgrouprequest_microphone" msgid="2825208549114811299">"&lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; ला ऑडिओ रेकॉर्ड करू द्यायचा?"</string>
     <string name="permgrouprequestdetail_microphone" msgid="8510456971528228861">"ॲप फक्त तुम्ही ॲप वापरत असतानाच ऑडिओ रेकॉर्ड करू शकते"</string>
     <string name="permgroupbackgroundrequest_microphone" msgid="8874462606796368183">"&lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; ला ऑडिओ रेकॉर्ड करायची अनुमती द्यायची?"</string>
@@ -474,8 +498,8 @@
     <string name="permgroupupgraderequest_sensors" msgid="7576527638411370468">"ॲप वापरात असताना &lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; ला शरीर सेन्सर डेटा अ‍ॅक्सेस करण्याची अनुमती देणे सुरू ठेवायचे आहे का?"</string>
     <string name="permgrouprequest_notifications" msgid="6396739062335106181">"&lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; ला तुम्हाला सूचना पाठवू द्यायचे का?"</string>
     <string name="auto_granted_permissions" msgid="6009452264824455892">"नियंत्रित परवानग्या"</string>
-    <string name="auto_granted_location_permission_notification_title" msgid="1438871159268985993">"स्थान अ‍ॅक्सेस करता येऊ शकते"</string>
-    <string name="auto_granted_permission_notification_body" msgid="6919835973190443695">"तुमचा आयटी ॲडमिन <xliff:g id="APP_NAME">%s</xliff:g> ला तुमचे स्थान अ‍ॅक्सेस करण्याची अनुमती देत आहे"</string>
+    <string name="auto_granted_location_permission_notification_title" msgid="7570818224669050377">"<xliff:g id="APP_NAME">%1$s</xliff:g> कडे स्थान अ‍ॅक्सेस आहे"</string>
+    <string name="auto_granted_permission_notification_body" msgid="5040234389205471318">"तुमची संस्था <xliff:g id="APP_NAME">%1$s</xliff:g> ला तुमचे स्थान अ‍ॅक्सेस करण्याची अनुमती देते"</string>
     <string name="other_permissions_label" msgid="8986184335503271992">"इतर परवानग्या"</string>
     <string name="not_used_permissions_label" msgid="3939839426115141264">"सिस्टमद्वारे वापरल्या जाणाऱ्या परवानग्या"</string>
     <string name="not_used_permissions_description" msgid="7595514824169388718">"फक्त सिस्टम ॲप्लिकेशनद्वारे वापरल्या जाणाऱ्या परवानग्या."</string>
@@ -496,17 +520,28 @@
     <string name="blocked_sensor_summary" msgid="4443707628305027375">"ॲप्स आणि सेवांसाठी"</string>
     <string name="blocked_mic_summary" msgid="8960466941528458347">"तुम्ही आणीबाणी नंबरवर कॉल करता तेव्हा, मायक्रोफोन डेटा तरीही कदाचित शेअर केला जाईल."</string>
     <string name="blocked_sensor_button_label" msgid="6742092634984289658">"बदला"</string>
-    <string name="safety_center_dashboard_page_title" msgid="7514620345152008005">"सुरक्षा आणि गोपनीयता"</string>
-    <string name="safety_center_rescan_button" msgid="8047036829052958144">"स्कॅन करा"</string>
+    <string name="safety_center_dashboard_page_title" msgid="2810774008694315854">"सुरक्षा आणि गोपनीयता"</string>
+    <string name="safety_center_rescan_button" msgid="4517514567809409596">"डिव्हाइस स्कॅन करा"</string>
     <string name="safety_center_issue_card_dismiss_button" msgid="5113965506144222402">"डिसमिस करा"</string>
+    <string name="safety_center_issue_card_dismiss_confirmation_title" msgid="2734809473425036382">"ही सूचना डिसमिस करायची का?"</string>
+    <string name="safety_center_issue_card_dismiss_confirmation_message" msgid="3775418736671093563">"आणखी संरक्षण जोडण्यासाठी, तुमच्या सुरक्षा आणि गोपनीयता सेटिंग्जचे कधीही पुनरावलोकन करा"</string>
+    <string name="safety_center_issue_card_confirm_dismiss_button" msgid="5884137843083634556">"डिसमिस करा"</string>
+    <string name="safety_center_issue_card_cancel_dismiss_button" msgid="2874578798877712346">"रद्द करा"</string>
+    <string name="safety_center_entries_category_title" msgid="34356964062813115">"सेटिंग्ज"</string>
+    <string name="safety_status_preference_title_and_summary_content_description" msgid="3511373256505058464">"सुरक्षा आणि गोपनीयता स्टेटस. <xliff:g id="OVERALL_SAFETY_STATUS">%1$s</xliff:g>. <xliff:g id="SUMMARY_OF_DEVICE_STATUS">%2$s</xliff:g>"</string>
     <string name="security_settings" msgid="3808106921175271317">"सुरक्षा सेटिंग्ज"</string>
-    <string name="sensor_permissions_qs" msgid="4365989229426201877">"सेन्सर परवानग्या"</string>
-    <string name="privacy_controls_qs" msgid="471793881466080745">"गोपनीयता नियंत्रणे"</string>
+    <string name="sensor_permissions_qs" msgid="1022267900031317472">"परवानग्या"</string>
+    <string name="safety_privacy_qs_tile_title" msgid="727301867710374052">"सुरक्षा आणि गोपनीयता"</string>
+    <string name="safety_privacy_qs_tile_subtitle" msgid="3621544532041936749">"स्टेटस तपासा"</string>
+    <string name="privacy_controls_qs" msgid="5780144882040591169">"तुमची गोपनीयता नियंत्रणे"</string>
+    <string name="security_settings_button_label_qs" msgid="8280343822465962330">"अधिक सेटिंग्ज"</string>
+    <string name="camera_toggle_label_qs" msgid="3880261453066157285">"कॅमेराचा अ‍ॅक्सेस"</string>
+    <string name="microphone_toggle_label_qs" msgid="8132912469813396552">"माइकचा ॲक्सेस"</string>
     <string name="permissions_removed_qs" msgid="8957319130625294572">"परवानग्या काढून टाकल्या"</string>
-    <string name="camera_usage_qs" msgid="7943349178368641820">"कॅमेराचे आणखी वापर पहा"</string>
-    <string name="microphone_usage_qs" msgid="2393193350541830472">"मायक्रोफोनचे आणखी वापर पहा"</string>
-    <string name="remove_camera_qs" msgid="8209716677879809162">"कॅमेरा परवानगी काढून टाका"</string>
-    <string name="remove_microphone_qs" msgid="2893536836641560183">"मायक्रोफोन परवानगी काढून टाका"</string>
+    <string name="camera_usage_qs" msgid="4394233566086665994">"अलीकडील कॅमेरा वापर पहा"</string>
+    <string name="microphone_usage_qs" msgid="8527666682168170417">"अलीकडील माइक वापर पहा"</string>
+    <string name="remove_camera_qs" msgid="3649996161066883350">"या अ‍ॅपसाठी परवानगी काढून टाका"</string>
+    <string name="remove_microphone_qs" msgid="1276551965129953198">"या अ‍ॅपसाठी परवानगी काढून टाका"</string>
     <string name="manage_service_qs" msgid="7862555549364153805">"सेवा व्यवस्थापित करा"</string>
     <string name="manage_permissions_qs" msgid="3780541819763475434">"परवानग्या व्यवस्थापित करा"</string>
     <string name="active_call_usage_qs" msgid="8559974395932523391">"फोन कॉलद्वारे वापरले जात आहे"</string>
@@ -517,8 +552,6 @@
     <string name="recent_app_usage_1_qs" msgid="261450184773310741">"<xliff:g id="APP_NAME">%1$s</xliff:g> (<xliff:g id="ATTRIBUTION_LABEL">%2$s</xliff:g>) द्वारे अलीकडे वापरले गेले"</string>
     <string name="active_app_usage_2_qs" msgid="6107866785243565283">"<xliff:g id="APP_NAME">%1$s</xliff:g> (<xliff:g id="ATTRIBUTION_LABEL">%2$s</xliff:g> • <xliff:g id="PROXY_LABEL">%3$s</xliff:g>) द्वारे वापरले जात आहे"</string>
     <string name="recent_app_usage_2_qs" msgid="3591205954235694403">"<xliff:g id="APP_NAME">%1$s</xliff:g> (<xliff:g id="ATTRIBUTION_LABEL">%2$s</xliff:g> • <xliff:g id="PROXY_LABEL">%3$s</xliff:g>) द्वारे अलीकडे वापरले गेले"</string>
-    <string name="safety_privacy_qs_tile_title" msgid="5431148204168066203">"सुरक्षा &amp; गोपनीयता"</string>
-    <string name="safety_privacy_qs_tile_subtitle" msgid="3621544532041936749">"स्टेटस तपासा"</string>
     <string name="media_confirm_dialog_positive_button" msgid="9020793594051526399">"कंफर्म करा"</string>
     <string name="media_confirm_dialog_negative_button" msgid="226987376924861785">"मागे जा"</string>
     <string name="media_confirm_dialog_title_a_to_p_aural_allow" msgid="8560601114044699903">"इतर फाइलच्या अ‍ॅक्सेसलादेखील अनुमती दिली जाईल"</string>
@@ -537,4 +570,53 @@
     <string name="media_confirm_dialog_message_q_to_s_aural_deny" msgid="6832087393653561911">"हे अ‍ॅप Android च्या नवीनतम आवृत्तीला सपोर्ट करत नाही. हे अ‍ॅप संगीत आणि ऑडिओ फाइल अ‍ॅक्सेस करू शकत नसल्यास, त्याला फोटो व व्हिडिओ अ‍ॅक्सेस करण्याचीदेखील अनुमती दिली जाणार नाही."</string>
     <string name="media_confirm_dialog_message_q_to_s_visual_allow" msgid="3504335060843147760">"हे अ‍ॅप Android च्या नवीनतम आवृत्तीला सपोर्ट करत नाही. हे अ‍ॅप फोटो आणि व्हिडिओ अ‍ॅक्सेस करू शकत असल्यास, त्याला संगीत व ऑडिओ फाइल अ‍ॅक्सेस करण्याचीदेखील अनुमती दिली जाईल."</string>
     <string name="media_confirm_dialog_message_q_to_s_visual_deny" msgid="2145973462806481992">"हे अ‍ॅप Android च्या नवीनतम आवृत्तीला सपोर्ट करत नाही. हे अ‍ॅप संगीत आणि ऑडिओ फाइल अ‍ॅक्सेस करू शकत नसल्यास, त्याला फोटो व व्हिडिओ अ‍ॅक्सेस करण्याचीदेखील अनुमती दिली जाणार नाही."</string>
+    <string name="safety_center_background_location_access_notification_title" msgid="8933610618810588237">"बॅकग्राउंड स्थान अ‍ॅक्सेस असलेल्या अ‍ॅपचे पुनरावलोकन करा"</string>
+    <string name="safety_center_background_location_access_reminder_notification_content" msgid="4066560182507301022">"<xliff:g id="APP_NAME">%s</xliff:g> हे अ‍ॅप बंद असले तरीही तुमचे स्थान नेहमी अ‍ॅक्सेस करू शकते"</string>
+    <string name="safety_center_background_location_access_reminder_title" msgid="5477847038103863843">"बॅकग्राउंड स्थान अ‍ॅक्सेस असलेल्या अ‍ॅपचे पुनरावलोकन करा"</string>
+    <string name="safety_center_background_location_access_reminder_summary" msgid="7431657777510537658">"हे अ‍ॅप बंद असले तरीही ते तुमचे स्थान नेहमी अ‍ॅक्सेस करू शकते.\n\nकाही सुरक्षितता आणि आणीबाणी अ‍ॅप्सना उद्देशानुरूप काम करण्यासाठी बॅकग्राउंडमध्ये तुमच्या स्थानाचा अ‍ॅक्सेस आवश्यक आहे."</string>
+    <string name="safety_center_background_location_access_revoked" msgid="6972274943343442213">"अ‍ॅक्सेस बदलला"</string>
+    <string name="safety_center_view_recent_location_access" msgid="3524391299490678243">"अलीकडील स्थान वापर पहा"</string>
+    <string name="privacy_controls_title" msgid="7605929972256835199">"गोपनीयता नियंत्रणे"</string>
+    <string name="camera_toggle_title" msgid="1251201397431837666">"कॅमेराचा अ‍ॅक्सेस"</string>
+    <string name="mic_toggle_title" msgid="2649991093496110162">"मायक्रोफोनचा अ‍ॅक्सेस"</string>
+    <string name="perm_toggle_description" msgid="7801326363741451379">"ॲप्स आणि सेवांसाठी"</string>
+    <string name="mic_toggle_description" msgid="9163104307990677157">"ॲप्स आणि सेवांसाठी. हे सेटिंग बंद असल्यास, तुम्ही आणीबाणी नंबरवर कॉल करता तेव्हा, मायक्रोफोन डेटा तरीही कदाचित शेअर केला जाईल."</string>
+    <string name="location_settings_subtitle" msgid="2328360561197430695">"स्थानाचा अ‍ॅक्सेस असलेली अ‍ॅप्स आणि सेवा पहा"</string>
+    <string name="show_clip_access_notification_title" msgid="5168467637351109096">"क्लिपबोर्डचा अ‍ॅक्सेस दाखवा"</string>
+    <string name="show_clip_access_notification_summary" msgid="3532020182782112687">"तुम्ही कॉपी केलेला मजकूर, इमेज किंवा इतर आशय ॲप्स अ‍ॅक्सेस करतात, तेव्हा मेसेज दाखवा"</string>
+    <string name="show_password_title" msgid="2877269286984684659">"पासवर्ड दाखवा"</string>
+    <string name="show_password_summary" msgid="1110166488865981610">"तुम्ही टाइप कराल त्‍याप्रमाणे वर्ण थोडक्‍यात डिस्प्ले करा"</string>
+    <string name="permission_rationale_message_location" msgid="2153841534298068414">"हे अ‍ॅप तृतीय पक्षांसोबत स्थान डेटा शेअर करू शकते असे या अ‍ॅपने नमूद केले आहे"</string>
+    <string name="permission_rationale_location_title" msgid="2404797182678793506">"डेटा शेअरिंग आणि स्थान"</string>
+    <string name="permission_rationale_data_sharing_source_title" msgid="6874604543125814316">"डेटा शेअरिंग माहिती कुठून मिळते"</string>
+    <string name="permission_rationale_data_sharing_device_manufacturer_message" msgid="7569261218145653185">"हे ॲप डेटा कसे शेअर करते याबद्दल डेव्हलपरने या डिव्हाइसच्या उत्पादकाला माहिती पुरवली आहे. डेव्हलपर कालांतराने ही माहिती अपडेट करू शकतो."</string>
+    <string name="permission_rationale_data_sharing_source_message" msgid="8330794595417986883">"हे अ‍ॅप डेटा कसे शेअर करते याबद्दल डेव्हलपरने "<annotation id="link"><annotation id="install_source" example="App Store">"%1$s"</annotation></annotation>" यांना माहिती पुरवली. डेव्हलपर कालांतराने ही माहिती अपडेट करू शकतो."</string>
+    <string name="permission_rationale_location_purpose_title" msgid="5115877143670012618">"अ‍ॅप पुढील गोष्टींसाठी स्‍थान डेटा शेअर करू शकते:"</string>
+    <string name="permission_rationale_permission_data_sharing_varies_title" msgid="9103718980919908316">"डेटा शेअरिंग बदलते"</string>
+    <string name="permission_rationale_data_sharing_varies_message" msgid="4224469559084489222">"तुमच्या अ‍ॅपची आवृत्ती, वापर, प्रदेश आणि वय यांनुसार डेटाविषयक कार्यपद्धती बदलू शकतात. "<annotation id="link">"डेटा शेअरिंगबद्दल आणखी माहिती"</annotation></string>
+    <string name="permission_rationale_data_sharing_varies_message_without_link" msgid="4912763761399025094">"तुमच्या अ‍ॅपची आवृत्ती, वापर, प्रदेश आणि वय यांच्या आधारे डेटाविषयक कार्यपद्धती बदलू शकतात."</string>
+    <string name="permission_rationale_location_settings_title" msgid="7204145004850190953">"तुमचा स्थान डेटा"</string>
+    <string name="permission_rationale_permission_settings_message" msgid="631286040979660267"><annotation id="link">"गोपनीयता सेटिंग्ज"</annotation>" मध्ये या अ‍ॅपचा अ‍ॅक्सेस बदला"</string>
+    <string name="permission_rationale_purpose_app_functionality" msgid="8397736681065841405">"अ‍ॅपची कार्यक्षमता"</string>
+    <string name="permission_rationale_purpose_analytics" msgid="2070800501189620712">"विश्लेषण"</string>
+    <string name="permission_rationale_purpose_developer_communications" msgid="6453047018892062374">"डेव्हलपर संवाद"</string>
+    <string name="permission_rationale_purpose_advertising" msgid="7156966429245180236">"जाहिरात किंवा मार्केटिंग"</string>
+    <string name="permission_rationale_purpose_fraud_prevention_security" msgid="4262104770357031902">"घोटाळा प्रतिबंध, सुरक्षा आणि पालन"</string>
+    <string name="permission_rationale_purpose_personalization" msgid="1589973273682238708">"पर्सनलायझेशन"</string>
+    <string name="permission_rationale_purpose_account_management" msgid="2985772421946688879">"खाते व्यवस्थापन"</string>
+    <string name="app_permission_rationale_message" msgid="8511466916077100713">"डेटासंबंधित सुरक्षितता"</string>
+    <string name="app_location_permission_rationale_title" msgid="925420340572401350">"स्‍थान डेटा शेअर केला जाऊ शकतो"</string>
+    <string name="app_location_permission_rationale_subtitle" msgid="6986985722752868692">"हे अ‍ॅप तृतीय पक्षांसोबत तुमचा स्थान डेटा शेअर करू शकते असे या अ‍ॅपने नमूद केले आहे"</string>
+    <string name="data_sharing_updates_title" msgid="7996933386875213859">"स्थानासाठी डेटा शेअरिंगसंबंधित अपडेट"</string>
+    <string name="data_sharing_updates_summary" msgid="764113985772233889">"ज्या अ‍ॅप्सनी तुमचा स्थान डेटा शेअर करण्याची त्यांची पद्धत बदलली अशा अ‍ॅप्सचे पुनरावलोकन करा"</string>
+    <string name="data_sharing_updates_subtitle" msgid="6311537708950632329">"या अ‍ॅप्सनी तुमचा स्थान डेटा शेअर करण्याची त्यांची पद्धत बदलली आहे. त्यांनी तो पूर्वी शेअर केलेला नसू शकतो किंवा आता जाहिरात करणे अथवा मार्केटिंग उद्देशांसाठी शेअर करू शकतात."</string>
+    <string name="data_sharing_updates_footer_message" msgid="1582711655172892107">"या अ‍ॅप्सच्या डेव्हलपरनी अ‍ॅप स्टोअरला त्यांच्या डेटा शेअरिंग पद्धतींबद्दल माहिती पुरवली आहे. ही माहिती ते कालांतराने अपडेट करू शकतात.\n\nतुमची अ‍ॅपची आवृत्ती, वापर, प्रदेश आणि वय या गोष्टींनुसार डेटा शेअरिंग पद्धती बदलू शकतात."</string>
+    <string name="learn_about_data_sharing" msgid="4200480587079488045">"डेटा शेअरिंगबद्दल जाणून घ्या"</string>
+    <string name="shares_location_with_third_parties" msgid="2278051743742057767">"तुमचा स्थान डेटा आता तृतीय पक्षांसोबत शेअर केला आहे"</string>
+    <string name="shares_location_with_third_parties_for_advertising" msgid="1918588064014480513">"जाहिरात करणे किंवा मार्केटिंग उद्देशांसाठी तुमचा स्थान डेटा आता तृतीय पक्षांसोबत शेअर केला आहे"</string>
+    <string name="updated_in_last_days" msgid="8371811947153042322">"{count,plural, =0{Updated within the last day}=1{मागील एका दिवसामध्ये अपडेट केले}other{मागील # दिवसांमध्ये अपडेट केले}}"</string>
+    <string name="no_updates_at_this_time" msgid="9031085635689982935">"यावेळी कोणतीही अपडेट नाहीत"</string>
+    <string name="safety_label_changes_notification_title" msgid="4479955083472203839">"डेटा शेअरिंगचे अपडेट"</string>
+    <string name="safety_label_changes_notification_desc" msgid="7808764283266234675">"काही अ‍ॅप्सनी तुमचा स्थान डेटा शेअर करण्याची त्यांची पद्धत बदलली"</string>
+    <string name="safety_label_changes_gear_description" msgid="2655887555599138509">"सेटिंग्ज"</string>
 </resources>

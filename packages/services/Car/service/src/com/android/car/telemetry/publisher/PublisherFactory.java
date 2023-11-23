@@ -30,7 +30,6 @@ import com.android.car.telemetry.publisher.net.NetworkStatsManagerProxy;
 import com.android.car.telemetry.sessioncontroller.SessionController;
 import com.android.internal.util.Preconditions;
 
-import java.io.File;
 import java.util.Objects;
 
 /**
@@ -50,7 +49,6 @@ public class PublisherFactory {
 
     private final Object mLock = new Object();
     private final CarPropertyService mCarPropertyService;
-    private final File mPublisherDirectory;
     private final Handler mTelemetryHandler;
     private final Context mContext;  // CarService context
     private final UidPackageMapper mUidMapper;
@@ -70,14 +68,12 @@ public class PublisherFactory {
             @NonNull CarPropertyService carPropertyService,
             @NonNull Handler handler,
             @NonNull Context context,
-            @NonNull File publisherDirectory,
             @NonNull SessionController sessionController,
             @NonNull ResultStore resultStore,
             @NonNull UidPackageMapper uidMapper) {
         mCarPropertyService = carPropertyService;
         mTelemetryHandler = handler;
         mContext = context;
-        mPublisherDirectory = publisherDirectory;
         mSessionController = sessionController;
         mResultStore = resultStore;
         mUidMapper = uidMapper;
@@ -99,7 +95,7 @@ public class PublisherFactory {
                 case TelemetryProto.Publisher.CARTELEMETRYD_FIELD_NUMBER:
                     if (mCarTelemetrydPublisher == null) {
                         mCarTelemetrydPublisher = new CarTelemetrydPublisher(
-                                mPublisherListener, mTelemetryHandler);
+                                mPublisherListener, mTelemetryHandler, mSessionController);
                     }
                     return mCarTelemetrydPublisher;
                 case TelemetryProto.Publisher.STATS_FIELD_NUMBER:
@@ -108,8 +104,7 @@ public class PublisherFactory {
                         Preconditions.checkState(stats != null, "StatsManager not found");
                         StatsManagerProxy statsManager = new StatsManagerImpl(stats);
                         mStatsPublisher = new StatsPublisher(
-                                mPublisherListener, statsManager, mPublisherDirectory,
-                                mTelemetryHandler);
+                                mPublisherListener, statsManager, mResultStore, mTelemetryHandler);
                     }
                     return mStatsPublisher;
                 case TelemetryProto.Publisher.CONNECTIVITY_FIELD_NUMBER:
@@ -128,7 +123,8 @@ public class PublisherFactory {
                 case TelemetryProto.Publisher.MEMORY_FIELD_NUMBER:
                     if (mMemoryPublisher == null) {
                         mMemoryPublisher = new MemoryPublisher(
-                                mPublisherListener, mTelemetryHandler, mResultStore);
+                                mContext, mPublisherListener, mTelemetryHandler, mResultStore,
+                                mSessionController);
                     }
                     return mMemoryPublisher;
                 default:

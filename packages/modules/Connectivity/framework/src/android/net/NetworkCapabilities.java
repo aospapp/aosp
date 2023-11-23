@@ -17,6 +17,8 @@
 package android.net;
 
 import static com.android.internal.annotations.VisibleForTesting.Visibility.PRIVATE;
+import static com.android.net.module.util.BitUtils.appendStringRepresentationOfBitMaskToStringBuilder;
+import static com.android.net.module.util.BitUtils.describeDifferences;
 
 import android.annotation.IntDef;
 import android.annotation.LongDef;
@@ -36,6 +38,7 @@ import android.util.ArraySet;
 import android.util.Range;
 
 import com.android.internal.annotations.VisibleForTesting;
+import com.android.net.module.util.BitUtils;
 import com.android.net.module.util.CollectionUtils;
 import com.android.net.module.util.NetworkCapabilitiesUtils;
 
@@ -50,18 +53,70 @@ import java.util.Set;
 import java.util.StringJoiner;
 
 /**
- * Representation of the capabilities of an active network. Instances are
- * typically obtained through
- * {@link NetworkCallback#onCapabilitiesChanged(Network, NetworkCapabilities)}
- * or {@link ConnectivityManager#getNetworkCapabilities(Network)}.
- * <p>
- * This replaces the old {@link ConnectivityManager#TYPE_MOBILE} method of
- * network selection. Rather than indicate a need for Wi-Fi because an
- * application needs high bandwidth and risk obsolescence when a new, fast
- * network appears (like LTE), the application should specify it needs high
- * bandwidth. Similarly if an application needs an unmetered network for a bulk
- * transfer it can specify that rather than assuming all cellular based
- * connections are metered and all Wi-Fi based connections are not.
+ * Representation of the capabilities of an active network.
+ *
+ * <p>@see <a href="https://developer.android.com/training/basics/network-ops/reading-network-state>
+ * this general guide</a> on how to use NetworkCapabilities and related classes.
+ *
+ * <p>NetworkCapabilities represent what a network can do and what its
+ * characteristics are like. The principal attribute of NetworkCapabilities
+ * is in the capabilities bits, which are checked with
+ * {@link #hasCapability(int)}. See the list of capabilities and each
+ * capability for a description of what it means.
+ *
+ * <p>Some prime examples include {@code NET_CAPABILITY_MMS}, which means that the
+ * network is capable of sending MMS. A network without this capability
+ * is not capable of sending MMS.
+ * <p>The {@code NET_CAPABILITY_INTERNET} capability means that the network is
+ * configured to reach the general Internet. It may or may not actually
+ * provide connectivity ; the {@code NET_CAPABILITY_VALIDATED} bit indicates that
+ * the system found actual connectivity to the general Internet the last
+ * time it checked. Apps interested in actual connectivity should usually
+ * look at both these capabilities.
+ * <p>The {@code NET_CAPABILITY_NOT_METERED} capability is set for networks that
+ * do not bill the user for consumption of bytes. Applications are
+ * encouraged to consult this to determine appropriate usage, and to
+ * limit usage of metered network where possible, including deferring
+ * big downloads until such a time that an unmetered network is connected.
+ * Also see {@link android.app.job.JobScheduler} to help with scheduling such
+ * downloads, in particular
+ * {@link android.app.job.JobInfo.Builder#setRequiredNetwork(NetworkRequest)}.
+ * <p>NetworkCapabilities contain a number of other capabilities that
+ * represent what modern networks can and can't do. Look up the individual
+ * capabilities in this class to learn about each of them.
+ *
+ * <p>NetworkCapabilities typically represent attributes that can apply to
+ * any network. The attributes that apply only to specific transports like
+ * cellular or Wi-Fi can be found in the specifier (for requestable attributes)
+ * or in the transport info (for non-requestable ones). See
+ * {@link #getNetworkSpecifier} and {@link #getTransportInfo}. An app would
+ * downcast these to the specific class for the transport they need if they
+ * are interested in transport-specific attributes. Also see
+ * {@link android.net.wifi.WifiNetworkSpecifier} or
+ * {@link android.net.wifi.WifiInfo} for some examples of each of these.
+ *
+ * <p>NetworkCapabilities also contains other attributes like the estimated
+ * upstream and downstream bandwidth and the specific transport of that
+ * network (e.g. {@link #TRANSPORT_CELLULAR}). Generally, apps should normally
+ * have little reason to check for the type of transport ; for example, to
+ * query whether a network costs money to the user, do not look at the
+ * transport, but instead look at the absence or presence of
+ * {@link #NET_CAPABILITY_NOT_METERED} which will correctly account for
+ * metered Wi-Fis and free of charge cell connections.
+ *
+ * <p>The system communicates with apps about connected networks and uses
+ * NetworkCapabilities to express these capabilities about these networks.
+ * Apps should register callbacks with the {@link ConnectivityManager#requestNetwork}
+ * or {@link ConnectivityManager#registerNetworkCallback} family of methods
+ * to learn about the capabilities of a network on a continuous basis
+ * and be able to react to changes to capabilities. For quick debugging Android also
+ * provides {@link ConnectivityManager#getNetworkCapabilities(Network)},
+ * but the dynamic nature of networking makes this ill-suited to production
+ * code since capabilities obtained in this way can go stale immediately.
+ *
+ * <p>Also see {@link NetworkRequest} which uses the same capabilities
+ * together with {@link ConnectivityManager#requestNetwork} for how to
+ * request the system brings up the kind of network your application needs.
  */
 public final class NetworkCapabilities implements Parcelable {
     private static final String TAG = "NetworkCapabilities";
@@ -185,14 +240,22 @@ public final class NetworkCapabilities implements Parcelable {
             NET_ENTERPRISE_ID_4,
             NET_ENTERPRISE_ID_5,
     })
-
     public @interface EnterpriseId {
+    }
+
+    private static final int ALL_VALID_ENTERPRISE_IDS;
+    static {
+        int enterpriseIds = 0;
+        for (int i = NET_ENTERPRISE_ID_1; i <= NET_ENTERPRISE_ID_5; ++i) {
+            enterpriseIds |= 1 << i;
+        }
+        ALL_VALID_ENTERPRISE_IDS = enterpriseIds;
     }
 
     /**
      * Bitfield representing the network's enterprise capability identifier.  If any are specified
      * they will be satisfied by any Network that matches all of them.
-     * {@see addEnterpriseId} for details on how masks are added
+     * See {@link #addEnterpriseId(int)} for details on how masks are added
      */
     private int mEnterpriseId;
 
@@ -209,7 +272,7 @@ public final class NetworkCapabilities implements Parcelable {
         if (hasCapability(NET_CAPABILITY_ENTERPRISE) && mEnterpriseId == 0) {
             return new int[]{NET_ENTERPRISE_ID_1};
         }
-        return NetworkCapabilitiesUtils.unpackBits(mEnterpriseId);
+        return BitUtils.unpackBits(mEnterpriseId);
     }
 
     /**
@@ -611,22 +674,39 @@ public final class NetworkCapabilities implements Parcelable {
 
     /**
      * Indicates that this network should be able to prioritize latency for the internet.
+     *
+     * Starting with {@link Build.VERSION_CODES#UPSIDE_DOWN_CAKE}, requesting this capability with
+     * {@link ConnectivityManager#requestNetwork} requires declaration in the self-certified
+     * network capabilities. See {@link NetworkRequest} for the self-certification documentation.
      */
     public static final int NET_CAPABILITY_PRIORITIZE_LATENCY = 34;
 
     /**
      * Indicates that this network should be able to prioritize bandwidth for the internet.
+     *
+     * Starting with {@link Build.VERSION_CODES#UPSIDE_DOWN_CAKE}, requesting this capability with
+     * {@link ConnectivityManager#requestNetwork} requires declaration in the self-certified
+     * network capabilities. See {@link NetworkRequest} for the self-certification documentation.
      */
     public static final int NET_CAPABILITY_PRIORITIZE_BANDWIDTH = 35;
 
     private static final int MIN_NET_CAPABILITY = NET_CAPABILITY_MMS;
     private static final int MAX_NET_CAPABILITY = NET_CAPABILITY_PRIORITIZE_BANDWIDTH;
 
+    private static final int ALL_VALID_CAPABILITIES;
+    static {
+        int caps = 0;
+        for (int i = MIN_NET_CAPABILITY; i <= MAX_NET_CAPABILITY; ++i) {
+            caps |= 1 << i;
+        }
+        ALL_VALID_CAPABILITIES = caps;
+    }
+
     /**
      * Network capabilities that are expected to be mutable, i.e., can change while a particular
      * network is connected.
      */
-    private static final long MUTABLE_CAPABILITIES = NetworkCapabilitiesUtils.packBitList(
+    private static final long MUTABLE_CAPABILITIES = BitUtils.packBitList(
             // TRUSTED can change when user explicitly connects to an untrusted network in Settings.
             // http://b/18206275
             NET_CAPABILITY_TRUSTED,
@@ -661,7 +741,7 @@ public final class NetworkCapabilities implements Parcelable {
     /**
      * Capabilities that are set by default when the object is constructed.
      */
-    private static final long DEFAULT_CAPABILITIES = NetworkCapabilitiesUtils.packBitList(
+    private static final long DEFAULT_CAPABILITIES = BitUtils.packBitList(
             NET_CAPABILITY_NOT_RESTRICTED,
             NET_CAPABILITY_TRUSTED,
             NET_CAPABILITY_NOT_VPN);
@@ -670,20 +750,20 @@ public final class NetworkCapabilities implements Parcelable {
      * Capabilities that are managed by ConnectivityService.
      */
     private static final long CONNECTIVITY_MANAGED_CAPABILITIES =
-            NetworkCapabilitiesUtils.packBitList(
+            BitUtils.packBitList(
                     NET_CAPABILITY_VALIDATED,
                     NET_CAPABILITY_CAPTIVE_PORTAL,
                     NET_CAPABILITY_FOREGROUND,
                     NET_CAPABILITY_PARTIAL_CONNECTIVITY);
 
     /**
-     * Capabilities that are allowed for test networks. This list must be set so that it is safe
-     * for an unprivileged user to create a network with these capabilities via shell. As such,
-     * it must never contain capabilities that are generally useful to the system, such as
-     * INTERNET, IMS, SUPL, etc.
+     * Capabilities that are allowed for all test networks. This list must be set so that it is safe
+     * for an unprivileged user to create a network with these capabilities via shell. As such, it
+     * must never contain capabilities that are generally useful to the system, such as INTERNET,
+     * IMS, SUPL, etc.
      */
     private static final long TEST_NETWORKS_ALLOWED_CAPABILITIES =
-            NetworkCapabilitiesUtils.packBitList(
+            BitUtils.packBitList(
             NET_CAPABILITY_NOT_METERED,
             NET_CAPABILITY_TEMPORARILY_NOT_METERED,
             NET_CAPABILITY_NOT_RESTRICTED,
@@ -692,6 +772,14 @@ public final class NetworkCapabilities implements Parcelable {
             NET_CAPABILITY_NOT_CONGESTED,
             NET_CAPABILITY_NOT_SUSPENDED,
             NET_CAPABILITY_NOT_VCN_MANAGED);
+
+    /**
+     * Extra allowed capabilities for test networks that do not have TRANSPORT_CELLULAR. Test
+     * networks with TRANSPORT_CELLULAR must not have those capabilities in order to mitigate
+     * the risk of being used by running apps.
+     */
+    private static final long TEST_NETWORKS_EXTRA_ALLOWED_CAPABILITIES_ON_NON_CELL =
+            BitUtils.packBitList(NET_CAPABILITY_CBS, NET_CAPABILITY_DUN, NET_CAPABILITY_RCS);
 
     /**
      * Adds the given capability to this {@code NetworkCapability} instance.
@@ -783,7 +871,7 @@ public final class NetworkCapabilities implements Parcelable {
      * @return an array of capability values for this instance.
      */
     public @NonNull @NetCapability int[] getCapabilities() {
-        return NetworkCapabilitiesUtils.unpackBits(mNetworkCapabilities);
+        return BitUtils.unpackBits(mNetworkCapabilities);
     }
 
     /**
@@ -793,7 +881,7 @@ public final class NetworkCapabilities implements Parcelable {
      * @hide
      */
     public @NetCapability int[] getForbiddenCapabilities() {
-        return NetworkCapabilitiesUtils.unpackBits(mForbiddenNetworkCapabilities);
+        return BitUtils.unpackBits(mForbiddenNetworkCapabilities);
     }
 
 
@@ -805,8 +893,8 @@ public final class NetworkCapabilities implements Parcelable {
      */
     public void setCapabilities(@NetCapability int[] capabilities,
             @NetCapability int[] forbiddenCapabilities) {
-        mNetworkCapabilities = NetworkCapabilitiesUtils.packBits(capabilities);
-        mForbiddenNetworkCapabilities = NetworkCapabilitiesUtils.packBits(forbiddenCapabilities);
+        mNetworkCapabilities = BitUtils.packBits(capabilities);
+        mForbiddenNetworkCapabilities = BitUtils.packBits(forbiddenCapabilities);
     }
 
     /**
@@ -943,7 +1031,7 @@ public final class NetworkCapabilities implements Parcelable {
                 & NON_REQUESTABLE_CAPABILITIES;
 
         if (nonRequestable != 0) {
-            return capabilityNameOf(NetworkCapabilitiesUtils.unpackBits(nonRequestable)[0]);
+            return capabilityNameOf(BitUtils.unpackBits(nonRequestable)[0]);
         }
         if (mLinkUpBandwidthKbps != 0 || mLinkDownBandwidthKbps != 0) return "link bandwidth";
         if (hasSignalStrength()) return "signalStrength";
@@ -1046,14 +1134,22 @@ public final class NetworkCapabilities implements Parcelable {
             mTransportTypes =
                     (originalTransportTypes & UNRESTRICTED_TEST_NETWORKS_ALLOWED_TRANSPORTS)
                             | (1 << TRANSPORT_TEST);
-
-            // SubIds are only allowed for Test Networks that only declare TRANSPORT_TEST.
-            setSubscriptionIds(originalSubIds);
         } else {
             // If the test network is restricted, then it may declare any transport.
             mTransportTypes = (originalTransportTypes | (1 << TRANSPORT_TEST));
         }
+
+        if (hasSingleTransport(TRANSPORT_TEST)) {
+            // SubIds are only allowed for Test Networks that only declare TRANSPORT_TEST.
+            setSubscriptionIds(originalSubIds);
+        }
+
         mNetworkCapabilities = originalCapabilities & TEST_NETWORKS_ALLOWED_CAPABILITIES;
+        if (!hasTransport(TRANSPORT_CELLULAR)) {
+            mNetworkCapabilities |=
+                    (originalCapabilities & TEST_NETWORKS_EXTRA_ALLOWED_CAPABILITIES_ON_NON_CELL);
+        }
+
         mNetworkSpecifier = originalSpecifier;
         mSignalStrength = originalSignalStrength;
         mTransportInfo = originalTransportInfo;
@@ -1090,6 +1186,7 @@ public final class NetworkCapabilities implements Parcelable {
             TRANSPORT_LOWPAN,
             TRANSPORT_TEST,
             TRANSPORT_USB,
+            TRANSPORT_THREAD,
     })
     public @interface Transport { }
 
@@ -1141,10 +1238,24 @@ public final class NetworkCapabilities implements Parcelable {
      */
     public static final int TRANSPORT_USB = 8;
 
+    /**
+     * Indicates this network uses a Thread transport.
+     */
+    public static final int TRANSPORT_THREAD = 9;
+
     /** @hide */
     public static final int MIN_TRANSPORT = TRANSPORT_CELLULAR;
     /** @hide */
-    public static final int MAX_TRANSPORT = TRANSPORT_USB;
+    public static final int MAX_TRANSPORT = TRANSPORT_THREAD;
+
+    private static final int ALL_VALID_TRANSPORTS;
+    static {
+        int transports = 0;
+        for (int i = MIN_TRANSPORT; i <= MAX_TRANSPORT; ++i) {
+            transports |= 1 << i;
+        }
+        ALL_VALID_TRANSPORTS = transports;
+    }
 
     /** @hide */
     public static boolean isValidTransport(@Transport int transportType) {
@@ -1160,14 +1271,15 @@ public final class NetworkCapabilities implements Parcelable {
         "WIFI_AWARE",
         "LOWPAN",
         "TEST",
-        "USB"
+        "USB",
+        "THREAD",
     };
 
     /**
      * Allowed transports on an unrestricted test network (in addition to TRANSPORT_TEST).
      */
     private static final long UNRESTRICTED_TEST_NETWORKS_ALLOWED_TRANSPORTS =
-            NetworkCapabilitiesUtils.packBitList(
+            BitUtils.packBitList(
                     TRANSPORT_TEST,
                     // Test eth networks are created with EthernetManager#setIncludeTestInterfaces
                     TRANSPORT_ETHERNET,
@@ -1232,7 +1344,19 @@ public final class NetworkCapabilities implements Parcelable {
      */
     @SystemApi
     @NonNull public @Transport int[] getTransportTypes() {
-        return NetworkCapabilitiesUtils.unpackBits(mTransportTypes);
+        return BitUtils.unpackBits(mTransportTypes);
+    }
+
+    /**
+     * Gets the transports as an int. Internal callers only.
+     *
+     * Prefer getTransportTypes/hasTransportType if not immediately collapsing back into a scalar.
+     *
+     * @return a long integer representing the transport types.
+     * @hide
+     */
+    public long getTransportTypesInternal() {
+        return mTransportTypes;
     }
 
     /**
@@ -1242,7 +1366,7 @@ public final class NetworkCapabilities implements Parcelable {
      * @hide
      */
     public void setTransportTypes(@Transport int[] transportTypes) {
-        mTransportTypes = NetworkCapabilitiesUtils.packBits(transportTypes);
+        mTransportTypes = BitUtils.packBits(transportTypes);
     }
 
     /**
@@ -1460,7 +1584,7 @@ public final class NetworkCapabilities implements Parcelable {
      * Sets the upstream bandwidth for this network in Kbps.  This always only refers to
      * the estimated first hop transport bandwidth.
      * <p>
-     * {@see Builder#setLinkUpstreamBandwidthKbps}
+     * @see Builder#setLinkUpstreamBandwidthKbps
      *
      * @param upKbps the estimated first hop upstream (device to network) bandwidth.
      * @hide
@@ -1484,7 +1608,7 @@ public final class NetworkCapabilities implements Parcelable {
      * Sets the downstream bandwidth for this network in Kbps.  This always only refers to
      * the estimated first hop transport bandwidth.
      * <p>
-     * {@see Builder#setLinkUpstreamBandwidthKbps}
+     * @see Builder#setLinkUpstreamBandwidthKbps
      *
      * @param downKbps the estimated first hop downstream (network to device) bandwidth.
      * @hide
@@ -2015,9 +2139,9 @@ public final class NetworkCapabilities implements Parcelable {
         long oldImmutableCapabilities = this.mNetworkCapabilities & mask;
         long newImmutableCapabilities = that.mNetworkCapabilities & mask;
         if (oldImmutableCapabilities != newImmutableCapabilities) {
-            String before = capabilityNamesOf(NetworkCapabilitiesUtils.unpackBits(
+            String before = capabilityNamesOf(BitUtils.unpackBits(
                     oldImmutableCapabilities));
-            String after = capabilityNamesOf(NetworkCapabilitiesUtils.unpackBits(
+            String after = capabilityNamesOf(BitUtils.unpackBits(
                     newImmutableCapabilities));
             joiner.add(String.format("immutable capabilities changed: %s -> %s", before, after));
         }
@@ -2035,6 +2159,20 @@ public final class NetworkCapabilities implements Parcelable {
         }
 
         return joiner.toString();
+    }
+
+    /**
+     * Returns a short but human-readable string of updates from an older set of capabilities.
+     * @param old the old capabilities to diff from
+     * @return a string fit for logging differences, or null if no differences.
+     *         this never returns the empty string. See BitUtils#describeDifferences.
+     * @hide
+     */
+    @Nullable
+    public String describeCapsDifferencesFrom(@Nullable final NetworkCapabilities old) {
+        final long oldCaps = null == old ? 0 : old.mNetworkCapabilities;
+        return describeDifferences(oldCaps, mNetworkCapabilities,
+                NetworkCapabilities::capabilityNameOf);
     }
 
     /**
@@ -2114,9 +2252,9 @@ public final class NetworkCapabilities implements Parcelable {
 
     @Override
     public void writeToParcel(Parcel dest, int flags) {
-        dest.writeLong(mNetworkCapabilities);
-        dest.writeLong(mForbiddenNetworkCapabilities);
-        dest.writeLong(mTransportTypes);
+        dest.writeLong(mNetworkCapabilities & ALL_VALID_CAPABILITIES);
+        dest.writeLong(mForbiddenNetworkCapabilities & ALL_VALID_CAPABILITIES);
+        dest.writeLong(mTransportTypes & ALL_VALID_TRANSPORTS);
         dest.writeInt(mLinkUpBandwidthKbps);
         dest.writeInt(mLinkDownBandwidthKbps);
         dest.writeParcelable((Parcelable) mNetworkSpecifier, flags);
@@ -2132,7 +2270,7 @@ public final class NetworkCapabilities implements Parcelable {
         dest.writeString(mRequestorPackageName);
         dest.writeIntArray(CollectionUtils.toIntArray(mSubIds));
         dest.writeTypedList(mUnderlyingNetworks);
-        dest.writeInt(mEnterpriseId);
+        dest.writeInt(mEnterpriseId & ALL_VALID_ENTERPRISE_IDS);
     }
 
     public static final @android.annotation.NonNull Creator<NetworkCapabilities> CREATOR =
@@ -2140,10 +2278,10 @@ public final class NetworkCapabilities implements Parcelable {
             @Override
             public NetworkCapabilities createFromParcel(Parcel in) {
                 NetworkCapabilities netCap = new NetworkCapabilities();
-
-                netCap.mNetworkCapabilities = in.readLong();
-                netCap.mForbiddenNetworkCapabilities = in.readLong();
-                netCap.mTransportTypes = in.readLong();
+                // Validate the unparceled data, in case the parceling party was malicious.
+                netCap.mNetworkCapabilities = in.readLong() & ALL_VALID_CAPABILITIES;
+                netCap.mForbiddenNetworkCapabilities = in.readLong() & ALL_VALID_CAPABILITIES;
+                netCap.mTransportTypes = in.readLong() & ALL_VALID_TRANSPORTS;
                 netCap.mLinkUpBandwidthKbps = in.readInt();
                 netCap.mLinkDownBandwidthKbps = in.readInt();
                 netCap.mNetworkSpecifier = in.readParcelable(null);
@@ -2167,7 +2305,7 @@ public final class NetworkCapabilities implements Parcelable {
                     netCap.mSubIds.add(subIdInts[i]);
                 }
                 netCap.setUnderlyingNetworks(in.createTypedArrayList(Network.CREATOR));
-                netCap.mEnterpriseId = in.readInt();
+                netCap.mEnterpriseId = in.readInt() & ALL_VALID_ENTERPRISE_IDS;
                 return netCap;
             }
             @Override
@@ -2285,32 +2423,6 @@ public final class NetworkCapabilities implements Parcelable {
 
         sb.append("]");
         return sb.toString();
-    }
-
-
-    private interface NameOf {
-        String nameOf(int value);
-    }
-
-    /**
-     * @hide
-     */
-    public static void appendStringRepresentationOfBitMaskToStringBuilder(@NonNull StringBuilder sb,
-            long bitMask, @NonNull NameOf nameFetcher, @NonNull String separator) {
-        int bitPos = 0;
-        boolean firstElementAdded = false;
-        while (bitMask != 0) {
-            if ((bitMask & 1) != 0) {
-                if (firstElementAdded) {
-                    sb.append(separator);
-                } else {
-                    firstElementAdded = true;
-                }
-                sb.append(nameFetcher.nameOf(bitPos));
-            }
-            bitMask >>= 1;
-            ++bitPos;
-        }
     }
 
     /**
@@ -2534,7 +2646,7 @@ public final class NetworkCapabilities implements Parcelable {
     /**
      * Set the uid and package name of the app causing this network to exist.
      *
-     * {@see #setRequestorUid} and {@link #setRequestorPackageName}
+     * See {@link #setRequestorUid} and {@link #setRequestorPackageName}
      *
      * @param uid UID of the app.
      * @param packageName package name of the app.
@@ -2719,7 +2831,7 @@ public final class NetworkCapabilities implements Parcelable {
         /**
          * Removes the given transport type.
          *
-         * {@see #addTransportType}.
+         * @see #addTransportType
          *
          * @param transportType the transport type to be added or removed.
          * @return this builder
@@ -3043,7 +3155,7 @@ public final class NetworkCapabilities implements Parcelable {
          * <p>
          * This list cannot be null, but it can be empty to mean that no UID without the
          * {@link android.Manifest.permission.CONNECTIVITY_USE_RESTRICTED_NETWORKS} permission
-         * gets to access this network.
+         * can access this network.
          *
          * @param uids the list of UIDs that can always access this network
          * @return this builder

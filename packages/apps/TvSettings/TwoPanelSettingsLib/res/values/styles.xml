@@ -62,4 +62,10 @@
         <item name="android:textSize">@dimen/settings_info_fragment_summary_text_size</item>
         <item name="android:textColor">@color/info_title_text_color</item>
     </style>
+
+    <style name="EcoHintTextStyle">
+        <item name="android:fontFamily">@string/preference_list_item_secondary_text_font</item>
+        <item name="android:textSize">@dimen/settings_info_fragment_summary_text_size</item>
+        <item name="android:textColor">@color/eco_hint_color</item>
+    </style>
 </resources>

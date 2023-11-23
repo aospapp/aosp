@@ -50,7 +50,8 @@ static jobject mCallbacksObj = nullptr;
 static std::shared_timed_mutex callbacks_mutex;
 
 static void bta2dp_connection_state_callback(const RawAddress& bd_addr,
-                                             btav_connection_state_t state) {
+                                             btav_connection_state_t state,
+                                             const btav_error_t& error) {
   ALOGI("%s", __func__);
 
   std::shared_lock<std::shared_timed_mutex> lock(callbacks_mutex);

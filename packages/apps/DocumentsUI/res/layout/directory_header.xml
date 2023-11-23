@@ -36,6 +36,8 @@
         android:clipChildren="true"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
+        android:paddingLeft="@dimen/profile_tab_padding"
+        android:paddingRight="@dimen/profile_tab_padding"
         android:orientation="vertical">
 
         <com.google.android.material.tabs.TabLayout
@@ -47,11 +49,12 @@
             app:tabGravity="fill"
             app:tabMode="fixed"
             app:tabIndicatorColor="?android:attr/colorAccent"
-            app:tabSelectedTextColor="?android:attr/colorAccent"
+            app:tabIndicatorHeight="@dimen/tab_selector_indicator_height"
+            app:tabSelectedTextColor="@color/tab_selected_text_color"
             app:tabTextAppearance="@style/TabTextAppearance"
-            app:tabTextColor="?android:attr/textColorSecondary"/>
-
+            app:tabTextColor="@color/tab_unselected_text_color"/>
         <View
+            android:id="@+id/tab_separator"
             android:layout_width="match_parent"
             android:layout_height="1dp"
             android:background="?android:attr/listDivider"/>
@@ -61,6 +64,7 @@
     <include layout="@layout/apps_row"/>
 
     <LinearLayout
+        android:id="@+id/header_container"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginStart="@dimen/root_info_header_horizontal_padding"

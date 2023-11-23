@@ -143,7 +143,8 @@ public final class PowerComponentUtil {
      * Matches the given string to {@link PowerComponent}.
      */
     @AddedInOrBefore(majorVersion = 33)
-    public static int toPowerComponent(@Nullable String component, boolean prefix) {
+    public static int toPowerComponent(@Nullable String componentArg, boolean prefix) {
+        String component = componentArg;
         if (component == null) {
             return INVALID_POWER_COMPONENT;
         }
@@ -231,6 +232,9 @@ public final class PowerComponentUtil {
             case PowerComponent.CPU:
                 return POWER_COMPONENT_CPU;
             default:
+                if (component >= PowerComponent.MINIMUM_CUSTOM_COMPONENT_VALUE) {
+                    return Integer.toString(component);
+                }
                 return "unknown component";
         }
     }

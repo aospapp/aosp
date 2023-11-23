@@ -23,7 +23,6 @@ import android.app.AlertDialog;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
-import android.os.UserHandle;
 import android.provider.Settings;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -35,6 +34,7 @@ import androidx.annotation.Nullable;
 
 import com.android.systemui.R;
 import com.android.systemui.dagger.SysUISingleton;
+import com.android.systemui.settings.UserTracker;
 import com.android.systemui.statusbar.policy.SecurityController;
 
 import javax.inject.Inject;
@@ -51,14 +51,15 @@ public class SystemDialogsViewController {
     @Inject
     public SystemDialogsViewController(
             Context context,
-            SecurityController securityController) {
+            SecurityController securityController,
+            UserTracker userTracker) {
         mContext = context;
         mSecurityController = securityController;
         mOnDeviceMonitoringDialogClickListener = (dialog, which) -> {
             dialog.dismiss();
             if (which == DialogInterface.BUTTON_NEUTRAL) {
                 Intent intent = new Intent(Settings.ACTION_ENTERPRISE_PRIVACY_SETTINGS);
-                mContext.startActivityAsUser(intent, UserHandle.CURRENT);
+                mContext.startActivityAsUser(intent, userTracker.getUserHandle());
             }
         };
     }
@@ -194,7 +195,7 @@ public class SystemDialogsViewController {
                 return mContext.getString(R.string.monitoring_description_two_named_vpns,
                         vpnName, vpnNameWorkProfile);
             } else {
-                return mContext.getString(R.string.monitoring_description_named_vpn,
+                return mContext.getString(R.string.monitoring_description_managed_device_named_vpn,
                         vpnName != null ? vpnName : vpnNameWorkProfile);
             }
         } else {

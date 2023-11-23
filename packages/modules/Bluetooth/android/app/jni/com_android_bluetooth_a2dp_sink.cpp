@@ -16,11 +16,14 @@
 
 #define LOG_TAG "BluetoothA2dpSinkServiceJni"
 
+#include <string.h>
+
+#include <mutex>
+#include <shared_mutex>
+
 #include "com_android_bluetooth.h"
 #include "hardware/bt_av.h"
 #include "utils/Log.h"
-
-#include <string.h>
 
 namespace android {
 static jmethodID method_onConnectionStateChanged;
@@ -29,10 +32,15 @@ static jmethodID method_onAudioConfigChanged;
 
 static const btav_sink_interface_t* sBluetoothA2dpInterface = NULL;
 static jobject mCallbacksObj = NULL;
+static std::shared_timed_mutex callbacks_mutex;
 
-static void bta2dp_connection_state_callback(const RawAddress& bd_addr,
-                                             btav_connection_state_t state) {
+static void a2dp_sink_connection_state_callback(const RawAddress& bd_addr,
+                                                btav_connection_state_t state,
+                                                const btav_error_t& error) {
   ALOGI("%s", __func__);
+  std::shared_lock<std::shared_timed_mutex> lock(callbacks_mutex);
+  if (!mCallbacksObj) return;
+
   CallbackEnv sCallbackEnv(__func__);
   if (!sCallbackEnv.valid()) return;
 
@@ -49,9 +57,12 @@ static void bta2dp_connection_state_callback(const RawAddress& bd_addr,
                                addr.get(), (jint)state);
 }
 
-static void bta2dp_audio_state_callback(const RawAddress& bd_addr,
-                                        btav_audio_state_t state) {
+static void a2dp_sink_audio_state_callback(const RawAddress& bd_addr,
+                                           btav_audio_state_t state) {
   ALOGI("%s", __func__);
+  std::shared_lock<std::shared_timed_mutex> lock(callbacks_mutex);
+  if (!mCallbacksObj) return;
+
   CallbackEnv sCallbackEnv(__func__);
   if (!sCallbackEnv.valid()) return;
 
@@ -68,10 +79,13 @@ static void bta2dp_audio_state_callback(const RawAddress& bd_addr,
                                addr.get(), (jint)state);
 }
 
-static void bta2dp_audio_config_callback(const RawAddress& bd_addr,
-                                         uint32_t sample_rate,
-                                         uint8_t channel_count) {
+static void a2dp_sink_audio_config_callback(const RawAddress& bd_addr,
+                                            uint32_t sample_rate,
+                                            uint8_t channel_count) {
   ALOGI("%s", __func__);
+  std::shared_lock<std::shared_timed_mutex> lock(callbacks_mutex);
+  if (!mCallbacksObj) return;
+
   CallbackEnv sCallbackEnv(__func__);
   if (!sCallbackEnv.valid()) return;
 
@@ -90,8 +104,10 @@ static void bta2dp_audio_config_callback(const RawAddress& bd_addr,
 }
 
 static btav_sink_callbacks_t sBluetoothA2dpCallbacks = {
-    sizeof(sBluetoothA2dpCallbacks), bta2dp_connection_state_callback,
-    bta2dp_audio_state_callback, bta2dp_audio_config_callback,
+    sizeof(sBluetoothA2dpCallbacks),
+    a2dp_sink_connection_state_callback,
+    a2dp_sink_audio_state_callback,
+    a2dp_sink_audio_config_callback,
 };
 
 static void classInitNative(JNIEnv* env, jclass clazz) {
@@ -109,6 +125,8 @@ static void classInitNative(JNIEnv* env, jclass clazz) {
 
 static void initNative(JNIEnv* env, jobject object,
                        jint maxConnectedAudioDevices) {
+  std::unique_lock<std::shared_timed_mutex> lock(callbacks_mutex);
+
   const bt_interface_t* btInf = getBluetoothInterface();
   if (btInf == NULL) {
     ALOGE("Bluetooth module is not loaded");
@@ -147,6 +165,7 @@ static void initNative(JNIEnv* env, jobject object,
 }
 
 static void cleanupNative(JNIEnv* env, jobject object) {
+  std::unique_lock<std::shared_timed_mutex> lock(callbacks_mutex);
   const bt_interface_t* btInf = getBluetoothInterface();
 
   if (btInf == NULL) {

@@ -88,6 +88,8 @@
             notifying that internet access is now available or that a venue info page is
             available, for example. -->
             <item type="drawable" name="icon_wifi"/>
+            <!-- Whether to validate DUN networks. This is unused and always true on U+. -->
+            <item type="bool" name="config_validate_dun_networks"/>
         </policy>
     </overlayable>
 </resources>

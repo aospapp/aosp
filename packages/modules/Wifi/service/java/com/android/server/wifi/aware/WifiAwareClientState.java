@@ -25,9 +25,10 @@ import android.app.AppOpsManager;
 import android.content.Context;
 import android.net.wifi.aware.ConfigRequest;
 import android.net.wifi.aware.IWifiAwareEventCallback;
+import android.net.wifi.aware.IdentityChangedListener;
 import android.net.wifi.util.HexEncoding;
-import android.os.Bundle;
 import android.os.RemoteException;
+import android.util.LocalLog;
 import android.util.Log;
 import android.util.SparseArray;
 
@@ -51,34 +52,36 @@ public class WifiAwareClientState {
     private static final boolean VDBG = false; // STOPSHIP if true
     private boolean mDbg = false;
 
-    /* package */ static final int CLUSTER_CHANGE_EVENT_STARTED = 0;
-    /* package */ static final int CLUSTER_CHANGE_EVENT_JOINED = 1;
-
     private final Context mContext;
     private final IWifiAwareEventCallback mCallback;
     private final SparseArray<WifiAwareDiscoverySessionState> mSessions = new SparseArray<>();
+    private final LocalLog mLocalLog;
 
     private final int mClientId;
     private ConfigRequest mConfigRequest;
     private final int mUid;
     private final int mPid;
     private final String mCallingPackage;
-    private final @Nullable String mCallingFeatureId;
+    public final @Nullable String mCallingFeatureId;
     private final boolean mNotifyIdentityChange;
     private final WifiPermissionsUtil mWifiPermissionsUtil;
-    private final Bundle mExtra;
+    private final Object mAttributionSource;
 
     private final AppOpsManager mAppOps;
     private final long mCreationTime;
+    private final boolean mAwareOffload;
+    public final int mCallerType;
 
     private static final byte[] ALL_ZERO_MAC = new byte[] {0, 0, 0, 0, 0, 0};
     private byte[] mLastDiscoveryInterfaceMac = ALL_ZERO_MAC;
+    private byte[] mLastClusterId = ALL_ZERO_MAC;
 
     public WifiAwareClientState(Context context, int clientId, int uid, int pid,
             String callingPackage, @Nullable String callingFeatureId,
             IWifiAwareEventCallback callback, ConfigRequest configRequest,
             boolean notifyIdentityChange, long creationTime,
-            WifiPermissionsUtil wifiPermissionsUtil, Bundle extra) {
+            WifiPermissionsUtil wifiPermissionsUtil, Object attributionSource, LocalLog localLog,
+            boolean awareOffload, int callerType) {
         mContext = context;
         mClientId = clientId;
         mUid = uid;
@@ -88,11 +91,14 @@ public class WifiAwareClientState {
         mCallback = callback;
         mConfigRequest = configRequest;
         mNotifyIdentityChange = notifyIdentityChange;
+        mAwareOffload = awareOffload;
 
         mAppOps = (AppOpsManager) context.getSystemService(Context.APP_OPS_SERVICE);
         mCreationTime = creationTime;
         mWifiPermissionsUtil = wifiPermissionsUtil;
-        mExtra = extra;
+        mAttributionSource = attributionSource;
+        mLocalLog = localLog;
+        mCallerType = callerType;
     }
 
     /**
@@ -107,11 +113,13 @@ public class WifiAwareClientState {
      * the client. Destroys all discovery sessions belonging to this client.
      */
     public void destroy() {
+        mLocalLog.log("onAwareSessionTerminated, ClientId:" + mClientId);
         for (int i = 0; i < mSessions.size(); ++i) {
             mSessions.valueAt(i).terminate();
         }
         mSessions.clear();
         mConfigRequest = null;
+
         try {
             mCallback.onAttachTerminate();
         } catch (RemoteException e1) {
@@ -147,8 +155,12 @@ public class WifiAwareClientState {
         return mSessions;
     }
 
-    public Bundle getExtra() {
-        return mExtra;
+    public Object getAttributionSource() {
+        return mAttributionSource;
+    }
+
+    public boolean isAwareOffload() {
+        return mAwareOffload;
     }
     /**
      * Searches the discovery sessions of this client and returns the one
@@ -238,18 +250,16 @@ public class WifiAwareClientState {
      *            client.
      */
     public void onInterfaceAddressChange(byte[] mac) {
-        if (mDbg) {
-            Log.v(TAG,
-                    "onInterfaceAddressChange: mClientId=" + mClientId + ", mNotifyIdentityChange="
-                            + mNotifyIdentityChange + ", mac=" + String.valueOf(
-                            HexEncoding.encode(mac)) + ", mLastDiscoveryInterfaceMac="
-                            + String.valueOf(HexEncoding.encode(mLastDiscoveryInterfaceMac)));
-        }
+        mLocalLog.log("onInterfaceAddressChange: mClientId=" + mClientId
+                + ", mNotifyIdentityChange=" + mNotifyIdentityChange
+                + ", mac=" + String.valueOf(HexEncoding.encode(mac))
+                + ", mLastDiscoveryInterfaceMac="
+                + String.valueOf(HexEncoding.encode(mLastDiscoveryInterfaceMac)));
         if (mNotifyIdentityChange && !Arrays.equals(mac, mLastDiscoveryInterfaceMac)) {
+            boolean hasPermission = mWifiPermissionsUtil.checkCallersLocationPermission(
+                    mCallingPackage, mCallingFeatureId, mUid,
+                    /* coarseForTargetSdkLessThanQ */ true, null);
             try {
-                boolean hasPermission = mWifiPermissionsUtil.checkCallersLocationPermission(
-                        mCallingPackage, mCallingFeatureId, mUid,
-                        /* coarseForTargetSdkLessThanQ */ true, null);
                 if (VDBG) Log.v(TAG, "hasPermission=" + hasPermission);
                 mCallback.onIdentityChanged(hasPermission ? mac : ALL_ZERO_MAC);
             } catch (RemoteException e) {
@@ -267,26 +277,34 @@ public class WifiAwareClientState {
      * concerns). Dispatched if the client registered for the identity changed
      * event.
      *
-     * @param mac The cluster ID of the cluster started or joined.
+     * @param clusterEventType The type of the cluster event that triggered the callback.
+     * @param clusterId The cluster ID of the cluster started or joined.
      * @param currentDiscoveryInterfaceMac The MAC address of the discovery interface.
      */
-    public void onClusterChange(int flag, byte[] mac, byte[] currentDiscoveryInterfaceMac) {
+    public void onClusterChange(@IdentityChangedListener.ClusterChangeEvent int clusterEventType,
+            byte[] clusterId, byte[] currentDiscoveryInterfaceMac) {
         if (mDbg) {
             Log.v(TAG,
                     "onClusterChange: mClientId=" + mClientId + ", mNotifyIdentityChange="
-                            + mNotifyIdentityChange + ", mac=" + String.valueOf(
-                            HexEncoding.encode(mac)) + ", currentDiscoveryInterfaceMac="
+                            + mNotifyIdentityChange + ", clusterId=" + String.valueOf(
+                            HexEncoding.encode(clusterId)) + ", currentDiscoveryInterfaceMac="
                             + String.valueOf(HexEncoding.encode(currentDiscoveryInterfaceMac))
                             + ", mLastDiscoveryInterfaceMac=" + String.valueOf(
-                            HexEncoding.encode(mLastDiscoveryInterfaceMac)));
+                            HexEncoding.encode(mLastDiscoveryInterfaceMac))
+                            + ", mLastClusterId="
+                            + String.valueOf(HexEncoding.encode(mLastClusterId)));
         }
-        if (mNotifyIdentityChange && !Arrays.equals(currentDiscoveryInterfaceMac,
-                mLastDiscoveryInterfaceMac)) {
+        if (!mNotifyIdentityChange) {
+            mLastDiscoveryInterfaceMac = currentDiscoveryInterfaceMac;
+            mLastClusterId = clusterId;
+            return;
+        }
+        boolean hasPermission = mWifiPermissionsUtil.checkCallersLocationPermission(
+                mCallingPackage, mCallingFeatureId, mUid,
+                /* coarseForTargetSdkLessThanQ */ true, null);
+        if (VDBG) Log.v(TAG, "hasPermission=" + hasPermission);
+        if (!Arrays.equals(currentDiscoveryInterfaceMac, mLastDiscoveryInterfaceMac)) {
             try {
-                boolean hasPermission = mWifiPermissionsUtil.checkCallersLocationPermission(
-                        mCallingPackage, mCallingFeatureId, mUid,
-                        /* coarseForTargetSdkLessThanQ */ true, null);
-                if (VDBG) Log.v(TAG, "hasPermission=" + hasPermission);
                 mCallback.onIdentityChanged(
                         hasPermission ? currentDiscoveryInterfaceMac : ALL_ZERO_MAC);
             } catch (RemoteException e) {
@@ -295,6 +313,17 @@ public class WifiAwareClientState {
         }
 
         mLastDiscoveryInterfaceMac = currentDiscoveryInterfaceMac;
+
+        if (!Arrays.equals(clusterId, mLastClusterId)) {
+            try {
+                mCallback.onClusterIdChanged(clusterEventType,
+                        hasPermission ? clusterId : ALL_ZERO_MAC);
+            } catch (RemoteException e) {
+                Log.w(TAG, "onClusterIdChanged: RemoteException - ignored: " + e);
+            }
+        }
+
+        mLastClusterId = clusterId;
     }
 
     /**

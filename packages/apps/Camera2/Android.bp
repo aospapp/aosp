@@ -44,7 +44,7 @@ android_app {
         "20002000",
     ],
 
-    sdk_version: "current",
+    sdk_version: "system_current",
 
     product_specific: true,
 

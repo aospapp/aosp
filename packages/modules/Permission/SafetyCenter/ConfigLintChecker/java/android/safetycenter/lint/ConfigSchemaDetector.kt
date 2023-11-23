@@ -16,6 +16,7 @@
 
 package android.safetycenter.lint
 
+import android.os.Build.VERSION_CODES.TIRAMISU
 import com.android.resources.ResourceFolderType
 import com.android.tools.lint.detector.api.Category
 import com.android.tools.lint.detector.api.Context
@@ -36,20 +37,20 @@ import org.xml.sax.SAXException
 class ConfigSchemaDetector : Detector(), OtherFileScanner {
 
     companion object {
-        val ISSUE = Issue.create(
-            id = "InvalidSafetyCenterConfigSchema",
-            briefDescription = "The Safety Center config does not meet the schema requirements",
-            explanation = """The Safety Center config must follow all constraints defined in \
+        val ISSUE =
+            Issue.create(
+                id = "InvalidSafetyCenterConfigSchema",
+                briefDescription = "The Safety Center config does not meet the schema requirements",
+                explanation =
+                    """The Safety Center config must follow all constraints defined in \
                 safety_center_config.xsd. Either the config is invalid or the schema is not up to
                 date.""",
-            category = Category.CORRECTNESS,
-            severity = Severity.ERROR,
-            implementation = Implementation(
-                ConfigSchemaDetector::class.java,
-                Scope.OTHER_SCOPE
-            ),
-            androidSpecific = true
-        )
+                category = Category.CORRECTNESS,
+                severity = Severity.ERROR,
+                implementation =
+                    Implementation(ConfigSchemaDetector::class.java, Scope.OTHER_SCOPE),
+                androidSpecific = true
+            )
     }
 
     override fun appliesTo(folderType: ResourceFolderType): Boolean {
@@ -60,9 +61,32 @@ class ConfigSchemaDetector : Detector(), OtherFileScanner {
         if (context.file.name != "safety_center_config.xml") {
             return
         }
-        val xsd = StreamSource(
-            ConfigSchemaDetector::class.java.getResourceAsStream("/safety_center_config.xsd")
-        )
+        val fileSdk = FileSdk.getSdkQualifier(context.file)
+        // A config must comply with the schema at the highest SDK level that is lower or equal to
+        // the SDK level of the config itself.
+        var found = false
+        for (sdk in fileSdk downTo TIRAMISU) {
+            if (testSchema(sdk, context)) {
+                found = true
+                break
+            }
+        }
+        if (!found) {
+            context.report(
+                ISSUE,
+                Location.create(context.file),
+                "No schema found for SDK level: $fileSdk, was it deleted?"
+            )
+        }
+        // Test new schemas for backward compatibility.
+        for (sdk in fileSdk + 1..FileSdk.getMaxSdkVersion()) {
+            testSchema(sdk, context)
+        }
+    }
+
+    private fun testSchema(sdk: Int, context: Context): Boolean {
+        val xsdInputStream = FileSdk.getSchemaAsStream(sdk) ?: return false
+        val xsd = StreamSource(xsdInputStream)
         val xml = StreamSource(context.file.inputStream())
         val schemaFactory = SchemaFactory.newInstance(XMLConstants.W3C_XML_SCHEMA_NS_URI)
         try {
@@ -73,14 +97,15 @@ class ConfigSchemaDetector : Detector(), OtherFileScanner {
             context.report(
                 ISSUE,
                 Location.create(context.file),
-                e.message!!
+                "SAXException exception at sdk=$sdk: \"${e.message}\""
             )
         } catch (e: IOException) {
             context.report(
                 ISSUE,
                 Location.create(context.file),
-                e.message!!
+                "IOException exception at sdk=$sdk: \"${e.message}\""
             )
         }
+        return true
     }
 }

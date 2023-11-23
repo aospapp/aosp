@@ -33,6 +33,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.os.Handler;
+import android.os.ParcelUuid;
 import android.os.UserHandle;
 import android.provider.Settings;
 import android.text.TextUtils;
@@ -289,6 +290,7 @@ public final class BluetoothDeviceManager {
         filter.addAction(BluetoothDevice.ACTION_BOND_STATE_CHANGED);
 
         // TODO (201800664): Profile State Change actions are hidden. This is a work around for now
+        filter.addAction(BluetoothUtils.A2DP_SOURCE_CONNECTION_STATE_CHANGED);
         filter.addAction(BluetoothUtils.A2DP_SINK_CONNECTION_STATE_CHANGED);
         filter.addAction(BluetoothUtils.HFP_CLIENT_CONNECTION_STATE_CHANGED);
         filter.addAction(BluetoothUtils.MAP_CLIENT_CONNECTION_STATE_CHANGED);
@@ -482,14 +484,17 @@ public final class BluetoothDeviceManager {
                     || getDeviceConnectionPriority(device) == priority) {
                 return;
             }
+            int priorityToSet = priority;
             if (mPrioritizedDevices.contains(device)) {
                 mPrioritizedDevices.remove(device);
-                if (priority > mPrioritizedDevices.size()) priority = mPrioritizedDevices.size();
+                if (priorityToSet > mPrioritizedDevices.size()) {
+                    priorityToSet = mPrioritizedDevices.size();
+                }
             }
             if (DBG) {
-                Slogf.d(TAG, "Set connection priority of %s to %d", device, priority);
+                Slogf.d(TAG, "Set connection priority of %s to %d", device, priorityToSet);
             }
-            mPrioritizedDevices.add(priority, device);
+            mPrioritizedDevices.add(priorityToSet, device);
             commit();
         }
     }
@@ -596,6 +601,7 @@ public final class BluetoothDeviceManager {
 
             mAutoConnectingDeviceProfiles.clear();
 
+            addWatchedProfileIfSupported(BluetoothProfile.A2DP);
             addWatchedProfileIfSupported(BluetoothProfile.A2DP_SINK);
             addWatchedProfileIfSupported(BluetoothProfile.HEADSET_CLIENT);
             addWatchedProfileIfSupported(BluetoothProfile.MAP_CLIENT);
@@ -609,13 +615,18 @@ public final class BluetoothDeviceManager {
      * connecting device. Assumes you hold {@code mAutoConnectLock}.
      */
     private void addWatchedProfileIfSupported(int profile) {
+        List<ParcelUuid> ourUuids = mBluetoothAdapter.getUuidsList();
         synchronized (mAutoConnectLock) {
             BluetoothDevice device = mAutoConnectingDevices.get(mAutoConnectPriority);
             if (device == null) {
                 return;
             }
-            if (BluetoothUtils.isProfileSupported(device, profile)) {
+            if (BluetoothUtils.isProfileSupported(ourUuids, device, profile)) {
                 mAutoConnectingDeviceProfiles.put(profile, -1);
+                if (DBG) {
+                    Slogf.d(TAG, "Device %s supports %s. Expect a connection", device,
+                            BluetoothUtils.getProfileName(profile));
+                }
             }
         }
     }

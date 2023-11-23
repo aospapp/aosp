@@ -68,7 +68,8 @@ class LinkManager : public hci::acl_manager::ConnectionCallbacks {
 
   Link* GetLink(hci::Address device);
   void OnConnectSuccess(std::unique_ptr<hci::acl_manager::ClassicAclConnection> acl_connection) override;
-  void OnConnectFail(hci::Address device, hci::ErrorCode reason) override;
+  void OnConnectRequest(hci::Address, hci::ClassOfDevice) override;
+  void OnConnectFail(hci::Address device, hci::ErrorCode reason, bool locally_initiated) override;
 
   void HACK_OnEscoConnectRequest(hci::Address, hci::ClassOfDevice) override;
   void HACK_OnScoConnectRequest(hci::Address, hci::ClassOfDevice) override;

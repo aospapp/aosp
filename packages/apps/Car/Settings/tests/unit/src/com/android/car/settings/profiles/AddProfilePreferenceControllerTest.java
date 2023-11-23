@@ -18,6 +18,7 @@ package com.android.car.settings.profiles;
 
 import static com.android.car.settings.common.PreferenceController.AVAILABLE;
 import static com.android.car.settings.common.PreferenceController.AVAILABLE_FOR_VIEWING;
+import static com.android.car.settings.common.PreferenceController.CONDITIONALLY_UNAVAILABLE;
 import static com.android.car.settings.common.PreferenceController.DISABLED_FOR_PROFILE;
 import static com.android.car.settings.enterprise.ActionDisabledByAdminDialogFragment.DISABLED_BY_ADMIN_CONFIRM_DIALOG_TAG;
 import static com.android.car.settings.profiles.AddProfilePreferenceController.MAX_PROFILES_LIMIT_REACHED_DIALOG_TAG;
@@ -111,6 +112,49 @@ public class AddProfilePreferenceControllerTest {
     }
 
     @Test
+    public void onCreate_userCanAddNewProfile_showsAddProfileButton_zoneWrite() {
+        when(mUserManager.isDemoUser()).thenReturn(false);
+        when(mUserManager.hasUserRestriction(UserManager.DISALLOW_ADD_USER)).thenReturn(false);
+
+        mPreferenceController.setAvailabilityStatusForZone("write");
+        mPreferenceController.onCreate(mLifecycleOwner);
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), AVAILABLE);
+        assertThat(mPreference.isVisible()).isTrue();
+        assertThat(mPreference.getTitle()).isEqualTo(
+                ResourceTestUtils.getString(mContext, "add_profile_text"));
+    }
+
+    @Test
+    public void onCreate_userCanAddNewProfile_showsAddProfileButton_zoneRead() {
+        when(mUserManager.isDemoUser()).thenReturn(false);
+        when(mUserManager.hasUserRestriction(UserManager.DISALLOW_ADD_USER)).thenReturn(false);
+
+        mPreferenceController.setAvailabilityStatusForZone("read");
+        mPreferenceController.onCreate(mLifecycleOwner);
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), AVAILABLE_FOR_VIEWING);
+        assertThat(mPreference.isVisible()).isTrue();
+        assertThat(mPreference.getTitle()).isEqualTo(
+                ResourceTestUtils.getString(mContext, "add_profile_text"));
+    }
+
+    @Test
+    public void onCreate_userCanAddNewProfile_showsAddProfileButton_zoneHidden() {
+        when(mUserManager.isDemoUser()).thenReturn(false);
+        when(mUserManager.hasUserRestriction(UserManager.DISALLOW_ADD_USER)).thenReturn(false);
+
+        mPreferenceController.setAvailabilityStatusForZone("hidden");
+        mPreferenceController.onCreate(mLifecycleOwner);
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), CONDITIONALLY_UNAVAILABLE);
+        assertThat(mPreference.isVisible()).isFalse();
+    }
+
+    @Test
     public void onCreate_userRestrictedByDpmFromAddingNewProfileAndNotInDemo_availableForViewing() {
         when(mUserManager.isDemoUser()).thenReturn(false);
         when(mUserManager.canAddMoreUsers()).thenReturn(true);
@@ -123,6 +167,48 @@ public class AddProfilePreferenceControllerTest {
     }
 
     @Test
+    public void onCreate_addingNewProfileAndNotInDemo_availableForViewing_zoneWrite() {
+        when(mUserManager.isDemoUser()).thenReturn(false);
+        when(mUserManager.canAddMoreUsers()).thenReturn(true);
+        EnterpriseTestUtils
+                .mockUserRestrictionSetByDpm(mUserManager, TEST_RESTRICTION, true);
+
+        mPreferenceController.setAvailabilityStatusForZone("write");
+        mPreferenceController.onCreate(mLifecycleOwner);
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), AVAILABLE_FOR_VIEWING);
+    }
+
+    @Test
+    public void onCreate_addingNewProfileAndNotInDemo_availableForViewing_zoneRead() {
+        when(mUserManager.isDemoUser()).thenReturn(false);
+        when(mUserManager.canAddMoreUsers()).thenReturn(true);
+        EnterpriseTestUtils
+                .mockUserRestrictionSetByDpm(mUserManager, TEST_RESTRICTION, true);
+
+        mPreferenceController.setAvailabilityStatusForZone("read");
+        mPreferenceController.onCreate(mLifecycleOwner);
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), AVAILABLE_FOR_VIEWING);
+    }
+
+    @Test
+    public void onCreate_addingNewProfileAndNotInDemo_availableForViewing_zoneHidden() {
+        when(mUserManager.isDemoUser()).thenReturn(false);
+        when(mUserManager.canAddMoreUsers()).thenReturn(true);
+        EnterpriseTestUtils
+                .mockUserRestrictionSetByDpm(mUserManager, TEST_RESTRICTION, true);
+
+        mPreferenceController.setAvailabilityStatusForZone("hidden");
+        mPreferenceController.onCreate(mLifecycleOwner);
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), CONDITIONALLY_UNAVAILABLE);
+    }
+
+    @Test
     public void onCreate_userRestrictedByUmFromAddingNewProfileAndNotInDemo_buttonDisabled() {
         when(mUserManager.isDemoUser()).thenReturn(false);
         EnterpriseTestUtils
@@ -131,6 +217,48 @@ public class AddProfilePreferenceControllerTest {
         mPreferenceController.onCreate(mLifecycleOwner);
 
         assertThat(mPreferenceController.getAvailabilityStatus()).isEqualTo(DISABLED_FOR_PROFILE);
+        assertThat(mPreference.isVisible()).isFalse();
+    }
+
+    @Test
+    public void onCreate_addingNewProfileAndNotInDemo_buttonDisabled_zoneWrite() {
+        when(mUserManager.isDemoUser()).thenReturn(false);
+        EnterpriseTestUtils
+                .mockUserRestrictionSetByUm(mUserManager, TEST_RESTRICTION, true);
+
+        mPreferenceController.setAvailabilityStatusForZone("write");
+        mPreferenceController.onCreate(mLifecycleOwner);
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), DISABLED_FOR_PROFILE);
+        assertThat(mPreference.isVisible()).isFalse();
+    }
+
+    @Test
+    public void onCreate_addingNewProfileAndNotInDemo_buttonDisabled_zoneRead() {
+        when(mUserManager.isDemoUser()).thenReturn(false);
+        EnterpriseTestUtils
+                .mockUserRestrictionSetByUm(mUserManager, TEST_RESTRICTION, true);
+
+        mPreferenceController.setAvailabilityStatusForZone("read");
+        mPreferenceController.onCreate(mLifecycleOwner);
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), DISABLED_FOR_PROFILE);
+        assertThat(mPreference.isVisible()).isFalse();
+    }
+
+    @Test
+    public void onCreate_addingNewProfileAndNotInDemo_buttonDisabled_zoneHidden() {
+        when(mUserManager.isDemoUser()).thenReturn(false);
+        EnterpriseTestUtils
+                .mockUserRestrictionSetByUm(mUserManager, TEST_RESTRICTION, true);
+
+        mPreferenceController.setAvailabilityStatusForZone("hidden");
+        mPreferenceController.onCreate(mLifecycleOwner);
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), DISABLED_FOR_PROFILE);
         assertThat(mPreference.isVisible()).isFalse();
     }
 

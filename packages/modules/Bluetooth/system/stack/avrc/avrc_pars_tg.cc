@@ -46,7 +46,6 @@ static tAVRC_STS avrc_ctrl_pars_vendor_cmd(tAVRC_MSG_VENDOR* p_msg,
   if (p_msg->vendor_len < 4) {  // 4 == pdu + reserved byte + len as uint16
     AVRC_TRACE_WARNING("%s: message length %d too short: must be at least 4",
                        __func__, p_msg->vendor_len);
-    android_errorWriteLog(0x534e4554, "205571133");
     return AVRC_STS_INTERNAL_ERR;
   }
   uint8_t* p = p_msg->p_vendor_data;
@@ -84,7 +83,6 @@ static tAVRC_STS avrc_ctrl_pars_vendor_cmd(tAVRC_MSG_VENDOR* p_msg,
 
       if (p_result->reg_notif.event_id == 0 ||
           p_result->reg_notif.event_id > AVRC_NUM_NOTIF_EVENTS) {
-        android_errorWriteLog(0x534e4554, "181860042");
         status = AVRC_STS_BAD_PARAM;
       }
       break;
@@ -125,7 +123,6 @@ static tAVRC_STS avrc_pars_vendor_cmd(tAVRC_MSG_VENDOR* p_msg,
   if (p_msg->p_vendor_data == NULL) return AVRC_STS_INTERNAL_ERR;
 
   if (p_msg->vendor_len < 4) {
-    android_errorWriteLog(0x534e4554, "168712382");
     AVRC_TRACE_WARNING("%s: message length %d too short: must be at least 4",
                        __func__, p_msg->vendor_len);
     return AVRC_STS_INTERNAL_ERR;
@@ -183,7 +180,6 @@ static tAVRC_STS avrc_pars_vendor_cmd(tAVRC_MSG_VENDOR* p_msg,
       }
 
       if (p_result->get_cur_app_val.num_attr > AVRC_MAX_APP_ATTR_SIZE) {
-        android_errorWriteLog(0x534e4554, "63146237");
         p_result->get_cur_app_val.num_attr = AVRC_MAX_APP_ATTR_SIZE;
       }
 
@@ -244,7 +240,6 @@ static tAVRC_STS avrc_pars_vendor_cmd(tAVRC_MSG_VENDOR* p_msg,
             status = AVRC_STS_INTERNAL_ERR;
           else {
             if (p_result->get_app_val_txt.num_val > AVRC_MAX_APP_ATTR_SIZE) {
-              android_errorWriteLog(0x534e4554, "63146237");
               p_result->get_app_val_txt.num_val = AVRC_MAX_APP_ATTR_SIZE;
             }
 
@@ -326,7 +321,6 @@ static tAVRC_STS avrc_pars_vendor_cmd(tAVRC_MSG_VENDOR* p_msg,
       else {
         BE_STREAM_TO_UINT8(p_result->reg_notif.event_id, p);
         if (!AVRC_IS_VALID_EVENT_ID(p_result->reg_notif.event_id)) {
-          android_errorWriteLog(0x534e4554, "168802990");
           AVRC_TRACE_ERROR("%s: Invalid event id: %d", __func__,
                            p_result->reg_notif.event_id);
           return AVRC_STS_BAD_PARAM;
@@ -443,7 +437,7 @@ static tAVRC_STS avrc_pars_browsing_cmd(tAVRC_MSG_BROWSE* p_msg,
   uint8_t* p = p_msg->p_browse_data;
   int count;
 
-  uint16_t min_len = 3;
+  uint32_t min_len = 3;
   RETURN_STATUS_IF_FALSE(AVRC_STS_BAD_CMD, (p_msg->browse_len >= min_len),
                          "msg too short");
 
@@ -575,8 +569,6 @@ static tAVRC_STS avrc_pars_browsing_cmd(tAVRC_MSG_BROWSE* p_msg,
       if (p_buf) {
         if (p_result->search.string.str_len > buf_len) {
           p_result->search.string.str_len = buf_len;
-        } else {
-          android_errorWriteLog(0x534e4554, "63146237");
         }
         min_len += p_result->search.string.str_len;
         RETURN_STATUS_IF_FALSE(AVRC_STS_BAD_CMD, (p_msg->browse_len >= min_len),

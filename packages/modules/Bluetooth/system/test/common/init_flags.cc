@@ -9,6 +9,7 @@ namespace bluetooth {
 namespace common {
 
 bool InitFlags::logging_debug_enabled_for_all = false;
+bool InitFlags::leaudio_targeted_announcement_reconnection_mode = true;
 std::unordered_map<std::string, bool>
     InitFlags::logging_debug_explicit_tag_settings = {};
 void InitFlags::Load(const char** flags) {}

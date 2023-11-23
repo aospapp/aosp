@@ -30,7 +30,7 @@
     <string name="notification_disconnectedCall_body" msgid="600491714584417536">"Die oproep na <xliff:g id="CALLER">%s</xliff:g> is ontkoppel as gevolg van \'n noodoproep wat gemaak word."</string>
     <string name="notification_disconnectedCall_generic_body" msgid="5282765206349184853">"Jou oproep is ontkoppel as gevolg van \'n noodoproep wat gemaak word."</string>
     <string name="notification_audioProcessing_title" msgid="1619035039880584575">"Agtergrondoproep"</string>
-    <string name="notification_audioProcessing_body" msgid="6397005913770420388">"<xliff:g id="AUDIO_PROCESSING_APP_NAME">%s</xliff:g> het \'n oproep in die agtergrond geplaas. Hierdie program kan dalk toegang tot oudio kry en dit oor die oproep speel."</string>
+    <string name="notification_audioProcessing_body" msgid="8811420157964118913">"<xliff:g id="AUDIO_PROCESSING_APP_NAME">%s</xliff:g> verwerk ’n oproep in die agtergrond. Hierdie program kan dalk toegang tot oudio kry en dit oor die oproep speel."</string>
     <string name="notification_incallservice_not_responding_title" msgid="5347557574288598548">"<xliff:g id="IN_CALL_SERVICE_APP_NAME">%s</xliff:g> het opgehou reageer"</string>
     <string name="notification_incallservice_not_responding_body" msgid="9209308270131968623">"Jou oproep het die foonprogram gebruik wat saam met jou toestel gekom het"</string>
     <string name="accessibility_call_muted" msgid="2968461092554300779">"Oproep stilgemaak."</string>
@@ -100,6 +100,7 @@
     <string name="notification_channel_background_calls" msgid="7785659903711350506">"Agtergrondoproepe"</string>
     <string name="notification_channel_disconnected_calls" msgid="8228636543997645757">"Oproepe is ontkoppel"</string>
     <string name="notification_channel_in_call_service_crash" msgid="7313237519166984267">"Omgevalde foonprogramme"</string>
+    <string name="notification_channel_call_streaming" msgid="5100510699787538991">"Oproepstroming"</string>
     <string name="alert_outgoing_call" msgid="5319895109298927431">"As jy hierdie oproep maak, sal dit jou <xliff:g id="OTHER_APP">%1$s</xliff:g>-oproep beëindig."</string>
     <string name="alert_redirect_outgoing_call_or_not" msgid="665409645789521636">"Kies hoe om hierdie oproep te maak"</string>
     <string name="alert_place_outgoing_call_with_redirection" msgid="5221065030959024121">"Herlei oproep deur <xliff:g id="OTHER_APP">%1$s</xliff:g> te gebruik"</string>
@@ -123,4 +124,14 @@
     <string name="developer_title" msgid="9146088855661672353">"Telecom-ontwikkelaarkieslys"</string>
     <string name="toast_emergency_can_not_pull_call" msgid="9074229465338410869">"Oproepe kan nie gedurende \'n noodoproep geneem word nie."</string>
     <string name="cancel" msgid="6733466216239934756">"Kanselleer"</string>
+    <string name="back" msgid="6915955601805550206">"Terug"</string>
+    <string name="callendpoint_name_earpiece" msgid="7047285080319678594">"Oorstuk"</string>
+    <string name="callendpoint_name_bluetooth" msgid="210210953208913172">"Bluetooth"</string>
+    <string name="callendpoint_name_wiredheadset" msgid="6860787176412079742">"Kabelkopstuk"</string>
+    <string name="callendpoint_name_speaker" msgid="1971760468695323189">"Luidspreker"</string>
+    <string name="callendpoint_name_streaming" msgid="2337595450408275576">"Ekstern"</string>
+    <string name="callendpoint_name_unknown" msgid="2199074708477193852">"Onbekend"</string>
+    <string name="call_streaming_notification_body" msgid="502216105683378263">"Stroom oudio na ander toestel"</string>
+    <string name="call_streaming_notification_action_hang_up" msgid="7017663335289063827">"Beëindig oproep"</string>
+    <string name="call_streaming_notification_action_switch_here" msgid="3524180754186221228">"Skakel hier oor"</string>
 </resources>

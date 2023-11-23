@@ -47,11 +47,11 @@
 #include "types/ble_address_with_type.h"
 #include "types/raw_address.h"
 
-extern void gatt_notify_conn_update(const RawAddress& remote, uint16_t interval,
-                                    uint16_t latency, uint16_t timeout,
-                                    tHCI_STATUS status);
-extern void gatt_notify_phy_updated(tGATT_STATUS status, uint16_t handle,
-                                    uint8_t tx_phy, uint8_t rx_phy);
+void gatt_notify_conn_update(const RawAddress& remote, uint16_t interval,
+                             uint16_t latency, uint16_t timeout,
+                             tHCI_STATUS status);
+void gatt_notify_phy_updated(tGATT_STATUS status, uint16_t handle,
+                             uint8_t tx_phy, uint8_t rx_phy);
 
 void process_ssr_event(tHCI_STATUS status, uint16_t handle, uint16_t max_tx_lat,
                        uint16_t max_rx_lat);
@@ -482,7 +482,7 @@ class SecurityListenerShim
     address_to_handle_[bda] = handle;
     btm_sec_connected(bda, handle, HCI_SUCCESS, 0);
     BTM_PM_OnConnected(handle, bda);
-    BTA_dm_acl_up(bda, BT_TRANSPORT_BR_EDR);
+    BTA_dm_acl_up(bda, BT_TRANSPORT_BR_EDR, handle);
     address_to_interface_[bda] = std::move(interface);
   }
 
@@ -566,10 +566,11 @@ struct LeLinkPropertyListenerShim
   void OnLinkConnected(AddressWithType remote, uint16_t handle,
                        hci::Role role) override {
     info_[remote.GetAddress()] = {handle, role, remote};
+    LOG_ALWAYS_FATAL("discoverable bit needs to be determined properly");
     btm_ble_connected(ToRawAddress(remote.GetAddress()), handle,
                       HCI_ENCRYPT_MODE_DISABLED, static_cast<uint8_t>(role),
                       static_cast<tBLE_ADDR_TYPE>(remote.GetAddressType()),
-                      false);
+                      false, true);
   }
 
   void OnLinkDisconnected(hci::AddressWithType remote) override {
@@ -807,14 +808,15 @@ bool L2CA_ReconfigCreditBasedConnsReq(const RawAddress& bd_addr,
                                       std::vector<uint16_t>& lcids,
                                       tL2CAP_LE_CFG_INFO* p_cfg) {
   LOG_INFO("UNIMPLEMENTED %s addr: %s cfg:%p", __func__,
-           bd_addr.ToString().c_str(), p_cfg);
+           ADDRESS_TO_LOGGABLE_CSTR(bd_addr), p_cfg);
   return false;
 }
 
 std::vector<uint16_t> L2CA_ConnectCreditBasedReq(uint16_t psm,
                                                  const RawAddress& p_bd_addr,
                                                  tL2CAP_LE_CFG_INFO* p_cfg) {
-  LOG_INFO("UNIMPLEMENTED %s addr:%s", __func__, p_bd_addr.ToString().c_str());
+  LOG_INFO("UNIMPLEMENTED %s addr:%s", __func__,
+           ADDRESS_TO_LOGGABLE_CSTR(p_bd_addr));
   std::vector<uint16_t> result;
   return result;
 }
@@ -822,7 +824,8 @@ std::vector<uint16_t> L2CA_ConnectCreditBasedReq(uint16_t psm,
 bool L2CA_ConnectCreditBasedRsp(const RawAddress& bd_addr, uint8_t id,
                                 std::vector<uint16_t>& accepted_lcids,
                                 uint16_t result, tL2CAP_LE_CFG_INFO* p_cfg) {
-  LOG_INFO("UNIMPLEMENTED %s addr:%s", __func__, bd_addr.ToString().c_str());
+  LOG_INFO("UNIMPLEMENTED %s addr:%s", __func__,
+           ADDRESS_TO_LOGGABLE_CSTR(bd_addr));
   return false;
 }
 
@@ -1013,7 +1016,7 @@ bool L2CA_ConnectFixedChnl(uint16_t cid, const RawAddress& rem_bda) {
   if (record != le_link_property_listener_shim_.info_.end()) {
     remote = record->second.address_with_type;
   }
-  LOG(ERROR) << __func__ << remote.ToString();
+  LOG(ERROR) << __func__ << ADDRESS_TO_LOGGABLE_STR(remote);
   auto manager = GetL2capLeModule()->GetFixedChannelManager();
   manager->ConnectServices(
       remote,

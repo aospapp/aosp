@@ -79,7 +79,10 @@ void BTA_HdEnable(tBTA_HD_CBACK* p_cback) {
 void BTA_HdDisable(void) {
   APPL_TRACE_API("%s", __func__);
 
-  bta_sys_deregister(BTA_ID_HD);
+  if (!bluetooth::common::init_flags::
+          delay_hidh_cleanup_until_hidh_ready_start_is_enabled()) {
+    bta_sys_deregister(BTA_ID_HD);
+  }
 
   BT_HDR_RIGID* p_buf = (BT_HDR_RIGID*)osi_malloc(sizeof(BT_HDR_RIGID));
   p_buf->event = BTA_HD_API_DISABLE_EVT;
@@ -96,9 +99,8 @@ void BTA_HdDisable(void) {
  * Returns          void
  *
  ******************************************************************************/
-extern void BTA_HdRegisterApp(tBTA_HD_APP_INFO* p_app_info,
-                              tBTA_HD_QOS_INFO* p_in_qos,
-                              tBTA_HD_QOS_INFO* p_out_qos) {
+void BTA_HdRegisterApp(tBTA_HD_APP_INFO* p_app_info, tBTA_HD_QOS_INFO* p_in_qos,
+                       tBTA_HD_QOS_INFO* p_out_qos) {
   APPL_TRACE_API("%s", __func__);
 
   tBTA_HD_REGISTER_APP* p_buf =
@@ -128,7 +130,6 @@ extern void BTA_HdRegisterApp(tBTA_HD_APP_INFO* p_app_info,
 
   if (p_app_info->descriptor.dl_len > BTA_HD_APP_DESCRIPTOR_LEN) {
     p_app_info->descriptor.dl_len = BTA_HD_APP_DESCRIPTOR_LEN;
-    android_errorWriteLog(0x534e4554, "113111784");
   }
   p_buf->d_len = p_app_info->descriptor.dl_len;
   memcpy(p_buf->d_data, p_app_info->descriptor.dsc_list,
@@ -151,7 +152,7 @@ extern void BTA_HdRegisterApp(tBTA_HD_APP_INFO* p_app_info,
  * Returns          void
  *
  ******************************************************************************/
-extern void BTA_HdUnregisterApp(void) {
+void BTA_HdUnregisterApp(void) {
   APPL_TRACE_API("%s", __func__);
 
   BT_HDR_RIGID* p_buf = (BT_HDR_RIGID*)osi_malloc(sizeof(BT_HDR_RIGID));
@@ -169,7 +170,7 @@ extern void BTA_HdUnregisterApp(void) {
  * Returns          void
  *
  ******************************************************************************/
-extern void BTA_HdSendReport(tBTA_HD_REPORT* p_report) {
+void BTA_HdSendReport(tBTA_HD_REPORT* p_report) {
   APPL_TRACE_VERBOSE("%s", __func__);
 
   if (p_report->len > BTA_HD_REPORT_LEN) {
@@ -202,7 +203,7 @@ extern void BTA_HdSendReport(tBTA_HD_REPORT* p_report) {
  * Returns          void
  *
  ******************************************************************************/
-extern void BTA_HdVirtualCableUnplug(void) {
+void BTA_HdVirtualCableUnplug(void) {
   APPL_TRACE_API("%s", __func__);
 
   BT_HDR_RIGID* p_buf = (BT_HDR_RIGID*)osi_malloc(sizeof(BT_HDR_RIGID));
@@ -221,7 +222,7 @@ extern void BTA_HdVirtualCableUnplug(void) {
  * Returns          void
  *
  ******************************************************************************/
-extern void BTA_HdConnect(const RawAddress& addr) {
+void BTA_HdConnect(const RawAddress& addr) {
   APPL_TRACE_API("%s", __func__);
 
   tBTA_HD_DEVICE_CTRL* p_buf =
@@ -242,7 +243,7 @@ extern void BTA_HdConnect(const RawAddress& addr) {
  * Returns          void
  *
  ******************************************************************************/
-extern void BTA_HdDisconnect(void) {
+void BTA_HdDisconnect(void) {
   APPL_TRACE_API("%s", __func__);
   BT_HDR_RIGID* p_buf = (BT_HDR_RIGID*)osi_malloc(sizeof(BT_HDR_RIGID));
   p_buf->event = BTA_HD_API_DISCONNECT_EVT;
@@ -259,7 +260,7 @@ extern void BTA_HdDisconnect(void) {
  * Returns          void
  *
  ******************************************************************************/
-extern void BTA_HdAddDevice(const RawAddress& addr) {
+void BTA_HdAddDevice(const RawAddress& addr) {
   APPL_TRACE_API("%s", __func__);
   tBTA_HD_DEVICE_CTRL* p_buf =
       (tBTA_HD_DEVICE_CTRL*)osi_malloc(sizeof(tBTA_HD_DEVICE_CTRL));
@@ -279,7 +280,7 @@ extern void BTA_HdAddDevice(const RawAddress& addr) {
  * Returns          void
  *
  ******************************************************************************/
-extern void BTA_HdRemoveDevice(const RawAddress& addr) {
+void BTA_HdRemoveDevice(const RawAddress& addr) {
   APPL_TRACE_API("%s", __func__);
   tBTA_HD_DEVICE_CTRL* p_buf =
       (tBTA_HD_DEVICE_CTRL*)osi_malloc(sizeof(tBTA_HD_DEVICE_CTRL));
@@ -299,7 +300,7 @@ extern void BTA_HdRemoveDevice(const RawAddress& addr) {
  * Returns          void
  *
  ******************************************************************************/
-extern void BTA_HdReportError(uint8_t error) {
+void BTA_HdReportError(uint8_t error) {
   APPL_TRACE_API("%s", __func__);
   tBTA_HD_REPORT_ERR* p_buf =
       (tBTA_HD_REPORT_ERR*)osi_malloc(sizeof(tBTA_HD_REPORT_ERR));

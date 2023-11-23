@@ -26,7 +26,7 @@
     <string name="printer_low_on_toner" msgid="8807858294038587130">"ቶነር በጣም ዝቅተኛ ነው"</string>
     <string name="printer_door_open" msgid="2446302931916940874">"በር ክፍት ነው"</string>
     <string name="printer_jammed" msgid="5104099859384749499">"ወረቀት ታጭቋል"</string>
-    <string name="printer_offline" msgid="9196864753298645066">"ከመስመር ውጪ"</string>
+    <string name="printer_offline" msgid="9196864753298645066">"ከመስመር ውጭ"</string>
     <string name="printer_bad_certificate" msgid="1366180387095466268">"መጥፎ የእውቅና ማረጋገጫ"</string>
     <string name="printer_not_encrypted" msgid="1913051469275483673">"አልተመሰጠረም"</string>
     <string name="printer_check" msgid="6428369671197132828">"አታሚን ይፈትሹ"</string>

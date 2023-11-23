@@ -457,6 +457,7 @@ package android.bluetooth {
     field public static final int SOURCE_CODEC_TYPE_INVALID = 1000000; // 0xf4240
     field public static final int SOURCE_CODEC_TYPE_LC3 = 5; // 0x5
     field public static final int SOURCE_CODEC_TYPE_LDAC = 4; // 0x4
+    field public static final int SOURCE_CODEC_TYPE_OPUS = 6; // 0x6
     field public static final int SOURCE_CODEC_TYPE_SBC = 0; // 0x0
   }
 
@@ -602,6 +603,7 @@ package android.bluetooth {
     method @Deprecated @RequiresPermission(android.Manifest.permission.BLUETOOTH_CONNECT) public boolean writeDescriptor(android.bluetooth.BluetoothGattDescriptor);
     method @RequiresPermission(android.Manifest.permission.BLUETOOTH_CONNECT) public int writeDescriptor(@NonNull android.bluetooth.BluetoothGattDescriptor, @NonNull byte[]);
     field public static final int CONNECTION_PRIORITY_BALANCED = 0; // 0x0
+    field public static final int CONNECTION_PRIORITY_DCK = 3; // 0x3
     field public static final int CONNECTION_PRIORITY_HIGH = 1; // 0x1
     field public static final int CONNECTION_PRIORITY_LOW_POWER = 2; // 0x2
     field public static final int GATT_CONNECTION_CONGESTED = 143; // 0x8f
@@ -1054,6 +1056,33 @@ package android.bluetooth {
     field public static final int TYPE_SCO = 2; // 0x2
   }
 
+  public class BluetoothSocketException extends java.io.IOException {
+    ctor public BluetoothSocketException(int, @NonNull String);
+    ctor public BluetoothSocketException(int);
+    method public int getErrorCode();
+    field public static final int BLUETOOTH_OFF_FAILURE = 15; // 0xf
+    field public static final int L2CAP_ACL_FAILURE = 2; // 0x2
+    field public static final int L2CAP_CLIENT_SECURITY_FAILURE = 3; // 0x3
+    field public static final int L2CAP_INSUFFICIENT_AUTHENTICATION = 4; // 0x4
+    field public static final int L2CAP_INSUFFICIENT_AUTHORIZATION = 5; // 0x5
+    field public static final int L2CAP_INSUFFICIENT_ENCRYPTION = 7; // 0x7
+    field public static final int L2CAP_INSUFFICIENT_ENCRYPT_KEY_SIZE = 6; // 0x6
+    field public static final int L2CAP_INVALID_PARAMETERS = 11; // 0xb
+    field public static final int L2CAP_INVALID_SOURCE_CID = 8; // 0x8
+    field public static final int L2CAP_NO_PSM_AVAILABLE = 13; // 0xd
+    field public static final int L2CAP_NO_RESOURCES = 12; // 0xc
+    field public static final int L2CAP_SOURCE_CID_ALREADY_ALLOCATED = 9; // 0x9
+    field public static final int L2CAP_TIMEOUT = 14; // 0xe
+    field public static final int L2CAP_UNACCEPTABLE_PARAMETERS = 10; // 0xa
+    field public static final int L2CAP_UNKNOWN = 1; // 0x1
+    field public static final int NULL_DEVICE = 19; // 0x13
+    field public static final int RPC_FAILURE = 20; // 0x14
+    field public static final int SOCKET_CLOSED = 17; // 0x11
+    field public static final int SOCKET_CONNECTION_FAILURE = 18; // 0x12
+    field public static final int SOCKET_MANAGER_FAILURE = 16; // 0x10
+    field public static final int UNSPECIFIED = 0; // 0x0
+  }
+
   public final class BluetoothStatusCodes {
     field public static final int ERROR_BLUETOOTH_NOT_ALLOWED = 2; // 0x2
     field public static final int ERROR_BLUETOOTH_NOT_ENABLED = 1; // 0x1
@@ -1063,6 +1092,7 @@ package android.bluetooth {
     field public static final int ERROR_MISSING_BLUETOOTH_CONNECT_PERMISSION = 6; // 0x6
     field public static final int ERROR_PROFILE_SERVICE_NOT_BOUND = 9; // 0x9
     field public static final int ERROR_UNKNOWN = 2147483647; // 0x7fffffff
+    field public static final int FEATURE_NOT_CONFIGURED = 30; // 0x1e
     field public static final int FEATURE_NOT_SUPPORTED = 11; // 0xb
     field public static final int FEATURE_SUPPORTED = 10; // 0xa
     field public static final int SUCCESS = 0; // 0x0
@@ -1114,6 +1144,7 @@ package android.bluetooth.le {
     method public int getTimeout();
     method public int getTxPowerLevel();
     method public boolean isConnectable();
+    method public boolean isDiscoverable();
     method public void writeToParcel(android.os.Parcel, int);
     field public static final int ADVERTISE_MODE_BALANCED = 1; // 0x1
     field public static final int ADVERTISE_MODE_LOW_LATENCY = 2; // 0x2
@@ -1130,6 +1161,7 @@ package android.bluetooth.le {
     method public android.bluetooth.le.AdvertiseSettings build();
     method public android.bluetooth.le.AdvertiseSettings.Builder setAdvertiseMode(int);
     method public android.bluetooth.le.AdvertiseSettings.Builder setConnectable(boolean);
+    method @NonNull public android.bluetooth.le.AdvertiseSettings.Builder setDiscoverable(boolean);
     method public android.bluetooth.le.AdvertiseSettings.Builder setTimeout(int);
     method public android.bluetooth.le.AdvertiseSettings.Builder setTxPowerLevel(int);
   }
@@ -1172,6 +1204,7 @@ package android.bluetooth.le {
     method public boolean includeTxPower();
     method public boolean isAnonymous();
     method public boolean isConnectable();
+    method public boolean isDiscoverable();
     method public boolean isLegacy();
     method public boolean isScannable();
     method public void writeToParcel(android.os.Parcel, int);
@@ -1194,6 +1227,7 @@ package android.bluetooth.le {
     method public android.bluetooth.le.AdvertisingSetParameters build();
     method public android.bluetooth.le.AdvertisingSetParameters.Builder setAnonymous(boolean);
     method public android.bluetooth.le.AdvertisingSetParameters.Builder setConnectable(boolean);
+    method @NonNull public android.bluetooth.le.AdvertisingSetParameters.Builder setDiscoverable(boolean);
     method public android.bluetooth.le.AdvertisingSetParameters.Builder setIncludeTxPower(boolean);
     method public android.bluetooth.le.AdvertisingSetParameters.Builder setInterval(int);
     method public android.bluetooth.le.AdvertisingSetParameters.Builder setLegacyMode(boolean);
@@ -1389,7 +1423,9 @@ package android.bluetooth.le {
     method public int getScanMode();
     method public int getScanResultType();
     method public void writeToParcel(android.os.Parcel, int);
+    field public static final long AUTO_BATCH_MIN_REPORT_DELAY_MILLIS = 600000L; // 0x927c0L
     field public static final int CALLBACK_TYPE_ALL_MATCHES = 1; // 0x1
+    field public static final int CALLBACK_TYPE_ALL_MATCHES_AUTO_BATCH = 8; // 0x8
     field public static final int CALLBACK_TYPE_FIRST_MATCH = 2; // 0x2
     field public static final int CALLBACK_TYPE_MATCH_LOST = 4; // 0x4
     field @NonNull public static final android.os.Parcelable.Creator<android.bluetooth.le.ScanSettings> CREATOR;

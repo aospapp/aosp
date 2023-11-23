@@ -16,15 +16,12 @@
 
 package com.android.server.nearby.common.bluetooth.fastpair;
 
+import static com.android.nearby.halfsheet.constants.FastPairConstants.PREFIX;
+
 import android.bluetooth.BluetoothDevice;
 
 /** Constants to share with other team. */
 public class FastPairConstants {
-    private static final String PACKAGE_NAME = "com.android.server.nearby";
-    private static final String PREFIX = PACKAGE_NAME + ".common.bluetooth.fastpair.";
-
-    /** MODEL_ID item name for extended intent field. */
-    public static final String EXTRA_MODEL_ID = PREFIX + "MODEL_ID";
     /** CONNECTION_ID item name for extended intent field. */
     public static final String EXTRA_CONNECTION_ID = PREFIX + "CONNECTION_ID";
     /** BLUETOOTH_MAC_ADDRESS item name for extended intent field. */

@@ -18,8 +18,10 @@
 
 #include "ServiceManager.h"
 
-#include "IoPerfCollection.h"
 #include "PackageInfoResolver.h"
+#include "PerformanceProfiler.h"
+
+#include <android/binder_interface_utils.h>
 
 namespace android {
 namespace automotive {
@@ -28,92 +30,86 @@ namespace watchdog {
 using ::android::sp;
 using ::android::base::Error;
 using ::android::base::Result;
+using ::ndk::SharedRefBase;
 
-sp<WatchdogProcessServiceInterface> ServiceManager::sWatchdogProcessService = nullptr;
-sp<WatchdogPerfServiceInterface> ServiceManager::sWatchdogPerfService = nullptr;
-sp<WatchdogBinderMediatorInterface> ServiceManager::sWatchdogBinderMediator = nullptr;
-sp<WatchdogServiceHelperInterface> ServiceManager::sWatchdogServiceHelper = nullptr;
-
-Result<void> ServiceManager::startServices(const sp<Looper>& looper) {
-    if (sWatchdogBinderMediator != nullptr || sWatchdogServiceHelper != nullptr ||
-        sWatchdogProcessService != nullptr || sWatchdogPerfService != nullptr) {
+Result<void> ServiceManager::startServices(const sp<Looper>& mainLooper) {
+    if (mWatchdogBinderMediator != nullptr || mWatchdogServiceHelper != nullptr ||
+        mWatchdogProcessService != nullptr || mWatchdogPerfService != nullptr) {
         return Error(INVALID_OPERATION) << "Cannot start services more than once";
     }
     /*
      * PackageInfoResolver must be initialized first time on the main thread before starting any
      * other thread as the getInstance method isn't thread safe. Thus initialize PackageInfoResolver
-     * by calling the getInstance method before starting other service as they may access
+     * by calling the getInstance method before starting other services as they may access
      * PackageInfoResolver's instance during initialization.
      */
     sp<PackageInfoResolverInterface> packageInfoResolver = PackageInfoResolver::getInstance();
-    if (const auto result = startProcessAnrMonitor(looper); !result.ok()) {
+    if (auto result = startWatchdogProcessService(mainLooper); !result.ok()) {
         return result;
     }
-    if (const auto result = startPerfService(); !result.ok()) {
-        return result;
-    }
-    sWatchdogServiceHelper = sp<WatchdogServiceHelper>::make();
-    if (const auto result = sWatchdogServiceHelper->init(sWatchdogProcessService); !result.ok()) {
+    mWatchdogServiceHelper = sp<WatchdogServiceHelper>::make();
+    if (auto result = mWatchdogServiceHelper->init(mWatchdogProcessService); !result.ok()) {
         return Error() << "Failed to initialize watchdog service helper: " << result.error();
     }
-    if (const auto result = packageInfoResolver->initWatchdogServiceHelper(sWatchdogServiceHelper);
+    if (auto result = startWatchdogPerfService(mWatchdogServiceHelper); !result.ok()) {
+        return result;
+    }
+    if (auto result = packageInfoResolver->initWatchdogServiceHelper(mWatchdogServiceHelper);
         !result.ok()) {
         return Error() << "Failed to initialize package name resolver: " << result.error();
+    }
+    mIoOveruseMonitor = sp<IoOveruseMonitor>::make(mWatchdogServiceHelper);
+    mWatchdogBinderMediator =
+            SharedRefBase::make<WatchdogBinderMediator>(mWatchdogProcessService,
+                                                        mWatchdogPerfService,
+                                                        mWatchdogServiceHelper, mIoOveruseMonitor);
+    if (auto result = mWatchdogBinderMediator->init(); !result.ok()) {
+        return Error(result.error().code())
+                << "Failed to initialize watchdog binder mediator: " << result.error();
     }
     return {};
 }
 
 void ServiceManager::terminateServices() {
-    if (sWatchdogProcessService != nullptr) {
-        sWatchdogProcessService->terminate();
-        sWatchdogProcessService.clear();
+    if (mWatchdogProcessService != nullptr) {
+        mWatchdogProcessService->terminate();
+        mWatchdogProcessService.clear();
     }
-    if (sWatchdogPerfService != nullptr) {
-        sWatchdogPerfService->terminate();
-        sWatchdogPerfService.clear();
+    if (mWatchdogPerfService != nullptr) {
+        mWatchdogPerfService->terminate();
+        mWatchdogPerfService.clear();
     }
-    if (sWatchdogBinderMediator != nullptr) {
-        sWatchdogBinderMediator->terminate();
-        sWatchdogBinderMediator.clear();
+    if (mWatchdogBinderMediator != nullptr) {
+        mWatchdogBinderMediator->terminate();
+        mWatchdogBinderMediator.reset();
     }
-    if (sWatchdogServiceHelper != nullptr) {
-        sWatchdogServiceHelper->terminate();
-        sWatchdogServiceHelper.clear();
+    if (mWatchdogServiceHelper != nullptr) {
+        mWatchdogServiceHelper->terminate();
+        mWatchdogServiceHelper.clear();
     }
+    mIoOveruseMonitor.clear();
     PackageInfoResolver::terminate();
 }
 
-Result<void> ServiceManager::startProcessAnrMonitor(const sp<Looper>& looper) {
-    sp<WatchdogProcessService> service = sp<WatchdogProcessService>::make(looper);
-    if (const auto result = service->start(); !result.ok()) {
+Result<void> ServiceManager::startWatchdogProcessService(const sp<Looper>& mainLooper) {
+    mWatchdogProcessService = sp<WatchdogProcessService>::make(mainLooper);
+    if (auto result = mWatchdogProcessService->start(); !result.ok()) {
         return Error(result.error().code())
-                << "Failed to start watchdog process monitoring: " << result.error();
+                << "Failed to start watchdog process monitoring service: " << result.error();
     }
-    sWatchdogProcessService = service;
     return {};
 }
 
-Result<void> ServiceManager::startPerfService() {
-    sp<WatchdogPerfService> service = sp<WatchdogPerfService>::make();
-    if (const auto result = service->registerDataProcessor(sp<IoPerfCollection>::make());
+Result<void> ServiceManager::startWatchdogPerfService(
+        const sp<WatchdogServiceHelperInterface>& watchdogServiceHelper) {
+    mWatchdogPerfService = sp<WatchdogPerfService>::make(watchdogServiceHelper);
+    if (auto result = mWatchdogPerfService->registerDataProcessor(sp<PerformanceProfiler>::make());
         !result.ok()) {
-        return Error() << "Failed to register I/O perf collection: " << result.error();
+        return Error() << "Failed to register performance profiler: " << result.error();
     }
-    if (const auto result = service->start(); !result.ok()) {
+    if (auto result = mWatchdogPerfService->start(); !result.ok()) {
         return Error(result.error().code())
                 << "Failed to start watchdog performance service: " << result.error();
-    }
-    sWatchdogPerfService = service;
-    return {};
-}
-
-Result<void> ServiceManager::startBinderMediator() {
-    sWatchdogBinderMediator =
-            sp<WatchdogBinderMediator>::make(sWatchdogProcessService, sWatchdogPerfService,
-                                             sWatchdogServiceHelper);
-    if (const auto result = sWatchdogBinderMediator->init(); !result.ok()) {
-        return Error(result.error().code())
-                << "Failed to initialize watchdog binder mediator: " << result.error();
     }
     return {};
 }

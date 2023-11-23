@@ -31,6 +31,8 @@
     <string name="enabled" msgid="5127188665060746381">"مفعّل"</string>
     <string name="disabled" msgid="4589065923272201387">"غير مفعّل"</string>
     <string name="unavailable" msgid="1610732303812180196">"غير متاح"</string>
+    <string name="allow" msgid="6982558814345894019">"السماح"</string>
+    <string name="deny" msgid="8291577308813053917">"رفض"</string>
     <string name="header_category_suggestions" msgid="106077820663753645">"الاقتراحات"</string>
     <string name="header_category_quick_settings" msgid="3785334008768367890">"الإعدادات السريعة"</string>
     <string name="header_category_general_settings" msgid="3897615781153506434">"الإعدادات العامة"</string>
@@ -39,7 +41,7 @@
     <string name="hotwording_summary" msgid="2170375928302175449">"التواصل مع \"مساعد Google\" في أي وقت"</string>
     <string name="header_category_device" msgid="3023893663454705969">"الجهاز"</string>
     <string name="header_category_preferences" msgid="3738388885555798797">"الإعدادات المفضّلة"</string>
-    <string name="header_category_accessories" msgid="6479803330480847199">"وحدة التحكم عن بُعد والأجهزة الملحقة"</string>
+    <string name="header_category_accessories" msgid="6479803330480847199">"جهاز التحكم عن بُعد والملحقات"</string>
     <string name="header_category_personal" msgid="7880053929985150368">"شخصي"</string>
     <string name="connect_to_network" msgid="4133686359319492392">"الاتصال بالشبكة"</string>
     <string name="add_an_account" msgid="2601275122685226096">"إضافة حساب"</string>
@@ -50,7 +52,8 @@
     <string name="connectivity_network_category_title" msgid="8226264889892008114">"الشبكة والإنترنت"</string>
     <string name="sound_category_title" msgid="7899816751041939518">"الصوت"</string>
     <string name="applications_category_title" msgid="7112019490898586223">"التطبيقات"</string>
-    <string name="device_pref_category_title" msgid="8292572846154873762">"إعدادات الجهاز"</string>
+    <string name="device_pref_category_title" msgid="8292572846154873762">"الإعدادات المفضّلة للجهاز"</string>
+    <string name="accessibility_category_title" msgid="1552664829936369592">"تسهيل الاستخدام"</string>
     <string name="remotes_and_accessories_category_title" msgid="4795119810430255047">"أجهزة التحكّم عن بُعد والمُلحَقات"</string>
     <string name="display_and_sound_category_title" msgid="9203309625380755860">"العرض والصوت"</string>
     <string name="help_and_feedback_category_title" msgid="7036505833991003031">"المساعدة والملاحظات"</string>
@@ -88,7 +91,7 @@
     <string name="connectivity_hint_message" msgid="5638304246522516583">"الاتصال بالشبكة"</string>
     <string name="connectivity_network_diagnostics" msgid="4396132865849151854">"عمليات تشخيص الشبكة"</string>
     <string name="apps_recently_used_category_title" msgid="7877660412428813933">"التطبيقات التي تم فتحها مؤخرًا"</string>
-    <string name="apps_see_all_apps" msgid="2002886135933443688">"الاطّلاع على كل التطبيقات"</string>
+    <string name="apps_see_all_apps" msgid="2002886135933443688">"عرض كل التطبيقات"</string>
     <string name="apps_permissions_category_title" msgid="8099660060701465267">"الأذونات"</string>
     <string name="overlay_security_slice_title" msgid="4895032817538300187"></string>
     <string name="update_slice_title" msgid="6553763903108611747"></string>
@@ -109,7 +112,8 @@
     <string name="device_backup_restore" msgid="3634531946308269398">"الاحتفاظ بنسخة احتياطية والاستعادة"</string>
     <string name="device_factory_reset" msgid="1110189450013225971">"إعادة الضبط على الإعدادات الأصلية"</string>
     <string name="device_calibration" msgid="2907914144048739705">"المعايرة"</string>
-    <string name="device_energy_saver" msgid="1105023232841036991">"أداة توفير الطاقة"</string>
+    <string name="device_energy_saver" msgid="6611757996220443028">"موقّت الإيقاف"</string>
+    <string name="device_energy_saver_summary" msgid="5306058475316008429">"ضبط الموقّتات لإيقاف التلفزيون وتوفير الطاقة"</string>
     <string name="overlay_internal_slice_title" msgid="6427352417573831625"></string>
     <string name="device_fastpair" msgid="1235240814051277047">"الأجهزة"</string>
     <string name="surround_sound_select_formats" msgid="6070283650131226239">"اختيار الصيغ"</string>
@@ -118,7 +122,7 @@
     <string name="surround_sound_format_e_ac3" msgid="6923129088903887242">"Dolby Digital Plus"</string>
     <string name="surround_sound_format_dts" msgid="8331816247117135587">"DTS"</string>
     <string name="surround_sound_format_dts_hd" msgid="4268947520371740146">"DTS-HD"</string>
-    <string name="surround_sound_format_dts_uhd" msgid="2844983210044263719">"DTS-UHD"</string>
+    <string name="surround_sound_format_dts_uhd" msgid="4340749818133578788">"DTS:X"</string>
     <string name="surround_sound_format_dolby_mat" msgid="3029804841912462928">"Dolby Atmos مع Dolby TrueHD"</string>
     <string name="surround_sound_format_dolby_truehd" msgid="5113046743572967088">"Dolby TrueHD"</string>
     <string name="surround_sound_format_e_ac3_joc" msgid="3360344066462262996">"Dolby Atmos مع Dolby Digital Plus"</string>
@@ -147,10 +151,38 @@
     <string name="hdmi_cec_settings_title" msgid="7120729705063868627">"HDMI-CEC"</string>
     <string name="advanced_sound_settings_title" msgid="319921303039469139">"إعدادات الصوت المتقدمة"</string>
     <string name="game_mode_title" msgid="7280816243531315755">"السماح بوضع الألعاب"</string>
+    <string name="match_content_dynamic_range_title" msgid="2794980556561655838">"مطابقة النطاق الديناميكي للمحتوى"</string>
+    <string name="match_content_dynamic_range_summary" msgid="2255683926227355398">"عند تفعيل هذا الخيار، سينتقل النظام بين تنسيقات النطاق الديناميكي المختلفة لمطابقة المحتوى. قد يتسبب هذا في ظهور شاشة سوداء أثناء تبديل التنسيق.\n\nانقر على \"إعدادات العرض المتقدمة\" لمزيد من خيارات النطاق الديناميكي."</string>
+    <string name="preferred_dynamic_range_title" msgid="5064883672337010588">"النطاق الديناميكي المفضّل"</string>
+    <string name="preferred_dynamic_range_selection_system_title" msgid="4505030483876080996">"التحويل إلى النطاق الديناميكي الذي يفضّله النظام"</string>
+    <string name="preferred_dynamic_range_selection_system_desc" msgid="5712920601553613576">"يسمح هذا الخيار للنظام بإدارة تنسيق التحويل."</string>
+    <string name="preferred_dynamic_range_selection_system_summary" msgid="4509062596428781094">"عند تحديد هذا الخيار، سيحدِّد النظام النطاق الديناميكي المناسب لإرساله إلى شاشتك وسيتم تحويل المحتوى إلى هذا النطاق الديناميكي حسب الحاجة."</string>
+    <string name="preferred_dynamic_range_selection_passthrough_desc" msgid="4831260397179583737">"تتم مطابقة تنسيق المحتوى دائمًا."</string>
+    <string name="preferred_dynamic_range_selection_force_title" msgid="4448836594133973103">"فرض التحويل"</string>
+    <string name="preferred_dynamic_range_selection_force_desc" msgid="1418542349290684513">"يعمل هذا الخيار على فرض التحويل إلى التنسيق الذي تفضّله."</string>
+    <string name="preferred_dynamic_range_selection_force_summary" msgid="8381058061765216239">"يتم فرض التحويل إلى التنسيق الذي تفضّله. قد يؤثّر فرض التحويل في الإعدادات الأخرى في \"وضع العرض\" أو \"تنسيق النطاق العالي الديناميكية\"."</string>
+    <string name="preferred_dynamic_range_selection_force_sdr_title" msgid="3135104063034317252">"التحويل إلى النطاق العادي الديناميكية (SDR) دومًا"</string>
+    <string name="preferred_dynamic_range_selection_force_hdr_title" msgid="1032587815433139859">"التحويل إلى \"<xliff:g id="HDR_TYPE">%s</xliff:g>\" دومًا"</string>
+    <string name="preferred_dynamic_range_force_dialog_title" msgid="6865110024863661702">"هل تريد فرض تشغيل إخراج النطاق العالي الديناميكية (HDR)؟"</string>
+    <string name="preferred_dynamic_range_force_dialog_desc" msgid="7758323258282201656">"سيتم فرض التحويل تلقائيًا إلى \"<xliff:g id="HDR_TYPE">%s</xliff:g>\"."</string>
+    <string name="preferred_dynamic_range_force_dialog_desc_4k30_issue" msgid="4938418395391206131">"سيتم تشغيل شاشتك بدقة 1080p و60 هرتز. لا يتوافق هذا الخيار مع شاشتك عند تشغيلها بدقة 4K و60 هرتز."</string>
+    <string name="selection_dolby_vision_not_supported_sidebar" msgid="8994591316574824115">"لا يُسمح باستخدام تقنية Dolby Vision مع درجة الدقة الحالية. في حال تفعيل Dolby Vision يدويًا، سيتم تغيير درجة دقة الشاشة إلى 1080p و60 هرتز."</string>
+    <string name="manual_dolby_vision_format_on_4k60_title" msgid="4172263676512376500">"هل تريد تغيير درجة الدقة إلى 1080p و60 هرتز؟"</string>
+    <string name="dynamic_range_selection_force_dv_title" msgid="8070148109262327094">"فرض التحويل إلى تقنية Dolby Vision دائمًا"</string>
+    <string name="dynamic_range_selection_force_dv_summary" msgid="1052851029985095562">"إذا كانت تقنية Dolby Vision غير مفعَّلة في تنسيقات النطاق العالي الديناميكية (HDR) ضمن \"إعدادات العرض المتقدّمة\"، سيؤدي فرض التحويل إلى تقنية Dolby Vision إلى إعادة تفعيلها."</string>
+    <string name="dynamic_range_selection_force_hdr10_title" msgid="1221688206945051384">"فرض التحويل إلى تقنية HDR10 دائمًا"</string>
+    <string name="dynamic_range_selection_force_hdr10_summary" msgid="7784573527636502784">"إذا كانت تقنية HDR10 غير مفعَّلة في تنسيقات النطاق العالي الديناميكية (HDR) ضمن \"إعدادات العرض المتقدّمة\"، سيؤدي فرض التحويل إلى تقنية HDR10 إلى إعادة تفعيلها."</string>
+    <string name="dynamic_range_selection_force_hlg_title" msgid="3976190987768712696">"فرض التحويل إلى تقنية HLG دائمًا"</string>
+    <string name="dynamic_range_selection_force_hlg_summary" msgid="5371949016689544001">"إذا كانت تقنية HLG غير مفعَّلة في تنسيقات النطاق العالي الديناميكية (HDR) ضمن \"إعدادات العرض المتقدّمة\"، سيؤدي فرض التحويل إلى تقنية HLG إلى إعادة تفعيلها."</string>
+    <string name="dynamic_range_selection_force_hdr10plus_title" msgid="1305556000063625735">"فرض التحويل إلى تقنية HDR10+‎ دائمًا"</string>
+    <string name="dynamic_range_selection_force_hdr10plus_summary" msgid="918038386222537401">"إذا كانت تقنية HDR10+‎ غير مفعَّلة في تنسيقات النطاق العالي الديناميكية (HDR) ضمن \"إعدادات العرض المتقدّمة\"، سيؤدي فرض التحويل إلى تقنية HDR10+‎ إلى إعادة تفعيلها."</string>
+    <string name="dynamic_range_selection_force_sdr_title" msgid="1063579223517652945">"فرض التحويل إلى النطاق العادي الديناميكية (SDR) دائمًا"</string>
+    <string name="dynamic_range_selection_force_sdr_summary" msgid="2874771365465898941">"سيؤدي فرض التحويل إلى النطاق العادي الديناميكية (SDR) إلى إيقاف جميع تنسيقات النطاق العالي الديناميكية (HDR) ضمن \"إعدادات العرض المتقدّمة\"."</string>
     <string name="match_content_frame_rate_title" msgid="153291168560947689">"مطابقة عدد اللقطات في الثانية للمحتوى"</string>
-    <string name="match_content_frame_rate_seamless" msgid="5900012519258795448">"انتقال سلس"</string>
+    <string name="match_content_frame_rate_seamless" msgid="5577846750811067585">"الانتقال السلس فقط"</string>
     <string name="match_content_frame_rate_seamless_summary" msgid="2737466163964133210">"بناءً على طلب التطبيق وشريطة توفّر إمكانية الانتقال السلس في التلفزيون الخاص بك، ستتطابق مخرجات جهازك مع العدد الأصلي للقطات في الثانية الذي يظهر به ما تشاهده من محتوى."</string>
-    <string name="match_content_frame_rate_non_seamless" msgid="1534300397118594640">"انتقال غير سلس"</string>
+    <string name="match_content_frame_rate_seamless_not_supported_summary" msgid="98559950465123792">"لا تتيح الشاشة المتصلة الانتقالات السلِسة لمعدّل التحديث. لن يكون لهذا الخيار أي تأثير إلا في حال استخدام شاشة متوافقة معه."</string>
+    <string name="match_content_frame_rate_non_seamless" msgid="2702658727234710031">"دائمًا"</string>
     <string name="match_content_frame_rate_non_seamless_summary" msgid="6831699459487130055">"ستتطابق مخرجات جهازك مع العدد الأصلي للقطات في الثانية الذي يظهر به ما تشاهده من محتوى إذا طلب التطبيق ذلك. وقد يؤدي ذلك إلى ظهور شاشة فارغة لفترة قصيرة عند الدخول إلى وضع تشغيل فيديو أو الخروج منه."</string>
     <string name="match_content_frame_rate_never" msgid="1678354793095148423">"أبدًا"</string>
     <string name="match_content_frame_rate_never_summary" msgid="742977618080396095">"لن تتطابق مخرجات جهازك أبدًا مع العدد الأصلي للقطات في الثانية الذي يظهر به ما تشاهده من محتوى حتى إذا طلب التطبيق ذلك."</string>
@@ -167,6 +199,7 @@
     <string name="hdr_format_selection_manual_desc" msgid="8865649615882146772">"الاختيار يدويًا من الصيغ المتاحة"</string>
     <string name="hdr_format_supported_title" msgid="1458594819224612431">"الصيغ المتوافقة"</string>
     <string name="hdr_format_unsupported_title" msgid="715318408107924941">"الصيغ غير المتوافقة"</string>
+    <string name="hdr_format_sdr" msgid="7211377112392255102">"SDR"</string>
     <string name="hdr_format_hdr10" msgid="8063543267227491062">"HDR10"</string>
     <string name="hdr_format_hlg" msgid="454510079939620321">"HLG"</string>
     <string name="hdr_format_hdr10plus" msgid="4371652089162162876">"HDR10+‎"</string>
@@ -181,11 +214,15 @@
     <string name="hdr_enabled_format_info_clicked" msgid="1466675962665861040">"لإيقاف صيغة، غيِّر إعدادات اختيار الصيغ إلى \"يدوي\"."</string>
     <string name="resolution_selection_title" msgid="2873993320284587853">"درجة الدقة"</string>
     <string name="resolution_selection_auto_title" msgid="4738671207331027385">"تلقائي"</string>
-    <string name="resolution_selection_dialog_title" msgid="4029798035133645272">"تم تغيير درجة الدقة."</string>
+    <string name="resolution_selection_dialog_title" msgid="4029798035133645272">"تم تغيير درجة الدقة"</string>
+    <string name="resolution_selection_with_mode_dialog_title" msgid="5011192408613100514">"هل تريد تغيير درجة الدقة إلى ‏%1$s؟"</string>
     <string name="resolution_selection_dialog_desc" msgid="3667357611495669701">"اختَر \"حسنًا\" لاستخدام %1$s من الآن فصاعدًا."</string>
+    <string name="resolution_selection_disabled_dolby_vision_dialog_desc" msgid="7952404018654828187">"تقنية Dolby Vision غير متاحة في ‏%1$s وسيتم إيقافها في \"إعدادات العرض المتقدّمة\"."</string>
+    <string name="resolution_hdr_description_info" msgid="2408761621976850238">"يتوافق هذا الوضع مع: %1$s\nفي بعض أجهزة التلفزيون، قد تحتاج إلى تفعيل خيار \"منفذ HDMI المحسَّن\" لتفعيل المزيد من صيغ النطاق العالي الديناميكية (HDR). يُرجى الانتقال إلى إعدادات التلفزيون لمعرفة ما إذا كان هذا الخيار متاحًا."</string>
     <string name="resolution_selection_dialog_cancel" msgid="3683616572317946129">"إلغاء"</string>
     <string name="resolution_selection_dialog_ok" msgid="3123351228545013492">"حسنًا"</string>
     <string name="resolution_selection_hz" msgid="4425902505388495637">"هرتز"</string>
+    <string name="resolution_display_mode" msgid="6633857172598855480">"<xliff:g id="RESOLUTION">%1$s</xliff:g> (<xliff:g id="REFRESH_RATE">%2$s</xliff:g> هرتز)"</string>
     <string name="device_storage_clear_cache_title" msgid="14370154552302965">"هل تريد محو البيانات المؤقتة؟"</string>
     <string name="device_storage_clear_cache_message" msgid="4352802738505831032">"يؤدي ذلك إلى محو البيانات المؤقتة لكل التطبيقات."</string>
     <string name="default_audio_output_settings_title" msgid="5441937324539531999"></string>
@@ -257,7 +294,6 @@
     <string name="system_inputs" msgid="5552840337357572096">"أجهزة الإدخال"</string>
     <string name="system_inputs_devices" msgid="2158421111699829399">"منافذ الإدخال والأجهزة"</string>
     <string name="system_home_theater_control" msgid="6228949628173590310">"التحكم في نظام المسرح المنزلي"</string>
-    <string name="system_accessibility" msgid="3081009195560501010">"تسهيل الاستخدام"</string>
     <string name="system_developer_options" msgid="8480844257066475479">"خيارات مطور البرامج"</string>
     <string name="accessibility_none" msgid="6355646833528306702">"غير متوفر"</string>
     <string name="system_diagnostic" msgid="1654842813331919958">"الاستخدام وبيانات التشخيص"</string>
@@ -307,6 +343,7 @@
     <string name="do_disclosure_generic" msgid="8390478119591845948">"تتولى مؤسستك إدارة هذا الجهاز."</string>
     <string name="do_disclosure_with_name" msgid="4755509039938948975">"تتم إدارة هذا الجهاز بواسطة <xliff:g id="ORGANIZATION_NAME">%s</xliff:g>."</string>
     <string name="do_disclosure_learn_more_separator" msgid="4226390963162716446">" "</string>
+    <string name="hdr_capability" msgid="3331021013422460270">"- %1$s"</string>
     <string name="learn_more" msgid="820336467414665686">"مزيد من المعلومات"</string>
     <string name="default_camera_app_title" msgid="4573905807226306484">"{count,plural, =1{تطبيق الكاميرا}zero{تطبيقات الكاميرا}two{تطبيقا الكاميرا}few{تطبيقات الكاميرا}many{تطبيقات الكاميرا}other{تطبيقات الكاميرا}}"</string>
     <string name="default_calendar_app_title" msgid="1533912443930743532">"تطبيق التقويم"</string>
@@ -590,6 +627,7 @@
     <string name="recently_accessed_show_all" msgid="5234849189704717855">"عرض الكل"</string>
     <string name="microphone" msgid="7893752847683941214">"الميكروفون"</string>
     <string name="mic_toggle_title" msgid="7193417007060235665">"الوصول إلى الميكروفون"</string>
+    <string name="mic_remote_toggle_title" msgid="7153283895012570080">"الوصول إلى الميكروفون في جهاز التحكّم عن بُعد"</string>
     <string name="open_mic_permissions" msgid="8121871594807641073">"إذن وصول التطبيق إلى الميكروفون"</string>
     <string name="microphone_physical_privacy_enabled_title" msgid="6135130916399886772">"تم حظر الوصول إلى الميكروفون"</string>
     <string name="microphone_physical_privacy_enabled_text" msgid="401238365312924088">"لإزالة الحظر، حرّك مفتاح الخصوصية بجهازك إلى وضع تفعيل الميكروفون للسماح بالوصول إلى الميكروفون."</string>
@@ -599,7 +637,11 @@
     <string name="camera_physical_privacy_enabled_title" msgid="1944155695921165511">"تم حظر الوصول إلى الكاميرا"</string>
     <string name="camera_physical_privacy_enabled_text" msgid="6692088634676282779">"لإزالة الحظر، حرّك مفتاح الخصوصية بجهازك إلى وضع تفعيل الكاميرا للسماح بالوصول إلى الكاميرا."</string>
     <string name="mic_toggle_info_title" msgid="1086545614315873599">"الوصول إلى الميكروفون: <xliff:g id="SENSOR_STATE">%s</xliff:g>"</string>
-    <string name="mic_toggle_info_content" msgid="4699624900513326055">"في حال تشغيل الميكروفون، ستتمكن التطبيقات والخدمات التي لديها إذن من الوصول إلى أي ميكروفون على هذا الجهاز.\n\nأما الأجهزة الصوتية الملحقة المزوّدة ببروتوكول مخصّص، فلن تتأثّر بهذا الإعداد."</string>
+    <string name="mic_toggle_info_content" msgid="3187791167208947239">"عندما يكون الميكروفون مفعَّلاً، فإنّ كل التطبيقات والخدمات المسموح لها باستخدام الميكروفون ستتمكن من الوصول إليه.\n\nعندما يكون الميكروفون غير مفعَّل، لن تتمكن أي تطبيقات أو خدمات من الوصول إليه. سيظلّ مع ذلك بإمكانك التحدّث إلى \"مساعد Google\" عن طريق الضغط على زر \"مساعد Google\" في جهاز التحكّم عن بُعد.\n\nقد لا يؤثر هذا الخيار في الأجهزة السماعية التي تستخدم بروتوكولات خاصة للتواصل مع تلفزيونك."</string>
+    <string name="mic_remote_toggle_on_info_title" msgid="8503441878870972046">"تم تفعيل الميكروفون في جهاز التحكّم عن بُعد"</string>
+    <string name="mic_remote_toggle_on_info_content" msgid="2715872916376493679">"يمكن لتطبيق \"مساعد Google\" الوصول إلى الميكروفون في جهاز التحكّم عن بُعد. ستتمكن من التحدّث إلى \"مساعد Google\" من خلال الضغط على زر \"مساعد Google\" في جهاز التحكّم عن بُعد."</string>
+    <string name="mic_remote_toggle_off_info_title" msgid="4902909833546393713">"تم إيقاف الميكروفون في جهاز التحكّم عن بُعد."</string>
+    <string name="mic_remote_toggle_off_info_content" msgid="8062526350553191004">"لن تتمكن من التحدّث إلى \"مساعد Google\" باستخدام جهاز التحكّم عن بُعد. لتتمكن من استخدام زر \"مساعد Google\"، عليك السماح بالوصول إلى الميكروفون."</string>
     <string name="camera_toggle_info_title" msgid="3871317082313736088">"الوصول إلى الكاميرا: <xliff:g id="SENSOR_STATE">%s</xliff:g>"</string>
     <string name="camera_toggle_info_content" msgid="2999965953853204003">"في حال تشغيل الكاميرا، ستتمكن التطبيقات والخدمات التي لديها إذن من الوصول إلى أي كاميرا على هذا الجهاز.\n\nأما الأجهزة الملحقة بالكاميرا المزوّدة ببروتوكول مخصّص، فلن تتأثّر بهذا الإعداد."</string>
     <string name="sensor_toggle_info_on" msgid="4568111889147132257">"مفعّل"</string>
@@ -625,11 +667,36 @@
     <string name="location_history_desc" msgid="926674012916014270">"عند تفعيل سجلّ المواقع لهذا الحساب، يمكن أن تخزن Google بيانات موقع جهازك لتستخدمها تطبيقاتك.\n\nعلى سبيل المثال، يمكن لتطبيق خرائط Google إمدادك بالاتجاهات كما يمكن لتطبيق Google Now إبلاغك بحركة المرور لتنقلاتك.\n\nويمكنك إيقاف سجل المواقع في أي وقت ولكن لا يؤدي هذا إلى حذفه. ولعرض سجل المواقع وإدارته، انتقل إلى maps.google.com/locationhistory."</string>
     <string name="delete_location_history_title" msgid="707559064715633152">"حذف سجل المواقع"</string>
     <string name="delete_location_history_desc" msgid="4035229731487113147">"سيؤدي هذا إلى حذف كل بيانات سجل المواقع المخزنة من هذا الجهاز لحساب Google هذا. ولا يمكنك التراجع عن هذا الحذف. وبعض التطبيقات، ومن بينها Google Now، ستتوقف عن العمل."</string>
-    <string name="system_services" msgid="5754310941186053151">"الخدمات"</string>
+    <string name="accessibility_screen_readers_category_title" msgid="7742526514873922018">"برامج قراءة الشاشة"</string>
+    <string name="accessibility_display_category_title" msgid="593444602101558017">"الشاشة"</string>
+    <string name="accessibility_interaction_controls_category_title" msgid="5290687835178852745">"إعدادات التحكّم في التفاعل مع الجهاز"</string>
+    <string name="accessibility_audio_and_onscreen_text_category_title" msgid="113841605896486212">"الصوت والنص على الشاشة"</string>
+    <string name="accessibility_experimental_category_title" msgid="3401773834179170206">"تجريبي"</string>
+    <string name="accessibility_services_category_title" msgid="8813843874978910442">"الخدمات"</string>
     <string name="accessibility_service_settings" msgid="3251334786870932423">"إعدادات الخدمات"</string>
+    <string name="accessibility_screen_reader_flattened_component_name" msgid="6834614827111101213">"com.google.android.marvin.talkback/com.google.android.marvin.talkback.TalkBackService"</string>
     <string name="accessibility_toggle_high_text_contrast_preference_title" msgid="9200419191468995574">"نص بدرجة تباين عالية"</string>
+    <string name="accessibility_toggle_bold_text_preference_title" msgid="3328992531170432669">"تغميق النص"</string>
+    <string name="accessibility_color_correction" msgid="6765093204922184119">"تصحيح الألوان"</string>
+    <string name="color_correction_usage" msgid="4160611639548748657">"تصحيح الألوان"</string>
+    <string name="color_correction_color_mode" msgid="5081377780734779169">"وضع اللون"</string>
+    <string name="color_correction_mode_deuteranomaly" msgid="1513793544554228224">"عَمَى الأخضر والأحمر"</string>
+    <string name="color_correction_mode_deuteranomaly_summary" msgid="5991561481464520986">"الأحمر والأخضر"</string>
+    <string name="color_correction_mode_protanomaly" msgid="8105793166015115037">"عَمَى الأحمر"</string>
+    <string name="color_correction_mode_protanomaly_summary" msgid="3247619910784115563">"الأحمر والأخضر"</string>
+    <string name="color_correction_mode_tritanomaly" msgid="757769418392736089">"غمش الأزرق"</string>
+    <string name="color_correction_mode_tritanomaly_summary" msgid="137712354510881252">"الأزرق والأصفر"</string>
+    <string name="color_correction_mode_grayscale" msgid="2592973844160514484">"تدرّج الرمادي"</string>
+    <string name="palette_color_red" msgid="507196433434979086">"أحمر"</string>
+    <string name="palette_color_orange" msgid="6209196069366109835">"برتقالي"</string>
+    <string name="palette_color_yellow" msgid="298466132578870590">"أصفر"</string>
+    <string name="palette_color_green" msgid="4904783063036825668">"أخضر"</string>
+    <string name="palette_color_cyan" msgid="3212217287628948203">"أزرق سماوي"</string>
+    <string name="palette_color_blue" msgid="8836682634988540630">"أزرق"</string>
+    <string name="palette_color_purple" msgid="2123828754639683555">"بنفسجي"</string>
+    <string name="palette_color_gray" msgid="4014534773994261194">"رمادي"</string>
     <string name="accessibility_shortcut" msgid="5856158637840030531">"اختصار \"سهولة الاستخدام\""</string>
-    <string name="accessibility_shortcut_enable" msgid="6603542432267329986">"تفعيل اختصار \"سهولة الاستخدام\""</string>
+    <string name="accessibility_shortcut_enable" msgid="6603542432267329986">"تفعيل اختصار تسهيل الاستخدام"</string>
     <string name="accessibility_shortcut_service" msgid="2053250146891420311">"خدمة الاختصار"</string>
     <string name="accessibility_shortcut_description" msgid="2050424178481510046">"عند تفعيل الاختصار، سيؤدّي الضغط على زر الرجوع وزر الاتجاه للأسفل معًا لمدة 3 ثوانٍ إلى بدء ميزة من ميزات \"سهولة الاستخدام\"."</string>
     <string name="accessibility_captions" msgid="3411554568812306549">"الترجمة والشرح"</string>
@@ -670,7 +737,7 @@
     <string name="color_yellow" msgid="3519470952904560404">"أصفر"</string>
     <string name="color_magenta" msgid="2377854703399624607">"أرجواني"</string>
     <string name="accessibility_toggle_audio_description_preference_title" msgid="933923296129403548">"وصف صوتي"</string>
-    <string name="accessibility_audio_description_summary" msgid="2027813223650517036">"يمكنك الاستماع إلى وصف لما يحدث على الشاشة في الأفلام والبرامج المتوافقة."</string>
+    <string name="accessibility_audio_description_summary" msgid="2027813223650517036">"يمكنك الاستماع إلى وصف لما يحدث على الشاشة في الأفلام والبرامج التلفزيونية التي تتيح هذه الميزة."</string>
     <string name="system_accessibility_status" msgid="8504842254080682515">"تفعيل"</string>
     <string name="system_accessibility_config" msgid="4820879735377962851">"الإعداد"</string>
     <string name="system_accessibility_service_on_confirm_title" msgid="4547924421106540376">"هل تريد استخدام <xliff:g id="SERVICE">%1$s</xliff:g>؟"</string>
@@ -854,7 +921,7 @@
     <string name="device_apps_app_management_force_stop" msgid="4454221309989640309">"فرض الإيقاف"</string>
     <string name="device_apps_app_management_force_stop_desc" msgid="1980972142863114899">"قد لا يعمل التطبيق بشكل صحيح في حال فرض إيقافه."</string>
     <string name="device_apps_app_management_uninstall" msgid="4171103696233332967">"إزالة"</string>
-    <string name="device_apps_app_management_uninstall_updates" msgid="5647988075828648951">"إزالة التحديثات"</string>
+    <string name="device_apps_app_management_uninstall_updates" msgid="5647988075828648951">"إلغاء تثبيت التحديثات"</string>
     <string name="device_apps_app_management_uninstall_updates_desc" msgid="4508586498292236706">"ستتم إزالة جميع تحديثات تطبيق نظام Android هذا."</string>
     <string name="device_apps_app_management_disable" msgid="819003297535493633">"إيقاف"</string>
     <string name="device_apps_app_management_disable_desc" msgid="9143166267511427607">"هل تريد إيقاف هذا التطبيق؟"</string>
@@ -885,12 +952,24 @@
     <string name="device_daydreams_sleep_description" msgid="6237610484915504587">"يبدأ عرض شاشة التوقف بعد مرور هذه الفترة من عدم النشاط. فإذا لم يتم اختيار أي شاشة توقف، يتم إيقاف شاشة الجهاز."</string>
     <string name="device_daydreams_sleep_summary" msgid="3081688734381995693">"بعد <xliff:g id="SLEEP_DESCRIPTION">%1$s</xliff:g> من عدم النشاط"</string>
     <string name="device_energy_saver_screen_off" msgid="6908468996426629480">"إيقاف الشاشة"</string>
-    <string name="device_energy_saver_screen_off_description" msgid="4469679706899396071">"بعد <xliff:g id="SLEEP_DESCRIPTION">%1$s</xliff:g>"</string>
-    <string name="device_energy_saver_screen_off_dialog_title" msgid="4092476553760123309">"لإيقاف تشغيل شاشة العرض بعد"</string>
-    <string name="device_energy_saver_allow_turning_screen_off" msgid="3832490233158066073">"السماح بإيقاف تشغيل الشاشة"</string>
-    <string name="device_energy_saver_allow_turning_screen_off_description" msgid="6369746832941270786">"أثناء تشغيل الوسائط"</string>
-    <string name="device_energy_saver_confirmation_title" msgid="3888708298070409591">"تأكيد إعداد \"توفير الطاقة\""</string>
-    <string name="device_energy_saver_confirmation_text" msgid="3157546670441493125">"يُرجى تأكيد ضبط الإعداد الجديد على <xliff:g id="SLEEP_TIME">%1$s</xliff:g> وبالتالي يُحتمَل استخدام المزيد من الطاقة."</string>
+    <!-- no translation found for device_energy_saver_timeout_description (3206609135199137514) -->
+    <skip />
+    <string name="device_energy_saver_confirmation_title" msgid="7614859812773584773">"تأكيد إعدادات التشغيل والطاقة"</string>
+    <string name="device_energy_saver_confirmation_message" msgid="7789453187001013951">"قد يؤدي ترك التلفزيون قيد التشغيل لفترة طويلة إلى زيادة استهلاك الطاقة."</string>
+    <string name="device_energy_saver_disable_allow_turning_screen_off_title" msgid="1468097048101593731">"إيقاف إعداد أداة \"توفير الطاقة\""</string>
+    <string name="device_energy_saver_disable_allow_turning_screen_off_text" msgid="6334963903866002164">"يُرجى التأكُّد من منع إيقاف العرض أثناء المشاهدة، الأمر الذي قد يؤدي إلى احتمال استهلاك المزيد من الطاقة."</string>
+    <string name="device_energy_saver_sleep_timeout" msgid="1841900768718452039">"في حال عدم النشاط"</string>
+    <string name="device_energy_saver_attentive_timeout" msgid="3649486668821348087">"أثناء المشاهدة"</string>
+    <string name="device_energy_saver_category_title" msgid="170076161677525986">"الإيقاف تلقائيًا"</string>
+    <string name="device_energy_saver_sleep_timeout_dialog_title" msgid="6588352532253294558">"الإيقاف تلقائيًا في حال عدم النشاط"</string>
+    <string name="device_energy_saver_attentive_timeout_dialog_title" msgid="3273988875711109352">"الإيقاف تلقائيًا أثناء مشاهدة المحتوى"</string>
+    <string name="device_energy_saver_validation_sleep" msgid="7490897287741107840">"يجب أن تكون مدّة موقّت \"في حال عدم النشاط\" أقصر من موقّت \"أثناء المشاهدة\"."</string>
+    <string name="device_energy_saver_validation_attentive" msgid="1461105528087097435">"يجب أن تكون مدّة موقّت \"أثناء المشاهدة\" أطول من موقّت \"في حال عدم النشاط\"."</string>
+    <string name="limit_network_in_standby_toggle_title" msgid="6587185599397355336">"تقييد الاتصال بالشبكة في وضع الاستعداد"</string>
+    <string name="limit_network_in_standby_toggle_summary" msgid="9127792748675581174">"يستخدم طاقة أقل في وضع الاستعداد."</string>
+    <string name="limit_network_in_standby_toggle_info" msgid="566947772381093991">"سيتمّ قطع اتصال تلفزيونك بالشبكة عندما يكون في وضع الاستعداد، ويُستثنى من ذلك تلقّي التحديثات التلقائية. قد يؤدي ذلك إلى تقليل استهلاك التلفزيون للطاقة، على الرغم من أنه يعني أيضًا أنك قد لا تتمكّن من استخدام وظائف مثل \"البث\" و\"مساعد Google\" وأنت في وضع الاستعداد."</string>
+    <string name="limit_network_in_standby_confirm_title" msgid="789232987058850322">"السماح باتصال الشبكة في وضع الاستعداد"</string>
+    <string name="limit_network_in_standby_confirm_message" msgid="7176699480768019689">"سيؤدي السماح باتصال الشبكة في وضع الاستعداد إلى زيادة استخدام الطاقة في وضع الاستعداد."</string>
     <string name="backup_configure_account_default_summary" msgid="2170733614341544296">"ليس هناك حساب يخزن حاليًا البيانات التي يتم نسخها احتياطيًا."</string>
     <string name="backup_erase_dialog_title" msgid="6008454053276987100"></string>
     <string name="backup_erase_dialog_message" msgid="222169533402624861">"هل تريد إيقاف الاحتفاظ بنسخة احتياطية بكل من كلمات مرور Wi-Fi والإشارات المرجعية والإعدادات الأخرى وبيانات التطبيقات ومحو كل نسخ البيانات على خوادم Google؟"</string>
@@ -942,7 +1021,7 @@
     <string name="high_power_off" msgid="3588854600942236231">"يستخدم طاقة أقل"</string>
     <string name="high_power_system" msgid="6263052626979462255">"تحسين الطاقة غير متوفر"</string>
     <string name="manage_notification_access_title" msgid="8659254371564990084">"الوصول إلى الإشعارات"</string>
-    <string name="no_notification_listeners" msgid="5119406452675724448">"لم تطلب أي تطبيقات مثبّتة حق الوصول إلى الإشعارات."</string>
+    <string name="no_notification_listeners" msgid="5119406452675724448">"لم تطلب أي تطبيقات مثبّتة الإذن بالوصول إلى الإشعارات."</string>
     <string name="notification_listener_security_warning_summary" msgid="8602907284276088658">"سيكون بإمكان هذه التطبيقات قراءة جميع الإشعارات، بما في ذلك المعلومات الشخصية مثل أسماء جهات الاتصال ونص الرسائل التي تتلقاها. وسيكون بإمكانها أيضًا تجاهل الإشعارات أو تفعيل الأزرار داخل هذه الإشعارات."</string>
     <string name="default_notification_access_package_summary" msgid="1354775994781420222">"مطلوب من النظام"</string>
     <string name="directory_access" msgid="7338555825237012006">"الوصول إلى الدليل"</string>
@@ -978,12 +1057,17 @@
     <string name="time_to_start_read_title" msgid="6565449163802837806">"المدة قبل أن يتم بدء القراءة"</string>
     <string name="time_to_valid_audio_title" msgid="7246101824813414348">"المدة قبل أن يتم تسجيل البيانات الصوتية الصالحة"</string>
     <string name="empty_audio_duration_title" msgid="9024377320171450683">"مدة الملف الصوتي الفارغ"</string>
+    <string name="record_audio_source_title" msgid="9087784503276397929">"مصدر صوت مسجَّل"</string>
+    <string name="record_audio_source_dialog_title" msgid="6556408220589197097">"اختيار مصدر صوت مسجَّل لاستخدامه في التسجيل التالي"</string>
+    <string name="recorded_microphones_title" msgid="5466988146086215426">"الميكروفون (الميكروفونات) المستخدمة في التسجيل"</string>
     <string name="show_audio_recording_start_failed" msgid="9131762831381326605">"تعذّر بدء تسجيل الصوت."</string>
     <string name="show_audio_recording_failed" msgid="8128216664039868681">"تعذّر تسجيل الصوت."</string>
     <string name="title_data_saver" msgid="7500278996154002792">"توفير البيانات"</string>
     <string name="summary_data_saver" msgid="6793558728898207405">"ضبط جودة الفيديو تلقائيًا لتقليل استخدام بيانات الجوّال"</string>
     <string name="title_data_alert" msgid="8262081890052682475">"التنبيهات واستخدام البيانات"</string>
     <string name="data_saver_header_info" msgid="2706725187498535785">"يمكنك الاتصال بالإنترنت باستخدام شبكة Wi-Fi أو إيثرنت أو نقطة اتصال هاتفك."</string>
+    <string name="bluetooth_ask_discovery_title" msgid="4955540555242269694">"هل تريد جعله مرئيًا للأجهزة الأخرى التي تتضمّن بلوتوث؟"</string>
+    <string name="bluetooth_ask_discovery_message" msgid="8609666862877703398">"يريد أحد التطبيقات أن يكون تلفزيونك مرئيًا للأجهزة الأخرى التي تتضمّن بلوتوث لمدة <xliff:g id="TIMEOUT">%1$d</xliff:g> ثانية."</string>
     <string name="help_center_title" msgid="6109822142761302433"></string>
     <string name="disabled_by_policy_title" msgid="2220484346213756472">"غير مسموح بهذا الإجراء"</string>
     <string name="disabled_by_policy_title_adjust_volume" msgid="4229779946666263271">"يتعذّر تغيير مستوى الصوت."</string>
@@ -1034,4 +1118,9 @@
     <string name="power_on_behavior" msgid="927607372303160716">"سلوك التلفزيون عندما يكون قيد التشغيل"</string>
     <string name="reset_options_title" msgid="7632580482285108955">"إعادة الضبط"</string>
     <string name="adb_pairing_device_dialog_ethernet_pairing_code_label" msgid="7551782499828944838">"رمز إقران شبكة إيثرنت"</string>
+    <string name="energy_modes" msgid="1331693860386361744">"أوضاع استهلاك الطاقة"</string>
+    <string name="energy_modes_summary" msgid="7196407759836930799">"تحسين استهلاك الطاقة عندما يكون التلفزيون غير مستخدَم"</string>
+    <string name="energy_mode_enables" msgid="357960364751477627">"يفعِّل هذا الوضع الميزات التالية:"</string>
+    <string name="energy_mode_eco_hint" msgid="1461517905015359947">"ملاحظة: قد يؤدي استخدام هذا الوضع إلى زيادة استهلاك طاقة الجهاز."</string>
+    <string name="energy_modes_confirmation_title" msgid="4520280098781914825">"تفعيل وضع \"<xliff:g id="ENERGYMODENAME">%s</xliff:g>\""</string>
 </resources>

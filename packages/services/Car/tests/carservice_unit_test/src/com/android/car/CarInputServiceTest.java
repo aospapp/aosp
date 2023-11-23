@@ -19,6 +19,7 @@ package com.android.car;
 import static android.car.CarOccupantZoneManager.DisplayTypeEnum;
 import static android.car.input.CustomInputEvent.INPUT_CODE_F1;
 
+import static com.android.dx.mockito.inline.extended.ExtendedMockito.doAnswer;
 import static com.android.dx.mockito.inline.extended.ExtendedMockito.doReturn;
 import static com.android.dx.mockito.inline.extended.ExtendedMockito.verify;
 
@@ -26,6 +27,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
@@ -39,7 +41,9 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.when;
 
 import android.car.CarOccupantZoneManager;
+import android.car.CarOccupantZoneManager.OccupantZoneInfo;
 import android.car.CarProjectionManager;
+import android.car.VehicleAreaSeat;
 import android.car.builtin.util.AssistUtilsHelper;
 import android.car.input.CarInputManager;
 import android.car.input.CustomInputEvent;
@@ -56,27 +60,34 @@ import android.os.Looper;
 import android.os.Message;
 import android.os.SystemClock;
 import android.os.UserHandle;
+import android.os.UserManager;
 import android.provider.Settings;
 import android.telecom.TelecomManager;
+import android.view.Display;
 import android.view.KeyEvent;
+import android.view.MotionEvent;
 
 import androidx.test.core.app.ApplicationProvider;
 
+import com.android.car.audio.CarAudioService;
 import com.android.car.bluetooth.CarBluetoothService;
 import com.android.car.hal.InputHalService;
+import com.android.car.power.CarPowerManagementService;
+import com.android.car.systeminterface.SystemInterface;
 import com.android.car.user.CarUserService;
 
 import com.google.common.collect.Range;
 
 import org.junit.After;
+import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.Spy;
-import org.testng.Assert;
 
 import java.util.BitSet;
+import java.util.List;
 import java.util.function.BooleanSupplier;
 import java.util.function.IntSupplier;
 import java.util.function.Supplier;
@@ -85,7 +96,8 @@ public class CarInputServiceTest extends AbstractExtendedMockitoTestCase {
 
     @Mock InputHalService mInputHalService;
     @Mock TelecomManager mTelecomManager;
-    @Mock CarInputService.KeyEventListener mDefaultMainListener;
+    @Mock CarInputService.KeyEventListener mDefaultKeyEventMainListener;
+    @Mock CarInputService.MotionEventListener mDefaultMotionEventMainListener;
     @Mock CarInputService.KeyEventListener mInstrumentClusterKeyListener;
     @Mock Supplier<String> mLastCallSupplier;
     @Mock IntSupplier mLongPressDelaySupplier;
@@ -93,6 +105,11 @@ public class CarInputServiceTest extends AbstractExtendedMockitoTestCase {
     @Mock InputCaptureClientController mCaptureController;
     @Mock CarOccupantZoneService mCarOccupantZoneService;
     @Mock CarBluetoothService mCarBluetoothService;
+    @Mock CarPowerManagementService mCarPowerManagementService;
+    @Mock SystemInterface mSystemInterface;
+    @Mock CarAudioService mCarAudioService;
+    @Mock CarMediaService mCarMediaService;
+    @Mock UserManager mUserManager;
 
     @Spy Context mContext = ApplicationProvider.getApplicationContext();
     @Mock private Resources mMockResources;
@@ -101,6 +118,19 @@ public class CarInputServiceTest extends AbstractExtendedMockitoTestCase {
     @Mock CarUserService mCarUserService;
     private CarInputService mCarInputService;
 
+    private static final int DRIVER_USER_ID = 111;
+    private static final int PASSENGER_USER_ID = 112;
+
+    private static final int DRIVER_DISPLAY_ID = 121;
+    private static final int PASSENGER_DISPLAY_ID = 122;
+
+    private static final int DRIVER_ZONE_ID = 131;
+    private static final int PASSENGER_ZONE_ID = 132;
+
+    private static final int UNKNOWN_SEAT = VehicleAreaSeat.SEAT_UNKNOWN;
+    private static final int DRIVER_SEAT = VehicleAreaSeat.SEAT_ROW_1_LEFT;
+    private static final int PASSENGER_SEAT = VehicleAreaSeat.SEAT_ROW_1_RIGHT;
+
     public CarInputServiceTest() {
         super(CarInputService.TAG);
     }
@@ -108,13 +138,14 @@ public class CarInputServiceTest extends AbstractExtendedMockitoTestCase {
     @Before
     public void setUp() {
         mCarInputService = new CarInputService(mContext, mInputHalService, mCarUserService,
-                mCarOccupantZoneService, mCarBluetoothService, mHandler, mTelecomManager,
-                mDefaultMainListener, mLastCallSupplier, mLongPressDelaySupplier,
-                mShouldCallButtonEndOngoingCallSupplier, mCaptureController);
+                mCarOccupantZoneService, mCarBluetoothService, mCarPowerManagementService,
+                mSystemInterface, mHandler, mTelecomManager, mDefaultKeyEventMainListener,
+                mDefaultMotionEventMainListener, mLastCallSupplier, mLongPressDelaySupplier,
+                mShouldCallButtonEndOngoingCallSupplier, mCaptureController, mUserManager);
+
         mCarInputService.setInstrumentClusterKeyListener(mInstrumentClusterKeyListener);
 
         when(mInputHalService.isKeyInputSupported()).thenReturn(true);
-        mCarInputService.init();
 
         // Delay Handler callbacks until flushHandler() is called.
         doReturn(true).when(mHandler).sendMessageAtTime(any(), anyLong());
@@ -122,11 +153,42 @@ public class CarInputServiceTest extends AbstractExtendedMockitoTestCase {
         when(mShouldCallButtonEndOngoingCallSupplier.getAsBoolean()).thenReturn(false);
 
         when(mContext.getResources()).thenReturn(mMockResources);
+
+        setUpCarOccupantZoneService();
+        setUpService();
+        mCarInputService.init();
     }
 
     @Override
     protected void onSessionBuilder(CustomMockitoSessionBuilder session) {
         session.spyStatic(AssistUtilsHelper.class);
+        session.spyStatic(CarServiceUtils.class);
+    }
+
+    private void setUpCarOccupantZoneService() {
+        when(mCarOccupantZoneService.getDriverSeat()).thenReturn(DRIVER_SEAT);
+
+        when(mCarOccupantZoneService.getOccupantZoneIdForSeat(eq(DRIVER_SEAT)))
+                .thenReturn(DRIVER_ZONE_ID);
+        when(mCarOccupantZoneService.getOccupantZoneIdForSeat(eq(PASSENGER_SEAT)))
+                .thenReturn(PASSENGER_ZONE_ID);
+
+        when(mCarOccupantZoneService.getUserForOccupant(eq(DRIVER_ZONE_ID)))
+                .thenReturn(DRIVER_USER_ID);
+        when(mCarOccupantZoneService.getUserForOccupant(eq(PASSENGER_ZONE_ID)))
+                .thenReturn(PASSENGER_USER_ID);
+
+        when(mCarOccupantZoneService.getDisplayForOccupant(eq(DRIVER_ZONE_ID),
+                eq(CarOccupantZoneManager.DISPLAY_TYPE_MAIN))).thenReturn(DRIVER_DISPLAY_ID);
+        when(mCarOccupantZoneService.getDisplayForOccupant(eq(PASSENGER_ZONE_ID),
+                eq(CarOccupantZoneManager.DISPLAY_TYPE_MAIN))).thenReturn(PASSENGER_DISPLAY_ID);
+    }
+
+    private void setUpService() {
+        CarLocalServices.removeServiceForTest(CarAudioService.class);
+        CarLocalServices.addService(CarAudioService.class, mCarAudioService);
+        CarLocalServices.removeServiceForTest(CarMediaService.class);
+        CarLocalServices.addService(CarMediaService.class, mCarMediaService);
     }
 
     @After
@@ -134,6 +196,9 @@ public class CarInputServiceTest extends AbstractExtendedMockitoTestCase {
         if (mCarInputService != null) {
             mCarInputService.release();
         }
+
+        CarLocalServices.removeServiceForTest(CarAudioService.class);
+        CarLocalServices.removeServiceForTest(CarMediaService.class);
     }
 
     @Test
@@ -162,7 +227,8 @@ public class CarInputServiceTest extends AbstractExtendedMockitoTestCase {
         // processed
         verify(mCarOccupantZoneService, never()).getDisplayIdForDriver(anyInt());
         verify(mCaptureController, never()).onKeyEvent(anyInt(), any(KeyEvent.class));
-        verify(mDefaultMainListener, never()).onKeyEvent(any(KeyEvent.class));
+        verify(mDefaultKeyEventMainListener, never())
+                .onKeyEvent(any(KeyEvent.class), anyInt(), anyInt());
     }
 
     @Test
@@ -184,7 +250,8 @@ public class CarInputServiceTest extends AbstractExtendedMockitoTestCase {
                 eq(CarOccupantZoneManager.DISPLAY_TYPE_MAIN));
         verify(mCaptureController, times(numberOfGeneratedKeyEvents)).onKeyEvent(anyInt(),
                 any(KeyEvent.class));
-        verify(mDefaultMainListener, never()).onKeyEvent(any(KeyEvent.class));
+        verify(mDefaultKeyEventMainListener, never())
+                .onKeyEvent(any(KeyEvent.class), anyInt(), anyInt());
     }
 
     @Test
@@ -205,8 +272,8 @@ public class CarInputServiceTest extends AbstractExtendedMockitoTestCase {
                 eq(CarOccupantZoneManager.DISPLAY_TYPE_MAIN));
         verify(mCaptureController, times(numberOfGeneratedKeyEvents)).onKeyEvent(anyInt(),
                 any(KeyEvent.class));
-        verify(mDefaultMainListener, times(numberOfGeneratedKeyEvents)).onKeyEvent(
-                any(KeyEvent.class));
+        verify(mDefaultKeyEventMainListener, times(numberOfGeneratedKeyEvents)).onKeyEvent(
+                any(KeyEvent.class), eq(CarOccupantZoneManager.DISPLAY_TYPE_MAIN), anyInt());
     }
 
     @Test
@@ -245,14 +312,15 @@ public class CarInputServiceTest extends AbstractExtendedMockitoTestCase {
     public void ordinaryEvents_onMainDisplay_routedToInputManager() {
         KeyEvent event = send(Key.DOWN, KeyEvent.KEYCODE_ENTER, Display.MAIN);
 
-        verify(mDefaultMainListener).onKeyEvent(event);
+        verify(mDefaultKeyEventMainListener).onKeyEvent(same(event),
+                eq(CarOccupantZoneManager.DISPLAY_TYPE_MAIN), anyInt());
     }
 
     @Test
     public void ordinaryEvents_onInstrumentClusterDisplay_notRoutedToInputManager() {
         send(Key.DOWN, KeyEvent.KEYCODE_ENTER, Display.INSTRUMENT_CLUSTER);
 
-        verify(mDefaultMainListener, never()).onKeyEvent(any());
+        verify(mDefaultKeyEventMainListener, never()).onKeyEvent(any(), anyInt(), anyInt());
     }
 
     @Test
@@ -262,6 +330,88 @@ public class CarInputServiceTest extends AbstractExtendedMockitoTestCase {
 
         KeyEvent event = send(Key.DOWN, KeyEvent.KEYCODE_ENTER, Display.INSTRUMENT_CLUSTER);
         verify(listener).onKeyEvent(event);
+    }
+
+    @Test
+    public void registerKeyEventListener_separateListenersWithSameEventsOfInterest_fails() {
+        CarInputService.KeyEventListener listener1 = mock(CarInputService.KeyEventListener.class);
+        CarInputService.KeyEventListener listener2 = mock(CarInputService.KeyEventListener.class);
+        List<Integer> interestedEvents = List.of(KeyEvent.KEYCODE_HOME, KeyEvent.KEYCODE_0);
+        mCarInputService.registerKeyEventListener(listener1, interestedEvents);
+
+        IllegalArgumentException thrown = Assert.assertThrows(IllegalArgumentException.class,
+                () -> mCarInputService.registerKeyEventListener(listener2, interestedEvents));
+
+        assertWithMessage("Register key event listener exception")
+                .that(thrown).hasMessageThat()
+                .contains("Event " + KeyEvent.keyCodeToString(KeyEvent.KEYCODE_HOME)
+                        + " already registered to another listener");
+    }
+
+    @Test
+    public void registerKeyEventListener_separateListenersWithOverlappingEventsOfInterest_fails() {
+        CarInputService.KeyEventListener listener1 = mock(CarInputService.KeyEventListener.class);
+        CarInputService.KeyEventListener listener2 = mock(CarInputService.KeyEventListener.class);
+        List<Integer> interestedEvents1 = List.of(KeyEvent.KEYCODE_HOME, KeyEvent.KEYCODE_0);
+        List<Integer> interestedEvents2 = List.of(KeyEvent.KEYCODE_1, KeyEvent.KEYCODE_HOME);
+        mCarInputService.registerKeyEventListener(listener1, interestedEvents1);
+
+        IllegalArgumentException thrown = Assert.assertThrows(IllegalArgumentException.class,
+                () -> mCarInputService.registerKeyEventListener(listener2, interestedEvents2));
+
+        assertWithMessage("Register key event listener")
+                .that(thrown).hasMessageThat()
+                .contains("Event " + KeyEvent.keyCodeToString(KeyEvent.KEYCODE_HOME)
+                        + " already registered to another listener");
+    }
+
+    @Test
+    public void onKeyEvent_withSingleListener_callsListener() {
+        KeyEvent event = new KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_HOME);
+        CarInputService.KeyEventListener listener = mock(CarInputService.KeyEventListener.class);
+        List<Integer> interestedEvents = List.of(KeyEvent.KEYCODE_HOME, KeyEvent.KEYCODE_0);
+        mCarInputService.registerKeyEventListener(listener, interestedEvents);
+
+        mCarInputService.onKeyEvent(event, CarOccupantZoneManager.DISPLAY_TYPE_MAIN,
+                PASSENGER_SEAT);
+
+        verify(listener).onKeyEvent(event, CarOccupantZoneManager.DISPLAY_TYPE_MAIN,
+                PASSENGER_SEAT);
+    }
+
+    @Test
+    public void onKeyEvent_withMultipleListeners_callToListener() {
+        KeyEvent event = new KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_HOME);
+        CarInputService.KeyEventListener listener1 = mock(CarInputService.KeyEventListener.class);
+        CarInputService.KeyEventListener listener2 = mock(CarInputService.KeyEventListener.class);
+        List<Integer> interestedEvents1 = List.of(KeyEvent.KEYCODE_0);
+        List<Integer> interestedEvents2 = List.of(KeyEvent.KEYCODE_HOME);
+        mCarInputService.registerKeyEventListener(listener1, interestedEvents1);
+        mCarInputService.registerKeyEventListener(listener2, interestedEvents2);
+
+        mCarInputService.onKeyEvent(event, CarOccupantZoneManager.DISPLAY_TYPE_MAIN,
+                PASSENGER_SEAT);
+
+        verify(listener1, never()).onKeyEvent(any(), anyInt(), anyInt());
+        verify(listener2).onKeyEvent(event, CarOccupantZoneManager.DISPLAY_TYPE_MAIN,
+                PASSENGER_SEAT);
+    }
+
+    @Test
+    public void onKeyEvent_withMultipleListeners_noCallToListeners() {
+        KeyEvent event = new KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_1);
+        CarInputService.KeyEventListener listener1 = mock(CarInputService.KeyEventListener.class);
+        CarInputService.KeyEventListener listener2 = mock(CarInputService.KeyEventListener.class);
+        List<Integer> interestedEvents1 = List.of(KeyEvent.KEYCODE_0);
+        List<Integer> interestedEvents2 = List.of(KeyEvent.KEYCODE_HOME);
+        mCarInputService.registerKeyEventListener(listener1, interestedEvents1);
+        mCarInputService.registerKeyEventListener(listener2, interestedEvents2);
+
+        mCarInputService.onKeyEvent(event, CarOccupantZoneManager.DISPLAY_TYPE_MAIN,
+                PASSENGER_SEAT);
+
+        verify(listener1, never()).onKeyEvent(any(), anyInt(), anyInt());
+        verify(listener2, never()).onKeyEvent(any(), anyInt(), anyInt());
     }
 
     @Test
@@ -275,7 +425,8 @@ public class CarInputServiceTest extends AbstractExtendedMockitoTestCase {
         KeyEvent event = send(Key.DOWN, KeyEvent.KEYCODE_ENTER, Display.MAIN);
         verify(instrumentClusterListener, never()).onKeyEvent(any(KeyEvent.class));
         verify(mCaptureController).onKeyEvent(CarOccupantZoneManager.DISPLAY_TYPE_MAIN, event);
-        verify(mDefaultMainListener, never()).onKeyEvent(any(KeyEvent.class));
+        verify(mDefaultKeyEventMainListener, never())
+                .onKeyEvent(any(KeyEvent.class), anyInt(), anyInt());
     }
 
     @Test
@@ -289,7 +440,8 @@ public class CarInputServiceTest extends AbstractExtendedMockitoTestCase {
         KeyEvent event = send(Key.DOWN, KeyEvent.KEYCODE_ENTER, Display.MAIN);
         verify(instrumentClusterListener, never()).onKeyEvent(any(KeyEvent.class));
         verify(mCaptureController).onKeyEvent(anyInt(), any(KeyEvent.class));
-        verify(mDefaultMainListener).onKeyEvent(event);
+        verify(mDefaultKeyEventMainListener).onKeyEvent(same(event),
+                eq(CarOccupantZoneManager.DISPLAY_TYPE_MAIN), anyInt());
     }
 
     @Test
@@ -303,7 +455,8 @@ public class CarInputServiceTest extends AbstractExtendedMockitoTestCase {
         KeyEvent event = send(Key.DOWN, KeyEvent.KEYCODE_ENTER, Display.INSTRUMENT_CLUSTER);
         verify(instrumentClusterListener).onKeyEvent(event);
         verify(mCaptureController, never()).onKeyEvent(anyInt(), any(KeyEvent.class));
-        verify(mDefaultMainListener, never()).onKeyEvent(any(KeyEvent.class));
+        verify(mDefaultKeyEventMainListener, never())
+                .onKeyEvent(any(KeyEvent.class), anyInt(), anyInt());
     }
 
     private CarInputService.KeyEventListener setupInstrumentClusterListener() {
@@ -732,8 +885,9 @@ public class CarInputServiceTest extends AbstractExtendedMockitoTestCase {
 
         injectKeyEventAndVerify(event, CarOccupantZoneManager.DISPLAY_TYPE_MAIN);
 
-        verify(mDefaultMainListener).onKeyEvent(event);
-        verify(mInstrumentClusterKeyListener, never()).onKeyEvent(event);
+        verify(mDefaultKeyEventMainListener).onKeyEvent(same(event),
+                eq(CarOccupantZoneManager.DISPLAY_TYPE_MAIN), anyInt());
+        verify(mInstrumentClusterKeyListener, never()).onKeyEvent(same(event));
     }
 
     @Test
@@ -746,8 +900,8 @@ public class CarInputServiceTest extends AbstractExtendedMockitoTestCase {
 
         injectKeyEventAndVerify(event, CarOccupantZoneManager.DISPLAY_TYPE_INSTRUMENT_CLUSTER);
 
-        verify(mDefaultMainListener, never()).onKeyEvent(event);
-        verify(mInstrumentClusterKeyListener).onKeyEvent(event);
+        verify(mDefaultKeyEventMainListener, never()).onKeyEvent(same(event), anyInt(), anyInt());
+        verify(mInstrumentClusterKeyListener).onKeyEvent(same(event));
     }
 
     private void injectKeyEventAndVerify(KeyEvent event, @DisplayTypeEnum int displayType) {
@@ -784,6 +938,286 @@ public class CarInputServiceTest extends AbstractExtendedMockitoTestCase {
                 event.getDisplayId()).isEqualTo(android.view.Display.DEFAULT_DISPLAY);
     }
 
+    @Test
+    public void onKeyEvent_unknownSeat_throwsException() {
+        long currentTime = SystemClock.uptimeMillis();
+        KeyEvent event = new KeyEvent(/* downTime= */ currentTime,
+                /* eventTime= */ currentTime, KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_A,
+                /* repeat= */ 0);
+
+        IllegalArgumentException thrown = Assert.assertThrows(IllegalArgumentException.class,
+                () -> mCarInputService.onKeyEvent(event, CarOccupantZoneManager.DISPLAY_TYPE_MAIN,
+                UNKNOWN_SEAT));
+
+        assertWithMessage("Sent key event with unknown seat exception")
+                .that(thrown).hasMessageThat()
+                .contains("Unknown seat");
+    }
+
+    @Test
+    public void onKeyEvent_keyCodeAtoDriverSeat_triggersDefaultKeyEventMainListener() {
+        when(mCaptureController.onKeyEvent(anyInt(), any(KeyEvent.class))).thenReturn(false);
+
+        KeyEvent event = send(Key.DOWN, KeyEvent.KEYCODE_A, Display.MAIN, DRIVER_SEAT);
+
+        verify(mCarPowerManagementService).notifyUserActivity(eq(DRIVER_DISPLAY_ID), anyLong());
+        verify(mDefaultKeyEventMainListener).onKeyEvent(same(event),
+                eq(CarOccupantZoneManager.DISPLAY_TYPE_MAIN), eq(DRIVER_SEAT));
+    }
+
+    @Test
+    public void onKeyEvent_keyCodeAtoPassengerSeat_triggersDefaultKeyEventMainListener() {
+        when(mCaptureController.onKeyEvent(anyInt(), any(KeyEvent.class))).thenReturn(false);
+
+        KeyEvent event = send(Key.DOWN, KeyEvent.KEYCODE_A, Display.MAIN, PASSENGER_SEAT);
+
+        verify(mCarPowerManagementService).notifyUserActivity(eq(PASSENGER_DISPLAY_ID), anyLong());
+        verify(mDefaultKeyEventMainListener).onKeyEvent(same(event),
+                eq(CarOccupantZoneManager.DISPLAY_TYPE_MAIN), eq(PASSENGER_SEAT));
+    }
+
+    @Test
+    public void onKeyEvent_homeKeyUpToDriverSeat_triggersDefaultKeyEventMainListener() {
+        when(mCaptureController.onKeyEvent(anyInt(), any(KeyEvent.class))).thenReturn(false);
+
+        KeyEvent event = send(Key.UP, KeyEvent.KEYCODE_HOME, Display.MAIN, DRIVER_SEAT);
+
+        verify(mDefaultKeyEventMainListener).onKeyEvent(same(event),
+                eq(CarOccupantZoneManager.DISPLAY_TYPE_MAIN), eq(DRIVER_SEAT));
+        verify(() -> CarServiceUtils.startHomeForUserAndDisplay(any(), anyInt(), anyInt()),
+                never());
+    }
+
+    @Test
+    public void onKeyEvent_homeKeyUpToInvalidSeat_doesNothing() {
+        int invalidSeat = -1;
+        when(mCarOccupantZoneService.getOccupantZoneIdForSeat(eq(invalidSeat)))
+                .thenReturn(OccupantZoneInfo.INVALID_ZONE_ID);
+
+        send(Key.UP, KeyEvent.KEYCODE_HOME, Display.MAIN, invalidSeat);
+
+        verify(() -> CarServiceUtils.startHomeForUserAndDisplay(any(), anyInt(), anyInt()),
+                never());
+    }
+
+    @Test
+    public void onKeyEvent_homeKeyDownToPassengerSeat_doesNothing() {
+        send(Key.DOWN, KeyEvent.KEYCODE_HOME, Display.MAIN, PASSENGER_SEAT);
+
+        verify(() -> CarServiceUtils.startHomeForUserAndDisplay(any(), anyInt(), anyInt()),
+                never());
+    }
+
+    @Test
+    public void onKeyEvent_homeKeyUpToPassengerSeat_triggersStartyHome() {
+        doAnswer((invocation) -> null).when(() -> CarServiceUtils.startHomeForUserAndDisplay(
+                any(Context.class), anyInt(), anyInt()));
+
+        send(Key.UP, KeyEvent.KEYCODE_HOME, Display.MAIN, PASSENGER_SEAT);
+
+        verify(() -> CarServiceUtils.startHomeForUserAndDisplay(mContext, PASSENGER_USER_ID,
+                PASSENGER_DISPLAY_ID));
+    }
+
+    @Test
+    public void onKeyEvent_powerKeyUpToDriverSeat_triggersDefaultKeyEventMainListener() {
+        when(mCaptureController.onKeyEvent(anyInt(), any(KeyEvent.class))).thenReturn(false);
+
+        KeyEvent event = send(Key.UP, KeyEvent.KEYCODE_POWER, Display.MAIN, DRIVER_SEAT);
+
+        verify(mDefaultKeyEventMainListener).onKeyEvent(same(event),
+                eq(CarOccupantZoneManager.DISPLAY_TYPE_MAIN), eq(DRIVER_SEAT));
+        verify(mCarPowerManagementService, never()).setDisplayPowerState(anyInt(), anyBoolean());
+    }
+
+    @Test
+    public void onKeyEvent_powerKeyDownToPassengerSeatWhenDisplayOn_doesNothing() {
+        injectPowerKeyEventToSeat(Key.DOWN, /* isOn= */ true, PASSENGER_DISPLAY_ID, PASSENGER_SEAT);
+
+        verify(mCarPowerManagementService, never()).setDisplayPowerState(anyInt(), anyBoolean());
+    }
+
+    @Test
+    public void onKeyEvent_powerKeyDownToPassengerSeatWhenDisplayOff_setsDisplayPowerOn() {
+        injectPowerKeyEventToSeat(Key.DOWN, /* isOn= */ false, PASSENGER_DISPLAY_ID,
+                PASSENGER_SEAT);
+
+        boolean expectedDisplaySetStatus = true;
+        verify(mCarPowerManagementService).setDisplayPowerState(eq(PASSENGER_DISPLAY_ID),
+                eq(expectedDisplaySetStatus));
+    }
+
+    @Test
+    public void onKeyEvent_powerKeyUpToPassengerSeatWhenDisplayOn_setsDisplayPowerOff() {
+        injectPowerKeyEventToSeat(Key.UP, /* isOn= */ true, PASSENGER_DISPLAY_ID, PASSENGER_SEAT);
+
+        boolean expectedDisplaySetStatus = false;
+        verify(mCarPowerManagementService).setDisplayPowerState(eq(PASSENGER_DISPLAY_ID),
+                eq(expectedDisplaySetStatus));
+    }
+
+    @Test
+    public void onKeyEvent_powerKeyUpToPassengerSeatWhenDisplayOff_doesNothing() {
+        injectPowerKeyEventToSeat(Key.UP, /* isOn= */ false, PASSENGER_DISPLAY_ID, PASSENGER_SEAT);
+
+        verify(mCarPowerManagementService, never()).setDisplayPowerState(anyInt(), anyBoolean());
+    }
+
+    @Test
+    public void onKeyEvent_powerKeyDownToPassengerSeatWhenInvalidDisplayId_doesNothing() {
+        when(mCarOccupantZoneService.getDisplayForOccupant(eq(PASSENGER_ZONE_ID),
+                eq(CarOccupantZoneManager.DISPLAY_TYPE_MAIN)))
+                .thenReturn(android.view.Display.INVALID_DISPLAY);
+
+        send(Key.DOWN, KeyEvent.KEYCODE_POWER, Display.MAIN, PASSENGER_SEAT);
+
+        verify(mCarPowerManagementService, never()).setDisplayPowerState(anyInt(), anyBoolean());
+    }
+
+    private KeyEvent injectPowerKeyEventToSeat(Key action, boolean isOn, int displayId, int seat) {
+        when(mSystemInterface.isDisplayEnabled(eq(displayId))).thenReturn(isOn);
+
+        KeyEvent event = send(action, KeyEvent.KEYCODE_POWER, Display.MAIN, seat);
+        return event;
+    }
+
+    @Test
+    public void onMotionEvent_injectsMotionEventToDriverSeat() {
+        long currentTime = SystemClock.uptimeMillis();
+        MotionEvent event = MotionEvent.obtain(
+                /* downTime= */ currentTime,
+                /* eventTime= */ currentTime,
+                MotionEvent.ACTION_DOWN,
+                /* X coordinate= */ 0.0f,
+                /* Y coordinate= */ 0.0f,
+                /* metaState= */ 0);
+
+        mCarInputService.onMotionEvent(event, CarOccupantZoneManager.DISPLAY_TYPE_MAIN,
+                DRIVER_SEAT);
+
+        verify(mDefaultMotionEventMainListener).onMotionEvent(same(event));
+        verify(mCarPowerManagementService).notifyUserActivity(eq(DRIVER_DISPLAY_ID),
+                eq(currentTime));
+    }
+
+    @Test
+    public void onMotionEvent_injectsMotionEventToPassengerSeat() {
+        long currentTime = SystemClock.uptimeMillis();
+        MotionEvent event = MotionEvent.obtain(
+                /* downTime= */ currentTime,
+                /* eventTime= */ currentTime,
+                MotionEvent.ACTION_DOWN,
+                /* X coordinate= */ 0.0f,
+                /* Y coordinate= */ 0.0f,
+                /* metaState= */ 0);
+
+        mCarInputService.onMotionEvent(event, CarOccupantZoneManager.DISPLAY_TYPE_MAIN,
+                PASSENGER_SEAT);
+
+        verify(mDefaultMotionEventMainListener).onMotionEvent(same(event));
+        verify(mCarPowerManagementService).notifyUserActivity(eq(PASSENGER_DISPLAY_ID),
+                eq(currentTime));
+    }
+
+    @Test
+    public void onMotionEvent_unknownSeat_throwsException() {
+        long currentTime = SystemClock.uptimeMillis();
+        MotionEvent event = MotionEvent.obtain(
+                /* downTime= */ currentTime,
+                /* eventTime= */ currentTime,
+                MotionEvent.ACTION_DOWN,
+                /* X coordinate= */ 0.0f,
+                /* Y coordinate= */ 0.0f,
+                /* metaState= */ 0);
+
+        IllegalArgumentException thrown = Assert.assertThrows(IllegalArgumentException.class,
+                () -> mCarInputService.onMotionEvent(event,
+                CarOccupantZoneManager.DISPLAY_TYPE_MAIN, UNKNOWN_SEAT));
+
+        assertWithMessage("Sent motion event with unknown seat exception")
+                .that(thrown).hasMessageThat()
+                .contains("Unknown seat");
+    }
+
+    @Test
+    public void injectKeyEventForDriver_delegatesToOnKeyEvent() {
+        doReturn(PackageManager.PERMISSION_GRANTED).when(mContext).checkCallingOrSelfPermission(
+                android.Manifest.permission.INJECT_EVENTS);
+        when(mCaptureController.onKeyEvent(anyInt(), any(KeyEvent.class))).thenReturn(false);
+        long currentTime = SystemClock.uptimeMillis();
+        KeyEvent event = new KeyEvent(
+                /* downTime= */ currentTime,
+                /* eventTime= */ currentTime,
+                KeyEvent.ACTION_DOWN,
+                KeyEvent.KEYCODE_ENTER,
+                /* repeat= */ 0);
+
+        mCarInputService.injectKeyEventForSeat(event, CarOccupantZoneManager.DISPLAY_TYPE_MAIN,
+                DRIVER_SEAT);
+
+        verify(mDefaultKeyEventMainListener).onKeyEvent(same(event),
+                eq(CarOccupantZoneManager.DISPLAY_TYPE_MAIN), eq(DRIVER_SEAT));
+    }
+
+    @Test
+    public void injectKeyEventForDriver_throwsSecurityExceptionWithoutInjectEventsPermission() {
+        doReturn(PackageManager.PERMISSION_DENIED).when(mContext).checkCallingOrSelfPermission(
+                android.Manifest.permission.INJECT_EVENTS);
+        long currentTime = SystemClock.uptimeMillis();
+        KeyEvent event = new KeyEvent(
+                /* downTime= */ currentTime,
+                /* eventTime= */ currentTime,
+                KeyEvent.ACTION_DOWN,
+                KeyEvent.KEYCODE_ENTER,
+                /* repeat= */ 0);
+
+        // Act and assert
+        Assert.assertThrows(SecurityException.class,
+                () -> mCarInputService.injectKeyEventForSeat(event,
+                        CarOccupantZoneManager.DISPLAY_TYPE_MAIN,
+                        DRIVER_SEAT));
+    }
+
+    @Test
+    public void injectMotionEventForDriver_delegatesToOnKeyEvent() {
+        doReturn(PackageManager.PERMISSION_GRANTED).when(mContext).checkCallingOrSelfPermission(
+                android.Manifest.permission.INJECT_EVENTS);
+        when(mCaptureController.onKeyEvent(anyInt(), any(KeyEvent.class))).thenReturn(false);
+        long currentTime = SystemClock.uptimeMillis();
+        MotionEvent event = MotionEvent.obtain(
+                /* downTime= */ currentTime,
+                /* eventTime= */ currentTime,
+                MotionEvent.ACTION_DOWN,
+                /* X coordinate= */ 0.0f,
+                /* Y coordinate= */ 0.0f,
+                /* metaState= */ 0);
+
+        mCarInputService.injectMotionEventForSeat(event, CarOccupantZoneManager.DISPLAY_TYPE_MAIN,
+                DRIVER_SEAT);
+
+        verify(mDefaultMotionEventMainListener).onMotionEvent(event);
+    }
+
+    @Test
+    public void injectMotionEventForDriver_throwsSecurityExceptionWithoutInjectEventsPermission() {
+        doReturn(PackageManager.PERMISSION_DENIED).when(mContext).checkCallingOrSelfPermission(
+                android.Manifest.permission.INJECT_EVENTS);
+
+        long currentTime = SystemClock.uptimeMillis();
+        MotionEvent event = MotionEvent.obtain(
+                /* downTime= */ currentTime,
+                /* eventTime= */ currentTime,
+                MotionEvent.ACTION_DOWN,
+                /* X coordinate= */ 0.0f,
+                /* Y coordinate= */ 0.0f,
+                /* metaState= */ 0);
+
+        Assert.assertThrows(SecurityException.class,
+                () -> mCarInputService.injectMotionEventForSeat(event,
+                        CarOccupantZoneManager.DISPLAY_TYPE_MAIN,
+                        DRIVER_SEAT));
+    }
+
     private enum Key {DOWN, UP}
 
     private enum Display {MAIN, INSTRUMENT_CLUSTER}
@@ -805,6 +1239,28 @@ public class CarInputServiceTest extends AbstractExtendedMockitoTestCase {
                 display == Display.MAIN
                         ? CarOccupantZoneManager.DISPLAY_TYPE_MAIN
                         : CarOccupantZoneManager.DISPLAY_TYPE_INSTRUMENT_CLUSTER);
+        return event;
+    }
+
+    private KeyEvent send(Key action, int keyCode, Display display, int seat) {
+        return sendWithRepeatAndSeat(action, keyCode, display, 0, seat);
+    }
+
+    private KeyEvent sendWithRepeatAndSeat(Key action, int keyCode, Display display,
+            int repeatCount, int seat) {
+        KeyEvent event = new KeyEvent(
+                /* downTime= */ 0L,
+                /* eventTime= */ 0L,
+                action == Key.DOWN ? KeyEvent.ACTION_DOWN : KeyEvent.ACTION_UP,
+                keyCode,
+                repeatCount);
+        event.setDisplayId(android.view.Display.INVALID_DISPLAY);
+        mCarInputService.onKeyEvent(
+                event,
+                display == Display.MAIN
+                        ? CarOccupantZoneManager.DISPLAY_TYPE_MAIN
+                        : CarOccupantZoneManager.DISPLAY_TYPE_INSTRUMENT_CLUSTER,
+                seat);
         return event;
     }
 

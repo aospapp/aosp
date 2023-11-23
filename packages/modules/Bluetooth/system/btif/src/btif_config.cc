@@ -38,7 +38,6 @@
 #include "btif_api.h"
 #include "btif_common.h"
 #include "btif_config_cache.h"
-#include "btif_config_transcode.h"
 #include "btif_keystore.h"
 #include "btif_metrics_logging.h"
 #include "common/address_obfuscator.h"
@@ -55,7 +54,6 @@
 #include "raw_address.h"
 #include "stack/include/bt_octets.h"
 
-#define BT_CONFIG_SOURCE_TAG_NUM 1010001
 #define TEMPORARY_SECTION_CAPACITY 10000
 
 #define INFO_SECTION "Info"
@@ -112,7 +110,7 @@ static void read_or_set_metrics_salt() {
     metrics_salt.fill(0);
   }
   if (!AddressObfuscator::IsSaltValid(metrics_salt)) {
-    LOG(INFO) << __func__ << ": Metrics salt is not invalid, creating new one";
+    LOG(INFO) << __func__ << ": Metrics salt is invalid, creating new one";
     if (RAND_bytes(metrics_salt.data(), metrics_salt.size()) != 1) {
       LOG(FATAL) << __func__ << "Failed to generate salt for metrics";
     }
@@ -194,7 +192,6 @@ static future_t* init(void) {
 }
 
 static future_t* shut_down(void) {
-  btif_config_flush();
   return future_new_immediate(FUTURE_SUCCESS);
 }
 
@@ -315,20 +312,9 @@ bool btif_config_remove(const std::string& section, const std::string& key) {
   return bluetooth::shim::BtifConfigInterface::RemoveProperty(section, key);
 }
 
-void btif_config_save(void) {
-  CHECK(bluetooth::shim::is_gd_stack_started_up());
-  bluetooth::shim::BtifConfigInterface::Save();
-}
-
-void btif_config_flush(void) {
-  CHECK(bluetooth::shim::is_gd_stack_started_up());
-  bluetooth::shim::BtifConfigInterface::Flush();
-}
-
 bool btif_config_clear(void) {
   CHECK(bluetooth::shim::is_gd_stack_started_up());
   bluetooth::shim::BtifConfigInterface::Clear();
-  bluetooth::shim::BtifConfigInterface::Save();
   return true;
 }
 

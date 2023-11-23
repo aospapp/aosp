@@ -18,7 +18,9 @@ package com.android.car.bluetooth;
 
 import android.annotation.Nullable;
 import android.app.ActivityManager;
+import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
+import android.bluetooth.BluetoothManager;
 import android.bluetooth.BluetoothProfile;
 import android.bluetooth.BluetoothStatusCodes;
 import android.car.builtin.util.Slogf;
@@ -27,6 +29,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.os.Handler;
+import android.os.ParcelUuid;
 import android.os.UserHandle;
 import android.util.Log;
 import android.util.SparseArray;
@@ -36,6 +39,7 @@ import com.android.car.CarServiceUtils;
 import com.android.internal.annotations.VisibleForTesting;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
@@ -48,7 +52,7 @@ import java.util.Objects;
  * MAX_RETRY_ATTEMPTS} attempts. It stops tracking a device if all expected profiles successfully
  * connect for the first time, or if the device unbonds, or if the Bluetooth stack is torn down.
  */
-public class BluetoothConnectionRetryManager {
+public final class BluetoothConnectionRetryManager {
     private static final String TAG = CarLog.tagFor(BluetoothConnectionRetryManager.class);
     private static final boolean DBG = Slogf.isLoggable(TAG, Log.DEBUG);
 
@@ -60,6 +64,7 @@ public class BluetoothConnectionRetryManager {
     private final Context mContext;
     @Nullable
     private Context mUserContext;
+    private BluetoothAdapter mBluetoothAdapter;
     private final BluetoothBroadcastReceiver mBluetoothBroadcastReceiver;
     private final Handler mHandler = new Handler(
             CarServiceUtils.getHandlerThread(CarBluetoothService.THREAD_NAME).getLooper());
@@ -223,11 +228,12 @@ public class BluetoothConnectionRetryManager {
                 Slogf.d(TAG, "Tracking %s, supported profiles:", device);
                 // additional debug messages continued in for-loop below
             }
+            List<ParcelUuid> ourUuids = mBluetoothAdapter.getUuidsList();
             SparseArray<RetryTokenAndCounter> profileCounters =
                     new SparseArray<RetryTokenAndCounter>(MANAGED_PROFILES.length);
             for (int i = 0; i < MANAGED_PROFILES.length; i++) {
                 int profileId = MANAGED_PROFILES[i];
-                if (BluetoothUtils.isProfileSupported(device, profileId)) {
+                if (BluetoothUtils.isProfileSupported(ourUuids, device, profileId)) {
                     if (DBG) {
                         // debug messaging continued from above
                         Slogf.d(TAG, "    %s", BluetoothUtils.getProfileName(profileId));
@@ -347,6 +353,9 @@ public class BluetoothConnectionRetryManager {
      */
     private BluetoothConnectionRetryManager(Context context) {
         mContext = Objects.requireNonNull(context);
+        BluetoothManager bluetoothManager =
+                Objects.requireNonNull(mContext.getSystemService(BluetoothManager.class));
+        mBluetoothAdapter = Objects.requireNonNull(bluetoothManager.getAdapter());
         mBluetoothBroadcastReceiver = new BluetoothBroadcastReceiver();
         mFirstConnectionTracker = new FirstConnectionTracker();
     }

@@ -222,8 +222,13 @@ binder_status_t DnsResolverService::dump(int fd, const char** args, uint32_t num
     // Locking happens in PrivateDnsConfiguration and res_* functions.
     ENFORCE_NETWORK_STACK_PERMISSIONS();
 
+    int timeout_count = 0;
     int res = gDnsResolv->resolverCtrl.getResolverInfo(netId, servers, domains, tlsServers, params,
-                                                       stats, wait_for_pending_req_timeout_count);
+                                                       stats, &timeout_count);
+    // Due to historical reason, wait_for_pending_req_timeout_count couldn't be
+    // an int but a vector. See aosp/858377 for more details.
+    wait_for_pending_req_timeout_count->clear();
+    wait_for_pending_req_timeout_count->push_back(timeout_count);
 
     return statusFromErrcode(res);
 }

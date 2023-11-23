@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="app_name" msgid="5832002141924282426">"CaptivePortalLogin"</string>
+    <string name="app_name" msgid="9113573340518078598">"強制網絡入口登入"</string>
     <string name="action_use_network" msgid="8239049683838236305">"依照現況使用這個網絡"</string>
     <string name="action_do_not_use_network" msgid="6324702363356892396">"不要使用這個網絡"</string>
     <string name="action_bar_label" msgid="2023171629563754892">"登入網絡"</string>
     <string name="action_bar_title" msgid="2566334512545554724">"登入「%1$s」"</string>
-    <string name="ssl_error_warning" msgid="494203210316238046">"您正在嘗試加入的網絡有安全性問題。"</string>
+    <string name="ssl_error_warning" msgid="494203210316238046">"你正在嘗試加入的網絡有安全性問題。"</string>
     <string name="ssl_error_example" msgid="4574594291839092653">"例如，登入頁面並不屬於所顯示的機構。"</string>
     <string name="no_bypass_error_vpnwarning" msgid="5263739853101734851">"此外，由於裝置目前正在執行 VPN，因此無法略過此錯誤。"</string>
     <string name="error_continue_via_browser" msgid="7091550471744444659">"仍要透過瀏覽器繼續操作"</string>
@@ -19,8 +19,8 @@
     <string name="ssl_error_unknown" msgid="3751419329218834886">"不明的憑證錯誤。"</string>
     <string name="ssl_security_warning_title" msgid="7912335118289529802">"安全性警告"</string>
     <string name="ssl_error_view_certificate" msgid="3447891108083278449">"查看憑證"</string>
-    <string name="custom_scheme_warning" msgid="1809266150423969087">"您嘗試加入的網絡要求您開啟其他應用程式。"</string>
-    <string name="custom_scheme_example" msgid="7126568152528588592">"例如，登入頁面可能會要求您使用特定應用程式進行驗證"</string>
+    <string name="custom_scheme_warning" msgid="1809266150423969087">"你嘗試加入的網絡要求你開啟其他應用程式。"</string>
+    <string name="custom_scheme_example" msgid="7126568152528588592">"例如，登入頁面可能會要求你使用特定應用程式進行驗證"</string>
     <string name="ok" msgid="6584612582120777209">"確定"</string>
     <string name="page_info_address" msgid="1290683284404217554">"電郵地址："</string>
     <string name="page_info" msgid="46593086046896385">"頁面資料"</string>

@@ -20,7 +20,7 @@
 #include <string>
 #include <vector>
 
-#include <base/callback_forward.h>
+#include <base/functional/callback_forward.h>
 
 #include "avrcp_common.h"
 #include "raw_address.h"
@@ -78,6 +78,9 @@ class MediaCallbacks {
   virtual void SendFolderUpdate(bool available_players, bool addressed_players,
                                 bool uids_changed) = 0;
   virtual void SendActiveDeviceChanged(const RawAddress& address) = 0;
+
+  virtual void SendPlayerSettingsChanged(
+      std::vector<PlayerAttribute> attributes, std::vector<uint8_t> values) = 0;
   virtual ~MediaCallbacks() = default;
 };
 
@@ -171,12 +174,38 @@ class VolumeInterface {
   virtual ~VolumeInterface() = default;
 };
 
+class PlayerSettingsInterface {
+ public:
+  using ListPlayerSettingsCallback =
+      base::Callback<void(std::vector<PlayerAttribute> attributes)>;
+  virtual void ListPlayerSettings(ListPlayerSettingsCallback cb) = 0;
+
+  using ListPlayerSettingValuesCallback = base::Callback<void(
+      PlayerAttribute setting, std::vector<uint8_t> values)>;
+  virtual void ListPlayerSettingValues(PlayerAttribute setting,
+                                       ListPlayerSettingValuesCallback cb) = 0;
+
+  using GetCurrentPlayerSettingValueCallback = base::Callback<void(
+      std::vector<PlayerAttribute> attributes, std::vector<uint8_t> values)>;
+  virtual void GetCurrentPlayerSettingValue(
+      std::vector<PlayerAttribute> attributes,
+      GetCurrentPlayerSettingValueCallback cb) = 0;
+
+  using SetPlayerSettingValueCallback = base::Callback<void(bool success)>;
+  virtual void SetPlayerSettings(std::vector<PlayerAttribute> attributes,
+                                 std::vector<uint8_t> values,
+                                 SetPlayerSettingValueCallback cb) = 0;
+
+  virtual ~PlayerSettingsInterface() = default;
+};
+
 class ServiceInterface {
  public:
   // mediaInterface can not be null. If volumeInterface is null then Absolute
   // Volume is disabled.
   virtual void Init(MediaInterface* mediaInterface,
-                    VolumeInterface* volumeInterface) = 0;
+                    VolumeInterface* volumeInterface,
+                    PlayerSettingsInterface* player_settings_interface) = 0;
   virtual void RegisterBipServer(int psm) = 0;
   virtual void UnregisterBipServer() = 0;
   virtual bool ConnectDevice(const RawAddress& bdaddr) = 0;

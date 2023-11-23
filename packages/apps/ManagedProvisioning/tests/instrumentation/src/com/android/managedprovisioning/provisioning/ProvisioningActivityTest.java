@@ -348,7 +348,6 @@ public class ProvisioningActivityTest {
         onView(withText(R.string.next)).perform(click());
 
         // THEN the activity should finish
-        onView(withId(R.id.provisioning_progress));
         assertTrue(mActivityRule.getActivity().isFinishing());
     }
 
@@ -387,7 +386,6 @@ public class ProvisioningActivityTest {
         intended(allOf(hasComponent(TEST_ACTIVITY), hasAction(ACTION_STATE_USER_SETUP_COMPLETE)));
 
         // THEN the activity should finish
-        onView(withId(R.id.provisioning_progress));
         assertTrue(mActivityRule.getActivity().isFinishing());
     }
 
@@ -547,7 +545,6 @@ public class ProvisioningActivityTest {
 
     private void launchActivityAndWait(Intent intent) {
         mActivityRule.launchActivity(intent);
-        onView(withId(R.id.setup_wizard_layout));
     }
 
     // TODO(b/180399632): Utilize a callback, IdlingResource, etc.

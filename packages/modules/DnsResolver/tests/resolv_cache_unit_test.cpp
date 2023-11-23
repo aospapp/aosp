@@ -29,24 +29,28 @@
 #include <cutils/properties.h>
 #include <gmock/gmock-matchers.h>
 #include <gtest/gtest.h>
+#include <netdutils/NetNativeTestBase.h>
 
+#include "Experiments.h"
 #include "resolv_cache.h"
 #include "resolv_private.h"
 #include "stats.h"
 #include "tests/dns_responder/dns_responder.h"
-#include "tests/resolv_test_base.h"
 #include "tests/resolv_test_utils.h"
 
 using namespace std::chrono_literals;
 
 using android::netdutils::IPSockAddr;
 
+const std::string kMaxCacheEntriesFlag("persist.device_config.netd_native.max_cache_entries");
+
 constexpr int TEST_NETID_2 = 31;
 constexpr int DNS_PORT = 53;
 
 // Constant values sync'd from res_cache.cpp
 constexpr int DNS_HEADER_SIZE = 12;
-constexpr int MAX_ENTRIES = 64 * 2 * 5;
+constexpr int MAX_ENTRIES_DEFAULT = 64 * 2 * 5;
+constexpr int MAX_ENTRIES_UPPER_BOUND = 100 * 1000;
 
 namespace {
 
@@ -129,7 +133,7 @@ bool operator==(const res_params& a, const res_params& b) {
 
 }  // namespace
 
-class ResolvCacheTest : public ResolvTestBase {
+class ResolvCacheTest : public NetNativeTestBase {
   protected:
     static constexpr res_params kParams = {
             .sample_validity = 300,
@@ -558,9 +562,10 @@ TEST_F(ResolvCacheTest, PendingRequest_CacheDestroyed) {
 TEST_F(ResolvCacheTest, MaxEntries) {
     EXPECT_EQ(0, cacheCreate(TEST_NETID));
     std::vector<CacheEntry> ces;
+    const int max_cache_entries = resolv_get_max_cache_entries(TEST_NETID);
 
-    for (int i = 0; i < 2 * MAX_ENTRIES; i++) {
-        std::string qname = fmt::format("cache.{:04d}", i);
+    for (int i = 0; i < 2 * max_cache_entries; i++) {
+        std::string qname = fmt::format("cache.{:06d}", i);
         SCOPED_TRACE(qname);
         CacheEntry ce = makeCacheEntry(QUERY, qname.data(), ns_c_in, ns_t_a, "1.2.3.4");
         EXPECT_EQ(0, cacheAdd(TEST_NETID, ce));
@@ -568,12 +573,12 @@ TEST_F(ResolvCacheTest, MaxEntries) {
         ces.emplace_back(ce);
     }
 
-    for (int i = 0; i < 2 * MAX_ENTRIES; i++) {
-        std::string qname = fmt::format("cache.{:04d}", i);
+    for (int i = 0; i < 2 * max_cache_entries; i++) {
+        std::string qname = fmt::format("cache.{:06d}", i);
         SCOPED_TRACE(qname);
-        if (i < MAX_ENTRIES) {
+        if (i < max_cache_entries) {
             // Because the cache is LRU, the oldest queries should have been purged,
-            // and the most recent MAX_ENTRIES ones should still be present.
+            // and the most recent max_cache_entries ones should still be present.
             EXPECT_TRUE(cacheLookup(RESOLV_CACHE_NOTFOUND, TEST_NETID, ces[i]));
         } else {
             EXPECT_TRUE(cacheLookup(RESOLV_CACHE_FOUND, TEST_NETID, ces[i]));
@@ -584,17 +589,18 @@ TEST_F(ResolvCacheTest, MaxEntries) {
 TEST_F(ResolvCacheTest, CacheFull) {
     EXPECT_EQ(0, cacheCreate(TEST_NETID));
 
-    CacheEntry ce1 = makeCacheEntry(QUERY, "cache.0000", ns_c_in, ns_t_a, "1.2.3.4", 100s);
+    CacheEntry ce1 = makeCacheEntry(QUERY, "cache.000000", ns_c_in, ns_t_a, "1.2.3.4", 100s);
     EXPECT_EQ(0, cacheAdd(TEST_NETID, ce1));
     EXPECT_TRUE(cacheLookup(RESOLV_CACHE_FOUND, TEST_NETID, ce1));
 
-    CacheEntry ce2 = makeCacheEntry(QUERY, "cache.0001", ns_c_in, ns_t_a, "1.2.3.4", 1s);
+    CacheEntry ce2 = makeCacheEntry(QUERY, "cache.000001", ns_c_in, ns_t_a, "1.2.3.4", 1s);
     EXPECT_EQ(0, cacheAdd(TEST_NETID, ce2));
     EXPECT_TRUE(cacheLookup(RESOLV_CACHE_FOUND, TEST_NETID, ce2));
 
     // Stuff the resolver cache.
-    for (int i = 2; i < MAX_ENTRIES; i++) {
-        std::string qname = fmt::format("cache.{:04d}", i);
+    const int max_cache_entries = resolv_get_max_cache_entries(TEST_NETID);
+    for (int i = 2; i < max_cache_entries; i++) {
+        std::string qname = fmt::format("cache.{:06d}", i);
         SCOPED_TRACE(qname);
         CacheEntry ce = makeCacheEntry(QUERY, qname.data(), ns_c_in, ns_t_a, "1.2.3.4", 50s);
         EXPECT_EQ(0, cacheAdd(TEST_NETID, ce));
@@ -615,6 +621,23 @@ TEST_F(ResolvCacheTest, CacheFull) {
     EXPECT_EQ(0, cacheAdd(TEST_NETID, ce4));
     EXPECT_TRUE(cacheLookup(RESOLV_CACHE_FOUND, TEST_NETID, ce4));
     EXPECT_TRUE(cacheLookup(RESOLV_CACHE_NOTFOUND, TEST_NETID, ce1));
+}
+
+class ResolvCacheParameterizedTest : public ResolvCacheTest,
+                                     public testing::WithParamInterface<int> {};
+
+INSTANTIATE_TEST_SUITE_P(MaxCacheEntries, ResolvCacheParameterizedTest,
+                         testing::Values(0, MAX_ENTRIES_UPPER_BOUND + 1),
+                         [](const testing::TestParamInfo<int>& info) {
+                             return std::to_string(info.param);
+                         });
+
+TEST_P(ResolvCacheParameterizedTest, IrrationalCacheSize) {
+    // Assign an out-of-bounds value.
+    ScopedSystemProperties sp1(kMaxCacheEntriesFlag, std::to_string(GetParam()));
+    android::net::Experiments::getInstance()->update();
+    EXPECT_EQ(0, cacheCreate(TEST_NETID));
+    EXPECT_EQ(MAX_ENTRIES_DEFAULT, resolv_get_max_cache_entries(TEST_NETID));
 }
 
 TEST_F(ResolvCacheTest, ResolverSetup) {

@@ -22,7 +22,7 @@
     <color name="secondary">#3D8AB4F8</color>
     <color name="hairline">#5F6368</color>
 
-    <color name="empty_state_text">@android:color/white</color>
+    <color name="empty_state_text_color">@android:color/white</color>
     <color name="error_image_color">@android:color/white</color>
 
     <color name="edge_effect">@android:color/white</color>
@@ -33,4 +33,6 @@
 
     <color name="list_divider_color">#9aa0a6</color>
     <color name="list_item_selected_background_color">?android:colorSecondary</color>
+
+    <color name="fragment_pick_active_text_color">#202124</color> <!-- Grey 900 -->
 </resources>

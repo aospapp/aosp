@@ -1,0 +1,259 @@
+/*
+ * Copyright (C) 2022 Google LLC
+ */
+
+#include <dt-bindings/interrupt-controller/arm-gic.h>
+
+#define PLACEHOLDER	0xffffffff
+#define PLACEHOLDER2	PLACEHOLDER PLACEHOLDER
+#define PLACEHOLDER4	PLACEHOLDER2 PLACEHOLDER2
+
+#define IRQ_BASE 4
+
+/dts-v1/;
+
+/ {
+	interrupt-parent = <&intc>;
+	compatible = "linux,dummy-virt";
+	#address-cells = <2>;
+	#size-cells = <2>;
+
+	chosen {
+		stdout-path = "/uart@3f8";
+		linux,pci-probe-only = <1>;
+		kaslr-seed = <PLACEHOLDER2>;
+		avf,strict-boot;
+		avf,new-instance;
+	};
+
+	memory {
+		device_type = "memory";
+		reg = <0x00 0x80000000 PLACEHOLDER2>;
+	};
+
+	reserved-memory {
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+		swiotlb: restricted_dma_reserved {
+			compatible = "restricted-dma-pool";
+			size = <PLACEHOLDER2>;
+			alignment = <PLACEHOLDER2>;
+		};
+
+		dice {
+			compatible = "google,open-dice";
+			no-map;
+			reg = <PLACEHOLDER4>;
+		};
+	};
+
+	cpus {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		cpu@0 {
+			device_type = "cpu";
+			compatible = "arm,arm-v8";
+			enable-method = "psci";
+			reg = <0>;
+		};
+		cpu@1 {
+			device_type = "cpu";
+			compatible = "arm,arm-v8";
+			enable-method = "psci";
+			reg = <1>;
+		};
+		cpu@2 {
+			device_type = "cpu";
+			compatible = "arm,arm-v8";
+			enable-method = "psci";
+			reg = <2>;
+		};
+		cpu@3 {
+			device_type = "cpu";
+			compatible = "arm,arm-v8";
+			enable-method = "psci";
+			reg = <3>;
+		};
+		cpu@4 {
+			device_type = "cpu";
+			compatible = "arm,arm-v8";
+			enable-method = "psci";
+			reg = <4>;
+		};
+		cpu@5 {
+			device_type = "cpu";
+			compatible = "arm,arm-v8";
+			enable-method = "psci";
+			reg = <5>;
+		};
+		cpu@6 {
+			device_type = "cpu";
+			compatible = "arm,arm-v8";
+			enable-method = "psci";
+			reg = <6>;
+		};
+		cpu@7 {
+			device_type = "cpu";
+			compatible = "arm,arm-v8";
+			enable-method = "psci";
+			reg = <7>;
+		};
+		cpu@8 {
+			device_type = "cpu";
+			compatible = "arm,arm-v8";
+			enable-method = "psci";
+			reg = <8>;
+		};
+		cpu@9 {
+			device_type = "cpu";
+			compatible = "arm,arm-v8";
+			enable-method = "psci";
+			reg = <9>;
+		};
+		cpu@10 {
+			device_type = "cpu";
+			compatible = "arm,arm-v8";
+			enable-method = "psci";
+			reg = <10>;
+		};
+		cpu@11 {
+			device_type = "cpu";
+			compatible = "arm,arm-v8";
+			enable-method = "psci";
+			reg = <11>;
+		};
+		cpu@12 {
+			device_type = "cpu";
+			compatible = "arm,arm-v8";
+			enable-method = "psci";
+			reg = <12>;
+		};
+		cpu@13 {
+			device_type = "cpu";
+			compatible = "arm,arm-v8";
+			enable-method = "psci";
+			reg = <13>;
+		};
+		cpu@14 {
+			device_type = "cpu";
+			compatible = "arm,arm-v8";
+			enable-method = "psci";
+			reg = <14>;
+		};
+		cpu@15 {
+			device_type = "cpu";
+			compatible = "arm,arm-v8";
+			enable-method = "psci";
+			reg = <15>;
+		};
+	};
+
+	intc: intc {
+		compatible = "arm,gic-v3";
+		#address-cells = <2>;
+		#size-cells = <2>;
+		#interrupt-cells = <3>;
+		interrupt-controller;
+		reg = <0x00 0x3fff0000 0x00 0x10000>, <PLACEHOLDER4>;
+	};
+
+	timer {
+		compatible = "arm,armv8-timer";
+		always-on;
+		/* The IRQ type needs to be OR-ed with the CPU mask */
+		interrupts = <GIC_PPI 0xd IRQ_TYPE_LEVEL_LOW
+		              GIC_PPI 0xe IRQ_TYPE_LEVEL_LOW
+			      GIC_PPI 0xb IRQ_TYPE_LEVEL_LOW
+			      GIC_PPI 0xa IRQ_TYPE_LEVEL_LOW>;
+	};
+
+	uart@2e8 {
+		compatible = "ns16550a";
+		reg = <0x00 0x2e8 0x00 0x8>;
+		clock-frequency = <0x1c2000>;
+		interrupts = <GIC_SPI 2 IRQ_TYPE_EDGE_RISING>;
+	};
+
+	uart@2f8 {
+		compatible = "ns16550a";
+		reg = <0x00 0x2f8 0x00 0x8>;
+		clock-frequency = <0x1c2000>;
+		interrupts = <GIC_SPI 2 IRQ_TYPE_EDGE_RISING>;
+	};
+
+	uart@3e8 {
+		compatible = "ns16550a";
+		reg = <0x00 0x3e8 0x00 0x8>;
+		clock-frequency = <0x1c2000>;
+		interrupts = <GIC_SPI 0 IRQ_TYPE_EDGE_RISING>;
+	};
+
+	uart@3f8 {
+		compatible = "ns16550a";
+		reg = <0x00 0x3f8 0x00 0x8>;
+		clock-frequency = <0x1c2000>;
+		interrupts = <GIC_SPI 0 IRQ_TYPE_EDGE_RISING>;
+	};
+
+	psci {
+		compatible = "arm,psci-1.0";
+		method = "hvc";
+	};
+
+	pci {
+		compatible = "pci-host-cam-generic";
+		device_type = "pci";
+		#address-cells = <3>;
+		#size-cells = <2>;
+		#interrupt-cells = <1>;
+		dma-coherent;
+		memory-region = <&swiotlb>;
+		ranges = <
+			0x3000000 0x0 0x02000000 0x0 0x02000000 0x00 0x02000000
+			0x3000000 PLACEHOLDER2   PLACEHOLDER2   PLACEHOLDER2
+		>;
+		bus-range = <0x00 0x00>;
+		reg = <0x00 0x10000 0x00 0x1000000>;
+		interrupt-map = <
+			0x0800 0x0 0x0 1 &intc 0 0 GIC_SPI (IRQ_BASE + 0) IRQ_TYPE_LEVEL_HIGH
+			0x1000 0x0 0x0 1 &intc 0 0 GIC_SPI (IRQ_BASE + 1) IRQ_TYPE_LEVEL_HIGH
+			0x1800 0x0 0x0 1 &intc 0 0 GIC_SPI (IRQ_BASE + 2) IRQ_TYPE_LEVEL_HIGH
+			0x2000 0x0 0x0 1 &intc 0 0 GIC_SPI (IRQ_BASE + 3) IRQ_TYPE_LEVEL_HIGH
+			0x2800 0x0 0x0 1 &intc 0 0 GIC_SPI (IRQ_BASE + 4) IRQ_TYPE_LEVEL_HIGH
+			0x3000 0x0 0x0 1 &intc 0 0 GIC_SPI (IRQ_BASE + 5) IRQ_TYPE_LEVEL_HIGH
+			0x3800 0x0 0x0 1 &intc 0 0 GIC_SPI (IRQ_BASE + 6) IRQ_TYPE_LEVEL_HIGH
+			0x4000 0x0 0x0 1 &intc 0 0 GIC_SPI (IRQ_BASE + 7) IRQ_TYPE_LEVEL_HIGH
+		>;
+		interrupt-map-mask = <0xf800 0x0 0x0 0x7
+				      0xf800 0x0 0x0 0x7
+				      0xf800 0x0 0x0 0x7
+				      0xf800 0x0 0x0 0x7
+				      0xf800 0x0 0x0 0x7
+				      0xf800 0x0 0x0 0x7
+				      0xf800 0x0 0x0 0x7
+				      0xf800 0x0 0x0 0x7>;
+	};
+
+	clk: pclk@3M {
+		compatible = "fixed-clock";
+		clock-frequency = <0x2fefd8>;
+		#clock-cells = <0>;
+	};
+
+	rtc@2000 {
+		compatible = "arm,primecell";
+		arm,primecell-periphid = <0x41030>;
+		reg = <0x00 0x2000 0x00 0x1000>;
+		interrupts = <GIC_SPI 1 IRQ_TYPE_LEVEL_HIGH>;
+		clock-names = "apb_pclk";
+		clocks = <&clk>;
+	};
+
+	vmwdt@3000 {
+		compatible = "qemu,vcpu-stall-detector";
+		reg = <0x00 0x3000 0x00 0x1000>;
+		clock-frequency = <10>;
+		timeout-sec = <8>;
+	};
+};

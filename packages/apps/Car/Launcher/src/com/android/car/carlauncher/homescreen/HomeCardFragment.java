@@ -16,6 +16,9 @@
 
 package com.android.car.carlauncher.homescreen;
 
+import static com.android.car.carlauncher.homescreen.ui.CardContent.HomeCardContentType.DESCRIPTIVE_TEXT_WITH_CONTROLS;
+
+import android.content.res.ColorStateList;
 import android.graphics.drawable.Drawable;
 import android.os.Bundle;
 import android.util.Size;
@@ -25,16 +28,20 @@ import android.view.ViewGroup;
 import android.view.ViewStub;
 import android.widget.ImageButton;
 import android.widget.ImageView;
+import android.widget.ProgressBar;
+import android.widget.SeekBar;
 import android.widget.TextView;
 
 import androidx.fragment.app.Fragment;
 
 import com.android.car.apps.common.CrossfadeImageView;
 import com.android.car.carlauncher.R;
+import com.android.car.carlauncher.homescreen.audio.MediaViewModel.PlaybackCallback;
 import com.android.car.carlauncher.homescreen.ui.CardContent;
 import com.android.car.carlauncher.homescreen.ui.CardHeader;
 import com.android.car.carlauncher.homescreen.ui.DescriptiveTextView;
 import com.android.car.carlauncher.homescreen.ui.DescriptiveTextWithControlsView;
+import com.android.car.carlauncher.homescreen.ui.SeekBarViewModel;
 import com.android.car.carlauncher.homescreen.ui.TextBlockView;
 import com.android.internal.annotations.VisibleForTesting;
 import com.android.internal.util.ArrayUtils;
@@ -51,7 +58,6 @@ import com.android.internal.util.ArrayUtils;
  */
 public class HomeCardFragment extends Fragment implements HomeCardInterface.View {
 
-    private static final String TAG = "HomeFragment";
     private HomeCardInterface.Presenter mPresenter;
     private Size mSize;
     private View mCardBackground;
@@ -59,6 +65,11 @@ public class HomeCardFragment extends Fragment implements HomeCardInterface.View
     private View mRootView;
     private TextView mCardTitle;
     private ImageView mCardIcon;
+    private ProgressBar mOptionalProgressBar;
+    private SeekBar mOptionalSeekBar;
+    private TextView mOptionalTimes;
+    private ViewGroup mOptionalSeekBarWithTimesContainer;
+    private int mOptionalSeekBarColor;
 
     // Views from card_content_text_block.xml
     private View mTextBlockLayoutView;
@@ -81,6 +92,28 @@ public class HomeCardFragment extends Fragment implements HomeCardInterface.View
     private ImageButton mControlBarLeftButton;
     private ImageButton mControlBarCenterButton;
     private ImageButton mControlBarRightButton;
+
+    private boolean mTrackingTouch;
+    private PlaybackCallback mPlaybackCallback;
+    private SeekBar.OnSeekBarChangeListener mOnSeekBarChangeListener =
+            new SeekBar.OnSeekBarChangeListener() {
+                @Override
+                public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
+                }
+
+                @Override
+                public void onStartTrackingTouch(SeekBar seekBar) {
+                    mTrackingTouch = true;
+                }
+
+                @Override
+                public void onStopTrackingTouch(SeekBar seekBar) {
+                    if (mTrackingTouch) {
+                        mPlaybackCallback.seekTo(seekBar.getProgress());
+                    }
+                    mTrackingTouch = false;
+                }
+            };
 
     @Override
     public void setPresenter(HomeCardInterface.Presenter presenter) {
@@ -156,6 +189,14 @@ public class HomeCardFragment extends Fragment implements HomeCardInterface.View
         });
     }
 
+    @Override
+    public void updateContentView(CardContent content, boolean updateProgress) {
+        requireActivity().runOnUiThread(() ->
+                updateSeekBarAndTimes(content, updateProgress)
+        );
+    }
+
+
     /**
      * Child classes can override this method for updating their specific types of card content
      */
@@ -168,8 +209,7 @@ public class HomeCardFragment extends Fragment implements HomeCardInterface.View
                         descriptiveTextContent.getFooter());
                 break;
             case DESCRIPTIVE_TEXT_WITH_CONTROLS:
-                DescriptiveTextWithControlsView
-                        descriptiveTextWithControlsContent =
+                DescriptiveTextWithControlsView descriptiveTextWithControlsContent =
                         (DescriptiveTextWithControlsView) content;
                 updateDescriptiveTextWithControlsView(descriptiveTextWithControlsContent.getTitle(),
                         descriptiveTextWithControlsContent.getSubtitle(),
@@ -183,6 +223,63 @@ public class HomeCardFragment extends Fragment implements HomeCardInterface.View
                 updateTextBlock(textBlockContent.getText(), textBlockContent.getFooter());
                 break;
         }
+    }
+
+    protected void updateSeekBarAndTimes(CardContent content, boolean updateProgress) {
+        DescriptiveTextWithControlsView descriptiveTextWithControlsContent =
+                (DescriptiveTextWithControlsView) content;
+        if (!isSeekbarWithTimesAvailable() || content.getType() != DESCRIPTIVE_TEXT_WITH_CONTROLS
+                || descriptiveTextWithControlsContent.getSeekBarViewModel() == null) {
+            return;
+        }
+
+        SeekBarViewModel seekBarViewModel =
+                descriptiveTextWithControlsContent.getSeekBarViewModel();
+        boolean shouldUseSeekBar = seekBarViewModel.isSeekEnabled();
+
+        if (updateProgress) {
+            ProgressBar progressBar = shouldUseSeekBar ? getOptionalSeekBar()
+                    : getOptionalProgressBar();
+            progressBar.setProgress(seekBarViewModel.getProgress(), /* animate = */ true);
+        } else {
+            SeekBar seekBar = getOptionalSeekBar();
+            ProgressBar progressBar = getOptionalProgressBar();
+            if (shouldUseSeekBar) {
+                updateSeekBar(seekBar, seekBarViewModel);
+            } else {
+                updateProgressBar(progressBar, seekBarViewModel);
+            }
+            seekBar.setVisibility(shouldUseSeekBar ? View.VISIBLE : View.GONE);
+            progressBar.setVisibility(shouldUseSeekBar ? View.GONE : View.VISIBLE);
+        }
+        getOptionalTimes().setText(seekBarViewModel.getTimes());
+
+    }
+
+    private void updateProgressBar(ProgressBar progressBar, SeekBarViewModel seekBarViewModel) {
+        if (mOptionalSeekBarColor != seekBarViewModel.getSeekBarColor()) {
+            mOptionalSeekBarColor = seekBarViewModel.getSeekBarColor();
+            progressBar.setProgressTintList(ColorStateList.valueOf(mOptionalSeekBarColor));
+        }
+        progressBar.setProgress(seekBarViewModel.getProgress(), /* animate = */ true);
+    }
+
+    private void updateSeekBar(SeekBar seekBar, SeekBarViewModel seekBarViewModel) {
+        mPlaybackCallback = seekBarViewModel.getPlaybackCallback();
+        seekBar.setOnSeekBarChangeListener(mOnSeekBarChangeListener);
+        if (mOptionalSeekBarColor != seekBarViewModel.getSeekBarColor()) {
+            mOptionalSeekBarColor = seekBarViewModel.getSeekBarColor();
+            seekBar.setThumbTintList(ColorStateList.valueOf(mOptionalSeekBarColor));
+            seekBar.setProgressTintList(ColorStateList.valueOf(mOptionalSeekBarColor));
+        }
+        seekBar.setProgress(seekBarViewModel.getProgress(), /* animate = */ true);
+    }
+
+    private boolean isSeekbarWithTimesAvailable() {
+        return (getOptionalSeekbarWithTimesContainer() != null
+                && getOptionalSeekbarWithTimesContainer().getVisibility() == View.VISIBLE)
+                && getOptionalSeekBar() != null
+                && getOptionalTimes() != null;
     }
 
     protected final void updateDescriptiveTextOnlyView(CharSequence primaryText,
@@ -199,16 +296,20 @@ public class HomeCardFragment extends Fragment implements HomeCardInterface.View
     }
 
     protected final void updateDescriptiveTextWithControlsView(CharSequence primaryText,
-            CharSequence secondaryText, Drawable optionalImage,
+            CharSequence secondaryText, CardContent.CardBackgroundImage optionalImage,
             DescriptiveTextWithControlsView.Control leftButton,
             DescriptiveTextWithControlsView.Control centerButton,
             DescriptiveTextWithControlsView.Control rightButton) {
         getDescriptiveTextWithControlsLayoutView().setVisibility(View.VISIBLE);
         mDescriptiveTextWithControlsTitle.setText(primaryText);
         mDescriptiveTextWithControlsSubtitle.setText(secondaryText);
-        mDescriptiveTextWithControlsOptionalImage.setImageDrawable(optionalImage);
+        if (optionalImage != null) {
+            mDescriptiveTextWithControlsOptionalImage.setImageDrawable(
+                    optionalImage.getForeground());
+        }
         mDescriptiveTextWithControlsOptionalImage.setVisibility(
-                optionalImage == null ? View.GONE : View.VISIBLE);
+                (optionalImage == null || optionalImage.getForeground() == null) ? View.GONE
+                        : View.VISIBLE);
 
         updateControlBarButton(leftButton, mControlBarLeftButton);
         updateControlBarButton(centerButton, mControlBarCenterButton);
@@ -221,10 +322,8 @@ public class HomeCardFragment extends Fragment implements HomeCardInterface.View
             buttonView.setImageDrawable(buttonContent.getIcon());
             if (buttonContent.getIcon() != null) {
                 // update the button view according to icon's selected state
-                buttonView.setSelected(
-                        ArrayUtils.contains(buttonContent.getIcon().getState(),
-                                android.R.attr.state_selected)
-                );
+                buttonView.setSelected(ArrayUtils.contains(buttonContent.getIcon().getState(),
+                        android.R.attr.state_selected));
             }
             buttonView.setOnClickListener(buttonContent.getOnClickListener());
             buttonView.setVisibility(View.VISIBLE);
@@ -244,6 +343,7 @@ public class HomeCardFragment extends Fragment implements HomeCardInterface.View
         getTextBlockLayoutView().setVisibility(View.GONE);
         getDescriptiveTextOnlyLayoutView().setVisibility(View.GONE);
         getDescriptiveTextWithControlsLayoutView().setVisibility(View.GONE);
+        getOptionalSeekbarWithTimesContainer().setVisibility(View.GONE);
     }
 
     protected final View getRootView() {
@@ -262,6 +362,35 @@ public class HomeCardFragment extends Fragment implements HomeCardInterface.View
             mCardBackgroundImage = getRootView().findViewById(R.id.card_background_image);
         }
         return mCardBackgroundImage;
+    }
+
+    private ProgressBar getOptionalProgressBar() {
+        if (mOptionalProgressBar == null) {
+            mOptionalProgressBar = getRootView().findViewById(R.id.optional_progress_bar);
+        }
+        return mOptionalProgressBar;
+    }
+
+    private SeekBar getOptionalSeekBar() {
+        if (mOptionalSeekBar == null) {
+            mOptionalSeekBar = getRootView().findViewById(R.id.optional_seek_bar);
+        }
+        return mOptionalSeekBar;
+    }
+
+    private TextView getOptionalTimes() {
+        if (mOptionalTimes == null) {
+            mOptionalTimes = getRootView().findViewById(R.id.optional_times);
+        }
+        return mOptionalTimes;
+    }
+
+    protected ViewGroup getOptionalSeekbarWithTimesContainer() {
+        if (mOptionalSeekBarWithTimesContainer == null) {
+            mOptionalSeekBarWithTimesContainer = getRootView().findViewById(
+                    R.id.optional_seek_bar_with_times_container);
+        }
+        return mOptionalSeekBarWithTimesContainer;
     }
 
     protected final View getDescriptiveTextOnlyLayoutView() {

@@ -23,6 +23,7 @@
     <string name="bt_share_picker_label" msgid="7464438494743777696">"蓝牙"</string>
     <string name="unknown_device" msgid="2317679521750821654">"未知设备"</string>
     <string name="unknownNumber" msgid="1245183329830158661">"未知号码"</string>
+    <string name="not_provided" msgid="6938740494380012614">"未提供"</string>
     <string name="airplane_error_title" msgid="2570111716678850860">"飞行模式"</string>
     <string name="airplane_error_msg" msgid="4853111123699559578">"飞行模式中不能使用蓝牙。"</string>
     <string name="bt_enable_title" msgid="4484289159118416315"></string>
@@ -37,7 +38,7 @@
     <string name="incoming_file_confirm_timeout_ok" msgid="8612187577686515660">"确定"</string>
     <string name="incoming_file_confirm_timeout_content" msgid="3221412098281076974">"接受来自“<xliff:g id="SENDER">%1$s</xliff:g>”的文件时发生超时"</string>
     <string name="incoming_file_confirm_Notification_title" msgid="5381395500920804895">"有人发送文件给您"</string>
-    <string name="incoming_file_confirm_Notification_content" msgid="2669135531488877921">"“<xliff:g id="SENDER">%1$s</xliff:g>”已做好发送以下文件的准备：<xliff:g id="FILE">%2$s</xliff:g>"</string>
+    <string name="incoming_file_confirm_Notification_content" msgid="2669135531488877921">"“<xliff:g id="SENDER">%1$s</xliff:g>”准备发送以下文件：<xliff:g id="FILE">%2$s</xliff:g>"</string>
     <string name="notification_receiving" msgid="8445265771083510696">"蓝牙共享：正在接收“<xliff:g id="FILE">%1$s</xliff:g>”"</string>
     <string name="notification_received" msgid="2330252358543000567">"蓝牙共享：已接收“<xliff:g id="FILE">%1$s</xliff:g>”"</string>
     <string name="notification_received_fail" msgid="9059153354809379374">"蓝牙共享：未收到文件“<xliff:g id="FILE">%1$s</xliff:g>”"</string>
@@ -109,8 +110,8 @@
     <string name="transfer_clear_dlg_msg" msgid="586117930961007311">"所有内容都将从列表中清除。"</string>
     <string name="outbound_noti_title" msgid="2045560896819618979">"蓝牙共享：已发送文件"</string>
     <string name="inbound_noti_title" msgid="3730993443609581977">"蓝牙共享：已接收文件"</string>
-    <string name="noti_caption_unsuccessful" msgid="6679288016450410835">"{count,plural, =1{# 个文件发送失败。}other{# 个文件发送失败。}}"</string>
-    <string name="noti_caption_success" msgid="7652777514009569713">"{count,plural, =1{# 个文件发送成功，%1$s}other{# 个文件发送成功，%1$s}}"</string>
+    <string name="noti_caption_unsuccessful" msgid="6679288016450410835">"{count,plural, =1{# 个文件传输失败。}other{# 个文件传输失败。}}"</string>
+    <string name="noti_caption_success" msgid="7652777514009569713">"{count,plural, =1{# 个文件传输成功，%1$s}other{# 个文件传输成功，%1$s}}"</string>
     <string name="transfer_menu_clear_all" msgid="3014459758656427076">"清除列表"</string>
     <string name="transfer_menu_open" msgid="5193344638774400131">"打开"</string>
     <string name="transfer_menu_clear" msgid="7213491281898188730">"从列表中清除"</string>
@@ -128,4 +129,10 @@
     <string name="a2dp_sink_mbs_label" msgid="6035366346569127155">"蓝牙音频"</string>
     <string name="bluetooth_opp_file_limit_exceeded" msgid="6612109860149473930">"无法传输 4GB 以上的文件"</string>
     <string name="bluetooth_connect_action" msgid="2319449093046720209">"连接到蓝牙"</string>
+    <string name="bluetooth_enabled_apm_title" msgid="6914461147844949044">"在飞行模式下蓝牙保持开启状态"</string>
+    <string name="bluetooth_enabled_apm_message" msgid="6168686193308136881">"如果您不关闭蓝牙，那么您下次进入飞行模式时设备将记住保持开启蓝牙"</string>
+    <string name="bluetooth_stays_on_title" msgid="39720820955212918">"蓝牙保持开启状态"</string>
+    <string name="bluetooth_stays_on_message" msgid="3669663452593157737">"在飞行模式下设备将记住保持开启蓝牙。如果您不想保持开启和蓝牙，请关闭蓝牙。"</string>
+    <string name="bluetooth_and_wifi_stays_on_title" msgid="5821932798860821244">"WLAN 和蓝牙保持开启状态"</string>
+    <string name="bluetooth_and_wifi_stays_on_message" msgid="7848565203843882558">"在飞行模式下设备将记住保持开启 WLAN 和蓝牙。如果您不想保持开启 WLAN 和蓝牙，请关闭 WLAN 和蓝牙。"</string>
 </resources>

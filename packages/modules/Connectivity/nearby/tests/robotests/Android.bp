@@ -42,15 +42,14 @@ android_robolectric_test {
         "androidx.lifecycle_lifecycle-runtime",
         "androidx.mediarouter_mediarouter-nodeps",
         "error_prone_annotations",
-        "mockito-robolectric-prebuilt",
         "service-nearby-pre-jarjar",
         "truth-prebuilt",
         "robolectric_android-all-stub",
-        "Robolectric_all-target",
     ],
 
     test_options: {
         // timeout in seconds.
         timeout: 36000,
     },
+    upstream: true,
 }

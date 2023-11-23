@@ -42,11 +42,6 @@
             <option name="run-command" value="input keyevent KEYCODE_WAKEUP" />
             <option name="run-command" value="wm dismiss-keyguard" />
         </target_preparer>
-        <target_preparer class="com.android.tradefed.targetprep.PythonVirtualenvPreparer">
-          <!-- Any python dependencies can be specified and will be installed with pip -->
-          <!-- TODO(b/225958696): Import python dependencies -->
-          <option name="dep-module" value="mobly" />
-        </target_preparer>
         <target_preparer class="com.android.tradefed.targetprep.DeviceSetup">
             <option name="force-skip-system-props" value="true" /> <!-- avoid restarting device -->
             <option name="screen-always-on" value="on" />

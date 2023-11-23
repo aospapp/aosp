@@ -33,9 +33,8 @@
 #include "types/hci_role.h"
 #include "types/raw_address.h"
 
+uint8_t btif_trace_level = BT_TRACE_LEVEL_DEBUG;
 tBTM_CB btm_cb;
-
-void LogMsg(uint32_t trace_set_mask, const char* fmt_str, ...) {}
 
 namespace {
 const char* test_flags[] = {
@@ -63,7 +62,7 @@ void btm_sec_role_changed(tHCI_STATUS hci_status, const RawAddress& bd_addr,
 class StackAclTest : public testing::Test {
  protected:
   void SetUp() override {
-    mock_function_count_map.clear();
+    reset_mock_function_count_map();
     bluetooth::common::InitFlags::Load(test_flags);
   }
   void TearDown() override {}

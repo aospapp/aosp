@@ -32,26 +32,4 @@ public class TetherLimitValue extends Struct {
     public TetherLimitValue(final long limit) {
         this.limit = limit;
     }
-
-    // TODO: remove equals, hashCode and toString once aosp/1536721 is merged.
-    @Override
-    public boolean equals(Object obj) {
-        if (this == obj) return true;
-
-        if (!(obj instanceof TetherLimitValue)) return false;
-
-        final TetherLimitValue that = (TetherLimitValue) obj;
-
-        return limit == that.limit;
-    }
-
-    @Override
-    public int hashCode() {
-        return Long.hashCode(limit);
-    }
-
-    @Override
-    public String toString() {
-        return String.format("limit: %d", limit);
-    }
 }

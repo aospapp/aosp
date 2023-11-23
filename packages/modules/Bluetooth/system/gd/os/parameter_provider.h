@@ -40,6 +40,11 @@ class ParameterProvider {
 
   static void OverrideSnoozLogFilePath(const std::string& path);
 
+  // Return the path to the default sysprops file
+  static std::string SyspropsFilePath();
+
+  static void OverrideSyspropsFilePath(const std::string& path);
+
   static bluetooth_keystore::BluetoothKeystoreInterface* GetBtKeystoreInterface();
 
   static void SetBtKeystoreInterface(bluetooth_keystore::BluetoothKeystoreInterface* bt_keystore);

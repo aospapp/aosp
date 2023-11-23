@@ -16,8 +16,8 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="missing_rename_error" msgid="9098952207447981103">"您需要重新命名"</string>
-    <string name="add_folder_name_error" msgid="6014615052491406810">"您需要新增資料夾名稱"</string>
+    <string name="missing_rename_error" msgid="9098952207447981103">"你需要重新命名"</string>
+    <string name="add_folder_name_error" msgid="6014615052491406810">"你需要新增資料夾名稱"</string>
     <string name="files_label" msgid="771781190045103748">"檔案"</string>
     <string name="downloads_label" msgid="5462789470049501103">"下載"</string>
     <!-- no translation found for app_label (8089292432455111409) -->
@@ -92,18 +92,18 @@
     <string name="save_error" msgid="8631128801982095782">"無法儲存文件"</string>
     <string name="create_error" msgid="3092144450044861994">"無法建立資料夾"</string>
     <string name="query_error" msgid="6625421453613879336">"目前無法載入內容"</string>
-    <string name="quiet_mode_error_title" msgid="9126656325282792843">"工作設定檔已暫停使用"</string>
-    <string name="quiet_mode_button" msgid="6977115032320235420">"開啟"</string>
+    <string name="quiet_mode_error_title" msgid="554319751414657910">"已暫停工作應用程式"</string>
+    <string name="quiet_mode_button" msgid="8051436551926677305">"開啟工作應用程式"</string>
     <string name="cant_select_work_files_error_title" msgid="6688716319549644354">"無法選取工作檔案"</string>
-    <string name="cant_select_work_files_error_message" msgid="683480676150690641">"IT 管理員不允許您透過個人應用程式存取工作檔案"</string>
+    <string name="cant_select_work_files_error_message" msgid="683480676150690641">"IT 管理員不允許你透過個人應用程式存取工作檔案"</string>
     <string name="cant_select_personal_files_error_title" msgid="3200697170148617742">"無法選取個人檔案"</string>
-    <string name="cant_select_personal_files_error_message" msgid="4105905035459118209">"IT 管理員不允許您透過工作應用程式存取個人檔案"</string>
+    <string name="cant_select_personal_files_error_message" msgid="4105905035459118209">"IT 管理員不允許你透過工作應用程式存取個人檔案"</string>
     <string name="cant_save_to_work_error_title" msgid="1351323070040641358">"無法儲存至工作設定檔"</string>
-    <string name="cant_save_to_work_error_message" msgid="4975583233814059890">"IT 管理員不允許您將個人檔案儲存至工作設定檔"</string>
+    <string name="cant_save_to_work_error_message" msgid="4975583233814059890">"IT 管理員不允許你將個人檔案儲存至工作設定檔"</string>
     <string name="cant_save_to_personal_error_title" msgid="858327493694069780">"無法儲存至個人設定檔"</string>
-    <string name="cant_save_to_personal_error_message" msgid="6991758723736381751">"IT 管理員不允許您將工作檔案儲存至個人設定檔"</string>
+    <string name="cant_save_to_personal_error_message" msgid="6991758723736381751">"IT 管理員不允許你將工作檔案儲存至個人設定檔"</string>
     <string name="cross_profile_action_not_allowed_title" msgid="6611281348716476478">"不允許執行這項操作"</string>
-    <string name="cross_profile_action_not_allowed_message" msgid="7331275433061690947">"如需瞭解詳情，請聯絡 IT 管理員。"</string>
+    <string name="cross_profile_action_not_allowed_message" msgid="7331275433061690947">"詳情請聯絡 IT 管理員。"</string>
     <string name="root_recent" msgid="1080156975424341623">"最近項目"</string>
     <string name="root_available_bytes" msgid="8269870862691408864">"可用空間：<xliff:g id="SIZE">%1$s</xliff:g>"</string>
     <string name="root_type_service" msgid="6521366147466512289">"儲存空間服務"</string>
@@ -272,14 +272,14 @@
     <string name="open_tree_dialog_title" msgid="6339509533852318569">"要允許「<xliff:g id="APPNAME">%1$s</xliff:g>」存取「<xliff:g id="DIRECTORY">%2$s</xliff:g>」中的檔案嗎？"</string>
     <string name="open_tree_dialog_message" msgid="4120695398430659628">"這樣會允許「<xliff:g id="APPNAME">%1$s</xliff:g>」在今後存取儲存在「<xliff:g id="DIRECTORY">%2$s</xliff:g>」的內容。"</string>
     <string name="directory_blocked_header_title" msgid="1164584889578740066">"無法使用此資料夾"</string>
-    <string name="directory_blocked_header_subtitle" msgid="2829150911849033408">"為保護您的私隱，請選擇其他資料夾"</string>
+    <string name="directory_blocked_header_subtitle" msgid="2829150911849033408">"為保護你的私隱，請選擇其他資料夾"</string>
     <string name="create_new_folder_button" msgid="8859613309559794890">"建立新資料夾"</string>
     <string name="search_bar_hint" msgid="4517366509897977321">"在這部手機中搜尋"</string>
     <string name="delete_search_history" msgid="2202015025607694515">"刪除搜尋記錄 <xliff:g id="TEXT">%1$s</xliff:g>"</string>
     <string name="personal_tab" msgid="3878576287868528503">"個人"</string>
     <string name="work_tab" msgid="7265359366883747413">"工作"</string>
     <string name="a11y_work" msgid="7504431382825242153">"工作"</string>
-    <string name="drag_from_another_app" msgid="8310249276199969905">"您無法移動其他應用程式的檔案。"</string>
+    <string name="drag_from_another_app" msgid="8310249276199969905">"你無法移動其他應用程式的檔案。"</string>
     <string name="grid_mode_showing" msgid="2803166871485028508">"用格狀模式顯示緊。"</string>
     <string name="list_mode_showing" msgid="1225413902295895166">"用清單模式顯示緊。"</string>
 </resources>

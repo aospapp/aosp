@@ -16,9 +16,12 @@
 
 package com.android.server.wifi.aware;
 
+import static android.net.wifi.aware.Characteristics.WIFI_AWARE_CIPHER_SUITE_NCS_PK_PASN_128;
+
 import static com.android.server.wifi.WifiSettingsConfigStore.WIFI_VERBOSE_LOGGING_ENABLED;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assume.assumeTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -34,9 +37,9 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import android.Manifest;
-import android.app.AppOpsManager;
 import android.content.Context;
 import android.content.pm.PackageManager;
+import android.content.res.Resources;
 import android.net.wifi.WifiScanner;
 import android.net.wifi.aware.Characteristics;
 import android.net.wifi.aware.ConfigRequest;
@@ -59,6 +62,7 @@ import android.util.SparseIntArray;
 import androidx.test.filters.SmallTest;
 
 import com.android.modules.utils.build.SdkLevel;
+import com.android.server.wifi.DeviceConfigFacade;
 import com.android.server.wifi.HalDeviceManager;
 import com.android.server.wifi.InterfaceConflictManager;
 import com.android.server.wifi.WifiBaseTest;
@@ -66,6 +70,7 @@ import com.android.server.wifi.WifiSettingsConfigStore;
 import com.android.server.wifi.util.NetdWrapper;
 import com.android.server.wifi.util.WifiPermissionsUtil;
 import com.android.server.wifi.util.WifiPermissionsWrapper;
+import com.android.wifi.resources.R;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -112,6 +117,7 @@ public class WifiAwareServiceImplTest extends WifiBaseTest {
     @Mock private WifiPermissionsWrapper mPermissionsWrapperMock;
     @Mock private WifiSettingsConfigStore mWifiSettingsConfigStore;
     @Mock private InterfaceConflictManager mInterfaceConflictManager;
+    @Mock private DeviceConfigFacade mDeviceConfigFacade;
 
     /**
      * Using instead of spy to avoid native crash failures - possibly due to
@@ -144,26 +150,29 @@ public class WifiAwareServiceImplTest extends WifiBaseTest {
 
         when(mHandlerThreadMock.getLooper()).thenReturn(mMockLooper.getLooper());
 
-        AppOpsManager appOpsMock = mock(AppOpsManager.class);
-        when(mContextMock.getSystemService(Context.APP_OPS_SERVICE)).thenReturn(appOpsMock);
-
         when(mContextMock.getApplicationContext()).thenReturn(mContextMock);
         when(mContextMock.getPackageManager()).thenReturn(mPackageManagerMock);
         when(mPackageManagerMock.hasSystemFeature(PackageManager.FEATURE_WIFI_AWARE))
                 .thenReturn(true);
         when(mPackageManagerMock.hasSystemFeature(PackageManager.FEATURE_WIFI_RTT))
                 .thenReturn(true);
-        when(mAwareStateManagerMock.getCharacteristics()).thenReturn(getCharacteristics());
+        when(mDeviceConfigFacade.isAwareSuspensionEnabled()).thenReturn(true);
+        Characteristics characteristics = getCharacteristics(mDeviceConfigFacade);
+        when(mAwareStateManagerMock.getCharacteristics()).thenReturn(characteristics);
         when(mWifiSettingsConfigStore.get(eq(WIFI_VERBOSE_LOGGING_ENABLED))).thenReturn(true);
         // mock target SDK version to be pre-T by default to keep existing tests working.
         when(mWifiPermissionsUtil.isTargetSdkLessThan(any(), eq(Build.VERSION_CODES.TIRAMISU),
                 anyInt())).thenReturn(true);
 
         when(mInterfaceConflictManager.manageInterfaceConflictForStateMachine(any(), any(), any(),
-                any(), any(), eq(HalDeviceManager.HDM_CREATE_IFACE_NAN), any())).thenReturn(
-                InterfaceConflictManager.ICM_EXECUTE_COMMAND);
+                any(), any(), eq(HalDeviceManager.HDM_CREATE_IFACE_NAN), any(), anyBoolean()))
+                .thenReturn(InterfaceConflictManager.ICM_EXECUTE_COMMAND);
 
         mDut = new WifiAwareServiceImplSpy(mContextMock);
+        Resources resources = mock(Resources.class);
+        when(mContextMock.getResources()).thenReturn(resources);
+        when(resources.getInteger(
+                        R.integer.config_wifiVerboseLoggingAlwaysOnLevel)).thenReturn(0);
         mDut.fakeUid = mDefaultUid;
         mDut.start(mHandlerThreadMock, mAwareStateManagerMock, mWifiAwareShellCommandMock,
                 mAwareMetricsMock, mWifiPermissionsUtil, mPermissionsWrapperMock,
@@ -190,6 +199,8 @@ public class WifiAwareServiceImplTest extends WifiBaseTest {
     @Test
     public void testGetAwareResources() {
         mDut.getAvailableAwareResources();
+        verify(mAwareStateManagerMock, never()).getAvailableAwareResources();
+        mMockLooper.dispatchAll();
         verify(mAwareStateManagerMock).getAvailableAwareResources();
     }
 
@@ -209,7 +220,6 @@ public class WifiAwareServiceImplTest extends WifiBaseTest {
         when(mWifiPermissionsUtil.isSystem(anyString(), anyInt())).thenReturn(true);
         mDut.enableInstantCommunicationMode(mPackageName, true);
         verify(mAwareStateManagerMock).enableInstantCommunicationMode(eq(true));
-
     }
 
 
@@ -230,16 +240,15 @@ public class WifiAwareServiceImplTest extends WifiBaseTest {
         String callingPackage = "com.google.somePackage";
         String callingFeatureId = "com.google.someFeature";
         mDut.connect(mBinderMock, callingPackage, callingFeatureId, mCallbackMock,
-                configRequest, false, mExtras);
+                configRequest, false, mExtras, false);
 
         verify(mAwareStateManagerMock).connect(anyInt(), anyInt(), anyInt(), eq(callingPackage),
-                eq(callingFeatureId), eq(mCallbackMock), eq(configRequest), eq(false), any());
+                eq(callingFeatureId), eq(mCallbackMock), eq(configRequest), eq(false), any(),
+                eq(false));
     }
 
     /**
      * Validate disconnect() - correct pass-through args.
-     *
-     * @throws Exception
      */
     @Test
     public void testDisconnect() throws Exception {
@@ -253,6 +262,7 @@ public class WifiAwareServiceImplTest extends WifiBaseTest {
     /**
      * Validate that security exception thrown when attempting operation using
      * an invalid client ID.
+     * 240
      */
     @Test(expected = SecurityException.class)
     public void testFailOnInvalidClientId() {
@@ -343,7 +353,6 @@ public class WifiAwareServiceImplTest extends WifiBaseTest {
         mDut.subscribe(mPackageName, mFeatureId, clientId, subscribeConfig, mockCallback, mExtras);
     }
 
-
     /**
      * Validates that on binder death we get a disconnect().
      */
@@ -372,9 +381,9 @@ public class WifiAwareServiceImplTest extends WifiBaseTest {
 
         int prevId = 0;
         for (int i = 0; i < loopCount; ++i) {
-            mDut.connect(mBinderMock, "", "", mCallbackMock, null, false, mExtras);
+            mDut.connect(mBinderMock, "", "", mCallbackMock, null, false, mExtras, false);
             inOrder.verify(mAwareStateManagerMock).connect(clientIdCaptor.capture(), anyInt(),
-                    anyInt(), any(), any(), eq(mCallbackMock), any(), eq(false), any());
+                    anyInt(), any(), any(), eq(mCallbackMock), any(), eq(false), any(), eq(false));
             int id = clientIdCaptor.getValue();
             if (i != 0) {
                 assertTrue("Client ID incrementing", id > prevId);
@@ -751,22 +760,27 @@ public class WifiAwareServiceImplTest extends WifiBaseTest {
         cap.maxNdpSessions = 1;
         cap.maxAppInfoLen = 255;
         cap.maxQueuedTransmitMessages = 6;
-        cap.supportedCipherSuites = Characteristics.WIFI_AWARE_CIPHER_SUITE_NCS_SK_256;
+        cap.supportedDataPathCipherSuites = Characteristics.WIFI_AWARE_CIPHER_SUITE_NCS_SK_256;
+        cap.supportedPairingCipherSuites = WIFI_AWARE_CIPHER_SUITE_NCS_PK_PASN_128;
         cap.isInstantCommunicationModeSupported = true;
+        cap.isSuspensionSupported = true;
 
-        Characteristics characteristics = cap.toPublicCharacteristics();
+        Characteristics characteristics = cap.toPublicCharacteristics(mDeviceConfigFacade);
         assertEquals(characteristics.getMaxServiceNameLength(), maxServiceName);
         assertEquals(characteristics.getMaxServiceSpecificInfoLength(), maxServiceSpecificInfo);
         assertEquals(characteristics.getMaxMatchFilterLength(), maxMatchFilter);
         assertEquals(characteristics.getSupportedCipherSuites(),
                 Characteristics.WIFI_AWARE_CIPHER_SUITE_NCS_SK_256);
+        assertEquals(characteristics.getSupportedPairingCipherSuites(),
+                Characteristics.WIFI_AWARE_CIPHER_SUITE_NCS_PK_PASN_128);
         assertEquals(characteristics.getNumberOfSupportedDataPaths(), 1);
         assertEquals(characteristics.getNumberOfSupportedDataInterfaces(), 1);
         assertEquals(characteristics.getNumberOfSupportedPublishSessions(), 2);
         assertEquals(characteristics.getNumberOfSupportedSubscribeSessions(), 2);
         if (SdkLevel.isAtLeastS()) {
-            assertEquals(characteristics.isInstantCommunicationModeSupported(), true);
+            assertTrue(characteristics.isInstantCommunicationModeSupported());
         }
+        assertTrue(characteristics.isSuspensionSupported());
     }
 
     @Test
@@ -801,6 +815,149 @@ public class WifiAwareServiceImplTest extends WifiBaseTest {
         mDut.publish(mPackageName, mFeatureId, clientId, publishConfig, mockCallback, mExtras);
     }
 
+    @Test
+    public void testInitiateNanPairingSetupRequestWithPairingNotSupported() {
+        int sessionId = 2394;
+        int peerId = 2032;
+        String password = "password";
+        String alias = "alias";
+        int clientId = doConnect();
+        assertThrows(IllegalArgumentException.class, () ->
+                mDut.initiateNanPairingSetupRequest(clientId, sessionId, peerId, password, alias,
+                        WIFI_AWARE_CIPHER_SUITE_NCS_PK_PASN_128));
+    }
+
+    @Test
+    public void testResponseNanPairingSetupRequestWithPairingNotSupported() {
+        int sessionId = 2394;
+        int peerId = 2032;
+        int pairId = 1;
+        String password = "password";
+        String alias = "alias";
+        int clientId = doConnect();
+        assertThrows(IllegalArgumentException.class, () ->
+                mDut.responseNanPairingSetupRequest(clientId, sessionId, peerId, pairId, password,
+                        alias, true, WIFI_AWARE_CIPHER_SUITE_NCS_PK_PASN_128));
+    }
+
+    @Test
+    public void testSuspendWithSuspensionNotSupported() {
+        int sessionId = 123;
+        int clientId = doConnect();
+
+        Characteristics characteristics = mock(Characteristics.class);
+        when(characteristics.isSuspensionSupported()).thenReturn(false);
+        when(mAwareStateManagerMock.getCharacteristics()).thenReturn(characteristics);
+        when(mWifiPermissionsUtil.checkManageWifiNetworkSelectionPermission(anyInt()))
+                .thenReturn(true);
+
+        assertThrows(
+                UnsupportedOperationException.class,
+                () -> mDut.suspend(clientId, sessionId));
+    }
+
+    @Test
+    public void testSuspendWithNoNetworkSelectionPermission() {
+        int sessionId = 123;
+        int clientId = doConnect();
+
+        Characteristics characteristics = mock(Characteristics.class);
+        when(characteristics.isSuspensionSupported()).thenReturn(false);
+        when(mWifiPermissionsUtil.checkManageWifiNetworkSelectionPermission(anyInt()))
+                .thenReturn(false);
+
+        assertThrows(
+                SecurityException.class,
+                () -> mDut.suspend(clientId, sessionId));
+    }
+
+    @Test
+    public void testSuspendWithValidConfiguration() {
+        int sessionId = 345;
+        int clientId = doConnect();
+
+        Characteristics characteristics = mock(Characteristics.class);
+        when(characteristics.isSuspensionSupported()).thenReturn(true);
+        when(mAwareStateManagerMock.getCharacteristics()).thenReturn(characteristics);
+        when(mWifiPermissionsUtil.checkManageWifiNetworkSelectionPermission(anyInt()))
+                .thenReturn(true);
+
+        mDut.suspend(clientId, sessionId);
+
+        verify(mAwareStateManagerMock).suspend(clientId, sessionId);
+    }
+
+    @Test
+    public void testResumeWithSuspensionNotSupported() {
+        int sessionId = 123;
+        int clientId = doConnect();
+
+        Characteristics characteristics = mock(Characteristics.class);
+        when(characteristics.isSuspensionSupported()).thenReturn(false);
+        when(mAwareStateManagerMock.getCharacteristics()).thenReturn(characteristics);
+        when(mWifiPermissionsUtil.checkManageWifiNetworkSelectionPermission(anyInt()))
+                .thenReturn(true);
+
+        assertThrows(UnsupportedOperationException.class, () -> mDut.resume(clientId, sessionId));
+    }
+
+    @Test
+    public void testResumeWithNoNetworkSelectionPermission() {
+        int sessionId = 123;
+        int clientId = doConnect();
+
+        Characteristics characteristics = mock(Characteristics.class);
+        when(characteristics.isSuspensionSupported()).thenReturn(false);
+        when(mWifiPermissionsUtil.checkManageWifiNetworkSelectionPermission(anyInt()))
+                .thenReturn(false);
+
+        assertThrows(
+                SecurityException.class,
+                () -> mDut.resume(clientId, sessionId));
+    }
+
+    @Test
+    public void testResumeWithValidConfiguration() {
+        int sessionId = 345;
+        int clientId = doConnect();
+
+        Characteristics characteristics = mock(Characteristics.class);
+        when(characteristics.isSuspensionSupported()).thenReturn(true);
+        when(mAwareStateManagerMock.getCharacteristics()).thenReturn(characteristics);
+        when(mWifiPermissionsUtil.checkManageWifiNetworkSelectionPermission(anyInt()))
+                .thenReturn(true);
+
+        mDut.resume(clientId, sessionId);
+
+        verify(mAwareStateManagerMock).resume(clientId, sessionId);
+    }
+
+    @Test
+    public void attachOffload() {
+        when(mWifiPermissionsUtil.checkConfigOverridePermission(anyInt())).thenReturn(true);
+        String callingPackage = "com.google.somePackage";
+        String callingFeatureId = "com.google.someFeature";
+
+        mDut.connect(mBinderMock, callingPackage, callingFeatureId, mCallbackMock, null, false,
+                mExtras, true);
+
+        ArgumentCaptor<Integer> clientId = ArgumentCaptor.forClass(Integer.class);
+        verify(mAwareStateManagerMock).connect(clientId.capture(), anyInt(), anyInt(),
+                eq(callingPackage), eq(callingFeatureId), eq(mCallbackMock),
+                eq(new ConfigRequest.Builder().build()), eq(false), any(), eq(true));
+    }
+
+    @Test
+    public void attachOffloadWithoutPermission() {
+        when(mWifiPermissionsUtil.checkConfigOverridePermission(anyInt())).thenReturn(false);
+        String callingPackage = "com.google.somePackage";
+        String callingFeatureId = "com.google.someFeature";
+
+        assertThrows(SecurityException.class, () ->mDut.connect(mBinderMock, callingPackage,
+                callingFeatureId, mCallbackMock, null, false, mExtras, true));
+
+    }
+
     /*
      * Utilities
      */
@@ -826,7 +983,7 @@ public class WifiAwareServiceImplTest extends WifiBaseTest {
         // constructed configs.
         PublishConfig publishConfig = new PublishConfig(serviceName.getBytes(), ssi, matchFilter,
                 PublishConfig.PUBLISH_TYPE_UNSOLICITED, 0, true, false, false,
-                WifiScanner.WIFI_BAND_24_GHZ, null);
+                WifiScanner.WIFI_BAND_24_GHZ, null, null, false);
         int clientId = doConnect();
         IWifiAwareDiscoverySessionCallback mockCallback = mock(
                 IWifiAwareDiscoverySessionCallback.class);
@@ -843,7 +1000,7 @@ public class WifiAwareServiceImplTest extends WifiBaseTest {
         // constructed configs.
         SubscribeConfig subscribeConfig = new SubscribeConfig(serviceName.getBytes(), ssi,
                 matchFilter, SubscribeConfig.SUBSCRIBE_TYPE_PASSIVE, 0, true, false, 0, false, 0,
-                false, WifiScanner.WIFI_BAND_24_GHZ);
+                false, WifiScanner.WIFI_BAND_24_GHZ, null, false);
         int clientId = doConnect();
         IWifiAwareDiscoverySessionCallback mockCallback = mock(
                 IWifiAwareDiscoverySessionCallback.class);
@@ -858,17 +1015,17 @@ public class WifiAwareServiceImplTest extends WifiBaseTest {
         String callingFeatureId = "com.google.someFeature";
 
         mDut.connect(mBinderMock, callingPackage, callingFeatureId, mCallbackMock, null, false,
-                mExtras);
+                mExtras, false);
 
         ArgumentCaptor<Integer> clientId = ArgumentCaptor.forClass(Integer.class);
         verify(mAwareStateManagerMock).connect(clientId.capture(), anyInt(), anyInt(),
                 eq(callingPackage), eq(callingFeatureId), eq(mCallbackMock),
-                eq(new ConfigRequest.Builder().build()), eq(false), any());
+                eq(new ConfigRequest.Builder().build()), eq(false), any(), eq(false));
 
         return clientId.getValue();
     }
 
-    private static Characteristics getCharacteristics() {
+    private static Characteristics getCharacteristics(DeviceConfigFacade deviceConfigFacade) {
         Capabilities cap = new Capabilities();
         cap.maxConcurrentAwareClusters = 1;
         cap.maxPublishes = 2;
@@ -882,9 +1039,10 @@ public class WifiAwareServiceImplTest extends WifiBaseTest {
         cap.maxNdpSessions = 1;
         cap.maxAppInfoLen = 255;
         cap.maxQueuedTransmitMessages = 6;
-        cap.supportedCipherSuites = Characteristics.WIFI_AWARE_CIPHER_SUITE_NCS_SK_256;
+        cap.supportedDataPathCipherSuites = Characteristics.WIFI_AWARE_CIPHER_SUITE_NCS_SK_256;
         cap.isInstantCommunicationModeSupported = false;
-        return cap.toPublicCharacteristics();
+        cap.isNanPairingSupported = false;
+        return cap.toPublicCharacteristics(deviceConfigFacade);
     }
 
     private int getInternalStateUid(int clientId) throws Exception {

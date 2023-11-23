@@ -147,8 +147,9 @@ public class BitmapCachingAsset extends Asset {
     }
 
     @Override
-    public void loadPreviewImage(Activity activity, ImageView imageView, int placeholderColor) {
+    public void loadPreviewImage(Activity activity, ImageView imageView, int placeholderColor,
+            boolean offsetToStart) {
         // Honor the original Asset's preview image loading
-        mOriginalAsset.loadPreviewImage(activity, imageView, placeholderColor);
+        mOriginalAsset.loadPreviewImage(activity, imageView, placeholderColor, offsetToStart);
     }
 }

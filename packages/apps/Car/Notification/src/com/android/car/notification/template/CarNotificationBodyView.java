@@ -19,11 +19,14 @@ package com.android.car.notification.template;
 import android.annotation.ColorInt;
 import android.annotation.Nullable;
 import android.content.Context;
+import android.content.pm.PackageManager;
 import android.content.res.TypedArray;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.Icon;
+import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.service.notification.StatusBarNotification;
 import android.text.TextUtils;
 import android.util.AttributeSet;
 import android.util.Log;
@@ -54,6 +57,15 @@ public class CarNotificationBodyView extends RelativeLayout {
     private final int mDefaultSecondaryTextColor;
     private final boolean mDefaultUseLauncherIcon;
 
+    /**
+     * Key that system apps can add to the Notification extras to override the default
+     * {@link R.bool.config_useLauncherIcon} behavior. If this is set to false, a small and a large
+     * icon should be specified to be shown properly in the relevant default configuration.
+     */
+    @VisibleForTesting
+    static final String EXTRA_USE_LAUNCHER_ICON =
+            "com.android.car.notification.EXTRA_USE_LAUNCHER_ICON";
+
     private boolean mIsHeadsUp;
     private boolean mShowBigIcon;
     private int mMaxLines;
@@ -72,6 +84,7 @@ public class CarNotificationBodyView extends RelativeLayout {
 
     public CarNotificationBodyView(Context context) {
         super(context);
+        init(/* attrs= */ null);
     }
 
     public CarNotificationBodyView(Context context, AttributeSet attrs) {
@@ -91,26 +104,28 @@ public class CarNotificationBodyView extends RelativeLayout {
     }
 
     {
-        mDefaultPrimaryTextColor =
-                NotificationUtils.getAttrColor(getContext(), android.R.attr.textColorPrimary);
-        mDefaultSecondaryTextColor =
-                NotificationUtils.getAttrColor(getContext(), android.R.attr.textColorSecondary);
+        mDefaultPrimaryTextColor = getContext().getColor(R.color.primary_text_color);
+        mDefaultSecondaryTextColor = getContext().getColor(R.color.secondary_text_color);
         mDefaultUseLauncherIcon = getResources().getBoolean(R.bool.config_useLauncherIcon);
-        inflate(getContext(), R.layout.car_notification_body_view, /* root= */ this);
     }
 
     private void init(AttributeSet attrs) {
-        TypedArray attributes =
-                getContext().obtainStyledAttributes(attrs, R.styleable.CarNotificationBodyView);
-        mShowBigIcon =
-                attributes.getBoolean(R.styleable.CarNotificationBodyView_showBigIcon,
-                        /* defValue= */ false);
-        mMaxLines = attributes.getInteger(R.styleable.CarNotificationBodyView_maxLines,
-                /* defValue= */ DEFAULT_MAX_LINES);
-        mIsHeadsUp =
-                attributes.getBoolean(R.styleable.CarNotificationHeaderView_isHeadsUp,
-                        /* defValue= */ false);
-        attributes.recycle();
+        if (attrs != null) {
+            TypedArray attributes =
+                    getContext().obtainStyledAttributes(attrs, R.styleable.CarNotificationBodyView);
+            mShowBigIcon =
+                    attributes.getBoolean(R.styleable.CarNotificationBodyView_showBigIcon,
+                            /* defValue= */ false);
+            mMaxLines = attributes.getInteger(R.styleable.CarNotificationBodyView_maxLines,
+                    /* defValue= */ DEFAULT_MAX_LINES);
+            mIsHeadsUp =
+                    attributes.getBoolean(R.styleable.CarNotificationBodyView_isHeadsUp,
+                            /* defValue= */ false);
+            attributes.recycle();
+        }
+
+        inflate(getContext(), mIsHeadsUp ? R.layout.car_headsup_notification_body_view
+                : R.layout.car_notification_body_view, /* root= */ this);
     }
 
     @Override
@@ -139,11 +154,13 @@ public class CarNotificationBodyView extends RelativeLayout {
      * @param countText text signifying the number of messages inside this notification
      * @param when      wall clock time in milliseconds for the notification
      */
-    public void bind(CharSequence title, @Nullable CharSequence content, boolean useLauncherIcon,
-            @Nullable Drawable launcherIcon, @Nullable Icon largeIcon, @Nullable Drawable titleIcon,
+    public void bind(CharSequence title, @Nullable CharSequence content,
+            StatusBarNotification sbn, @Nullable Icon largeIcon, @Nullable Drawable titleIcon,
             @Nullable CharSequence countText, @Nullable Long when) {
         setVisibility(View.VISIBLE);
 
+        boolean useLauncherIcon = setUseLauncherIcon(sbn);
+        Drawable launcherIcon = loadAppLauncherIcon(sbn);
         if (mLargeIconView != null) {
             if (useLauncherIcon && launcherIcon != null) {
                 mLargeIconView.setVisibility(View.VISIBLE);
@@ -221,7 +238,6 @@ public class CarNotificationBodyView extends RelativeLayout {
         }
     }
 
-
     /**
      * Sets the secondary text color.
      */
@@ -237,6 +253,15 @@ public class CarNotificationBodyView extends RelativeLayout {
     public void setCountTextColor(@ColorInt int color) {
         if (mCountView != null) {
             mCountView.setTextColor(color);
+        }
+    }
+
+    /**
+     * Sets the alpha for the count field.
+     */
+    public void setCountTextAlpha(float alpha) {
+        if (mCountView != null) {
+            mCountView.setAlpha(alpha);
         }
     }
 
@@ -289,6 +314,32 @@ public class CarNotificationBodyView extends RelativeLayout {
             mCountView.setText(null);
             mCountView.setTextColor(mDefaultPrimaryTextColor);
         }
+    }
+
+    /**
+     * Returns true if the launcher icon should be used for a given notification.
+     */
+    private boolean setUseLauncherIcon(StatusBarNotification sbn) {
+        Bundle notificationExtras = sbn.getNotification().extras;
+        if (notificationExtras == null) {
+            return getContext().getResources().getBoolean(R.bool.config_useLauncherIcon);
+        }
+
+        if (notificationExtras.containsKey(EXTRA_USE_LAUNCHER_ICON)
+                && NotificationUtils.isSystemApp(getContext(), sbn)) {
+            return notificationExtras.getBoolean(EXTRA_USE_LAUNCHER_ICON);
+        }
+        return getContext().getResources().getBoolean(R.bool.config_useLauncherIcon);
+    }
+
+    @Nullable
+    private Drawable loadAppLauncherIcon(StatusBarNotification sbn) {
+        if (!setUseLauncherIcon(sbn)) {
+            return null;
+        }
+        Context packageContext = sbn.getPackageContext(getContext());
+        PackageManager pm = packageContext.getPackageManager();
+        return pm.getApplicationIcon(packageContext.getApplicationInfo());
     }
 
     @VisibleForTesting

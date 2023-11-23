@@ -16,6 +16,6 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="car_permission_label_driver_distraction" msgid="4362982084385602611">"Lettura del livello di distrazione dell\'autista"</string>
-    <string name="car_permission_desc_driver_distraction" msgid="2506435411900299264">"Leggi il livello di distrazione dell\'autista"</string>
+    <string name="car_permission_label_driver_distraction" msgid="4362982084385602611">"Lettura del livello di distrazione del conducente"</string>
+    <string name="car_permission_desc_driver_distraction" msgid="2506435411900299264">"Lettura del livello di distrazione del conducente."</string>
 </resources>

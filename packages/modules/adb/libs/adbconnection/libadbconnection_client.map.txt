@@ -16,10 +16,10 @@
 
 LIBADBCONNECTION_CLIENT_1 {
   global:
-    adbconnection_client_new;
-    adbconnection_client_destroy;
-    adbconnection_client_pollfd;
-    adbconnection_client_receive_jdwp_fd;
+    adbconnection_client_new; # apex
+    adbconnection_client_destroy; # apex
+    adbconnection_client_pollfd; # apex
+    adbconnection_client_receive_jdwp_fd; # apex
   local:
     *;
 };

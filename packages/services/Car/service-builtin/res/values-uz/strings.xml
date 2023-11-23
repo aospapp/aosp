@@ -16,6 +16,14 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+    <string name="car_permission_label_bind_projection_service" msgid="6976251734714662552">"proyeksiya xizmatiga ulanish"</string>
+    <string name="car_permission_desc_bind_projection_service" msgid="4610418233070289810">"Proyeksiya xizmatining yuqori darajali interfeysiga ulana oladi. Oddiy ilovalar tomonidan ishlatilmaydi."</string>
+    <string name="car_permission_label_bind_vms_client" msgid="1298928874094319701">"VMS mijoz xizmati"</string>
+    <string name="car_permission_desc_bind_vms_client" msgid="7758142590449847602">"VMS mijozlarga ulanish"</string>
+    <string name="car_permission_label_bind_instrument_cluster_rendering" msgid="6723392540805279625">"Axborotlarni asboblar paneliga chiqarish"</string>
+    <string name="car_permission_desc_bind_instrument_cluster_rendering" msgid="2583711303360788080">"Asboblar panelidan axborotlarni olish"</string>
+    <string name="car_permission_label_bind_input_service" msgid="6647238478703096557">"Avtomobilda matn kiritish xizmati"</string>
+    <string name="car_permission_desc_bind_input_service" msgid="8460218104132496613">"Matn kiritish hodisalari bilan ishlash imkoniyati"</string>
     <string name="activity_blocked_text" msgid="5991043857905412794">"Avtomobilda harakatlanayotganda bu funksiyadan foydalanish imkonsiz"</string>
     <string name="exit_button_message" msgid="5375678491245394542">"Ilovani xavfsiz rejimda ishga tushirish uchun <xliff:g id="EXIT_BUTTON">%s</xliff:g> tugmasini bosing."</string>
     <string name="exit_button" msgid="3491899413031549265">"Orqaga"</string>
@@ -30,11 +38,7 @@
     <string name="factory_reset_warning" msgid="8463356329619149262">"Qurilmangizdagi ma’lumotlar o‘chirib tashlanadi"</string>
     <string name="factory_reset_message" msgid="1972536809866779972">"Administrator ilovasini ishlatib boʻlmaydi. Qurilmada barcha maʼlumotlar oʻchirib tashlanadi.\n\nSavollaringiz boʻlsa, administrator bilan bogʻlaning."</string>
     <string name="resource_overuse_notification_title" msgid="1622015333965744463">"<xliff:g id="ID_1">^1</xliff:g> ilovasi tizim unumdorligiga taʼsir qilmoqda."</string>
-    <string name="resource_overuse_notification_text_disable_app" msgid="6230392052741662158">"Tizim unumdorligini oshirish uchun ilovani faolsizlantiring. Ilovani Sozlamalar oqali qayta yoqishingiz mumkin."</string>
-    <string name="resource_overuse_notification_text_prioritize_app" msgid="5712958688473220136">"Foydalanishda davom etish uchun ilovaga ustunlik bering."</string>
-    <string name="resource_overuse_notification_text_uninstall_app" msgid="7571808726595158942">"Tizim unumdorligini yaxshilash uchun ilovani oʻchirib tashlang."</string>
-    <string name="resource_overuse_notification_button_disable_app" msgid="7366883746281232189">"Ilovani faolsizlantirish"</string>
+    <string name="resource_overuse_notification_text_disabled_app" msgid="9058683477901746549">"Bu ilovaning fonda ishlashi toʻxtatildi. Fonda ishlashi uchun ilovaga ustunlik bering."</string>
+    <string name="resource_overuse_notification_button_close_app" msgid="131355952730826999">"Yopish"</string>
     <string name="resource_overuse_notification_button_prioritize_app" msgid="1093325910457794796">"Ilovaga ustunlik berish"</string>
-    <string name="resource_overuse_notification_button_uninstall_app" msgid="5259756814713178196">"Ilovani oʻchirib tashlash"</string>
-    <string name="resource_overuse_toast_disable_app_now" msgid="5020071090614971772">"<xliff:g id="ID_1">^1</xliff:g> faolsizlantirildi. Uni sozlamalar orqali qayta yoqishingiz mumkin."</string>
 </resources>

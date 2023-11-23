@@ -20,8 +20,8 @@ import android.annotation.SystemApi;
 import android.car.annotation.AddedInOrBefore;
 
 /**
- * VehicleVendorPermission list all vendor permissions for vehicle. Vendors can map the vendor
- * properties with any vendor permission.
+ * {@code VehicleVendorPermission} lists all vendor permissions for vehicle. Vendors can map the
+ * vendor properties with any vendor permission.
  * @hide
  */
 @SystemApi

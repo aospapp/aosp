@@ -21,6 +21,9 @@ import androidx.annotation.DrawableRes;
 
 import com.android.car.qc.provider.BaseLocalQCProvider;
 import com.android.systemui.R;
+import com.android.systemui.car.systembar.CameraPrivacyChipViewController;
+
+import javax.inject.Inject;
 
 /**
  * A {@link BaseLocalQCProvider} that builds the camera privacy panel.
@@ -31,8 +34,12 @@ public class CameraQcPanel extends SensorQcPanel {
     private static final String SENSOR_SHORT_NAME = "camera";
     private static final String SENSOR_NAME_WITH_FIRST_LETTER_CAPITALIZED = "Camera";
 
-    public CameraQcPanel(Context context) {
-        super(context);
+    @Inject
+    public CameraQcPanel(Context context,
+            CameraPrivacyChipViewController cameraPrivacyChipViewController,
+            CameraPrivacyElementsProviderImpl cameraPrivacyElementsProvider) {
+        super(context, cameraPrivacyChipViewController,
+                cameraPrivacyElementsProvider);
     }
 
     @Override

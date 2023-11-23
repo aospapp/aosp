@@ -16,6 +16,7 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="pws_other_message_identifiers" msgid="4208192760081890030">"ព័ត៌មាន AG"</string>
-    <string name="enable_emergency_alerts_message_title" msgid="8604945009695563346">"ប៉ុស្តិ៍ផ្សាយ AG ធម្មតា"</string>
+    <string name="pws_other_message_identifiers" msgid="2878052464538791122">"សារប្រុងប្រយ័ត្នពីប្រតិបត្តិករ"</string>
+    <string name="enable_emergency_alerts_message_title" msgid="735033564276896784">"សារប្រុងប្រយ័ត្នពីប្រតិបត្តិករ"</string>
+    <string name="enable_emergency_alerts_message_summary" msgid="9097859342785910501">"បណ្ដាញសម្រាប់សារប្រុងប្រយ័ត្នពីប្រតិបត្តិករ"</string>
 </resources>

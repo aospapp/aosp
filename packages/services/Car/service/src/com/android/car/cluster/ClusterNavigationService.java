@@ -15,6 +15,7 @@
  */
 package com.android.car.cluster;
 
+import static com.android.car.internal.ExcludeFromCodeCoverageGeneratedReport.BOILERPLATE_CODE;
 import static com.android.car.internal.ExcludeFromCodeCoverageGeneratedReport.DUMP_INFO;
 
 import android.car.Car;
@@ -238,6 +239,7 @@ public class ClusterNavigationService extends IInstrumentClusterNavigation.Stub
             return uid == that.uid && pid == that.pid;
         }
 
+        @ExcludeFromCodeCoverageGeneratedReport(reason = BOILERPLATE_CODE)
         @Override
         public int hashCode() {
             return Objects.hash(uid, pid);

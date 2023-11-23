@@ -21,11 +21,7 @@ package {
 python_defaults {
     name: "modules-common-tools-python-defaults",
     version: {
-        py2: {
-            enabled: false,
-        },
         py3: {
-            enabled: true,
             embedded_launcher: true,
         },
     },
@@ -68,6 +64,8 @@ prebuilt_etc {
         "//packages/modules/AdServices:__subpackages__",
         "//packages/modules/AppSearch:__subpackages__",
         "//packages/modules/Connectivity:__subpackages__",
+        "//packages/modules/ConfigInfrastructure:__subpackages__",
+        "//packages/modules/HealthFitness:__subpackages__",
         "//packages/modules/IPsec/apex:__subpackages__",
         "//packages/modules/Permission:__subpackages__",
         "//packages/modules/OnDevicePersonalization:__subpackages__",

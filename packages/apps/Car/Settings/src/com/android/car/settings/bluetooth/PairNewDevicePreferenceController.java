@@ -28,7 +28,9 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
+import android.content.pm.ResolveInfo;
 import android.os.UserManager;
 
 import androidx.lifecycle.LifecycleObserver;
@@ -36,8 +38,13 @@ import androidx.preference.Preference;
 
 import com.android.car.settings.R;
 import com.android.car.settings.common.FragmentController;
+import com.android.car.settings.common.Logger;
 import com.android.car.settings.common.PreferenceController;
+import com.android.car.settings.common.Settings;
 import com.android.car.settings.enterprise.EnterpriseUtils;
+
+import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * Controls a preference that, when clicked, launches the page for pairing new Bluetooth devices.
@@ -47,6 +54,8 @@ import com.android.car.settings.enterprise.EnterpriseUtils;
  */
 public class PairNewDevicePreferenceController extends PreferenceController<Preference> implements
         LifecycleObserver {
+
+    private static final Logger LOG = new Logger(PairNewDevicePreferenceController.class);
 
     private final IntentFilter mIntentFilter = new IntentFilter(
             BluetoothAdapter.ACTION_STATE_CHANGED);
@@ -95,7 +104,7 @@ public class PairNewDevicePreferenceController extends PreferenceController<Pref
     }
 
     @Override
-    protected int getAvailabilityStatus() {
+    protected int getDefaultAvailabilityStatus() {
         if (!getContext().getPackageManager().hasSystemFeature(PackageManager.FEATURE_BLUETOOTH)) {
             return UNSUPPORTED_ON_DEVICE;
         }
@@ -127,10 +136,55 @@ public class PairNewDevicePreferenceController extends PreferenceController<Pref
                         R.string.bluetooth_pair_new_device_summary));
     }
 
+    /**
+     * Checks whether provided application object represents system application.
+     */
+    private boolean isSystemApp(ResolveInfo info) {
+        return (info.activityInfo.applicationInfo.flags & ApplicationInfo.FLAG_SYSTEM) != 0;
+    }
+
     @Override
     protected boolean handlePreferenceClicked(Preference preference) {
         // Enable the adapter if it is not on (user is notified via summary message).
         BluetoothAdapter.getDefaultAdapter().enable();
-        return false; // Don't handle so that preference framework will launch pairing fragment.
+
+        Context context = getContext();
+
+        if (!context.getResources().getBoolean(
+                R.bool.config_use_custom_pair_device_flow)) {
+            LOG.i("Custom pairing device flow is deactivated");
+            return false;
+        }
+
+        Intent intent = getPreference().getIntent();
+        if (intent == null) {
+            LOG.e("Preference doesn't contain " + Settings.ACTION_PAIR_DEVICE_SETTINGS + " intent");
+            return false;
+        }
+
+        List<ResolveInfo> infos = context.getPackageManager().queryIntentActivities(intent,
+                PackageManager.MATCH_DEFAULT_ONLY);
+
+        List<String> packages = infos.stream().filter(this::isSystemApp).map(
+                ri -> ri.activityInfo.packageName).collect(
+                Collectors.toUnmodifiableList());
+
+        LOG.i("Found " + packages.size() + " system packages matching "
+                + intent.getAction() + " intent action. Found packages are: " + packages);
+
+        if (packages.size() > 1) {
+            LOG.w("More than one package found satisfying " + intent.getAction()
+                    + " intent action. Picking the first one.");
+        }
+
+        for (String packageName : packages) {
+            LOG.i("Starting custom pair device activity identified by " + packageName + " package");
+
+            intent.setPackage(packageName);
+            context.startActivity(intent);
+            return true; // new activity will handle pairing workflow
+        }
+
+        return false;
     }
 }

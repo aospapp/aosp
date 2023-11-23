@@ -55,8 +55,8 @@ public class SubscriptionInfoHelper {
      */
     public SubscriptionInfoHelper(Context context, Intent intent) {
         mContext = context;
-        PhoneAccountHandle phoneAccountHandle =
-                intent.getParcelableExtra(TelephonyManager.EXTRA_PHONE_ACCOUNT_HANDLE);
+        PhoneAccountHandle phoneAccountHandle = intent.getParcelableExtra(
+                TelephonyManager.EXTRA_PHONE_ACCOUNT_HANDLE, PhoneAccountHandle.class);
         if (phoneAccountHandle != null) {
             mSubId = PhoneUtils.getSubIdForPhoneAccountHandle(phoneAccountHandle);
         }

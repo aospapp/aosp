@@ -133,6 +133,7 @@
     <string name="cdma_call_waiting_in_ims_off" msgid="1099246114368636334">"‏إيقاف ميزة انتظار مكالمات CDMA في ظل IMS"</string>
     <string name="updating_title" msgid="6130548922615719689">"إعدادات الاتصال"</string>
     <string name="call_settings_admin_user_only" msgid="7238947387649986286">"لا يمكن تغيير إعدادات المكالمات إلا بواسطة المستخدم الإداري."</string>
+    <string name="phone_account_settings_user_restriction" msgid="9142685151087208396">"لا يمكن تغيير إعدادات حساب الهاتف إلا من قِبل المشرف أو مستخدم حساب العمل."</string>
     <string name="call_settings_with_label" msgid="8460230435361579511">"الإعدادات (<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
     <string name="error_updating_title" msgid="2024290892676808965">"خطأ في إعدادات الاتصال"</string>
     <string name="reading_settings" msgid="1605904432450871183">"جارٍ قراءة الإعدادات..."</string>
@@ -556,6 +557,7 @@
     <string name="incall_error_supp_service_hold" msgid="8535056414643540997">"يتعذر وضع المكالمات قيد الانتظار."</string>
     <string name="incall_error_wfc_only_no_wireless_network" msgid="5860742792811400109">"اتصل بشبكة لاسلكية لإجراء مكالمة."</string>
     <string name="incall_error_promote_wfc" msgid="9164896813931363415">"‏يمكنك تفعيل اتصال Wi-Fi لإجراء مكالمة."</string>
+    <string name="incall_error_satellite_enabled" msgid="1936541518147323016">"يجب إيقاف وضع القمر الصناعي لإجراء مكالمة."</string>
     <string name="emergency_information_hint" msgid="9208897544917793012">"معلومات الطوارئ"</string>
     <string name="emergency_information_owner_hint" msgid="6256909888049185316">"المالك"</string>
     <string name="emergency_information_confirm_hint" msgid="5109017615894918914">"انقر مجددًا لعرض المعلومات."</string>
@@ -566,7 +568,7 @@
     <string name="emergency_enable_radio_dialog_message" msgid="1695305158151408629">"جارٍ تفعيل اللاسلكي..."</string>
     <string name="emergency_enable_radio_dialog_retry" msgid="4329131876852608587">"لا تتوفر خدمة. جارٍ إعادة المحاولة…"</string>
     <string name="radio_off_during_emergency_call" msgid="8011154134040481609">"لا يمكن دخول وضع الطيران أثناء إجراء مكالمة طوارئ."</string>
-    <string name="dial_emergency_error" msgid="825822413209026039">"يتعذر الاتصال. لا يعد <xliff:g id="NON_EMERGENCY_NUMBER">%s</xliff:g> رقم طوارئ."</string>
+    <string name="dial_emergency_error" msgid="825822413209026039">"يتعذر الاتصال. <xliff:g id="NON_EMERGENCY_NUMBER">%s</xliff:g> ليس رقم طوارئ."</string>
     <string name="dial_emergency_empty_error" msgid="2785803395047793634">"يتعذر الاتصال. يمكنك طلب رقم طوارئ."</string>
     <string name="dial_emergency_calling_not_available" msgid="6485846193794727823">"مكالمة الطوارئ غير متوفرة"</string>
     <string name="pin_puk_system_user_only" msgid="1045147220686867922">"‏يمكن لمالك الجهاز فقط إدخال رمزَي PIN/PUK."</string>
@@ -575,7 +577,7 @@
     <string name="fire_type_description" msgid="6565200468934914930">"حريق"</string>
     <string name="description_concat_format" msgid="2014471565101724088">"‏%1$s، ‏%2$s‏"</string>
     <string name="dialerKeyboardHintText" msgid="1115266533703764049">"استخدام لوحة المفاتيح للطلب"</string>
-    <string name="onscreenHoldText" msgid="4025348842151665191">"تعليق"</string>
+    <string name="onscreenHoldText" msgid="4025348842151665191">"انتظار"</string>
     <string name="onscreenEndCallText" msgid="6138725377654842757">"الانتهاء"</string>
     <string name="onscreenShowDialpadText" msgid="658465753816164079">"لوحة الاتصال"</string>
     <string name="onscreenMuteText" msgid="5470306116733843621">"كتم الصوت"</string>
@@ -713,6 +715,7 @@
     <string name="clh_callFailed_powerOff_txt" msgid="8279934912560765361">"تفعيل وضع الطيران"</string>
     <string name="clh_callFailed_simError_txt" msgid="5128538525762326413">"‏تعذر الوصول إلى شريحة SIM"</string>
     <string name="clh_incall_error_out_of_service_txt" msgid="2736010617446749869">"شبكة الجوّال غير متوفرة"</string>
+    <string name="clh_callFailed_satelliteEnabled_txt" msgid="1675517238240377396">"وضع القمر الصناعي مفعَّل"</string>
     <string name="clh_callFailed_unassigned_number_txt" msgid="141967660286695682">"حدثت مشكلة في رقم الهاتف الذي تحاول الاتصال به. رمز الخطأ 1."</string>
     <string name="clh_callFailed_no_route_to_destination_txt" msgid="4805015149822352308">"تعذر إكمال المكالمة. رمز الخطأ 3."</string>
     <string name="clh_callFailed_channel_unacceptable_txt" msgid="4062754579408613021">"تعذر إكمال المكالمة. رمز الخطأ 6."</string>
@@ -837,6 +840,7 @@
     <string name="dsds_dialog_cancel" msgid="3245958947099586655">"إلغاء"</string>
     <string name="removable_esim_string" msgid="7931369811671787649">"‏ضبط شريحة eSIM القابلة للإزالة كشريحة تلقائية"</string>
     <string name="radio_info_radio_power" msgid="8805595022160471587">"طاقة اللاسلكي للجوّال"</string>
+    <string name="simulate_out_of_service_string" msgid="7787925611727597193">"محاكاة الخطأ \"خارج الخدمة\" (الإصدار المخصص لتصحيح الأخطاء فقط)"</string>
     <string name="radioInfo_menu_viewADN" msgid="4533179730908559846">"‏عرض دفتر عناوين SIM"</string>
     <string name="radioInfo_menu_viewFDN" msgid="1847236480527032061">"عرض أرقام الطلب الثابت"</string>
     <string name="radioInfo_menu_viewSDN" msgid="2613431584522392842">"عرض أرقام طلب الخدمة"</string>
@@ -861,6 +865,7 @@
     <string name="radioInfo_data_connected" msgid="7637335645634239508">"متّصل بالإنترنت"</string>
     <string name="radioInfo_data_suspended" msgid="8695262782642002785">"معلّق"</string>
     <string name="radioInfo_unknown" msgid="5401423738500672850">"غير معروف"</string>
+    <string name="radioInfo_imei_primary" msgid="5948747378637224400">"أساسي"</string>
     <string name="radioInfo_display_packets" msgid="6794302192441084157">"الحزم"</string>
     <string name="radioInfo_display_bytes" msgid="7701006329222413797">"بايت"</string>
     <string name="radioInfo_display_dbm" msgid="7491944975710865703">"بالديسيبل"</string>
@@ -887,10 +892,12 @@
     <string name="radio_info_ppp_sent_label" msgid="6542208429356199695">"البيانات المُرسَلة:"</string>
     <string name="radio_info_message_waiting_label" msgid="1886549432566952078">"انتظار الرسائل:"</string>
     <string name="radio_info_phone_number_label" msgid="2533852539562512203">"رقم الهاتف:"</string>
-    <string name="radio_info_band_mode_label" msgid="23480556225515290">"تحديد النطاق اللاسلكي"</string>
     <string name="radio_info_voice_network_type_label" msgid="2395347336419593265">"نوع الشبكة الصوتية:"</string>
     <string name="radio_info_data_network_type_label" msgid="8886597029237501929">"نوع شبكة البيانات:"</string>
     <string name="radio_info_override_network_type_label" msgid="4176280017221092005">"تجاهل نوع الشبكة:"</string>
+    <string name="radio_info_voice_raw_registration_state_label" msgid="2822988327145825128">"حالة التسجيل الأولية للصوت:"</string>
+    <string name="radio_info_data_raw_registration_state_label" msgid="2895895513822604539">"حالة التسجيل الأولية للبيانات:"</string>
+    <string name="radio_info_wlan_data_raw_registration_state_label" msgid="6396894835757296612">"‏حالة التسجيل الأولية لبيانات WLAN:"</string>
     <string name="phone_index_label" msgid="6222406512768964268">"اختيار فهرس الهاتف"</string>
     <string name="radio_info_set_perferred_label" msgid="7408131389363136210">"تحديد نوع الشبكة المفضّل:"</string>
     <string name="radio_info_ping_hostname_v4" msgid="6951237885381284790">"‏فحص اتصال اسم المضيف (www.google.com) عبر IPv4:"</string>
@@ -919,4 +926,9 @@
     <string name="call_quality_notification_bluetooth_details" msgid="8348950331707346711">"إشارة البلوتوث ضعيفة. حاوِل التبديل إلى مكبّر الصوت."</string>
     <string name="call_quality_notification_name" msgid="3476828289553948830">"إشعار بشأن جودة المكالمة"</string>
     <string name="notification_channel_sip_account" msgid="1261816025156179637">"‏حسابات SIP المتوقّفة"</string>
+    <string name="send_from_work_profile_title" msgid="7044759579507604732">"لا يمكن إرسال رسائل من تطبيق شخصي"</string>
+    <string name="send_from_work_profile_description" msgid="2174402508727161974">"تسمح لك مؤسستك بإرسال الرسائل من تطبيقات العمل فقط."</string>
+    <string name="send_from_work_profile_cancel" msgid="177746511030381711">"إلغاء"</string>
+    <string name="send_from_work_profile_action_str" msgid="6892775562934243337">"التبديل إلى الملف الشخصي للعمل"</string>
+    <string name="install_messages_on_work_profile_action_str" msgid="3773440996395152903">"تثبيت تطبيق لرسائل العمل"</string>
 </resources>

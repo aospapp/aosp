@@ -35,7 +35,7 @@
     <string name="password_empty_error" msgid="591713406761723025">"گذرواژه را تایپ کنید."</string>
     <string name="name_empty_error" msgid="3808800768660110354">"نامی تایپ کنید."</string>
     <string name="name_char_error" msgid="3176618568784938968">"نامی را که فقط شامل عدد و نویسه باشد تایپ کنید."</string>
-    <string name="unable_to_save_cert" msgid="9178604087335389686">"گواهی‌نامه ذخیره نشد. حافظه اطلاعات کاربری فعال نیست یا به‌درستی راه‌اندازی نشده است."</string>
+    <string name="unable_to_save_cert" msgid="9178604087335389686">"گواهی‌نامه ذخیره نشد. فضای ذخیره‌سازی اطلاعات کاربری فعال نیست یا به‌درستی راه‌اندازی نشده است."</string>
     <string name="cert_not_saved" msgid="4037698479662830270">"گواهی نصب نشده است."</string>
     <string name="no_cert_to_saved" msgid="5708884372817309068">"هیچ گواهی برای نصب موجود نیست."</string>
     <string name="invalid_cert" msgid="7704228670980743590">"مجوز نامعتبر است."</string>

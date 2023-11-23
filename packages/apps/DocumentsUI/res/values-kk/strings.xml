@@ -91,9 +91,9 @@
     <string name="drawer_close" msgid="4263880768630848848">"Түбір қалтаны жасыру"</string>
     <string name="save_error" msgid="8631128801982095782">"Құжат сақталмады"</string>
     <string name="create_error" msgid="3092144450044861994">"Қалта жасалмады"</string>
-    <string name="query_error" msgid="6625421453613879336">"Мазмұн қазір жүктелмейді"</string>
-    <string name="quiet_mode_error_title" msgid="9126656325282792843">"Жұмыс профилі кідіртілді"</string>
-    <string name="quiet_mode_button" msgid="6977115032320235420">"Қосу"</string>
+    <string name="query_error" msgid="6625421453613879336">"Контент қазір жүктелмейді"</string>
+    <string name="quiet_mode_error_title" msgid="554319751414657910">"Жұмыс қолданбалары кідіртілді"</string>
+    <string name="quiet_mode_button" msgid="8051436551926677305">"Жұмыс қолданбаларын қосу"</string>
     <string name="cant_select_work_files_error_title" msgid="6688716319549644354">"Жұмыс файлдарын таңдау мүмкін емес"</string>
     <string name="cant_select_work_files_error_message" msgid="683480676150690641">"Әкімші жұмыс файлдарына жеке қолданбадан кіруге рұқсат етпейді."</string>
     <string name="cant_select_personal_files_error_title" msgid="3200697170148617742">"Жеке файлдарды сақтау мүмкін емес"</string>
@@ -264,15 +264,15 @@
     <string name="chip_title_from_this_week" msgid="4961536405220379672">"Осы апта"</string>
     <string name="input_hint_new_folder" msgid="479672411219725677">"Қалта атауы"</string>
     <string name="input_hint_rename" msgid="8390711744270994452">"Жаңа атауы"</string>
-    <string name="preview_file" msgid="4056622696305432343">"<xliff:g id="FILENAME">%1$s</xliff:g> файлын алдын ала қарау"</string>
-    <string name="preview_work_file" msgid="4495643735563487273">"<xliff:g id="FILENAME">%1$s</xliff:g> жұмыс файлын алдын ала қарау"</string>
+    <string name="preview_file" msgid="4056622696305432343">"<xliff:g id="FILENAME">%1$s</xliff:g> файлын алдын ала көру"</string>
+    <string name="preview_work_file" msgid="4495643735563487273">"<xliff:g id="FILENAME">%1$s</xliff:g> жұмыс файлын алдын ала көру"</string>
     <string name="apps_row_title" msgid="3340490016663092925">"Басқа қолданбалардағы файлдарды шолу"</string>
     <string name="anonymous_application" msgid="7633027057951625862">"Анонимді"</string>
     <string name="open_tree_button" msgid="6402871398424497776">"Осы қалтаны пайдалану"</string>
     <string name="open_tree_dialog_title" msgid="6339509533852318569">"<xliff:g id="APPNAME">%1$s</xliff:g> үшін <xliff:g id="DIRECTORY">%2$s</xliff:g> қалтасындағы файлдарды пайдалануға рұқсат етілсін бе?"</string>
-    <string name="open_tree_dialog_message" msgid="4120695398430659628">"<xliff:g id="APPNAME">%1$s</xliff:g> қолданбасы <xliff:g id="DIRECTORY">%2$s</xliff:g> қалтасындағы қазіргі және алда сақталатын мазмұндарды пайдалана алатын болады."</string>
+    <string name="open_tree_dialog_message" msgid="4120695398430659628">"<xliff:g id="APPNAME">%1$s</xliff:g> қолданбасы <xliff:g id="DIRECTORY">%2$s</xliff:g> қалтасындағы қазіргі және алда сақталатын контентті пайдалана алатын болады."</string>
     <string name="directory_blocked_header_title" msgid="1164584889578740066">"Бұл қалтаны пайдалану мүмкін емес"</string>
-    <string name="directory_blocked_header_subtitle" msgid="2829150911849033408">"Құпиялылықты қорғау мақсатында басқа қалта таңдаңыз"</string>
+    <string name="directory_blocked_header_subtitle" msgid="2829150911849033408">"Құпиялықты қорғау мақсатында басқа қалта таңдаңыз"</string>
     <string name="create_new_folder_button" msgid="8859613309559794890">"Жаңа қалта жасау"</string>
     <string name="search_bar_hint" msgid="4517366509897977321">"Осы телефоннан іздеу"</string>
     <string name="delete_search_history" msgid="2202015025607694515">"Іздеу тарихын <xliff:g id="TEXT">%1$s</xliff:g> жою"</string>

@@ -13,7 +13,7 @@
      limitations under the License.
 -->
 <configuration description="Runs coverage tests for Connectivity">
-    <target_preparer class="com.android.tradefed.targetprep.TestAppInstallSetup">
+    <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller">
       <option name="test-file-name" value="ConnectivityCoverageTests.apk" />
       <option name="install-arg" value="-t" />
     </target_preparer>

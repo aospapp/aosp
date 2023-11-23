@@ -9,7 +9,8 @@ package {
 
 apex_defaults {
     name: "com.android.adbd-defaults",
-    defaults: ["r-launched-apex-module"],
+
+    defaults: ["r-launched-dcla-enabled-apex-module"],
 
     binaries: ["adbd"],
     compile_multilib: "both",
@@ -31,30 +32,10 @@ apex_defaults {
     compressible: true,
 }
 
-soong_config_module_type_import {
-    from: "system/apex/Android.bp",
-    module_types: ["library_linking_strategy_apex_defaults"],
-}
-
-library_linking_strategy_apex_defaults {
-    name: "adbd_manifest_defaults",
-    soong_config_variables: {
-        library_linking_strategy: {
-            prefer_static: {
-                min_sdk_version: "30",
-            },
-            conditions_default: {
-                min_sdk_version: "current",
-            },
-        },
-    },
-}
-
 apex {
     name: "com.android.adbd",
     defaults: [
         "com.android.adbd-defaults",
-        "adbd_manifest_defaults",
     ],
 }
 

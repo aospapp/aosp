@@ -16,6 +16,14 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+    <string name="car_permission_label_bind_projection_service" msgid="6976251734714662552">"подключение к сервису проекции"</string>
+    <string name="car_permission_desc_bind_projection_service" msgid="4610418233070289810">"Приложение сможет подключаться к базовому интерфейсу сервиса проекции. Это разрешение не используется обычными приложениями."</string>
+    <string name="car_permission_label_bind_vms_client" msgid="1298928874094319701">"VMS-клиент"</string>
+    <string name="car_permission_desc_bind_vms_client" msgid="7758142590449847602">"Подключение к VMS-клиентам"</string>
+    <string name="car_permission_label_bind_instrument_cluster_rendering" msgid="6723392540805279625">"Визуализация данных на приборной панели"</string>
+    <string name="car_permission_desc_bind_instrument_cluster_rendering" msgid="2583711303360788080">"Возможность получать данные с приборной панели"</string>
+    <string name="car_permission_label_bind_input_service" msgid="6647238478703096557">"Автомобильная служба ввода"</string>
+    <string name="car_permission_desc_bind_input_service" msgid="8460218104132496613">"Возможность обрабатывать события ввода"</string>
     <string name="activity_blocked_text" msgid="5991043857905412794">"Эту функцию нельзя использовать во время вождения."</string>
     <string name="exit_button_message" msgid="5375678491245394542">"Чтобы перезапустить приложение в безопасном режиме, нажмите кнопку \"<xliff:g id="EXIT_BUTTON">%s</xliff:g>\"."</string>
     <string name="exit_button" msgid="3491899413031549265">"Назад"</string>
@@ -30,11 +38,7 @@
     <string name="factory_reset_warning" msgid="8463356329619149262">"Все данные с устройства будут удалены"</string>
     <string name="factory_reset_message" msgid="1972536809866779972">"Невозможно использовать приложение для администратора. С устройства будут удалены все данные.\n\nЕсли у вас возникли вопросы, обратитесь к администратору."</string>
     <string name="resource_overuse_notification_title" msgid="1622015333965744463">"Приложение \"<xliff:g id="ID_1">^1</xliff:g>\" снижает производительность системы"</string>
-    <string name="resource_overuse_notification_text_disable_app" msgid="6230392052741662158">"Чтобы повысить производительность системы, отключите приложение. Включить его снова можно в настройках."</string>
-    <string name="resource_overuse_notification_text_prioritize_app" msgid="5712958688473220136">"Чтобы и дальше использовать приложение, приоритизируйте его."</string>
-    <string name="resource_overuse_notification_text_uninstall_app" msgid="7571808726595158942">"Чтобы повысить производительность системы, удалите приложение."</string>
-    <string name="resource_overuse_notification_button_disable_app" msgid="7366883746281232189">"Отключить приложение"</string>
+    <string name="resource_overuse_notification_text_disabled_app" msgid="9058683477901746549">"Работа этого приложения в фоновом режиме приостановлена. Чтобы возобновить ее, повысьте приоритет приложения."</string>
+    <string name="resource_overuse_notification_button_close_app" msgid="131355952730826999">"Закрыть"</string>
     <string name="resource_overuse_notification_button_prioritize_app" msgid="1093325910457794796">"Приоритизировать приложение"</string>
-    <string name="resource_overuse_notification_button_uninstall_app" msgid="5259756814713178196">"Удалить приложение"</string>
-    <string name="resource_overuse_toast_disable_app_now" msgid="5020071090614971772">"Приложение \"<xliff:g id="ID_1">^1</xliff:g>\" отключено. Вы можете снова включить его в настройках."</string>
 </resources>

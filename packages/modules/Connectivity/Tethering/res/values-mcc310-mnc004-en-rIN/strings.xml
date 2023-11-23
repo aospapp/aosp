@@ -16,9 +16,9 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="no_upstream_notification_title" msgid="5030042590486713460">"Tethering has no Internet"</string>
-    <string name="no_upstream_notification_message" msgid="3843613362272973447">"Devices can’t connect"</string>
-    <string name="no_upstream_notification_disable_button" msgid="6385491461813507624">"Turn off tethering"</string>
-    <string name="upstream_roaming_notification_title" msgid="3015912166812283303">"Hotspot or tethering is on"</string>
-    <string name="upstream_roaming_notification_message" msgid="6724434706748439902">"Additional charges may apply while roaming"</string>
+    <string name="no_upstream_notification_title" msgid="3584617491053416666">"Tethering has no Internet"</string>
+    <string name="no_upstream_notification_message" msgid="5626323795587558017">"Devices can\'t connect"</string>
+    <string name="no_upstream_notification_disable_button" msgid="868677179945695858">"Turn off tethering"</string>
+    <string name="upstream_roaming_notification_title" msgid="2870229486619751829">"Hotspot or tethering is on"</string>
+    <string name="upstream_roaming_notification_message" msgid="5229740963392849544">"Additional charges may apply while roaming"</string>
 </resources>

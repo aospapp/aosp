@@ -140,14 +140,18 @@ impl Connection {
         let (request_tx, request_rx) = mpsc::channel(Self::MAX_PENDING_REQUESTS);
         let (status_tx, status_rx) = watch::channel(Status::QUIC);
         let scid = new_scid();
+        let socket = build_socket(to, socket_mark, tag_socket).await?;
+        let from = socket.local_addr()?;
+
         let mut quiche_conn =
-            quiche::connect(server_name, &quiche::ConnectionId::from_ref(&scid), to, config)?;
+            quiche::connect(server_name, &quiche::ConnectionId::from_ref(&scid), from, to, config)?;
+
+        // We will fall back to a full handshake if the session is expired.
         if let Some(session) = session {
             debug!("Setting session");
             quiche_conn.set_session(&session)?;
         }
 
-        let socket = build_socket(to, socket_mark, tag_socket).await?;
         let driver = async move {
             let result = drive(request_rx, status_tx, quiche_conn, socket, net_id).await;
             if let Err(ref e) = result {

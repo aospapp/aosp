@@ -17,8 +17,23 @@ Note:
              - physicalPort (Attribute. Physical port that connects
              to a display. Restrictions defined will apply to the display that connects to this
              port. Only the lowest byte in the integer value is used. The value should be
-             represented as an signed int, namely the supported range is [-128, 127].
-             Optional field. Defaults to primary display. )
+             interpreted as an signed int, namely the supported range is [-128, 127].
+             Optional field. 'physicalPort' is one way of specifying a display in the context of
+             UX restrictions. The combination of 'occupantZoneId' and 'displayType' is another way
+             of identifying a display. When 'physicalPort' is specified, 'occupantZoneId and
+             'displayType' should not be specified. If neither 'physicalPort' nor the combination
+             of 'occupantZoneId' and 'displayType' is specified, it defaults to the driver main
+             display. )
+             - occupantZoneId (Attribute. The id of the car occupant zone this display is in.
+             Optional field. The combination of 'occupantZoneId and 'displayType' is another way of
+             identifying a display. When 'occupantZoneId' is specified, 'displayType' should also
+             be specified while 'physicalPort' should not be specified. )
+             - displayType (Attribute. The type of the display in the occupant zone specified by
+             'occupantZoneId'. The integer values are defined in
+             packages/services/Car/car-lib/src/android/car/CarOccupantZoneManager.java.
+             Optional field. The combination of 'occupantZoneId and 'displayType' is another way of
+             identifying a display. When 'displayType' is specified, 'occupantZoneId' should also
+             be specified while 'physicalPort' should not be specified. )
        - DrivingState (Tag 1.a. Driving states supported)
              - state (Attribute. The driving states defined there should align with driving states
              (@CarDrivingState) defined in
@@ -31,7 +46,7 @@ Note:
              - requiresDistractionOptimization (Attribute. This corresponds to what
              CarUxRestrictions#mRequiresDistractionOptimization needs to be set to. This means that
              apps will have to follow the general baseline distraction optimization rules defined in
-             the Driver Distraction Guidelines.
+             the Driver Distraction Guidelines. )
              - uxr (Attribute. These are the additional UX restrictions that OEMs can configure in
              addition to the baseline restrictions defined in the above
              requiresDistractionOptimization. The values here have to align with the UX
@@ -39,11 +54,13 @@ Note:
               packages/services/Car/car-lib/src/android/car/drivingstate/CarUxRestrictions.java.
               Supported values are -"baseline", "no_dialpad", "no_filtering", "limit_string_length",
               "no_keyboard", "no_video", "limit_content", "no_setup", "no_text_message",
-              "no_voice_transcription", "fully_restricted".
+              "no_voice_transcription", "fully_restricted". )
              - mode (Attribute. Supported attribute for Restrictions. UX restrictions service
              supports returning different sets of UX restrictions for the same driving state,
              through configurations for each "mode". These modes can be specified by any string
-             name, for example, "passenger". "baseline" is the default value.
+             name, for example, "passenger". "baseline" is the default value. Note: "passenger"
+             mode can be generically supported by specifying UxR for passenger displays using
+             'physicalPort' or the combination of 'occupantZoneId' and 'displayType'.
        - RestrictionParameters (Tag 2. Some of UX restrictions can be parametrized)
        - StringRestrictions (Tag 2.a. Parameters to express displayed String related restrictions)
              - maxLength (Attribute. Max allowed length of general purpose strings when

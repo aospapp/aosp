@@ -1,5 +1,7 @@
 package com.android.tv.settings;
 
+import static com.android.tv.settings.util.InstrumentationUtils.logEntrySelected;
+
 import android.app.tvsettings.TvSettingsEnums;
 import android.content.ActivityNotFoundException;
 import android.content.ComponentName;
@@ -11,21 +13,18 @@ import android.util.Log;
 import androidx.annotation.VisibleForTesting;
 import androidx.preference.Preference;
 import androidx.preference.PreferenceCategory;
-import androidx.preference.SwitchPreference;
 
 import com.android.settingslib.core.AbstractPreferenceController;
 import com.android.settingslib.suggestions.SuggestionControllerMixinCompat;
 import com.android.settingslib.utils.IconCache;
-import com.android.tv.settings.HotwordSwitchController.HotwordStateListener;
 import com.android.tv.settings.R;
-import com.android.tv.settings.library.overlay.FlavorUtils;
+import com.android.tv.settings.overlay.FlavorUtils;
 import com.android.tv.settings.suggestions.SuggestionPreference;
 import com.android.tv.settings.system.SecurityFragment;
+import com.android.tv.settings.widget.SwitchWithSoundPreference;
 
 import java.util.ArrayList;
 import java.util.List;
-
-import static com.android.tv.settings.util.InstrumentationUtils.logEntrySelected;
 
 public class SuggestionQuickSettingPrefsContainer  {
     @VisibleForTesting static final String KEY_QUICK_SETTINGS = "quick_settings";
@@ -40,7 +39,7 @@ public class SuggestionQuickSettingPrefsContainer  {
     private HotwordSwitchController mHotwordSwitchController;
     private TakeBugReportController mTakeBugReportController;
     private PreferenceCategory mQuickSettingsList;
-    private SwitchPreference mHotwordSwitch;
+    private SwitchWithSoundPreference mHotwordSwitch;
     private Preference mTakeBugReportPreference;
     private MainFragment mainFragment;
 
@@ -212,7 +211,7 @@ public class SuggestionQuickSettingPrefsContainer  {
         mQuickSettingsList.setOrder(1); // at top, but below suggested settings
         mainFragment.getPreferenceScreen().addPreference(mQuickSettingsList);
         if (mHotwordSwitchController != null && mHotwordSwitchController.isAvailable()) {
-            mHotwordSwitch = new SwitchPreference(
+            mHotwordSwitch = new SwitchWithSoundPreference(
                     mainFragment.getPreferenceManager().getContext());
             mHotwordSwitch.setKey(HotwordSwitchController.KEY_HOTWORD_SWITCH);
             mHotwordSwitch.setOnPreferenceClickListener(preference -> {

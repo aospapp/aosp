@@ -29,11 +29,14 @@ import android.os.RemoteException;
 import android.os.UserHandle;
 import android.util.Log;
 
+import com.android.car.internal.LargeParcelable;
+import com.android.car.telemetry.scriptexecutorinterface.BundleList;
 import com.android.car.telemetry.scriptexecutorinterface.IScriptExecutor;
 import com.android.car.telemetry.scriptexecutorinterface.IScriptExecutorListener;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.List;
 
 /**
  * Executes Lua code in an isolated process with provided source code
@@ -59,7 +62,7 @@ public final class ScriptExecutor extends Service {
             ensureCallerIsSystem();
             mNativeHandler.post(() ->
                     nativeInvokeScript(mLuaEnginePtr, scriptBody, functionName, publishedData,
-                            savedState, listener));
+                            null, savedState, listener));
         }
 
         @Override
@@ -87,8 +90,21 @@ public final class ScriptExecutor extends Service {
                 }
 
                 nativeInvokeScript(mLuaEnginePtr, scriptBody, functionName, publishedData,
-                        savedState, listener);
+                        null, savedState, listener);
             });
+        }
+
+        @Override
+        public void invokeScriptForBundleList(String scriptBody, String functionName,
+                BundleList bundleList, PersistableBundle savedState,
+                IScriptExecutorListener listener) throws SecurityException {
+            ensureCallerIsSystem();
+            BundleList reconstBundles =
+                    (BundleList) LargeParcelable.reconstructStableAIDLParcelable(
+                            bundleList, /*keepSharedMemory=*/false);
+            mNativeHandler.post(() ->
+                    nativeInvokeScript(mLuaEnginePtr, scriptBody, functionName, null,
+                            reconstBundles.bundles, savedState, listener));
         }
     }
 
@@ -147,12 +163,14 @@ public final class ScriptExecutor extends Service {
      *                      invoked.
      * @param functionName  the name of the function to execute.
      * @param publishedData input data provided by the source which the function handles.
+     * @param bundleList    input data list provided by the source which the function handles.
      * @param savedState    key-value pairs preserved from the previous invocation of the function.
-     * @param listener      callback for the sandboxed environent to report back script execution
+     * @param listener      callback for the sandboxed environment to report back script execution
      *                      results
      *                      and errors.
      */
     private native void nativeInvokeScript(long luaEnginePtr, String scriptBody,
-            String functionName, PersistableBundle publishedData, PersistableBundle savedState,
+            String functionName, PersistableBundle publishedData,
+            List<PersistableBundle> bundleList, PersistableBundle savedState,
             IScriptExecutorListener listener);
 }

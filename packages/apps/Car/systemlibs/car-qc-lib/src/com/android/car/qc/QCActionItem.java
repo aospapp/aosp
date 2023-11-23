@@ -17,11 +17,13 @@
 package com.android.car.qc;
 
 import android.app.PendingIntent;
+import android.content.Context;
 import android.graphics.drawable.Icon;
 import android.os.Parcel;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.annotation.StringRes;
 
 /**
  * Quick Control Action that are includes as either start or end actions in {@link QCRow}
@@ -32,14 +34,17 @@ public class QCActionItem extends QCItem {
     private Icon mIcon;
     private PendingIntent mAction;
     private PendingIntent mDisabledClickAction;
+    private String mContentDescription;
 
     public QCActionItem(@NonNull @QCItemType String type, boolean isChecked, boolean isEnabled,
             boolean isAvailable, boolean isClickableWhileDisabled, @Nullable Icon icon,
-            @Nullable PendingIntent action, @Nullable PendingIntent disabledClickAction) {
+            @Nullable String contentDescription, @Nullable PendingIntent action,
+            @Nullable PendingIntent disabledClickAction) {
         super(type, isEnabled, isClickableWhileDisabled);
         mIsChecked = isChecked;
         mIsAvailable = isAvailable;
         mIcon = icon;
+        mContentDescription = contentDescription;
         mAction = action;
         mDisabledClickAction = disabledClickAction;
     }
@@ -51,6 +56,10 @@ public class QCActionItem extends QCItem {
         boolean hasIcon = in.readBoolean();
         if (hasIcon) {
             mIcon = Icon.CREATOR.createFromParcel(in);
+        }
+        boolean hasContentDescription = in.readBoolean();
+        if (hasContentDescription) {
+            mContentDescription = in.readString();
         }
         boolean hasAction = in.readBoolean();
         if (hasAction) {
@@ -71,6 +80,11 @@ public class QCActionItem extends QCItem {
         dest.writeBoolean(includeIcon);
         if (includeIcon) {
             mIcon.writeToParcel(dest, flags);
+        }
+        boolean hasContentDescription = mContentDescription != null;
+        dest.writeBoolean(hasContentDescription);
+        if (hasContentDescription) {
+            dest.writeString(mContentDescription);
         }
         boolean hasAction = mAction != null;
         dest.writeBoolean(hasAction);
@@ -107,6 +121,11 @@ public class QCActionItem extends QCItem {
         return mIcon;
     }
 
+    @Nullable
+    public String getContentDescription() {
+        return mContentDescription;
+    }
+
     public static Creator<QCActionItem> CREATOR = new Creator<QCActionItem>() {
         @Override
         public QCActionItem createFromParcel(Parcel source) {
@@ -131,6 +150,7 @@ public class QCActionItem extends QCItem {
         private Icon mIcon;
         private PendingIntent mAction;
         private PendingIntent mDisabledClickAction;
+        private String mContentDescription;
 
         public Builder(@NonNull @QCItemType String type) {
             if (!isValidType(type)) {
@@ -180,6 +200,23 @@ public class QCActionItem extends QCItem {
         }
 
         /**
+         * Sets the content description
+         */
+        public Builder setContentDescription(@Nullable String contentDescription) {
+            mContentDescription = contentDescription;
+            return this;
+        }
+
+        /**
+         * Sets the string resource to use for content description
+         */
+        public Builder setContentDescription(@NonNull Context context,
+                @StringRes int contentDescriptionResId) {
+            mContentDescription = context.getString(contentDescriptionResId);
+            return this;
+        }
+
+        /**
          * Sets the PendingIntent to be sent when the action item is clicked.
          */
         public Builder setAction(@Nullable PendingIntent action) {
@@ -200,7 +237,8 @@ public class QCActionItem extends QCItem {
          */
         public QCActionItem build() {
             return new QCActionItem(mType, mIsChecked, mIsEnabled, mIsAvailable,
-                    mIsClickableWhileDisabled, mIcon, mAction, mDisabledClickAction);
+                    mIsClickableWhileDisabled, mIcon, mContentDescription, mAction,
+                    mDisabledClickAction);
         }
 
         private boolean isValidType(String type) {

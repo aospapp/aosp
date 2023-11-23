@@ -237,6 +237,10 @@ TEST(DurationMetricE2eTest, TestWithActivation) {
     sp<AlarmMonitor> subscriberAlarmMonitor;
     vector<int64_t> activeConfigsBroadcast;
 
+    std::shared_ptr<MockLogEventFilter> mockLogEventFilter = std::make_shared<MockLogEventFilter>();
+    EXPECT_CALL(*mockLogEventFilter, setAtomIds(StatsLogProcessor::getDefaultAtomIdSet(), _))
+            .Times(1);
+
     int broadcastCount = 0;
     StatsLogProcessor processor(
             m, pullerManager, anomalyAlarmMonitor, subscriberAlarmMonitor, bucketStartTimeNs,
@@ -249,7 +253,11 @@ TEST(DurationMetricE2eTest, TestWithActivation) {
                 activeConfigsBroadcast.insert(activeConfigsBroadcast.end(), activeConfigs.begin(),
                                               activeConfigs.end());
                 return true;
-            });
+            },
+            [](const ConfigKey&, const string&, const vector<int64_t>&) {}, mockLogEventFilter);
+
+    EXPECT_CALL(*mockLogEventFilter, setAtomIds(CreateAtomIdSetFromConfig(config), &processor))
+            .Times(1);
 
     processor.OnConfigUpdated(bucketStartTimeNs, cfgKey, config);  // 0:00
 
@@ -406,28 +414,36 @@ TEST(DurationMetricE2eTest, TestWithCondition) {
     int appUid = 123;
     vector<int> attributionUids1 = {appUid};
     vector<string> attributionTags1 = {"App1"};
+    int64_t conditionStartTime1Ns = bucketStartTimeNs + 22 * NS_PER_SEC;
+    int64_t conditionEndTimeNs = bucketStartTimeNs + (3 * 60 + 15) * NS_PER_SEC;
+    int64_t conditionStartTime2Ns = bucketStartTimeNs + (4 * 60 + 20) * NS_PER_SEC;
+    int64_t bucket2StartTimeNs = bucketStartTimeNs + bucketSizeNs;
 
-    auto event = CreateAcquireWakelockEvent(bucketStartTimeNs + 10 * NS_PER_SEC, attributionUids1,
-                                            attributionTags1,
-                                            "wl1");  // 0:10
-    processor->OnLogEvent(event.get());
+    std::vector<std::unique_ptr<LogEvent>> events;
+    events.push_back(CreateAcquireWakelockEvent(bucketStartTimeNs + 10 * NS_PER_SEC,
+                                                attributionUids1, attributionTags1,
+                                                "wl1"));                           // 0:10
+    events.push_back(CreateMoveToBackgroundEvent(conditionStartTime1Ns, appUid));  // 0:22
+    events.push_back(CreateMoveToForegroundEvent(conditionEndTimeNs,
+                                                 appUid));  // 3:15
+    events.push_back(CreateReleaseWakelockEvent(bucketStartTimeNs + 4 * 60 * NS_PER_SEC,
+                                                attributionUids1, attributionTags1,
+                                                "wl1"));                           // 4:00
+    events.push_back(CreateMoveToBackgroundEvent(conditionStartTime2Ns, appUid));  // 4:20
 
-    event = CreateMoveToBackgroundEvent(bucketStartTimeNs + 22 * NS_PER_SEC, appUid);  // 0:22
-    processor->OnLogEvent(event.get());
-
-    event = CreateMoveToForegroundEvent(bucketStartTimeNs + (3 * 60 + 15) * NS_PER_SEC,
-                                        appUid);  // 3:15
-    processor->OnLogEvent(event.get());
-
-    event = CreateReleaseWakelockEvent(bucketStartTimeNs + 4 * 60 * NS_PER_SEC, attributionUids1,
-                                       attributionTags1,
-                                       "wl1");  // 4:00
-    processor->OnLogEvent(event.get());
+    // Bucket 2.
+    events.push_back(CreateAcquireWakelockEvent(bucket2StartTimeNs + 10 * NS_PER_SEC,
+                                                attributionUids1, attributionTags1,
+                                                "wl1"));  // 5:10
+    // Send log events to StatsLogProcessor.
+    for (auto& event : events) {
+        processor->OnLogEvent(event.get());
+    }
 
     vector<uint8_t> buffer;
     ConfigMetricsReportList reports;
-    processor->onDumpReport(cfgKey, bucketStartTimeNs + bucketSizeNs + 1, false, true, ADB_DUMP,
-                            FAST, &buffer);
+    int64_t dumpReportTimeNs = bucket2StartTimeNs + 40 * NS_PER_SEC;
+    processor->onDumpReport(cfgKey, dumpReportTimeNs, true, true, ADB_DUMP, FAST, &buffer);  // 5:40
     ASSERT_GT(buffer.size(), 0);
     EXPECT_TRUE(reports.ParseFromArray(&buffer[0], buffer.size()));
     backfillDimensionPath(&reports);
@@ -441,15 +457,15 @@ TEST(DurationMetricE2eTest, TestWithCondition) {
                                     &durationMetrics);
     ASSERT_EQ(1, durationMetrics.data_size());
 
-    DurationMetricData data = durationMetrics.data(0);
-
     // Validate bucket info.
-    ASSERT_EQ(1, data.bucket_info_size());
-
-    auto bucketInfo = data.bucket_info(0);
-    EXPECT_EQ(bucketStartTimeNs, bucketInfo.start_bucket_elapsed_nanos());
-    EXPECT_EQ(bucketStartTimeNs + bucketSizeNs, bucketInfo.end_bucket_elapsed_nanos());
-    EXPECT_EQ((2 * 60 + 53) * NS_PER_SEC, bucketInfo.duration_nanos());
+    ASSERT_EQ(2, durationMetrics.data(0).bucket_info_size());
+    ValidateDurationBucket(durationMetrics.data(0).bucket_info(0), bucketStartTimeNs,
+                           bucket2StartTimeNs, conditionEndTimeNs - conditionStartTime1Ns,
+                           (conditionEndTimeNs - conditionStartTime1Ns) +
+                                   (bucket2StartTimeNs - conditionStartTime2Ns));
+    ValidateDurationBucket(durationMetrics.data(0).bucket_info(1), bucket2StartTimeNs,
+                           dumpReportTimeNs, 30 * NS_PER_SEC,
+                           dumpReportTimeNs - bucket2StartTimeNs);
 }
 
 TEST(DurationMetricE2eTest, TestWithSlicedCondition) {
@@ -1647,6 +1663,106 @@ TEST(DurationMetricE2eTest, TestConditionOnRepeatedEnumField) {
     EXPECT_EQ(durationEndNs - durationStartNs, data.bucket_info(0).duration_nanos());
     EXPECT_EQ(configAddedTimeNs, data.bucket_info(0).start_bucket_elapsed_nanos());
     EXPECT_EQ(baseTimeNs + bucketSizeNs, data.bucket_info(0).end_bucket_elapsed_nanos());
+}
+
+TEST(DurationMetricE2eTest, TestDimensionalSampling) {
+    ShardOffsetProvider::getInstance().setShardOffset(5);
+
+    StatsdConfig config;
+    config.add_allowed_log_source("AID_ROOT");  // LogEvent defaults to UID of root.
+
+    *config.add_atom_matcher() = CreateStartScheduledJobAtomMatcher();
+    *config.add_atom_matcher() = CreateFinishScheduledJobAtomMatcher();
+    AtomMatcher stopAllMatcher = CreateScheduleScheduledJobAtomMatcher();
+    *config.add_atom_matcher() = stopAllMatcher;
+
+    Predicate scheduledJobPredicate = CreateScheduledJobPredicate();
+    *scheduledJobPredicate.mutable_simple_predicate()->mutable_dimensions() =
+            CreateAttributionUidDimensions(util::SCHEDULED_JOB_STATE_CHANGED, {Position::FIRST});
+    SimplePredicate* simplePredicate = scheduledJobPredicate.mutable_simple_predicate();
+    simplePredicate->set_stop_all(stopAllMatcher.id());
+    *config.add_predicate() = scheduledJobPredicate;
+
+    DurationMetric sampledDurationMetric = createDurationMetric(
+            "DurationSampledScheduledJobPerUid", scheduledJobPredicate.id(), nullopt, {});
+    sampledDurationMetric.set_aggregation_type(DurationMetric::SUM);
+    *sampledDurationMetric.mutable_dimensions_in_what() =
+            CreateAttributionUidDimensions(util::SCHEDULED_JOB_STATE_CHANGED, {Position::FIRST});
+    *sampledDurationMetric.mutable_dimensional_sampling_info()->mutable_sampled_what_field() =
+            CreateAttributionUidDimensions(util::SCHEDULED_JOB_STATE_CHANGED, {Position::FIRST});
+    sampledDurationMetric.mutable_dimensional_sampling_info()->set_shard_count(2);
+    *config.add_duration_metric() = sampledDurationMetric;
+
+    const int64_t configAddedTimeNs = 1 * NS_PER_SEC;  // 0:01
+    const int64_t bucketSizeNs =
+            TimeUnitToBucketSizeInMillis(config.duration_metric(0).bucket()) * 1000LL * 1000LL;
+
+    int uid = 12345;
+    int64_t cfgId = 98765;
+    ConfigKey cfgKey(uid, cfgId);
+
+    sp<StatsLogProcessor> processor = CreateStatsLogProcessor(
+            configAddedTimeNs, configAddedTimeNs, config, cfgKey, nullptr, 0, new UidMap());
+
+    int uid1 = 1001;  // odd hash value
+    int uid2 = 1002;  // even hash value
+    int uid3 = 1003;  // odd hash value
+
+    const int64_t durationStartNs1 = 20 * NS_PER_SEC;
+    const int64_t durationStartNs2 = 40 * NS_PER_SEC;
+    const int64_t durationStartNs3 = 60 * NS_PER_SEC;
+    const int64_t durationStartNs4 = 80 * NS_PER_SEC;
+    const int64_t durationEndNs1 = 100 * NS_PER_SEC;
+    const int64_t durationEndNs2 = 110 * NS_PER_SEC;
+    const int64_t stopAllNs = 130 * NS_PER_SEC;
+    const int64_t durationEndNs3 = 150 * NS_PER_SEC;
+    const int64_t durationEndNs4 = 200 * NS_PER_SEC;
+
+    std::vector<std::unique_ptr<LogEvent>> events;
+    events.push_back(CreateStartScheduledJobEvent(durationStartNs1, {uid1}, {"App1"}, "job1"));
+    events.push_back(CreateStartScheduledJobEvent(durationStartNs2, {uid2}, {"App2"}, "job2"));
+    events.push_back(CreateStartScheduledJobEvent(durationStartNs3, {uid3}, {"App3"}, "job3"));
+    events.push_back(CreateFinishScheduledJobEvent(durationEndNs1, {uid1}, {"App1"}, "job1"));
+    events.push_back(CreateFinishScheduledJobEvent(durationEndNs2, {uid2}, {"App2"}, "job2"));
+    // This event should pass the sample check regardless of the uid.
+    events.push_back(CreateScheduleScheduledJobEvent(stopAllNs, {uid2}, {"App2"}, "job2"));
+    // These events shouldn't do anything since all jobs were stopped with the cancel event.
+    events.push_back(CreateFinishScheduledJobEvent(durationEndNs3, {uid3}, {"App3"}, "job3"));
+
+    // Send log events to StatsLogProcessor.
+    for (auto& event : events) {
+        processor->OnLogEvent(event.get());
+    }
+
+    ConfigMetricsReportList reports;
+    vector<uint8_t> buffer;
+    processor->onDumpReport(cfgKey, configAddedTimeNs + bucketSizeNs + 1, false, true, ADB_DUMP,
+                            FAST, &buffer);
+    EXPECT_TRUE(buffer.size() > 0);
+    EXPECT_TRUE(reports.ParseFromArray(&buffer[0], buffer.size()));
+    backfillDimensionPath(&reports);
+    backfillStartEndTimestamp(&reports);
+
+    ASSERT_EQ(1, reports.reports_size());
+    ASSERT_EQ(1, reports.reports(0).metrics_size());
+    EXPECT_TRUE(reports.reports(0).metrics(0).has_duration_metrics());
+    StatsLogReport::DurationMetricDataWrapper durationMetrics;
+    sortMetricDataByDimensionsValue(reports.reports(0).metrics(0).duration_metrics(),
+                                    &durationMetrics);
+    ASSERT_EQ(2, durationMetrics.data_size());
+
+    // Only Uid 1 and 3 are logged. (odd hash value) + (offset of 5) % (shard count of 2) = 0
+    DurationMetricData data = durationMetrics.data(0);
+    ValidateAttributionUidDimension(data.dimensions_in_what(), util::SCHEDULED_JOB_STATE_CHANGED,
+                                    uid1);
+    ValidateDurationBucket(data.bucket_info(0), configAddedTimeNs, configAddedTimeNs + bucketSizeNs,
+                           durationEndNs1 - durationStartNs1);
+
+    data = durationMetrics.data(1);
+    ValidateAttributionUidDimension(data.dimensions_in_what(), util::SCHEDULED_JOB_STATE_CHANGED,
+                                    uid3);
+    ValidateDurationBucket(data.bucket_info(0), configAddedTimeNs, configAddedTimeNs + bucketSizeNs,
+                           stopAllNs - durationStartNs3);
 }
 
 #else

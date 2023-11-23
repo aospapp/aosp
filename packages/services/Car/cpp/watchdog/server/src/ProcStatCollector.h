@@ -30,45 +30,55 @@ namespace watchdog {
 constexpr const char* kProcStatPath = "/proc/stat";
 
 struct CpuStats {
-    uint64_t userTime = 0;       // Time spent in user mode.
-    uint64_t niceTime = 0;       // Time spent in user mode with low priority (nice).
-    uint64_t sysTime = 0;        // Time spent in system mode.
-    uint64_t idleTime = 0;       // Time spent in the idle task.
-    uint64_t ioWaitTime = 0;     // Time spent on context switching/waiting due to I/O operations.
-    uint64_t irqTime = 0;        // Time servicing interrupts.
-    uint64_t softIrqTime = 0;    // Time servicing soft interrupts.
-    uint64_t stealTime = 0;      // Stolen time (Time spent in other OS in a virtualized env).
-    uint64_t guestTime = 0;      // Time spent running a virtual CPU for guest OS.
-    uint64_t guestNiceTime = 0;  // Time spent running a niced virtual CPU for guest OS.
+    int64_t userTimeMillis = 0;    // Time spent in user mode.
+    int64_t niceTimeMillis = 0;    // Time spent in user mode with low priority (nice).
+    int64_t sysTimeMillis = 0;     // Time spent in system mode.
+    int64_t idleTimeMillis = 0;    // Time spent in the idle task.
+    int64_t ioWaitTimeMillis = 0;  // Time spent on context switching/waiting due to I/O operations.
+    int64_t irqTimeMillis = 0;     // Time servicing interrupts.
+    int64_t softIrqTimeMillis = 0;    // Time servicing soft interrupts.
+    int64_t stealTimeMillis = 0;      // Stolen time (Time spent in other OS in a virtualized env).
+    int64_t guestTimeMillis = 0;      // Time spent running a virtual CPU for guest OS.
+    int64_t guestNiceTimeMillis = 0;  // Time spent running a niced virtual CPU for guest OS.
 
     CpuStats& operator-=(const CpuStats& rhs) {
-        userTime -= rhs.userTime;
-        niceTime -= rhs.niceTime;
-        sysTime -= rhs.sysTime;
-        idleTime -= rhs.idleTime;
-        ioWaitTime -= rhs.ioWaitTime;
-        irqTime -= rhs.irqTime;
-        softIrqTime -= rhs.softIrqTime;
-        stealTime -= rhs.stealTime;
-        guestTime -= rhs.guestTime;
-        guestNiceTime -= rhs.guestNiceTime;
+        userTimeMillis -= rhs.userTimeMillis;
+        niceTimeMillis -= rhs.niceTimeMillis;
+        sysTimeMillis -= rhs.sysTimeMillis;
+        idleTimeMillis -= rhs.idleTimeMillis;
+        ioWaitTimeMillis -= rhs.ioWaitTimeMillis;
+        irqTimeMillis -= rhs.irqTimeMillis;
+        softIrqTimeMillis -= rhs.softIrqTimeMillis;
+        stealTimeMillis -= rhs.stealTimeMillis;
+        guestTimeMillis -= rhs.guestTimeMillis;
+        guestNiceTimeMillis -= rhs.guestNiceTimeMillis;
         return *this;
     }
 };
 
 class ProcStatInfo {
 public:
-    ProcStatInfo() : cpuStats({}), runnableProcessCount(0), ioBlockedProcessCount(0) {}
-    ProcStatInfo(CpuStats stats, uint32_t runnableCnt, uint32_t ioBlockedCnt) :
-          cpuStats(stats), runnableProcessCount(runnableCnt), ioBlockedProcessCount(ioBlockedCnt) {}
+    ProcStatInfo() :
+          cpuStats({}),
+          contextSwitchesCount(0),
+          runnableProcessCount(0),
+          ioBlockedProcessCount(0) {}
+    ProcStatInfo(CpuStats stats, uint64_t ctxtSwitches, uint32_t runnableCnt,
+                 uint32_t ioBlockedCnt) :
+          cpuStats(stats),
+          contextSwitchesCount(ctxtSwitches),
+          runnableProcessCount(runnableCnt),
+          ioBlockedProcessCount(ioBlockedCnt) {}
     CpuStats cpuStats;
+    uint64_t contextSwitchesCount;
     uint32_t runnableProcessCount;
     uint32_t ioBlockedProcessCount;
 
-    uint64_t totalCpuTime() const {
-        return cpuStats.userTime + cpuStats.niceTime + cpuStats.sysTime + cpuStats.idleTime +
-                cpuStats.ioWaitTime + cpuStats.irqTime + cpuStats.softIrqTime + cpuStats.stealTime +
-                cpuStats.guestTime + cpuStats.guestNiceTime;
+    int64_t totalCpuTimeMillis() const {
+        return cpuStats.userTimeMillis + cpuStats.niceTimeMillis + cpuStats.sysTimeMillis +
+                cpuStats.idleTimeMillis + cpuStats.ioWaitTimeMillis + cpuStats.irqTimeMillis +
+                cpuStats.softIrqTimeMillis + cpuStats.stealTimeMillis + cpuStats.guestTimeMillis +
+                cpuStats.guestNiceTimeMillis;
     }
     uint32_t totalProcessCount() const { return runnableProcessCount + ioBlockedProcessCount; }
     bool operator==(const ProcStatInfo& info) const {
@@ -111,7 +121,7 @@ public:
 class ProcStatCollector final : public ProcStatCollectorInterface {
 public:
     explicit ProcStatCollector(const std::string& path = kProcStatPath) :
-          kPath(path), mLatestStats({}) {}
+          kPath(path), mMillisPerClockTick(1000 / sysconf(_SC_CLK_TCK)), mLatestStats({}) {}
 
     ~ProcStatCollector() {}
 
@@ -148,6 +158,9 @@ private:
 
     // Path to proc stat file. Default path is |kProcStatPath|.
     const std::string kPath;
+
+    // Number of milliseconds per clock cycle.
+    int32_t mMillisPerClockTick;
 
     // Makes sure only one collection is running at any given time.
     mutable Mutex mMutex;

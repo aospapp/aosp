@@ -182,6 +182,27 @@ public class SoftApBackupRestoreTest extends WifiBaseTest {
     }
 
     /**
+     * Verifies that the serialization/de-serialization for 6G OWE config
+     * works.
+     */
+    @Test
+    public void testSoftApConfigBackupAndRestoreWith6GOWEConfig()
+            throws Exception {
+        assumeTrue(SdkLevel.isAtLeastT());
+        SoftApConfiguration.Builder configBuilder = new SoftApConfiguration.Builder();
+        configBuilder.setSsid("TestAP");
+        configBuilder.setBand(SoftApConfiguration.BAND_6GHZ);
+        configBuilder.setPassphrase(null, SoftApConfiguration.SECURITY_TYPE_WPA3_OWE);
+        SoftApConfiguration config = configBuilder.build();
+
+        byte[] data = mSoftApBackupRestore.retrieveBackupDataFromSoftApConfiguration(config);
+        SoftApConfiguration restoredConfig =
+                mSoftApBackupRestore.retrieveSoftApConfigurationFromBackupData(data);
+
+        assertThat(config).isEqualTo(restoredConfig);
+    }
+
+    /**
      * Verifies that the serialization/de-serialization for old softap config works.
      */
     @Test

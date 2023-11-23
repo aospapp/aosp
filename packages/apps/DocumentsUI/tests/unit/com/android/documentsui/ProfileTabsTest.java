@@ -50,6 +50,7 @@ public class ProfileTabsTest {
     private ProfileTabs mProfileTabs;
 
     private Context mContext;
+    private View mTabLayoutContainer;
     private TabLayout mTabLayout;
     private TestEnvironment mTestEnv;
     private State mState;
@@ -71,6 +72,7 @@ public class ProfileTabsTest {
         View view = layoutInflater.inflate(R.layout.directory_header, null);
 
         mTabLayout = view.findViewById(R.id.tabs);
+        mTabLayoutContainer = view.findViewById(R.id.tabs_container);
         mTestEnv = new TestEnvironment();
         mTestEnv.isSearchExpanded = false;
 
@@ -83,7 +85,7 @@ public class ProfileTabsTest {
     public void testUpdateView_singleUser_shouldHide() {
         initializeWithUsers(systemUser);
 
-        assertThat(mTabLayout.getVisibility()).isEqualTo(View.GONE);
+        assertThat(mTabLayoutContainer.getVisibility()).isEqualTo(View.GONE);
         assertThat(mTabLayout.getTabCount()).isEqualTo(0);
     }
 
@@ -91,7 +93,7 @@ public class ProfileTabsTest {
     public void testUpdateView_twoUsers_shouldShow() {
         initializeWithUsers(systemUser, managedUser);
 
-        assertThat(mTabLayout.getVisibility()).isEqualTo(View.VISIBLE);
+        assertThat(mTabLayoutContainer.getVisibility()).isEqualTo(View.VISIBLE);
         assertThat(mTabLayout.getTabCount()).isEqualTo(2);
 
         TabLayout.Tab tab1 = mTabLayout.getTabAt(0);
@@ -110,7 +112,7 @@ public class ProfileTabsTest {
         mState.supportsCrossProfile = false;
         mProfileTabs.updateView();
 
-        assertThat(mTabLayout.getVisibility()).isEqualTo(View.GONE);
+        assertThat(mTabLayoutContainer.getVisibility()).isEqualTo(View.GONE);
     }
 
     @Test
@@ -121,7 +123,7 @@ public class ProfileTabsTest {
         mState.stack.push(TestEnv.FOLDER_1);
 
         mProfileTabs.updateView();
-        assertThat(mTabLayout.getVisibility()).isEqualTo(View.GONE);
+        assertThat(mTabLayoutContainer.getVisibility()).isEqualTo(View.GONE);
         assertThat(mTabLayout.getTabCount()).isEqualTo(2);
     }
 
@@ -134,7 +136,7 @@ public class ProfileTabsTest {
         mState.stack.push((TestEnv.FOLDER_0));
 
         mProfileTabs.updateView();
-        assertThat(mTabLayout.getVisibility()).isEqualTo(View.GONE);
+        assertThat(mTabLayoutContainer.getVisibility()).isEqualTo(View.GONE);
         assertThat(mTabLayout.getTabCount()).isEqualTo(2);
     }
 
@@ -146,7 +148,7 @@ public class ProfileTabsTest {
         mState.stack.push((TestEnv.FOLDER_0));
 
         mProfileTabs.updateView();
-        assertThat(mTabLayout.getVisibility()).isEqualTo(View.GONE);
+        assertThat(mTabLayoutContainer.getVisibility()).isEqualTo(View.GONE);
         assertThat(mTabLayout.getTabCount()).isEqualTo(2);
     }
 
@@ -155,7 +157,7 @@ public class ProfileTabsTest {
         mTestEnv.isSearchExpanded = true;
         initializeWithUsers(systemUser, managedUser);
 
-        assertThat(mTabLayout.getVisibility()).isEqualTo(View.GONE);
+        assertThat(mTabLayoutContainer.getVisibility()).isEqualTo(View.GONE);
         assertThat(mTabLayout.getTabCount()).isEqualTo(2);
     }
 
@@ -164,12 +166,12 @@ public class ProfileTabsTest {
         initializeWithUsers(systemUser, managedUser);
         mProfileTabs.updateView();
         mTabLayout.selectTab(mTabLayout.getTabAt(1));
-        assertThat(mTabLayout.getVisibility()).isEqualTo(View.VISIBLE);
+        assertThat(mTabLayoutContainer.getVisibility()).isEqualTo(View.VISIBLE);
         assertThat(mProfileTabs.getSelectedUser()).isEqualTo(managedUser);
 
         mTestUserIdManager.userIds = Collections.singletonList(systemUser);
         mProfileTabs.updateView();
-        assertThat(mTabLayout.getVisibility()).isEqualTo(View.GONE);
+        assertThat(mTabLayoutContainer.getVisibility()).isEqualTo(View.GONE);
         assertThat(mProfileTabs.getSelectedUser()).isEqualTo(systemUser);
     }
 
@@ -231,7 +233,7 @@ public class ProfileTabsTest {
             }
         }
 
-        mProfileTabs = new ProfileTabs(mTabLayout, mState, mTestUserIdManager, mTestEnv,
+        mProfileTabs = new ProfileTabs(mTabLayoutContainer, mState, mTestUserIdManager, mTestEnv,
                 mTestCommonAddons);
         mProfileTabs.updateView();
         mProfileTabs.setListener(userId -> mIsListenerInvoked = true);

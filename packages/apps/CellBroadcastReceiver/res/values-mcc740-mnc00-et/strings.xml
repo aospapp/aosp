@@ -16,6 +16,7 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="pws_other_message_identifiers" msgid="8976420402484419445">"Testige sõnumit"</string>
-    <string name="enable_emergency_alerts_message_title" msgid="825742239541920431">"Testige kohalikku sõnumit"</string>
+    <string name="pws_other_message_identifiers" msgid="2214940831691477786">"Operaatori hoiatused"</string>
+    <string name="enable_emergency_alerts_message_title" msgid="1644330907171600428">"Operaatori hoiatused"</string>
+    <string name="enable_emergency_alerts_message_summary" msgid="8067182348745388399">"Operaatori hoiatuste kanal"</string>
 </resources>

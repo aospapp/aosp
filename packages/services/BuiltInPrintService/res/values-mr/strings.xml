@@ -46,7 +46,7 @@
     <string name="add" msgid="1950342261671100906">"जोडा"</string>
     <string name="add_named" msgid="9074106244018070583">"<xliff:g id="PRINTER">%1$s</xliff:g> जोडा"</string>
     <string name="no_printer_found" msgid="4777867380924351173">"या पत्त्यावर कोणताही प्रिंटर सापडला नाही"</string>
-    <string name="printer_not_supported" msgid="281955849350938408">"प्रिंटरला समर्थित नाही"</string>
+    <string name="printer_not_supported" msgid="281955849350938408">"प्रिंटरला सपोर्ट नाही"</string>
     <string name="wifi_direct" msgid="4629404342852294985">"वाय-फाय थेट"</string>
     <string name="find_wifi_direct" msgid="5270504288829123954">"वाय-फाय डिरेक्ट प्रिंटर शोधा"</string>
     <string name="wifi_direct_printing" msgid="8423811041563144048">"वाय-फाय डिरेक्ट प्रिंटिंग"</string>

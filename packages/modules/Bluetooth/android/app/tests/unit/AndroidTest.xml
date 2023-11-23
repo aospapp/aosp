@@ -20,10 +20,18 @@
         <option name="cleanup-apks" value="true" />
         <option name="test-file-name" value="BluetoothInstrumentationTests.apk" />
     </target_preparer>
+    <target_preparer class="com.android.tradefed.targetprep.RootTargetPreparer">
+        <option name="force-root" value="true" />
+    </target_preparer>
     <target_preparer class="com.android.tradefed.targetprep.RunCommandTargetPreparer">
+        <option name="throw-if-cmd-fail" value="true" />
+        <option name="run-command" value="input keyevent KEYCODE_WAKEUP" />
+        <option name="run-command" value="wm dismiss-keyguard" />
         <option name="run-command" value="settings put global ble_scan_always_enabled 0" />
-        <option name="run-command" value="su u$(am get-current-user)_system svc bluetooth disable" />
-        <option name="teardown-command" value="su u$(am get-current-user)_system svc bluetooth enable" />
+        <option name="run-command" value="cmd bluetooth_manager disable" />
+        <option name="run-command" value="cmd bluetooth_manager wait-for-state:STATE_OFF" />
+        <option name="teardown-command" value="cmd bluetooth_manager enable" />
+        <option name="teardown-command" value="cmd bluetooth_manager wait-for-state:STATE_ON" />
         <option name="teardown-command" value="settings put global ble_scan_always_enabled 1" />
     </target_preparer>
     <target_preparer class="com.android.tradefed.targetprep.FolderSaver">
@@ -32,12 +40,17 @@
     <option name="test-tag" value="BluetoothInstrumentationTests" />
     <test class="com.android.tradefed.testtype.AndroidJUnitTest" >
         <option name="package" value="com.android.bluetooth.tests" />
+        <!-- include and exclude filters go into /data/local/tmp/ajur/ by default
+             However it's prohibited for access by system uid packages.
+             So instead we use the app cache folder for filter -->
+        <option name="test-filter-dir" value="/data/data/com.android.bluetooth/cache" />
         <option name="hidden-api-checks" value="false"/>
     </test>
 
-    <!-- Only run Cts Tests in MTS if the Bluetooth Mainline module is installed. -->
+    <!-- Only run if the Bluetooth Mainline module is installed. -->
     <object type="module_controller"
             class="com.android.tradefed.testtype.suite.module.MainlineTestModuleController">
-        <option name="mainline-module-package-name" value="com.google.android.bluetooth" />
+        <option name="enable" value="true" />
+        <option name="mainline-module-package-name" value="com.android.btservices" />
     </object>
 </configuration>

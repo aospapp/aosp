@@ -43,11 +43,14 @@ android_app {
     },
 
     libs: [
+        "android.car",
         "android.car-system-stubs",
-        "androidx.annotation_annotation",
     ],
 
-    static_libs: ["androidx.annotation_annotation"],
+    static_libs: [
+        "androidx.annotation_annotation",
+        "car-evs-helper-lib",
+    ],
 
     // To make this app be able to re-installed
     use_embedded_native_libs: true,

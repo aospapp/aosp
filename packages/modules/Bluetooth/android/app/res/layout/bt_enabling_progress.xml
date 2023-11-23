@@ -28,9 +28,9 @@
         android:layout_height="match_parent"
         android:baselineAligned="false"
         android:paddingStart="?android:attr/dialogPreferredPadding"
-        android:paddingTop="@*android:dimen/dialog_padding_top_material"
+        android:paddingTop="?android:attr/dialogPreferredPadding"
         android:paddingEnd="?android:attr/dialogPreferredPadding"
-        android:paddingBottom="@*android:dimen/dialog_padding_top_material">
+        android:paddingBottom="?android:attr/dialogPreferredPadding">
 
         <ProgressBar
             android:id="@+id/progress"

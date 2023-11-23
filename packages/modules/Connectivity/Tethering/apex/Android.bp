@@ -18,11 +18,25 @@ package {
     default_applicable_licenses: ["Android-Apache-2.0"],
 }
 
+prebuilt_etc {
+    name: "TetheringOutOfProcessFlag",
+    src: "out-of-process",
+    filename_from_src: true,
+    sub_dir: "flag",
+}
+
 // Defaults to enable/disable java targets which uses development APIs. "enabled" may have a
 // different value depending on the branch.
 java_defaults {
     name: "ConnectivityNextEnableDefaults",
     enabled: true,
+}
+java_defaults {
+    name: "NetworkStackApiShimSettingsForCurrentBranch",
+    // API shims to include in the networking modules built from the branch. Branches that disable
+    // the "next" targets must use stable shims (latest stable API level) instead of current shims
+    // (X_current API level).
+    static_libs: ["NetworkStackApiCurrentShims"],
 }
 apex_defaults {
     name: "ConnectivityApexDefaults",
@@ -36,10 +50,30 @@ enable_tethering_next_apex = true
 // as the above target may have different "enabled" values
 // depending on the branch
 
+apex_defaults {
+    name: "CronetInTetheringApexDefaults",
+    jni_libs: [
+        "cronet_aml_components_cronet_android_cronet",
+        "//external/cronet/third_party/boringssl:libcrypto",
+        "//external/cronet/third_party/boringssl:libssl",
+    ],
+    arch: {
+        riscv64: {
+            // TODO: remove this when there is a riscv64 libcronet
+            exclude_jni_libs: [
+                "cronet_aml_components_cronet_android_cronet",
+                "//external/cronet/third_party/boringssl:libcrypto",
+                "//external/cronet/third_party/boringssl:libssl",
+            ],
+        },
+    },
+}
+
 apex {
     name: "com.android.tethering",
     defaults: [
         "ConnectivityApexDefaults",
+        "CronetInTetheringApexDefaults",
         "r-launched-apex-module",
     ],
     compile_multilib: "both",
@@ -55,7 +89,10 @@ apex {
                 "libservice-connectivity",
                 "libandroid_net_connectivity_com_android_net_module_util_jni",
             ],
-            native_shared_libs: ["libnetd_updatable"],
+            native_shared_libs: [
+                "libcom.android.tethering.connectivity_native",
+                "libnetd_updatable",
+            ],
         },
         both: {
             jni_libs: [
@@ -71,10 +108,12 @@ apex {
     bpfs: [
         "block.o",
         "clatd.o",
-        "dscp_policy.o",
+        "dscpPolicy.o",
         "netd.o",
         "offload.o",
+        "offload@btf.o",
         "test.o",
+        "test@btf.o",
     ],
     apps: [
         "ServiceConnectivityResources",
@@ -83,6 +122,7 @@ apex {
     prebuilts: [
         "current_sdkinfo",
         "privapp_allowlist_com.android.tethering",
+        "TetheringOutOfProcessFlag",
     ],
     manifest: "manifest.json",
     key: "com.android.tethering.key",
@@ -92,7 +132,9 @@ apex {
 
     androidManifest: "AndroidManifest.xml",
 
-    compat_configs: ["connectivity-platform-compat-config"],
+    compat_configs: [
+        "connectivity-platform-compat-config",
+    ],
 }
 
 apex_key {
@@ -104,6 +146,15 @@ apex_key {
 android_app_certificate {
     name: "com.android.tethering.certificate",
     certificate: "com.android.tethering",
+}
+
+filegroup {
+    name: "connectivity-hiddenapi-files",
+    srcs: [
+        ":connectivity-t-hiddenapi-files",
+        "hiddenapi/*.txt",
+    ],
+    visibility: ["//packages/modules/Connectivity:__subpackages__"],
 }
 
 // Encapsulate the contributions made by the com.android.tethering to the bootclasspath.
@@ -133,16 +184,11 @@ bootclasspath_fragment {
     // Additional hidden API flag files to override the defaults. This must only be
     // modified by the Soong or platform compat team.
     hidden_api: {
-        max_target_r_low_priority: [
-            "hiddenapi/hiddenapi-max-target-r-loprio.txt",
-        ],
         max_target_o_low_priority: [
             "hiddenapi/hiddenapi-max-target-o-low-priority.txt",
-            "hiddenapi/hiddenapi-max-target-o-low-priority-tiramisu.txt",
         ],
         unsupported: [
             "hiddenapi/hiddenapi-unsupported.txt",
-            "hiddenapi/hiddenapi-unsupported-tiramisu.txt",
         ],
 
         // The following packages contain classes from other modules on the
@@ -155,6 +201,7 @@ bootclasspath_fragment {
             "android.app.usage",
             "android.nearby",
             "android.net",
+            "android.net.http",
             "android.net.netstats",
             "android.net.util",
         ],
@@ -169,8 +216,10 @@ bootclasspath_fragment {
             "android.nearby.aidl",
             "android.net.apf",
             "android.net.connectivity",
+            "android.net.http.apihelpers",
             "android.net.netstats.provider",
             "android.net.nsd",
+            "android.net.wear",
         ],
     },
 }
@@ -179,15 +228,4 @@ systemserverclasspath_fragment {
     name: "com.android.tethering-systemserverclasspath-fragment",
     standalone_contents: ["service-connectivity"],
     apex_available: ["com.android.tethering"],
-}
-
-override_apex {
-    name: "com.android.tethering.inprocess",
-    base: "com.android.tethering",
-    package_name: "com.android.tethering.inprocess",
-    enabled: enable_tethering_next_apex,
-    apps: [
-        "ServiceConnectivityResources",
-        "InProcessTethering",
-    ],
 }

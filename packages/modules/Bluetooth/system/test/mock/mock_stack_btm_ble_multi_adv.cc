@@ -19,20 +19,19 @@
  *   Functions generated:11
  */
 
-#include <map>
-#include <string>
-
-extern std::map<std::string, int> mock_function_count_map;
-
-#include <base/bind.h>
+#include <base/functional/bind.h>
 #include <base/location.h>
 #include <base/logging.h>
 #include <base/memory/weak_ptr.h>
 #include <base/strings/string_number_conversions.h>
 #include <base/time/time.h>
 #include <string.h>
+
+#include <map>
 #include <queue>
+#include <string>
 #include <vector>
+
 #include "bind_helpers.h"
 #include "ble_advertiser.h"
 #include "bt_target.h"
@@ -41,26 +40,27 @@ extern std::map<std::string, int> mock_function_count_map;
 #include "stack/btm/ble_advertiser_hci_interface.h"
 #include "stack/btm/btm_ble_int.h"
 #include "stack/btm/btm_int_types.h"
+#include "test/common/mock_functions.h"
 
 #ifndef UNUSED_ATTR
 #define UNUSED_ATTR
 #endif
 
-void BleAdvertisingManager::CleanUp() { mock_function_count_map[__func__]++; }
-void btm_ble_adv_init() { mock_function_count_map[__func__]++; }
+void BleAdvertisingManager::CleanUp() { inc_func_call_count(__func__); }
+void btm_ble_adv_init() { inc_func_call_count(__func__); }
 base::WeakPtr<BleAdvertisingManager> BleAdvertisingManager::Get() {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return nullptr;
 }
 bool BleAdvertisingManager::IsInitialized() {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return false;
 }
-void test_timeout_cb(uint8_t status) { mock_function_count_map[__func__]++; }
+void test_timeout_cb(uint8_t status) { inc_func_call_count(__func__); }
 void BleAdvertisingManager::Initialize(BleAdvertiserHciInterface* interface) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
 }
-void btm_ble_multi_adv_cleanup(void) { mock_function_count_map[__func__]++; }
-void testRecomputeTimeout1() { mock_function_count_map[__func__]++; }
-void testRecomputeTimeout2() { mock_function_count_map[__func__]++; }
-void testRecomputeTimeout3() { mock_function_count_map[__func__]++; }
+void btm_ble_multi_adv_cleanup(void) { inc_func_call_count(__func__); }
+void testRecomputeTimeout1() { inc_func_call_count(__func__); }
+void testRecomputeTimeout2() { inc_func_call_count(__func__); }
+void testRecomputeTimeout3() { inc_func_call_count(__func__); }

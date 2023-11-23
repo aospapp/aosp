@@ -1,7 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-
-    <string name="app_name">CaptivePortalLogin</string>
+    <!-- When the user connects to a network that has a captive portal (for example the login page
+    of some coffee shop wifi), the system uses an integrated app to show the user the login page.
+    This is the name of this app. It should be translated in each language (not used as-is). -->
+    <string name="app_name">Captive Portal Login</string>
     <string name="action_use_network">Use this network as is</string>
     <string name="action_do_not_use_network">Do not use this network</string>
     <string name="action_bar_label">Sign in to network</string>

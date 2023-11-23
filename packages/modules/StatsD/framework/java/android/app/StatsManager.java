@@ -17,6 +17,7 @@ package android.app;
 
 import static android.Manifest.permission.DUMP;
 import static android.Manifest.permission.PACKAGE_USAGE_STATS;
+import static android.Manifest.permission.READ_RESTRICTED_STATS;
 
 import android.annotation.CallbackExecutor;
 import android.annotation.NonNull;
@@ -25,9 +26,12 @@ import android.annotation.RequiresPermission;
 import android.annotation.SystemApi;
 import android.content.Context;
 import android.os.Binder;
+import android.os.Build;
 import android.os.IPullAtomCallback;
 import android.os.IPullAtomResultReceiver;
 import android.os.IStatsManagerService;
+import android.os.IStatsQueryCallback;
+import android.os.OutcomeReceiver;
 import android.os.RemoteException;
 import android.os.StatsFrameworkInitializer;
 import android.util.AndroidException;
@@ -35,8 +39,11 @@ import android.util.Log;
 import android.util.StatsEvent;
 import android.util.StatsEventParcel;
 
+import androidx.annotation.RequiresApi;
+
 import com.android.internal.annotations.GuardedBy;
 import com.android.internal.annotations.VisibleForTesting;
+import com.android.modules.utils.build.SdkLevel;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -95,6 +102,12 @@ public final class StatsManager {
             "android.app.extra.STATS_ACTIVE_CONFIG_KEYS";
 
     /**
+     * Long array extra of the restricted metric ids present for the client.
+     */
+    public static final String EXTRA_STATS_RESTRICTED_METRIC_IDS =
+            "android.app.extra.STATS_RESTRICTED_METRIC_IDS";
+
+    /**
      * Broadcast Action: Statsd has started.
      * Configurations and PendingIntents can now be sent to it.
      */
@@ -120,7 +133,7 @@ public final class StatsManager {
     /**
      * @hide
      **/
-    @VisibleForTesting public static final long DEFAULT_TIMEOUT_MILLIS = 2_000L; // 2 seconds.
+    @VisibleForTesting public static final long DEFAULT_TIMEOUT_MILLIS = 1_500L; // 1.5 seconds.
 
     /**
      * Constructor for StatsManagerClient.
@@ -362,6 +375,115 @@ public final class StatsManager {
             }
         }
     }
+
+    /**
+     * Registers the operation that is called whenever there is a change in the restricted metrics
+     * for a specified config that are present for this client. This operation allows statsd to
+     * inform the client about the current restricted metric ids available to be queried for the
+     * specified config. This call can block on statsd.
+     *
+     * If there is no config in statsd that matches the provided config package and key, an empty
+     * list is returned. The pending intent will be tracked, and the operation will be called
+     * whenever a matching config is added.
+     *
+     * @param configKey The configKey passed by the package that added the config in
+     *                  StatsManager#addConfig
+     * @param configPackage The package that added the config in StatsManager#addConfig
+     * @param pendingIntent the PendingIntent to use when broadcasting info to caller.
+     *                      May be null, in which case it removes any associated pending intent
+     *                      for this client.
+     * @return A list of metric ids identifying the restricted metrics that are currently available
+     *         to be queried for the specified config.
+     *         If the pendingIntent is null, this will be an empty list.
+     * @throws StatsUnavailableException if unsuccessful due to failing to connect to stats service
+     */
+    @RequiresPermission(READ_RESTRICTED_STATS)
+    @RequiresApi(Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
+    public @NonNull long[] setRestrictedMetricsChangedOperation(long configKey,
+            @NonNull String configPackage,
+            @Nullable PendingIntent pendingIntent)
+            throws StatsUnavailableException {
+        synchronized (sLock) {
+            try {
+                IStatsManagerService service = getIStatsManagerServiceLocked();
+                if (pendingIntent == null) {
+                    service.removeRestrictedMetricsChangedOperation(configKey, configPackage);
+                    return new long[0];
+                } else {
+                    return service.setRestrictedMetricsChangedOperation(pendingIntent,
+                            configKey, configPackage);
+                }
+
+            } catch (RemoteException e) {
+                Log.e(TAG, "Failed to connect to statsmanager "
+                        + "when registering restricted metrics  listener.");
+                throw new StatsUnavailableException("could not connect", e);
+            } catch (SecurityException e) {
+                throw new StatsUnavailableException(e.getMessage(), e);
+            }
+        }
+    }
+
+    /**
+     * Queries the underlying service based on query received and populates the OutcomeReceiver via
+     * callback. This call is blocking on statsd being available, but is otherwise nonblocking.
+     * i.e. the call can return before the query processing is done.
+     * <p>
+     * Two types of tables are supported: Metric tables and the device information table.
+     * </p>
+     * <p>
+     * The device information table is named device_info and contains the following columns:
+     * sdkVersion, model, product, hardware, device, osBuild, fingerprint, brand, manufacturer, and
+     * board. These columns correspond to {@link Build.VERSION.SDK_INT}, {@link Build.MODEL},
+     * {@link Build.PRODUCT}, {@link Build.HARDWARE}, {@link Build.DEVICE}, {@link Build.ID},
+     * {@link Build.FINGERPRINT}, {@link Build.BRAND}, {@link Build.MANUFACTURER},
+     * {@link Build.BOARD} respectively.
+     * </p>
+     * <p>
+     * The metric tables are named metric_METRIC_ID where METRIC_ID is the metric id that is part
+     * of the wire encoded config passed to {@link #addConfig(long, byte[])}. If the metric id is
+     * negative, then the '-' character is replaced with 'n' in the table name. Each metric table
+     * contains the 3 columns followed by n columns of the following form: atomId,
+     * elapsedTimestampNs, wallTimestampNs, field_1, field_2, field_3 ... field_n. These
+     * columns correspond to to the id of the atom from frameworks/proto_logging/stats/atoms.proto,
+     * time when the atom is recorded, and the data fields within each atom.
+     * </p>
+     * @param configKey The configKey passed by the package that added
+     *                        the config being queried in StatsManager#addConfig
+     * @param configPackage The package that added the config being queried in
+     *                        StatsManager#addConfig
+     * @param query the query object encapsulating a sql-string and necessary config to query
+     *              underlying sql-based data store.
+     * @param executor the executor on which outcomeReceiver will be invoked.
+     * @param outcomeReceiver the receiver to be populated with cursor pointing to result data.
+     */
+    @RequiresPermission(READ_RESTRICTED_STATS)
+    @RequiresApi(Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
+    public void query(long configKey, @NonNull String configPackage, @NonNull StatsQuery query,
+            @NonNull @CallbackExecutor Executor executor,
+            @NonNull OutcomeReceiver<StatsCursor, StatsQueryException> outcomeReceiver)
+            throws StatsUnavailableException {
+        if(query.getSqlDialect() != StatsQuery.DIALECT_SQLITE) {
+            executor.execute(() -> {
+                outcomeReceiver.onError(new StatsQueryException("Unsupported Sql Dialect"));
+            });
+            return;
+        }
+
+        StatsQueryCallbackInternal callbackInternal =
+                new StatsQueryCallbackInternal(outcomeReceiver, executor);
+        synchronized (sLock) {
+            try {
+                IStatsManagerService service = getIStatsManagerServiceLocked();
+                service.querySql(query.getRawSql(), query.getMinSqlClientVersion(),
+                        query.getPolicyConfig(), callbackInternal, configKey,
+                        configPackage);
+            } catch (RemoteException | IllegalStateException e) {
+                throw new StatsUnavailableException("could not connect", e);
+            }
+        }
+    }
+
 
     // TODO: Temporary for backwards compatibility. Remove.
     /**
@@ -721,6 +843,52 @@ public final class StatsManager {
         return mStatsManagerService;
     }
 
+    private static class StatsQueryCallbackInternal extends IStatsQueryCallback.Stub {
+        OutcomeReceiver<StatsCursor, StatsQueryException> queryCallback;
+        Executor mExecutor;
+
+        StatsQueryCallbackInternal(OutcomeReceiver<StatsCursor, StatsQueryException> queryCallback,
+                @NonNull @CallbackExecutor Executor executor) {
+            this.queryCallback = queryCallback;
+            this.mExecutor = executor;
+        }
+
+        @Override
+        public void sendResults(String[] queryData, String[] columnNames, int[] columnTypes,
+                int rowCount) {
+            if (!SdkLevel.isAtLeastU()) {
+                throw new IllegalStateException(
+                        "StatsManager#query is not available before Android U");
+            }
+            final long token = Binder.clearCallingIdentity();
+            try {
+                mExecutor.execute(() -> {
+                    StatsCursor cursor = new StatsCursor(queryData, columnNames, columnTypes,
+                            rowCount);
+                    queryCallback.onResult(cursor);
+                });
+            } finally {
+                Binder.restoreCallingIdentity(token);
+            }
+        }
+
+        @Override
+        public void sendFailure(String error) {
+            if (!SdkLevel.isAtLeastU()) {
+                throw new IllegalStateException(
+                        "StatsManager#query is not available before Android U");
+            }
+            final long token = Binder.clearCallingIdentity();
+            try {
+                mExecutor.execute(() -> {
+                    queryCallback.onError(new StatsQueryException(error));
+                });
+            } finally {
+                Binder.restoreCallingIdentity(token);
+            }
+        }
+    }
+
     /**
      * Exception thrown when communication with the stats service fails (eg if it is not available).
      * This might be thrown early during boot before the stats service has started or if it crashed.
@@ -732,6 +900,20 @@ public final class StatsManager {
 
         public StatsUnavailableException(String reason, Throwable e) {
             super("Failed to connect to statsd: " + reason, e);
+        }
+    }
+
+    /**
+     * Exception thrown when executing a query in statsd fails for any reason. This might be thrown
+     * if the query is malformed or if there is a database error when executing the query.
+     */
+    public static class StatsQueryException extends AndroidException {
+        public StatsQueryException(@NonNull String reason) {
+            super("Failed to query statsd: " + reason);
+        }
+
+        public StatsQueryException(@NonNull String reason, @NonNull Throwable e) {
+            super("Failed to query statsd: " + reason, e);
         }
     }
 }

@@ -26,8 +26,6 @@
 #include <map>
 #include <string>
 
-extern std::map<std::string, int> mock_function_count_map;
-
 // Original included files, if any
 // NOTE: Since this is a mock file with mock definitions some number of
 //       include files may not be required.  The include-what-you-use
@@ -35,6 +33,7 @@ extern std::map<std::string, int> mock_function_count_map;
 //       for this effort.  This compilation unit may compile as-is, or
 //       may need attention to prune the inclusion set.
 #include "stack/btm/ble_advertiser_hci_interface.h"
+#include "test/common/mock_functions.h"
 
 // Mocked compile conditionals, if any
 #ifndef UNUSED_ATTR

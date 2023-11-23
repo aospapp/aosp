@@ -23,6 +23,7 @@
     <string name="bt_share_picker_label" msgid="7464438494743777696">"Bluetooth"</string>
     <string name="unknown_device" msgid="2317679521750821654">"Dispositivo desconhecido"</string>
     <string name="unknownNumber" msgid="1245183329830158661">"Desconhecido"</string>
+    <string name="not_provided" msgid="6938740494380012614">"Não fornecidos"</string>
     <string name="airplane_error_title" msgid="2570111716678850860">"Modo de avião"</string>
     <string name="airplane_error_msg" msgid="4853111123699559578">"Não pode utilizar o Bluetooth em modo de Avião."</string>
     <string name="bt_enable_title" msgid="4484289159118416315"></string>
@@ -31,12 +32,12 @@
     <string name="bt_enable_cancel" msgid="6770180540581977614">"Cancelar"</string>
     <string name="bt_enable_ok" msgid="4224374055813566166">"Ativar"</string>
     <string name="incoming_file_confirm_title" msgid="938251186275547290">"Transferência do ficheiro"</string>
-    <string name="incoming_file_confirm_content" msgid="6573502088511901157">"Pretende aceitar o ficheiro a receber?"</string>
+    <string name="incoming_file_confirm_content" msgid="6573502088511901157">"Aceitar e receber o ficheiro?"</string>
     <string name="incoming_file_confirm_cancel" msgid="9205906062663982692">"Recusar"</string>
     <string name="incoming_file_confirm_ok" msgid="5046926299036238623">"Aceitar"</string>
     <string name="incoming_file_confirm_timeout_ok" msgid="8612187577686515660">"OK"</string>
     <string name="incoming_file_confirm_timeout_content" msgid="3221412098281076974">"Foi excedido o tempo limite durante a aceitação de um ficheiro de \"<xliff:g id="SENDER">%1$s</xliff:g>\""</string>
-    <string name="incoming_file_confirm_Notification_title" msgid="5381395500920804895">"Ficheiro a receber"</string>
+    <string name="incoming_file_confirm_Notification_title" msgid="5381395500920804895">"A receber ficheiro"</string>
     <string name="incoming_file_confirm_Notification_content" msgid="2669135531488877921">"<xliff:g id="SENDER">%1$s</xliff:g> tem tudo pronto para enviar um ficheiro: <xliff:g id="FILE">%2$s</xliff:g>"</string>
     <string name="notification_receiving" msgid="8445265771083510696">"Partilha Bluetooth: a receber <xliff:g id="FILE">%1$s</xliff:g>"</string>
     <string name="notification_received" msgid="2330252358543000567">"Partilha Bluetooth: <xliff:g id="FILE">%1$s</xliff:g> recebido"</string>
@@ -86,7 +87,7 @@
     <string name="bt_sm_2_1_nosdcard" msgid="288667514869424273">"Não existe espaço suficiente na memória USB para guardar o ficheiro."</string>
     <string name="bt_sm_2_1_default" msgid="5070195264206471656">"Não existe espaço suficiente no cartão SD para guardar o ficheiro."</string>
     <string name="bt_sm_2_2" msgid="6200119660562110560">"Espaço necessário: <xliff:g id="SIZE">%1$s</xliff:g>"</string>
-    <string name="ErrorTooManyRequests" msgid="5049670841391761475">"Existem demasiados pedidos em processamento. Tente novamente mais tarde."</string>
+    <string name="ErrorTooManyRequests" msgid="5049670841391761475">"Existem demasiados pedidos em processamento. Tente mais tarde."</string>
     <string name="status_pending" msgid="4781040740237733479">"Ainda não foi iniciada a transferência do ficheiro."</string>
     <string name="status_running" msgid="7419075903776657351">"Transferência do ficheiro em curso."</string>
     <string name="status_success" msgid="7963589000098719541">"Transferência de ficheiros concluída com êxito."</string>
@@ -128,4 +129,10 @@
     <string name="a2dp_sink_mbs_label" msgid="6035366346569127155">"Áudio Bluetooth"</string>
     <string name="bluetooth_opp_file_limit_exceeded" msgid="6612109860149473930">"Não é possível transferir os ficheiros com mais de 4 GB."</string>
     <string name="bluetooth_connect_action" msgid="2319449093046720209">"Ligar ao Bluetooth"</string>
+    <string name="bluetooth_enabled_apm_title" msgid="6914461147844949044">"Bluetooth ativado no modo de avião"</string>
+    <string name="bluetooth_enabled_apm_message" msgid="6168686193308136881">"Se mantiver o Bluetooth ativado, o dispositivo vai lembrar-se de o manter ativado da próxima vez que estiver no modo de avião"</string>
+    <string name="bluetooth_stays_on_title" msgid="39720820955212918">"O Bluetooth mantém-se ativado"</string>
+    <string name="bluetooth_stays_on_message" msgid="3669663452593157737">"O seu dispositivo lembra-se de manter o Bluetooth ativado no modo de avião. Desative o Bluetooth se não quiser que fique ativado."</string>
+    <string name="bluetooth_and_wifi_stays_on_title" msgid="5821932798860821244">"O Wi-Fi e o Bluetooth mantêm-se ativados"</string>
+    <string name="bluetooth_and_wifi_stays_on_message" msgid="7848565203843882558">"O seu dispositivo lembra-se de manter o Wi-Fi e o Bluetooth ativados no modo de avião. Desative o Wi-Fi e o Bluetooth se não quiser que fiquem ativados."</string>
 </resources>

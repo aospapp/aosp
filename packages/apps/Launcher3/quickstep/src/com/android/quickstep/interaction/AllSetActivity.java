@@ -19,12 +19,14 @@ import static com.android.launcher3.Utilities.mapBoundToRange;
 import static com.android.launcher3.Utilities.mapRange;
 import static com.android.launcher3.anim.Interpolators.FAST_OUT_SLOW_IN;
 import static com.android.launcher3.anim.Interpolators.LINEAR;
+import static com.android.quickstep.OverviewComponentObserver.startHomeIntentSafely;
 
 import android.animation.Animator;
 import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
 import android.content.res.Configuration;
+import android.content.res.Resources;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.ColorFilter;
@@ -41,6 +43,7 @@ import android.graphics.drawable.Drawable;
 import android.os.Bundle;
 import android.os.VibrationEffect;
 import android.os.Vibrator;
+import android.text.TextUtils;
 import android.util.Log;
 import android.view.View;
 import android.view.View.AccessibilityDelegate;
@@ -52,19 +55,23 @@ import android.widget.TextView;
 import androidx.annotation.Nullable;
 import androidx.core.graphics.ColorUtils;
 
+import com.android.launcher3.DeviceProfile;
 import com.android.launcher3.InvariantDeviceProfile;
 import com.android.launcher3.R;
 import com.android.launcher3.Utilities;
+import com.android.launcher3.anim.AnimatedFloat;
 import com.android.launcher3.anim.AnimatorPlaybackController;
+import com.android.launcher3.taskbar.TaskbarManager;
 import com.android.launcher3.util.Executors;
-import com.android.quickstep.AnimatedFloat;
 import com.android.quickstep.GestureState;
 import com.android.quickstep.TouchInteractionService.TISBinder;
+import com.android.quickstep.util.LottieAnimationColorUtils;
 import com.android.quickstep.util.TISBindHelper;
 
 import com.airbnb.lottie.LottieAnimationView;
 
 import java.net.URISyntaxException;
+import java.util.Map;
 
 /**
  * A page shows after SUW flow to hint users to swipe up from the bottom of the screen to go home
@@ -77,17 +84,24 @@ public class AllSetActivity extends Activity {
             "#Intent;action=com.android.settings.SEARCH_RESULT_TRAMPOLINE;S.:settings:fragment_args_key=gesture_system_navigation_input_summary;S.:settings:show_fragment=com.android.settings.gestures.SystemNavigationGestureSettings;end";
     private static final String EXTRA_ACCENT_COLOR_DARK_MODE = "suwColorAccentDark";
     private static final String EXTRA_ACCENT_COLOR_LIGHT_MODE = "suwColorAccentLight";
+    private static final String EXTRA_DEVICE_NAME = "suwDeviceName";
+
+    private static final String LOTTIE_PRIMARY_COLOR_TOKEN = ".primary";
+    private static final String LOTTIE_TERTIARY_COLOR_TOKEN = ".tertiary";
 
     private static final float HINT_BOTTOM_FACTOR = 1 - .94f;
 
     private static final int MAX_SWIPE_DURATION = 350;
 
+    private static final float ANIMATION_PAUSE_ALPHA_THRESHOLD = 0.1f;
+
     private TISBindHelper mTISBindHelper;
     private TISBinder mBinder;
+    @Nullable private TaskbarManager mTaskbarManager = null;
 
     private final AnimatedFloat mSwipeProgress = new AnimatedFloat(this::onSwipeProgressUpdate);
     private BgDrawable mBackground;
-    private View mContentView;
+    private View mRootView;
     private float mSwipeUpShift;
 
     @Nullable private Vibrator mVibrator;
@@ -100,126 +114,179 @@ public class AllSetActivity extends Activity {
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_allset);
-        findViewById(R.id.root_view).setSystemUiVisibility(View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+        mRootView = findViewById(R.id.root_view);
+        mRootView.setSystemUiVisibility(View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
                 | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
                 | View.SYSTEM_UI_FLAG_LAYOUT_STABLE);
 
-        int mode = getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK;
+        Resources resources = getResources();
+        int mode = resources.getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK;
         boolean isDarkTheme = mode == Configuration.UI_MODE_NIGHT_YES;
-        int accentColor = getIntent().getIntExtra(
+        Intent intent = getIntent();
+        int accentColor = intent.getIntExtra(
                 isDarkTheme ? EXTRA_ACCENT_COLOR_DARK_MODE : EXTRA_ACCENT_COLOR_LIGHT_MODE,
                 isDarkTheme ? Color.WHITE : Color.BLACK);
 
         ((ImageView) findViewById(R.id.icon)).getDrawable().mutate().setTint(accentColor);
 
         mBackground = new BgDrawable(this);
-        findViewById(R.id.root_view).setBackground(mBackground);
-        mContentView = findViewById(R.id.content_view);
-        mSwipeUpShift = getResources().getDimension(R.dimen.allset_swipe_up_shift);
+        mRootView.setBackground(mBackground);
+        mSwipeUpShift = resources.getDimension(R.dimen.allset_swipe_up_shift);
 
-        boolean isTablet = InvariantDeviceProfile.INSTANCE.get(getApplicationContext())
-                .getDeviceProfile(this).isTablet;
         TextView subtitle = findViewById(R.id.subtitle);
-        subtitle.setText(isTablet
-                ? R.string.allset_description_tablet : R.string.allset_description);
+        String suwDeviceName = intent.getStringExtra(EXTRA_DEVICE_NAME);
+        subtitle.setText(getString(
+                R.string.allset_description_generic,
+                !TextUtils.isEmpty(suwDeviceName)
+                        ? suwDeviceName : getString(R.string.default_device_name)));
 
-        TextView tv = findViewById(R.id.navigation_settings);
-        tv.setTextColor(accentColor);
-        tv.setOnClickListener(v -> {
+        TextView settings = findViewById(R.id.navigation_settings);
+        settings.setTextColor(accentColor);
+        settings.setOnClickListener(v -> {
             try {
                 startActivityForResult(
                         Intent.parseUri(URI_SYSTEM_NAVIGATION_SETTING, 0), 0);
             } catch (URISyntaxException e) {
                 Log.e(LOG_TAG, "Failed to parse system nav settings intent", e);
             }
-            finish();
         });
 
-        findViewById(R.id.hint).setAccessibilityDelegate(new SkipButtonAccessibilityDelegate());
+        TextView hint = findViewById(R.id.hint);
+        DeviceProfile dp = InvariantDeviceProfile.INSTANCE.get(this).getDeviceProfile(this);
+        if (!dp.isGestureMode) {
+            hint.setText(R.string.allset_button_hint);
+        }
+        hint.setAccessibilityDelegate(new SkipButtonAccessibilityDelegate());
+
         mTISBindHelper = new TISBindHelper(this, this::onTISConnected);
 
         mVibrator = getSystemService(Vibrator.class);
         mAnimatedBackground = findViewById(R.id.animated_background);
+        // There's a bug in the currently used external Lottie library (v5.2.0), and it doesn't load
+        // the correct animation from the raw resources when configuration changes, so we need to
+        // manually load the resource and pass it to Lottie.
+        mAnimatedBackground.setAnimation(resources.openRawResource(R.raw.all_set_page_bg),
+                null);
+
+        LottieAnimationColorUtils.updateColors(
+                mAnimatedBackground,
+                Map.of(LOTTIE_PRIMARY_COLOR_TOKEN, R.color.all_set_bg_primary,
+                        LOTTIE_TERTIARY_COLOR_TOKEN, R.color.all_set_bg_tertiary),
+                getTheme());
+
         startBackgroundAnimation();
     }
 
     private void runOnUiHelperThread(Runnable runnable) {
+        if (!isResumed()
+                || getContentViewAlphaForSwipeProgress() <= ANIMATION_PAUSE_ALPHA_THRESHOLD) {
+            return;
+        }
         Executors.UI_HELPER_EXECUTOR.execute(runnable);
     }
 
     private void startBackgroundAnimation() {
-        if (Utilities.ATLEAST_S && mVibrator != null && mVibrator.areAllPrimitivesSupported(
-                VibrationEffect.Composition.PRIMITIVE_THUD)) {
-            if (mBackgroundAnimatorListener == null) {
-                mBackgroundAnimatorListener =
-                        new Animator.AnimatorListener() {
-                            @Override
-                            public void onAnimationStart(Animator animation) {
-                                runOnUiHelperThread(() -> mVibrator.vibrate(getVibrationEffect()));
-                            }
-
-                            @Override
-                            public void onAnimationRepeat(Animator animation) {
-                                runOnUiHelperThread(() -> mVibrator.vibrate(getVibrationEffect()));
-                            }
-
-                            @Override
-                            public void onAnimationEnd(Animator animation) {
-                                runOnUiHelperThread(mVibrator::cancel);
-                            }
-
-                            @Override
-                            public void onAnimationCancel(Animator animation) {
-                                runOnUiHelperThread(mVibrator::cancel);
-                            }
-                        };
-            }
-            mAnimatedBackground.addAnimatorListener(mBackgroundAnimatorListener);
+        if (!Utilities.ATLEAST_S || mVibrator == null) {
+            return;
         }
+        boolean supportsThud = mVibrator.areAllPrimitivesSupported(
+                VibrationEffect.Composition.PRIMITIVE_THUD);
+
+        if (!supportsThud && !mVibrator.areAllPrimitivesSupported(
+                VibrationEffect.Composition.PRIMITIVE_TICK)) {
+            return;
+        }
+        if (mBackgroundAnimatorListener == null) {
+            VibrationEffect vibrationEffect = VibrationEffect.startComposition()
+                    .addPrimitive(supportsThud
+                                    ? VibrationEffect.Composition.PRIMITIVE_THUD
+                                    : VibrationEffect.Composition.PRIMITIVE_TICK,
+                            /* scale= */ 1.0f,
+                            /* delay= */ 50)
+                    .compose();
+
+            mBackgroundAnimatorListener =
+                    new Animator.AnimatorListener() {
+                        @Override
+                        public void onAnimationStart(Animator animation) {
+                            runOnUiHelperThread(() -> mVibrator.vibrate(vibrationEffect));
+                        }
+
+                        @Override
+                        public void onAnimationRepeat(Animator animation) {
+                            runOnUiHelperThread(() -> mVibrator.vibrate(vibrationEffect));
+                        }
+
+                        @Override
+                        public void onAnimationEnd(Animator animation) {
+                            runOnUiHelperThread(mVibrator::cancel);
+                        }
+
+                        @Override
+                        public void onAnimationCancel(Animator animation) {
+                            runOnUiHelperThread(mVibrator::cancel);
+                        }
+                    };
+        }
+        mAnimatedBackground.addAnimatorListener(mBackgroundAnimatorListener);
         mAnimatedBackground.playAnimation();
     }
 
-    /**
-     * Sets up the vibration effect for the next round of animation. The parameters vary between
-     * different illustrations.
-     */
-    private VibrationEffect getVibrationEffect() {
-        return VibrationEffect.startComposition()
-                .addPrimitive(VibrationEffect.Composition.PRIMITIVE_THUD, 1.0f, 50)
-                .compose();
+    private void setSetupUIVisible(boolean visible) {
+        if (mBinder == null || mTaskbarManager == null) return;
+        mTaskbarManager.setSetupUIVisible(visible);
     }
 
     @Override
     protected void onResume() {
         super.onResume();
+        maybeResumeOrPauseBackgroundAnimation();
         if (mBinder != null) {
-            mBinder.getTaskbarManager().setSetupUIVisible(true);
+            setSetupUIVisible(true);
             mBinder.setSwipeUpProxy(this::createSwipeUpProxy);
         }
     }
 
     private void onTISConnected(TISBinder binder) {
         mBinder = binder;
-        mBinder.getTaskbarManager().setSetupUIVisible(isResumed());
+        mTaskbarManager = mBinder.getTaskbarManager();
+        setSetupUIVisible(isResumed());
         mBinder.setSwipeUpProxy(isResumed() ? this::createSwipeUpProxy : null);
         mBinder.setOverviewTargetChangeListener(mBinder::preloadOverviewForSUWAllSet);
         mBinder.preloadOverviewForSUWAllSet();
+        if (mTaskbarManager != null) {
+            mLauncherStartAnim = mTaskbarManager.createLauncherStartFromSuwAnim(MAX_SWIPE_DURATION);
+        }
     }
 
     @Override
     protected void onPause() {
         super.onPause();
         clearBinderOverride();
+        maybeResumeOrPauseBackgroundAnimation();
         if (mSwipeProgress.value >= 1) {
             finishAndRemoveTask();
+            dispatchLauncherAnimStartEnd();
         }
     }
 
     private void clearBinderOverride() {
         if (mBinder != null) {
-            mBinder.getTaskbarManager().setSetupUIVisible(false);
+            setSetupUIVisible(false);
             mBinder.setSwipeUpProxy(null);
             mBinder.setOverviewTargetChangeListener(null);
+        }
+    }
+
+    /**
+     * Should be called when we have successfully reached Launcher, so we dispatch to animation
+     * listeners to ensure the state matches the visual animation that just occurred.
+      */
+    private void dispatchLauncherAnimStartEnd() {
+        if (mLauncherStartAnim != null) {
+            mLauncherStartAnim.dispatchOnStart();
+            mLauncherStartAnim.dispatchOnEnd();
+            mLauncherStartAnim = null;
         }
     }
 
@@ -231,12 +298,10 @@ public class AllSetActivity extends Activity {
         if (mBackgroundAnimatorListener != null) {
             mAnimatedBackground.removeAnimatorListener(mBackgroundAnimatorListener);
         }
+        dispatchLauncherAnimStartEnd();
     }
 
     private AnimatedFloat createSwipeUpProxy(GestureState state) {
-        if (!state.getHomeIntent().getComponent().getPackageName().equals(getPackageName())) {
-            return null;
-        }
         if (state.getRunningTaskId() != getTaskId()) {
             return null;
         }
@@ -244,27 +309,33 @@ public class AllSetActivity extends Activity {
         return mSwipeProgress;
     }
 
-    private void onSwipeProgressUpdate() {
-        mBackground.setProgress(mSwipeProgress.value);
-        float alpha = Utilities.mapBoundToRange(
+    private float getContentViewAlphaForSwipeProgress() {
+        return Utilities.mapBoundToRange(
                 mSwipeProgress.value, 0, HINT_BOTTOM_FACTOR, 1, 0, LINEAR);
-        mContentView.setAlpha(alpha);
-        mContentView.setTranslationY((alpha - 1) * mSwipeUpShift);
+    }
 
-        if (mLauncherStartAnim == null) {
-            mLauncherStartAnim = mBinder.getTaskbarManager().createLauncherStartFromSuwAnim(
-                    MAX_SWIPE_DURATION);
-        }
-        if (mLauncherStartAnim != null) {
-            mLauncherStartAnim.setPlayFraction(Utilities.mapBoundToRange(
-                    mSwipeProgress.value, 0, 1, 0, 1, FAST_OUT_SLOW_IN));
-        }
-
-        if (alpha == 0f) {
+    private void maybeResumeOrPauseBackgroundAnimation() {
+        boolean shouldPlayAnimation =
+                getContentViewAlphaForSwipeProgress() > ANIMATION_PAUSE_ALPHA_THRESHOLD
+                        && isResumed();
+        if (mAnimatedBackground.isAnimating() && !shouldPlayAnimation) {
             mAnimatedBackground.pauseAnimation();
-        } else if (!mAnimatedBackground.isAnimating()) {
+        } else if (!mAnimatedBackground.isAnimating() && shouldPlayAnimation) {
             mAnimatedBackground.resumeAnimation();
         }
+    }
+
+    private void onSwipeProgressUpdate() {
+        mBackground.setProgress(mSwipeProgress.value);
+        float alpha = getContentViewAlphaForSwipeProgress();
+        mRootView.setAlpha(alpha);
+        mRootView.setTranslationY((alpha - 1) * mSwipeUpShift);
+
+        if (mLauncherStartAnim != null) {
+            mLauncherStartAnim.setPlayFraction(
+                    FAST_OUT_SLOW_IN.getInterpolation(mSwipeProgress.value));
+        }
+        maybeResumeOrPauseBackgroundAnimation();
     }
 
     /**
@@ -284,7 +355,7 @@ public class AllSetActivity extends Activity {
         @Override
         public boolean performAccessibilityAction(View host, int action, Bundle args) {
             if (action == AccessibilityAction.ACTION_CLICK.getId()) {
-                startActivity(Utilities.createHomeIntent());
+                startHomeIntentSafely(AllSetActivity.this, null);
                 finish();
                 return true;
             }

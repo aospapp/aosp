@@ -15,15 +15,10 @@
  */
 
 #define LOG_TAG "a2dp_vendor_ldac_decoder"
-#define ATRACE_TAG ATRACE_TAG_AUDIO
 
 #include "a2dp_vendor_ldac_decoder.h"
 
 #include <base/logging.h>
-
-#ifndef OS_GENERIC
-#include <cutils/trace.h>
-#endif
 #include <dlfcn.h>
 #include <inttypes.h>
 #include <ldacBT.h>

@@ -40,6 +40,8 @@ void MetricsCollector::OnStreamStarted(
 
 void MetricsCollector::OnStreamEnded(int32_t group_id) {}
 
+void MetricsCollector::OnBroadcastStateChanged(bool started) {}
+
 void MetricsCollector::Flush() {}
 
 }  // namespace le_audio

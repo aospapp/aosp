@@ -25,4 +25,5 @@
     <string name="set_wallpaper" msgid="3650915172749345197">"Дэлгэцийн зураг тохируулах"</string>
     <string name="new_instance" msgid="1924479866055190730">"Шинэ инстансаар эхлүүлэх хүсэлт тавих"</string>
     <string name="wallpaper_description" msgid="5885164573334720996">"Жишээ олон дэлгэцэт дэлгэцийн зураг"</string>
+    <string name="exit" msgid="3648703694102318310">"Гарах"</string>
 </resources>

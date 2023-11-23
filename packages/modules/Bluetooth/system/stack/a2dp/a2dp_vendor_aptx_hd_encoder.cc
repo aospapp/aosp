@@ -25,6 +25,7 @@
 
 #include "a2dp_vendor.h"
 #include "a2dp_vendor_aptx_hd.h"
+#include "aptXHDbtenc.h"
 #include "common/time_util.h"
 #include "osi/include/allocator.h"
 #include "osi/include/log.h"
@@ -35,19 +36,11 @@
 // Encoder for aptX-HD Source Codec
 //
 
-//
-// The aptX-HD encoder shared library, and the functions to use
-//
-static const std::string APTX_HD_ENCODER_LIB_NAME = "libaptXHD_encoder.so";
-static void* aptx_hd_encoder_lib_handle = NULL;
-
-static const std::string APTX_HD_ENCODER_INIT_NAME = "aptxhdbtenc_init";
-static const std::string APTX_HD_ENCODER_ENCODE_STEREO_NAME =
-    "aptxhdbtenc_encodestereo";
-static const std::string APTX_HD_ENCODER_SIZEOF_PARAMS_NAME =
-    "SizeofAptxhdbtenc";
-
-static tAPTX_HD_API aptx_hd_api;
+static const tAPTX_HD_API aptx_hd_api = {
+    .init_func = aptxhdbtenc_init,
+    .encode_stereo_func = aptxhdbtenc_encodestereo,
+    .sizeof_params_func = SizeofAptxhdbtenc,
+};
 
 // offset
 #if (BTA_AV_CO_CP_SCMS_T == TRUE)
@@ -55,10 +48,6 @@ static tAPTX_HD_API aptx_hd_api;
 #else
 #define A2DP_APTX_HD_OFFSET AVDT_MEDIA_OFFSET
 #endif
-
-#define LOAD_APTX_HD_SYMBOL(symbol_name, api_type)        \
-  LOAD_CODEC_SYMBOL("AptXHd", aptx_hd_encoder_lib_handle, \
-                    A2DP_VendorUnloadEncoderAptxHd, symbol_name, api_type)
 
 #define A2DP_APTX_HD_MAX_PCM_BYTES_PER_READ 4096
 
@@ -121,39 +110,17 @@ static size_t aptx_hd_encode_24bit(tAPTX_HD_FRAMING_PARAMS* framing_params,
  *
  ******************************************************************************/
 tLOADING_CODEC_STATUS A2DP_VendorLoadEncoderAptxHd(void) {
-  if (aptx_hd_encoder_lib_handle != NULL)
-    return LOAD_SUCCESS;  // Already loaded
-
-  // Open the encoder library
-  aptx_hd_encoder_lib_handle = A2DP_VendorCodecLoadExternalLib(
-      APTX_HD_ENCODER_LIB_NAME, "AptX-HD encoder");
-  if (!aptx_hd_encoder_lib_handle) return LOAD_ERROR_MISSING_CODEC;
-
-  aptx_hd_api.init_func =
-      LOAD_APTX_HD_SYMBOL(APTX_HD_ENCODER_INIT_NAME, tAPTX_HD_ENCODER_INIT);
-
-  aptx_hd_api.encode_stereo_func = LOAD_APTX_HD_SYMBOL(
-      APTX_HD_ENCODER_ENCODE_STEREO_NAME, tAPTX_HD_ENCODER_ENCODE_STEREO);
-
-  aptx_hd_api.sizeof_params_func = LOAD_APTX_HD_SYMBOL(
-      APTX_HD_ENCODER_SIZEOF_PARAMS_NAME, tAPTX_HD_ENCODER_SIZEOF_PARAMS);
-
+  // Nothing to do - the library is statically linked
   return LOAD_SUCCESS;
 }
 
 bool A2DP_VendorCopyAptxHdApi(tAPTX_HD_API& external_api) {
-  if (aptx_hd_encoder_lib_handle == NULL) return false;  // not loaded
   external_api = aptx_hd_api;
   return true;
 }
 
 void A2DP_VendorUnloadEncoderAptxHd(void) {
-  memset(&aptx_hd_api, 0, sizeof(aptx_hd_api));
-
-  if (aptx_hd_encoder_lib_handle != NULL) {
-    dlclose(aptx_hd_encoder_lib_handle);
-    aptx_hd_encoder_lib_handle = NULL;
-  }
+  // nothing to do
 }
 
 void a2dp_vendor_aptx_hd_encoder_init(

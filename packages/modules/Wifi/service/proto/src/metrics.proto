@@ -1047,6 +1047,9 @@ message ConnectionEvent {
 
     // The reason code if a user rejects this connection.
     AUTH_FAILURE_REJECTED_BY_USER = 7;
+
+    // The reason code if an insecure Enterprise connection requires user's approval
+    DISCONNECTED_USER_APPROVAL_NEEDED = 8;
   }
 
   // Entity that recommended connecting to this network.
@@ -2984,6 +2987,12 @@ message P2pConnectionEvent {
 
     // New connection request is issued before ending previous connecting request.
     CLF_NEW_CONNECTION_ATTEMPT = 7;
+
+    // Group has been removed
+    CLF_GROUP_REMOVED = 8;
+
+    // Creating group failed
+    CLF_CREATE_GROUP_FAILED = 9;
   }
 
   // WPS method.
@@ -3004,6 +3013,21 @@ message P2pConnectionEvent {
     WPS_LABEL = 3;
   }
 
+  enum GroupBand {
+    // Unknown band/frequency
+    BAND_UNKNOWN = 0;
+    // With any band
+    BAND_AUTO = 1;
+    // With 2G band
+    BAND_2G = 2;
+    // With 5G band
+    BAND_5G = 3;
+    // With 6G band
+    BAND_6G = 4;
+    // With a specific frequency
+    BAND_FREQUENCY = 5;
+  }
+
   // Start time of the connection.
   optional int64 start_time_millis = 1;
 
@@ -3022,6 +3046,28 @@ message P2pConnectionEvent {
   // Group role. This could be unknown with connect() call when the WifiConfig doesn't have the
   // credential.
   optional GroupEvent.GroupRole group_role = 6;
+
+  // Group band preference
+  optional GroupBand band = 7;
+
+  // Group frequency in MHz if positive. Otherwise, no frequency preference.
+  optional int32 frequency_mhz = 8;
+
+  // STA mode channel frequency. 0 means unknown.
+  optional int32 sta_frequency_mhz = 9;
+
+  // The uid of the app that initiates the connection.
+  optional int32 uid = 10;
+
+  // if the country code is in the world mode
+  optional bool is_country_code_world_mode = 11;
+
+  // fallback to negotiation if device receives invitation response status code "information is
+  // currently unavailable"
+  optional bool fallback_to_negotiation_on_invite_status_info_unavailable = 12;
+
+  // The try count of connection
+  optional int32 try_count = 13;
 }
 
 // GroupEvent tracking group information from GroupStarted to GroupRemoved.

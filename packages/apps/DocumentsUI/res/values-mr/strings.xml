@@ -92,8 +92,8 @@
     <string name="save_error" msgid="8631128801982095782">"दस्तऐवज सेव्ह करणे अयशस्वी झाले"</string>
     <string name="create_error" msgid="3092144450044861994">"फोल्डर तयार करण्यात अयशस्वी झाले"</string>
     <string name="query_error" msgid="6625421453613879336">"याक्षणी आशय लोड करू शकत नाही"</string>
-    <string name="quiet_mode_error_title" msgid="9126656325282792843">"कार्य प्रोफाइल थांबवली आहे"</string>
-    <string name="quiet_mode_button" msgid="6977115032320235420">"सुरू करा"</string>
+    <string name="quiet_mode_error_title" msgid="554319751414657910">"कामाशी संबंधित अ‍ॅप्स थांबवली आहेत"</string>
+    <string name="quiet_mode_button" msgid="8051436551926677305">"कामाशी संबंधित अ‍ॅप्स सुरू करा"</string>
     <string name="cant_select_work_files_error_title" msgid="6688716319549644354">"कामासंबंधित फाइल निवडता आल्या नाहीत"</string>
     <string name="cant_select_work_files_error_message" msgid="683480676150690641">"तुमचा आयटी ॲडमिन तुम्हाला वैयक्तिक ॲपवरून कामासंबंधित फाइल अ‍ॅक्सेस करण्याची परवानगी देत नाही"</string>
     <string name="cant_select_personal_files_error_title" msgid="3200697170148617742">"वैयक्तिक फाइल निवडता आल्या नाहीत"</string>
@@ -197,7 +197,7 @@
       <item quantity="other"><xliff:g id="COUNT_1">%1$d</xliff:g> आयटम क्लिपबोर्डवर कॉपी केले.</item>
       <item quantity="one"><xliff:g id="COUNT_0">%1$d</xliff:g> आयटम क्लिपबोर्डवर कॉपी केला.</item>
     </plurals>
-    <string name="file_operation_rejected" msgid="4301554203329008794">"फाइल ऑपरेशन समर्थित नाही."</string>
+    <string name="file_operation_rejected" msgid="4301554203329008794">"फाइल ऑपरेशनला सपोर्ट नाही."</string>
     <string name="file_operation_error" msgid="2234357335716533795">"फाइल ऑपरेशन अयशस्वी झाले."</string>
     <string name="rename_error" msgid="6700093173508118635">"दस्तऐवज पुनर्नामित करण्‍यात अयशस्वी झाले"</string>
     <string name="menu_eject_root" msgid="9215040039374893613">"बाहेर काढा"</string>

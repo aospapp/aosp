@@ -21,13 +21,12 @@
  *  mockcify.pl ver 0.2
  */
 
-#include <base/callback.h>  // RepeatingCallback
+#include <base/functional/callback.h>  // RepeatingCallback
+
 #include <cstdint>
 #include <functional>
 #include <map>
 #include <string>
-
-extern std::map<std::string, int> mock_function_count_map;
 
 // Original included files, if any
 // NOTE: Since this is a mock file with mock definitions some number of
@@ -37,6 +36,7 @@ extern std::map<std::string, int> mock_function_count_map;
 //       may need attention to prune the inclusion set.
 //
 #include "stack/btm/security_device_record.h"
+#include "test/common/mock_functions.h"
 #include "types/ble_address_with_type.h"
 #include "types/raw_address.h"
 

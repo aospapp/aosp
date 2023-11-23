@@ -19,6 +19,8 @@ package com.android.car.telemetry.publisher.statsconverters;
 import static com.android.car.telemetry.AtomsProto.AppStartMemoryStateCaptured.ACTIVITY_NAME_FIELD_NUMBER;
 import static com.android.car.telemetry.AtomsProto.AppStartMemoryStateCaptured.RSS_IN_BYTES_FIELD_NUMBER;
 import static com.android.car.telemetry.AtomsProto.AppStartMemoryStateCaptured.UID_FIELD_NUMBER;
+import static com.android.car.telemetry.publisher.Constants.STATS_BUNDLE_KEY_ELAPSED_TIMESTAMP;
+import static com.android.car.telemetry.publisher.Constants.STATS_BUNDLE_KEY_PREFIX;
 
 import static com.google.common.truth.Truth.assertThat;
 
@@ -68,14 +70,18 @@ public class EventMetricDataConverterTest {
         PersistableBundle bundle = EventMetricDataConverter.convertEventDataList(eventDataList);
 
         assertThat(bundle.size()).isEqualTo(4);
-        assertThat(bundle.getLongArray(EventMetricDataConverter.ELAPSED_TIME_NANOS))
+        assertThat(bundle.getLongArray(STATS_BUNDLE_KEY_ELAPSED_TIMESTAMP))
             .asList().containsExactly(12345678L, 23456789L).inOrder();
-        assertThat(bundle.getIntArray(accessorMap.get(UID_FIELD_NUMBER).getFieldName()))
+        assertThat(bundle.getIntArray(
+                STATS_BUNDLE_KEY_PREFIX + accessorMap.get(UID_FIELD_NUMBER).getFieldName()))
             .asList().containsExactly(1000, 1100).inOrder();
         assertThat(Arrays.asList(bundle.getStringArray(
-                accessorMap.get(ACTIVITY_NAME_FIELD_NUMBER).getFieldName())))
+                STATS_BUNDLE_KEY_PREFIX + accessorMap.get(
+                        ACTIVITY_NAME_FIELD_NUMBER).getFieldName())))
             .containsExactly("activityName1", "activityName2").inOrder();
-        assertThat(bundle.getLongArray(accessorMap.get(RSS_IN_BYTES_FIELD_NUMBER).getFieldName()))
+        assertThat(bundle.getLongArray(
+                STATS_BUNDLE_KEY_PREFIX + accessorMap.get(
+                        RSS_IN_BYTES_FIELD_NUMBER).getFieldName()))
             .asList().containsExactly(1234L, 2345L).inOrder();
     }
 
@@ -112,14 +118,18 @@ public class EventMetricDataConverterTest {
         PersistableBundle bundle = EventMetricDataConverter.convertEventDataList(eventDataList);
 
         assertThat(bundle.size()).isEqualTo(4);
-        assertThat(bundle.getLongArray(EventMetricDataConverter.ELAPSED_TIME_NANOS))
+        assertThat(bundle.getLongArray(STATS_BUNDLE_KEY_ELAPSED_TIMESTAMP))
             .asList().containsExactly(12345678L, 12345679L, 23456789L).inOrder();
-        assertThat(bundle.getIntArray(accessorMap.get(UID_FIELD_NUMBER).getFieldName()))
+        assertThat(bundle.getIntArray(
+                STATS_BUNDLE_KEY_PREFIX + accessorMap.get(UID_FIELD_NUMBER).getFieldName()))
             .asList().containsExactly(1000, 1000, 1100).inOrder();
         assertThat(Arrays.asList(bundle.getStringArray(
-                accessorMap.get(ACTIVITY_NAME_FIELD_NUMBER).getFieldName())))
+                STATS_BUNDLE_KEY_PREFIX + accessorMap.get(
+                        ACTIVITY_NAME_FIELD_NUMBER).getFieldName())))
             .containsExactly("activityName1", "activityName1", "activityName2").inOrder();
-        assertThat(bundle.getLongArray(accessorMap.get(RSS_IN_BYTES_FIELD_NUMBER).getFieldName()))
+        assertThat(bundle.getLongArray(
+                STATS_BUNDLE_KEY_PREFIX + accessorMap.get(
+                        RSS_IN_BYTES_FIELD_NUMBER).getFieldName()))
             .asList().containsExactly(1234L, 1234L, 2345L).inOrder();
     }
 }

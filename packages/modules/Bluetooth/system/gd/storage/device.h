@@ -132,7 +132,13 @@ class Device {
     return !(*this == other);
   }
   bool operator<(const Device& other) const {
-    return config_ < other.config_ && memory_only_config_ < other.memory_only_config_ && section_ < other.section_;
+    if (config_ != other.config_) {
+      return config_ < other.config_;
+    }
+    if (memory_only_config_ != other.memory_only_config_) {
+      return memory_only_config_ < other.memory_only_config_;
+    }
+    return section_ < other.section_;
   }
   bool operator>(const Device& rhs) const {
     return (rhs < *this);

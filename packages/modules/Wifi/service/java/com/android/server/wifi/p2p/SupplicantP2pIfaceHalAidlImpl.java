@@ -48,6 +48,8 @@ import android.util.Log;
 
 import com.android.internal.annotations.VisibleForTesting;
 import com.android.modules.utils.build.SdkLevel;
+import com.android.server.wifi.WifiInjector;
+import com.android.server.wifi.WifiSettingsConfigStore;
 import com.android.server.wifi.util.ArrayUtils;
 import com.android.server.wifi.util.NativeUtil;
 
@@ -93,17 +95,18 @@ public class SupplicantP2pIfaceHalAidlImpl implements ISupplicantP2pIfaceHal {
                 }
             };
     private final WifiP2pMonitor mMonitor;
+    private final WifiInjector mWifiInjector;
     private ISupplicantP2pIfaceCallback mCallback = null;
+    private int mServiceVersion = -1;
 
-    public SupplicantP2pIfaceHalAidlImpl(WifiP2pMonitor monitor) {
+    public SupplicantP2pIfaceHalAidlImpl(WifiP2pMonitor monitor, WifiInjector wifiInjector) {
         mMonitor = monitor;
+        mWifiInjector = wifiInjector;
     }
 
     /**
      * Enable verbose logging for all sub modules.
      *
-     * @param verboseEnabled Verbose flag set in overlay XML.
-     * @param halVerboseEnabled Verbose flag set by the user.
      */
     public static void enableVerboseLogging(boolean verboseEnabled, boolean halVerboseEnabled) {
         sVerboseLoggingEnabled = verboseEnabled;
@@ -306,8 +309,12 @@ public class SupplicantP2pIfaceHalAidlImpl implements ISupplicantP2pIfaceHal {
     protected ISupplicant getSupplicantMockable() {
         synchronized (mLock) {
             try {
-                return ISupplicant.Stub.asInterface(
-                        ServiceManager.waitForDeclaredService(HAL_INSTANCE_NAME));
+                if (SdkLevel.isAtLeastT()) {
+                    return ISupplicant.Stub.asInterface(
+                            ServiceManager.waitForDeclaredService(HAL_INSTANCE_NAME));
+                } else {
+                    return null;
+                }
             } catch (Exception e) {
                 Log.e(TAG, "Unable to get ISupplicant service, " + e);
                 return null;
@@ -2440,6 +2447,14 @@ public class SupplicantP2pIfaceHalAidlImpl implements ISupplicantP2pIfaceHal {
         }
     }
 
+    private int getCachedServiceVersion() {
+        if (mServiceVersion == -1) {
+            mServiceVersion = mWifiInjector.getSettingsConfigStore().get(
+                    WifiSettingsConfigStore.SUPPLICANT_HAL_AIDL_SERVICE_VERSION);
+        }
+        return mServiceVersion;
+    }
+
     /**
      * Get the supported features.
      *
@@ -2447,9 +2462,46 @@ public class SupplicantP2pIfaceHalAidlImpl implements ISupplicantP2pIfaceHal {
      */
     public long getSupportedFeatures() {
         // First AIDL version supports these three features.
-        return WifiP2pManager.FEATURE_SET_VENDOR_ELEMENTS
+        long result = WifiP2pManager.FEATURE_SET_VENDOR_ELEMENTS
                 | WifiP2pManager.FEATURE_FLEXIBLE_DISCOVERY
                 | WifiP2pManager.FEATURE_GROUP_CLIENT_REMOVAL;
+        if (getCachedServiceVersion() >= 2) {
+            result |= WifiP2pManager.FEATURE_GROUP_OWNER_IPV6_LINK_LOCAL_ADDRESS_PROVIDED;
+        }
+        return result;
+    }
+
+    /**
+     * Configure the IP addresses in supplicant for P2P GO to provide the IP address to
+     * client in EAPOL handshake. Refer Wi-Fi P2P Technical Specification v1.7 - Section  4.2.8
+     * IP Address Allocation in EAPOL-Key Frames (4-Way Handshake) for more details.
+     * The IP addresses are IPV4 addresses and higher-order address bytes are in the
+     * lower-order int bytes (e.g. 1.2.3.4 is represented as 0x04030201)
+     *
+     * @param ipAddressGo The P2P Group Owner IP address.
+     * @param ipAddressMask The P2P Group owner subnet mask.
+     * @param ipAddressStart The starting address in the IP address pool.
+     * @param ipAddressEnd The ending address in the IP address pool.
+     * @return boolean value indicating whether operation was successful.
+     */
+    public boolean configureEapolIpAddressAllocationParams(int ipAddressGo, int ipAddressMask,
+            int ipAddressStart, int ipAddressEnd) {
+        synchronized (mLock) {
+            String methodStr = "configureEapolIpAddressAllocationParams";
+            if (!checkP2pIfaceAndLogFailure(methodStr)) {
+                return false;
+            }
+            try {
+                mISupplicantP2pIface.configureEapolIpAddressAllocationParams(ipAddressGo,
+                        ipAddressMask, ipAddressStart, ipAddressEnd);
+                return true;
+            } catch (RemoteException e) {
+                handleRemoteException(e, methodStr);
+            } catch (ServiceSpecificException e) {
+                handleServiceSpecificException(e, methodStr);
+            }
+            return false;
+        }
     }
 
     private byte[] convertInformationElementSetToBytes(

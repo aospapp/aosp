@@ -43,6 +43,8 @@ public class ExternalScoreUpdateObserverProxy extends IScoreUpdateObserver.Stub 
 
     private final WifiThreadRunner mWifiThreadRunner;
     private WifiManager.ScoreUpdateObserver mCallback;
+    private int mCountNullCallback = 0;
+    private static final int MAX_NULL_CALLBACK_TRIGGER_WTF = 3;
 
     ExternalScoreUpdateObserverProxy(WifiThreadRunner wifiThreadRunner) {
         mWifiThreadRunner = wifiThreadRunner;
@@ -69,13 +71,21 @@ public class ExternalScoreUpdateObserverProxy extends IScoreUpdateObserver.Stub 
         }
     }
 
+    private void incrementAndMaybeLogWtf(String message) {
+        mCountNullCallback++;
+        if (mCountNullCallback >= MAX_NULL_CALLBACK_TRIGGER_WTF) {
+            Log.wtf(TAG, message);
+        }
+    }
+
     @Override
     public void notifyScoreUpdate(int sessionId, int score) {
         mWifiThreadRunner.post(() -> {
             if (mCallback == null) {
-                Log.wtf(TAG, "No callback registered, dropping notifyScoreUpdate");
+                incrementAndMaybeLogWtf("No callback registered, dropping notifyScoreUpdate");
                 return;
             }
+            mCountNullCallback = 0;
             mCallback.notifyScoreUpdate(sessionId, score);
         });
     }
@@ -84,9 +94,11 @@ public class ExternalScoreUpdateObserverProxy extends IScoreUpdateObserver.Stub 
     public void triggerUpdateOfWifiUsabilityStats(int sessionId) {
         mWifiThreadRunner.post(() -> {
             if (mCallback == null) {
-                Log.wtf(TAG, "No callback registered, dropping triggerUpdateOfWifiUsability");
+                incrementAndMaybeLogWtf("No callback registered, "
+                        + "dropping triggerUpdateOfWifiUsability");
                 return;
             }
+            mCountNullCallback = 0;
             mCallback.triggerUpdateOfWifiUsabilityStats(sessionId);
         });
     }
@@ -98,9 +110,10 @@ public class ExternalScoreUpdateObserverProxy extends IScoreUpdateObserver.Stub 
         }
         mWifiThreadRunner.post(() -> {
             if (mCallback == null) {
-                Log.wtf(TAG, "No callback registered, dropping notifyStatusUpdate");
+                incrementAndMaybeLogWtf("No callback registered, dropping notifyStatusUpdate");
                 return;
             }
+            mCountNullCallback = 0;
             mCallback.notifyStatusUpdate(sessionId, isUsable);
         });
     }
@@ -112,9 +125,10 @@ public class ExternalScoreUpdateObserverProxy extends IScoreUpdateObserver.Stub 
         }
         mWifiThreadRunner.post(() -> {
             if (mCallback == null) {
-                Log.wtf(TAG, "No callback registered, dropping requestNudOperation");
+                incrementAndMaybeLogWtf("No callback registered, dropping requestNudOperation");
                 return;
             }
+            mCountNullCallback = 0;
             mCallback.requestNudOperation(sessionId);
         });
     }
@@ -126,9 +140,10 @@ public class ExternalScoreUpdateObserverProxy extends IScoreUpdateObserver.Stub 
         }
         mWifiThreadRunner.post(() -> {
             if (mCallback == null) {
-                Log.wtf(TAG, "No callback registered, dropping requestNudOperation");
+                incrementAndMaybeLogWtf("No callback registered, dropping blocklistCurrentBssid");
                 return;
             }
+            mCountNullCallback = 0;
             mCallback.blocklistCurrentBssid(sessionId);
         });
     }

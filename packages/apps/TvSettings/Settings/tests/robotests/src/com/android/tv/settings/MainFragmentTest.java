@@ -23,7 +23,7 @@ import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyZeroInteractions;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.robolectric.shadow.api.Shadow.extract;
 
 import android.accounts.Account;
@@ -334,6 +334,6 @@ public class MainFragmentTest {
 
         mMainFragment.updateConnectivity();
 
-        verifyZeroInteractions(networkPreference);
+        verifyNoInteractions(networkPreference);
     }
 }

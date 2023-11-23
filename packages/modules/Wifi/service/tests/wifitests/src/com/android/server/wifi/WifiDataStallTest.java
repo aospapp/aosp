@@ -26,7 +26,6 @@ import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.anyInt;
 import static org.mockito.Mockito.anyLong;
 import static org.mockito.Mockito.clearInvocations;
-import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -62,6 +61,7 @@ public class WifiDataStallTest extends WifiBaseTest {
     private static final int TEST_MIN_TX_SUCCESS_WITHOUT_RX = 1;
     private static final long TEST_WIFI_BYTES =
             WifiDataStall.MAX_MS_DELTA_FOR_DATA_STALL * 1000 / 8;
+    private static final int TEST_RSSI = -55;
 
     @Mock Context mContext;
     MockResources mMockResources = new MockResources();
@@ -78,6 +78,7 @@ public class WifiDataStallTest extends WifiBaseTest {
     @Mock ActiveModeWarden mActiveModeWarden;
     @Mock ClientModeImplMonitor mClientModeImplMonitor;
     @Mock ClientModeManager mClientModeManager;
+    @Mock WifiGlobals mWifiGlobals;
 
     private ActiveModeWarden.ModeChangeCallback mModeChangeCallback;
     private PrimaryClientModeManagerChangedCallback mPrimaryModeChangeCallback;
@@ -99,10 +100,8 @@ public class WifiDataStallTest extends WifiBaseTest {
         when(mContext.getResources()).thenReturn(mMockResources);
         when(mContext.getSystemService(Context.TELEPHONY_SERVICE)).thenReturn(mTelephonyManager);
         when(mTelephonyManager.createForSubscriptionId(anyInt())).thenReturn(mTelephonyManager);
+        when(mWifiGlobals.getPollRssiIntervalMillis()).thenReturn(3000);
 
-        mMockResources.setInteger(
-                R.integer.config_wifiPollRssiIntervalMilliseconds,
-                3000);
         mMockResources.setInteger(
                 R.integer.config_wifiDataStallMinTxBad, TEST_MIN_TX_BAD);
         mMockResources.setInteger(
@@ -143,10 +142,13 @@ public class WifiDataStallTest extends WifiBaseTest {
         when(mWifiInfo.getRxLinkSpeedMbps()).thenReturn(10);
         when(mWifiInfo.getFrequency()).thenReturn(5850);
         when(mWifiInfo.getBSSID()).thenReturn("5G_WiFi");
+        when(mWifiInfo.getRssi()).thenReturn(TEST_RSSI);
 
         mWifiDataStall = new WifiDataStall(mWifiMetrics, mContext,
                 mDeviceConfigFacade, mWifiChannelUtilization, mClock, mHandler,
-                mThroughputPredictor, mActiveModeWarden, mClientModeImplMonitor);
+                mThroughputPredictor, mActiveModeWarden, mClientModeImplMonitor,
+                mWifiGlobals);
+        mWifiDataStall.enableVerboseLogging(true);
         mOldLlStats.txmpdu_be = 1000;
         mOldLlStats.retries_be = 1000;
         mOldLlStats.lostmpdu_be = 3000;
@@ -385,6 +387,7 @@ public class WifiDataStallTest extends WifiBaseTest {
                 WifiIsUnusableEvent.TYPE_DATA_STALL_BAD_TX);
     }
 
+
     /**
      * Verify there is no data stall from tx failures if tx is not consecutively bad
      */
@@ -415,7 +418,11 @@ public class WifiDataStallTest extends WifiBaseTest {
      */
     @Test
     public void verifyDataStallRxFailure() throws Exception {
-        when(mWifiInfo.getRxLinkSpeedMbps()).thenReturn(1);
+        when(mWifiInfo.getRxLinkSpeedMbps()).thenReturn(2);
+        when(mDeviceConfigFacade.getTputSufficientRatioThrDen()).thenReturn(1);
+        when(mDeviceConfigFacade.getTputSufficientRatioThrNum()).thenReturn(3);
+        when(mDeviceConfigFacade.getRxTputSufficientLowThrKbps()).thenReturn(1);
+
         mNewLlStats.retries_be = 2 * mOldLlStats.retries_be;
         when(mClock.getElapsedSinceBootMillis()).thenReturn(10L);
         assertEquals(WifiIsUnusableEvent.TYPE_UNKNOWN, mWifiDataStall
@@ -430,7 +437,7 @@ public class WifiDataStallTest extends WifiBaseTest {
                         mCapabilities, mOldLlStats, mNewLlStats, mWifiInfo, mTxBytes, mRxBytes));
         assertEquals(false, mWifiDataStall.isThroughputSufficient());
         assertEquals(4804, mWifiDataStall.getTxThroughputKbps());
-        assertEquals(960, mWifiDataStall.getRxThroughputKbps());
+        assertEquals(1921, mWifiDataStall.getRxThroughputKbps());
         verify(mWifiMetrics).logWifiIsUnusableEvent(TEST_IFACE_NAME,
                 WifiIsUnusableEvent.TYPE_DATA_STALL_TX_WITHOUT_RX);
     }
@@ -634,13 +641,13 @@ public class WifiDataStallTest extends WifiBaseTest {
         mWifiDataStall.checkDataStallAndThroughputSufficiency(TEST_IFACE_NAME,
                 mCapabilities, mOldLlStats, mNewLlStats, mWifiInfo, mTxBytes, mRxBytes);
         verify(mWifiMetrics, times(1)).incrementConnectionDuration(
-                1000, true, true);
+                1000, true, true, TEST_RSSI, 960, 9609);
 
         // Expect 2nd throughput sufficiency check to return false
         mWifiDataStall.checkDataStallAndThroughputSufficiency(TEST_IFACE_NAME,
                 mCapabilities, mOldLlStats, mNewLlStats, mWifiInfo, mTxBytes, mRxBytes);
         verify(mWifiMetrics, times(1)).incrementConnectionDuration(
-                1000, false, true);
+                1000, false, true, TEST_RSSI, 960, 9609);
 
         mNewLlStats.timeStampInMs = mOldLlStats.timeStampInMs + 2000;
         phoneStateListener.onDataConnectionStateChanged(
@@ -649,7 +656,7 @@ public class WifiDataStallTest extends WifiBaseTest {
         mWifiDataStall.checkDataStallAndThroughputSufficiency(TEST_IFACE_NAME,
                 mCapabilities, mOldLlStats, mNewLlStats, mWifiInfo, mTxBytes, mRxBytes);
         verify(mWifiMetrics, times(1)).incrementConnectionDuration(
-                2000, false, false);
+                2000, false, false, TEST_RSSI, 960, 9609);
 
         // Expect this update to be ignored by connection duration counters due to its
         // too large poll interval
@@ -657,7 +664,7 @@ public class WifiDataStallTest extends WifiBaseTest {
         mWifiDataStall.checkDataStallAndThroughputSufficiency(TEST_IFACE_NAME,
                 mCapabilities, mOldLlStats, mNewLlStats, mWifiInfo, mTxBytes, mRxBytes);
         verify(mWifiMetrics, never()).incrementConnectionDuration(
-                10000, false, false);
+                10000, false, false, TEST_RSSI, 960, 9609);
         setWifiEnabled(false);
     }
 }

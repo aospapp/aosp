@@ -68,7 +68,7 @@ public class AccountDetailsPreferenceController extends AccountDetailsBasePrefer
                     Intent removeIntent = result.getParcelable(AccountManager.KEY_INTENT);
                     if (removeIntent != null) {
                         done = false;
-                        getFragmentController().startActivityForResult(removeIntent,
+                        getFragmentController().startActivityForResult(new Intent(removeIntent),
                                 REMOVE_ACCOUNT_REQUEST, this);
                     } else {
                         success = future.getResult().getBoolean(AccountManager.KEY_BOOLEAN_RESULT);

@@ -43,6 +43,7 @@ public class FrameworkContactsIndexerConfigTest {
                 ContactsIndexerConfig.DEFAULT_CONTACTS_FULL_UPDATE_INDEXING_LIMIT);
         assertThat(contactsIndexerConfig.getContactsDeltaUpdateLimit()).isEqualTo(
                 ContactsIndexerConfig.DEFAULT_CONTACTS_DELTA_UPDATE_INDEXING_LIMIT);
+        assertThat(contactsIndexerConfig.shouldIndexFirstMiddleAndLastNames()).isFalse();
     }
 
     @Test
@@ -71,6 +72,10 @@ public class FrameworkContactsIndexerConfigTest {
                 Long.toString(
                         ContactsIndexerConfig.DEFAULT_CONTACTS_DELTA_UPDATE_INDEXING_LIMIT + 1),
                 false);
+        DeviceConfig.setProperty(DeviceConfig.NAMESPACE_APPSEARCH,
+                FrameworkContactsIndexerConfig.KEY_CONTACTS_INDEX_FIRST_MIDDLE_AND_LAST_NAMES,
+                Boolean.toString(false),
+                false);
 
         ContactsIndexerConfig contactsIndexerConfig = new FrameworkContactsIndexerConfig();
 
@@ -83,5 +88,6 @@ public class FrameworkContactsIndexerConfigTest {
                 ContactsIndexerConfig.DEFAULT_CONTACTS_FULL_UPDATE_INDEXING_LIMIT + 1);
         assertThat(contactsIndexerConfig.getContactsDeltaUpdateLimit()).isEqualTo(
                 ContactsIndexerConfig.DEFAULT_CONTACTS_DELTA_UPDATE_INDEXING_LIMIT + 1);
+        assertThat(contactsIndexerConfig.shouldIndexFirstMiddleAndLastNames()).isFalse();
     }
 }

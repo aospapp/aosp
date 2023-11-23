@@ -39,5 +39,9 @@
           android:exported="false"
           android:authorities="com.android.cellbroadcastreceiver.androidx-startup"
           tools:node="remove" />
+      <receiver
+          xmlns:tools="http://schemas.android.com/tools"
+          android:name="androidx.profileinstaller.ProfileInstallReceiver"
+          tools:node="remove" />
     </application>
 </manifest>

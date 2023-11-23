@@ -74,7 +74,7 @@
     <string name="enable_cmas_extreme_threat_alerts_summary" msgid="5832146246627518123">"Cana ve mala karşı olağanüstü tehditler"</string>
     <string name="enable_cmas_severe_threat_alerts_title" msgid="1066172973703410042">"Ciddi tehditler"</string>
     <string name="enable_cmas_severe_threat_alerts_summary" msgid="5292443310309039223">"Cana ve mala karşı ciddi tehditler"</string>
-    <string name="enable_cmas_amber_alerts_title" msgid="1475030503498979651">"AMBER uyarıları"</string>
+    <string name="enable_cmas_amber_alerts_title" msgid="1475030503498979651">"AMBER kayıp çocuk alarmı"</string>
     <string name="enable_cmas_amber_alerts_summary" msgid="4495233280416889667">"Çocuk kaçırma acil durum bültenleri"</string>
     <string name="enable_alert_message_title" msgid="2939830587633599352">"Uyarı mesajları"</string>
     <string name="enable_alert_message_summary" msgid="6525664541696985610">"Yaklaşan güvenlik tehditleri hakkında uyarılar alın"</string>
@@ -160,7 +160,7 @@
     <string name="show_all_messages" msgid="3780970968167139836">"Tüm mesajları göster"</string>
     <string name="show_regular_messages" msgid="7376885150513522515">"Normal mesajları göster"</string>
     <string name="message_identifier" msgid="5558338496219327850">"Tanımlayıcı:"</string>
-    <string name="message_serial_number" msgid="3386553658712978964">"Seri numara:"</string>
+    <string name="message_serial_number" msgid="3386553658712978964">"Seri numarası:"</string>
     <string name="data_coding_scheme" msgid="4628901196730870577">"Veri kodlama şeması:"</string>
     <string name="message_content" msgid="6204502929879474632">"Mesaj içeriği:"</string>
     <string name="location_check_time" msgid="4105326161240531207">"Konum kontrol zamanı:"</string>

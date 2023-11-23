@@ -18,15 +18,18 @@ package com.android.server.wifi;
 
 import android.annotation.NonNull;
 import android.hardware.wifi.supplicant.AssociationRejectionData;
+import android.net.wifi.WifiManager;
+import android.net.wifi.WifiSsid;
+import android.util.Log;
 
 import com.android.server.wifi.util.NativeUtil;
-
-import java.util.Objects;
 
 /**
  * Stores assoc reject information passed from WifiMonitor.
  */
 public class AssocRejectEventInfo {
+    private static final String TAG = "AssocRejectEventInfo";
+
     @NonNull public final String ssid;
     @NonNull public final String bssid;
     public final int statusCode;
@@ -36,8 +39,18 @@ public class AssocRejectEventInfo {
 
     public AssocRejectEventInfo(@NonNull String ssid, @NonNull String bssid, int statusCode,
             boolean timedOut) {
-        this.ssid = Objects.requireNonNull(ssid);
-        this.bssid = Objects.requireNonNull(bssid);
+        if (ssid == null) {
+            Log.wtf(TAG, "Null SSID provided");
+            this.ssid = WifiManager.UNKNOWN_SSID;
+        } else {
+            this.ssid = ssid;
+        }
+        if (bssid == null) {
+            Log.wtf(TAG, "Null BSSID provided");
+            this.bssid = WifiManager.ALL_ZEROS_MAC_ADDRESS.toString();
+        } else {
+            this.bssid = bssid;
+        }
         this.statusCode = statusCode;
         this.timedOut = timedOut;
         this.oceRssiBasedAssocRejectInfo = null;
@@ -46,10 +59,11 @@ public class AssocRejectEventInfo {
 
     public AssocRejectEventInfo(android.hardware.wifi.supplicant.V1_4
             .ISupplicantStaIfaceCallback.AssociationRejectionData assocRejectData) {
-        String ssid = NativeUtil.encodeSsid(assocRejectData.ssid);
+        String ssid = WifiSsid.fromBytes(NativeUtil.byteArrayFromArrayList(assocRejectData.ssid))
+                .toString();
         String bssid = NativeUtil.macAddressFromByteArray(assocRejectData.bssid);
-        this.ssid = Objects.requireNonNull(ssid);
-        this.bssid = Objects.requireNonNull(bssid);
+        this.ssid = ssid;
+        this.bssid = bssid;
         this.statusCode = assocRejectData.statusCode;
         this.timedOut = assocRejectData.timedOut;
         if (assocRejectData.isMboAssocDisallowedReasonCodePresent) {
@@ -70,11 +84,10 @@ public class AssocRejectEventInfo {
 
     // Constructor using the AIDL definition
     public AssocRejectEventInfo(AssociationRejectionData assocRejectData) {
-        String ssid = NativeUtil.encodeSsid(
-                NativeUtil.byteArrayToArrayList(assocRejectData.ssid));
+        String ssid = WifiSsid.fromBytes(assocRejectData.ssid).toString();
         String bssid = NativeUtil.macAddressFromByteArray(assocRejectData.bssid);
-        this.ssid = Objects.requireNonNull(ssid);
-        this.bssid = Objects.requireNonNull(bssid);
+        this.ssid = ssid;
+        this.bssid = bssid;
         this.statusCode = assocRejectData.statusCode;
         this.timedOut = assocRejectData.timedOut;
         if (assocRejectData.isMboAssocDisallowedReasonCodePresent) {

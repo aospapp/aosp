@@ -103,6 +103,47 @@ TEST(GetElementAttributesResponseBuilderTest, builderTest) {
   ASSERT_EQ(test_packet->GetData(), get_elements_attributes_response_full);
 }
 
+TEST(GetElementAttributesResponseBuilderTest, builderMtuTest) {
+  std::vector<AttributeEntry> test_data = {
+      {Attribute::TITLE, "Test Song 1"},
+      {Attribute::ARTIST_NAME, "Test Artist"},
+      {Attribute::ALBUM_NAME, "Test Album"},
+      {Attribute::TRACK_NUMBER, "1"},
+      {Attribute::TOTAL_NUMBER_OF_TRACKS, "2"},
+      {Attribute::GENRE, "Test Genre"},
+      {Attribute::PLAYING_TIME, "10 200"},
+      {Attribute::TITLE, "Test Song 2"},
+      {Attribute::ARTIST_NAME, "Test Artist"},
+      {Attribute::ALBUM_NAME, "Test Album"},
+      {Attribute::TRACK_NUMBER, "2"},
+      {Attribute::TOTAL_NUMBER_OF_TRACKS, "2"},
+      {Attribute::GENRE, "Test Genre"},
+      {Attribute::PLAYING_TIME, "1500"},
+  };
+
+  using Builder = GetElementAttributesResponseBuilder;
+  using Helper = FragmentationBuilderHelper<Builder>;
+  size_t mtu = size_t(-1);
+  Helper helper(mtu, [](size_t mtu) { return Builder::MakeBuilder(mtu); });
+
+  EXPECT_NO_FATAL_FAILURE(helper.runTest(test_data, mtu, false, false));
+
+  mtu = test_data[0].size() + Builder::kHeaderSize();
+  EXPECT_NO_FATAL_FAILURE(helper.runTest(test_data, mtu));
+
+  mtu = test_data[0].size() + test_data[1].size() + Builder::kHeaderSize();
+  EXPECT_NO_FATAL_FAILURE(helper.runTest(test_data, mtu));
+
+  mtu = test_data[0].size() + (Builder::kHeaderSize() * 2) + 1;
+  EXPECT_NO_FATAL_FAILURE(helper.runTest(test_data, mtu, true, false));
+
+  mtu = Builder::kHeaderSize() + AttributeEntry::kHeaderSize() + 1;
+  EXPECT_NO_FATAL_FAILURE(helper.runTest(test_data, mtu));
+
+  mtu = Builder::kHeaderSize() + AttributeEntry::kHeaderSize();
+  EXPECT_NO_FATAL_FAILURE(helper.runTest(test_data, mtu, false, false));
+}
+
 TEST(GetElementAttributesResponseBuilderTest, truncateBuilderTest) {
   auto attribute = AttributeEntry(Attribute::TITLE, "1234");
   size_t truncated_size = VendorPacket::kMinSize();

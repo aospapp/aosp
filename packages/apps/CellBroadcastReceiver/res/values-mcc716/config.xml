@@ -60,7 +60,7 @@
     <string-array name="operator_defined_alert_range_strings" translatable="false"></string-array>
     <string-array name="etws_test_alerts_range_strings" translatable="false"></string-array>
     <!-- Append date-time to the alert title -->
-    <string name="date_time_format" translatable="false">dd-MM-yyyy, HH:mm a</string>
+    <string name="date_time_format" translatable="false">dd-MM-yyyy, hh:mm a</string>
 
     <!-- Whether to disable the opt-out dialog for all channels. Peru has no user toggles enabled,
          so we disable the opt-out dialog -->

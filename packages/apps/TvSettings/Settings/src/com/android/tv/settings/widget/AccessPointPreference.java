@@ -100,7 +100,7 @@ public class AccessPointPreference extends Preference {
       int iconResId, boolean forSavedNetworks, StateListDrawable frictionSld,
       int level, IconInjector iconInjector) {
     super(context);
-    setLayoutResource(R.layout.preference_access_point);
+    setLayoutResource(R.layout.preference_access_point_tv);
     setWidgetLayoutResource(getWidgetLayoutResourceId());
     mBadgeCache = cache;
     mAccessPoint = accessPoint;

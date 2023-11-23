@@ -15,17 +15,28 @@
  */
 package android.car.test.util;
 
+import static android.car.PlatformVersion.VERSION_CODES.UPSIDE_DOWN_CAKE_0;
+
 import static com.android.compatibility.common.util.ShellUtils.runShellCommand;
+
+import static org.junit.Assume.assumeTrue;
 
 import android.annotation.NonNull;
 import android.annotation.Nullable;
 import android.annotation.UserIdInt;
+import android.app.ActivityManager;
+import android.car.Car;
+import android.car.CarOccupantZoneManager;
+import android.content.Context;
 import android.content.pm.UserInfo;
 import android.content.pm.UserInfo.UserInfoFlag;
 import android.os.UserHandle;
 import android.os.UserManager;
+import android.util.Log;
 
 import com.android.internal.util.Preconditions;
+
+import org.junit.AssumptionViolatedException;
 
 import java.util.Arrays;
 import java.util.List;
@@ -36,12 +47,66 @@ import java.util.stream.Collectors;
  */
 public final class UserTestingHelper {
 
+    private static final String TAG = UserTestingHelper.class.getSimpleName();
+
+    /**
+     * Checks if the target device supports MUMD (multi-user multi-display).
+     * @throws AssumptionViolatedException if the device does not support MUMD.
+     */
+    // TODO(b/250108245): Currently doing this because using DeviceState rule is very heavy. We
+    //  may want to use PermissionsCheckerRule as a light-weight feature check
+    //  (and probably rename it to something like DeviceStateLite).
+    public static void requireMumd(Context context) {
+        assumeTrue(
+                "The device does not support multiple users on multiple displays",
+                Car.getPlatformVersion().isAtLeast(UPSIDE_DOWN_CAKE_0)
+                && context.getSystemService(UserManager.class).isVisibleBackgroundUsersSupported());
+    }
+
+    /**
+     * Returns a display that is available to start a background user on.
+     *
+     * @return the id of a secondary display that is not assigned to any user, if any.
+     * @throws IllegalStateException when there is no secondary display available.
+     */
+    public static int getDisplayForStartingBackgroundUser(
+            Context context, CarOccupantZoneManager occupantZoneManager) {
+        int[] displayIds = context.getSystemService(ActivityManager.class)
+                .getDisplayIdsForStartingVisibleBackgroundUsers();
+        Log.d(TAG, "getSecondaryDisplayIdsForStartingBackgroundUsers() display IDs"
+                + " returned by AM: " + Arrays.toString(displayIds));
+        if (displayIds == null || displayIds.length == 0) {
+            throw new IllegalStateException("No secondary display is available to start a user.");
+        }
+
+        for (int displayId : displayIds) {
+            int userId = occupantZoneManager.getUserForDisplayId(displayId);
+            if (userId == CarOccupantZoneManager.INVALID_USER_ID) {
+                Log.d(TAG, "Returning first available display: " + displayId);
+                return displayId;
+            }
+            Log.d(TAG, "Display " + displayId + "is curretnly assigned to user " + userId);
+        }
+
+        throw new IllegalStateException(
+                "All secondary displays are assigned. No secondary display is available.");
+    }
+
     /**
      * Creates a simple {@link UserInfo}, containing just the given {@code userId}.
      */
     @NonNull
     public static UserInfo newUser(@UserIdInt int userId) {
         return new UserInfoBuilder(userId).build();
+    }
+
+    /**
+     * Creates a simple {@link UserInfo}, containing just the given {@code userId}
+     * and {@code userName}.
+     */
+    @NonNull
+    public static UserInfo newUser(@UserIdInt int userId, @NonNull String userName) {
+        return new UserInfoBuilder(userId).setName(userName).build();
     }
 
     /**
@@ -153,7 +218,6 @@ public final class UserTestingHelper {
         private boolean mGuest;
         private boolean mEphemeral;
         private boolean mAdmin;
-        private boolean mPreCreated;
         private boolean mInitialized;
 
         /**
@@ -222,15 +286,6 @@ public final class UserTestingHelper {
         }
 
         /**
-         * Sets whether the user is an pre-created.
-         */
-        @NonNull
-        public UserInfoBuilder setPreCreated(boolean preCreated) {
-            mPreCreated = preCreated;
-            return this;
-        }
-
-        /**
          * Sets whether the user is initialized.
          */
         @NonNull
@@ -258,7 +313,6 @@ public final class UserTestingHelper {
                 mType = UserManager.USER_TYPE_FULL_GUEST;
             }
             UserInfo info = new UserInfo(mUserId, mName, /* iconPath= */ null, flags, mType);
-            info.preCreated = mPreCreated;
             return info;
         }
     }

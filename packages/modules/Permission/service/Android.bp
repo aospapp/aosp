@@ -20,45 +20,30 @@ filegroup {
     name: "service-permission-java-sources",
     srcs: [
         "java/**/*.java",
-        // Exclude Kotlin sources for T.
-        //"java/**/*.kt",
+        "java/**/*.kt",
     ],
     path: "java",
     visibility: ["//visibility:private"],
 }
 
-filegroup {
-    name: "service-permission-streaming-proto-sources",
+java_library {
+    name: "service-permission-proto-stream",
+    proto: {
+        type: "stream",
+        include_dirs: [
+            "external/protobuf/src",
+        ],
+    },
     srcs: [
         "proto/role_service.proto",
     ],
-    visibility: ["//frameworks/base"],
-}
-
-gensrcs {
-    name: "service-permission-streaming-proto-java-gen",
-    depfile: true,
-
-    tools: [
-        "aprotoc",
-        "protoc-gen-javastream",
-        "soong_zip",
+    installable: false,
+    min_sdk_version: "30",
+    sdk_version: "system_server_current",
+    apex_available: [
+        "com.android.permission",
+        "test_com.android.permission",
     ],
-
-    cmd: "mkdir -p $(genDir)/$(in) " +
-        "&& $(location aprotoc) " +
-        "  --plugin=$(location protoc-gen-javastream) " +
-        "  --dependency_out=$(depfile) " +
-        "  --javastream_out=$(genDir)/$(in) " +
-        "  -Iexternal/protobuf/src " +
-        "  -I . " +
-        "  $(in) " +
-        "&& $(location soong_zip) -jar -o $(out) -C $(genDir)/$(in) -D $(genDir)/$(in)",
-
-    srcs: [
-        ":service-permission-streaming-proto-sources",
-    ],
-    output_extension: "srcjar",
 }
 
 java_library {
@@ -66,6 +51,8 @@ java_library {
     srcs: [":service-permission-shared-srcs"],
     libs: [
         "framework-annotations-lib",
+    ],
+    static_libs: [
         "framework-permission-s-shared",
     ],
     apex_available: [
@@ -86,38 +73,49 @@ java_sdk_library {
     impl_library_visibility: [
         "//frameworks/base/apex/permission/tests",
         "//frameworks/base/services/tests/mockingservicestests",
-        "//frameworks/base/services/tests/servicestests",
+        "//frameworks/base/services/tests/PackageManagerServiceTests/server",
         "//packages/modules/Permission/tests/apex",
     ],
     srcs: [
         ":service-permission-java-sources",
-        ":service-permission-streaming-proto-java-gen",
     ],
     libs: [
         "androidx.annotation_annotation",
+        "framework-configinfrastructure",
         // TODO(b/177884622): Short term solution to prevent service-permission from seeing hidden
         //  APIs in framework-permission, as we don't actually have any dependency in it.
         //"framework-permission",
         "framework-permission-s.impl",
         "framework-permission-s-shared",
+        "framework-statsd.stubs.module_lib",
+        "jsr305",
 
         // Soong fails to automatically add this dependency because all the
         // *.kt sources are inside a filegroup.
-        // Exclude Kotlin sources for T.
-        //"kotlin-annotations",
+        "kotlin-annotations",
+        "safety-center-annotations",
     ],
     static_libs: [
-        // Exclude Kotlin sources for T.
-        //"kotlin-stdlib",
+        "kotlin-stdlib",
         "modules-utils-backgroundthread",
+        "modules-utils-build",
         "modules-utils-os",
         "safety-center-config",
+        "safety-center-internal-data",
+        "safety-center-pending-intents",
+        "safety-center-persistence",
         "safety-center-resources-lib",
         "service-permission-shared",
+        "service-permission-statsd",
+        "service-permission-proto-stream",
     ],
+    errorprone: {
+        javacflags: ["-Xep:GuardedBy:ERROR"],
+    },
     exclude_kotlinc_generated_files: true,
-    jarjar_rules: ":permission-jarjar-rules",
+    jarjar_rules: "jarjar-rules.txt",
     kotlincflags: [
+        "-Werror",
         "-Xjvm-default=all",
         "-Xno-call-assertions",
         "-Xno-param-assertions",
@@ -133,4 +131,34 @@ java_sdk_library {
         "test_com.android.permission",
     ],
     installable: true,
+    permitted_packages: [
+        "com.android.access",
+        "com.android.permission",
+        "com.android.role",
+        "com.android.safetycenter",
+    ],
+}
+
+genrule {
+    name: "statslog-service-permission-java-gen",
+    tools: ["stats-log-api-gen"],
+    cmd: "$(location stats-log-api-gen) --java $(out) --module permissioncontroller" +
+         " --javaPackage com.android.permission" +
+         " --javaClass PermissionStatsLog --minApiLevel 29",
+    out: ["com/android/permission/PermissionStatsLog.java"],
+}
+
+java_library {
+    name: "service-permission-statsd",
+    srcs: [
+        ":statslog-service-permission-java-gen",
+    ],
+    libs: [
+        "framework-statsd.stubs.module_lib",
+    ],
+    apex_available: [
+        "com.android.permission",
+    ],
+    min_sdk_version: "30",
+    sdk_version: "system_server_current",
 }

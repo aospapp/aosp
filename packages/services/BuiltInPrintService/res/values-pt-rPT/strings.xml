@@ -29,7 +29,7 @@
     <string name="printer_offline" msgid="9196864753298645066">"Offline"</string>
     <string name="printer_bad_certificate" msgid="1366180387095466268">"Certificado incorreto"</string>
     <string name="printer_not_encrypted" msgid="1913051469275483673">"Não encriptada."</string>
-    <string name="printer_check" msgid="6428369671197132828">"Verificar impressora"</string>
+    <string name="printer_check" msgid="6428369671197132828">"Rever impressora"</string>
     <string name="waiting_to_send" msgid="2022115199902822180">"A aguardar para enviar…"</string>
     <string name="unreadable_input" msgid="2199948329556527912">"Não foi possível ler o documento"</string>
     <string name="media_size_l" msgid="164416542021598181">"L"</string>

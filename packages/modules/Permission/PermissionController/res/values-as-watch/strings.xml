@@ -18,7 +18,7 @@
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="grant_dialog_button_deny_dont_ask_again" msgid="5709879604352260492">"অস্বীকাৰ কৰক, পুনৰাই নুসুধিব"</string>
     <string name="current_permission_template" msgid="6634462553790549887">"<xliff:g id="CURRENT_PERMISSION_INDEX">%1$s</xliff:g> / <xliff:g id="PERMISSION_COUNT">%2$s</xliff:g>"</string>
-    <string name="preference_show_system_apps" msgid="1055740303992024300">"ছিষ্টেম এপসমূহ দেখুৱাওক"</string>
+    <string name="preference_show_system_apps" msgid="1055740303992024300">"ছিষ্টেম এপ্‌সমূহ দেখুৱাওক"</string>
     <string name="permission_summary_enforced_by_policy" msgid="2352478756952948019">"সলনি কৰিব নোৱাৰি"</string>
     <string name="generic_yes" msgid="2489207724988649846">"হয়"</string>
     <string name="generic_cancel" msgid="2631708607129269698">"বাতিল কৰক"</string>

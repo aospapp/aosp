@@ -16,8 +16,11 @@
 
 package android.car.drivingstate;
 
+import static android.car.Car.PERMISSION_CONTROL_APP_BLOCKING;
+
 import android.annotation.NonNull;
 import android.annotation.Nullable;
+import android.annotation.RequiresPermission;
 import android.annotation.SystemApi;
 import android.annotation.TestApi;
 import android.car.Car;
@@ -31,6 +34,8 @@ import android.os.RemoteException;
 import android.os.SystemClock;
 import android.util.Log;
 
+import com.android.internal.annotations.GuardedBy;
+
 import java.lang.ref.WeakReference;
 
 /**
@@ -39,7 +44,6 @@ import java.lang.ref.WeakReference;
  * @hide
  */
 @SystemApi
-@TestApi
 public final class CarDrivingStateManager extends CarManagerBase {
     private static final String TAG = "CarDrivingStateMgr";
     private static final boolean DBG = false;
@@ -48,9 +52,14 @@ public final class CarDrivingStateManager extends CarManagerBase {
 
     private final ICarDrivingState mDrivingService;
     private final EventCallbackHandler mEventCallbackHandler;
-    private CarDrivingStateEventListener mDrvStateEventListener;
-    private CarDrivingStateChangeListenerToService mListenerToService;
 
+    private final Object mLock = new Object();
+
+    @GuardedBy("mLock")
+    private CarDrivingStateEventListener mDrvStateEventListener;
+
+    @GuardedBy("mLock")
+    private CarDrivingStateChangeListenerToService mListenerToService;
 
     /** @hide */
     public CarDrivingStateManager(Car car, IBinder service) {
@@ -62,9 +71,11 @@ public final class CarDrivingStateManager extends CarManagerBase {
     /** @hide */
     @Override
     @AddedInOrBefore(majorVersion = 33)
-    public synchronized void onCarDisconnected() {
-        mListenerToService = null;
-        mDrvStateEventListener = null;
+    public void onCarDisconnected() {
+        synchronized (mLock) {
+            mListenerToService = null;
+            mDrvStateEventListener = null;
+        }
     }
 
     /**
@@ -76,6 +87,7 @@ public final class CarDrivingStateManager extends CarManagerBase {
     public interface CarDrivingStateEventListener {
         /**
          * Called when the car's driving state changes.
+         *
          * @param event Car's driving state.
          */
         @AddedInOrBefore(majorVersion = 33)
@@ -85,33 +97,34 @@ public final class CarDrivingStateManager extends CarManagerBase {
     /**
      * Register a {@link CarDrivingStateEventListener} to listen for driving state changes.
      *
-     * @param listener  {@link CarDrivingStateEventListener}
-     *
+     * @param listener {@link CarDrivingStateEventListener}
      * @hide
      */
     @SystemApi
     @AddedInOrBefore(majorVersion = 33)
-    public synchronized void registerListener(@NonNull CarDrivingStateEventListener listener) {
+    public void registerListener(@NonNull CarDrivingStateEventListener listener) {
         if (listener == null) {
             if (VDBG) {
                 Log.v(TAG, "registerCarDrivingStateEventListener(): null listener");
             }
             throw new IllegalArgumentException("Listener is null");
         }
-        // Check if the listener has been already registered for this event type
-        if (mDrvStateEventListener != null) {
-            if (DBG) {
-                Log.d(TAG, "Listener already registered");
+        CarDrivingStateChangeListenerToService localListenerToService;
+        synchronized (mLock) {
+            // Check if the listener has been already registered for this event type
+            if (mDrvStateEventListener != null) {
+                Log.w(TAG, "Listener already registered");
+                return;
             }
-            return;
-        }
-        mDrvStateEventListener = listener;
-        try {
             if (mListenerToService == null) {
                 mListenerToService = new CarDrivingStateChangeListenerToService(this);
             }
+            localListenerToService = mListenerToService;
+            mDrvStateEventListener = listener;
+        }
+        try {
             // register to the Service for getting notified
-            mDrivingService.registerDrivingStateChangeListener(mListenerToService);
+            mDrivingService.registerDrivingStateChangeListener(localListenerToService);
         } catch (RemoteException e) {
             handleRemoteExceptionFromCarService(e);
         }
@@ -125,17 +138,19 @@ public final class CarDrivingStateManager extends CarManagerBase {
      */
     @SystemApi
     @AddedInOrBefore(majorVersion = 33)
-    public synchronized void unregisterListener() {
-        if (mDrvStateEventListener == null) {
-            if (DBG) {
-                Log.d(TAG, "Listener was not previously registered");
+    public void unregisterListener() {
+        CarDrivingStateChangeListenerToService localListenerToService;
+        synchronized (mLock) {
+            if (mDrvStateEventListener == null) {
+                Log.w(TAG, "Listener was not previously registered");
+                return;
             }
-            return;
-        }
-        try {
-            mDrivingService.unregisterDrivingStateChangeListener(mListenerToService);
+            localListenerToService = mListenerToService;
             mDrvStateEventListener = null;
             mListenerToService = null;
+        }
+        try {
+            mDrivingService.unregisterDrivingStateChangeListener(localListenerToService);
         } catch (RemoteException e) {
             handleRemoteExceptionFromCarService(e);
         }
@@ -145,7 +160,6 @@ public final class CarDrivingStateManager extends CarManagerBase {
      * Get the current value of the car's driving state.
      *
      * @return {@link CarDrivingStateEvent} corresponding to the given eventType
-     *
      * @hide
      */
     @Nullable
@@ -161,16 +175,14 @@ public final class CarDrivingStateManager extends CarManagerBase {
 
     /**
      * Notify registered driving state change listener about injected event.
+     * Requires Permission: {@link Car#PERMISSION_CONTROL_APP_BLOCKING}
      *
      * @param drivingState Value in {@link CarDrivingStateEvent.CarDrivingState}.
-     *
-     * Requires Permission:
-     * {@link Car#PERMISSION_CONTROL_APP_BLOCKING}
-     *
      * @hide
      */
     @TestApi
     @AddedInOrBefore(majorVersion = 33)
+    @RequiresPermission(PERMISSION_CONTROL_APP_BLOCKING)
     public void injectDrivingState(int drivingState) {
         CarDrivingStateEvent event = new CarDrivingStateEvent(
                 drivingState, SystemClock.elapsedRealtimeNanos());
@@ -207,7 +219,7 @@ public final class CarDrivingStateManager extends CarManagerBase {
      * {@link CarDrivingStateChangeListenerToService} and dispatches it to a handler provided
      * to the manager
      *
-     * @param event  {@link CarDrivingStateEvent} that has been registered to listen on
+     * @param event {@link CarDrivingStateEvent} that has been registered to listen on
      */
     private void handleDrivingStateChanged(CarDrivingStateEvent event) {
         // send a message to the handler
@@ -242,7 +254,7 @@ public final class CarDrivingStateManager extends CarManagerBase {
      * Checks for the listener to {@link CarDrivingStateEvent} and calls it back
      * in the callback handler thread
      *
-     * @param event  {@link CarDrivingStateEvent}
+     * @param event {@link CarDrivingStateEvent}
      */
     private void dispatchDrivingStateChangeToClient(CarDrivingStateEvent event) {
         if (event == null) {

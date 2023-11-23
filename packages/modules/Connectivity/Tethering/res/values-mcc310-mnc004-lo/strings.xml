@@ -16,9 +16,9 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="no_upstream_notification_title" msgid="5030042590486713460">"ການປ່ອຍສັນຍານບໍ່ມີອິນເຕີເນັດ"</string>
-    <string name="no_upstream_notification_message" msgid="3843613362272973447">"ອຸປະກອນບໍ່ສາມາດເຊື່ອມຕໍ່ໄດ້"</string>
-    <string name="no_upstream_notification_disable_button" msgid="6385491461813507624">"ປິດການປ່ອຍສັນຍານ"</string>
-    <string name="upstream_roaming_notification_title" msgid="3015912166812283303">"ເປີດໃຊ້ຮັອດສະປອດ ຫຼື ການປ່ອຍສັນຍານຢູ່"</string>
-    <string name="upstream_roaming_notification_message" msgid="6724434706748439902">"ອາດມີຄ່າໃຊ້ຈ່າຍເພີ່ມເຕີມໃນລະຫວ່າງການໂຣມມິງ"</string>
+    <string name="no_upstream_notification_title" msgid="3584617491053416666">"ການປ່ອຍສັນຍານບໍ່ມີອິນເຕີເນັດ"</string>
+    <string name="no_upstream_notification_message" msgid="5626323795587558017">"ອຸປະກອນບໍ່ສາມາດເຊື່ອມຕໍ່ໄດ້"</string>
+    <string name="no_upstream_notification_disable_button" msgid="868677179945695858">"ປິດການປ່ອຍສັນຍານ"</string>
+    <string name="upstream_roaming_notification_title" msgid="2870229486619751829">"ຮັອດສະປອດ ຫຼື ການປ່ອຍສັນຍານເປີດຢູ່"</string>
+    <string name="upstream_roaming_notification_message" msgid="5229740963392849544">"ອາດມີຄ່າບໍລິການເພີ່ມເຕີມໃນລະຫວ່າງການໂຣມມິງ"</string>
 </resources>

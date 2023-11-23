@@ -22,10 +22,10 @@ import com.android.net.module.util.Struct.Type;
 
 /** The key of BpfMap which is used for mapping interface index. */
 public class TetherDevKey extends Struct {
-    @Field(order = 0, type = Type.U32)
-    public final long ifIndex;  // interface index
+    @Field(order = 0, type = Type.S32)
+    public final int ifIndex;  // interface index
 
-    public TetherDevKey(final long ifIndex) {
+    public TetherDevKey(final int ifIndex) {
         this.ifIndex = ifIndex;
     }
 }

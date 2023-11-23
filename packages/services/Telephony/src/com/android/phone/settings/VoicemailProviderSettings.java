@@ -21,6 +21,8 @@ import android.telephony.PhoneNumberUtils;
 import com.android.internal.telephony.CallForwardInfo;
 import com.android.internal.telephony.CommandsInterface;
 
+import java.util.Arrays;
+
 /**
  * Settings for a voicemail provider, including any conditional forwarding information.
  */
@@ -88,7 +90,7 @@ public class VoicemailProviderSettings {
     @Override
     public String toString() {
         return mVoicemailNumber + ((mForwardingSettings == null) ? ""
-                : ", " + mForwardingSettings.toString());
+                : ", " + Arrays.toString(mForwardingSettings));
     }
 
     public String getVoicemailNumber() {

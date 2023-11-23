@@ -15,8 +15,6 @@
  */
 package com.android.server.uwb.jni;
 
-import android.os.RemoteException;
-
 import com.android.server.uwb.data.UwbMulticastListUpdateStatus;
 import com.android.server.uwb.data.UwbRangingData;
 /*import com.android.server.uwb.test.UwbTestLoopBackTestResult;
@@ -54,31 +52,58 @@ public interface INativeUwbManager {
          */
         void onMulticastListUpdateNotificationReceived(
                 UwbMulticastListUpdateStatus multicastListUpdateData);
+
+        /**
+         * Interface for receiving data from remote device
+         *
+         * @param sessionID   : Session ID
+         * @param status      : Status
+         * @param sequenceNum : Sequence Number
+         * @param address     : Address of remote address
+         * @param sourceEndPoint   : SourceEndPoint
+         * @param destEndPoint   : DestEndPoint
+         * @param data        : Data received from remote address
+         */
+        // TODO(b/261762781): Change the type of sessionID & sequenceNum parameters to int (to match
+        // their 4-octet size in the UCI spec).
+        void onDataReceived(long sessionID, int status, long sequenceNum, byte[] address,
+                int sourceEndPoint, int destEndPoint, byte[] data);
+
+        /**
+         * Interface for receiving the data transfer status, corresponding to a Data packet
+         * earlier sent from the host to UWBS.
+         *
+         * @param sessionId          : Session ID
+         * @param dataTransferStatus : Status codes in the DATA_TRANSFER_STATUS_NTF packet
+         * @param sequenceNum        : Sequence Number
+         */
+        void onDataSendStatus(long sessionId, int dataTransferStatus, long sequenceNum);
     }
 
     interface DeviceNotification {
         /**
          * Interface for receiving Device Status Notification
          *
-         * @param state : refer to UCI GENERIC SPECIFICATION Table 9: Device Status Notification
+         * @param state     : refer to UCI GENERIC SPECIFICATION Table 9: Device Status Notification
+         * @param chipId    : identifier of UWB chip for multi-HAL devices
          */
-        void onDeviceStatusNotificationReceived(int state);
+        void onDeviceStatusNotificationReceived(int state, String chipId);
 
         /**
          * Interface for receiving Control Message for Generic Error
          *
          * @param status : refer to UCI GENERIC SPECIFICATION Table 12: Control Message for Generic
          *               Error
+         * @param chipId : identifier of UWB chip for multi-HAL devices
          */
-        void onCoreGenericErrorNotificationReceived(int status);
+        void onCoreGenericErrorNotificationReceived(int status, String chipId);
     }
 
     interface VendorNotification {
         /**
          * Interface for receiving Vendor UCI notifications.
          */
-        void onVendorUciNotificationReceived(int gid, int oid, byte[] payload)
-                throws RemoteException;
+        void onVendorUciNotificationReceived(int gid, int oid, byte[] payload);
     }
     /* Unused now */
     /*interface RfTestNotification {

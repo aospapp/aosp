@@ -39,13 +39,16 @@ public class MboOceController {
 
     private final TelephonyManager mTelephonyManager;
     private final ActiveModeWarden mActiveModeWarden;
+    private final WifiThreadRunner mWifiThreadRunner;
 
     /**
      * Create new instance of MboOceController.
      */
-    public MboOceController(TelephonyManager telephonyManager, ActiveModeWarden activeModeWarden) {
+    public MboOceController(TelephonyManager telephonyManager, ActiveModeWarden activeModeWarden,
+            WifiThreadRunner wifiThreadRunner) {
         mTelephonyManager = telephonyManager;
         mActiveModeWarden = activeModeWarden;
+        mWifiThreadRunner = wifiThreadRunner;
     }
 
     /**
@@ -100,29 +103,33 @@ public class MboOceController {
      */
     private PhoneStateListener mDataConnectionStateListener = new PhoneStateListener(){
         public void onDataConnectionStateChanged(int state, int networkType) {
-            boolean dataAvailable;
-
-            ClientModeManager clientModeManager =
-                    mActiveModeWarden.getPrimaryClientModeManagerNullable();
-            if (clientModeManager == null) {
-                return;
-            }
-            if (!mEnabled) {
-                Log.e(TAG, "onDataConnectionStateChanged called when MBO is disabled!!");
-                return;
-            }
-            if (state == TelephonyManager.DATA_CONNECTED) {
-                dataAvailable = true;
-            } else if (state == TelephonyManager.DATA_DISCONNECTED) {
-                dataAvailable = false;
-            } else {
-                Log.e(TAG, "onDataConnectionStateChanged unexpected State: " + state);
-                return;
-            }
-            if (mVerboseLoggingEnabled) {
-                Log.d(TAG, "Cell Data: " + dataAvailable);
-            }
-            clientModeManager.setMboCellularDataStatus(dataAvailable);
+            mWifiThreadRunner.post(
+                    () -> {
+                        boolean dataAvailable;
+                        ClientModeManager clientModeManager =
+                                mActiveModeWarden.getPrimaryClientModeManagerNullable();
+                        if (clientModeManager == null) {
+                            return;
+                        }
+                        if (!mEnabled) {
+                            Log.e(TAG, "onDataConnectionStateChanged called when MBO is "
+                                    + "disabled!!");
+                            return;
+                        }
+                        if (state == TelephonyManager.DATA_CONNECTED) {
+                            dataAvailable = true;
+                        } else if (state == TelephonyManager.DATA_DISCONNECTED) {
+                            dataAvailable = false;
+                        } else {
+                            Log.e(TAG, "onDataConnectionStateChanged unexpected State: " + state);
+                            return;
+                        }
+                        if (mVerboseLoggingEnabled) {
+                            Log.d(TAG, "Cell Data: " + dataAvailable);
+                        }
+                        clientModeManager.setMboCellularDataStatus(dataAvailable);
+                    }
+            );
         }
     };
 

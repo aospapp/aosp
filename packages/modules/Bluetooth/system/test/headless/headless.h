@@ -16,21 +16,20 @@
 
 #pragma once
 
-#include <unordered_map>
-
 #include <unistd.h>
+
+#include <unordered_map>
 
 #include "base/logging.h"  // LOG() stdout and android log
 #include "include/hardware/bluetooth.h"
 #include "test/headless/get_options.h"
+#include "test/headless/messenger.h"
 
 extern bt_interface_t bluetoothInterface;
 
 namespace bluetooth {
 namespace test {
 namespace headless {
-
-namespace {
 
 template <typename T>
 using ExecutionUnit = std::function<T()>;
@@ -48,8 +47,6 @@ constexpr char kHeadlessFinalSentinel[] =
     " FINAL HEADLESS HEADLESS HEADLESS HEADLESS HEADLESS HEADLESS HEADLESS "
     "HEADLESS";
 
-}  // namespace
-
 class HeadlessStack {
  protected:
   HeadlessStack(const char** stack_init_flags)
@@ -58,6 +55,7 @@ class HeadlessStack {
 
   void SetUp();
   void TearDown();
+
   const char** StackInitFlags() const { return stack_init_flags_; }
 
  private:
@@ -80,6 +78,7 @@ class HeadlessRun : public HeadlessStack {
 
     T rc;
     for (loop_ = 0; loop_ < options_.loop_; loop_++) {
+      LOG_CONSOLE("Loop started: %lu", loop_);
       rc = func();
       if (options_.msec_ != 0) {
         usleep(options_.msec_ * 1000);
@@ -87,6 +86,7 @@ class HeadlessRun : public HeadlessStack {
       if (rc) {
         break;
       }
+      LOG_CONSOLE("Loop completed: %lu", loop_);
     }
     if (rc) {
       LOG(ERROR) << "FAIL:" << rc << " loop/loops:" << loop_ << "/"

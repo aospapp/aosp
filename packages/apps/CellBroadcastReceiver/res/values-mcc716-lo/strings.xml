@@ -18,8 +18,9 @@
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="public_safety_message" msgid="7237115648380675159">"ຂໍ້ຄວາມທີ່ເປັນຂໍ້ມູນ"</string>
     <string name="enable_public_safety_messages_title" msgid="4037404034274507696">"ຂໍ້ຄວາມທີ່ເປັນຂໍ້ມູນ"</string>
+    <string name="cmas_presidential_level_alert" msgid="8876632274257614262">"ແຈ້ງເຕືອນເຫດສຸກເສີນ"</string>
     <string name="cmas_required_monthly_test" msgid="9061179556831144678">"ການເຕືອນສຸກເສີນ: ຂໍ້ຄວາມທົດສອບ"</string>
     <string name="cmas_exercise_alert" msgid="3061507852301643814">"ການເຕືອນສຸກເສີນ: ຂໍ້ຄວາມທົດສອບ/ເຝິກຊ້ອມ"</string>
-    <string name="pws_other_message_identifiers" msgid="4992476982074198144">"ການເຕືອນສຸກເສີນ: ຂໍ້ຄວາມທົດສອບ"</string>
+    <string name="pws_other_message_identifiers" msgid="3831917966117253553">"ແຈ້ງເຕືອນເຫດສຸກເສີນ"</string>
     <string name="button_dismiss" msgid="5823921161712171097">"ເຊື່ອງ"</string>
 </resources>

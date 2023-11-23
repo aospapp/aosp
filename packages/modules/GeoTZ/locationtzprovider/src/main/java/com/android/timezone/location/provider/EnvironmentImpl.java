@@ -64,10 +64,11 @@ class EnvironmentImpl implements Environment {
     private static final String RESOURCE_CONFIG_PROPERTIES_NAME = "offlineltzprovider.properties";
 
     /**
-     * The config properties key to get the location of the tzs2.dat file to use for time zone
-     * boundaries.
+     *
+     * The config properties key to determine how the tzs2.dat file is loaded.
      */
-    private static final String RESOURCE_CONFIG_KEY_GEODATA_PATH = "geodata.path";
+    private static final String RESOURCE_CONFIG_KEY_GEODATA_FILE_MANAGER_IMPL =
+            "geodata.file_manager_impl";
 
     /**
      * The config properties key for the namespace to pass to {@link android.provider.DeviceConfig}
@@ -87,12 +88,6 @@ class EnvironmentImpl implements Environment {
      * The config properties key for the implementation of {@link MetricsReporter} to use.
      */
     private static final String RESOURCE_CONFIG_METRICS_REPORTER_IMPL = "metrics_reporter.impl";
-
-    /**
-     * An identifier that can be used to distinguish between different deployments of the same code.
-     */
-    private static final String RESOURCE_CONFIG_METRICS_REPORTER_DEPLOYMENT_IDENTIFIER =
-            "metrics_reporter.identifier";
 
     /** An arbitrary value larger than the largest time we might want to hold a wake lock. */
     private static final long WAKELOCK_ACQUIRE_MILLIS = Duration.ofMinutes(1).toMillis();
@@ -159,16 +154,18 @@ class EnvironmentImpl implements Environment {
         mHandler = new Handler(Looper.getMainLooper());
         mExecutor = new HandlerExecutor(mHandler);
 
-        Properties configProperties = loadConfigProperties(getClass().getClassLoader());
-        mGeoDataFile = new File(configProperties.getProperty(RESOURCE_CONFIG_KEY_GEODATA_PATH));
+        ClassLoader classLoader = getClass().getClassLoader();
+        Properties configProperties = loadConfigProperties(classLoader);
+        GeoDataFileManager geoDataFileManager =
+                createGeoDataFileManager(context, classLoader, configProperties);
+        mGeoDataFile = geoDataFileManager.getGeoDataFile();
+
         mDeviceConfigNamespace = Objects.requireNonNull(
                 configProperties.getProperty(RESOURCE_CONFIG_KEY_DEVICE_CONFIG_NAMESPACE));
         mDeviceConfigKeyPrefix = Objects.requireNonNull(
                 configProperties.getProperty(RESOURCE_CONFIG_KEY_DEVICE_CONFIG_KEY_PREFIX));
 
-        String metricsReporterClassName =
-                configProperties.getProperty(RESOURCE_CONFIG_METRICS_REPORTER_IMPL);
-        mMetricsReporter = createMetricsReporter(metricsReporterClassName);
+        mMetricsReporter = createMetricsReporter(classLoader, configProperties);
 
         LocationListeningAccountant realLocationListeningAccountant =
                 createRealLocationListeningAccountant();
@@ -185,10 +182,30 @@ class EnvironmentImpl implements Environment {
                 mDeviceConfigNamespace, mExecutor, this::handleDeviceConfigChanged);
     }
 
-    private MetricsReporter createMetricsReporter(@NonNull String className) {
+    private static GeoDataFileManager createGeoDataFileManager(
+            @NonNull Context context, @NonNull ClassLoader classLoader,
+            @NonNull Properties configProperties) {
+        String className =
+                configProperties.getProperty(RESOURCE_CONFIG_KEY_GEODATA_FILE_MANAGER_IMPL);
         try {
-            Class<?> clazz = Class.forName(className);
-            return (MetricsReporter) clazz.newInstance();
+            Class<?> clazz = classLoader.loadClass(className);
+            GeoDataFileManager geoDataFileManager =
+                    (GeoDataFileManager) clazz.getConstructor().newInstance();
+            geoDataFileManager.init(context, configProperties);
+            return geoDataFileManager;
+        } catch (ReflectiveOperationException e) {
+            throw new IllegalStateException("Unable to instantiate GeoDataFileManager", e);
+        } catch (IOException e) {
+            throw new IllegalStateException("Unable to initialize GeoDataFileManager", e);
+        }
+    }
+
+    private static MetricsReporter createMetricsReporter(
+            @NonNull ClassLoader classLoader, @NonNull Properties configProperties) {
+        String className = configProperties.getProperty(RESOURCE_CONFIG_METRICS_REPORTER_IMPL);
+        try {
+            Class<?> clazz = classLoader.loadClass(className);
+            return (MetricsReporter) clazz.getConstructor().newInstance();
         } catch (ReflectiveOperationException e) {
             throw new IllegalStateException("Unable to instantiate MetricsReporter", e);
         }

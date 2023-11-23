@@ -23,6 +23,7 @@
 
 #include "btm_api.h"
 #include "l2c_api.h"
+#include "l2cdefs.h"
 #include "profiles_api.h"
 #include "stack/include/bt_hdr.h"
 #include "types/bt_transport.h"
@@ -74,6 +75,7 @@ struct tGAP_COC_CREDITS {
 
 union tGAP_CB_DATA {
   tGAP_COC_CREDITS coc_credits;
+  uint16_t l2cap_result;
 };
 
 /*****************************************************************************
@@ -120,12 +122,11 @@ typedef void(tGAP_BLE_CMPL_CBACK)(bool status, const RawAddress& addr,
  *                  GAP_INVALID_HANDLE
  *
  ******************************************************************************/
-extern uint16_t GAP_ConnOpen(const char* p_serv_name, uint8_t service_id,
-                             bool is_server, const RawAddress* p_rem_bda,
-                             uint16_t psm, uint16_t le_mps,
-                             tL2CAP_CFG_INFO* p_cfg,
-                             tL2CAP_ERTM_INFO* ertm_info, uint16_t security,
-                             tGAP_CONN_CALLBACK* p_cb, tBT_TRANSPORT transport);
+uint16_t GAP_ConnOpen(const char* p_serv_name, uint8_t service_id,
+                      bool is_server, const RawAddress* p_rem_bda, uint16_t psm,
+                      uint16_t le_mps, tL2CAP_CFG_INFO* p_cfg,
+                      tL2CAP_ERTM_INFO* ertm_info, uint16_t security,
+                      tGAP_CONN_CALLBACK* p_cb, tBT_TRANSPORT transport);
 
 /*******************************************************************************
  *
@@ -137,7 +138,7 @@ extern uint16_t GAP_ConnOpen(const char* p_serv_name, uint8_t service_id,
  *                  GAP_ERR_BAD_HANDLE  - invalid handle
  *
  ******************************************************************************/
-extern uint16_t GAP_ConnClose(uint16_t gap_handle);
+uint16_t GAP_ConnClose(uint16_t gap_handle);
 
 /*******************************************************************************
  *
@@ -152,8 +153,8 @@ extern uint16_t GAP_ConnClose(uint16_t gap_handle);
  *                  GAP_NO_DATA_AVAIL   - no data available
  *
  ******************************************************************************/
-extern uint16_t GAP_ConnReadData(uint16_t gap_handle, uint8_t* p_data,
-                                 uint16_t max_len, uint16_t* p_len);
+uint16_t GAP_ConnReadData(uint16_t gap_handle, uint8_t* p_data,
+                          uint16_t max_len, uint16_t* p_len);
 
 /*******************************************************************************
  *
@@ -166,7 +167,7 @@ extern uint16_t GAP_ConnReadData(uint16_t gap_handle, uint8_t* p_data,
  *
  *
  ******************************************************************************/
-extern int GAP_GetRxQueueCnt(uint16_t handle, uint32_t* p_rx_queue_count);
+int GAP_GetRxQueueCnt(uint16_t handle, uint32_t* p_rx_queue_count);
 
 /*******************************************************************************
  *
@@ -182,7 +183,7 @@ extern int GAP_GetRxQueueCnt(uint16_t handle, uint32_t* p_rx_queue_count);
  *                  GAP_CONGESTION          - system is congested
  *
  ******************************************************************************/
-extern uint16_t GAP_ConnWriteData(uint16_t gap_handle, BT_HDR* msg);
+uint16_t GAP_ConnWriteData(uint16_t gap_handle, BT_HDR* msg);
 
 /*******************************************************************************
  *
@@ -195,7 +196,7 @@ extern uint16_t GAP_ConnWriteData(uint16_t gap_handle, BT_HDR* msg);
  *                  GAP_ERR_BAD_HANDLE  - invalid handle
  *
  ******************************************************************************/
-extern const RawAddress* GAP_ConnGetRemoteAddr(uint16_t gap_handle);
+const RawAddress* GAP_ConnGetRemoteAddr(uint16_t gap_handle);
 
 /*******************************************************************************
  *
@@ -207,7 +208,7 @@ extern const RawAddress* GAP_ConnGetRemoteAddr(uint16_t gap_handle);
  *                             the peer
  *
  ******************************************************************************/
-extern uint16_t GAP_ConnGetRemMtuSize(uint16_t gap_handle);
+uint16_t GAP_ConnGetRemMtuSize(uint16_t gap_handle);
 
 /*******************************************************************************
  *
@@ -221,7 +222,7 @@ extern uint16_t GAP_ConnGetRemMtuSize(uint16_t gap_handle);
  *                  0, if error
  *
  ******************************************************************************/
-extern uint16_t GAP_ConnGetL2CAPCid(uint16_t gap_handle);
+uint16_t GAP_ConnGetL2CAPCid(uint16_t gap_handle);
 
 /*******************************************************************************
  *
@@ -234,7 +235,7 @@ extern uint16_t GAP_ConnGetL2CAPCid(uint16_t gap_handle);
  * Returns          Nothing
  *
  ******************************************************************************/
-extern void GAP_Init(void);
+void GAP_Init(void);
 
 /*******************************************************************************
  *
@@ -245,8 +246,7 @@ extern void GAP_Init(void);
  * Returns          Nothing
  *
  ******************************************************************************/
-extern void GAP_BleAttrDBUpdate(uint16_t attr_uuid,
-                                tGAP_BLE_ATTR_VALUE* p_value);
+void GAP_BleAttrDBUpdate(uint16_t attr_uuid, tGAP_BLE_ATTR_VALUE* p_value);
 
 /*******************************************************************************
  *
@@ -258,7 +258,7 @@ extern void GAP_BleAttrDBUpdate(uint16_t attr_uuid,
  * Returns          true if read started, else false if GAP is busy
  *
  ******************************************************************************/
-extern bool GAP_BleReadPeerPrefConnParams(const RawAddress& peer_bda);
+bool GAP_BleReadPeerPrefConnParams(const RawAddress& peer_bda);
 
 /*******************************************************************************
  *
@@ -270,8 +270,8 @@ extern bool GAP_BleReadPeerPrefConnParams(const RawAddress& peer_bda);
  * Returns          true if request accepted
  *
  ******************************************************************************/
-extern bool GAP_BleReadPeerDevName(const RawAddress& peer_bda,
-                                   tGAP_BLE_CMPL_CBACK* p_cback);
+bool GAP_BleReadPeerDevName(const RawAddress& peer_bda,
+                            tGAP_BLE_CMPL_CBACK* p_cback);
 
 /*******************************************************************************
  *
@@ -282,6 +282,6 @@ extern bool GAP_BleReadPeerDevName(const RawAddress& peer_bda,
  * Returns          true if request accepted
  *
  ******************************************************************************/
-extern bool GAP_BleCancelReadPeerDevName(const RawAddress& peer_bda);
+bool GAP_BleCancelReadPeerDevName(const RawAddress& peer_bda);
 
 #endif /* GAP_API_H */

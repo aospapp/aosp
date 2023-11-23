@@ -49,7 +49,8 @@ import java.util.stream.Collectors;
  * A {@link BaseLocalQCProvider} that builds the sensor (such as microphone or camera) privacy
  * panel.
  */
-public abstract class SensorQcPanel extends BaseLocalQCProvider {
+public abstract class SensorQcPanel extends BaseLocalQCProvider
+        implements SensorInfoUpdateListener {
     private static final String TAG = "SensorQcPanel";
 
     private final String mPhoneCallTitle;
@@ -63,8 +64,11 @@ public abstract class SensorQcPanel extends BaseLocalQCProvider {
     private SensorPrivacyElementsProvider mSensorPrivacyElementsProvider;
     private SensorInfoProvider mSensorInfoProvider;
 
-    public SensorQcPanel(Context context) {
+    public SensorQcPanel(Context context, SensorInfoProvider infoProvider,
+            SensorPrivacyElementsProvider elementsProvider) {
         super(context);
+        mSensorInfoProvider = infoProvider;
+        mSensorPrivacyElementsProvider = elementsProvider;
         mPhoneCallTitle = context.getString(R.string.ongoing_privacy_dialog_phonecall);
         mSensorOnTitleText = context.getString(R.string.privacy_chip_use_sensor, getSensorName());
         mSensorOffTitleText = context.getString(R.string.privacy_chip_off_content,
@@ -73,32 +77,6 @@ public abstract class SensorQcPanel extends BaseLocalQCProvider {
 
         mSensorOnIcon = Icon.createWithResource(context, getSensorOnIconResourceId());
         mSensorOffIcon = Icon.createWithResource(context, getSensorOffIconResourceId());
-    }
-
-    /**
-     * Sets controllers for this {@link BaseLocalQCProvider}.
-     */
-    public void setControllers(Object... objects) {
-        if (objects == null) {
-            return;
-        }
-
-        for (int i = 0; i < objects.length; i++) {
-            Object object = objects[i];
-
-            if (object instanceof SensorInfoProvider) {
-                mSensorInfoProvider = (SensorInfoProvider) object;
-                mSensorInfoProvider.setNotifyUpdateRunnable(() -> notifyChange());
-            }
-
-            if (object instanceof SensorPrivacyElementsProvider) {
-                mSensorPrivacyElementsProvider = (SensorPrivacyElementsProvider) object;
-            }
-        }
-
-        if (mSensorInfoProvider != null && mSensorPrivacyElementsProvider != null) {
-            notifyChange();
-        }
     }
 
     @Override
@@ -237,6 +215,21 @@ public abstract class SensorQcPanel extends BaseLocalQCProvider {
         }
     }
 
+    @Override
+    public void onSensorInfoUpdate() {
+        notifyChange();
+    }
+
+    @Override
+    protected void onSubscribed() {
+        mSensorInfoProvider.setSensorInfoUpdateListener(this);
+    }
+
+    @Override
+    protected void onUnsubscribed() {
+        mSensorInfoProvider.setSensorInfoUpdateListener(null);
+    }
+
     /**
      * A helper object that retrieves sensor
      * {@link com.android.systemui.privacy.PrivacyDialog.PrivacyElement} list for
@@ -269,6 +262,11 @@ public abstract class SensorQcPanel extends BaseLocalQCProvider {
          * Informs {@link SensorQcPanel} to update its state.
          */
         void setNotifyUpdateRunnable(Runnable runnable);
+
+        /**
+         * Set the listener to monitor the update.
+         */
+        void setSensorInfoUpdateListener(SensorInfoUpdateListener listener);
     }
 
     private static class SensorToggleActionHandler implements QCItem.ActionHandler {

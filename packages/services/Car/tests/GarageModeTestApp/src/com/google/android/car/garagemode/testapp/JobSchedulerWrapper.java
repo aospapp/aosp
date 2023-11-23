@@ -320,13 +320,8 @@ class JobSchedulerWrapper {
     }
 
     private boolean isSystemService(JobInfo job) {
-        if (job.getService().toString().contains(ANDROID_COMPONENT_PREFIX)) {
-            return true;
-        }
-        if (job.getService().toString().contains(ANDROID_SETTINGS_PREFIX)) {
-            return true;
-        }
-        return false;
+        return job.getService().toString().contains(ANDROID_COMPONENT_PREFIX)
+                || job.getService().toString().contains(ANDROID_SETTINGS_PREFIX);
     }
 
     private class ExtendedJobInfo {

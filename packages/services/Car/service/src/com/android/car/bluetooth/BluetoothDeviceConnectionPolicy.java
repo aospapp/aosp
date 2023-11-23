@@ -21,7 +21,6 @@ import static com.android.car.internal.ExcludeFromCodeCoverageGeneratedReport.DU
 import android.annotation.Nullable;
 import android.app.ActivityManager;
 import android.bluetooth.BluetoothAdapter;
-import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothManager;
 import android.car.VehicleAreaSeat;
 import android.car.VehicleAreaType;
@@ -40,7 +39,6 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.os.RemoteException;
 import android.os.UserHandle;
-import android.os.UserManager;
 import android.util.Log;
 
 import com.android.car.CarDrivingStateService;
@@ -57,7 +55,7 @@ import java.util.Objects;
  * A Bluetooth Device Connection policy that is specific to the use cases of a Car. Contains policy
  * for deciding when to trigger connection and disconnection events.
  */
-public class BluetoothDeviceConnectionPolicy {
+public final class BluetoothDeviceConnectionPolicy {
     private static final String TAG = CarLog.tagFor(BluetoothDeviceConnectionPolicy.class);
     private static final boolean DBG = Slogf.isLoggable(TAG, Log.DEBUG);
 
@@ -66,7 +64,6 @@ public class BluetoothDeviceConnectionPolicy {
     private final BluetoothAdapter mBluetoothAdapter;
     private final CarBluetoothService mCarBluetoothService;
     private final CarServicesHelper mCarHelper;
-    private final UserManager mUserManager;
 
     @Nullable
     private Context mUserContext;
@@ -76,13 +73,12 @@ public class BluetoothDeviceConnectionPolicy {
      * tracking and uses them to update the status.
      *
      * On BluetoothAdapter.ACTION_STATE_CHANGED:
-     *    If the adapter is going into the ON state, then commit trigger auto connection.
+     * If the adapter is going into the ON state, then commit trigger auto connection.
      */
     private class BluetoothBroadcastReceiver extends BroadcastReceiver {
         @Override
         public void onReceive(Context context, Intent intent) {
             String action = intent.getAction();
-            BluetoothDevice device = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
             if (BluetoothAdapter.ACTION_STATE_CHANGED.equals(action)) {
                 int state = intent.getIntExtra(BluetoothAdapter.EXTRA_STATE, -1);
                 if (DBG) {
@@ -95,6 +91,7 @@ public class BluetoothDeviceConnectionPolicy {
             }
         }
     }
+
     private final BluetoothBroadcastReceiver mBluetoothBroadcastReceiver;
 
     /**
@@ -124,14 +121,14 @@ public class BluetoothDeviceConnectionPolicy {
          */
         public void init() {
             if (mCarPropertyService != null) {
-                mCarPropertyService.registerListener(VehiclePropertyIds.SEAT_OCCUPANCY,
+                mCarPropertyService.registerListenerSafe(VehiclePropertyIds.SEAT_OCCUPANCY,
                         CarPropertyManager.SENSOR_RATE_ONCHANGE, mSeatOnOccupiedListener);
             }
         }
 
         public void release() {
             if (mCarPropertyService != null) {
-                mCarPropertyService.unregisterListener(VehiclePropertyIds.SEAT_OCCUPANCY,
+                mCarPropertyService.unregisterListenerSafe(VehiclePropertyIds.SEAT_OCCUPANCY,
                         mSeatOnOccupiedListener);
             }
         }
@@ -210,7 +207,7 @@ public class BluetoothDeviceConnectionPolicy {
                 // {@code mConfigs.get(prop)} in {@link CarPropertyService#getProperty} and
                 // {@link CarPropertyService#getPropertyConfigList}
                 List<CarPropertyConfig> availableProp = mCarPropertyService.getPropertyConfigList(
-                        new int[] {VehiclePropertyIds.INFO_DRIVER_SEAT});
+                        new int[]{VehiclePropertyIds.INFO_DRIVER_SEAT}).getConfigs();
                 if (availableProp.isEmpty() || availableProp.get(0) == null) {
                     if (DBG) {
                         Slogf.d(TAG, "Driver seat location property is not in config list.");
@@ -287,7 +284,6 @@ public class BluetoothDeviceConnectionPolicy {
                 Objects.requireNonNull(mContext.getSystemService(BluetoothManager.class));
         mBluetoothAdapter = Objects.requireNonNull(bluetoothManager.getAdapter());
         mCarHelper = new CarServicesHelper();
-        mUserManager = mContext.getSystemService(UserManager.class);
     }
 
     /**

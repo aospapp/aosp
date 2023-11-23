@@ -212,12 +212,12 @@ public class DTCDetailActivity extends Activity {
                                 mDTC.getCode()))
                 .setIcon(android.R.drawable.ic_dialog_alert)
                 .setPositiveButton(
-                        android.R.string.yes,
+                        android.R.string.ok,
                         (dialog, whichButton) -> {
                             mCarDiagnosticManager.clearFreezeFrames(mDTC.getTimestamp());
                             hideFreezeFrameFields();
                         })
-                .setNegativeButton(android.R.string.no, null)
+                .setNegativeButton(android.R.string.cancel, null)
                 .show();
     }
 }

@@ -62,6 +62,12 @@ public final class LocalJobParams {
     public int alignment = 0;
     public boolean document_scaling;
 
+    public float source_width;
+    public float source_height;
+
+    public boolean shared_photo;
+    public boolean preserve_scaling;
+
     @Override
     public String toString() {
         return "LocalJobParams{"
@@ -99,6 +105,10 @@ public final class LocalJobParams {
                 + " nativeData=" + !(nativeData == null)
                 + " alignment=" + alignment
                 + " document_scaling=" + document_scaling
+                + " source_width=" + source_width
+                + " source_height=" + source_height
+                + " shared_photo=" + shared_photo
+                + " preserve_scaling=" + preserve_scaling
                 + "}";
     }
 }

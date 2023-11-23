@@ -16,6 +16,14 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+    <string name="car_permission_label_bind_projection_service" msgid="6976251734714662552">"ຜູກມັດກັບການບໍລິການສາຍພາບ"</string>
+    <string name="car_permission_desc_bind_projection_service" msgid="4610418233070289810">"ອະນຸຍາດໃຫ້ຜູ້ຖືຜູກມັດກັບສ່ວນຕິດຕໍ່ຜູ້ໃຊ້ລະດັບສູງຂອງການບໍລິການສາຍພາບ. ບໍ່ຄວນຕ້ອງການສຳລັບແອັບປົກກະຕິ."</string>
+    <string name="car_permission_label_bind_vms_client" msgid="1298928874094319701">"ການບໍລິການລູກຂ່າຍ VMS"</string>
+    <string name="car_permission_desc_bind_vms_client" msgid="7758142590449847602">"ຜູກມັດກັບລູກຂ່າຍ VMS"</string>
+    <string name="car_permission_label_bind_instrument_cluster_rendering" msgid="6723392540805279625">"ການສະແດງຜົນແຜງໜ້າປັດ"</string>
+    <string name="car_permission_desc_bind_instrument_cluster_rendering" msgid="2583711303360788080">"ຮັບຂໍ້ມູນຈາກແຜງໜ້າປັດ"</string>
+    <string name="car_permission_label_bind_input_service" msgid="6647238478703096557">"ການບໍລິການປ້ອນຂໍ້ມູນຂອງລົດ"</string>
+    <string name="car_permission_desc_bind_input_service" msgid="8460218104132496613">"ຈັດການເຫດການປ້ອນຂໍ້ມູນ"</string>
     <string name="activity_blocked_text" msgid="5991043857905412794">"ທ່ານບໍ່ສາມາດໃຊ້ຄຸນສົມບັດນີ້ໃນຂະນະທີ່ຂັບລົດໄດ້"</string>
     <string name="exit_button_message" msgid="5375678491245394542">"ເພື່ອເລີ່ມຕົ້ນຄືນໃໝ່ດ້ວຍຄຸນສົມບັດແອັບທີ່ປອດໄພ,​ ກະລຸນາເລືອກ <xliff:g id="EXIT_BUTTON">%s</xliff:g>."</string>
     <string name="exit_button" msgid="3491899413031549265">"ກັບຄືນ"</string>
@@ -30,11 +38,7 @@
     <string name="factory_reset_warning" msgid="8463356329619149262">"ອຸ​ປະ​ກອນ​ຂອງ​ທ່ານ​ຈະ​ຖືກ​ລຶບ"</string>
     <string name="factory_reset_message" msgid="1972536809866779972">"ບໍ່ສາມາດໃຊ້ແອັບຜູ້ເບິ່ງແຍງລະບົບໄດ້. ອຸປະກອນຂອງທ່ານຈະຖືກລຶບຂໍ້ມູນໃນຕອນນີ້.\n\nຫາກທ່ານມີຄຳຖາມ, ໃຫ້ຕິດຕໍ່ຜູ້ເບິ່ງແຍງລະບົບອົງກອນຂອງທ່ານ."</string>
     <string name="resource_overuse_notification_title" msgid="1622015333965744463">"<xliff:g id="ID_1">^1</xliff:g> ກຳລັງກະທົບກັບປະສິດທິພາບລະບົບຂອງທ່ານ"</string>
-    <string name="resource_overuse_notification_text_disable_app" msgid="6230392052741662158">"ປິດການນຳໃຊ້ແອັບເພື່ອປັບປຸງປະສິດທິພາບລະບົບ. ທ່ານສາມາດເປີດການນຳໃຊ້ແອັບອີກຄັ້ງໄດ້ໃນການຕັ້ງຄ່າ."</string>
-    <string name="resource_overuse_notification_text_prioritize_app" msgid="5712958688473220136">"ຈັດລຳດັບຄວາມສຳຄັນແອັບເພື່ອສືບຕໍ່ນຳໃຊ້ແອັບ."</string>
-    <string name="resource_overuse_notification_text_uninstall_app" msgid="7571808726595158942">"ຖອນການຕິດຕັ້ງແອັບເພື່ອປັບປຸງປະສິດທິພາບລະບົບ."</string>
-    <string name="resource_overuse_notification_button_disable_app" msgid="7366883746281232189">"ປິດການນຳໃຊ້ແອັບ"</string>
+    <string name="resource_overuse_notification_text_disabled_app" msgid="9058683477901746549">"ແອັບນີ້ໄດ້ຖືກປ້ອງກັນບໍ່ໃຫ້ມີການເອີ້ນໃຊ້ໃນພື້ນຫຼັງ. ຈັດລຳດັບຄວາມສຳຄັນຂອງແອັບເພື່ອສືບຕໍ່ນຳໃຊ້ຢູ່ພື້ນຫຼັງ."</string>
+    <string name="resource_overuse_notification_button_close_app" msgid="131355952730826999">"ປິດ"</string>
     <string name="resource_overuse_notification_button_prioritize_app" msgid="1093325910457794796">"ຈັດລຳດັບຄວາມສຳຄັນແອັບ"</string>
-    <string name="resource_overuse_notification_button_uninstall_app" msgid="5259756814713178196">"ຖອນການຕິດຕັ້ງແອັບ"</string>
-    <string name="resource_overuse_toast_disable_app_now" msgid="5020071090614971772">"<xliff:g id="ID_1">^1</xliff:g> ໄດ້ຖືກປິດການນຳໃຊ້ແລ້ວ. ທ່ານສາມາດເປີດການນຳໃຊ້ໃໝ່ໄດ້ໃນການຕັ້ງຄ່າ."</string>
 </resources>

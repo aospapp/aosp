@@ -92,8 +92,8 @@
     <string name="save_error" msgid="8631128801982095782">"Imeshindwa kuhifadhi hati"</string>
     <string name="create_error" msgid="3092144450044861994">"Imeshindwa kuunda folda"</string>
     <string name="query_error" msgid="6625421453613879336">"Imeshindwa kupakia maudhui kwa sasa"</string>
-    <string name="quiet_mode_error_title" msgid="9126656325282792843">"Wasifu wa kazini umesimamishwa"</string>
-    <string name="quiet_mode_button" msgid="6977115032320235420">"Washa"</string>
+    <string name="quiet_mode_error_title" msgid="554319751414657910">"Programu za kazini zimesimamishwa"</string>
+    <string name="quiet_mode_button" msgid="8051436551926677305">"Washa programu za kazini"</string>
     <string name="cant_select_work_files_error_title" msgid="6688716319549644354">"Imeshindwa kuchagua faili za kazini"</string>
     <string name="cant_select_work_files_error_message" msgid="683480676150690641">"Msimamizi wako wa TEHAMA hakuruhusu ufikie faili za kazini kwenye programu ya binafsi"</string>
     <string name="cant_select_personal_files_error_title" msgid="3200697170148617742">"Imeshindwa kuchagua faili za binafsi"</string>

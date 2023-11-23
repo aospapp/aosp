@@ -22,15 +22,24 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import android.content.ComponentName;
 import android.view.accessibility.AccessibilityNodeInfo;
-
-import androidx.test.ext.junit.runners.AndroidJUnit4;
+import android.view.inputmethod.InputMethodInfo;
+import android.view.inputmethod.InputMethodManager;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.mockito.Mock;
+import org.mockito.junit.MockitoJUnitRunner;
 
-@RunWith(AndroidJUnit4.class)
-public class UtilsTest {
+import java.util.Collections;
+import java.util.List;
+
+@RunWith(MockitoJUnitRunner.class)
+public final class UtilsTest {
+
+    @Mock
+    private InputMethodManager mMockedInputMethodManager;
 
     @Test
     public void refreshNode_nodeIsNull_returnsNull() {
@@ -67,5 +76,22 @@ public class UtilsTest {
         Utils.refreshNode(input);
 
         verify(input).recycle();
+    }
+
+    @Test
+    public void testIsInstalledIme_invalidImeConfigs() {
+        assertThat(Utils.isInstalledIme(null, mMockedInputMethodManager)).isFalse();
+        assertThat(Utils.isInstalledIme("blah/someIme", mMockedInputMethodManager)).isFalse();
+    }
+
+    @Test
+    public void testIsInstalledIme_validImeConfig() {
+        InputMethodInfo methodInfo = mock(InputMethodInfo.class);
+        when(methodInfo.getComponent()).thenReturn(
+                ComponentName.unflattenFromString("blah/someIme"));
+        List<InputMethodInfo> availableInputMethods = Collections.singletonList(methodInfo);
+        when(mMockedInputMethodManager.getInputMethodList()).thenReturn(availableInputMethods);
+
+        assertThat(Utils.isInstalledIme("blah/someIme", mMockedInputMethodManager)).isTrue();
     }
 }

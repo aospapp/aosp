@@ -24,6 +24,8 @@ import static android.provider.DeviceConfig.NAMESPACE_APP_HIBERNATION;
 
 import static com.android.car.settings.applications.ApplicationsUtils.PROPERTY_APP_HIBERNATION_ENABLED;
 import static com.android.car.settings.common.PreferenceController.AVAILABLE;
+import static com.android.car.settings.common.PreferenceController.AVAILABLE_FOR_VIEWING;
+import static com.android.car.settings.common.PreferenceController.CONDITIONALLY_UNAVAILABLE;
 
 import static com.google.common.truth.Truth.assertThat;
 
@@ -112,6 +114,39 @@ public class HibernationSwitchPreferenceControllerTest {
     }
 
     @Test
+    public void getAvailabilityStatus_featureNotEnabled_shouldNotReturnAvailable_zoneWrite() {
+        mController.setAvailabilityStatusForZone("write");
+        mController.setPackageName(VALID_PACKAGE_NAME);
+        DeviceConfig.setProperty(NAMESPACE_APP_HIBERNATION, PROPERTY_APP_HIBERNATION_ENABLED,
+                /* value= */ "false", /* makeDefault= */ true);
+
+        PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
+                CONDITIONALLY_UNAVAILABLE);
+    }
+
+    @Test
+    public void getAvailabilityStatus_featureNotEnabled_shouldNotReturnAvailable_zoneRead() {
+        mController.setAvailabilityStatusForZone("read");
+        mController.setPackageName(VALID_PACKAGE_NAME);
+        DeviceConfig.setProperty(NAMESPACE_APP_HIBERNATION, PROPERTY_APP_HIBERNATION_ENABLED,
+                /* value= */ "false", /* makeDefault= */ true);
+
+        PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
+                CONDITIONALLY_UNAVAILABLE);
+    }
+
+    @Test
+    public void getAvailabilityStatus_featureNotEnabled_shouldNotReturnAvailable_zoneHidden() {
+        mController.setAvailabilityStatusForZone("hidden");
+        mController.setPackageName(VALID_PACKAGE_NAME);
+        DeviceConfig.setProperty(NAMESPACE_APP_HIBERNATION, PROPERTY_APP_HIBERNATION_ENABLED,
+                /* value= */ "false", /* makeDefault= */ true);
+
+        PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
+                CONDITIONALLY_UNAVAILABLE);
+    }
+
+    @Test
     public void getAvailabilityStatus_invalidPackage_shouldReturnNotAvailable() {
         mController.setPackageName(INVALID_PACKAGE_NAME);
 
@@ -119,10 +154,64 @@ public class HibernationSwitchPreferenceControllerTest {
     }
 
     @Test
+    public void getAvailabilityStatus_invalidPackage_shouldReturnNotAvailable_zoneWrite() {
+        mController.setAvailabilityStatusForZone("write");
+        mController.setPackageName(INVALID_PACKAGE_NAME);
+
+        PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
+                CONDITIONALLY_UNAVAILABLE);
+    }
+
+    @Test
+    public void getAvailabilityStatus_invalidPackage_shouldReturnNotAvailable_zoneRead() {
+        mController.setAvailabilityStatusForZone("read");
+        mController.setPackageName(INVALID_PACKAGE_NAME);
+
+        PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
+                CONDITIONALLY_UNAVAILABLE);
+    }
+
+    @Test
+    public void getAvailabilityStatus_invalidPackage_shouldReturnNotAvailable_zoneHidden() {
+        mController.setAvailabilityStatusForZone("hidden");
+        mController.setPackageName(INVALID_PACKAGE_NAME);
+
+        PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
+                CONDITIONALLY_UNAVAILABLE);
+    }
+
+    @Test
     public void getAvailabilityStatus_validPackage_shouldReturnAvailable() {
         mController.setPackageName(VALID_PACKAGE_NAME);
 
         assertThat(mController.getAvailabilityStatus()).isEqualTo(AVAILABLE);
+    }
+
+    @Test
+    public void getAvailabilityStatus_validPackage_shouldReturnAvailable_zoneWrite() {
+        mController.setAvailabilityStatusForZone("write");
+        mController.setPackageName(VALID_PACKAGE_NAME);
+
+        PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
+                AVAILABLE);
+    }
+
+    @Test
+    public void getAvailabilityStatus_validPackage_shouldReturnAvailable_zoneRead() {
+        mController.setAvailabilityStatusForZone("read");
+        mController.setPackageName(VALID_PACKAGE_NAME);
+
+        PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
+                AVAILABLE_FOR_VIEWING);
+    }
+
+    @Test
+    public void getAvailabilityStatus_validPackage_shouldReturnAvailable_zoneHidden() {
+        mController.setAvailabilityStatusForZone("hidden");
+        mController.setPackageName(VALID_PACKAGE_NAME);
+
+        PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
+                CONDITIONALLY_UNAVAILABLE);
     }
 
     @Test

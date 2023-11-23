@@ -19,20 +19,27 @@
                   xmlns:settings="http://schemas.android.com/apk/res-auto"
                   android:title="@string/device_energy_saver">
 
-    <com.android.tv.settings.device.display.daydream.DreamTimePreference
-        android:key="sleepTime"
-        android:persistent="true"
-        android:title="@string/device_energy_saver_screen_off"
-        android:summary="@string/device_energy_saver_screen_off_description"
-        android:dialogTitle="@string/device_energy_saver_screen_off_dialog_title"
-        android:entries="@array/screen_off_timeout_entries"
-        android:entryValues="@array/screen_off_timeout_values" />
+    <PreferenceCategory
+        android:key="turnOffTV"
+        android:title="@string/device_energy_saver_category_title">
+        <com.android.tv.settings.device.display.daydream.DreamTimePreference
+            android:key="sleepTime"
+            android:persistent="true"
+            android:title="@string/device_energy_saver_sleep_timeout"
+            android:dialogTitle="@string/device_energy_saver_sleep_timeout_dialog_title"
+            android:summary="@string/device_energy_saver_timeout_description"
+            android:entries="@array/device_energy_saver_sleep_timeout_entries"
+            android:entryValues="@array/device_energy_saver_sleep_timeout_values" />
 
-    <com.android.settingslib.RestrictedSwitchPreference
-        android:key="allowTurnScreenOff"
-        android:persistent="true"
-        android:title="@string/device_energy_saver_allow_turning_screen_off"
-        android:summary="@string/device_energy_saver_allow_turning_screen_off_description"
-        settings:userRestriction="no_config_screen_timeout" />
+        <com.android.tv.settings.device.display.daydream.DreamTimePreference
+            android:key="attentiveTime"
+            android:persistent="true"
+            android:title="@string/device_energy_saver_attentive_timeout"
+            android:dialogTitle="@string/device_energy_saver_attentive_timeout_dialog_title"
+            android:summary="@string/device_energy_saver_timeout_description"
+            android:entries="@array/device_energy_saver_attentive_timeout_entries"
+            android:entryValues="@array/device_energy_saver_attentive_timeout_values" />
+
+    </PreferenceCategory>
 
 </PreferenceScreen>

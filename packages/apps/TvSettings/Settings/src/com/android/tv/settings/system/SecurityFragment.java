@@ -52,8 +52,8 @@ import androidx.preference.PreferenceGroup;
 import com.android.tv.settings.R;
 import com.android.tv.settings.SettingsPreferenceFragment;
 import com.android.tv.settings.dialog.PinDialogFragment;
-import com.android.tv.settings.library.users.RestrictedProfileModel;
 import com.android.tv.settings.users.AppRestrictionsFragment;
+import com.android.tv.settings.users.RestrictedProfileModel;
 import com.android.tv.settings.users.RestrictedProfilePinDialogFragment;
 import com.android.tv.settings.users.RestrictedProfilePinStorage;
 import com.android.tv.settings.users.UserSwitchListenerService;
@@ -387,7 +387,7 @@ public class SecurityFragment extends SettingsPreferenceFragment
                 break;
             case PIN_MODE_RESTRICTED_PROFILE_SWITCH_OUT:
                 mRestrictedProfile.exitUser();
-                getActivity().finish();
+                mUiThreadHandler.post(() -> getActivity().finish());
                 break;
             case PIN_MODE_RESTRICTED_PROFILE_CHANGE_PASSWORD:
                 // do nothing

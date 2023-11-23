@@ -21,5 +21,6 @@
              android:targetName="CarSettings"
              android:targetPackage="com.android.car.settings"
              android:resourcesMap="@xml/overlays"
-             android:isStatic="true" />
+             android:category="caruiportrait.settings"
+             android:isStatic="false" />
 </manifest>

@@ -119,7 +119,6 @@ public final class VmsClientManager extends CarManagerBase {
      * @hide
      */
     @RequiresPermission(anyOf = {Car.PERMISSION_VMS_PUBLISHER, Car.PERMISSION_VMS_SUBSCRIBER})
-    @AddedInOrBefore(majorVersion = 33)
     void registerVmsClientCallback(
             @NonNull @CallbackExecutor Executor executor,
             @NonNull VmsClientCallback callback,

@@ -1,18 +1,16 @@
+pub mod bluetooth_experimental_dbus;
+pub mod bluetooth_manager;
+pub mod bluetooth_manager_dbus;
+pub mod config_util;
+pub mod dbus_arg;
+pub mod dbus_iface;
+pub mod iface_bluetooth_experimental;
 pub mod iface_bluetooth_manager;
+pub mod migrate;
+pub mod powerd_suspend_manager;
+pub mod service_watcher;
+pub mod state_machine;
 
-// TODO: This is a copy of RPCProxy that is in btstack create. Find a better home for this struct
-// that avoids code duplication.
-/// Signifies that the object may be a proxy to a remote RPC object.
-pub trait RPCProxy {
-    /// Registers disconnect observer that will be notified when the remote object is disconnected.
-    fn register_disconnect(&mut self, f: Box<dyn Fn(u32) + Send>) -> u32;
-
-    /// Returns the ID of the object. For example this would be an object path in D-Bus RPC.
-    fn get_object_id(&self) -> String;
-
-    /// Unregisters callback with this id.
-    fn unregister(&mut self, id: u32) -> bool;
-
-    /// Makes this object available for remote call.
-    fn export_for_rpc(self: Box<Self>);
-}
+// protoc-rust generates all modules and exports them in mod.rs
+// We have to include them all here to make them available for crate export.
+include!(concat!(env!("OUT_DIR"), "/proto_out/mod.rs"));

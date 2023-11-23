@@ -68,19 +68,20 @@ import com.android.managedprovisioning.testcommon.FakeSharedPreferences;
 
 import org.junit.Before;
 import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
 import java.util.ArrayList;
 import java.util.Arrays;
 
-@RunWith(JUnit4.class)
 public final class EstablishNetworkConnectionViewModelTest {
     private EstablishNetworkConnectionViewModel mViewModel;
     private static final Context sContext = ApplicationProvider.getApplicationContext();
+    private static final String TEST_SSID = "\"test ssid\"";
     private static final String TEST_SECURITY_TYPE_EAP = "EAP";
+    private static final String TEST_PROXY_HOST = "www.google.com";
+    private static final int TEST_PROXY_PORT = 1234;
+    private static final String TEST_PROXY_BYPASS = "www.android.com";
     private static final String ADMIN_PACKAGE = "com.test.admin";
     private static final ComponentName ADMIN = new ComponentName(ADMIN_PACKAGE, ".Receiver");
     private static final Intent INVALID_INTENT =
@@ -92,13 +93,13 @@ public final class EstablishNetworkConnectionViewModelTest {
             new Intent(ACTION_PROVISION_MANAGED_DEVICE_FROM_TRUSTED_SOURCE)
                     .putExtra(EXTRA_PROVISIONING_DEVICE_ADMIN_COMPONENT_NAME, ADMIN)
                     .putExtra(EXTRA_PROVISIONING_DEVICE_ADMIN_PACKAGE_NAME, ADMIN_PACKAGE)
-                    .putExtra(EXTRA_PROVISIONING_WIFI_SSID, "test ssid")
+                    .putExtra(EXTRA_PROVISIONING_WIFI_SSID, TEST_SSID)
                     .putExtra(EXTRA_PROVISIONING_WIFI_HIDDEN, true)
                     .putExtra(EXTRA_PROVISIONING_WIFI_SECURITY_TYPE, TEST_SECURITY_TYPE_EAP)
                     .putExtra(EXTRA_PROVISIONING_WIFI_PASSWORD, "test password")
-                    .putExtra(EXTRA_PROVISIONING_WIFI_PROXY_HOST, "test proxy host")
-                    .putExtra(EXTRA_PROVISIONING_WIFI_PROXY_PORT, 1234)
-                    .putExtra(EXTRA_PROVISIONING_WIFI_PROXY_BYPASS, "test bypass")
+                    .putExtra(EXTRA_PROVISIONING_WIFI_PROXY_HOST, TEST_PROXY_HOST)
+                    .putExtra(EXTRA_PROVISIONING_WIFI_PROXY_PORT, TEST_PROXY_PORT)
+                    .putExtra(EXTRA_PROVISIONING_WIFI_PROXY_BYPASS, TEST_PROXY_BYPASS)
                     .putExtra(EXTRA_PROVISIONING_WIFI_PAC_URL, "test pac url")
                     .putExtra(EXTRA_PROVISIONING_WIFI_EAP_METHOD, "PEAP")
                     .putExtra(EXTRA_PROVISIONING_WIFI_PHASE2_AUTH, "PAP")
@@ -116,13 +117,13 @@ public final class EstablishNetworkConnectionViewModelTest {
             .setProvisioningId(new ManagedProvisioningSharedPreferences(sContext)
                     .getProvisioningId() + 1)
             .setWifiInfo(new WifiInfo.Builder()
-                    .setSsid("test ssid")
+                    .setSsid(TEST_SSID)
                     .setHidden(true)
                     .setSecurityType(TEST_SECURITY_TYPE_EAP)
                     .setPassword("test password")
-                    .setProxyHost("test proxy host")
+                    .setProxyHost(TEST_PROXY_HOST)
                     .setProxyPort(1234)
-                    .setProxyBypassHosts("test bypass")
+                    .setProxyBypassHosts(TEST_PROXY_BYPASS)
                     .setPacUrl("test pac url")
                     .setEapMethod("PEAP")
                     .setPhase2Auth("PAP")

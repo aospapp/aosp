@@ -3,17 +3,6 @@
 
     <issue
         id="NewApi"
-        message="Call requires API level R (current min is 25): `android.content.Context#bindServiceAsUser`"
-        errorLine1="        if (!mContext.bindServiceAsUser(intent, connection,"
-        errorLine2="                      ~~~~~~~~~~~~~~~~~">
-        <location
-            file="packages/services/Car/experimental/service/src/com/android/experimentalcar/DriverDistractionExperimentalFeatureService.java"
-            line="364"
-            column="23"/>
-    </issue>
-
-    <issue
-        id="NewApi"
         message="Call requires API level 29 (current min is 25): `android.content.res.Resources#getFloat`"
         errorLine1="                resources.getFloat(R.fraction.driverAwarenessGazeModelInitialValue),"
         errorLine2="                          ~~~~~~~~">
@@ -43,6 +32,14 @@
             file="packages/services/Car/experimental/service/src/com/android/experimentalcar/GazeDriverAwarenessSupplier.java"
             line="183"
             column="27"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 30 (current min is 25): `android.content.Context#bindServiceAsUser`">
+        <location
+            file="packages/services/Car/experimental/service/src/com/android/experimentalcar/DriverDistractionExperimentalFeatureService.java"
+            line="364"/>
     </issue>
 
 </issues>

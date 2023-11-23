@@ -58,7 +58,7 @@ public class BluetoothMapFolderElement implements Comparable<BluetoothMapFolderE
         mSubFolders = new HashMap<String, BluetoothMapFolderElement>();
     }
 
-    public void setIngore(boolean ignore) {
+    public void setIgnore(boolean ignore) {
         mIgnore = ignore;
     }
 

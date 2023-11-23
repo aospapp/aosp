@@ -18,7 +18,6 @@ package android.net.wifi;
 import android.annotation.IntDef;
 import android.annotation.NonNull;
 import android.annotation.Nullable;
-import android.annotation.SystemApi;
 import android.os.Parcel;
 import android.os.Parcelable;
 
@@ -32,10 +31,7 @@ import java.util.Objects;
  * filtered by regulatory constraints. Use {@link WifiManager#getUsableChannels(int, int)} to
  * retrieve the list of channels filtered by regulatory and dynamic constraints like concurrency and
  * interference due to other radios.
- *
- * @hide
  */
-@SystemApi
 public final class WifiAvailableChannel implements Parcelable {
 
     /**

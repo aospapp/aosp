@@ -317,7 +317,7 @@ static bool handle_send_file_data(borrowed_fd s, unique_fd fd, uint32_t* timesta
             std::span<char> output;
             DecodeResult result = decoder->Decode(&output);
             if (result == DecodeResult::Error) {
-                SendSyncFailErrno(s, "decompress failed");
+                SendSyncFail(s, "decompress failed");
                 return false;
             }
 

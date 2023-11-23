@@ -16,6 +16,7 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="pws_other_message_identifiers" msgid="4208192760081890030">"AG-தகவல்கள்"</string>
-    <string name="enable_emergency_alerts_message_title" msgid="8604945009695563346">"AG-வழக்கமான பிராட்காஸ்ட் சேனல்"</string>
+    <string name="pws_other_message_identifiers" msgid="2878052464538791122">"ஆப்பரேட்டர் எச்சரிக்கை"</string>
+    <string name="enable_emergency_alerts_message_title" msgid="735033564276896784">"ஆப்பரேட்டர் எச்சரிக்கைகள்"</string>
+    <string name="enable_emergency_alerts_message_summary" msgid="9097859342785910501">"ஆப்பரேட்டர் எச்சரிக்கைகளுக்கான சேனல்"</string>
 </resources>

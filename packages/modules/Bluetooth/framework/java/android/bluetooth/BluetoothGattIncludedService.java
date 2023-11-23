@@ -15,6 +15,7 @@
  */
 package android.bluetooth;
 
+import android.annotation.NonNull;
 import android.os.Parcel;
 import android.os.ParcelUuid;
 import android.os.Parcelable;
@@ -64,8 +65,7 @@ public class BluetoothGattIncludedService implements Parcelable {
         out.writeInt(mServiceType);
     }
 
-    public static final @android.annotation.NonNull Parcelable.Creator<BluetoothGattIncludedService> CREATOR =
-            new Parcelable.Creator<BluetoothGattIncludedService>() {
+    public static final @NonNull Creator<BluetoothGattIncludedService> CREATOR = new Creator<>() {
         public BluetoothGattIncludedService createFromParcel(Parcel in) {
             return new BluetoothGattIncludedService(in);
         }

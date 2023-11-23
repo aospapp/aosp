@@ -17,6 +17,7 @@
 
 <LinearLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:orientation="vertical"
@@ -54,7 +55,7 @@
             android:textAppearance="@style/EmptyStateTitleText"/>
         <TextView
             android:id="@+id/message"
-            android:layout_marginTop="4dp"
+            android:layout_marginTop="@dimen/cross_profile_button_message_margin_top"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:gravity="center_horizontal"
@@ -64,6 +65,9 @@
             android:layout_marginTop="16dp"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
+            app:cornerRadius="@dimen/cross_profile_button_corner_radius"
+            app:strokeWidth="@dimen/cross_profile_button_stroke_width"
+            app:strokeColor="@color/work_profile_button_stroke_color"
             style="@style/EmptyStateButton"/>
     </LinearLayout>
 </LinearLayout>

@@ -41,6 +41,8 @@ import android.os.Environment;
 import android.provider.MediaStore;
 import android.util.Log;
 
+import com.android.bluetooth.BluetoothMethodProxy;
+
 import java.io.UnsupportedEncodingException;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
@@ -95,9 +97,11 @@ public class BluetoothOppReceiveFileInfo {
         Uri contentUri = Uri.parse(BluetoothShare.CONTENT_URI + "/" + id);
         String filename = null, hint = null, mimeType = null;
         long length = 0;
-        Cursor metadataCursor = contentResolver.query(contentUri, new String[]{
-                BluetoothShare.FILENAME_HINT, BluetoothShare.TOTAL_BYTES, BluetoothShare.MIMETYPE
-        }, null, null, null);
+        Cursor metadataCursor = BluetoothMethodProxy.getInstance().contentResolverQuery(
+                contentResolver, contentUri, new String[]{
+                        BluetoothShare.FILENAME_HINT, BluetoothShare.TOTAL_BYTES,
+                        BluetoothShare.MIMETYPE
+                }, null, null, null);
         if (metadataCursor != null) {
             try {
                 if (metadataCursor.moveToFirst()) {
@@ -177,8 +181,8 @@ public class BluetoothOppReceiveFileInfo {
         mediaContentValues.put(MediaStore.MediaColumns.MIME_TYPE, mimeType);
         mediaContentValues.put(MediaStore.MediaColumns.RELATIVE_PATH,
                 Environment.DIRECTORY_DOWNLOADS);
-        insertUri = contentResolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI,
-                mediaContentValues);
+        insertUri = BluetoothMethodProxy.getInstance().contentResolverInsert(contentResolver,
+                MediaStore.Downloads.EXTERNAL_CONTENT_URI, mediaContentValues);
 
         if (insertUri == null) {
             if (D) {

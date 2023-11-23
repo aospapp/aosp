@@ -38,8 +38,8 @@ public final class EnterprisePrivacySettingsPreferenceController
     }
 
     @Override
-    protected int getAvailabilityStatus() {
-        int superStatus = super.getAvailabilityStatus();
+    protected int getDefaultAvailabilityStatus() {
+        int superStatus = super.getDefaultAvailabilityStatus();
         if (superStatus != AVAILABLE) {
             mLogger.d("getAvailabilityStatus(): returning " + superStatus);
             return superStatus;

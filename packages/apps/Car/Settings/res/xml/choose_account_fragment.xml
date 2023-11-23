@@ -22,7 +22,7 @@
         android:key="@string/pk_add_account"
         settings:controller="com.android.car.settings.accounts.ChooseAccountPreferenceController"/>
 
-    <com.android.car.settings.common.CarFooterPreference
+    <com.android.car.ui.preference.CarUiFooterPreference
         android:key="@string/pk_add_account_enterprise_disclosure_footer"
         android:selectable="false"
         settings:searchable="false"

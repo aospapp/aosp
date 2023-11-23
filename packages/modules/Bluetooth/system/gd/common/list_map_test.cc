@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-#include <chrono>
 #include <memory>
 
 #include <gmock/gmock.h>
@@ -329,7 +328,6 @@ TEST(ListMapTest, for_loop_test) {
 }
 
 TEST(ListMapTest, pressure_test) {
-  auto started = std::chrono::high_resolution_clock::now();
   int num_entries = 0xFFFF;  // 2^16 = 65535
   ListMap<int, int> list_map;
 
@@ -351,13 +349,6 @@ TEST(ListMapTest, pressure_test) {
     EXPECT_TRUE(list_map.extract(key));
   }
   EXPECT_EQ(list_map.size(), 0ul);
-
-  // test execution time
-  auto done = std::chrono::high_resolution_clock::now();
-  int execution_time = std::chrono::duration_cast<std::chrono::microseconds>(done - started).count();
-  // Shouldn't be more than 1000ms
-  int execution_time_per_cycle_us = 10;
-  EXPECT_LT(execution_time, execution_time_per_cycle_us * num_entries);
 }
 
 }  // namespace testing

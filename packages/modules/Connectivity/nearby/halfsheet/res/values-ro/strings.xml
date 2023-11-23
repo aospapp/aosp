@@ -18,12 +18,23 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="fast_pair_setup_in_progress" msgid="4158762239172829807">"Începe configurarea…"</string>
-    <string name="fast_pair_title_setup" msgid="2894360355540593246">"Configurați dispozitivul"</string>
+    <string name="fast_pair_title_setup" msgid="2894360355540593246">"Configurează dispozitivul"</string>
     <string name="fast_pair_device_ready" msgid="2903490346082833101">"Dispozitivul s-a conectat"</string>
+    <string name="fast_pair_device_ready_with_device_name" msgid="2151967995692339422">"Conectat la %s"</string>
     <string name="fast_pair_title_fail" msgid="5677174346601290232">"Nu s-a putut conecta"</string>
+    <string name="fast_pair_unable_to_connect" msgid="3661854812014294569">"Nu se poate conecta"</string>
+    <string name="fast_pair_unable_to_connect_description" msgid="3926830740860653891">"Încearcă asocierea manuală cu dispozitivul"</string>
+    <string name="fast_pair_turn_on_bt_device_pairing_mode" msgid="3197372738187738030">"Încearcă să pui dispozitivul în modul de asociere"</string>
+    <string name="devices_within_reach_channel_name" msgid="876280551450910440">"Dispozitive în vecinătate"</string>
+    <string name="devices_with_your_account_channel_name" msgid="8120067812798598102">"Dispozitive conectate cu contul"</string>
+    <string name="fast_pair_your_device" msgid="3662423897069320840">"Dispozitivul este disponibil"</string>
+    <string name="common_nearby_title" msgid="5480324514713607015">"În apropiere"</string>
+    <string name="common_devices" msgid="2635603125608104442">"Dispozitive"</string>
+    <string name="common_connecting" msgid="160531481424245303">"Se conectează…"</string>
+    <string name="common_battery_level" msgid="8748495823047456645">"Baterie: %d%%"</string>
     <string name="paring_action_done" msgid="6888875159174470731">"Gata"</string>
-    <string name="paring_action_save" msgid="6259357442067880136">"Salvați"</string>
-    <string name="paring_action_connect" msgid="4801102939608129181">"Conectați"</string>
-    <string name="paring_action_launch" msgid="8940808384126591230">"Configurați"</string>
+    <string name="paring_action_save" msgid="6259357442067880136">"Salvează"</string>
+    <string name="paring_action_connect" msgid="4801102939608129181">"Conectează"</string>
+    <string name="paring_action_launch" msgid="8940808384126591230">"Configurează"</string>
     <string name="paring_action_settings" msgid="424875657242864302">"Setări"</string>
 </resources>

@@ -30,6 +30,10 @@ import androidx.core.content.ContextCompat;
 import com.android.launcher3.LauncherAnimUtils;
 import com.android.launcher3.R;
 
+/**
+ * View to render a handle that changes color based on the background to ensure contrast. Used for
+ * the taskbar when stashed as well as the bubble bar when stashed.
+ */
 public class StashedHandleView extends View {
 
     private static final long COLOR_CHANGE_DURATION = 120;
@@ -69,6 +73,10 @@ public class StashedHandleView extends View {
      */
     public void updateSampledRegion(Rect stashedHandleBounds) {
         getLocationOnScreen(mTmpArr);
+        // Translations are temporary due to animations, remove them for the purpose of determining
+        // the final region we want sampled.
+        mTmpArr[0] -= Math.round(getTranslationX());
+        mTmpArr[1] -= Math.round(getTranslationY());
         mSampledRegion.set(stashedHandleBounds);
         mSampledRegion.offset(mTmpArr[0], mTmpArr[1]);
     }

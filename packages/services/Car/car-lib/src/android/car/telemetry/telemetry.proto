@@ -84,6 +84,7 @@ message StatsPublisher {
     // Collects all the app start events with the initial used RSS/CACHE/SWAP memory.
     APP_START_MEMORY_STATE_CAPTURED = 1;
     // Collects memory state of processes in 5-minute buckets (1 memory measurement per bucket).
+    // Consider using PROCESS_MEMORY_SNAPSHOT instead for smaller data size.
     PROCESS_MEMORY_STATE = 2;
     // Collects activity foreground/background transition events.
     ACTIVITY_FOREGROUND_STATE_CHANGED = 3;
@@ -95,6 +96,15 @@ message StatsPublisher {
     ANR_OCCURRED = 6;
     // Collects "wtf"-level log events.
     WTF_OCCURRED = 7;
+    // Collects memory snapshot of processes in 5-minute buckets (1 memory measurement per bucket).
+    // It differs from PROCESS_MEMORY_STATE in that the snapshot can be used for leaked memory
+    // detection by tracking anon RSS + swap usage.
+    PROCESS_MEMORY_SNAPSHOT = 8;
+    // Logs number of milliseconds it takes to start a process.
+    // The definition of app process start time is from the app launch time to
+    // the time that Zygote finished forking the app process and loaded the
+    // application package's java classes.
+    PROCESS_START_TIME = 9;
   }
 
   // Required.
@@ -127,12 +137,23 @@ message ConnectivityPublisher {
   optional OemType oem_type = 2;
 }
 
-// Publisher for device-wide memory statistics.
-// It pulls data from /proc/meminfo every N seconds, where N is the read_interval_sec.
+// Publisher for device-wide memory statistics as well as process memory statistics.
+// It pulls data every N seconds, where N is the read_interval_sec.
+// Only one declaration of MemoryPublisher is allowed across all MetricsConfigs.
+// Performance on a device with 8GB RAM:
+// Collecting device meminfo takes 1-3ms.
+// Collecting process meminfo takes 70ms and up, depending on how many package names are specified.
+// For reference, collecting process memory on 1 process takes ~70ms, and for 10 processes it takes
+// ~200ms.
 message MemoryPublisher {
   // Required.
   // The number of seconds in between each memory snapshot.
   // The smallest acceptable read interval is 1, which means one snapshot per second.
+  // If only device meminfo is collected, i.e., leaving the package_names field as empty, then
+  // one snapshot per second is lightweight enough to be supported.
+  // However, collecting additional process meminfo is an expensive operation and has adverse
+  // system health impact. Client should consider increasing read_interval_sec to reduce the
+  // data collection frequency if package_names field is non-empty.
   optional int32 read_interval_sec = 1;
 
   // Optional.
@@ -145,6 +166,17 @@ message MemoryPublisher {
   // The maximum number of pending script execution tasks that the MemoryPublisher can produce
   // before the publisher is throttled (rate-limited).
   optional int32 max_pending_tasks = 3;
+
+  // Optional.
+  // The package names to get process memory statistics on. If specified, it will be published
+  // along with device memory.
+  // Important: Specifying package_names will increase the cost of data collection in
+  // MemoryPublisher. So it should be done carefully and only when necessary. Some remedies
+  // include increasing the read_interval_sec to reduce data collection frequency, and to use a
+  // small number for max_pending_tasks to throttle the publisher. Client should remove the
+  // MetricsConfig once enough process memory data has been collected. It is not intended to be
+  // used as continuous monitoring on process memory because it is an expensive call.
+  repeated string package_names = 4;
 }
 
 // Specifies data publisher and its parameters.
@@ -161,9 +193,11 @@ message Publisher {
 // Specifies publisher with its parameters and the handler function that's invoked
 // when data is received. The format of the data depends on the Publisher.
 message Subscriber {
-  // Required.
+  // Optional.
   // Name of the function that handles the published data. Must be defined
   // in the script.
+  // Leaving the field unset signals that the data from the specified publisher
+  // should bypass ScriptExecutor and be uploaded directly in its original form.
   optional string handler = 1;
 
   // Required.

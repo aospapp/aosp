@@ -18,8 +18,17 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="app_title" msgid="1995858460392177468">"গাড়ী লঞ্চাৰ"</string>
+    <string name="reset_appgrid_title" msgid="814562055108028366">"এপৰ গ্ৰিডটো A-Z ক্ৰমলৈ ৰিছেট কৰক"</string>
+    <string name="reset_appgrid_dialogue_message" msgid="8275758912490987735">"এই ফাংশ্বনটোৱে আটাইবোৰ কাষ্টম অৰ্ডাৰ আঁতৰাব। আপুনি অব্যাহত ৰাখিব বিচাৰেনে?"</string>
     <string name="app_launcher_title_all_apps" msgid="3215107396036838217">"আটাইবোৰ এপ্‌"</string>
     <string name="app_launcher_title_media_only" msgid="4400886555907422816">"মিডিয়া এপ্‌"</string>
+    <string name="app_launcher_stop_app_action" msgid="1081680842410279692">"এপ্ বন্ধ কৰক"</string>
+    <string name="app_launcher_app_info_action" msgid="6388181061002827660">"এপৰ তথ্য"</string>
+    <string name="app_launcher_stop_app_success_toast_text" msgid="2117271772351005349">"<xliff:g id="APP_NAME">%1$s</xliff:g> বন্ধ কৰা হৈছে।"</string>
+    <string name="app_launcher_stop_app_dialog_title" msgid="8276889322638001144">"এপ্ বন্ধ কৰিবনে?"</string>
+    <string name="app_launcher_stop_app_dialog_text" msgid="3264059639436254372">"আপুনি কোনো এপ্‌ বলেৰে বন্ধ কৰিবলৈ চেষ্টা কৰিলে, ই অস্বাভাৱিক আচৰণ কৰিব পাৰে।"</string>
+    <string name="app_launcher_stop_app_cant_stop_text" msgid="4766841417948746773">"এপ্‌ বন্ধ কৰিব নোৱাৰি।"</string>
+    <string name="default_media_song_title" msgid="2970305231647817808"></string>
     <string name="driving_toast_text" msgid="149483091947120092">"গাড়ী চলাই থকাৰ সময়ত <xliff:g id="APP_NAME">%1$s</xliff:g> ব্যৱহাৰ কৰিব নোৱাৰি।"</string>
     <string name="tap_for_more_info_text" msgid="2043549383814415585">"অধিক তথ্যৰ বাবে কাৰ্ডত টিপক"</string>
     <string name="tap_to_launch_text" msgid="6910695705119260847">"লঞ্চ কৰিবলৈ কাৰ্ডত টিপক"</string>
@@ -34,4 +43,8 @@
     <string name="fake_weather_footer_text" msgid="4570172025869749926">"মাউণ্টেইন ভিউ • H: --° L: --°"</string>
     <string name="hide_debug_apps" msgid="6128313544379622475">"ডিবাগ এপ্‌সমূহ লুকুৱাওক"</string>
     <string name="show_debug_apps" msgid="4521073121286325786">"ডিবাগ এপ্‌সমূহ দেখুৱাওক"</string>
+    <string name="times_separator" msgid="6180368193321715816">"/"</string>
+    <string name="recents_empty_state_text" msgid="6703106170272215731">"কোনো শেহতীয়া বস্তু নাই"</string>
+    <string name="recents_clear_all_text" msgid="2088678071417053923">"আটাইবোৰ মচক"</string>
+    <string name="failure_opening_recent_task_message" msgid="9097595793150874357">"এপ্‌টো উপলব্ধ নহয়"</string>
 </resources>

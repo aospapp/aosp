@@ -59,7 +59,7 @@ int main(int argc, const char** argv) {
 
     sp<ProcessState> processSelf(ProcessState::self());
     sp<IServiceManager> serviceManager = defaultServiceManager();
-    auto service = std::make_unique<EventProviderImpl>(std::move(gatherer));
+    auto service = sp<EventProviderImpl>::make(std::move(gatherer));
     serviceManager->addService(String16(SERVICE_NAME), service.get());
 
     processSelf->startThreadPool();

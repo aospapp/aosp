@@ -16,6 +16,7 @@
 
 package android.bluetooth;
 
+import android.annotation.NonNull;
 import android.os.Parcel;
 import android.os.Parcelable;
 import android.util.Log;
@@ -118,8 +119,7 @@ public final class BluetoothAvrcpPlayerSettings implements Parcelable {
         }
     }
 
-    public static final @android.annotation.NonNull Parcelable.Creator<BluetoothAvrcpPlayerSettings> CREATOR =
-            new Parcelable.Creator<BluetoothAvrcpPlayerSettings>() {
+    public static final @NonNull Creator<BluetoothAvrcpPlayerSettings> CREATOR = new Creator<>() {
         public BluetoothAvrcpPlayerSettings createFromParcel(Parcel in) {
             return new BluetoothAvrcpPlayerSettings(in);
         }

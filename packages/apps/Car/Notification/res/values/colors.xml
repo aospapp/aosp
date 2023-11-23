@@ -15,15 +15,27 @@
     limitations under the License.
 -->
 <resources>
+    <color name="notification_background_color">#ff282a2d</color>
     <color name="group_notification_background_color">@*android:color/car_grey_900</color>
     <color name="action_button_background_color">#1EFFFFFF</color>
     <color name="emergency_background_color">#B41B1A</color>
+    <color name="emergency_primary_text_color">@*android:color/car_body1</color>
+    <color name="emergency_secondary_text_color">@*android:color/car_body3</color>
+    <color name="information_background_color">@*android:color/holo_orange_light</color>
+    <color name="information_primary_text_color">@*android:color/car_body1</color>
+    <color name="information_secondary_text_color">@*android:color/car_body3</color>
+    <color name="warning_background_color">@*android:color/holo_orange_dark</color>
+    <color name="warning_primary_text_color">@*android:color/car_body1</color>
+    <color name="warning_secondary_text_color">@*android:color/car_body3</color>
     <color name="call_accept_button">#208746</color>
     <color name="call_decline_button">#D33B30</color>
     <color name="unmute_button">#66B5FF</color>
     <color name="primary_text_color">@*android:color/car_body1</color>
     <color name="secondary_text_color">@*android:color/car_body3</color>
     <color name="notification_accent_color">@*android:color/car_body1</color>
+    <color name="first_action_button_text_color">@color/notification_accent_color</color>
+    <color name="progress_bar_color">@color/notification_background_color</color>
+    <color name="progress_bar_bg_color">@*android:color/car_body3</color>
 
     <!-- The color of the clear all button for notifications -->
     <color name="clear_all_button_background_color">@*android:color/car_grey_868</color>
@@ -34,4 +46,5 @@
     <color name="notification_list_divider_color">@*android:color/car_list_divider</color>
     <color name="icon_tint">@*android:color/car_tint</color>
     <color name="dark_icon_tint">@*android:color/car_tint_dark</color>
+    <color name="count_text">@color/notification_accent_color</color>
 </resources>

@@ -17,9 +17,9 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="app_label" msgid="2008319089248760277">"ୱେୟାରଲେସ୍ ଜରୁରୀକାଳୀନ ଆଲର୍ଟ"</string>
-    <string name="sms_cb_settings" msgid="9021266457863671070">"ୱେୟାରଲେସ୍ ଜରୁରୀକାଳୀନ ଆଲର୍ଟ"</string>
+    <string name="sms_cb_settings" msgid="9021266457863671070">"ୱାୟାରଲେସ ଜରୁରୀକାଳୀନ ଆଲର୍ଟ"</string>
     <string name="sms_cb_sender_name_default" msgid="972946539768958828">"ୱେୟାରଲେସ୍ ଜରୁରୀକାଳୀନ ଆଲର୍ଟ"</string>
-    <string name="sms_cb_sender_name_presidential" msgid="5302753979711319380">"ୱେୟାରଲେସ୍ ଜରୁରୀକାଳୀନ ଆଲର୍ଟଗୁଡ଼ିକ"</string>
+    <string name="sms_cb_sender_name_presidential" msgid="5302753979711319380">"ୱାୟାରଲେସ ଜରୁରୀକାଳୀନ ଆଲର୍ଟଗୁଡ଼ିକ"</string>
     <string name="sms_cb_sender_name_emergency" msgid="2937067842997478965">"ୱେୟାରଲେସ୍ ଜରୁରୀକାଳୀନ ଆଲର୍ଟଗୁଡ଼ିକ"</string>
     <string name="sms_cb_sender_name_public_safety" msgid="5230033387708907922">"ସୂଚନାଭିତ୍ତିକ ବିଜ୍ଞପ୍ତି"</string>
     <string name="cell_broadcast_settings_not_available" msgid="3908142962162375221">"ଏହି ଉପଯୋଗକର୍ତ୍ତାଙ୍କ ପାଇଁ ୱେୟାରଲେସ ଜରୁରୀକାଳୀନ ଆଲର୍ଟ ସେଟିଂସ ଉପଲବ୍ଧ ନାହିଁ"</string>
@@ -35,7 +35,7 @@
     <string name="confirm_delete_broadcast" msgid="2540199303730232322">"ଏହି ବ୍ରୋଡକାଷ୍ଟକୁ ଡିଲିଟ୍‌ କରିବେ?"</string>
     <string name="confirm_delete_all_broadcasts" msgid="2924444089047280871">"ପ୍ରାପ୍ତ କରିଥିବା ସମସ୍ତ ବ୍ରୋଡକାଷ୍ଟ ମେସେଜ୍‌ ଡିଲିଟ୍‌ କରିବେ?"</string>
     <string name="button_delete" msgid="4672451757925194350">"ଡିଲିଟ୍‌ କରନ୍ତୁ"</string>
-    <string name="button_cancel" msgid="7479958360523246140">"ବାତିଲ୍‍ କରନ୍ତୁ"</string>
+    <string name="button_cancel" msgid="7479958360523246140">"ବାତିଲ କରନ୍ତୁ"</string>
     <string name="etws_earthquake_warning" msgid="6428741104423152511">"ଭୂମିକମ୍ପ ଚେତାବନୀ"</string>
     <string name="etws_tsunami_warning" msgid="6173964105145900312">"ସୁନାମି ଚେତାବନୀ"</string>
     <string name="etws_earthquake_and_tsunami_warning" msgid="662449983177407681">"ଭୂମିକମ୍ପ ଏବଂ ସୁନାମି ଚେତାବନୀ"</string>
@@ -112,7 +112,7 @@
     <string name="cmas_category_transport" msgid="5014901635987361642">"ପରିବହନ"</string>
     <string name="cmas_category_infra" msgid="3558151044446851398">"ଇନଫ୍ରାଷ୍ଟ୍ରକଚର୍‌"</string>
     <string name="cmas_category_cbrne" msgid="240421557913603971">"ରାସାୟନିକ/ଜୀବବିଜ୍ଞାନ/ଆଣବିକ/ବିସ୍ଫୋରକ"</string>
-    <string name="cmas_category_other" msgid="6158932360790744360">"ଅନ୍ୟାନ୍ୟ"</string>
+    <string name="cmas_category_other" msgid="6158932360790744360">"ଅନ୍ୟ"</string>
     <string name="cmas_response_heading" msgid="4205379547245540163">"ପ୍ରତିକ୍ରିୟାର ପ୍ରକାର:"</string>
     <string name="cmas_response_shelter" msgid="7301175579079615909">"ଆଶ୍ରୟ"</string>
     <string name="cmas_response_evacuate" msgid="5833170084430021095">"ଖାଲି କରନ୍ତୁ"</string>

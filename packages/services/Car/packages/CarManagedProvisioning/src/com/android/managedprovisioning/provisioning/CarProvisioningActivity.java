@@ -45,8 +45,6 @@ public final class CarProvisioningActivity extends ProvisioningActivity {
     private static final int RESET_REQUEST_CODE = 1;
 
     private UserProvisioningStateHelper mUserProvisioningStateHelper;
-    private PolicyComplianceUtils mPolicyComplianceUtils;
-    private ProvisioningManager mProvisioningManager;
     private ProvisioningActivityBridge mBridge;
 
     public CarProvisioningActivity() {

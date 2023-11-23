@@ -23,6 +23,7 @@ import android.os.PersistableBundle;
 import com.android.car.internal.util.IntArray;
 import com.android.car.internal.util.LongArray;
 import com.android.car.telemetry.UidPackageMapper;
+import com.android.car.telemetry.publisher.Constants;
 
 /**
  * Restructured {@link NetworkStats} to simplify subtract/add arithmetics, as well as converting
@@ -147,20 +148,20 @@ public class RefinedStats {
     @NonNull
     public PersistableBundle toPersistableBundle(@NonNull UidPackageMapper uidMapper) {
         PersistableBundle data = new PersistableBundle();
-        data.putLong("startMillis", mStartMillis);
-        data.putLong("endMillis", mEndMillis);
-        data.putInt("size", mUid.size());
+        data.putLong(Constants.CONNECTIVITY_BUNDLE_KEY_START_MILLIS, mStartMillis);
+        data.putLong(Constants.CONNECTIVITY_BUNDLE_KEY_END_MILLIS, mEndMillis);
+        data.putInt(Constants.CONNECTIVITY_BUNDLE_KEY_SIZE, mUid.size());
         // TODO(b/218596960): send empty array anyway for data schema consistency.
         if (mUid.size() > 0) {
-            data.putIntArray("uid", mUid.toArray());
+            data.putIntArray(Constants.CONNECTIVITY_BUNDLE_KEY_UID, mUid.toArray());
             String[] packages = new String[mUid.size()];
             for (int i = 0; i < mUid.size(); i++) {
                 packages[i] = String.join(",", uidMapper.getPackagesForUid(mUid.get(i)));
             }
-            data.putStringArray("packages", packages);
-            data.putIntArray("tag", mTag.toArray());
-            data.putLongArray("rxBytes", mRxBytes.toArray());
-            data.putLongArray("txBytes", mTxBytes.toArray());
+            data.putStringArray(Constants.CONNECTIVITY_BUNDLE_KEY_PACKAGES, packages);
+            data.putIntArray(Constants.CONNECTIVITY_BUNDLE_KEY_TAG, mTag.toArray());
+            data.putLongArray(Constants.CONNECTIVITY_BUNDLE_KEY_RX_BYTES, mRxBytes.toArray());
+            data.putLongArray(Constants.CONNECTIVITY_BUNDLE_KEY_TX_BYTES, mTxBytes.toArray());
         }
         return data;
     }

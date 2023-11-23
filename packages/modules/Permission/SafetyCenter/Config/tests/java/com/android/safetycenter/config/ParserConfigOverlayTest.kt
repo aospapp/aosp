@@ -17,14 +17,12 @@
 package com.android.safetycenter.config
 
 import android.content.Context
-import android.os.Build.VERSION_CODES.TIRAMISU
 import androidx.test.core.app.ApplicationProvider.getApplicationContext
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import androidx.test.filters.SdkSuppress
 import com.android.compatibility.common.util.SystemUtil.runShellCommand
-import com.android.safetycenter.config.Coroutines.waitForTestToPass
-import com.android.safetycenter.config.Coroutines.waitForWithTimeout
 import com.android.safetycenter.config.tests.R
+import com.android.safetycenter.testing.Coroutines.waitForSuccessWithTimeout
+import com.android.safetycenter.testing.Coroutines.waitForWithTimeout
 import com.google.common.truth.Truth.assertThat
 import org.junit.AfterClass
 import org.junit.Assert.assertThrows
@@ -33,12 +31,11 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 @RunWith(AndroidJUnit4::class)
-@SdkSuppress(minSdkVersion = TIRAMISU, codeName = "Tiramisu")
 class ParserConfigOverlayTest {
     private val context: Context = getApplicationContext()
 
     @Test
-    fun validNotOverlayableConfig_matchesExpected() = waitForTestToPass {
+    fun validNotOverlayableConfig_matchesExpected() = waitForSuccessWithTimeout {
         val inputStream = context.resources.openRawResource(R.raw.config_valid_not_overlayable)
 
         val safetyCenterConfig =
@@ -72,7 +69,7 @@ class ParserConfigOverlayTest {
     }
 
     @Test
-    fun validOverlayableConfig_matchesExpected() = waitForTestToPass {
+    fun validOverlayableConfig_matchesExpected() = waitForSuccessWithTimeout {
         val inputStream = context.resources.openRawResource(R.raw.config_valid_overlayable)
 
         val safetyCenterConfig =
@@ -103,7 +100,7 @@ class ParserConfigOverlayTest {
     }
 
     @Test
-    fun invalidOverlayableConfig_StringResourceNameInvalid_throws() = waitForTestToPass {
+    fun invalidOverlayableConfig_StringResourceNameInvalid_throws() = waitForSuccessWithTimeout {
         val inputStream =
             context.resources.openRawResource(R.raw.config_string_resource_name_invalid_overlayable)
 
@@ -116,7 +113,8 @@ class ParserConfigOverlayTest {
             .hasMessageThat()
             .isEqualTo(
                 "Resource name \"@com.android.safetycenter.config.tests:string/reference_overlay" +
-                    "\" in static-safety-source.summary missing or invalid")
+                    "\" in static-safety-source.summary missing or invalid"
+            )
     }
 
     companion object {
@@ -127,7 +125,8 @@ class ParserConfigOverlayTest {
         private const val STATE_ENABLED = "STATE_ENABLED"
 
         private fun getStateForOverlay(overlayPackage: String): String? {
-            val result: String = runShellCommand("cmd overlay dump --user 0 state $overlayPackage")
+            val result: String =
+                runShellCommand("cmd overlay dump --user 0 state $overlayPackage").lines().first()
             if (!result.startsWith("STATE_")) {
                 return null
             }

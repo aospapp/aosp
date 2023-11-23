@@ -25,8 +25,6 @@ import static com.android.launcher3.allapps.AllAppsTransitionController.ALL_APPS
 import static com.android.launcher3.allapps.AllAppsTransitionController.ALL_APPS_PULL_BACK_TRANSLATION;
 import static com.android.launcher3.anim.AnimatorListeners.forSuccessCallback;
 import static com.android.launcher3.anim.Interpolators.DEACCEL_3;
-import static com.android.launcher3.config.FeatureFlags.ENABLE_ALL_APPS_EDU;
-import static com.android.launcher3.config.FeatureFlags.ENABLE_QUICKSTEP_LIVE_TILE;
 import static com.android.launcher3.logging.StatsLogManager.LauncherEvent.LAUNCHER_HOME_GESTURE;
 import static com.android.systemui.shared.system.ActivityManagerWrapper.CLOSE_SYSTEM_WINDOWS_REASON_RECENTS;
 
@@ -43,11 +41,9 @@ import com.android.launcher3.allapps.AllAppsTransitionController;
 import com.android.launcher3.anim.AnimatorPlaybackController;
 import com.android.launcher3.anim.PendingAnimation;
 import com.android.launcher3.compat.AccessibilityManagerCompat;
-import com.android.launcher3.config.FeatureFlags;
 import com.android.launcher3.touch.SingleAxisSwipeDetector;
 import com.android.launcher3.util.TouchController;
 import com.android.quickstep.TaskUtils;
-import com.android.quickstep.TopTaskTracker;
 import com.android.quickstep.util.AnimatorControllerWithResistance;
 import com.android.quickstep.util.OverviewToHomeAnim;
 import com.android.quickstep.views.RecentsView;
@@ -106,13 +102,8 @@ public class NavBarToHomeTouchController implements TouchController,
         if (mStartState.overviewUi || mStartState == ALL_APPS) {
             return true;
         }
-        int typeToClose = ENABLE_ALL_APPS_EDU.get() ? TYPE_ALL & ~TYPE_ALL_APPS_EDU : TYPE_ALL;
+        int typeToClose = TYPE_ALL & ~TYPE_ALL_APPS_EDU;
         if (AbstractFloatingView.getTopOpenViewWithType(mLauncher, typeToClose) != null) {
-            return true;
-        }
-        if (FeatureFlags.ASSISTANT_GIVES_LAUNCHER_FOCUS.get()
-                && TopTaskTracker.INSTANCE.get(mLauncher).getCachedTopTask(false)
-                        .isExcludedAssistant()) {
             return true;
         }
         return false;
@@ -140,9 +131,7 @@ public class NavBarToHomeTouchController implements TouchController,
             AnimatorControllerWithResistance.createRecentsResistanceFromOverviewAnim(mLauncher,
                     builder);
 
-            if (ENABLE_QUICKSTEP_LIVE_TILE.get()) {
-                builder.addOnFrameCallback(recentsView::redrawLiveTile);
-            }
+            builder.addOnFrameCallback(recentsView::redrawLiveTile);
 
             AbstractFloatingView.closeOpenContainer(mLauncher, AbstractFloatingView.TYPE_TASK_MENU);
         } else if (mStartState == ALL_APPS) {
@@ -183,11 +172,9 @@ public class NavBarToHomeTouchController implements TouchController,
         boolean success = interpolatedProgress >= SUCCESS_TRANSITION_PROGRESS
                 || (velocity < 0 && fling);
         if (success) {
-            if (ENABLE_QUICKSTEP_LIVE_TILE.get()) {
-                RecentsView recentsView = mLauncher.getOverviewPanel();
-                recentsView.switchToScreenshot(null,
-                        () -> recentsView.finishRecentsAnimation(true /* toRecents */, null));
-            }
+            RecentsView recentsView = mLauncher.getOverviewPanel();
+            recentsView.switchToScreenshot(null,
+                    () -> recentsView.finishRecentsAnimation(true /* toRecents */, null));
             if (mStartState.overviewUi) {
                 new OverviewToHomeAnim(mLauncher, () -> onSwipeInteractionCompleted(mEndState))
                         .animateWithVelocity(velocity);

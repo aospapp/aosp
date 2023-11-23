@@ -70,6 +70,8 @@
                             android:layout_height="wrap_content"
                             android:text="@string/blocked_numbers_msg"
                             android:paddingBottom="@dimen/blocked_numbers_extra_large_padding"
+                            android:clickable="false"
+                            android:longClickable="false"
                             style="@style/BlockedNumbersTextPrimary2" />
 
                     <TextView

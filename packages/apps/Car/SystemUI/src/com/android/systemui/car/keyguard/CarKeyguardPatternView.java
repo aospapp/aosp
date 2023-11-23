@@ -16,12 +16,9 @@
 
 package com.android.systemui.car.keyguard;
 
-import android.app.ActivityManager;
 import android.content.Context;
 import android.util.AttributeSet;
-import android.util.Log;
 
-import com.android.internal.widget.LockPatternUtils;
 import com.android.keyguard.KeyguardPatternView;
 
 /**
@@ -40,23 +37,5 @@ public class CarKeyguardPatternView extends KeyguardPatternView {
 
     public CarKeyguardPatternView(Context context, AttributeSet attrs) {
         super(context, attrs);
-    }
-
-    @Override
-    protected void onFinishInflate() {
-        super.onFinishInflate();
-
-        // TODO: Remove this code block when b/158386500 is addressed properly.
-        LockPatternUtils utils = new LockPatternUtils(getContext());
-        int currentUser = ActivityManager.getCurrentUser();
-        if (!utils.isVisiblePatternEnabled(currentUser)) {
-            utils.setVisiblePatternEnabled(true, currentUser);
-            Log.w(TAG, "Pattern is inivisble for the current user. Setting it to be visible.");
-        }
-    }
-
-    @Override
-    public void startAppearAnimation() {
-        setAlpha(1f);
     }
 }

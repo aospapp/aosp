@@ -40,11 +40,11 @@ import java.util.Map;
 public class TlvDatum {
     private static final String LOG_TAG = "TlvDatum";
 
-    public static final int MAX_SIZE_SINGLE_BYTE = 0x7F;
-    public static final int MAX_SIZE_TWO_BYTE = 0xFF;
-    public static final int MAX_SIZE_THREE_BYTE = 0xFFFF;
-    public static final int MAX_SIZE_FOUR_BYTE = 0xFFFFFF;
-    public static final int MAX_SIZE_FIVE_BYTE = 0xFFFFFFFF;
+    public static final long MAX_SIZE_SINGLE_BYTE = 0x7FL;
+    public static final long MAX_SIZE_TWO_BYTE = 0xFFL;
+    public static final long MAX_SIZE_THREE_BYTE = 0xFFFFL;
+    public static final long MAX_SIZE_FOUR_BYTE = 0xFFFFFFL;
+    public static final long MAX_SIZE_FIVE_BYTE = 0xFFFFFFFFL;
 
     public static final byte TWO_BYTES_LEN_FIRST_BYTE = (byte) 0x81;
     public static final byte THREE_BYTES_LEN_FIRST_BYTE = (byte) 0x82;

@@ -153,7 +153,7 @@ void WriteHeaderFile(FILE* fp, const uint8_t* data, size_t data_len) {
   fprintf(fp, "extern const std::string& GetBundledSchemaData();\n");
   fprintf(fp, "const unsigned char %sdata_[%zu] = {\n", namespace_prefix.c_str(), data_len);
 
-  for (auto i = 0; i < data_len; i++) {
+  for (size_t i = 0; i < data_len; i++) {
     fprintf(fp, " 0x%02x", data[i]);
     if (i != data_len - 1) {
       fprintf(fp, ",");

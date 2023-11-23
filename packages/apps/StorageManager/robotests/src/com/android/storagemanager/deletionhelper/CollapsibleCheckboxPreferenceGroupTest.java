@@ -18,6 +18,7 @@ package com.android.storagemanager.deletionhelper;
 
 import static com.google.common.truth.Truth.assertThat;
 import static org.mockito.Mockito.when;
+import static org.robolectric.annotation.LooperMode.Mode.LEGACY;
 
 import android.content.Context;
 import android.view.LayoutInflater;
@@ -31,11 +32,13 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+import org.robolectric.annotation.LooperMode;
 import org.robolectric.Robolectric;
 import org.robolectric.RobolectricTestRunner;
 import org.robolectric.RuntimeEnvironment;
 
 @RunWith(RobolectricTestRunner.class)
+@LooperMode(LEGACY)
 public class CollapsibleCheckboxPreferenceGroupTest {
 
     private Context mContext;

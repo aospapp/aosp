@@ -14,26 +14,28 @@
  * limitations under the License.
  */
 
+#include "main/shim/entry.h"
+
 #include "gd/btaa/activity_attribution.h"
+#include "gd/hal/snoop_logger.h"
 #include "gd/hci/controller.h"
+#include "gd/hci/distance_measurement_manager.h"
 #include "gd/hci/hci_layer.h"
 #include "gd/hci/le_advertising_manager.h"
 #include "gd/hci/le_scanning_manager.h"
+#include "gd/hci/msft.h"
+#include "gd/hci/remote_name_request.h"
 #include "gd/hci/vendor_specific_event_manager.h"
 #include "gd/metrics/counter_metrics.h"
 #include "gd/neighbor/connectability.h"
 #include "gd/neighbor/discoverability.h"
 #include "gd/neighbor/inquiry.h"
-#include "gd/neighbor/name.h"
 #include "gd/neighbor/page.h"
 #include "gd/os/handler.h"
 #include "gd/security/security_module.h"
 #include "gd/shim/dumpsys.h"
 #include "gd/storage/storage_module.h"
-
 #include "hci/acl_manager.h"
-
-#include "main/shim/entry.h"
 #include "main/shim/stack.h"
 
 namespace bluetooth {
@@ -91,16 +93,16 @@ bluetooth::l2cap::le::L2capLeModule* GetL2capLeModule() {
       ->GetInstance<bluetooth::l2cap::le::L2capLeModule>();
 }
 
-neighbor::NameModule* GetName() {
-  return Stack::GetInstance()
-      ->GetStackManager()
-      ->GetInstance<neighbor::NameModule>();
-}
-
 neighbor::PageModule* GetPage() {
   return Stack::GetInstance()
       ->GetStackManager()
       ->GetInstance<neighbor::PageModule>();
+}
+
+hci::RemoteNameRequestModule* GetRemoteNameRequest() {
+  return Stack::GetInstance()
+      ->GetStackManager()
+      ->GetInstance<hci::RemoteNameRequestModule>();
 }
 
 hci::LeScanningManager* GetScanning() {
@@ -109,10 +111,22 @@ hci::LeScanningManager* GetScanning() {
       ->GetInstance<hci::LeScanningManager>();
 }
 
+hci::DistanceMeasurementManager* GetDistanceMeasurementManager() {
+  return Stack::GetInstance()
+      ->GetStackManager()
+      ->GetInstance<hci::DistanceMeasurementManager>();
+}
+
 security::SecurityModule* GetSecurityModule() {
   return Stack::GetInstance()
       ->GetStackManager()
       ->GetInstance<security::SecurityModule>();
+}
+
+hal::SnoopLogger* GetSnoopLogger() {
+  return Stack::GetInstance()
+      ->GetStackManager()
+      ->GetInstance<hal::SnoopLogger>();
 }
 
 storage::StorageModule* GetStorage() {
@@ -143,6 +157,12 @@ metrics::CounterMetrics* GetCounterMetrics() {
   return Stack::GetInstance()
       ->GetStackManager()
       ->GetInstance<metrics::CounterMetrics>();
+}
+
+hci::MsftExtensionManager* GetMsftExtensionManager() {
+  return Stack::GetInstance()
+      ->GetStackManager()
+      ->GetInstance<hci::MsftExtensionManager>();
 }
 
 }  // namespace shim

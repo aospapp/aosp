@@ -125,6 +125,7 @@ public class PasspointXmlUtils {
     private static final String XML_TAG_IS_OEM_PRIVATE = "IsOemPrivate";
     private static final String XML_TAG_DECORATED_IDENTITY_PREFIX = "DecoratedIdentityPrefix";
     private static final String XML_TAG_SUBSCRIPTION_GROUP = "SubscriptionGroup";
+    private static final String XML_TAG_MINIMUM_TLS_VERSION = "MinimumTlsVersion";
 
     /**
      * Serialize a {@link PasspointConfiguration} to the output stream as a XML block.
@@ -343,6 +344,8 @@ public class PasspointXmlUtils {
         XmlUtil.writeNextValue(out, XML_TAG_REALM, credential.getRealm());
         XmlUtil.writeNextValue(out, XML_TAG_CHECK_AAA_SERVER_CERT_STATUS,
                 credential.getCheckAaaServerCertStatus());
+        XmlUtil.writeNextValue(out, XML_TAG_MINIMUM_TLS_VERSION,
+                credential.getMinimumTlsVersion());
         serializeUserCredential(out, credential.getUserCredential());
         serializeCertCredential(out, credential.getCertCredential());
         serializeSimCredential(out, credential.getSimCredential());
@@ -628,6 +631,9 @@ public class PasspointXmlUtils {
                         break;
                     case XML_TAG_CHECK_AAA_SERVER_CERT_STATUS:
                         credential.setCheckAaaServerCertStatus((boolean) value);
+                        break;
+                    case XML_TAG_MINIMUM_TLS_VERSION:
+                        credential.setMinimumTlsVersion((int) value);
                         break;
                     default:
                         Log.w(TAG, "Unknown value under Credential: "

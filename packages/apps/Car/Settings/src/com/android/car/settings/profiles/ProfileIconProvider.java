@@ -27,6 +27,7 @@ import android.os.UserHandle;
 import android.os.UserManager;
 
 import com.android.car.admin.ui.UserAvatarView;
+import com.android.car.internal.user.UserHelper;
 import com.android.car.settings.R;
 import com.android.internal.util.UserIcons;
 
@@ -50,7 +51,7 @@ public class ProfileIconProvider {
         Bitmap icon = userManager.getUserIcon(userInfo.id);
 
         if (icon == null) {
-            icon = assignDefaultIcon(userManager, res, userInfo);
+            icon = UserHelper.assignDefaultIcon(context, userInfo.getUserHandle());
         }
 
         return new BitmapDrawable(res, icon);
@@ -60,24 +61,6 @@ public class ProfileIconProvider {
     public Drawable getRoundedGuestDefaultIcon(Resources resources) {
         Bitmap icon = getGuestProfileDefaultIcon(resources);
         return new BitmapDrawable(resources, icon);
-    }
-
-    /**
-     * Assigns a default icon to a profile according to the user's id. Handles Guest icon and
-     * non-guest profile icons.
-     *
-     * @param userManager {@link UserManager} to set user icon
-     * @param resources {@link Resources} to grab icons from
-     * @param userInfo User whose avatar is set to default icon.
-     * @return Bitmap of the profile icon.
-     */
-    public Bitmap assignDefaultIcon(
-            UserManager userManager, Resources resources, UserInfo userInfo) {
-        Bitmap bitmap = userInfo.isGuest()
-                ? getGuestProfileDefaultIcon(resources)
-                : getProfileDefaultIcon(resources, userInfo.id);
-        userManager.setUserIcon(userInfo.id, bitmap);
-        return bitmap;
     }
 
     // TODO (b/179802719): refactor this method into getRoundedUserIcon().

@@ -16,11 +16,13 @@
 
 package android.net.cts.util;
 
+import static android.Manifest.permission.NETWORK_SETTINGS;
 import static android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET;
 import static android.net.NetworkCapabilities.TRANSPORT_CELLULAR;
 import static android.net.NetworkCapabilities.TRANSPORT_TEST;
 
 import static com.android.compatibility.common.util.PropertyUtil.getFirstApiLevel;
+import static com.android.testutils.TestPermissionUtil.runAsShell;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
@@ -55,6 +57,8 @@ import android.system.OsConstants;
 import android.text.TextUtils;
 import android.util.Log;
 
+import com.android.compatibility.common.util.PollingCheck;
+import com.android.compatibility.common.util.ShellIdentityUtils;
 import com.android.compatibility.common.util.SystemUtil;
 import com.android.net.module.util.ConnectivitySettingsUtils;
 import com.android.testutils.ConnectUtil;
@@ -71,6 +75,13 @@ import java.util.concurrent.TimeoutException;
 
 public final class CtsNetUtils {
     private static final String TAG = CtsNetUtils.class.getSimpleName();
+
+    // Redefine this flag here so that IPsec code shipped in a mainline module can build on old
+    // platforms before FEATURE_IPSEC_TUNNEL_MIGRATION API is released.
+    // TODO: b/275378783 Remove this flag and use the platform API when it is available.
+    private static final String FEATURE_IPSEC_TUNNEL_MIGRATION =
+            "android.software.ipsec_tunnel_migration";
+
     private static final int SOCKET_TIMEOUT_MS = 2000;
     private static final int PRIVATE_DNS_PROBE_MS = 1_000;
 
@@ -109,6 +120,11 @@ public final class CtsNetUtils {
     public boolean hasIpsecTunnelsFeature() {
         return mContext.getPackageManager().hasSystemFeature(PackageManager.FEATURE_IPSEC_TUNNELS)
                 || getFirstApiLevel() >= Build.VERSION_CODES.Q;
+    }
+
+    /** Checks if FEATURE_IPSEC_TUNNEL_MIGRATION is enabled on the device */
+    public boolean hasIpsecTunnelMigrateFeature() {
+        return mContext.getPackageManager().hasSystemFeature(FEATURE_IPSEC_TUNNEL_MIGRATION);
     }
 
     /**
@@ -166,7 +182,7 @@ public final class CtsNetUtils {
         }
     }
 
-    private Network expectNetworkIsSystemDefault(Network network)
+    public Network expectNetworkIsSystemDefault(Network network)
             throws Exception {
         final CompletableFuture<Network> future = new CompletableFuture();
         final NetworkCallback cb = new NetworkCallback() {
@@ -266,6 +282,19 @@ public final class CtsNetUtils {
     }
 
     /**
+     * Disable WiFi and wait for the connection info to be cleared.
+     */
+    public void disableWifi() throws Exception {
+        SystemUtil.runShellCommand("svc wifi disable");
+        PollingCheck.check(
+                "Wifi not disconnected! Current network is not null "
+                        + mWifiManager.getConnectionInfo().getNetworkId(),
+                TimeUnit.SECONDS.toMillis(CONNECTIVITY_CHANGE_TIMEOUT_SECS),
+                () -> ShellIdentityUtils.invokeWithShellPermissions(
+                        () -> mWifiManager.getConnectionInfo().getNetworkId()) == -1);
+    }
+
+    /**
      * Disable WiFi and wait for it to become disconnected from the network.
      *
      * @param wifiNetworkToCheck If non-null, a network that should be disconnected. This network
@@ -288,7 +317,8 @@ public final class CtsNetUtils {
         filter.addAction(ConnectivityManager.CONNECTIVITY_ACTION);
         mContext.registerReceiver(receiver, filter);
 
-        final WifiInfo wifiInfo = mWifiManager.getConnectionInfo();
+        final WifiInfo wifiInfo = runAsShell(NETWORK_SETTINGS,
+                () -> mWifiManager.getConnectionInfo());
         final boolean wasWifiConnected = wifiInfo != null && wifiInfo.getNetworkId() != -1;
         // Assert that we can establish a TCP connection on wifi.
         Socket wifiBoundSocket = null;
@@ -354,7 +384,7 @@ public final class CtsNetUtils {
 
     public Network connectToCell() throws InterruptedException {
         if (cellConnectAttempted()) {
-            throw new IllegalStateException("Already connected");
+            mCm.unregisterNetworkCallback(mCellNetworkCallback);
         }
         NetworkRequest cellRequest = new NetworkRequest.Builder()
                 .addTransportType(TRANSPORT_CELLULAR)
@@ -392,7 +422,7 @@ public final class CtsNetUtils {
                 .build();
     }
 
-    private void testHttpRequest(Socket s) throws IOException {
+    public void testHttpRequest(Socket s) throws IOException {
         OutputStream out = s.getOutputStream();
         InputStream in = s.getInputStream();
 
@@ -400,7 +430,9 @@ public final class CtsNetUtils {
         byte[] responseBytes = new byte[4096];
         out.write(requestBytes);
         in.read(responseBytes);
-        assertTrue(new String(responseBytes, "UTF-8").startsWith("HTTP/1.0 204 No Content\r\n"));
+        final String response = new String(responseBytes, "UTF-8");
+        assertTrue("Received unexpected response: " + response,
+                response.startsWith("HTTP/1.0 204 No Content\r\n"));
     }
 
     private Socket getBoundSocket(Network network, String host, int port) throws IOException {

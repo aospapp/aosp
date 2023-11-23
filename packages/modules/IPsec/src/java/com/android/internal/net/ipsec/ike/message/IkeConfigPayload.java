@@ -1082,7 +1082,7 @@ public final class IkeConfigPayload extends IkePayload {
 
         @Override
         public int getPrefixLength() {
-            return linkAddress == null ? null : linkAddress.getPrefixLength();
+            return linkAddress == null ? 0 : linkAddress.getPrefixLength();
         }
     }
 

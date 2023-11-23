@@ -20,11 +20,11 @@
 
     <uses-sdk android:minSdkVersion="30" android:targetSdkVersion="30" />
 
+    <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" />
+
     <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
                      android:targetPackage="android.os.ext.cts"
                      android:label="CTS tests of android.os.ext">
-        <meta-data android:name="listener"
-            android:value="com.android.cts.runner.CtsTestRunListener" />
     </instrumentation>
 
 </manifest>

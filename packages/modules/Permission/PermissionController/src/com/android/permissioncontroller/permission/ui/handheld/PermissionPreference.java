@@ -36,10 +36,10 @@ import androidx.preference.PreferenceFragmentCompat;
 
 import com.android.permissioncontroller.R;
 import com.android.permissioncontroller.permission.model.livedatatypes.LightAppPermGroup;
-import com.android.permissioncontroller.permission.ui.model.v33.ReviewPermissionsViewModel;
-import com.android.permissioncontroller.permission.ui.model.v33.ReviewPermissionsViewModel.PermissionSummary;
-import com.android.permissioncontroller.permission.ui.model.v33.ReviewPermissionsViewModel.PermissionTarget;
-import com.android.permissioncontroller.permission.ui.model.v33.ReviewPermissionsViewModel.SummaryMessage;
+import com.android.permissioncontroller.permission.ui.model.ReviewPermissionsViewModel;
+import com.android.permissioncontroller.permission.ui.model.ReviewPermissionsViewModel.PermissionSummary;
+import com.android.permissioncontroller.permission.ui.model.ReviewPermissionsViewModel.PermissionTarget;
+import com.android.permissioncontroller.permission.ui.model.ReviewPermissionsViewModel.SummaryMessage;
 import com.android.permissioncontroller.permission.utils.LocationUtils;
 import com.android.permissioncontroller.permission.utils.Utils;
 import com.android.settingslib.RestrictedLockUtils;

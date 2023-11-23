@@ -17,7 +17,7 @@ package {
 android_app {
     name: "CarUiPortraitCarServiceRRO",
     resource_dirs: ["res"],
-    platform_apis: true,
+    sdk_version: "current",
     aaptflags: [
         "--no-resource-deduping",
         "--no-resource-removal"

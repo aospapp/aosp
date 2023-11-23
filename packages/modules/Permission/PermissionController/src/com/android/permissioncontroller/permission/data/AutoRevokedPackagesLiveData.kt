@@ -21,8 +21,8 @@ import android.content.pm.PackageManager.FLAG_PERMISSION_AUTO_REVOKED
 import android.os.Build
 import android.os.UserHandle
 import android.util.Log
+import com.android.permissioncontroller.permission.utils.PermissionMapping
 import com.android.permissioncontroller.permission.utils.KotlinUtils
-import com.android.permissioncontroller.permission.utils.Utils
 import kotlinx.coroutines.Dispatchers.Main
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.Job
@@ -64,7 +64,8 @@ object AutoRevokedPackagesLiveData
 
                 val pkgGroups = mutableSetOf<Triple<String, String, UserHandle>>()
                 for ((idx, requestedPerm) in pkg.requestedPermissions.withIndex()) {
-                    val group = Utils.getGroupOfPlatformPermission(requestedPerm) ?: continue
+                    val group =
+                        PermissionMapping.getGroupOfPlatformPermission(requestedPerm) ?: continue
                     val granted = (pkg.requestedPermissionsFlags[idx] and
                             PackageInfo.REQUESTED_PERMISSION_GRANTED) != 0
                     if (pkg.targetSdkVersion < Build.VERSION_CODES.M || !granted) {

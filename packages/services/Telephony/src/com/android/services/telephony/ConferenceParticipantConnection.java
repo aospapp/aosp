@@ -17,15 +17,22 @@
 package com.android.services.telephony;
 
 import android.net.Uri;
+import android.os.PersistableBundle;
 import android.telecom.Connection;
 import android.telecom.DisconnectCause;
+import android.telecom.PhoneAccount;
+import android.telephony.CarrierConfigManager;
+import android.telephony.PhoneNumberUtils;
 import android.telephony.SubscriptionInfo;
 import android.text.TextUtils;
 
 import com.android.ims.internal.ConferenceParticipant;
 import com.android.internal.telephony.Phone;
 import com.android.internal.telephony.PhoneConstants;
+import com.android.phone.PhoneGlobals;
 import com.android.telephony.Rlog;
+
+import java.util.Locale;
 
 /**
  * Represents a participant in a conference call.
@@ -33,6 +40,9 @@ import com.android.telephony.Rlog;
 public class ConferenceParticipantConnection extends Connection {
 
     private static final String LOG_TAG = "ConferenceParticipantConnection";
+
+    private static final String JAPAN_COUNTRY_CODE_WITH_PLUS_SIGN = "+81";
+    private static final String JAPAN_ISO_COUNTRY_CODE = "JP";
 
     /**
      * The user entity URI For the conference participant.
@@ -68,9 +78,19 @@ public class ConferenceParticipantConnection extends Connection {
         if (presentation != PhoneConstants.PRESENTATION_ALLOWED) {
             address = null;
         } else {
-            String countryIso = getCountryIso(parentConnection.getCall().getPhone());
+            Phone phone = parentConnection.getCall().getPhone();
+            String countryIso = getCountryIso(phone);
             address = ConferenceParticipant.getParticipantAddress(participant.getHandle(),
                     countryIso);
+            if (address != null
+                    && isNeedParticipantPhoneNumberToNationalFormatForJp(phone, address)) {
+                String number = PhoneNumberUtils.stripSeparators(
+                        PhoneNumberUtils.formatNumber(address.getSchemeSpecificPart(),
+                        JAPAN_ISO_COUNTRY_CODE));
+                if (number != null) {
+                    address = Uri.fromParts(PhoneAccount.SCHEME_TEL, number, null);
+                }
+            }
         }
         setAddress(address, presentation);
         setVideoState(parentConnection.getVideoState());
@@ -189,7 +209,23 @@ public class ConferenceParticipantConnection extends Connection {
         // The SubscriptionInfo reports ISO country codes in lower case.  Convert to upper case,
         // since ultimately we use this ISO when formatting the CEP phone number, and the phone
         // number formatting library expects uppercase ISO country codes.
-        return subInfo.getCountryIso().toUpperCase();
+        return subInfo.getCountryIso().toUpperCase(Locale.ROOT);
+    }
+
+    /**
+     * Whether the Conference call participant number should be formatted to national number for
+     * Japan.
+     * @return {@code true} should be convert to the national format, {@code false} otherwise.
+     */
+    private boolean isNeedParticipantPhoneNumberToNationalFormatForJp(Phone phone, Uri uri) {
+        if (phone == null || uri == null) {
+            return false;
+        }
+        PersistableBundle bundle = PhoneGlobals.getInstance().getCarrierConfigForSubId(
+                phone.getSubId());
+        return bundle != null && bundle.getBoolean(
+                CarrierConfigManager.KEY_FORMAT_INCOMING_NUMBER_TO_NATIONAL_FOR_JP_BOOL)
+                && uri.getSchemeSpecificPart().startsWith(JAPAN_COUNTRY_CODE_WITH_PLUS_SIGN);
     }
 
     /**

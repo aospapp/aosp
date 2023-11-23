@@ -71,6 +71,9 @@ public abstract class BaseEnterpriseTestCase {
     protected final PackageManager mRealPm = mRealContext.getPackageManager();
     protected PackageManager mSpiedPm = spy(mRealPm);
 
+    protected final String mAppName = mRealContext.getApplicationInfo().loadLabel(mRealPm)
+            .toString();
+
     protected final ComponentName mDefaultAdmin =
             new ComponentName(mSpiedContext, DefaultDeviceAdminReceiver.class);
     protected final ComponentName mFancyAdmin =

@@ -17,7 +17,9 @@
 package com.android.cellbroadcastservice.tests;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.eq;
@@ -27,6 +29,7 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.content.res.Resources;
 import android.location.LocationManager;
@@ -75,6 +78,12 @@ public class CellBroadcastServiceTestBase extends TestCase {
 
     @Mock
     protected PackageManager mMockedPackageManager;
+
+    @Mock
+    protected SharedPreferences mSharedPreference;
+
+    @Mock
+    protected SharedPreferences.Editor mEditor;
 
     private final MockContentResolver mMockedContentResolver = new MockContentResolver();
 
@@ -156,6 +165,16 @@ public class CellBroadcastServiceTestBase extends TestCase {
                 any(BroadcastReceiver.class), any(IntentFilter.class));
         doAnswer(registerReceiverAnswer).when(mMockedContext).registerReceiver(
                 any(BroadcastReceiver.class), any(IntentFilter.class), any(int.class));
+        doAnswer(registerReceiverAnswer).when(mMockedContext).registerReceiver(
+                any(BroadcastReceiver.class), any(IntentFilter.class), any(), any());
+        doAnswer(registerReceiverAnswer).when(mMockedContext).registerReceiver(
+                any(BroadcastReceiver.class), any(IntentFilter.class),
+                any(), any(), any(int.class));
+
+        doReturn(mSharedPreference).when(mMockedContext)
+                .getSharedPreferences(anyString(), anyInt());
+        doReturn(mEditor).when(mSharedPreference).edit();
+        doReturn(false).when(mSharedPreference).getBoolean(anyString(), anyBoolean());
     }
 
     protected void tearDown() throws Exception {

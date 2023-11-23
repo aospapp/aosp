@@ -16,7 +16,6 @@
 
 package com.android.car.notification;
 
-import android.app.ActivityManager;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
@@ -246,7 +245,7 @@ class Beeper {
         private Context getContextForForegroundUser() {
             try {
                 return mContext.createPackageContextAsUser(mContext.getPackageName(), /* flags= */
-                        0, UserHandle.of(ActivityManager.getCurrentUser()));
+                        0, UserHandle.of(NotificationUtils.getCurrentUser(mContext)));
             } catch (PackageManager.NameNotFoundException e) {
                 throw new RuntimeException(e);
             }

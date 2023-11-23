@@ -73,6 +73,17 @@ public class DozeServiceHost implements DozeHost {
         return false;
     }
 
+
+    @Override
+    public boolean isPulsePending() {
+        return false;
+    }
+
+    @Override
+    public void setPulsePending(boolean isPulsePending) {
+        // No op.
+    }
+
     @Override
     public void extendPulse(int reason) {
         // No op.

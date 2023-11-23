@@ -107,8 +107,10 @@ public class LocationRecentAccessesPreferenceController
 
     @Override
     protected void onStartInternal() {
-        getContext().registerReceiver(mAdasReceiver, INTENT_FILTER_ADAS_GNSS_ENABLED_CHANGED);
-        getContext().registerReceiver(mLocationReceiver, INTENT_FILTER_LOCATION_MODE_CHANGED);
+        getContext().registerReceiver(mAdasReceiver, INTENT_FILTER_ADAS_GNSS_ENABLED_CHANGED,
+                Context.RECEIVER_EXPORTED);
+        getContext().registerReceiver(mLocationReceiver, INTENT_FILTER_LOCATION_MODE_CHANGED,
+                Context.RECEIVER_EXPORTED);
     }
 
     @Override

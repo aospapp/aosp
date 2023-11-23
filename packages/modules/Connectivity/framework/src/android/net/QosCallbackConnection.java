@@ -35,7 +35,7 @@ import java.util.concurrent.Executor;
  *
  * @hide
  */
-class QosCallbackConnection extends android.net.IQosCallback.Stub {
+public class QosCallbackConnection extends android.net.IQosCallback.Stub {
 
     @NonNull private final ConnectivityManager mConnectivityManager;
     @Nullable private volatile QosCallback mCallback;
@@ -56,7 +56,7 @@ class QosCallbackConnection extends android.net.IQosCallback.Stub {
      *                 {@link Executor} must run callback sequentially, otherwise the order of
      *                 callbacks cannot be guaranteed.
      */
-    QosCallbackConnection(@NonNull final ConnectivityManager connectivityManager,
+    public QosCallbackConnection(@NonNull final ConnectivityManager connectivityManager,
             @NonNull final QosCallback callback,
             @NonNull final Executor executor) {
         mConnectivityManager = Objects.requireNonNull(connectivityManager,
@@ -142,7 +142,7 @@ class QosCallbackConnection extends android.net.IQosCallback.Stub {
      * There are no synchronization guarantees on exactly when the callback will stop receiving
      * messages.
      */
-    void stopReceivingMessages() {
+    public void stopReceivingMessages() {
         mCallback = null;
     }
 }

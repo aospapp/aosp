@@ -37,6 +37,8 @@ import com.android.bips.discovery.Discovery;
 
 import java.net.InetAddress;
 import java.net.UnknownHostException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 /**
  * Launched by system in response to a "More Options" request while tracking a printer.
@@ -51,6 +53,7 @@ public class MoreOptionsActivity extends Activity implements ServiceConnection, 
     InetAddress mPrinterAddress;
 
     public static final String EXTRA_PRINTER_ID = "EXTRA_PRINTER_ID";
+    private final ExecutorService mExecutorService = Executors.newSingleThreadExecutor();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -100,6 +103,12 @@ public class MoreOptionsActivity extends Activity implements ServiceConnection, 
     }
 
     @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        mExecutorService.shutdownNow();
+    }
+
+    @Override
     public void onServiceConnected(ComponentName name, IBinder service) {
         mPrintService = BuiltInPrintService.getInstance();
         mPrintService.getDiscovery().start(this);
@@ -116,17 +125,23 @@ public class MoreOptionsActivity extends Activity implements ServiceConnection, 
             // We discovered a printer matching the job's PrinterId, so show recommendations
             mPrinter = printer;
             setTitle(mPrinter.name);
-            try {
-                mPrinterAddress = InetAddress.getByName(mPrinter.path.getHost());
-                if (getFragmentManager().getFragments().isEmpty()) {
-                    MoreOptionsFragment fragment = new MoreOptionsFragment();
-                    getFragmentManager().beginTransaction()
-                            .replace(android.R.id.content, fragment)
-                            .commit();
-                }
-                // No need for continued discovery after we find the printer.
-                mPrintService.getDiscovery().stop(this);
-            } catch (UnknownHostException ignored) { }
+            mExecutorService.execute(() -> {
+                try {
+                    mPrinterAddress = InetAddress.getByName(mPrinter.path.getHost());
+                    // No need for continued discovery after we find the printer.
+                    mPrintService.getDiscovery().stop(this);
+                    if (!mExecutorService.isShutdown() && mPrintService != null) {
+                        mPrintService.getMainHandler().post(() -> {
+                            if (getFragmentManager().getFragments().isEmpty()) {
+                                MoreOptionsFragment fragment = new MoreOptionsFragment();
+                                getFragmentManager().beginTransaction()
+                                        .replace(android.R.id.content, fragment)
+                                        .commit();
+                            }
+                        });
+                    }
+                } catch (UnknownHostException ignored) { }
+            });
         }
     }
 

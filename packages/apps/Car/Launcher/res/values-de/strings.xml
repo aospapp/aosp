@@ -18,8 +18,17 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="app_title" msgid="1995858460392177468">"Auto-Launcher"</string>
+    <string name="reset_appgrid_title" msgid="814562055108028366">"App-Raster auf Sortierung von A–Z zurücksetzen"</string>
+    <string name="reset_appgrid_dialogue_message" msgid="8275758912490987735">"Durch diese Funktion wird die gesamte benutzerdefinierte Sortierung entfernt. Möchtest du fortfahren?"</string>
     <string name="app_launcher_title_all_apps" msgid="3215107396036838217">"Alle Apps"</string>
     <string name="app_launcher_title_media_only" msgid="4400886555907422816">"Medien-Apps"</string>
+    <string name="app_launcher_stop_app_action" msgid="1081680842410279692">"App beenden"</string>
+    <string name="app_launcher_app_info_action" msgid="6388181061002827660">"App-Info"</string>
+    <string name="app_launcher_stop_app_success_toast_text" msgid="2117271772351005349">"<xliff:g id="APP_NAME">%1$s</xliff:g> wurde beendet."</string>
+    <string name="app_launcher_stop_app_dialog_title" msgid="8276889322638001144">"App beenden?"</string>
+    <string name="app_launcher_stop_app_dialog_text" msgid="3264059639436254372">"Das Beenden der App zu erzwingen kann zu unerwünschtem Verhalten führen."</string>
+    <string name="app_launcher_stop_app_cant_stop_text" msgid="4766841417948746773">"Die App kann nicht beendet werden."</string>
+    <string name="default_media_song_title" msgid="2970305231647817808"></string>
     <string name="driving_toast_text" msgid="149483091947120092">"<xliff:g id="APP_NAME">%1$s</xliff:g> kann während der Fahrt nicht genutzt werden."</string>
     <string name="tap_for_more_info_text" msgid="2043549383814415585">"Für weitere Informationen auf die Karte tippen"</string>
     <string name="tap_to_launch_text" msgid="6910695705119260847">"Zum Starten auf die Karte tippen"</string>
@@ -34,4 +43,8 @@
     <string name="fake_weather_footer_text" msgid="4570172025869749926">"Mountain View • H: --° T: --°"</string>
     <string name="hide_debug_apps" msgid="6128313544379622475">"Debug-Apps verbergen"</string>
     <string name="show_debug_apps" msgid="4521073121286325786">"Debug-Apps anzeigen"</string>
+    <string name="times_separator" msgid="6180368193321715816">"/"</string>
+    <string name="recents_empty_state_text" msgid="6703106170272215731">"Keine kürzlich verwendeten Elemente"</string>
+    <string name="recents_clear_all_text" msgid="2088678071417053923">"Alle löschen"</string>
+    <string name="failure_opening_recent_task_message" msgid="9097595793150874357">"App nicht verfügbar"</string>
 </resources>

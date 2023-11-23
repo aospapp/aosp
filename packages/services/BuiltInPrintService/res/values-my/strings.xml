@@ -42,7 +42,7 @@
     <string name="title_activity_add_printer" msgid="9119216095769228566">"ပရင်တာ ထည့်ရန်"</string>
     <string name="add_printer_by_ip" msgid="562864787592910327">"ပရင်တာကို IP လိပ်စာဖြင့် ထည့်ရန်"</string>
     <string name="hostname_or_ip" msgid="3460546103553992915">"ဆာဗာအမည် (သို့) IP လိပ်စာ"</string>
-    <string name="ip_hint" msgid="7939777481941979799">"၁၉၂.၁၆၈.၀.၄"</string>
+    <string name="ip_hint" msgid="7939777481941979799">"192.168.0.4"</string>
     <string name="add" msgid="1950342261671100906">"ထည့်ရန်"</string>
     <string name="add_named" msgid="9074106244018070583">"<xliff:g id="PRINTER">%1$s</xliff:g> ကို ထည့်ရန်"</string>
     <string name="no_printer_found" msgid="4777867380924351173">"ဤလိပ်စာတွင် ပရင်တာတစ်ခုမျှ မတွေ့ပါ"</string>

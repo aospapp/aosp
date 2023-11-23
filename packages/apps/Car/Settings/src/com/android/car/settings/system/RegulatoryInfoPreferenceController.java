@@ -47,7 +47,7 @@ public class RegulatoryInfoPreferenceController extends PreferenceController<Pre
     }
 
     @Override
-    protected int getAvailabilityStatus() {
+    protected int getDefaultAvailabilityStatus() {
         return mPm.queryIntentActivities(INTENT_PROBE, /* flags= */ 0).isEmpty()
                 ? UNSUPPORTED_ON_DEVICE : AVAILABLE;
     }

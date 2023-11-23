@@ -54,7 +54,7 @@
     <string name="public_safety_message" msgid="9119928798786998252">"Poruka o javnoj bezbednosti"</string>
     <string name="state_local_test_alert" msgid="8003145745857480200">"Proba državnih/lokalnih organa"</string>
     <string name="emergency_alert" msgid="624783871477634263">"Obaveštenje o hitnom slučaju"</string>
-    <string name="emergency_alerts_title" msgid="6605036374197485429">"Obaveštenja"</string>
+    <string name="emergency_alerts_title" msgid="6605036374197485429">"Upozorenja"</string>
     <string name="notification_channel_broadcast_messages" msgid="880704362482824524">"Poruke o emitovanju"</string>
     <string name="notification_channel_emergency_alerts" msgid="5008287980979183617">"Hitna obaveštenja"</string>
     <string name="notification_channel_emergency_alerts_high_priority" msgid="3937475297436439073">"Nepotvrđena obaveštenja o hitnim slučajevima"</string>

@@ -20,7 +20,6 @@ import android.annotation.TargetApi;
 import android.app.Activity;
 import android.content.Intent;
 import android.net.Uri;
-import android.nfc.NfcAdapter;
 import android.os.Handler;
 import android.view.ActionMode;
 import android.view.ActionMode.Callback;
@@ -67,7 +66,6 @@ public class ActionModeHandler implements Callback, PopupList.OnPopupItemClickLi
     private final AbstractGalleryActivity mActivity;
     private final MenuExecutor mMenuExecutor;
     private final SelectionManager mSelectionManager;
-    private final NfcAdapter mNfcAdapter;
     private Menu mMenu;
     private MenuItem mSharePanoramaMenuItem;
     private MenuItem mShareMenuItem;
@@ -128,7 +126,6 @@ public class ActionModeHandler implements Callback, PopupList.OnPopupItemClickLi
         mSelectionManager = Utils.checkNotNull(selectionManager);
         mMenuExecutor = new MenuExecutor(activity, selectionManager);
         mMainHandler = new Handler(activity.getMainLooper());
-        mNfcAdapter = NfcAdapter.getDefaultAdapter(mActivity.getAndroidContext());
     }
 
     public void startActionMode() {
@@ -307,14 +304,6 @@ public class ActionModeHandler implements Callback, PopupList.OnPopupItemClickLi
         return operation;
     }
 
-    @TargetApi(ApiHelper.VERSION_CODES.JELLY_BEAN)
-    private void setNfcBeamPushUris(Uri[] uris) {
-        if (mNfcAdapter != null && ApiHelper.HAS_SET_BEAM_PUSH_URIS) {
-            mNfcAdapter.setBeamPushUrisCallback(null, mActivity);
-            mNfcAdapter.setBeamPushUris(uris, mActivity);
-        }
-    }
-
     // Share intent needs to expand the selection set so we can get URI of
     // each media item
     private Intent computePanoramaSharingIntent(JobContext jc, int maxItems) {
@@ -350,7 +339,6 @@ public class ActionModeHandler implements Callback, PopupList.OnPopupItemClickLi
     private Intent computeSharingIntent(JobContext jc, int maxItems) {
         ArrayList<Path> expandedPaths = mSelectionManager.getSelected(true, maxItems);
         if (expandedPaths == null || expandedPaths.size() == 0) {
-            setNfcBeamPushUris(null);
             return new Intent();
         }
         final ArrayList<Uri> uris = new ArrayList<Uri>();
@@ -378,9 +366,6 @@ public class ActionModeHandler implements Callback, PopupList.OnPopupItemClickLi
                 intent.putExtra(Intent.EXTRA_STREAM, uris.get(0));
             }
             intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-            setNfcBeamPushUris(uris.toArray(new Uri[uris.size()]));
-        } else {
-            setNfcBeamPushUris(null);
         }
 
         return intent;

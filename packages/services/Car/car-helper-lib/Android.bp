@@ -12,11 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// This project contains libraries that are used internally, mostly by
-// CarService and CarServiceHelperService.
+// This library has common code which is used by other apps.
 //
-// They're not meant to be used by other system apps and hence are not
-// supported.
+// NOTE: This library should not be used within p/s/Car
 
 package {
     default_applicable_licenses: ["Android-Apache-2.0"],
@@ -27,5 +25,6 @@ android_library {
     srcs: [
         "src/**/*.java",
     ],
+    resource_dirs: ["res"],
     platform_apis: true,
 }

@@ -30,12 +30,14 @@ import static org.mockito.Mockito.verify;
 import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
+import android.content.res.ColorStateList;
 import android.graphics.drawable.Icon;
 import android.view.MotionEvent;
 import android.view.View;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.SeekBar;
+import android.widget.Switch;
 import android.widget.TextView;
 
 import androidx.test.annotation.UiThreadTest;
@@ -203,11 +205,50 @@ public class QCRowViewTest {
                 .addSlider(new QCSlider.Builder().setInputAction(action).build())
                 .build();
         mView.setRow(row);
-        SeekBar seekBar = mView.findViewById(R.id.seekbar);
+        SeekBar seekBar = mView.findViewById(R.id.qc_seekbar);
         seekBar.setProgress(50);
         MotionEvent motionEvent = ExtendedMockito.mock(MotionEvent.class);
         ExtendedMockito.when(motionEvent.getAction()).thenReturn(MotionEvent.ACTION_UP);
         seekBar.onTouchEvent(motionEvent);
         verify(action).send(any(Context.class), anyInt(), any(Intent.class));
+    }
+
+    @Test
+    @UiThreadTest
+    public void setRow_switchViewThumbTintList() {
+        PendingIntent action = mock(PendingIntent.class);
+        QCRow row = new QCRow.Builder()
+                .addEndItem(
+                        new QCActionItem.Builder(QC_TYPE_ACTION_SWITCH).setAction(action).build())
+                .build();
+        mView.setRow(row);
+        LinearLayout endContainer = mView.findViewById(R.id.qc_row_end_items);
+        assertThat(endContainer.getChildCount()).isEqualTo(1);
+        Switch switchView = (Switch) endContainer.getChildAt(0);
+        assertThat(switchView.getThumbTintList()).isNotNull();
+
+        ColorStateList switchColorStateList = switchView.getThumbTintList();
+        int[] enabledState = {android.R.attr.state_enabled};
+        int[] disabledState = {-android.R.attr.state_enabled};
+        assertThat(switchColorStateList.getColorForState(enabledState, 0)).isNotEqualTo(
+                switchColorStateList.getColorForState(disabledState, 0));
+    }
+
+    @Test
+    @UiThreadTest
+    public void setRow_sliderViewThumbTintList() {
+        PendingIntent action = mock(PendingIntent.class);
+        QCRow row = new QCRow.Builder()
+                .addSlider(new QCSlider.Builder().setInputAction(action).build())
+                .build();
+        mView.setRow(row);
+        SeekBar seekBar = mView.findViewById(R.id.qc_seekbar);
+        assertThat(seekBar.getThumbTintList()).isNotNull();
+
+        ColorStateList seekBarColorStateList = seekBar.getThumbTintList();
+        int[] enabledState = {android.R.attr.state_enabled};
+        int[] disabledState = {-android.R.attr.state_enabled};
+        assertThat(seekBarColorStateList.getColorForState(enabledState, 0)).isNotEqualTo(
+                seekBarColorStateList.getColorForState(disabledState, 0));
     }
 }

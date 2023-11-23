@@ -66,7 +66,7 @@ TEST_F(BundlerTest, CreateBinarySchemaBundle) {
   std::vector<flatbuffers::Offset<bluetooth::dumpsys::BundledSchemaMap>> vector_map;
   std::list<std::string> bundled_names;
   ASSERT_TRUE(CreateBinarySchemaBundle(&builder, filenames, &vector_map, &bundled_names));
-  ASSERT_EQ(0, vector_map.size());
+  ASSERT_EQ((unsigned int)0, vector_map.size());
 }
 
 TEST_F(BundlerTest, WriteHeaderFile) {

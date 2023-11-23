@@ -18,6 +18,9 @@ package android.car.settings;
 
 import android.annotation.SystemApi;
 import android.car.annotation.AddedInOrBefore;
+import android.car.annotation.ApiRequirements;
+import android.car.annotation.ApiRequirements.CarVersion;
+import android.car.annotation.ApiRequirements.PlatformVersion;
 
 /**
  * System-level, car-related settings.
@@ -42,6 +45,8 @@ public class CarSettings {
      *
      * @hide
      */
+    @SystemApi
+    @AddedInOrBefore(majorVersion = 33)
     public static final class Global {
 
         private Global() {
@@ -84,7 +89,7 @@ public class CarSettings {
          */
         @AddedInOrBefore(majorVersion = 33)
         public static final String LAST_ACTIVE_USER_ID =
-                        "android.car.LAST_ACTIVE_USER_ID";
+                "android.car.LAST_ACTIVE_USER_ID";
 
         /**
          * User id of the last persistent (i.e, not counting ephemeral guests) foreground user
@@ -93,11 +98,11 @@ public class CarSettings {
          */
         @AddedInOrBefore(majorVersion = 33)
         public static final String LAST_ACTIVE_PERSISTENT_USER_ID =
-                        "android.car.LAST_ACTIVE_PERSISTENT_USER_ID";
+                "android.car.LAST_ACTIVE_PERSISTENT_USER_ID";
 
         /**
          * Defines global runtime overrides to system bar policy.
-         *
+         * <p>
          * See {@link com.android.systemui.wm.BarControlPolicy} for value format.
          *
          * @hide
@@ -105,6 +110,73 @@ public class CarSettings {
         @AddedInOrBefore(majorVersion = 33)
         public static final String SYSTEM_BAR_VISIBILITY_OVERRIDE =
                 "android.car.SYSTEM_BAR_VISIBILITY_OVERRIDE";
+
+        /**
+         * Defines non-current visible users to assign per each occupant zone.
+         *
+         * <p>The value of this will be a ',' separated list of zoneId:userId. zoneId and userId
+         * should be a string of decimal integer. Example can be "1:10,2:11" where zone 1 has
+         * user 10 and zone 2 has user 11 allocated.
+         *
+         * <p>When system boots up, car service will allocate those users to the specified zones.
+         * If any entry in the value is invalid or if there are duplicate entries, the value will be
+         * ignored and no user will be assigned.
+         *
+         * @hide
+         */
+        @SystemApi
+        @ApiRequirements(minCarVersion = ApiRequirements.CarVersion.UPSIDE_DOWN_CAKE_0,
+                minPlatformVersion = ApiRequirements.PlatformVersion.UPSIDE_DOWN_CAKE_0)
+        public static final String GLOBAL_VISIBLE_USER_ALLOCATION_PER_ZONE =
+                "android.car.GLOBAL_VISIBLE_USER_ALLOCATION_PER_ZONE";
+
+        /**
+         * Defines passenger displays to lock their touch input.
+         *
+         * <p> The value of this will be a ',' separated list of display's unique id. For example,
+         * "local:4630946674560563248,local:4630946674560563349" with input lock enabled for both
+         * displays.
+         *
+         * <p> Input lock will be applied to those passenger displays. If any entry in the value
+         * is invalid, then the invalid entry is ignored. If there are duplicate entries, then
+         * only one entry is valid and the other duplicates are ignored.
+         *
+         * @hide
+         */
+        @SystemApi
+        @ApiRequirements(minCarVersion = ApiRequirements.CarVersion.UPSIDE_DOWN_CAKE_0,
+                minPlatformVersion = ApiRequirements.PlatformVersion.UPSIDE_DOWN_CAKE_0)
+        public static final String DISPLAY_INPUT_LOCK =
+                "android.car.DISPLAY_INPUT_LOCK";
+
+        /**
+         * Defines display power mode to assign per each display.
+         *
+         * <p>The value of this will be a ',' separated list of displayPort:mode.
+         * display port and mode should be a string of decimal integer.
+         * Example can be "0:2,1:0,2:1" where display 0 set mode 2, display 1 set mode 0
+         * and display 2 set mode 1 allocated.
+         *
+         * <p>When system boots up, car service will set those modes to the specified displays.
+         * If any entry in the value is invalid, the value will be ignored and no mode will be set.
+         * If there are duplicate entries, the last entry will be applied.
+         *
+         * <p>The mode is an integer (0, 1 or 2) where:
+         * <ul>
+         * <li>0 indicates OFF should applied to intentionally turn off the display and not be
+         * allowed to manually turn on the display
+         * <li>1 indicates ON should be applied to screen off timeout and allowed to manually turn
+         * off the display.
+         * <li>2 indicates ALWAYS ON should be applied to keep the display on and allowed to
+         * manually turn off the display
+         * </ul>
+         *
+         * @hide
+         */
+        @SystemApi
+        @ApiRequirements(minCarVersion = ApiRequirements.CarVersion.UPSIDE_DOWN_CAKE_0,
+                minPlatformVersion = ApiRequirements.PlatformVersion.UPSIDE_DOWN_CAKE_0)
+        public static final String DISPLAY_POWER_MODE = "android.car.DISPLAY_POWER_MODE";
     }
 
     /**
@@ -172,6 +244,7 @@ public class CarSettings {
         /**
          * Key for a list of devices to automatically connect on Bluetooth.
          * Written to and read by {@link com.android.car.BluetoothDeviceManager}
+         *
          * @hide
          */
         @AddedInOrBefore(majorVersion = 33)
@@ -181,6 +254,7 @@ public class CarSettings {
         /**
          * Key for storing temporarily-disconnected devices and profiles.
          * Read and written by {@link com.android.car.BluetoothProfileInhibitManager}.
+         *
          * @hide
          */
         @AddedInOrBefore(majorVersion = 33)
@@ -191,6 +265,7 @@ public class CarSettings {
          * Key to enable / disable rotary key event filtering. When enabled, a USB keyboard can be
          * used as a stand-in for a rotary controller.
          * The value is boolean (1 or 0).
+         *
          * @hide
          */
         @SystemApi
@@ -202,6 +277,7 @@ public class CarSettings {
          * Key to enable / disable initial notice screen that will be shown for all user-starting
          * moments including cold boot, wake up from suspend, and user switching.
          * The value is boolean (1 or 0).
+         *
          * @hide
          */
         @SystemApi
@@ -213,6 +289,7 @@ public class CarSettings {
          * Key to indicate Setup Wizard is in progress. It differs from USER_SETUP_COMPLETE in
          * that this flag can be reset to 0 in deferred Setup Wizard flow.
          * The value is boolean (1 or 0).
+         *
          * @hide
          */
         @SystemApi
@@ -232,11 +309,88 @@ public class CarSettings {
          *
          * <p>When an application (which is on this list) is enabled, CarService will immediately
          * remove the application's package name form the list.
+         *
          * @hide
          */
         @SystemApi
         @AddedInOrBefore(majorVersion = 33)
         public static final String KEY_PACKAGES_DISABLED_ON_RESOURCE_OVERUSE =
                 "android.car.KEY_PACKAGES_DISABLED_ON_RESOURCE_OVERUSE";
+
+        /**
+         * Key for an int value to indicate whether the user has accepted the Terms of
+         * Service.
+         *
+         * <p>The value is an int value where:
+         * <ul>
+         * <li>0 - the acceptance value is unknown. In this case, functionality
+         * should not be restricted.
+         * <li>1 - the acceptance value is {@code false}. In this case, some system
+         * functionality is restricted.
+         * <li>2 - the acceptance value is {@code true}. In this case, system functionality is
+         * not restricted.
+         * </ul>
+         *
+         * <p>Recommended 0 as default value.
+         *
+         * @hide
+         */
+        @SystemApi
+        @ApiRequirements(minCarVersion = CarVersion.UPSIDE_DOWN_CAKE_0,
+                minPlatformVersion = PlatformVersion.UPSIDE_DOWN_CAKE_0)
+        public static final String KEY_USER_TOS_ACCEPTED = "android.car.KEY_USER_TOS_ACCEPTED";
+
+
+        /**
+         * Key for a string value to indicate which apps are disabled because the
+         * user has not accepted the Terms of Service.
+         *
+         * <p>The value is a string value of comma-separated package names. For example,
+         * {@code "com.company.maps,com.company.voiceassistant,com.company.appstore"}
+         *
+         * <p>Recommended "" as default value.
+         *
+         * @hide
+         */
+        @SystemApi
+        @ApiRequirements(minCarVersion = CarVersion.UPSIDE_DOWN_CAKE_0,
+                minPlatformVersion = PlatformVersion.UPSIDE_DOWN_CAKE_0)
+        public static final String KEY_UNACCEPTED_TOS_DISABLED_APPS =
+                "android.car.KEY_UNACCEPTED_TOS_DISABLED_APPS";
+
+        /**
+         * Defines non-current visible users to assign per each occupant zone.
+         *
+         * <p>For the format of the value, check {@link Global#VISIBLE_USER_ALLOCATION_PER_ZONE}.
+         * This is per user setting and system will apply this when this user is the
+         * current user during the boot up.
+         *
+         * <p>If both {@link Global#VISIBLE_USER_ALLOCATION_PER_ZONE} and this value is
+         * set, this value will be used and {@link Global#VISIBLE_USER_ALLOCATION_PER_ZONE} will
+         * be ignored.
+         *
+         * @hide
+         */
+        @SystemApi
+        @ApiRequirements(minCarVersion = ApiRequirements.CarVersion.UPSIDE_DOWN_CAKE_0,
+                minPlatformVersion = ApiRequirements.PlatformVersion.UPSIDE_DOWN_CAKE_0)
+        public static final String VISIBLE_USER_ALLOCATION_PER_ZONE =
+                "android.car.VISIBLE_USER_ALLOCATION_PER_ZONE";
+
+        /**
+         * Key to indicate whether to allow the driver user to allow controlling media sessions of
+         * a passenger user.
+         *
+         * <p>This is per user setting and the drvier's Media Control Center app will query this
+         * to check whether it can connect/control other user's media session.
+         * The value type is boolean (1 for true, or 0 for false. false by default).
+         *
+         * @hide
+         */
+        @SystemApi
+        @ApiRequirements(minCarVersion = ApiRequirements.CarVersion.UPSIDE_DOWN_CAKE_0,
+                minPlatformVersion = ApiRequirements.PlatformVersion.UPSIDE_DOWN_CAKE_0)
+        public static final String KEY_DRIVER_ALLOWED_TO_CONTROL_MEDIA =
+                "android.car.DRIVER_ALLOWED_TO_CONTROL_MEDIA";
     }
 }

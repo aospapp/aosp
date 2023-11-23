@@ -39,6 +39,7 @@ import androidx.test.filters.SmallTest;
 import com.android.systemui.R;
 import com.android.systemui.SysuiTestCase;
 import com.android.systemui.car.CarSystemUiTest;
+import com.android.systemui.settings.UserTracker;
 import com.android.systemui.statusbar.CommandQueue;
 import com.android.systemui.toast.SystemUIToast;
 import com.android.systemui.toast.ToastFactory;
@@ -64,6 +65,8 @@ public class CarToastUITest extends SysuiTestCase {
     private CarToastUI mCarToastUI;
 
     @Mock
+    private UserTracker mUserTracker;
+    @Mock
     private CommandQueue mCommandQueue;
     @Mock
     private ToastFactory mToastFactory;
@@ -84,7 +87,7 @@ public class CarToastUITest extends SysuiTestCase {
 
         mCarToastUI = new CarToastUI(mContext,
                 mContext.getOrCreateTestableResources().getResources(), mCommandQueue,
-                mToastFactory, mToastLogger, mPackageManager);
+                mToastFactory, mToastLogger, mUserTracker, mPackageManager);
         View view = new View(mContext);
         when(mSystemUIToast.hasCustomAnimation()).thenReturn(false);
         when(mSystemUIToast.getView()).thenReturn(view);
@@ -175,7 +178,7 @@ public class CarToastUITest extends SysuiTestCase {
                 new String[]{PACKAGE_NAME});
         CarToastUI carToastUI = new CarToastUI(mContext,
                 mContext.getOrCreateTestableResources().getResources(), mCommandQueue,
-                mToastFactory, mToastLogger, mPackageManager);
+                mToastFactory, mToastLogger, mUserTracker, mPackageManager);
         setupPackageInfo(/* isSystem= */ true, /* isPrivileged= */
                 false, /* isSignedWithPlatformKey= */ false);
 

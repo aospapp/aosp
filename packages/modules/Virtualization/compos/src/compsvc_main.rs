@@ -22,24 +22,14 @@ mod compos_key;
 mod compsvc;
 mod fsverity;
 
-use android_system_virtualmachineservice::{
-    aidl::android::system::virtualmachineservice::IVirtualMachineService::{
-        IVirtualMachineService, VM_BINDER_SERVICE_PORT,
-    },
-    binder::Strong,
-};
-use anyhow::{anyhow, bail, Context, Result};
-use binder::{
-    unstable_api::{new_spibinder, AIBinder},
-    FromIBinder,
-};
-use binder_common::rpc_server::run_rpc_server;
+use anyhow::Result;
+use binder::unstable_api::AsNative;
 use compos_common::COMPOS_VSOCK_PORT;
 use log::{debug, error};
+use std::os::raw::c_void;
 use std::panic;
-
-/// The CID representing the host VM
-const VMADDR_CID_HOST: u32 = 2;
+use std::ptr;
+use vm_payload_bindgen::{AIBinder, AVmPayload_notifyPayloadReady, AVmPayload_runVsockRpcServer};
 
 fn main() {
     if let Err(e) = try_main() {
@@ -57,34 +47,21 @@ fn try_main() -> Result<()> {
         error!("{}", panic_info);
     }));
 
-    let service = compsvc::new_binder()?.as_binder();
-    let vm_service = get_vm_service()?;
-
     debug!("compsvc is starting as a rpc service.");
-
-    let retval = run_rpc_server(service, COMPOS_VSOCK_PORT, || {
-        if let Err(e) = vm_service.notifyPayloadReady() {
-            error!("Unable to notify ready: {}", e);
-        }
-    });
-    if retval {
-        debug!("RPC server has shut down gracefully");
-        Ok(())
-    } else {
-        bail!("Premature termination of RPC server");
+    let param = ptr::null_mut();
+    let mut service = compsvc::new_binder()?.as_binder();
+    unsafe {
+        // SAFETY: We hold a strong pointer, so the raw pointer remains valid. The bindgen AIBinder
+        // is the same type as sys::AIBinder.
+        let service = service.as_native_mut() as *mut AIBinder;
+        // SAFETY: It is safe for on_ready to be invoked at any time, with any parameter.
+        AVmPayload_runVsockRpcServer(service, COMPOS_VSOCK_PORT, Some(on_ready), param);
     }
+    Ok(())
 }
 
-fn get_vm_service() -> Result<Strong<dyn IVirtualMachineService>> {
-    // SAFETY: AIBinder returned by RpcClient has correct reference count, and the ownership
-    // can be safely taken by new_spibinder.
-    let ibinder = unsafe {
-        new_spibinder(binder_rpc_unstable_bindgen::RpcClient(
-            VMADDR_CID_HOST,
-            VM_BINDER_SERVICE_PORT as u32,
-        ) as *mut AIBinder)
-    }
-    .ok_or_else(|| anyhow!("Failed to connect to IVirtualMachineService"))?;
-
-    FromIBinder::try_from(ibinder).context("Connecting to IVirtualMachineService")
+extern "C" fn on_ready(_param: *mut c_void) {
+    // SAFETY: Invokes a method from the bindgen library `vm_payload_bindgen` which is safe to
+    // call at any time.
+    unsafe { AVmPayload_notifyPayloadReady() };
 }

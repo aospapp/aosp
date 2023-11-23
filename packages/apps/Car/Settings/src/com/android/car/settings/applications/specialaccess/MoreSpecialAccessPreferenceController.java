@@ -67,7 +67,7 @@ public class MoreSpecialAccessPreferenceController extends PreferenceController<
     }
 
     @Override
-    protected int getAvailabilityStatus() {
+    protected int getDefaultAvailabilityStatus() {
         return (mIntent != null) ? AVAILABLE : UNSUPPORTED_ON_DEVICE;
     }
 

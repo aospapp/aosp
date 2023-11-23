@@ -22,6 +22,7 @@ import android.telephony.ims.SipMessage;
 import com.android.internal.telephony.SipMessageParsingUtils;
 
 import java.util.Arrays;
+import java.util.Locale;
 
 /**
  * Validate that any outgoing SIP request message does not contain methods that are only generated
@@ -47,7 +48,7 @@ public class RestrictedOutgoingSipRequestValidator implements SipMessageValidato
                         "malformed start line: " + message.getStartLine());
             }
             if (Arrays.stream(IMS_SERVICE_HANDLED_REQUEST_METHODS).anyMatch(
-                    s -> segments[0].toLowerCase().contains(s))) {
+                    s -> segments[0].toLowerCase(Locale.ROOT).contains(s))) {
                 return new ValidationResult(
                         SipDelegateManager.MESSAGE_FAILURE_REASON_INVALID_START_LINE,
                         "restricted method: " + segments[0]);

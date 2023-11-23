@@ -29,14 +29,14 @@ import android.os.UserHandle;
 import android.os.UserManager;
 import android.util.Log;
 
+import androidx.annotation.NonNull;
+
 import com.android.launcher3.Launcher;
 import com.android.launcher3.LauncherAppState;
 import com.android.launcher3.LauncherSettings;
 import com.android.launcher3.LauncherSettings.Favorites;
 import com.android.launcher3.config.FeatureFlags;
-import com.android.launcher3.icons.BitmapInfo;
 import com.android.launcher3.icons.IconCache;
-import com.android.launcher3.icons.LauncherIcons;
 import com.android.launcher3.logging.FileLog;
 import com.android.launcher3.model.data.ItemInfo;
 import com.android.launcher3.model.data.LauncherAppWidgetInfo;
@@ -44,6 +44,7 @@ import com.android.launcher3.model.data.WorkspaceItemInfo;
 import com.android.launcher3.pm.PackageInstallInfo;
 import com.android.launcher3.pm.UserCache;
 import com.android.launcher3.shortcuts.ShortcutRequest;
+import com.android.launcher3.testing.shared.TestProtocol;
 import com.android.launcher3.util.FlagOp;
 import com.android.launcher3.util.IntSet;
 import com.android.launcher3.util.ItemInfoMatcher;
@@ -57,7 +58,9 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.function.Predicate;
+import java.util.stream.Collectors;
 
 /**
  * Handles updates due to changes in package manager (app installed/updated/removed)
@@ -65,7 +68,7 @@ import java.util.function.Predicate;
  */
 public class PackageUpdatedTask extends BaseModelUpdateTask {
 
-    private static final boolean DEBUG = false;
+    private static boolean DEBUG = false;
     private static final String TAG = "PackageUpdatedTask";
 
     public static final int OP_NONE = 0;
@@ -78,17 +81,28 @@ public class PackageUpdatedTask extends BaseModelUpdateTask {
     public static final int OP_USER_AVAILABILITY_CHANGE = 7; // user available/unavailable
 
     private final int mOp;
+
+    @NonNull
     private final UserHandle mUser;
+
+    @NonNull
     private final String[] mPackages;
 
-    public PackageUpdatedTask(int op, UserHandle user, String... packages) {
+    public PackageUpdatedTask(final int op, @NonNull final UserHandle user,
+            @NonNull final String... packages) {
         mOp = op;
         mUser = user;
         mPackages = packages;
+        if (TestProtocol.sDebugTracing) {
+            Log.d(TestProtocol.WORK_TAB_MISSING, "PackageUpdatedTask mOp: " + mOp +
+                    " packageCount: " + mPackages.length + " user: " + user);
+            DEBUG = true;
+        }
     }
 
     @Override
-    public void execute(LauncherAppState app, BgDataModel dataModel, AllAppsList appsList) {
+    public void execute(@NonNull final LauncherAppState app, @NonNull final BgDataModel dataModel,
+            @NonNull final AllAppsList appsList) {
         final Context context = app.getContext();
         final IconCache iconCache = app.getIconCache();
 
@@ -128,6 +142,9 @@ public class PackageUpdatedTask extends BaseModelUpdateTask {
                         // The update may have changed which shortcuts/widgets are available.
                         // Refresh the widgets for the package if we have an activity running.
                         Launcher launcher = Launcher.ACTIVITY_TRACKER.getCreatedActivity();
+                        if (TestProtocol.sDebugTracing) {
+                            Log.d(TestProtocol.WORK_TAB_MISSING, "launcher: " + launcher);
+                        }
                         if (launcher != null) {
                             launcher.refreshAndBindWidgetsForPackageUser(
                                     new PackageUserKey(packages[i], mUser));
@@ -193,18 +210,6 @@ public class PackageUpdatedTask extends BaseModelUpdateTask {
 
                     boolean infoUpdated = false;
                     boolean shortcutUpdated = false;
-
-                    // Update shortcuts which use iconResource.
-                    if ((si.iconResource != null)
-                            && packageSet.contains(si.iconResource.packageName)) {
-                        LauncherIcons li = LauncherIcons.obtain(context);
-                        BitmapInfo iconInfo = li.createIconBitmap(si.iconResource);
-                        li.recycle();
-                        if (iconInfo != null) {
-                            si.bitmap = iconInfo;
-                            infoUpdated = true;
-                        }
-                    }
 
                     ComponentName cn = si.getTargetComponent();
                     if (cn != null && matcher.test(si)) {
@@ -343,7 +348,12 @@ public class PackageUpdatedTask extends BaseModelUpdateTask {
                     .or(ItemInfoMatcher.ofComponents(removedComponents, mUser))
                     .and(ItemInfoMatcher.ofItemIds(forceKeepShortcuts).negate());
             deleteAndBindComponentsRemoved(removeMatch,
-                    "removed because the corresponding package or component is removed");
+                    "removed because the corresponding package or component is removed. "
+                            + "mOp=" + mOp + " removedPackages=" + removedPackages.stream().collect(
+                                    Collectors.joining(",", "[", "]"))
+                            + " removedComponents=" + removedComponents.stream()
+                            .filter(Objects::nonNull).map(ComponentName::toShortString)
+                            .collect(Collectors.joining(",", "[", "]")));
 
             // Remove any queued items from the install queue
             ItemInstallQueue.INSTANCE.get(context)

@@ -531,4 +531,12 @@ impl ControllerFacade for ControllerFacadeService {
     ) {
         todo!()
     }
+    fn supports_ble_periodic_advertising_adi(
+        &mut self,
+        _: RpcContext<'_>,
+        _: Empty,
+        _: UnarySink<SupportedMsg>,
+    ) {
+        todo!()
+    }
 }

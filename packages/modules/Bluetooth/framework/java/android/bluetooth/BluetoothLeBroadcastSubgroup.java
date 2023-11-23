@@ -162,26 +162,26 @@ public final class BluetoothLeBroadcastSubgroup implements Parcelable {
      * @hide
      */
     @SystemApi
-    public static final @NonNull Parcelable.Creator<BluetoothLeBroadcastSubgroup> CREATOR =
-            new Parcelable.Creator<BluetoothLeBroadcastSubgroup>() {
-                public @NonNull BluetoothLeBroadcastSubgroup createFromParcel(@NonNull Parcel in) {
-                    Builder builder = new Builder();
-                    builder.setCodecId(in.readLong());
-                    builder.setCodecSpecificConfig(in.readTypedObject(
-                            BluetoothLeAudioCodecConfigMetadata.CREATOR));
-                    builder.setContentMetadata(
-                            in.readTypedObject(BluetoothLeAudioContentMetadata.CREATOR));
-                    List<BluetoothLeBroadcastChannel> channels = new ArrayList<>();
-                    in.readTypedList(channels, BluetoothLeBroadcastChannel.CREATOR);
-                    for (BluetoothLeBroadcastChannel channel : channels) {
-                        builder.addChannel(channel);
-                    }
-                    return builder.build();
-                }
+    @NonNull
+    public static final Creator<BluetoothLeBroadcastSubgroup> CREATOR = new Creator<>() {
+        public @NonNull BluetoothLeBroadcastSubgroup createFromParcel(@NonNull Parcel in) {
+            Builder builder = new Builder();
+            builder.setCodecId(in.readLong());
+            builder.setCodecSpecificConfig(in.readTypedObject(
+                    BluetoothLeAudioCodecConfigMetadata.CREATOR));
+            builder.setContentMetadata(
+                    in.readTypedObject(BluetoothLeAudioContentMetadata.CREATOR));
+            List<BluetoothLeBroadcastChannel> channels = new ArrayList<>();
+            in.readTypedList(channels, BluetoothLeBroadcastChannel.CREATOR);
+            for (BluetoothLeBroadcastChannel channel : channels) {
+                builder.addChannel(channel);
+            }
+            return builder.build();
+        }
 
-                public @NonNull BluetoothLeBroadcastSubgroup[] newArray(int size) {
-                    return new BluetoothLeBroadcastSubgroup[size];
-                }
+        public @NonNull BluetoothLeBroadcastSubgroup[] newArray(int size) {
+            return new BluetoothLeBroadcastSubgroup[size];
+        }
     };
 
     private static final int UNKNOWN_VALUE_PLACEHOLDER = -1;
@@ -248,7 +248,8 @@ public final class BluetoothLeBroadcastSubgroup implements Parcelable {
          * @hide
          */
         @SystemApi
-        public @NonNull Builder setCodecSpecificConfig(
+        @NonNull
+        public Builder setCodecSpecificConfig(
                 @NonNull BluetoothLeAudioCodecConfigMetadata codecSpecificConfig) {
             Objects.requireNonNull(codecSpecificConfig, "codecSpecificConfig cannot be null");
             mCodecSpecificConfig = codecSpecificConfig;
@@ -264,7 +265,8 @@ public final class BluetoothLeBroadcastSubgroup implements Parcelable {
          * @hide
          */
         @SystemApi
-        public @NonNull Builder setContentMetadata(
+        @NonNull
+        public Builder setContentMetadata(
                 @NonNull BluetoothLeAudioContentMetadata contentMetadata) {
             Objects.requireNonNull(contentMetadata, "contentMetadata cannot be null");
             mContentMetadata = contentMetadata;

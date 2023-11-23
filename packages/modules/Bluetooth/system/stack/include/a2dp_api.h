@@ -119,9 +119,9 @@ typedef void(tA2DP_FIND_CBACK)(bool found, tA2DP_Service* p_service,
  *                  A2DP_FAIL if function execution failed.
  *
  *****************************************************************************/
-extern tA2DP_STATUS A2DP_AddRecord(uint16_t service_uuid, char* p_service_name,
-                                   char* p_provider_name, uint16_t features,
-                                   uint32_t sdp_handle);
+tA2DP_STATUS A2DP_AddRecord(uint16_t service_uuid, char* p_service_name,
+                            char* p_provider_name, uint16_t features,
+                            uint32_t sdp_handle);
 
 /******************************************************************************
  *
@@ -158,10 +158,9 @@ extern tA2DP_STATUS A2DP_AddRecord(uint16_t service_uuid, char* p_service_name,
  *                  A2DP_FAIL if function execution failed.
  *
  *****************************************************************************/
-extern tA2DP_STATUS A2DP_FindService(uint16_t service_uuid,
-                                     const RawAddress& bd_addr,
-                                     tA2DP_SDP_DB_PARAMS* p_db,
-                                     tA2DP_FIND_CBACK* p_cback);
+tA2DP_STATUS A2DP_FindService(uint16_t service_uuid, const RawAddress& bd_addr,
+                              tA2DP_SDP_DB_PARAMS* p_db,
+                              tA2DP_FIND_CBACK* p_cback);
 
 /******************************************************************************
  *
@@ -172,7 +171,7 @@ extern tA2DP_STATUS A2DP_FindService(uint16_t service_uuid,
  * Returns          The local version of AVDTP.
  *
  *****************************************************************************/
-extern uint16_t A2DP_GetAvdtpVersion(void);
+uint16_t A2DP_GetAvdtpVersion(void);
 
 /******************************************************************************
  *
@@ -195,7 +194,7 @@ extern uint16_t A2DP_GetAvdtpVersion(void);
  *                  the input parameter is 0xff.
  *
  *****************************************************************************/
-extern uint8_t A2DP_SetTraceLevel(uint8_t new_level);
+uint8_t A2DP_SetTraceLevel(uint8_t new_level);
 
 /******************************************************************************
  * Function         A2DP_BitsSet
@@ -205,7 +204,7 @@ extern uint8_t A2DP_SetTraceLevel(uint8_t new_level);
  *                  A2DP_SET_ZERO_BIT, if all bits clear
  *                  A2DP_SET_MULTL_BIT, if multiple bits are set
  *****************************************************************************/
-extern uint8_t A2DP_BitsSet(uint64_t num);
+uint8_t A2DP_BitsSet(uint64_t num);
 
 // Initializes the A2DP control block.
 void A2DP_Init(void);

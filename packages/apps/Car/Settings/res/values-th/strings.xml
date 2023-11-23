@@ -24,14 +24,13 @@
     <string name="auto_brightness_title" msgid="9124647862844666581">"ปรับความสว่างอัตโนมัติ"</string>
     <string name="auto_brightness_summary" msgid="2002570577219479702">"ปรับความสว่างของหน้าจอตามสภาพแวดล้อม"</string>
     <string name="condition_night_display_title" msgid="3777509730126972675">"\"แสงตอนกลางคืน\" เปิดอยู่"</string>
-    <string name="night_mode_tile_label" msgid="6603597795502131664">"โหมดกลางคืน"</string>
     <string name="network_and_internet" msgid="4229023630498537530">"เครือข่ายและอินเทอร์เน็ต"</string>
     <string name="mobile_network_settings" msgid="1708621113321368597">"เครือข่ายมือถือ"</string>
     <string name="mobile_network_summary_count" msgid="760865625847664029">"{count,plural, =1{# ซิม}other{# ซิม}}"</string>
     <string name="mobile_network_active_sim" msgid="1901674954229832811">"ใช้งานอยู่/ซิม"</string>
     <string name="mobile_network_inactive_sim" msgid="3644984830926224318">"ไม่ได้ใช้งาน/ซิม"</string>
-    <string name="mobile_network_active_esim" msgid="5864100786496761032">"ใช้งานอยู่/ซิมที่ดาวน์โหลด"</string>
-    <string name="mobile_network_inactive_esim" msgid="1397332352238119032">"ไม่ได้ใช้งาน/ซิมที่ดาวน์โหลด"</string>
+    <string name="mobile_network_active_esim" msgid="5175362818078597096">"ใช้งานอยู่ / eSIM"</string>
+    <string name="mobile_network_inactive_esim" msgid="7273712403773327964">"ไม่ได้ใช้งาน / eSIM"</string>
     <string name="mobile_network_list_add_more" msgid="6174294462747070655">"เพิ่มอีก"</string>
     <string name="mobile_network_toggle_title" msgid="3515647310810280063">"เน็ตมือถือ"</string>
     <string name="mobile_network_toggle_summary" msgid="8698267487987697148">"เข้าถึงอินเทอร์เน็ตโดยใช้เครือข่ายมือถือ"</string>
@@ -75,7 +74,7 @@
     <string name="data_limit" msgid="227338836292511425">"ขีดจำกัดอินเทอร์เน็ต"</string>
     <string name="data_usage_limit_dialog_title" msgid="1864716658371721883">"จำกัดปริมาณการใช้อินเทอร์เน็ต"</string>
     <string name="data_usage_limit_dialog_mobile" msgid="3633960011913085089">"ระบบเครื่องเสียงของรถยนต์จะปิดอินเทอร์เน็ตมือถือเมื่อมีการใช้งานถึงขีดจำกัดที่คุณกำหนดไว้\n\nเนื่องจากนี่เป็นปริมาณการใช้อินเทอร์เน็ตที่วัดโดยระบบเครื่องเสียง ปริมาณการใช้งานที่ผู้ให้บริการวัดได้จึงอาจไม่เท่ากัน โปรดกำหนดขีดจำกัดอย่างระมัดระวัง"</string>
-    <string name="data_usage_warning_editor_title" msgid="2041517150169038813">"ตั้งค่าเตือนปริมาณการใช้อินเทอร์เน็ต"</string>
+    <string name="data_usage_warning_editor_title" msgid="2041517150169038813">"ตั้งค่าคำเตือนปริมาณการใช้อินเทอร์เน็ต"</string>
     <string name="data_usage_limit_editor_title" msgid="133468242379286689">"ตั้งค่าขีดจำกัดปริมาณการใช้อินเทอร์เน็ต"</string>
     <string name="data_usage_settings_footer" msgid="681881387909678237">"ปริมาณการใช้อินเทอร์เน็ตจะวัดโดยอุปกรณ์ ซึ่งอาจแตกต่างจากปริมาณอินเทอร์เน็ตของผู้ให้บริการเครือข่ายมือถือ"</string>
     <string name="usage_bytes_threshold_picker_positive_button" msgid="4625479840977965519">"ตั้งค่า"</string>
@@ -177,8 +176,9 @@
     <string name="network_connection_request_dialog_showall" msgid="776613149566461487">"แสดงทั้งหมด"</string>
     <string name="progress_scanning" msgid="7191583064717479795">"กำลังค้นหา"</string>
     <string name="bluetooth_settings_title" msgid="3794688574569688649">"บลูทูธ"</string>
+    <string name="bluetooth_toggle_title" msgid="1431803611346881088">"ใช้บลูทูธ"</string>
     <string name="bluetooth_device" msgid="3178478829314083240">"อุปกรณ์ไม่มีชื่อ"</string>
-    <string name="bluetooth_paired_devices" msgid="6463199569164652410">"อุปกรณ์ที่จับคู่"</string>
+    <string name="bluetooth_paired_devices" msgid="6463199569164652410">"อุปกรณ์ที่จับคู่แล้ว"</string>
     <string name="bluetooth_pair_new_device" msgid="6948753485443263095">"จับคู่อุปกรณ์ใหม่"</string>
     <string name="bluetooth_pair_new_device_summary" msgid="2497221247690369031">"บลูทูธจะเปิดเพื่อจับคู่อุปกรณ์"</string>
     <string name="bluetooth_disconnect_title" msgid="7675271355910637528">"เลิกเชื่อมต่ออุปกรณ์ไหม"</string>
@@ -221,6 +221,9 @@
     <string name="bluetooth_notif_title" msgid="8374602799367803335">"คำขอจับคู่อุปกรณ์"</string>
     <string name="bluetooth_notif_message" msgid="1060821000510108726">"แตะเพื่อจับคู่กับ <xliff:g id="DEVICE_NAME">%1$s</xliff:g>"</string>
     <string name="bluetooth_device_picker" msgid="673238198452345475">"เลือกอุปกรณ์บลูทูธ"</string>
+    <string name="bluetooth_bonded_bluetooth_toggle_content_description" msgid="6800772154405846597">"บลูทูธ"</string>
+    <string name="bluetooth_bonded_phone_toggle_content_description" msgid="8152794643249938377">"โทรศัพท์"</string>
+    <string name="bluetooth_bonded_media_toggle_content_description" msgid="7803420585378155404">"สื่อ"</string>
     <string name="language_settings" msgid="2079258598337245546">"ภาษา"</string>
     <string name="languages_and_input_settings" msgid="3672322610529408248">"ภาษาและการป้อนข้อมูล"</string>
     <string name="language_picker_list_suggested_header" msgid="7593893806003415948">"แนะนำ"</string>
@@ -300,14 +303,16 @@
     <string name="apps_and_notifications_settings" msgid="8704585874333781975">"แอปและการแจ้งเตือน"</string>
     <string name="all_applications" msgid="7798210477486822168">"แสดงแอปทั้งหมด"</string>
     <string name="default_applications" msgid="1558183275638697087">"แอปเริ่มต้น"</string>
+    <string name="performance_impacting_apps" msgid="3439260699394720569">"แอปที่มีผลต่อประสิทธิภาพ"</string>
     <string name="app_permissions" msgid="32799922508313948">"สิทธิ์ของแอป"</string>
     <string name="app_permissions_summary" msgid="5402214755935368418">"ควมคุมสิทธิ์ของแอปในการเข้าถึงข้อมูล"</string>
     <string name="applications_settings" msgid="794261395191035632">"ข้อมูลแอป"</string>
-    <string name="force_stop" msgid="2153183697014720520">"บังคับให้หยุด"</string>
-    <string name="force_stop_dialog_title" msgid="3342850939200388694">"บังคับให้หยุดไหม"</string>
+    <string name="force_stop" msgid="1616958676171167028">"หยุดแอป"</string>
+    <string name="force_stop_dialog_title" msgid="4481858344628934971">"หยุดแอปไหม"</string>
     <string name="force_stop_dialog_text" msgid="4354954014318432599">"แอปอาจทำงานผิดพลาดหากบังคับให้หยุด"</string>
-    <string name="prioritize_app_performance_dialog_title" msgid="2561577032540073080">"เปิดประสิทธิภาพของแอปตามลำดับสำคัญใช่ไหม"</string>
-    <string name="prioritize_app_performance_dialog_text" msgid="572525689800110355">"หากเปิดอาจทำให้ระบบไม่เสถียรหรืออาจส่งผลกระทบต่อฮาร์ดแวร์ในระยะยาว ต้องการทำต่อไหม"</string>
+    <string name="force_stop_success_toast_text" msgid="2986272849275894254">"หยุด <xliff:g id="APP_NAME">%1$s</xliff:g> แล้ว"</string>
+    <string name="prioritize_app_performance_dialog_title" msgid="3205297520523665568">"ตั้งค่าให้เน้นที่ประสิทธิภาพของแอปไหม"</string>
+    <string name="prioritize_app_performance_dialog_text" msgid="4321564728229192878">"การตั้งค่านี้อาจทำให้ระบบไม่เสถียรหรืออาจส่งผลกระทบต่อฮาร์ดแวร์ในระยะยาว ต้องการทำต่อไหม"</string>
     <string name="prioritize_app_performance_dialog_action_on" msgid="3556735049873419163">"ใช่"</string>
     <string name="prioritize_app_performance_dialog_action_off" msgid="2813324718753199319">"ไม่เป็นไร"</string>
     <string name="disable_text" msgid="4358165448648990820">"ปิดใช้"</string>
@@ -378,6 +383,7 @@
     <string name="apps_permission_manager_title" msgid="8776335943862484131">"เครื่องมือจัดการสิทธิ์"</string>
     <string name="apps_permission_manager_summary" msgid="4180424218228141274">"ควมคุมสิทธิ์ของแอปในการเข้าถึงข้อมูล"</string>
     <string name="apps_default_apps_summary" msgid="2017792579839972926">"สำหรับ Assistant และอื่นๆ"</string>
+    <string name="performance_impacting_apps_summary" msgid="7762122057244111162">"{count,plural, =1{# แอปที่มีผลต่อประสิทธิภาพ}other{# แอปที่มีผลต่อประสิทธิภาพ}}"</string>
     <string name="apps_special_app_access_summary" msgid="6464767436309742163">"เข้าถึงระบบและการตั้งค่าอื่นๆ"</string>
     <string name="special_access" msgid="5730278220917123811">"สิทธิ์เข้าถึงพิเศษของแอป"</string>
     <string name="show_system" msgid="4401355756969485287">"แสดงระบบ"</string>
@@ -391,6 +397,8 @@
     <string name="notification_listener_revoke_warning_summary" msgid="4904973394539125407">"หากคุณปิดการเข้าถึงการแจ้งเตือนสำหรับ <xliff:g id="NOTIFICATION_LISTENER_NAME">%1$s</xliff:g> ระบบอาจปิดการเข้าถึงฟีเจอร์ห้ามรบกวนไปด้วย"</string>
     <string name="notification_listener_revoke_warning_confirm" msgid="2759583507454984812">"ปิด"</string>
     <string name="notification_listener_revoke_warning_cancel" msgid="4399941651358241154">"ยกเลิก"</string>
+    <string name="performance_impacting_apps_description" msgid="7361464904617808444">"แอปเหล่านี้ส่งผลเสียต่อประสิทธิภาพของระบบและถูกป้องกันไม่ให้ทำงานในเบื้องหลัง\nตั้งแอปเป็นแอปสำคัญเพื่ออนุญาตการใช้งานในเบื้องหลังและนำแอปดังกล่าวออกจากรายการนี้"</string>
+    <string name="performance_impacting_apps_button_label" msgid="8277507326717608783">"ตั้งเป็นแอปสำคัญ"</string>
     <string name="premium_sms_access_title" msgid="1409118461646148686">"การเข้าถึง SMS แบบพรีเมียม"</string>
     <string name="premium_sms_access_description" msgid="7119026067677052169">"SMS แบบพรีเมียมอาจมีค่าใช้จ่ายและจะเพิ่มเข้าไปในใบเรียกเก็บเงินจากผู้ให้บริการ หากคุณให้สิทธิ์แอปหนึ่งๆ คุณจะใช้แอปนั้นส่ง SMS แบบพรีเมียมได้"</string>
     <string name="usage_access_title" msgid="7153427122072303254">"การเข้าถึงการใช้งาน"</string>
@@ -401,22 +409,27 @@
     <string name="location_settings_title" msgid="901334356682423679">"ตำแหน่ง"</string>
     <string name="location_toggle_title" msgid="836779750812064601">"ใช้ตำแหน่ง"</string>
     <string name="location_toggle_summary" msgid="7977868708102299495">"อนุญาตให้แอปที่คุณระบุเข้าถึงตำแหน่งได้"</string>
-    <string name="location_toggle_off_warning" msgid="8396854289251143748">"หากคุณปิดการตั้งค่านี้ ระบบจะลบสิทธิ์เข้าถึงตำแหน่งของทุกแอป แต่แอปตัวช่วยของผู้ขับจะยังเข้าถึงตำแหน่งได้"</string>
-    <string name="location_driver_assistance_toggle_title" msgid="9201622805420459957">"ใช้ตำแหน่งสำหรับตัวช่วยของผู้ขับ"</string>
+    <string name="location_toggle_off_warning" msgid="5959449346865136081">"หากคุณปิดการตั้งค่านี้ ระบบจะนำสิทธิ์เข้าถึงตำแหน่งของทุกแอปออกยกเว้นที่ต้องใช้สำหรับตัวช่วยของผู้ขับ"</string>
+    <string name="location_driver_assistance_toggle_title" msgid="3780157378527924932">"ใช้ตำแหน่งสำหรับตัวช่วยของผู้ขับ"</string>
     <string name="location_driver_assistance_toggle_off_title" msgid="2218532550578204718">"ตำแหน่งของรถยนต์ปิดอยู่"</string>
-    <string name="location_driver_assistance_toggle_off_summary" msgid="1516786816178866919">"แอปตัวช่วยของผู้ขับเข้าถึงตำแหน่งไม่ได้"</string>
+    <string name="location_driver_assistance_toggle_off_summary" msgid="6040822988891113026">"แอปตัวช่วยของผู้ขับเข้าถึงตำแหน่งไม่ได้"</string>
     <string name="location_driver_assistance_action_text" msgid="1887309495010247883">"เปลี่ยน"</string>
     <string name="location_driver_assistance_toggle_summary" msgid="2732591196508054649">"อนุญาตให้แอปตัวช่วยขับรถเข้าถึงตำแหน่ง"</string>
-    <string name="location_driver_assistance_toggle_off_warning" msgid="8097738968253492982">"หากคุณปิดการตั้งค่านี้ ระบบจะปิดใช้แอปตัวช่วยของผู้ขับที่ใช้ข้อมูลตำแหน่ง"</string>
+    <string name="location_driver_assistance_toggle_off_warning" msgid="2733124752598498356">"หากคุณปิดการตั้งค่านี้ ระบบจะปิดใช้แอปตัวช่วยของผู้ขับที่ใช้ข้อมูลตำแหน่ง"</string>
     <string name="driver_assistance_warning_confirm_label" msgid="2873799611160864931">"ปิดเลย"</string>
-    <string name="location_settings_recent_requests_title" msgid="6345634382240930628">"คำขอตำแหน่งล่าสุด"</string>
-    <string name="location_settings_recent_requests_empty_message" msgid="7789667070033674910">"ไม่มีคำขอตำแหน่งล่าสุด"</string>
+    <string name="location_recently_accessed" msgid="522888989582110975">"เข้าถึงล่าสุด"</string>
+    <string name="location_settings_recently_accessed_title" msgid="6016264778609426382">"เข้าถึงล่าสุด"</string>
+    <string name="location_settings_recently_accessed_view_all_title" msgid="6344830628885781448">"ดูทั้งหมด"</string>
+    <string name="location_no_recent_access" msgid="2859914321242257931">"ไม่มีแอปล่าสุด"</string>
+    <string name="driver_assistance_label" msgid="9217315205754658940">"<xliff:g id="TIME">%1$s</xliff:g> • ตัวช่วยของผู้ขับ"</string>
+    <string name="location_driver_assistance_privacy_policy_header_content" msgid="8118086439003674350">"แอปที่มีสิทธิ์เข้าถึงตำแหน่งของรถยนต์คันนี้เพื่อให้บริการฟีเจอร์ตัวช่วยของผู้ขับ"</string>
+    <string name="location_driver_assistance_privacy_policy_button_text" msgid="669921557502414704">"นโยบายความเป็นส่วนตัว"</string>
     <string name="location_settings_app_permissions_title" msgid="6446735313354321564">"สิทธิ์ระดับแอป"</string>
     <string name="location_settings_services_title" msgid="1186133632690970468">"บริการตำแหน่ง"</string>
     <string name="location_use_location_title" msgid="117735895374606680">"ใช้ตำแหน่ง"</string>
     <string name="location_settings_footer" msgid="296892848338100051">"ตำแหน่งอาจใช้ข้อมูลจากแหล่งที่มาต่างๆ อย่างเช่น GPS, Wi‑Fi, เครือข่ายมือถือ และเซ็นเซอร์ เพื่อช่วยระบุตำแหน่งคร่าวๆ ของอุปกรณ์"</string>
     <string name="driver_assistance_settings_title" msgid="4915804073177128915">"ตัวช่วยของผู้ขับ"</string>
-    <string name="adas_settings_footer" msgid="5128483877858058534">"ข้อมูลตำแหน่งที่ส่งไปยังแอปตัวช่วยของผู้ขับไม่มีข้อมูลที่ระบุตัวคุณได้ ระบบจะเก็บข้อมูลดังกล่าวไว้นานสูงสุด 2 วันก่อนที่จะลบ"</string>
+    <string name="adas_settings_footer" msgid="6697021691244459156">"ข้อมูลตำแหน่งที่ส่งไปยังแอปตัวช่วยของผู้ขับไม่มีข้อมูลที่ระบุตัวคุณได้ ระบบจะเก็บข้อมูลดังกล่าวไว้นานสูงสุด 2 วันก่อนที่จะลบ"</string>
     <string name="microphone_settings_title" msgid="7125554350537136922">"ไมโครโฟน"</string>
     <string name="microphone_toggle_title" msgid="911586035332827275">"ใช้ไมโครโฟน"</string>
     <string name="microphone_toggle_summary" msgid="2682653449849128626">"อนุญาตให้แอปทั้งหมดเข้าถึงไมโครโฟนของคุณ"</string>
@@ -432,6 +445,9 @@
     <string name="system_update_settings_title" msgid="8448588267784138855">"การอัปเดตระบบ"</string>
     <string name="system_advanced_title" msgid="6303355131691523362">"ขั้นสูง"</string>
     <string name="system_advanced_summary" msgid="5833643795981791953">"เกี่ยวกับ ข้อมูลกฎหมาย รีเซ็ต และอื่นๆ"</string>
+    <string name="restart_infotainment_system_title" msgid="5174129167446756511">"รีสตาร์ทระบบสาระบันเทิง"</string>
+    <string name="restart_infotainment_system_dialog_text" msgid="6395281407323116808">"การรีสตาร์ทระบบสาระบันเทิงในรถของคุณอาจใช้เวลาสักครู่ ต้องการทำต่อไหม"</string>
+    <string name="continue_confirmation" msgid="1598892163951467191">"ต่อไป"</string>
     <string name="firmware_version" msgid="8491753744549309333">"เวอร์ชันของ Android"</string>
     <string name="security_patch" msgid="4794276590178386903">"ระดับแพตช์ความปลอดภัยของ Android"</string>
     <string name="hardware_info" msgid="3973165746261507658">"รุ่นและฮาร์ดแวร์"</string>
@@ -472,11 +488,11 @@
     <string name="developer_options_settings" msgid="1530739225109118480">"ตัวเลือกสำหรับนักพัฒนาแอป"</string>
     <string name="reset_options_title" msgid="4388902952861833420">"ตัวเลือกการรีเซ็ต"</string>
     <string name="reset_options_summary" msgid="5508201367420359293">"การรีเซ็ตเครือข่าย แอป หรืออุปกรณ์"</string>
-    <string name="reset_network_title" msgid="1284233059990797263">"รีเซ็ตเครือข่าย"</string>
-    <string name="reset_network_desc" msgid="602381374544634925">"การดำเนินการนี้จะรีเซ็ตการตั้งค่าเครือข่ายทั้งหมด รวมถึงการตั้งค่าต่อไปนี้"</string>
-    <string name="reset_network_item_wifi" msgid="7569481589699982698"><li>"Wi‑Fi"</li></string>
+    <string name="reset_network_title" msgid="3077846909739832734">"รีเซ็ต Wi‑Fi และบลูทูธ"</string>
+    <string name="reset_network_desc" msgid="3332203703135823033">"การดำเนินการนี้จะรีเซ็ตการตั้งค่า Wi‑Fi และบลูทูธ ลบหน่วยความจำสำหรับสิ่งที่เคยเชื่อมต่อดังนี้"</string>
+    <string name="reset_network_item_wifi" msgid="2876370861806060314"><li>"เครือข่าย Wi-Fi และรหัสผ่าน"</li></string>
     <string name="reset_network_item_mobile" msgid="5747282716664480997"><li>"เน็ตมือถือ"</li></string>
-    <string name="reset_network_item_bluetooth" msgid="6035019931106921284"><li>"บลูทูธ"</li></string>
+    <string name="reset_network_item_bluetooth" msgid="7475279871421815601"><li>"โทรศัพท์และอุปกรณ์บลูทูธอื่นๆ"</li></string>
     <string name="reset_esim_title" msgid="8132107637911831211">"ลบ eSIM ทั้งหมดของพาหนะ"</string>
     <string name="reset_esim_desc" msgid="1437276625485586740">"การดำเนินการนี้จะไม่ยกเลิกแผนบริการของคุณ"</string>
     <string name="reset_esim_error_title" msgid="7245109418130525492">"รีเซ็ต eSIM ไม่ได้"</string>
@@ -574,7 +590,7 @@
     <string name="storage_clear_user_data_text" msgid="8787615136779130680">"ล้างพื้นที่เก็บข้อมูล"</string>
     <string name="storage_clear_cache_btn_text" msgid="8449547925966775612">"ล้างแคช"</string>
     <string name="storage_clear_data_dlg_title" msgid="5863775997588969879">"ลบข้อมูลแอปไหม"</string>
-    <string name="storage_clear_data_dlg_text" msgid="795055288575727801">"ข้อมูลทั้งหมดของแอปนี้จะถูกลบอย่างถาวร ซึ่งรวมถึงไฟล์ การตั้งค่า บัญชี ฐานข้อมูล และอื่นๆ ทั้งหมด"</string>
+    <string name="storage_clear_data_dlg_text" msgid="3255314337644212283">"ระบบจะลบข้อมูลของแอปนี้อย่างถาวร ซึ่งรวมถึงไฟล์ การตั้งค่า ฐานข้อมูล และข้อมูลแอปอื่นๆ"</string>
     <string name="storage_clear_failed_dlg_text" msgid="6710485971686866306">"ล้างพื้นที่เก็บข้อมูลของแอปไม่ได้"</string>
     <string name="storage_unmount_success" msgid="1553591517580407021">"นำ<xliff:g id="NAME">%1$s</xliff:g>ออกได้อย่างปลอดภัยแล้ว"</string>
     <string name="storage_unmount_failure" msgid="4591934911541762883">"ไม่สามารถนำ<xliff:g id="NAME">%1$s</xliff:g>ออกได้อย่างปลอดภัย"</string>
@@ -675,6 +691,7 @@
     <string name="lockpassword_cancel_label" msgid="5791237697404166450">"ยกเลิก"</string>
     <string name="lockpassword_confirm_label" msgid="5918463281546146953">"ยืนยัน"</string>
     <string name="choose_lock_password_hints" msgid="3903696950202491593">"ต้องมีอักขระอย่างน้อย 4 ตัว"</string>
+    <string name="locktype_unavailable" msgid="2678317466336249126">"การล็อกประเภทนี้ไม่พร้อมใช้งาน"</string>
     <string name="lockpassword_pin_contains_non_digits" msgid="3044526271686839923">"ต้องมีตัวเลข 0-9 เท่านั้น"</string>
     <string name="lockpassword_pin_recently_used" msgid="7901918311213276207">"ผู้ดูแลระบบอุปกรณ์ไม่อนุญาตให้ใช้ PIN ที่เพิ่งใช้ไป"</string>
     <string name="lockpassword_pin_denylisted_by_admin" msgid="3752574009492336468">"ผู้ดูแลระบบไอทีบล็อก PIN ที่ไม่รัดกุม ลอง PIN อื่น"</string>
@@ -699,7 +716,6 @@
     <string name="lockpassword_pin_too_long" msgid="8315542764465856288">"{count,plural, =1{ต้องมีตัวเลขน้อยกว่า # ตัว}other{ต้องมีตัวเลขน้อยกว่า # ตัว}}"</string>
     <string name="lockpassword_pin_no_sequential_digits" msgid="6511579896796310956">"ไม่อนุญาตให้เรียงจากน้อยไปมาก จากมากไปน้อย หรือเรียงลำดับตัวเลขที่ซ้ำกัน"</string>
     <string name="setup_lock_settings_options_button_label" msgid="3337845811029780896">"ตัวเลือกการล็อกหน้าจอ"</string>
-    <string name="build_info_fmt" msgid="5592554123908086426">"<xliff:g id="FINGERPRINT">%1$s</xliff:g>\n<xliff:g id="DATE">%2$s</xliff:g> : <xliff:g id="NUM_DAYS">%3$s</xliff:g> วันที่ผ่านมา"</string>
     <string name="credentials_reset" msgid="873900550885788639">"ล้างข้อมูลรับรอง"</string>
     <string name="credentials_reset_summary" msgid="6067911547500459637">"นำใบรับรองทั้งหมดออก"</string>
     <string name="credentials_reset_hint" msgid="3459271621754137661">"ลบเนื้อหาทั้งหมดหรือไม่"</string>
@@ -722,6 +738,8 @@
     <string name="exit_retail_mode_dialog_confirmation_button_text" msgid="3147249675355968649">"ออกจากการสาธิต"</string>
     <string name="suggestion_dismiss_button" msgid="4539412646977050641">"ปิด"</string>
     <string name="restricted_while_driving" msgid="6587569249519274524">"ฟีเจอร์ไม่พร้อมใช้งานขณะขับรถ"</string>
+    <string name="restricted_for_passenger" msgid="7240117443887727753">"โปรดขอให้คนขับเปลี่ยนการตั้งค่า"</string>
+    <string name="restricted_for_driver" msgid="3364388937671526800">"คุณดำเนินการนี้ไม่ได้"</string>
     <string name="add_user_restricted_while_driving" msgid="1037301074725362944">"เพิ่มโปรไฟล์ขณะขับรถไม่ได้"</string>
     <string name="default_search_query" msgid="3137420627428857068">"ค้นหา"</string>
     <string name="assistant_and_voice_setting_title" msgid="737733881661819853">"Assistant และเสียง"</string>
@@ -737,6 +755,7 @@
     <string name="add_a_profile_button_text" msgid="8027395095117925114">"เพิ่มโปรไฟล์"</string>
     <string name="delete_this_profile_text" msgid="6035404714526922665">"ลบโปรไฟล์นี้"</string>
     <string name="add_profile_text" msgid="9118410102199116969">"เพิ่มโปรไฟล์"</string>
+    <string name="cannot_remove_driver_profile" msgid="4109363161608717969">"โปรไฟล์นี้ลงชื่อเข้าใช้เป็นคนขับในขณะนี้ โปรดลองอีกครั้งเมื่อไม่ได้ใช้โปรไฟล์เป็นคนขับ"</string>
     <string name="qc_display_brightness" msgid="2939655289816201170">"ความสว่างของหน้าจอ"</string>
     <string name="qc_bluetooth_off_devices_info" msgid="8420985279976892700">"เปิดบลูทูธเพื่อดูอุปกรณ์ของคุณ"</string>
     <string name="qc_bluetooth_on_no_devices_info" msgid="7573736950041887300">"เปิดการตั้งค่าบลูทูธเพื่อจับคู่อุปกรณ์"</string>
@@ -769,6 +788,7 @@
     <string name="number_of_device_admins" msgid="7508826094096451485">"{count,plural, =1{แอปที่เปิดใช้งาน # แอป}other{แอปที่ปิดใช้งาน # แอป}}"</string>
     <string name="number_of_device_admins_none" msgid="5547493703413973954">"ไม่มีแอปที่เปิดใช้งาน"</string>
     <string name="work_policy_privacy_settings" msgid="5263835989260149968">"นโยบายเกี่ยวกับรถยนต์ของ <xliff:g id="ORGANIZATION_NAME">%1$s</xliff:g>"</string>
+    <string name="work_policy_privacy_settings_no_org_name" msgid="8011687012493940230">"นโยบายเกี่ยวกับรถยนต์"</string>
     <string name="work_policy_privacy_settings_summary" msgid="5321618399949880194">"การตั้งค่าที่ผู้จัดการองค์กรดูแล"</string>
     <string name="footer_learn_more_content_description" msgid="7749452309729272078">"ดูข้อมูลเพิ่มเติมเกี่ยวกับ<xliff:g id="SERVICE">%1$s</xliff:g>"</string>
     <string name="enterprise_privacy_settings" msgid="6496900796150572727">"ข้อมูลของยานพาหนะที่ได้รับการจัดการ"</string>
@@ -834,12 +854,12 @@
     <string name="factory_reset_driving_text" msgid="6833832382688900191">"ต้องจอดรถเพื่อเริ่มการรีเซ็ต"</string>
     <string name="power_component_disabled" msgid="7084144472096800457">"เปลี่ยนแปลงการตั้งค่านี้ไม่ได้ในตอนนี้"</string>
     <string name="accessibility_settings_title" msgid="2615042088419230347">"การช่วยเหลือพิเศษ"</string>
-    <string name="accessibility_settings_captions_title" msgid="4635141293524800795">"คำบรรยาย"</string>
+    <string name="accessibility_settings_captions_title" msgid="4635141293524800795">"คำบรรยายแทนเสียง"</string>
     <string name="captions_settings_title" msgid="5738067618097295831">"ค่ากำหนดคำบรรยาย"</string>
     <string name="captions_settings_off" msgid="7568096968016015626">"ปิด"</string>
     <string name="captions_settings_on" msgid="5374984113566914978">"เปิด"</string>
     <string name="screen_reader_settings_title" msgid="4012734340987826872">"โปรแกรมอ่านหน้าจอ"</string>
-    <string name="show_captions_toggle_title" msgid="710582308974826311">"แสดงคำบรรยาย"</string>
+    <string name="show_captions_toggle_title" msgid="710582308974826311">"แสดงคำบรรยายแทนเสียง"</string>
     <string name="captions_text_size_title" msgid="1960814652560877963">"ขนาดข้อความ"</string>
     <string name="captions_settings_style_header" msgid="944591388386054372">"ขนาดและรูปแบบของคำบรรยาย"</string>
     <string name="captions_settings_text_size_very_small" msgid="7476485317028306502">"เล็กมาก"</string>

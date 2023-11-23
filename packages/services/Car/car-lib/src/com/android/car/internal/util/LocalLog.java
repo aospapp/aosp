@@ -18,6 +18,8 @@ package com.android.car.internal.util;
 
 import android.os.SystemClock;
 
+import com.android.internal.annotations.GuardedBy;
+
 import java.io.FileDescriptor;
 import java.io.PrintWriter;
 import java.time.Instant;
@@ -27,7 +29,6 @@ import java.util.Deque;
 import java.util.Iterator;
 
 // Copied from frameworks/base
-
 /**
  * Utility for in memory logging
  *
@@ -35,8 +36,12 @@ import java.util.Iterator;
  */
 public final class LocalLog {
 
-    private final Deque<String> mLog;
     private final int mMaxLines;
+
+    private final Object mLock = new Object();
+
+    @GuardedBy("mLock")
+    private final Deque<String> mLog;
 
     /**
      * {@code true} to use log timestamps expressed in local date/time, {@code false} to use log
@@ -72,20 +77,22 @@ public final class LocalLog {
     }
 
     /** Appends log and trims */
-    private synchronized void append(String logLine) {
-        while (mLog.size() >= mMaxLines) {
-            mLog.remove();
+    private void append(String logLine) {
+        synchronized (mLock) {
+            while (mLog.size() >= mMaxLines) {
+                mLog.remove();
+            }
+            mLog.add(logLine);
         }
-        mLog.add(logLine);
     }
 
     /** Dumps saved log */
-    public synchronized void dump(FileDescriptor fd, PrintWriter pw, String[] args) {
+    public void dump(FileDescriptor fd, PrintWriter pw, String[] args) {
         dump(pw);
     }
 
     /** Dumps saved log */
-    public synchronized void dump(PrintWriter pw) {
+    public void dump(PrintWriter pw) {
         dump("", pw);
     }
 
@@ -95,23 +102,27 @@ public final class LocalLog {
      * @param indent indent that precedes each log entry
      * @param pw printer writer to write into
      */
-    public synchronized void dump(String indent, PrintWriter pw) {
-        Iterator<String> itr = mLog.iterator();
-        while (itr.hasNext()) {
-            pw.printf("%s%s\n", indent, itr.next());
+    public void dump(String indent, PrintWriter pw) {
+        synchronized (mLock) {
+            Iterator<String> itr = mLog.iterator();
+            while (itr.hasNext()) {
+                pw.printf("%s%s\n", indent, itr.next());
+            }
         }
     }
 
     /** Dumps saved log in reerse order */
-    public synchronized void reverseDump(FileDescriptor fd, PrintWriter pw, String[] args) {
+    public void reverseDump(FileDescriptor fd, PrintWriter pw, String[] args) {
         reverseDump(pw);
     }
 
     /** Dumps saved log in reerse order */
-    public synchronized void reverseDump(PrintWriter pw) {
-        Iterator<String> itr = mLog.descendingIterator();
-        while (itr.hasNext()) {
-            pw.println(itr.next());
+    public void reverseDump(PrintWriter pw) {
+        synchronized (mLock) {
+            Iterator<String> itr = mLog.descendingIterator();
+            while (itr.hasNext()) {
+                pw.println(itr.next());
+            }
         }
     }
 }

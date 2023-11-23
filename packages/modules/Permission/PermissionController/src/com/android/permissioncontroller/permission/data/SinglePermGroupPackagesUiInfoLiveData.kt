@@ -19,8 +19,8 @@ package com.android.permissioncontroller.permission.data
 import android.app.Application
 import android.os.UserHandle
 import com.android.permissioncontroller.PermissionControllerApplication
+import com.android.permissioncontroller.permission.utils.PermissionMapping
 import com.android.permissioncontroller.permission.model.livedatatypes.AppPermGroupUiInfo
-import com.android.permissioncontroller.permission.utils.Utils
 
 /**
  * LiveData for the UI info for all packages in a single permission group. Tracks which packages
@@ -36,7 +36,8 @@ class SinglePermGroupPackagesUiInfoLiveData private constructor(
 ) : SmartUpdateMediatorLiveData<Map<Pair<String, UserHandle>, AppPermGroupUiInfo>>() {
 
     private val permGroupLiveData = PermGroupLiveData[permGroupName]
-    private val isCustomGroup = !Utils.getPlatformPermissionGroups().contains(permGroupName)
+    private val isCustomGroup =
+        !PermissionMapping.getPlatformPermissionGroups().contains(permGroupName)
     private val permGroupPackagesLiveData = PermGroupsPackagesLiveData.get(
         customGroups = isCustomGroup)
 

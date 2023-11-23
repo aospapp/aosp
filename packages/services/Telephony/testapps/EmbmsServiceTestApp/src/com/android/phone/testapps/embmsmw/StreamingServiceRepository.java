@@ -19,7 +19,6 @@ package com.android.phone.testapps.embmsmw;
 import android.net.Uri;
 import android.telephony.mbms.StreamingServiceInfo;
 
-import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
@@ -61,14 +60,10 @@ public class StreamingServiceRepository {
     private static void createStreamingService(String className) {
         sServiceIdCounter++;
         String id = "StreamingServiceId[" + sServiceIdCounter + "]";
-        Map<Locale, String> localeDict = new HashMap<Locale, String>() {{
-                put(Locale.US, "Entertainment Source " + sServiceIdCounter);
-                put(Locale.CANADA, "Entertainment Source, eh?" + sServiceIdCounter);
-        }};
-        List<Locale> locales = new ArrayList<Locale>() {{
-                add(Locale.CANADA);
-                add(Locale.US);
-        }};
+        Map<Locale, String> localeDict = Map.of(
+                Locale.US, "Entertainment Source " + sServiceIdCounter,
+                Locale.CANADA, "Entertainment Source, eh?" + sServiceIdCounter);
+        List<Locale> locales = List.of(Locale.CANADA, Locale.US);
         StreamingServiceInfo info = new StreamingServiceInfo(localeDict, className, locales,
                 id, new Date(System.currentTimeMillis() - 10000),
                 new Date(System.currentTimeMillis() + 10000));

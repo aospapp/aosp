@@ -12,7 +12,7 @@ cc_library_static {
     host_supported: true,
     apex_available: [
 
-        "com.android.bluetooth"
+        "com.android.btservices",
     ],
     defaults: ["fluoride_defaults"],
     srcs: [
@@ -20,42 +20,65 @@ cc_library_static {
     ],
     cflags: [
         "-O3",
-        "-ffast-math",
-        "-Werror",
         "-Wmissing-braces",
-        "-Wno-unused-parameter",
         "-Wno-#warnings",
-        "-Wuninitialized",
-        "-Wno-self-assign",
         "-Wno-implicit-fallthrough",
+        "-Wno-self-assign",
+        "-Wuninitialized",
+        "-ffast-math",
     ],
     target: {
-       android: {
+        android: {
             sanitize: {
-                misc_undefined:[
-                   "unsigned-integer-overflow",
-                   "signed-integer-overflow",
-                   "bounds",
+                misc_undefined: [
+                    "bounds",
+                    "signed-integer-overflow",
+                    "unsigned-integer-overflow",
                 ],
                 cfi: true,
             },
-       },
+        },
     },
     export_include_dirs: [
         "include",
     ],
-    min_sdk_version: "Tiramisu"
+    min_sdk_version: "Tiramisu",
 }
 
 cc_fuzz {
-  name: "liblc3_fuzzer",
+    name: "liblc3_fuzzer",
 
-  srcs: [
-    "fuzzer/liblc3_fuzzer.cpp",
-  ],
+    srcs: [
+        "fuzzer/liblc3_fuzzer.cpp",
+    ],
 
-  static_libs: [
-    "liblc3",
-  ],
+    static_libs: [
+        "liblc3",
+    ],
 }
 
+cc_binary {
+    name: "lc3_encoder",
+    host_supported: true,
+    srcs: [
+        "tools/elc3.c",
+        "tools/lc3bin.c",
+        "tools/wave.c",
+    ],
+    static_libs: [
+        "liblc3",
+    ],
+}
+
+cc_binary {
+    name: "lc3_decoder",
+    host_supported: true,
+    srcs: [
+        "tools/dlc3.c",
+        "tools/lc3bin.c",
+        "tools/wave.c",
+    ],
+    static_libs: [
+        "liblc3",
+    ],
+}

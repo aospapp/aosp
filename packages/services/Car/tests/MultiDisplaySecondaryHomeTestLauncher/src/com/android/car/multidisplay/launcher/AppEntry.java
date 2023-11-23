@@ -22,8 +22,15 @@ import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
 import android.graphics.drawable.Drawable;
 
+import java.util.Comparator;
+
 /** An entry that represents a single activity that can be launched. */
-public  class AppEntry {
+public final class AppEntry {
+    /**
+     * Comparator for {@link AppEntry} that sorts the list by 'label' property in ascending order.
+     */
+    public static final Comparator<AppEntry> LABEL_COMPARATOR = Comparator
+            .comparing(AppEntry::getLabel, String::compareToIgnoreCase);
 
     private String mLabel;
     private Drawable mIcon;

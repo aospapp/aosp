@@ -132,7 +132,7 @@ public class ChooseLockTypePreferenceController extends PreferenceController<Pre
     }
 
     @Override
-    public int getAvailabilityStatus() {
+    public int getDefaultAvailabilityStatus() {
         return mUserManager.isGuestUser() ? DISABLED_FOR_PROFILE : AVAILABLE;
     }
 }

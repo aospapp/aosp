@@ -16,6 +16,7 @@
 package android.bluetooth;
 
 import android.annotation.IntDef;
+import android.annotation.NonNull;
 import android.compat.annotation.UnsupportedAppUsage;
 import android.os.Parcel;
 import android.os.ParcelUuid;
@@ -313,8 +314,7 @@ public class BluetoothGattCharacteristic implements Parcelable {
         out.writeTypedList(mDescriptors);
     }
 
-    public static final @android.annotation.NonNull Parcelable.Creator<BluetoothGattCharacteristic> CREATOR =
-            new Parcelable.Creator<BluetoothGattCharacteristic>() {
+    public static final @NonNull Creator<BluetoothGattCharacteristic> CREATOR = new Creator<>() {
         public BluetoothGattCharacteristic createFromParcel(Parcel in) {
             return new BluetoothGattCharacteristic(in);
         }

@@ -23,6 +23,7 @@
     <string name="bt_share_picker_label" msgid="7464438494743777696">"ব্লুটুথ"</string>
     <string name="unknown_device" msgid="2317679521750821654">"অজানা ডিভাইস"</string>
     <string name="unknownNumber" msgid="1245183329830158661">"অজানা"</string>
+    <string name="not_provided" msgid="6938740494380012614">"প্রদান করা হয়নি"</string>
     <string name="airplane_error_title" msgid="2570111716678850860">"বিমান মোড"</string>
     <string name="airplane_error_msg" msgid="4853111123699559578">"আপনি বিমান মোডে ব্লুটুথ ব্যবহার করতে পারবেন না।"</string>
     <string name="bt_enable_title" msgid="4484289159118416315"></string>
@@ -41,8 +42,8 @@
     <string name="notification_receiving" msgid="8445265771083510696">"ব্লুটুথ share: <xliff:g id="FILE">%1$s</xliff:g> প্রাপ্ত করা হচ্ছে"</string>
     <string name="notification_received" msgid="2330252358543000567">"ব্লুটুথ share: <xliff:g id="FILE">%1$s</xliff:g> প্রাপ্ত করা হয়েছে"</string>
     <string name="notification_received_fail" msgid="9059153354809379374">"ব্লুটুথ share: <xliff:g id="FILE">%1$s</xliff:g> ফাইল প্রাপ্ত করা হয়নি"</string>
-    <string name="notification_sending" msgid="8269912843286868700">"ব্লুটুথ share: <xliff:g id="FILE">%1$s</xliff:g> পাঠানো হচ্ছে"</string>
-    <string name="notification_sent" msgid="2685202778935769332">"ব্লুটুথ share: <xliff:g id="FILE">%1$s</xliff:g> পাঠানো হয়েছে"</string>
+    <string name="notification_sending" msgid="8269912843286868700">"ব্লুটুথ শেয়ার: <xliff:g id="FILE">%1$s</xliff:g> পাঠানো হচ্ছে"</string>
+    <string name="notification_sent" msgid="2685202778935769332">"ব্লুটুথ শেয়ার: <xliff:g id="FILE">%1$s</xliff:g> পাঠানো হয়েছে"</string>
     <string name="notification_sent_complete" msgid="6293391081175517098">"১০০% সম্পূর্ণ"</string>
     <string name="notification_sent_fail" msgid="7449832660578001579">"ব্লুটুথ share: <xliff:g id="FILE">%1$s</xliff:g> ফাইল পাঠানো হয়নি"</string>
     <string name="download_title" msgid="6449408649671518102">"ফাইল ট্রান্সফার"</string>
@@ -107,8 +108,8 @@
     <string name="outbound_history_title" msgid="7614166584551065036">"বহির্গামী স্থানান্তরগুলি"</string>
     <string name="no_transfers" msgid="740521199933899821">"ট্রান্সফার করার ইতিহাস খালি।"</string>
     <string name="transfer_clear_dlg_msg" msgid="586117930961007311">"তালিকা থেকে সমস্ত আইটেম সাফ করা হবে।"</string>
-    <string name="outbound_noti_title" msgid="2045560896819618979">"ব্লুটুথ share: পাঠানো ফাইলগুলি"</string>
-    <string name="inbound_noti_title" msgid="3730993443609581977">"ব্লুটুথ share: প্রাপ্ত করা ফাইলগুলি"</string>
+    <string name="outbound_noti_title" msgid="2045560896819618979">"ব্লুটুথ শেয়ার: পাঠানো ফাইল"</string>
+    <string name="inbound_noti_title" msgid="3730993443609581977">"ব্লুটুথ শেয়ার: গ্রহন করা ফাইল"</string>
     <string name="noti_caption_unsuccessful" msgid="6679288016450410835">"{count,plural, =1{#টি ফাইল পাঠানো যায়নি।}one{#টি ফাইল পাঠানো যায়নি।}other{#টি ফাইল পাঠানো যায়নি।}}"</string>
     <string name="noti_caption_success" msgid="7652777514009569713">"{count,plural, =1{#টি ফাইল পাঠানো হয়েছে, %1$s}one{#টি ফাইল পাঠানো হয়েছে, %1$s}other{#টি ফাইল পাঠানো হয়েছে, %1$s}}"</string>
     <string name="transfer_menu_clear_all" msgid="3014459758656427076">"তালিকা সাফ করুন"</string>
@@ -128,4 +129,10 @@
     <string name="a2dp_sink_mbs_label" msgid="6035366346569127155">"ব্লুটুথ অডিও"</string>
     <string name="bluetooth_opp_file_limit_exceeded" msgid="6612109860149473930">"৪GB থেকে বড় ফটো ট্রান্সফার করা যাবে না"</string>
     <string name="bluetooth_connect_action" msgid="2319449093046720209">"ব্লুটুথের সাথে কানেক্ট করুন"</string>
+    <string name="bluetooth_enabled_apm_title" msgid="6914461147844949044">"\'বিমান মোড\'-এ থাকাকালীন ব্লুটুথ চালু থাকে"</string>
+    <string name="bluetooth_enabled_apm_message" msgid="6168686193308136881">"আপনি ব্লুটুথ চালু রাখলে, আপনি এরপর \'বিমান মোডে\' থাকলেও আপনার ডিভাইস এটি চালু রাখবে"</string>
+    <string name="bluetooth_stays_on_title" msgid="39720820955212918">"ব্লুটুথ চালু থাকে"</string>
+    <string name="bluetooth_stays_on_message" msgid="3669663452593157737">"\'বিমান মোড\'-এ থাকাকালীন আপনার ডিভাইস ব্লুটুথ চালু রাখে। আপনি ব্লুটুথ চালু না রাখতে চাইলে এটি বন্ধ করুন।"</string>
+    <string name="bluetooth_and_wifi_stays_on_title" msgid="5821932798860821244">"ওয়াই-ফাই ও ব্লুটুথ চালু থাকে"</string>
+    <string name="bluetooth_and_wifi_stays_on_message" msgid="7848565203843882558">"\'বিমান মোড\'-এ থাকাকালীন আপনার ডিভাইস, ওয়াই-ফাই ও ব্লুটুথ চালু রাখে। আপনি যদি ওয়াই-ফাই এবং ব্লুটুথ চালু রাখতে না চান, সেগুলি বন্ধ করে দিন।"</string>
 </resources>

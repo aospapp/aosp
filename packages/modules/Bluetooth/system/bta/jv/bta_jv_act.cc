@@ -39,6 +39,7 @@
 #include "stack/include/avdt_api.h"  // AVDT_PSM
 #include "stack/include/bt_hdr.h"
 #include "stack/include/gap_api.h"
+#include "stack/include/l2cdefs.h"
 #include "stack/include/port_api.h"
 #include "stack/include/sdp_api.h"
 #include "types/bluetooth/uuid.h"
@@ -146,6 +147,53 @@ static void bta_jv_free_sec_id(uint8_t* p_sec_id) {
     bta_jv_cb.sec_id[sec_id - BTA_JV_FIRST_SERVICE_ID] = 0;
   }
 }
+
+/*******************************************************************************
+ *
+ * Function     bta_jv_from_gap_l2cap_err
+ *
+ * Description  Convert the L2CAP error result propagated from GAP to BTA JV
+ *              L2CAP close reason code.
+ *
+ * Params      l2cap_result: The L2CAP result propagated from GAP error.
+ *
+ * Returns     Appropriate l2cap error reason value
+ *             or BTA_JV_L2CAP_REASON_UNKNOWN if reason isn't defined yet.
+ *
+ ******************************************************************************/
+static tBTA_JV_L2CAP_REASON bta_jv_from_gap_l2cap_err(uint16_t l2cap_result) {
+  switch (l2cap_result) {
+    case L2CAP_CONN_ACL_CONNECTION_FAILED:
+      return BTA_JV_L2CAP_REASON_ACL_FAILURE;
+    case L2CAP_CONN_CLIENT_SECURITY_CLEARANCE_FAILED:
+      return BTA_JV_L2CAP_REASON_CL_SEC_FAILURE;
+    case L2CAP_CONN_INSUFFICIENT_AUTHENTICATION:
+      return BTA_JV_L2CAP_REASON_INSUFFICIENT_AUTHENTICATION;
+    case L2CAP_CONN_INSUFFICIENT_AUTHORIZATION:
+      return BTA_JV_L2CAP_REASON_INSUFFICIENT_AUTHORIZATION;
+    case L2CAP_CONN_INSUFFICIENT_ENCRYP_KEY_SIZE:
+      return BTA_JV_L2CAP_REASON_INSUFFICIENT_ENCRYP_KEY_SIZE;
+    case L2CAP_CONN_INSUFFICIENT_ENCRYP:
+      return BTA_JV_L2CAP_REASON_INSUFFICIENT_ENCRYP;
+    case L2CAP_CONN_INVALID_SOURCE_CID:
+      return BTA_JV_L2CAP_REASON_INVALID_SOURCE_CID;
+    case L2CAP_CONN_SOURCE_CID_ALREADY_ALLOCATED:
+      return BTA_JV_L2CAP_REASON_SOURCE_CID_ALREADY_ALLOCATED;
+    case L2CAP_CONN_UNACCEPTABLE_PARAMETERS:
+      return BTA_JV_L2CAP_REASON_UNACCEPTABLE_PARAMETERS;
+    case L2CAP_CONN_INVALID_PARAMETERS:
+      return BTA_JV_L2CAP_REASON_INVALID_PARAMETERS;
+    case L2CAP_CONN_NO_RESOURCES:
+      return BTA_JV_L2CAP_REASON_NO_RESOURCES;
+    case L2CAP_CONN_NO_PSM:
+      return BTA_JV_L2CAP_REASON_NO_PSM;
+    case L2CAP_CONN_TIMEOUT:
+      return BTA_JV_L2CAP_REASON_TIMEOUT;
+    default:
+      return BTA_JV_L2CAP_REASON_UNKNOWN;
+  }
+}
+/******************************************************************************/
 
 /*******************************************************************************
  *
@@ -317,14 +365,10 @@ static tBTA_JV_STATUS bta_jv_free_rfc_cb(tBTA_JV_RFC_CB* p_cb,
     p_pcb->handle = 0;
     p_cb->curr_sess--;
     if (p_cb->curr_sess == 0) {
-      RFCOMM_ClearSecurityRecord(p_cb->scn);
       p_cb->scn = 0;
       p_cb->p_cback = NULL;
       p_cb->handle = 0;
       p_cb->curr_sess = -1;
-    }
-    if (remove_server) {
-      RFCOMM_ClearSecurityRecord(p_cb->scn);
     }
   }
   return status;
@@ -888,6 +932,9 @@ static void bta_jv_l2cap_client_cback(uint16_t gap_handle, uint16_t event,
       p_cb->state = BTA_JV_ST_NONE;
       bta_jv_free_sec_id(&p_cb->sec_id);
       evt_data.l2c_close.async = true;
+      evt_data.l2c_close.reason =
+          data != nullptr ? bta_jv_from_gap_l2cap_err(data->l2cap_result)
+                          : BTA_JV_L2CAP_REASON_EMPTY;
       p_cb->p_cback(BTA_JV_L2CAP_CLOSE_EVT, &evt_data, p_cb->l2cap_socket_id);
       p_cb->p_cback = NULL;
       break;
@@ -1356,7 +1403,6 @@ void bta_jv_rfcomm_connect(tBTA_SEC sec_mask, uint8_t remote_scn,
   bta_jv.rfc_cl_init = evt_data;
   p_cback(BTA_JV_RFCOMM_CL_INIT_EVT, &bta_jv, rfcomm_slot_id);
   if (bta_jv.rfc_cl_init.status == BTA_JV_FAILURE) {
-    RFCOMM_ClearSecurityRecord(remote_scn);
     if (handle) RFCOMM_RemoveConnection(handle);
   }
 }
@@ -1532,6 +1578,7 @@ static tBTA_JV_PCB* bta_jv_add_rfc_port(tBTA_JV_RFC_CB* p_cb,
   tPORT_STATE port_state;
   uint32_t event_mask = BTA_JV_RFC_EV_MASK;
   tBTA_JV_PCB* p_pcb = NULL;
+  tBTA_SEC sec_mask;
   if (p_cb->max_sess > 1) {
     for (i = 0; i < p_cb->max_sess; i++) {
       if (p_cb->rfc_hdl[i] != 0) {
@@ -1562,10 +1609,16 @@ static tBTA_JV_PCB* bta_jv_add_rfc_port(tBTA_JV_RFC_CB* p_cb,
             << ", si=" << si;
     if (used < p_cb->max_sess && listen == 1 && si) {
       si--;
-      if (RFCOMM_CreateConnection(p_cb->sec_id, p_cb->scn, true,
-                                  BTA_JV_DEF_RFC_MTU, RawAddress::kAny,
-                                  &(p_cb->rfc_hdl[si]),
-                                  bta_jv_port_mgmt_sr_cback) == PORT_SUCCESS) {
+      if (PORT_GetSecurityMask(p_pcb_open->port_handle, &sec_mask) !=
+          PORT_SUCCESS) {
+        LOG(ERROR) << __func__
+                   << ": RFCOMM_CreateConnection failed: invalid port_handle";
+      }
+
+      if (RFCOMM_CreateConnectionWithSecurity(
+              p_cb->sec_id, p_cb->scn, true, BTA_JV_DEF_RFC_MTU,
+              RawAddress::kAny, &(p_cb->rfc_hdl[si]), bta_jv_port_mgmt_sr_cback,
+              sec_mask) == PORT_SUCCESS) {
         p_cb->curr_sess++;
         p_pcb = &bta_jv_cb.port_cb[p_cb->rfc_hdl[si] - 1];
         p_pcb->state = BTA_JV_ST_SR_LISTEN;
@@ -1652,7 +1705,6 @@ void bta_jv_rfcomm_start_server(tBTA_SEC sec_mask, uint8_t local_scn,
   if (bta_jv.rfc_start.status == BTA_JV_SUCCESS) {
     PORT_SetDataCOCallback(handle, bta_jv_port_data_co_cback);
   } else {
-    RFCOMM_ClearSecurityRecord(local_scn);
     if (handle) RFCOMM_RemoveConnection(handle);
   }
 }

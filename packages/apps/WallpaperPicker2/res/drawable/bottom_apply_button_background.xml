@@ -14,11 +14,10 @@
      limitations under the License.
 -->
 <shape xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:androidprv="http://schemas.android.com/apk/prv/res/android"
     android:shape="rectangle">
     <corners android:radius="@dimen/apply_button_background_height" />
     <size
         android:width="@dimen/apply_button_background_width"
         android:height="@dimen/apply_button_background_height" />
-    <solid android:color="?androidprv:attr/colorAccentPrimaryVariant" />
+    <solid android:color="@color/color_accent_primary_variant" />
 </shape>

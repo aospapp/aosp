@@ -24,7 +24,7 @@ _adb() {
         _init_completion || return
     fi
 
-    local where i cur serial
+    local where i cur serial state transport
     COMPREPLY=()
 
     serial="${ANDROID_SERIAL:-none}"
@@ -39,6 +39,9 @@ _adb() {
                 where=OPT_PATH
                 ;;
             -*)
+                where=OPTIONS
+                ;;
+            wait-for-*)
                 where=OPTIONS
                 ;;
             *)
@@ -60,13 +63,21 @@ _adb() {
     OPTIONS="-d -e -s -p"
     COMMAND="devices connect disconnect push pull sync shell emu logcat lolcat forward jdwp install uninstall bugreport help version start-server kill-server get-state get-serialno status-window remount reboot reboot-bootloader root usb tcpip disable-verity"
 
+    for state in device recovery rescue sideload bootloader disconnect ; do
+        for transport in -usb -local -any "" ; do
+            WAIT_COMMAND=wait-for${transport}-${state}
+            if [[ -n "${cur}" && $WAIT_COMMAND == "${cur}"* ]] ; then
+                COMMAND+=" $WAIT_COMMAND"
+            fi
+        done
+    done
+
     case $where in
         OPTIONS|OPT_SERIAL|OPT_PATH)
             COMPREPLY=( $(compgen -W "$OPTIONS $COMMAND" -- "$cur") )
             ;;
         OPT_SERIAL_ARG)
-            local devices=$(command adb devices 2> /dev/null | grep -v "List of devices" | awk '{ print $1 }')
-            COMPREPLY=( $(compgen -W "${devices}" -- ${cur}) )
+            _adb_devices
             ;;
         COMMAND)
             if [[ $i -eq $COMP_CWORD ]]; then
@@ -74,6 +85,9 @@ _adb() {
             else
                 i=$((i+1))
                 case "${cur}" in
+                    disconnect)
+                        _adb_devices
+                        ;;
                     install)
                         _adb_cmd_install "$serial" $i
                         ;;
@@ -104,6 +118,12 @@ _adb() {
     esac
 
     return 0
+}
+
+_adb_devices() {
+    local devices=$(command adb devices 2> /dev/null | grep -v "List of devices" | awk '{ print $1 }')
+    COMPREPLY=( $(compgen -W "${devices}" -- ${cur}) )
+    return
 }
 
 _adb_cmd_install() {

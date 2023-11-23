@@ -31,6 +31,8 @@ import com.android.managedprovisioning.R;
 import com.android.managedprovisioning.common.ProvisionLogger;
 import com.android.managedprovisioning.common.SettingsFacade;
 
+import com.google.android.setupdesign.util.DeviceHelper;
+
 //TODO(b/181323689) Create tests for activity
 //TODO(b/213177227) Extract business logic to a controller for testability
 public class PreProvisioningActivityViaNfc extends Activity {
@@ -76,9 +78,11 @@ public class PreProvisioningActivityViaNfc extends Activity {
     }
 
     private AlertDialog createDeviceAlreadySetupDialog() {
+        var context = getApplicationContext();
         return new AlertDialog.Builder(this)
                 .setMessage(R.string.if_questions_contact_admin)
-                .setTitle(R.string.device_already_set_up)
+                .setTitle(context.getString(
+                        R.string.device_already_set_up, DeviceHelper.getDeviceName(context)))
                 .setPositiveButton(android.R.string.ok, createDialogOnClickListener())
                 .setCancelable(false)
                 .create();

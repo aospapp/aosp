@@ -48,7 +48,7 @@ using PolicyGroup = std::unordered_map<int32_t, std::string>;
 
 constexpr const char kSystemPolicyIdNoUserInteraction[] = "system_power_policy_no_user_interaction";
 constexpr const char kSystemPolicyIdAllOn[] = "system_power_policy_all_on";
-constexpr const char kSystemPolicyIdInitialOn[] = "system_power_policy_initiall_on";
+constexpr const char kSystemPolicyIdInitialOn[] = "system_power_policy_initial_on";
 constexpr const char kSystemPolicyIdSuspendPrep[] = "system_power_policy_suspend_prep";
 
 // Forward declaration for testing use only.
@@ -67,8 +67,9 @@ struct CarPowerPolicyMeta {
 /**
  * PolicyManager manages power policies, power policy mapping to power transision, and system power
  * policy.
- * It reads vendor policy information from /vendor/etc/power_policy.xml. If the XML file is invalid,
- * no power policy is registered and the system power policy is set to default.
+ * It reads vendor policy information from /vendor/etc/automotive/power_policy.xml.
+ * If the XML file is invalid, no power policy is registered and the system power policy is set to
+ * default.
  */
 class PolicyManager {
 public:
@@ -83,9 +84,10 @@ public:
             const std::string& policyId, const std::vector<std::string>& enabledComponents,
             const std::vector<std::string>& disabledComponents);
     android::base::Result<void> dump(int fd, const android::Vector<String16>& args);
+    std::string getDefaultPolicyGroup() const;
 
 private:
-    void initRegularPowerPolicy();
+    void initRegularPowerPolicy(bool override);
     void initPreemptivePowerPolicy();
     void readPowerPolicyConfiguration();
     void readPowerPolicyFromXml(const tinyxml2::XMLDocument& xmlDoc);
@@ -95,6 +97,8 @@ private:
     std::unordered_map<std::string, CarPowerPolicyPtr> mRegisteredPowerPolicies;
     std::unordered_map<std::string, CarPowerPolicyPtr> mPreemptivePowerPolicies;
     std::unordered_map<std::string, PolicyGroup> mPolicyGroups;
+    std::string mDefaultPolicyGroup;
+    std::unordered_map<std::string, int> mCustomComponents;
 
     // For unit tests.
     friend class internal::PolicyManagerPeer;

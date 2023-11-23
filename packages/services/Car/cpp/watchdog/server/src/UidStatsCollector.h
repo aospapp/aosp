@@ -18,11 +18,12 @@
 #define CPP_WATCHDOG_SERVER_SRC_UIDSTATSCOLLECTOR_H_
 
 #include "PackageInfoResolver.h"
+#include "UidCpuStatsCollector.h"
 #include "UidIoStatsCollector.h"
 #include "UidProcStatsCollector.h"
 
+#include <aidl/android/automotive/watchdog/internal/PackageInfo.h>
 #include <android-base/result.h>
-#include <android/automotive/watchdog/internal/PackageInfo.h>
 #include <utils/Mutex.h>
 #include <utils/RefBase.h>
 #include <utils/StrongPointer.h>
@@ -42,7 +43,8 @@ class UidStatsCollectorPeer;
 }  // namespace internal
 
 struct UidStats {
-    android::automotive::watchdog::internal::PackageInfo packageInfo;
+    aidl::android::automotive::watchdog::internal::PackageInfo packageInfo;
+    int64_t cpuTimeMillis = 0;
     UidIoStats ioStats = {};
     UidProcStats procStats = {};
     // Returns true when package info is available.
@@ -72,11 +74,13 @@ class UidStatsCollector final : public UidStatsCollectorInterface {
 public:
     UidStatsCollector() :
           mPackageInfoResolver(PackageInfoResolver::getInstance()),
+          mUidCpuStatsCollector(android::sp<UidCpuStatsCollector>::make()),
           mUidIoStatsCollector(android::sp<UidIoStatsCollector>::make()),
           mUidProcStatsCollector(android::sp<UidProcStatsCollector>::make()) {}
 
     void init() override {
         Mutex::Autolock lock(mMutex);
+        mUidCpuStatsCollector->init();
         mUidIoStatsCollector->init();
         mUidProcStatsCollector->init();
     }
@@ -100,11 +104,15 @@ public:
 private:
     std::vector<UidStats> process(
             const std::unordered_map<uid_t, UidIoStats>& uidIoStatsByUid,
-            const std::unordered_map<uid_t, UidProcStats>& uidProcStatsByUid) const;
+            const std::unordered_map<uid_t, UidProcStats>& uidProcStatsByUid,
+            const std::unordered_map<uid_t, int64_t>& cpuTimeMillisByUid) const;
+
     // Local PackageInfoResolverInterface instance. Useful to mock in tests.
     sp<PackageInfoResolverInterface> mPackageInfoResolver;
 
     mutable Mutex mMutex;
+
+    android::sp<UidCpuStatsCollectorInterface> mUidCpuStatsCollector GUARDED_BY(mMutex);
 
     android::sp<UidIoStatsCollectorInterface> mUidIoStatsCollector GUARDED_BY(mMutex);
 

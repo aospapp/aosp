@@ -134,7 +134,7 @@
     <string name="delivery_time_heading" msgid="5980836543433619329">"প্ৰাপ্ত:"</string>
     <string name="notification_multiple" msgid="5121978148152124860">"<xliff:g id="COUNT">%s</xliff:g> নপঢ়া সতৰ্কবাণীসমূহ।"</string>
     <string name="notification_multiple_title" msgid="1523638925739947855">"নতুন সতৰ্কবাণী"</string>
-    <string name="show_cmas_opt_out_summary" msgid="6926059266585295440">"প্ৰথমটো সতৰ্কবাণী দেখুওৱাৰ পিছত এই সেৱা পৰিত্যাগ কৰা বার্তা দেখুৱাওক (ৰাষ্ট্ৰপতিয়ে জাৰি কৰা সতৰ্কবাণীৰ বাহিৰে)।"</string>
+    <string name="show_cmas_opt_out_summary" msgid="6926059266585295440">"প্ৰথমটো সতৰ্কবাণী দেখুওৱাৰ পাছত এই সেৱা পৰিত্যাগ কৰা বার্তা দেখুৱাওক (ৰাষ্ট্ৰপতিয়ে জাৰি কৰা সতৰ্কবাণীৰ বাহিৰে)।"</string>
     <string name="show_cmas_opt_out_title" msgid="9182104842820171132">"এই সেৱা পৰিত্যাগ কৰা বার্তা দেখুৱাওক"</string>
     <string name="cmas_opt_out_dialog_text" msgid="4820577535626084938">"আপুনি বৰ্তমান অনাতাঁৰ জৰুৰীকালীন সতৰ্কবাৰ্তাসমূহ লাভ কৰি আছে। আপুনি অনাতাঁৰ জৰুৰীকালীন সতৰ্কবাৰ্তাসমূহ লাভ কৰাটো অব্যাহত ৰাখিবলৈ বিচাৰেনে?"</string>
     <string name="cmas_opt_out_button_yes" msgid="7248930667195432936">"হয়"</string>

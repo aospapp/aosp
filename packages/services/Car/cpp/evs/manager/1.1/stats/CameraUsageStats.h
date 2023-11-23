@@ -17,17 +17,17 @@
 #ifndef ANDROID_AUTOMOTIVE_EVS_V1_1_CAMERAUSAGESTATS_H
 #define ANDROID_AUTOMOTIVE_EVS_V1_1_CAMERAUSAGESTATS_H
 
-#include <queue>
-#include <unordered_map>
-
-#include <inttypes.h>
-
-#include <android/hardware/automotive/evs/1.1/types.h>
 #include <android-base/result.h>
 #include <android-base/stringprintf.h>
+#include <android/hardware/automotive/evs/1.1/types.h>
 #include <utils/Mutex.h>
 #include <utils/RefBase.h>
 #include <utils/SystemClock.h>
+
+#include <inttypes.h>
+
+#include <queue>
+#include <unordered_map>
 
 namespace android {
 namespace automotive {
@@ -59,7 +59,7 @@ public:
     int64_t framesPeakRoundtripLatency;
 
     // Average mFrame roundtrip latency
-    double  framesAvgRoundtripLatency;
+    double framesAvgRoundtripLatency;
 
     // Number of the erroneous streaming events
     int32_t erroneousEventsCount;
@@ -80,8 +80,8 @@ public:
     }
 
     friend CameraUsageStatsRecord operator-(CameraUsageStatsRecord lhs,
-                                      const CameraUsageStatsRecord& rhs) noexcept {
-        lhs -= rhs; // reuse compound assignment
+                                            const CameraUsageStatsRecord& rhs) noexcept {
+        lhs -= rhs;  // reuse compound assignment
         return lhs;
     }
 
@@ -89,35 +89,27 @@ public:
     std::string toString(const char* indent = "") const {
         std::string buffer;
         android::base::StringAppendF(&buffer,
-                "%sTime Collected: @%" PRId64 "ms\n"
-                "%sFrames Received: %" PRId64 "\n"
-                "%sFrames Returned: %" PRId64 "\n"
-                "%sFrames Ignored : %" PRId64 "\n"
-                "%sFrames Skipped To Sync: %" PRId64 "\n"
-                "%sFrames First Roundtrip: %" PRId64 "\n"
-                "%sFrames Peak Roundtrip: %" PRId64 "\n"
-                "%sFrames Average Roundtrip: %f\n"
-                "%sPeak Number of Clients: %" PRId32 "\n\n",
-                indent, ns2ms(timestamp),
-                indent, framesReceived,
-                indent, framesReturned,
-                indent, framesIgnored,
-                indent, framesSkippedToSync,
-                indent, framesFirstRoundtripLatency,
-                indent, framesPeakRoundtripLatency,
-                indent, framesAvgRoundtripLatency,
-                indent, peakClientsCount);
+                                     "%sTime Collected: @%" PRId64 "ms\n"
+                                     "%sFrames Received: %" PRId64 "\n"
+                                     "%sFrames Returned: %" PRId64 "\n"
+                                     "%sFrames Ignored : %" PRId64 "\n"
+                                     "%sFrames Skipped To Sync: %" PRId64 "\n"
+                                     "%sFrames First Roundtrip: %" PRId64 "\n"
+                                     "%sFrames Peak Roundtrip: %" PRId64 "\n"
+                                     "%sFrames Average Roundtrip: %f\n"
+                                     "%sPeak Number of Clients: %" PRId32 "\n\n",
+                                     indent, ns2ms(timestamp), indent, framesReceived, indent,
+                                     framesReturned, indent, framesIgnored, indent,
+                                     framesSkippedToSync, indent, framesFirstRoundtripLatency,
+                                     indent, framesPeakRoundtripLatency, indent,
+                                     framesAvgRoundtripLatency, indent, peakClientsCount);
 
         return buffer;
     }
 };
 
-
 struct BufferRecord {
-    BufferRecord(int64_t timestamp) :
-        timestamp(timestamp),
-        sum(0),
-        peak(0) {}
+    BufferRecord(int64_t timestamp) : timestamp(timestamp), sum(0), peak(0) {}
 
     // Recent processing time
     std::queue<int32_t> history;
@@ -132,14 +124,10 @@ struct BufferRecord {
     int64_t peak;
 };
 
-
 class CameraUsageStats : public RefBase {
 public:
-    CameraUsageStats(int32_t id)
-        : mMutex(Mutex()),
-          mId(id),
-          mTimeCreatedMs(android::uptimeMillis()),
-          mStats({}) {}
+    CameraUsageStats(int32_t id) :
+          mMutex(Mutex()), mId(id), mTimeCreatedMs(android::uptimeMillis()), mStats({}) {}
 
 private:
     // Mutex to protect a collection record
@@ -161,11 +149,11 @@ public:
     void framesReceived(int n = 1) EXCLUDES(mMutex);
     void framesReturned(int n = 1) EXCLUDES(mMutex);
     void framesReceived(
-            const hardware::hidl_vec<::android::hardware::automotive::evs::V1_1::BufferDesc>& bufs
-        ) EXCLUDES(mMutex);
+            const hardware::hidl_vec<::android::hardware::automotive::evs::V1_1::BufferDesc>& bufs)
+            EXCLUDES(mMutex);
     void framesReturned(
-            const hardware::hidl_vec<::android::hardware::automotive::evs::V1_1::BufferDesc>& bufs
-        ) EXCLUDES(mMutex);
+            const hardware::hidl_vec<::android::hardware::automotive::evs::V1_1::BufferDesc>& bufs)
+            EXCLUDES(mMutex);
     void framesIgnored(int n = 1) EXCLUDES(mMutex);
     void framesSkippedToSync(int n = 1) EXCLUDES(mMutex);
     void eventsReceived() EXCLUDES(mMutex);
@@ -174,11 +162,11 @@ public:
     int64_t getFramesReturned() const EXCLUDES(mMutex);
     void updateNumClients(size_t n) EXCLUDES(mMutex);
     void updateFrameStatsOnArrival(
-            const hardware::hidl_vec<::android::hardware::automotive::evs::V1_1::BufferDesc>& bufs
-        ) REQUIRES(mMutex);
+            const hardware::hidl_vec<::android::hardware::automotive::evs::V1_1::BufferDesc>& bufs)
+            REQUIRES(mMutex);
     void updateFrameStatsOnReturn(
-            const hardware::hidl_vec<::android::hardware::automotive::evs::V1_1::BufferDesc>& bufs
-        ) REQUIRES(mMutex);
+            const hardware::hidl_vec<::android::hardware::automotive::evs::V1_1::BufferDesc>& bufs)
+            REQUIRES(mMutex);
 
     // Returns the statistics collected so far
     CameraUsageStatsRecord snapshot() EXCLUDES(mMutex);
@@ -190,11 +178,10 @@ public:
     static std::string toString(const CameraUsageStatsRecord& record, const char* indent = "");
 };
 
+}  // namespace implementation
+}  // namespace V1_1
+}  // namespace evs
+}  // namespace automotive
+}  // namespace android
 
-} // namespace implementation
-} // namespace V1_1
-} // namespace evs
-} // namespace automotive
-} // namespace android
-
-#endif // ANDROID_AUTOMOTIVE_EVS_V1_1_CAMERAUSAGESTATS_H
+#endif  // ANDROID_AUTOMOTIVE_EVS_V1_1_CAMERAUSAGESTATS_H

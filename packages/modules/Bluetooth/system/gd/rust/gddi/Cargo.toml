@@ -21,9 +21,9 @@ edition = "2018"
 [dependencies]
 gddi_macros = { path = "macros" }
 
-tokio = { version = "*", features = ['bytes', 'net', 'sync'] }
-quote = "*"
-syn = { version = "*", features = ['default', 'full'] }
+tokio = { version = "1.0", features = ['bytes', 'net', 'sync'] }
+quote = "1.0"
+syn = { version = "1.0", features = ['default', 'full'] }
 
 [lib]
 path = "src/lib.rs"

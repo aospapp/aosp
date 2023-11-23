@@ -34,7 +34,7 @@ aidl_interface {
         java: {
             apex_available: [
                 "//apex_available:platform",
-                "com.android.bluetooth",
+                "com.android.btservices",
                 "com.android.wifi",
                 "com.android.tethering",
             ],
@@ -110,7 +110,7 @@ aidl_interface {
         java: {
             apex_available: [
                 "//apex_available:platform",
-                "com.android.bluetooth",
+                "com.android.btservices",
                 "com.android.wifi",
                 "com.android.tethering",
             ],
@@ -128,29 +128,44 @@ aidl_interface {
         },
     },
     imports: ["ipmemorystore-aidl-interfaces-V10"],
-    versions: [
-        "1",
-        "2",
-        "3",
-        "4",
-        "5",
-        "6",
-        "7",
-        "8",
-        "9",
-        "10",
-        "11",
-        "12",
-        "13",
-        "14",
-        "15",
-    ],
     // TODO: have tethering depend on networkstack-client and set visibility to private
     visibility: [
         "//system/tools/aidl/build",
         "//frameworks/base/packages/Tethering",
         "//packages/modules/Connectivity/Tethering",
     ],
+    versions_with_info: [
+        // Remove old networkstack aidl interface version info that is no longer used.
+        {
+            version: "13",
+            imports: ["ipmemorystore-aidl-interfaces-V10"],
+        },
+        {
+            version: "14",
+            imports: ["ipmemorystore-aidl-interfaces-V10"],
+        },
+        {
+            version: "15",
+            imports: ["ipmemorystore-aidl-interfaces-V10"],
+        },
+        {
+            version: "16",
+            imports: ["ipmemorystore-aidl-interfaces-V10"],
+        },
+        {
+            version: "17",
+            imports: ["ipmemorystore-aidl-interfaces-V10"],
+        },
+        {
+            version: "18",
+            imports: ["ipmemorystore-aidl-interfaces-V10"],
+        },
+
+    ],
+
+    // "frozen: true" is removed manually after each freeze, this property cannot be unrecognized
+    // in some downstream branches and TH will get the build error, see b/262507066 for details.
+
 }
 
 java_library {
@@ -159,12 +174,12 @@ java_library {
     min_sdk_version: "29",
     static_libs: [
         "ipmemorystore-aidl-interfaces-V10-java",
-        "networkstack-aidl-interfaces-V15-java",
+        "networkstack-aidl-interfaces-V18-java",
     ],
     visibility: ["//packages/modules/NetworkStack:__subpackages__"],
     apex_available: [
         "//apex_available:platform",
-        "com.android.bluetooth",
+        "com.android.btservices",
         "com.android.tethering",
         "com.android.wifi",
     ],
@@ -194,7 +209,6 @@ java_library {
     ],
     static_libs: [
         "networkstack-aidl-latest",
-        "modules-utils-build",
     ],
     visibility: [
         "//frameworks/base/packages/Connectivity/service",
@@ -205,10 +219,12 @@ java_library {
         "//packages/apps/Bluetooth",
         "//packages/modules/Bluetooth/android/app",
         "//packages/modules/NetworkStack",
+        "//packages/modules/Wifi/service:__subpackages__",
     ],
     apex_available: [
         "//apex_available:platform",
-        "com.android.bluetooth",
+        "com.android.btservices",
         "com.android.tethering",
+        "com.android.wifi",
     ],
 }

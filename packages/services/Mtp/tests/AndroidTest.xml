@@ -14,7 +14,7 @@
      limitations under the License.
 -->
 <configuration description="Runs Tests for MtpService with the UI for output.">
-    <target_preparer class="com.android.tradefed.targetprep.TestAppInstallSetup">
+    <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller">
         <option name="test-file-name" value="MtpServiceTests.apk" />
     </target_preparer>
 

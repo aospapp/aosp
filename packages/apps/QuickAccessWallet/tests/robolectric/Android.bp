@@ -30,5 +30,6 @@ android_robolectric_test {
         "androidx.test.core",
         "androidx.test.runner",
         "androidx.test.ext.junit",
-     ],
+    ],
+    upstream: true,
 }

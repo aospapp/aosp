@@ -25,12 +25,12 @@ import android.view.View;
 import android.widget.TextView;
 
 import androidx.preference.PreferenceViewHolder;
-import androidx.preference.SwitchPreference;
 
 import com.android.settingslib.widget.AnimatedImageView;
 import com.android.tv.settings.R;
+import com.android.tv.settings.widget.SwitchWithSoundPreference;
 
-public class SyncStateSwitchPreference extends SwitchPreference {
+public class SyncStateSwitchPreference extends SwitchWithSoundPreference {
 
     private boolean mIsActive = false;
     private boolean mIsPending = false;

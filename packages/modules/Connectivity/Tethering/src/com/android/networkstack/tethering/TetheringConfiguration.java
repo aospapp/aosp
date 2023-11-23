@@ -22,6 +22,7 @@ import static android.net.ConnectivityManager.TYPE_MOBILE;
 import static android.net.ConnectivityManager.TYPE_MOBILE_DUN;
 import static android.net.ConnectivityManager.TYPE_MOBILE_HIPRI;
 import static android.provider.DeviceConfig.NAMESPACE_CONNECTIVITY;
+import static android.provider.DeviceConfig.NAMESPACE_TETHERING;
 
 import static com.android.net.module.util.DeviceConfigUtils.TETHERING_MODULE_NAME;
 import static com.android.networkstack.apishim.ConstantsShim.KEY_CARRIER_SUPPORTS_TETHERING_BOOL;
@@ -30,7 +31,6 @@ import android.content.ContentResolver;
 import android.content.Context;
 import android.content.res.Resources;
 import android.net.TetheringConfigurationParcel;
-import android.net.util.SharedLog;
 import android.os.PersistableBundle;
 import android.provider.DeviceConfig;
 import android.provider.Settings;
@@ -39,9 +39,12 @@ import android.telephony.SubscriptionManager;
 import android.telephony.TelephonyManager;
 import android.text.TextUtils;
 
+import androidx.annotation.NonNull;
+
 import com.android.internal.annotations.VisibleForTesting;
 import com.android.modules.utils.build.SdkLevel;
 import com.android.net.module.util.DeviceConfigUtils;
+import com.android.net.module.util.SharedLog;
 
 import java.io.PrintWriter;
 import java.util.ArrayList;
@@ -122,6 +125,13 @@ public class TetheringConfiguration {
      */
     public static final String TETHER_FORCE_USB_FUNCTIONS =
             "tether_force_usb_functions";
+
+    /**
+     * Experiment flag to enable TETHERING_WEAR.
+     */
+    public static final String TETHER_ENABLE_WEAR_TETHERING =
+            "tether_enable_wear_tethering";
+
     /**
      * Default value that used to periodic polls tether offload stats from tethering offload HAL
      * to make the data warnings work.
@@ -150,6 +160,8 @@ public class TetheringConfiguration {
 
     public final int activeDataSubId;
 
+    private final Dependencies mDeps;
+
     private final boolean mEnableLegacyDhcpServer;
     private final int mOffloadPollInterval;
     // TODO: Add to TetheringConfigurationParcel if required.
@@ -157,10 +169,36 @@ public class TetheringConfiguration {
     private final boolean mEnableWifiP2pDedicatedIp;
     private final int mP2pLeasesSubnetPrefixLength;
 
+    private final boolean mEnableWearTethering;
+
     private final int mUsbTetheringFunction;
     protected final ContentResolver mContentResolver;
 
-    public TetheringConfiguration(Context ctx, SharedLog log, int id) {
+    /**
+     * A class wrapping dependencies of {@link TetheringConfiguration}, useful for testing.
+     */
+    @VisibleForTesting
+    public static class Dependencies {
+        boolean isFeatureEnabled(@NonNull Context context, @NonNull String namespace,
+                @NonNull String name, @NonNull String moduleName, boolean defaultEnabled) {
+            return DeviceConfigUtils.isFeatureEnabled(context, namespace, name,
+                    moduleName, defaultEnabled);
+        }
+
+        boolean getDeviceConfigBoolean(@NonNull String namespace, @NonNull String name,
+                boolean defaultValue) {
+            return DeviceConfig.getBoolean(namespace, name, defaultValue);
+        }
+    }
+
+    public TetheringConfiguration(@NonNull Context ctx, @NonNull SharedLog log, int id) {
+        this(ctx, log, id, new Dependencies());
+    }
+
+    @VisibleForTesting
+    public TetheringConfiguration(@NonNull Context ctx, @NonNull SharedLog log, int id,
+            @NonNull Dependencies deps) {
+        mDeps = deps;
         final SharedLog configLog = log.forSubComponent("config");
 
         activeDataSubId = id;
@@ -193,8 +231,13 @@ public class TetheringConfiguration {
 
         isDunRequired = checkDunRequired(ctx);
 
-        final boolean forceAutomaticUpstream = !SdkLevel.isAtLeastS()
-                && isFeatureEnabled(ctx, TETHER_FORCE_UPSTREAM_AUTOMATIC_VERSION);
+        // Here is how automatic mode enable/disable support on different Android version:
+        // - R   : can be enabled/disabled by resource config_tether_upstream_automatic.
+        //         but can be force-enabled by flag TETHER_FORCE_UPSTREAM_AUTOMATIC_VERSION.
+        // - S, T: can be enabled/disabled by resource config_tether_upstream_automatic.
+        // - U+  : automatic mode only.
+        final boolean forceAutomaticUpstream = SdkLevel.isAtLeastU() || (!SdkLevel.isAtLeastS()
+                && isConnectivityFeatureEnabled(ctx, TETHER_FORCE_UPSTREAM_AUTOMATIC_VERSION));
         chooseUpstreamAutomatically = forceAutomaticUpstream || getResourceBoolean(
                 res, R.bool.config_tether_upstream_automatic, false /** defaultValue */);
         preferredUpstreamIfaceTypes = getUpstreamIfaceTypes(res, isDunRequired);
@@ -227,6 +270,8 @@ public class TetheringConfiguration {
                 false /* defaultValue */);
 
         mP2pLeasesSubnetPrefixLength = getP2pLeasesSubnetPrefixLengthFromRes(res, configLog);
+
+        mEnableWearTethering = shouldEnableWearTethering(ctx);
 
         configLog.log(toString());
     }
@@ -311,6 +356,11 @@ public class TetheringConfiguration {
         return mP2pLeasesSubnetPrefixLength;
     }
 
+    /** Returns true if wearable device tethering is enabled. */
+    public boolean isWearTetheringEnabled() {
+        return mEnableWearTethering;
+    }
+
     /** Does the dumping.*/
     public void dump(PrintWriter pw) {
         pw.print("activeDataSubId: ");
@@ -356,6 +406,9 @@ public class TetheringConfiguration {
         pw.print("p2pLeasesSubnetPrefixLength: ");
         pw.println(mP2pLeasesSubnetPrefixLength);
 
+        pw.print("enableWearTethering: ");
+        pw.println(mEnableWearTethering);
+
         pw.print("mUsbTetheringFunction: ");
         pw.println(isUsingNcm() ? "NCM" : "RNDIS");
     }
@@ -381,6 +434,7 @@ public class TetheringConfiguration {
                 isCarrierConfigAffirmsEntitlementCheckRequired));
         sj.add(String.format("enableBpfOffload:%s", mEnableBpfOffload));
         sj.add(String.format("enableLegacyDhcpServer:%s", mEnableLegacyDhcpServer));
+        sj.add(String.format("enableWearTethering:%s", mEnableWearTethering));
         return String.format("TetheringConfiguration{%s}", sj.toString());
     }
 
@@ -551,24 +605,32 @@ public class TetheringConfiguration {
                 TETHER_ENABLE_LEGACY_DHCP_SERVER, false /** defaultValue */);
     }
 
+    private boolean shouldEnableWearTethering(Context context) {
+        return SdkLevel.isAtLeastT()
+            && isTetheringFeatureEnabled(context, TETHER_ENABLE_WEAR_TETHERING);
+    }
+
     private boolean getDeviceConfigBoolean(final String name, final boolean defaultValue) {
-        // Due to the limitation of static mock for testing, using #getDeviceConfigProperty instead
-        // of DeviceConfig#getBoolean. If using #getBoolean here, the test can't know that the
-        // returned boolean value comes from device config or default value (because of null
-        // property string). See the test case testBpfOffload{*} in TetheringConfigurationTest.java.
-        final String value = getDeviceConfigProperty(name);
-        return value != null ? Boolean.parseBoolean(value) : defaultValue;
+        return mDeps.getDeviceConfigBoolean(NAMESPACE_CONNECTIVITY, name, defaultValue);
     }
 
-    @VisibleForTesting
-    protected String getDeviceConfigProperty(String name) {
-        return DeviceConfig.getProperty(NAMESPACE_CONNECTIVITY, name);
+    /**
+     * This is deprecated because connectivity namespace already be used for NetworkStack mainline
+     * module. Tethering should use its own namespace to roll out the feature flag.
+     * @deprecated new caller should use isTetheringFeatureEnabled instead.
+     */
+    @Deprecated
+    private boolean isConnectivityFeatureEnabled(Context ctx, String featureVersionFlag) {
+        return isFeatureEnabled(ctx, NAMESPACE_CONNECTIVITY, featureVersionFlag);
     }
 
-    @VisibleForTesting
-    protected boolean isFeatureEnabled(Context ctx, String featureVersionFlag) {
-        return DeviceConfigUtils.isFeatureEnabled(ctx, NAMESPACE_CONNECTIVITY, featureVersionFlag,
-                TETHERING_MODULE_NAME, false /* defaultEnabled */);
+    private boolean isTetheringFeatureEnabled(Context ctx, String featureVersionFlag) {
+        return isFeatureEnabled(ctx, NAMESPACE_TETHERING, featureVersionFlag);
+    }
+
+    private boolean isFeatureEnabled(Context ctx, String namespace, String featureVersionFlag) {
+        return mDeps.isFeatureEnabled(ctx, namespace, featureVersionFlag, TETHERING_MODULE_NAME,
+                false /* defaultEnabled */);
     }
 
     private Resources getResources(Context ctx, int subId) {
@@ -652,21 +714,13 @@ public class TetheringConfiguration {
      */
     public TetheringConfigurationParcel toStableParcelable() {
         final TetheringConfigurationParcel parcel = new TetheringConfigurationParcel();
-        parcel.subId = activeDataSubId;
         parcel.tetherableUsbRegexs = tetherableUsbRegexs;
         parcel.tetherableWifiRegexs = tetherableWifiRegexs;
         parcel.tetherableBluetoothRegexs = tetherableBluetoothRegexs;
-        parcel.isDunRequired = isDunRequired;
-        parcel.chooseUpstreamAutomatically = chooseUpstreamAutomatically;
-
-        parcel.preferredUpstreamIfaceTypes = toIntArray(preferredUpstreamIfaceTypes);
-
         parcel.legacyDhcpRanges = legacyDhcpRanges;
-        parcel.defaultIPv4DNS = defaultIPv4DNS;
-        parcel.enableLegacyDhcpServer = mEnableLegacyDhcpServer;
         parcel.provisioningApp = provisioningApp;
         parcel.provisioningAppNoUi = provisioningAppNoUi;
-        parcel.provisioningCheckPeriod = provisioningCheckPeriod;
+
         return parcel;
     }
 }

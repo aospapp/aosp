@@ -23,7 +23,7 @@ use nix::fcntl::OFlag;
 use nix::unistd::pipe2;
 use std::fs::File;
 use std::io::Read;
-use std::os::unix::io::{AsRawFd, FromRawFd, RawFd};
+use std::os::unix::io::{AsRawFd, FromRawFd, OwnedFd};
 use std::path::Path;
 
 const FD_SERVER_BIN: &str = "/apex/com.android.virt/bin/fd_server";
@@ -32,13 +32,13 @@ const FD_SERVER_BIN: &str = "/apex/com.android.virt/bin/fd_server";
 #[derive(Default)]
 pub struct FdServerConfig {
     /// List of file FDs exposed for read-only operations.
-    pub ro_file_fds: Vec<RawFd>,
+    pub ro_file_fds: Vec<OwnedFd>,
     /// List of file FDs exposed for read-write operations.
-    pub rw_file_fds: Vec<RawFd>,
+    pub rw_file_fds: Vec<OwnedFd>,
     /// List of directory FDs exposed for read-only operations.
-    pub ro_dir_fds: Vec<RawFd>,
+    pub ro_dir_fds: Vec<OwnedFd>,
     /// List of directory FDs exposed for read-write operations.
-    pub rw_dir_fds: Vec<RawFd>,
+    pub rw_dir_fds: Vec<OwnedFd>,
 }
 
 impl FdServerConfig {
@@ -53,25 +53,29 @@ impl FdServerConfig {
     fn do_spawn_fd_server(self, ready_file: File) -> Result<Minijail> {
         let mut inheritable_fds = Vec::new();
         let mut args = vec![FD_SERVER_BIN.to_string()];
-        for fd in self.ro_file_fds {
+        for fd in &self.ro_file_fds {
+            let raw_fd = fd.as_raw_fd();
             args.push("--ro-fds".to_string());
-            args.push(fd.to_string());
-            inheritable_fds.push(fd);
+            args.push(raw_fd.to_string());
+            inheritable_fds.push(raw_fd);
         }
-        for fd in self.rw_file_fds {
+        for fd in &self.rw_file_fds {
+            let raw_fd = fd.as_raw_fd();
             args.push("--rw-fds".to_string());
-            args.push(fd.to_string());
-            inheritable_fds.push(fd);
+            args.push(raw_fd.to_string());
+            inheritable_fds.push(raw_fd);
         }
-        for fd in self.ro_dir_fds {
+        for fd in &self.ro_dir_fds {
+            let raw_fd = fd.as_raw_fd();
             args.push("--ro-dirs".to_string());
-            args.push(fd.to_string());
-            inheritable_fds.push(fd);
+            args.push(raw_fd.to_string());
+            inheritable_fds.push(raw_fd);
         }
-        for fd in self.rw_dir_fds {
+        for fd in &self.rw_dir_fds {
+            let raw_fd = fd.as_raw_fd();
             args.push("--rw-dirs".to_string());
-            args.push(fd.to_string());
-            inheritable_fds.push(fd);
+            args.push(raw_fd.to_string());
+            inheritable_fds.push(raw_fd);
         }
         let ready_fd = ready_file.as_raw_fd();
         args.push("--ready-fd".to_string());

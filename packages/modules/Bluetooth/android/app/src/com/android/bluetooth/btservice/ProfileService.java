@@ -18,6 +18,7 @@ package com.android.bluetooth.btservice;
 
 import static android.Manifest.permission.BLUETOOTH_CONNECT;
 
+import android.annotation.RequiresPermission;
 import android.annotation.SuppressLint;
 import android.app.ActivityManager;
 import android.app.Service;
@@ -131,7 +132,7 @@ public abstract class ProfileService extends Service {
     protected void setUserUnlocked(int userId) {}
 
     /**
-     * @param testEnabled if the profile should enter or exit a testing mode
+     * @param testModeEnabled if the profile should enter or exit a testing mode
      */
     // Suppressed since this is called from framework
     @SuppressLint("AndroidFrameworkRequiresPermission")
@@ -222,6 +223,7 @@ public abstract class ProfileService extends Service {
      * @param className The class name of the owned component residing in the Bluetooth package
      * @param enable True to enable the component, False to disable it
      */
+    @RequiresPermission(android.Manifest.permission.CHANGE_COMPONENT_ENABLED_STATE)
     protected void setComponentAvailable(String className, boolean enable) {
         if (DBG) {
             Log.d(mName, "setComponentAvailable(className=" + className + ", enable=" + enable
@@ -244,6 +246,7 @@ public abstract class ProfileService extends Service {
      * @param component The component name of owned component
      * @param enable True to enable the component, False to disable it
      */
+    @RequiresPermission(android.Manifest.permission.CHANGE_COMPONENT_ENABLED_STATE)
     protected void setComponentAvailable(ComponentName component, boolean enable) {
         if (DBG) {
             Log.d(mName, "setComponentAvailable(component=" + component + ", enable=" + enable
@@ -308,6 +311,10 @@ public abstract class ProfileService extends Service {
         super.onDestroy();
     }
 
+    @RequiresPermission(anyOf = {
+            android.Manifest.permission.MANAGE_USERS,
+            android.Manifest.permission.INTERACT_ACROSS_USERS
+    })
     private void doStart() {
         if (mAdapter == null) {
             Log.w(mName, "Can't start profile service: device does not have BT");
@@ -326,6 +333,7 @@ public abstract class ProfileService extends Service {
         mAdapterService.addProfile(this);
 
         IntentFilter filter = new IntentFilter();
+        filter.setPriority(IntentFilter.SYSTEM_HIGH_PRIORITY);
         filter.addAction(Intent.ACTION_USER_SWITCHED);
         filter.addAction(Intent.ACTION_USER_UNLOCKED);
         mUserSwitchedReceiver = new BroadcastReceiver() {

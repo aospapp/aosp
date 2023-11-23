@@ -75,14 +75,14 @@ import java.util.List;
 /** Unit tests for {@link IpSecService}. */
 @SmallTest
 @RunWith(DevSdkIgnoreRunner.class)
-@DevSdkIgnoreRule.IgnoreUpTo(Build.VERSION_CODES.R)
+@DevSdkIgnoreRule.IgnoreUpTo(Build.VERSION_CODES.S_V2)
 public class IpSecServiceTest {
 
     private static final int DROID_SPI = 0xD1201D;
     private static final int MAX_NUM_ENCAP_SOCKETS = 100;
     private static final int MAX_NUM_SPIS = 100;
     private static final int TEST_UDP_ENCAP_INVALID_PORT = 100;
-    private static final int TEST_UDP_ENCAP_PORT_OUT_RANGE = 100000;
+    private static final int TEST_UDP_ENCAP_PORT_OUT_RANGE = 200000;
 
     private static final InetAddress INADDR_ANY;
 

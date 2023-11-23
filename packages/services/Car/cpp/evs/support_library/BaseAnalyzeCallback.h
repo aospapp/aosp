@@ -24,10 +24,10 @@ namespace automotive {
 namespace evs {
 namespace support {
 
-class BaseAnalyzeCallback{
-    public:
-        virtual void analyze(const Frame&) = 0;
-        virtual ~BaseAnalyzeCallback() {};
+class BaseAnalyzeCallback {
+public:
+    virtual void analyze(const Frame&) = 0;
+    virtual ~BaseAnalyzeCallback(){};
 };
 
 }  // namespace support
@@ -35,4 +35,4 @@ class BaseAnalyzeCallback{
 }  // namespace automotive
 }  // namespace android
 
-#endif // CAR_LIB_EVS_SUPPORT_BASE_ANALYZE_CALLBACK_H
+#endif  // CAR_LIB_EVS_SUPPORT_BASE_ANALYZE_CALLBACK_H

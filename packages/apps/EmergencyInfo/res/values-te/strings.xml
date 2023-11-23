@@ -94,14 +94,14 @@
     <string name="remove_contact" msgid="6934983445723096759">"<xliff:g id="CONTACT_NAME">%1$s</xliff:g>ని అత్యవసర కాంటాక్ట్‌ల నుండి తీసివేయాలా?"</string>
     <string name="remove_contact_icon_text" msgid="4576641386490101363">"కాంటాక్ట్‌ను తీసివేయండి"</string>
     <string name="fail_add_contact" msgid="6511490846952942291">"కాంటాక్ట్ సమాచారాన్ని సరిగ్గా చదవడం సాధ్యం కాదు"</string>
-    <string name="remove" msgid="1243949503772376064">"తీసివేయి"</string>
-    <string name="cancel" msgid="7401575239009060939">"రద్దు చేయి"</string>
+    <string name="remove" msgid="1243949503772376064">"తీసివేయండి"</string>
+    <string name="cancel" msgid="7401575239009060939">"రద్దు చేయండి"</string>
     <string name="ok" msgid="163967937451981024">"సరే"</string>
     <string name="phone_type_and_phone_number" msgid="5034188169563878371">"<xliff:g id="PHONE_TYPE">%1$s</xliff:g> • <xliff:g id="PHONE_NUMBER">%2$s</xliff:g>"</string>
     <string name="no_info_provided" msgid="716200382010821001">"ఫోన్ యజమాని గురించి సమాచారం ఏదీ లేదు"</string>
     <string name="tap_pencil" msgid="3429817710241457947">"మీ ఫోన్ అన్‌లాక్ చేయబడినప్పుడు, ఎమర్జెన్సీ పరిస్థితుల్లో ఇక్కడ ప్రదర్శించబడే సమాచారాన్ని జోడించడానికి పెన్సిల్ చిహ్నాన్ని ట్యాప్ చేయండి"</string>
-    <string name="clear_all" msgid="8899013032870561633">"అన్నీ తీసివేయి"</string>
-    <string name="clear" msgid="3648880442502887163">"తీసివేయి"</string>
+    <string name="clear_all" msgid="8899013032870561633">"అన్నీ తీసివేయండి"</string>
+    <string name="clear" msgid="3648880442502887163">"తీసివేయండి"</string>
     <string name="clear_all_message" msgid="1548432000373861295">"మొత్తం సమాచారం మరియు కాంటాక్ట్‌లను తీసివేయాలా?"</string>
     <string name="emergency_info_footer" msgid="8751758742506410146">"వైద్య సమాచారం మరియు అత్యవసర కాంటాక్ట్‌లను జోడిస్తే, అత్యవసర పరిస్థితిలో ముందుగా ప్రతిస్పందించే వారికి సహాయకరంగా ఉంటాయి.\n\nఎవరైనా సరే, మీ ఫోన్‌ని అన్‌లాక్ చేయకుండానే మీ లాక్ స్క్రీన్ నుండి ఈ సమాచారాన్ని చదవగలరు మరియు మీ కాంటాక్ట్‌ల పేర్లు ట్యాప్ చేయడం ద్వారా వారికి కాల్ చేయగలరు."</string>
     <string name="settings_suggestion_title" msgid="2503369576806243476">"అత్యవసర సమాచారాన్ని జోడించండి"</string>

@@ -18,7 +18,7 @@ package com.android.tv.settings.system.development;
 
 import static android.view.CrossWindowBlurListeners.CROSS_WINDOW_BLUR_SUPPORTED;
 
-import static com.android.tv.settings.library.overlay.FlavorUtils.X_EXPERIENCE_FLAVORS_MASK;
+import static com.android.tv.settings.overlay.FlavorUtils.X_EXPERIENCE_FLAVORS_MASK;
 
 import android.Manifest;
 import android.app.Activity;
@@ -37,6 +37,7 @@ import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
 import android.database.ContentObserver;
 import android.hardware.usb.UsbManager;
+import android.media.MediaRecorder.AudioSource;
 import android.net.ConnectivityManager;
 import android.net.Network;
 import android.net.NetworkCapabilities;
@@ -83,10 +84,10 @@ import com.android.settingslib.development.SystemPropPoker;
 import com.android.tv.settings.R;
 import com.android.tv.settings.RestrictedPreferenceAdapter;
 import com.android.tv.settings.SettingsPreferenceFragment;
-import com.android.tv.settings.library.system.development.audio.AudioDebug;
-import com.android.tv.settings.library.system.development.audio.AudioMetrics;
-import com.android.tv.settings.library.system.development.audio.AudioReaderException;
-import com.android.tv.settings.library.overlay.FlavorUtils;
+import com.android.tv.settings.overlay.FlavorUtils;
+import com.android.tv.settings.system.development.audio.AudioDebug;
+import com.android.tv.settings.system.development.audio.AudioMetrics;
+import com.android.tv.settings.system.development.audio.AudioReaderException;
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -135,6 +136,7 @@ public class DevelopmentFragment extends SettingsPreferenceFragment
     private static final String TIME_TO_START_READ_KEY = "time_to_start_read";
     private static final String TIME_TO_VALID_AUDIO_KEY = "time_to_valid_audio";
     private static final String EMPTY_AUDIO_DURATION_KEY = "empty_audio_duration";
+    private static final String RECORDED_AUDIO_SOURCE_KEY = "record_audio_source";
     private static final String FORCE_MSAA_KEY = "force_msaa";
     private static final String TRACK_FRAME_TIME_KEY = "track_frame_time";
     private static final String SHOW_NON_RECTANGULAR_CLIP_KEY = "show_non_rect_clip";
@@ -253,6 +255,7 @@ public class DevelopmentFragment extends SettingsPreferenceFragment
     private Preference mTimeToStartRead;
     private Preference mTimeToValidAudio;
     private Preference mEmptyAudioDuration;
+    private ListPreference mRecordAudioSource;
 
     private SwitchPreference mImmediatelyDestroyActivities;
 
@@ -451,6 +454,8 @@ public class DevelopmentFragment extends SettingsPreferenceFragment
         mTimeToValidAudio.setVisible(false);
         mEmptyAudioDuration = findPreference(EMPTY_AUDIO_DURATION_KEY);
         mEmptyAudioDuration.setVisible(false);
+        mRecordAudioSource = addListPreference(RECORDED_AUDIO_SOURCE_KEY);
+        mRecordAudioSource.setVisible(false);
         mForceResizable = findAndInitSwitchPref(FORCE_RESIZABLE_KEY);
 
         mImmediatelyDestroyActivities = (SwitchPreference) findPreference(
@@ -479,6 +484,11 @@ public class DevelopmentFragment extends SettingsPreferenceFragment
         }
 
         mWirelessDebugging = findPreference(TOGGLE_ADB_WIRELESS_KEY);
+        if (FlavorUtils.isTwoPanel(getContext())) {
+            mWirelessDebugging.setFragment(WirelessDebuggingInfoFragment.class.getName());
+        } else {
+            mWirelessDebugging.setFragment(WirelessDebuggingFragment.class.getName());
+        }
     }
 
     private void removePreference(String key) {
@@ -706,6 +716,7 @@ public class DevelopmentFragment extends SettingsPreferenceFragment
         updateSimulateColorSpace();
         updateUSBAudioOptions();
         updateForceResizableOptions();
+        updateAudioRecordingOptions();
     }
 
     private void resetDangerousOptions() {
@@ -1255,14 +1266,19 @@ public class DevelopmentFragment extends SettingsPreferenceFragment
 
     private void writeRecordAudioOptions() {
         if (mRecordAudio.isChecked()) {
+            mRecordAudioSource.setVisible(true);
             try {
-                mAudioDebug.startRecording();
+                int recordAudioSource = Integer.parseInt(mRecordAudioSource.getValue());
+                mAudioDebug.startRecording(recordAudioSource);
             } catch (AudioReaderException e) {
                 mRecordAudio.setChecked(false);
                 Toast errorToast = Toast.makeText(getContext(),
                         getString(R.string.show_audio_recording_start_failed), Toast.LENGTH_SHORT);
                 errorToast.show();
                 Log.e(TAG, "Unable to start recording audio from the microphone", e);
+                // Revert the audio source to one that must work.
+                mRecordAudioSource.setValue(Integer.toString(AudioSource.DEFAULT));
+                updateAudioRecordingOptions();
             }
         } else {
             mAudioDebug.stopRecording();
@@ -1294,6 +1310,11 @@ public class DevelopmentFragment extends SettingsPreferenceFragment
         if (preference.isVisible()) {
             preference.setSummary(AudioMetrics.msTimestampToString(ts));
         }
+    }
+
+    private void updateAudioRecordingOptions() {
+        // Keep the summary matching the selected source
+        mRecordAudioSource.setSummary(mRecordAudioSource.getEntry());
     }
 
     private void playRecordedAudio() {
@@ -1781,6 +1802,9 @@ public class DevelopmentFragment extends SettingsPreferenceFragment
         } else if (preference == mBtHciSnoopLog) {
             writeBtHciSnoopLogOptions(newValue);
             return true;
+        } else if (preference == mRecordAudioSource) {
+            /* Just keep the value in the preference, but accept the change */
+            return true;
         }
         return false;
     }
@@ -1846,8 +1870,14 @@ public class DevelopmentFragment extends SettingsPreferenceFragment
         }
 
         if (!isNetworkConnected()) {
+            if (FlavorUtils.isTwoPanel(getContext())) {
+                mWirelessDebugging.setFragment(WirelessDebuggingInfoFragment.class.getName());
+            }
             mWirelessDebugging.setSummary(R.string.connectivity_summary_no_network_connected);
         } else {
+            if (FlavorUtils.isTwoPanel(getContext())) {
+                mWirelessDebugging.setFragment(WirelessDebuggingFragment.class.getName());
+            }
             boolean enabled = Settings.Global.getInt(mContentResolver,
                     Settings.Global.ADB_WIFI_ENABLED, 1) != 0;
             if (enabled) {

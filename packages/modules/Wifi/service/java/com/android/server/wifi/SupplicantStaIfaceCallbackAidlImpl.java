@@ -38,6 +38,7 @@ import android.hardware.wifi.supplicant.BssTmDataFlagsMask;
 import android.hardware.wifi.supplicant.BssTmStatusCode;
 import android.hardware.wifi.supplicant.BssidChangeReason;
 import android.hardware.wifi.supplicant.DppAkm;
+import android.hardware.wifi.supplicant.DppConfigurationData;
 import android.hardware.wifi.supplicant.DppConnectionKeys;
 import android.hardware.wifi.supplicant.DppEventType;
 import android.hardware.wifi.supplicant.DppFailureCode;
@@ -47,10 +48,14 @@ import android.hardware.wifi.supplicant.ISupplicantStaIfaceCallback;
 import android.hardware.wifi.supplicant.MboAssocDisallowedReasonCode;
 import android.hardware.wifi.supplicant.MboCellularDataConnectionPrefValue;
 import android.hardware.wifi.supplicant.MboTransitionReasonCode;
+import android.hardware.wifi.supplicant.PmkSaCacheData;
 import android.hardware.wifi.supplicant.QosPolicyData;
+import android.hardware.wifi.supplicant.QosPolicyScsResponseStatus;
+import android.hardware.wifi.supplicant.QosPolicyScsResponseStatusCode;
 import android.hardware.wifi.supplicant.StaIfaceCallbackState;
 import android.hardware.wifi.supplicant.StaIfaceReasonCode;
 import android.hardware.wifi.supplicant.StaIfaceStatusCode;
+import android.hardware.wifi.supplicant.SupplicantStateChangeData;
 import android.hardware.wifi.supplicant.WpsConfigError;
 import android.hardware.wifi.supplicant.WpsErrorIndication;
 import android.net.MacAddress;
@@ -70,6 +75,7 @@ import com.android.server.wifi.hotspot2.WnmData;
 import com.android.server.wifi.hotspot2.anqp.ANQPElement;
 import com.android.server.wifi.hotspot2.anqp.ANQPParser;
 import com.android.server.wifi.hotspot2.anqp.Constants;
+import com.android.server.wifi.util.HalAidlUtil;
 import com.android.server.wifi.util.NativeUtil;
 
 import java.io.IOException;
@@ -77,6 +83,7 @@ import java.nio.BufferUnderflowException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.BitSet;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -87,19 +94,24 @@ class SupplicantStaIfaceCallbackAidlImpl extends ISupplicantStaIfaceCallback.Stu
     private final String mIfaceName;
     private final Context mContext;
     private final WifiMonitor mWifiMonitor;
+    private final SsidTranslator mSsidTranslator;
     private final Object mLock;
     // Used to help check for PSK password mismatch & EAP connection failure.
     private int mStateBeforeDisconnect = StaIfaceCallbackState.INACTIVE;
+    // Current SSID in WifiSsid.toString() format. May be translated to UTF-8 if SSID translation
+    // is enabled.
     private String mCurrentSsid = null;
 
     SupplicantStaIfaceCallbackAidlImpl(@NonNull SupplicantStaIfaceHalAidlImpl staIfaceHal,
             @NonNull String ifaceName, @NonNull Object lock,
-            @NonNull Context context, @NonNull WifiMonitor wifiMonitor) {
+            @NonNull Context context, @NonNull WifiMonitor wifiMonitor,
+            @NonNull SsidTranslator ssidTranslator) {
         mStaIfaceHal = staIfaceHal;
         mIfaceName = ifaceName;
         mLock = lock;
         mContext = context;
         mWifiMonitor = wifiMonitor;
+        mSsidTranslator = ssidTranslator;
     }
 
     @Override
@@ -151,12 +163,41 @@ class SupplicantStaIfaceCallbackAidlImpl extends ISupplicantStaIfaceCallback.Stu
     @Override
     public void onStateChanged(int newState, byte[/* 6 */] bssid, int id,
             byte[] ssid, boolean filsHlpSent) {
+        handleSupplicantStateChangedEvent(newState, bssid, id, ssid, filsHlpSent, 0, 0);
+    }
+
+    @Override
+    public void onSupplicantStateChanged(SupplicantStateChangeData stateChangeData) {
+        handleSupplicantStateChangedEvent(stateChangeData.newState, stateChangeData.bssid,
+                stateChangeData.id, stateChangeData.ssid, stateChangeData.filsHlpSent,
+                stateChangeData.keyMgmtMask, stateChangeData.frequencyMhz);
+    }
+
+    private void handleSupplicantStateChangedEvent(int newState, byte[/* 6 */] bssid, int id,
+            byte[] ssid, boolean filsHlpSent, int supplicantKeyMgmtMask, int frequencyMhz) {
         synchronized (mLock) {
-            mStaIfaceHal.logCallback("onStateChanged");
             SupplicantState newSupplicantState =
                     supplicantAidlStateToFrameworkState(newState);
-            WifiSsid wifiSsid = WifiSsid.fromBytes(ssid);
+            WifiSsid wifiSsid = mSsidTranslator.getTranslatedSsidForStaIface(
+                    WifiSsid.fromBytes(ssid), mIfaceName);
             String bssidStr = NativeUtil.macAddressFromByteArray(bssid);
+            BitSet keyMgmtMask = null;
+            if (supplicantKeyMgmtMask != 0) {
+                try {
+                    keyMgmtMask = HalAidlUtil.supplicantToWifiConfigurationKeyMgmtMask(
+                            supplicantKeyMgmtMask);
+                } catch (IllegalArgumentException ex) {
+                    Log.w(TAG, "Failed convert supplicant key management mask to"
+                            + " the framework value: " + ex.toString());
+                    keyMgmtMask = null;
+                }
+            }
+            mStaIfaceHal.logCallback("onStateChanged: newState=" + newSupplicantState
+                    + ", bssid=" + bssidStr + ", ssid=" + wifiSsid.toString()
+                    + ", filsHlpSent=" + filsHlpSent + ", supplicantKeyMgmtMask="
+                    + String.format("0x%08X", supplicantKeyMgmtMask)
+                    + ", frameworkKeyMgmtMask=" + keyMgmtMask
+                    + ", frequencyMhz=" + frequencyMhz);
             if (newState != StaIfaceCallbackState.DISCONNECTED) {
                 // onStateChanged(DISCONNECTED) may come before onDisconnected(), so add this
                 // cache to track the state before the disconnect.
@@ -172,13 +213,13 @@ class SupplicantStaIfaceCallbackAidlImpl extends ISupplicantStaIfaceCallback.Stu
             if (newState == StaIfaceCallbackState.COMPLETED) {
                 mWifiMonitor.broadcastNetworkConnectionEvent(
                         mIfaceName, mStaIfaceHal.getCurrentNetworkId(mIfaceName), filsHlpSent,
-                        wifiSsid, bssidStr);
+                        wifiSsid, bssidStr, keyMgmtMask);
             } else if (newState == StaIfaceCallbackState.ASSOCIATING) {
-                mCurrentSsid = NativeUtil.encodeSsid(NativeUtil.byteArrayToArrayList(ssid));
+                mCurrentSsid = wifiSsid.toString();
             }
             mWifiMonitor.broadcastSupplicantStateChangeEvent(
                     mIfaceName, mStaIfaceHal.getCurrentNetworkId(mIfaceName), wifiSsid,
-                    bssidStr, newSupplicantState);
+                    bssidStr, frequencyMhz, newSupplicantState);
         }
     }
 
@@ -289,14 +330,15 @@ class SupplicantStaIfaceCallbackAidlImpl extends ISupplicantStaIfaceCallback.Stu
                     mStaIfaceHal.getCurrentNetworkLocalConfig(mIfaceName);
             if (curConfiguration != null) {
                 if (mStateBeforeDisconnect == StaIfaceCallbackState.FOURWAY_HANDSHAKE
-                        && WifiConfigurationUtil.isConfigForPskNetwork(curConfiguration)
+                        && (WifiConfigurationUtil.isConfigForPskNetwork(curConfiguration)
+                        || WifiConfigurationUtil.isConfigForWapiPskNetwork(curConfiguration))
                         && (!locallyGenerated || reasonCode
                             != StaIfaceReasonCode.IE_IN_4WAY_DIFFERS)) {
                     mWifiMonitor.broadcastAuthenticationFailureEvent(
                             mIfaceName, WifiManager.ERROR_AUTH_FAILURE_WRONG_PSWD, -1,
                             mCurrentSsid, MacAddress.fromBytes(bssid));
                 } else if (mStateBeforeDisconnect == StaIfaceCallbackState.ASSOCIATED
-                        && WifiConfigurationUtil.isConfigForEapNetwork(curConfiguration)) {
+                        && WifiConfigurationUtil.isConfigForEnterpriseNetwork(curConfiguration)) {
                     mWifiMonitor.broadcastAuthenticationFailureEvent(
                             mIfaceName, WifiManager.ERROR_AUTH_FAILURE_EAP_FAILURE, -1,
                             mCurrentSsid, MacAddress.fromBytes(bssid));
@@ -317,13 +359,20 @@ class SupplicantStaIfaceCallbackAidlImpl extends ISupplicantStaIfaceCallback.Stu
                         + curConfiguration.networkId + ".");
                 mStaIfaceHal.removePmkCacheEntry(curConfiguration.networkId);
             }
-            // Special handling for WPA3-Personal networks. If the password is
-            // incorrect, the AP will send association rejection, with status code 1
-            // (unspecified failure). In SAE networks, the password authentication
-            // is not related to the 4-way handshake. In this case, we will send an
-            // authentication failure event up.
             if (assocRejectInfo.statusCode
-                    == SupplicantStaIfaceHal.StaIfaceStatusCode.UNSPECIFIED_FAILURE) {
+                    == SupplicantStaIfaceHal.StaIfaceStatusCode.CHALLENGE_FAIL
+                    && WifiConfigurationUtil.isConfigForWepNetwork(curConfiguration)) {
+                mStaIfaceHal.logCallback("WEP incorrect password");
+                isWrongPwd = true;
+            } else if (assocRejectInfo.statusCode
+                    == SupplicantStaIfaceHal.StaIfaceStatusCode.UNSPECIFIED_FAILURE
+                    || assocRejectInfo.statusCode
+                    == SupplicantStaIfaceHal.StaIfaceStatusCode.CHALLENGE_FAIL) {
+                // Special handling for WPA3-Personal networks. If the password is
+                // incorrect, the AP will send association rejection, with status code 1
+                // (unspecified failure) or 15 (challenge fail). In SAE networks, the password
+                // authentication is not related to the 4-way handshake. In this case, we will
+                // send an authentication failure event up.
                 // Network Selection status is guaranteed to be initialized
                 SecurityParams params = curConfiguration.getNetworkSelectionStatus()
                         .getCandidateSecurityParams();
@@ -337,11 +386,6 @@ class SupplicantStaIfaceCallbackAidlImpl extends ISupplicantStaIfaceCallback.Stu
                         mStaIfaceHal.logCallback("SAE association rejection");
                     }
                 }
-            } else if (assocRejectInfo.statusCode
-                    == SupplicantStaIfaceHal.StaIfaceStatusCode.CHALLENGE_FAIL
-                    && WifiConfigurationUtil.isConfigForWepNetwork(curConfiguration)) {
-                mStaIfaceHal.logCallback("WEP incorrect password");
-                isWrongPwd = true;
             }
         }
 
@@ -355,7 +399,7 @@ class SupplicantStaIfaceCallbackAidlImpl extends ISupplicantStaIfaceCallback.Stu
             }
             mWifiMonitor.broadcastAuthenticationFailureEvent(
                     mIfaceName, WifiManager.ERROR_AUTH_FAILURE_WRONG_PSWD, -1,
-                    mCurrentSsid, bssidAsMacAddress);
+                    assocRejectInfo.ssid, bssidAsMacAddress);
         }
         mWifiMonitor.broadcastAssociationRejectionEvent(mIfaceName, assocRejectInfo);
         mStateBeforeDisconnect = StaIfaceCallbackState.INACTIVE;
@@ -368,6 +412,8 @@ class SupplicantStaIfaceCallbackAidlImpl extends ISupplicantStaIfaceCallback.Stu
             assocRejectData.statusCode = halToFrameworkStatusCode(assocRejectData.statusCode);
             assocRejectData.mboAssocDisallowedReason = halToFrameworkMboAssocDisallowedReasonCode(
                     assocRejectData.mboAssocDisallowedReason);
+            assocRejectData.ssid = mSsidTranslator.getTranslatedSsidForStaIface(
+                    WifiSsid.fromBytes(assocRejectData.ssid), mIfaceName).getBytes();
             AssocRejectEventInfo assocRejectInfo = new AssocRejectEventInfo(assocRejectData);
             handleAssocRejectEvent(assocRejectInfo);
         }
@@ -377,9 +423,26 @@ class SupplicantStaIfaceCallbackAidlImpl extends ISupplicantStaIfaceCallback.Stu
     public void onAuthenticationTimeout(byte[/* 6 */] bssid) {
         synchronized (mLock) {
             mStaIfaceHal.logCallback("onAuthenticationTimeout");
-            mWifiMonitor.broadcastAuthenticationFailureEvent(
-                    mIfaceName, WifiManager.ERROR_AUTH_FAILURE_TIMEOUT, -1,
-                    mCurrentSsid, MacAddress.fromBytes(bssid));
+            WifiConfiguration curConfiguration =
+                    mStaIfaceHal.getCurrentNetworkLocalConfig(mIfaceName);
+            if (curConfiguration != null
+                    && (WifiConfigurationUtil.isConfigForPskNetwork(curConfiguration)
+                    || WifiConfigurationUtil.isConfigForWapiPskNetwork(curConfiguration))
+                    && !curConfiguration.getNetworkSelectionStatus().hasEverConnected()
+                    && mStateBeforeDisconnect == StaIfaceCallbackState.FOURWAY_HANDSHAKE) {
+                // Some AP implementations doesn't send de-authentication or dis-association
+                // frame after EAPOL failure. They keep retry EAPOL M1 frames. This leads to
+                // authentication timeout in supplicant. If this network was not connected before,
+                // the authentication timeout may be due to wrong password.
+                Log.d(TAG, "EAPOL H/S failed in first connect attempt. Possibly a wrong password");
+                mWifiMonitor.broadcastAuthenticationFailureEvent(
+                            mIfaceName, WifiManager.ERROR_AUTH_FAILURE_WRONG_PSWD, -1,
+                            mCurrentSsid, MacAddress.fromBytes(bssid));
+            } else {
+                mWifiMonitor.broadcastAuthenticationFailureEvent(
+                        mIfaceName, WifiManager.ERROR_AUTH_FAILURE_TIMEOUT, -1,
+                        mCurrentSsid, MacAddress.fromBytes(bssid));
+            }
         }
     }
 
@@ -457,6 +520,19 @@ class SupplicantStaIfaceCallbackAidlImpl extends ISupplicantStaIfaceCallback.Stu
     @Override
     public void onDppSuccessConfigReceived(byte[] ssid, String password,
             byte[] psk, int securityAkm, DppConnectionKeys keys) {
+        processDppConfigReceivedEvent(ssid, password, psk, securityAkm, keys,
+                false);
+    }
+
+    @Override
+    public void onDppConfigReceived(DppConfigurationData configData) {
+        processDppConfigReceivedEvent(configData.ssid, configData.password, configData.psk,
+                configData.securityAkm, configData.dppConnectionKeys,
+                configData.connStatusRequested);
+    }
+
+    private void processDppConfigReceivedEvent(byte[] ssid, String password,
+            byte[] psk, int securityAkm, DppConnectionKeys keys, boolean connStatusRequested) {
         if (mStaIfaceHal.getDppCallback() == null) {
             Log.e(TAG, "onDppSuccessConfigReceived callback is null");
             return;
@@ -465,7 +541,7 @@ class SupplicantStaIfaceCallbackAidlImpl extends ISupplicantStaIfaceCallback.Stu
         WifiConfiguration newWifiConfiguration = new WifiConfiguration();
 
         // Set up SSID
-        WifiSsid wifiSsid = WifiSsid.fromBytes(ssid);
+        WifiSsid wifiSsid = mSsidTranslator.getTranslatedSsid(WifiSsid.fromBytes(ssid));
         newWifiConfiguration.SSID = wifiSsid.toString();
 
         // Set up password or PSK
@@ -499,7 +575,8 @@ class SupplicantStaIfaceCallbackAidlImpl extends ISupplicantStaIfaceCallback.Stu
                 .getNameForUid(Process.WIFI_UID);
         newWifiConfiguration.status = WifiConfiguration.Status.ENABLED;
 
-        mStaIfaceHal.getDppCallback().onSuccessConfigReceived(newWifiConfiguration);
+        mStaIfaceHal.getDppCallback().onSuccessConfigReceived(newWifiConfiguration,
+                connStatusRequested);
     }
 
     @Override
@@ -511,6 +588,16 @@ class SupplicantStaIfaceCallbackAidlImpl extends ISupplicantStaIfaceCallback.Stu
             Log.e(TAG, "onSuccessConfigSent callback is null");
         }
     }
+
+    @Override
+    public void onDppConnectionStatusResultSent(int result) {
+        if (mStaIfaceHal.getDppCallback() != null) {
+            mStaIfaceHal.getDppCallback().onConnectionStatusResultSent(result);
+        } else {
+            Log.e(TAG, "onConnectionStatusResultSent callback is null");
+        }
+    }
+
 
     @Override
     public void onDppProgress(int code) {
@@ -543,6 +630,17 @@ class SupplicantStaIfaceCallbackAidlImpl extends ISupplicantStaIfaceCallback.Stu
 
     @Override
     public void onPmkCacheAdded(long expirationTimeInSec, byte[] serializedEntry) {
+        handlePmkSaCacheAddedEvent(null, expirationTimeInSec, serializedEntry);
+    }
+
+    @Override
+    public void onPmkSaCacheAdded(PmkSaCacheData pmkSaData) {
+        handlePmkSaCacheAddedEvent(pmkSaData.bssid, pmkSaData.expirationTimeInSec,
+                pmkSaData.serializedEntry);
+    }
+
+    private void handlePmkSaCacheAddedEvent(byte[/* 6 */] bssid, long expirationTimeInSec,
+            byte[] serializedEntry) {
         WifiConfiguration curConfig = mStaIfaceHal.getCurrentNetworkLocalConfig(mIfaceName);
         if (curConfig == null) {
             return;
@@ -554,10 +652,10 @@ class SupplicantStaIfaceCallbackAidlImpl extends ISupplicantStaIfaceCallback.Stu
             return;
         }
 
-        mStaIfaceHal.addPmkCacheEntry(mIfaceName, curConfig.networkId, expirationTimeInSec,
+        mStaIfaceHal.addPmkCacheEntry(mIfaceName, curConfig.networkId, bssid, expirationTimeInSec,
                 NativeUtil.byteArrayToArrayList(serializedEntry));
         mStaIfaceHal.logCallback(
-                "onPmkCacheAdded: update pmk cache for config id "
+                "handlePmkSaCacheAddedEvent: update pmk cache for config id "
                         + curConfig.networkId + " on " + mIfaceName);
     }
 
@@ -1131,8 +1229,12 @@ class SupplicantStaIfaceCallbackAidlImpl extends ISupplicantStaIfaceCallback.Stu
     @Override
     public void onNetworkNotFound(byte[] ssid) {
         mStaIfaceHal.logCallback("onNetworkNotFoundNotification");
+        if (mStaIfaceHal.connectToFallbackSsid(mIfaceName)) {
+            return;
+        }
         mWifiMonitor.broadcastNetworkNotFoundEvent(mIfaceName,
-                NativeUtil.encodeSsid(NativeUtil.byteArrayToArrayList(ssid)));
+                mSsidTranslator.getTranslatedSsidForStaIface(
+                        WifiSsid.fromBytes(ssid), mIfaceName).toString());
     }
 
     @Override
@@ -1186,5 +1288,108 @@ class SupplicantStaIfaceCallbackAidlImpl extends ISupplicantStaIfaceCallback.Stu
     @Override
     public int getInterfaceVersion() {
         return ISupplicantStaIfaceCallback.VERSION;
+    }
+
+    private String getMloLinksInfoChangedReasonStr(int reason) {
+        switch (reason) {
+            case ISupplicantStaIfaceCallback.MloLinkInfoChangeReason.TID_TO_LINK_MAP:
+                return "TID_TO_LINK_MAP";
+            case ISupplicantStaIfaceCallback.MloLinkInfoChangeReason.MULTI_LINK_RECONFIG_AP_REMOVAL:
+                return "MULTI_LINK_RECONFIG_AP_REMOVAL";
+            default:
+                return "UNKNOWN";
+        }
+    }
+
+    private WifiMonitor.MloLinkInfoChangeReason convertMloLinkInfoChangedReason(int reason) {
+        switch (reason) {
+            case ISupplicantStaIfaceCallback.MloLinkInfoChangeReason.TID_TO_LINK_MAP:
+                return WifiMonitor.MloLinkInfoChangeReason.TID_TO_LINK_MAP;
+            case ISupplicantStaIfaceCallback.MloLinkInfoChangeReason.MULTI_LINK_RECONFIG_AP_REMOVAL:
+                return WifiMonitor.MloLinkInfoChangeReason.MULTI_LINK_RECONFIG_AP_REMOVAL;
+            default:
+                return WifiMonitor.MloLinkInfoChangeReason.UNKNOWN;
+        }
+    }
+
+    @Override
+    public void onMloLinksInfoChanged(int reason)
+            throws android.os.RemoteException {
+        synchronized (mLock) {
+            mStaIfaceHal.logCallback(
+                    "onMloLinksInfoChanged: reason " + Integer.toString(reason) + " ("
+                            + getMloLinksInfoChangedReasonStr(reason) + ")");
+            mWifiMonitor.broadcastMloLinksInfoChanged(mIfaceName,
+                    convertMloLinkInfoChangedReason(reason));
+        }
+    }
+
+    /**
+     * Used to indicate that the operating frequency has changed for this BSS.
+     * This event is triggered when STA switches the channel due to channel
+     * switch announcement from the connected access point.
+     *
+     * @param frequencyMhz New frequency in MHz.
+     */
+    @Override
+    public void onBssFrequencyChanged(int frequencyMhz)
+            throws android.os.RemoteException {
+        synchronized (mLock) {
+            mStaIfaceHal.logCallback("onBssFrequencyChanged: frequency " + frequencyMhz);
+            mWifiMonitor.broadcastBssFrequencyChanged(mIfaceName, frequencyMhz);
+        }
+    }
+
+    private static @SupplicantStaIfaceHal.QosPolicyScsResponseStatusCode int
+            halToFrameworkQosPolicyScsResponseStatusCode(int statusCode) {
+        switch (statusCode) {
+            case QosPolicyScsResponseStatusCode.SUCCESS:
+                return SupplicantStaIfaceHal.QOS_POLICY_SCS_RESPONSE_STATUS_SUCCESS;
+            case QosPolicyScsResponseStatusCode.TCLAS_REQUEST_DECLINED:
+                return SupplicantStaIfaceHal.QOS_POLICY_SCS_RESPONSE_STATUS_TCLAS_REQUEST_DECLINED;
+            case QosPolicyScsResponseStatusCode.TCLAS_NOT_SUPPORTED_BY_AP:
+                return SupplicantStaIfaceHal
+                        .QOS_POLICY_SCS_RESPONSE_STATUS_TCLAS_NOT_SUPPORTED_BY_AP;
+            case QosPolicyScsResponseStatusCode.TCLAS_INSUFFICIENT_RESOURCES:
+                return SupplicantStaIfaceHal
+                        .QOS_POLICY_SCS_RESPONSE_STATUS_TCLAS_INSUFFICIENT_RESOURCES;
+            case QosPolicyScsResponseStatusCode.TCLAS_RESOURCES_EXHAUSTED:
+                return SupplicantStaIfaceHal
+                        .QOS_POLICY_SCS_RESPONSE_STATUS_TCLAS_RESOURCES_EXHAUSTED;
+            case QosPolicyScsResponseStatusCode.TCLAS_PROCESSING_TERMINATED_INSUFFICIENT_QOS:
+                return SupplicantStaIfaceHal
+                        .QOS_POLICY_SCS_RESPONSE_STATUS_TCLAS_PROCESSING_TERMINATED_INSUFFICIENT_QOS;
+            case QosPolicyScsResponseStatusCode.TCLAS_PROCESSING_TERMINATED_POLICY_CONFLICT:
+                return SupplicantStaIfaceHal
+                        .QOS_POLICY_SCS_RESPONSE_STATUS_TCLAS_PROCESSING_TERMINATED_POLICY_CONFLICT;
+            case QosPolicyScsResponseStatusCode.TCLAS_PROCESSING_TERMINATED:
+                return SupplicantStaIfaceHal
+                        .QOS_POLICY_SCS_RESPONSE_STATUS_TCLAS_PROCESSING_TERMINATED;
+            case QosPolicyScsResponseStatusCode.TIMEOUT:
+                return SupplicantStaIfaceHal.QOS_POLICY_SCS_RESPONSE_STATUS_TIMEOUT;
+            default:
+                Log.wtf(TAG, "Invalid QosPolicyScsResponseStatusCode: " + statusCode);
+                return SupplicantStaIfaceHal.QOS_POLICY_SCS_RESPONSE_STATUS_ERROR_UNKNOWN;
+        }
+    }
+
+    @Override
+    public void onQosPolicyResponseForScs(QosPolicyScsResponseStatus[] halStatusList) {
+        synchronized (mLock) {
+            mStaIfaceHal.logCallback("onQosPolicyResponseForScs: size="
+                    + halStatusList.length);
+            SupplicantStaIfaceHal.QosScsResponseCallback frameworkCallback =
+                    mStaIfaceHal.getQosScsResponseCallback();
+            if (frameworkCallback == null) return;
+
+            List<SupplicantStaIfaceHal.QosPolicyStatus> frameworkStatusList = new ArrayList<>();
+            for (QosPolicyScsResponseStatus halStatus : halStatusList) {
+                frameworkStatusList.add(new SupplicantStaIfaceHal.QosPolicyStatus(
+                        halStatus.policyId,
+                        halToFrameworkQosPolicyScsResponseStatusCode(
+                                halStatus.qosPolicyScsResponseStatusCode)));
+            }
+            frameworkCallback.onApResponse(mIfaceName, frameworkStatusList);
+        }
     }
 }

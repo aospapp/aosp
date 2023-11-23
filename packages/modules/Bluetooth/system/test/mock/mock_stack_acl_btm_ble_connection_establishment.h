@@ -25,8 +25,6 @@
 #include <map>
 #include <string>
 
-extern std::map<std::string, int> mock_function_count_map;
-
 // Original included files, if any
 // NOTE: Since this is a mock file with mock definitions some number of
 //       include files may not be required.  The include-what-you-use
@@ -35,6 +33,7 @@ extern std::map<std::string, int> mock_function_count_map;
 //       may need attention to prune the inclusion set.
 
 #include "stack/include/hci_error_code.h"
+#include "test/common/mock_functions.h"
 #include "types/ble_address_with_type.h"
 #include "types/raw_address.h"
 
@@ -78,23 +77,6 @@ struct btm_ble_conn_complete {
   };
 };
 extern struct btm_ble_conn_complete btm_ble_conn_complete;
-// Name: btm_ble_create_conn_cancel
-// Params:
-// Returns: void
-struct btm_ble_create_conn_cancel {
-  std::function<void()> body{[]() {}};
-  void operator()() { body(); };
-};
-extern struct btm_ble_create_conn_cancel btm_ble_create_conn_cancel;
-// Name: btm_ble_create_conn_cancel_complete
-// Params: uint8_t* p
-// Returns: void
-struct btm_ble_create_conn_cancel_complete {
-  std::function<void(uint8_t* p)> body{[](uint8_t* p) {}};
-  void operator()(uint8_t* p) { body(p); };
-};
-extern struct btm_ble_create_conn_cancel_complete
-    btm_ble_create_conn_cancel_complete;
 
 }  // namespace stack_acl_btm_ble_connection_establishment
 }  // namespace mock

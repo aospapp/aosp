@@ -30,7 +30,7 @@
     <string name="notification_disconnectedCall_body" msgid="600491714584417536">"La trucada a <xliff:g id="CALLER">%s</xliff:g> s\'ha desconnectat perquè s\'ha fet una trucada d\'emergència."</string>
     <string name="notification_disconnectedCall_generic_body" msgid="5282765206349184853">"La teva trucada s\'ha desconnectat perquè s\'ha fet una trucada d\'emergència."</string>
     <string name="notification_audioProcessing_title" msgid="1619035039880584575">"Trucada en segon pla"</string>
-    <string name="notification_audioProcessing_body" msgid="6397005913770420388">"<xliff:g id="AUDIO_PROCESSING_APP_NAME">%s</xliff:g> ha fet una trucada en segon pla. És possible que aquesta aplicació estigui accedint a l\'àudio i reproduint-lo a través de la trucada."</string>
+    <string name="notification_audioProcessing_body" msgid="8811420157964118913">"<xliff:g id="AUDIO_PROCESSING_APP_NAME">%s</xliff:g> està processant una trucada en segon pla. És possible que aquesta aplicació estigui accedint a l\'àudio i reproduint-lo a través de la trucada."</string>
     <string name="notification_incallservice_not_responding_title" msgid="5347557574288598548">"<xliff:g id="IN_CALL_SERVICE_APP_NAME">%s</xliff:g> ha deixat de respondre"</string>
     <string name="notification_incallservice_not_responding_body" msgid="9209308270131968623">"A la trucada s\'ha fet servir l\'aplicació de telèfon que hi ha al dispositiu"</string>
     <string name="accessibility_call_muted" msgid="2968461092554300779">"Trucada silenciada."</string>
@@ -100,6 +100,7 @@
     <string name="notification_channel_background_calls" msgid="7785659903711350506">"Trucades en segon pla"</string>
     <string name="notification_channel_disconnected_calls" msgid="8228636543997645757">"Trucades desconnectades"</string>
     <string name="notification_channel_in_call_service_crash" msgid="7313237519166984267">"Aplicacions del telèfon que han fallat"</string>
+    <string name="notification_channel_call_streaming" msgid="5100510699787538991">"Reproducció en directe de trucada"</string>
     <string name="alert_outgoing_call" msgid="5319895109298927431">"En fer aquesta trucada, finalitzarà la de l\'aplicació <xliff:g id="OTHER_APP">%1$s</xliff:g>."</string>
     <string name="alert_redirect_outgoing_call_or_not" msgid="665409645789521636">"Tria com vols fer aquesta trucada"</string>
     <string name="alert_place_outgoing_call_with_redirection" msgid="5221065030959024121">"Desvia la trucada amb <xliff:g id="OTHER_APP">%1$s</xliff:g>"</string>
@@ -123,4 +124,14 @@
     <string name="developer_title" msgid="9146088855661672353">"Menú per a desenvolupadors de telecomunicacions"</string>
     <string name="toast_emergency_can_not_pull_call" msgid="9074229465338410869">"No es poden respondre trucades durant una trucada d\'emergència."</string>
     <string name="cancel" msgid="6733466216239934756">"Cancel·la"</string>
+    <string name="back" msgid="6915955601805550206">"Enrere"</string>
+    <string name="callendpoint_name_earpiece" msgid="7047285080319678594">"Auricular"</string>
+    <string name="callendpoint_name_bluetooth" msgid="210210953208913172">"Bluetooth"</string>
+    <string name="callendpoint_name_wiredheadset" msgid="6860787176412079742">"Auriculars amb cable"</string>
+    <string name="callendpoint_name_speaker" msgid="1971760468695323189">"Altaveu"</string>
+    <string name="callendpoint_name_streaming" msgid="2337595450408275576">"Extern"</string>
+    <string name="callendpoint_name_unknown" msgid="2199074708477193852">"Desconegut"</string>
+    <string name="call_streaming_notification_body" msgid="502216105683378263">"S\'està reproduint àudio en continu en un altre dispositiu"</string>
+    <string name="call_streaming_notification_action_hang_up" msgid="7017663335289063827">"Penja"</string>
+    <string name="call_streaming_notification_action_switch_here" msgid="3524180754186221228">"Canvia aquí"</string>
 </resources>

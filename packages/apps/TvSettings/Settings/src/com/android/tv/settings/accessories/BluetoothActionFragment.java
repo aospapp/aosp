@@ -22,13 +22,14 @@ import android.os.Bundle;
 import android.text.TextUtils;
 import android.util.Log;
 import android.view.View;
-import android.view.inputmethod.InputMethodManager;
 
 import androidx.leanback.app.GuidedStepFragment;
 import androidx.leanback.widget.GuidanceStylist;
 import androidx.leanback.widget.GuidedAction;
 
 import com.android.tv.settings.R;
+
+import com.android.tv.settings.util.AccessibilityHelper;
 
 import java.util.List;
 
@@ -149,7 +150,7 @@ public class BluetoothActionFragment extends GuidedStepFragment {
 
         // We need to dismiss the keyboard ourselves since the behavior of dismissing the response
         // after an input completes is not one of the typical flows handled by GuidedStepFragment.
-        dismissKeyboard();
+        AccessibilityHelper.dismissKeyboard(getActivity(), getView());
         if (!TextUtils.equals(existingName, newName) && !TextUtils.isEmpty(newName)) {
             listener.onText(key, action.getTitle().toString());
         }
@@ -194,13 +195,6 @@ public class BluetoothActionFragment extends GuidedStepFragment {
             Log.w(TAG, "Exception in reading choices: " + e);
         }
         return choices;
-    }
-
-    private void dismissKeyboard() {
-        InputMethodManager inputMethodManager = (InputMethodManager) getActivity()
-                .getSystemService(Context.INPUT_METHOD_SERVICE);
-        inputMethodManager.hideSoftInputFromWindow(
-                getView().getApplicationWindowToken(), 0);
     }
 
     private Listener getListener() {

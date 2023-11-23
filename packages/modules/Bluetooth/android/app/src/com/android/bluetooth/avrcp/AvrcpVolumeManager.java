@@ -29,6 +29,7 @@ import android.media.AudioManager;
 import android.util.Log;
 
 import com.android.bluetooth.audio_util.BTAudioEventLogger;
+import com.android.internal.annotations.VisibleForTesting;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -42,7 +43,9 @@ class AvrcpVolumeManager extends AudioDeviceCallback {
     private static final String VOLUME_MAP = "bluetooth_volume_map";
     private static final String VOLUME_REJECTLIST = "absolute_volume_rejectlist";
     private static final String VOLUME_CHANGE_LOG_TITLE = "Volume Events";
-    private static final int AVRCP_MAX_VOL = 127;
+
+    @VisibleForTesting
+    static final int AVRCP_MAX_VOL = 127;
     private static final int STREAM_MUSIC = AudioManager.STREAM_MUSIC;
     private static final int VOLUME_CHANGE_LOGGER_SIZE = 30;
     private static int sDeviceMaxVolume = 0;
@@ -269,8 +272,12 @@ class AvrcpVolumeManager extends AudioDeviceCallback {
             return;
         }
 
-        // Wait until AudioManager informs us that the new device is connected
         mCurrentDevice = device;
+        if (!mDeviceMap.containsKey(device)) {
+            // Wait until AudioManager informs us that the new device is connected
+            return;
+        }
+        switchVolumeDevice(device);
     }
 
     synchronized void deviceDisconnected(@NonNull BluetoothDevice device) {

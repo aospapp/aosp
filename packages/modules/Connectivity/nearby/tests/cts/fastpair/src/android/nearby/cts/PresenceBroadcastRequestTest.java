@@ -54,7 +54,7 @@ public class PresenceBroadcastRequestTest {
     private static final byte[] SECRETE_ID = new byte[]{1, 2, 3, 4};
     private static final byte[] AUTHENTICITY_KEY = new byte[]{0, 1, 1, 1};
     private static final byte[] METADATA_ENCRYPTION_KEY = new byte[]{1, 1, 3, 4, 5};
-    private static final int KEY = 1234;
+    private static final int KEY = 3;
     private static final byte[] VALUE = new byte[]{1, 1, 1, 1};
     private static final String DEVICE_NAME = "test_device";
 
@@ -113,5 +113,19 @@ public class PresenceBroadcastRequestTest {
                 IDENTITY_TYPE_PRIVATE);
         assertThat(parcelRequest.getType()).isEqualTo(BROADCAST_TYPE_NEARBY_PRESENCE);
 
+    }
+
+    @Test
+    @SdkSuppress(minSdkVersion = 32, codeName = "T")
+    public void describeContents() {
+        PresenceBroadcastRequest broadcastRequest = mBuilder.build();
+        assertThat(broadcastRequest.describeContents()).isEqualTo(0);
+    }
+
+    @Test
+    public void testCreatorNewArray() {
+        PresenceBroadcastRequest[] presenceBroadcastRequests =
+                PresenceBroadcastRequest.CREATOR.newArray(2);
+        assertThat(presenceBroadcastRequests.length).isEqualTo(2);
     }
 }

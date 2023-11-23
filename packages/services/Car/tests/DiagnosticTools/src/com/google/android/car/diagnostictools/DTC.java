@@ -47,7 +47,7 @@ public class DTC extends SelectableRowModel implements android.os.Parcelable {
                 }
             };
     private static final String TAG = "DTC";
-    private static Random sRandomGen;
+    private static final Random sRandomGen = new Random();
     private String mCode;
     private String mDescription;
     private long mTimestamp;
@@ -141,9 +141,6 @@ public class DTC extends SelectableRowModel implements android.os.Parcelable {
      */
     static DTC createSampleDTC(int number, Context context) {
         String code = String.format("P%04d", 8 + number);
-        if (sRandomGen == null) {
-            sRandomGen = new Random();
-        }
         long timestamp = sRandomGen.nextLong();
         return new DTC(code, timestamp, context);
     }

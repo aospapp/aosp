@@ -6,7 +6,9 @@ A structured log collection service for CarTelemetryService. See ARCHITECTURE.md
 
 **Dumping the service information**
 
-`adb shell dumpsys android.automotive.telemetry.internal.ICarTelemetryInternal/default`
+```
+adb shell dumpsys android.automotive.telemetry.internal.ICarTelemetryInternal/default
+```
 
 **Enabling VERBOSE logs**
 
@@ -17,13 +19,19 @@ adb shell setprop log.tag.cartelemetryd_impl_test V
 
 **Starting emulator with cold boot**
 
-`emulator -verbose -show-kernel -selinux permissive -writable-system -no-snapshot -wipe-data`
+```
+emulator -verbose -show-kernel -selinux permissive -writable-system -no-snapshot -wipe-data
+```
 
 **Running the tests**
 
-`atest cartelemetryd_impl_test:CarTelemetryInternalImplTest#TestSetListenerReturnsOk`
+```
+# run a specific test
+atest cartelemetryd_impl_test:CarTelemetryInternalImplTest#TestSetListenerReturnsOk
 
-`atest cartelemetryd_impl_test`
+# run all tests
+atest cartelemetryd_impl_test
+```
 
 ## Enabling cartelemetryd
 
@@ -32,14 +40,25 @@ targets, add the following lines in necessary `.mk` files:
 
 ```
 # Enable Automotive Telemetry Services (cartelemetryd) only on specific devices.
-ifneq ($(filter $(TARGET_PRODUCT), TARGET1 TARGET2),)
-include packages/services/Car/cpp/telemetry/cartelemetryd/products/telemetry.mk
-endif
+ENABLE_CARTELEMETRY_SERVICE ?= true
 ```
 
 To find where the service was included, run this from `$ANDROID_BUILD_TOP`:
 
 ```
 grep -rH --color --exclude-dir='**/.*' --exclude-dir='out' --include='*.mk' \
-    'cartelemetryd/products/telemetry.mk' device/ vendor/
+    'ENABLE_CARTELEMETRY_SERVICE' device/ vendor/
+```
+
+## Updating cartelemetryd
+
+If AIDL interface were updated, run `m -j` and re-flash.
+
+If implementation were updated, run:
+
+```
+m -j android.automotive.telemetryd@1.0
+adb root && adb remount && adb push $ANDROID_PRODUCT_OUT/system/bin/android.automotive.telemetryd@1.0 /system/bin && adb shell /system/bin/android.automotive.telemetryd@1.0
+Ctrl+C
+adb reboot
 ```

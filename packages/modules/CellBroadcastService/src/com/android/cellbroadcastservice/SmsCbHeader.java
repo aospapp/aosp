@@ -16,6 +16,10 @@
 
 package com.android.cellbroadcastservice;
 
+import static com.android.cellbroadcastservice.CellBroadcastMetrics.ERR_GSM_INVALID_HEADER;
+import static com.android.cellbroadcastservice.CellBroadcastMetrics.ERR_GSM_UNSUPPORTED_HEADER_DCS;
+import static com.android.cellbroadcastservice.CellBroadcastMetrics.ERR_GSM_UNSUPPORTED_HEADER_MSG;
+
 import android.telephony.SmsCbCmasInfo;
 import android.telephony.SmsCbEtwsInfo;
 import android.telephony.SmsMessage;
@@ -131,11 +135,10 @@ public class SmsCbHeader {
 
     public SmsCbHeader(byte[] pdu) throws IllegalArgumentException {
         if (pdu == null || pdu.length < PDU_HEADER_LENGTH) {
-            final String errorMessage = "Illegal PDU";
-            CellBroadcastStatsLog.write(CellBroadcastStatsLog.CB_MESSAGE_ERROR,
-                    CellBroadcastStatsLog.CELL_BROADCAST_MESSAGE_ERROR__TYPE__GSM_INVALID_HEADER_LENGTH,
-                    errorMessage);
-            throw new IllegalArgumentException(errorMessage);
+            final String errMsg = "Illegal PDU";
+            CellBroadcastServiceMetrics.getInstance()
+                    .logMessageError(ERR_GSM_INVALID_HEADER, errMsg);
+            throw new IllegalArgumentException(errMsg);
         }
 
         if (pdu.length <= PDU_LENGTH_GSM) {
@@ -192,9 +195,8 @@ public class SmsCbHeader {
             if (messageType != MESSAGE_TYPE_CBS_MESSAGE) {
                 IllegalArgumentException ex = new IllegalArgumentException(
                         "Unsupported message type " + messageType);
-                CellBroadcastStatsLog.write(CellBroadcastStatsLog.CB_MESSAGE_ERROR,
-                        CellBroadcastStatsLog.CELL_BROADCAST_MESSAGE_ERROR__TYPE__GSM_UNSUPPORTED_HEADER_MESSAGE_TYPE,
-                        ex.toString());
+                CellBroadcastServiceMetrics.getInstance().logMessageError(
+                        ERR_GSM_UNSUPPORTED_HEADER_MSG, ex.toString());
                 throw ex;
             }
 
@@ -573,9 +575,8 @@ public class SmsCbHeader {
                     // Defined by the WAP forum not supported
                     final String errorMessage =
                             "Unsupported GSM dataCodingScheme " + dataCodingScheme;
-                    CellBroadcastStatsLog.write(CellBroadcastStatsLog.CB_MESSAGE_ERROR,
-                            CellBroadcastStatsLog.CELL_BROADCAST_MESSAGE_ERROR__TYPE__GSM_UNSUPPORTED_HEADER_DATA_CODING_SCHEME,
-                            errorMessage);
+                    CellBroadcastServiceMetrics.getInstance().logMessageError(
+                            ERR_GSM_UNSUPPORTED_HEADER_DCS, errorMessage);
                     throw new IllegalArgumentException(errorMessage);
 
                 case 0x0f:

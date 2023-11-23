@@ -26,12 +26,14 @@ import android.content.Context;
 import android.content.pm.PackageManager;
 
 import androidx.annotation.NonNull;
-import androidx.test.InstrumentationRegistry;
+import androidx.test.core.app.ApplicationProvider;
 import androidx.test.filters.SmallTest;
 
 import com.android.managedprovisioning.R;
 import com.android.managedprovisioning.common.Utils;
 import com.android.managedprovisioning.model.ProvisioningParams;
+
+import com.google.android.setupdesign.util.DeviceHelper;
 
 import org.junit.Test;
 
@@ -39,10 +41,13 @@ import java.util.ArrayList;
 
 @SmallTest
 public class TermsProviderTest {
-    private final Context mContext = InstrumentationRegistry.getTargetContext();
+    private final Context mContext = ApplicationProvider.getApplicationContext();
+    private final CharSequence TEST_DEVICE_NAME = DeviceHelper.getDeviceName(mContext);
     private final String mStringGeneralPo = mContext.getString(R.string.work_profile_info);
-    private final String mStringGeneralDo = mContext.getString(R.string.managed_device_info);
-    private final String mStringAdminDisclaimerDo = mContext.getString(R.string.admin_has_ability_to_monitor_device);
+    private final String mStringGeneralDo =
+            mContext.getString(R.string.managed_device_info, TEST_DEVICE_NAME);
+    private final String mStringAdminDisclaimerDo =
+            mContext.getString(R.string.admin_has_ability_to_monitor_device, TEST_DEVICE_NAME);
     private final String mStringAdminDisclaimerPo = mContext.getString(R.string.admin_has_ability_to_monitor_profile);
 
     @Test

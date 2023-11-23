@@ -20,9 +20,9 @@
 #include <android-base/strings.h>
 #include <android-base/test_utils.h>
 #include <gtest/gtest.h>
+#include <netdutils/NetNativeTestBase.h>
 
 #include "DnsQueryLog.h"
-#include "tests/resolv_test_base.h"
 
 using namespace std::chrono_literals;
 
@@ -59,7 +59,7 @@ void verifyDumpOutput(const std::string& dumpLog, const std::vector<int>& expect
 
 }  // namespace
 
-class DnsQueryLogTest : public ResolvTestBase {
+class DnsQueryLogTest : public NetNativeTestBase {
   protected:
     const std::vector<std::string> serversV4 = {"127.0.0.1", "1.2.3.4"};
     const std::vector<std::string> serversV4V6 = {"127.0.0.1", "1.2.3.4", "2001:db8::1",

@@ -20,11 +20,9 @@ import static java.util.Objects.requireNonNull;
 import android.annotation.DrawableRes;
 import android.app.Activity;
 import android.view.View;
-import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.TextView;
 
-import com.android.car.setupwizardlib.CarSetupWizardCompatLayout;
 import com.android.managedprovisioning.R;
 import com.android.managedprovisioning.common.CarSetupWizardLayoutHelper;
 import com.android.managedprovisioning.common.ProvisionLogger;
@@ -44,8 +42,6 @@ public final class CarConsentUiHelper implements ConsentUiHelper {
     private final ConsentUiHelperCallback mCallback;
     private final Utils mUtils;
     private final PreProvisioningActivityBridgeCallbacks mBridgeCallbacks;
-
-    private CarSetupWizardCompatLayout mLayout;
 
     public CarConsentUiHelper(Activity activity, ConsentUiHelperCallback callback, Utils utils,
                 PreProvisioningActivityBridgeCallbacks bridgeCallbacks) {
@@ -90,8 +86,7 @@ public final class CarConsentUiHelper implements ConsentUiHelper {
 
         // Set the base layout
         CarSetupWizardLayoutHelper layoutHelper = new CarSetupWizardLayoutHelper(mActivity);
-        CarSetupWizardCompatLayout layout = layoutHelper.setBaseLayout(
-                subLayoutId, /* isDoubleColumnAllowed= */ true);
+        layoutHelper.setBaseLayout(subLayoutId, /* isDoubleColumnAllowed= */ true);
         layoutHelper.setHeaderText(headerResId, R.string.view_terms);
         layoutHelper.setupPrimaryToolbarButton(R.string.accept_and_continue,
                 v -> onTermsAccepted());
@@ -104,12 +99,6 @@ public final class CarConsentUiHelper implements ConsentUiHelper {
     private void setupImageView(@DrawableRes int imageResId) {
         ImageView illustration = mActivity.findViewById(R.id.illustration);
         illustration.setImageResource(imageResId);
-    }
-
-    /** Set the primary toolbar button text and have it scroll to the next section when clicked. */
-    private void setupAcceptAndContinueButton(Button button) {
-        button.setText(mActivity.getString(R.string.accept_and_continue));
-        button.setOnClickListener(v -> onTermsAccepted());
     }
 
     private void onTermsAccepted() {

@@ -140,13 +140,16 @@ public class InCallTonePlayerTest extends TelecomTestCase {
 
     @SmallTest
     @Test
-    public void testNoEndCallToneInSilence() {
+    public void testEndCallTonePlaysWhenRingIsSilent() {
         when(mAudioManagerAdapter.isVolumeOverZero()).thenReturn(false);
-        assertFalse(mInCallTonePlayer.startTone());
+        assertTrue(mInCallTonePlayer.startTone());
+        // Verify we did play a tone.
+        verify(mMediaPlayerFactory, timeout(TEST_TIMEOUT)).get(anyInt(), any());
+        verify(mCallAudioManager).setIsTonePlaying(eq(true));
 
-        // Verify we didn't play a tone.
-        verify(mCallAudioManager, never()).setIsTonePlaying(eq(true));
-        verify(mMediaPlayerFactory, never()).get(anyInt(), any());
+        mInCallTonePlayer.stopTone();
+        // Timeouts due to threads!
+        verify(mCallAudioManager, timeout(TEST_TIMEOUT)).setIsTonePlaying(eq(false));
     }
 
     @SmallTest

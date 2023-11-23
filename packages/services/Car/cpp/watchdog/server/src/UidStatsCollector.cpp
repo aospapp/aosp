@@ -57,16 +57,25 @@ Result<void> UidStatsCollector::collect() {
             return Error() << "Failed to collect per-uid process stats: " << result.error();
         }
     }
+    if (mUidCpuStatsCollector->enabled()) {
+        if (const auto& result = mUidCpuStatsCollector->collect(); !result.ok()) {
+            return Error() << "Failed to collect per-uid CPU stats: " << result.error();
+        }
+    }
+
     mLatestStats =
-            process(mUidIoStatsCollector->latestStats(), mUidProcStatsCollector->latestStats());
-    mDeltaStats = process(mUidIoStatsCollector->deltaStats(), mUidProcStatsCollector->deltaStats());
+            process(mUidIoStatsCollector->latestStats(), mUidProcStatsCollector->latestStats(),
+                    mUidCpuStatsCollector->latestStats());
+    mDeltaStats = process(mUidIoStatsCollector->deltaStats(), mUidProcStatsCollector->deltaStats(),
+                          mUidCpuStatsCollector->deltaStats());
     return {};
 }
 
 std::vector<UidStats> UidStatsCollector::process(
         const std::unordered_map<uid_t, UidIoStats>& uidIoStatsByUid,
-        const std::unordered_map<uid_t, UidProcStats>& uidProcStatsByUid) const {
-    if (uidIoStatsByUid.empty() && uidProcStatsByUid.empty()) {
+        const std::unordered_map<uid_t, UidProcStats>& uidProcStatsByUid,
+        const std::unordered_map<uid_t, int64_t>& cpuTimeMillisByUid) const {
+    if (uidIoStatsByUid.empty() && uidProcStatsByUid.empty() && cpuTimeMillisByUid.empty()) {
         return std::vector<UidStats>();
     }
     std::unordered_set<uid_t> uidSet;
@@ -74,6 +83,9 @@ std::vector<UidStats> UidStatsCollector::process(
         uidSet.insert(uid);
     }
     for (const auto& [uid, _] : uidProcStatsByUid) {
+        uidSet.insert(uid);
+    }
+    for (const auto& [uid, _] : cpuTimeMillisByUid) {
         uidSet.insert(uid);
     }
     std::vector<uid_t> uids;
@@ -92,8 +104,14 @@ std::vector<UidStats> UidStatsCollector::process(
         if (const auto it = uidIoStatsByUid.find(uid); it != uidIoStatsByUid.end()) {
             curUidStats.ioStats = it->second;
         }
+        if (const auto it = cpuTimeMillisByUid.find(uid); it != cpuTimeMillisByUid.end()) {
+            curUidStats.cpuTimeMillis = it->second;
+        }
         if (const auto it = uidProcStatsByUid.find(uid); it != uidProcStatsByUid.end()) {
             curUidStats.procStats = it->second;
+            if (curUidStats.cpuTimeMillis == 0) {
+                curUidStats.cpuTimeMillis = curUidStats.procStats.cpuTimeMillis;
+            }
         }
         uidStats.emplace_back(std::move(curUidStats));
     }

@@ -53,7 +53,7 @@ public class ResetNetworkSubscriptionPreferenceController extends
     }
 
     @Override
-    public int getAvailabilityStatus() {
+    public int getDefaultAvailabilityStatus() {
         return getContext().getPackageManager().hasSystemFeature(PackageManager.FEATURE_TELEPHONY)
                 ? AVAILABLE : UNSUPPORTED_ON_DEVICE;
     }

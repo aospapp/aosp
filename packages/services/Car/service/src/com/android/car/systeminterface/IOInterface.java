@@ -16,8 +16,6 @@
 
 package com.android.car.systeminterface;
 
-import android.content.Context;
-
 import java.io.File;
 
 /**
@@ -34,7 +32,7 @@ public interface IOInterface {
     class DefaultImpl implements IOInterface {
         private final File mSystemCarDir;
 
-        DefaultImpl(Context context) {
+        DefaultImpl() {
             mSystemCarDir = new File("/data/system/car");
         }
 

@@ -19,6 +19,7 @@
 #include <android-base/silent_death_test.h>
 #include <gtest/gtest.h>
 
+#include "avrcp_common.h"
 #include "avrcp_test_packets.h"
 #include "packet_test_helper.h"
 
@@ -118,11 +119,42 @@ TEST(RegisterNotificationResponseBuilderTest, playStatusBuilderTest) {
 
 TEST(RegisterNotificationResponseBuilderTest, trackChangedBuilderTest) {
   auto builder = RegisterNotificationResponseBuilder::MakeTrackChangedBuilder(
-      true, 0x0000000000000000);
+      true, 0x0102030405060708);
   ASSERT_EQ(builder->size(), interim_track_changed_notification.size());
   auto test_packet = TestRegNotifReqPacket::Make();
   builder->Serialize(test_packet);
   ASSERT_EQ(test_packet->GetData(), interim_track_changed_notification);
+}
+
+TEST(RegisterNotificationResponseBuilderTest,
+     interimPlayerSettingChangedBuilderTest) {
+  std::vector<PlayerAttribute> attrs = {
+      PlayerAttribute::EQUALIZER, PlayerAttribute::REPEAT,
+      PlayerAttribute::SHUFFLE, PlayerAttribute::SCAN};
+  std::vector<uint8_t> vals = {0x01, 0x01, 0x01, 0x01};  // All off
+  auto builder =
+      RegisterNotificationResponseBuilder::MakePlayerSettingChangedBuilder(
+          true, attrs, vals);
+  ASSERT_EQ(builder->size(),
+            interim_changed_player_setting_notification.size());
+  auto test_packet = TestRegNotifReqPacket::Make();
+  builder->Serialize(test_packet);
+  ASSERT_EQ(test_packet->GetData(),
+            interim_changed_player_setting_notification);
+}
+
+TEST(RegisterNotificationResponseBuilderTest, playerSettingChangedBuilderTest) {
+  std::vector<PlayerAttribute> attrs = {PlayerAttribute::REPEAT,
+                                        PlayerAttribute::SHUFFLE};
+  std::vector<uint8_t> vals = {(uint8_t)PlayerRepeatValue::OFF,
+                               (uint8_t)PlayerShuffleValue::ALL};
+  auto builder =
+      RegisterNotificationResponseBuilder::MakePlayerSettingChangedBuilder(
+          false, attrs, vals);
+  ASSERT_EQ(builder->size(), changed_player_setting_notification.size());
+  auto test_packet = TestRegNotifReqPacket::Make();
+  builder->Serialize(test_packet);
+  ASSERT_EQ(test_packet->GetData(), changed_player_setting_notification);
 }
 
 TEST(RegisterNotificationResponseBuilderTest, playPositionBuilderTest) {

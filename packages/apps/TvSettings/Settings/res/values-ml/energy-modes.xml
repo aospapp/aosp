@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--  Copyright (C) 2023 The Android Open Source Project
+
+     Licensed under the Apache License, Version 2.0 (the "License");
+     you may not use this file except in compliance with the License.
+     You may obtain a copy of the License at
+
+          http://www.apache.org/licenses/LICENSE-2.0
+
+     Unless required by applicable law or agreed to in writing, software
+     distributed under the License is distributed on an "AS IS" BASIS,
+     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+     See the License for the specific language governing permissions and
+     limitations under the License.
+ -->
+
+<resources xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+    <string name="energy_mode_low_title" msgid="2408371934616917432">"ആവശ്യമായ നെറ്റ്‌വർക്ക് ഫീച്ചറുകൾ"</string>
+    <string name="energy_mode_low_subtitle" msgid="3541491740634993554">"കുറഞ്ഞ ഊർജ്ജ ഉപഭോഗം"</string>
+    <string name="energy_mode_low_info" msgid="7336221780506353827">"ടിവി ഉപയോഗിക്കാത്തപ്പോൾ നെറ്റ്‌വർക്ക് കണക്ഷൻ ഓഫാക്കുക."</string>
+  <string-array name="energy_mode_low_features">
+    <item msgid="4976202876230149030">"നിർണ്ണായക അപ്ഡേറ്റുകളും ഫംഗ്ഷനുകളും"</item>
+  </string-array>
+    <string name="energy_mode_low_eco_hint" msgid="2421460758847643655"></string>
+    <string name="energy_mode_moderate_title" msgid="6131212898797802584">"നിർദ്ദേശിച്ച നെറ്റ്‌വർക്ക് ഫീച്ചറുകൾ"</string>
+    <string name="energy_mode_moderate_subtitle" msgid="8452759001885415587">"ഒപ്റ്റിമൈസ് ചെയ്‌ത ഊർജ്ജ ഉപഭോഗം"</string>
+    <string name="energy_mode_moderate_info" msgid="8606735947366228051">"നെറ്റ്‌വർക്കിലൂടെ ടിവിയെ സജീവമാക്കുന്ന ഫീച്ചറുകൾ ഓണാക്കുന്നു (സ്റ്റാൻഡ്‌ബൈ ആയി നെറ്റ്‌വർക്കിലേക്ക് കണക്റ്റ് ചെയ്തിരിക്കുന്നു)."</string>
+  <string-array name="energy_mode_moderate_features">
+    <item msgid="2654586107956150296">"[ഫീച്ചർ 1 ചേർക്കുക]"</item>
+    <item msgid="8724721267222341891">"[ഫീച്ചർ 2 ചേർക്കുക]"</item>
+  </string-array>
+    <string name="energy_mode_moderate_eco_hint" msgid="252189162446856286"></string>
+    <string name="energy_mode_high_title" msgid="4428472238583662129">"അധിക നെറ്റ്‌വർക്ക് ഫീച്ചറുകൾ"</string>
+    <string name="energy_mode_high_subtitle" msgid="3146607061198429672">"വർദ്ധിച്ച ഊർജ്ജ ഉപഭോഗം"</string>
+    <string name="energy_mode_high_info" msgid="3151321275701804406">"നിർദ്ദേശിച്ച ഫീച്ചറുകൾക്ക് പുറമേ, ടിവി ഉപയോഗിക്കാത്തപ്പോൾ ഈ ഓപ്‌ഷൻ അധിക ഫീച്ചറുകൾ ഓണാക്കുന്നു, അത് ഊർജ്ജ ഉപഭോഗം വർധിപ്പിച്ചേക്കാം."</string>
+  <string-array name="energy_mode_high_features">
+    <item msgid="3018897868803319747">"[ഫീച്ചർ 1 ചേർക്കുക]"</item>
+    <item msgid="170760143032597722">"[ഫീച്ചർ 2 ചേർക്കുക]"</item>
+  </string-array>
+    <!-- no translation found for energy_mode_high_eco_hint (3266580507783627848) -->
+    <skip />
+</resources>

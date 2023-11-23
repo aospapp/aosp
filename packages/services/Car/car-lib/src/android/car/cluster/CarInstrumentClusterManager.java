@@ -117,7 +117,7 @@ public class CarInstrumentClusterManager extends CarManagerBase {
     }
 
     /** @hide */
-    public CarInstrumentClusterManager(Car car, IBinder service) {
+    public CarInstrumentClusterManager(Car car, IBinder unusedService) {
         super(car);
         // No-op
     }

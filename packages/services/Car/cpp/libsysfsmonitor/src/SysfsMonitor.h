@@ -23,6 +23,7 @@
 
 #include <functional>
 #include <string>
+#include <thread>  // NOLINT(build/c++11)
 #include <unordered_set>
 
 namespace android {
@@ -43,6 +44,8 @@ public:
     // Registers a sysfs file to monitor.
     android::base::Result<void> registerFd(int32_t fd);
     // Unregisters a sysfs file to monitor.
+    // Some events may be in process, so events may
+    // continue to be reported even after this method completes.
     android::base::Result<void> unregisterFd(int32_t fd);
     // Starts observing sysfs file changes.
     android::base::Result<void> observe();
@@ -51,6 +54,8 @@ private:
     android::base::unique_fd mEpollFd;
     std::unordered_set<int32_t> mMonitoringFds;
     CallbackFunc mCallback;
+    std::thread mMonitoringThread;
+    int mPipefd[2];
 };
 
 }  // namespace automotive

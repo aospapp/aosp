@@ -13,4 +13,6 @@
     <string name="localPhoneName" msgid="9119254982537191352">"എന്റെ പേര്"</string>
     <string name="defaultnumber" msgid="5348816189286607406">"000000"</string>
     <string name="pbap_notification_group" msgid="4215789331721465381">"Bluetooth കോണ്‍‌ടാക്റ്റ് പങ്കിടൽ"</string>
+    <string name="phonebook_advance_feature_support" msgid="8129553051734505128">"ഫോൺബുക്കിന്റെ വിപുലമായ ഫീച്ചറുകൾ പിന്തുണയ്ക്കുന്നു"</string>
+    <string name="repair_for_adv_phonebook_feature" msgid="3489797973131684927">"ഫോൺബുക്കിന്റെ വിപുലമായ ഫീച്ചറിനായി വീണ്ടും ജോടിയാക്കുക"</string>
 </resources>

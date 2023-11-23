@@ -15,6 +15,7 @@
  */
 package com.android.car;
 
+import static com.android.dx.mockito.inline.extended.ExtendedMockito.doNothing;
 import static com.android.dx.mockito.inline.extended.ExtendedMockito.mockitoSession;
 
 import static org.junit.Assert.fail;
@@ -50,8 +51,10 @@ import com.android.car.hal.test.AidlMockedVehicleHal;
 import com.android.car.hal.test.AidlVehiclePropConfigBuilder;
 import com.android.car.hal.test.HidlMockedVehicleHal;
 import com.android.car.hal.test.HidlVehiclePropConfigBuilder;
+import com.android.car.internal.ICarServiceHelper;
 import com.android.car.os.CarPerformanceService;
 import com.android.car.power.CarPowerManagementService;
+import com.android.car.remoteaccess.CarRemoteAccessService;
 import com.android.car.systeminterface.ActivityManagerInterface;
 import com.android.car.systeminterface.DisplayInterface;
 import com.android.car.systeminterface.IOInterface;
@@ -102,13 +105,15 @@ public class MockedCarTestBase {
     private SystemInterface mFakeSystemInterface;
     private MockedCarTestContext mMockedCarTestContext;
     private CarTelemetryService mCarTelemetryService;
+    private CarWatchdogService mCarWatchdogService = mock(CarWatchdogService.class);
+    private CarPerformanceService mCarPerformanceService;
+    private CarRemoteAccessService mCarRemoteAccessService;
 
     private final CarUserService mCarUserService = mock(CarUserService.class);
     private final MockIOInterface mMockIOInterface = new MockIOInterface();
-    private final CarWatchdogService mCarWatchdogService = mock(CarWatchdogService.class);
-    private final CarPerformanceService mCarPerformanceService = mock(CarPerformanceService.class);
     private final GarageModeService mGarageModeService = mock(GarageModeService.class);
     private final FakeCarPowerPolicyDaemon mPowerPolicyDaemon = new FakeCarPowerPolicyDaemon();
+    private final ICarServiceHelper mICarServiceHelper = mock(ICarServiceHelper.class);
 
     private final Object mLock = new Object();
     @GuardedBy("mLock")
@@ -172,6 +177,32 @@ public class MockedCarTestBase {
     }
 
     /**
+     * Set the CarWatchDogService to be used during the test.
+     */
+    protected void setCarWatchDogService(CarWatchdogService service) {
+        mCarWatchdogService = service;
+    }
+
+    /**
+     * Set the CarPerformanceService to be used during the test.
+     *
+     * Must be called during {@link configureMockedHal}. If not called, the real service would be
+     * used.
+     */
+    protected void setCarPerformanceService(CarPerformanceService service) {
+        mCarPerformanceService = service;
+    }
+
+    /**
+     * Set the CarRemoteAccessService to be used during the test.
+     *
+     * If not called, the real service would be used.
+     */
+    protected void setCarRemoteAccessService(CarRemoteAccessService service) {
+        mCarRemoteAccessService = service;
+    }
+
+    /**
      * Called after {@code ICarImpl} is created and before {@code ICarImpl.init()} is called.
      *
      * <p> Subclass that intend to apply spyOn() to the service under testing should override this.
@@ -188,13 +219,17 @@ public class MockedCarTestBase {
 
     protected SystemInterface.Builder getSystemInterfaceBuilder() {
         return SystemInterface.Builder.newSystemInterface()
-                .withSystemStateInterface(new MockSystemStateInterface())
+                .withSystemStateInterface(createMockSystemStateInterface())
                 .withActivityManagerInterface(new MockActivityManagerInterface())
                 .withDisplayInterface(new MockDisplayInterface())
                 .withIOInterface(mMockIOInterface)
                 .withStorageMonitoringInterface(new MockStorageMonitoringInterface())
                 .withTimeInterface(new MockTimeInterface())
                 .withWakeLockInterface(new MockWakeLockInterface());
+    }
+
+    protected SystemStateInterface createMockSystemStateInterface() {
+        return new MockSystemStateInterface();
     }
 
     protected void configureFakeSystemInterface() {}
@@ -235,6 +270,7 @@ public class MockedCarTestBase {
     protected MockitoSession createMockingSession() {
         return mockitoSession()
                 .initMocks(this)
+                .spyStatic(ICarImpl.class)
                 .strictness(Strictness.LENIENT)
                 .startMocking();
     }
@@ -299,8 +335,11 @@ public class MockedCarTestBase {
         ICarImpl carImpl = new ICarImpl(mMockedCarTestContext, /*builtinContext=*/null,
                 mockedVehicleStub, mFakeSystemInterface, /*vehicleInterfaceName=*/"MockedCar",
                 mCarUserService, mCarWatchdogService, mCarPerformanceService, mGarageModeService,
-                mPowerPolicyDaemon, mCarTelemetryService);
+                mPowerPolicyDaemon, mCarTelemetryService, mCarRemoteAccessService, false);
 
+        doNothing().when(() -> ICarImpl.assertCallingFromSystemProcess());
+        carImpl.setSystemServerConnections(mICarServiceHelper,
+                new ICarImplTest.CarServiceConnectedCallback());
         spyOnBeforeCarImplInit(carImpl);
         carImpl.init();
         mCarImpl = carImpl;
@@ -445,6 +484,8 @@ public class MockedCarTestBase {
         cpms.getHandler().runWithScissors(() -> {}, STATE_HANDLING_TIMEOUT);
     }
 
+    @SuppressWarnings("CollectionIncompatibleType") // HidlVehiclePropConfigBuilder does not
+                                                    // implement equals
     private void setHidlConfigBuilder(HidlVehiclePropConfigBuilder builder,
             HidlMockedVehicleHal.VehicleHalPropertyHandler propertyHandler) {
         int propId = builder.build().prop;
@@ -460,6 +501,8 @@ public class MockedCarTestBase {
         }
     }
 
+    @SuppressWarnings("CollectionIncompatibleType") // AidlVehiclePropConfigBuilder does not
+                                                    // implement equals
     private void setAidlConfigBuilder(AidlVehiclePropConfigBuilder builder,
             AidlMockedVehicleHal.VehicleHalPropertyHandler propertyHandler) {
         int propId = builder.build().prop;
@@ -494,7 +537,7 @@ public class MockedCarTestBase {
             @Override
             public void onServiceConnected(ComponentName name, IBinder service) {
                 synchronized (waitForConnection) {
-                    waitForConnection.notify();
+                    waitForConnection.notifyAll();
                 }
             }
 
@@ -505,7 +548,12 @@ public class MockedCarTestBase {
         car.connect();
         synchronized (waitForConnection) {
             if (!car.isConnected()) {
-                waitForConnection.wait(DEFAULT_WAIT_TIMEOUT_MS);
+                long nowMs = System.currentTimeMillis();
+                long deadlineMs = nowMs + DEFAULT_WAIT_TIMEOUT_MS;
+                while (!car.isConnected() && nowMs < deadlineMs) {
+                    waitForConnection.wait(deadlineMs - nowMs);
+                    nowMs = System.currentTimeMillis();
+                }
             }
         }
 
@@ -533,7 +581,13 @@ public class MockedCarTestBase {
         public void setDisplayBrightness(int brightness) {}
 
         @Override
-        public void setDisplayState(boolean on) {}
+        public void setDisplayBrightness(int displayId, int brightness) {}
+
+        @Override
+        public void setDisplayState(int displayId, boolean on) {}
+
+        @Override
+        public void setAllDisplayState(boolean on) {}
 
         @Override
         public void startDisplayStateMonitoring() {}
@@ -545,7 +599,15 @@ public class MockedCarTestBase {
         public void refreshDisplayBrightness() {}
 
         @Override
-        public boolean isDisplayEnabled() {
+        public void refreshDisplayBrightness(int displayid) {}
+
+        @Override
+        public boolean isAnyDisplayEnabled() {
+            return true;
+        }
+
+        @Override
+        public boolean isDisplayEnabled(int displayId) {
             return true;
         }
     }
@@ -578,18 +640,18 @@ public class MockedCarTestBase {
     }
 
     /**
-     * Special version of {@link ContextWrapper} that overrides {@method getResources} by returning
+     * Special version of {@link ContextWrapper} that overrides {@code getResources} by returning
      * a {@link MockResources}, so tests are free to set resources. This class represents an
      * alternative of using Mockito spy (see b/148240178).
      *
      * Tests may specialize this class. If they decide so, then they are required to override
-     * {@method newMockedCarContext} to provide their own context.
+     * {@link createMockedCarTestContext} to provide their own context.
      */
     protected static class MockedCarTestContext extends ContextWrapper {
 
         private final Resources mMockedResources;
 
-        MockedCarTestContext(Context base) {
+        protected MockedCarTestContext(Context base) {
             super(base);
             mMockedResources = new MockResources(base.getResources());
         }
@@ -689,13 +751,13 @@ public class MockedCarTestBase {
     static final class MockWakeLockInterface implements WakeLockInterface {
 
         @Override
-        public void releaseAllWakeLocks() {}
+        public void releaseAllWakeLocks(int displayId) {}
 
         @Override
-        public void switchToPartialWakeLock() {}
+        public void switchToPartialWakeLock(int displayId) {}
 
         @Override
-        public void switchToFullWakeLock() {}
+        public void switchToFullWakeLock(int displayId) {}
     }
 
     static final class FakeCarPowerPolicyDaemon extends ICarPowerPolicySystemNotification.Stub {

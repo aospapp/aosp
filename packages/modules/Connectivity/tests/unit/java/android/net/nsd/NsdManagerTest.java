@@ -21,6 +21,7 @@ import static libcore.junit.util.compat.CoreCompatChangeRule.EnableCompatChanges
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
@@ -32,13 +33,14 @@ import static org.mockito.Mockito.verify;
 
 import android.compat.testing.PlatformCompatChangeRule;
 import android.content.Context;
+import android.net.connectivity.ConnectivityCompatChanges;
 import android.os.Build;
 
 import androidx.test.filters.SmallTest;
 
 import com.android.testutils.DevSdkIgnoreRule;
 import com.android.testutils.DevSdkIgnoreRunner;
-import com.android.testutils.ExceptionUtils;
+import com.android.testutils.FunctionalUtils.ThrowingConsumer;
 
 import org.junit.Before;
 import org.junit.Rule;
@@ -51,7 +53,7 @@ import org.mockito.MockitoAnnotations;
 
 @RunWith(DevSdkIgnoreRunner.class)
 @SmallTest
-@DevSdkIgnoreRule.IgnoreUpTo(Build.VERSION_CODES.R)
+@DevSdkIgnoreRule.IgnoreUpTo(Build.VERSION_CODES.S_V2)
 public class NsdManagerTest {
 
     static final int PROTOCOL = NsdManager.PROTOCOL_DNS_SD;
@@ -72,79 +74,79 @@ public class NsdManagerTest {
     public void setUp() throws Exception {
         MockitoAnnotations.initMocks(this);
 
-        doReturn(mServiceConn).when(mService).connect(any());
+        doReturn(mServiceConn).when(mService).connect(any(), anyBoolean());
         mManager = new NsdManager(mContext, mService);
         final ArgumentCaptor<INsdManagerCallback> cbCaptor = ArgumentCaptor.forClass(
                 INsdManagerCallback.class);
-        verify(mService).connect(cbCaptor.capture());
+        verify(mService).connect(cbCaptor.capture(), anyBoolean());
         mCallback = cbCaptor.getValue();
     }
 
     @Test
-    @EnableCompatChanges(NsdManager.RUN_NATIVE_NSD_ONLY_IF_LEGACY_APPS)
+    @EnableCompatChanges(ConnectivityCompatChanges.RUN_NATIVE_NSD_ONLY_IF_LEGACY_APPS_T_AND_LATER)
     public void testResolveServiceS() throws Exception {
         verify(mServiceConn, never()).startDaemon();
         doTestResolveService();
     }
 
     @Test
-    @DisableCompatChanges(NsdManager.RUN_NATIVE_NSD_ONLY_IF_LEGACY_APPS)
+    @DisableCompatChanges(ConnectivityCompatChanges.RUN_NATIVE_NSD_ONLY_IF_LEGACY_APPS_T_AND_LATER)
     public void testResolveServicePreS() throws Exception {
         verify(mServiceConn).startDaemon();
         doTestResolveService();
     }
 
     @Test
-    @EnableCompatChanges(NsdManager.RUN_NATIVE_NSD_ONLY_IF_LEGACY_APPS)
+    @EnableCompatChanges(ConnectivityCompatChanges.RUN_NATIVE_NSD_ONLY_IF_LEGACY_APPS_T_AND_LATER)
     public void testDiscoverServiceS() throws Exception {
         verify(mServiceConn, never()).startDaemon();
         doTestDiscoverService();
     }
 
     @Test
-    @DisableCompatChanges(NsdManager.RUN_NATIVE_NSD_ONLY_IF_LEGACY_APPS)
+    @DisableCompatChanges(ConnectivityCompatChanges.RUN_NATIVE_NSD_ONLY_IF_LEGACY_APPS_T_AND_LATER)
     public void testDiscoverServicePreS() throws Exception {
         verify(mServiceConn).startDaemon();
         doTestDiscoverService();
     }
 
     @Test
-    @EnableCompatChanges(NsdManager.RUN_NATIVE_NSD_ONLY_IF_LEGACY_APPS)
+    @EnableCompatChanges(ConnectivityCompatChanges.RUN_NATIVE_NSD_ONLY_IF_LEGACY_APPS_T_AND_LATER)
     public void testParallelResolveServiceS() throws Exception {
         verify(mServiceConn, never()).startDaemon();
         doTestParallelResolveService();
     }
 
     @Test
-    @DisableCompatChanges(NsdManager.RUN_NATIVE_NSD_ONLY_IF_LEGACY_APPS)
+    @DisableCompatChanges(ConnectivityCompatChanges.RUN_NATIVE_NSD_ONLY_IF_LEGACY_APPS_T_AND_LATER)
     public void testParallelResolveServicePreS() throws Exception {
         verify(mServiceConn).startDaemon();
         doTestParallelResolveService();
     }
 
     @Test
-    @EnableCompatChanges(NsdManager.RUN_NATIVE_NSD_ONLY_IF_LEGACY_APPS)
+    @EnableCompatChanges(ConnectivityCompatChanges.RUN_NATIVE_NSD_ONLY_IF_LEGACY_APPS_T_AND_LATER)
     public void testInvalidCallsS() throws Exception {
         verify(mServiceConn, never()).startDaemon();
         doTestInvalidCalls();
     }
 
     @Test
-    @DisableCompatChanges(NsdManager.RUN_NATIVE_NSD_ONLY_IF_LEGACY_APPS)
+    @DisableCompatChanges(ConnectivityCompatChanges.RUN_NATIVE_NSD_ONLY_IF_LEGACY_APPS_T_AND_LATER)
     public void testInvalidCallsPreS() throws Exception {
         verify(mServiceConn).startDaemon();
         doTestInvalidCalls();
     }
 
     @Test
-    @EnableCompatChanges(NsdManager.RUN_NATIVE_NSD_ONLY_IF_LEGACY_APPS)
+    @EnableCompatChanges(ConnectivityCompatChanges.RUN_NATIVE_NSD_ONLY_IF_LEGACY_APPS_T_AND_LATER)
     public void testRegisterServiceS() throws Exception {
         verify(mServiceConn, never()).startDaemon();
         doTestRegisterService();
     }
 
     @Test
-    @DisableCompatChanges(NsdManager.RUN_NATIVE_NSD_ONLY_IF_LEGACY_APPS)
+    @DisableCompatChanges(ConnectivityCompatChanges.RUN_NATIVE_NSD_ONLY_IF_LEGACY_APPS_T_AND_LATER)
     public void testRegisterServicePreS() throws Exception {
         verify(mServiceConn).startDaemon();
         doTestRegisterService();
@@ -396,7 +398,7 @@ public class NsdManagerTest {
         }
     }
 
-    int getRequestKey(ExceptionUtils.ThrowingConsumer<ArgumentCaptor<Integer>> verifier)
+    int getRequestKey(ThrowingConsumer<ArgumentCaptor<Integer>> verifier)
             throws Exception {
         final ArgumentCaptor<Integer> captor = ArgumentCaptor.forClass(Integer.class);
         verifier.accept(captor);

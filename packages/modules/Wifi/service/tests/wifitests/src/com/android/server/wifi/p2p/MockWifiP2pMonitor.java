@@ -30,7 +30,7 @@ import java.util.Map;
  * WARNING: This does not perfectly mock the behavior of WifiP2pMonitor at the moment
  *          ex. startMonitoring does nothing and will not send a connection/disconnection event
  */
-public class MockWifiP2pMonitor extends  WifiP2pMonitor {
+public class MockWifiP2pMonitor extends WifiP2pMonitor {
     private final Map<String, SparseArray<Handler>> mHandlerMap = new HashMap<>();
 
     @Override

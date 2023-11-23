@@ -32,6 +32,10 @@
 #include "types/raw_address.h"
 bt_status_t btsock_rfc_init(int handle, uid_set_t* set);
 bt_status_t btsock_rfc_cleanup();
+bt_status_t btsock_rfc_control_req(uint8_t dlci, const RawAddress& bd_addr,
+                                   uint8_t modem_signal, uint8_t break_signal,
+                                   uint8_t discard_buffers,
+                                   uint8_t break_signal_seq, bool fc);
 bt_status_t btsock_rfc_listen(const char* name, const bluetooth::Uuid* uuid,
                               int channel, int* sock_fd, int flags,
                               int app_uid);

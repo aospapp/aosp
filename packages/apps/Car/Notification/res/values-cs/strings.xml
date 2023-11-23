@@ -53,4 +53,11 @@
     <string name="see_more_message" msgid="6343183827924395955">"Zobrazit více"</string>
     <string name="restricted_hun_message_content" msgid="631111937988857716">"Nová zpráva"</string>
     <string name="manage_text" msgid="4225197445283791757">"Spravovat"</string>
+    <string name="category_navigation" msgid="4406139232918521087">"navigace"</string>
+    <string name="category_call" msgid="2249490790700877973">"hovor"</string>
+    <string name="category_message" msgid="451360226248504859">"zpr"</string>
+    <string name="hun_suppression_channel_name" msgid="8298850157350352525">"Potlačení funkce Pozor na cestu!"</string>
+    <string name="hun_suppression_notification_title_park" msgid="2790860076784227523">"Sledujte aktuality"</string>
+    <string name="hun_suppression_notification_title_drive" msgid="4403363470548899844">"Soustřeďte se na jízdu"</string>
+    <string name="hun_suppression_notification_description" msgid="5269238832987802104">"Některá nová oznámení se ukládají do Centra oznámení"</string>
 </resources>

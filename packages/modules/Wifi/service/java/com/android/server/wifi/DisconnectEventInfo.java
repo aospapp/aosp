@@ -16,8 +16,8 @@
 package com.android.server.wifi;
 
 import android.annotation.NonNull;
-
-import java.util.Objects;
+import android.net.wifi.WifiManager;
+import android.util.Log;
 
 /**
  * Stores disconnect information passed from WifiMonitor.
@@ -28,10 +28,22 @@ public class DisconnectEventInfo {
     public final int reasonCode;
     public final boolean locallyGenerated;
 
+    private static final String TAG = "DisconnectEventInfo";
+
     public DisconnectEventInfo(@NonNull String ssid, @NonNull String bssid, int reasonCode,
             boolean locallyGenerated) {
-        this.ssid = Objects.requireNonNull(ssid);
-        this.bssid = Objects.requireNonNull(bssid);
+        if (ssid == null) {
+            Log.wtf(TAG, "Null SSID provided");
+            this.ssid = WifiManager.UNKNOWN_SSID;
+        } else {
+            this.ssid = ssid;
+        }
+        if (bssid == null) {
+            Log.wtf(TAG, "Null BSSID provided");
+            this.bssid = WifiManager.ALL_ZEROS_MAC_ADDRESS.toString();
+        } else {
+            this.bssid = bssid;
+        }
         this.reasonCode = reasonCode;
         this.locallyGenerated = locallyGenerated;
     }

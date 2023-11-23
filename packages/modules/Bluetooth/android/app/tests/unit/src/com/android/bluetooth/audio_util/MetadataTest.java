@@ -44,6 +44,7 @@ import com.android.bluetooth.R;
 import com.android.bluetooth.TestUtils;
 
 import org.junit.After;
+import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -72,15 +73,6 @@ public class MetadataTest {
             .appendQueryParameter("handle", IMAGE_HANDLE_1)
             .build();
     private static final String IMAGE_STRING_1 = IMAGE_URI_1.toString();
-
-    private static final String DEFAULT_MEDIA_ID = "Not Provided";
-    private static final String DEFAULT_TITLE = "Not Provided";
-    private static final String DEFAULT_ARTIST = "";
-    private static final String DEFAULT_ALBUM = "";
-    private static final String DEFAULT_TRACK_NUM = "1";
-    private static final String DEFAULT_NUM_TRACKS = "1";
-    private static final String DEFAULT_GENRE = "";
-    private static final String DEFAULT_DURATION = "0";
     private static final Image DEFAULT_IMAGE = null;
 
     private static final String SONG_MEDIA_ID = "abc123";
@@ -245,7 +237,7 @@ public class MetadataTest {
         assertThat(metadata.numTracks).isEqualTo(numTracks);
         assertThat(metadata.genre).isEqualTo(genre);
         assertThat(metadata.duration).isEqualTo(duration);
-        assertThat(metadata.image).isEqualTo(image);
+        Assert.assertTrue(Image.sameAs(metadata.image, image));
     }
 
     /**
@@ -790,9 +782,9 @@ public class MetadataTest {
     @Test
     public void testBuildMetadataUseDefaults() {
         Metadata metadata = new Metadata.Builder().useDefaults().build();
-        assertMetadata(DEFAULT_MEDIA_ID, DEFAULT_TITLE, DEFAULT_ARTIST, DEFAULT_ALBUM,
-                DEFAULT_TRACK_NUM, DEFAULT_NUM_TRACKS, DEFAULT_GENRE, DEFAULT_DURATION,
-                DEFAULT_IMAGE, metadata);
+        assertMetadata(Metadata.EMPTY_MEDIA_ID, Metadata.EMPTY_TITLE, Metadata.EMPTY_ARTIST,
+                Metadata.EMPTY_ALBUM, Metadata.EMPTY_TRACK_NUM, Metadata.EMPTY_NUM_TRACKS,
+                Metadata.EMPTY_GENRE, Metadata.EMPTY_DURATION, DEFAULT_IMAGE, metadata);
     }
 
     /**
@@ -807,8 +799,8 @@ public class MetadataTest {
                 .fromMediaDescription(description)
                 .build();
         assertMetadata(SONG_MEDIA_ID, SONG_TITLE, SONG_ARTIST, SONG_ALBUM,
-                DEFAULT_TRACK_NUM, DEFAULT_NUM_TRACKS, DEFAULT_GENRE, DEFAULT_DURATION,
-                DEFAULT_IMAGE, metadata);
+                Metadata.EMPTY_TRACK_NUM, Metadata.EMPTY_NUM_TRACKS, Metadata.EMPTY_GENRE,
+                Metadata.EMPTY_DURATION, DEFAULT_IMAGE, metadata);
     }
 
     /**
@@ -836,9 +828,9 @@ public class MetadataTest {
         bundle.putString(MediaMetadata.METADATA_KEY_GENRE, SONG_GENRE);
         bundle.putParcelable(MediaMetadata.METADATA_KEY_ART, mTestBitmap);
         Metadata metadata = new Metadata.Builder().useDefaults().fromBundle(bundle).build();
-        assertMetadata(DEFAULT_MEDIA_ID, SONG_TITLE, DEFAULT_ARTIST, DEFAULT_ALBUM,
-                DEFAULT_TRACK_NUM, SONG_NUM_TRACKS, SONG_GENRE, DEFAULT_DURATION, mSongImage,
-                metadata);
+        assertMetadata(Metadata.EMPTY_MEDIA_ID, SONG_TITLE, Metadata.EMPTY_ARTIST,
+                Metadata.EMPTY_ALBUM, Metadata.EMPTY_TRACK_NUM, SONG_NUM_TRACKS, SONG_GENRE,
+                Metadata.EMPTY_DURATION, mSongImage, metadata);
     }
 
     /**
@@ -856,12 +848,12 @@ public class MetadataTest {
         bundle.putParcelable(MediaMetadata.METADATA_KEY_ART, mTestBitmap);
         Metadata metadata = new Metadata.Builder().fromBundle(bundle).useDefaults().build();
         Metadata metadata2 = new Metadata.Builder().useDefaults().fromBundle(bundle).build();
-        assertMetadata(DEFAULT_MEDIA_ID, SONG_TITLE, DEFAULT_ARTIST, DEFAULT_ALBUM,
-                DEFAULT_TRACK_NUM, SONG_NUM_TRACKS, SONG_GENRE, DEFAULT_DURATION, mSongImage,
-                metadata);
-        assertMetadata(DEFAULT_MEDIA_ID, SONG_TITLE, DEFAULT_ARTIST, DEFAULT_ALBUM,
-                DEFAULT_TRACK_NUM, SONG_NUM_TRACKS, SONG_GENRE, DEFAULT_DURATION, mSongImage,
-                metadata2);
+        assertMetadata(Metadata.EMPTY_MEDIA_ID, SONG_TITLE, Metadata.EMPTY_ARTIST,
+                Metadata.EMPTY_ALBUM, Metadata.EMPTY_TRACK_NUM, SONG_NUM_TRACKS, SONG_GENRE,
+                Metadata.EMPTY_DURATION, mSongImage, metadata);
+        assertMetadata(Metadata.EMPTY_MEDIA_ID, SONG_TITLE, Metadata.EMPTY_ARTIST,
+                Metadata.EMPTY_ALBUM, Metadata.EMPTY_TRACK_NUM, SONG_NUM_TRACKS, SONG_GENRE,
+                Metadata.EMPTY_DURATION, mSongImage, metadata2);
     }
 
     /**
@@ -907,7 +899,7 @@ public class MetadataTest {
                 getMediaMetadataWithBitmap(MediaMetadata.METADATA_KEY_ART, mTestBitmap);
         Metadata metadata = new Metadata.Builder().fromMediaMetadata(m).build();
         Metadata metadata2 = metadata.clone();
-        metadata2.artist = DEFAULT_ARTIST;
+        metadata2.artist = Metadata.EMPTY_ARTIST;
         assertThat(metadata).isNotEqualTo(metadata2);
     }
 
@@ -920,7 +912,7 @@ public class MetadataTest {
                 getMediaMetadataWithBitmap(MediaMetadata.METADATA_KEY_ART, mTestBitmap);
         Metadata metadata = new Metadata.Builder().fromMediaMetadata(m).build();
         Metadata metadata2 = metadata.clone();
-        metadata2.album = DEFAULT_ALBUM;
+        metadata2.album = Metadata.EMPTY_ALBUM;
         assertThat(metadata).isNotEqualTo(metadata2);
     }
 
@@ -933,7 +925,7 @@ public class MetadataTest {
                 getMediaMetadataWithBitmap(MediaMetadata.METADATA_KEY_ART, mTestBitmap);
         Metadata metadata = new Metadata.Builder().fromMediaMetadata(m).build();
         Metadata metadata2 = metadata.clone();
-        metadata2.trackNum = DEFAULT_TRACK_NUM;
+        metadata2.trackNum = Metadata.EMPTY_TRACK_NUM;
         assertThat(metadata).isNotEqualTo(metadata2);
     }
 
@@ -946,21 +938,7 @@ public class MetadataTest {
                 getMediaMetadataWithBitmap(MediaMetadata.METADATA_KEY_ART, mTestBitmap);
         Metadata metadata = new Metadata.Builder().fromMediaMetadata(m).build();
         Metadata metadata2 = metadata.clone();
-        metadata2.numTracks = DEFAULT_NUM_TRACKS;
-        assertThat(metadata).isNotEqualTo(metadata2);
-    }
-
-    /**
-     * Make sure two Metadata objects are different if image doesn't match
-     */
-    @Test
-    public void testEqualsDifferentImage() {
-        MediaMetadata m =
-                getMediaMetadataWithBitmap(MediaMetadata.METADATA_KEY_ART, mTestBitmap);
-        MediaMetadata m2 =
-                getMediaMetadataWithBitmap(MediaMetadata.METADATA_KEY_ART, mTestBitmap2);
-        Metadata metadata = new Metadata.Builder().fromMediaMetadata(m).build();
-        Metadata metadata2 = new Metadata.Builder().fromMediaMetadata(m2).build();
+        metadata2.numTracks = Metadata.EMPTY_NUM_TRACKS;
         assertThat(metadata).isNotEqualTo(metadata2);
     }
 

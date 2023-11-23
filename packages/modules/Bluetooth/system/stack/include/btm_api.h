@@ -25,7 +25,6 @@
 #define BTM_API_H
 
 #include <cstdint>
-#include <functional>
 
 #include "device/include/esco_parameters.h"
 #include "stack/btm/neighbor_inquiry.h"
@@ -222,23 +221,6 @@ void BTM_WritePageTimeout(uint16_t timeout);
 void BTM_WriteVoiceSettings(uint16_t settings);
 
 /*******************************************************************************
- *
- * Function         BTM_EnableTestMode
- *
- * Description      Send HCI the enable device under test command.
- *
- *                  Note: Controller can only be taken out of this mode by
- *                      resetting the controller.
- *
- * Returns
- *      BTM_SUCCESS         Command sent.
- *      BTM_NO_RESOURCES    If out of resources to send the command.
- *
- *
- ******************************************************************************/
-tBTM_STATUS BTM_EnableTestMode(void);
-
-/*******************************************************************************
  * DEVICE DISCOVERY FUNCTIONS - Inquiry, Remote Name, Discovery, Class of Device
  ******************************************************************************/
 
@@ -317,7 +299,6 @@ uint16_t BTM_IsInquiryActive(void);
  *
  ******************************************************************************/
 void BTM_CancelInquiry(void);
-void BTM_CancelInquiryNotifyWhenComplete(std::function<void()>);
 
 /*******************************************************************************
  *
@@ -382,7 +363,7 @@ void BTM_EnableInterlacedPageScan();
  *
  ******************************************************************************/
 tBTM_STATUS BTM_ReadRemoteDeviceName(const RawAddress& remote_bda,
-                                     tBTM_CMPL_CB* p_cb,
+                                     tBTM_NAME_CMPL_CB* p_cb,
                                      tBT_TRANSPORT transport);
 
 /*******************************************************************************
@@ -403,6 +384,22 @@ tBTM_STATUS BTM_ReadRemoteDeviceName(const RawAddress& remote_bda,
  *
  ******************************************************************************/
 tBTM_STATUS BTM_CancelRemoteDeviceName(void);
+
+/*******************************************************************************
+ *
+ * Function         BTM_IsRemoteNameKnown
+ *
+ * Description      This function checks if the remote name is known.
+ *
+ * Input Params:    bd_addr: Address of remote
+ *                  transport: Transport, auto if unknown
+ *
+ * Returns
+ *                  true if name is known, false otherwise
+ *
+ ******************************************************************************/
+bool BTM_IsRemoteNameKnown(const RawAddress& remote_bda,
+                           tBT_TRANSPORT transport);
 
 /*******************************************************************************
  *
@@ -649,7 +646,7 @@ void BTM_SecClearSecurityFlags(const RawAddress& bd_addr);
  * Returns          true - dev is bonded
  *
  ******************************************************************************/
-extern bool btm_sec_is_a_bonded_dev(const RawAddress& bda);
+bool btm_sec_is_a_bonded_dev(const RawAddress& bda);
 
 /*******************************************************************************
  *
@@ -666,8 +663,7 @@ extern bool btm_sec_is_a_bonded_dev(const RawAddress& bda);
  *                  BT_DEVICE_TYPE_BLE if only BLE transport is supported.
  *
  ******************************************************************************/
-extern tBT_DEVICE_TYPE BTM_GetPeerDeviceTypeFromFeatures(
-    const RawAddress& bd_addr);
+tBT_DEVICE_TYPE BTM_GetPeerDeviceTypeFromFeatures(const RawAddress& bd_addr);
 
 /*****************************************************************************
  *  POWER MANAGEMENT FUNCTIONS
@@ -760,8 +756,7 @@ bool BTM_IsPhy2mSupported(const RawAddress& remote_bda, tBT_TRANSPORT transport)
  *                  from peer device
  *
  ******************************************************************************/
-extern void BTM_RequestPeerSCA(const RawAddress& remote_bda,
-                               tBT_TRANSPORT transport);
+void BTM_RequestPeerSCA(const RawAddress& remote_bda, tBT_TRANSPORT transport);
 
 /*******************************************************************************
  *
@@ -773,8 +768,7 @@ extern void BTM_RequestPeerSCA(const RawAddress& remote_bda,
  *                  is not supported by peer device or ACL does not exist
  *
  ******************************************************************************/
-extern uint8_t BTM_GetPeerSCA(const RawAddress& remote_bda,
-                              tBT_TRANSPORT transport);
+uint8_t BTM_GetPeerSCA(const RawAddress& remote_bda, tBT_TRANSPORT transport);
 
 /*******************************************************************************
  *
@@ -940,9 +934,13 @@ uint16_t BTM_GetClockOffset(const RawAddress& remote_bda);
 /* Read maximum data packet that can be sent over current connection */
 uint16_t BTM_GetMaxPacketSize(const RawAddress& addr);
 
-extern tBTM_STATUS BTM_BT_Quality_Report_VSE_Register(
+tBTM_STATUS BTM_BT_Quality_Report_VSE_Register(
     bool is_register, tBTM_BT_QUALITY_REPORT_RECEIVER* p_bqr_report_receiver);
 
 uint8_t btm_ble_read_sec_key_size(const RawAddress& bd_addr);
+
+typedef void(BTM_CONSOLIDATION_CB)(const RawAddress& identity_addr,
+                                   const RawAddress& rpa);
+void BTM_SetConsolidationCallback(BTM_CONSOLIDATION_CB* cb);
 
 #endif /* BTM_API_H */

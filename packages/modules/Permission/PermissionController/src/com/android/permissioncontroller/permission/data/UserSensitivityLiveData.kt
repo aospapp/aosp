@@ -25,6 +25,7 @@ import android.os.Process.INVALID_UID
 import android.os.UserHandle
 
 import com.android.permissioncontroller.PermissionControllerApplication
+import com.android.permissioncontroller.permission.utils.PermissionMapping
 import com.android.permissioncontroller.permission.model.livedatatypes.UidSensitivityState
 import com.android.permissioncontroller.permission.utils.KotlinUtils
 import com.android.permissioncontroller.permission.utils.Utils
@@ -100,7 +101,7 @@ class UserSensitivityLiveData private constructor(
         val sensitiveStatePerUid = mutableMapOf<Int, UidSensitivityState>()
 
         // TODO ntmyren: Figure out how to get custom runtime permissions in a less costly manner
-        val runtimePerms = Utils.getRuntimePlatformPermissionNames()
+        val runtimePerms = PermissionMapping.getRuntimePlatformPermissionNames()
 
         for (pkg in pkgs) {
             // sensitivityState for one uid

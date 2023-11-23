@@ -90,7 +90,7 @@ GetElementAttributesResponseBuilder::MakeBuilder(size_t mtu) {
   return builder;
 }
 
-bool GetElementAttributesResponseBuilder::AddAttributeEntry(
+size_t GetElementAttributesResponseBuilder::AddAttributeEntry(
     AttributeEntry entry) {
   CHECK_LT(entries_.size(), size_t(0xFF))
       << __func__ << ": attribute entry overflow";
@@ -101,15 +101,15 @@ bool GetElementAttributesResponseBuilder::AddAttributeEntry(
   }
 
   if (entry.empty()) {
-    return false;
+    return 0;
   }
 
   entries_.insert(entry);
-  return true;
+  return entry.size();
 }
 
-bool GetElementAttributesResponseBuilder::AddAttributeEntry(Attribute attribute,
-                                                            std::string value) {
+size_t GetElementAttributesResponseBuilder::AddAttributeEntry(
+    Attribute attribute, const std::string& value) {
   return AddAttributeEntry(AttributeEntry(attribute, value));
 }
 
@@ -120,7 +120,7 @@ size_t GetElementAttributesResponseBuilder::size() const {
     attr_list_size += attribute_entry.size();
   }
 
-  return VendorPacket::kMinSize() + 1 + attr_list_size;
+  return kHeaderSize() + attr_list_size;
 }
 
 bool GetElementAttributesResponseBuilder::Serialize(

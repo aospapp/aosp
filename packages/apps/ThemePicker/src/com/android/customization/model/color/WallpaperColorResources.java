@@ -21,8 +21,7 @@ import android.util.SparseIntArray;
 import android.widget.RemoteViews.ColorResources;
 
 import com.android.systemui.monet.ColorScheme;
-
-import java.util.List;
+import com.android.systemui.monet.TonalPalette;
 
 /** A class to override colors in a {@link Context} with wallpaper colors. */
 public class WallpaperColorResources {
@@ -43,9 +42,9 @@ public class WallpaperColorResources {
         ColorResources.create(context, mColorOverlay).apply(context);
     }
 
-    private void addOverlayColor(List<Integer> colors, int firstResourceColorId) {
+    private void addOverlayColor(TonalPalette colorSchemehue, int firstResourceColorId) {
         int resourceColorId = firstResourceColorId;
-        for (int color : colors) {
+        for (int color : colorSchemehue.getAllShades()) {
             mColorOverlay.put(resourceColorId, color);
             resourceColorId++;
         }

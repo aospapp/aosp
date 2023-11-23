@@ -29,13 +29,31 @@ namespace android {
 namespace automotive {
 namespace telemetry {
 
-using ::aidl::android::frameworks::automotive::telemetry::CarData;
-
 CarTelemetryImpl::CarTelemetryImpl(TelemetryServer* server) : mTelemetryServer(server) {}
 
 ndk::ScopedAStatus CarTelemetryImpl::write(const std::vector<CarData>& dataList) {
     uid_t publisherUid = ::AIBinder_getCallingUid();
     mTelemetryServer->writeCarData(dataList, publisherUid);
+    return ndk::ScopedAStatus::ok();
+}
+
+ndk::ScopedAStatus CarTelemetryImpl::addCallback(
+        const CallbackConfig& config, const std::shared_ptr<ICarTelemetryCallback>& callback) {
+    auto result = mTelemetryServer->addCallback(config, callback);
+    if (!result.ok()) {
+        return ndk::ScopedAStatus::fromExceptionCodeWithMessage(result.error().code(),
+                                                                result.error().message().c_str());
+    }
+    return ndk::ScopedAStatus::ok();
+}
+
+ndk::ScopedAStatus CarTelemetryImpl::removeCallback(
+        const std::shared_ptr<ICarTelemetryCallback>& callback) {
+    auto result = mTelemetryServer->removeCallback(callback);
+    if (!result.ok()) {
+        return ndk::ScopedAStatus::fromExceptionCodeWithMessage(result.error().code(),
+                                                                result.error().message().c_str());
+    }
     return ndk::ScopedAStatus::ok();
 }
 

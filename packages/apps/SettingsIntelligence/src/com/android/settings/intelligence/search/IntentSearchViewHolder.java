@@ -16,12 +16,15 @@
  */
 package com.android.settings.intelligence.search;
 
+import static com.android.settings.intelligence.search.indexing.DatabaseIndexingUtils.SEARCH_RESULT_TRAMPOLINE_ACTION;
+
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
-import androidx.annotation.VisibleForTesting;
 import android.util.Log;
 import android.view.View;
+
+import androidx.annotation.VisibleForTesting;
 
 import com.android.settings.intelligence.nano.SettingsIntelligenceLogProto;
 
@@ -59,8 +62,11 @@ public class IntentSearchViewHolder extends SearchViewHolder {
                 final Intent intent = result.payload.getIntent();
                 // Use app user id to support work profile use case.
                 if (result instanceof AppSearchResult) {
-                    AppSearchResult appResult = (AppSearchResult) result;
-                    fragment.getActivity().startActivity(intent);
+                    if (SEARCH_RESULT_TRAMPOLINE_ACTION.equals(intent.getAction())) {
+                        fragment.startActivityForResult(intent, REQUEST_CODE_NO_OP);
+                    } else {
+                        fragment.startActivity(intent);
+                    }
                 } else {
                     final PackageManager pm = fragment.getActivity().getPackageManager();
                     final List<ResolveInfo> info = pm.queryIntentActivities(intent, 0 /* flags */);

@@ -1,25 +1,25 @@
 //! Starts the facade services that allow us to test the Bluetooth stack
 
-#[macro_use]
-extern crate clap;
-use clap::{App, Arg};
-
-#[macro_use]
-extern crate lazy_static;
-
 use bt_topshim::btif;
 
+use clap::{value_parser, Arg, Command};
 use futures::channel::mpsc;
 use futures::executor::block_on;
 use futures::stream::StreamExt;
 use grpcio::*;
+use lazy_static::lazy_static;
 use log::debug;
 use nix::sys::signal;
 use std::sync::{Arc, Mutex};
 use tokio::runtime::Runtime;
 
 mod adapter_service;
+mod gatt_service;
+mod hf_client_service;
+mod hfp_service;
 mod media_service;
+mod security_service;
+mod utils;
 
 // This is needed for linking, libbt_shim_bridge needs symbols defined by
 // bt_shim, however bt_shim depends on rust crates (future, tokio) that
@@ -31,6 +31,8 @@ mod media_service;
 // clippy that is denied on the rust command line so we can't just allow it.
 // This is fine for now since bt_shim doesn't export anything
 #[allow(unused)]
+use bluetooth_core_rs_for_facade::*;
+#[allow(unused)]
 use bt_shim::*;
 
 fn main() {
@@ -40,36 +42,44 @@ fn main() {
     rt.block_on(async_main(Arc::clone(&rt), sigint));
 }
 
-async fn async_main(rt: Arc<Runtime>, mut sigint: mpsc::UnboundedReceiver<()>) {
-    let matches = App::new("bluetooth_topshim_facade")
+fn clap_command() -> Command {
+    Command::new("bluetooth_topshim_facade")
         .about("The bluetooth topshim stack, with testing facades enabled and exposed via gRPC.")
-        .arg(Arg::with_name("grpc-port").long("grpc-port").default_value("8899").takes_value(true))
         .arg(
-            Arg::with_name("root-server-port")
+            Arg::new("grpc-port")
+                .long("grpc-port")
+                .value_parser(value_parser!(u16))
+                .default_value("8899"),
+        )
+        .arg(
+            Arg::new("root-server-port")
                 .long("root-server-port")
-                .default_value("8897")
-                .takes_value(true),
+                .value_parser(value_parser!(u16))
+                .default_value("8897"),
         )
         .arg(
-            Arg::with_name("signal-port")
+            Arg::new("signal-port")
                 .long("signal-port")
-                .default_value("8895")
-                .takes_value(true),
+                .value_parser(value_parser!(u16))
+                .default_value("8895"),
         )
-        .arg(Arg::with_name("rootcanal-port").long("rootcanal-port").takes_value(true))
-        .arg(Arg::with_name("btsnoop").long("btsnoop").takes_value(true))
-        .arg(Arg::with_name("btsnooz").long("btsnooz").takes_value(true))
-        .arg(Arg::with_name("btconfig").long("btconfig").takes_value(true))
+        .arg(Arg::new("rootcanal-port").long("rootcanal-port").value_parser(value_parser!(u16)))
+        .arg(Arg::new("btsnoop").long("btsnoop"))
+        .arg(Arg::new("btsnooz").long("btsnooz"))
+        .arg(Arg::new("btconfig").long("btconfig"))
         .arg(
-            Arg::with_name("start-stack-now")
+            Arg::new("start-stack-now")
                 .long("start-stack-now")
-                .default_value("true")
-                .takes_value(true),
+                .value_parser(value_parser!(bool))
+                .default_value("true"),
         )
-        .get_matches();
+}
 
-    let grpc_port = value_t!(matches, "grpc-port", u16).unwrap();
-    let _rootcanal_port = value_t!(matches, "rootcanal-port", u16).ok();
+async fn async_main(rt: Arc<Runtime>, mut sigint: mpsc::UnboundedReceiver<()>) {
+    let matches = clap_command().get_matches();
+
+    let grpc_port = *matches.get_one::<u16>("grpc-port").unwrap();
+    let _rootcanal_port = matches.get_one::<u16>("rootcanal-port").cloned();
     let env = Arc::new(Environment::new(2));
 
     let btif_intf = Arc::new(Mutex::new(btif::get_btinterface().unwrap()));
@@ -78,9 +88,19 @@ async fn async_main(rt: Arc<Runtime>, mut sigint: mpsc::UnboundedReceiver<()>) {
     let adapter_service_impl =
         adapter_service::AdapterServiceImpl::create(rt.clone(), btif_intf.clone());
 
+    let security_service_impl =
+        security_service::SecurityServiceImpl::create(rt.clone(), btif_intf.clone());
+
+    let gatt_service_impl = gatt_service::GattServiceImpl::create(rt.clone(), btif_intf.clone());
+
+    let hf_client_service_impl =
+        hf_client_service::HfClientServiceImpl::create(rt.clone(), btif_intf.clone());
+
+    let hfp_service_impl = hfp_service::HfpServiceImpl::create(rt.clone(), btif_intf.clone());
+
     let media_service_impl = media_service::MediaServiceImpl::create(rt.clone(), btif_intf.clone());
 
-    let start_stack_now = value_t!(matches, "start-stack-now", bool).unwrap();
+    let start_stack_now = *matches.get_one::<bool>("start-stack-now").unwrap();
 
     if start_stack_now {
         btif_intf.clone().lock().unwrap().enable();
@@ -88,6 +108,10 @@ async fn async_main(rt: Arc<Runtime>, mut sigint: mpsc::UnboundedReceiver<()>) {
 
     let mut server = ServerBuilder::new(env)
         .register_service(adapter_service_impl)
+        .register_service(security_service_impl)
+        .register_service(gatt_service_impl)
+        .register_service(hf_client_service_impl)
+        .register_service(hfp_service_impl)
         .register_service(media_service_impl)
         .bind("0.0.0.0", grpc_port)
         .build()
@@ -126,4 +150,14 @@ extern "C" fn handle_sigint(_: i32) {
         tx.unbounded_send(()).unwrap();
     }
     *sigint_tx = None;
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn verify_comand() {
+        clap_command().debug_assert();
+    }
 }

@@ -77,6 +77,7 @@ public class AppSearchHelper {
 
     private final Context mContext;
     private final Executor mExecutor;
+    private final ContactsIndexerConfig mContactsIndexerConfig;
     // Holds the result of an asynchronous operation to create an AppSearchSession
     // and set the builtin:Person schema in it.
     private volatile CompletableFuture<AppSearchSession> mAppSearchSessionFuture;
@@ -91,17 +92,20 @@ public class AppSearchHelper {
     @NonNull
     public static AppSearchHelper createAppSearchHelper(
             @NonNull Context context,
-            @NonNull Executor executor) {
-        AppSearchHelper appSearchHelper = new AppSearchHelper(Objects.requireNonNull(context),
-                Objects.requireNonNull(executor));
+            @NonNull Executor executor,
+            @NonNull ContactsIndexerConfig contactsIndexerConfig) {
+        AppSearchHelper appSearchHelper = new AppSearchHelper(context, executor,
+                contactsIndexerConfig);
         appSearchHelper.initializeAsync();
         return appSearchHelper;
     }
 
     @VisibleForTesting
-    AppSearchHelper(@NonNull Context context, @NonNull Executor executor) {
+    AppSearchHelper(@NonNull Context context, @NonNull Executor executor,
+            @NonNull ContactsIndexerConfig contactsIndexerConfig) {
         mContext = Objects.requireNonNull(context);
         mExecutor = Objects.requireNonNull(executor);
+        mContactsIndexerConfig = Objects.requireNonNull(contactsIndexerConfig);
     }
 
     /**
@@ -188,7 +192,7 @@ public class AppSearchHelper {
 
         CompletableFuture<AppSearchSession> future = new CompletableFuture<>();
         SetSchemaRequest.Builder schemaBuilder = new SetSchemaRequest.Builder()
-                .addSchemas(ContactPoint.SCHEMA, Person.SCHEMA)
+                .addSchemas(ContactPoint.SCHEMA, Person.getSchema(mContactsIndexerConfig))
                 .addRequiredPermissionsForSchemaTypeVisibility(Person.SCHEMA_TYPE,
                         Collections.singleton(SetSchemaRequest.READ_CONTACTS))
                 .setForceOverride(forceOverride);

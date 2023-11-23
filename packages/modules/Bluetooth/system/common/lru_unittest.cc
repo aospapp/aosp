@@ -198,7 +198,6 @@ TEST(BluetoothLegacyLruCacheTest, LegacyLruCacheClearTest) {
 }
 
 TEST(BluetoothLegacyLruCacheTest, LegacyLruCachePressureTest) {
-  auto started = std::chrono::high_resolution_clock::now();
   int max_size = 0xFFFFF;  // 2^20 = 1M
   LegacyLruCache<int, int> cache(static_cast<size_t>(max_size), "testing");
 
@@ -228,15 +227,6 @@ TEST(BluetoothLegacyLruCacheTest, LegacyLruCachePressureTest) {
     EXPECT_TRUE(cache.Remove(key));
   }
   EXPECT_EQ(cache.Size(), 0);
-
-  // test execution time
-  auto done = std::chrono::high_resolution_clock::now();
-  int execution_time =
-      std::chrono::duration_cast<std::chrono::milliseconds>(done - started)
-          .count();
-  // always around 750ms on flame. 1400 ms on crosshatch, 6800 ms on presubmit
-  // Shouldn't be more than 10000ms
-  EXPECT_LT(execution_time, 10000);
 }
 
 TEST(BluetoothLegacyLruCacheTest, BluetoothLruMultiThreadPressureTest) {

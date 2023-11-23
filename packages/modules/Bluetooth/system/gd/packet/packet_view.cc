@@ -32,7 +32,7 @@ PacketView<little_endian>::PacketView(const std::forward_list<class View> fragme
 }
 
 template <bool little_endian>
-PacketView<little_endian>::PacketView(std::shared_ptr<std::vector<uint8_t>> packet)
+PacketView<little_endian>::PacketView(std::shared_ptr<const std::vector<uint8_t>> packet)
     : fragments_({View(packet, 0, packet->size())}), length_(packet->size()) {}
 
 template <bool little_endian>

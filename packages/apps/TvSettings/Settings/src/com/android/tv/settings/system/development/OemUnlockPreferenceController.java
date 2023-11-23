@@ -17,15 +17,13 @@
 package com.android.tv.settings.system.development;
 
 import android.content.Context;
-import android.os.SystemProperties;
-import android.os.UserHandle;
 import android.os.Process;
+import android.os.SystemProperties;
 import android.os.UserManager;
 import android.service.oemlock.OemLockManager;
 import android.text.TextUtils;
 import android.util.Log;
 
-import androidx.preference.Preference;
 import androidx.preference.SwitchPreference;
 
 import com.android.tv.settings.R;

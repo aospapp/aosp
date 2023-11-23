@@ -41,7 +41,6 @@ import android.os.RemoteCallback;
 import android.os.RemoteCallbackList;
 import android.os.RemoteException;
 import android.os.UserHandle;
-import android.os.UserManager;
 import android.text.TextUtils;
 import android.util.ArraySet;
 import android.util.IndentingPrintWriter;
@@ -60,8 +59,9 @@ import com.android.permission.compat.UserHandleCompat;
 import com.android.permission.util.ArrayUtils;
 import com.android.permission.util.CollectionUtils;
 import com.android.permission.util.ForegroundThread;
-import com.android.permission.util.PermissionUtils;
+import com.android.permission.util.PackageUtils;
 import com.android.permission.util.ThrottledRunnable;
+import com.android.permission.util.UserUtils;
 import com.android.server.LocalManagerRegistry;
 import com.android.server.SystemService;
 import com.android.server.role.RoleServicePlatformHelper;
@@ -93,10 +93,18 @@ public class RoleService extends SystemService implements RoleUserState.Callback
 
     private static final long GRANT_DEFAULT_ROLES_INTERVAL_MILLIS = 1000;
 
+    private static final String[] DEFAULT_APPLICATION_ROLES = {
+        RoleManager.ROLE_ASSISTANT,
+        RoleManager.ROLE_BROWSER,
+        RoleManager.ROLE_CALL_REDIRECTION,
+        RoleManager.ROLE_CALL_SCREENING,
+        RoleManager.ROLE_DIALER,
+        RoleManager.ROLE_HOME,
+        RoleManager.ROLE_SMS,
+    };
+
     @NonNull
     private final AppOpsManager mAppOpsManager;
-    @NonNull
-    private final UserManager mUserManager;
 
     @NonNull
     private final Object mLock = new Object();
@@ -148,7 +156,6 @@ public class RoleService extends SystemService implements RoleUserState.Callback
         RoleControllerManager.initializeRemoteServiceComponentName(context);
 
         mAppOpsManager = context.getSystemService(AppOpsManager.class);
-        mUserManager = context.getSystemService(UserManager.class);
 
         LocalManagerRegistry.addManager(RoleManagerLocal.class, new Local());
 
@@ -275,15 +282,9 @@ public class RoleService extends SystemService implements RoleUserState.Callback
             RoleControllerManager controller = mControllers.get(userId);
             if (controller == null) {
                 Context systemContext = getContext();
-                Context context;
-                try {
-                    context = systemContext.createPackageContextAsUser(
-                            systemContext.getPackageName(), 0, UserHandle.of(userId));
-                } catch (PackageManager.NameNotFoundException e) {
-                    throw new RuntimeException(e);
-                }
+                Context userContext = systemContext.createContextAsUser(UserHandle.of(userId), 0);
                 controller = RoleControllerManager.createWithInitializedRemoteServiceComponentName(
-                        ForegroundThread.getHandler(), context);
+                        ForegroundThread.getHandler(), userContext);
                 mControllers.put(userId, controller);
             }
             return controller;
@@ -396,9 +397,9 @@ public class RoleService extends SystemService implements RoleUserState.Callback
         @NonNull
         @Override
         public List<String> getRoleHoldersAsUser(@NonNull String roleName, @UserIdInt int userId) {
-            PermissionUtils.enforceCrossUserPermission(userId, false, "getRoleHoldersAsUser",
+            UserUtils.enforceCrossUserPermission(userId, false, "getRoleHoldersAsUser",
                     getContext());
-            if (!isUserExistent(userId)) {
+            if (!UserUtils.isUserExistent(userId, getContext())) {
                 Log.e(LOG_TAG, "user " + userId + " does not exist");
                 return Collections.emptyList();
             }
@@ -419,9 +420,9 @@ public class RoleService extends SystemService implements RoleUserState.Callback
         public void addRoleHolderAsUser(@NonNull String roleName, @NonNull String packageName,
                 @RoleManager.ManageHoldersFlags int flags, @UserIdInt int userId,
                 @NonNull RemoteCallback callback) {
-            PermissionUtils.enforceCrossUserPermission(userId, false, "addRoleHolderAsUser",
+            UserUtils.enforceCrossUserPermission(userId, false, "addRoleHolderAsUser",
                     getContext());
-            if (!isUserExistent(userId)) {
+            if (!UserUtils.isUserExistent(userId, getContext())) {
                 Log.e(LOG_TAG, "user " + userId + " does not exist");
                 return;
             }
@@ -441,9 +442,9 @@ public class RoleService extends SystemService implements RoleUserState.Callback
         public void removeRoleHolderAsUser(@NonNull String roleName, @NonNull String packageName,
                 @RoleManager.ManageHoldersFlags int flags, @UserIdInt int userId,
                 @NonNull RemoteCallback callback) {
-            PermissionUtils.enforceCrossUserPermission(userId, false, "removeRoleHolderAsUser",
+            UserUtils.enforceCrossUserPermission(userId, false, "removeRoleHolderAsUser",
                     getContext());
-            if (!isUserExistent(userId)) {
+            if (!UserUtils.isUserExistent(userId, getContext())) {
                 Log.e(LOG_TAG, "user " + userId + " does not exist");
                 return;
             }
@@ -463,9 +464,9 @@ public class RoleService extends SystemService implements RoleUserState.Callback
         public void clearRoleHoldersAsUser(@NonNull String roleName,
                 @RoleManager.ManageHoldersFlags int flags, @UserIdInt int userId,
                 @NonNull RemoteCallback callback) {
-            PermissionUtils.enforceCrossUserPermission(userId, false, "clearRoleHoldersAsUser",
+            UserUtils.enforceCrossUserPermission(userId, false, "clearRoleHoldersAsUser",
                     getContext());
-            if (!isUserExistent(userId)) {
+            if (!UserUtils.isUserExistent(userId, getContext())) {
                 Log.e(LOG_TAG, "user " + userId + " does not exist");
                 return;
             }
@@ -480,11 +481,62 @@ public class RoleService extends SystemService implements RoleUserState.Callback
         }
 
         @Override
+        @Nullable
+        public String getDefaultApplicationAsUser(@NonNull String roleName, @UserIdInt int userId) {
+            UserUtils.enforceCrossUserPermission(userId, false, "getDefaultApplicationAsUser",
+                    getContext());
+            if (!UserUtils.isUserExistent(userId, getContext())) {
+                Log.e(LOG_TAG, "user " + userId + " does not exist");
+                return null;
+            }
+
+            getContext().enforceCallingOrSelfPermission(
+                    Manifest.permission.MANAGE_DEFAULT_APPLICATIONS, "getDefaultApplicationAsUser");
+
+            Preconditions.checkStringNotEmpty(roleName, "roleName cannot be null or empty");
+            Preconditions.checkArgumentIsSupported(DEFAULT_APPLICATION_ROLES, roleName);
+
+            ArraySet<String> roleHolders = getOrCreateUserState(
+                    userId).getRoleHolders(roleName);
+            if (CollectionUtils.isEmpty(roleHolders)) {
+                return null;
+            }
+            return roleHolders.valueAt(0);
+        }
+
+        @Override
+        public void setDefaultApplicationAsUser(@NonNull String roleName,
+                @Nullable String packageName, @RoleManager.ManageHoldersFlags int flags,
+                @UserIdInt int userId, @NonNull RemoteCallback callback) {
+            UserUtils.enforceCrossUserPermission(userId, false, "setDefaultApplicationAsUser",
+                    getContext());
+            if (!UserUtils.isUserExistent(userId, getContext())) {
+                Log.e(LOG_TAG, "user " + userId + " does not exist");
+                return;
+            }
+
+            getContext().enforceCallingOrSelfPermission(
+                    Manifest.permission.MANAGE_DEFAULT_APPLICATIONS, "setDefaultApplicationAsUser");
+
+            Preconditions.checkStringNotEmpty(roleName, "roleName cannot be null or empty");
+            Preconditions.checkArgumentIsSupported(DEFAULT_APPLICATION_ROLES, roleName);
+            Objects.requireNonNull(callback, "callback cannot be null");
+
+            RoleControllerManager roleControllerManager = getOrCreateController(userId);
+            if (packageName != null) {
+                roleControllerManager.onAddRoleHolder(roleName, packageName, flags, callback);
+            } else {
+                roleControllerManager.onClearRoleHolders(roleName, flags, callback);
+            }
+        }
+
+        @Override
         public void addOnRoleHoldersChangedListenerAsUser(
                 @NonNull IOnRoleHoldersChangedListener listener, @UserIdInt int userId) {
-            PermissionUtils.enforceCrossUserPermission(userId, true,
+            UserUtils.enforceCrossUserPermission(userId, true,
                     "addOnRoleHoldersChangedListenerAsUser", getContext());
-            if (userId != UserHandleCompat.USER_ALL && !isUserExistent(userId)) {
+            if (userId != UserHandleCompat.USER_ALL && !UserUtils.isUserExistent(userId,
+                    getContext())) {
                 Log.e(LOG_TAG, "user " + userId + " does not exist");
                 return;
             }
@@ -502,9 +554,10 @@ public class RoleService extends SystemService implements RoleUserState.Callback
         @Override
         public void removeOnRoleHoldersChangedListenerAsUser(
                 @NonNull IOnRoleHoldersChangedListener listener, @UserIdInt int userId) {
-            PermissionUtils.enforceCrossUserPermission(userId, true,
+            UserUtils.enforceCrossUserPermission(userId, true,
                     "removeOnRoleHoldersChangedListenerAsUser", getContext());
-            if (userId != UserHandleCompat.USER_ALL && !isUserExistent(userId)) {
+            if (userId != UserHandleCompat.USER_ALL && !UserUtils.isUserExistent(userId,
+                    getContext())) {
                 Log.e(LOG_TAG, "user " + userId + " does not exist");
                 return;
             }
@@ -603,15 +656,6 @@ public class RoleService extends SystemService implements RoleUserState.Callback
             return getOrCreateUserState(userId).getHeldRoles(packageName);
         }
 
-        private boolean isUserExistent(@UserIdInt int userId) {
-            final long identity = Binder.clearCallingIdentity();
-            try {
-                return mUserManager.getUserHandles(true).contains(UserHandle.of(userId));
-            } finally {
-                Binder.restoreCallingIdentity(identity);
-            }
-        }
-
         @Override
         public int handleShellCommand(@NonNull ParcelFileDescriptor in,
                 @NonNull ParcelFileDescriptor out, @NonNull ParcelFileDescriptor err,
@@ -670,7 +714,7 @@ public class RoleService extends SystemService implements RoleUserState.Callback
                         android.Manifest.permission.INTERACT_ACROSS_USERS_FULL, null);
             }
 
-            if (!isUserExistent(userId)) {
+            if (!UserUtils.isUserExistent(userId, context)) {
                 return false;
             }
 
@@ -705,20 +749,26 @@ public class RoleService extends SystemService implements RoleUserState.Callback
 
         @Override
         public String getSmsRoleHolder(int userId) {
-            PermissionUtils.enforceCrossUserPermission(userId, false, "getSmsRoleHolder",
-                    getContext());
-            if (!isUserExistent(userId)) {
+            final Context context = getContext();
+            UserUtils.enforceCrossUserPermission(userId, false, "getSmsRoleHolder", context);
+            if (!UserUtils.isUserExistent(userId, getContext())) {
                 Log.e(LOG_TAG, "user " + userId + " does not exist");
                 return null;
             }
 
+            final String packageName;
             final long identity = Binder.clearCallingIdentity();
             try {
-                return CollectionUtils.firstOrNull(getRoleHoldersAsUser(RoleManager.ROLE_SMS,
+                packageName = CollectionUtils.firstOrNull(getRoleHoldersAsUser(RoleManager.ROLE_SMS,
                         userId));
             } finally {
                 Binder.restoreCallingIdentity(identity);
             }
+            if (packageName != null && !PackageUtils.canCallingOrSelfPackageQuery(packageName,
+                    userId, context)) {
+                return null;
+            }
+            return packageName;
         }
 
         @Override

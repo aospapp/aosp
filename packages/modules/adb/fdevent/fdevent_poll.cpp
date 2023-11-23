@@ -80,7 +80,7 @@ fdevent_context_poll::~fdevent_context_poll() {
 }
 
 void fdevent_context_poll::Set(fdevent* fde, unsigned events) {
-    CheckMainThread();
+    CheckLooperThread();
     fde->state = events;
     D("fdevent_set: %s, events = %u", dump_fde(fde).c_str(), events);
 }
@@ -101,7 +101,7 @@ static std::string dump_pollfds(const std::vector<adb_pollfd>& pollfds) {
 }
 
 void fdevent_context_poll::Loop() {
-    main_thread_id_ = android::base::GetThreadId();
+    looper_thread_id_ = android::base::GetThreadId();
 
     std::vector<adb_pollfd> pollfds;
     std::vector<fdevent_event> poll_events;
@@ -193,7 +193,7 @@ void fdevent_context_poll::Loop() {
         poll_events.clear();
     }
 
-    main_thread_id_.reset();
+    looper_thread_id_.reset();
 }
 
 size_t fdevent_context_poll::InstalledCount() {

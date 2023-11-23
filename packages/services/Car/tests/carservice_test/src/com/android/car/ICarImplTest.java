@@ -16,6 +16,7 @@
 
 package com.android.car;
 
+import static com.android.dx.mockito.inline.extended.ExtendedMockito.doNothing;
 import static com.android.dx.mockito.inline.extended.ExtendedMockito.doThrow;
 
 import static org.junit.Assert.fail;
@@ -27,9 +28,11 @@ import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.spy;
 
 import android.car.Car;
+import android.car.ICarResultReceiver;
 import android.car.test.mocks.AbstractExtendedMockitoTestCase;
 import android.content.Context;
 import android.content.res.Resources;
+import android.os.Bundle;
 import android.os.HandlerThread;
 import android.os.Looper;
 import android.os.UserHandle;
@@ -39,7 +42,9 @@ import android.util.Log;
 import androidx.test.platform.app.InstrumentationRegistry;
 
 import com.android.car.garagemode.GarageModeService;
+import com.android.car.internal.ICarServiceHelper;
 import com.android.car.os.CarPerformanceService;
+import com.android.car.remoteaccess.CarRemoteAccessService;
 import com.android.car.systeminterface.ActivityManagerInterface;
 import com.android.car.systeminterface.DisplayInterface;
 import com.android.car.systeminterface.IOInterface;
@@ -93,6 +98,8 @@ public final class ICarImplTest extends AbstractExtendedMockitoTestCase {
     @Mock private CarPerformanceService mMockCarPerformanceService;
     @Mock private GarageModeService mMockGarageModeService;
     @Mock private CarTelemetryService mMockCarTelemetryService;
+    @Mock private CarRemoteAccessService mMockCarRemoteAccessService;
+    @Mock private ICarServiceHelper mICarServiceHelper;
 
     private Context mContext;
     private SystemInterface mFakeSystemInterface;
@@ -100,8 +107,20 @@ public final class ICarImplTest extends AbstractExtendedMockitoTestCase {
 
     private final MockIOInterface mMockIOInterface = new MockIOInterface();
 
+    static final class CarServiceConnectedCallback extends ICarResultReceiver.Stub {
+        @Override
+        public void send(int resultCode, Bundle resultData) {
+            Log.i(TAG, "CarServiceConnectedCallback.send(int resultCode, Bundle resultData)");
+        }
+    }
+
     public ICarImplTest() {
         super(ICarImpl.TAG, CarLog.TAG_SERVICE);
+    }
+
+    @Override
+    protected void onSessionBuilder(CustomMockitoSessionBuilder builder) {
+        builder.spyStatic(ICarImpl.class);
     }
 
     /**
@@ -178,7 +197,10 @@ public final class ICarImplTest extends AbstractExtendedMockitoTestCase {
         ICarImpl carImpl = new ICarImpl(mContext, null, mMockVehicle, mFakeSystemInterface,
                 "MockedCar", /* carUserService= */ null, mMockCarWatchdogService,
                 mMockCarPerformanceService, mMockGarageModeService,
-                new MockedCarTestBase.FakeCarPowerPolicyDaemon(), mMockCarTelemetryService);
+                new MockedCarTestBase.FakeCarPowerPolicyDaemon(), mMockCarTelemetryService,
+                mMockCarRemoteAccessService, false);
+        doNothing().when(() -> ICarImpl.assertCallingFromSystemProcess());
+        carImpl.setSystemServerConnections(mICarServiceHelper, new CarServiceConnectedCallback());
         carImpl.init();
         Car mCar = new Car(mContext, carImpl, /* handler= */ null);
 

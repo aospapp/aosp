@@ -27,6 +27,7 @@
 #include "mock_iso_manager.h"
 #include "stack/include/ble_advertiser.h"
 #include "state_machine.h"
+#include "test/common/mock_functions.h"
 
 using namespace bluetooth::hci::iso_manager;
 
@@ -36,8 +37,6 @@ using testing::_;
 using testing::Mock;
 using testing::SaveArg;
 using testing::Test;
-
-std::map<std::string, int> mock_function_count_map;
 
 // Disables most likely false-positives from base::SplitString()
 extern "C" const char* __asan_default_options() {
@@ -49,6 +48,11 @@ void btsnd_hcic_ble_rand(base::Callback<void(BT_OCTET8)> cb) {}
 namespace le_audio {
 namespace broadcaster {
 namespace {
+// bit 0: encrypted, bit 1: standard quality present
+static const uint8_t test_public_broadcast_features = 0x3;
+static const std::string test_broadcast_name = "Test";
+static const std::vector<uint8_t> default_public_metadata = {
+    5, le_audio::types::kLeAudioMetadataTypeProgramInfo, 0x1, 0x2, 0x3, 0x4};
 
 class MockBroadcastStatMachineCallbacks
     : public IBroadcastStateMachineCallbacks {
@@ -72,16 +76,14 @@ class MockBroadcastStatMachineCallbacks
   MOCK_METHOD((void), OnOwnAddressResponse,
               (uint32_t broadcast_id, uint8_t addr_type, RawAddress addr),
               (override));
-  MOCK_METHOD((uint8_t), GetNumRetransmit, (uint32_t broadcast_id), (override));
-  MOCK_METHOD((uint32_t), GetSduItv, (uint32_t broadcast_id), (override));
-  MOCK_METHOD((uint16_t), GetMaxTransportLatency, (uint32_t broadcast_id),
+  MOCK_METHOD((void), OnBigCreated, (const std::vector<uint16_t>& conn_handle),
               (override));
 };
 
 class StateMachineTest : public Test {
  protected:
   void SetUp() override {
-    mock_function_count_map.clear();
+    reset_mock_function_count_map();
     BleAdvertisingManager::Initialize(nullptr);
 
     ble_advertising_manager_ = BleAdvertisingManager::Get();
@@ -236,8 +238,8 @@ class StateMachineTest : public Test {
   }
 
   uint32_t InstantiateStateMachine(
-      LeAudioBroadcaster::AudioProfile profile =
-          LeAudioBroadcaster::AudioProfile::SONIFICATION) {
+      le_audio::types::LeAudioContextType context =
+          le_audio::types::LeAudioContextType::UNSPECIFIED) {
     // We will get the state machine create status update in an async callback
     // so let's wait for it here.
     instance_creation_promise_ = std::promise<uint32_t>();
@@ -246,13 +248,16 @@ class StateMachineTest : public Test {
 
     static uint8_t broadcast_id_lsb = 1;
 
-    auto codec_wrapper =
-        BroadcastCodecWrapper::getCodecConfigForProfile(profile);
+    auto codec_qos_pair =
+        getStreamConfigForContext(types::AudioContexts(context));
     auto broadcast_id = broadcast_id_lsb++;
     pending_broadcasts_.push_back(BroadcastStateMachine::CreateInstance({
+        .is_public = true,
+        .broadcast_name = test_broadcast_name,
         .broadcast_id = broadcast_id,
         // .streaming_phy = ,
-        .codec_wrapper = std::move(codec_wrapper),
+        .codec_wrapper = codec_qos_pair.first,
+        .qos_config = codec_qos_pair.second,
         // .announcement = ,
         // .broadcast_code = ,
     }));
@@ -456,10 +461,10 @@ TEST_F(StateMachineTest, ProcessMessageStartWhenConfigured) {
   EXPECT_CALL(*(sm_callbacks_.get()), OnStateMachineCreateStatus(_, true))
       .Times(1);
 
-  auto sound_profile = LeAudioBroadcaster::AudioProfile::MEDIA;
+  auto sound_context = le_audio::types::LeAudioContextType::MEDIA;
   uint8_t num_channels = 2;
 
-  auto broadcast_id = InstantiateStateMachine(sound_profile);
+  auto broadcast_id = InstantiateStateMachine(sound_context);
   ASSERT_EQ(broadcasts_[broadcast_id]->GetState(),
             BroadcastStateMachine::State::CONFIGURED);
 
@@ -509,7 +514,7 @@ TEST_F(StateMachineTest, ProcessMessageStopWhenConfigured) {
       .Times(1);
 
   auto broadcast_id =
-      InstantiateStateMachine(LeAudioBroadcaster::AudioProfile::MEDIA);
+      InstantiateStateMachine(le_audio::types::LeAudioContextType::MEDIA);
   ASSERT_EQ(broadcasts_[broadcast_id]->GetState(),
             BroadcastStateMachine::State::CONFIGURED);
 
@@ -535,7 +540,7 @@ TEST_F(StateMachineTest, ProcessMessageSuspendWhenConfigured) {
       .Times(1);
 
   auto broadcast_id =
-      InstantiateStateMachine(LeAudioBroadcaster::AudioProfile::MEDIA);
+      InstantiateStateMachine(le_audio::types::LeAudioContextType::MEDIA);
   ASSERT_EQ(broadcasts_[broadcast_id]->GetState(),
             BroadcastStateMachine::State::CONFIGURED);
 
@@ -552,7 +557,7 @@ TEST_F(StateMachineTest, ProcessMessageSuspendWhenConfigured) {
 
 TEST_F(StateMachineTest, ProcessMessageStartWhenStreaming) {
   auto broadcast_id =
-      InstantiateStateMachine(LeAudioBroadcaster::AudioProfile::MEDIA);
+      InstantiateStateMachine(le_audio::types::LeAudioContextType::MEDIA);
 
   broadcasts_[broadcast_id]->ProcessMessage(
       BroadcastStateMachine::Message::START);
@@ -573,7 +578,7 @@ TEST_F(StateMachineTest, ProcessMessageStartWhenStreaming) {
 
 TEST_F(StateMachineTest, ProcessMessageStopWhenStreaming) {
   auto broadcast_id =
-      InstantiateStateMachine(LeAudioBroadcaster::AudioProfile::MEDIA);
+      InstantiateStateMachine(le_audio::types::LeAudioContextType::MEDIA);
 
   broadcasts_[broadcast_id]->ProcessMessage(
       BroadcastStateMachine::Message::START);
@@ -599,7 +604,7 @@ TEST_F(StateMachineTest, ProcessMessageStopWhenStreaming) {
 
 TEST_F(StateMachineTest, ProcessMessageSuspendWhenStreaming) {
   auto broadcast_id =
-      InstantiateStateMachine(LeAudioBroadcaster::AudioProfile::MEDIA);
+      InstantiateStateMachine(le_audio::types::LeAudioContextType::MEDIA);
 
   broadcasts_[broadcast_id]->ProcessMessage(
       BroadcastStateMachine::Message::START);
@@ -621,7 +626,7 @@ TEST_F(StateMachineTest, ProcessMessageSuspendWhenStreaming) {
 
 TEST_F(StateMachineTest, ProcessMessageStartWhenStopped) {
   auto broadcast_id =
-      InstantiateStateMachine(LeAudioBroadcaster::AudioProfile::MEDIA);
+      InstantiateStateMachine(le_audio::types::LeAudioContextType::MEDIA);
 
   broadcasts_[broadcast_id]->ProcessMessage(
       BroadcastStateMachine::Message::STOP);
@@ -647,7 +652,7 @@ TEST_F(StateMachineTest, ProcessMessageStartWhenStopped) {
 
 TEST_F(StateMachineTest, ProcessMessageStopWhenStopped) {
   auto broadcast_id =
-      InstantiateStateMachine(LeAudioBroadcaster::AudioProfile::MEDIA);
+      InstantiateStateMachine(le_audio::types::LeAudioContextType::MEDIA);
 
   broadcasts_[broadcast_id]->ProcessMessage(
       BroadcastStateMachine::Message::STOP);
@@ -668,7 +673,7 @@ TEST_F(StateMachineTest, ProcessMessageStopWhenStopped) {
 
 TEST_F(StateMachineTest, ProcessMessageSuspendWhenStopped) {
   auto broadcast_id =
-      InstantiateStateMachine(LeAudioBroadcaster::AudioProfile::MEDIA);
+      InstantiateStateMachine(le_audio::types::LeAudioContextType::MEDIA);
 
   broadcasts_[broadcast_id]->ProcessMessage(
       BroadcastStateMachine::Message::STOP);
@@ -692,7 +697,7 @@ TEST_F(StateMachineTest, OnSetupIsoDataPathError) {
       .Times(1);
 
   auto broadcast_id =
-      InstantiateStateMachine(LeAudioBroadcaster::AudioProfile::MEDIA);
+      InstantiateStateMachine(le_audio::types::LeAudioContextType::MEDIA);
   ASSERT_EQ(broadcasts_[broadcast_id]->GetState(),
             BroadcastStateMachine::State::CONFIGURED);
 
@@ -751,7 +756,7 @@ TEST_F(StateMachineTest, OnSetupIsoDataPathError) {
 
 TEST_F(StateMachineTest, OnRemoveIsoDataPathError) {
   auto broadcast_id =
-      InstantiateStateMachine(LeAudioBroadcaster::AudioProfile::MEDIA);
+      InstantiateStateMachine(le_audio::types::LeAudioContextType::MEDIA);
 
   broadcasts_[broadcast_id]->ProcessMessage(
       BroadcastStateMachine::Message::START);
@@ -801,10 +806,10 @@ TEST_F(StateMachineTest, GetConfig) {
   EXPECT_CALL(*(sm_callbacks_.get()), OnStateMachineCreateStatus(_, true))
       .Times(1);
 
-  auto sound_profile = LeAudioBroadcaster::AudioProfile::MEDIA;
+  auto sound_context = le_audio::types::LeAudioContextType::MEDIA;
   uint8_t num_channels = 2;
 
-  auto broadcast_id = InstantiateStateMachine(sound_profile);
+  auto broadcast_id = InstantiateStateMachine(sound_context);
   ASSERT_EQ(broadcasts_[broadcast_id]->GetState(),
             BroadcastStateMachine::State::CONFIGURED);
 
@@ -834,6 +839,22 @@ TEST_F(StateMachineTest, GetBroadcastId) {
             BroadcastStateMachine::State::CONFIGURED);
 }
 
+TEST_F(StateMachineTest, IsPublicBroadcast) {
+  EXPECT_CALL(*(sm_callbacks_.get()), OnStateMachineCreateStatus(_, true))
+      .Times(1);
+
+  auto broadcast_id = InstantiateStateMachine();
+  ASSERT_EQ(broadcasts_[broadcast_id]->IsPublicBroadcast(), true);
+}
+
+TEST_F(StateMachineTest, GetBroadcastName) {
+  EXPECT_CALL(*(sm_callbacks_.get()), OnStateMachineCreateStatus(_, true))
+      .Times(1);
+
+  auto broadcast_id = InstantiateStateMachine();
+  ASSERT_EQ(broadcasts_[broadcast_id]->GetBroadcastName(), test_broadcast_name);
+}
+
 TEST_F(StateMachineTest, GetBroadcastAnnouncement) {
   EXPECT_CALL(*(sm_callbacks_.get()), OnStateMachineCreateStatus(_, true))
       .Times(1);
@@ -856,12 +877,33 @@ TEST_F(StateMachineTest, GetBroadcastAnnouncement) {
             broadcasts_[broadcast_id]->GetBroadcastAnnouncement());
 }
 
-TEST_F(StateMachineTest, AnnouncementUUIDs) {
+TEST_F(StateMachineTest, GetPublicBroadcastAnnouncement) {
+  EXPECT_CALL(*(sm_callbacks_.get()), OnStateMachineCreateStatus(_, true))
+      .Times(1);
+
+  auto broadcast_id = InstantiateStateMachine();
+  bool is_public_metadata_valid;
+  types::LeAudioLtvMap public_ltv = types::LeAudioLtvMap::Parse(
+      default_public_metadata.data(), default_public_metadata.size(),
+      is_public_metadata_valid);
+  bluetooth::le_audio::PublicBroadcastAnnouncementData pb_announcement = {
+      .features = test_public_broadcast_features,
+      .metadata = public_ltv.Values()};
+
+  broadcasts_[broadcast_id]->UpdatePublicBroadcastAnnouncement(
+      broadcast_id, test_broadcast_name, pb_announcement);
+
+  ASSERT_EQ(pb_announcement,
+            broadcasts_[broadcast_id]->GetPublicBroadcastAnnouncement());
+}
+
+TEST_F(StateMachineTest, AnnouncementTest) {
+  tBTM_BLE_ADV_PARAMS adv_params;
   std::vector<uint8_t> a_data;
   std::vector<uint8_t> p_data;
 
   EXPECT_CALL(*mock_ble_advertising_manager_, StartAdvertisingSet)
-      .WillOnce([&p_data, &a_data](
+      .WillOnce([&p_data, &a_data, &adv_params](
                     base::Callback<void(uint8_t, int8_t, uint8_t)> cb,
                     tBTM_BLE_ADV_PARAMS* params,
                     std::vector<uint8_t> advertise_data,
@@ -879,6 +921,8 @@ TEST_F(StateMachineTest, AnnouncementUUIDs) {
         a_data = std::move(advertise_data);
         p_data = std::move(periodic_data);
 
+        adv_params = *params;
+
         cb.Run(advertiser_id, tx_power, status);
       });
 
@@ -894,12 +938,24 @@ TEST_F(StateMachineTest, AnnouncementUUIDs) {
   ASSERT_EQ(a_data[2], (kBroadcastAudioAnnouncementServiceUuid & 0x00FF));
   ASSERT_EQ(a_data[3],
             ((kBroadcastAudioAnnouncementServiceUuid >> 8) & 0x00FF));
+  ASSERT_EQ(a_data[4], (broadcast_id & 0x0000FF));
+  ASSERT_EQ(a_data[5], ((broadcast_id >> 8) & 0x0000FF));
+  ASSERT_EQ(a_data[6], ((broadcast_id >> 16) & 0x0000FF));
+
+  ASSERT_NE(a_data[7], 0);     // size
+  ASSERT_EQ(a_data[8], 0x16);  // BTM_BLE_AD_TYPE_SERVICE_DATA_TYPE
+  ASSERT_EQ(a_data[9], (kPublicBroadcastAnnouncementServiceUuid & 0x00FF));
+  ASSERT_EQ(a_data[10],
+            ((kPublicBroadcastAnnouncementServiceUuid >> 8) & 0x00FF));
 
   // Check periodic data for Basic Announcement UUID
   ASSERT_NE(p_data[0], 0);     // size
   ASSERT_EQ(p_data[1], 0x16);  // BTM_BLE_AD_TYPE_SERVICE_DATA_TYPE
   ASSERT_EQ(p_data[2], (kBasicAudioAnnouncementServiceUuid & 0x00FF));
   ASSERT_EQ(p_data[3], ((kBasicAudioAnnouncementServiceUuid >> 8) & 0x00FF));
+
+  // Check advertising parameters
+  ASSERT_EQ(adv_params.own_address_type, BLE_ADDR_RANDOM);
 }
 
 }  // namespace

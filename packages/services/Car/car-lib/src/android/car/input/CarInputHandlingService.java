@@ -113,11 +113,13 @@ public abstract class CarInputHandlingService extends Service {
             return;
         }
         Parcel dataIn = Parcel.obtain();
-        dataIn.writeTypedArray(mHandledKeys, 0);
         try {
+            dataIn.writeTypedArray(mHandledKeys, 0);
             callbackBinder.transact(INPUT_CALLBACK_BINDER_CODE, dataIn, null, IBinder.FLAG_ONEWAY);
         } catch (RemoteException e) {
             Car.handleRemoteExceptionFromCarService(this, e);
+        } finally {
+            dataIn.recycle();
         }
     }
 

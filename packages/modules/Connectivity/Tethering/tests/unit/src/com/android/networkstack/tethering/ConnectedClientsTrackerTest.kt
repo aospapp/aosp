@@ -24,19 +24,25 @@ import android.net.TetheringManager.TETHERING_USB
 import android.net.TetheringManager.TETHERING_WIFI
 import android.net.ip.IpServer
 import android.net.wifi.WifiClient
+import android.os.Build
 import androidx.test.filters.SmallTest
 import androidx.test.runner.AndroidJUnit4
+import com.android.testutils.DevSdkIgnoreRule
+import com.android.testutils.DevSdkIgnoreRule.IgnoreUpTo
+import kotlin.test.assertEquals
+import kotlin.test.assertFalse
+import kotlin.test.assertTrue
+import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.mockito.Mockito.doReturn
 import org.mockito.Mockito.mock
-import kotlin.test.assertEquals
-import kotlin.test.assertFalse
-import kotlin.test.assertTrue
 
 @RunWith(AndroidJUnit4::class)
 @SmallTest
 class ConnectedClientsTrackerTest {
+    @get:Rule
+    val ignoreRule = DevSdkIgnoreRule()
 
     private val server1 = mock(IpServer::class.java)
     private val server2 = mock(IpServer::class.java)
@@ -70,55 +76,122 @@ class ConnectedClientsTrackerTest {
 
     @Test
     fun testUpdateConnectedClients() {
+        doReturn(IpServer.STATE_TETHERED).`when`(server1).servingMode()
+        doReturn(IpServer.STATE_TETHERED).`when`(server2).servingMode()
+        runUpdateConnectedClientsTest(isGlobal = true)
+    }
+
+    @Test @IgnoreUpTo(Build.VERSION_CODES.S_V2)
+    fun testUpdateConnectedClients_LocalOnly() {
+        doReturn(IpServer.STATE_LOCAL_ONLY).`when`(server1).servingMode()
+        doReturn(IpServer.STATE_LOCAL_ONLY).`when`(server2).servingMode()
+        runUpdateConnectedClientsTest(isGlobal = false)
+    }
+
+    fun runUpdateConnectedClientsTest(isGlobal: Boolean) {
         doReturn(emptyList<TetheredClient>()).`when`(server1).allLeases
         doReturn(emptyList<TetheredClient>()).`when`(server2).allLeases
 
         val tracker = ConnectedClientsTracker(clock)
-        assertFalse(tracker.updateConnectedClients(servers, null))
+        assertFalse(tracker.updateConnectedClients(servers, null, null))
 
         // Obtain a lease for client 1
         doReturn(listOf(client1)).`when`(server1).allLeases
-        assertSameClients(listOf(client1), assertNewClients(tracker, servers, listOf(wifiClient1)))
+        if (isGlobal) {
+            assertSameClients(listOf(client1), assertNewClients(tracker, servers,
+                    wifiClients = listOf(wifiClient1)))
+        } else {
+            assertSameClients(listOf(client1), assertNewClients(tracker, servers,
+                    localOnlyClients = listOf(wifiClient1)))
+        }
 
         // Client 2 L2-connected, no lease yet
         val client2WithoutAddr = TetheredClient(client2Addr, emptyList(), TETHERING_WIFI)
-        assertSameClients(listOf(client1, client2WithoutAddr),
-                assertNewClients(tracker, servers, listOf(wifiClient1, wifiClient2)))
+        if (isGlobal) {
+            assertSameClients(listOf(client1, client2WithoutAddr), assertNewClients(
+                    tracker, servers, wifiClients = listOf(wifiClient1, wifiClient2)))
+        } else {
+            assertSameClients(listOf(client1, client2WithoutAddr), assertNewClients(
+                    tracker, servers, localOnlyClients = listOf(wifiClient1, wifiClient2)))
+        }
 
         // Client 2 lease obtained
         doReturn(listOf(client1, client2)).`when`(server1).allLeases
-        assertSameClients(listOf(client1, client2), assertNewClients(tracker, servers, null))
+        assertSameClients(listOf(client1, client2), assertNewClients(tracker, servers))
 
         // Client 3 lease obtained
         doReturn(listOf(client3)).`when`(server2).allLeases
-        assertSameClients(listOf(client1, client2, client3),
-                assertNewClients(tracker, servers, null))
+        assertSameClients(listOf(client1, client2, client3), assertNewClients(tracker, servers))
 
-        // Client 2 L2-disconnected
-        assertSameClients(listOf(client1, client3),
-                assertNewClients(tracker, servers, listOf(wifiClient1)))
-
-        // Client 1 L2-disconnected
-        assertSameClients(listOf(client3), assertNewClients(tracker, servers, emptyList()))
-
-        // Client 1 comes back
-        assertSameClients(listOf(client1, client3),
-                assertNewClients(tracker, servers, listOf(wifiClient1)))
+        if (isGlobal) {
+            // Client 2 L2-disconnected
+            assertSameClients(listOf(client1, client3),
+                    assertNewClients(tracker, servers, wifiClients = listOf(wifiClient1)))
+            // Client 1 L2-disconnected
+            assertSameClients(listOf(client3), assertNewClients(tracker, servers,
+                    wifiClients = emptyList()))
+            // Client 1 comes back
+            assertSameClients(listOf(client1, client3),
+                    assertNewClients(tracker, servers, wifiClients = listOf(wifiClient1)))
+        } else {
+            // Client 2 L2-disconnected
+            assertSameClients(listOf(client1, client3),
+                    assertNewClients(tracker, servers, localOnlyClients = listOf(wifiClient1)))
+            // Client 1 L2-disconnected
+            assertSameClients(listOf(client3),
+                    assertNewClients(tracker, servers, localOnlyClients = emptyList()))
+            // Client 1 comes back
+            assertSameClients(listOf(client1, client3),
+                    assertNewClients(tracker, servers, localOnlyClients = listOf(wifiClient1)))
+        }
 
         // Leases lost, client 1 still L2-connected
         doReturn(emptyList<TetheredClient>()).`when`(server1).allLeases
         doReturn(emptyList<TetheredClient>()).`when`(server2).allLeases
         assertSameClients(listOf(TetheredClient(client1Addr, emptyList(), TETHERING_WIFI)),
-                assertNewClients(tracker, servers, null))
+                assertNewClients(tracker, servers))
+    }
+
+    @Test @IgnoreUpTo(Build.VERSION_CODES.S_V2)
+    fun testLocalOnlyAndTetheredHotspotClients() {
+        val tracker = ConnectedClientsTracker(clock)
+        doReturn(IpServer.STATE_LOCAL_ONLY).`when`(server1).servingMode()
+        doReturn(IpServer.STATE_TETHERED).`when`(server2).servingMode()
+
+        // Client 1 connected to server1 (LOHS)
+        doReturn(listOf(client1)).`when`(server1).allLeases
+        doReturn(emptyList<TetheredClient>()).`when`(server2).allLeases
+        assertSameClients(listOf(client1), assertNewClients(tracker, servers,
+                localOnlyClients = listOf(wifiClient1)))
+
+        // Client 2 connected to server2 (wifi Tethering)
+        doReturn(listOf(client2)).`when`(server2).allLeases
+        assertSameClients(listOf(client1, client2), assertNewClients(tracker, servers,
+                listOf(wifiClient2), listOf(wifiClient1)))
+
+        // Client 2 L2-disconnected but lease doesn't expired yet
+        assertSameClients(listOf(client1), assertNewClients(tracker, servers,
+                wifiClients = emptyList()))
+
+        // Client 1 lease lost but still L2-connected
+        doReturn(emptyList<TetheredClient>()).`when`(server1).allLeases
+        val client1WithoutAddr = TetheredClient(client1Addr, emptyList(), TETHERING_WIFI)
+        assertSameClients(listOf(client1WithoutAddr), assertNewClients(tracker, servers))
+
+        // Client 1 L2-disconnected
+        assertSameClients(emptyList(), assertNewClients(tracker, servers,
+                localOnlyClients = emptyList()))
     }
 
     @Test
     fun testUpdateConnectedClients_LeaseExpiration() {
+        doReturn(IpServer.STATE_TETHERED).`when`(server1).servingMode()
+        doReturn(IpServer.STATE_TETHERED).`when`(server2).servingMode()
         val tracker = ConnectedClientsTracker(clock)
         doReturn(listOf(client1, client2)).`when`(server1).allLeases
         doReturn(listOf(client3)).`when`(server2).allLeases
         assertSameClients(listOf(client1, client2, client3), assertNewClients(
-                tracker, servers, listOf(wifiClient1, wifiClient2)))
+                tracker, servers, wifiClients = listOf(wifiClient1, wifiClient2)))
 
         clock.time += 20
         // Client 3 has no remaining lease: removed
@@ -131,15 +204,16 @@ class ConnectedClientsTrackerTest {
                         // Only the "t + 30" address is left, the "t + 10" address expired
                         listOf(client2Exp30AddrInfo),
                         TETHERING_WIFI))
-        assertSameClients(expectedClients, assertNewClients(tracker, servers, null))
+        assertSameClients(expectedClients, assertNewClients(tracker, servers))
     }
 
     private fun assertNewClients(
         tracker: ConnectedClientsTracker,
         ipServers: Iterable<IpServer>,
-        wifiClients: List<WifiClient>?
+        wifiClients: List<WifiClient>? = null,
+        localOnlyClients: List<WifiClient>? = null
     ): List<TetheredClient> {
-        assertTrue(tracker.updateConnectedClients(ipServers, wifiClients))
+        assertTrue(tracker.updateConnectedClients(ipServers, wifiClients, localOnlyClients))
         return tracker.lastTetheredClients
     }
 

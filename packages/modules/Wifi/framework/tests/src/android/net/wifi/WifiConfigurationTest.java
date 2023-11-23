@@ -16,6 +16,7 @@
 
 package android.net.wifi;
 
+import static android.net.wifi.WifiConfiguration.SECURITY_TYPE_DPP;
 import static android.net.wifi.WifiConfiguration.SECURITY_TYPE_EAP;
 import static android.net.wifi.WifiConfiguration.SECURITY_TYPE_EAP_SUITE_B;
 import static android.net.wifi.WifiConfiguration.SECURITY_TYPE_EAP_WPA3_ENTERPRISE;
@@ -116,7 +117,13 @@ public class WifiConfigurationTest {
         config.subscriptionId = 1;
         config.carrierId = 1189;
         config.restricted = true;
+        config.isCurrentlyConnected = true;
+        config.setIsUserSelected(true);
         config.setSubscriptionGroup(ParcelUuid.fromString("0000110B-0000-1000-8000-00805F9B34FB"));
+        config.getNetworkSelectionStatus().setDisableTime(12333);
+        config.getNetworkSelectionStatus().setDisableEndTime(45666);
+        assertEquals(12333, config.getNetworkSelectionStatus().getDisableTime());
+        assertEquals(45666, config.getNetworkSelectionStatus().getDisableEndTime());
         Parcel parcelW = Parcel.obtain();
         config.writeToParcel(parcelW, 0);
         byte[] bytes = parcelW.marshall();
@@ -141,12 +148,18 @@ public class WifiConfigurationTest {
         assertEquals(config.subscriptionId, reconfig.subscriptionId);
         assertEquals(config.getSubscriptionGroup(), reconfig.getSubscriptionGroup());
         assertTrue(reconfig.restricted);
+        assertTrue(reconfig.isCurrentlyConnected);
+        assertTrue(reconfig.isUserSelected());
         assertEquals(config.getBssidAllowlist(), reconfig.getBssidAllowlist());
         assertEquals(
                 SecurityParams.createSecurityParamsBySecurityType(
                         WifiConfiguration.SECURITY_TYPE_PSK),
                 reconfig.getSecurityParams(
                         WifiConfiguration.SECURITY_TYPE_PSK));
+        assertEquals(config.getNetworkSelectionStatus().getDisableTime(),
+                reconfig.getNetworkSelectionStatus().getDisableTime());
+        assertEquals(config.getNetworkSelectionStatus().getDisableEndTime(),
+                reconfig.getNetworkSelectionStatus().getDisableEndTime());
 
         Parcel parcelWW = Parcel.obtain();
         reconfig.writeToParcel(parcelWW, 0);
@@ -171,6 +184,8 @@ public class WifiConfigurationTest {
         config.subscriptionId = 1;
         config.carrierId = 1189;
         config.restricted = true;
+        config.isCurrentlyConnected = true;
+        config.setIsUserSelected(true);
 
         WifiConfiguration reconfig = new WifiConfiguration(config);
 
@@ -186,6 +201,8 @@ public class WifiConfigurationTest {
         assertEquals(config.carrierId, reconfig.carrierId);
         assertEquals(config.subscriptionId, reconfig.subscriptionId);
         assertTrue(reconfig.restricted);
+        assertTrue(reconfig.isCurrentlyConnected);
+        assertTrue(reconfig.isUserSelected());
     }
 
     @Test
@@ -307,7 +324,7 @@ public class WifiConfigurationTest {
     @Test
     public void testGetKeyIdForCredentials() throws Exception {
         WifiConfiguration config = new WifiConfiguration();
-        final String mSsid = "TestAP";
+        final String mSsid = "\"TestAP\"";
         config.SSID = mSsid;
 
         // Test various combinations
@@ -362,7 +379,7 @@ public class WifiConfigurationTest {
     @Test
     public void testGetKeyIdForCredentialsForSuggestion() throws Exception {
         WifiConfiguration config = new WifiConfiguration();
-        final String mSsid = "TestAP";
+        final String mSsid = "\"TestAP\"";
         final String packageName = "TestApp";
         final String bSsid = MacAddressUtils.createRandomUnicastAddress().toString();
         String suggestionSuffix = "_" + bSsid + "_" + packageName;
@@ -422,7 +439,7 @@ public class WifiConfigurationTest {
     @Test
     public void testGetSsidAndSecurityTypeString() {
         WifiConfiguration config = new WifiConfiguration();
-        final String mSsid = "TestAP";
+        final String mSsid = "\"TestAp\"";
         config.SSID = mSsid;
 
         // Test various combinations
@@ -506,7 +523,7 @@ public class WifiConfigurationTest {
     @Test
     public void testGetNetworkKeyString() {
         WifiConfiguration config = new WifiConfiguration();
-        final String mSsid = "TestAP";
+        final String mSsid = "\"TestAp\"";
         config.SSID = mSsid;
 
         // Test various combinations
@@ -843,7 +860,7 @@ public class WifiConfigurationTest {
     public void testGetProfileKeyString() {
         assumeTrue(SdkLevel.isAtLeastS());
         WifiConfiguration config = new WifiConfiguration();
-        final String mSsid = "TestAP";
+        final String mSsid = "\"TestAp\"";
         config.SSID = mSsid;
         config.carrierId = TEST_CARRIER_ID;
         config.subscriptionId = TEST_SUB_ID;
@@ -855,6 +872,11 @@ public class WifiConfigurationTest {
         config.fromWifiNetworkSuggestion = false;
         assertEquals(createProfileKey(mSsid, KeyMgmt.strings[KeyMgmt.WPA_PSK], TEST_PACKAGE_NAME,
                 TEST_CARRIER_ID, TEST_SUB_ID, false), config.getProfileKey());
+        // Hexadecimal SSIDs should match regardless of upper/lower case.
+        config.SSID = "aBcDeF";
+        assertEquals(createProfileKey("abcdef", KeyMgmt.strings[KeyMgmt.WPA_PSK], TEST_PACKAGE_NAME,
+                TEST_CARRIER_ID, TEST_SUB_ID, false), config.getProfileKey());
+        config.SSID = mSsid;
         config.fromWifiNetworkSuggestion = true;
         assertEquals(createProfileKey(mSsid, KeyMgmt.strings[KeyMgmt.WPA_PSK], TEST_PACKAGE_NAME,
                 TEST_CARRIER_ID, TEST_SUB_ID, true), config.getProfileKey());
@@ -967,7 +989,7 @@ public class WifiConfigurationTest {
     public void testGetProfileKeyOnR() {
         assumeFalse(SdkLevel.isAtLeastS());
         WifiConfiguration config = new WifiConfiguration();
-        final String mSsid = "TestAP";
+        final String mSsid = "\"TestAp\"";
         config.SSID = mSsid;
         config.carrierId = TEST_CARRIER_ID;
         config.subscriptionId = TEST_SUB_ID;
@@ -1176,16 +1198,24 @@ public class WifiConfigurationTest {
     @Test
     public void testLegacyConfigurationConversion() {
         Pair[] keyMgmtSecurityTypePairs = new Pair[] {
+                new Pair<>(KeyMgmt.NONE, SECURITY_TYPE_OPEN),
+                new Pair<>(KeyMgmt.OWE, SECURITY_TYPE_OWE),
+                new Pair<>(KeyMgmt.OSEN, SECURITY_TYPE_OSEN),
+                new Pair<>(KeyMgmt.WPA_PSK, SECURITY_TYPE_PSK),
+                new Pair<>(KeyMgmt.WPA2_PSK, SECURITY_TYPE_PSK),
+                new Pair<>(KeyMgmt.FT_PSK, SECURITY_TYPE_PSK),
+                new Pair<>(KeyMgmt.WPA_PSK_SHA256, SECURITY_TYPE_PSK),
+                new Pair<>(KeyMgmt.SAE, SECURITY_TYPE_SAE),
+                new Pair<>(KeyMgmt.WPA_EAP, SECURITY_TYPE_EAP),
+                new Pair<>(KeyMgmt.FT_EAP, SECURITY_TYPE_EAP),
+                new Pair<>(KeyMgmt.IEEE8021X, SECURITY_TYPE_EAP),
+                new Pair<>(KeyMgmt.WPA_EAP_SHA256, SECURITY_TYPE_EAP),
+                new Pair<>(KeyMgmt.FILS_SHA256, SECURITY_TYPE_EAP),
+                new Pair<>(KeyMgmt.FILS_SHA384, SECURITY_TYPE_EAP),
+                new Pair<>(KeyMgmt.SUITE_B_192, SECURITY_TYPE_EAP_WPA3_ENTERPRISE_192_BIT),
                 new Pair<>(KeyMgmt.WAPI_CERT, SECURITY_TYPE_WAPI_CERT),
                 new Pair<>(KeyMgmt.WAPI_PSK, SECURITY_TYPE_WAPI_PSK),
-                new Pair<>(KeyMgmt.SUITE_B_192, SECURITY_TYPE_EAP_WPA3_ENTERPRISE_192_BIT),
-                new Pair<>(KeyMgmt.OWE, SECURITY_TYPE_OWE),
-                new Pair<>(KeyMgmt.SAE, SECURITY_TYPE_SAE),
-                new Pair<>(KeyMgmt.OSEN, SECURITY_TYPE_OSEN),
-                new Pair<>(KeyMgmt.WPA2_PSK, SECURITY_TYPE_PSK),
-                new Pair<>(KeyMgmt.WPA_EAP, SECURITY_TYPE_EAP),
-                new Pair<>(KeyMgmt.WPA_PSK, SECURITY_TYPE_PSK),
-                new Pair<>(KeyMgmt.NONE, SECURITY_TYPE_OPEN),
+                new Pair<>(KeyMgmt.DPP, SECURITY_TYPE_DPP),
         };
 
         for (Pair pair: keyMgmtSecurityTypePairs) {
@@ -1202,7 +1232,7 @@ public class WifiConfigurationTest {
 
         // If EAP key management is set and requirePmf is true, it is WPA3 Enterprise.
         WifiConfiguration wpa3EnterpriseConfig = new WifiConfiguration();
-        wpa3EnterpriseConfig.allowedKeyManagement.set(KeyMgmt.WPA_EAP);
+        wpa3EnterpriseConfig.allowedKeyManagement.set(KeyMgmt.WPA_EAP_SHA256);
         wpa3EnterpriseConfig.requirePmf = true;
         wpa3EnterpriseConfig.allowedProtocols.set(Protocol.RSN);
         wpa3EnterpriseConfig.convertLegacyFieldsToSecurityParamsIfNeeded();
@@ -1322,7 +1352,7 @@ public class WifiConfigurationTest {
     @Test
     public void testGetNetworkKeyFromSecurityTypeString() {
         WifiConfiguration config = new WifiConfiguration();
-        final String mSsid = "TestAP";
+        final String mSsid = "\"TestAp\"";
         config.SSID = mSsid;
         config.carrierId = TEST_CARRIER_ID;
         config.subscriptionId = TEST_SUB_ID;
@@ -1350,7 +1380,7 @@ public class WifiConfigurationTest {
     @Test
     public void testGetAllPersistableNetworkKeysString() {
         WifiConfiguration config = new WifiConfiguration();
-        final String mSsid = "TestAP";
+        final String mSsid = "\"TestAp\"";
         config.SSID = mSsid;
         config.carrierId = TEST_CARRIER_ID;
         config.subscriptionId = TEST_SUB_ID;

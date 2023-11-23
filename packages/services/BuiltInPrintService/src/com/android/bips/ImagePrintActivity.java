@@ -36,6 +36,7 @@ import android.print.PrintAttributes;
 import android.print.PrintDocumentAdapter;
 import android.print.PrintDocumentInfo;
 import android.print.PrintJob;
+import android.print.PrintJobId;
 import android.print.PrintManager;
 import android.util.DisplayMetrics;
 import android.util.Log;
@@ -65,6 +66,8 @@ public class ImagePrintActivity extends Activity {
     private static final String[] ISO_A5_COUNTRY_CODES = {
         "IQ", "SY", "YE", "VN", "MA"
     };
+
+    public static PrintJobId sPrintJobId;
 
     private CancellationSignal mCancellationSignal = new CancellationSignal();
     private String mJobName;
@@ -153,6 +156,7 @@ public class ImagePrintActivity extends Activity {
                     .setColorMode(PrintAttributes.COLOR_MODE_COLOR)
                     .build();
             mPrintJob = printManager.print(mJobName, new ImageAdapter(), printAttributes);
+            sPrintJobId = mPrintJob.getId();
         }
 
         @Override
@@ -304,5 +308,14 @@ public class ImagePrintActivity extends Activity {
         } else {
             return mBitmap;
         }
+    }
+
+    /**
+     * Get the print job id from PrintManager created print job.
+     *
+     * @return A PrintJobId, can be null
+     */
+    public static PrintJobId getLastPrintJobId() {
+        return sPrintJobId;
     }
 }

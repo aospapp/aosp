@@ -24,8 +24,11 @@ import com.android.systemui.dagger.SysUIComponent;
 import com.android.systemui.dagger.SysUISingleton;
 import com.android.systemui.dagger.SystemUIModule;
 import com.android.systemui.keyguard.dagger.KeyguardModule;
+import com.android.systemui.keyguard.CustomizationProvider;
 import com.android.systemui.recents.RecentsModule;
 import com.android.systemui.statusbar.dagger.CentralSurfacesModule;
+import com.android.systemui.statusbar.NotificationInsetsModule;
+import com.android.systemui.statusbar.QsFrameTranslateModule;
 
 import dagger.Subcomponent;
 
@@ -43,6 +46,8 @@ import dagger.Subcomponent;
         KeyguardModule.class,
         RecentsModule.class,
         CentralSurfacesModule.class,
+        NotificationInsetsModule.class,
+        QsFrameTranslateModule.class,
         SystemUIGoModule.class})
 public interface SystemUIGoComponent extends SysUIComponent {
 
@@ -53,4 +58,9 @@ public interface SystemUIGoComponent extends SysUIComponent {
     interface Builder extends SysUIComponent.Builder {
         SystemUIGoComponent build();
     }
+
+    /**
+     * Member injection into the supplied argument.
+     */
+    void inject(CustomizationProvider customizationProvider);
 }

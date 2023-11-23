@@ -72,8 +72,68 @@ public final class DeviceAdminAddPoliciesPreferenceControllerTest extends
     }
 
     @Test
+    public void testGetAvailabilityStatus_noAdmin_zoneWrite() throws Exception {
+        DeviceAdminAddPoliciesPreferenceController controller =
+                new DeviceAdminAddPoliciesPreferenceController(mSpiedContext, mPreferenceKey,
+                        mFragmentController, mUxRestrictions);
+        controller.setAvailabilityStatusForZone("write");
+
+        PreferenceControllerTestUtil.assertAvailability(controller.getAvailabilityStatus(),
+                PreferenceController.CONDITIONALLY_UNAVAILABLE);
+    }
+
+    @Test
+    public void testGetAvailabilityStatus_noAdmin_zoneRead() throws Exception {
+        DeviceAdminAddPoliciesPreferenceController controller =
+                new DeviceAdminAddPoliciesPreferenceController(mSpiedContext, mPreferenceKey,
+                        mFragmentController, mUxRestrictions);
+        controller.setAvailabilityStatusForZone("read");
+
+        PreferenceControllerTestUtil.assertAvailability(controller.getAvailabilityStatus(),
+                PreferenceController.CONDITIONALLY_UNAVAILABLE);
+    }
+
+    @Test
+    public void testGetAvailabilityStatus_noAdmin_zoneHidden() throws Exception {
+        DeviceAdminAddPoliciesPreferenceController controller =
+                new DeviceAdminAddPoliciesPreferenceController(mSpiedContext, mPreferenceKey,
+                        mFragmentController, mUxRestrictions);
+        controller.setAvailabilityStatusForZone("hidden");
+
+        PreferenceControllerTestUtil.assertAvailability(controller.getAvailabilityStatus(),
+                PreferenceController.CONDITIONALLY_UNAVAILABLE);
+    }
+
+    @Test
     public void testGetAvailabilityStatus_deviceOwner() throws Exception {
         mockDeviceOwner();
+
+        PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
+                PreferenceController.DISABLED_FOR_PROFILE);
+    }
+
+    @Test
+    public void testGetAvailabilityStatus_deviceOwner_zoneWrite() throws Exception {
+        mockDeviceOwner();
+        mController.setAvailabilityStatusForZone("write");
+
+        PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
+                PreferenceController.DISABLED_FOR_PROFILE);
+    }
+
+    @Test
+    public void testGetAvailabilityStatus_deviceOwner_zoneRead() throws Exception {
+        mockDeviceOwner();
+        mController.setAvailabilityStatusForZone("read");
+
+        PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
+                PreferenceController.DISABLED_FOR_PROFILE);
+    }
+
+    @Test
+    public void testGetAvailabilityStatus_deviceOwner_zoneHidden() throws Exception {
+        mockDeviceOwner();
+        mController.setAvailabilityStatusForZone("hidden");
 
         PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
                 PreferenceController.DISABLED_FOR_PROFILE);
@@ -88,11 +148,65 @@ public final class DeviceAdminAddPoliciesPreferenceControllerTest extends
     }
 
     @Test
+    public void testGetAvailabilityStatus_profileOwner_zoneWrite() throws Exception {
+        mockProfileOwner();
+        mController.setAvailabilityStatusForZone("write");
+
+        PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
+                PreferenceController.DISABLED_FOR_PROFILE);
+    }
+
+    @Test
+    public void testGetAvailabilityStatus_profileOwner_zoneRead() throws Exception {
+        mockProfileOwner();
+        mController.setAvailabilityStatusForZone("read");
+
+        PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
+                PreferenceController.DISABLED_FOR_PROFILE);
+    }
+
+    @Test
+    public void testGetAvailabilityStatus_profileOwner_zoneHidden() throws Exception {
+        mockProfileOwner();
+        mController.setAvailabilityStatusForZone("hidden");
+
+        PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
+                PreferenceController.DISABLED_FOR_PROFILE);
+    }
+
+    @Test
     public void testGetAvailabilityStatus_regularAdmin() throws Exception {
         // Admin is neither PO nor DO
 
         PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
                 PreferenceController.AVAILABLE);
+    }
+
+    @Test
+    public void testGetAvailabilityStatus_regularAdmin_zoneWrite() throws Exception {
+        // Admin is neither PO nor DO
+        mController.setAvailabilityStatusForZone("write");
+
+        PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
+                PreferenceController.AVAILABLE);
+    }
+
+    @Test
+    public void testGetAvailabilityStatus_regularAdmin_zoneRead() throws Exception {
+        // Admin is neither PO nor DO
+        mController.setAvailabilityStatusForZone("read");
+
+        PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
+                PreferenceController.AVAILABLE_FOR_VIEWING);
+    }
+
+    @Test
+    public void testGetAvailabilityStatus_regularAdmin_zoneHidden() throws Exception {
+        // Admin is neither PO nor DO
+        mController.setAvailabilityStatusForZone("hidden");
+
+        PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
+                PreferenceController.CONDITIONALLY_UNAVAILABLE);
     }
 
     @Test

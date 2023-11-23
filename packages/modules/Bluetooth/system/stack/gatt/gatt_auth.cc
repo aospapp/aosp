@@ -24,7 +24,6 @@
 #include <string.h>
 
 #include "bt_target.h"
-#include "bt_utils.h"
 #include "gatt_api.h"
 #include "gatt_int.h"
 #include "osi/include/allocator.h"
@@ -132,8 +131,8 @@ void gatt_verify_signature(tGATT_TCB& tcb, uint16_t cid, BT_HDR* p_buf) {
  * Returns          void.
  *
  ******************************************************************************/
-void gatt_sec_check_complete(bool sec_check_ok, tGATT_CLCB* p_clcb,
-                             uint8_t sec_act) {
+static void gatt_sec_check_complete(bool sec_check_ok, tGATT_CLCB* p_clcb,
+                                    uint8_t sec_act) {
   if (p_clcb && p_clcb->p_tcb && p_clcb->p_tcb->pending_enc_clcb.empty()) {
     gatt_set_sec_act(p_clcb->p_tcb, GATT_SEC_NONE);
   }
@@ -155,8 +154,10 @@ void gatt_sec_check_complete(bool sec_check_ok, tGATT_CLCB* p_clcb,
  * Returns
  *
  ******************************************************************************/
-void gatt_enc_cmpl_cback(const RawAddress* bd_addr, tBT_TRANSPORT transport,
-                         UNUSED_ATTR void* p_ref_data, tBTM_STATUS result) {
+static void gatt_enc_cmpl_cback(const RawAddress* bd_addr,
+                                tBT_TRANSPORT transport,
+                                UNUSED_ATTR void* p_ref_data,
+                                tBTM_STATUS result) {
   VLOG(1) << StringPrintf("gatt_enc_cmpl_cback");
   tGATT_TCB* p_tcb = gatt_find_tcb_by_addr(*bd_addr, transport);
   if (!p_tcb) {
@@ -174,25 +175,28 @@ void gatt_enc_cmpl_cback(const RawAddress* bd_addr, tBT_TRANSPORT transport,
   }
 
   tGATT_CLCB* p_clcb = p_tcb->pending_enc_clcb.front();
-  p_tcb->pending_enc_clcb.pop();
+  p_tcb->pending_enc_clcb.pop_front();
 
-  bool status = false;
-  if (result == BTM_SUCCESS) {
-    if (gatt_get_sec_act(p_tcb) == GATT_SEC_ENCRYPT_MITM) {
-      status = BTM_IsLinkKeyAuthed(*bd_addr, transport);
-    } else {
-      status = true;
+  if (p_clcb != NULL) {
+    bool status = false;
+    if (result == BTM_SUCCESS) {
+      if (gatt_get_sec_act(p_tcb) == GATT_SEC_ENCRYPT_MITM) {
+        status = BTM_IsLinkKeyAuthed(*bd_addr, transport);
+      } else {
+        status = true;
+      }
     }
+
+    gatt_sec_check_complete(status, p_clcb, p_tcb->sec_act);
   }
 
-  gatt_sec_check_complete(status, p_clcb, p_tcb->sec_act);
-
   /* start all other pending operation in queue */
-  std::queue<tGATT_CLCB*> new_pending_clcbs;
+  std::deque<tGATT_CLCB*> new_pending_clcbs;
   while (!p_tcb->pending_enc_clcb.empty()) {
     tGATT_CLCB* p_clcb = p_tcb->pending_enc_clcb.front();
-    p_tcb->pending_enc_clcb.pop();
-    if (gatt_security_check_start(p_clcb)) new_pending_clcbs.push(p_clcb);
+    p_tcb->pending_enc_clcb.pop_front();
+    if (p_clcb != NULL && gatt_security_check_start(p_clcb))
+      new_pending_clcbs.push_back(p_clcb);
   }
   p_tcb->pending_enc_clcb = new_pending_clcbs;
 }
@@ -225,11 +229,12 @@ void gatt_notify_enc_cmpl(const RawAddress& bd_addr) {
   if (gatt_get_sec_act(p_tcb) == GATT_SEC_ENC_PENDING) {
     gatt_set_sec_act(p_tcb, GATT_SEC_NONE);
 
-    std::queue<tGATT_CLCB*> new_pending_clcbs;
+    std::deque<tGATT_CLCB*> new_pending_clcbs;
     while (!p_tcb->pending_enc_clcb.empty()) {
       tGATT_CLCB* p_clcb = p_tcb->pending_enc_clcb.front();
-      p_tcb->pending_enc_clcb.pop();
-      if (gatt_security_check_start(p_clcb)) new_pending_clcbs.push(p_clcb);
+      p_tcb->pending_enc_clcb.pop_front();
+      if (p_clcb != NULL && gatt_security_check_start(p_clcb))
+        new_pending_clcbs.push_back(p_clcb);
     }
     p_tcb->pending_enc_clcb = new_pending_clcbs;
   }

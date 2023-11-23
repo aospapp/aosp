@@ -1,0 +1,41 @@
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
+android_app {
+    name: "DeviceAsWebcam",
+
+    static_libs: [
+        "androidx.appcompat_appcompat",
+    ],
+
+    srcs: ["src/**/*.java"],
+    platform_apis: true,
+    certificate: "platform",
+    privileged: true,
+    optimize: {
+        proguard_flags_files: ["proguard.flags"],
+    },
+    jni_libs: [
+        "libjni_deviceAsWebcam",
+    ],
+    resource_dirs: [
+        "res",
+    ],
+}
+
+genrule {
+    name: "camera-webcam-test",
+    srcs: [
+        "tests/*",
+    ],
+    exclude_srcs: [
+        ".gitignore",
+        "Android.bp",
+        "OWNERS",
+    ],
+    tools: ["soong_zip"],
+    out: ["camera-webcam-test.zip"],
+    cmd: "echo $(locations tests/*) >$(genDir)/list && " +
+        "$(location soong_zip) -o $(out) -P android-cts-verifier/CameraWebcamTest -l $(genDir)/list",
+}

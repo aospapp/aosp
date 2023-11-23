@@ -1,4 +1,4 @@
--keep class com.android.systemui.CarSystemUIFactory
+-keep class com.android.systemui.CarSystemUIInitializer
 -keep class com.android.car.notification.headsup.animationhelper.**
 
 -keep class com.android.systemui.DaggerCarGlobalRootComponent { *; }
@@ -8,5 +8,6 @@
 -keep class com.android.systemui.car.privacy.MicQcPanel { *; }
 -keep class com.android.systemui.car.privacy.SensorQcPanel { *; }
 -keep class com.android.systemui.car.qc.ProfileSwitcher { *; }
+-keep class com.android.systemui.car.qc.DriveModeQcPanel { *; }
 
 -include ../../../../frameworks/base/packages/SystemUI/proguard.flags

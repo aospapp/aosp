@@ -22,6 +22,7 @@ import android.view.ViewGroup;
 
 import com.android.customization.model.grid.GridOption;
 import com.android.customization.model.grid.GridOptionsManager;
+import com.android.wallpaper.R;
 import com.android.wallpaper.picker.WorkspaceSurfaceHolderCallback;
 import com.android.wallpaper.util.PreviewUtils;
 import com.android.wallpaper.util.SurfaceViewUtils;
@@ -80,7 +81,10 @@ class GridOptionPreviewer {
 
     private class GridOptionSurfaceHolderCallback extends WorkspaceSurfaceHolderCallback {
         private GridOptionSurfaceHolderCallback(SurfaceView workspaceSurface, Context context) {
-            super(workspaceSurface, context);
+            super(
+                    workspaceSurface,
+                    new PreviewUtils(
+                            context, context.getString(R.string.grid_control_metadata_name)));
         }
 
         @Override

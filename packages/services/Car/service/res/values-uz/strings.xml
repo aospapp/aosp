@@ -42,8 +42,6 @@
     <string name="car_permission_desc_projection" msgid="2352178999656292944">"Telefondagi ilova interfeysi avtomobil ekranida chiqadi."</string>
     <string name="car_permission_label_access_projection_status" msgid="4231618890836627402">"proyeksiya holatini aniqlash"</string>
     <string name="car_permission_desc_access_projection_status" msgid="8497351979100616278">"Ilova avtomobil ekranida chiqadigan boshqa ilovalar holatini aniqlay oladi."</string>
-    <string name="car_permission_label_bind_projection_service" msgid="5362076216606651526">"proyeksiya xizmatiga ulanish"</string>
-    <string name="car_permission_desc_bind_projection_service" msgid="2282657787853408639">"Proyeksiya xizmatining yuqori darajali interfeysiga ulana oladi. Oddiy ilovalar tomonidan ishlatilmaydi."</string>
     <string name="car_permission_label_audio_volume" msgid="310587969373137690">"audio tizim tovushi balandligini boshqarish"</string>
     <string name="car_permission_label_audio_settings" msgid="6524703796944023977">"avtomobilning audio sozlamalarini boshqarish"</string>
     <string name="car_permission_label_mock_vehicle_hal" msgid="7198852512207405935">"HAL interfeysini emulyatsiya qilish"</string>
@@ -62,8 +60,6 @@
     <string name="car_permission_desc_car_cluster_control" msgid="9222776665281176031">"Asboblar panelida ilovalarni ishga tushirish"</string>
     <string name="car_permission_car_monitor_cluster_navigation_state" msgid="7025307242306902441">"Boshqaruv panelidagi navigatsiya holati"</string>
     <string name="car_permission_desc_car_monitor_cluster_navigation_state" msgid="8745047153878713339">"Boshqaruv panelidagi navigatsiya holati oʻzgarishlarini kuzatib boring"</string>
-    <string name="car_permission_label_bind_instrument_cluster_rendering" msgid="8627480897198377418">"Axborotlarni asboblar paneliga chiqarish"</string>
-    <string name="car_permission_desc_bind_instrument_cluster_rendering" msgid="5073596870485006783">"Asboblar panelidan axborotlarni olish"</string>
     <string name="car_permission_label_car_ux_restrictions_configuration" msgid="6801393970411049725">"Funksiyadan foydalanish cheklovini oʻrnatish"</string>
     <string name="car_permission_desc_car_ux_restrictions_configuration" msgid="5711926927484813777">"Funksiyalardan foydalanishni cheklash"</string>
     <string name="car_permission_label_access_private_display_id" msgid="6712116114341634316">"Shaxsiy ekran identifikatorini oʻqish uchun ruxsat"</string>
@@ -74,8 +70,12 @@
     <string name="car_permission_desc_read_car_occupant_awareness_state" msgid="188865882598414986">"Yoʻlovchilarni aniqlash tizimi uchun holat va aniqlash maʼlumotlarini oʻqishga ruxsat beradi"</string>
     <string name="car_permission_label_control_car_occupant_awareness_system" msgid="7163330266691094542">"Yoʻlovchilarni aniqlash tizimi chizmasini boshqarish"</string>
     <string name="car_permission_desc_control_car_occupant_awareness_system" msgid="7123482622084531911">"Yoʻlovchilarni aniqlash tizimining aniqlash chizmasini boshlash va toʻxtatishni boshqarishga ruxsat beradi"</string>
-    <string name="car_permission_label_bind_input_service" msgid="6698489034024273750">"Avtomobilda matn kiritish xizmati"</string>
-    <string name="car_permission_desc_bind_input_service" msgid="1670323419931890170">"Matn kiritish hodisalari bilan ishlash imkoniyati"</string>
+    <string name="car_permission_label_read_driver_monitoring_settings" msgid="5208935577581001710">"Avtomobil haydovchisini kuzatish sozlamalari axborotini oʻqish"</string>
+    <string name="car_permission_desc_read_driver_monitoring_settings" msgid="3721117607024237175">"Avtomobil haydovchisini kuzatish sozlamasi axborotini oʻqish."</string>
+    <string name="car_permission_label_control_driver_monitoring_settings" msgid="239453247872865455">"Avtomobil haydovchisini kuzatish sozlamalari axborotini boshqarish"</string>
+    <string name="car_permission_desc_control_driver_monitoring_settings" msgid="7244804817277236221">"Avtomobil haydovchisini kuzatish sozlamasi axborotini boshqarish."</string>
+    <string name="car_permission_label_read_driver_monitoring_states" msgid="1555412806741155523">"Avtomobil haydovchisini kuzatish holati haqidagi axborotni oʻqish"</string>
+    <string name="car_permission_desc_read_driver_monitoring_states" msgid="3124328827934661489">"Avtomobil haydovchisini kuzatish holati haqidagi axborotni oʻqish."</string>
     <string name="car_permission_label_diag_read" msgid="7248894224877702604">"diagnostika axborotini ochish"</string>
     <string name="car_permission_desc_diag_read" msgid="1121426363040966178">"Avtomobildan diagnostika axborotini olish."</string>
     <string name="car_permission_label_diag_clear" msgid="4783070510879698157">"diagnostika axborotini tozalash"</string>
@@ -84,8 +84,6 @@
     <string name="car_permission_desc_vms_publisher" msgid="5589489298597386828">"VMS xabarlarni ekranga chiqarish"</string>
     <string name="car_permission_label_vms_subscriber" msgid="5648841182059222299">"VMS xabarlarga obuna"</string>
     <string name="car_permission_desc_vms_subscriber" msgid="7551009457847673620">"VMS xabarlarga obuna"</string>
-    <string name="car_permission_label_bind_vms_client" msgid="4889732900973280313">"VMS mijoz xizmati"</string>
-    <string name="car_permission_desc_bind_vms_client" msgid="4062835325264330564">"VMS mijozlarga ulanish"</string>
     <string name="car_permission_label_storage_monitoring" msgid="2327639346522530549">"Flesh xotirani nazorat qilish"</string>
     <string name="car_permission_desc_storage_monitoring" msgid="2075712271139671318">"Flesh xotiradan foydalanishni nazorat qilish"</string>
     <string name="car_permission_label_driving_state" msgid="7754624599537393650">"Avtomobilda rejimini kuzatish"</string>
@@ -118,6 +116,8 @@
     <string name="car_permission_desc_control_car_mirrors" msgid="1224135684068855032">"Avtomobilning koʻzgularini boshqarish."</string>
     <string name="car_permission_label_control_car_seats" msgid="1826934820585497135">"avtomobil oʻrindiqlarini boshqarish"</string>
     <string name="car_permission_desc_control_car_seats" msgid="2407536601226470563">"Avtomobil oʻrindiqlarini boshqarish"</string>
+    <string name="car_permission_label_control_car_airbags" msgid="6823727183218389617">"avtomobil xavfsizlik yostiqchalarini boshqaring."</string>
+    <string name="car_permission_desc_control_car_airbags" msgid="6181671903761622348">"Avtomobil xavfsizlik yostiqchalarini boshqaring."</string>
     <string name="car_permission_label_car_info" msgid="4707513570676492315">"avtomobil haqidagi batafsil axborotga kirish"</string>
     <string name="car_permission_desc_car_info" msgid="2118081474543537653">"Avtomobil haqidagi batafsil axborotga kirish."</string>
     <string name="car_permission_label_privileged_car_info" msgid="1304018073760220785">"avtomobilning imtiyoz maʼlumotlariga kirish"</string>
@@ -126,10 +126,10 @@
     <string name="car_permission_desc_vendor_permission_info" msgid="8152113853528488398">"Avtomobilning taʼminotchi ruxsatlari axborotiga kirish."</string>
     <string name="car_permission_label_car_exterior_lights" msgid="541304469604902110">"avtomobilning tashqi chiroqlari holati haqidagi axborotni ochish"</string>
     <string name="car_permission_desc_car_exterior_lights" msgid="4038037584100849318">"Avtomobilning tashqi chiroqlari holati haqidagi axborotiga kirish."</string>
+    <string name="car_permission_label_control_glove_box" msgid="992118647212706782">"avtomobilning tortma qutisi holatiga ruxsat"</string>
+    <string name="car_permission_desc_control_glove_box" msgid="2888062136750123261">"Avtomobilning tortma qutisi holatiga ruxsat."</string>
     <string name="car_permission_label_car_epoch_time" msgid="6303397910662625112">"avtomobilning davriy vaqtiga ruxsat"</string>
     <string name="car_permission_desc_car_epoch_time" msgid="398907082895238558">"Avtomobilning davriy vaqtiga ruxsat."</string>
-    <string name="car_permission_label_encryption_binding_seed" msgid="4652180636501144684">"avtomobilning shifrlash manbasiga kirish"</string>
-    <string name="car_permission_desc_encryption_binding_seed" msgid="6290944678417286024">"Avtomobilning shifrlash manbasiga kirish"</string>
     <string name="car_permission_label_control_car_exterior_lights" msgid="101357531386232141">"avtomobilning tashqi chiroqlari holati haqidagi axborotni ochish"</string>
     <string name="car_permission_desc_control_car_exterior_lights" msgid="6332252612685264180">"Avtomobilning tashqi chiroqlarini boshqarish."</string>
     <string name="car_permission_label_car_interior_lights" msgid="8506302199784427680">"avtomobilning ichki chiroqlari holati haqidagi axborotni ochish"</string>
@@ -146,6 +146,8 @@
     <string name="car_permission_desc_read_car_display_units" msgid="6891898275208542385">"Ekrandagi axborotni ochish."</string>
     <string name="car_permission_label_control_car_display_units" msgid="4975303668183173076">"avtomobil ekraniga chiquvchi axborotlarni boshqarish"</string>
     <string name="car_permission_desc_control_car_display_units" msgid="8744397195158556945">"Ekrandagi axborotlarni boshqarish."</string>
+    <string name="car_permission_label_control_car_powertrain" msgid="234831541490237603">"avtomobilning quvvat uzatmasi axboroti"</string>
+    <string name="car_permission_desc_control_car_powertrain" msgid="8205110385130069179">"Avtomobilning quvvat uzatmasi haqidagi axborotni boshqarish."</string>
     <string name="car_permission_label_car_powertrain" msgid="4586122326622134886">"avtomobil quvvat uzatmasi axborotini ochish"</string>
     <string name="car_permission_desc_car_powertrain" msgid="1116007372551797796">"Quvvat uzatmasi (tranmissiya) haqidagi axborotga kirish."</string>
     <string name="car_permission_label_car_power" msgid="8111448088314368268">"avtomobilning quvvati haqidagi axborotga kirish"</string>
@@ -172,6 +174,40 @@
     <string name="car_permission_desc_template_renderer" msgid="6047233999260920122">"Andozalarni renderlash."</string>
     <string name="car_permission_label_control_car_app_launch" msgid="214632389637409226">"ilovani ishga tushirishni boshqarish"</string>
     <string name="car_permission_desc_control_car_app_launch" msgid="4245527461733374198">"Ilovani ishga tushirishni boshqarish."</string>
+    <string name="car_permission_label_manage_thread_priority" msgid="6775846409863509575">"mavzu ustuvorligini boshqarish"</string>
+    <string name="car_permission_desc_manage_thread_priority" msgid="3833845502119615929">"Mavzu ustuvorligini boshqarish."</string>
+    <string name="car_permission_label_manage_occupant_zone" msgid="1390420387640478679">"yashash hududini boshqaring"</string>
+    <string name="car_permission_desc_manage_occupant_zone" msgid="1641484205694436465">"Yashash hududini boshqaring."</string>
+    <string name="car_permission_label_use_remote_access" msgid="4192095854784769805">"masofaviy kirishdan foydalanish"</string>
+    <string name="car_permission_desc_use_remote_access" msgid="7287637348044911791">"Masofaviy kirishdan foydalanish."</string>
+    <string name="car_permission_label_control_remote_access" msgid="4247590162299914718">"masofaviy kirishni boshqarish"</string>
+    <string name="car_permission_desc_control_remote_access" msgid="127215188256669260">"Masofaviy kirishni boshqarish."</string>
+    <string name="car_permission_label_control_steering_wheel" msgid="6244908950907824488">"avtomobil rulini boshqarish"</string>
+    <string name="car_permission_desc_control_steering_wheel" msgid="8408970211196600423">"Avtomobil rulini boshqarish."</string>
+    <string name="car_permission_label_read_adas_settings" msgid="151296373212801328">"avtomobilning ADAS tizimi sozlamalariga oid axborotni oʻqish"</string>
+    <string name="car_permission_desc_read_adas_settings" msgid="8490545343454791279">"Avtomobilning ADAS tizimi sozlamalariga oid axborotni oʻqish."</string>
+    <string name="car_permission_label_control_adas_settings" msgid="2535088218472880855">"avtomobilning ADAS tizimi sozlamalariga oid axborotni boshqarish"</string>
+    <string name="car_permission_desc_control_adas_settings" msgid="8781131640392345285">"Avtomobilning ADAS tizimi sozlamalariga oid axborotni boshqarish."</string>
+    <string name="car_permission_label_read_adas_states" msgid="8968657466958098106">"avtomobilning ADAS tizimi holatiga oid axborotni oʻqish"</string>
+    <string name="car_permission_desc_read_adas_states" msgid="5042430899788416991">"Avtomobilning ADAS tizimi holatiga oid axborotni oʻqish."</string>
+    <string name="car_permission_label_control_adas_states" msgid="758803765406463138">"avtomobilning ADAS tizimi sozlamalariga oid axborotni oʻqish"</string>
+    <string name="car_permission_desc_control_adas_states" msgid="1893171217779342348">"Avtomobilning ADAS tizimi holatiga oid axborotni boshqarish."</string>
+    <string name="car_permission_label_read_windshield_wipers" msgid="896867772546890348">"avtomobilning oyna tozalagichlari axborotini oʻqish"</string>
+    <string name="car_permission_desc_read_windshield_wipers" msgid="597300271560195986">"Avtomobilning oyna tozalagichlari axborotini oʻqish."</string>
+    <string name="car_permission_label_control_windshield_wipers" msgid="7971852482734087493">"avtomobilning oyna tozalagichlarini boshqarish"</string>
+    <string name="car_permission_desc_control_windshield_wipers" msgid="3803429825323199728">"Avtomobilning oyna tozalagichlarini boshqarish."</string>
+    <string name="car_permission_label_manage_remote_device" msgid="1144368625081074994">"avtomobildagi boshqa yoʻlovchi joylari holatini va ushbu joylarda oʻrnatilgan tengdosh ilovalarni (chaqiruvchi sifatida bir xil paket nomiga ega ilovalar) nazorat qilish hamda bu joylarning quvvatini boshqarish."</string>
+    <string name="car_permission_desc_manage_remote_device" msgid="4802785901453919948">"Avtomobildagi boshqa yoʻlovchi joylari holatini va ushbu joylarda oʻrnatilgan tengdosh ilovalarni (chaqiruvchi sifatida bir xil paket nomiga ega ilovalar) nazorat qiling hamda bu joylarning quvvatini boshqaring."</string>
+    <string name="car_permission_label_manage_occupant_connection" msgid="6007579379849984187">"avtomobildagi boshqa yoʻlovchi joylarida oʻrnatilgan tengdosh ilovalar (chaqiruvchi sifatida bir xil paket nomiga ega ilovalar) bilan aloqa qurish va muloqot qilish"</string>
+    <string name="car_permission_desc_manage_occupant_connection" msgid="6525045077082552965">"Avtomobildagi boshqa yoʻlovchi joylarida oʻrnatilgan tengdosh ilovalar (chaqiruvchi sifatida bir xil paket nomiga ega ilovalar) bilan aloqa quring va muloqot qiling."</string>
+    <string name="car_permission_label_access_mirrored_surface" msgid="6235459468766618021">"boshqa ilovalar ekranini aks ettirish"</string>
+    <string name="car_permission_desc_access_mirrored_surface" msgid="7701151689600074639">"Boshqa ilovalar ekranini aks ettirish."</string>
+    <string name="car_permission_label_mirror_display" msgid="7591958768912962529">"boshqa foydalanuvchilar ekranini aks ettirish"</string>
+    <string name="car_permission_desc_mirror_display" msgid="2403249980834394896">"Boshqa foydalanuvchilar ekranini aks ettirish"</string>
+    <string name="car_permission_label_register_car_system_ui_proxy" msgid="4211405049007842422">"Boshqa ilovalar tizim interfeysini boshqarishi va vazifa panellarini yaratishi uchun tizim interfeysiga proksi taqdim qilish."</string>
+    <string name="car_permission_desc_register_car_system_ui_proxy" msgid="8863676956785764681">"Boshqa ilovalar tizim interfeysini boshqarishi va vazifa panellarini yaratishi uchun tizim interfeysiga proksi taqdim qilish."</string>
+    <string name="car_permission_label_manage_car_system_ui" msgid="1361615518679353414">"Vazifa panellarini yaratish yoki tizim interfeysi oʻzgarishlari haqida xabar olish uchun avtomobil tizim inteyfeysi bilan muloqot qilish."</string>
+    <string name="car_permission_desc_manage_car_system_ui" msgid="6201733970421818637">"Vazifa panellarini yaratish yoki tizim interfeysi oʻzgarishlari haqida xabar olish uchun avtomobil tizim inteyfeysi bilan muloqot qilish."</string>
     <string name="car_can_bus_failure" msgid="2334035748788283914">"CAN shinalarida xatolik yuz berdi"</string>
     <string name="car_can_bus_failure_desc" msgid="4125516222786484733">"CAN javob bermayapti. Konnektorni chiqaring va qayta ulang, keyin avtomobilni oʻt oldiring"</string>
     <string name="trust_device_default_name" msgid="4213625926070261253">"Qurilmam"</string>

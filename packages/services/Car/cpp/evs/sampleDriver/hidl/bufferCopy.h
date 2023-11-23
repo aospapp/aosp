@@ -17,9 +17,8 @@
 #ifndef ANDROID_HARDWARE_AUTOMOTIVE_EVS_V1_1_BUFFERCOPY_H
 #define ANDROID_HARDWARE_AUTOMOTIVE_EVS_V1_1_BUFFERCOPY_H
 
-#include <android/hardware_buffer.h>
 #include <android/hardware/automotive/evs/1.1/types.h>
-
+#include <android/hardware_buffer.h>
 
 namespace android {
 namespace hardware {
@@ -28,30 +27,29 @@ namespace evs {
 namespace V1_1 {
 namespace implementation {
 
+void fillNV21FromNV21(const BufferDesc& tgtBuff, uint8_t* tgt, void* imgData, void* buf,
+                      unsigned imgStride);
 
-void fillNV21FromNV21(const BufferDesc& tgtBuff, uint8_t* tgt,
-                      void* imgData, void* buf, unsigned imgStride);
+void fillNV21FromYUYV(const BufferDesc& tgtBuff, uint8_t* tgt, void* imgData, void* buf,
+                      unsigned imgStride);
 
-void fillNV21FromYUYV(const BufferDesc& tgtBuff, uint8_t* tgt,
-                      void* imgData, void* buf, unsigned imgStride);
+void fillRGBAFromYUYV(const BufferDesc& tgtBuff, uint8_t* tgt, void* imgData, void* buf,
+                      unsigned imgStride);
 
-void fillRGBAFromYUYV(const BufferDesc& tgtBuff, uint8_t* tgt,
-                      void* imgData, void* buf, unsigned imgStride);
+void fillRGBAFromUYVY(const BufferDesc& tgtBuff, uint8_t* tgt, void* imgData, void* buf,
+                      unsigned imgStride);
 
-void fillRGBAFromUYVY(const BufferDesc& tgtBuff, uint8_t* tgt,
-                      void* imgData, void* buf, unsigned imgStride);
+void fillYUYVFromYUYV(const BufferDesc& tgtBuff, uint8_t* tgt, void* imgData, void* buf,
+                      unsigned imgStride);
 
-void fillYUYVFromYUYV(const BufferDesc& tgtBuff, uint8_t* tgt,
-                      void* imgData, void* buf, unsigned imgStride);
+void fillYUYVFromUYVY(const BufferDesc& tgtBuff, uint8_t* tgt, void* imgData, void* buf,
+                      unsigned imgStride);
 
-void fillYUYVFromUYVY(const BufferDesc& tgtBuff, uint8_t* tgt,
-                      void* imgData, void* buf, unsigned imgStride);
-
-} // namespace implementation
-} // namespace V1_1
-} // namespace evs
-} // namespace automotive
-} // namespace hardware
-} // namespace android
+}  // namespace implementation
+}  // namespace V1_1
+}  // namespace evs
+}  // namespace automotive
+}  // namespace hardware
+}  // namespace android
 
 #endif  // ANDROID_HARDWARE_AUTOMOTIVE_EVS_V1_1_BUFFERCOPY_H

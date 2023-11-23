@@ -4,27 +4,62 @@ package {
 
 microdroid_filesystem_images = [
     "microdroid_super",
-    "microdroid_boot-5.10",
-    "microdroid_init_boot",
-    "microdroid_vendor_boot-5.10",
     "microdroid_vbmeta",
-    "microdroid_vbmeta_bootconfig",
 ]
 
-apex {
-    name: "com.android.virt",
+soong_config_module_type {
+    name: "virt_apex",
+    module_type: "apex",
+    config_namespace: "ANDROID",
+    bool_variables: ["avf_enabled"],
+    properties: ["defaults"],
+}
 
+virt_apex {
+    name: "com.android.virt",
+    soong_config_variables: {
+        avf_enabled: {
+            defaults: ["com.android.virt_avf_enabled"],
+            conditions_default: {
+                defaults: ["com.android.virt_avf_disabled"],
+            },
+        },
+    },
+}
+
+apex_defaults {
+    name: "com.android.virt_common",
     // TODO(jiyong): make it updatable
     updatable: false,
-    future_updatable: true,
+    future_updatable: false,
     platform_apis: true,
-
-    system_ext_specific: true,
 
     manifest: "manifest.json",
 
     key: "com.android.virt.key",
     certificate: ":com.android.virt.certificate",
+
+    apps: [
+        "android.system.virtualmachine.res",
+    ],
+
+    file_contexts: ":com.android.virt-file_contexts",
+    canned_fs_config: "canned_fs_config",
+
+    bootclasspath_fragments: [
+        "com.android.virt-bootclasspath-fragment",
+    ],
+    jni_libs: [
+        "libvirtualizationservice_jni",
+        "libvirtualmachine_jni",
+    ],
+}
+
+apex_defaults {
+    name: "com.android.virt_avf_enabled",
+
+    defaults: ["com.android.virt_common"],
+
     custom_sign_tool: "sign_virt_apex",
 
     // crosvm and virtualizationservice are only enabled for 64-bit targets on device
@@ -32,6 +67,7 @@ apex {
         arm64: {
             binaries: [
                 "crosvm",
+                "virtmgr",
                 "virtualizationservice",
             ],
             filesystems: microdroid_filesystem_images,
@@ -39,6 +75,7 @@ apex {
         x86_64: {
             binaries: [
                 "crosvm",
+                "virtmgr",
                 "virtualizationservice",
             ],
             filesystems: microdroid_filesystem_images,
@@ -48,27 +85,26 @@ apex {
         "fd_server",
         "vm",
     ],
-    java_libs: [
-        "android.system.virtualmachine",
-    ],
-    jni_libs: [
-        "libvirtualmachine_jni",
-    ],
-    apps: [
-        "android.system.virtualmachine.res",
-    ],
     prebuilts: [
         "com.android.virt.init.rc",
+        "features_com.android.virt.xml",
+        "microdroid_initrd_debuggable",
+        "microdroid_initrd_normal",
         "microdroid.json",
-        "microdroid_uboot_env",
-        "microdroid_bootloader",
-        "microdroid_bootloader.avbpubkey",
-        "microdroid_bootconfig_normal",
-        "microdroid_bootconfig_app_debuggable",
-        "microdroid_bootconfig_full_debuggable",
+        "microdroid_kernel",
     ],
-    file_contexts: ":com.android.virt-file_contexts",
-    canned_fs_config: "canned_fs_config",
+    host_required: [
+        "vm_shell",
+    ],
+    apps: [
+        "EmptyPayloadApp",
+    ],
+}
+
+apex_defaults {
+    name: "com.android.virt_avf_disabled",
+
+    defaults: ["com.android.virt_common"],
 }
 
 apex_key {
@@ -96,16 +132,15 @@ python_binary_host {
         "sign_virt_apex.py",
     ],
     version: {
-        py2: {
-            enabled: false,
-        },
         py3: {
-            enabled: true,
             embedded_launcher: true,
         },
     },
     required: [
+        // sign_virt_apex should be runnable from outside the source tree,
+        // therefore, any required tool should be listed in build/make/core/Makefile as well.
         "img2simg",
+        "initrd_bootconfig",
         "lpmake",
         "lpunpack",
         "simg2img",
@@ -120,10 +155,13 @@ sh_test_host {
         // deapexer
         "deapexer",
         "debugfs_static",
+        "blkid",
+        "fsck.erofs",
 
         // sign_virt_apex
         "avbtool",
         "img2simg",
+        "initrd_bootconfig",
         "lpmake",
         "lpunpack",
         "sign_virt_apex",
@@ -164,12 +202,48 @@ python_binary_host {
         "replace_bytes.py",
     ],
     version: {
-        py2: {
-            enabled: false,
-        },
         py3: {
-            enabled: true,
             embedded_launcher: true,
         },
+    },
+}
+
+// Encapsulate the contributions made by the com.android.virt to the bootclasspath.
+bootclasspath_fragment {
+    name: "com.android.virt-bootclasspath-fragment",
+    contents: ["framework-virtualization"],
+    apex_available: ["com.android.virt"],
+
+    // The bootclasspath_fragments that provide APIs on which this depends.
+    fragments: [
+        {
+            apex: "com.android.art",
+            module: "art-bootclasspath-fragment",
+        },
+    ],
+
+    // Additional stubs libraries that this fragment's contents use which are
+    // not provided by another bootclasspath_fragment.
+    additional_stubs: [
+        "android-non-updatable",
+    ],
+
+    hidden_api: {
+
+        // This module does not contain any split packages.
+        split_packages: [],
+
+        // The following packages and all their subpackages currently only
+        // contain classes from this bootclasspath_fragment. Listing a package
+        // here won't prevent other bootclasspath modules from adding classes in
+        // any of those packages but it will prevent them from adding those
+        // classes into an API surface, e.g. public, system, etc.. Doing so will
+        // result in a build failure due to inconsistent flags.
+        package_prefixes: [
+            "android.system.virtualmachine",
+            "android.system.virtualizationservice",
+            // android.sysprop.*, renamed by jarjar
+            "com.android.system.virtualmachine.sysprop",
+        ],
     },
 }

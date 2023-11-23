@@ -24,6 +24,7 @@
 
 #include "bta/include/bta_gatt_api.h"
 #include "bta/vc/types.h"
+#include "common/interfaces/ILoggable.h"
 #include "include/hardware/bt_vc.h"
 #include "types/raw_address.h"
 
@@ -31,19 +32,14 @@ namespace bluetooth {
 namespace vc {
 namespace internal {
 
-class VolumeControlDevice {
+class VolumeControlDevice : public bluetooth::common::IRedactableLoggable {
  public:
   RawAddress address;
-  /* This is true only during first connection to profile, until we store the
-   * device
-   */
-  bool first_connection;
 
-  /* we are making active attempt to connect to this device, 'direct connect'.
-   * This is true only during initial phase of first connection. */
+  /* We are making active attempt to connect to this device */
   bool connecting_actively;
 
-  bool service_changed_rcvd;
+  bool known_service_handles_;
 
   uint8_t volume;
   uint8_t change_counter;
@@ -61,14 +57,14 @@ class VolumeControlDevice {
 
   VolumeOffsets audio_offsets;
 
-  bool device_ready; /* Set when device read server status and registgered for
-                        notifications */
+  /* Set when device successfully reads server status and registers for
+   * notifications */
+  bool device_ready;
 
-  VolumeControlDevice(const RawAddress& address, bool first_connection)
+  VolumeControlDevice(const RawAddress& address, bool connecting_actively)
       : address(address),
-        first_connection(first_connection),
-        connecting_actively(first_connection),
-        service_changed_rcvd(false),
+        connecting_actively(connecting_actively),
+        known_service_handles_(false),
         volume(0),
         change_counter(0),
         mute(false),
@@ -83,11 +79,21 @@ class VolumeControlDevice {
 
   ~VolumeControlDevice() = default;
 
+  // TODO: remove
   inline std::string ToString() { return address.ToString(); }
+
+  std::string ToStringForLogging() const override {
+    return address.ToStringForLogging();
+  }
+
+  std::string ToRedactedStringForLogging() const override {
+    return address.ToRedactedStringForLogging();
+  }
 
   void DebugDump(int fd) {
     std::stringstream stream;
-    stream << "   == device address: " << address << " == \n";
+    stream << "   == device address: " << ADDRESS_TO_LOGGABLE_STR(address)
+           << " == \n";
 
     if (connection_id == GATT_INVALID_CONN_ID)
       stream << "    Not connected\n";
@@ -98,7 +104,6 @@ class VolumeControlDevice {
            << "    mute: " << +mute << "\n"
            << "    flags: " << +flags << "\n"
            << "    device read: " << device_ready << "\n"
-           << "    first_connection_: " << first_connection << "\n"
            << "    connecting_actively_: " << connecting_actively << "\n";
 
     dprintf(fd, "%s", stream.str().c_str());
@@ -108,6 +113,8 @@ class VolumeControlDevice {
   bool IsConnected() { return connection_id != GATT_INVALID_CONN_ID; }
 
   void Disconnect(tGATT_IF gatt_if);
+
+  void DeregisterNotifications(tGATT_IF gatt_if);
 
   bool UpdateHandles(void);
 
@@ -130,13 +137,14 @@ class VolumeControlDevice {
                                         GATT_WRITE_OP_CB cb, void* cb_data);
   bool IsEncryptionEnabled();
 
-  bool EnableEncryption(tBTM_SEC_CALLBACK* callback);
+  void EnableEncryption();
 
   bool EnqueueInitialRequests(tGATT_IF gatt_if, GATT_READ_OP_CB chrc_read_cb,
                               GATT_WRITE_OP_CB cccd_write_cb);
   void EnqueueRemainingRequests(tGATT_IF gatt_if, GATT_READ_OP_CB chrc_read_cb,
                                 GATT_WRITE_OP_CB cccd_write_cb);
   bool VerifyReady(uint16_t handle);
+  bool IsReady() { return device_ready; }
 
  private:
   /*
@@ -156,10 +164,10 @@ class VolumeControlDevice {
 
 class VolumeControlDevices {
  public:
-  void Add(const RawAddress& address, bool first_connection) {
+  void Add(const RawAddress& address, bool connecting_actively) {
     if (FindByAddress(address) != nullptr) return;
 
-    devices_.emplace_back(address, first_connection);
+    devices_.emplace_back(address, connecting_actively);
   }
 
   void Remove(const RawAddress& address) {

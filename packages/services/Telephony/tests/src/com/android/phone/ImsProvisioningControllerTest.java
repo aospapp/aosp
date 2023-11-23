@@ -63,6 +63,7 @@ import android.telephony.TelephonyRegistryManager;
 import android.telephony.ims.ProvisioningManager;
 import android.telephony.ims.aidl.IFeatureProvisioningCallback;
 import android.telephony.ims.aidl.IImsConfig;
+import android.telephony.ims.aidl.IImsConfigCallback;
 import android.telephony.ims.feature.MmTelFeature.MmTelCapabilities;
 import android.telephony.ims.feature.RcsFeature.RcsImsCapabilities;
 import android.telephony.ims.stub.ImsConfigImplBase;
@@ -158,6 +159,9 @@ public class ImsProvisioningControllerTest {
     IFeatureProvisioningCallback mIFeatureProvisioningCallback0;
     @Mock
     IFeatureProvisioningCallback mIFeatureProvisioningCallback1;
+
+    @Captor
+    ArgumentCaptor<IImsConfigCallback> mIImsConfigCallback;
 
     @Mock
     IBinder mIbinder0;
@@ -347,6 +351,8 @@ public class ImsProvisioningControllerTest {
         mSubChangedListener.onSubscriptionsChanged();
         processAllMessages();
 
+        verify(mImsConfig, times(1)).addConfigCallback((IImsConfigCallback) any());
+
         int[] keys = {
                 ProvisioningManager.KEY_VOICE_OVER_WIFI_ENABLED_OVERRIDE,
                 ProvisioningManager.KEY_VOLTE_PROVISIONING_STATUS,
@@ -389,6 +395,8 @@ public class ImsProvisioningControllerTest {
 
         mRcsConnectorListener0.getValue().connectionReady(mRcsFeatureManager, mSubId0);
         processAllMessages();
+
+        verify(mImsConfig, times(1)).addConfigCallback((IImsConfigCallback) any());
 
         // verify # of read data times from storage : # of Rcs storage length
         verify(mImsProvisioningLoader, times(1))
@@ -1736,6 +1744,110 @@ public class ImsProvisioningControllerTest {
         verifyNoMoreInteractions(mImsProvisioningLoader);
     }
 
+    @Test
+    @SmallTest
+    public void changedProvisioningValue_withMmTel() throws Exception {
+        createImsProvisioningController();
+
+        // provisioning required capability
+        // voice, all tech
+        // video, all tech
+        setCarrierConfig(mSubId0, CarrierConfigManager.Ims.KEY_CAPABILITY_TYPE_VOICE_INT_ARRAY,
+                RADIO_TECHS);
+        setCarrierConfig(mSubId0, CarrierConfigManager.Ims.KEY_CAPABILITY_TYPE_VIDEO_INT_ARRAY,
+                RADIO_TECHS);
+
+        try {
+            mTestImsProvisioningController.addFeatureProvisioningChangedCallback(
+                    mSubId0, mIFeatureProvisioningCallback0);
+        } catch (Exception e) {
+            throw new AssertionError("not expected exception", e);
+        }
+
+        mMmTelConnectorListener0.getValue().connectionReady(mImsManager, mSubId0);
+
+        // clear interactions
+        clearInvocations(mIFeatureProvisioningCallback0);
+        clearInvocations(mImsConfig);
+        clearInvocations(mImsProvisioningLoader);
+
+        // MmTel valid
+        int[] keys = {
+                ProvisioningManager.KEY_VOLTE_PROVISIONING_STATUS,
+                ProvisioningManager.KEY_VT_PROVISIONING_STATUS,
+                ProvisioningManager.KEY_VOICE_OVER_WIFI_ENABLED_OVERRIDE
+        };
+        int[] capas = {
+                MmTelCapabilities.CAPABILITY_TYPE_VOICE,
+                MmTelCapabilities.CAPABILITY_TYPE_VIDEO,
+                MmTelCapabilities.CAPABILITY_TYPE_VOICE
+        };
+        int[] techs = {
+                ImsRegistrationImplBase.REGISTRATION_TECH_LTE,
+                ImsRegistrationImplBase.REGISTRATION_TECH_LTE,
+                ImsRegistrationImplBase.REGISTRATION_TECH_IWLAN
+        };
+
+        for (int index = 0; index < keys.length; index++) {
+            mIImsConfigCallback.getValue().onIntConfigChanged(keys[index],
+                    PROVISIONING_VALUE_DISABLED);
+            processAllMessages();
+
+            // verify # of read data times from storage : # of MmTel storage length
+            verify(mImsProvisioningLoader, times(1))
+                    .setProvisioningStatus(eq(mSubId0), eq(FEATURE_MMTEL), eq(capas[index]),
+                            eq(techs[index]), eq(false));
+
+            verify(mIFeatureProvisioningCallback0, times(1))
+                    .onFeatureProvisioningChanged(eq(capas[index]), eq(techs[index]), eq(false));
+        }
+
+        verifyNoMoreInteractions(mImsProvisioningLoader);
+        verifyNoMoreInteractions(mIFeatureProvisioningCallback0);
+        verifyNoMoreInteractions(mImsConfig);
+    }
+
+    @Test
+    @SmallTest
+    public void changedProvisioningValue_withRcs() throws Exception {
+        createImsProvisioningController();
+
+        // provisioning required capability : PRESENCE, tech : all
+        setCarrierConfig(mSubId0,
+                CarrierConfigManager.Ims.KEY_CAPABILITY_TYPE_PRESENCE_UCE_INT_ARRAY, RADIO_TECHS);
+
+        try {
+            mTestImsProvisioningController.addFeatureProvisioningChangedCallback(
+                    mSubId0, mIFeatureProvisioningCallback0);
+        } catch (Exception e) {
+            throw new AssertionError("not expected exception", e);
+        }
+
+        mRcsConnectorListener0.getValue().connectionReady(mRcsFeatureManager, mSubId0);
+
+        // clear interactions
+        clearInvocations(mIFeatureProvisioningCallback0);
+        clearInvocations(mImsConfig);
+        clearInvocations(mImsProvisioningLoader);
+
+        mIImsConfigCallback.getValue().onIntConfigChanged(KEY_EAB_PROVISIONING_STATUS,
+                PROVISIONING_VALUE_DISABLED);
+        processAllMessages();
+
+        // verify # of read data times from storage : # of MmTel storage length
+        verify(mImsProvisioningLoader, times(RADIO_TECHS.length))
+                .setProvisioningStatus(eq(mSubId0), eq(FEATURE_RCS),
+                        eq(CAPABILITY_TYPE_PRESENCE_UCE), anyInt(), eq(false));
+
+        verify(mIFeatureProvisioningCallback0, times(RADIO_TECHS.length))
+                .onRcsFeatureProvisioningChanged(eq(CAPABILITY_TYPE_PRESENCE_UCE), anyInt(),
+                        eq(false));
+
+        verifyNoMoreInteractions(mImsProvisioningLoader);
+        verifyNoMoreInteractions(mIFeatureProvisioningCallback0);
+        verifyNoMoreInteractions(mImsConfig);
+    }
+
     private void createImsProvisioningController() throws Exception {
         if (Looper.myLooper() == null) {
             Looper.prepare();
@@ -1754,6 +1866,9 @@ public class ImsProvisioningControllerTest {
         when(mRcsFeatureConnector
                 .create(any(), eq(1), mRcsConnectorListener1.capture(), any(), any()))
                 .thenReturn(mRcsFeatureConnector1);
+
+        doNothing().when(mImsConfig).addConfigCallback(mIImsConfigCallback.capture());
+        doNothing().when(mImsConfig).removeConfigCallback(any());
 
         when(mImsConfig.getConfigInt(anyInt()))
                 .thenAnswer(invocation -> {

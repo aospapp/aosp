@@ -23,6 +23,9 @@ import android.util.Log;
 
 import androidx.annotation.NonNull;
 
+import com.android.role.controller.model.Role;
+import com.android.role.controller.model.RoleBehavior;
+
 /**
  * Mixin for {@link RoleBehavior#isVisibleAsUser(Role, UserHandle, Context)} that returns whether
  * the role should be visible from a corresponding boolean resource.

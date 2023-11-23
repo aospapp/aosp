@@ -25,7 +25,6 @@
         style="@style/ColoredSwitchPreferenceStyle"
         settings:controller="com.android.car.settings.accessibility.ShowCaptionsSwitchPreferenceController"
         settings:searchable="false"/>
-    <com.android.car.settings.common.DividerPreference/>
     <PreferenceCategory
         android:key="@string/pk_captions_settings_style_subheader"
         android:title="@string/captions_settings_style_header">

@@ -24,26 +24,29 @@ import android.telephony.SmsCbEtwsInfo;
 import android.telephony.SmsCbLocation;
 import android.telephony.SmsCbMessage;
 import android.telephony.SubscriptionManager;
-import android.util.ArrayMap;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.CheckedTextView;
 import android.widget.CursorAdapter;
+import android.widget.ListView;
+
+import com.android.internal.annotations.VisibleForTesting;
+import com.android.modules.utils.build.SdkLevel;
 
 /**
  * The back-end data adapter for {@link CellBroadcastListActivity}.
  */
 public class CellBroadcastCursorAdapter extends CursorAdapter {
 
-    private static boolean sIsActionMode = false;
+    private boolean mIsActionMode = false;
     private CheckedTextView mCheckedTextView;
-    private ArrayMap<Integer, Long> mSelectedMessages;
+    private ListView mListView;
 
-    public CellBroadcastCursorAdapter(Context context, ArrayMap<Integer, Long> selectedMessages) {
+    public CellBroadcastCursorAdapter(Context context, ListView listview) {
         // don't set FLAG_AUTO_REQUERY or FLAG_REGISTER_CONTENT_OBSERVER
         super(context, null, 0);
-        mSelectedMessages = selectedMessages;
+        mListView = listview;
     }
 
     /**
@@ -192,12 +195,19 @@ public class CellBroadcastCursorAdapter extends CursorAdapter {
                     Telephony.CellBroadcasts.DATA_CODING_SCHEME));
         }
 
-        SubscriptionManager sm = (SubscriptionManager) context.getSystemService(
-                Context.TELEPHONY_SUBSCRIPTION_SERVICE);
-        int subId = SubscriptionManager.DEFAULT_SUBSCRIPTION_ID;
-        int[] subIds = sm.getSubscriptionIds(slotIndex);
-        if (subIds != null && subIds.length > 0) {
-            subId = subIds[0];
+        int subId = SubscriptionManager.INVALID_SUBSCRIPTION_ID;
+        if (SdkLevel.isAtLeastU()) {
+            subId = SubscriptionManager.getSubscriptionId(slotIndex);
+        } else {
+            SubscriptionManager sm = context.getSystemService(SubscriptionManager.class);
+            int[] subIds = sm.getSubscriptionIds(slotIndex);
+            if (subIds != null && subIds.length > 0) {
+                subId = subIds[0];
+            }
+        }
+
+        if (!SubscriptionManager.isValidSubscriptionId(subId)) {
+            subId = SubscriptionManager.DEFAULT_SUBSCRIPTION_ID;
         }
 
         int maximumWaitTimeSec = 0;
@@ -223,17 +233,24 @@ public class CellBroadcastCursorAdapter extends CursorAdapter {
         SmsCbMessage message = createFromCursor(context, cursor);
         CellBroadcastListItem listItem = (CellBroadcastListItem) view;
         mCheckedTextView = view.findViewById(R.id.checkBox);
-        updateCheckTextViewVisibility();
-        checkIsSelected(cursor.getPosition());
+        if (mCheckedTextView != null) {
+            updateCheckTextViewVisibility();
+            checkIsSelected(cursor.getPosition());
+        }
         listItem.bind(message);
     }
 
-    static void setIsActionMode(boolean value) {
-        sIsActionMode = value;
+    public void setIsActionMode(boolean value) {
+        mIsActionMode = value;
+    }
+
+    @VisibleForTesting
+    public boolean getIsActionMode() {
+        return mIsActionMode;
     }
 
     void updateCheckTextViewVisibility() {
-        if (sIsActionMode) {
+        if (mIsActionMode) {
             mCheckedTextView.setVisibility(View.VISIBLE);
         } else {
             mCheckedTextView.setVisibility(View.GONE);
@@ -241,10 +258,7 @@ public class CellBroadcastCursorAdapter extends CursorAdapter {
     }
 
     void checkIsSelected(int position) {
-        if (mSelectedMessages.containsKey(position)) {
-            mCheckedTextView.setChecked(true);
-        } else {
-            mCheckedTextView.setChecked(false);
-        }
+        boolean isChecked = mListView.isItemChecked(position);
+        mCheckedTextView.setChecked(isChecked);
     }
 }

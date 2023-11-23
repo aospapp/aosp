@@ -4,6 +4,7 @@ package {
 
 android_app {
     name: "OsuLogin",
+    package_name: "com.android.hotspot2.osulogin",
     defaults: ["wifi-module-sdk-version-defaults"],
     static_libs: ["androidx.legacy_legacy-support-v4"],
     resource_dirs: ["res"],
@@ -14,6 +15,9 @@ android_app {
         "com.android.wifi",
         "test_com.android.wifi",
     ],
+    optimize: {
+        shrink_resources: true,
+    },
 }
 
 android_app_certificate {

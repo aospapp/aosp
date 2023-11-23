@@ -16,6 +16,13 @@
 
 package android.net;
 
+import static android.net.NetworkStats.DEFAULT_NETWORK_NO;
+import static android.net.NetworkStats.IFACE_ALL;
+import static android.net.NetworkStats.METERED_NO;
+import static android.net.NetworkStats.ROAMING_NO;
+import static android.net.NetworkStats.SET_DEFAULT;
+import static android.net.NetworkStats.TAG_NONE;
+import static android.net.NetworkStats.UID_ALL;
 import static android.net.NetworkStatsHistory.DataStreamUtils.readVarLong;
 import static android.net.NetworkStatsHistory.DataStreamUtils.writeVarLong;
 import static android.net.NetworkStatsHistory.Entry.UNKNOWN;
@@ -60,7 +67,7 @@ import java.util.Random;
 
 @RunWith(DevSdkIgnoreRunner.class)
 @SmallTest
-@DevSdkIgnoreRule.IgnoreUpTo(Build.VERSION_CODES.R)
+@DevSdkIgnoreRule.IgnoreUpTo(Build.VERSION_CODES.S_V2)
 public class NetworkStatsHistoryTest {
     private static final String TAG = "NetworkStatsHistoryTest";
 
@@ -110,7 +117,8 @@ public class NetworkStatsHistoryTest {
 
         // record data into narrow window to get single bucket
         stats.recordData(TEST_START, TEST_START + SECOND_IN_MILLIS,
-                new NetworkStats.Entry(1024L, 10L, 2048L, 20L, 2L));
+                new NetworkStats.Entry(IFACE_ALL, UID_ALL, SET_DEFAULT, TAG_NONE, METERED_NO,
+                ROAMING_NO, DEFAULT_NETWORK_NO, 1024L, 10L, 2048L, 20L, 2L));
 
         assertEquals(1, stats.size());
         assertValues(stats, 0, SECOND_IN_MILLIS, 1024L, 10L, 2048L, 20L, 2L);
@@ -124,7 +132,8 @@ public class NetworkStatsHistoryTest {
         // split equally across two buckets
         final long recordStart = TEST_START + (bucketDuration / 2);
         stats.recordData(recordStart, recordStart + bucketDuration,
-                new NetworkStats.Entry(1024L, 10L, 128L, 2L, 2L));
+                new NetworkStats.Entry(IFACE_ALL, UID_ALL, SET_DEFAULT, TAG_NONE, METERED_NO,
+                ROAMING_NO, DEFAULT_NETWORK_NO, 1024L, 10L, 128L, 2L, 2L));
 
         assertEquals(2, stats.size());
         assertValues(stats, 0, HOUR_IN_MILLIS / 2, 512L, 5L, 64L, 1L, 1L);
@@ -141,7 +150,8 @@ public class NetworkStatsHistoryTest {
         final long recordStart = (TEST_START + BUCKET_SIZE) - MINUTE_IN_MILLIS;
         final long recordEnd = (TEST_START + (BUCKET_SIZE * 2)) + (MINUTE_IN_MILLIS * 4);
         stats.recordData(recordStart, recordEnd,
-                new NetworkStats.Entry(1000L, 2000L, 5000L, 10000L, 100L));
+                new NetworkStats.Entry(IFACE_ALL, UID_ALL, SET_DEFAULT, TAG_NONE, METERED_NO,
+                ROAMING_NO, DEFAULT_NETWORK_NO, 1000L, 2000L, 5000L, 10000L, 100L));
 
         assertEquals(3, stats.size());
         // first bucket should have (1/20 of value)
@@ -161,9 +171,11 @@ public class NetworkStatsHistoryTest {
         final long firstStart = TEST_START;
         final long lastStart = TEST_START + WEEK_IN_MILLIS;
         stats.recordData(firstStart, firstStart + SECOND_IN_MILLIS,
-                new NetworkStats.Entry(128L, 2L, 256L, 4L, 1L));
+                new NetworkStats.Entry(IFACE_ALL, UID_ALL, SET_DEFAULT, TAG_NONE, METERED_NO,
+                ROAMING_NO, DEFAULT_NETWORK_NO, 128L, 2L, 256L, 4L, 1L));
         stats.recordData(lastStart, lastStart + SECOND_IN_MILLIS,
-                new NetworkStats.Entry(64L, 1L, 512L, 8L, 2L));
+                new NetworkStats.Entry(IFACE_ALL, UID_ALL, SET_DEFAULT, TAG_NONE, METERED_NO,
+                ROAMING_NO, DEFAULT_NETWORK_NO, 64L, 1L, 512L, 8L, 2L));
 
         // we should have two buckets, far apart from each other
         assertEquals(2, stats.size());
@@ -174,7 +186,8 @@ public class NetworkStatsHistoryTest {
         final long middleStart = TEST_START + DAY_IN_MILLIS;
         final long middleEnd = middleStart + (HOUR_IN_MILLIS * 2);
         stats.recordData(middleStart, middleEnd,
-                new NetworkStats.Entry(2048L, 4L, 2048L, 4L, 2L));
+                new NetworkStats.Entry(IFACE_ALL, UID_ALL, SET_DEFAULT, TAG_NONE, METERED_NO,
+                ROAMING_NO, DEFAULT_NETWORK_NO, 2048L, 4L, 2048L, 4L, 2L));
 
         // now should have four buckets, with new record in middle two buckets
         assertEquals(4, stats.size());
@@ -191,10 +204,12 @@ public class NetworkStatsHistoryTest {
 
         // record some data in one bucket, and another overlapping buckets
         stats.recordData(TEST_START, TEST_START + SECOND_IN_MILLIS,
-                new NetworkStats.Entry(256L, 2L, 256L, 2L, 1L));
+                new NetworkStats.Entry(IFACE_ALL, UID_ALL, SET_DEFAULT, TAG_NONE, METERED_NO,
+                ROAMING_NO, DEFAULT_NETWORK_NO, 256L, 2L, 256L, 2L, 1L));
         final long midStart = TEST_START + (HOUR_IN_MILLIS / 2);
         stats.recordData(midStart, midStart + HOUR_IN_MILLIS,
-                new NetworkStats.Entry(1024L, 10L, 1024L, 10L, 10L));
+                new NetworkStats.Entry(IFACE_ALL, UID_ALL, SET_DEFAULT, TAG_NONE, METERED_NO,
+                ROAMING_NO, DEFAULT_NETWORK_NO, 1024L, 10L, 1024L, 10L, 10L));
 
         // should have two buckets, with some data mixed together
         assertEquals(2, stats.size());
@@ -371,9 +386,11 @@ public class NetworkStatsHistoryTest {
                 MINUTE_IN_MILLIS, 0, FIELD_RX_BYTES | FIELD_TX_BYTES);
 
         history.recordData(0, MINUTE_IN_MILLIS,
-                new NetworkStats.Entry(1024L, 10L, 2048L, 20L, 4L));
+                new NetworkStats.Entry(IFACE_ALL, UID_ALL, SET_DEFAULT, TAG_NONE, METERED_NO,
+                ROAMING_NO, DEFAULT_NETWORK_NO, 1024L, 10L, 2048L, 20L, 4L));
         history.recordData(0, 2 * MINUTE_IN_MILLIS,
-                new NetworkStats.Entry(2L, 2L, 2L, 2L, 2L));
+                new NetworkStats.Entry(IFACE_ALL, UID_ALL, SET_DEFAULT, TAG_NONE, METERED_NO,
+                ROAMING_NO, DEFAULT_NETWORK_NO, 2L, 2L, 2L, 2L, 2L));
 
         assertFullValues(history, UNKNOWN, 1026L, UNKNOWN, 2050L, UNKNOWN, UNKNOWN);
     }
@@ -385,7 +402,8 @@ public class NetworkStatsHistoryTest {
                 MINUTE_IN_MILLIS, 0, FIELD_RX_PACKETS | FIELD_OPERATIONS);
 
         full.recordData(0, MINUTE_IN_MILLIS,
-                new NetworkStats.Entry(1024L, 10L, 2048L, 20L, 4L));
+                new NetworkStats.Entry(IFACE_ALL, UID_ALL, SET_DEFAULT, TAG_NONE, METERED_NO,
+                ROAMING_NO, DEFAULT_NETWORK_NO, 1024L, 10L, 2048L, 20L, 4L));
         partial.recordEntireHistory(full);
 
         assertFullValues(partial, UNKNOWN, UNKNOWN, 10L, UNKNOWN, UNKNOWN, 4L);
@@ -398,7 +416,8 @@ public class NetworkStatsHistoryTest {
                 MINUTE_IN_MILLIS, 0, FIELD_RX_PACKETS | FIELD_OPERATIONS);
 
         partial.recordData(0, MINUTE_IN_MILLIS,
-                new NetworkStats.Entry(1024L, 10L, 2048L, 20L, 4L));
+                new NetworkStats.Entry(IFACE_ALL, UID_ALL, SET_DEFAULT, TAG_NONE, METERED_NO,
+                ROAMING_NO, DEFAULT_NETWORK_NO, 1024L, 10L, 2048L, 20L, 4L));
         full.recordEntireHistory(partial);
 
         assertFullValues(full, MINUTE_IN_MILLIS, 0L, 10L, 0L, 0L, 4L);
@@ -408,9 +427,11 @@ public class NetworkStatsHistoryTest {
     public void testSerialize() throws Exception {
         final NetworkStatsHistory before = new NetworkStatsHistory(MINUTE_IN_MILLIS, 40, FIELD_ALL);
         before.recordData(0, 4 * MINUTE_IN_MILLIS,
-                new NetworkStats.Entry(1024L, 10L, 2048L, 20L, 4L));
+                new NetworkStats.Entry(IFACE_ALL, UID_ALL, SET_DEFAULT, TAG_NONE, METERED_NO,
+                ROAMING_NO, DEFAULT_NETWORK_NO, 1024L, 10L, 2048L, 20L, 4L));
         before.recordData(DAY_IN_MILLIS, DAY_IN_MILLIS + MINUTE_IN_MILLIS,
-                new NetworkStats.Entry(10L, 20L, 30L, 40L, 50L));
+                new NetworkStats.Entry(IFACE_ALL, UID_ALL, SET_DEFAULT, TAG_NONE, METERED_NO,
+                ROAMING_NO, DEFAULT_NETWORK_NO, 10L, 20L, 30L, 40L, 50L));
 
         final ByteArrayOutputStream out = new ByteArrayOutputStream();
         before.writeToStream(new DataOutputStream(out));
@@ -451,11 +472,14 @@ public class NetworkStatsHistoryTest {
         final long THIRD_END = THIRD_START + (2 * HOUR_IN_MILLIS);
 
         stats.recordData(FIRST_START, FIRST_END,
-                new NetworkStats.Entry(1024L, 10L, 2048L, 20L, 2L));
+                new NetworkStats.Entry(IFACE_ALL, UID_ALL, SET_DEFAULT, TAG_NONE, METERED_NO,
+                ROAMING_NO, DEFAULT_NETWORK_NO, 1024L, 10L, 2048L, 20L, 2L));
         stats.recordData(SECOND_START, SECOND_END,
-                new NetworkStats.Entry(1024L, 10L, 2048L, 20L, 2L));
+                new NetworkStats.Entry(IFACE_ALL, UID_ALL, SET_DEFAULT, TAG_NONE, METERED_NO,
+                ROAMING_NO, DEFAULT_NETWORK_NO, 1024L, 10L, 2048L, 20L, 2L));
         stats.recordData(THIRD_START, THIRD_END,
-                new NetworkStats.Entry(1024L, 10L, 2048L, 20L, 2L));
+                new NetworkStats.Entry(IFACE_ALL, UID_ALL, SET_DEFAULT, TAG_NONE, METERED_NO,
+                ROAMING_NO, DEFAULT_NETWORK_NO, 1024L, 10L, 2048L, 20L, 2L));
 
         // should have buckets: 2+1+2
         assertEquals(5, stats.size());
@@ -494,11 +518,14 @@ public class NetworkStatsHistoryTest {
         final long THIRD_END = THIRD_START + (2 * HOUR_IN_MILLIS);
 
         stats.recordData(FIRST_START, FIRST_END,
-                new NetworkStats.Entry(1024L, 10L, 2048L, 20L, 2L));
+                new NetworkStats.Entry(IFACE_ALL, UID_ALL, SET_DEFAULT, TAG_NONE, METERED_NO,
+                ROAMING_NO, DEFAULT_NETWORK_NO, 1024L, 10L, 2048L, 20L, 2L));
         stats.recordData(SECOND_START, SECOND_END,
-                new NetworkStats.Entry(1024L, 10L, 2048L, 20L, 2L));
+                new NetworkStats.Entry(IFACE_ALL, UID_ALL, SET_DEFAULT, TAG_NONE, METERED_NO,
+                ROAMING_NO, DEFAULT_NETWORK_NO, 1024L, 10L, 2048L, 20L, 2L));
         stats.recordData(THIRD_START, THIRD_END,
-                new NetworkStats.Entry(1024L, 10L, 2048L, 20L, 2L));
+                new NetworkStats.Entry(IFACE_ALL, UID_ALL, SET_DEFAULT, TAG_NONE, METERED_NO,
+                ROAMING_NO, DEFAULT_NETWORK_NO, 1024L, 10L, 2048L, 20L, 2L));
 
         assertFalse(stats.intersects(10, 20));
         assertFalse(stats.intersects(TEST_START + YEAR_IN_MILLIS, TEST_START + YEAR_IN_MILLIS + 1));
@@ -520,7 +547,8 @@ public class NetworkStatsHistoryTest {
     public void testSetValues() throws Exception {
         stats = new NetworkStatsHistory(HOUR_IN_MILLIS);
         stats.recordData(TEST_START, TEST_START + 1,
-                new NetworkStats.Entry(1024L, 10L, 2048L, 20L, 2L));
+                new NetworkStats.Entry(IFACE_ALL, UID_ALL, SET_DEFAULT, TAG_NONE, METERED_NO,
+                ROAMING_NO, DEFAULT_NETWORK_NO, 1024L, 10L, 2048L, 20L, 2L));
 
         assertEquals(1024L + 2048L, stats.getTotalBytes());
 

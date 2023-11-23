@@ -36,8 +36,9 @@ import java.util.List;
 public interface GrantPermissionsViewHandler {
     @Retention(SOURCE)
     @IntDef({CANCELED, GRANTED_ALWAYS, GRANTED_FOREGROUND_ONLY, DENIED, DENIED_DO_NOT_ASK_AGAIN,
-            GRANTED_ONE_TIME})
+            GRANTED_ONE_TIME, GRANTED_USER_SELECTED, DENIED_MORE})
     @interface Result {}
+    int LINKED_TO_PERMISSION_RATIONALE = -3;
     int LINKED_TO_SETTINGS = -2;
     int CANCELED = -1;
     int GRANTED_ALWAYS = 0;
@@ -45,6 +46,9 @@ public interface GrantPermissionsViewHandler {
     int DENIED = 2;
     int DENIED_DO_NOT_ASK_AGAIN = 3;
     int GRANTED_ONE_TIME = 4;
+    int GRANTED_USER_SELECTED = 5; // The user has used a picker to select data to share
+    int DENIED_MORE = 6; // The user has used the picker at least once, but has denied a request
+                         // for more
 
     /**
      * Listener interface for getting notified when the user responds to a
@@ -55,6 +59,8 @@ public interface GrantPermissionsViewHandler {
 
         void onPermissionGrantResult(String groupName, List<String> affectedForegroundPermissions,
                 @Result int result);
+
+        void onPermissionRationaleClicked(String groupName);
     }
 
     /**
@@ -83,11 +89,15 @@ public interface GrantPermissionsViewHandler {
      * @param message the message to display the user
      * @param detailMessage another message to display to the user. This clarifies "message" in more
      *                      detail
+     * @param permissionRationaleMessage another message to display to the user. This message lets
+     *                                   users know developer stated data usages for the requested
+     *                                   permission
      * @param buttonVisibilities visibilities for each button
      * @param locationVisibilities visibilities for location options
      */
     void updateUi(String groupName, int groupCount, int groupIndex, Icon icon,
-            CharSequence message, CharSequence detailMessage, boolean[] buttonVisibilities,
+            CharSequence message, CharSequence detailMessage,
+            CharSequence permissionRationaleMessage, boolean[] buttonVisibilities,
             boolean[] locationVisibilities);
 
     /**
@@ -112,6 +122,11 @@ public interface GrantPermissionsViewHandler {
      * Gives a chance for handling the back key.
      */
     void onBackPressed();
+
+    /**
+     * Handles cancel event for the permission dialog.
+     */
+    default void onCancelled() {}
 
     /**
      * Called by {@link GrantPermissionsActivity} to allow the handler to update

@@ -21,17 +21,10 @@ package android.net;
  * @hide
  */
 parcelable TetheringConfigurationParcel {
-    int subId;
     String[] tetherableUsbRegexs;
     String[] tetherableWifiRegexs;
     String[] tetherableBluetoothRegexs;
-    boolean isDunRequired;
-    boolean chooseUpstreamAutomatically;
-    int[] preferredUpstreamIfaceTypes;
     String[] legacyDhcpRanges;
-    String[] defaultIPv4DNS;
-    boolean enableLegacyDhcpServer;
     String[] provisioningApp;
     String provisioningAppNoUi;
-    int provisioningCheckPeriod;
 }

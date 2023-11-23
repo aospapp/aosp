@@ -82,8 +82,8 @@ public class DTCListActivity extends Activity {
                                 "Do you really want to clear %d mDtcs?", mAdapter.numSelected()))
                 .setIcon(android.R.drawable.ic_dialog_alert)
                 .setPositiveButton(
-                        android.R.string.yes, (dialog, whichButton) -> mAdapter.deleteSelected())
-                .setNegativeButton(android.R.string.no, null)
+                        android.R.string.ok, (dialog, whichButton) -> mAdapter.deleteSelected())
+                .setNegativeButton(android.R.string.cancel, null)
                 .show();
     }
 }

@@ -22,7 +22,7 @@ import android.test.suitebuilder.annotation.SmallTest;
 
 /** Tests for {@link WifiInfo} */
 public class WifiInfoTest extends AndroidTestCase {
-    private static final String TEST_SSID = "TestWifi";
+    private static final String TEST_SSID = "\"TestWifi\"";
     private static final boolean TEST_HIDDEN = true;
     private static final String TEST_HIDDEN_STR = Boolean.toString(TEST_HIDDEN);
     private static final String TEST_SECURITY_TYPE = "WPA2";

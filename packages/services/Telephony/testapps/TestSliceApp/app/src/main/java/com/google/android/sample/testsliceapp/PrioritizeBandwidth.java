@@ -21,6 +21,7 @@ import android.net.Network;
 import android.net.NetworkCapabilities;
 import android.net.NetworkRequest;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.View.OnClickListener;
@@ -73,6 +74,7 @@ public class PrioritizeBandwidth extends Fragment {
                 new NetworkCallback() {
             @Override
             public void onAvailable(final Network network) {
+                Log.d("SliceTest", "onAvailable: " + network);
                 mNetwork = network;
             }
         };
@@ -80,23 +82,30 @@ public class PrioritizeBandwidth extends Fragment {
         mRelease.setOnClickListener(new OnClickListener() {
             @Override
             public void onClick(View view) {
-                mConnectivityManager.unregisterNetworkCallback(mProfileCheckNetworkCallback);
+                try {
+                    mConnectivityManager.unregisterNetworkCallback(
+                            mProfileCheckNetworkCallback);
+                } catch (Exception e) {
+                    Log.d("SliceTest", "Exception: " + e);
+                }
             }
         });
         mRequest = view.findViewById(R.id.requestbw);
         mRequest.setOnClickListener(new OnClickListener() {
             @Override
             public void onClick(View view) {
-                NetworkCallback mProfileCheckNetworkCallback =
+                mProfileCheckNetworkCallback =
                         new NetworkCallback() {
                     @Override
                     public void onAvailable(final Network network) {
+                        Log.d("PrioritizeBandwidth", "onAvailable + " + network);
                         mNetwork = network;
                     }
                 };
                 NetworkRequest.Builder builder = new NetworkRequest.Builder();
                 builder.addCapability(NetworkCapabilities.NET_CAPABILITY_PRIORITIZE_BANDWIDTH);
                 mConnectivityManager.requestNetwork(builder.build(), mProfileCheckNetworkCallback);
+                Log.d("PrioritizeBandwidth", "onClick + " + builder.build());
             }
         });
         mPing = view.findViewById(R.id.pingbw);
@@ -104,10 +113,10 @@ public class PrioritizeBandwidth extends Fragment {
             @Override
             public void onClick(View view) {
                 if (mNetwork != null) {
-                    //mNetwork.
                     try {
-                        new RequestTask().ping(mNetwork);
+                        new RequestTask().execute(mNetwork);
                     } catch (Exception e) {
+                        Log.d("SliceTest", "Exception: " + e);
                     }
                 }
             }

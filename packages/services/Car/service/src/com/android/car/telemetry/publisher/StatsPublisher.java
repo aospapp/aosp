@@ -21,7 +21,9 @@ import static com.android.car.telemetry.AtomsProto.Atom.ANR_OCCURRED_FIELD_NUMBE
 import static com.android.car.telemetry.AtomsProto.Atom.APP_CRASH_OCCURRED_FIELD_NUMBER;
 import static com.android.car.telemetry.AtomsProto.Atom.APP_START_MEMORY_STATE_CAPTURED_FIELD_NUMBER;
 import static com.android.car.telemetry.AtomsProto.Atom.PROCESS_CPU_TIME_FIELD_NUMBER;
+import static com.android.car.telemetry.AtomsProto.Atom.PROCESS_MEMORY_SNAPSHOT_FIELD_NUMBER;
 import static com.android.car.telemetry.AtomsProto.Atom.PROCESS_MEMORY_STATE_FIELD_NUMBER;
+import static com.android.car.telemetry.AtomsProto.Atom.PROCESS_START_TIME_FIELD_NUMBER;
 import static com.android.car.telemetry.AtomsProto.Atom.WTF_OCCURRED_FIELD_NUMBER;
 import static com.android.car.telemetry.CarTelemetryService.DEBUG;
 
@@ -41,7 +43,9 @@ import android.util.LongSparseArray;
 
 import com.android.car.CarLog;
 import com.android.car.telemetry.AtomsProto.ProcessCpuTime;
+import com.android.car.telemetry.AtomsProto.ProcessMemorySnapshot;
 import com.android.car.telemetry.AtomsProto.ProcessMemoryState;
+import com.android.car.telemetry.ResultStore;
 import com.android.car.telemetry.StatsLogProto;
 import com.android.car.telemetry.StatsdConfigProto;
 import com.android.car.telemetry.StatsdConfigProto.StatsdConfig;
@@ -49,14 +53,11 @@ import com.android.car.telemetry.databroker.DataSubscriber;
 import com.android.car.telemetry.publisher.statsconverters.ConfigMetricsReportListConverter;
 import com.android.car.telemetry.publisher.statsconverters.StatsConversionException;
 import com.android.car.telemetry.sessioncontroller.SessionAnnotation;
-import com.android.car.telemetry.util.IoUtils;
 import com.android.internal.annotations.VisibleForTesting;
 import com.android.internal.util.Preconditions;
 
 import com.google.protobuf.InvalidProtocolBufferException;
 
-import java.io.File;
-import java.io.IOException;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -100,10 +101,14 @@ public class StatsPublisher extends AbstractPublisher {
     static final long WTF_OCCURRED_ATOM_MATCHER_ID = 13;
     @VisibleForTesting
     static final long WTF_OCCURRED_EVENT_METRIC_ID = 14;
-
-    // The file that contains stats config key and stats config version
     @VisibleForTesting
-    static final String SAVED_STATS_CONFIGS_FILE = "stats_config_keys_versions";
+    static final long PROCESS_MEMORY_SNAPSHOT_ATOM_MATCHER_ID = 15;
+    @VisibleForTesting
+    static final long PROCESS_MEMORY_SNAPSHOT_GAUGE_METRIC_ID = 16;
+    @VisibleForTesting
+    static final long PROCESS_START_TIME_ATOM_MATCHER_ID = 17;
+    @VisibleForTesting
+    static final long PROCESS_START_TIME_EVENT_METRIC_ID = 18;
 
     // TODO(b/202115033): Flatten the load spike by pulling reports for each MetricsConfigs
     //                    using separate periodical timers.
@@ -111,12 +116,6 @@ public class StatsPublisher extends AbstractPublisher {
 
     private static final String BUNDLE_CONFIG_KEY_PREFIX = "statsd-publisher-config-id-";
     private static final String BUNDLE_CONFIG_VERSION_PREFIX = "statsd-publisher-config-version-";
-    /**
-     * Binder transaction size limit is 1MB for all binders per process, so for large script input
-     * file pipe will be used to transfer the data to script executor instead of binder call. This
-     * is the input size threshold above which piping is used.
-     */
-    private static final int SCRIPT_INPUT_SIZE_THRESHOLD_BYTES = 20 * 1024; // 20 kb
 
     @VisibleForTesting
     static final StatsdConfigProto.FieldMatcher PROCESS_MEMORY_STATE_FIELDS_MATCHER =
@@ -147,12 +146,33 @@ public class StatsPublisher extends AbstractPublisher {
                             .setField(ProcessCpuTime.SYSTEM_TIME_MILLIS_FIELD_NUMBER))
                     .build();
 
-    private final StatsManagerProxy mStatsManager;
-    private final File mSavedStatsConfigsFile;
-    private final Handler mTelemetryHandler;
+    @VisibleForTesting
+    static final StatsdConfigProto.FieldMatcher PROCESS_MEMORY_SNAPSHOT_FIELDS_MATCHER =
+            StatsdConfigProto.FieldMatcher.newBuilder()
+                    .setField(
+                            PROCESS_MEMORY_SNAPSHOT_FIELD_NUMBER)
+                    .addChild(StatsdConfigProto.FieldMatcher.newBuilder()
+                            .setField(ProcessMemorySnapshot.PID_FIELD_NUMBER))
+                    .addChild(StatsdConfigProto.FieldMatcher.newBuilder()
+                            .setField(ProcessMemorySnapshot.OOM_SCORE_ADJ_FIELD_NUMBER))
+                    .addChild(StatsdConfigProto.FieldMatcher.newBuilder()
+                            .setField(ProcessMemorySnapshot.RSS_IN_KILOBYTES_FIELD_NUMBER))
+                    .addChild(StatsdConfigProto.FieldMatcher.newBuilder()
+                            .setField(ProcessMemorySnapshot.ANON_RSS_IN_KILOBYTES_FIELD_NUMBER))
+                    .addChild(StatsdConfigProto.FieldMatcher.newBuilder()
+                            .setField(ProcessMemorySnapshot.SWAP_IN_KILOBYTES_FIELD_NUMBER))
+                    .addChild(StatsdConfigProto.FieldMatcher.newBuilder()
+                            .setField(ProcessMemorySnapshot
+                                    .ANON_RSS_AND_SWAP_IN_KILOBYTES_FIELD_NUMBER))
+                    .addChild(StatsdConfigProto.FieldMatcher.newBuilder()
+                            .setField(ProcessMemorySnapshot.GPU_MEMORY_KB_FIELD_NUMBER))
+                    .addChild(StatsdConfigProto.FieldMatcher.newBuilder()
+                            .setField(ProcessMemorySnapshot.HAS_FOREGROUND_SERVICES_FIELD_NUMBER))
+                    .build();
 
-    // True if the publisher is periodically pulling reports from StatsD.
-    private boolean mIsPullingReports = false;
+    private final StatsManagerProxy mStatsManager;
+    private final ResultStore mResultStore;
+    private final Handler mTelemetryHandler;
 
     /** Assign the method to {@link Runnable}, otherwise the handler fails to remove it. */
     private final Runnable mPullReportsPeriodically = this::pullReportsPeriodically;
@@ -163,50 +183,35 @@ public class StatsPublisher extends AbstractPublisher {
     // Maps config_key to the set of DataSubscriber.
     private final LongSparseArray<DataSubscriber> mConfigKeyToSubscribers = new LongSparseArray<>();
 
-    private final PersistableBundle mSavedStatsConfigs;
+    private PersistableBundle mSavedStatsConfigs;
+
+    // True if the publisher is periodically pulling reports from StatsD.
+    private boolean mIsPullingReports = false;
 
     StatsPublisher(
             @NonNull PublisherListener listener,
             @NonNull StatsManagerProxy statsManager,
-            @NonNull File publisherDirectory,
+            @NonNull ResultStore resultStore,
             @NonNull Handler telemetryHandler) {
         super(listener);
         mStatsManager = statsManager;
+        mResultStore = resultStore;
         mTelemetryHandler = telemetryHandler;
-        mSavedStatsConfigsFile = new File(publisherDirectory, SAVED_STATS_CONFIGS_FILE);
-        mSavedStatsConfigs = loadBundle();
-    }
-
-    /** Loads the PersistableBundle containing stats config keys and versions from disk. */
-    @NonNull
-    private PersistableBundle loadBundle() {
-        if (!mSavedStatsConfigsFile.exists()) {
-            return new PersistableBundle();
-        }
-        try {
-            return IoUtils.readBundle(mSavedStatsConfigsFile);
-        } catch (IOException e) {
-            // TODO(b/199947533): handle failure
-            Slogf.e(CarLog.TAG_TELEMETRY, "Failed to read file "
-                    + mSavedStatsConfigsFile.getAbsolutePath(), e);
-            return new PersistableBundle();
+        // Loads the PersistableBundle containing stats config keys and versions from disk
+        mSavedStatsConfigs = mResultStore.getPublisherData(
+                StatsPublisher.class.getSimpleName(), false);
+        if (mSavedStatsConfigs == null) {
+            mSavedStatsConfigs = new PersistableBundle();
         }
     }
 
     /** Writes the PersistableBundle containing stats config keys and versions to disk. */
-    private void saveBundle() {
+    private void savePublisherState() {
         if (mSavedStatsConfigs.size() == 0) {
-            mSavedStatsConfigsFile.delete();
+            mResultStore.removePublisherData(StatsPublisher.class.getSimpleName());
             return;
         }
-        try {
-            IoUtils.writeBundle(mSavedStatsConfigsFile, mSavedStatsConfigs);
-        } catch (IOException e) {
-            // TODO(b/199947533): handle failure
-            Slogf.e(CarLog.TAG_TELEMETRY,
-                    "Cannot write to " + mSavedStatsConfigsFile.getAbsolutePath()
-                            + ". Added stats config info is lost.", e);
-        }
+        mResultStore.putPublisherData(StatsPublisher.class.getSimpleName(), mSavedStatsConfigs);
     }
 
     @Override
@@ -222,12 +227,10 @@ public class StatsPublisher extends AbstractPublisher {
 
         if (!mIsPullingReports) {
             if (DEBUG) {
-                Slogf.d(CarLog.TAG_TELEMETRY, "Stats report will be pulled in "
-                        + PULL_REPORTS_PERIOD.toMinutes() + " minutes.");
+                Slogf.d(CarLog.TAG_TELEMETRY, "Triggering pull stats reports");
             }
             mIsPullingReports = true;
-            mTelemetryHandler.postDelayed(
-                    mPullReportsPeriodically, PULL_REPORTS_PERIOD.toMillis());
+            mTelemetryHandler.post(mPullReportsPeriodically);
         }
     }
 
@@ -277,12 +280,20 @@ public class StatsPublisher extends AbstractPublisher {
             case WTF_OCCURRED:
                 metricId = WTF_OCCURRED_EVENT_METRIC_ID;
                 break;
+            case PROCESS_MEMORY_SNAPSHOT:
+                metricId = PROCESS_MEMORY_SNAPSHOT_GAUGE_METRIC_ID;
+                break;
+            case PROCESS_START_TIME:
+                metricId = PROCESS_START_TIME_EVENT_METRIC_ID;
+                break;
             default:
                 return;
         }
         if (!metricBundles.containsKey(metricId)) {
             Slogf.w(CarLog.TAG_TELEMETRY,
-                    "No reports for metric id " + metricId + " for config " + configKey);
+                    "No reports for metric id " + metricId + " ("
+                            + subscriber.getPublisherParam().getStats().getSystemMetric()
+                            + ") for config " + configKey);
             return;
         }
         PersistableBundle bundle = metricBundles.get(metricId);
@@ -314,10 +325,8 @@ public class StatsPublisher extends AbstractPublisher {
                 }
             }
         }
-        if (bytes < SCRIPT_INPUT_SIZE_THRESHOLD_BYTES) {
-            return false;
-        }
-        return true;
+
+        return bytes >= DataSubscriber.SCRIPT_INPUT_SIZE_THRESHOLD_BYTES;
     }
 
     private void processStatsMetadata(@NonNull StatsLogProto.StatsdStatsReport statsReport) {
@@ -438,8 +447,8 @@ public class StatsPublisher extends AbstractPublisher {
                 // will ry deleting StatsD configs again.
             }
         }
-        saveBundle();
         mSavedStatsConfigs.clear();
+        savePublisherState();
         mIsPullingReports = false;
         mTelemetryHandler.removeCallbacks(mPullReportsPeriodically);
     }
@@ -507,7 +516,7 @@ public class StatsPublisher extends AbstractPublisher {
             mStatsManager.addConfig(configKey, config.toByteArray());
             mSavedStatsConfigs.putInt(bundleVersion, subscriber.getMetricsConfig().getVersion());
             mSavedStatsConfigs.putLong(bundleConfigKey, configKey);
-            saveBundle();
+            savePublisherState();
         } catch (StatsUnavailableException e) {
             Slogf.w(CarLog.TAG_TELEMETRY, "Failed to add config" + configKey, e);
             // We will notify the failure immediately, as we're expecting StatsManager to be stable.
@@ -527,7 +536,7 @@ public class StatsPublisher extends AbstractPublisher {
             mStatsManager.removeConfig(configKey);
             mSavedStatsConfigs.remove(bundleVersion);
             mSavedStatsConfigs.remove(bundleConfigKey);
-            saveBundle();
+            savePublisherState();
         } catch (StatsUnavailableException e) {
             Slogf.w(CarLog.TAG_TELEMETRY, "Failed to remove config " + configKey
                     + ". Ignoring the failure. Will retry removing again when"
@@ -581,6 +590,10 @@ public class StatsPublisher extends AbstractPublisher {
                 return buildAnrOccurredStatsdConfig(builder);
             case WTF_OCCURRED:
                 return buildWtfOccurredStatsdConfig(builder);
+            case PROCESS_MEMORY_SNAPSHOT:
+                return buildProcessMemorySnapshotStatsdConfig(builder);
+            case PROCESS_START_TIME:
+                return buildProcessStartTimeStatsdConfig(builder);
             default:
                 throw new IllegalArgumentException("Unsupported metric " + metric.name());
         }
@@ -729,6 +742,55 @@ public class StatsPublisher extends AbstractPublisher {
                         // The id must be unique within StatsdConfig/metrics
                         .setId(WTF_OCCURRED_EVENT_METRIC_ID)
                         .setWhat(WTF_OCCURRED_ATOM_MATCHER_ID))
+                .build();
+    }
+
+    @NonNull
+    private static StatsdConfig buildProcessMemorySnapshotStatsdConfig(
+            @NonNull StatsdConfig.Builder builder) {
+        return builder
+                .addAtomMatcher(StatsdConfigProto.AtomMatcher.newBuilder()
+                        // The id must be unique within StatsdConfig/matchers
+                        .setId(PROCESS_MEMORY_SNAPSHOT_ATOM_MATCHER_ID)
+                        .setSimpleAtomMatcher(StatsdConfigProto.SimpleAtomMatcher.newBuilder()
+                                .setAtomId(PROCESS_MEMORY_SNAPSHOT_FIELD_NUMBER)))
+                .addGaugeMetric(StatsdConfigProto.GaugeMetric.newBuilder()
+                        // The id must be unique within StatsdConfig/metrics
+                        .setId(PROCESS_MEMORY_SNAPSHOT_GAUGE_METRIC_ID)
+                        .setWhat(PROCESS_MEMORY_SNAPSHOT_ATOM_MATCHER_ID)
+                        .setDimensionsInWhat(StatsdConfigProto.FieldMatcher.newBuilder()
+                                .setField(PROCESS_MEMORY_SNAPSHOT_FIELD_NUMBER)
+                                .addChild(StatsdConfigProto.FieldMatcher.newBuilder()
+                                        .setField(ProcessMemorySnapshot.UID_FIELD_NUMBER))
+                                .addChild(StatsdConfigProto.FieldMatcher.newBuilder()
+                                        .setField(ProcessMemorySnapshot.PROCESS_NAME_FIELD_NUMBER))
+                        )
+                        .setGaugeFieldsFilter(StatsdConfigProto.FieldFilter.newBuilder()
+                                .setFields(PROCESS_MEMORY_SNAPSHOT_FIELDS_MATCHER)
+                        )  // setGaugeFieldsFilter
+                        .setSamplingType(
+                                StatsdConfigProto.GaugeMetric.SamplingType.RANDOM_ONE_SAMPLE)
+                        .setBucket(StatsdConfigProto.TimeUnit.FIVE_MINUTES)
+                )
+                .addPullAtomPackages(StatsdConfigProto.PullAtomPackages.newBuilder()
+                        .setAtomId(PROCESS_MEMORY_SNAPSHOT_FIELD_NUMBER)
+                        .addPackages("AID_SYSTEM"))
+                .build();
+    }
+
+    @NonNull
+    private static StatsdConfig buildProcessStartTimeStatsdConfig(
+            @NonNull StatsdConfig.Builder builder) {
+        return builder
+                .addAtomMatcher(StatsdConfigProto.AtomMatcher.newBuilder()
+                        // The id must be unique within StatsdConfig/matchers
+                        .setId(PROCESS_START_TIME_ATOM_MATCHER_ID)
+                        .setSimpleAtomMatcher(StatsdConfigProto.SimpleAtomMatcher.newBuilder()
+                                .setAtomId(PROCESS_START_TIME_FIELD_NUMBER)))
+                .addEventMetric(StatsdConfigProto.EventMetric.newBuilder()
+                        // The id must be unique within StatsdConfig/metrics
+                        .setId(PROCESS_START_TIME_EVENT_METRIC_ID)
+                        .setWhat(PROCESS_START_TIME_ATOM_MATCHER_ID))
                 .build();
     }
 

@@ -18,6 +18,7 @@ package com.android.car.settings.common;
 
 import android.annotation.NonNull;
 import android.annotation.XmlRes;
+import android.car.CarOccupantZoneManager;
 import android.content.Context;
 import android.content.res.TypedArray;
 import android.content.res.XmlResourceParser;
@@ -53,6 +54,13 @@ public class PreferenceXmlParser {
     private static final List<String> SUPPORTED_PREF_TYPES = Arrays.asList("Preference",
             "PreferenceCategory", "PreferenceScreen");
 
+    public static final String PREF_AVAILABILITY_STATUS_WRITE = "write";
+    public static final String PREF_AVAILABILITY_STATUS_READ = "read";
+    public static final String PREF_AVAILABILITY_STATUS_HIDDEN = "hidden";
+    public static final List<String> SUPPORTED_AVAILABILITY_STATUS =
+            Arrays.asList(PREF_AVAILABILITY_STATUS_WRITE, PREF_AVAILABILITY_STATUS_READ,
+                    PREF_AVAILABILITY_STATUS_HIDDEN);
+
     /**
      * Flag definition to indicate which metadata should be extracted when
      * {@link #extractMetadata(Context, int, int)} is called. The flags can be combined by using |
@@ -61,17 +69,24 @@ public class PreferenceXmlParser {
     @IntDef(flag = true, value = {
             MetadataFlag.FLAG_NEED_KEY,
             MetadataFlag.FLAG_NEED_PREF_CONTROLLER,
-            MetadataFlag.FLAG_NEED_SEARCHABLE})
+            MetadataFlag.FLAG_NEED_SEARCHABLE,
+            MetadataFlag.FLAG_NEED_PREF_DRIVER,
+            MetadataFlag.FLAG_NEED_PREF_FRONT_PASSENGER,
+            MetadataFlag.FLAG_NEED_PREF_REAR_PASSENGER})
     @Retention(RetentionPolicy.SOURCE)
     public @interface MetadataFlag {
         int FLAG_NEED_KEY = 1;
         int FLAG_NEED_PREF_CONTROLLER = 1 << 1;
         int FLAG_NEED_SEARCHABLE = 1 << 9;
+        int FLAG_NEED_PREF_DRIVER = 1 << 10;
+        int FLAG_NEED_PREF_FRONT_PASSENGER = 1 << 11;
+        int FLAG_NEED_PREF_REAR_PASSENGER = 1 << 12;
     }
 
     public static final String METADATA_KEY = "key";
     public static final String METADATA_SEARCHABLE = "searchable";
     static final String METADATA_CONTROLLER = "controller";
+    public static final String METADATA_OCCUPANT_ZONE = "occupant_zone";
 
     /**
      * Extracts metadata from each preference XML and puts them into a {@link Bundle}.
@@ -123,6 +138,16 @@ public class PreferenceXmlParser {
                 preferenceMetadata.putBoolean(METADATA_SEARCHABLE,
                         isSearchable(preferenceAttributes));
             }
+            if (hasFlag(flags, MetadataFlag.FLAG_NEED_PREF_DRIVER)) {
+                preferenceMetadata.putString(METADATA_OCCUPANT_ZONE,
+                        getDriver(preferenceAttributes));
+            } else if (hasFlag(flags, MetadataFlag.FLAG_NEED_PREF_FRONT_PASSENGER)) {
+                preferenceMetadata.putString(METADATA_OCCUPANT_ZONE,
+                        getFrontPassenger(preferenceAttributes));
+            } else if (hasFlag(flags, MetadataFlag.FLAG_NEED_PREF_REAR_PASSENGER)) {
+                preferenceMetadata.putString(METADATA_OCCUPANT_ZONE,
+                        getRearPassenger(preferenceAttributes));
+            }
             metadata.add(preferenceMetadata);
 
             preferenceAttributes.recycle();
@@ -131,6 +156,24 @@ public class PreferenceXmlParser {
         parser.close();
 
         return metadata;
+    }
+
+    /**
+     * Gets metadata flag from current zone type.
+     *
+     * @return a flag {@link MetadataFlag} that determines which zone attribute
+     * should be extracted from xml.
+     */
+    public static int getMetadataFlagForOccupantZoneType(int zoneType) {
+        switch (zoneType) {
+            case CarOccupantZoneManager.OCCUPANT_TYPE_FRONT_PASSENGER:
+                return PreferenceXmlParser.MetadataFlag.FLAG_NEED_PREF_FRONT_PASSENGER;
+            case CarOccupantZoneManager.OCCUPANT_TYPE_REAR_PASSENGER:
+                return PreferenceXmlParser.MetadataFlag.FLAG_NEED_PREF_REAR_PASSENGER;
+            case CarOccupantZoneManager.OCCUPANT_TYPE_DRIVER: // fall through
+            default:
+                return PreferenceXmlParser.MetadataFlag.FLAG_NEED_PREF_DRIVER;
+        }
     }
 
     private static boolean hasFlag(int flags, @MetadataFlag int flag) {
@@ -147,5 +190,17 @@ public class PreferenceXmlParser {
 
     private static boolean isSearchable(TypedArray styledAttributes) {
         return styledAttributes.getBoolean(R.styleable.Preference_searchable, true);
+    }
+
+    private static String getDriver(TypedArray styledAttributes) {
+        return styledAttributes.getString(R.styleable.Preference_occupant_driver);
+    }
+
+    private static String getFrontPassenger(TypedArray styledAttributes) {
+        return styledAttributes.getString(R.styleable.Preference_occupant_front_passenger);
+    }
+
+    private static String getRearPassenger(TypedArray styledAttributes) {
+        return styledAttributes.getString(R.styleable.Preference_occupant_rear_passenger);
     }
 }

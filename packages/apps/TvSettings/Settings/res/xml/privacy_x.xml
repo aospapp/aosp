@@ -28,7 +28,7 @@
     <Preference
         android:key="microphone"
         android:title="@string/microphone"
-        android:fragment="com.android.tv.settings.privacy.SensorFragment" />
+        android:fragment="com.android.tv.settings.privacy.MicrophoneFragment" />
     <Preference
         android:key="camera"
         android:title="@string/camera"

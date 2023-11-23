@@ -16,61 +16,202 @@
 
 package com.android.car.systeminterface;
 
+import static com.android.car.internal.util.VersionUtils.isPlatformVersionAtLeastU;
+
+import android.car.builtin.power.PowerManagerHelper;
+import android.car.builtin.util.Slogf;
 import android.content.Context;
+import android.hardware.display.DisplayManager;
 import android.os.PowerManager;
 import android.os.PowerManager.WakeLock;
+import android.util.Pair;
+import android.util.SparseArray;
+import android.view.Display;
 
 import com.android.car.CarLog;
+import com.android.internal.annotations.GuardedBy;
 
 /**
  * Interface that abstracts wake lock operations
  */
 public interface WakeLockInterface {
-    void releaseAllWakeLocks();
-    void switchToPartialWakeLock();
-    void switchToFullWakeLock();
+
+    /**
+     * Releases all wakelocks.
+     *
+     * @param displayId Target display
+     */
+    void releaseAllWakeLocks(int displayId);
+
+    /**
+     * Acquires partial wakelock.
+     *
+     * @param displayId Target display
+     * @see android.os.PowerManager#PARTIAL_WAKE_LOCK
+     */
+    void switchToPartialWakeLock(int displayId);
+
+    /**
+     * Acquires full wakelock. This can wake up the display if display is asleep.
+     *
+     * @param displayId Target display
+     */
+    void switchToFullWakeLock(int displayId);
 
     class DefaultImpl implements WakeLockInterface {
-        private final WakeLock mPartialWakeLock;
-        private final WakeLock mFullWakeLock;
+        private static final String TAG = WakeLockInterface.class.getSimpleName();
+
+        private final Context mContext;
+        private final Object mLock = new Object();
+        @GuardedBy("mLock")
+        private final SparseArray<Pair</* Full */WakeLock, /* Partial */WakeLock>>
+                mPerDisplayWakeLocks = new SparseArray<>();
 
         DefaultImpl(Context context) {
-            PowerManager powerManager =
-                    (PowerManager) context.getSystemService(Context.POWER_SERVICE);
-            mFullWakeLock = powerManager.newWakeLock(PowerManager.SCREEN_DIM_WAKE_LOCK,
-                CarLog.TAG_POWER);
-            mPartialWakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK,
-                CarLog.TAG_POWER);
-        }
+            mContext = context;
+            DisplayManager displayManager = mContext.getSystemService(DisplayManager.class);
+            displayManager.registerDisplayListener(mDisplayListener, /* handler= */ null);
 
-        @Override
-        public void switchToPartialWakeLock() {
-            if (!mPartialWakeLock.isHeld()) {
-                mPartialWakeLock.acquire();
-            }
-            if (mFullWakeLock.isHeld()) {
-                mFullWakeLock.release();
-            }
-        }
 
-        @Override
-        public void switchToFullWakeLock() {
-            if (!mFullWakeLock.isHeld()) {
-                mFullWakeLock.acquire();
-            }
-            if (mPartialWakeLock.isHeld()) {
-                mPartialWakeLock.release();
+            if (isPlatformVersionAtLeastU()) {
+                for (Display display : displayManager.getDisplays()) {
+                    int displayId = display.getDisplayId();
+                    Pair<WakeLock, WakeLock> wakeLockPair = createWakeLockPair(displayId);
+                    synchronized (mLock) {
+                        mPerDisplayWakeLocks.put(displayId, wakeLockPair);
+                    }
+                }
+            } else {
+                Pair<WakeLock, WakeLock> wakeLockPair = createWakeLockPair(Display.DEFAULT_DISPLAY);
+                synchronized (mLock) {
+                    mPerDisplayWakeLocks.put(Display.DEFAULT_DISPLAY, wakeLockPair);
+                }
             }
         }
 
         @Override
-        public void releaseAllWakeLocks() {
-            if (mPartialWakeLock.isHeld()) {
-                mPartialWakeLock.release();
+        public void switchToPartialWakeLock(int displayId) {
+            Pair<WakeLock, WakeLock> wakeLockPair;
+            synchronized (mLock) {
+                wakeLockPair = mPerDisplayWakeLocks.get(displayId);
             }
-            if (mFullWakeLock.isHeld()) {
-                mFullWakeLock.release();
+            if (wakeLockPair == null) {
+                Slogf.w(TAG, "WakeLocks for display %d is null", displayId);
+                return;
+            }
+            WakeLock partialWakeLock = wakeLockPair.second;
+            WakeLock fullWakeLock = wakeLockPair.first;
+            if (!partialWakeLock.isHeld()) {
+                // CPMS controls the wake lock duration, so we don't use timeout when calling
+                // acquire().
+                partialWakeLock.acquire();
+            }
+            if (fullWakeLock.isHeld()) {
+                fullWakeLock.release();
             }
         }
+
+        @Override
+        public void switchToFullWakeLock(int displayId) {
+            Pair<WakeLock, WakeLock> wakeLockPair;
+            synchronized (mLock) {
+                wakeLockPair = mPerDisplayWakeLocks.get(displayId);
+            }
+            if (wakeLockPair == null) {
+                Slogf.w(TAG, "WakeLocks for display %d is null", displayId);
+                return;
+            }
+            WakeLock fullWakeLock = wakeLockPair.first;
+            WakeLock partialWakeLock = wakeLockPair.second;
+            if (!fullWakeLock.isHeld()) {
+                // CPMS controls the wake lock duration, so we don't use timeout when calling
+                // acquire().
+                fullWakeLock.acquire();
+            }
+            if (partialWakeLock.isHeld()) {
+                partialWakeLock.release();
+            }
+        }
+
+        @Override
+        public void releaseAllWakeLocks(int displayId) {
+            Pair<WakeLock, WakeLock> wakeLockPair;
+            synchronized (mLock) {
+                wakeLockPair = mPerDisplayWakeLocks.get(displayId);
+            }
+            if (wakeLockPair == null) {
+                Slogf.w(TAG, "WakeLocks for display %d is null", displayId);
+                return;
+            }
+            WakeLock fullWakeLock = wakeLockPair.first;
+            WakeLock partialWakeLock = wakeLockPair.second;
+            if (fullWakeLock.isHeld()) {
+                fullWakeLock.release();
+            }
+            if (partialWakeLock.isHeld()) {
+                partialWakeLock.release();
+            }
+        }
+
+        private Pair<WakeLock, WakeLock> createWakeLockPair(int displayId) {
+            if (isPlatformVersionAtLeastU()) {
+                StringBuilder tag = new StringBuilder(CarLog.TAG_POWER).append(":")
+                        .append(displayId);
+                WakeLock fullWakeLock = PowerManagerHelper.newWakeLock(mContext,
+                        PowerManager.SCREEN_DIM_WAKE_LOCK | PowerManager.ACQUIRE_CAUSES_WAKEUP,
+                        tag.toString(), displayId);
+                WakeLock partialWakeLock = PowerManagerHelper.newWakeLock(mContext,
+                        PowerManager.PARTIAL_WAKE_LOCK, tag.toString(), displayId);
+                Slogf.d(TAG, "createWakeLockPair displayId=%d", displayId);
+                return Pair.create(fullWakeLock, partialWakeLock);
+            }
+
+            PowerManager powerManager = mContext.getSystemService(PowerManager.class);
+            WakeLock fullWakeLock = powerManager.newWakeLock(PowerManager.SCREEN_DIM_WAKE_LOCK,
+                    CarLog.TAG_POWER);
+            WakeLock partialWakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK,
+                    CarLog.TAG_POWER);
+            Slogf.d(TAG, "createWakeLockPair for main display");
+            return Pair.create(fullWakeLock, partialWakeLock);
+        }
+
+        DisplayManager.DisplayListener mDisplayListener = new DisplayManager.DisplayListener() {
+            @Override
+            public void onDisplayAdded(int displayId) {
+                Slogf.d(TAG, "onDisplayAdded displayId=%d", displayId);
+                Pair<WakeLock, WakeLock> wakeLockPair = createWakeLockPair(displayId);
+
+                synchronized (mLock) {
+                    mPerDisplayWakeLocks.put(displayId, wakeLockPair);
+                }
+            }
+
+            @Override
+            public void onDisplayRemoved(int displayId) {
+                Slogf.d(TAG, "onDisplayRemoved displayId=%d", displayId);
+                Pair<WakeLock, WakeLock> wakeLockPair;
+                synchronized (mLock) {
+                    wakeLockPair = mPerDisplayWakeLocks.get(displayId);
+                    if (wakeLockPair == null) {
+                        Slogf.w(TAG, "WakeLocks for display %d is null", displayId);
+                        return;
+                    }
+                    mPerDisplayWakeLocks.remove(displayId);
+                }
+                WakeLock fullWakeLock = wakeLockPair.first;
+                WakeLock partialWakeLock = wakeLockPair.second;
+                if (fullWakeLock.isHeld()) {
+                    fullWakeLock.release();
+                }
+                if (partialWakeLock.isHeld()) {
+                    partialWakeLock.release();
+                }
+            }
+
+            @Override
+            public void onDisplayChanged(int displayId) {
+                // ignore
+            }
+        };
     }
 }

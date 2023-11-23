@@ -18,15 +18,13 @@ package {
 
 filegroup {
     name: "framework-scheduling-sources",
+    defaults: ["framework-sources-module-defaults"],
     srcs: [
         "java/**/*.java",
         "java/**/*.aidl",
     ],
     path: "java",
-    visibility: [
-        "//frameworks/base",
-        "//packages/modules/Scheduling:__subpackages__",
-    ],
+    visibility: ["//packages/modules/Scheduling:__subpackages__"],
 }
 
 java_sdk_library {
@@ -39,4 +37,31 @@ java_sdk_library {
         "com.android.scheduling",
     ],
     min_sdk_version: "S",
+}
+
+java_api_contribution {
+    name: "framework-scheduling-public-stubs",
+    api_surface: "public",
+    api_file: "api/current.txt",
+    visibility: [
+        "//build/orchestrator/apis",
+    ],
+}
+
+java_api_contribution {
+    name: "framework-scheduling-system-stubs",
+    api_surface: "system",
+    api_file: "api/system-current.txt",
+    visibility: [
+        "//build/orchestrator/apis",
+    ],
+}
+
+java_api_contribution {
+    name: "framework-scheduling-module-lib-stubs",
+    api_surface: "module-lib",
+    api_file: "api/module-lib-current.txt",
+    visibility: [
+        "//build/orchestrator/apis",
+    ],
 }

@@ -17,15 +17,24 @@
 package com.android.server.wifi.util;
 
 import static org.junit.Assert.*;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+
+import android.net.MacAddress;
+import android.net.wifi.SecurityParams;
+import android.net.wifi.WifiConfiguration;
 
 import androidx.test.filters.SmallTest;
 
 import com.android.server.wifi.WifiBaseTest;
+import com.android.server.wifi.WifiConfigurationTestUtil;
+import com.android.server.wifi.WifiGlobals;
 
 import org.junit.Test;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.BitSet;
 
 /**
  * Unit tests for {@link com.android.server.wifi.util.NativeUtil}.
@@ -50,6 +59,19 @@ public class NativeUtilTest extends WifiBaseTest {
                 NativeUtil.macAddressToByteArray(""));
         assertArrayEquals(new byte[]{0, 0, 0, 0, 0, 0},
                 NativeUtil.macAddressToByteArray(null));
+    }
+
+    /**
+     * Test that converting a colon delimited MAC address to android.net.MacAddress works. Also test
+     * invalid input exception is handled by NativeUtil#getMacAddressOrNull() and returns 'null'.
+     */
+    @Test
+    public void testGetMacAddressOrNull() throws Exception {
+        String macAddressStr = "11:22:33:44:55:66";
+        assertEquals(MacAddress.fromString(macAddressStr),
+                NativeUtil.getMacAddressOrNull(macAddressStr));
+        assertNull(NativeUtil.getMacAddressOrNull(":44:55:66"));
+        assertNull(NativeUtil.getMacAddressOrNull(null));
     }
 
     /**
@@ -226,5 +248,83 @@ public class NativeUtilTest extends WifiBaseTest {
     public void testRemoveEnclosingQuotes() throws Exception {
         assertEquals("abcdefgh", NativeUtil.removeEnclosingQuotes("\"abcdefgh\""));
         assertEquals("abcdefgh", NativeUtil.removeEnclosingQuotes("abcdefgh"));
+    }
+
+    /**
+     * Test PMF is disable when SAE is selected when SAE auto-upgrade offload is supported.
+     */
+    @Test
+    public void testPmfIsDisableWhenPmfEnabledAndAutoUpgradeOffloadSupported() throws Exception {
+        WifiGlobals globals = mock(WifiGlobals.class);
+        when(globals.isWpa3SaeUpgradeOffloadEnabled()).thenReturn(true);
+        assertFalse(NativeUtil.getOptimalPmfSettingForConfig(
+                    WifiConfigurationTestUtil.createPskSaeNetwork(),
+                    true, globals));
+    }
+
+    /**
+     * Test pairwise & group cihpers are merged when SAE auto-upgrade offload is supported.
+     */
+    @Test
+    public void testPairwiseCiphersMergedForSaeAutoUpgradeOffloadSupported() throws Exception {
+        WifiGlobals globals = mock(WifiGlobals.class);
+        when(globals.isWpa3SaeUpgradeOffloadEnabled()).thenReturn(true);
+
+        SecurityParams saeParams = SecurityParams.createSecurityParamsBySecurityType(
+                WifiConfiguration.SECURITY_TYPE_SAE);
+        BitSet expectedPairwiseCiphers = new BitSet();
+        expectedPairwiseCiphers.set(WifiConfiguration.PairwiseCipher.TKIP);
+        expectedPairwiseCiphers.set(WifiConfiguration.PairwiseCipher.CCMP);
+        expectedPairwiseCiphers.set(WifiConfiguration.PairwiseCipher.GCMP_128);
+        expectedPairwiseCiphers.set(WifiConfiguration.PairwiseCipher.GCMP_256);
+
+        BitSet optimalPairwiseCiphers = NativeUtil.getOptimalPairwiseCiphersForConfig(
+                WifiConfigurationTestUtil.createPskSaeNetwork(),
+                saeParams.getAllowedPairwiseCiphers(), globals);
+        assertEquals(expectedPairwiseCiphers, optimalPairwiseCiphers);
+
+        BitSet expectedGroupCiphers = new BitSet();
+        expectedGroupCiphers.set(WifiConfiguration.GroupCipher.WEP40);
+        expectedGroupCiphers.set(WifiConfiguration.GroupCipher.WEP104);
+        expectedGroupCiphers.set(WifiConfiguration.GroupCipher.TKIP);
+        expectedGroupCiphers.set(WifiConfiguration.GroupCipher.CCMP);
+        expectedGroupCiphers.set(WifiConfiguration.GroupCipher.GCMP_128);
+        expectedGroupCiphers.set(WifiConfiguration.GroupCipher.GCMP_256);
+        BitSet optimalGroupCiphers = NativeUtil.getOptimalGroupCiphersForConfig(
+                WifiConfigurationTestUtil.createPskSaeNetwork(),
+                saeParams.getAllowedGroupCiphers(), globals);
+        assertEquals(expectedGroupCiphers, optimalGroupCiphers);
+    }
+
+    /**
+     * Test pairwise and group cihpers are not merged when SAE auto-upgrade offload
+     * is not supported.
+     */
+    @Test
+    public void testPairwiseCiphersNotMergedForSaeAutoUpgradeOffloadNotSupported()
+            throws Exception {
+        WifiGlobals globals = mock(WifiGlobals.class);
+        when(globals.isWpa3SaeUpgradeOffloadEnabled()).thenReturn(false);
+
+        SecurityParams saeParams = SecurityParams.createSecurityParamsBySecurityType(
+                WifiConfiguration.SECURITY_TYPE_SAE);
+        BitSet expectedPairwiseCiphers = new BitSet();
+        expectedPairwiseCiphers.set(WifiConfiguration.PairwiseCipher.CCMP);
+        expectedPairwiseCiphers.set(WifiConfiguration.PairwiseCipher.GCMP_128);
+        expectedPairwiseCiphers.set(WifiConfiguration.PairwiseCipher.GCMP_256);
+
+        BitSet optimalPairwiseCiphers = NativeUtil.getOptimalPairwiseCiphersForConfig(
+                WifiConfigurationTestUtil.createPskSaeNetwork(),
+                saeParams.getAllowedPairwiseCiphers(), globals);
+        assertEquals(expectedPairwiseCiphers, optimalPairwiseCiphers);
+
+        BitSet expectedGroupCiphers = new BitSet();
+        expectedGroupCiphers.set(WifiConfiguration.GroupCipher.CCMP);
+        expectedGroupCiphers.set(WifiConfiguration.GroupCipher.GCMP_128);
+        expectedGroupCiphers.set(WifiConfiguration.GroupCipher.GCMP_256);
+        BitSet optimalGroupCiphers = NativeUtil.getOptimalGroupCiphersForConfig(
+                WifiConfigurationTestUtil.createPskSaeNetwork(),
+                saeParams.getAllowedGroupCiphers(), globals);
+        assertEquals(expectedGroupCiphers, optimalGroupCiphers);
     }
 }

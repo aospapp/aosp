@@ -16,7 +16,7 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="app_label" msgid="7454398782183407432">"టీవీ నిల్వ"</string>
+    <string name="app_label" msgid="7454398782183407432">"టీవీ స్టోరేజ్‌"</string>
     <string name="permlab_readTvListings" msgid="5272001606068276291">"అన్ని టీవీ లిస్ట్‌లను చదవడం"</string>
     <string name="permdesc_readTvListings" msgid="1165157606059567535">"మీ పరికరంలో అందుబాటులో ఉండే అన్ని టీవీ లిస్ట్‌లను చదువుతుంది"</string>
 </resources>

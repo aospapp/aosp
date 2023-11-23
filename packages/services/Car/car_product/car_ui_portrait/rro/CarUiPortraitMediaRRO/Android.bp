@@ -17,14 +17,16 @@ package {
 android_app {
     name: "CarUiPortraitMediaRRO",
     resource_dirs: ["res"],
-    platform_apis: true,
+    sdk_version: "current",
     aaptflags: [
         "--no-resource-deduping",
         "--no-resource-removal"
     ],
     static_libs: [
         "androidx-constraintlayout_constraintlayout",
+        "androidx-constraintlayout_constraintlayout-solver",
         "car-apps-common",
-
+        "car-ui-lib",
+        "car-portrait-ui-common"
     ],
 }

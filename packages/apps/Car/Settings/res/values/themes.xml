@@ -26,10 +26,6 @@
         <item name="profileSwitcherAddIconColor">@*android:color/car_tint</item>
         <item name="profileSwitcherAddIconBackgroundColor">?android:attr/colorPrimaryDark</item>
         <item name="profileSwitcherNameTextAppearance">?android:attr/textAppearanceLarge</item>
-        <item name="quickSettingsEnabledColor">?android:attr/colorControlActivated</item>
-        <item name="quickSettingsDisabledColor">?android:attr/colorControlNormal</item>
-        <item name="quickSettingsIconEnabledColor">?android:attr/colorPrimary</item>
-        <item name="quickSettingsIconDisabledColor">?android:attr/colorPrimaryDark</item>
         <item name="suggestionsPrimaryColor">?android:attr/colorPrimaryDark</item>
         <item name="suggestionsSecondaryColor">@android:color/black</item>
         <item name="android:windowEnterAnimation">@anim/trans_fade_in</item>

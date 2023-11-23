@@ -34,7 +34,7 @@
 package android.automotive.watchdog.internal;
 @Backing(type="int")
 enum TimeoutLength {
-  TIMEOUT_CRITICAL = 0,
-  TIMEOUT_MODERATE = 1,
-  TIMEOUT_NORMAL = 2,
+  TIMEOUT_CRITICAL,
+  TIMEOUT_MODERATE,
+  TIMEOUT_NORMAL,
 }

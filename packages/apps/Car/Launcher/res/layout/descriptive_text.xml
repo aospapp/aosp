@@ -34,7 +34,7 @@
         android:id="@+id/primary_text"
         android:layout_height="wrap_content"
         android:layout_width="0dp"
-        android:singleLine="true"
+        android:maxLines="2"
         android:textAppearance="?android:attr/textAppearanceLarge"
         android:layout_marginStart="@dimen/card_content_image_margin"
         app:layout_goneMarginStart="0dp"

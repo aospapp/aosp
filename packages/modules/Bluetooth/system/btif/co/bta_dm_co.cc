@@ -15,26 +15,21 @@
  *  limitations under the License.
  *
  ******************************************************************************/
+#include "bta_dm_co.h"
+
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "bt_utils.h"
 #include "bta_api.h"
 #include "bta_dm_ci.h"
-#include "bta_dm_co.h"
 #include "bta_sys.h"
 #include "bte_appl.h"
 #include "btif_dm.h"
-#include "btif_storage.h"
 #include "osi/include/osi.h"
 
-// tBTE_APPL_CFG.ble_io_cap is set to BTM_IO_CAP_UNKNOWN at structure
-// initialization since btif_storage isn't ready yet for data to be fetched.
-// This value is initialized properly during first use by fetching properly
-// from btif_storage.
 tBTE_APPL_CFG bte_appl_cfg = {
     BTA_LE_AUTH_REQ_SC_MITM_BOND,  // Authentication requirements
-    BTM_IO_CAP_UNKNOWN, BTM_BLE_INITIATOR_KEY_SIZE, BTM_BLE_RESPONDER_KEY_SIZE,
+    BTM_IO_CAP_KBDISP, BTM_BLE_INITIATOR_KEY_SIZE, BTM_BLE_RESPONDER_KEY_SIZE,
     BTM_BLE_MAX_KEY_SIZE};
 
 /*******************************************************************************

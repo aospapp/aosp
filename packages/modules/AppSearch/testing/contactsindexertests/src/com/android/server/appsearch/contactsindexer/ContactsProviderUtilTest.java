@@ -93,13 +93,17 @@ public class ContactsProviderUtilTest extends ProviderTestCase2<FakeContactsProv
         assertThat(ids).isEmpty();
     }
 
-    public void testGetUpdatedContactIds() {
+    public void testGetUpdatedContactIds() throws Exception {
         ContentResolver resolver = mContext.getContentResolver();
         ContentValues dummyValues = new ContentValues();
         for (int i = 0; i < 50; i++) {
             resolver.insert(ContactsContract.Contacts.CONTENT_URI, dummyValues);
         }
         long firstUpdateTimestamp = getProvider().getMostRecentContactUpdateTimestampMillis();
+        // Wait an additional 1ms here to avoid flaky tests. Otherwise, the first few contacts
+        // inserted below might share the same timestamp as firstUpdateTimestamp, and when querying
+        // CP2, we use "> timeFilter", and it caused test flakiness.
+        Thread.sleep(/* millis= */ 1);
         List<String> expectedIds = new ArrayList<>();
         for (int i = 50; i < 100; i++) {
             resolver.insert(ContactsContract.Contacts.CONTENT_URI, dummyValues);

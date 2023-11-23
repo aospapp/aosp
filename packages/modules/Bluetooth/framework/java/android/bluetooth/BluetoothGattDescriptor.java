@@ -16,6 +16,7 @@
 
 package android.bluetooth;
 
+import android.annotation.NonNull;
 import android.compat.annotation.UnsupportedAppUsage;
 import android.os.Parcel;
 import android.os.ParcelUuid;
@@ -175,8 +176,7 @@ public class BluetoothGattDescriptor implements Parcelable {
         out.writeInt(mPermissions);
     }
 
-    public static final @android.annotation.NonNull Parcelable.Creator<BluetoothGattDescriptor> CREATOR =
-            new Parcelable.Creator<BluetoothGattDescriptor>() {
+    public static final @NonNull Creator<BluetoothGattDescriptor> CREATOR = new Creator<>() {
         public BluetoothGattDescriptor createFromParcel(Parcel in) {
             return new BluetoothGattDescriptor(in);
         }

@@ -19,6 +19,7 @@
     <overlayable name="ClusterOsConfig">
         <policy type="product|system|vendor">
             <item type="integer" name="config_clusterDisplayPort" />
+            <item type="string" name="config_clusterDisplayUniqueId" />
         </policy>
     </overlayable>
 </resources>

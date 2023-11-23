@@ -32,14 +32,15 @@
         <item>Unspecified</item>
         <item>Conversational</item>
         <item>Media</item>
+        <item>Game</item>
         <item>Instructional</item>
-        <item>AttentionSeeking</item>
-        <item>ImmediateAlert</item>
-        <item>ManMachine</item>
-	<item>EmergencyAlert</item>
-        <item>Ringtone</item>
-        <item>TV</item>
+        <item>Voice Assistant</item>
         <item>Live</item>
+        <item>Sound Effects</item>
+        <item>Notifications</item>
+        <item>Ringtone</item>
+        <item>Alerts</item>
+        <item>Emergency Alarm</item>
     </string-array>
     <string-array name="audio_locations">
         <item>Front Left</item>

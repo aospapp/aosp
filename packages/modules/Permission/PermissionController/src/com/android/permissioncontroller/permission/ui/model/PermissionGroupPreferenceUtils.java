@@ -60,8 +60,7 @@ public final class PermissionGroupPreferenceUtils {
             if (preference == null) {
                 preference = new PermissionGroupPreference(context, info);
             } else {
-                preference.updateSummary(info.getNonSystemGranted(),
-                        info.getNonSystemUserSetOrPreGranted());
+                preference.updateSummary(info);
                 // Reset the ordering back to default, so that when we add it back it falls into the
                 // right place, and the preferences are ordered as we add them.
                 preference.setOrder(Preference.DEFAULT_ORDER);
@@ -99,8 +98,7 @@ public final class PermissionGroupPreferenceUtils {
             final PermissionGroupPreference preference =
                     (PermissionGroupPreference) preferenceGroup.getPreference(i);
             final PermGroupPackagesUiInfo info = permissionGroups.get(i);
-            preference.updateSummary(info.getNonSystemGranted(),
-                    info.getNonSystemUserSetOrPreGranted());
+            preference.updateSummary(info);
         }
     }
 

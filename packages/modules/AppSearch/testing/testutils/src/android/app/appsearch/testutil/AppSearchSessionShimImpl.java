@@ -30,9 +30,12 @@ import android.app.appsearch.GetSchemaResponse;
 import android.app.appsearch.PutDocumentsRequest;
 import android.app.appsearch.RemoveByDocumentIdRequest;
 import android.app.appsearch.ReportUsageRequest;
+import android.app.appsearch.SearchResult;
 import android.app.appsearch.SearchResults;
 import android.app.appsearch.SearchResultsShim;
 import android.app.appsearch.SearchSpec;
+import android.app.appsearch.SearchSuggestionResult;
+import android.app.appsearch.SearchSuggestionSpec;
 import android.app.appsearch.SetSchemaRequest;
 import android.app.appsearch.SetSchemaResponse;
 import android.app.appsearch.StorageInfo;
@@ -48,6 +51,7 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 
+import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
@@ -75,7 +79,7 @@ public class AppSearchSessionShimImpl implements AppSearchSessionShim {
     public static ListenableFuture<AppSearchSessionShim> createSearchSessionAsync(
             @NonNull AppSearchManager.SearchContext searchContext, @UserIdInt int userId) {
         Context context = ApplicationProvider.getApplicationContext()
-                .createContextAsUser(new UserHandle(userId), /*flags=*/ 0);
+                .createContextAsUser(UserHandle.of(userId), /*flags=*/ 0);
         return createSearchSessionAsync(context, searchContext, Executors.newCachedThreadPool());
     }
 
@@ -195,6 +199,18 @@ public class AppSearchSessionShimImpl implements AppSearchSessionShim {
         // anything extra flush.
         future.set(AppSearchResult.newSuccessfulResult(null));
         return Futures.transformAsync(future, this::transformResult, mExecutor);
+    }
+
+    @Override
+    @NonNull
+    public ListenableFuture<List<SearchSuggestionResult>> searchSuggestionAsync(
+            @NonNull String suggestionQueryExpression,
+            @NonNull SearchSuggestionSpec searchSuggestionSpec) {
+        SettableFuture<AppSearchResult<List<SearchSuggestionResult>>> future =
+                SettableFuture.create();
+        mAppSearchSession.searchSuggestion(
+                suggestionQueryExpression, searchSuggestionSpec, mExecutor, future::set);
+        return Futures.transform(future, AppSearchResult::getResultValue, mExecutor);
     }
 
     @Override

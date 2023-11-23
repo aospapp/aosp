@@ -124,7 +124,6 @@ public final class CarDrivingStateEvent implements Parcelable {
     }
 
     @Override
-    @AddedInOrBefore(majorVersion = 33)
     public String toString() {
         return eventValue + " " + timeStamp;
     }

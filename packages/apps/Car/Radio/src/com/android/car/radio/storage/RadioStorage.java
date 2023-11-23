@@ -21,7 +21,9 @@ import android.content.SharedPreferences;
 import android.hardware.radio.ProgramSelector;
 import android.net.Uri;
 import android.os.AsyncTask;
+import android.util.ArrayMap;
 
+import androidx.annotation.GuardedBy;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.lifecycle.LiveData;
@@ -33,6 +35,7 @@ import com.android.car.radio.bands.ProgramType;
 import com.android.car.radio.util.Log;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 
 /**
@@ -47,7 +50,10 @@ public class RadioStorage {
 
     private static final String PREF_KEY_SKIP_MODE = "smartSeekMode";
 
-    private static RadioStorage sInstance;
+    private static final Object sLock = new Object();
+
+    @GuardedBy("sLock")
+    private static Map<Integer, RadioStorage> sInstances = new ArrayMap<>();
 
     private final SharedPreferences mPrefs;
     private final RadioDatabase mDatabase;
@@ -61,14 +67,20 @@ public class RadioStorage {
     }
 
     /**
-     * Returns singleton instance of {@link RadioStorage}.
+     * Returns singleton instance of {@link RadioStorage} for the user in context.
+     *
+     * @param context Application context
      */
-    public static @NonNull RadioStorage getInstance(Context context) {
-        if (sInstance != null) return sInstance;
-        synchronized (RadioStorage.class) {
-            if (sInstance != null) return sInstance;
-            sInstance = new RadioStorage(context.getApplicationContext());
-            return sInstance;
+    @NonNull
+    public static RadioStorage getInstance(Context context) {
+        int userId = context.getUserId();
+        synchronized (sLock) {
+            if (sInstances.containsKey(userId)) {
+                return sInstances.get(userId);
+            }
+            RadioStorage newInstance = new RadioStorage(context.getApplicationContext());
+            sInstances.put(userId, newInstance);
+            return newInstance;
         }
     }
 

@@ -83,8 +83,8 @@ public class CameraQcPanelTest extends SysuiTestCase {
                 .thenReturn(mApplicationInfo);
         mContext.setMockPackageManager(mPackageManager);
 
-        mCameraQcPanel = new CameraQcPanel(mContext);
-        mCameraQcPanel.setControllers(mCameraSensorInfoProvider, mCameraPrivacyElementsProvider);
+        mCameraQcPanel = new CameraQcPanel(mContext, mCameraSensorInfoProvider,
+                mCameraPrivacyElementsProvider);
 
         mPhoneCallTitle = mContext.getString(R.string.ongoing_privacy_dialog_phonecall);
         mCameraOnTitleText = mContext.getString(R.string.privacy_chip_use_sensor,

@@ -39,8 +39,9 @@ import androidx.preference.TwoStatePreference;
 
 import com.android.permissioncontroller.R;
 import com.android.permissioncontroller.permission.utils.Utils;
-import com.android.permissioncontroller.role.model.Role;
-import com.android.permissioncontroller.role.model.Roles;
+import com.android.permissioncontroller.role.utils.RoleUiBehaviorUtils;
+import com.android.role.controller.model.Role;
+import com.android.role.controller.model.Roles;
 
 import java.util.List;
 import java.util.Objects;
@@ -208,7 +209,8 @@ public class DefaultAppChildFragment<PF extends PreferenceFragmentCompat
 
         preference.setChecked(checked);
         if (applicationInfo != null) {
-            mRole.prepareApplicationPreferenceAsUser(preference, applicationInfo, mUser, context);
+            RoleUiBehaviorUtils.prepareApplicationPreferenceAsUser(mRole, preference,
+                    applicationInfo, mUser, context);
         }
 
         preferenceScreen.addPreference(preference);
@@ -238,8 +240,9 @@ public class DefaultAppChildFragment<PF extends PreferenceFragmentCompat
             mViewModel.setNoneDefaultApp();
         } else {
             String packageName = key;
-            CharSequence confirmationMessage = mRole.getConfirmationMessage(packageName,
-                    requireContext());
+            CharSequence confirmationMessage =
+                    RoleUiBehaviorUtils.getConfirmationMessage(mRole, packageName,
+                            requireContext());
             if (confirmationMessage != null) {
                 DefaultAppConfirmationDialogFragment.show(packageName, confirmationMessage, this);
             } else {

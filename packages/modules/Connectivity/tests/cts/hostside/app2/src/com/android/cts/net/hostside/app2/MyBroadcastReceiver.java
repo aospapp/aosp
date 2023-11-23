@@ -48,6 +48,7 @@ import android.util.Log;
 import android.widget.Toast;
 
 import java.net.HttpURLConnection;
+import java.net.InetAddress;
 import java.net.URL;
 
 /**
@@ -182,6 +183,11 @@ public class MyBroadcastReceiver extends BroadcastReceiver {
             checkStatus = false;
             checkDetails = "Exception getting " + address + ": " + e;
         }
+        // If the app tries to make a network connection in the foreground immediately after
+        // trying to do the same when it's network access was blocked, it could receive a
+        // UnknownHostException due to the cached DNS entry. So, clear the dns cache after
+        // every network access for now until we have a fix on the platform side.
+        InetAddress.clearDnsCache();
         Log.d(TAG, checkDetails);
         final String state, detailedState;
         if (networkInfo != null) {

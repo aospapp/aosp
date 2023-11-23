@@ -74,7 +74,8 @@ public class UserCallActivity extends Activity implements TelecomSystem.Componen
             // ActivityThread.ActivityClientRecord#intent directly.
             // Modifying directly may be a potential risk when relaunching this activity.
             new UserCallIntentProcessor(this, userHandle).processIntent(new Intent(intent),
-                    getCallingPackage(), true /* hasCallAppOp*/, false /* isLocalInvocation */);
+                    getCallingPackage(), false, true /* hasCallAppOp*/,
+                    false /* isLocalInvocation */);
         } finally {
             Log.endSession();
             wakelock.release();

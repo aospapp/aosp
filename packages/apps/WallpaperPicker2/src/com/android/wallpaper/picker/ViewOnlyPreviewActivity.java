@@ -26,6 +26,7 @@ import com.android.wallpaper.R;
 import com.android.wallpaper.model.InlinePreviewIntentFactory;
 import com.android.wallpaper.model.WallpaperInfo;
 import com.android.wallpaper.module.InjectorProvider;
+import com.android.wallpaper.module.LargeScreenMultiPanesChecker;
 import com.android.wallpaper.picker.AppbarFragment.AppbarFragmentHost;
 import com.android.wallpaper.util.ActivityUtils;
 
@@ -94,6 +95,14 @@ public class ViewOnlyPreviewActivity extends BasePreviewActivity implements Appb
 
         @Override
         public Intent newIntent(Context context, WallpaperInfo wallpaper) {
+            LargeScreenMultiPanesChecker multiPanesChecker = new LargeScreenMultiPanesChecker();
+            // Launch a full preview activity for devices supporting multipanel mode
+            if (multiPanesChecker.isMultiPanesEnabled(context)
+                    && InjectorProvider.getInjector().getFlags()
+                        .isFullscreenWallpaperPreviewEnabled(context)) {
+                return FullPreviewActivity.newIntent(context, wallpaper, mIsViewAsHome);
+            }
+
             if (mIsHomeAndLockPreviews) {
                 return ViewOnlyPreviewActivity.newIntent(context, wallpaper, mIsViewAsHome);
             }

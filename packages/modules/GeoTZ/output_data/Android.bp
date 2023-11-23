@@ -27,7 +27,6 @@ license {
 prebuilt_etc {
     name: "apex_tzs2.dat",
     src: "odbl/tzs2.dat",
-    notice: "odbl/LICENSE",
     filename: "tzs2.dat",
     installable: false,
 }

@@ -16,22 +16,14 @@
 
 package com.android.car;
 
-import com.android.car.internal.util.IndentingPrintWriter;
-
 /**
- * Base class for all Car specific services.
+ * Base class for all Car specific services except for {@code VehicleHal} and
+ * {@code CarStatsService}.
  */
-public interface CarServiceBase {
 
-    /**
-     * service is started. All necessary initialization should be done and service should be
-     * functional after this.
-     */
-    void init();
-
-    /** service should stop and all resources should be released. */
-    void release();
-
-    /** Dumps its state. */
-    void dump(IndentingPrintWriter writer);
+// Note: VehicleHal and CarStatsService will implement CarSystemService directly.
+// All other Car services will implement CarServiceBase which is a "marker" interface that
+// extends CarSystemService. This makes it easy for ICarImpl to handle dump differently
+// for VehicleHal and CarStatsService.
+public interface CarServiceBase extends CarSystemService {
 }

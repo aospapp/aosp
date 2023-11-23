@@ -74,6 +74,30 @@ public class AdaptiveBrightnessSwitchTest extends BaseSettingsQCItemTestCase {
     }
 
     @Test
+    public void getQCItem_createsRow_zoneWrite() {
+        mSwitch.setAvailabilityStatusForZone("write");
+        QCRow row = getQCRow();
+        QCActionItem actionItem = row.getEndItems().get(0);
+        assertThat(actionItem.isEnabled()).isTrue();
+    }
+
+    @Test
+    public void getQCItem_createsRow_zoneRead() {
+        mSwitch.setAvailabilityStatusForZone("read");
+        QCRow row = getQCRow();
+        QCActionItem actionItem = row.getEndItems().get(0);
+        assertThat(actionItem.isEnabled()).isFalse();
+        assertThat(actionItem.isClickableWhileDisabled()).isTrue();
+    }
+
+    @Test
+    public void getQCItem_createsRow_zoneHidden() {
+        mSwitch.setAvailabilityStatusForZone("hidden");
+        QCItem item = mSwitch.getQCItem();
+        assertThat(item).isNull();
+    }
+
+    @Test
     public void getQCItem_titleSet() {
         QCRow row = getQCRow();
         assertThat(row.getTitle()).isEqualTo(mContext.getString(R.string.auto_brightness_title));

@@ -30,14 +30,4 @@ public class Constant {
      * Tag for Fast Pair service related logs.
      */
     public static final String TAG = "FastPairService";
-
-    public static final String EXTRA_BINDER = "com.android.server.nearby.fastpair.BINDER";
-    public static final String EXTRA_BUNDLE = "com.android.server.nearby.fastpair.BUNDLE_EXTRA";
-    public static final String ACTION_FAST_PAIR_HALF_SHEET_CANCEL =
-            "com.android.nearby.ACTION_FAST_PAIR_HALF_SHEET_CANCEL";
-    public static final String EXTRA_HALF_SHEET_INFO =
-            "com.android.nearby.halfsheet.HALF_SHEET";
-    public static final String EXTRA_HALF_SHEET_TYPE =
-            "com.android.nearby.halfsheet.HALF_SHEET_TYPE";
-    public static final String DEVICE_PAIRING_FRAGMENT_TYPE = "DEVICE_PAIRING";
 }

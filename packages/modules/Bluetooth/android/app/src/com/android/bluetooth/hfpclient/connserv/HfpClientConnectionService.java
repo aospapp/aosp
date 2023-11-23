@@ -325,6 +325,9 @@ public class HfpClientConnectionService extends ConnectionService {
     private BluetoothDevice getDevice(PhoneAccountHandle handle) {
         BluetoothAdapter adapter = getSystemService(BluetoothManager.class).getAdapter();
         PhoneAccount account = mTelecomManager.getPhoneAccount(handle);
+        if (account == null) {
+            return null;
+        }
         String btAddr = account.getAddress().getSchemeSpecificPart();
         return adapter.getRemoteDevice(btAddr);
     }

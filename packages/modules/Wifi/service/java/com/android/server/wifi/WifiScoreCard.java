@@ -70,7 +70,6 @@ import com.android.server.wifi.util.IntHistogram;
 import com.android.server.wifi.util.LruList;
 import com.android.server.wifi.util.NativeUtil;
 import com.android.server.wifi.util.RssiUtil;
-import com.android.wifi.resources.R;
 
 import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
@@ -128,6 +127,7 @@ public class WifiScoreCard {
     private MemoryStore mMemoryStore;
     private final DeviceConfigFacade mDeviceConfigFacade;
     private final Context mContext;
+    private final WifiGlobals mWifiGlobals;
     private final LocalLog mLocalLog = new LocalLog(256);
     private final long[][][] mL2ErrorAccPercent =
             new long[NUM_LINK_BAND][NUM_LINK_DIRECTION][NUM_SIGNAL_LEVEL];
@@ -274,13 +274,14 @@ public class WifiScoreCard {
      * @param l2KeySeed is for making our L2Keys usable only on this device
      */
     public WifiScoreCard(Clock clock, String l2KeySeed, DeviceConfigFacade deviceConfigFacade,
-            Context context) {
+            Context context, WifiGlobals wifiGlobals) {
         mClock = clock;
         mContext = context;
         mL2KeySeed = l2KeySeed;
         mPlaceholderPerBssid = new PerBssid("", MacAddress.fromString(DEFAULT_MAC_ADDRESS));
         mPlaceholderPerNetwork = new PerNetwork("");
         mDeviceConfigFacade = deviceConfigFacade;
+        mWifiGlobals = wifiGlobals;
     }
 
     /**
@@ -1410,8 +1411,7 @@ public class WifiScoreCard {
         }
 
         private int getByteDeltaAccThr(int link) {
-            int maxTimeDeltaMs = mContext.getResources().getInteger(
-                    R.integer.config_wifiPollRssiIntervalMilliseconds);
+            int maxTimeDeltaMs = mWifiGlobals.getPollRssiIntervalMillis();
             int lowBytes = calculateByteCountThreshold(getAvgUsedLinkBandwidthKbps(link),
                     maxTimeDeltaMs);
             // Start with a predefined value
@@ -1439,7 +1439,7 @@ public class WifiScoreCard {
             int filterInKbps = mBandwidthSampleValid[link] ? mBandwidthSampleKbps[link] : avgKbps;
 
             long currTimeMs = mClock.getElapsedSinceBootMillis();
-            int timeDeltaSec = (int) (currTimeMs - mBandwidthSampleValidTimeMs[link]) / 1000;
+            int timeDeltaSec = (int) ((currTimeMs - mBandwidthSampleValidTimeMs[link]) / 1000);
 
             // If the operation condition changes since the last valid sample or the current sample
             // has higher BW, use a faster filter. Otherwise, use a slow filter

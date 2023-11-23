@@ -38,6 +38,14 @@ enum PowerCycle {
 
   /**
    * Number of available power cycles.
+   *
+   * @deprecated Value of enum no longer reflects the true amount of power cycles.
+   *             Enum should not be used.
    */
   NUM_POWER_CYLES,
+
+  /**
+   * The system wakes up from deep sleep or hibernation.
+   */
+  POWER_CYCLE_SUSPEND_EXIT,
 }

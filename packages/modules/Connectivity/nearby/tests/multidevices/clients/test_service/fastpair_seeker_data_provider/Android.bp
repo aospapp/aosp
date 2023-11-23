@@ -23,8 +23,8 @@ android_library {
     static_libs: [
         // TODO(b/228406038): Remove "framework-nearby-static" once Fast Pair system APIs add back.
         "framework-nearby-static",
+        "gson",
         "guava",
-        "gson-prebuilt-jar",
     ],
 }
 

@@ -74,6 +74,11 @@ public class HvacPanelView extends ConstraintLayout {
         mKeyEventHandler = keyEventHandler;
     }
 
+    /** Gets the {@link KeyEventHandler} of the HVAC panel. */
+    public KeyEventHandler getKeyEventHandler() {
+        return mKeyEventHandler;
+    }
+
     /** An interface to help interact with the HVAC panel. */
     public interface KeyEventHandler {
         /**

@@ -125,7 +125,6 @@ public final class IoStats implements Parcelable {
     }
 
     @Override
-    @AddedInOrBefore(majorVersion = 33)
     public int hashCode() {
         return Objects.hash(mStats, mUptimeTimestamp);
     }
@@ -217,7 +216,6 @@ public final class IoStats implements Parcelable {
     }
 
     @Override
-    @AddedInOrBefore(majorVersion = 33)
     public boolean equals(Object other) {
         if (other instanceof IoStats) {
             IoStats delta = (IoStats) other;
@@ -228,7 +226,6 @@ public final class IoStats implements Parcelable {
     }
 
     @Override
-    @AddedInOrBefore(majorVersion = 33)
     public String toString() {
         StringJoiner stringJoiner = new StringJoiner(", ");
         for (IoStatsEntry stats : getStats()) {

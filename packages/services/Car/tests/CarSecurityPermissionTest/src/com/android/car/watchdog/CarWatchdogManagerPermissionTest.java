@@ -18,8 +18,8 @@ package com.android.car.watchdog;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import static org.testng.Assert.expectThrows;
-import static org.testng.Assert.fail;
+import static org.junit.Assert.assertThrows;
+import static org.junit.Assert.fail;
 
 import android.app.UiAutomation;
 import android.car.Car;
@@ -34,8 +34,8 @@ import androidx.test.platform.app.InstrumentationRegistry;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
+import org.junit.function.ThrowingRunnable;
 import org.junit.runner.RunWith;
-import org.testng.Assert;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -204,14 +204,13 @@ public class CarWatchdogManagerPermissionTest {
                         CarWatchdogManager.FLAG_RESOURCE_OVERUSE_IO));
     }
 
-    private void expectPermissionException(String permission, Assert.ThrowingRunnable runnable) {
-        SecurityException thrown = expectThrows(SecurityException.class, runnable);
+    private void expectPermissionException(String permission, ThrowingRunnable runnable) {
+        SecurityException thrown = assertThrows(SecurityException.class, runnable);
         assertThat(thrown.getMessage()).isEqualTo("requires " + permission);
     }
 
-    private void expectPermissionException(List<String> permissions,
-            Assert.ThrowingRunnable runnable) {
-        SecurityException thrown = expectThrows(SecurityException.class, runnable);
+    private void expectPermissionException(List<String> permissions, ThrowingRunnable runnable) {
+        SecurityException thrown = assertThrows(SecurityException.class, runnable);
         String exceptionBuilder = "requires any of [" + String.join(", ", permissions) + "]";
         assertThat(thrown.getMessage()).isEqualTo(exceptionBuilder);
     }

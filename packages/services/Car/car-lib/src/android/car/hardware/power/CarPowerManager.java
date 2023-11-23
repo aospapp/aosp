@@ -18,6 +18,8 @@ package android.car.hardware.power;
 
 import static android.content.pm.PackageManager.PERMISSION_GRANTED;
 
+import static com.android.car.internal.util.VersionUtils.assertPlatformVersionAtLeastU;
+
 import android.annotation.CallbackExecutor;
 import android.annotation.IntDef;
 import android.annotation.NonNull;
@@ -28,6 +30,7 @@ import android.annotation.TestApi;
 import android.car.Car;
 import android.car.CarManagerBase;
 import android.car.annotation.AddedInOrBefore;
+import android.car.annotation.ApiRequirements;
 import android.os.IBinder;
 import android.os.RemoteException;
 import android.util.ArrayMap;
@@ -49,14 +52,10 @@ import java.util.concurrent.Executor;
  * API to receive power policy change notifications.
  */
 public class CarPowerManager extends CarManagerBase {
-    private static final boolean DBG = false;
 
     /** @hide */
     @AddedInOrBefore(majorVersion = 33)
     public static final String TAG = CarPowerManager.class.getSimpleName();
-
-    private static final int FIRST_POWER_COMPONENT = PowerComponentUtil.FIRST_POWER_COMPONENT;
-    private static final int LAST_POWER_COMPONENT = PowerComponentUtil.LAST_POWER_COMPONENT;
 
     private final Object mLock = new Object();
     private final ICarPower mService;
@@ -361,7 +360,7 @@ public class CarPowerManager extends CarManagerBase {
      */
     public interface CarPowerPolicyListener {
         /**
-         * Called with {@link #CarPowerPolicy} when power policy changes.
+         * Called with {@link CarPowerPolicy} when power policy changes.
          *
          * @param policy The current power policy.
          */
@@ -455,7 +454,7 @@ public class CarPowerManager extends CarManagerBase {
             // Updates listener
             mListener = listener;
             mExecutor = executor;
-            setServiceForListenerLocked(false);
+            setServiceForListenerLocked(/* useCompletion= */ false);
         }
     }
 
@@ -489,7 +488,7 @@ public class CarPowerManager extends CarManagerBase {
             // Updates listener
             mListenerWithCompletion = listener;
             mExecutor = executor;
-            setServiceForListenerLocked(true);
+            setServiceForListenerLocked(/* useCompletion= */ true);
         }
     }
 
@@ -550,8 +549,9 @@ public class CarPowerManager extends CarManagerBase {
      * Applies the given power policy.
      *
      * <p>Power components are turned on or off as specified in the given power policy. Power
-     * policies are defined at {@code /vendor/etc/power_policy.xml}. If the given power policy
-     * doesn't exist, this method throws {@link java.lang.IllegalArgumentException}.
+     * policies are defined at {@code /vendor/etc/automotive/power_policy.xml}.
+     * If the given power policy doesn't exist, this method throws
+     * {@link java.lang.IllegalArgumentException}.
      *
      * @param policyId ID of power policy.
      * @throws IllegalArgumentException if {@code policyId} is null.
@@ -682,6 +682,48 @@ public class CarPowerManager extends CarManagerBase {
     }
 
     /**
+     * Turns on or off the individual display.
+     *
+     * <p>Changing the driver display is not allowed.
+     *
+     * @param displayId ID of the display
+     * @param enable Display power state to set
+     * @throws UnsupportedOperationException When trying to change the driver display power state.
+     *
+     * @hide
+     */
+    @SystemApi
+    @RequiresPermission(Car.PERMISSION_CAR_POWER)
+    @ApiRequirements(minCarVersion = ApiRequirements.CarVersion.UPSIDE_DOWN_CAKE_0,
+            minPlatformVersion = ApiRequirements.PlatformVersion.UPSIDE_DOWN_CAKE_0)
+    public void setDisplayPowerState(int displayId, boolean enable) {
+        assertPlatformVersionAtLeastU();
+        try {
+            mService.setDisplayPowerState(displayId, enable);
+        } catch (RemoteException e) {
+            handleRemoteExceptionFromCarService(e);
+        }
+    }
+
+    /**
+     * Notifies that user activity has happened in the given display.
+     *
+     * @param displayId ID of the display
+     * @hide
+     */
+    @RequiresPermission(Car.PERMISSION_CAR_POWER)
+    @ApiRequirements(minCarVersion = ApiRequirements.CarVersion.UPSIDE_DOWN_CAKE_0,
+            minPlatformVersion = ApiRequirements.PlatformVersion.UPSIDE_DOWN_CAKE_0)
+    public void notifyUserActivity(int displayId) {
+        assertPlatformVersionAtLeastU();
+        try {
+            mService.notifyUserActivity(displayId);
+        } catch (RemoteException e) {
+            handleRemoteExceptionFromCarService(e);
+        }
+    }
+
+    /**
      * Returns whether listen completion is allowed for {@code state}.
      *
      * @hide
@@ -691,6 +733,7 @@ public class CarPowerManager extends CarManagerBase {
     public static boolean isCompletionAllowed(@CarPowerState int state) {
         switch (state) {
             case CarPowerManager.STATE_PRE_SHUTDOWN_PREPARE:
+            case CarPowerManager.STATE_SHUTDOWN_PREPARE:
             case CarPowerManager.STATE_SHUTDOWN_ENTER:
             case CarPowerManager.STATE_SUSPEND_ENTER:
             case CarPowerManager.STATE_HIBERNATION_ENTER:

@@ -34,6 +34,7 @@ import static android.net.TetheringManager.TETHER_ERROR_NO_ERROR;
 import static android.net.TetheringManager.TETHER_ERROR_PROVISIONING_FAILED;
 
 import static com.android.networkstack.apishim.ConstantsShim.ACTION_TETHER_UNSUPPORTED_CARRIER_UI;
+import static com.android.networkstack.apishim.ConstantsShim.RECEIVER_NOT_EXPORTED;
 
 import android.app.AlarmManager;
 import android.app.PendingIntent;
@@ -43,7 +44,6 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.PackageManager;
-import android.net.util.SharedLog;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Parcel;
@@ -55,6 +55,7 @@ import android.util.SparseIntArray;
 
 import com.android.internal.annotations.VisibleForTesting;
 import com.android.modules.utils.build.SdkLevel;
+import com.android.net.module.util.SharedLog;
 
 import java.io.PrintWriter;
 import java.util.BitSet;
@@ -119,8 +120,13 @@ public class EntitlementManager {
         mEntitlementCacheValue = new SparseIntArray();
         mPermissionChangeCallback = callback;
         mHandler = h;
-        mContext.registerReceiver(mReceiver, new IntentFilter(ACTION_PROVISIONING_ALARM),
-                null, mHandler);
+        if (SdkLevel.isAtLeastU()) {
+            mContext.registerReceiver(mReceiver, new IntentFilter(ACTION_PROVISIONING_ALARM),
+                    null, mHandler, RECEIVER_NOT_EXPORTED);
+        } else {
+            mContext.registerReceiver(mReceiver, new IntentFilter(ACTION_PROVISIONING_ALARM),
+                    null, mHandler);
+        }
         mSilentProvisioningService = ComponentName.unflattenFromString(
                 mContext.getResources().getString(R.string.config_wifi_tether_enable));
     }
@@ -296,7 +302,7 @@ public class EntitlementManager {
      *  4th priority : Checks whether provisioning is required from RRO configuration.
      *
      * @param config
-     * @return integer {@see #TETHERING_PROVISIONING_NOT_REQUIRED,
+     * @return integer See {@link #TETHERING_PROVISIONING_NOT_REQUIRED,
      *                 #TETHERING_PROVISIONING_REQUIRED,
      *                 #TETHERING_PROVISIONING_CARRIER_UNSUPPORT}
      */
@@ -453,8 +459,9 @@ public class EntitlementManager {
     }
 
     @VisibleForTesting
-    PendingIntent createRecheckAlarmIntent() {
+    PendingIntent createRecheckAlarmIntent(final String pkgName) {
         final Intent intent = new Intent(ACTION_PROVISIONING_ALARM);
+        intent.setPackage(pkgName);
         return PendingIntent.getBroadcast(mContext, 0, intent, PendingIntent.FLAG_IMMUTABLE);
     }
 
@@ -464,7 +471,7 @@ public class EntitlementManager {
             final int period = config.provisioningCheckPeriod;
             if (period <= 0) return;
 
-            mProvisioningRecheckAlarm = createRecheckAlarmIntent();
+            mProvisioningRecheckAlarm = createRecheckAlarmIntent(mContext.getPackageName());
             AlarmManager alarmManager = (AlarmManager) mContext.getSystemService(
                     Context.ALARM_SERVICE);
             long triggerAtMillis = SystemClock.elapsedRealtime() + (period * MS_PER_HOUR);

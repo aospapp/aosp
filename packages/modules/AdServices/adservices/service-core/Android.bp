@@ -16,30 +16,119 @@ package {
     default_applicable_licenses: ["Android-Apache-2.0"],
 }
 
+genrule {
+    name: "statslog-adservices-java-gen",
+    tools: ["stats-log-api-gen"],
+    cmd: "$(location stats-log-api-gen) --java $(out) --module adservices" +
+         " --javaPackage com.android.adservices.service.stats --javaClass AdServicesStatsLog",
+    out: ["com/android/adservices/service/stats/AdServicesStatsLog.java"],
+}
+
 filegroup {
     name: "adservices-service-core-sources",
     srcs: [
         "java/**/*.java",
     ],
     path: "java",
-    visibility: ["//visibility:private"],
+    visibility: [
+        "//packages/modules/AdServices/adservices/tests:__subpackages__",
+        "//package/modules/ExtServices/extservices:__subpackages__",
+    ],
 }
 
-java_library {
+filegroup {
+    name: "adservices-service-core-jni-sources",
+    srcs: [
+        "jni/java/**/*.java"
+    ],
+    path: "jni",
+    visibility: [
+        "//packages/modules/AdServices/adservices:__subpackages__",
+    ],
+}
+
+android_library {
     name: "adservices-service-core",
     sdk_version: "module_current",
-    min_sdk_version: "Tiramisu",
+    min_sdk_version: "30",
     srcs: [
         ":adservices-service-core-sources",
+        ":adservices-service-core-jni-sources",
+        ":statslog-adservices-java-gen",
+    ],
+    manifest: "AndroidManifest.xml",
+    plugins: [
+        "androidx.appsearch_appsearch-compiler-plugin",
+        "androidx.room_room-compiler-plugin",
+        "auto_value_plugin",
+        "auto_annotation_plugin"
+    ],
+    javacflags: [
+        "-Aroom.schemaLocation=packages/modules/AdServices/adservices/service-core/schemas",
     ],
     libs: [
+        "androidx.room_room-runtime",
         "framework-annotations-lib", // For @SystemApi, etc
         "framework-adservices.impl",
+        "framework-configinfrastructure",
+        "framework-sdksandbox.impl",
+        "framework-statsd.stubs.module_lib", // For WW logging
         "jsr305",
+        "auto_value_annotations"
     ],
     static_libs: [
-        // TODO(b/208705888): Renable tflite.
-        // "tensorflowlite_java",
+        "androidx.concurrent_concurrent-futures",
+        "androidx.annotation_annotation",
+        "androidx.appsearch_appsearch",
+        "androidx.appsearch_appsearch-platform-storage",
+        "cbor-java",
+        "guava",
+        "mobile_data_downloader_lib",
+        "modules-utils-preconditions",
+        "tflite_support_classifiers_java",
+        "mobile_data_downloader_lib",
+        "androidx.webkit_webkit",
+        "androidx.javascriptengine_javascriptengine",
+        "adservices-proto-lite",
+        "adservices-grpclib-lite",
+        "modules-utils-build",
     ],
-    apex_available: ["com.android.adservices"],
+    jarjar_rules: "jarjar-rules.txt",
+    apex_available: ["com.android.adservices", "com.android.extservices"],
+}
+
+cc_library_shared {
+    name: "libhpke_jni",
+    min_sdk_version: "30",
+    sdk_version: "current",
+    stl: "libc++_static",
+    cflags: [
+        "-Werror",
+        "-Wno-unused-parameter",
+        "-Wno-unused-but-set-variable",
+    ],
+    srcs: ["jni/cpp/hpke_jni.cpp", "jni/cpp/ohttp_jni.cpp"],
+    include_dirs: ["packages/modules/AdServices/adservices/service-core/jni/include"],
+    header_libs: [ "jni_headers"  ],
+    shared_libs: ["libcrypto", "liblog"],
+    apex_available: ["com.android.adservices", "com.android.extservices"],
+    visibility: [
+        "//packages/modules/AdServices:__subpackages__",
+        "//packages/modules/ExtServices:__subpackages__",
+    ],
+}
+
+// Schemas needs to be bundled via this android_library since service-core unit tests for schema
+// migration will need this.
+android_library {
+    name: "adservices-service-core-schema",
+    sdk_version: "module_current",
+    min_sdk_version: "31",
+    asset_dirs: [
+        "schemas",
+    ],
+    // Must use EmptyManifest.xml since this will be used by the service-core tests. If we use the
+    // normal "AndroidManifest.xml", we may introduce potential error like redeclare permissions.
+    // See b/228270294 for the error about duplicated permissions.
+    manifest: "EmptyManifest.xml",
 }

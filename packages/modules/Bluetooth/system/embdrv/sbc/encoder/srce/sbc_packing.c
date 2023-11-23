@@ -79,12 +79,20 @@ uint32_t EncPacking(SBC_ENC_PARAMS* pstrEncParams, uint8_t* output) {
 #endif
 #endif
 
-  pu8PacketPtr = output;           /*Initialize the ptr*/
-  *pu8PacketPtr++ = (uint8_t)0x9C; /*Sync word*/
-  *pu8PacketPtr++ = (uint8_t)(pstrEncParams->FrameHeader);
+  pu8PacketPtr = output; /*Initialize the ptr*/
+  if (pstrEncParams->Format == SBC_FORMAT_MSBC) {
+    *pu8PacketPtr++ = (uint8_t)0xAD; /*Sync word*/
+  } else {
+    *pu8PacketPtr++ = (uint8_t)0x9C; /*Sync word*/
+  }
 
-  *pu8PacketPtr = (uint8_t)(pstrEncParams->s16BitPool & 0x00FF);
-  pu8PacketPtr += 2; /*skip for CRC*/
+  if (pstrEncParams->Format == SBC_FORMAT_MSBC) {
+    pu8PacketPtr += 3; /* Skip reserved bytes and CRC */
+  } else {
+    *pu8PacketPtr++ = (uint8_t)(pstrEncParams->FrameHeader);
+    *pu8PacketPtr = (uint8_t)(pstrEncParams->s16BitPool & 0x00FF);
+    pu8PacketPtr += 2; /* Skip for CRC */
+  }
 
   /*here it indicate if it is byte boundary or nibble boundary*/
   s32PresentBit = 8;

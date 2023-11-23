@@ -16,6 +16,7 @@
 
 package com.android.server.wifi.util;
 
+import java.util.Calendar;
 import java.util.Random;
 import java.util.stream.Collectors;
 
@@ -65,5 +66,48 @@ public class StringUtil {
                 .ints(length, 0, pool.length())
                 .mapToObj(i -> Character.toString(pool.charAt(i)))
                 .collect(Collectors.joining());
+    }
+
+    /** Returns the date and time of the calendar as a formatted string. */
+    public static String calendarToString(Calendar c) {
+        // Date format: "%tm-%td %tH:%tM:%tS.%tL"
+        return new StringBuilder().append(c.get(Calendar.MONTH) + 1 - Calendar.JANUARY).append("-")
+                .append(c.get(Calendar.DAY_OF_MONTH)).append(" ")
+                .append(c.get(Calendar.HOUR_OF_DAY)).append(":")
+                .append(c.get(Calendar.MINUTE)).append(":")
+                .append(c.get(Calendar.SECOND)).append(".")
+                .append(c.get(Calendar.MILLISECOND)).toString();
+    }
+
+    /** Returns the string representation of the float number, with specified digits (up to 4)
+     * after the decimal point.
+     * @param num the float number
+     * @param digits the number of digits after the decimal point
+     * @return the string representation
+     */
+    public static String doubleToString(double num, int digits) {
+        if (digits < 0 || digits > 4) return "Err";
+
+        final boolean isNegative = num < 0;
+        num = isNegative ? -num : num;
+        long mask = 1;
+        for (int i = 0; i < digits; i++) {
+            mask *= 10;
+        }
+        long integral = (long) num;
+        long fraction = (long) (num * mask) - integral * mask;
+
+        StringBuilder sb = new StringBuilder();
+        if (isNegative) sb.append("-");
+        sb.append(integral);
+        if (digits == 0) return sb.toString();
+        sb.append(".");
+        for (long f1 = fraction; f1 > 0; f1 /= 10) {
+            digits--;
+        }
+        for (int i = 0; i < digits; i++) {
+            sb.append(0);
+        }
+        return fraction == 0 ? sb.toString() : sb.append(fraction).toString();
     }
 }

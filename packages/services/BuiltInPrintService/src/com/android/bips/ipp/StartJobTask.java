@@ -18,6 +18,7 @@
 package com.android.bips.ipp;
 
 import android.content.Context;
+import android.graphics.pdf.PdfRenderer;
 import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Build;
@@ -29,6 +30,7 @@ import android.printservice.PrintJob;
 import android.util.Log;
 import android.view.Gravity;
 
+import com.android.bips.ImagePrintActivity;
 import com.android.bips.jni.BackendConstants;
 import com.android.bips.jni.LocalJobParams;
 import com.android.bips.jni.LocalPrinterCapabilities;
@@ -112,6 +114,8 @@ class StartJobTask extends AsyncTask<Void, Void, Integer> {
         mJobParams.media_type = getMediaType();
         mJobParams.color_space = getColorSpace();
         mJobParams.document_category = getDocumentCategory();
+        mJobParams.shared_photo = isSharedPhoto();
+        mJobParams.preserve_scaling = false;
 
         mJobParams.job_margin_top = Math.max(mJobParams.job_margin_top, 0.0f);
         mJobParams.job_margin_left = Math.max(mJobParams.job_margin_left, 0.0f);
@@ -161,6 +165,19 @@ class StartJobTask extends AsyncTask<Void, Void, Integer> {
 
             // Fill in job parameters from capabilities and print job info.
             populateJobParams();
+            try (PdfRenderer renderer = new PdfRenderer(
+                    ParcelFileDescriptor.open(pdfFile, ParcelFileDescriptor.MODE_READ_ONLY));
+                 PdfRenderer.Page page = renderer.openPage(0)) {
+                if (mJobParams.portrait_mode) {
+                    mJobParams.source_height = (float) page.getHeight() / 72;
+                    mJobParams.source_width = (float) page.getWidth() / 72;
+                } else {
+                    mJobParams.source_width = (float) page.getHeight() / 72;
+                    mJobParams.source_height = (float) page.getWidth() / 72;
+                }
+            } catch (IOException e) {
+                Log.w(TAG, "Error while getting source width, height", e);
+            }
 
             // Finalize job parameters
             mBackend.nativeGetFinalJobParameters(mJobParams, mCapabilities);
@@ -259,5 +276,9 @@ class StartJobTask extends AsyncTask<Void, Void, Integer> {
             default:
                 return BackendConstants.PRINT_DOCUMENT_CATEGORY__DOCUMENT;
         }
+    }
+
+    private boolean isSharedPhoto() {
+        return mJobInfo.getId().equals(ImagePrintActivity.getLastPrintJobId());
     }
 }

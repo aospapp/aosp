@@ -13,12 +13,13 @@ filegroup {
         "bit_inserter.cc",
         "byte_inserter.cc",
         "byte_observer.cc",
-        "iterator.cc",
         "fragmenting_inserter.cc",
+        "iterator.cc",
         "packet_view.cc",
         "raw_builder.cc",
         "view.cc",
     ],
+    visibility: ["//visibility:public"],
 }
 
 filegroup {

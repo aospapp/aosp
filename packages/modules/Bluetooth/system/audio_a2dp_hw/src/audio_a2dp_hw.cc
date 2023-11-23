@@ -1184,7 +1184,7 @@ static int out_set_parameters(struct audio_stream* stream,
   /* dump params */
   hash_map_utils_dump_string_keys_string_values(params);
 
-  if (params["closing"].compare("true") == 0) {
+  if (params[AUDIO_PARAMETER_KEY_CLOSING].compare("true") == 0) {
     DEBUG("stream closing, disallow any writes");
     out->common.state = AUDIO_A2DP_STATE_STOPPING;
   }

@@ -21,9 +21,8 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.ArgumentMatchers.anyVararg;
+import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.anyInt;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
@@ -213,7 +212,7 @@ public final class KeyChainServiceRoboTest {
         }
         mKeyChain.deleteCaCertificate("alias");
 
-        verify(mockInjector, never()).writeSecurityEvent(anyInt(), anyInt(), anyVararg());
+        verify(mockInjector, never()).writeSecurityEvent(anyInt(), anyInt(), any());
     }
 
     private X509Certificate parseCertificate(String cert) throws CertificateException {

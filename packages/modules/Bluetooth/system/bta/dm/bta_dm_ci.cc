@@ -21,7 +21,7 @@
  *  This is the API implementation file for the BTA device manager.
  *
  ******************************************************************************/
-#include <base/bind.h>
+#include <base/functional/bind.h>
 #include <memory>
 
 #include "bta/dm/bta_dm_int.h"

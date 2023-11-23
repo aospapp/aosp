@@ -18,19 +18,17 @@ package com.android.safetycenter.config;
 
 import static android.os.Build.VERSION_CODES.TIRAMISU;
 
-import android.annotation.NonNull;
-
 import androidx.annotation.RequiresApi;
 
 /** Exception thrown when there is an error parsing the Safety Center configuration. */
 @RequiresApi(TIRAMISU)
 public final class ParseException extends Exception {
 
-    public ParseException(@NonNull String message) {
+    public ParseException(String message) {
         super(message);
     }
 
-    public ParseException(@NonNull String message, @NonNull Throwable ex) {
+    public ParseException(String message, Throwable ex) {
         super(message, ex);
     }
 }

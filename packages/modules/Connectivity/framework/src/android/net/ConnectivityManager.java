@@ -556,7 +556,7 @@ public class ConnectivityManager {
      *
      * @deprecated Applications should instead use {@link NetworkCapabilities#hasTransport} or
      *         {@link #requestNetwork(NetworkRequest, NetworkCallback)} to request an
-     *         appropriate network. {@see NetworkCapabilities} for supported transports.
+     *         appropriate network. See {@link NetworkCapabilities} for supported transports.
      */
     @Deprecated
     public static final int TYPE_MOBILE      = 0;
@@ -566,7 +566,7 @@ public class ConnectivityManager {
      *
      * @deprecated Applications should instead use {@link NetworkCapabilities#hasTransport} or
      *         {@link #requestNetwork(NetworkRequest, NetworkCallback)} to request an
-     *         appropriate network. {@see NetworkCapabilities} for supported transports.
+     *         appropriate network. See {@link NetworkCapabilities} for supported transports.
      */
     @Deprecated
     public static final int TYPE_WIFI        = 1;
@@ -617,7 +617,7 @@ public class ConnectivityManager {
      *
      * @deprecated Applications should instead use {@link NetworkCapabilities#hasTransport} or
      *         {@link #requestNetwork(NetworkRequest, NetworkCallback)} to request an
-     *         appropriate network. {@see NetworkCapabilities} for supported transports.
+     *         appropriate network. See {@link NetworkCapabilities} for supported transports.
      */
     @Deprecated
     public static final int TYPE_MOBILE_HIPRI = 5;
@@ -627,7 +627,7 @@ public class ConnectivityManager {
      *
      * @deprecated Applications should instead use {@link NetworkCapabilities#hasTransport} or
      *         {@link #requestNetwork(NetworkRequest, NetworkCallback)} to request an
-     *         appropriate network. {@see NetworkCapabilities} for supported transports.
+     *         appropriate network. See {@link NetworkCapabilities} for supported transports.
      */
     @Deprecated
     public static final int TYPE_WIMAX       = 6;
@@ -637,7 +637,7 @@ public class ConnectivityManager {
      *
      * @deprecated Applications should instead use {@link NetworkCapabilities#hasTransport} or
      *         {@link #requestNetwork(NetworkRequest, NetworkCallback)} to request an
-     *         appropriate network. {@see NetworkCapabilities} for supported transports.
+     *         appropriate network. See {@link NetworkCapabilities} for supported transports.
      */
     @Deprecated
     public static final int TYPE_BLUETOOTH   = 7;
@@ -654,7 +654,7 @@ public class ConnectivityManager {
      *
      * @deprecated Applications should instead use {@link NetworkCapabilities#hasTransport} or
      *         {@link #requestNetwork(NetworkRequest, NetworkCallback)} to request an
-     *         appropriate network. {@see NetworkCapabilities} for supported transports.
+     *         appropriate network. See {@link NetworkCapabilities} for supported transports.
      */
     @Deprecated
     public static final int TYPE_ETHERNET    = 9;
@@ -983,34 +983,54 @@ public class ConnectivityManager {
     public static final int FIREWALL_CHAIN_LOW_POWER_STANDBY = 5;
 
     /**
-     * Firewall chain used for lockdown VPN.
-     * Denylist of apps that cannot receive incoming packets except on loopback because they are
-     * subject to an always-on VPN which is not currently connected.
-     *
-     * @see #BLOCKED_REASON_LOCKDOWN_VPN
-     * @hide
-     */
-    public static final int FIREWALL_CHAIN_LOCKDOWN_VPN = 6;
-
-    /**
      * Firewall chain used for OEM-specific application restrictions.
-     * Denylist of apps that will not have network access due to OEM-specific restrictions.
+     *
+     * Denylist of apps that will not have network access due to OEM-specific restrictions. If an
+     * app UID is placed on this chain, and the chain is enabled, the app's packets will be dropped.
+     *
+     * All the {@code FIREWALL_CHAIN_OEM_DENY_x} chains are equivalent, and each one is
+     * independent of the others. The chains can be enabled and disabled independently, and apps can
+     * be added and removed from each chain independently.
+     *
+     * @see #FIREWALL_CHAIN_OEM_DENY_2
+     * @see #FIREWALL_CHAIN_OEM_DENY_3
      * @hide
      */
+    @SystemApi(client = MODULE_LIBRARIES)
     public static final int FIREWALL_CHAIN_OEM_DENY_1 = 7;
 
     /**
      * Firewall chain used for OEM-specific application restrictions.
-     * Denylist of apps that will not have network access due to OEM-specific restrictions.
+     *
+     * Denylist of apps that will not have network access due to OEM-specific restrictions. If an
+     * app UID is placed on this chain, and the chain is enabled, the app's packets will be dropped.
+     *
+     * All the {@code FIREWALL_CHAIN_OEM_DENY_x} chains are equivalent, and each one is
+     * independent of the others. The chains can be enabled and disabled independently, and apps can
+     * be added and removed from each chain independently.
+     *
+     * @see #FIREWALL_CHAIN_OEM_DENY_1
+     * @see #FIREWALL_CHAIN_OEM_DENY_3
      * @hide
      */
+    @SystemApi(client = MODULE_LIBRARIES)
     public static final int FIREWALL_CHAIN_OEM_DENY_2 = 8;
 
     /**
      * Firewall chain used for OEM-specific application restrictions.
-     * Denylist of apps that will not have network access due to OEM-specific restrictions.
+     *
+     * Denylist of apps that will not have network access due to OEM-specific restrictions. If an
+     * app UID is placed on this chain, and the chain is enabled, the app's packets will be dropped.
+     *
+     * All the {@code FIREWALL_CHAIN_OEM_DENY_x} chains are equivalent, and each one is
+     * independent of the others. The chains can be enabled and disabled independently, and apps can
+     * be added and removed from each chain independently.
+     *
+     * @see #FIREWALL_CHAIN_OEM_DENY_1
+     * @see #FIREWALL_CHAIN_OEM_DENY_2
      * @hide
      */
+    @SystemApi(client = MODULE_LIBRARIES)
     public static final int FIREWALL_CHAIN_OEM_DENY_3 = 9;
 
     /** @hide */
@@ -1021,7 +1041,6 @@ public class ConnectivityManager {
         FIREWALL_CHAIN_POWERSAVE,
         FIREWALL_CHAIN_RESTRICTED,
         FIREWALL_CHAIN_LOW_POWER_STANDBY,
-        FIREWALL_CHAIN_LOCKDOWN_VPN,
         FIREWALL_CHAIN_OEM_DENY_1,
         FIREWALL_CHAIN_OEM_DENY_2,
         FIREWALL_CHAIN_OEM_DENY_3
@@ -1088,7 +1107,7 @@ public class ConnectivityManager {
     /**
      * Tests if a given integer represents a valid network type.
      * @param networkType the type to be tested
-     * @return a boolean.  {@code true} if the type is valid, else {@code false}
+     * @return {@code true} if the type is valid, else {@code false}
      * @deprecated All APIs accepting a network type are deprecated. There should be no need to
      *             validate a network type.
      */
@@ -1148,6 +1167,8 @@ public class ConnectivityManager {
                 return "PROXY";
             case TYPE_VPN:
                 return "VPN";
+            case TYPE_TEST:
+                return "TEST";
             default:
                 return Integer.toString(type);
         }
@@ -1211,17 +1232,20 @@ public class ConnectivityManager {
     }
 
     /**
-     * Preference for {@link ProfileNetworkPreference#setPreference(int)}.
-     * {@see #setProfileNetworkPreferences(UserHandle, List, Executor, Runnable)}
-     * Specify that the traffic for this user should by follow the default rules.
+     * Preference for {@link ProfileNetworkPreference.Builder#setPreference(int)}.
+     * See {@link #setProfileNetworkPreferences(UserHandle, List, Executor, Runnable)}
+     * Specify that the traffic for this user should by follow the default rules:
+     * applications in the profile designated by the UserHandle behave like any
+     * other application and use the system default network as their default
+     * network. Compare other PROFILE_NETWORK_PREFERENCE_* settings.
      * @hide
      */
     @SystemApi(client = MODULE_LIBRARIES)
     public static final int PROFILE_NETWORK_PREFERENCE_DEFAULT = 0;
 
     /**
-     * Preference for {@link ProfileNetworkPreference#setPreference(int)}.
-     * {@see #setProfileNetworkPreferences(UserHandle, List, Executor, Runnable)}
+     * Preference for {@link ProfileNetworkPreference.Builder#setPreference(int)}.
+     * See {@link #setProfileNetworkPreferences(UserHandle, List, Executor, Runnable)}
      * Specify that the traffic for this user should by default go on a network with
      * {@link NetworkCapabilities#NET_CAPABILITY_ENTERPRISE}, and on the system default network
      * if no such network is available.
@@ -1231,15 +1255,37 @@ public class ConnectivityManager {
     public static final int PROFILE_NETWORK_PREFERENCE_ENTERPRISE = 1;
 
     /**
-     * Preference for {@link ProfileNetworkPreference#setPreference(int)}.
-     * {@see #setProfileNetworkPreferences(UserHandle, List, Executor, Runnable)}
+     * Preference for {@link ProfileNetworkPreference.Builder#setPreference(int)}.
+     * See {@link #setProfileNetworkPreferences(UserHandle, List, Executor, Runnable)}
      * Specify that the traffic for this user should by default go on a network with
      * {@link NetworkCapabilities#NET_CAPABILITY_ENTERPRISE} and if no such network is available
-     * should not go on the system default network
+     * should not have a default network at all (that is, network accesses that
+     * do not specify a network explicitly terminate with an error), even if there
+     * is a system default network available to apps outside this preference.
+     * The apps can still use a non-enterprise network if they request it explicitly
+     * provided that specific network doesn't require any specific permission they
+     * do not hold.
      * @hide
      */
     @SystemApi(client = MODULE_LIBRARIES)
     public static final int PROFILE_NETWORK_PREFERENCE_ENTERPRISE_NO_FALLBACK = 2;
+
+    /**
+     * Preference for {@link ProfileNetworkPreference.Builder#setPreference(int)}.
+     * See {@link #setProfileNetworkPreferences(UserHandle, List, Executor, Runnable)}
+     * Specify that the traffic for this user should by default go on a network with
+     * {@link NetworkCapabilities#NET_CAPABILITY_ENTERPRISE}.
+     * If there is no such network, the apps will have no default
+     * network at all, even if there are available non-enterprise networks on the
+     * device (that is, network accesses that do not specify a network explicitly
+     * terminate with an error). Additionally, the designated apps should be
+     * blocked from using any non-enterprise network even if they specify it
+     * explicitly, unless they hold specific privilege overriding this (see
+     * {@link android.Manifest.permission.CONNECTIVITY_USE_RESTRICTED_NETWORKS}).
+     * @hide
+     */
+    @SystemApi(client = MODULE_LIBRARIES)
+    public static final int PROFILE_NETWORK_PREFERENCE_ENTERPRISE_BLOCKING = 3;
 
     /** @hide */
     @Retention(RetentionPolicy.SOURCE)
@@ -1357,6 +1403,17 @@ public class ConnectivityManager {
         }
     }
 
+    private static UidRange[] getUidRangeArray(@NonNull Collection<Range<Integer>> ranges) {
+        Objects.requireNonNull(ranges);
+        final UidRange[] rangesArray = new UidRange[ranges.size()];
+        int index = 0;
+        for (Range<Integer> range : ranges) {
+            rangesArray[index++] = new UidRange(range.getLower(), range.getUpper());
+        }
+
+        return rangesArray;
+    }
+
     /**
      * Adds or removes a requirement for given UID ranges to use the VPN.
      *
@@ -1375,6 +1432,12 @@ public class ConnectivityManager {
      * returns. Apps will be notified about any changes that apply to them via
      * {@link NetworkCallback#onBlockedStatusChanged} callbacks called after the changes take
      * effect.
+     * <p>
+     * This method will block the specified UIDs from accessing non-VPN networks, but does not
+     * affect what the UIDs get as their default network.
+     * Compare {@link #setVpnDefaultForUids(String, Collection)}, which declares that the UIDs
+     * should only have a VPN as their default network, but does not block them from accessing other
+     * networks if they request them explicitly with the {@link Network} API.
      * <p>
      * This method should be called only by the VPN code.
      *
@@ -1395,13 +1458,60 @@ public class ConnectivityManager {
         // This method is not necessarily expected to be used outside the system server, so
         // parceling may not be necessary, but it could be used out-of-process, e.g., by the network
         // stack process, or by tests.
-        UidRange[] rangesArray = new UidRange[ranges.size()];
-        int index = 0;
-        for (Range<Integer> range : ranges) {
-            rangesArray[index++] = new UidRange(range.getLower(), range.getUpper());
-        }
+        final UidRange[] rangesArray = getUidRangeArray(ranges);
         try {
             mService.setRequireVpnForUids(requireVpn, rangesArray);
+        } catch (RemoteException e) {
+            throw e.rethrowFromSystemServer();
+        }
+    }
+
+    /**
+     * Inform the system that this VPN session should manage the passed UIDs.
+     *
+     * A VPN with the specified session ID may call this method to inform the system that the UIDs
+     * in the specified range are subject to a VPN.
+     * When this is called, the system will only choose a VPN for the default network of the UIDs in
+     * the specified ranges.
+     *
+     * This method declares that the UIDs in the range will only have a VPN for their default
+     * network, but does not block the UIDs from accessing other networks (permissions allowing) by
+     * explicitly requesting it with the {@link Network} API.
+     * Compare {@link #setRequireVpnForUids(boolean, Collection)}, which does not affect what
+     * network the UIDs get as default, but will block them from accessing non-VPN networks.
+     *
+     * @param session The VPN session which manages the passed UIDs.
+     * @param ranges The uid ranges which will treat VPN as their only default network.
+     *
+     * @hide
+     */
+    @RequiresPermission(anyOf = {
+            NetworkStack.PERMISSION_MAINLINE_NETWORK_STACK,
+            android.Manifest.permission.NETWORK_STACK,
+            android.Manifest.permission.NETWORK_SETTINGS})
+    @SystemApi(client = MODULE_LIBRARIES)
+    public void setVpnDefaultForUids(@NonNull String session,
+            @NonNull Collection<Range<Integer>> ranges) {
+        Objects.requireNonNull(ranges);
+        final UidRange[] rangesArray = getUidRangeArray(ranges);
+        try {
+            mService.setVpnNetworkPreference(session, rangesArray);
+        } catch (RemoteException e) {
+            throw e.rethrowFromSystemServer();
+        }
+    }
+
+    /**
+     * Temporarily set automaticOnOff keeplaive TCP polling alarm timer to 1 second.
+     *
+     * TODO: Remove this when the TCP polling design is replaced with callback.
+     * @param timeMs The time of expiry, with System.currentTimeMillis() base. The value should be
+     *               set no more than 5 minutes in the future.
+     * @hide
+     */
+    public void setTestLowTcpPollingTimerForKeepalive(long timeMs) {
+        try {
+            mService.setTestLowTcpPollingTimerForKeepalive(timeMs);
         } catch (RemoteException e) {
             throw e.rethrowFromSystemServer();
         }
@@ -1447,9 +1557,8 @@ public class ConnectivityManager {
     }
 
     /**
-     * Returns details about the currently active default data network
-     * for a given uid.  This is for internal use only to avoid spying
-     * other apps.
+     * Returns details about the currently active default data network for a given uid.
+     * This is for privileged use only to avoid spying on other apps.
      *
      * @return a {@link NetworkInfo} object for the current default network
      *        for the given uid or {@code null} if no default network is
@@ -1473,8 +1582,7 @@ public class ConnectivityManager {
     }
 
     /**
-     * Returns connection status information about a particular
-     * network type.
+     * Returns connection status information about a particular network type.
      *
      * @param networkType integer specifying which networkType in
      *        which you're interested.
@@ -1502,8 +1610,7 @@ public class ConnectivityManager {
     }
 
     /**
-     * Returns connection status information about a particular
-     * Network.
+     * Returns connection status information about a particular Network.
      *
      * @param network {@link Network} specifying which network
      *        in which you're interested.
@@ -1529,8 +1636,7 @@ public class ConnectivityManager {
     }
 
     /**
-     * Returns connection status information about all network
-     * types supported by the device.
+     * Returns connection status information about all network types supported by the device.
      *
      * @return an array of {@link NetworkInfo} objects.  Check each
      * {@link NetworkInfo#getType} for which type each applies.
@@ -1590,8 +1696,7 @@ public class ConnectivityManager {
     }
 
     /**
-     * Returns an array of all {@link Network} currently tracked by the
-     * framework.
+     * Returns an array of all {@link Network} currently tracked by the framework.
      *
      * @deprecated This method does not provide any notification of network state changes, forcing
      *             apps to call it repeatedly. This is inefficient and prone to race conditions.
@@ -1794,7 +1899,7 @@ public class ConnectivityManager {
      * that may be relevant for other components trying to detect captive portals.
      *
      * @hide
-     * @deprecated This API returns URL which is not guaranteed to be one of the URLs used by the
+     * @deprecated This API returns a URL which is not guaranteed to be one of the URLs used by the
      *             system.
      */
     @Deprecated
@@ -2124,9 +2229,13 @@ public class ConnectivityManager {
         /** The requested keepalive was successfully started. */
         @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.R, trackingBug = 170729553)
         public void onStarted() {}
+        /** The keepalive was resumed after being paused by the system. */
+        public void onResumed() {}
         /** The keepalive was successfully stopped. */
         @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.R, trackingBug = 170729553)
         public void onStopped() {}
+        /** The keepalive was paused automatically by the system. */
+        public void onPaused() {}
         /** An error occurred. */
         @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.R, trackingBug = 170729553)
         public void onError(int error) {}
@@ -2190,16 +2299,12 @@ public class ConnectivityManager {
         private final ISocketKeepaliveCallback mCallback;
         private final ExecutorService mExecutor;
 
-        private volatile Integer mSlot;
-
         @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.R, trackingBug = 170729553)
         public void stop() {
             try {
                 mExecutor.execute(() -> {
                     try {
-                        if (mSlot != null) {
-                            mService.stopKeepalive(mNetwork, mSlot);
-                        }
+                        mService.stopKeepalive(mCallback);
                     } catch (RemoteException e) {
                         Log.e(TAG, "Error stopping packet keepalive: ", e);
                         throw e.rethrowFromSystemServer();
@@ -2217,12 +2322,23 @@ public class ConnectivityManager {
             mExecutor = Executors.newSingleThreadExecutor();
             mCallback = new ISocketKeepaliveCallback.Stub() {
                 @Override
-                public void onStarted(int slot) {
+                public void onStarted() {
                     final long token = Binder.clearCallingIdentity();
                     try {
                         mExecutor.execute(() -> {
-                            mSlot = slot;
                             callback.onStarted();
+                        });
+                    } finally {
+                        Binder.restoreCallingIdentity(token);
+                    }
+                }
+
+                @Override
+                public void onResumed() {
+                    final long token = Binder.clearCallingIdentity();
+                    try {
+                        mExecutor.execute(() -> {
+                            callback.onResumed();
                         });
                     } finally {
                         Binder.restoreCallingIdentity(token);
@@ -2234,8 +2350,20 @@ public class ConnectivityManager {
                     final long token = Binder.clearCallingIdentity();
                     try {
                         mExecutor.execute(() -> {
-                            mSlot = null;
                             callback.onStopped();
+                        });
+                    } finally {
+                        Binder.restoreCallingIdentity(token);
+                    }
+                    mExecutor.shutdown();
+                }
+
+                @Override
+                public void onPaused() {
+                    final long token = Binder.clearCallingIdentity();
+                    try {
+                        mExecutor.execute(() -> {
+                            callback.onPaused();
                         });
                     } finally {
                         Binder.restoreCallingIdentity(token);
@@ -2248,7 +2376,6 @@ public class ConnectivityManager {
                     final long token = Binder.clearCallingIdentity();
                     try {
                         mExecutor.execute(() -> {
-                            mSlot = null;
                             callback.onError(error);
                         });
                     } finally {
@@ -2373,8 +2500,7 @@ public class ConnectivityManager {
     }
 
     /**
-     * Request that keepalives be started on a TCP socket.
-     * The socket must be established.
+     * Request that keepalives be started on a TCP socket. The socket must be established.
      *
      * @param network The {@link Network} the socket is on.
      * @param socket The socket that needs to be kept alive.
@@ -2395,7 +2521,7 @@ public class ConnectivityManager {
     @RequiresPermission(android.Manifest.permission.PACKET_KEEPALIVE_OFFLOAD)
     public @NonNull SocketKeepalive createSocketKeepalive(@NonNull Network network,
             @NonNull Socket socket,
-            @NonNull Executor executor,
+            @NonNull @CallbackExecutor Executor executor,
             @NonNull Callback callback) {
         ParcelFileDescriptor dup;
         try {
@@ -2406,6 +2532,26 @@ public class ConnectivityManager {
             dup = createInvalidFd();
         }
         return new TcpSocketKeepalive(mService, network, dup, executor, callback);
+    }
+
+    /**
+     * Get the supported keepalive count for each transport configured in resource overlays.
+     *
+     * @return An array of supported keepalive count for each transport type.
+     * @hide
+     */
+    @RequiresPermission(anyOf = { android.Manifest.permission.NETWORK_SETTINGS,
+            // CTS 13 used QUERY_ALL_PACKAGES to get the resource value, which was implemented
+            // as below in KeepaliveUtils. Also allow that permission so that KeepaliveUtils can
+            // use this method and avoid breaking released CTS. Apps that have this permission
+            // can query the resource themselves anyway.
+            android.Manifest.permission.QUERY_ALL_PACKAGES })
+    public int[] getSupportedKeepalives() {
+        try {
+            return mService.getSupportedKeepalives();
+        } catch (RemoteException e) {
+            throw e.rethrowFromSystemServer();
+        }
     }
 
     /**
@@ -2624,9 +2770,24 @@ public class ConnectivityManager {
      * {@hide}
      */
     public ConnectivityManager(Context context, IConnectivityManager service) {
+        this(context, service, true /* newStatic */);
+    }
+
+    private ConnectivityManager(Context context, IConnectivityManager service, boolean newStatic) {
         mContext = Objects.requireNonNull(context, "missing context");
         mService = Objects.requireNonNull(service, "missing IConnectivityManager");
-        sInstance = this;
+        // sInstance is accessed without a lock, so it may actually be reassigned several times with
+        // different ConnectivityManager, but that's still OK considering its usage.
+        if (sInstance == null && newStatic) {
+            final Context appContext = mContext.getApplicationContext();
+            // Don't create static ConnectivityManager instance again to prevent infinite loop.
+            // If the application context is null, we're either in the system process or
+            // it's the application context very early in app initialization. In both these
+            // cases, the passed-in Context will not be freed, so it's safe to pass it to the
+            // service. http://b/27532714 .
+            sInstance = new ConnectivityManager(appContext != null ? appContext : context, service,
+                    false /* newStatic */);
+        }
     }
 
     /** {@hide} */
@@ -2646,7 +2807,7 @@ public class ConnectivityManager {
     }
 
     /**
-     * Check if the package is a allowed to write settings. This also accounts that such an access
+     * Check if the package is allowed to write settings. This also records that such an access
      * happened.
      *
      * @return {@code true} iff the package is allowed to write settings.
@@ -2749,7 +2910,7 @@ public class ConnectivityManager {
     }
 
     /**
-     * Attempt to tether the named interface.  This will setup a dhcp server
+     * Attempt to tether the named interface.  This will set up a dhcp server
      * on the interface, forward and NAT IP packets and forward DNS requests
      * to the best active upstream network interface.  Note that if no upstream
      * IP network interface is available, dhcp will still run and traffic will be
@@ -3258,10 +3419,10 @@ public class ConnectivityManager {
 
     /**
      * Get the last value of the entitlement check on this downstream. If the cached value is
-     * {@link #TETHER_ERROR_NO_ERROR} or showEntitlementUi argument is false, it just return the
-     * cached value. Otherwise, a UI-based entitlement check would be performed. It is not
+     * {@link #TETHER_ERROR_NO_ERROR} or showEntitlementUi argument is false, this just returns the
+     * cached value. Otherwise, a UI-based entitlement check will be performed. It is not
      * guaranteed that the UI-based entitlement check will complete in any specific time period
-     * and may in fact never complete. Any successful entitlement check the platform performs for
+     * and it may in fact never complete. Any successful entitlement check the platform performs for
      * any reason will update the cached value.
      *
      * @param type the downstream type of tethering. Must be one of
@@ -3376,8 +3537,8 @@ public class ConnectivityManager {
      * proxy is likely to break networking on multiple networks. This method is only meant
      * for device policy clients looking to do general internal filtering or similar use cases.
      *
-     * {@see #getGlobalProxy}
-     * {@see LinkProperties#getHttpProxy}
+     * @see #getGlobalProxy
+     * @see LinkProperties#getHttpProxy
      *
      * @param p A {@link ProxyInfo} object defining the new global HTTP proxy. Calling this
      *          method with a {@code null} value will clear the global HTTP proxy.
@@ -3448,12 +3609,11 @@ public class ConnectivityManager {
     }
 
     /**
-     * Returns true if the hardware supports the given network type
-     * else it returns false.  This doesn't indicate we have coverage
-     * or are authorized onto a network, just whether or not the
-     * hardware supports it.  For example a GSM phone without a SIM
-     * should still return {@code true} for mobile data, but a wifi only
-     * tablet would return {@code false}.
+     * Returns whether the hardware supports the given network type.
+     *
+     * This doesn't indicate there is coverage or such a network is available, just whether the
+     * hardware supports it. For example a GSM phone without a SIM card will return {@code true}
+     * for mobile data, but a WiFi only tablet would return {@code false}.
      *
      * @param networkType The network type we'd like to check
      * @return {@code true} if supported, else {@code false}
@@ -4051,7 +4211,7 @@ public class ConnectivityManager {
         }
     }
 
-    private class CallbackHandler extends Handler {
+    private static class CallbackHandler extends Handler {
         private static final String TAG = "ConnectivityManager.CallbackHandler";
         private static final boolean DBG = false;
 
@@ -4066,7 +4226,10 @@ public class ConnectivityManager {
         @Override
         public void handleMessage(Message message) {
             if (message.what == EXPIRE_LEGACY_REQUEST) {
-                expireRequest((NetworkCapabilities) message.obj, message.arg1);
+                // the sInstance can't be null because to send this message a ConnectivityManager
+                // instance must have been created prior to creating the thread on which this
+                // Handler is running.
+                sInstance.expireRequest((NetworkCapabilities) message.obj, message.arg1);
                 return;
             }
 
@@ -4270,7 +4433,7 @@ public class ConnectivityManager {
      * network, unless it becomes the best again at some later time. All callbacks are invoked
      * in order on the same thread, which by default is a thread created by the framework running
      * in the app.
-     * {@see #requestNetwork(NetworkRequest, NetworkCallback, Handler)} to change where the
+     * See {@link #requestNetwork(NetworkRequest, NetworkCallback, Handler)} to change where the
      * callbacks are invoked.
      *
      * <p>This{@link NetworkRequest} will live until released via
@@ -4757,7 +4920,9 @@ public class ConnectivityManager {
     @SuppressLint({"ExecutorRegistration", "PairedRegistration"})
     @RequiresPermission(anyOf = {
             NetworkStack.PERMISSION_MAINLINE_NETWORK_STACK,
-            android.Manifest.permission.NETWORK_SETTINGS})
+            android.Manifest.permission.NETWORK_SETTINGS,
+            android.Manifest.permission.NETWORK_SETUP_WIZARD,
+            android.Manifest.permission.CONNECTIVITY_USE_RESTRICTED_NETWORKS})
     public void registerSystemDefaultNetworkCallback(@NonNull NetworkCallback networkCallback,
             @NonNull Handler handler) {
         CallbackHandler cbHandler = new CallbackHandler(handler);
@@ -4819,9 +4984,8 @@ public class ConnectivityManager {
      * Unregisters a {@code NetworkCallback} and possibly releases networks originating from
      * {@link #requestNetwork(NetworkRequest, NetworkCallback)} and
      * {@link #registerNetworkCallback(NetworkRequest, NetworkCallback)} calls.
-     * If the given {@code NetworkCallback} had previously been used with
-     * {@code #requestNetwork}, any networks that had been connected to only to satisfy that request
-     * will be disconnected.
+     * If the given {@code NetworkCallback} had previously been used with {@code #requestNetwork},
+     * any networks that the device brought up only to satisfy that request will be disconnected.
      *
      * Notifications that would have triggered that {@code NetworkCallback} will immediately stop
      * triggering it as soon as this call returns.
@@ -4956,7 +5120,7 @@ public class ConnectivityManager {
     }
 
     /**
-     * Temporarily allow bad wifi to override {@code config_networkAvoidBadWifi} configuration.
+     * Temporarily allow bad Wi-Fi to override {@code config_networkAvoidBadWifi} configuration.
      *
      * @param timeMs The expired current time. The value should be set within a limited time from
      *               now.
@@ -5015,7 +5179,7 @@ public class ConnectivityManager {
     }
 
     /**
-     * Determine whether the device is configured to avoid bad wifi.
+     * Determine whether the device is configured to avoid bad Wi-Fi.
      * @hide
      */
     @SystemApi
@@ -5084,9 +5248,9 @@ public class ConnectivityManager {
      * each such operation.
      *
      * @param network The network on which the application desires to use multipath data.
-     *                If {@code null}, this method will return the a preference that will generally
+     *                If {@code null}, this method will return a preference that will generally
      *                apply to metered networks.
-     * @return a bitwise OR of zero or more of the  {@code MULTIPATH_PREFERENCE_*} constants.
+     * @return a bitwise OR of zero or more of the {@code MULTIPATH_PREFERENCE_*} constants.
      */
     @RequiresPermission(android.Manifest.permission.ACCESS_NETWORK_STATE)
     public @MultipathPreference int getMultipathPreference(@Nullable Network network) {
@@ -5199,7 +5363,7 @@ public class ConnectivityManager {
      */
     @Nullable
     public Network getBoundNetworkForProcess() {
-        // Forcing callers to call thru non-static function ensures ConnectivityManager
+        // Forcing callers to call through non-static function ensures ConnectivityManager has been
         // instantiated.
         return getProcessDefaultNetwork();
     }
@@ -5350,9 +5514,9 @@ public class ConnectivityManager {
      * @return {@code uid} if the connection is found and the app has permission to observe it
      *     (e.g., if it is associated with the calling VPN app's VpnService tunnel) or {@link
      *     android.os.Process#INVALID_UID} if the connection is not found.
-     * @throws {@link SecurityException} if the caller is not the active VpnService for the current
+     * @throws SecurityException if the caller is not the active VpnService for the current
      *     user.
-     * @throws {@link IllegalArgumentException} if an unsupported protocol is requested.
+     * @throws IllegalArgumentException if an unsupported protocol is requested.
      */
     public int getConnectionOwnerUid(
             int protocol, @NonNull InetSocketAddress local, @NonNull InetSocketAddress remote) {
@@ -5844,7 +6008,7 @@ public class ConnectivityManager {
     }
 
     /**
-     * Removes the specified UID from the list of UIds that can use use background data on metered
+     * Removes the specified UID from the list of UIDs that can use background data on metered
      * networks if background data is not restricted. The deny list takes precedence over the
      * allow list.
      *
@@ -5892,10 +6056,35 @@ public class ConnectivityManager {
     }
 
     /**
+     * Get firewall rule of specified firewall chain on specified uid.
+     *
+     * @param chain target chain.
+     * @param uid   target uid
+     * @return either FIREWALL_RULE_ALLOW or FIREWALL_RULE_DENY
+     * @throws UnsupportedOperationException if called on pre-T devices.
+     * @throws ServiceSpecificException in case of failure, with an error code indicating the
+     *                                  cause of the failure.
+     * @hide
+     */
+    @RequiresPermission(anyOf = {
+            android.Manifest.permission.NETWORK_SETTINGS,
+            android.Manifest.permission.NETWORK_STACK,
+            NetworkStack.PERMISSION_MAINLINE_NETWORK_STACK
+    })
+    public int getUidFirewallRule(@FirewallChain final int chain, final int uid) {
+        try {
+            return mService.getUidFirewallRule(chain, uid);
+        } catch (RemoteException e) {
+            throw e.rethrowFromSystemServer();
+        }
+    }
+
+    /**
      * Enables or disables the specified firewall chain.
      *
      * @param chain target chain.
      * @param enable whether the chain should be enabled.
+     * @throws UnsupportedOperationException if called on pre-T devices.
      * @throws IllegalStateException if enabling or disabling the firewall chain failed.
      * @hide
      */
@@ -5914,11 +6103,34 @@ public class ConnectivityManager {
     }
 
     /**
+     * Get the specified firewall chain's status.
+     *
+     * @param chain target chain.
+     * @return {@code true} if chain is enabled, {@code false} if chain is disabled.
+     * @throws UnsupportedOperationException if called on pre-T devices.
+     * @throws ServiceSpecificException in case of failure, with an error code indicating the
+     *                                  cause of the failure.
+     * @hide
+     */
+    @RequiresPermission(anyOf = {
+            android.Manifest.permission.NETWORK_SETTINGS,
+            android.Manifest.permission.NETWORK_STACK,
+            NetworkStack.PERMISSION_MAINLINE_NETWORK_STACK
+    })
+    public boolean getFirewallChainEnabled(@FirewallChain final int chain) {
+        try {
+            return mService.getFirewallChainEnabled(chain);
+        } catch (RemoteException e) {
+            throw e.rethrowFromSystemServer();
+        }
+    }
+
+    /**
      * Replaces the contents of the specified UID-based firewall chain.
      *
      * @param chain target chain to replace.
      * @param uids The list of UIDs to be placed into chain.
-     * @throws IllegalStateException if replacing the firewall chain failed.
+     * @throws UnsupportedOperationException if called on pre-T devices.
      * @throws IllegalArgumentException if {@code chain} is not a valid chain.
      * @hide
      */
@@ -5932,6 +6144,15 @@ public class ConnectivityManager {
         Objects.requireNonNull(uids);
         try {
             mService.replaceFirewallChain(chain, uids);
+        } catch (RemoteException e) {
+            throw e.rethrowFromSystemServer();
+        }
+    }
+
+    /** @hide */
+    public IBinder getCompanionDeviceManagerProxyService() {
+        try {
+            return mService.getCompanionDeviceManagerProxyService();
         } catch (RemoteException e) {
             throw e.rethrowFromSystemServer();
         }

@@ -20,29 +20,35 @@ import android.app.PendingIntent
 import android.app.PendingIntent.FLAG_IMMUTABLE
 import android.content.Context
 import android.content.Intent
+import android.os.Build
 import android.os.Build.VERSION_CODES.TIRAMISU
+import android.os.Build.VERSION_CODES.UPSIDE_DOWN_CAKE
 import android.safetycenter.SafetySourceData.SEVERITY_LEVEL_CRITICAL_WARNING
 import android.safetycenter.SafetySourceData.SEVERITY_LEVEL_INFORMATION
 import android.safetycenter.SafetySourceData.SEVERITY_LEVEL_UNSPECIFIED
 import android.safetycenter.SafetySourceIssue
 import android.safetycenter.SafetySourceIssue.Action
+import android.safetycenter.SafetySourceIssue.Action.ConfirmationDialogDetails
 import android.safetycenter.SafetySourceIssue.ISSUE_CATEGORY_ACCOUNT
 import android.safetycenter.SafetySourceIssue.ISSUE_CATEGORY_DEVICE
 import android.safetycenter.SafetySourceIssue.ISSUE_CATEGORY_GENERAL
-import android.safetycenter.cts.testing.EqualsHashCodeToStringTester
+import android.safetycenter.SafetySourceIssue.Notification
 import android.safetycenter.cts.testing.Generic
+import androidx.annotation.RequiresApi
 import androidx.test.core.app.ApplicationProvider.getApplicationContext
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.ext.truth.os.ParcelableSubject.assertThat
 import androidx.test.filters.SdkSuppress
+import com.android.modules.utils.build.SdkLevel
+import com.android.safetycenter.testing.EqualsHashCodeToStringTester
 import com.google.common.truth.Truth.assertThat
 import kotlin.test.assertFailsWith
+import org.junit.Assume.assumeFalse
 import org.junit.Test
 import org.junit.runner.RunWith
 
 /** CTS tests for [SafetySourceIssue]. */
 @RunWith(AndroidJUnit4::class)
-@SdkSuppress(minSdkVersion = TIRAMISU, codeName = "Tiramisu")
 class SafetySourceIssueTest {
     private val context: Context = getApplicationContext()
 
@@ -80,7 +86,9 @@ class SafetySourceIssueTest {
     @Test
     fun action_willResolve_whenSetExplicitly_returnsWillResolve() {
         val action =
-            Action.Builder("action_id", "Action label", pendingIntent1).setWillResolve(true).build()
+            Action.Builder("action_id", "Action label", pendingIntentService)
+                .setWillResolve(true)
+                .build()
 
         assertThat(action.willResolve()).isTrue()
     }
@@ -110,6 +118,53 @@ class SafetySourceIssueTest {
     }
 
     @Test
+    @SdkSuppress(maxSdkVersion = TIRAMISU)
+    fun action_getConfirmationDialogDetails_withVersionLessThanU_throwsUnsupportedOperation() {
+        // TODO(b/258228790): Remove after U is no longer in pre-release
+        assumeFalse(Build.VERSION.CODENAME == "UpsideDownCake")
+        assumeFalse(Build.VERSION.CODENAME == "VanillaIceCream")
+        val action = Action.Builder("action_id", "Action label", pendingIntent1).build()
+
+        assertFailsWith(UnsupportedOperationException::class) { action.confirmationDialogDetails }
+    }
+
+    @Test
+    @SdkSuppress(maxSdkVersion = TIRAMISU)
+    fun action_setConfirmationDialogDetails_withVersionLessThanU_throwsUnsupportedOperation() {
+        // TODO(b/258228790): Remove after U is no longer in pre-release
+        assumeFalse(Build.VERSION.CODENAME == "UpsideDownCake")
+        assumeFalse(Build.VERSION.CODENAME == "VanillaIceCream")
+        assertFailsWith(UnsupportedOperationException::class) {
+            Action.Builder("action_id", "Action label", pendingIntent1)
+                .setConfirmationDialogDetails(
+                    ConfirmationDialogDetails("Title", "Text", "Accept", "Deny")
+                )
+        }
+    }
+
+    @Test
+    @SdkSuppress(minSdkVersion = UPSIDE_DOWN_CAKE, codeName = "UpsideDownCake")
+    fun action_getConfirmationDialogDetails_withDefaultBuilder_returnsNull() {
+        val action = Action.Builder("action_id", "Action label", pendingIntent1).build()
+
+        assertThat(action.confirmationDialogDetails).isNull()
+    }
+
+    @Test
+    @SdkSuppress(minSdkVersion = UPSIDE_DOWN_CAKE, codeName = "UpsideDownCake")
+    fun action_getConfirmationDialogDetails_whenSetExplicitly_returnsConfirmation() {
+        val action =
+            Action.Builder("action_id", "Action label", pendingIntent1)
+                .setConfirmationDialogDetails(
+                    ConfirmationDialogDetails("Title", "Text", "Accept", "Deny")
+                )
+                .build()
+
+        assertThat(action.confirmationDialogDetails)
+            .isEqualTo(ConfirmationDialogDetails("Title", "Text", "Accept", "Deny"))
+    }
+
+    @Test
     fun action_build_withNullId_throwsNullPointerException() {
         assertFailsWith(NullPointerException::class) {
             Action.Builder(Generic.asNull(), "Action label", pendingIntent1)
@@ -131,6 +186,14 @@ class SafetySourceIssueTest {
     }
 
     @Test
+    @SdkSuppress(minSdkVersion = UPSIDE_DOWN_CAKE, codeName = "UpsideDownCake")
+    fun action_build_withActivityPendingIntentAndWillResolve_throwsIllegalArgumentException() {
+        assertFailsWith(IllegalArgumentException::class) {
+            Action.Builder("action_id", "Action label", pendingIntent1).setWillResolve(true).build()
+        }
+    }
+
+    @Test
     fun action_describeContents_returns0() {
         val action = Action.Builder("action_id", "Action label", pendingIntent1).build()
 
@@ -148,37 +211,346 @@ class SafetySourceIssueTest {
     }
 
     @Test
+    @SdkSuppress(minSdkVersion = UPSIDE_DOWN_CAKE, codeName = "UpsideDownCake")
+    fun action_parcelRoundTrip_recreatesEqual_atLeastAndroidU() {
+        val action =
+            Action.Builder("action_id", "Action label", pendingIntent1)
+                .setConfirmationDialogDetails(
+                    ConfirmationDialogDetails("Title", "Text", "Accept", "Deny")
+                )
+                .build()
+
+        assertThat(action).recreatesEqual(Action.CREATOR)
+    }
+
+    @Test
     fun action_equalsHashCodeToString_usingEqualsHashCodeToStringTester() {
-        EqualsHashCodeToStringTester()
+        actionNewTiramisuEqualsHashCodeToStringTester().test()
+    }
+
+    @Test
+    @SdkSuppress(minSdkVersion = UPSIDE_DOWN_CAKE, codeName = "UpsideDownCake")
+    fun action_equalsHashCodeToString_usingEqualsHashCodeToStringTester_atLeastAndroidU() {
+        val confirmationDialogDetails = ConfirmationDialogDetails("Title", "Text", "Accept", "Deny")
+        actionNewTiramisuEqualsHashCodeToStringTester(
+                createCopyFromBuilder = { Action.Builder(it).build() }
+            )
             .addEqualityGroup(
-                Action.Builder("action_id", "Action label", pendingIntent1).build(),
-                Action.Builder("action_id", "Action label", pendingIntent1).build(),
                 Action.Builder("action_id", "Action label", pendingIntent1)
+                    .setConfirmationDialogDetails(confirmationDialogDetails)
+                    .build(),
+                Action.Builder("action_id", "Action label", pendingIntent1)
+                    .setConfirmationDialogDetails(confirmationDialogDetails)
+                    .build(),
+                Action.Builder("action_id", "Action label", pendingIntent1)
+                    .setConfirmationDialogDetails(confirmationDialogDetails)
                     .setWillResolve(false)
-                    .build())
+                    .build()
+            )
             .addEqualityGroup(
                 Action.Builder("action_id", "Action label", pendingIntent1)
                     .setSuccessMessage("Action successfully completed")
-                    .build())
+                    .setConfirmationDialogDetails(confirmationDialogDetails)
+                    .build()
+            )
             .addEqualityGroup(
-                Action.Builder("action_id", "Other action label", pendingIntent1).build())
+                Action.Builder("action_id", "Other action label", pendingIntent1)
+                    .setConfirmationDialogDetails(confirmationDialogDetails)
+                    .build()
+            )
             .addEqualityGroup(
-                Action.Builder("other_action_id", "Action label", pendingIntent1).build())
+                Action.Builder("other_action_id", "Action label", pendingIntent1)
+                    .setConfirmationDialogDetails(confirmationDialogDetails)
+                    .build()
+            )
             .addEqualityGroup(
-                Action.Builder("action_id", "Action label", pendingIntent1)
+                Action.Builder("action_id", "Action label", pendingIntentService)
                     .setWillResolve(true)
-                    .build())
+                    .setConfirmationDialogDetails(confirmationDialogDetails)
+                    .build()
+            )
             .addEqualityGroup(
                 Action.Builder(
                         "action_id",
                         "Action label",
                         PendingIntent.getActivity(
-                            context, 0, Intent("Other action PendingIntent"), FLAG_IMMUTABLE))
-                    .build())
+                            context,
+                            0,
+                            Intent("Other action PendingIntent"),
+                            FLAG_IMMUTABLE
+                        )
+                    )
+                    .setConfirmationDialogDetails(confirmationDialogDetails)
+                    .build()
+            )
             .addEqualityGroup(
                 Action.Builder("action_id", "Action label", pendingIntent1)
                     .setSuccessMessage("Other action successfully completed")
-                    .build())
+                    .setConfirmationDialogDetails(confirmationDialogDetails)
+                    .build()
+            )
+            .test()
+    }
+
+    @Test
+    @SdkSuppress(minSdkVersion = UPSIDE_DOWN_CAKE, codeName = "UpsideDownCake")
+    fun notification_getTitle_returnsTitle() {
+        val notification = Notification.Builder("Notification title", "Notification text").build()
+
+        assertThat(notification.title).isEqualTo("Notification title")
+    }
+
+    @Test
+    @SdkSuppress(minSdkVersion = UPSIDE_DOWN_CAKE, codeName = "UpsideDownCake")
+    fun notification_getText_returnsText() {
+        val notification = Notification.Builder("Notification title", "Notification text").build()
+
+        assertThat(notification.text).isEqualTo("Notification text")
+    }
+
+    @Test
+    @SdkSuppress(minSdkVersion = UPSIDE_DOWN_CAKE, codeName = "UpsideDownCake")
+    fun notification_getActions_withDefaultBuilder_returnsEmptyList() {
+        val notification = Notification.Builder("", "").build()
+
+        assertThat(notification.actions).isEmpty()
+    }
+
+    @Test
+    @SdkSuppress(minSdkVersion = UPSIDE_DOWN_CAKE, codeName = "UpsideDownCake")
+    fun notification_getActions_returnsActions() {
+        val notification =
+            Notification.Builder("", "").addAction(action1).addAction(action2).build()
+
+        assertThat(notification.actions).containsExactly(action1, action2).inOrder()
+    }
+
+    @Test
+    @SdkSuppress(minSdkVersion = UPSIDE_DOWN_CAKE, codeName = "UpsideDownCake")
+    fun notification_getActions_mutationsAreNotAllowed() {
+        val notification =
+            Notification.Builder("", "").addAction(action1).addAction(action2).build()
+
+        assertFailsWith(UnsupportedOperationException::class) { notification.actions.add(action3) }
+    }
+
+    @Test
+    @SdkSuppress(minSdkVersion = UPSIDE_DOWN_CAKE, codeName = "UpsideDownCake")
+    fun notification_describeContents_returns0() {
+        val notification =
+            Notification.Builder("Notification title", "Notification text")
+                .addAction(action1)
+                .addAction(action2)
+                .build()
+
+        assertThat(notification.describeContents()).isEqualTo(0)
+    }
+
+    @Test
+    @SdkSuppress(minSdkVersion = UPSIDE_DOWN_CAKE, codeName = "UpsideDownCake")
+    fun notification_parcelRoundTrip_recreatesEqual() {
+        val notification =
+            Notification.Builder("Notification title", "Notification text")
+                .addAction(action1)
+                .addAction(action2)
+                .build()
+
+        assertThat(notification).recreatesEqual(Notification.CREATOR)
+    }
+
+    @Test
+    @SdkSuppress(minSdkVersion = UPSIDE_DOWN_CAKE, codeName = "UpsideDownCake")
+    fun notification_builder_withNullTitle_throwsNullPointerException() {
+        assertFailsWith(NullPointerException::class) {
+            Notification.Builder(Generic.asNull(), "Notification text")
+        }
+    }
+
+    @Test
+    @SdkSuppress(minSdkVersion = UPSIDE_DOWN_CAKE, codeName = "UpsideDownCake")
+    fun notification_builder_withNullText_throwsNullPointerException() {
+        assertFailsWith(NullPointerException::class) {
+            Notification.Builder("Notification title", Generic.asNull())
+        }
+    }
+
+    @Test
+    @SdkSuppress(minSdkVersion = UPSIDE_DOWN_CAKE, codeName = "UpsideDownCake")
+    fun notification_builder_addAction_doesNotMutatePreviouslyBuiltInstance() {
+        val notificationBuilder = Notification.Builder("", "").addAction(action1)
+        val actions = notificationBuilder.build().actions
+
+        notificationBuilder.addAction(action2)
+
+        assertThat(actions).containsExactly(action1)
+    }
+
+    @Test
+    @SdkSuppress(minSdkVersion = UPSIDE_DOWN_CAKE, codeName = "UpsideDownCake")
+    fun notification_builder_addAction_withNull_throwsIllegalArgumentException() {
+        assertFailsWith(NullPointerException::class) {
+            Notification.Builder("", "").addAction(Generic.asNull())
+        }
+    }
+
+    @Test
+    @SdkSuppress(minSdkVersion = UPSIDE_DOWN_CAKE, codeName = "UpsideDownCake")
+    fun notification_builder_addActions_keepsPreviouslyAddedActions() {
+        val notificationBuilder = Notification.Builder("", "").addAction(action1)
+
+        notificationBuilder.addActions(listOf(action2))
+
+        assertThat(notificationBuilder.build().actions).containsExactly(action1, action2).inOrder()
+    }
+
+    @Test
+    @SdkSuppress(minSdkVersion = UPSIDE_DOWN_CAKE, codeName = "UpsideDownCake")
+    fun notification_builder_addActions_doesNotMutatePreviouslyBuiltInstance() {
+        val notificationBuilder = Notification.Builder("", "").addActions(listOf(action1))
+        val actions = notificationBuilder.build().actions
+
+        notificationBuilder.addActions(listOf(action2, action3))
+
+        assertThat(actions).containsExactly(action1)
+    }
+
+    @Test
+    @SdkSuppress(minSdkVersion = UPSIDE_DOWN_CAKE, codeName = "UpsideDownCake")
+    fun notification_builder_addActions_withNull_throwsIllegalArgumentException() {
+        assertFailsWith(NullPointerException::class) {
+            Notification.Builder("", "").addActions(Generic.asNull())
+        }
+    }
+
+    @Test
+    @SdkSuppress(minSdkVersion = UPSIDE_DOWN_CAKE, codeName = "UpsideDownCake")
+    fun notification_builder_clearActions_removesAllActions() {
+        val notification =
+            Notification.Builder("", "")
+                .addAction(action1)
+                .addAction(action2)
+                .clearActions()
+                .addAction(action3)
+                .build()
+
+        assertThat(notification.actions).containsExactly(action3)
+    }
+
+    @Test
+    @SdkSuppress(minSdkVersion = UPSIDE_DOWN_CAKE, codeName = "UpsideDownCake")
+    fun notification_build_withDuplicateActionIds_throwsIllegalArgumentException() {
+        val notificationBuilder =
+            Notification.Builder("Notification title", "Notification text")
+                .addAction(action1)
+                .addAction(action1)
+
+        val exception =
+            assertFailsWith(IllegalArgumentException::class) { notificationBuilder.build() }
+        assertThat(exception)
+            .hasMessageThat()
+            .isEqualTo("Custom notification cannot have duplicate action ids")
+    }
+
+    @Test
+    @SdkSuppress(minSdkVersion = UPSIDE_DOWN_CAKE, codeName = "UpsideDownCake")
+    fun notification_build_withMoreThanTwoActions_throwsIllegalArgumentException() {
+        val notificationBuilder =
+            Notification.Builder("Notification title", "Notification text")
+                .addAction(action1)
+                .addAction(action2)
+                .addAction(action3)
+
+        val exception =
+            assertFailsWith(IllegalArgumentException::class) { notificationBuilder.build() }
+        assertThat(exception)
+            .hasMessageThat()
+            .isEqualTo("Custom notification must not contain more than 2 actions")
+    }
+
+    @Test
+    @SdkSuppress(minSdkVersion = UPSIDE_DOWN_CAKE, codeName = "UpsideDownCake")
+    fun notification_equalsHashCodeToString_usingEqualsHashCodeToStringTester() {
+        EqualsHashCodeToStringTester.ofParcelable(
+                parcelableCreator = Notification.CREATOR,
+                createCopy = { Notification.Builder(it).build() }
+            )
+            .addEqualityGroup(
+                Notification.Builder("Title", "Text").build(),
+                Notification.Builder("Title", "Text").build(),
+            )
+            .addEqualityGroup(Notification.Builder("Other title", "Text").build())
+            .addEqualityGroup(Notification.Builder("Title", "Other text").build())
+            .addEqualityGroup(Notification.Builder("Title", "Text").addAction(action1).build())
+            .addEqualityGroup(Notification.Builder("Title", "Text").addAction(action2).build())
+            .addEqualityGroup(
+                Notification.Builder("Title", "Text").addAction(action1).addAction(action2).build(),
+                Notification.Builder("Title", "Text").addActions(listOf(action1, action2)).build()
+            )
+            .test()
+    }
+
+    @Test
+    @SdkSuppress(minSdkVersion = UPSIDE_DOWN_CAKE, codeName = "UpsideDownCake")
+    fun actionConfirmation_getTitle_returnsTitle() {
+        val confirmationDialogDetails = ConfirmationDialogDetails("Title", "Text", "Accept", "Deny")
+
+        assertThat(confirmationDialogDetails.title).isEqualTo("Title")
+    }
+
+    @Test
+    @SdkSuppress(minSdkVersion = UPSIDE_DOWN_CAKE, codeName = "UpsideDownCake")
+    fun actionConfirmation_getText_returnsText() {
+        val confirmationDialogDetails = ConfirmationDialogDetails("Title", "Text", "Accept", "Deny")
+
+        assertThat(confirmationDialogDetails.text).isEqualTo("Text")
+    }
+
+    @Test
+    @SdkSuppress(minSdkVersion = UPSIDE_DOWN_CAKE, codeName = "UpsideDownCake")
+    fun actionConfirmation_getAcceptButtonText_returnsAcceptButtonText() {
+        val confirmationDialogDetails = ConfirmationDialogDetails("Title", "Text", "Accept", "Deny")
+
+        assertThat(confirmationDialogDetails.acceptButtonText).isEqualTo("Accept")
+    }
+
+    @Test
+    @SdkSuppress(minSdkVersion = UPSIDE_DOWN_CAKE, codeName = "UpsideDownCake")
+    fun actionConfirmation_getDenyButtonText_returnsDenyButtonText() {
+        val confirmationDialogDetails = ConfirmationDialogDetails("Title", "Text", "Accept", "Deny")
+
+        assertThat(confirmationDialogDetails.denyButtonText).isEqualTo("Deny")
+    }
+
+    @Test
+    @SdkSuppress(minSdkVersion = UPSIDE_DOWN_CAKE, codeName = "UpsideDownCake")
+    fun actionConfirmation_describeContents_returns0() {
+        val confirmationDialogDetails = ConfirmationDialogDetails("Title", "Text", "Accept", "Deny")
+
+        assertThat(confirmationDialogDetails.describeContents()).isEqualTo(0)
+    }
+
+    @Test
+    @SdkSuppress(minSdkVersion = UPSIDE_DOWN_CAKE, codeName = "UpsideDownCake")
+    fun actionConfirmation_parcelRoundTrip_recreatesEqual() {
+        val confirmationDialogDetails = ConfirmationDialogDetails("Title", "Text", "Accept", "Deny")
+
+        assertThat(confirmationDialogDetails).recreatesEqual(ConfirmationDialogDetails.CREATOR)
+    }
+
+    @Test
+    @SdkSuppress(minSdkVersion = UPSIDE_DOWN_CAKE, codeName = "UpsideDownCake")
+    fun actionConfirmation_equalsHashCodeToString_usingEqualsHashCodeToStringTester() {
+        EqualsHashCodeToStringTester.ofParcelable(
+                parcelableCreator = ConfirmationDialogDetails.CREATOR
+            )
+            .addEqualityGroup(
+                ConfirmationDialogDetails("Title", "Text", "Accept", "Deny"),
+                ConfirmationDialogDetails("Title", "Text", "Accept", "Deny")
+            )
+            .addEqualityGroup(ConfirmationDialogDetails("Other title", "Text", "Accept", "Deny"))
+            .addEqualityGroup(ConfirmationDialogDetails("Title", "Other text", "Accept", "Deny"))
+            .addEqualityGroup(ConfirmationDialogDetails("Title", "Text", "Other accept", "Deny"))
+            .addEqualityGroup(ConfirmationDialogDetails("Title", "Text", "Accept", "Other deny"))
             .test()
     }
 
@@ -190,7 +562,8 @@ class SafetySourceIssueTest {
                     "Issue title",
                     "Issue summary",
                     SEVERITY_LEVEL_INFORMATION,
-                    "issue_type_id")
+                    "issue_type_id"
+                )
                 .addAction(action1)
                 .build()
 
@@ -205,7 +578,8 @@ class SafetySourceIssueTest {
                     "Issue title",
                     "Issue summary",
                     SEVERITY_LEVEL_INFORMATION,
-                    "issue_type_id")
+                    "issue_type_id"
+                )
                 .addAction(action1)
                 .build()
 
@@ -220,7 +594,8 @@ class SafetySourceIssueTest {
                     "Issue title",
                     "Issue summary",
                     SEVERITY_LEVEL_INFORMATION,
-                    "issue_type_id")
+                    "issue_type_id"
+                )
                 .addAction(action1)
                 .build()
 
@@ -235,7 +610,8 @@ class SafetySourceIssueTest {
                     "Issue title",
                     "Issue summary",
                     SEVERITY_LEVEL_INFORMATION,
-                    "issue_type_id")
+                    "issue_type_id"
+                )
                 .setSubtitle("Issue subtitle")
                 .addAction(action1)
                 .build()
@@ -251,11 +627,87 @@ class SafetySourceIssueTest {
                     "Issue title",
                     "Issue summary",
                     SEVERITY_LEVEL_INFORMATION,
-                    "issue_type_id")
+                    "issue_type_id"
+                )
                 .addAction(action1)
                 .build()
 
         assertThat(safetySourceIssue.summary).isEqualTo("Issue summary")
+    }
+
+    @Test
+    @SdkSuppress(minSdkVersion = UPSIDE_DOWN_CAKE, codeName = "UpsideDownCake")
+    fun getAttributionTitle_withNullAttributionTitle_returnsNull() {
+        val safetySourceIssue =
+            SafetySourceIssue.Builder(
+                    "Issue id",
+                    "Issue title",
+                    "Issue summary",
+                    SEVERITY_LEVEL_INFORMATION,
+                    "issue_type_id"
+                )
+                .addAction(action1)
+                .build()
+
+        assertThat(safetySourceIssue.attributionTitle).isNull()
+    }
+
+    @Test
+    @SdkSuppress(minSdkVersion = UPSIDE_DOWN_CAKE, codeName = "UpsideDownCake")
+    fun getAttributionTitle_returnsAttributionTitle() {
+        val safetySourceIssue =
+            SafetySourceIssue.Builder(
+                    "Issue id",
+                    "Issue title",
+                    "Issue summary",
+                    SEVERITY_LEVEL_INFORMATION,
+                    "issue_type_id"
+                )
+                .addAction(action1)
+                .setAttributionTitle("attribution title")
+                .build()
+
+        assertThat(safetySourceIssue.attributionTitle).isEqualTo("attribution title")
+    }
+
+    @Test
+    @SdkSuppress(maxSdkVersion = TIRAMISU)
+    fun getAttributionTitle_withVersionLessThanU_throwsUnsupportedOperationException() {
+        // TODO(b/258228790): Remove after U is no longer in pre-release
+        assumeFalse(Build.VERSION.CODENAME == "UpsideDownCake")
+        assumeFalse(Build.VERSION.CODENAME == "VanillaIceCream")
+        val safetySourceIssue =
+            SafetySourceIssue.Builder(
+                    "Issue id",
+                    "Issue title",
+                    "Issue summary",
+                    SEVERITY_LEVEL_INFORMATION,
+                    "issue_type_id"
+                )
+                .addAction(action1)
+                .build()
+
+        assertFailsWith(UnsupportedOperationException::class) { safetySourceIssue.attributionTitle }
+    }
+
+    @Test
+    @SdkSuppress(maxSdkVersion = TIRAMISU)
+    fun setAttributionTitle_withVersionLessThanU_throwsUnsupportedOperationException() {
+        // TODO(b/258228790): Remove after U is no longer in pre-release
+        assumeFalse(Build.VERSION.CODENAME == "UpsideDownCake")
+        assumeFalse(Build.VERSION.CODENAME == "VanillaIceCream")
+        val safetySourceIssueBuilder =
+            SafetySourceIssue.Builder(
+                "Issue id",
+                "Issue title",
+                "Issue summary",
+                SEVERITY_LEVEL_INFORMATION,
+                "issue_type_id"
+            )
+
+        assertFailsWith(UnsupportedOperationException::class) {
+            safetySourceIssueBuilder.setAttributionTitle("title")
+        }
     }
 
     @Test
@@ -266,7 +718,8 @@ class SafetySourceIssueTest {
                     "Issue title",
                     "Issue summary",
                     SEVERITY_LEVEL_INFORMATION,
-                    "issue_type_id")
+                    "issue_type_id"
+                )
                 .addAction(action1)
                 .build()
 
@@ -281,7 +734,8 @@ class SafetySourceIssueTest {
                     "Issue title",
                     "Issue summary",
                     SEVERITY_LEVEL_INFORMATION,
-                    "issue_type_id")
+                    "issue_type_id"
+                )
                 .addAction(action1)
                 .build()
 
@@ -296,12 +750,32 @@ class SafetySourceIssueTest {
                     "Issue title",
                     "Issue summary",
                     SEVERITY_LEVEL_INFORMATION,
-                    "issue_type_id")
+                    "issue_type_id"
+                )
                 .addAction(action1)
                 .setIssueCategory(ISSUE_CATEGORY_DEVICE)
                 .build()
 
         assertThat(safetySourceIssue.issueCategory).isEqualTo(ISSUE_CATEGORY_DEVICE)
+    }
+
+    @Test
+    @SdkSuppress(minSdkVersion = UPSIDE_DOWN_CAKE, codeName = "UpsideDownCake")
+    fun getIssueCategory_whenSetExplicitlyWithUValueOnU_returnsIssueCategory() {
+        val safetySourceIssue =
+            SafetySourceIssue.Builder(
+                    "Issue id",
+                    "Issue title",
+                    "Issue summary",
+                    SEVERITY_LEVEL_INFORMATION,
+                    "issue_type_id"
+                )
+                .addAction(action1)
+                .setIssueCategory(SafetySourceIssue.ISSUE_CATEGORY_PASSWORDS)
+                .build()
+
+        assertThat(safetySourceIssue.issueCategory)
+            .isEqualTo(SafetySourceIssue.ISSUE_CATEGORY_PASSWORDS)
     }
 
     @Test
@@ -312,12 +786,49 @@ class SafetySourceIssueTest {
                     "Issue title",
                     "Issue summary",
                     SEVERITY_LEVEL_INFORMATION,
-                    "issue_type_id")
+                    "issue_type_id"
+                )
                 .addAction(action1)
                 .addAction(action2)
                 .build()
 
         assertThat(safetySourceIssue.actions).containsExactly(action1, action2).inOrder()
+    }
+
+    @Test
+    fun getActions_mutationsAreNotAllowed() {
+        val safetySourceIssue =
+            SafetySourceIssue.Builder(
+                    "Issue id",
+                    "Issue title",
+                    "Issue summary",
+                    SEVERITY_LEVEL_INFORMATION,
+                    "issue_type_id"
+                )
+                .addAction(action1)
+                .addAction(action2)
+                .build()
+        val mutatedActions = safetySourceIssue.actions
+
+        assertFailsWith(UnsupportedOperationException::class) { mutatedActions.add(action3) }
+    }
+
+    @Test
+    fun builder_addAction_doesNotMutatePreviouslyBuiltInstance() {
+        val safetySourceIssueBuilder =
+            SafetySourceIssue.Builder(
+                    "Issue id",
+                    "Issue title",
+                    "Issue summary",
+                    SEVERITY_LEVEL_INFORMATION,
+                    "issue_type_id"
+                )
+                .addAction(action1)
+        val actions = safetySourceIssueBuilder.build().actions
+
+        safetySourceIssueBuilder.addAction(action2)
+
+        assertThat(actions).containsExactly(action1)
     }
 
     @Test
@@ -328,7 +839,8 @@ class SafetySourceIssueTest {
                     "Issue title",
                     "Issue summary",
                     SEVERITY_LEVEL_INFORMATION,
-                    "issue_type_id")
+                    "issue_type_id"
+                )
                 .addAction(action1)
                 .addAction(action2)
                 .clearActions()
@@ -346,7 +858,8 @@ class SafetySourceIssueTest {
                     "Issue title",
                     "Issue summary",
                     SEVERITY_LEVEL_INFORMATION,
-                    "issue_type_id")
+                    "issue_type_id"
+                )
                 .addAction(action1)
                 .build()
 
@@ -361,12 +874,88 @@ class SafetySourceIssueTest {
                     "Issue title",
                     "Issue summary",
                     SEVERITY_LEVEL_INFORMATION,
-                    "issue_type_id")
+                    "issue_type_id"
+                )
                 .addAction(action1)
                 .setOnDismissPendingIntent(pendingIntentService)
                 .build()
 
         assertThat(safetySourceIssue.onDismissPendingIntent).isEqualTo(pendingIntentService)
+    }
+
+    @Test
+    @SdkSuppress(minSdkVersion = UPSIDE_DOWN_CAKE, codeName = "UpsideDownCake")
+    fun getDeduplicationId_withDefaultBuilder_returnsNull() {
+        val safetySourceIssue =
+            SafetySourceIssue.Builder(
+                    "Issue id",
+                    "Issue title",
+                    "Issue summary",
+                    SEVERITY_LEVEL_INFORMATION,
+                    "issue_type_id"
+                )
+                .addAction(action1)
+                .build()
+
+        assertThat(safetySourceIssue.deduplicationId).isNull()
+    }
+
+    @Test
+    @SdkSuppress(minSdkVersion = UPSIDE_DOWN_CAKE, codeName = "UpsideDownCake")
+    fun getDeduplicationId_whenSetExplicitly_returnsDeduplicationId() {
+        val safetySourceIssue =
+            SafetySourceIssue.Builder(
+                    "Issue id",
+                    "Issue title",
+                    "Issue summary",
+                    SEVERITY_LEVEL_INFORMATION,
+                    "issue_type_id"
+                )
+                .addAction(action1)
+                .setDeduplicationId("deduplication_id")
+                .build()
+
+        assertThat(safetySourceIssue.deduplicationId).isEqualTo("deduplication_id")
+    }
+
+    @Test
+    @SdkSuppress(maxSdkVersion = TIRAMISU)
+    fun getDeduplicationId_withVersionLessThanU_throwsUnsupportedOperationException() {
+        // TODO(b/258228790): Remove after U is no longer in pre-release
+        assumeFalse(Build.VERSION.CODENAME == "UpsideDownCake")
+        assumeFalse(Build.VERSION.CODENAME == "VanillaIceCream")
+        val safetySourceIssue =
+            SafetySourceIssue.Builder(
+                    "Issue id",
+                    "Issue title",
+                    "Issue summary",
+                    SEVERITY_LEVEL_INFORMATION,
+                    "issue_type_id"
+                )
+                .addAction(action1)
+                .build()
+
+        assertFailsWith(UnsupportedOperationException::class) { safetySourceIssue.deduplicationId }
+    }
+
+    @Test
+    @SdkSuppress(maxSdkVersion = TIRAMISU)
+    fun setDeduplicationId_withVersionLessThanU_throwsUnsupportedOperationException() {
+        // TODO(b/258228790): Remove after U is no longer in pre-release
+        assumeFalse(Build.VERSION.CODENAME == "UpsideDownCake")
+        assumeFalse(Build.VERSION.CODENAME == "VanillaIceCream")
+        val safetySourceIssueBuilder =
+            SafetySourceIssue.Builder(
+                "Issue id",
+                "Issue title",
+                "Issue summary",
+                SEVERITY_LEVEL_INFORMATION,
+                "issue_type_id"
+            )
+
+        assertFailsWith(UnsupportedOperationException::class) {
+            safetySourceIssueBuilder.setDeduplicationId("id")
+        }
     }
 
     @Test
@@ -377,11 +966,296 @@ class SafetySourceIssueTest {
                     "Issue title",
                     "Issue summary",
                     SEVERITY_LEVEL_INFORMATION,
-                    "issue_type_id")
+                    "issue_type_id"
+                )
                 .addAction(action1)
                 .build()
 
         assertThat(safetySourceIssue.issueTypeId).isEqualTo("issue_type_id")
+    }
+
+    @Test
+    @SdkSuppress(minSdkVersion = UPSIDE_DOWN_CAKE, codeName = "UpsideDownCake")
+    fun getCustomNotification_withDefaultBuilder_returnsNull() {
+        val safetySourceIssue =
+            SafetySourceIssue.Builder(
+                    "Issue id",
+                    "Issue title",
+                    "Issue summary",
+                    SEVERITY_LEVEL_INFORMATION,
+                    "issue_type_id"
+                )
+                .addAction(action1)
+                .build()
+
+        assertThat(safetySourceIssue.customNotification).isNull()
+    }
+
+    @Test
+    @SdkSuppress(minSdkVersion = UPSIDE_DOWN_CAKE, codeName = "UpsideDownCake")
+    fun getCustomNotification_whenSetExplicitly_returnsCustomNotification() {
+        val safetySourceIssue =
+            SafetySourceIssue.Builder(
+                    "Issue id",
+                    "Issue title",
+                    "Issue summary",
+                    SEVERITY_LEVEL_INFORMATION,
+                    "issue_type_id"
+                )
+                .addAction(action1)
+                .setCustomNotification(
+                    Notification.Builder("Notification title", "Notification text")
+                        .addAction(action2)
+                        .build()
+                )
+                .build()
+
+        assertThat(safetySourceIssue.customNotification)
+            .isEqualTo(
+                Notification.Builder("Notification title", "Notification text")
+                    .addAction(action2)
+                    .build()
+            )
+    }
+
+    @Test
+    @SdkSuppress(maxSdkVersion = TIRAMISU)
+    fun getCustomNotification_withVersionLessThanU_throwsUnsupportedOperationException() {
+        // TODO(b/258228790): Remove after U is no longer in pre-release
+        assumeFalse(Build.VERSION.CODENAME == "UpsideDownCake")
+        assumeFalse(Build.VERSION.CODENAME == "VanillaIceCream")
+        val safetySourceIssue =
+            SafetySourceIssue.Builder(
+                    "Issue id",
+                    "Issue title",
+                    "Issue summary",
+                    SEVERITY_LEVEL_INFORMATION,
+                    "issue_type_id"
+                )
+                .addAction(action1)
+                .build()
+
+        assertFailsWith(UnsupportedOperationException::class) {
+            safetySourceIssue.customNotification
+        }
+    }
+
+    @Test
+    @SdkSuppress(maxSdkVersion = TIRAMISU)
+    fun setCustomNotification_withVersionLessThanU_throwsUnsupportedOperationException() {
+        // TODO(b/258228790): Remove after U is no longer in pre-release
+        assumeFalse(Build.VERSION.CODENAME == "UpsideDownCake")
+        assumeFalse(Build.VERSION.CODENAME == "VanillaIceCream")
+        val safetySourceIssueBuilder =
+            SafetySourceIssue.Builder(
+                "Issue id",
+                "Issue title",
+                "Issue summary",
+                SEVERITY_LEVEL_INFORMATION,
+                "issue_type_id"
+            )
+
+        assertFailsWith(UnsupportedOperationException::class) {
+            safetySourceIssueBuilder.setCustomNotification(null)
+        }
+    }
+
+    @Test
+    @SdkSuppress(minSdkVersion = UPSIDE_DOWN_CAKE, codeName = "UpsideDownCake")
+    fun getNotificationBehavior_withDefaultBuilder_returnsUnspecified() {
+        val safetySourceIssue =
+            SafetySourceIssue.Builder(
+                    "Issue id",
+                    "Issue title",
+                    "Issue summary",
+                    SEVERITY_LEVEL_INFORMATION,
+                    "issue_type_id"
+                )
+                .addAction(action1)
+                .build()
+
+        assertThat(safetySourceIssue.notificationBehavior)
+            .isEqualTo(SafetySourceIssue.NOTIFICATION_BEHAVIOR_UNSPECIFIED)
+    }
+
+    @Test
+    @SdkSuppress(minSdkVersion = UPSIDE_DOWN_CAKE, codeName = "UpsideDownCake")
+    fun getNotificationBehavior_whenSetExplicitly_returnsSpecifiedBehavior() {
+        val safetySourceIssue =
+            SafetySourceIssue.Builder(
+                    "Issue id",
+                    "Issue title",
+                    "Issue summary",
+                    SEVERITY_LEVEL_INFORMATION,
+                    "issue_type_id"
+                )
+                .addAction(action1)
+                .setNotificationBehavior(SafetySourceIssue.NOTIFICATION_BEHAVIOR_NEVER)
+                .build()
+
+        assertThat(safetySourceIssue.notificationBehavior)
+            .isEqualTo(SafetySourceIssue.NOTIFICATION_BEHAVIOR_NEVER)
+    }
+
+    @Test
+    @SdkSuppress(maxSdkVersion = TIRAMISU)
+    fun getNotificationBehavior_withVersionLessThanU_throwsUnsupportedOperationException() {
+        // TODO(b/258228790): Remove after U is no longer in pre-release
+        assumeFalse(Build.VERSION.CODENAME == "UpsideDownCake")
+        assumeFalse(Build.VERSION.CODENAME == "VanillaIceCream")
+        val safetySourceIssue =
+            SafetySourceIssue.Builder(
+                    "Issue id",
+                    "Issue title",
+                    "Issue summary",
+                    SEVERITY_LEVEL_INFORMATION,
+                    "issue_type_id"
+                )
+                .addAction(action1)
+                .build()
+
+        assertFailsWith(UnsupportedOperationException::class) {
+            safetySourceIssue.notificationBehavior
+        }
+    }
+
+    @Test
+    @SdkSuppress(minSdkVersion = UPSIDE_DOWN_CAKE, codeName = "UpsideDownCake")
+    fun setNotificationBehavior_withInvalidNotificationBehavior_throwsIllegalArgumentException() {
+        val builder =
+            SafetySourceIssue.Builder(
+                "Issue id",
+                "Issue title",
+                "Issue summary",
+                SEVERITY_LEVEL_INFORMATION,
+                "issue_type_id"
+            )
+
+        val exception =
+            assertFailsWith(IllegalArgumentException::class) { builder.setNotificationBehavior(-1) }
+
+        assertThat(exception)
+            .hasMessageThat()
+            .isEqualTo("Unexpected NotificationBehavior for SafetySourceIssue: -1")
+    }
+
+    @Test
+    @SdkSuppress(maxSdkVersion = TIRAMISU)
+    fun setNotificationBehavior_withVersionLessThanU_throwsUnsupportedOperationException() {
+        // TODO(b/258228790): Remove after U is no longer in pre-release
+        assumeFalse(Build.VERSION.CODENAME == "UpsideDownCake")
+        assumeFalse(Build.VERSION.CODENAME == "VanillaIceCream")
+        val safetySourceIssueBuilder =
+            SafetySourceIssue.Builder(
+                "Issue id",
+                "Issue title",
+                "Issue summary",
+                SEVERITY_LEVEL_INFORMATION,
+                "issue_type_id"
+            )
+
+        assertFailsWith(UnsupportedOperationException::class) {
+            safetySourceIssueBuilder.setNotificationBehavior(0)
+        }
+    }
+
+    @Test
+    @SdkSuppress(minSdkVersion = UPSIDE_DOWN_CAKE, codeName = "UpsideDownCake")
+    fun getIssueActionability_withDefaultBuilder_returnsManual() {
+        val safetySourceIssue =
+            SafetySourceIssue.Builder(
+                    "Issue id",
+                    "Issue title",
+                    "Issue summary",
+                    SEVERITY_LEVEL_INFORMATION,
+                    "issue_type_id"
+                )
+                .addAction(action1)
+                .build()
+
+        assertThat(safetySourceIssue.issueActionability)
+            .isEqualTo(SafetySourceIssue.ISSUE_ACTIONABILITY_MANUAL)
+    }
+
+    @Test
+    @SdkSuppress(minSdkVersion = UPSIDE_DOWN_CAKE, codeName = "UpsideDownCake")
+    fun getIssueActionability_whenSetExplicitly_returnsValueSet() {
+        val safetySourceIssue =
+            SafetySourceIssue.Builder(
+                    "Issue id",
+                    "Issue title",
+                    "Issue summary",
+                    SEVERITY_LEVEL_INFORMATION,
+                    "issue_type_id"
+                )
+                .addAction(action1)
+                .setIssueActionability(SafetySourceIssue.ISSUE_ACTIONABILITY_AUTOMATIC)
+                .build()
+
+        assertThat(safetySourceIssue.issueActionability)
+            .isEqualTo(SafetySourceIssue.ISSUE_ACTIONABILITY_AUTOMATIC)
+    }
+
+    @Test
+    @SdkSuppress(maxSdkVersion = TIRAMISU)
+    fun getIssueActionability_withVersionLessThanU_throwsUnsupportedOperationException() {
+        // TODO(b/258228790): Remove after U is no longer in pre-release
+        assumeFalse(Build.VERSION.CODENAME == "UpsideDownCake")
+        assumeFalse(Build.VERSION.CODENAME == "VanillaIceCream")
+        val safetySourceIssue =
+            SafetySourceIssue.Builder(
+                    "Issue id",
+                    "Issue title",
+                    "Issue summary",
+                    SEVERITY_LEVEL_INFORMATION,
+                    "issue_type_id"
+                )
+                .addAction(action1)
+                .build()
+
+        assertFailsWith(UnsupportedOperationException::class) {
+            safetySourceIssue.issueActionability
+        }
+    }
+
+    @Test
+    @SdkSuppress(minSdkVersion = UPSIDE_DOWN_CAKE, codeName = "UpsideDownCake")
+    fun setIssueActionability_withInvalidIssueActionability_throwsIllegalArgumentException() {
+        val builder =
+            SafetySourceIssue.Builder(
+                "Issue id",
+                "Issue title",
+                "Issue summary",
+                SEVERITY_LEVEL_INFORMATION,
+                "issue_type_id"
+            )
+
+        val exception =
+            assertFailsWith(IllegalArgumentException::class) { builder.setIssueActionability(-1) }
+
+        assertThat(exception)
+            .hasMessageThat()
+            .isEqualTo("Unexpected IssueActionability for SafetySourceIssue: -1")
+    }
+
+    @Test
+    @SdkSuppress(maxSdkVersion = TIRAMISU)
+    fun setIssueActionability_withVersionLessThanU_throwsUnsupportedOperationException() {
+        // TODO(b/258228790): Remove after U is no longer in pre-release
+        assumeFalse(Build.VERSION.CODENAME == "UpsideDownCake")
+        assumeFalse(Build.VERSION.CODENAME == "VanillaIceCream")
+        val safetySourceIssueBuilder =
+            SafetySourceIssue.Builder(
+                "Issue id",
+                "Issue title",
+                "Issue summary",
+                SEVERITY_LEVEL_INFORMATION,
+                "issue_type_id"
+            )
+
+        assertFailsWith(UnsupportedOperationException::class) {
+            safetySourceIssueBuilder.setIssueActionability(0)
+        }
     }
 
     @Test
@@ -392,7 +1266,8 @@ class SafetySourceIssueTest {
                 "Issue title",
                 "Issue summary",
                 SEVERITY_LEVEL_INFORMATION,
-                "issue_type_id")
+                "issue_type_id"
+            )
         }
     }
 
@@ -404,7 +1279,8 @@ class SafetySourceIssueTest {
                 Generic.asNull(),
                 "Issue summary",
                 SEVERITY_LEVEL_INFORMATION,
-                "issue_type_id")
+                "issue_type_id"
+            )
         }
     }
 
@@ -416,7 +1292,8 @@ class SafetySourceIssueTest {
                 "Issue title",
                 Generic.asNull(),
                 SEVERITY_LEVEL_INFORMATION,
-                "issue_type_id")
+                "issue_type_id"
+            )
         }
     }
 
@@ -429,7 +1306,8 @@ class SafetySourceIssueTest {
                     "Issue title",
                     "Issue summary",
                     SEVERITY_LEVEL_UNSPECIFIED,
-                    "issue_type_id")
+                    "issue_type_id"
+                )
             }
         assertThat(exception)
             .hasMessageThat()
@@ -441,7 +1319,12 @@ class SafetySourceIssueTest {
         val exception =
             assertFailsWith(IllegalArgumentException::class) {
                 SafetySourceIssue.Builder(
-                    "Issue id", "Issue title", "Issue summary", -1, "issue_type_id")
+                    "Issue id",
+                    "Issue title",
+                    "Issue summary",
+                    -1,
+                    "issue_type_id"
+                )
             }
         assertThat(exception)
             .hasMessageThat()
@@ -456,7 +1339,8 @@ class SafetySourceIssueTest {
                 "Issue title",
                 "Issue summary",
                 SEVERITY_LEVEL_INFORMATION,
-                Generic.asNull())
+                Generic.asNull()
+            )
         }
     }
 
@@ -468,12 +1352,39 @@ class SafetySourceIssueTest {
                 "Issue title",
                 "Issue summary",
                 SEVERITY_LEVEL_INFORMATION,
-                "issue_type_id")
+                "issue_type_id"
+            )
+
         val exception =
             assertFailsWith(IllegalArgumentException::class) { builder.setIssueCategory(-1) }
+
         assertThat(exception)
             .hasMessageThat()
             .isEqualTo("Unexpected IssueCategory for SafetySourceIssue: -1")
+    }
+
+    @Test
+    @SdkSuppress(maxSdkVersion = TIRAMISU)
+    fun build_withUIssueCategoryValueOnT_throwsIllegalArgumentException() {
+        // TODO(b/258228790): Remove after U is no longer in pre-release
+        assumeFalse(Build.VERSION.CODENAME == "UpsideDownCake")
+        assumeFalse(Build.VERSION.CODENAME == "VanillaIceCream")
+        val builder =
+            SafetySourceIssue.Builder(
+                    "Issue id",
+                    "Issue title",
+                    "Issue summary",
+                    SEVERITY_LEVEL_INFORMATION,
+                    "issue_type_id"
+                )
+                .addAction(action1)
+
+        val exception =
+            assertFailsWith(IllegalArgumentException::class) { builder.setIssueCategory(600) }
+
+        assertThat(exception)
+            .hasMessageThat()
+            .isEqualTo("Unexpected IssueCategory for SafetySourceIssue: 600")
     }
 
     @Test
@@ -484,7 +1395,8 @@ class SafetySourceIssueTest {
                 "Issue title",
                 "Issue summary",
                 SEVERITY_LEVEL_INFORMATION,
-                "issue_type_id")
+                "issue_type_id"
+            )
         val exception =
             assertFailsWith(IllegalArgumentException::class) {
                 builder.setOnDismissPendingIntent(
@@ -492,11 +1404,33 @@ class SafetySourceIssueTest {
                         context,
                         /* requestCode = */ 0,
                         Intent("PendingIntent activity"),
-                        FLAG_IMMUTABLE))
+                        FLAG_IMMUTABLE
+                    )
+                )
             }
         assertThat(exception)
             .hasMessageThat()
             .isEqualTo("Safety source issue on dismiss pending intent must not start an activity")
+    }
+
+    @Test
+    fun build_withDuplicateActionIds_throwsIllegalArgumentException() {
+        val safetySourceIssueBuilder =
+            SafetySourceIssue.Builder(
+                    "Issue id",
+                    "Issue title",
+                    "Issue summary",
+                    SEVERITY_LEVEL_INFORMATION,
+                    "issue_type_id"
+                )
+                .addAction(action1)
+                .addAction(action1)
+
+        val exception =
+            assertFailsWith(IllegalArgumentException::class) { safetySourceIssueBuilder.build() }
+        assertThat(exception)
+            .hasMessageThat()
+            .isEqualTo("Safety source issue cannot have duplicate action ids")
     }
 
     @Test
@@ -507,13 +1441,21 @@ class SafetySourceIssueTest {
                 "Issue title",
                 "Issue summary",
                 SEVERITY_LEVEL_INFORMATION,
-                "issue_type_id")
+                "issue_type_id"
+            )
 
         val exception =
             assertFailsWith(IllegalArgumentException::class) { safetySourceIssueBuilder.build() }
+
         assertThat(exception)
             .hasMessageThat()
-            .isEqualTo("Safety source issue must contain at least 1 action")
+            .isEqualTo(
+                if (SdkLevel.isAtLeastU()) {
+                    "Actionable safety source issue must contain at least 1 action"
+                } else {
+                    "Safety source issue must contain at least 1 action"
+                }
+            )
     }
 
     @Test
@@ -524,16 +1466,71 @@ class SafetySourceIssueTest {
                     "Issue title",
                     "Issue summary",
                     SEVERITY_LEVEL_INFORMATION,
-                    "issue_type_id")
+                    "issue_type_id"
+                )
                 .addAction(action1)
                 .addAction(action2)
-                .addAction(action1)
+                .addAction(action3)
 
         val exception =
             assertFailsWith(IllegalArgumentException::class) { safetySourceIssueBuilder.build() }
         assertThat(exception)
             .hasMessageThat()
             .isEqualTo("Safety source issue must not contain more than 2 actions")
+    }
+
+    @Test
+    @SdkSuppress(minSdkVersion = UPSIDE_DOWN_CAKE, codeName = "UpsideDownCake")
+    fun build_withNoActionsAndManualActionabilityOnU_throwsIllegalArgumentException() {
+        val safetySourceIssueBuilder =
+            SafetySourceIssue.Builder(
+                "Issue id",
+                "Issue title",
+                "Issue summary",
+                SEVERITY_LEVEL_INFORMATION,
+                "issue_type_id"
+            )
+
+        val exception =
+            assertFailsWith(IllegalArgumentException::class) { safetySourceIssueBuilder.build() }
+
+        assertThat(exception)
+            .hasMessageThat()
+            .isEqualTo("Actionable safety source issue must contain at least 1 action")
+    }
+
+    @Test
+    @SdkSuppress(minSdkVersion = UPSIDE_DOWN_CAKE, codeName = "UpsideDownCake")
+    fun build_withNoActionsAndTipActionabilityOnU_success() {
+        val safetySourceIssue =
+            SafetySourceIssue.Builder(
+                    "Issue id",
+                    "Issue title",
+                    "Issue summary",
+                    SEVERITY_LEVEL_INFORMATION,
+                    "issue_type_id"
+                )
+                .setIssueActionability(SafetySourceIssue.ISSUE_ACTIONABILITY_TIP)
+                .build()
+
+        assertThat(safetySourceIssue.actions).isEmpty()
+    }
+
+    @Test
+    @SdkSuppress(minSdkVersion = UPSIDE_DOWN_CAKE, codeName = "UpsideDownCake")
+    fun build_withNoActionsAndAutomaticActionabilityOnU_success() {
+        val safetySourceIssue =
+            SafetySourceIssue.Builder(
+                    "Issue id",
+                    "Issue title",
+                    "Issue summary",
+                    SEVERITY_LEVEL_INFORMATION,
+                    "issue_type_id"
+                )
+                .setIssueActionability(SafetySourceIssue.ISSUE_ACTIONABILITY_AUTOMATIC)
+                .build()
+
+        assertThat(safetySourceIssue.actions).isEmpty()
     }
 
     @Test
@@ -544,7 +1541,8 @@ class SafetySourceIssueTest {
                     "Issue title",
                     "Issue summary",
                     SEVERITY_LEVEL_INFORMATION,
-                    "issue_type_id")
+                    "issue_type_id"
+                )
                 .setSubtitle("Issue subtitle")
                 .setIssueCategory(ISSUE_CATEGORY_ACCOUNT)
                 .addAction(action1)
@@ -563,7 +1561,8 @@ class SafetySourceIssueTest {
                     "Issue title",
                     "Issue summary",
                     SEVERITY_LEVEL_INFORMATION,
-                    "issue_type_id")
+                    "issue_type_id"
+                )
                 .setSubtitle("Issue subtitle")
                 .setIssueCategory(ISSUE_CATEGORY_ACCOUNT)
                 .addAction(action1)
@@ -575,15 +1574,387 @@ class SafetySourceIssueTest {
     }
 
     @Test
+    @SdkSuppress(minSdkVersion = UPSIDE_DOWN_CAKE, codeName = "UpsideDownCake")
+    fun parcelRoundTrip_recreatesEqual_atLeastAndroidU() {
+        val safetySourceIssue =
+            SafetySourceIssue.Builder(
+                    "Issue id",
+                    "Issue title",
+                    "Issue summary",
+                    SEVERITY_LEVEL_INFORMATION,
+                    "issue_type_id"
+                )
+                .setSubtitle("Issue subtitle")
+                .setIssueCategory(ISSUE_CATEGORY_ACCOUNT)
+                .addAction(
+                    Action.Builder(action1)
+                        .setConfirmationDialogDetails(
+                            ConfirmationDialogDetails("Title", "Text", "Accept", "Deny")
+                        )
+                        .build()
+                )
+                .addAction(action2)
+                .setOnDismissPendingIntent(pendingIntentService)
+                .build()
+
+        assertThat(safetySourceIssue).recreatesEqual(SafetySourceIssue.CREATOR)
+    }
+
+    @Test
+    @SdkSuppress(minSdkVersion = UPSIDE_DOWN_CAKE, codeName = "UpsideDownCake")
+    fun parcelRoundTrip_recreatesEqual_atLeastUpsideDownCake() {
+        val safetySourceIssue =
+            SafetySourceIssue.Builder(
+                    "Issue id",
+                    "Issue title",
+                    "Issue summary",
+                    SEVERITY_LEVEL_INFORMATION,
+                    "issue_type_id"
+                )
+                .setSubtitle("Issue subtitle")
+                .setIssueCategory(SafetySourceIssue.ISSUE_CATEGORY_DATA)
+                .setIssueActionability(SafetySourceIssue.ISSUE_ACTIONABILITY_TIP)
+                .addAction(action1)
+                .addAction(action2)
+                .setOnDismissPendingIntent(pendingIntentService)
+                .setCustomNotification(
+                    Notification.Builder("Notification title", "Notification text")
+                        .addAction(action2)
+                        .build()
+                )
+                .setNotificationBehavior(SafetySourceIssue.NOTIFICATION_BEHAVIOR_DELAYED)
+                .setAttributionTitle("attribution title")
+                .setDeduplicationId("deduplication_id")
+                .build()
+
+        assertThat(safetySourceIssue).recreatesEqual(SafetySourceIssue.CREATOR)
+    }
+
+    @Test
     fun equalsHashCodeToString_usingEqualsHashCodeToStringTester() {
-        EqualsHashCodeToStringTester()
+        newTiramisuEqualsHashCodeToStringTester().test()
+    }
+
+    @Test
+    @SdkSuppress(minSdkVersion = UPSIDE_DOWN_CAKE, codeName = "UpsideDownCake")
+    fun equalsHashCodeToString_usingEqualsHashCodeToStringTester_atLeastUpsideDownCake() {
+        newUpsideDownCakeEqualsHashCodeToStringTester().test()
+    }
+
+    /**
+     * Creates a new [EqualsHashCodeToStringTester] instance with all the equality groups in the
+     * [newTiramisuEqualsHashCodeToStringTester] plus new equality groups covering all the new
+     * fields added in U.
+     */
+    @RequiresApi(UPSIDE_DOWN_CAKE)
+    private fun newUpsideDownCakeEqualsHashCodeToStringTester() =
+        newTiramisuEqualsHashCodeToStringTester(
+                createCopyFromBuilder = { SafetySourceIssue.Builder(it).build() }
+            )
             .addEqualityGroup(
                 SafetySourceIssue.Builder(
                         "Issue id",
                         "Issue title",
                         "Issue summary",
                         SEVERITY_LEVEL_INFORMATION,
-                        "issue_type_id")
+                        "issue_type_id"
+                    )
+                    .setSubtitle("Issue subtitle")
+                    .setIssueCategory(ISSUE_CATEGORY_ACCOUNT)
+                    .addAction(action1)
+                    .addAction(action2)
+                    .setOnDismissPendingIntent(pendingIntentService)
+                    .setNotificationBehavior(SafetySourceIssue.NOTIFICATION_BEHAVIOR_DELAYED)
+                    .setCustomNotification(
+                        Notification.Builder("Notification title", "Notification text")
+                            .addAction(action2)
+                            .build()
+                    )
+                    .build()
+            )
+            .addEqualityGroup(
+                SafetySourceIssue.Builder(
+                        "Issue id",
+                        "Issue title",
+                        "Issue summary",
+                        SEVERITY_LEVEL_INFORMATION,
+                        "issue_type_id"
+                    )
+                    .setSubtitle("Issue subtitle")
+                    .setIssueCategory(ISSUE_CATEGORY_ACCOUNT)
+                    .addAction(action1)
+                    .addAction(action2)
+                    .setOnDismissPendingIntent(pendingIntentService)
+                    .setNotificationBehavior(SafetySourceIssue.NOTIFICATION_BEHAVIOR_IMMEDIATELY)
+                    .setCustomNotification(
+                        Notification.Builder("Other title", "Other text").addAction(action2).build()
+                    )
+                    .build()
+            )
+            .addEqualityGroup(
+                SafetySourceIssue.Builder(
+                        "Issue id",
+                        "Issue title",
+                        "Issue summary",
+                        SEVERITY_LEVEL_INFORMATION,
+                        "issue_type_id"
+                    )
+                    .setSubtitle("Issue subtitle")
+                    .setIssueCategory(ISSUE_CATEGORY_ACCOUNT)
+                    .addAction(action1)
+                    .addAction(action2)
+                    .setOnDismissPendingIntent(pendingIntentService)
+                    .setAttributionTitle("attribution title")
+                    .build(),
+                SafetySourceIssue.Builder(
+                        "Issue id",
+                        "Issue title",
+                        "Issue summary",
+                        SEVERITY_LEVEL_INFORMATION,
+                        "issue_type_id"
+                    )
+                    .setSubtitle("Issue subtitle")
+                    .setIssueCategory(ISSUE_CATEGORY_ACCOUNT)
+                    .addAction(action1)
+                    .addAction(action2)
+                    .setOnDismissPendingIntent(pendingIntentService)
+                    .setAttributionTitle("attribution title")
+                    .build()
+            )
+            .addEqualityGroup(
+                SafetySourceIssue.Builder(
+                        "Issue id",
+                        "Issue title",
+                        "Issue summary",
+                        SEVERITY_LEVEL_CRITICAL_WARNING,
+                        "issue_type_id"
+                    )
+                    .setAttributionTitle("Other issue attribution title")
+                    .addAction(action1)
+                    .build()
+            )
+            .addEqualityGroup(
+                SafetySourceIssue.Builder(
+                        "Issue id",
+                        "Issue title",
+                        "Issue summary",
+                        SEVERITY_LEVEL_INFORMATION,
+                        "issue_type_id"
+                    )
+                    .setSubtitle("Issue subtitle")
+                    .setIssueCategory(ISSUE_CATEGORY_ACCOUNT)
+                    .addAction(action1)
+                    .addAction(action2)
+                    .setOnDismissPendingIntent(pendingIntentService)
+                    .setAttributionTitle("attribution title")
+                    .setDeduplicationId("deduplication_id")
+                    .build(),
+                SafetySourceIssue.Builder(
+                        "Issue id",
+                        "Issue title",
+                        "Issue summary",
+                        SEVERITY_LEVEL_INFORMATION,
+                        "issue_type_id"
+                    )
+                    .setSubtitle("Issue subtitle")
+                    .setIssueCategory(ISSUE_CATEGORY_ACCOUNT)
+                    .addAction(action1)
+                    .addAction(action2)
+                    .setOnDismissPendingIntent(pendingIntentService)
+                    .setAttributionTitle("attribution title")
+                    .setDeduplicationId("deduplication_id")
+                    .build()
+            )
+            .addEqualityGroup(
+                SafetySourceIssue.Builder(
+                        "Issue id",
+                        "Issue title",
+                        "Issue summary",
+                        SEVERITY_LEVEL_INFORMATION,
+                        "issue_type_id"
+                    )
+                    .setSubtitle("Issue subtitle")
+                    .setIssueCategory(ISSUE_CATEGORY_ACCOUNT)
+                    .addAction(action1)
+                    .addAction(action2)
+                    .setOnDismissPendingIntent(pendingIntentService)
+                    .setAttributionTitle("attribution title")
+                    .setDeduplicationId("other_deduplication_id")
+                    .build()
+            )
+            .addEqualityGroup(
+                SafetySourceIssue.Builder(
+                        "Issue id",
+                        "Issue title",
+                        "Issue summary",
+                        SEVERITY_LEVEL_INFORMATION,
+                        "issue_type_id"
+                    )
+                    .setSubtitle("Other issue subtitle")
+                    .setIssueCategory(SafetySourceIssue.ISSUE_CATEGORY_DATA)
+                    .addAction(action1)
+                    .build()
+            )
+            .addEqualityGroup(
+                SafetySourceIssue.Builder(
+                        "Issue id",
+                        "Issue title",
+                        "Issue summary",
+                        SEVERITY_LEVEL_INFORMATION,
+                        "issue_type_id"
+                    )
+                    .setSubtitle("Other issue subtitle")
+                    .setIssueCategory(SafetySourceIssue.ISSUE_CATEGORY_PASSWORDS)
+                    .addAction(action1)
+                    .build()
+            )
+            .addEqualityGroup(
+                SafetySourceIssue.Builder(
+                        "Issue id",
+                        "Issue title",
+                        "Issue summary",
+                        SEVERITY_LEVEL_INFORMATION,
+                        "issue_type_id"
+                    )
+                    .setSubtitle("Other issue subtitle")
+                    .setIssueCategory(SafetySourceIssue.ISSUE_CATEGORY_PERSONAL_SAFETY)
+                    .addAction(action1)
+                    .build()
+            )
+            .addEqualityGroup(
+                SafetySourceIssue.Builder(
+                        "Issue id",
+                        "Issue title",
+                        "Issue summary",
+                        SEVERITY_LEVEL_INFORMATION,
+                        "issue_type_id"
+                    )
+                    .setIssueActionability(SafetySourceIssue.ISSUE_ACTIONABILITY_MANUAL)
+                    .addAction(action1)
+                    .setAttributionTitle("Attribution title")
+                    .setDeduplicationId("dedup_id")
+                    .setNotificationBehavior(SafetySourceIssue.NOTIFICATION_BEHAVIOR_NEVER)
+                    .build()
+            )
+            .addEqualityGroup(
+                SafetySourceIssue.Builder(
+                        "Issue id",
+                        "Issue title",
+                        "Issue summary",
+                        SEVERITY_LEVEL_INFORMATION,
+                        "issue_type_id"
+                    )
+                    .setIssueActionability(SafetySourceIssue.ISSUE_ACTIONABILITY_TIP)
+                    .addAction(action1)
+                    .build(),
+                SafetySourceIssue.Builder(
+                        "Issue id",
+                        "Issue title",
+                        "Issue summary",
+                        SEVERITY_LEVEL_INFORMATION,
+                        "issue_type_id"
+                    )
+                    .setIssueActionability(SafetySourceIssue.ISSUE_ACTIONABILITY_TIP)
+                    .addAction(action1)
+                    .build()
+            )
+            .addEqualityGroup(
+                SafetySourceIssue.Builder(
+                        "Issue id",
+                        "Issue title",
+                        "Issue summary",
+                        SEVERITY_LEVEL_INFORMATION,
+                        "issue_type_id"
+                    )
+                    .setIssueActionability(SafetySourceIssue.ISSUE_ACTIONABILITY_AUTOMATIC)
+                    .addAction(action1)
+                    .build()
+            )
+            .addEqualityGroup(
+                SafetySourceIssue.Builder(
+                        "Issue id",
+                        "Issue title",
+                        "Issue summary",
+                        SEVERITY_LEVEL_INFORMATION,
+                        "issue_type_id"
+                    )
+                    .setIssueActionability(SafetySourceIssue.ISSUE_ACTIONABILITY_AUTOMATIC)
+                    .build()
+            )
+            .addEqualityGroup(
+                SafetySourceIssue.Builder(
+                        "Issue id",
+                        "Issue title",
+                        "Issue summary",
+                        SEVERITY_LEVEL_INFORMATION,
+                        "issue_type_id"
+                    )
+                    .setNotificationBehavior(SafetySourceIssue.NOTIFICATION_BEHAVIOR_DELAYED)
+                    .setIssueActionability(SafetySourceIssue.ISSUE_ACTIONABILITY_AUTOMATIC)
+                    .build()
+            )
+            .addEqualityGroup(
+                SafetySourceIssue.Builder(
+                        "Issue id",
+                        "Issue title",
+                        "Issue summary",
+                        SEVERITY_LEVEL_INFORMATION,
+                        "issue_type_id"
+                    )
+                    .setSubtitle("Issue subtitle")
+                    .setIssueCategory(ISSUE_CATEGORY_ACCOUNT)
+                    .addAction(
+                        Action.Builder(action1)
+                            .setConfirmationDialogDetails(
+                                ConfirmationDialogDetails("Title", "Text", "Accept", "Deny")
+                            )
+                            .build()
+                    )
+                    .addAction(action2)
+                    .setOnDismissPendingIntent(pendingIntentService)
+                    .build()
+            )
+            .addEqualityGroup(
+                SafetySourceIssue.Builder(
+                        "Issue id",
+                        "Issue title",
+                        "Issue summary",
+                        SEVERITY_LEVEL_INFORMATION,
+                        "issue_type_id"
+                    )
+                    .setSubtitle("Issue subtitle")
+                    .setIssueCategory(ISSUE_CATEGORY_ACCOUNT)
+                    .addAction(action1)
+                    .addAction(
+                        Action.Builder(action2)
+                            .setConfirmationDialogDetails(
+                                ConfirmationDialogDetails("Title", "Text", "Accept", "Deny")
+                            )
+                            .build()
+                    )
+                    .setOnDismissPendingIntent(pendingIntentService)
+                    .build()
+            )
+
+    /**
+     * Creates a new [EqualsHashCodeToStringTester] instance which covers all the fields in the T
+     * API and is safe to use on any T+ API level.
+     */
+    private fun newTiramisuEqualsHashCodeToStringTester(
+        createCopyFromBuilder: ((SafetySourceIssue) -> SafetySourceIssue)? = null
+    ) =
+        EqualsHashCodeToStringTester.ofParcelable(
+                parcelableCreator = SafetySourceIssue.CREATOR,
+                createCopy = createCopyFromBuilder
+            )
+            .addEqualityGroup(
+                SafetySourceIssue.Builder(
+                        "Issue id",
+                        "Issue title",
+                        "Issue summary",
+                        SEVERITY_LEVEL_INFORMATION,
+                        "issue_type_id"
+                    )
                     .setSubtitle("Issue subtitle")
                     .setIssueCategory(ISSUE_CATEGORY_ACCOUNT)
                     .addAction(action1)
@@ -595,130 +1966,206 @@ class SafetySourceIssueTest {
                         "Issue title",
                         "Issue summary",
                         SEVERITY_LEVEL_INFORMATION,
-                        "issue_type_id")
+                        "issue_type_id"
+                    )
                     .setSubtitle("Issue subtitle")
                     .setIssueCategory(ISSUE_CATEGORY_ACCOUNT)
                     .addAction(action1)
                     .addAction(action2)
                     .setOnDismissPendingIntent(pendingIntentService)
-                    .build())
+                    .build()
+            )
             .addEqualityGroup(
                 SafetySourceIssue.Builder(
                         "Issue id",
                         "Issue title",
                         "Issue summary",
                         SEVERITY_LEVEL_INFORMATION,
-                        "issue_type_id")
+                        "issue_type_id"
+                    )
                     .addAction(action1)
-                    .build())
+                    .build()
+            )
             .addEqualityGroup(
                 SafetySourceIssue.Builder(
                         "Other issue id",
                         "Issue title",
                         "Issue summary",
                         SEVERITY_LEVEL_INFORMATION,
-                        "issue_type_id")
+                        "issue_type_id"
+                    )
                     .addAction(action1)
-                    .build())
+                    .build()
+            )
             .addEqualityGroup(
                 SafetySourceIssue.Builder(
                         "Issue id",
                         "Other issue title",
                         "Issue summary",
                         SEVERITY_LEVEL_INFORMATION,
-                        "issue_type_id")
+                        "issue_type_id"
+                    )
                     .addAction(action1)
-                    .build())
+                    .build()
+            )
             .addEqualityGroup(
                 SafetySourceIssue.Builder(
                         "Issue id",
                         "Issue title",
-                        "Other issue summary",
+                        "Different issue summary",
                         SEVERITY_LEVEL_INFORMATION,
-                        "issue_type_id")
+                        "issue_type_id"
+                    )
                     .addAction(action1)
-                    .build())
+                    .build()
+            )
             .addEqualityGroup(
                 SafetySourceIssue.Builder(
                         "Issue id",
                         "Issue title",
                         "Issue summary",
                         SEVERITY_LEVEL_CRITICAL_WARNING,
-                        "issue_type_id")
+                        "issue_type_id"
+                    )
                     .addAction(action1)
-                    .build())
+                    .build()
+            )
             .addEqualityGroup(
                 SafetySourceIssue.Builder(
                         "Issue id",
                         "Issue title",
                         "Issue summary",
                         SEVERITY_LEVEL_INFORMATION,
-                        "other_issue_type_id")
+                        "other_issue_type_id"
+                    )
                     .addAction(action1)
-                    .build())
+                    .build()
+            )
             .addEqualityGroup(
                 SafetySourceIssue.Builder(
                         "Issue id",
                         "Issue title",
                         "Issue summary",
                         SEVERITY_LEVEL_INFORMATION,
-                        "issue_type_id")
+                        "issue_type_id"
+                    )
                     .addAction(action2)
-                    .build())
+                    .build()
+            )
             .addEqualityGroup(
                 SafetySourceIssue.Builder(
                         "Issue id",
                         "Issue title",
                         "Issue summary",
                         SEVERITY_LEVEL_INFORMATION,
-                        "issue_type_id")
+                        "issue_type_id"
+                    )
                     .setSubtitle("Other issue subtitle")
                     .setIssueCategory(ISSUE_CATEGORY_ACCOUNT)
                     .addAction(action1)
                     .addAction(action2)
                     .setOnDismissPendingIntent(pendingIntentService)
-                    .build())
+                    .build()
+            )
             .addEqualityGroup(
                 SafetySourceIssue.Builder(
                         "Issue id",
                         "Issue title",
                         "Issue summary",
                         SEVERITY_LEVEL_INFORMATION,
-                        "issue_type_id")
+                        "issue_type_id"
+                    )
                     .setSubtitle("Other issue subtitle")
                     .setIssueCategory(ISSUE_CATEGORY_DEVICE)
                     .addAction(action1)
                     .addAction(action2)
                     .setOnDismissPendingIntent(pendingIntentService)
-                    .build())
+                    .build()
+            )
             .addEqualityGroup(
                 SafetySourceIssue.Builder(
                         "Issue id",
                         "Issue title",
                         "Issue summary",
                         SEVERITY_LEVEL_INFORMATION,
-                        "issue_type_id")
+                        "issue_type_id"
+                    )
                     .setSubtitle("Other issue subtitle")
                     .setIssueCategory(ISSUE_CATEGORY_DEVICE)
                     .addAction(action2)
                     .addAction(action1)
                     .setOnDismissPendingIntent(pendingIntentService)
-                    .build())
+                    .build()
+            )
             .addEqualityGroup(
                 SafetySourceIssue.Builder(
                         "Issue id",
                         "Issue title",
                         "Issue summary",
                         SEVERITY_LEVEL_INFORMATION,
-                        "issue_type_id")
+                        "issue_type_id"
+                    )
                     .setSubtitle("Other issue subtitle")
                     .setIssueCategory(ISSUE_CATEGORY_DEVICE)
                     .addAction(action2)
                     .addAction(action1)
                     .setOnDismissPendingIntent(
                         PendingIntent.getService(
-                            context, 0, Intent("Other PendingIntent service"), FLAG_IMMUTABLE))
-                    .build())
-            .test()
-    }
+                            context,
+                            0,
+                            Intent("Other PendingIntent service"),
+                            FLAG_IMMUTABLE
+                        )
+                    )
+                    .build()
+            )
+
+    private fun actionNewTiramisuEqualsHashCodeToStringTester(
+        createCopyFromBuilder: ((Action) -> Action)? = null
+    ) =
+        EqualsHashCodeToStringTester.ofParcelable(
+                parcelableCreator = Action.CREATOR,
+                createCopy = createCopyFromBuilder
+            )
+            .addEqualityGroup(
+                Action.Builder("action_id", "Action label", pendingIntent1).build(),
+                Action.Builder("action_id", "Action label", pendingIntent1).build(),
+                Action.Builder("action_id", "Action label", pendingIntent1)
+                    .setWillResolve(false)
+                    .build()
+            )
+            .addEqualityGroup(
+                Action.Builder("action_id", "Action label", pendingIntent1)
+                    .setSuccessMessage("Action successfully completed")
+                    .build()
+            )
+            .addEqualityGroup(
+                Action.Builder("action_id", "Other action label", pendingIntent1).build()
+            )
+            .addEqualityGroup(
+                Action.Builder("other_action_id", "Action label", pendingIntent1).build()
+            )
+            .addEqualityGroup(
+                Action.Builder("action_id", "Action label", pendingIntentService)
+                    .setWillResolve(true)
+                    .build()
+            )
+            .addEqualityGroup(
+                Action.Builder(
+                        "action_id",
+                        "Action label",
+                        PendingIntent.getActivity(
+                            context,
+                            0,
+                            Intent("Other action PendingIntent"),
+                            FLAG_IMMUTABLE
+                        )
+                    )
+                    .build()
+            )
+            .addEqualityGroup(
+                Action.Builder("action_id", "Action label", pendingIntent1)
+                    .setSuccessMessage("Other action successfully completed")
+                    .build()
+            )
 }

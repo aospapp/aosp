@@ -18,7 +18,7 @@
 #define _BPF_NETWORKSTATS_H
 
 #include <bpf/BpfMap.h>
-#include "bpf_shared.h"
+#include "netd.h"
 
 namespace android {
 namespace bpf {
@@ -26,7 +26,7 @@ namespace bpf {
 // TODO: set this to a proper value based on the map size;
 constexpr int TAG_STATS_MAP_SOFT_LIMIT = 3;
 constexpr int UID_ALL = -1;
-constexpr int TAG_ALL = -1;
+//constexpr int TAG_ALL = -1;
 constexpr int TAG_NONE = 0;
 constexpr int SET_ALL = -1;
 constexpr int SET_DEFAULT = 0;
@@ -63,9 +63,8 @@ int bpfGetIfaceStatsInternal(const char* iface, Stats* stats,
                              const BpfMap<uint32_t, StatsValue>& ifaceStatsMap,
                              const BpfMap<uint32_t, IfaceValue>& ifaceNameMap);
 // For test only
-int parseBpfNetworkStatsDetailInternal(std::vector<stats_line>* lines,
-                                       const std::vector<std::string>& limitIfaces, int limitTag,
-                                       int limitUid, const BpfMap<StatsKey, StatsValue>& statsMap,
+int parseBpfNetworkStatsDetailInternal(std::vector<stats_line>& lines,
+                                       const BpfMap<StatsKey, StatsValue>& statsMap,
                                        const BpfMap<uint32_t, IfaceValue>& ifaceMap);
 // For test only
 int cleanStatsMapInternal(const base::unique_fd& cookieTagMap, const base::unique_fd& tagStatsMap);
@@ -107,18 +106,16 @@ void maybeLogUnknownIface(int ifaceIndex, const BpfMap<Key, StatsValue>& statsMa
 }
 
 // For test only
-int parseBpfNetworkStatsDevInternal(std::vector<stats_line>* lines,
+int parseBpfNetworkStatsDevInternal(std::vector<stats_line>& lines,
                                     const BpfMap<uint32_t, StatsValue>& statsMap,
                                     const BpfMap<uint32_t, IfaceValue>& ifaceMap);
 
 int bpfGetUidStats(uid_t uid, Stats* stats);
 int bpfGetIfaceStats(const char* iface, Stats* stats);
-int parseBpfNetworkStatsDetail(std::vector<stats_line>* lines,
-                               const std::vector<std::string>& limitIfaces, int limitTag,
-                               int limitUid);
+int parseBpfNetworkStatsDetail(std::vector<stats_line>* lines);
 
 int parseBpfNetworkStatsDev(std::vector<stats_line>* lines);
-void groupNetworkStats(std::vector<stats_line>* lines);
+void groupNetworkStats(std::vector<stats_line>& lines);
 int cleanStatsMap();
 }  // namespace bpf
 }  // namespace android

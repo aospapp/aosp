@@ -136,8 +136,10 @@ Result<void> PowerPolicyClientBase::connectToDaemon() {
     std::shared_ptr<ICarPowerPolicyChangeCallback> client =
             ICarPowerPolicyChangeCallback::fromBinder(binder);
     const auto& components = getComponentsOfInterest();
+    const auto& customComponents = getCustomComponentsOfInterest();
     CarPowerPolicyFilter filter;
     filter.components = components;
+    filter.customComponents = customComponents;
     status = server->registerPowerPolicyChangeCallback(client, filter);
     if (!status.isOk()) {
         status = ScopedAStatus::fromStatus(AIBinder_unlinkToDeath(server->asBinder().get(),

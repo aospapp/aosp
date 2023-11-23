@@ -16,10 +16,10 @@
 
 #pragma once
 
+#include <array>
 #include <cstdint>
 #include <vector>
 
-#include "hci/address.h"
 #include "packet/bit_inserter.h"
 #include "packet/packet_builder.h"
 
@@ -37,10 +37,6 @@ class RawBuilder : public PacketBuilder<true> {
 
   virtual void Serialize(BitInserter& it) const;
 
-  // Add |address| to the payload.  Return true if:
-  // - the new size of the payload is still <= |max_bytes_|
-  bool AddAddress(const hci::Address& address);
-
   // Return true if |num_bytes| can be added to the payload.
   bool CanAddOctets(size_t num_bytes) const;
 
@@ -48,6 +44,18 @@ class RawBuilder : public PacketBuilder<true> {
   // - the size of |bytes| is equal to |octets| and
   // - the new size of the payload is still <= |max_bytes_|
   bool AddOctets(size_t octets, const std::vector<uint8_t>& bytes);
+
+  // Add |N| bytes to the payload.  Return true if:
+  // - the new size of the payload is still <= |max_bytes_|
+  template <std::size_t N>
+  bool AddOctets(const std::array<uint8_t, N>& bytes) {
+    if (payload_.size() + N > max_bytes_) {
+      return false;
+    }
+
+    payload_.insert(payload_.end(), bytes.begin(), bytes.end());
+    return true;
+  }
 
   bool AddOctets(const std::vector<uint8_t>& bytes);
 

@@ -105,8 +105,9 @@ public class UptimeTracker {
     // a mock version. This is mostly useful for testing purposes.
     @VisibleForTesting
     UptimeTracker(File file,
-            long snapshotInterval,
+            long snapShotIntervalMs,
             TimeInterface timeInterface) {
+        long snapshotInterval = snapShotIntervalMs;
         snapshotInterval = Math.max(snapshotInterval, MINIMUM_SNAPSHOT_INTERVAL_MS);
         mUptimeFile = Objects.requireNonNull(file);
         mTimeInterface = timeInterface;
@@ -148,7 +149,7 @@ public class UptimeTracker {
             try {
                 JsonReader reader = new JsonReader(new FileReader(mUptimeFile));
                 reader.beginObject();
-                if (!reader.nextName().equals("uptime")) {
+                if (!Objects.equals(reader.nextName(), "uptime")) {
                     throw new IllegalArgumentException(
                         mUptimeFile + " is not in a valid format");
                 } else {

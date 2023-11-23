@@ -24,7 +24,6 @@ import java.io.Writer;
 import java.util.Arrays;
 
 // Copy of frameworks/base/core/java/android/util/IndentingPrintWriter.java
-
 /**
  * Lightweight wrapper around {@link PrintWriter} that automatically indents
  * newlines based on internal state. It also automatically wraps long lines

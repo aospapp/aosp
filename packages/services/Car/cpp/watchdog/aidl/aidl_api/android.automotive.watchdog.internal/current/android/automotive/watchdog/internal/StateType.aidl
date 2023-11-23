@@ -34,8 +34,8 @@
 package android.automotive.watchdog.internal;
 @Backing(type="int")
 enum StateType {
-  POWER_CYCLE = 0,
-  USER_STATE = 1,
-  BOOT_PHASE = 2,
-  GARAGE_MODE = 3,
+  POWER_CYCLE,
+  USER_STATE,
+  BOOT_PHASE,
+  GARAGE_MODE,
 }

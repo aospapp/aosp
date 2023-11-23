@@ -19,7 +19,7 @@ package com.android.car.obd2.test;
 import java.util.ArrayList;
 import java.util.Arrays;
 
-public class Utils {
+public final class Utils {
     private Utils() {}
 
     static int[] stringsToIntArray(String... strings) {

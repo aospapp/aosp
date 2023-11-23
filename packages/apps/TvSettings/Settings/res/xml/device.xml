@@ -24,12 +24,18 @@
         android:key="about_device"
         android:title="@string/about_preference"/>
     <Preference
+        android:fragment="com.android.tv.settings.device.eco.PowerAndEnergyFragment"
+        android:icon="@drawable/ic_settings_power_and_energy"
+        custom:isPreferenceVisible="false"
+        android:key="power_and_energy"
+        android:title="@string/power_and_energy"/>
+    <Preference
         android:fragment="com.android.tv.settings.system.DateTimeFragment"
         android:icon="@drawable/ic_access_time"
         android:key="date_time"
         android:title="@string/system_date_time"/>
     <Preference
-        android:fragment="com.android.tv.settings.system.LanguageFragment"
+        android:fragment="com.android.tv.settings.system.locale.LanguagePickerFragment"
         android:icon="@drawable/ic_language"
         android:key="language"
         android:title="@string/system_language"/>
@@ -97,7 +103,7 @@
         android:key="microphone"
         android:icon="@drawable/ic_mic_on"
         android:title="@string/microphone"
-        android:fragment="com.android.tv.settings.privacy.SensorFragment" />
+        android:fragment="com.android.tv.settings.privacy.MicrophoneFragment" />
     <Preference
         android:key="camera"
         android:icon="@drawable/ic_camera_on"
@@ -117,11 +123,6 @@
         android:fragment="com.android.tv.twopanelsettings.slices.SliceFragment"
         custom:isPreferenceVisible="false"
         custom:uri="@string/overlay_internal_slice_uri"/>
-    <Preference
-        android:fragment="com.android.tv.settings.accessibility.AccessibilityFragment"
-        android:icon="@drawable/ic_accessibility_new"
-        android:key="accessibility"
-        android:title="@string/system_accessibility"/>
     <com.android.tv.settings.LongClickPreference
         android:icon="@drawable/ic_restart_alt"
         android:key="reboot"

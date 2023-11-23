@@ -17,7 +17,7 @@
 #include <jni.h>
 #include <nativehelper/JNIHelp.h>
 
-#include "bpf_tethering.h"
+#include "offload.h"
 
 namespace android {
 

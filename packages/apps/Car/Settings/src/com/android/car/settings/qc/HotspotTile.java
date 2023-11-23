@@ -18,8 +18,10 @@ package com.android.car.settings.qc;
 
 import static com.android.car.qc.QCItem.QC_ACTION_TOGGLE_STATE;
 import static com.android.car.settings.qc.QCUtils.getActionDisabledDialogIntent;
+import static com.android.car.settings.qc.QCUtils.getAvailabilityStatusForZoneFromXml;
 import static com.android.car.settings.qc.SettingsQCRegistry.HOTSPOT_TILE_URI;
 
+import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
 import android.graphics.drawable.Icon;
@@ -45,12 +47,17 @@ public class HotspotTile extends SettingsQCItem {
 
     public HotspotTile(Context context) {
         super(context);
+        setAvailabilityStatusForZone(getAvailabilityStatusForZoneFromXml(context,
+                R.xml.network_and_internet_fragment, R.string.pk_wifi_tether_settings_entry));
         mTetheringManager = context.getSystemService(TetheringManager.class);
         mWifiManager = context.getSystemService(WifiManager.class);
     }
 
     @Override
     QCItem getQCItem() {
+        if (isHiddenForZone()) {
+            return null;
+        }
         Icon actionIcon = Icon.createWithResource(getContext(), R.drawable.ic_qc_hotspot);
 
         String userRestriction = UserManager.DISALLOW_CONFIG_TETHERING;
@@ -59,17 +66,21 @@ public class HotspotTile extends SettingsQCItem {
         boolean hasUmRestrictions = EnterpriseUtils.hasUserRestrictionByUm(getContext(),
                 userRestriction);
 
+        boolean isReadOnlyForZone = isReadOnlyForZone();
+        PendingIntent disabledPendingIntent = isReadOnlyForZone
+                ? QCUtils.getDisabledToastBroadcastIntent(getContext())
+                : getActionDisabledDialogIntent(getContext(), userRestriction);
+
         QCTile.Builder tileBuilder = new QCTile.Builder()
                 .setSubtitle(getContext().getString(R.string.hotspot_settings_title))
                 .setIcon(actionIcon)
                 .setChecked(HotspotQCUtils.isHotspotEnabled(mWifiManager))
-                .setEnabled(!HotspotQCUtils.isHotspotBusy(mWifiManager)
-                        && !hasUmRestrictions && !hasDpmRestrictions)
+                .setEnabled(!HotspotQCUtils.isHotspotBusy(mWifiManager) && !hasUmRestrictions
+                        && !hasDpmRestrictions && isWritableForZone())
                 .setAvailable(mIsSupported)
                 .setAction(getBroadcastIntent())
-                .setClickableWhileDisabled(hasDpmRestrictions)
-                .setDisabledClickAction(getActionDisabledDialogIntent(getContext(),
-                        userRestriction));
+                .setClickableWhileDisabled(hasDpmRestrictions || isReadOnlyForZone)
+                .setDisabledClickAction(disabledPendingIntent);
         return tileBuilder.build();
     }
 

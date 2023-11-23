@@ -345,9 +345,19 @@ public final class ScanResult implements Parcelable {
     public static final int KEY_MGMT_DPP = 17;
     /**
      * @hide
+     * Security key management scheme: SAE_EXT_KEY.
+     */
+    public static final int KEY_MGMT_SAE_EXT_KEY = 18;
+    /**
+     * @hide
+     * Security key management scheme: FT_SAE_EXT_KEY.
+     */
+    public static final int KEY_MGMT_FT_SAE_EXT_KEY = 19;
+    /**
+     * @hide
      * Security key management scheme: any unknown AKM.
      */
-    public static final int KEY_MGMT_UNKNOWN = 18;
+    public static final int KEY_MGMT_UNKNOWN = 20;
     /**
      * @hide
      * No cipher suite.
@@ -559,8 +569,9 @@ public final class ScanResult implements Parcelable {
 
     /**
      * Convert Wi-Fi standard to string
+     * @hide
      */
-    private static @Nullable String wifiStandardToString(@WifiStandard int standard) {
+    public static @Nullable String wifiStandardToString(@WifiStandard int standard) {
         switch(standard) {
             case WIFI_STANDARD_LEGACY:
                 return "legacy";
@@ -1308,7 +1319,7 @@ public final class ScanResult implements Parcelable {
      * @return array of {@code WifiInfo#SECURITY_TYPE_*}.
      */
     @NonNull
-    public @WifiInfo.SecurityType int[] getSecurityTypes() {
+    public @WifiAnnotations.SecurityType int[] getSecurityTypes() {
         List<SecurityParams> params = ScanResultUtil.generateSecurityParamsListFromScanResult(this);
         int[] securityTypes = new int[params.size()];
         for (int i = 0; i < securityTypes.length; i++) {

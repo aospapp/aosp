@@ -22,7 +22,7 @@ import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertNotSame;
 import static org.mockito.Mockito.mock;
 
-import android.net.Network;
+import com.android.internal.net.ipsec.test.ike.net.IkeConnectionController;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -30,22 +30,22 @@ import org.junit.Test;
 public final class IkeSocketConfigTest {
     private static final int DUMMY_DSCP = 8;
 
-    private Network mMockNetwork;
+    private IkeConnectionController mMockConnectionController;
 
     @Before
     public void setup() throws Exception {
-        mMockNetwork = mock(Network.class);
+        mMockConnectionController = mock(IkeConnectionController.class);
     }
 
     private IkeSocketConfig buildTestConfig() {
-        return new IkeSocketConfig(mMockNetwork, DUMMY_DSCP);
+        return new IkeSocketConfig(mMockConnectionController, DUMMY_DSCP);
     }
 
     @Test
     public void testBuild() {
         final IkeSocketConfig config = buildTestConfig();
 
-        assertEquals(mMockNetwork, config.getNetwork());
+        assertEquals(mMockConnectionController, config.getConnectionController());
         assertEquals(DUMMY_DSCP, config.getDscp());
     }
 
@@ -59,13 +59,15 @@ public final class IkeSocketConfigTest {
     }
 
     @Test
-    public void testNotEqualsIfNetworkIsDifferent() {
-        assertNotEquals(buildTestConfig(), new IkeSocketConfig(mock(Network.class), DUMMY_DSCP));
+    public void testNotEqualsIfConnectionControllerIsDifferent() {
+        assertNotEquals(
+                buildTestConfig(),
+                new IkeSocketConfig(mock(IkeConnectionController.class), DUMMY_DSCP));
     }
 
     @Test
     public void testNotEqualsIfDscpIsDifferent() {
         final int dscp = 48;
-        assertNotEquals(buildTestConfig(), new IkeSocketConfig(mMockNetwork, dscp));
+        assertNotEquals(buildTestConfig(), new IkeSocketConfig(mMockConnectionController, dscp));
     }
 }

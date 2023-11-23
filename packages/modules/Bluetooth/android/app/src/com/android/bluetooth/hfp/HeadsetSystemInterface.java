@@ -21,6 +21,7 @@ import android.annotation.Nullable;
 import android.annotation.RequiresPermission;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothHeadset;
+import android.bluetooth.BluetoothSinkAudioPolicy;
 import android.content.ActivityNotFoundException;
 import android.content.ComponentName;
 import android.content.Intent;
@@ -155,13 +156,19 @@ public class HeadsetSystemInterface {
     @VisibleForTesting
     @RequiresPermission(android.Manifest.permission.MODIFY_PHONE_STATE)
     public void answerCall(BluetoothDevice device) {
+        Log.d(TAG, "answerCall");
         if (device == null) {
             Log.w(TAG, "answerCall device is null");
             return;
         }
         BluetoothInCallService bluetoothInCallService = getBluetoothInCallServiceInstance();
         if (bluetoothInCallService != null) {
-            mHeadsetService.setActiveDevice(device);
+            BluetoothSinkAudioPolicy callAudioPolicy =
+                    mHeadsetService.getHfpCallAudioPolicy(device);
+            if (callAudioPolicy == null || callAudioPolicy.getCallEstablishPolicy()
+                    != BluetoothSinkAudioPolicy.POLICY_NOT_ALLOWED) {
+                mHeadsetService.setActiveDevice(device);
+            }
             bluetoothInCallService.answerCall();
         } else {
             Log.e(TAG, "Handsfree phone proxy null for answering call");

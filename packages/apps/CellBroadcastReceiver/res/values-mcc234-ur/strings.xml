@@ -31,9 +31,9 @@
     <string name="cmas_exercise_alert" msgid="4540370572086918020">"ورزش الرٹ"</string>
     <string name="app_label" msgid="3863159788297913185">"ایمرجنسی الرٹس"</string>
     <string name="sms_cb_settings" msgid="4187131985831792308">"ایمرجنسی الرٹس"</string>
-    <string name="enable_alerts_master_toggle_summary" msgid="805446672915814777">"ہنگامی الرٹ کی اطلاعات موصول کریں"</string>
-    <string name="enable_alert_speech_summary" msgid="5021926525240750702">"ہنگامی الرٹ کے پیغامات بولنے کے لیے ٹیکسٹ ٹو اسپیچ کا استعمال کریں"</string>
-    <string name="cmas_opt_out_dialog_text" msgid="1972978578760513449">"آپ کو فی الحال ہنگامی الرٹس موصول ہو رہے ہیں۔ کیا آپ ہنگامی الرٹس حاصل کرتے رہنا چاہتے ہیں؟"</string>
+    <string name="enable_alerts_master_toggle_summary" msgid="805446672915814777">"ایمرجنسی الرٹ کی اطلاعات موصول کریں"</string>
+    <string name="enable_alert_speech_summary" msgid="5021926525240750702">"ایمرجنسی الرٹ کے پیغامات بولنے کے لیے ٹیکسٹ ٹو اسپیچ کا استعمال کریں"</string>
+    <string name="cmas_opt_out_dialog_text" msgid="1972978578760513449">"آپ کو فی الحال ایمرجنسی الرٹس موصول ہو رہے ہیں۔ کیا آپ ایمرجنسی الرٹس حاصل کرتے رہنا چاہتے ہیں؟"</string>
     <string name="emergency_alert_settings_title_watches" msgid="5299419351642118203">"ایمرجنسی الرٹس"</string>
-    <string name="notification_cb_settings_changed_text" msgid="6861845802821634203">"ہنگامی الرٹ کی ترتیبات کو دیکھنے کے لیے تھپتھپائیں"</string>
+    <string name="notification_cb_settings_changed_text" msgid="6861845802821634203">"ایمرجنسی الرٹ کی ترتیبات کو دیکھنے کے لیے تھپتھپائیں"</string>
 </resources>

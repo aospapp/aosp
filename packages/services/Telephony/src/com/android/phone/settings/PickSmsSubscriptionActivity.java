@@ -22,6 +22,7 @@ import android.content.Intent;
 import android.os.Bundle;
 import android.os.RemoteException;
 import android.telephony.SubscriptionManager;
+import android.view.WindowManager;
 import android.util.Log;
 
 import com.android.internal.telephony.IIntegerConsumer;
@@ -91,6 +92,9 @@ public class PickSmsSubscriptionActivity extends Activity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        getWindow().addSystemFlags(
+                android.view.WindowManager.LayoutParams
+                        .SYSTEM_FLAG_HIDE_NON_SYSTEM_OVERLAY_WINDOWS);
         mPreviouslyStopped = false;
     }
 

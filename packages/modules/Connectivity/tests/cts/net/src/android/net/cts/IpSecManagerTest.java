@@ -16,6 +16,7 @@
 
 package android.net.cts;
 
+import static android.Manifest.permission.NETWORK_SETTINGS;
 import static android.net.IpSecAlgorithm.AUTH_AES_CMAC;
 import static android.net.IpSecAlgorithm.AUTH_AES_XCBC;
 import static android.net.IpSecAlgorithm.AUTH_CRYPT_AES_GCM;
@@ -52,7 +53,9 @@ import static android.system.OsConstants.IPPROTO_UDP;
 
 import static com.android.compatibility.common.util.PropertyUtil.getFirstApiLevel;
 import static com.android.compatibility.common.util.PropertyUtil.getVendorApiLevel;
+import static com.android.testutils.DeviceInfoUtils.isKernelVersionAtLeast;
 import static com.android.testutils.MiscAsserts.assertThrows;
+import static com.android.testutils.TestPermissionUtil.runAsShell;
 
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
@@ -62,6 +65,8 @@ import static org.junit.Assume.assumeTrue;
 
 import android.net.IpSecAlgorithm;
 import android.net.IpSecManager;
+import android.net.IpSecManager.SecurityParameterIndex;
+import android.net.IpSecManager.UdpEncapsulationSocket;
 import android.net.IpSecTransform;
 import android.net.TrafficStats;
 import android.os.Build;
@@ -73,6 +78,7 @@ import android.system.OsConstants;
 import androidx.test.InstrumentationRegistry;
 import androidx.test.runner.AndroidJUnit4;
 
+import com.android.modules.utils.build.SdkLevel;
 import com.android.testutils.DevSdkIgnoreRule;
 import com.android.testutils.DevSdkIgnoreRule.IgnoreUpTo;
 
@@ -120,7 +126,7 @@ public class IpSecManagerTest extends IpSecBaseTest {
     @Test
     public void testAllocSpi() throws Exception {
         for (InetAddress addr : GOOGLE_DNS_LIST) {
-            IpSecManager.SecurityParameterIndex randomSpi = null, droidSpi = null;
+            SecurityParameterIndex randomSpi, droidSpi;
             randomSpi = mISM.allocateSecurityParameterIndex(addr);
             assertTrue(
                     "Failed to receive a valid SPI",
@@ -258,6 +264,24 @@ public class IpSecManagerTest extends IpSecBaseTest {
         accepted.close();
     }
 
+    private IpSecTransform buildTransportModeTransform(
+            SecurityParameterIndex spi, InetAddress localAddr,
+            UdpEncapsulationSocket encapSocket)
+            throws Exception {
+        final IpSecTransform.Builder builder =
+                new IpSecTransform.Builder(InstrumentationRegistry.getContext())
+                        .setEncryption(new IpSecAlgorithm(IpSecAlgorithm.CRYPT_AES_CBC, CRYPT_KEY))
+                        .setAuthentication(
+                                new IpSecAlgorithm(
+                                        IpSecAlgorithm.AUTH_HMAC_SHA256,
+                                        AUTH_KEY,
+                                        AUTH_KEY.length * 8));
+        if (encapSocket != null) {
+            builder.setIpv4Encapsulation(encapSocket, encapSocket.getPort());
+        }
+        return builder.buildTransportModeTransform(localAddr, spi);
+    }
+
     /*
      * Alloc outbound SPI
      * Alloc inbound SPI
@@ -268,21 +292,8 @@ public class IpSecManagerTest extends IpSecBaseTest {
      * release transform
      * send data (expect exception)
      */
-    @Test
-    public void testCreateTransform() throws Exception {
-        InetAddress localAddr = InetAddress.getByName(IPV4_LOOPBACK);
-        IpSecManager.SecurityParameterIndex spi =
-                mISM.allocateSecurityParameterIndex(localAddr);
-
-        IpSecTransform transform =
-                new IpSecTransform.Builder(InstrumentationRegistry.getContext())
-                        .setEncryption(new IpSecAlgorithm(IpSecAlgorithm.CRYPT_AES_CBC, CRYPT_KEY))
-                        .setAuthentication(
-                                new IpSecAlgorithm(
-                                        IpSecAlgorithm.AUTH_HMAC_SHA256,
-                                        AUTH_KEY,
-                                        AUTH_KEY.length * 8))
-                        .buildTransportModeTransform(localAddr, spi);
+    private void doTestCreateTransform(String loopbackAddrString, boolean encap) throws Exception {
+        InetAddress localAddr = InetAddress.getByName(loopbackAddrString);
 
         final boolean [][] applyInApplyOut = {
                 {false, false}, {false, true}, {true, false}, {true,true}};
@@ -291,57 +302,110 @@ public class IpSecManagerTest extends IpSecBaseTest {
 
         byte[] in = new byte[data.length];
         DatagramPacket inPacket = new DatagramPacket(in, in.length);
-        DatagramSocket localSocket;
         int localPort;
 
         for(boolean[] io : applyInApplyOut) {
             boolean applyIn = io[0];
             boolean applyOut = io[1];
-            // Bind localSocket to a random available port.
-            localSocket = new DatagramSocket(0);
-            localPort = localSocket.getLocalPort();
-            localSocket.setSoTimeout(200);
-            outPacket.setPort(localPort);
-            if (applyIn) {
-                mISM.applyTransportModeTransform(
-                        localSocket, IpSecManager.DIRECTION_IN, transform);
-            }
-            if (applyOut) {
-                mISM.applyTransportModeTransform(
-                        localSocket, IpSecManager.DIRECTION_OUT, transform);
-            }
-            if (applyIn == applyOut) {
-                localSocket.send(outPacket);
-                localSocket.receive(inPacket);
-                assertTrue("Encapsulated data did not match.",
-                        Arrays.equals(outPacket.getData(), inPacket.getData()));
-                mISM.removeTransportModeTransforms(localSocket);
-                localSocket.close();
-            } else {
-                try {
+            try (
+                SecurityParameterIndex spi = mISM.allocateSecurityParameterIndex(localAddr);
+                UdpEncapsulationSocket encapSocket = encap
+                        ? getPrivilegedUdpEncapSocket(/*ipv6=*/ localAddr instanceof Inet6Address)
+                        : null;
+                IpSecTransform transform = buildTransportModeTransform(spi, localAddr,
+                        encapSocket);
+                // Bind localSocket to a random available port.
+                DatagramSocket localSocket = new DatagramSocket(0);
+            ) {
+                localPort = localSocket.getLocalPort();
+                localSocket.setSoTimeout(200);
+                outPacket.setPort(localPort);
+                if (applyIn) {
+                    mISM.applyTransportModeTransform(
+                            localSocket, IpSecManager.DIRECTION_IN, transform);
+                }
+                if (applyOut) {
+                    mISM.applyTransportModeTransform(
+                            localSocket, IpSecManager.DIRECTION_OUT, transform);
+                }
+                if (applyIn == applyOut) {
                     localSocket.send(outPacket);
                     localSocket.receive(inPacket);
-                } catch (IOException e) {
-                    continue;
-                } finally {
+                    assertTrue("Encrypted data did not match.",
+                            Arrays.equals(outPacket.getData(), inPacket.getData()));
                     mISM.removeTransportModeTransforms(localSocket);
-                    localSocket.close();
+                } else {
+                    try {
+                        localSocket.send(outPacket);
+                        localSocket.receive(inPacket);
+                    } catch (IOException e) {
+                        continue;
+                    } finally {
+                        mISM.removeTransportModeTransforms(localSocket);
+                    }
+                    // FIXME: This check is disabled because sockets currently receive data
+                    // if there is a valid SA for decryption, even when the input policy is
+                    // not applied to a socket.
+                    //  fail("Data IO should fail on asymmetrical transforms! + Input="
+                    //          + applyIn + " Output=" + applyOut);
                 }
-                // FIXME: This check is disabled because sockets currently receive data
-                // if there is a valid SA for decryption, even when the input policy is
-                // not applied to a socket.
-                //  fail("Data IO should fail on asymmetrical transforms! + Input="
-                //          + applyIn + " Output=" + applyOut);
             }
         }
-        transform.close();
+    }
+
+    private UdpEncapsulationSocket getPrivilegedUdpEncapSocket(boolean ipv6) throws Exception {
+        return runAsShell(NETWORK_SETTINGS, () -> {
+            if (ipv6) {
+                return mISM.openUdpEncapsulationSocket(65536);
+            } else {
+                // Can't pass 0 to IpSecManager#openUdpEncapsulationSocket(int).
+                return mISM.openUdpEncapsulationSocket();
+            }
+        });
+    }
+
+    private static boolean isIpv6UdpEncapSupportedByKernel() {
+        return isKernelVersionAtLeast("5.15.31")
+                || (isKernelVersionAtLeast("5.10.108") && !isKernelVersionAtLeast("5.15.0"));
+    }
+
+    // Packet private for use in IpSecManagerTunnelTest
+    static boolean isIpv6UdpEncapSupported() {
+        return SdkLevel.isAtLeastU() && isIpv6UdpEncapSupportedByKernel();
+    }
+
+    // Packet private for use in IpSecManagerTunnelTest
+    static void assumeExperimentalIpv6UdpEncapSupported() throws Exception {
+        assumeTrue("Not supported before U", SdkLevel.isAtLeastU());
+        assumeTrue("Not supported by kernel", isIpv6UdpEncapSupportedByKernel());
+    }
+
+    @Test
+    public void testCreateTransformIpv4() throws Exception {
+        doTestCreateTransform(IPV4_LOOPBACK, false);
+    }
+
+    @Test
+    public void testCreateTransformIpv6() throws Exception {
+        doTestCreateTransform(IPV6_LOOPBACK, false);
+    }
+
+    @Test
+    public void testCreateTransformIpv4Encap() throws Exception {
+        doTestCreateTransform(IPV4_LOOPBACK, true);
+    }
+
+    @Test
+    public void testCreateTransformIpv6Encap() throws Exception {
+        assumeExperimentalIpv6UdpEncapSupported();
+        doTestCreateTransform(IPV6_LOOPBACK, true);
     }
 
     /** Snapshot of TrafficStats as of initStatsChecker call for later comparisons */
     private static class StatsChecker {
         private static final double ERROR_MARGIN_BYTES = 1.05;
         private static final double ERROR_MARGIN_PKTS = 1.05;
-        private static final int MAX_WAIT_TIME_MILLIS = 1000;
+        private static final int MAX_WAIT_TIME_MILLIS = 3000;
 
         private static long uidTxBytes;
         private static long uidRxBytes;
@@ -503,8 +567,8 @@ public class IpSecManagerTest extends IpSecBaseTest {
         StatsChecker.initStatsChecker();
         InetAddress local = InetAddress.getByName(localAddress);
 
-        try (IpSecManager.UdpEncapsulationSocket encapSocket = mISM.openUdpEncapsulationSocket();
-                IpSecManager.SecurityParameterIndex spi =
+        try (UdpEncapsulationSocket encapSocket = mISM.openUdpEncapsulationSocket();
+                SecurityParameterIndex spi =
                         mISM.allocateSecurityParameterIndex(local)) {
 
             IpSecTransform.Builder transformBuilder =
@@ -656,7 +720,7 @@ public class IpSecManagerTest extends IpSecBaseTest {
     public void testIkeOverUdpEncapSocket() throws Exception {
         // IPv6 not supported for UDP-encap-ESP
         InetAddress local = InetAddress.getByName(IPV4_LOOPBACK);
-        try (IpSecManager.UdpEncapsulationSocket encapSocket = mISM.openUdpEncapsulationSocket()) {
+        try (UdpEncapsulationSocket encapSocket = mISM.openUdpEncapsulationSocket()) {
             NativeUdpSocket wrappedEncapSocket =
                     new NativeUdpSocket(encapSocket.getFileDescriptor());
             checkIkePacket(wrappedEncapSocket, local);
@@ -665,7 +729,7 @@ public class IpSecManagerTest extends IpSecBaseTest {
             IpSecAlgorithm crypt = new IpSecAlgorithm(IpSecAlgorithm.CRYPT_AES_CBC, CRYPT_KEY);
             IpSecAlgorithm auth = new IpSecAlgorithm(IpSecAlgorithm.AUTH_HMAC_MD5, getKey(128), 96);
 
-            try (IpSecManager.SecurityParameterIndex spi =
+            try (SecurityParameterIndex spi =
                             mISM.allocateSecurityParameterIndex(local);
                     IpSecTransform transform =
                             new IpSecTransform.Builder(InstrumentationRegistry.getContext())
@@ -1498,7 +1562,7 @@ public class IpSecManagerTest extends IpSecBaseTest {
 
     @Test
     public void testOpenUdpEncapSocketSpecificPort() throws Exception {
-        IpSecManager.UdpEncapsulationSocket encapSocket = null;
+        UdpEncapsulationSocket encapSocket = null;
         int port = -1;
         for (int i = 0; i < MAX_PORT_BIND_ATTEMPTS; i++) {
             try {
@@ -1527,7 +1591,7 @@ public class IpSecManagerTest extends IpSecBaseTest {
 
     @Test
     public void testOpenUdpEncapSocketRandomPort() throws Exception {
-        try (IpSecManager.UdpEncapsulationSocket encapSocket = mISM.openUdpEncapsulationSocket()) {
+        try (UdpEncapsulationSocket encapSocket = mISM.openUdpEncapsulationSocket()) {
             assertTrue("Returned invalid port", encapSocket.getPort() != 0);
         }
     }

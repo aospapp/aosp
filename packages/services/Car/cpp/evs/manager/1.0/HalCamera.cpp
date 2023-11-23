@@ -15,12 +15,12 @@
  */
 
 #include "HalCamera.h"
-#include "VirtualCamera.h"
+
 #include "Enumerator.h"
+#include "VirtualCamera.h"
 
 #include <ui/GraphicBufferAllocator.h>
 #include <ui/GraphicBufferMapper.h>
-
 
 namespace android {
 namespace automotive {
@@ -28,12 +28,9 @@ namespace evs {
 namespace V1_0 {
 namespace implementation {
 
-
 // TODO:  We need to hook up death monitoring to detect stream death so we can attempt a reconnect
 
-
 sp<VirtualCamera> HalCamera::makeVirtualCamera() {
-
     // Create the client camera interface object
     sp<VirtualCamera> client = new VirtualCamera(this);
     if (client == nullptr) {
@@ -55,7 +52,6 @@ sp<VirtualCamera> HalCamera::makeVirtualCamera() {
     // Return the strong pointer to the client
     return client;
 }
-
 
 void HalCamera::disownVirtualCamera(sp<VirtualCamera> virtualCamera) {
     // Ignore calls with null pointers
@@ -81,11 +77,10 @@ void HalCamera::disownVirtualCamera(sp<VirtualCamera> virtualCamera) {
     }
 }
 
-
 bool HalCamera::changeFramesInFlight(int delta) {
     // Walk all our clients and count their currently required frames
     unsigned bufferCount = 0;
-    for (auto&& client :  mClients) {
+    for (auto&& client : mClients) {
         sp<VirtualCamera> virtCam = client.promote();
         if (virtCam != nullptr) {
             bufferCount += virtCam->getAllowedBuffers();
@@ -125,7 +120,6 @@ bool HalCamera::changeFramesInFlight(int delta) {
     return success;
 }
 
-
 Return<EvsResult> HalCamera::clientStreamStarting() {
     Return<EvsResult> result = EvsResult::OK;
 
@@ -136,7 +130,6 @@ Return<EvsResult> HalCamera::clientStreamStarting() {
 
     return result;
 }
-
 
 void HalCamera::clientStreamEnding() {
     // Do we still have a running client?
@@ -155,11 +148,10 @@ void HalCamera::clientStreamEnding() {
     }
 }
 
-
 Return<void> HalCamera::doneWithFrame(const BufferDesc& buffer) {
     // Find this frame in our list of outstanding frames
     unsigned i;
-    for (i=0; i<mFrames.size(); i++) {
+    for (i = 0; i < mFrames.size(); i++) {
         if (mFrames[i].frameId == buffer.bufferId) {
             break;
         }
@@ -177,7 +169,6 @@ Return<void> HalCamera::doneWithFrame(const BufferDesc& buffer) {
 
     return Void();
 }
-
 
 Return<void> HalCamera::deliverFrame(const BufferDesc& buffer) {
     // Run through all our clients and deliver this frame to any who are eligible
@@ -198,7 +189,7 @@ Return<void> HalCamera::deliverFrame(const BufferDesc& buffer) {
     } else {
         // Add an entry for this frame in our tracking list
         unsigned i;
-        for (i=0; i<mFrames.size(); i++) {
+        for (i = 0; i < mFrames.size(); i++) {
             if (mFrames[i].refCount == 0) {
                 break;
             }
@@ -214,8 +205,8 @@ Return<void> HalCamera::deliverFrame(const BufferDesc& buffer) {
     return Void();
 }
 
-} // namespace implementation
-} // namespace V1_0
-} // namespace evs
-} // namespace automotive
-} // namespace android
+}  // namespace implementation
+}  // namespace V1_0
+}  // namespace evs
+}  // namespace automotive
+}  // namespace android

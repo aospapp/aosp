@@ -28,8 +28,8 @@
 
 #include "btif_profile_queue.h"
 
-#include <base/bind.h>
-#include <base/callback.h>
+#include <base/functional/bind.h>
+#include <base/functional/callback.h>
 #include <base/logging.h>
 #include <base/strings/stringprintf.h>
 #include <string.h>
@@ -54,7 +54,7 @@ class ConnectNode {
 
   std::string ToString() const {
     return base::StringPrintf("address=%s UUID=%04X busy=%s",
-                              PRIVATE_ADDRESS(address_), uuid_,
+                              ADDRESS_TO_LOGGABLE_CSTR(address_), uuid_,
                               (busy_) ? "true" : "false");
   }
 

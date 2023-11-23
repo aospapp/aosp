@@ -19,6 +19,7 @@ package com.android.tv.settings.system;
 import androidx.fragment.app.Fragment;
 
 import com.android.tv.settings.TvSettingsActivity;
+import com.android.tv.settings.system.locale.LanguagePickerFragment;
 
 public class AppLanguageActivity extends TvSettingsActivity {
 
@@ -26,6 +27,6 @@ public class AppLanguageActivity extends TvSettingsActivity {
     protected Fragment createSettingsFragment() {
         return com.android.tv.settings.overlay.FlavorUtils.getFeatureFactory(
                 this).getSettingsFragmentProvider()
-                .newSettingsFragment(LanguageFragment.class.getName(), null);
+                .newSettingsFragment(LanguagePickerFragment.class.getName(), null);
     }
 }

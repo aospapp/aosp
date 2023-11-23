@@ -16,20 +16,26 @@
 
 package com.android.systemui.car.hvac;
 
+import static android.car.VehicleAreaType.VEHICLE_AREA_TYPE_GLOBAL;
+import static android.car.VehicleAreaType.VEHICLE_AREA_TYPE_SEAT;
 import static android.car.VehiclePropertyIds.HVAC_AUTO_ON;
 import static android.car.VehiclePropertyIds.HVAC_DEFROSTER;
+import static android.car.VehiclePropertyIds.HVAC_POWER_ON;
 import static android.car.VehiclePropertyIds.HVAC_TEMPERATURE_DISPLAY_UNITS;
 import static android.car.VehiclePropertyIds.HVAC_TEMPERATURE_SET;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import static org.mockito.Mockito.anyInt;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.reset;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import android.car.Car;
 import android.car.VehicleUnit;
+import android.car.hardware.CarPropertyConfig;
 import android.car.hardware.CarPropertyValue;
 import android.car.hardware.property.CarPropertyManager;
 import android.content.Context;
@@ -59,13 +65,15 @@ import org.mockito.MockitoAnnotations;
 public class HvacControllerTest extends SysuiTestCase {
 
     private static final int AREA_1 = 1;
-    private static final int AREA_2 = 2;
-    private static final int AREA_3 = 3;
+    private static final int AREA_4 = 4;
+    private static final int AREA_16 = 16;
 
     @Mock
     private Car mCar;
     @Mock
     private CarPropertyManager mCarPropertyManager;
+    @Mock
+    private CarPropertyConfig mCarPropertyConfig;
     @Mock
     private CarServiceProvider mCarServiceProvider;
     @Mock
@@ -86,6 +94,8 @@ public class HvacControllerTest extends SysuiTestCase {
     public void setUp() {
         MockitoAnnotations.initMocks(this);
         when(mCar.getCarManager(Car.PROPERTY_SERVICE)).thenReturn(mCarPropertyManager);
+        when(mCarPropertyManager.getCarPropertyConfig(anyInt())).thenReturn(mCarPropertyConfig);
+        when(mCarPropertyConfig.getAreaIds()).thenReturn(new int[] {AREA_1, AREA_4, AREA_16});
 
         mExecutor = new FakeExecutor(new FakeSystemClock());
         mHvacController = new HvacController(mCarServiceProvider, mExecutor,
@@ -113,6 +123,58 @@ public class HvacControllerTest extends SysuiTestCase {
     }
 
     @Test
+    public void registerHvacView_skipHvacPropertiesToGetOnInit() {
+        when(mTestHvacView1.getAreaId()).thenReturn(AREA_1);
+        when(mTestHvacView1.getHvacPropertyToView()).thenReturn(HVAC_TEMPERATURE_SET);
+        when(mCarPropertyManager.getCarPropertyConfig(HVAC_TEMPERATURE_SET).getAreaType())
+                .thenReturn(VEHICLE_AREA_TYPE_GLOBAL);
+
+        mHvacController.registerHvacViews(mTestHvacView1);
+
+        assertThat(mHvacController.getHvacPropertyViewMap().get(HVAC_TEMPERATURE_SET).get(
+                AREA_1)).contains(mTestHvacView1);
+
+        verify(mTestHvacView1, never()).onPropertyChanged(mCarPropertyValue);
+    }
+
+    @Test
+    public void registerHvacView_retrieveHvacPropertiesToGetOnInit() {
+        when(mTestHvacView1.getAreaId()).thenReturn(AREA_1);
+        when(mTestHvacView1.getHvacPropertyToView()).thenReturn(HVAC_TEMPERATURE_SET);
+        when(mCarPropertyManager.getCarPropertyConfig(anyInt())).thenReturn(mCarPropertyConfig);
+        when(mCarPropertyManager.getCarPropertyConfig(anyInt()).getAreaType())
+                .thenReturn(VEHICLE_AREA_TYPE_SEAT);
+
+        when(mCarPropertyManager.getCarPropertyConfig(anyInt()).getAreaIds())
+                .thenReturn(new int[] {AREA_1});
+        when(mCarPropertyManager.getProperty(HVAC_TEMPERATURE_SET, AREA_1))
+                .thenReturn(mCarPropertyValue);
+        when(mCarPropertyManager.getProperty(HVAC_AUTO_ON, AREA_1))
+                .thenReturn(mCarPropertyValue);
+        when(mCarPropertyManager.getProperty(HVAC_POWER_ON, AREA_1))
+                .thenReturn(mCarPropertyValue);
+
+        mHvacController.registerHvacViews(mTestHvacView1);
+
+        assertThat(mHvacController.getHvacPropertyViewMap().get(HVAC_TEMPERATURE_SET).get(
+                AREA_1)).contains(mTestHvacView1);
+
+        // onPropertyChanged should be called for HVAC_TEMPERATURE_SET, HVAC_AUTO_ON,
+        // and HVAC_POWER_ON.
+        verify(mTestHvacView1, times(3)).onPropertyChanged(mCarPropertyValue);
+    }
+
+    @Test
+    public void registerHvacView_propertyNotImplemented() {
+        when(mTestHvacView1.getAreaId()).thenReturn(AREA_1);
+        when(mTestHvacView1.getHvacPropertyToView()).thenReturn(HVAC_TEMPERATURE_SET);
+        when(mCarPropertyManager.getCarPropertyConfig(anyInt())).thenReturn(null);
+
+        mHvacController.registerHvacViews(mTestHvacView1);
+        assertThat(mHvacController.getHvacPropertyViewMap()).isEmpty();
+    }
+
+    @Test
     public void unregisterHvacView_viewNotRegisteredInMap() {
         when(mTestHvacView1.getAreaId()).thenReturn(AREA_1);
         when(mTestHvacView1.getHvacPropertyToView()).thenReturn(HVAC_TEMPERATURE_SET);
@@ -127,6 +189,7 @@ public class HvacControllerTest extends SysuiTestCase {
     public void hvacPropertyChanged_subscribingViewRegistered_viewHandleChange() {
         registerAllTestHvacViews();
         when(mCarPropertyValue.getAreaId()).thenReturn(AREA_1);
+        when(mCarPropertyValue.getPropertyId()).thenReturn(HVAC_TEMPERATURE_SET);
 
         mHvacController.handleHvacPropertyChange(HVAC_TEMPERATURE_SET, mCarPropertyValue);
 
@@ -137,12 +200,25 @@ public class HvacControllerTest extends SysuiTestCase {
     public void hvacPropertyChanged_subscribingViewRegistered_notSubscribingViewDoesNotHandle() {
         registerAllTestHvacViews();
         when(mCarPropertyValue.getAreaId()).thenReturn(AREA_1);
+        when(mCarPropertyManager.getCarPropertyConfig(HVAC_TEMPERATURE_SET).getAreaType())
+                .thenReturn(VEHICLE_AREA_TYPE_SEAT);
 
         mHvacController.handleHvacPropertyChange(HVAC_TEMPERATURE_SET, mCarPropertyValue);
 
         verify(mTestHvacView2, never()).onPropertyChanged(mCarPropertyValue);
     }
 
+    @Test
+    public void hvacPropertyChanged_subscribingViewRegistered_viewWithGlobalPropDoesHandle() {
+        registerAllTestHvacViews();
+        when(mCarPropertyValue.getAreaId()).thenReturn(AREA_1);
+        when(mCarPropertyManager.getCarPropertyConfig(HVAC_TEMPERATURE_SET).getAreaType())
+                .thenReturn(VEHICLE_AREA_TYPE_GLOBAL);
+
+        mHvacController.handleHvacPropertyChange(HVAC_TEMPERATURE_SET, mCarPropertyValue);
+
+        verify(mTestHvacView2).onPropertyChanged(mCarPropertyValue);
+    }
 
     @Test
     public void hvacPropertyChanged_noSubscribingViewRegistered_doesNotThrowError() {
@@ -157,6 +233,7 @@ public class HvacControllerTest extends SysuiTestCase {
         registerAllTestHvacViews();
         when(mCarPropertyValue.getPropertyId()).thenReturn(HVAC_TEMPERATURE_DISPLAY_UNITS);
         when(mCarPropertyValue.getValue()).thenReturn(VehicleUnit.FAHRENHEIT);
+        when(mCarPropertyValue.getAreaId()).thenReturn(0);
         reset(mTestHvacView1);
         reset(mTestHvacView2);
         reset(mTestHvacView3);
@@ -173,6 +250,7 @@ public class HvacControllerTest extends SysuiTestCase {
         registerAllTestHvacViews();
         when(mCarPropertyValue.getPropertyId()).thenReturn(HVAC_TEMPERATURE_DISPLAY_UNITS);
         when(mCarPropertyValue.getValue()).thenReturn(VehicleUnit.CELSIUS);
+        when(mCarPropertyValue.getAreaId()).thenReturn(0);
         reset(mTestHvacView1);
         reset(mTestHvacView2);
         reset(mTestHvacView3);
@@ -188,10 +266,10 @@ public class HvacControllerTest extends SysuiTestCase {
         when(mTestHvacView1.getAreaId()).thenReturn(AREA_1);
         when(mTestHvacView1.getHvacPropertyToView()).thenReturn(HVAC_TEMPERATURE_SET);
 
-        when(mTestHvacView2.getAreaId()).thenReturn(AREA_2);
+        when(mTestHvacView2.getAreaId()).thenReturn(AREA_4);
         when(mTestHvacView2.getHvacPropertyToView()).thenReturn(HVAC_TEMPERATURE_SET);
 
-        when(mTestHvacView3.getAreaId()).thenReturn(AREA_3);
+        when(mTestHvacView3.getAreaId()).thenReturn(AREA_16);
         when(mTestHvacView3.getHvacPropertyToView()).thenReturn(HVAC_AUTO_ON);
 
         mHvacController.registerHvacViews(mTestHvacView1);
@@ -217,6 +295,11 @@ public class HvacControllerTest extends SysuiTestCase {
 
         @Override
         public void setHvacPropertySetter(HvacPropertySetter hvacPropertySetter) {
+            // no-op.
+        }
+
+        @Override
+        public void setConfigInfo(CarPropertyConfig<?> carPropertyConfig) {
             // no-op.
         }
 

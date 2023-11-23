@@ -202,7 +202,7 @@ TEST(OringDurationTrackerTest, TestDurationConditionChange) {
 
     tracker.noteStart(kEventKey1, true, eventStartTimeNs, key1);
 
-    tracker.onSlicedConditionMayChange(true, eventStartTimeNs + 5);
+    tracker.onSlicedConditionMayChange(eventStartTimeNs + 5);
 
     tracker.noteStop(kEventKey1, eventStartTimeNs + durationTimeNs, false);
 
@@ -241,9 +241,9 @@ TEST(OringDurationTrackerTest, TestDurationConditionChange2) {
 
     tracker.noteStart(kEventKey1, true, eventStartTimeNs, key1);
     // condition to false; record duration 5n
-    tracker.onSlicedConditionMayChange(true, eventStartTimeNs + 5);
+    tracker.onSlicedConditionMayChange(eventStartTimeNs + 5);
     // condition to true.
-    tracker.onSlicedConditionMayChange(true, eventStartTimeNs + 1000);
+    tracker.onSlicedConditionMayChange(eventStartTimeNs + 1000);
     // 2nd duration: 1000ns
     tracker.noteStop(kEventKey1, eventStartTimeNs + durationTimeNs, false);
 
@@ -281,7 +281,7 @@ TEST(OringDurationTrackerTest, TestDurationConditionChangeNested) {
 
     tracker.noteStop(kEventKey1, eventStartTimeNs + 3, false);
 
-    tracker.onSlicedConditionMayChange(true, eventStartTimeNs + 15);
+    tracker.onSlicedConditionMayChange(eventStartTimeNs + 15);
 
     tracker.noteStop(kEventKey1, eventStartTimeNs + 2003, false);
 

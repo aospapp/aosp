@@ -72,6 +72,7 @@ typedef enum {
 #define TRACE_TYPE_API 0x00000002
 #define TRACE_TYPE_EVENT 0x00000003
 #define TRACE_TYPE_DEBUG 0x00000004
+#define TRACE_TYPE_INFO 0x00000005
 
 static const char BTE_LOGMSG_MODULE[] = "bte_logmsg_module";
 
@@ -347,6 +348,11 @@ static const char BTE_LOGMSG_MODULE[] = "bte_logmsg_module";
   {                                                               \
     if (sdp_cb.trace_level >= BT_TRACE_LEVEL_DEBUG)               \
       BT_TRACE(TRACE_LAYER_SDP, TRACE_TYPE_DEBUG, ##__VA_ARGS__); \
+  }
+#define SDP_TRACE_INFO(...)                                      \
+  {                                                              \
+    if (sdp_cb.trace_level >= BT_TRACE_LEVEL_WARNING)            \
+      BT_TRACE(TRACE_LAYER_SDP, TRACE_TYPE_INFO, ##__VA_ARGS__); \
   }
 
 /* Define tracing for the RFCOMM unit */
@@ -737,11 +743,13 @@ void LogMsg(uint32_t trace_set_mask, const char* fmt_str, ...);
 
 #ifdef __cplusplus
 
+#include <array>
 #include <iomanip>
 #include <sstream>
 #include <type_traits>
 
 #include "check.h"
+#include "os/logging/log_adapter.h"
 
 /* Prints integral parameter x as hex string, with '0' fill */
 template <typename T>

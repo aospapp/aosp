@@ -96,6 +96,10 @@ void ParameterProvider::OverrideSnoozLogFilePath(const std::string& path) {
   snooz_log_file_path = path;
 }
 
+std::string ParameterProvider::SyspropsFilePath() {
+  return "";
+}
+
 bluetooth_keystore::BluetoothKeystoreInterface* ParameterProvider::GetBtKeystoreInterface() {
   return nullptr;
 }

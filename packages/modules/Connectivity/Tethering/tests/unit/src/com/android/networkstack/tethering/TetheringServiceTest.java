@@ -24,6 +24,7 @@ import static android.net.TetheringManager.TETHERING_WIFI;
 import static android.net.TetheringManager.TETHER_ERROR_NO_ACCESS_TETHERING_PERMISSION;
 import static android.net.TetheringManager.TETHER_ERROR_NO_CHANGE_TETHERING_PERMISSION;
 import static android.net.TetheringManager.TETHER_ERROR_NO_ERROR;
+import static android.net.TetheringManager.TETHER_ERROR_UNSUPPORTED;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
@@ -139,23 +140,27 @@ public final class TetheringServiceTest {
     }
 
     private void runAsNoPermission(final TestTetheringCall test) throws Exception {
-        runTetheringCall(test, new String[0]);
+        runTetheringCall(test, true /* isTetheringAllowed */, new String[0]);
     }
 
     private void runAsTetherPrivileged(final TestTetheringCall test) throws Exception {
-        runTetheringCall(test, TETHER_PRIVILEGED);
+        runTetheringCall(test, true /* isTetheringAllowed */, TETHER_PRIVILEGED);
     }
 
     private void runAsAccessNetworkState(final TestTetheringCall test) throws Exception {
-        runTetheringCall(test, ACCESS_NETWORK_STATE);
+        runTetheringCall(test, true /* isTetheringAllowed */, ACCESS_NETWORK_STATE);
     }
 
     private void runAsWriteSettings(final TestTetheringCall test) throws Exception {
-        runTetheringCall(test, WRITE_SETTINGS);
+        runTetheringCall(test, true /* isTetheringAllowed */, WRITE_SETTINGS);
     }
 
-    private void runTetheringCall(final TestTetheringCall test, String... permissions)
-            throws Exception {
+    private void runAsTetheringDisallowed(final TestTetheringCall test) throws Exception {
+        runTetheringCall(test, false /* isTetheringAllowed */, TETHER_PRIVILEGED);
+    }
+
+    private void runTetheringCall(final TestTetheringCall test, boolean isTetheringAllowed,
+            String... permissions) throws Exception {
         // Allow the test to run even if ACCESS_NETWORK_STATE was granted at the APK level
         if (!CollectionUtils.contains(permissions, ACCESS_NETWORK_STATE)) {
             mMockConnector.setPermission(ACCESS_NETWORK_STATE, PERMISSION_DENIED);
@@ -164,6 +169,7 @@ public final class TetheringServiceTest {
         if (permissions.length > 0) mUiAutomation.adoptShellPermissionIdentity(permissions);
         try {
             when(mTethering.isTetheringSupported()).thenReturn(true);
+            when(mTethering.isTetheringAllowed()).thenReturn(isTetheringAllowed);
             test.runTetheringCall(new TestTetheringResult());
         } finally {
             mUiAutomation.dropShellPermissionIdentity();
@@ -180,6 +186,7 @@ public final class TetheringServiceTest {
     private void runTether(final TestTetheringResult result) throws Exception {
         mTetheringConnector.tether(TEST_IFACE_NAME, TEST_CALLER_PKG, TEST_ATTRIBUTION_TAG, result);
         verify(mTethering).isTetheringSupported();
+        verify(mTethering).isTetheringAllowed();
         verify(mTethering).tether(TEST_IFACE_NAME, IpServer.STATE_TETHERED, result);
     }
 
@@ -203,12 +210,22 @@ public final class TetheringServiceTest {
             verify(mTethering).isTetherProvisioningRequired();
             verifyNoMoreInteractionsForTethering();
         });
+
+        runAsTetheringDisallowed((result) -> {
+            mTetheringConnector.tether(TEST_IFACE_NAME, TEST_CALLER_PKG, TEST_ATTRIBUTION_TAG,
+                    result);
+            verify(mTethering).isTetheringSupported();
+            verify(mTethering).isTetheringAllowed();
+            result.assertResult(TETHER_ERROR_UNSUPPORTED);
+            verifyNoMoreInteractionsForTethering();
+        });
     }
 
     private void runUnTether(final TestTetheringResult result) throws Exception {
         mTetheringConnector.untether(TEST_IFACE_NAME, TEST_CALLER_PKG, TEST_ATTRIBUTION_TAG,
                 result);
         verify(mTethering).isTetheringSupported();
+        verify(mTethering).isTetheringAllowed();
         verify(mTethering).untether(eq(TEST_IFACE_NAME), eq(result));
     }
 
@@ -232,6 +249,15 @@ public final class TetheringServiceTest {
             verify(mTethering).isTetherProvisioningRequired();
             verifyNoMoreInteractionsForTethering();
         });
+
+        runAsTetheringDisallowed((result) -> {
+            mTetheringConnector.untether(TEST_IFACE_NAME, TEST_CALLER_PKG, TEST_ATTRIBUTION_TAG,
+                    result);
+            verify(mTethering).isTetheringSupported();
+            verify(mTethering).isTetheringAllowed();
+            result.assertResult(TETHER_ERROR_UNSUPPORTED);
+            verifyNoMoreInteractionsForTethering();
+        });
     }
 
     private void runSetUsbTethering(final TestTetheringResult result) throws Exception {
@@ -243,6 +269,7 @@ public final class TetheringServiceTest {
         mTetheringConnector.setUsbTethering(true /* enable */, TEST_CALLER_PKG,
                 TEST_ATTRIBUTION_TAG, result);
         verify(mTethering).isTetheringSupported();
+        verify(mTethering).isTetheringAllowed();
         verify(mTethering).setUsbTethering(eq(true) /* enable */, any(IIntResultListener.class));
         result.assertResult(TETHER_ERROR_NO_ERROR);
     }
@@ -268,6 +295,14 @@ public final class TetheringServiceTest {
             verifyNoMoreInteractionsForTethering();
         });
 
+        runAsTetheringDisallowed((result) -> {
+            mTetheringConnector.setUsbTethering(true /* enable */, TEST_CALLER_PKG,
+                    TEST_ATTRIBUTION_TAG, result);
+            verify(mTethering).isTetheringSupported();
+            verify(mTethering).isTetheringAllowed();
+            result.assertResult(TETHER_ERROR_UNSUPPORTED);
+            verifyNoMoreInteractionsForTethering();
+        });
     }
 
     private void runStartTethering(final TestTetheringResult result,
@@ -275,7 +310,8 @@ public final class TetheringServiceTest {
         mTetheringConnector.startTethering(request, TEST_CALLER_PKG, TEST_ATTRIBUTION_TAG,
                 result);
         verify(mTethering).isTetheringSupported();
-        verify(mTethering).startTethering(eq(request), eq(result));
+        verify(mTethering).isTetheringAllowed();
+        verify(mTethering).startTethering(eq(request), eq(TEST_CALLER_PKG), eq(result));
     }
 
     @Test
@@ -299,6 +335,15 @@ public final class TetheringServiceTest {
         runAsWriteSettings((result) -> {
             runStartTethering(result, request);
             verify(mTethering).isTetherProvisioningRequired();
+            verifyNoMoreInteractionsForTethering();
+        });
+
+        runAsTetheringDisallowed((result) -> {
+            mTetheringConnector.startTethering(request, TEST_CALLER_PKG, TEST_ATTRIBUTION_TAG,
+                    result);
+            verify(mTethering).isTetheringSupported();
+            verify(mTethering).isTetheringAllowed();
+            result.assertResult(TETHER_ERROR_UNSUPPORTED);
             verifyNoMoreInteractionsForTethering();
         });
     }
@@ -337,6 +382,7 @@ public final class TetheringServiceTest {
         mTetheringConnector.stopTethering(TETHERING_WIFI, TEST_CALLER_PKG,
                 TEST_ATTRIBUTION_TAG, result);
         verify(mTethering).isTetheringSupported();
+        verify(mTethering).isTetheringAllowed();
         verify(mTethering).stopTethering(TETHERING_WIFI);
         result.assertResult(TETHER_ERROR_NO_ERROR);
     }
@@ -361,6 +407,15 @@ public final class TetheringServiceTest {
             verify(mTethering).isTetherProvisioningRequired();
             verifyNoMoreInteractionsForTethering();
         });
+
+        runAsTetheringDisallowed((result) -> {
+            mTetheringConnector.stopTethering(TETHERING_WIFI, TEST_CALLER_PKG,
+                    TEST_ATTRIBUTION_TAG, result);
+            verify(mTethering).isTetheringSupported();
+            verify(mTethering).isTetheringAllowed();
+            result.assertResult(TETHER_ERROR_UNSUPPORTED);
+            verifyNoMoreInteractionsForTethering();
+        });
     }
 
     private void runRequestLatestTetheringEntitlementResult() throws Exception {
@@ -368,6 +423,7 @@ public final class TetheringServiceTest {
         mTetheringConnector.requestLatestTetheringEntitlementResult(TETHERING_WIFI, result,
                 true /* showEntitlementUi */, TEST_CALLER_PKG, TEST_ATTRIBUTION_TAG);
         verify(mTethering).isTetheringSupported();
+        verify(mTethering).isTetheringAllowed();
         verify(mTethering).requestLatestTetheringEntitlementResult(eq(TETHERING_WIFI),
                 eq(result), eq(true) /* showEntitlementUi */);
     }
@@ -390,6 +446,16 @@ public final class TetheringServiceTest {
         runAsWriteSettings((none) -> {
             runRequestLatestTetheringEntitlementResult();
             verify(mTethering).isTetherProvisioningRequired();
+            verifyNoMoreInteractionsForTethering();
+        });
+
+        runAsTetheringDisallowed((none) -> {
+            final MyResultReceiver receiver = new MyResultReceiver(null);
+            mTetheringConnector.requestLatestTetheringEntitlementResult(TETHERING_WIFI, receiver,
+                    true /* showEntitlementUi */, TEST_CALLER_PKG, TEST_ATTRIBUTION_TAG);
+            verify(mTethering).isTetheringSupported();
+            verify(mTethering).isTetheringAllowed();
+            receiver.assertResult(TETHER_ERROR_UNSUPPORTED);
             verifyNoMoreInteractionsForTethering();
         });
     }
@@ -416,6 +482,12 @@ public final class TetheringServiceTest {
         });
 
         runAsAccessNetworkState((none) -> {
+            runRegisterTetheringEventCallback();
+            verifyNoMoreInteractionsForTethering();
+        });
+
+        // should still be able to register callback even tethering is restricted.
+        runAsTetheringDisallowed((result) -> {
             runRegisterTetheringEventCallback();
             verifyNoMoreInteractionsForTethering();
         });
@@ -446,11 +518,19 @@ public final class TetheringServiceTest {
             runUnregisterTetheringEventCallback();
             verifyNoMoreInteractionsForTethering();
         });
+
+        // should still be able to unregister callback even tethering is restricted.
+        runAsTetheringDisallowed((result) -> {
+            runUnregisterTetheringEventCallback();
+            verifyNoMoreInteractionsForTethering();
+        });
+
     }
 
     private void runStopAllTethering(final TestTetheringResult result) throws Exception {
         mTetheringConnector.stopAllTethering(TEST_CALLER_PKG, TEST_ATTRIBUTION_TAG, result);
         verify(mTethering).isTetheringSupported();
+        verify(mTethering).isTetheringAllowed();
         verify(mTethering).untetherAll();
         result.assertResult(TETHER_ERROR_NO_ERROR);
     }
@@ -474,11 +554,20 @@ public final class TetheringServiceTest {
             verify(mTethering).isTetherProvisioningRequired();
             verifyNoMoreInteractionsForTethering();
         });
+
+        runAsTetheringDisallowed((result) -> {
+            mTetheringConnector.stopAllTethering(TEST_CALLER_PKG, TEST_ATTRIBUTION_TAG, result);
+            verify(mTethering).isTetheringSupported();
+            verify(mTethering).isTetheringAllowed();
+            result.assertResult(TETHER_ERROR_UNSUPPORTED);
+            verifyNoMoreInteractionsForTethering();
+        });
     }
 
     private void runIsTetheringSupported(final TestTetheringResult result) throws Exception {
         mTetheringConnector.isTetheringSupported(TEST_CALLER_PKG, TEST_ATTRIBUTION_TAG, result);
         verify(mTethering).isTetheringSupported();
+        verify(mTethering).isTetheringAllowed();
         result.assertResult(TETHER_ERROR_NO_ERROR);
     }
 
@@ -500,6 +589,15 @@ public final class TetheringServiceTest {
         runAsWriteSettings((result) -> {
             runIsTetheringSupported(result);
             verify(mTethering).isTetherProvisioningRequired();
+            verifyNoMoreInteractionsForTethering();
+        });
+
+        runAsTetheringDisallowed((result) -> {
+            mTetheringConnector.isTetheringSupported(TEST_CALLER_PKG, TEST_ATTRIBUTION_TAG,
+                    result);
+            verify(mTethering).isTetheringSupported();
+            verify(mTethering).isTetheringAllowed();
+            result.assertResult(TETHER_ERROR_UNSUPPORTED);
             verifyNoMoreInteractionsForTethering();
         });
     }
@@ -566,17 +664,17 @@ public final class TetheringServiceTest {
             assertEquals("Internal callback is not registered", 1, callbacks.size());
             assertNotNull(weakTm.get());
 
-            final int attempts = 100;
+            // Calling System.gc() or System.runFinalization() doesn't guarantee GCs or finalizers
+            // are executed synchronously. The finalizer is called after GC on a separate thread.
+            final int attempts = 600;
             final long waitIntervalMs = 50;
             for (int i = 0; i < attempts; i++) {
                 forceGc();
-                if (weakTm.get() == null) break;
+                if (weakTm.get() == null && callbacks.size() == 0) break;
 
                 Thread.sleep(waitIntervalMs);
             }
-            assertNull("TetheringManager weak reference still not null after " + attempts
-                    + " attempts", weakTm.get());
-
+            assertNull("TetheringManager weak reference is not null", weakTm.get());
             assertEquals("Internal callback is not unregistered", 0, callbacks.size());
         });
     }

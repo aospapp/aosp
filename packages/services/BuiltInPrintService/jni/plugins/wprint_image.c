@@ -548,6 +548,39 @@ status_t wprint_image_set_output_properties(wprint_image_info_t *image_info,
             break;
     }
 
+    LOGD("wprint_image_set_output_properties(): input render flags - %d (0x%8.8x)",
+         input_render_flags, input_render_flags);
+    LOGD("wprint_image_set_output_properties(): printable area - %dx%d",
+         printable_width, printable_height);
+    LOGD("wprint_image_set_output_properties(): input margins: Top:%d Left:%d Right:%d Bottom:%d",
+         top_margin, left_margin, right_margin, bottom_margin);
+    LOGD("wprint_image_set_output_properties(): padding options: %d (0x%2.2x)",
+         image_info->padding_options, image_info->padding_options);
+    LOGD("wprint_image_set_output_properties(): concurrent stripes - %d",
+         image_info->concurrent_stripes);
+    LOGD("wprint_image_set_output_properties(): stripe height - %d", image_info->stripe_height);
+    LOGD("wprint_image_set_output_properties(): image dimensions: %dx%d",
+         image_info->width, image_info->height);
+    LOGD("wprint_image_set_output_properties(): image rotation: %d", image_info->rotation);
+    LOGD("wprint_image_set_output_properties(): final render flags - %d (0x%8.8x)",
+         image_info->render_flags, image_info->render_flags);
+    LOGD("wprint_image_set_output_properties(): printable area after margins - %dx%d",
+         image_info->printable_width, image_info->printable_height);
+    LOGD("wprint_image_set_output_properties(): output_padding: Top:%d Left:%d Right:%d Bottom:%d",
+         image_info->output_padding_top, image_info->output_padding_left,
+         image_info->output_padding_right, image_info->output_padding_bottom);
+    LOGD("wprint_image_set_output_properties(): output dimensions: %dx%d", image_info->output_width,
+         image_info->output_height);
+    LOGD("wprint_image_set_output_properties(): subsampled image dimensions - %dx%d",
+         image_info->sampled_width, image_info->sampled_height);
+    LOGD("wprint_image_set_output_properties(): scaled image dimensions - %dx%d",
+         image_info->scaled_width, image_info->scaled_height);
+    LOGD("wprint_image_set_output_properties(): image offsets - row: %d, col: %d",
+         image_info->row_offset, image_info->col_offset);
+    LOGD("wprint_image_set_output_properties(): margins - top: %d, left: %d, right: %d, bottom: %d",
+         image_info->output_padding_top, image_info->output_padding_left,
+         image_info->output_padding_right, image_info->output_padding_bottom);
+
     return OK;
 }
 

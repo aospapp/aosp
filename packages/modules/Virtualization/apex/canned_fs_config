@@ -1,1 +1,1 @@
-/bin/crosvm 0 2000 0755 capabilities=0x4000
+/bin/virtualizationservice 0 2000 0755 capabilities=0x1000001  # CAP_CHOWN, CAP_SYS_RESOURCE

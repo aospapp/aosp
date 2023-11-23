@@ -288,16 +288,35 @@ inline std::enable_if_t<nnIsFloat<T>, T> getUniformNonZero(T lower, T upper, T z
 
 // getUniform for integers operates on a closed interval [lower, upper].
 // This is important that 255 should be included as a valid candidate for QUANT8_ASYMM values.
+//
+// This template only accepts int8_t, uint8_t, bool, or the types accepted by stdlib's
+// uniform_int_distribution. `char` is not an officially supported type, but may be
+// supported depending on library implementation.
 template <typename T>
 inline std::enable_if_t<std::is_integral_v<T>, T> getUniform(T lower, T upper) {
-    std::uniform_int_distribution<T> dis(lower, upper);
-    return dis(RandomNumberGenerator::generator);
+    // uniform_int_distribution is only defined by the stdlib standard
+    // when T is of types short, int, long, long long,
+    // unsigned short, unsigned int, unsigned long, or unsigned long long.
+    //
+    // However, existing code relies on getUniform working for some smaller types,
+    // so we special case them here.
+    if constexpr (std::is_same_v<T, uint8_t> || std::is_same_v<T, int8_t> ||
+                  std::is_same_v<T, bool>) {
+        // We can get away with using bool here because lower and upper are 0 or 1.
+        // The uint8_t case can always be upsized to int16_t and then downsized because
+        // we'll never generate a random number lower than the minimum of 0 when T
+        // is unsigned.
+        std::uniform_int_distribution<int16_t> dis(lower, upper);
+        return static_cast<T>(dis(RandomNumberGenerator::generator));
+    } else {
+        std::uniform_int_distribution<T> dis(lower, upper);
+        return dis(RandomNumberGenerator::generator);
+    }
 }
 template <typename T>
 inline std::enable_if_t<std::is_integral_v<T>, T> getUniformNonZero(T lower, T upper, T zeroPoint) {
     if (upper >= zeroPoint) upper--;
-    std::uniform_int_distribution<T> dis(lower, upper);
-    const T value = dis(RandomNumberGenerator::generator);
+    const T value = getUniform(lower, upper);
     return value >= zeroPoint ? value + 1 : value;
 }
 

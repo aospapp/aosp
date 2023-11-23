@@ -82,8 +82,8 @@ public abstract class BluetoothDevicePreferenceController<V extends Preference> 
     }
 
     @Override
-    protected int getAvailabilityStatus() {
-        int availabilityStatus = super.getAvailabilityStatus();
+    protected int getDefaultAvailabilityStatus() {
+        int availabilityStatus = super.getDefaultAvailabilityStatus();
         if (availabilityStatus == AVAILABLE
                 && getUserManager().hasUserRestriction(DISALLOW_CONFIG_BLUETOOTH)) {
             return BluetoothUtils.getAvailabilityStatusRestricted(getContext());

@@ -26,6 +26,8 @@
 #define MAX_URI_LENGTH 1024
 #define MAX_STRING 256
 #define MAX_UUID 46
+#define MAX_PRINT_SCALING_LENGTH    32
+#define MAX_PRINT_SCALING_COUNT     10
 
 #include "wprint_df_types.h"
 
@@ -44,6 +46,7 @@ typedef struct
  */
 typedef struct {
     unsigned char duplex;
+    unsigned char sidesSupported;
     unsigned char borderless;
     unsigned char canPrintPDF;
     unsigned char canPrintPCLm;
@@ -91,6 +94,10 @@ typedef struct {
     unsigned char docSourceAppVersion;
     unsigned char docSourceOsName;
     unsigned char docSourceOsVersion;
+    char print_scalings_supported[MAX_PRINT_SCALING_COUNT][MAX_PRINT_SCALING_LENGTH];
+    int print_scalings_supported_count;
+    char print_scaling_default[MAX_PRINT_SCALING_LENGTH]; /* Printer default value */
+    unsigned char jobPagesPerSetSupported;
 } printer_capabilities_t;
 
 #endif // __PRINTER_CAPABILITIES_TYPES_H__

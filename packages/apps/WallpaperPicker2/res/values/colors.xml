@@ -42,7 +42,36 @@
     <color name="toolbar_color">@color/settingslib_colorSurfaceHeader</color>
     <color name="myphoto_background_color">@color/white</color>
     <color name="myphoto_background_cloud">@color/google_grey200</color>
+    <color name="preview_toolbar_text_light">@android:color/system_neutral1_50</color>
+
     <color name="color_accent_primary">@android:color/system_accent1_100</color>
     <color name="color_accent_primary_variant">@android:color/system_accent1_600</color>
+    <color name="color_accent_secondary">@color/settingslib_accent_secondary_device_default</color>
+    <color name="color_surface">@color/settingslib_colorSurface</color>
+    <color name="color_surface_variant">@color/settingslib_colorSurfaceVariant</color>
+    <color name="text_color_primary">@color/settingslib_text_color_primary</color>
+    <color name="text_color_primary_inverse">@android:color/system_neutral1_900</color>
+    <color name="text_color_secondary">@color/settingslib_text_color_secondary</color>
+    <color name="text_color_secondary_inverse">
+        @color/settingslib_text_color_secondary_device_default
+    </color>
 
+    <color name="wallpaper_preview_scrim_color">#99000000</color>
+
+    <!-- Material 3 colors -->
+    <color name="system_primary">@android:color/system_primary_light</color>
+    <color name="system_secondary">@android:color/system_secondary_light</color>
+    <color name="system_tertiary">@android:color/system_tertiary_light</color>
+    <color name="system_on_primary">@android:color/system_on_primary_light</color>
+    <color name="system_on_secondary">@android:color/system_on_secondary_light</color>
+    <color name="system_on_surface">@android:color/system_on_surface_light</color>
+    <color name="system_on_surface_variant">@android:color/system_on_surface_variant_light</color>
+    <color name="system_surface_container_high">@android:color/system_surface_container_high_light</color>
+    <color name="system_surface_container_highest">@android:color/system_surface_container_highest_light</color>
+    <color name="system_surface_bright">@android:color/system_surface_bright_light</color>
+    <color name="system_outline_variant">@android:color/system_outline_variant_light</color>
+
+    <!-- UI elements with Dark/Light Theme Variances -->
+    <color name="option_item_background">@color/system_surface_container_high</color>
+    <color name="picker_fragment_background">@color/system_surface_bright</color>
 </resources>

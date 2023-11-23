@@ -15,17 +15,12 @@
   ~ limitations under the License.
   -->
 
-<vector xmlns:android="http://schemas.android.com/apk/res/android"
-        android:width="48dp"
-        android:height="48dp"
-        android:viewportWidth="48"
-        android:viewportHeight="48">
-
-    <path
-        android:fillColor="@color/tp_preference_icon_background_color"
-        android:pathData="M 24 0.5 C 36.978691621 0.5 47.5 11.021308379 47.5 24 C 47.5 36.978691621 36.978691621 47.5 24 47.5 C 11.021308379 47.5 0.5 36.978691621 0.5 24 C 0.5 11.021308379 11.021308379 0.5 24 0.5 Z" />
-    <path
-        android:fillColor="@color/two_panel_preference_icon_color"
-        android:fillType="evenOdd"
-        android:pathData="M21 33C21 33.55 21.45 34 22 34H26C26.55 34 27 33.55 27 33V32H21V33ZM24 14C20.13 14 17 17.13 17 21C17 23.38 18.19 25.47 20 26.74V29C20 29.55 20.45 30 21 30H27C27.55 30 28 29.55 28 29V26.74C29.81 25.47 31 23.38 31 21C31 17.13 27.87 14 24 14Z" />
-</vector>
+<layer-list
+    xmlns:android="http://schemas.android.com/apk/res/android" >
+    <item android:drawable="@drawable/compound_icon_background" />
+    <item android:left="@dimen/preference_icon_offset"
+        android:right="@dimen/preference_icon_offset"
+        android:top="@dimen/preference_icon_offset"
+        android:bottom="@dimen/preference_icon_offset"
+        android:drawable="@drawable/ic_settings_energy_saver_base"/>
+</layer-list>

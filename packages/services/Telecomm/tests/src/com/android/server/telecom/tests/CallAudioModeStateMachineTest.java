@@ -34,6 +34,7 @@ import org.junit.runners.JUnit4;
 import org.mockito.Mock;
 
 import static org.junit.Assert.assertEquals;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Matchers.anyInt;
 import static org.mockito.Mockito.clearInvocations;
@@ -49,6 +50,7 @@ public class CallAudioModeStateMachineTest extends TelecomTestCase {
     @Mock private SystemStateHelper mSystemStateHelper;
     @Mock private AudioManager mAudioManager;
     @Mock private CallAudioManager mCallAudioManager;
+    @Mock private CallAudioRouteStateMachine mCallAudioRouteStateMachine;
 
     private HandlerThread mTestThread;
 
@@ -58,6 +60,8 @@ public class CallAudioModeStateMachineTest extends TelecomTestCase {
         mTestThread = new HandlerThread("CallAudioModeStateMachineTest");
         mTestThread.start();
         super.setUp();
+        when(mCallAudioManager.getCallAudioRouteStateMachine())
+                .thenReturn(mCallAudioRouteStateMachine);
     }
 
     @Override
@@ -98,6 +102,64 @@ public class CallAudioModeStateMachineTest extends TelecomTestCase {
         verify(mCallAudioManager, never()).stopRinging();
 
         verify(mCallAudioManager).stopCallWaiting();
+    }
+
+    @SmallTest
+    @Test
+    public void testSwitchToStreamingMode() {
+        CallAudioModeStateMachine sm = new CallAudioModeStateMachine(mSystemStateHelper,
+                mAudioManager, mTestThread.getLooper());
+        sm.setCallAudioManager(mCallAudioManager);
+        sm.sendMessage(CallAudioModeStateMachine.ABANDON_FOCUS_FOR_TESTING);
+        waitForHandlerAction(sm.getHandler(), TEST_TIMEOUT);
+
+        resetMocks();
+        when(mCallAudioManager.startRinging()).thenReturn(false);
+
+        sm.sendMessage(CallAudioModeStateMachine.START_CALL_STREAMING, new Builder()
+                .setHasActiveOrDialingCalls(true)
+                .setHasRingingCalls(false)
+                .setHasHoldingCalls(false)
+                .setIsTonePlaying(false)
+                .setHasActiveOrDialingCalls(true)
+                .setForegroundCallIsVoip(true)
+                .setIsStreaming(true)
+                .setSession(null)
+                .build());
+        waitForHandlerAction(sm.getHandler(), TEST_TIMEOUT);
+
+        assertEquals(CallAudioModeStateMachine.STREAMING_STATE_NAME, sm.getCurrentStateName());
+
+        verify(mAudioManager, never()).requestAudioFocusForCall(anyInt(), anyInt());
+        verify(mAudioManager).setMode(eq(AudioManager.MODE_COMMUNICATION_REDIRECT));
+    }
+
+    @SmallTest
+    @Test
+    public void testExitStreamingMode() {
+        CallAudioModeStateMachine sm = new CallAudioModeStateMachine(mSystemStateHelper,
+                mAudioManager, mTestThread.getLooper());
+        sm.setCallAudioManager(mCallAudioManager);
+        sm.sendMessage(CallAudioModeStateMachine.ENTER_STREAMING_FOCUS_FOR_TESTING);
+        waitForHandlerAction(sm.getHandler(), TEST_TIMEOUT);
+
+        resetMocks();
+        when(mCallAudioManager.startRinging()).thenReturn(false);
+
+        sm.sendMessage(CallAudioModeStateMachine.STOP_CALL_STREAMING, new Builder()
+                .setHasActiveOrDialingCalls(false)
+                .setHasRingingCalls(false)
+                .setHasHoldingCalls(false)
+                .setIsTonePlaying(false)
+                .setForegroundCallIsVoip(true)
+                .setIsStreaming(false)
+                .setSession(null)
+                .build());
+        waitForHandlerAction(sm.getHandler(), TEST_TIMEOUT);
+
+        assertEquals(CallAudioModeStateMachine.UNFOCUSED_STATE_NAME, sm.getCurrentStateName());
+
+        verify(mAudioManager, never()).requestAudioFocusForCall(anyInt(), anyInt());
     }
 
     @SmallTest

@@ -124,15 +124,15 @@ class LeScanningManagerFacadeService : public LeScanningManagerFacade::Service, 
       uint16_t periodic_advertising_interval,
       std::vector<uint8_t> advertising_data) {
     AdvertisingReportMsg advertising_report_msg;
-    std::vector<LeExtendedAdvertisingResponse> advertisements;
-    LeExtendedAdvertisingResponse le_extended_advertising_report;
+    std::vector<LeExtendedAdvertisingResponseRaw> advertisements;
+    LeExtendedAdvertisingResponseRaw le_extended_advertising_report;
     le_extended_advertising_report.address_type_ = (DirectAdvertisingAddressType)address_type;
     le_extended_advertising_report.address_ = address;
     le_extended_advertising_report.advertising_data_ = advertising_data;
     le_extended_advertising_report.rssi_ = rssi;
     advertisements.push_back(le_extended_advertising_report);
 
-    auto builder = LeExtendedAdvertisingReportBuilder::Create(advertisements);
+    auto builder = LeExtendedAdvertisingReportRawBuilder::Create(advertisements);
     std::vector<uint8_t> bytes;
     BitInserter bit_inserter(bytes);
     builder->Serialize(bit_inserter);
@@ -170,6 +170,10 @@ class LeScanningManagerFacadeService : public LeScanningManagerFacade::Service, 
 
   void OnPeriodicSyncTransferred(int pa_source, uint8_t status, Address address) override {
     LOG_INFO("OnPeriodicSyncTransferred in LeScanningManagerFacadeService");
+  };
+
+  void OnBigInfoReport(uint16_t sync_handle, bool encrypted) override {
+    LOG_INFO("OnBigInfoReport in LeScanningManagerFacadeService");
   };
 
   LeScanningManager* le_scanning_manager_;

@@ -23,6 +23,7 @@ import static org.mockito.Mockito.when;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.ActivityInfo;
+import android.service.euicc.EuiccService;
 import android.telephony.euicc.EuiccManager;
 
 import androidx.test.InstrumentationRegistry;
@@ -109,6 +110,24 @@ public class EuiccUiDispatcherActivityTest {
         Intent euiccUiIntent = mActivity.resolveEuiccUiIntent();
         assertNotNull(euiccUiIntent);
         assertEquals("bar", euiccUiIntent.getStringExtra("foo"));
+    }
+
+    @Test
+    public void testTransferEmbeddedSubscriptionsAction() {
+        mIntent = new Intent(EuiccManager.ACTION_TRANSFER_EMBEDDED_SUBSCRIPTIONS);
+        Intent euiccUiIntent = mActivity.resolveEuiccUiIntent();
+        assertNotNull(euiccUiIntent);
+        assertEquals(EuiccService.ACTION_TRANSFER_EMBEDDED_SUBSCRIPTIONS,
+                euiccUiIntent.getAction());
+    }
+
+    @Test
+    public void testConvertToEmbeddedSubscriptionAction() {
+        mIntent = new Intent(EuiccManager.ACTION_CONVERT_TO_EMBEDDED_SUBSCRIPTION);
+        Intent euiccUiIntent = mActivity.resolveEuiccUiIntent();
+        assertNotNull(euiccUiIntent);
+        assertEquals(EuiccService.ACTION_CONVERT_TO_EMBEDDED_SUBSCRIPTION,
+                euiccUiIntent.getAction());
     }
 
     class TestEuiccUiDispatcherActivity extends EuiccUiDispatcherActivity {

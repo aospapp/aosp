@@ -133,6 +133,7 @@
     <string name="cdma_call_waiting_in_ims_off" msgid="1099246114368636334">"Naka-off ang CDMA Call Waiting sa IMS"</string>
     <string name="updating_title" msgid="6130548922615719689">"Mga setting ng tawag"</string>
     <string name="call_settings_admin_user_only" msgid="7238947387649986286">"Ang admin user lang ang maaaring magbago sa mga setting ng tawag."</string>
+    <string name="phone_account_settings_user_restriction" msgid="9142685151087208396">"Ang admin o user sa trabaho lang ang puwedeng magbago sa mga setting ng account ng telepono."</string>
     <string name="call_settings_with_label" msgid="8460230435361579511">"Mga Setting (<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
     <string name="error_updating_title" msgid="2024290892676808965">"Error sa mga setting ng tawag"</string>
     <string name="reading_settings" msgid="1605904432450871183">"Binabasa ang mga setting…"</string>
@@ -511,7 +512,7 @@
     <string name="invalidPuk2" msgid="713729511903849544">"Maglagay ng PUK2 na 8 numero."</string>
     <string name="pin2_changed" msgid="5710551850481287821">"Na-update na ang PIN2"</string>
     <string name="label_puk2_code" msgid="2852217004288085562">"Ilagay ang PUK2 code"</string>
-    <string name="fdn_enable_puk2_requested" msgid="5793652792131588041">"Mali ang password. Naka-block na ngayon ang PIN2. Upang subukang muli, baguhin ang PIN 2."</string>
+    <string name="fdn_enable_puk2_requested" msgid="5793652792131588041">"Mali ang password. Naka-block na ngayon ang PIN2. Upang subukan ulit, baguhin ang PIN 2."</string>
     <string name="puk2_requested" msgid="6992374450720307514">"Mali ang password. Naka-lock na ngayon ang SIM. Ilagay ang PUK2."</string>
     <string name="puk2_blocked" msgid="3131139031779319911">"Permanenteng na-block ang PUK2."</string>
     <string name="pin2_attempts" msgid="5625178102026453023">\n"Mayroon ka na lang <xliff:g id="NUMBER">%d</xliff:g> (na) natitirang pagsubok."</string>
@@ -556,6 +557,7 @@
     <string name="incall_error_supp_service_hold" msgid="8535056414643540997">"Hindi makakapag-hold ng mga tawag."</string>
     <string name="incall_error_wfc_only_no_wireless_network" msgid="5860742792811400109">"Kumonekta sa isang wireless network upang makatawag."</string>
     <string name="incall_error_promote_wfc" msgid="9164896813931363415">"I-enable ang pagtawag sa Wi-Fi upang tumawag."</string>
+    <string name="incall_error_satellite_enabled" msgid="1936541518147323016">"I-disable ang satellite mode para tumawag."</string>
     <string name="emergency_information_hint" msgid="9208897544917793012">"Impormasyong pang-emergency"</string>
     <string name="emergency_information_owner_hint" msgid="6256909888049185316">"May-ari"</string>
     <string name="emergency_information_confirm_hint" msgid="5109017615894918914">"I-tap muli para tingnan ang impormasyon"</string>
@@ -713,6 +715,7 @@
     <string name="clh_callFailed_powerOff_txt" msgid="8279934912560765361">"Naka-on ang airplane mode"</string>
     <string name="clh_callFailed_simError_txt" msgid="5128538525762326413">"Hindi ma-access ang SIM card"</string>
     <string name="clh_incall_error_out_of_service_txt" msgid="2736010617446749869">"Hindi available ang mobile network"</string>
+    <string name="clh_callFailed_satelliteEnabled_txt" msgid="1675517238240377396">"Naka-on ang satellite mode"</string>
     <string name="clh_callFailed_unassigned_number_txt" msgid="141967660286695682">"May isyu sa numero ng telepono na sinusubukan mong i-dial. Code ng error 1."</string>
     <string name="clh_callFailed_no_route_to_destination_txt" msgid="4805015149822352308">"Hindi makumpleto ang tawag. Code ng error 3."</string>
     <string name="clh_callFailed_channel_unacceptable_txt" msgid="4062754579408613021">"Hindi makumpleto ang tawag. Code ng error 6."</string>
@@ -837,6 +840,7 @@
     <string name="dsds_dialog_cancel" msgid="3245958947099586655">"Kanselahin"</string>
     <string name="removable_esim_string" msgid="7931369811671787649">"Itakda na Default ang Naaalis na eSIM"</string>
     <string name="radio_info_radio_power" msgid="8805595022160471587">"Mobile Radio Power"</string>
+    <string name="simulate_out_of_service_string" msgid="7787925611727597193">"Mag-simulate ng Hindi Gumagana (Build sa Pag-debug lang)"</string>
     <string name="radioInfo_menu_viewADN" msgid="4533179730908559846">"Tingnan ang Address Book ng SIM"</string>
     <string name="radioInfo_menu_viewFDN" msgid="1847236480527032061">"Tingnan ang Mga Fixed Dialing Number"</string>
     <string name="radioInfo_menu_viewSDN" msgid="2613431584522392842">"Tingnan ang Mga Service Dialing Number"</string>
@@ -861,6 +865,7 @@
     <string name="radioInfo_data_connected" msgid="7637335645634239508">"Konektado"</string>
     <string name="radioInfo_data_suspended" msgid="8695262782642002785">"Sinuspinde"</string>
     <string name="radioInfo_unknown" msgid="5401423738500672850">"Hindi alam"</string>
+    <string name="radioInfo_imei_primary" msgid="5948747378637224400">"Pangunahin"</string>
     <string name="radioInfo_display_packets" msgid="6794302192441084157">"pkts"</string>
     <string name="radioInfo_display_bytes" msgid="7701006329222413797">"bytes"</string>
     <string name="radioInfo_display_dbm" msgid="7491944975710865703">"dBm"</string>
@@ -887,10 +892,12 @@
     <string name="radio_info_ppp_sent_label" msgid="6542208429356199695">"Ipinadalang Data:"</string>
     <string name="radio_info_message_waiting_label" msgid="1886549432566952078">"Naghihintay na Mensahe:"</string>
     <string name="radio_info_phone_number_label" msgid="2533852539562512203">"Numero ng Telepono:"</string>
-    <string name="radio_info_band_mode_label" msgid="23480556225515290">"Pumili ng Band ng Radyo"</string>
     <string name="radio_info_voice_network_type_label" msgid="2395347336419593265">"Uri ng Voice Network:"</string>
     <string name="radio_info_data_network_type_label" msgid="8886597029237501929">"Uri ng Data Network:"</string>
     <string name="radio_info_override_network_type_label" msgid="4176280017221092005">"I-override ang Network Type:"</string>
+    <string name="radio_info_voice_raw_registration_state_label" msgid="2822988327145825128">"Status ng Pagpaparehistro ng Voice Raw:"</string>
+    <string name="radio_info_data_raw_registration_state_label" msgid="2895895513822604539">"Status ng Pagpaparehistro ng Data Raw:"</string>
+    <string name="radio_info_wlan_data_raw_registration_state_label" msgid="6396894835757296612">"Status ng Pagpaparehistro ng WLAN Data Raw:"</string>
     <string name="phone_index_label" msgid="6222406512768964268">"Pumili ng index ng telepono"</string>
     <string name="radio_info_set_perferred_label" msgid="7408131389363136210">"Itakda ang Uri ng Gustong Network:"</string>
     <string name="radio_info_ping_hostname_v4" msgid="6951237885381284790">"I-ping ang Hostname(www.google.com) IPv4:"</string>
@@ -919,4 +926,9 @@
     <string name="call_quality_notification_bluetooth_details" msgid="8348950331707346711">"Mahina ang signal ng iyong bluetooth. Subukang lumipat sa speakerphone."</string>
     <string name="call_quality_notification_name" msgid="3476828289553948830">"Notification sa Kalidad ng Tawag"</string>
     <string name="notification_channel_sip_account" msgid="1261816025156179637">"Mga hindi na ginagamit na SIP account"</string>
+    <string name="send_from_work_profile_title" msgid="7044759579507604732">"Hindi puwedeng magpadala ng mensahe mula sa personal na app"</string>
+    <string name="send_from_work_profile_description" msgid="2174402508727161974">"Pinapayagan ka lang ng iyong organisasyon na magpadala ng mga mensahe mula sa mga app para sa trabaho"</string>
+    <string name="send_from_work_profile_cancel" msgid="177746511030381711">"Kanselahin"</string>
+    <string name="send_from_work_profile_action_str" msgid="6892775562934243337">"Lumipat sa profile sa trabaho"</string>
+    <string name="install_messages_on_work_profile_action_str" msgid="3773440996395152903">"Mag-install ng app sa pagmemensahe para sa trabaho"</string>
 </resources>

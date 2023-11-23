@@ -52,6 +52,11 @@ bool btif_av_is_sink_enabled(void);
 void btif_av_stream_start(void);
 
 /**
+ * Start streaming with latency setting.
+ */
+void btif_av_stream_start_with_latency(bool use_latency_mode);
+
+/**
  * Stop streaming.
  *
  * @param peer_address the peer address or RawAddress::kEmpty to stop all peers
@@ -227,5 +232,12 @@ bool btif_av_is_peer_silenced(const RawAddress& peer_address);
  * @param dynamic_audio_buffer_size to set
  */
 void btif_av_set_dynamic_audio_buffer_size(uint8_t dynamic_audio_buffer_size);
+
+/**
+ * Enable/disable the low latency
+ *
+ * @param is_low_latency to set
+ */
+void btif_av_set_low_latency(bool is_low_latency);
 
 #endif /* BTIF_AV_H */

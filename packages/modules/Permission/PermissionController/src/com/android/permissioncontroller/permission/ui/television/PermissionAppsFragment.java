@@ -44,8 +44,8 @@ import com.android.permissioncontroller.permission.model.legacy.PermissionApps.C
 import com.android.permissioncontroller.permission.model.legacy.PermissionApps.PermissionApp;
 import com.android.permissioncontroller.permission.ui.ReviewPermissionsActivity;
 import com.android.permissioncontroller.permission.utils.LocationUtils;
-import com.android.permissioncontroller.permission.utils.SafetyNetLogger;
 import com.android.permissioncontroller.permission.utils.Utils;
+import com.android.permissioncontroller.permission.utils.legacy.LegacySafetyNetLogger;
 
 public final class PermissionAppsFragment extends SettingsWithHeader implements Callback,
         OnPreferenceClickListener {
@@ -432,7 +432,7 @@ public final class PermissionAppsFragment extends SettingsWithHeader implements 
 
     private void logToggledGroups() {
         if (mToggledGroups != null) {
-            SafetyNetLogger.logPermissionsToggled(mToggledGroups);
+            LegacySafetyNetLogger.logPermissionsToggled(mToggledGroups);
             mToggledGroups = null;
         }
     }

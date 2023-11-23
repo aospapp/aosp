@@ -69,7 +69,7 @@ public class HeadsetNativeInterface {
         } else {
             // Service must call cleanup() when quiting and native stack shouldn't send any event
             // after cleanup() -> cleanupNative() is called.
-            Log.wtf(TAG, "FATAL: Stack sent event while service is not available: " + event);
+            Log.w(TAG, "Stack sent event while service is not available: " + event);
         }
     }
 
@@ -147,6 +147,12 @@ public class HeadsetNativeInterface {
     private void onWBS(int codec, byte[] address) {
         HeadsetStackEvent event =
                 new HeadsetStackEvent(HeadsetStackEvent.EVENT_TYPE_WBS, codec, getDevice(address));
+        sendMessageToService(event);
+    }
+
+    private void onSWB(int codec, byte[] address) {
+        HeadsetStackEvent event =
+                new HeadsetStackEvent(HeadsetStackEvent.EVENT_TYPE_SWB, codec, getDevice(address));
         sendMessageToService(event);
     }
 

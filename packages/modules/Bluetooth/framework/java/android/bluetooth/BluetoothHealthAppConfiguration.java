@@ -17,6 +17,7 @@
 
 package android.bluetooth;
 
+import android.annotation.NonNull;
 import android.os.Parcel;
 import android.os.Parcelable;
 
@@ -97,18 +98,18 @@ public final class BluetoothHealthAppConfiguration implements Parcelable {
      * {@link BluetoothDevice#createL2capChannel(int)}
      */
     @Deprecated
-    public static final @android.annotation.NonNull Parcelable.Creator<BluetoothHealthAppConfiguration> CREATOR =
-            new Parcelable.Creator<BluetoothHealthAppConfiguration>() {
-                @Override
-                public BluetoothHealthAppConfiguration createFromParcel(Parcel in) {
-                    return new BluetoothHealthAppConfiguration();
-                }
+    @NonNull
+    public static final Creator<BluetoothHealthAppConfiguration> CREATOR = new Creator<>() {
+        @Override
+        public BluetoothHealthAppConfiguration createFromParcel(Parcel in) {
+            return new BluetoothHealthAppConfiguration();
+        }
 
-                @Override
-                public BluetoothHealthAppConfiguration[] newArray(int size) {
-                    return new BluetoothHealthAppConfiguration[size];
-                }
-            };
+        @Override
+        public BluetoothHealthAppConfiguration[] newArray(int size) {
+            return new BluetoothHealthAppConfiguration[size];
+        }
+    };
 
     @Override
     public void writeToParcel(Parcel out, int flags) {}

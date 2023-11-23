@@ -1,3 +1,6 @@
 # Bug template url: http://b/new?component=31808
 set noparent
 file:platform/packages/modules/Connectivity:master:/OWNERS_core_networking_xts
+
+# IPsec
+per-file **IpSec* = benedictwong@google.com, nharold@google.com

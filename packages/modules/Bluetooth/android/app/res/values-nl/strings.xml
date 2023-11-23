@@ -23,6 +23,7 @@
     <string name="bt_share_picker_label" msgid="7464438494743777696">"Bluetooth"</string>
     <string name="unknown_device" msgid="2317679521750821654">"Onbekend apparaat"</string>
     <string name="unknownNumber" msgid="1245183329830158661">"Onbekend"</string>
+    <string name="not_provided" msgid="6938740494380012614">"Niet opgegeven"</string>
     <string name="airplane_error_title" msgid="2570111716678850860">"Vliegtuigmodus"</string>
     <string name="airplane_error_msg" msgid="4853111123699559578">"Je kunt Bluetooth niet gebruiken in Vliegtuigmodus."</string>
     <string name="bt_enable_title" msgid="4484289159118416315"></string>
@@ -41,10 +42,10 @@
     <string name="notification_receiving" msgid="8445265771083510696">"Delen via bluetooth: <xliff:g id="FILE">%1$s</xliff:g> ontvangen"</string>
     <string name="notification_received" msgid="2330252358543000567">"Delen via bluetooth: <xliff:g id="FILE">%1$s</xliff:g> ontvangen"</string>
     <string name="notification_received_fail" msgid="9059153354809379374">"Delen via bluetooth: bestand <xliff:g id="FILE">%1$s</xliff:g> niet ontvangen"</string>
-    <string name="notification_sending" msgid="8269912843286868700">"Delen via bluetooth: <xliff:g id="FILE">%1$s</xliff:g> verzenden"</string>
-    <string name="notification_sent" msgid="2685202778935769332">"Delen via bluetooth: <xliff:g id="FILE">%1$s</xliff:g> verzonden"</string>
+    <string name="notification_sending" msgid="8269912843286868700">"Delen via bluetooth: <xliff:g id="FILE">%1$s</xliff:g> sturen"</string>
+    <string name="notification_sent" msgid="2685202778935769332">"Delen via bluetooth: <xliff:g id="FILE">%1$s</xliff:g> verstuurd"</string>
     <string name="notification_sent_complete" msgid="6293391081175517098">"100% voltooid"</string>
-    <string name="notification_sent_fail" msgid="7449832660578001579">"Delen via bluetooth: bestand <xliff:g id="FILE">%1$s</xliff:g> niet verzonden"</string>
+    <string name="notification_sent_fail" msgid="7449832660578001579">"Delen via bluetooth: bestand <xliff:g id="FILE">%1$s</xliff:g> niet verstuurd"</string>
     <string name="download_title" msgid="6449408649671518102">"Bestandsoverdracht"</string>
     <string name="download_line1" msgid="6449220145685308846">"Van: \'<xliff:g id="SENDER">%1$s</xliff:g>\'"</string>
     <string name="download_line2" msgid="7634316500490825390">"Bestand: <xliff:g id="FILE">%1$s</xliff:g>"</string>
@@ -107,7 +108,7 @@
     <string name="outbound_history_title" msgid="7614166584551065036">"Uitgaande overdrachten"</string>
     <string name="no_transfers" msgid="740521199933899821">"Overdrachtsgeschiedenis is leeg."</string>
     <string name="transfer_clear_dlg_msg" msgid="586117930961007311">"Alle items op de lijst worden gewist."</string>
-    <string name="outbound_noti_title" msgid="2045560896819618979">"Delen via bluetooth: verzonden bestanden"</string>
+    <string name="outbound_noti_title" msgid="2045560896819618979">"Delen via bluetooth: verstuurde bestanden"</string>
     <string name="inbound_noti_title" msgid="3730993443609581977">"Delen via bluetooth: ontvangen bestanden"</string>
     <string name="noti_caption_unsuccessful" msgid="6679288016450410835">"{count,plural, =1{# mislukt.}other{# mislukt.}}"</string>
     <string name="noti_caption_success" msgid="7652777514009569713">"{count,plural, =1{# geslaagd, %1$s}other{# geslaagd, %1$s}}"</string>
@@ -128,4 +129,10 @@
     <string name="a2dp_sink_mbs_label" msgid="6035366346569127155">"Bluetooth-audio"</string>
     <string name="bluetooth_opp_file_limit_exceeded" msgid="6612109860149473930">"Bestanden groter dan 4 GB kunnen niet worden overgedragen"</string>
     <string name="bluetooth_connect_action" msgid="2319449093046720209">"Verbinding maken met bluetooth"</string>
+    <string name="bluetooth_enabled_apm_title" msgid="6914461147844949044">"Bluetooth aan in de vliegtuigmodus"</string>
+    <string name="bluetooth_enabled_apm_message" msgid="6168686193308136881">"Als je bluetooth laat aanstaan, onthoudt je apparaat dit en blijft bluetooth aanstaan als je de vliegtuigmodus weer aanzet"</string>
+    <string name="bluetooth_stays_on_title" msgid="39720820955212918">"Bluetooth blijft aan"</string>
+    <string name="bluetooth_stays_on_message" msgid="3669663452593157737">"Bluetooth op je apparaat blijft aan in de vliegtuigmodus. Zet bluetooth uit als je niet wilt dat dit aan blijft."</string>
+    <string name="bluetooth_and_wifi_stays_on_title" msgid="5821932798860821244">"Wifi en bluetooth blijven aan"</string>
+    <string name="bluetooth_and_wifi_stays_on_message" msgid="7848565203843882558">"Wifi en bluetooth op je apparaat blijven aan in de vliegtuigmodus. Zet wifi en bluetooth uit als je niet wilt dat ze aan blijven."</string>
 </resources>

@@ -18,6 +18,8 @@ package com.android.bluetooth.bas;
 
 import static android.bluetooth.BluetoothGatt.GATT_SUCCESS;
 
+import static com.google.common.truth.Truth.assertThat;
+
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.fail;
@@ -32,6 +34,7 @@ import static org.mockito.Mockito.when;
 
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
+import android.bluetooth.BluetoothGatt;
 import android.bluetooth.BluetoothProfile;
 import android.content.Context;
 import android.os.HandlerThread;
@@ -190,6 +193,92 @@ public class BatteryStateMachineTest {
     }
 
     @Test
+    public void testDisconnectBeforeConnected() {
+        allowConnection(true);
+        allowConnectGatt(true);
+
+        mBatteryStateMachine.sendMessage(BatteryStateMachine.CONNECT);
+
+        verify(mBatteryService, timeout(TIMEOUT_MS))
+                .handleConnectionStateChanged(any(BatteryStateMachine.class),
+                        eq(BluetoothProfile.STATE_DISCONNECTED),
+                        eq(BluetoothProfile.STATE_CONNECTING));
+
+        mBatteryStateMachine.sendMessage(BatteryStateMachine.DISCONNECT);
+
+        verify(mBatteryService, timeout(TIMEOUT_MS))
+                .handleConnectionStateChanged(any(BatteryStateMachine.class),
+                        eq(BluetoothProfile.STATE_CONNECTING),
+                        eq(BluetoothProfile.STATE_DISCONNECTED));
+    }
+
+    @Test
+    public void testConnectedStateChanges() {
+        allowConnection(true);
+        allowConnectGatt(true);
+
+        // Connected -> CONNECT
+        reconnect();
+
+        mBatteryStateMachine.sendMessage(BatteryStateMachine.CONNECT);
+
+        assertThat(mBatteryStateMachine.getCurrentState())
+                .isInstanceOf(BatteryStateMachine.Connected.class);
+
+        // Connected -> DISCONNECT
+        reconnect();
+
+        mBatteryStateMachine.sendMessage(BatteryStateMachine.DISCONNECT);
+
+        TestUtils.waitForLooperToFinishScheduledTask(mBatteryStateMachine.getHandler().getLooper());
+
+        mBatteryStateMachine.notifyConnectionStateChanged(
+                GATT_SUCCESS, BluetoothProfile.STATE_DISCONNECTED);
+
+        assertThat(mBatteryStateMachine.getCurrentState())
+                .isInstanceOf(BatteryStateMachine.Disconnected.class);
+
+        // Connected -> STATE_DISCONNECTED
+        reconnect();
+
+        mBatteryStateMachine.sendMessage(
+                BatteryStateMachine.CONNECTION_STATE_CHANGED, BluetoothGatt.STATE_DISCONNECTED);
+
+        TestUtils.waitForLooperToFinishScheduledTask(mBatteryStateMachine.getHandler().getLooper());
+
+        mBatteryStateMachine.notifyConnectionStateChanged(
+                GATT_SUCCESS, BluetoothProfile.STATE_DISCONNECTED);
+
+        // Connected -> STATE_CONNECTED
+        reconnect();
+
+        mBatteryStateMachine.sendMessage(
+                BatteryStateMachine.CONNECTION_STATE_CHANGED, BluetoothGatt.STATE_CONNECTED);
+
+        assertThat(mBatteryStateMachine.getCurrentState())
+                .isInstanceOf(BatteryStateMachine.Connected.class);
+
+        // Connected -> ILLEGAL_STATE
+        reconnect();
+
+        int badState = -1;
+        mBatteryStateMachine.sendMessage(
+                BatteryStateMachine.CONNECTION_STATE_CHANGED, badState);
+
+        assertThat(mBatteryStateMachine.getCurrentState())
+                .isInstanceOf(BatteryStateMachine.Connected.class);
+
+        // Connected -> NOT_HANDLED
+        reconnect();
+
+        int notHandled = -1;
+        mBatteryStateMachine.sendMessage(notHandled);
+
+        assertThat(mBatteryStateMachine.getCurrentState())
+                .isInstanceOf(BatteryStateMachine.Connected.class);
+    }
+
+    @Test
     public void testConnectGattTimeout() {
         allowConnection(true);
         allowConnectGatt(true);
@@ -242,6 +331,18 @@ public class BatteryStateMachineTest {
 
         verify(mBatteryService, after(WAIT_MS).never())
                 .handleBatteryChanged(any(BluetoothDevice.class), anyInt());
+    }
+
+    private void reconnect() {
+        // Inject an event for when incoming connection is requested
+        mBatteryStateMachine.sendMessage(BatteryStateMachine.CONNECT);
+
+        TestUtils.waitForLooperToFinishScheduledTask(mBatteryStateMachine.getHandler().getLooper());
+
+        mBatteryStateMachine.notifyConnectionStateChanged(
+                GATT_SUCCESS, BluetoothProfile.STATE_CONNECTED);
+
+        TestUtils.waitForLooperToFinishScheduledTask(mBatteryStateMachine.getHandler().getLooper());
     }
 
     // It simulates GATT connection for testing.

@@ -133,6 +133,7 @@
     <string name="cdma_call_waiting_in_ims_off" msgid="1099246114368636334">"‏השיחה הממתינה ברשת CDMA ב-IMS מושבתת"</string>
     <string name="updating_title" msgid="6130548922615719689">"הגדרות שיחה"</string>
     <string name="call_settings_admin_user_only" msgid="7238947387649986286">"רק מנהל המערכת יכול לשנות הגדרות שיחה."</string>
+    <string name="phone_account_settings_user_restriction" msgid="9142685151087208396">"אפשר לשנות את הגדרות החשבון בטלפון רק מהחשבון של האדמין או של העבודה."</string>
     <string name="call_settings_with_label" msgid="8460230435361579511">"הגדרות (<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
     <string name="error_updating_title" msgid="2024290892676808965">"שגיאה בהגדרות שיחה"</string>
     <string name="reading_settings" msgid="1605904432450871183">"קריאת ההגדרות מתבצעת…"</string>
@@ -556,6 +557,7 @@
     <string name="incall_error_supp_service_hold" msgid="8535056414643540997">"לא ניתן להחזיק שיחות."</string>
     <string name="incall_error_wfc_only_no_wireless_network" msgid="5860742792811400109">"יש להתחבר לרשת אלחוטית כדי לבצע שיחה."</string>
     <string name="incall_error_promote_wfc" msgid="9164896813931363415">"‏יש להפעיל את \'שיחות Wi-Fi\' כדי להתקשר."</string>
+    <string name="incall_error_satellite_enabled" msgid="1936541518147323016">"כדי להתקשר, צריך להפסיק את השימוש במצב לוויין."</string>
     <string name="emergency_information_hint" msgid="9208897544917793012">"מידע למקרה חירום"</string>
     <string name="emergency_information_owner_hint" msgid="6256909888049185316">"בעלים"</string>
     <string name="emergency_information_confirm_hint" msgid="5109017615894918914">"אפשר להקיש שוב כדי להציג את הפרטים"</string>
@@ -596,7 +598,8 @@
     <string name="hac_mode_summary" msgid="7774989500136009881">"הפעלת תאימות למכשיר שמיעה"</string>
     <string name="rtt_mode_title" msgid="3075948111362818043">"‏שיחת RTT (טקסט בזמן אמת)"</string>
     <string name="rtt_mode_summary" msgid="8631541375609989562">"אפשר לשלוח הודעות טקסט בזמן שיחה"</string>
-    <string name="rtt_mode_more_information" msgid="587500128658756318">"‏RTT (טקסט בזמן אמת) היא תכונת נגישות שעוזרת לחרשים, לקויי שמיעה, לקויי דיבור או אנשים שלא יכולים להסתפק רק בשיחות קוליות.&lt;br&gt; &lt;a href=<xliff:g id="URL">http://support.google.com/mobile?p=telephony_rtt</xliff:g>&gt;למידע נוסף&lt;/a&gt;‏\n      &lt;br&gt;&lt;br&gt; - שיחות RTT מתומללות ונשמרות כהודעות\n &lt;br&gt; - אי אפשר להשתמש ב-RTT לשיחות וידאו"</string>
+    <!-- syntax error in translation for rtt_mode_more_information (587500128658756318) org.xmlpull.v1.XmlPullParserException: expected: /br read: string (position:END_TAG </string>@1:430 in     <string name="rtt_mode_more_information" msgid="587500128658756318">"‏RTT (טקסט בזמן אמת) היא תכונת נגישות שעוזרת לחרשים, לקויי שמיעה, לקויי דיבור או אנשים שלא יכולים להסתפק רק בשיחות קוליות.&lt;br&gt; &lt;a href=<xliff:g id="URL">http://support.google.com/mobile?p=telephony_rtt</xliff:g>&gt;למידע נוסף&lt;/a&gt;\n &lt;br&gt;&lt;br&gt; - שיחות RTT מתומללות ונשמרות כהודעות\n <br> - אי אפשר להשתמש ב-RTT לשיחות וידאו"</string>
+)  -->
     <string name="no_rtt_when_roaming" msgid="5268008247378355389">"‏הערה: אי אפשר להשתמש ב-RTT בזמן נדידה"</string>
   <string-array name="tty_mode_entries">
     <item msgid="3238070884803849303">"‏TTY כבוי"</item>
@@ -713,6 +716,7 @@
     <string name="clh_callFailed_powerOff_txt" msgid="8279934912560765361">"מצב טיסה מופעל"</string>
     <string name="clh_callFailed_simError_txt" msgid="5128538525762326413">"‏אין גישה לכרטיס ה-SIM"</string>
     <string name="clh_incall_error_out_of_service_txt" msgid="2736010617446749869">"הרשת הסלולרית אינה זמינה"</string>
+    <string name="clh_callFailed_satelliteEnabled_txt" msgid="1675517238240377396">"מצב לוויין פועל"</string>
     <string name="clh_callFailed_unassigned_number_txt" msgid="141967660286695682">"יש בעיה במספר הטלפון שניסית להתקשר אליו. קוד שגיאה: 1."</string>
     <string name="clh_callFailed_no_route_to_destination_txt" msgid="4805015149822352308">"אי אפשר היה להשלים את השיחה. קוד שגיאה: 3."</string>
     <string name="clh_callFailed_channel_unacceptable_txt" msgid="4062754579408613021">"אי אפשר היה להשלים את השיחה. קוד שגיאה: 6."</string>
@@ -837,6 +841,7 @@
     <string name="dsds_dialog_cancel" msgid="3245958947099586655">"ביטול"</string>
     <string name="removable_esim_string" msgid="7931369811671787649">"‏הגדרת eSIM נשלף כברירת המחדל"</string>
     <string name="radio_info_radio_power" msgid="8805595022160471587">"הפעלה של רדיו סלולרי"</string>
+    <string name="simulate_out_of_service_string" msgid="7787925611727597193">"‏סימולציה של המצב \'לא בשירות\' (גרסת build לניפוי באגים בלבד)"</string>
     <string name="radioInfo_menu_viewADN" msgid="4533179730908559846">"‏הצגת פנקס כתובות של SIM"</string>
     <string name="radioInfo_menu_viewFDN" msgid="1847236480527032061">"הצגת מספרי חיוג קבועים"</string>
     <string name="radioInfo_menu_viewSDN" msgid="2613431584522392842">"מספרי חיוג לשירות"</string>
@@ -861,6 +866,7 @@
     <string name="radioInfo_data_connected" msgid="7637335645634239508">"מקושר"</string>
     <string name="radioInfo_data_suspended" msgid="8695262782642002785">"בהשעיה"</string>
     <string name="radioInfo_unknown" msgid="5401423738500672850">"לא ידוע"</string>
+    <string name="radioInfo_imei_primary" msgid="5948747378637224400">"ראשי"</string>
     <string name="radioInfo_display_packets" msgid="6794302192441084157">"pkts"</string>
     <string name="radioInfo_display_bytes" msgid="7701006329222413797">"בייטים"</string>
     <string name="radioInfo_display_dbm" msgid="7491944975710865703">"dBm"</string>
@@ -887,10 +893,12 @@
     <string name="radio_info_ppp_sent_label" msgid="6542208429356199695">"הנתונים נשלחו:"</string>
     <string name="radio_info_message_waiting_label" msgid="1886549432566952078">"הודעה ממתינה:"</string>
     <string name="radio_info_phone_number_label" msgid="2533852539562512203">"מספר טלפון:"</string>
-    <string name="radio_info_band_mode_label" msgid="23480556225515290">"בחירת תדר רדיו"</string>
     <string name="radio_info_voice_network_type_label" msgid="2395347336419593265">"סוג רשת קולית:"</string>
     <string name="radio_info_data_network_type_label" msgid="8886597029237501929">"סוג רשת נתונים:"</string>
     <string name="radio_info_override_network_type_label" msgid="4176280017221092005">"שינוי מברירת המחדל של סוג הרשת:"</string>
+    <string name="radio_info_voice_raw_registration_state_label" msgid="2822988327145825128">"מצב הרישום הגולמי של הקול:"</string>
+    <string name="radio_info_data_raw_registration_state_label" msgid="2895895513822604539">"מצב הרישום הגולמי של הנתונים:"</string>
+    <string name="radio_info_wlan_data_raw_registration_state_label" msgid="6396894835757296612">"‏מצב הרישום הגולמי של נתוני WLAN:"</string>
     <string name="phone_index_label" msgid="6222406512768964268">"בחירת אינדקס טלפון"</string>
     <string name="radio_info_set_perferred_label" msgid="7408131389363136210">"הגדרת סוג רשת מועדף:"</string>
     <string name="radio_info_ping_hostname_v4" msgid="6951237885381284790">"‏נדנוד לשם המארח (www.google.com) מסוג IPv4:"</string>
@@ -919,4 +927,9 @@
     <string name="call_quality_notification_bluetooth_details" msgid="8348950331707346711">"‏הקליטה של ה-Bluetooth חלשה. כדאי לעבור לדיבורית."</string>
     <string name="call_quality_notification_name" msgid="3476828289553948830">"התראה על איכות השיחה"</string>
     <string name="notification_channel_sip_account" msgid="1261816025156179637">"‏חשבונות SIP שהוצאו משימוש"</string>
+    <string name="send_from_work_profile_title" msgid="7044759579507604732">"אי אפשר לשלוח הודעות מאפליקציות לשימוש אישי"</string>
+    <string name="send_from_work_profile_description" msgid="2174402508727161974">"בארגון שלך מאפשרים לשלוח הודעות רק מאפליקציות לעבודה"</string>
+    <string name="send_from_work_profile_cancel" msgid="177746511030381711">"ביטול"</string>
+    <string name="send_from_work_profile_action_str" msgid="6892775562934243337">"החלפה לפרופיל עבודה"</string>
+    <string name="install_messages_on_work_profile_action_str" msgid="3773440996395152903">"התקנה של אפליקציית הודעות לעבודה"</string>
 </resources>

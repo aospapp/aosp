@@ -25,4 +25,5 @@
     <string name="set_wallpaper" msgid="3650915172749345197">"Đặt hình nền"</string>
     <string name="new_instance" msgid="1924479866055190730">"Yêu cầu chạy trong phiên bản mới"</string>
     <string name="wallpaper_description" msgid="5885164573334720996">"Hình nền trên nhiều màn hình mẫu"</string>
+    <string name="exit" msgid="3648703694102318310">"Thoát"</string>
 </resources>

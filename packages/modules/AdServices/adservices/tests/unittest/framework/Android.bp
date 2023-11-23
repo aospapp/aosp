@@ -19,20 +19,62 @@ package {
 android_test {
     name: "AdServicesFrameworkUnitTests",
     srcs: [
-        "src/**/*.java",
-        ":framework-adservices-sources",
+          "src/**/*.java"
     ],
     static_libs: [
         "androidx.test.runner",
-        "truth-prebuilt",
+        "androidx.test.core",
         "mockito-target-extended-minus-junit4",
+        "truth-prebuilt",
+        "adservices-test-fixtures",
     ],
     libs: [
         "android.test.base",
         "android.test.mock",
         "android.test.runner",
+        "framework-adservices.impl",
+        "framework-sdksandbox.impl",
+        "framework-annotations-lib",
     ],
-    min_sdk_version: "Tiramisu", // TODO(b/217941602): update this.
-    target_sdk_version: "current",
-    test_suites: ["general-tests"],
+    sdk_version: "module_current",
+    min_sdk_version: "Tiramisu",
+    target_sdk_version: "Tiramisu",
+    test_suites: [
+        "general-tests",
+        "mts-adservices"
+    ],
+    test_mainline_modules: ["com.google.android.adservices.apex"],
+    instrumentation_for: "AdServicesApk",
 }
+
+android_test {
+    name: "AdExtServicesFrameworkUnitTests",
+    srcs: [
+          "src/**/*.java"
+    ],
+    static_libs: [
+        "adservices-test-fixtures",
+        "androidx.test.core",
+        "androidx.test.runner",
+        "mockito-target-extended-minus-junit4",
+        "truth-prebuilt",
+    ],
+    libs: [
+        "android.ext.adservices",
+        "android.test.base",
+        "android.test.mock",
+        "android.test.runner",
+        "framework-annotations-lib",
+        "framework-sdksandbox.impl",
+    ],
+    sdk_version: "module_current",
+    min_sdk_version: "30",
+    target_sdk_version: "30",
+    test_suites: [
+        "general-tests",
+        "mts-extservices"
+    ],
+    test_config: "AndroidTest.ExtServices.xml",
+    instrumentation_for: "AdExtServicesApk",
+}
+

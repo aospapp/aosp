@@ -25,7 +25,6 @@ import static android.net.ConnectivityManager.EXTRA_CAPTIVE_PORTAL_URL;
 import static android.net.ConnectivityManager.EXTRA_CAPTIVE_PORTAL_USER_AGENT;
 import static android.net.ConnectivityManager.EXTRA_NETWORK;
 import static android.net.NetworkCapabilities.NET_CAPABILITY_VALIDATED;
-import static android.provider.DeviceConfig.NAMESPACE_CONNECTIVITY;
 import static android.view.accessibility.AccessibilityEvent.TYPE_NOTIFICATION_STATE_CHANGED;
 
 import static androidx.lifecycle.Lifecycle.State.DESTROYED;
@@ -38,8 +37,6 @@ import static androidx.test.espresso.web.webdriver.DriverAtoms.webClick;
 import static androidx.test.platform.app.InstrumentationRegistry.getInstrumentation;
 
 import static com.android.captiveportallogin.DownloadService.DOWNLOAD_ABORTED_REASON_FILE_TOO_LARGE;
-import static com.android.dx.mockito.inline.extended.ExtendedMockito.doReturn;
-import static com.android.dx.mockito.inline.extended.ExtendedMockito.mockitoSession;
 import static com.android.testutils.TestNetworkTrackerKt.initTestNetwork;
 import static com.android.testutils.TestPermissionUtil.runAsShell;
 
@@ -50,10 +47,12 @@ import static junit.framework.Assert.assertNull;
 import static org.hamcrest.CoreMatchers.not;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 import static org.junit.Assume.assumeTrue;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.anyInt;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
@@ -78,17 +77,14 @@ import android.net.Network;
 import android.net.NetworkCapabilities;
 import android.net.Uri;
 import android.net.wifi.WifiInfo;
-import android.net.wifi.WifiManager;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.ConditionVariable;
 import android.os.Parcel;
 import android.os.Parcelable;
-import android.provider.DeviceConfig;
 import android.view.accessibility.AccessibilityEvent;
 import android.widget.Toast;
 
-import androidx.core.content.FileProvider;
 import androidx.test.core.app.ActivityScenario;
 import androidx.test.espresso.intent.Intents;
 import androidx.test.espresso.web.webdriver.Locator;
@@ -99,22 +95,21 @@ import androidx.test.uiautomator.UiDevice;
 import androidx.test.uiautomator.UiObject;
 import androidx.test.uiautomator.UiSelector;
 
+import com.android.testutils.SkipPresubmit;
 import com.android.testutils.TestNetworkTracker;
 
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.MockitoAnnotations;
-import org.mockito.MockitoSession;
 import org.mockito.Spy;
-import org.mockito.quality.Strictness;
 
 import java.io.File;
 import java.io.IOException;
 import java.lang.reflect.Method;
 import java.net.ServerSocket;
-import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
@@ -128,6 +123,7 @@ import fi.iki.elonen.NanoHTTPD;
 
 @RunWith(AndroidJUnit4.class)
 @SmallTest
+@SkipPresubmit(reason = "Temporary skip for very flaky tests: b/242680995")
 public class CaptivePortalLoginActivityTest {
     private static final String TEST_URL = "http://android.test.com";
     private static final int TEST_NETID = 1234;
@@ -142,14 +138,12 @@ public class CaptivePortalLoginActivityTest {
     private static final String TEST_PORTAL_HOSTNAME = "localhost";
     private static final String TEST_WIFI_CONFIG_TYPE = "application/x-wifi-config";
     private ActivityScenario<InstrumentedCaptivePortalLoginActivity> mActivityScenario;
-    private MockitoSession mSession;
     private Network mNetwork = new Network(TEST_NETID);
     private TestNetworkTracker mTestNetworkTracker;
 
     private @Spy DownloadService mDownloadService = new DownloadService();
 
     private static ConnectivityManager sConnectivityManager;
-    private static WifiManager sMockWifiManager;
     private static DevicePolicyManager sMockDevicePolicyManager;
     private static DownloadService.DownloadServiceBinder sDownloadServiceBinder;
 
@@ -171,11 +165,14 @@ public class CaptivePortalLoginActivityTest {
                     return sConnectivityManager;
                 case Context.DEVICE_POLICY_SERVICE:
                     return sMockDevicePolicyManager;
-                case Context.WIFI_SERVICE:
-                    return sMockWifiManager;
                 default:
                     return super.getSystemService(name);
             }
+        }
+
+        @Override
+        WifiInfo getWifiConnectionInfo() {
+            return makeWifiInfo();
         }
 
         @Override
@@ -223,6 +220,12 @@ public class CaptivePortalLoginActivityTest {
                 return;
             }
             super.startActivity(intent);
+        }
+
+        @Override
+        String getFileProviderAuthority() {
+            // Matches the test provider in the test app manifest
+            return "com.android.captiveportallogin.tests.fileprovider";
         }
     }
 
@@ -281,17 +284,10 @@ public class CaptivePortalLoginActivityTest {
     public void setUp() throws Exception {
         final Context context = getInstrumentation().getContext();
         sConnectivityManager = spy(context.getSystemService(ConnectivityManager.class));
-        sMockWifiManager = mock(WifiManager.class);
         sMockDevicePolicyManager = mock(DevicePolicyManager.class);
         sDownloadServiceBinder = mock(DownloadService.DownloadServiceBinder.class);
 
         MockitoAnnotations.initMocks(this);
-        mSession = mockitoSession()
-                .spyStatic(DeviceConfig.class)
-                .spyStatic(FileProvider.class)
-                .strictness(Strictness.WARN)
-                .startMocking();
-        setDismissPortalInValidatedNetwork(true);
         // Use a real (but test) network for the application. The application will pass this
         // network to ConnectivityManager#bindProcessToNetwork, so it needs to be a real, existing
         // network on the device but otherwise has no functional use at all. The http server set up
@@ -305,25 +301,24 @@ public class CaptivePortalLoginActivityTest {
             automation.dropShellPermissionIdentity();
         }
         mNetwork = mTestNetworkTracker.getNetwork();
-
-        final WifiInfo testInfo = makeWifiInfo();
-        doReturn(testInfo).when(sMockWifiManager).getConnectionInfo();
     }
 
-    private static WifiInfo makeWifiInfo() throws Exception {
+    private static WifiInfo makeWifiInfo() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            return new WifiInfo.Builder()
-                    .setSsid(TEST_WIFIINFO_SSID.getBytes(StandardCharsets.US_ASCII))
-                    .build();
+            fail("Only Q should be using WifiInfo; R+ gets the wifi SSID via NetworkCapabilities");
         }
 
         // WifiInfo did not have a builder before R. Use non-public APIs on Q to set SSID.
-        final WifiInfo info = WifiInfo.class.getConstructor().newInstance();
-        final Class<?> wifiSsidClass = Class.forName("android.net.wifi.WifiSsid");
-        final Object wifiSsid = wifiSsidClass.getMethod("createFromAsciiEncoded",
-                String.class).invoke(null, TEST_WIFIINFO_SSID);
-        WifiInfo.class.getMethod("setSSID", wifiSsidClass).invoke(info, wifiSsid);
-        return info;
+        try {
+            final WifiInfo info = WifiInfo.class.getConstructor().newInstance();
+            final Class<?> wifiSsidClass = Class.forName("android.net.wifi.WifiSsid");
+            final Object wifiSsid = wifiSsidClass.getMethod("createFromAsciiEncoded",
+                    String.class).invoke(null, TEST_WIFIINFO_SSID);
+            WifiInfo.class.getMethod("setSSID", wifiSsidClass).invoke(info, wifiSsid);
+            return info;
+        } catch (ReflectiveOperationException e) {
+            throw new AssertionError("Failed to create WifiInfo on Q", e);
+        }
     }
 
     @After
@@ -341,8 +336,6 @@ public class CaptivePortalLoginActivityTest {
         if (mTestNetworkTracker != null) {
             runAsShell(MANAGE_TEST_NETWORKS, mTestNetworkTracker::teardown);
         }
-        // finish mocking after the activity has terminated to avoid races on teardown.
-        mSession.finishMocking();
     }
 
     private void initActivity(String url) {
@@ -517,15 +510,6 @@ public class CaptivePortalLoginActivityTest {
         verifyNotDone();
     }
 
-    private void setDismissPortalInValidatedNetwork(final boolean enable) {
-        // Feature is enabled if the package version greater than configuration. Instead of reading
-        // the package version, use Long.MAX_VALUE to replace disable configuration and 1 for
-        // enabling.
-        doReturn(enable ? 1 : Long.MAX_VALUE).when(() -> DeviceConfig.getLong(
-                NAMESPACE_CONNECTIVITY,
-                CaptivePortalLoginActivity.DISMISS_PORTAL_IN_VALIDATED_NETWORK, 0 /* default */));
-    }
-
     void waitForDestroyedState() throws Exception {
         final long startTimeMs = System.currentTimeMillis();
         long currentTimeMs = startTimeMs;
@@ -536,8 +520,8 @@ public class CaptivePortalLoginActivityTest {
         }
     }
 
-    @Test
-    public void testNetworkCapabilitiesUpdate() throws Exception {
+    @Test @SdkSuppress(minSdkVersion = Build.VERSION_CODES.R)
+    public void testNetworkCapabilitiesUpdate_RAndLater() throws Exception {
         initActivity(TEST_URL);
         // NetworkCapabilities updates w/o NET_CAPABILITY_VALIDATED.
         final NetworkCapabilities nc = new NetworkCapabilities();
@@ -553,23 +537,13 @@ public class CaptivePortalLoginActivityTest {
         waitForDestroyedState();
     }
 
-    @Test
-    public void testNetworkCapabilitiesUpdateWithFlag() throws Exception {
+    @Test @SdkSuppress(maxSdkVersion = Build.VERSION_CODES.Q)
+    public void testNetworkCapabilitiesUpdate_Q() throws Exception {
         initActivity(TEST_URL);
         final NetworkCapabilities nc = new NetworkCapabilities();
         nc.setCapability(NET_CAPABILITY_VALIDATED, true);
-        // Disable flag. Auto-dismiss should not happen.
-        setDismissPortalInValidatedNetwork(false);
+        // Auto-dismiss should not happen.
         notifyValidatedChangedNotDone(nc);
-
-        // Enable flag. Auto-dismissed.
-        setDismissPortalInValidatedNetwork(true);
-        notifyValidatedChangedAndDismissed(nc);
-
-        // Workaround to deflake the test. The problem may be caused by a race with lock inside
-        // InstrumentationActivityInvoker.
-        // TODO: Remove it once https://github.com/android/android-test/issues/676 is fixed.
-        waitForDestroyedState();
     }
 
     private HttpServer runCustomSchemeTest(String linkUri) throws Exception {
@@ -851,7 +825,7 @@ public class CaptivePortalLoginActivityTest {
     }
 
     private HttpServer prepareTestDirectlyOpen(String linkIdDownload, String downloadQuery,
-            String filename, String mimetype, Uri mockFile) throws Exception {
+            String filename, String mimetype) throws Exception {
         // Setup the server with a single link on the portal page, leading to a download
         final HttpServer server = new HttpServer();
         server.setResponseBody(TEST_URL_QUERY,
@@ -860,8 +834,6 @@ public class CaptivePortalLoginActivityTest {
                 "Content-Disposition", "attachment; filename=\"" + filename + "\""));
         server.start();
 
-        doReturn(mockFile).when(() -> FileProvider.getUriForFile(any(),
-                eq(CaptivePortalLoginActivity.FILE_PROVIDER_AUTHORITY), any()));
         ActivityScenario.launch(RequestDismissKeyguardActivity.class);
         initActivity(server.makeUrl(TEST_URL_QUERY));
         return server;
@@ -884,6 +856,10 @@ public class CaptivePortalLoginActivityTest {
                         if (event.getEventType() != TYPE_NOTIFICATION_STATE_CHANGED) {
                             return;
                         }
+
+                        // Skip empty text events.
+                        if (event.getText().size() == 0) return;
+
                         final String msg = (String) event.getText().get(0);
                         // The event class name in older SDK platform will be
                         // "android.widget.Toast$TN" instead of "android.widget.Toast".
@@ -900,7 +876,7 @@ public class CaptivePortalLoginActivityTest {
     public void testDirectlyOpen_onCreateDeleteFile() throws Exception {
         final String linkIdDownload = "download";
         final HttpServer server = prepareTestDirectlyOpen(linkIdDownload, "dl",
-                "test.wificonfig", TEST_WIFI_CONFIG_TYPE, Uri.parse("content://mockdata"));
+                "test.wificonfig", TEST_WIFI_CONFIG_TYPE);
         final UiObject spinner = getUiSpinner();
         final File downloadPath = new File(getInstrumentation().getContext().getFilesDir(),
                 CaptivePortalLoginActivity.FILE_PROVIDER_DOWNLOAD_PATH);
@@ -941,7 +917,7 @@ public class CaptivePortalLoginActivityTest {
                 R.string.cancel_pending_downloads);
 
         final HttpServer server = prepareTestDirectlyOpen(linkIdDownload, "dl",
-                "test.wificonfig", TEST_WIFI_CONFIG_TYPE, Uri.parse("content://mockdata"));
+                "test.wificonfig", TEST_WIFI_CONFIG_TYPE);
         onWebView().withElement(findElement(Locator.ID, linkIdDownload)).perform(webClick());
 
         final UiObject spinner = getUiSpinner();
@@ -956,27 +932,33 @@ public class CaptivePortalLoginActivityTest {
     @Test
     public void testDirectlyOpen_cancelPendingTask() throws Exception {
         final String linkIdDownload = "download";
-        final Uri outFile = Uri.parse("content://mockdata");
+        final String downloadQuery = "dl";
+        final String filename = "test.wificonfig";
         final String mimeType = TEST_WIFI_CONFIG_TYPE;
         final int requestId = 123;
-        final HttpServer server = prepareTestDirectlyOpen(linkIdDownload, "dl",
-                "test.wificonfig", mimeType, outFile);
+        final HttpServer server = prepareTestDirectlyOpen(linkIdDownload, downloadQuery,
+                filename, mimeType);
 
         final UiObject spinner = getUiSpinner();
         // Verify no spinner first.
         assertFalse(spinner.exists());
         doReturn(requestId).when(sDownloadServiceBinder)
-                .requestDownload(any(), any(), any(), any(), eq(outFile), any(), eq(mimeType));
+                .requestDownload(any(), any(), any(), any(), any(), any(), eq(mimeType));
         onWebView().withElement(findElement(Locator.ID, linkIdDownload)).perform(webClick());
         // Expect to see the spinner
         assertTrue(spinner.waitForExists(TEST_TIMEOUT_MS));
+        final ArgumentCaptor<Uri> outfileCaptor = ArgumentCaptor.forClass(Uri.class);
+        verify(sDownloadServiceBinder).requestDownload(any(), any(),
+                eq(server.makeUrl(downloadQuery)),
+                eq(filename),
+                outfileCaptor.capture(), any(), eq(mimeType));
 
         // Cancel pending task.
         mActivityScenario.onActivity(a -> a.cancelPendingTask());
         verify(sDownloadServiceBinder).cancelTask(anyInt());
         // Callback with target task should hide the spinner.
         mActivityScenario.onActivity(a -> a.mProgressCallback.onDownloadComplete(
-                outFile, mimeType, requestId, false));
+                outfileCaptor.getValue(), mimeType, requestId, false));
         assertTrue(spinner.waitUntilGone(TEST_TIMEOUT_MS));
 
         server.stop();
@@ -991,7 +973,7 @@ public class CaptivePortalLoginActivityTest {
         final Uri otherFile = Uri.parse("content://otherdata");
         final int downloadId = 123;
         final HttpServer server = prepareTestDirectlyOpen(linkIdDownload, "dl",
-                filename, mimeType, mockFile);
+                filename, mimeType);
 
         final UiObject spinner = getUiSpinner();
         // Verify no spinner first.

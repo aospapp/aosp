@@ -39,6 +39,7 @@ import com.android.car.settings.R;
 import com.android.car.settings.common.FragmentController;
 import com.android.car.settings.common.PreferenceController;
 import com.android.car.settings.profiles.ProfileHelper;
+import com.android.car.settings.profiles.ProfileUtils;
 import com.android.car.ui.preference.CarUiPreference;
 import com.android.internal.annotations.VisibleForTesting;
 import com.android.settingslib.accounts.AuthenticatorHelper;
@@ -61,11 +62,13 @@ public class AccountListPreferenceController extends
         AuthenticatorHelper.OnAccountsUpdateListener {
     private static final String NO_ACCOUNT_PREF_KEY = "no_accounts_added";
 
-    private final UserInfo mUserInfo;
     private final ArrayMap<String, Preference> mPreferences = new ArrayMap<>();
+
+    private UserInfo mUserInfo;
     private AuthenticatorHelper mAuthenticatorHelper;
     private String[] mAuthorities;
     private boolean mListenerRegistered = false;
+    private boolean mNeedToRefreshUserInfo = false;
 
     private final BroadcastReceiver mUserUpdateReceiver = new BroadcastReceiver() {
         @Override
@@ -104,7 +107,7 @@ public class AccountListPreferenceController extends
     }
 
     @Override
-    protected int getAvailabilityStatus() {
+    protected int getDefaultAvailabilityStatus() {
         ProfileHelper profileHelper = getProfileHelper();
         boolean canModifyAccounts = profileHelper.canCurrentProcessModifyAccounts();
 
@@ -128,6 +131,11 @@ public class AccountListPreferenceController extends
         mAuthenticatorHelper.listenToAccountUpdates();
         registerForUserEvents();
         mListenerRegistered = true;
+
+        /* refresh UserInfo only when restarting */
+        if (mNeedToRefreshUserInfo) {
+            onUsersUpdate();
+        }
     }
 
     /**
@@ -138,6 +146,7 @@ public class AccountListPreferenceController extends
         mAuthenticatorHelper.stopListeningToAccountUpdates();
         unregisterForUserEvents();
         mListenerRegistered = false;
+        mNeedToRefreshUserInfo = true;
     }
 
     @Override
@@ -149,6 +158,7 @@ public class AccountListPreferenceController extends
 
     @VisibleForTesting
     void onUsersUpdate() {
+        mUserInfo = ProfileUtils.getUserInfo(getContext(), mUserInfo.id);
         forceUpdateAccountsCategory();
     }
 

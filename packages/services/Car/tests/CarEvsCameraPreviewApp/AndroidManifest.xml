@@ -36,7 +36,6 @@
                 android:exported="true"
                 android:label="@string/app_name"
                 android:resizeableActivity="false"
-                android:screenOrientation="landscape"
                 android:showForAllUsers="true"
                 android:theme="@style/Theme.Transparent"
                 android:turnScreenOn="true">

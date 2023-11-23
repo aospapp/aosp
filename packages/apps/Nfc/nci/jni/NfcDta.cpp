@@ -214,11 +214,12 @@ tNFA_STATUS NfcDta::setConfigParams(std::vector<uint8_t> configTlv) {
 *******************************************************************************/
 void NfcDta::setNfccConfigParams() {
   char sysPropTlvs[256];
-  property_get("nfc.dta.configTLV", sysPropTlvs, "");
+  int len = 0;
+  len = property_get("nfc.dta.configTLV", sysPropTlvs, "");
   std::string configTlvs(sysPropTlvs);
   DLOG_IF(INFO, nfc_debug_enabled) << StringPrintf(
       "%s: SysProperty nfc.configTLV: %s", __func__, configTlvs.c_str());
-  if (configTlvs.empty() && mDefaultTlv.empty()) {
+  if (len <= 0 || (configTlvs.empty() && mDefaultTlv.empty())) {
     DLOG_IF(INFO, nfc_debug_enabled)
         << StringPrintf("%s: Config TLVs not available", __func__);
     return;

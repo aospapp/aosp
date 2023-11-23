@@ -459,7 +459,7 @@ class CitySelectionActivity : BaseActivity() {
          */
         fun filter(queryText: String) {
             mSearchMenuItemController.queryText = queryText
-            val query = City.removeSpecialCharacters(queryText.toUpperCase())
+            val query = City.removeSpecialCharacters(queryText.uppercase())
 
             // Compute the filtered list of cities.
             val filteredCities = if (TextUtils.isEmpty(query)) {

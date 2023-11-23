@@ -28,6 +28,8 @@ import static com.android.ims.FeatureConnector.UNAVAILABLE_REASON_IMS_UNSUPPORTE
 import static com.android.ims.FeatureConnector.UNAVAILABLE_REASON_NOT_READY;
 
 import static junit.framework.Assert.assertFalse;
+import static junit.framework.Assert.assertNotNull;
+import static junit.framework.Assert.assertNull;
 import static junit.framework.Assert.assertTrue;
 
 import static org.mockito.Matchers.any;
@@ -50,6 +52,7 @@ import android.test.suitebuilder.annotation.SmallTest;
 import android.testing.TestableLooper;
 import android.util.Log;
 
+import com.android.TelephonyTestBase;
 import com.android.ims.FeatureConnector;
 import com.android.ims.ImsManager;
 import com.android.ims.RcsFeatureManager;
@@ -68,13 +71,12 @@ import org.mockito.MockitoAnnotations;
 import org.mockito.invocation.InvocationOnMock;
 import org.mockito.stubbing.Answer;
 
-import java.lang.reflect.Field;
 import java.util.concurrent.Executor;
 
 /**
  * Unit tests for RcsProvisioningMonitor
  */
-public class ImsStateCallbackControllerTest {
+public class ImsStateCallbackControllerTest extends TelephonyTestBase {
     private static final String TAG = "ImsStateCallbackControllerTest";
     private static final int FAKE_SUB_ID_BASE = 0x0FFFFFF0;
 
@@ -187,6 +189,7 @@ public class ImsStateCallbackControllerTest {
             mLooper.destroy();
             mLooper = null;
         }
+        super.tearDown();
     }
 
     @Test
@@ -874,6 +877,36 @@ public class ImsStateCallbackControllerTest {
         assertFalse(mImsStateCallbackController.isRegistered(mCallback1));
     }
 
+    @Test
+    @SmallTest
+    public void testImsManagerInstance() throws Exception {
+        createController(1);
+
+        // MmTelConnection not ready
+        // check ImsManager instance
+        ImsManager imsManager = mImsStateCallbackController.getImsManager(SLOT_0_SUB_ID);
+        assertNull(imsManager);
+
+        // MmTelConnection ready
+        mMmTelConnectorListenerSlot0.getValue()
+                .connectionReady(mMmTelFeatureManager, SLOT_0_SUB_ID);
+        processAllMessages();
+
+        // check ImsManager instance
+        imsManager = mImsStateCallbackController.getImsManager(SLOT_0_SUB_ID);
+        assertNotNull(imsManager);
+
+        // MmTelConnection unavailable
+        mMmTelConnectorListenerSlot0.getValue()
+                .connectionUnavailable(UNAVAILABLE_REASON_NOT_READY);
+        processAllMessages();
+
+        // MmTelConnection unavailable
+        // check ImsManager instance
+        imsManager = mImsStateCallbackController.getImsManager(SLOT_0_SUB_ID);
+        assertNull(imsManager);
+    }
+
     private void createController(int slotCount) throws Exception {
         if (Looper.myLooper() == null) {
             Looper.prepare();
@@ -918,13 +951,6 @@ public class ImsStateCallbackControllerTest {
             verify(mRcsFeatureConnectorSlot1, atLeastOnce()).connect();
             verify(mMmTelFeatureConnectorSlot1, atLeastOnce()).connect();
         }
-    }
-
-    private static void replaceInstance(final Class c,
-            final String instanceName, final Object obj, final Object newValue) throws Exception {
-        Field field = c.getDeclaredField(instanceName);
-        field.setAccessible(true);
-        field.set(obj, newValue);
     }
 
     private void makeFakeActiveSubIds(int count) {

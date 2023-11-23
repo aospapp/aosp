@@ -61,6 +61,7 @@ const tL2CAP_APPL_INFO avct_l2c_br_appl = {avct_l2c_br_connect_ind_cback,
                                            avct_br_on_l2cap_error,
                                            NULL,
                                            NULL,
+                                           NULL,
                                            NULL};
 
 /*******************************************************************************

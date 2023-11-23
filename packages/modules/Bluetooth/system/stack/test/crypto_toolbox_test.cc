@@ -337,7 +337,7 @@ TEST(CryptoToolboxTest, bt_spec_example_d_8_test) {
   EXPECT_EQ(expected_aes_cmac, aes_cmac);
 }
 
-extern Octet16 smp_calculate_ltk_to_link_key(const Octet16& ltk, bool use_h7);
+Octet16 smp_calculate_ltk_to_link_key(const Octet16& ltk, bool use_h7);
 
 // BT Spec 5.0 | Vol 3, Part H D.9
 TEST(CryptoToolboxTest, bt_spec_example_d_9_test) {

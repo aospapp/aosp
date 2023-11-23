@@ -37,7 +37,7 @@
         <LinearLayout
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginLeft="@dimen/action_dialog_content_margin_left"
+            android:layout_marginStart="@dimen/action_dialog_content_margin_left"
             android:orientation="vertical">
             <TextView
                 android:id="@+id/current_page_text"
@@ -66,8 +66,8 @@
         android:orientation="vertical"
         android:layout_width="@dimen/action_dialog_actions_width"
         android:layout_height="wrap_content"
-        android:layout_marginLeft="@dimen/grant_permissions_actions_margin_left"
-        android:layout_marginRight="@dimen/grant_permissions_actions_margin_right">
+        android:layout_marginStart="@dimen/grant_permissions_actions_margin_left"
+        android:layout_marginEnd="@dimen/grant_permissions_actions_margin_right">
         <Button
             android:id="@+id/permission_allow_button"
             android:layout_width="match_parent"

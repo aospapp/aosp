@@ -26,6 +26,9 @@ subsystem dma_heap
 /dev/tty0                 0660   root       system
 
 # Virtual console for logcat
-/dev/hvc2                 0660   logd       logd
+/dev/hvc2                 0666   system     system
 
-/dev/open-dice0           0660   diced      diced
+/dev/open-dice0           0660   root       root
+
+# Aside from kernel threads, only prng_seeder needs access to HW RNG
+/dev/hw_random            0400   prng_seeder prng_seeder

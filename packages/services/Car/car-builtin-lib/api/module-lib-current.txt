@@ -11,17 +11,37 @@ package android.car.builtin {
 
 }
 
+package android.car.builtin.annotation {
+
+  public enum PlatformVersion {
+    enum_constant public static final android.car.builtin.annotation.PlatformVersion TIRAMISU_0;
+    enum_constant public static final android.car.builtin.annotation.PlatformVersion TIRAMISU_1;
+    enum_constant public static final android.car.builtin.annotation.PlatformVersion TIRAMISU_2;
+    enum_constant public static final android.car.builtin.annotation.PlatformVersion TIRAMISU_3;
+    enum_constant public static final android.car.builtin.annotation.PlatformVersion UPSIDE_DOWN_CAKE_0;
+  }
+
+}
+
 package android.car.builtin.app {
 
   public final class ActivityManagerHelper {
     method public static int checkComponentPermission(@NonNull String, int, int, boolean);
     method @NonNull public static android.app.ActivityOptions createActivityOptions(@NonNull android.os.Bundle);
+    method @RequiresApi(android.os.Build.VERSION_CODES.UPSIDE_DOWN_CAKE) public static android.os.IBinder getActivityToken(android.app.Activity);
+    method @RequiresApi(android.os.Build.VERSION_CODES.UPSIDE_DOWN_CAKE) public static java.util.List<android.app.ActivityManager.RunningTaskInfo> getTasks(int, boolean, boolean, int);
+    method @RequiresApi(android.os.Build.VERSION_CODES.UPSIDE_DOWN_CAKE) public static boolean isVisible(android.app.Activity);
+    method @RequiresApi(android.os.Build.VERSION_CODES.UPSIDE_DOWN_CAKE) public static void killAllBackgroundProcesses();
+    method @RequiresApi(android.os.Build.VERSION_CODES.UPSIDE_DOWN_CAKE) public static void killUid(int, int, String);
+    method @RequiresApi(android.os.Build.VERSION_CODES.UPSIDE_DOWN_CAKE) @RequiresPermission(android.Manifest.permission.INTERNAL_SYSTEM_WINDOW) public static void moveRootTaskToDisplay(int, int);
     method public static void registerProcessObserverCallback(android.car.builtin.app.ActivityManagerHelper.ProcessObserverCallback);
     method public static boolean removeTask(int);
     method public static void setFocusedRootTask(int);
     method public static boolean startUserInBackground(int);
+    method @RequiresApi(android.os.Build.VERSION_CODES.UPSIDE_DOWN_CAKE) public static boolean startUserInBackgroundVisibleOnDisplay(int, int);
     method public static boolean startUserInForeground(int);
     method public static void stopAllTasksForUser(int);
+    method @RequiresApi(android.os.Build.VERSION_CODES.UPSIDE_DOWN_CAKE) public static int stopUser(int, boolean);
     method public static int stopUserWithDelayedLocking(int, boolean);
     method public static boolean unlockUser(int);
     method public static void unregisterProcessObserverCallback(android.car.builtin.app.ActivityManagerHelper.ProcessObserverCallback);
@@ -34,11 +54,16 @@ package android.car.builtin.app {
     method public void onProcessDied(int, int);
   }
 
+  public final class AppOpsManagerHelper {
+    method @RequiresApi(android.os.Build.VERSION_CODES.UPSIDE_DOWN_CAKE) public static void setTurnScreenOnAllowed(android.content.Context, int, String, boolean);
+  }
+
   public final class KeyguardManagerHelper {
     method public static boolean isKeyguardLocked();
   }
 
   public class TaskInfoHelper {
+    method @RequiresApi(android.os.Build.VERSION_CODES.UPSIDE_DOWN_CAKE) @NonNull public static android.graphics.Rect getBounds(@NonNull android.app.TaskInfo);
     method public static int getDisplayId(@NonNull android.app.TaskInfo);
     method public static int getUserId(@NonNull android.app.TaskInfo);
     method public static boolean isVisible(@NonNull android.app.TaskInfo);
@@ -62,9 +87,36 @@ package android.car.builtin.bluetooth {
 
 }
 
+package android.car.builtin.bluetooth.le {
+
+  public final class AdvertisingSetCallbackHelper {
+    method public static android.bluetooth.le.AdvertisingSetCallback createRealCallbackFromProxy(@NonNull android.car.builtin.bluetooth.le.AdvertisingSetCallbackHelper.Callback);
+  }
+
+  public abstract static class AdvertisingSetCallbackHelper.Callback {
+    ctor public AdvertisingSetCallbackHelper.Callback();
+    method public void onAdvertisingDataSet(android.bluetooth.le.AdvertisingSet, int);
+    method public void onAdvertisingEnabled(android.bluetooth.le.AdvertisingSet, boolean, int);
+    method public void onAdvertisingParametersUpdated(android.bluetooth.le.AdvertisingSet, int, int);
+    method public void onAdvertisingSetStarted(android.bluetooth.le.AdvertisingSet, int, int);
+    method public void onAdvertisingSetStopped(android.bluetooth.le.AdvertisingSet);
+    method public void onOwnAddressRead(android.bluetooth.le.AdvertisingSet, int, String);
+    method public void onPeriodicAdvertisingDataSet(android.bluetooth.le.AdvertisingSet, int);
+    method public void onPeriodicAdvertisingEnabled(android.bluetooth.le.AdvertisingSet, boolean, int);
+    method public void onPeriodicAdvertisingParametersUpdated(android.bluetooth.le.AdvertisingSet, int);
+    method public void onScanResponseDataSet(android.bluetooth.le.AdvertisingSet, int);
+  }
+
+  public final class AdvertisingSetHelper {
+    method @RequiresPermission(allOf={android.Manifest.permission.BLUETOOTH_ADVERTISE, android.Manifest.permission.BLUETOOTH_PRIVILEGED}) public static void getOwnAddress(@NonNull android.bluetooth.le.AdvertisingSet);
+  }
+
+}
+
 package android.car.builtin.content {
 
   public final class ContextHelper {
+    method @RequiresApi(android.os.Build.VERSION_CODES.UPSIDE_DOWN_CAKE) public static int getAssociatedDisplayId(@NonNull android.content.Context);
     method public static int getDisplayId(@NonNull android.content.Context);
     method @RequiresPermission(android.Manifest.permission.INTERACT_ACROSS_USERS) public static void startActivityAsUser(@NonNull android.content.Context, @NonNull android.content.Intent, @Nullable android.os.Bundle, @NonNull android.os.UserHandle);
   }
@@ -74,12 +126,15 @@ package android.car.builtin.content {
 package android.car.builtin.content.pm {
 
   public final class PackageManagerHelper {
+    method @RequiresApi(android.os.Build.VERSION_CODES.UPSIDE_DOWN_CAKE) public static void forceStopPackageAsUser(@NonNull android.content.Context, @NonNull String, int);
+    method @RequiresApi(android.os.Build.VERSION_CODES.UPSIDE_DOWN_CAKE) public static void forceStopPackageAsUserEvenWhenStopping(@NonNull android.content.Context, @NonNull String, int);
     method public static int getApplicationEnabledSettingForUser(@NonNull String, int) throws android.os.RemoteException;
     method public static android.content.ComponentName getComponentName(android.content.pm.ComponentInfo);
     method @Nullable public static String[] getNamesForUids(@NonNull android.content.pm.PackageManager, int[]);
     method public static android.content.pm.PackageInfo getPackageInfoAsUser(@NonNull android.content.pm.PackageManager, @NonNull String, int, int) throws android.content.pm.PackageManager.NameNotFoundException;
     method public static int getPackageUidAsUser(@NonNull android.content.pm.PackageManager, @NonNull String, int) throws android.content.pm.PackageManager.NameNotFoundException;
     method @NonNull public static String getSystemUiPackageName(@NonNull android.content.Context);
+    method @RequiresApi(android.os.Build.VERSION_CODES.UPSIDE_DOWN_CAKE) @NonNull public static android.content.ComponentName getSystemUiServiceComponent(@NonNull android.content.Context);
     method public static boolean isOdmApp(@NonNull android.content.pm.ApplicationInfo);
     method public static boolean isOemApp(@NonNull android.content.pm.ApplicationInfo);
     method public static boolean isProductApp(@NonNull android.content.pm.ApplicationInfo);
@@ -94,10 +149,25 @@ package android.car.builtin.content.pm {
 
 }
 
+package android.car.builtin.display {
+
+  public final class DisplayManagerHelper {
+    method @RequiresApi(android.os.Build.VERSION_CODES.UPSIDE_DOWN_CAKE) public static float getBrightness(android.content.Context, int);
+    method @RequiresApi(android.os.Build.VERSION_CODES.UPSIDE_DOWN_CAKE) public static void registerDisplayListener(android.content.Context, android.hardware.display.DisplayManager.DisplayListener, android.os.Handler, long);
+    method @RequiresApi(android.os.Build.VERSION_CODES.UPSIDE_DOWN_CAKE) public static void setBrightness(android.content.Context, int, @FloatRange(from=0.0f, to=1.0f) float);
+    field @RequiresApi(android.os.Build.VERSION_CODES.UPSIDE_DOWN_CAKE) public static final long EVENT_FLAG_DISPLAY_ADDED = 1L; // 0x1L
+    field @RequiresApi(android.os.Build.VERSION_CODES.UPSIDE_DOWN_CAKE) public static final long EVENT_FLAG_DISPLAY_BRIGHTNESS = 8L; // 0x8L
+    field @RequiresApi(android.os.Build.VERSION_CODES.UPSIDE_DOWN_CAKE) public static final long EVENT_FLAG_DISPLAY_CHANGED = 4L; // 0x4L
+    field @RequiresApi(android.os.Build.VERSION_CODES.UPSIDE_DOWN_CAKE) public static final long EVENT_FLAG_DISPLAY_REMOVED = 2L; // 0x2L
+  }
+
+}
+
 package android.car.builtin.input {
 
   public class InputManagerHelper {
     method public static boolean injectInputEvent(@NonNull android.hardware.input.InputManager, @NonNull android.view.InputEvent);
+    method @RequiresApi(android.os.Build.VERSION_CODES.UPSIDE_DOWN_CAKE) public static void pilferPointers(@NonNull android.hardware.input.InputManager, @NonNull android.view.View);
   }
 
 }
@@ -111,15 +181,41 @@ package android.car.builtin.job {
 
 }
 
+package android.car.builtin.keyguard {
+
+  public final class KeyguardServiceDelegate {
+    ctor public KeyguardServiceDelegate();
+    method @RequiresApi(android.os.Build.VERSION_CODES.UPSIDE_DOWN_CAKE) public void bindService(android.content.Context, android.os.UserHandle, int[]);
+    method @RequiresApi(android.os.Build.VERSION_CODES.UPSIDE_DOWN_CAKE) public void dump(java.io.PrintWriter);
+    method @RequiresApi(android.os.Build.VERSION_CODES.UPSIDE_DOWN_CAKE) public boolean isShowing();
+    method @RequiresApi(android.os.Build.VERSION_CODES.UPSIDE_DOWN_CAKE) public void notifyDisplayOff();
+    method @RequiresApi(android.os.Build.VERSION_CODES.UPSIDE_DOWN_CAKE) public void notifyDisplayOn();
+    method @RequiresApi(android.os.Build.VERSION_CODES.UPSIDE_DOWN_CAKE) public void registerKeyguardLockedStateCallback(@NonNull android.car.builtin.keyguard.KeyguardServiceDelegate.KeyguardLockedStateCallback);
+    method @RequiresApi(android.os.Build.VERSION_CODES.UPSIDE_DOWN_CAKE) public void stop(android.content.Context);
+    method @RequiresApi(android.os.Build.VERSION_CODES.UPSIDE_DOWN_CAKE) public void unregisterKeyguardLockedStateCallback();
+  }
+
+  public static interface KeyguardServiceDelegate.KeyguardLockedStateCallback {
+    method @RequiresApi(android.os.Build.VERSION_CODES.UPSIDE_DOWN_CAKE) public void onKeyguardLockedStateChanged(boolean);
+  }
+
+}
+
 package android.car.builtin.media {
 
   public final class AudioManagerHelper {
+    method @RequiresApi(android.os.Build.VERSION_CODES.UPSIDE_DOWN_CAKE) public static void addTagToAudioAttributes(@NonNull android.media.AudioAttributes.Builder, @NonNull String);
     method public static String adjustToString(int);
+    method @RequiresApi(android.os.Build.VERSION_CODES.UPSIDE_DOWN_CAKE) public static void adjustVolumeGroupVolume(@NonNull android.media.AudioManager, int, int, int);
     method public static android.car.builtin.media.AudioManagerHelper.AudioPatchInfo createAudioPatch(@NonNull android.media.AudioDeviceInfo, @NonNull android.media.AudioDeviceInfo, int);
     method public static android.car.builtin.media.AudioManagerHelper.AudioGainInfo getAudioGainInfo(@NonNull android.media.AudioDeviceInfo);
+    method @RequiresApi(android.os.Build.VERSION_CODES.UPSIDE_DOWN_CAKE) public static String getFormattedTags(@NonNull android.media.AudioAttributes);
+    method @RequiresApi(android.os.Build.VERSION_CODES.UPSIDE_DOWN_CAKE) public static int getLastAudibleVolumeGroupVolume(@NonNull android.media.AudioManager, int);
     method public static int getUsageVirtualSource();
+    method @RequiresApi(android.os.Build.VERSION_CODES.UPSIDE_DOWN_CAKE) public static int getVolumeGroupIdForAudioAttributes(@NonNull android.media.audiopolicy.AudioProductStrategy, @NonNull android.media.AudioAttributes);
     method public static boolean isCallFocusRequestClientId(String);
     method public static boolean isMasterMute(@NonNull android.media.AudioManager);
+    method @RequiresApi(android.os.Build.VERSION_CODES.UPSIDE_DOWN_CAKE) public static boolean isVolumeGroupMuted(@NonNull android.media.AudioManager, int);
     method public static void registerVolumeAndMuteReceiver(android.content.Context, android.car.builtin.media.AudioManagerHelper.VolumeAndMuteReceiver);
     method public static boolean releaseAudioPatch(@NonNull android.media.AudioManager, @NonNull android.car.builtin.media.AudioManagerHelper.AudioPatchInfo);
     method public static boolean setAudioDeviceGain(@NonNull android.media.AudioManager, @NonNull String, int, boolean);
@@ -127,7 +223,9 @@ package android.car.builtin.media {
     method public static void unregisterVolumeAndMuteReceiver(android.content.Context, android.car.builtin.media.AudioManagerHelper.VolumeAndMuteReceiver);
     method public static String usageToString(int);
     method public static String usageToXsdString(int);
+    method @RequiresApi(android.os.Build.VERSION_CODES.UPSIDE_DOWN_CAKE) public static int xsdStringToContentType(String);
     method public static int xsdStringToUsage(String);
+    field @RequiresApi(android.os.Build.VERSION_CODES.UPSIDE_DOWN_CAKE) public static final String AUDIO_ATTRIBUTE_TAG_SEPARATOR = ";";
     field public static final int UNDEFINED_STREAM_TYPE = -1; // 0xffffffff
   }
 
@@ -179,9 +277,16 @@ package android.car.builtin.os {
     method public static void writeBlob(@NonNull android.os.Parcel, @Nullable byte[]);
   }
 
+  public final class ProcessHelper {
+    field @RequiresApi(android.os.Build.VERSION_CODES.UPSIDE_DOWN_CAKE) public static final int THREAD_GROUP_DEFAULT = -1; // 0xffffffff
+    field @RequiresApi(android.os.Build.VERSION_CODES.UPSIDE_DOWN_CAKE) public static final int THREAD_GROUP_FOREGROUND = 1; // 0x1
+    field @RequiresApi(android.os.Build.VERSION_CODES.UPSIDE_DOWN_CAKE) public static final int THREAD_GROUP_TOP_APP = 5; // 0x5
+  }
+
   public final class ServiceManagerHelper {
     method public static void addService(@NonNull String, @NonNull android.os.IBinder);
     method @Nullable public static android.os.IBinder checkService(@NonNull String);
+    method @RequiresApi(android.os.Build.VERSION_CODES.UPSIDE_DOWN_CAKE) @Nullable public static String[] getDeclaredInstances(@NonNull String);
     method @Nullable public static android.os.IBinder getService(@NonNull String);
     method @Nullable public static android.os.IBinder waitForDeclaredService(@NonNull String);
   }
@@ -201,15 +306,20 @@ package android.car.builtin.os {
   public final class UserManagerHelper {
     method @NonNull public static String getDefaultUserName(@NonNull android.content.Context);
     method public static String getDefaultUserTypeForUserInfoFlags(int);
+    method @RequiresApi(android.os.Build.VERSION_CODES.UPSIDE_DOWN_CAKE) public static int getMainDisplayIdAssignedToUser(@NonNull android.os.UserManager);
     method public static int getMaxRunningUsers(@NonNull android.content.Context);
-    method @NonNull public static java.util.List<android.os.UserHandle> getUserHandles(@NonNull android.os.UserManager, boolean, boolean, boolean);
+    method @RequiresApi(android.os.Build.VERSION_CODES.UPSIDE_DOWN_CAKE) public static int getMaxSupportedUsers(@NonNull android.content.Context);
+    method @RequiresApi(android.os.Build.VERSION_CODES.UPSIDE_DOWN_CAKE) @NonNull public static java.util.List<android.os.UserHandle> getUserHandles(@NonNull android.os.UserManager, boolean);
+    method @Deprecated @NonNull public static java.util.List<android.os.UserHandle> getUserHandles(@NonNull android.os.UserManager, boolean, boolean, boolean);
     method public static int getUserId(int);
     method public static boolean isEnabledUser(@NonNull android.os.UserManager, @NonNull android.os.UserHandle);
     method public static boolean isEphemeralUser(@NonNull android.os.UserManager, @NonNull android.os.UserHandle);
+    method @RequiresApi(android.os.Build.VERSION_CODES.UPSIDE_DOWN_CAKE) public static boolean isFullUser(@NonNull android.os.UserManager, @NonNull android.os.UserHandle);
+    method @RequiresApi(android.os.Build.VERSION_CODES.UPSIDE_DOWN_CAKE) public static boolean isGuestUser(@NonNull android.os.UserManager, @NonNull android.os.UserHandle);
     method public static boolean isInitializedUser(@NonNull android.os.UserManager, @NonNull android.os.UserHandle);
-    method public static boolean isPreCreatedUser(@NonNull android.os.UserManager, @NonNull android.os.UserHandle);
+    method @RequiresApi(android.os.Build.VERSION_CODES.UPSIDE_DOWN_CAKE) public static boolean isVisibleBackgroundUsersOnDefaultDisplaySupported(@NonNull android.os.UserManager);
+    method @RequiresApi(android.os.Build.VERSION_CODES.UPSIDE_DOWN_CAKE) public static boolean isVisibleBackgroundUsersSupported(@NonNull android.os.UserManager);
     method public static boolean markGuestForDeletion(@NonNull android.os.UserManager, @NonNull android.os.UserHandle);
-    method @Nullable public static android.os.UserHandle preCreateUser(@NonNull android.os.UserManager, @NonNull String);
     field public static final int FLAG_ADMIN = 2; // 0x2
     field public static final int FLAG_DEMO = 512; // 0x200
     field public static final int FLAG_DISABLED = 64; // 0x40
@@ -234,8 +344,18 @@ package android.car.builtin.power {
   public final class PowerManagerHelper {
     method public static int getMaximumScreenBrightnessSetting(android.content.Context);
     method public static int getMinimumScreenBrightnessSetting(android.content.Context);
+    method @RequiresApi(android.os.Build.VERSION_CODES.UPSIDE_DOWN_CAKE) public static void goToSleep(android.content.Context, int, long);
+    method @RequiresApi(android.os.Build.VERSION_CODES.UPSIDE_DOWN_CAKE) public static android.os.PowerManager.WakeLock newWakeLock(android.content.Context, int, String, int);
     method public static void setDisplayState(android.content.Context, boolean, long);
     method public static void shutdown(android.content.Context, boolean, String, boolean);
+    field @RequiresApi(android.os.Build.VERSION_CODES.UPSIDE_DOWN_CAKE) public static final int BRIGHTNESS_DEFAULT = -1; // 0xffffffff
+    field @RequiresApi(android.os.Build.VERSION_CODES.UPSIDE_DOWN_CAKE) public static final int BRIGHTNESS_INVALID = -1; // 0xffffffff
+    field @RequiresApi(android.os.Build.VERSION_CODES.UPSIDE_DOWN_CAKE) public static final float BRIGHTNESS_INVALID_FLOAT;
+    field @RequiresApi(android.os.Build.VERSION_CODES.UPSIDE_DOWN_CAKE) public static final float BRIGHTNESS_MAX = 1.0f;
+    field @RequiresApi(android.os.Build.VERSION_CODES.UPSIDE_DOWN_CAKE) public static final float BRIGHTNESS_MIN = 0.0f;
+    field @RequiresApi(android.os.Build.VERSION_CODES.UPSIDE_DOWN_CAKE) public static final int BRIGHTNESS_OFF = 0; // 0x0
+    field @RequiresApi(android.os.Build.VERSION_CODES.UPSIDE_DOWN_CAKE) public static final float BRIGHTNESS_OFF_FLOAT = -1.0f;
+    field @RequiresApi(android.os.Build.VERSION_CODES.UPSIDE_DOWN_CAKE) public static final int BRIGHTNESS_ON = 255; // 0xff
   }
 
 }
@@ -289,6 +409,13 @@ package android.car.builtin.util {
     method public static void writeCarHelperUserSwitching(int, int);
     method public static void writeCarHelperUserUnlocked(int);
     method public static void writeCarHelperUserUnlocking(int);
+    method @RequiresApi(android.os.Build.VERSION_CODES.UPSIDE_DOWN_CAKE) public static void writeCarInitialUserFallbackDefaultBehavior(@Nullable String);
+    method @RequiresApi(android.os.Build.VERSION_CODES.UPSIDE_DOWN_CAKE) public static void writeCarInitialUserInfo(int, boolean, int, @Nullable String, int, boolean, @Nullable String);
+    method @RequiresApi(android.os.Build.VERSION_CODES.UPSIDE_DOWN_CAKE) public static void writeCarInitialUserReplaceGuest(int);
+    method @RequiresApi(android.os.Build.VERSION_CODES.UPSIDE_DOWN_CAKE) public static void writeCarInitialUserResetGlobalProperty(@Nullable String);
+    method @RequiresApi(android.os.Build.VERSION_CODES.UPSIDE_DOWN_CAKE) public static void writeCarInitialUserSetLastActive(int);
+    method @RequiresApi(android.os.Build.VERSION_CODES.UPSIDE_DOWN_CAKE) public static void writeCarInitialUserStartFgUser(int);
+    method @RequiresApi(android.os.Build.VERSION_CODES.UPSIDE_DOWN_CAKE) public static void writeCarInitialUserUnlockSystemUser();
     method public static void writeCarPowerManagerStateChange(int);
     method public static void writeCarPowerManagerStateRequest(int, int);
     method public static void writeCarServiceConnected(@Nullable String);
@@ -330,6 +457,10 @@ package android.car.builtin.util {
     method public static void writeCarUserManagerRemoveUserResp(int, int);
     method public static void writeCarUserManagerSetUserAuthReq(@Nullable Object[]);
     method public static void writeCarUserManagerSetUserAuthResp(@Nullable Object[]);
+    method @RequiresApi(android.os.Build.VERSION_CODES.UPSIDE_DOWN_CAKE) public static void writeCarUserManagerStartUserReq(int, int, int);
+    method @RequiresApi(android.os.Build.VERSION_CODES.UPSIDE_DOWN_CAKE) public static void writeCarUserManagerStartUserResp(int, int, int, int);
+    method @RequiresApi(android.os.Build.VERSION_CODES.UPSIDE_DOWN_CAKE) public static void writeCarUserManagerStopUserReq(int, int);
+    method @RequiresApi(android.os.Build.VERSION_CODES.UPSIDE_DOWN_CAKE) public static void writeCarUserManagerStopUserResp(int, int, int);
     method public static void writeCarUserManagerSwitchUserReq(int, int);
     method public static void writeCarUserManagerSwitchUserResp(int, int, @Nullable String);
     method public static void writeCarUserServiceCreateUserReq(@Nullable String, @Nullable String, int, int, int);
@@ -357,6 +488,8 @@ package android.car.builtin.util {
     method public static void writeCarUserServiceSetUserAuthResp(int, @Nullable String);
     method public static void writeCarUserServiceStartUserInBackgroundReq(int);
     method public static void writeCarUserServiceStartUserInBackgroundResp(int, int);
+    method @RequiresApi(android.os.Build.VERSION_CODES.UPSIDE_DOWN_CAKE) public static void writeCarUserServiceStartUserVisibleOnDisplayReq(int, int);
+    method @RequiresApi(android.os.Build.VERSION_CODES.UPSIDE_DOWN_CAKE) public static void writeCarUserServiceStartUserVisibleOnDisplayResp(int, int, int);
     method public static void writeCarUserServiceStopUserReq(int);
     method public static void writeCarUserServiceStopUserResp(int, int);
     method public static void writeCarUserServiceSwitchUserFromHalReq(int, int);
@@ -407,6 +540,10 @@ package android.car.builtin.util {
     method public void traceEnd();
   }
 
+  public final class UsageStatsManagerHelper {
+    method @RequiresApi(android.os.Build.VERSION_CODES.UPSIDE_DOWN_CAKE) public static void reportUserInteraction(@NonNull android.app.usage.UsageStatsManager, @NonNull String, int);
+  }
+
   public final class ValidationHelper {
     method public static boolean isAppIdValid(int);
     method public static boolean isUserIdValid(int);
@@ -426,8 +563,30 @@ package android.car.builtin.view {
     field public static final int TYPE_VIRTUAL = 5; // 0x5
   }
 
+  public final class InputEventHelper {
+    method @RequiresApi(android.os.Build.VERSION_CODES.UPSIDE_DOWN_CAKE) public static void setDisplayId(@NonNull android.view.InputEvent, int);
+  }
+
   public final class KeyEventHelper {
-    method public static void setDisplayId(@NonNull android.view.KeyEvent, int);
+    method @Deprecated public static void setDisplayId(@NonNull android.view.KeyEvent, int);
+  }
+
+  public final class SurfaceControlHelper {
+    method @RequiresApi(android.os.Build.VERSION_CODES.UPSIDE_DOWN_CAKE) public static android.view.SurfaceControl copy(android.view.SurfaceControl);
+    method @RequiresApi(android.os.Build.VERSION_CODES.UPSIDE_DOWN_CAKE) @Nullable public static android.view.SurfaceControl mirrorDisplay(int);
+    method @RequiresApi(android.os.Build.VERSION_CODES.UPSIDE_DOWN_CAKE) @NonNull public static android.view.SurfaceControl mirrorSurface(@NonNull android.view.SurfaceControl);
+  }
+
+  @UiThread public final class TouchableInsetsProvider {
+    ctor public TouchableInsetsProvider(@NonNull android.view.View);
+    method @RequiresApi(android.os.Build.VERSION_CODES.UPSIDE_DOWN_CAKE) public void addToViewTreeObserver();
+    method @RequiresApi(android.os.Build.VERSION_CODES.UPSIDE_DOWN_CAKE) public void removeFromViewTreeObserver();
+    method @RequiresApi(android.os.Build.VERSION_CODES.UPSIDE_DOWN_CAKE) public void setObscuredTouchRegion(@Nullable android.graphics.Region);
+  }
+
+  public final class ViewHelper {
+    method @RequiresApi(android.os.Build.VERSION_CODES.UPSIDE_DOWN_CAKE) public static void getBoundsOnScreen(@NonNull android.view.View, @NonNull android.graphics.Rect);
+    method @RequiresApi(android.os.Build.VERSION_CODES.UPSIDE_DOWN_CAKE) public static void seResizeBackgroundColor(@NonNull android.view.SurfaceView, int);
   }
 
 }
@@ -445,6 +604,11 @@ package android.car.builtin.window {
   public class DisplayAreaOrganizerHelper {
     ctor public DisplayAreaOrganizerHelper();
     field public static final int FEATURE_UNDEFINED = -1; // 0xffffffff
+  }
+
+  public final class WindowManagerHelper {
+    method @RequiresApi(android.os.Build.VERSION_CODES.UPSIDE_DOWN_CAKE) public static void setInputFeatureSpy(@NonNull android.view.WindowManager.LayoutParams);
+    method @RequiresApi(android.os.Build.VERSION_CODES.UPSIDE_DOWN_CAKE) public static void setTrustedOverlay(@NonNull android.view.WindowManager.LayoutParams);
   }
 
 }

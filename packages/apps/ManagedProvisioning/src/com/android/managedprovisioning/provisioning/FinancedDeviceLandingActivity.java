@@ -41,6 +41,7 @@ import com.android.managedprovisioning.model.ProvisioningParams;
 import com.google.android.setupcompat.template.FooterBarMixin;
 import com.google.android.setupcompat.template.FooterButton;
 import com.google.android.setupdesign.GlifLayout;
+import com.google.android.setupdesign.util.DeviceHelper;
 
 import java.util.Objects;
 
@@ -80,7 +81,8 @@ public final class FinancedDeviceLandingActivity extends SetupGlifLayoutActivity
         setContentView(R.layout.financed_device_landing_screen);
 
         GlifLayout layout = findViewById(R.id.setup_wizard_layout);
-        final String headerString = getString(R.string.financed_device_screen_header,
+        CharSequence deviceName = DeviceHelper.getDeviceName(this);
+        final String headerString = getString(R.string.financed_device_screen_header, deviceName,
                 params.organizationName);
         layout.setHeaderText(headerString);
         layout.setIcon(getDrawable(R.drawable.ic_info_outline_24px));
@@ -89,16 +91,18 @@ public final class FinancedDeviceLandingActivity extends SetupGlifLayoutActivity
         final ViewGroup item1 = layout.findViewById(R.id.item1);
         final String makePaymentsSubheaderSummary = getString(
                 R.string.financed_make_payments_subheader_description, params.organizationName,
-                params.organizationName);
+                params.organizationName, deviceName);
         setupItem(item1, R.string.financed_make_payments_subheader_title,
-                makePaymentsSubheaderSummary, R.drawable.ic_file_download_24px,
-                params.organizationName);
+                makePaymentsSubheaderSummary, R.drawable.ic_file_download_24px, deviceName);
 
         final ViewGroup item2 = layout.findViewById(R.id.item2);
+
         final String restrictDeviceSubheaderSummary = getString(
-                R.string.financed_restrict_device_subheader_description, params.organizationName);
+                R.string.financed_restrict_device_subheader_description, params.organizationName,
+                deviceName);
         setupItem(item2, R.string.financed_restrict_device_subheader_title,
-                restrictDeviceSubheaderSummary, R.drawable.ic_lock, params.organizationName);
+                restrictDeviceSubheaderSummary, R.drawable.ic_lock,
+                deviceName);
     }
 
     private void setupFooterBar(GlifLayout layout) {
@@ -113,7 +117,7 @@ public final class FinancedDeviceLandingActivity extends SetupGlifLayoutActivity
     }
 
     private void setupItem(ViewGroup item, @StringRes int title, String summary,
-            @DrawableRes int icon, String organizationName) {
+            @DrawableRes int icon, CharSequence deviceName) {
         mStylerHelper.applyListItemStyling(
                 item, new LinearLayout.LayoutParams(item.getLayoutParams()));
 
@@ -121,7 +125,7 @@ public final class FinancedDeviceLandingActivity extends SetupGlifLayoutActivity
         makePaymentsSubHeaderImage.setImageDrawable(getDrawable(icon));
 
         final TextView makePaymentsSubHeaderTitle = item.findViewById(R.id.sud_items_title);
-        makePaymentsSubHeaderTitle.setText(getString(title, organizationName));
+        makePaymentsSubHeaderTitle.setText(getString(title, deviceName));
 
         final TextView makePaymentsSubHeaderDescription = item.findViewById(R.id.sud_items_summary);
         makePaymentsSubHeaderDescription.setText(summary);

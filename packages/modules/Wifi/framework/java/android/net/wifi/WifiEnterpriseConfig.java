@@ -21,6 +21,7 @@ import android.annotation.Nullable;
 import android.annotation.SystemApi;
 import android.compat.annotation.UnsupportedAppUsage;
 import android.os.Build;
+import android.os.Bundle;
 import android.os.Parcel;
 import android.os.Parcelable;
 import android.text.TextUtils;
@@ -124,6 +125,11 @@ public class WifiEnterpriseConfig implements Parcelable {
      * @hide
      */
     public static final String KEYSTORES_URI = "keystores://";
+
+    /**
+     * String representing a SHA-256 certificate hash used for wpa_supplicant.
+     */
+    private static final String CERT_HASH_PREFIX = "hash://server/sha256/";
 
     /**
      * String to set the engine value to when it should be enabled.
@@ -242,10 +248,88 @@ public class WifiEnterpriseConfig implements Parcelable {
     };
 
     /**
+     * Maximum length of a certificate.
+     */
+    private static final int CERTIFICATE_MAX_LENGTH = 8192;
+
+    /**
+     * Maximum length of the {@link #mKeyChainAlias} field.
+     */
+    private static final int KEYCHAIN_ALIAS_MAX_LENGTH = 256;
+
+    /**
+     * Maximum number of elements in a client certificate chain.
+     */
+    private static final int CLIENT_CERTIFICATE_CHAIN_MAX_ELEMENTS = 5;
+
+    /**
+     * Maximum number of elements in a list of CA certificates.
+     */
+    private static final int CA_CERTIFICATES_MAX_ELEMENTS = 100;
+
+    /**
+     * Fields that are supported in {@link #mFields}.
+     * Each entry includes the supported field's key and its maximum allowed length.
+     */
+    private static final Map<String, Integer> SUPPORTED_FIELDS = new HashMap<>() {{
+            put(ALTSUBJECT_MATCH_KEY, 256);
+            put(ANON_IDENTITY_KEY, 1024);
+            put(CA_CERT_KEY, CERTIFICATE_MAX_LENGTH);
+            put(CA_PATH_KEY, 4096);
+            put(CLIENT_CERT_KEY, CERTIFICATE_MAX_LENGTH);
+            put(DECORATED_IDENTITY_PREFIX_KEY, 256);
+            put(DOM_SUFFIX_MATCH_KEY, 256);
+            put(EAP_ERP, 1);
+            put(ENGINE_KEY, 1);
+            put(ENGINE_ID_KEY, 64);
+            put(IDENTITY_KEY, 256);
+            put(OPP_KEY_CACHING, 1);
+            put(PASSWORD_KEY, 256);
+            put(PLMN_KEY, 16);
+            put(PRIVATE_KEY_ID_KEY, 256);
+            put(REALM_KEY, 256);
+            put(SUBJECT_MATCH_KEY, 256);
+            put(WAPI_CERT_SUITE_KEY, CERTIFICATE_MAX_LENGTH);
+        }};
+
+    /**
      * Fields that have unquoted values in {@link #mFields}.
      */
     private static final List<String> UNQUOTED_KEYS = Arrays.asList(ENGINE_KEY, OPP_KEY_CACHING,
                                                                     EAP_ERP);
+    /** Constant definition for TLS v1.0 which is used in {@link #setMinimumTlsVersion(int)} */
+    public static final int TLS_V1_0 = 0;
+
+    /** Constant definition for TLS v1.1 which is used in {@link #setMinimumTlsVersion(int)} */
+    public static final int TLS_V1_1 = 1;
+
+    /** Constant definition for TLS v1.2 which is used in {@link #setMinimumTlsVersion(int)} */
+    public static final int TLS_V1_2 = 2;
+
+    /** Constant definition for TLS v1.3 which is used in {@link #setMinimumTlsVersion(int)} */
+    public static final int TLS_V1_3 = 3;
+
+    /**
+     * The minimum valid value for a TLS version.
+     * @hide
+     */
+    public static final int TLS_VERSION_MIN = TLS_V1_0;
+
+    /**
+     * The maximum valid value for a TLS version.
+     * @hide
+     */
+    public static final int TLS_VERSION_MAX = TLS_V1_3;
+
+    /** @hide */
+    @IntDef(prefix = {"TLS_"}, value = {
+            TLS_V1_0,
+            TLS_V1_1,
+            TLS_V1_2,
+            TLS_V1_3
+    })
+    @Retention(RetentionPolicy.SOURCE)
+    public @interface TlsVersion {}
 
     @UnsupportedAppUsage
     private HashMap<String, String> mFields = new HashMap<String, String>();
@@ -259,11 +343,15 @@ public class WifiEnterpriseConfig implements Parcelable {
     private String mKeyChainAlias;
     private boolean mIsTrustOnFirstUseEnabled = false;
     private boolean mUserApproveNoCaCert = false;
+    // Default is 1.0, i.e. accept any TLS version.
+    private int mMinimumTlsVersion = TLS_V1_0;
 
     // Not included in parceling, hashing, or equality because it is an internal, temporary value
     // which is valid only during an actual connection to a Passpoint network with an RCOI-based
     // subscription.
     private long mSelectedRcoi = 0;
+
+    private boolean mIsStrictConservativePeerMode = false;
 
     private static final String TAG = "WifiEnterpriseConfig";
 
@@ -276,6 +364,66 @@ public class WifiEnterpriseConfig implements Parcelable {
     }
 
     /**
+     * Check whether a key is supported by {@link #mFields}.
+     * @return true if the key is supported, false otherwise.
+     */
+    private static boolean isKeySupported(String key) {
+        return SUPPORTED_FIELDS.containsKey(key);
+    }
+
+    /**
+     * Check whether a value from {@link #mFields} has a valid length.
+     * @return true if the length is valid, false otherwise.
+     */
+    private static boolean isFieldLengthValid(String key, String value) {
+        int maxLength = SUPPORTED_FIELDS.getOrDefault(key, 0);
+        return isFieldLengthValid(value, maxLength);
+    }
+
+    private static boolean isFieldLengthValid(String value, int maxLength) {
+        if (value == null) return true;
+        return value.length() <= maxLength;
+    }
+
+    /**
+     * Check whether a key/value pair from {@link #mFields} is valid.
+     * @return true if the key/value pair is valid, false otherwise.
+     */
+    private static boolean isFieldValid(String key, String value) {
+        return isKeySupported(key) && isFieldLengthValid(key, value);
+    }
+
+    /**
+     * Convert the {@link #mFields} map to a Bundle for parceling.
+     * Unsupported keys will not be included in the Bundle.
+     */
+    private Bundle fieldMapToBundle() {
+        Bundle bundle = new Bundle();
+        for (Map.Entry<String, String> entry : mFields.entrySet()) {
+            if (isFieldValid(entry.getKey(), entry.getValue())) {
+                bundle.putString(entry.getKey(), entry.getValue());
+            }
+        }
+        return bundle;
+    }
+
+    /**
+     * Convert an unparceled Bundle to the {@link #mFields} map.
+     * Unsupported keys will not be included in the map.
+     */
+    private static HashMap<String, String> bundleToFieldMap(Bundle bundle) {
+        HashMap<String, String> fieldMap = new HashMap<>();
+        if (bundle == null) return fieldMap;
+        for (String key : bundle.keySet()) {
+            String value = bundle.getString(key);
+            if (isFieldValid(key, value)) {
+                fieldMap.put(key, value);
+            }
+        }
+        return fieldMap;
+    }
+
+    /**
      * Copy over the contents of the source WifiEnterpriseConfig object over to this object.
      *
      * @param source Source WifiEnterpriseConfig object.
@@ -285,11 +433,14 @@ public class WifiEnterpriseConfig implements Parcelable {
      */
     private void copyFrom(WifiEnterpriseConfig source, boolean ignoreMaskedPassword, String mask) {
         for (String key : source.mFields.keySet()) {
+            String value = source.mFields.get(key);
             if (ignoreMaskedPassword && key.equals(PASSWORD_KEY)
-                    && TextUtils.equals(source.mFields.get(key), mask)) {
+                    && TextUtils.equals(value, mask)) {
                 continue;
             }
-            mFields.put(key, source.mFields.get(key));
+            if (isFieldValid(key, value)) {
+                mFields.put(key, source.mFields.get(key));
+            }
         }
         if (source.mCaCerts != null) {
             mCaCerts = Arrays.copyOf(source.mCaCerts, source.mCaCerts.length);
@@ -313,6 +464,8 @@ public class WifiEnterpriseConfig implements Parcelable {
         mIsTrustOnFirstUseEnabled = source.mIsTrustOnFirstUseEnabled;
         mUserApproveNoCaCert = source.mUserApproveNoCaCert;
         mSelectedRcoi = source.mSelectedRcoi;
+        mMinimumTlsVersion = source.mMinimumTlsVersion;
+        mIsStrictConservativePeerMode = source.mIsStrictConservativePeerMode;
     }
 
     /**
@@ -345,12 +498,7 @@ public class WifiEnterpriseConfig implements Parcelable {
 
     @Override
     public void writeToParcel(Parcel dest, int flags) {
-        dest.writeInt(mFields.size());
-        for (Map.Entry<String, String> entry : mFields.entrySet()) {
-            dest.writeString(entry.getKey());
-            dest.writeString(entry.getValue());
-        }
-
+        dest.writeBundle(fieldMapToBundle());
         dest.writeInt(mEapMethod);
         dest.writeInt(mPhase2Method);
         ParcelUtil.writeCertificates(dest, mCaCerts);
@@ -362,6 +510,7 @@ public class WifiEnterpriseConfig implements Parcelable {
         dest.writeInt(mOcsp);
         dest.writeBoolean(mIsTrustOnFirstUseEnabled);
         dest.writeBoolean(mUserApproveNoCaCert);
+        dest.writeInt(mMinimumTlsVersion);
     }
 
     public static final @android.annotation.NonNull Creator<WifiEnterpriseConfig> CREATOR =
@@ -369,24 +518,50 @@ public class WifiEnterpriseConfig implements Parcelable {
                 @Override
                 public WifiEnterpriseConfig createFromParcel(Parcel in) {
                     WifiEnterpriseConfig enterpriseConfig = new WifiEnterpriseConfig();
-                    int count = in.readInt();
-                    for (int i = 0; i < count; i++) {
-                        String key = in.readString();
-                        String value = in.readString();
-                        enterpriseConfig.mFields.put(key, value);
-                    }
-
+                    enterpriseConfig.mFields = bundleToFieldMap(in.readBundle());
                     enterpriseConfig.mEapMethod = in.readInt();
                     enterpriseConfig.mPhase2Method = in.readInt();
-                    enterpriseConfig.mCaCerts = ParcelUtil.readCertificates(in);
-                    enterpriseConfig.mClientPrivateKey = ParcelUtil.readPrivateKey(in);
-                    enterpriseConfig.mClientCertificateChain = ParcelUtil.readCertificates(in);
-                    enterpriseConfig.mKeyChainAlias = in.readString();
+
+                    X509Certificate[] caCerts = ParcelUtil.readCertificates(in);
+                    if (caCerts != null && caCerts.length > CA_CERTIFICATES_MAX_ELEMENTS) {
+                        Log.e(TAG, "List of CA certificates with size "
+                                + caCerts.length + " received during unparceling");
+                        enterpriseConfig.mCaCerts = null;
+                    } else {
+                        enterpriseConfig.mCaCerts = caCerts;
+                    }
+
+                    PrivateKey privateKey = ParcelUtil.readPrivateKey(in);
+                    if (privateKey != null && privateKey.getEncoded() != null
+                            && privateKey.getEncoded().length > CERTIFICATE_MAX_LENGTH) {
+                        Log.e(TAG, "Invalid private key with size "
+                                + privateKey.getEncoded().length + " received during unparceling");
+                        enterpriseConfig.mClientPrivateKey = null;
+                    } else {
+                        enterpriseConfig.mClientPrivateKey = privateKey;
+                    }
+
+                    X509Certificate[] clientCertificateChain = ParcelUtil.readCertificates(in);
+                    if (clientCertificateChain != null
+                            && clientCertificateChain.length
+                                    > CLIENT_CERTIFICATE_CHAIN_MAX_ELEMENTS) {
+                        Log.e(TAG, "Client certificate chain with size "
+                                + clientCertificateChain.length + " received during unparceling");
+                        enterpriseConfig.mClientCertificateChain = null;
+                    } else {
+                        enterpriseConfig.mClientCertificateChain = clientCertificateChain;
+                    }
+
+                    String keyChainAlias = in.readString();
+                    enterpriseConfig.mKeyChainAlias =
+                            isFieldLengthValid(keyChainAlias, KEYCHAIN_ALIAS_MAX_LENGTH)
+                                    ? keyChainAlias : "";
                     enterpriseConfig.mIsAppInstalledDeviceKeyAndCert = in.readBoolean();
                     enterpriseConfig.mIsAppInstalledCaCert = in.readBoolean();
                     enterpriseConfig.mOcsp = in.readInt();
                     enterpriseConfig.mIsTrustOnFirstUseEnabled = in.readBoolean();
                     enterpriseConfig.mUserApproveNoCaCert = in.readBoolean();
+                    enterpriseConfig.mMinimumTlsVersion = in.readInt();
                     return enterpriseConfig;
                 }
 
@@ -502,10 +677,14 @@ public class WifiEnterpriseConfig implements Parcelable {
                 || mEapMethod == WifiEnterpriseConfig.Eap.AKA
                 || mEapMethod == WifiEnterpriseConfig.Eap.AKA_PRIME;
         for (String key : mFields.keySet()) {
+            String value = mFields.get(key);
+            if (!isFieldValid(key, value)) {
+                continue;
+            }
             if (shouldNotWriteAnonIdentity && ANON_IDENTITY_KEY.equals(key)) {
                 continue;
             }
-            if (!saver.saveValue(key, mFields.get(key))) {
+            if (!saver.saveValue(key, value)) {
                 return false;
             }
         }
@@ -537,7 +716,9 @@ public class WifiEnterpriseConfig implements Parcelable {
     public void loadFromSupplicant(SupplicantLoader loader) {
         for (String key : SUPPLICANT_CONFIG_KEYS) {
             String value = loader.loadValue(key);
-            if (value == null) {
+            if (!isFieldValid(key, value)) {
+                continue;
+            } else if (value == null) {
                 mFields.put(key, EMPTY_VALUE);
             } else {
                 mFields.put(key, value);
@@ -704,6 +885,16 @@ public class WifiEnterpriseConfig implements Parcelable {
             e.printStackTrace();
             return alias;
         }
+    }
+
+    /**
+     * Set a server certificate hash instead of a CA certificate for a TOFU connection
+     *
+     * @param certHash Server certificate hash to match against in subsequent connections
+     * @hide
+     */
+    public void setServerCertificateHash(String certHash) {
+        setFieldValue(CA_CERT_KEY, certHash, CERT_HASH_PREFIX);
     }
 
     /**
@@ -880,10 +1071,15 @@ public class WifiEnterpriseConfig implements Parcelable {
      *
      * @param certs X.509 CA certificates
      * @throws IllegalArgumentException if any of the provided certificates is
-     *     not a CA certificate
+     *     not a CA certificate, or if too many CA certificates are provided
      */
     public void setCaCertificates(@Nullable X509Certificate[] certs) {
         if (certs != null) {
+            if (certs.length > CA_CERTIFICATES_MAX_ELEMENTS) {
+                mCaCerts = null;
+                throw new IllegalArgumentException("List of CA certificates contains more "
+                        + "than the allowed number of elements");
+            }
             X509Certificate[] newCerts = new X509Certificate[certs.length];
             for (int i = 0; i < certs.length; i++) {
                 if (certs[i].getBasicConstraints() >= 0) {
@@ -1038,6 +1234,10 @@ public class WifiEnterpriseConfig implements Parcelable {
             // We use this to judge whether the certificate is an end
             // certificate or a CA certificate.
             // https://cryptography.io/en/latest/x509/reference/
+            if (clientCertificateChain.length > CLIENT_CERTIFICATE_CHAIN_MAX_ELEMENTS) {
+                throw new IllegalArgumentException(
+                        "Certificate chain contains more than the allowed number of elements");
+            }
             if (clientCertificateChain[0].getBasicConstraints() != -1) {
                 throw new IllegalArgumentException(
                         "First certificate in the chain must be a client end certificate");
@@ -1055,8 +1255,13 @@ public class WifiEnterpriseConfig implements Parcelable {
             if (privateKey == null) {
                 throw new IllegalArgumentException("Client cert without a private key");
             }
-            if (privateKey.getEncoded() == null) {
+            byte[] encodedKey = privateKey.getEncoded();
+            if (encodedKey == null) {
                 throw new IllegalArgumentException("Private key cannot be encoded");
+            }
+            if (encodedKey.length > CERTIFICATE_MAX_LENGTH) {
+                throw new IllegalArgumentException(
+                        "Private key exceeds the maximum allowed length");
             }
         }
 
@@ -1077,6 +1282,9 @@ public class WifiEnterpriseConfig implements Parcelable {
     public void setClientKeyPairAlias(@NonNull String alias) {
         if (!SdkLevel.isAtLeastS()) {
             throw new UnsupportedOperationException();
+        }
+        if (!isFieldLengthValid(alias, KEYCHAIN_ALIAS_MAX_LENGTH)) {
+            throw new IllegalArgumentException();
         }
         mKeyChainAlias = alias;
     }
@@ -1269,6 +1477,25 @@ public class WifiEnterpriseConfig implements Parcelable {
     }
 
     /**
+     * Enable or disable the conservative peer mode, this is only meaningful for
+     * EAP-SIM/AKA/AKA'
+     * @param enable true if the conservative peer mode is enabled.
+     * @hide
+     */
+    public void setStrictConservativePeerMode(boolean enable) {
+        mIsStrictConservativePeerMode = enable;
+    }
+
+    /**
+     * Check if the conservative peer mode is enabled or not, this is only meaningful for
+     * EAP-SIM/AKA/AKA'
+     * @hide
+     */
+    public boolean getStrictConservativePeerMode() {
+        return mIsStrictConservativePeerMode;
+    }
+
+    /**
      * Set plmn (Public Land Mobile Network) of the provider of Passpoint credential
      * @param plmn the plmn value derived from mcc (mobile country code) & mnc (mobile network code)
      */
@@ -1334,8 +1561,10 @@ public class WifiEnterpriseConfig implements Parcelable {
      * @hide
      */
     private String getFieldValue(String key, String prefix) {
-        // TODO: Should raise an exception if |key| is EAP_KEY or PHASE2_KEY since
-        // neither of these keys should be retrieved in this manner.
+        if (!isKeySupported(key)) {
+            return "";
+        }
+
         String value = mFields.get(key);
         // Uninitialized or known to be empty after reading from supplicant
         if (TextUtils.isEmpty(value) || EMPTY_VALUE.equals(value)) return "";
@@ -1366,8 +1595,9 @@ public class WifiEnterpriseConfig implements Parcelable {
      * @hide
      */
     private void setFieldValue(String key, String value, String prefix) {
-        // TODO: Should raise an exception if |key| is EAP_KEY or PHASE2_KEY since
-        // neither of these keys should be set in this manner.
+        if (!isFieldValid(key, value)) {
+            return;
+        }
         if (TextUtils.isEmpty(value)) {
             mFields.put(key, EMPTY_VALUE);
         } else {
@@ -1409,6 +1639,9 @@ public class WifiEnterpriseConfig implements Parcelable {
         sb.append(" trust_on_first_use: ").append(mIsTrustOnFirstUseEnabled).append("\n");
         sb.append(" user_approve_no_ca_cert: ").append(mUserApproveNoCaCert).append("\n");
         sb.append(" selected_rcoi: ").append(mSelectedRcoi).append("\n");
+        sb.append(" minimum_tls_version: ").append(mMinimumTlsVersion).append("\n");
+        sb.append(" enable_conservative_peer_mode: ")
+                .append(mIsStrictConservativePeerMode).append("\n");
         return sb.toString();
     }
 
@@ -1736,4 +1969,32 @@ public class WifiEnterpriseConfig implements Parcelable {
         return mUserApproveNoCaCert;
     }
 
+    /**
+     * Set the minimum TLS version for TLS-based EAP methods.
+     *
+     * {@link WifiManager#isTlsMinimumVersionSupported()} indicates whether or not a minimum
+     * TLS version can be set. If not supported, the minimum TLS version is always TLS v1.0.
+     * <p>
+     * {@link WifiManager#isTlsV13Supported()} indicates whether or not TLS v1.3 is supported.
+     * If requested minimum is not supported, it will default to the maximum supported version.
+     *
+     * @param tlsVersion the TLS version
+     * @throws IllegalArgumentException if the TLS version is invalid.
+     */
+    public void setMinimumTlsVersion(@TlsVersion int tlsVersion) throws IllegalArgumentException {
+        if (tlsVersion < TLS_VERSION_MIN || tlsVersion > TLS_VERSION_MAX) {
+            throw new IllegalArgumentException(
+                    "Invalid TLS version: " + tlsVersion);
+        }
+        mMinimumTlsVersion = tlsVersion;
+    }
+
+    /**
+     * Get the minimum TLS version for TLS-based EAP methods.
+     *
+     * @return the TLS version
+     */
+    public @TlsVersion int getMinimumTlsVersion() {
+        return mMinimumTlsVersion;
+    }
 }

@@ -14,6 +14,12 @@
      limitations under the License.
 -->
 <configuration description="Tests for CompOS">
+    <option name="config-descriptor:metadata" key="mainline-param" value="com.google.android.art.apex" />
+
+    <!-- Only run tests if the device under test is SDK version 33 (Android 13) or above. -->
+    <object type="module_controller"
+            class="com.android.tradefed.testtype.suite.module.Sdk33ModuleController" />
+
     <target_preparer class="com.android.tradefed.targetprep.RootTargetPreparer">
         <option name="force-root" value="true" />
     </target_preparer>

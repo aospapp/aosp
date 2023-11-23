@@ -48,8 +48,11 @@ import android.os.Process;
 import android.text.format.Formatter;
 import android.util.Log;
 
+import com.android.bluetooth.BluetoothMethodProxy;
 import com.android.bluetooth.R;
 import com.android.bluetooth.Utils;
+
+import com.google.common.annotations.VisibleForTesting;
 
 import java.util.HashMap;
 
@@ -111,9 +114,11 @@ class BluetoothOppNotification {
 
     public static final int NOTIFICATION_ID_PROGRESS = -1000004;
 
-    private static final int NOTIFICATION_ID_OUTBOUND_COMPLETE = -1000005;
+    @VisibleForTesting
+    static final int NOTIFICATION_ID_OUTBOUND_COMPLETE = -1000005;
 
-    private static final int NOTIFICATION_ID_INBOUND_COMPLETE = -1000006;
+    @VisibleForTesting
+    static final int NOTIFICATION_ID_INBOUND_COMPLETE = -1000006;
 
     private boolean mUpdateCompleteNotification = true;
 
@@ -242,11 +247,11 @@ class BluetoothOppNotification {
         }
     }
 
-    private void updateActiveNotification() {
+    @VisibleForTesting
+    void updateActiveNotification() {
         // Active transfers
-        Cursor cursor =
-                mContentResolver.query(BluetoothShare.CONTENT_URI, null, WHERE_RUNNING, null,
-                        BluetoothShare._ID);
+        Cursor cursor = BluetoothMethodProxy.getInstance().contentResolverQuery(mContentResolver,
+                BluetoothShare.CONTENT_URI, null, WHERE_RUNNING, null, BluetoothShare._ID);
         if (cursor == null) {
             return;
         }
@@ -349,7 +354,7 @@ class BluetoothOppNotification {
                 intent.putExtra(Constants.EXTRA_BT_OPP_TRANSFER_ID, item.id);
                 intent.putExtra(Constants.EXTRA_BT_OPP_TRANSFER_PROGRESS, progress);
                 intent.putExtra(Constants.EXTRA_BT_OPP_ADDRESS, item.destination);
-                mContext.sendBroadcast(intent, Constants.HANDOVER_STATUS_PERMISSION,
+                Utils.sendBroadcast(mContext, intent, Constants.HANDOVER_STATUS_PERMISSION,
                         Utils.getTempAllowlistBroadcastOptions());
                 continue;
             }
@@ -396,7 +401,8 @@ class BluetoothOppNotification {
         }
     }
 
-    private void updateCompletedNotification() {
+    @VisibleForTesting
+    void updateCompletedNotification() {
         long timeStamp = 0;
         int outboundSuccNumber = 0;
         int outboundFailNumber = 0;
@@ -406,9 +412,9 @@ class BluetoothOppNotification {
         int inboundFailNumber = 0;
 
         // Creating outbound notification
-        Cursor cursor =
-                mContentResolver.query(BluetoothShare.CONTENT_URI, null, WHERE_COMPLETED_OUTBOUND,
-                        null, BluetoothShare.TIMESTAMP + " DESC");
+        Cursor cursor = BluetoothMethodProxy.getInstance()
+                .contentResolverQuery(mContentResolver, BluetoothShare.CONTENT_URI, null,
+                        WHERE_COMPLETED_OUTBOUND, null, BluetoothShare.TIMESTAMP + " DESC");
         if (cursor == null) {
             return;
         }
@@ -474,8 +480,9 @@ class BluetoothOppNotification {
         }
 
         // Creating inbound notification
-        cursor = mContentResolver.query(BluetoothShare.CONTENT_URI, null, WHERE_COMPLETED_INBOUND,
-                null, BluetoothShare.TIMESTAMP + " DESC");
+        cursor = BluetoothMethodProxy.getInstance()
+                .contentResolverQuery(mContentResolver, BluetoothShare.CONTENT_URI, null,
+                        WHERE_COMPLETED_INBOUND, null, BluetoothShare.TIMESTAMP + " DESC");
         if (cursor == null) {
             return;
         }
@@ -539,9 +546,10 @@ class BluetoothOppNotification {
         }
     }
 
-    private void updateIncomingFileConfirmNotification() {
-        Cursor cursor =
-                mContentResolver.query(BluetoothShare.CONTENT_URI, null, WHERE_CONFIRM_PENDING,
+    @VisibleForTesting
+    void updateIncomingFileConfirmNotification() {
+        Cursor cursor = BluetoothMethodProxy.getInstance().contentResolverQuery(mContentResolver,
+                BluetoothShare.CONTENT_URI, null, WHERE_CONFIRM_PENDING,
                         null, BluetoothShare._ID);
 
         if (cursor == null) {

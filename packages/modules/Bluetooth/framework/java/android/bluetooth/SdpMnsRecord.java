@@ -81,6 +81,7 @@ public class SdpMnsRecord implements Parcelable {
         dest.writeInt(mProfileVersion);
     }
 
+    @Override
     public String toString() {
         String ret = "Bluetooth MNS SDP Record:\n";
 

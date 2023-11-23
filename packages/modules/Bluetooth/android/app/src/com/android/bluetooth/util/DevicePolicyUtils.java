@@ -42,7 +42,10 @@ public final class DevicePolicyUtils {
         return true;
     }
 
-    // Now we support getBluetoothContactSharingDisabled() for managed profile only
+    /**
+     * Returns a URI to query all phones on the device. If a managed profile exists
+     * and the policy allows, it will be a URI that supports the managed profile.
+     */
     // TODO: Make primary profile can also support getBluetoothContactSharingDisabled()
     public static Uri getEnterprisePhoneUri(Context context) {
         return isBluetoothWorkContactSharingDisabled(context) ? Phone.CONTENT_URI

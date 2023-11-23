@@ -1,0 +1,7 @@
+{
+  "avf-presubmit" : [
+    {
+      "name" : "microdroid_manager_test"
+    }
+  ]
+}

@@ -26,14 +26,9 @@
 #include "common/strings.h"
 #include "stack/gatt/gatt_int.h"
 #include "stack/include/gatt_api.h"
+#include "test/common/mock_functions.h"
 #include "types/bluetooth/uuid.h"
 #include "types/raw_address.h"
-
-std::map<std::string, int> mock_function_count_map;
-
-void LogMsg(uint32_t trace_set_mask, const char* fmt_str, ...) {}
-
-bluetooth::common::MessageLoopThread* get_main_thread() { return nullptr; }
 
 class StackGattTest : public ::testing::Test {};
 
@@ -140,4 +135,59 @@ TEST_F(StackGattTest, GATT_Register_Deregister) {
   }
 
   gatt_free();
+}
+
+TEST_F(StackGattTest, gatt_status_text) {
+  std::vector<std::pair<tGATT_STATUS, std::string>> statuses = {
+      std::make_pair(GATT_SUCCESS, "GATT_SUCCESS"),  // Also GATT_ENCRYPED_MITM
+      std::make_pair(GATT_INVALID_HANDLE, "GATT_INVALID_HANDLE"),
+      std::make_pair(GATT_READ_NOT_PERMIT, "GATT_READ_NOT_PERMIT"),
+      std::make_pair(GATT_WRITE_NOT_PERMIT, "GATT_WRITE_NOT_PERMIT"),
+      std::make_pair(GATT_INVALID_PDU, "GATT_INVALID_PDU"),
+      std::make_pair(GATT_INSUF_AUTHENTICATION, "GATT_INSUF_AUTHENTICATION"),
+      std::make_pair(GATT_REQ_NOT_SUPPORTED, "GATT_REQ_NOT_SUPPORTED"),
+      std::make_pair(GATT_INVALID_OFFSET, "GATT_INVALID_OFFSET"),
+      std::make_pair(GATT_INSUF_AUTHORIZATION, "GATT_INSUF_AUTHORIZATION"),
+      std::make_pair(GATT_PREPARE_Q_FULL, "GATT_PREPARE_Q_FULL"),
+      std::make_pair(GATT_NOT_FOUND, "GATT_NOT_FOUND"),
+      std::make_pair(GATT_NOT_LONG, "GATT_NOT_LONG"),
+      std::make_pair(GATT_INSUF_KEY_SIZE, "GATT_INSUF_KEY_SIZE"),
+      std::make_pair(GATT_INVALID_ATTR_LEN, "GATT_INVALID_ATTR_LEN"),
+      std::make_pair(GATT_ERR_UNLIKELY, "GATT_ERR_UNLIKELY"),
+      std::make_pair(GATT_INSUF_ENCRYPTION, "GATT_INSUF_ENCRYPTION"),
+      std::make_pair(GATT_UNSUPPORT_GRP_TYPE, "GATT_UNSUPPORT_GRP_TYPE"),
+      std::make_pair(GATT_INSUF_RESOURCE, "GATT_INSUF_RESOURCE"),
+      std::make_pair(GATT_DATABASE_OUT_OF_SYNC, "GATT_DATABASE_OUT_OF_SYNC"),
+      std::make_pair(GATT_VALUE_NOT_ALLOWED, "GATT_VALUE_NOT_ALLOWED"),
+      std::make_pair(GATT_ILLEGAL_PARAMETER, "GATT_ILLEGAL_PARAMETER"),
+      std::make_pair(GATT_TOO_SHORT, "GATT_TOO_SHORT"),
+      std::make_pair(GATT_NO_RESOURCES, "GATT_NO_RESOURCES"),
+      std::make_pair(GATT_INTERNAL_ERROR, "GATT_INTERNAL_ERROR"),
+      std::make_pair(GATT_WRONG_STATE, "GATT_WRONG_STATE"),
+      std::make_pair(GATT_DB_FULL, "GATT_DB_FULL"),
+      std::make_pair(GATT_BUSY, "GATT_BUSY"),
+      std::make_pair(GATT_ERROR, "GATT_ERROR"),
+      std::make_pair(GATT_CMD_STARTED, "GATT_CMD_STARTED"),
+      std::make_pair(GATT_PENDING, "GATT_PENDING"),
+      std::make_pair(GATT_AUTH_FAIL, "GATT_AUTH_FAIL"),
+      std::make_pair(GATT_MORE, "GATT_MORE"),
+      std::make_pair(GATT_INVALID_CFG, "GATT_INVALID_CFG"),
+      std::make_pair(GATT_SERVICE_STARTED, "GATT_SERVICE_STARTED"),
+      std::make_pair(GATT_ENCRYPED_NO_MITM, "GATT_ENCRYPED_NO_MITM"),
+      std::make_pair(GATT_NOT_ENCRYPTED, "GATT_NOT_ENCRYPTED"),
+      std::make_pair(GATT_CONGESTED, "GATT_CONGESTED"),
+      std::make_pair(GATT_DUP_REG, "GATT_DUP_REG"),
+      std::make_pair(GATT_ALREADY_OPEN, "GATT_ALREADY_OPEN"),
+      std::make_pair(GATT_CANCEL, "GATT_CANCEL"),
+      std::make_pair(GATT_CCC_CFG_ERR, "GATT_CCC_CFG_ERR"),
+      std::make_pair(GATT_PRC_IN_PROGRESS, "GATT_PRC_IN_PROGRESS"),
+      std::make_pair(GATT_OUT_OF_RANGE, "GATT_OUT_OF_RANGE"),
+  };
+  for (const auto& status : statuses) {
+    ASSERT_STREQ(status.second.c_str(), gatt_status_text(status.first).c_str());
+  }
+  // Typical max value is already classified so use arbitrary unused one.
+  auto unknown = base::StringPrintf("UNKNOWN[%hhu]", 0xfc);
+  ASSERT_STREQ(unknown.c_str(),
+               gatt_status_text(static_cast<tGATT_STATUS>(0xfc)).c_str());
 }

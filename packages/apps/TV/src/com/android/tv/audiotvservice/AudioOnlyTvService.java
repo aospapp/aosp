@@ -15,11 +15,14 @@
  */
 package com.android.tv.audiotvservice;
 
+import android.annotation.TargetApi;
 import android.app.Notification;
 import android.app.Service;
 import android.content.Intent;
 import android.media.session.MediaSession;
+import android.media.tv.AitInfo;
 import android.net.Uri;
+import android.os.Build;
 import android.os.IBinder;
 import android.support.annotation.Nullable;
 import android.util.Log;
@@ -99,4 +102,8 @@ public class AudioOnlyTvService extends Service implements OnTuneListener {
 
     @Override
     public void onChannelSignalStrength() {}
+
+    @TargetApi(Build.VERSION_CODES.TIRAMISU)
+    @Override
+    public void onAitInfoUpdated(String inputId, AitInfo aitInfo) {}
 }

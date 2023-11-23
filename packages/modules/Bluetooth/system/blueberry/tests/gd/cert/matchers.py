@@ -16,15 +16,17 @@
 
 import bluetooth_packets_python3 as bt_packets
 import logging
+import sys
 
-from bluetooth_packets_python3 import hci_packets
-from bluetooth_packets_python3.hci_packets import EventCode
 from bluetooth_packets_python3 import l2cap_packets
 from bluetooth_packets_python3.l2cap_packets import CommandCode, LeCommandCode
 from bluetooth_packets_python3.l2cap_packets import ConfigurationResponseResult
 from bluetooth_packets_python3.l2cap_packets import ConnectionResponseResult
 from bluetooth_packets_python3.l2cap_packets import InformationRequestInfoType
 from bluetooth_packets_python3.l2cap_packets import LeCreditBasedConnectionResponseResult
+
+from blueberry.utils import bluetooth
+import hci_packets as hci
 
 
 class HciMatchers(object):
@@ -43,17 +45,12 @@ class HciMatchers(object):
 
     @staticmethod
     def _extract_matching_command_complete(packet_bytes, opcode=None):
-        event = HciMatchers._extract_matching_event(packet_bytes, EventCode.COMMAND_COMPLETE)
-        if event is None:
+        event = HciMatchers._extract_matching_event(packet_bytes, hci.EventCode.COMMAND_COMPLETE)
+        if not isinstance(event, hci.CommandComplete):
             return None
-        complete = hci_packets.CommandCompleteView(event)
-        if opcode is None or complete is None:
-            return complete
-        else:
-            if complete.GetCommandOpCode() != opcode:
-                return None
-            else:
-                return complete
+        if opcode and event.command_op_code != opcode:
+            return None
+        return event
 
     @staticmethod
     def CommandStatus(opcode=None):
@@ -61,7 +58,7 @@ class HciMatchers(object):
 
     @staticmethod
     def ExtractMatchingCommandStatus(packet_bytes, opcode=None):
-        return HciMatchers._extract_matching_command_complete(packet_bytes, opcode)
+        return HciMatchers._extract_matching_command_status(packet_bytes, opcode)
 
     @staticmethod
     def _is_matching_command_status(packet_bytes, opcode=None):
@@ -69,17 +66,12 @@ class HciMatchers(object):
 
     @staticmethod
     def _extract_matching_command_status(packet_bytes, opcode=None):
-        event = HciMatchers._extract_matching_event(packet_bytes, EventCode.COMMAND_STATUS)
-        if event is None:
+        event = HciMatchers._extract_matching_event(packet_bytes, hci.EventCode.COMMAND_STATUS)
+        if not isinstance(event, hci.CommandStatus):
             return None
-        complete = hci_packets.CommandStatusView(event)
-        if opcode is None or complete is None:
-            return complete
-        else:
-            if complete.GetCommandOpCode() != opcode:
-                return None
-            else:
-                return complete
+        if opcode and event.command_op_code != opcode:
+            return None
+        return event
 
     @staticmethod
     def EventWithCode(event_code):
@@ -95,12 +87,13 @@ class HciMatchers(object):
 
     @staticmethod
     def _extract_matching_event(packet_bytes, event_code):
-        event = hci_packets.EventView(bt_packets.PacketViewLittleEndian(list(packet_bytes)))
-        if event is None:
+        try:
+            event = hci.Event.parse_all(packet_bytes)
+            return event if event.event_code == event_code else None
+        except Exception as exn:
+            print(sys.stderr, f"Failed to parse incoming event: {exn}")
+            print(sys.stderr, f"Event data: {' '.join([f'{b:02x}' for b in packet_bytes])}")
             return None
-        if event_code is not None and event.GetEventCode() != event_code:
-            return None
-        return event
 
     @staticmethod
     def LeEventWithCode(subevent_code):
@@ -112,13 +105,39 @@ class HciMatchers(object):
 
     @staticmethod
     def _extract_matching_le_event(packet_bytes, subevent_code):
-        inner_event = HciMatchers._extract_matching_event(packet_bytes, hci_packets.EventCode.LE_META_EVENT)
-        if inner_event is None:
+        event = HciMatchers._extract_matching_event(packet_bytes, hci.EventCode.LE_META_EVENT)
+        if (not isinstance(event, hci.LeMetaEvent) or event.subevent_code != subevent_code):
             return None
-        event = hci_packets.LeMetaEventView(inner_event)
-        if event.GetSubeventCode() != subevent_code:
-            return None
+
         return event
+
+    @staticmethod
+    def LeAdvertisement(subevent_code=hci.SubeventCode.EXTENDED_ADVERTISING_REPORT, address=None, data=None):
+        return lambda msg: HciMatchers._extract_matching_le_advertisement(msg.payload, subevent_code, address, data
+                                                                         ) is not None
+
+    @staticmethod
+    def ExtractLeAdvertisement(packet_bytes,
+                               subevent_code=hci.SubeventCode.EXTENDED_ADVERTISING_REPORT,
+                               address=None,
+                               data=None):
+        return HciMatchers._extract_matching_le_advertisement(packet_bytes, subevent_code, address, data)
+
+    @staticmethod
+    def _extract_matching_le_advertisement(packet_bytes,
+                                           subevent_code=hci.SubeventCode.EXTENDED_ADVERTISING_REPORT,
+                                           address=None,
+                                           data=None):
+        event = HciMatchers._extract_matching_le_event(packet_bytes, subevent_code)
+        if event is None:
+            return None
+
+        matched = False
+        for response in event.responses:
+            matched |= (address == None or response.address == bluetooth.Address(address)) and (data == None or
+                                                                                                data in packet_bytes)
+
+        return event if matched else None
 
     @staticmethod
     def LeConnectionComplete():
@@ -130,80 +149,75 @@ class HciMatchers(object):
 
     @staticmethod
     def _extract_le_connection_complete(packet_bytes):
-        inner_event = HciMatchers._extract_matching_le_event(packet_bytes, hci_packets.SubeventCode.CONNECTION_COMPLETE)
-        if inner_event is not None:
-            return hci_packets.LeConnectionCompleteView(inner_event)
+        event = HciMatchers._extract_matching_le_event(packet_bytes, hci.SubeventCode.CONNECTION_COMPLETE)
+        if event is not None:
+            return event
 
-        inner_event = HciMatchers._extract_matching_le_event(packet_bytes,
-                                                             hci_packets.SubeventCode.ENHANCED_CONNECTION_COMPLETE)
-        if inner_event is not None:
-            return hci_packets.LeEnhancedConnectionCompleteView(inner_event)
-
-        return None
+        return HciMatchers._extract_matching_le_event(packet_bytes, hci.SubeventCode.ENHANCED_CONNECTION_COMPLETE)
 
     @staticmethod
     def LogEventCode():
-        return lambda event: logging.info("Received event: %x" % hci_packets.EventView(bt_packets.PacketViewLittleEndian(list(event.payload))).GetEventCode())
+        return lambda event: logging.info("Received event: %x" % hci.Event.parse(event.payload).event_code)
 
     @staticmethod
     def LinkKeyRequest():
-        return lambda event: HciMatchers.EventWithCode(EventCode.LINK_KEY_REQUEST)
+        return HciMatchers.EventWithCode(hci.EventCode.LINK_KEY_REQUEST)
 
     @staticmethod
     def IoCapabilityRequest():
-        return lambda event: HciMatchers.EventWithCode(EventCode.IO_CAPABILITY_REQUEST)
+        return HciMatchers.EventWithCode(hci.EventCode.IO_CAPABILITY_REQUEST)
 
     @staticmethod
     def IoCapabilityResponse():
-        return lambda event: HciMatchers.EventWithCode(EventCode.IO_CAPABILITY_RESPONSE)
+        return HciMatchers.EventWithCode(hci.EventCode.IO_CAPABILITY_RESPONSE)
 
     @staticmethod
     def UserPasskeyNotification():
-        return lambda event: HciMatchers.EventWithCode(EventCode.USER_PASSKEY_NOTIFICATION)
+        return HciMatchers.EventWithCode(hci.EventCode.USER_PASSKEY_NOTIFICATION)
 
     @staticmethod
     def UserPasskeyRequest():
-        return lambda event: HciMatchers.EventWithCode(EventCode.USER_PASSKEY_REQUEST)
+        return HciMatchers.EventWithCode(hci.EventCode.USER_PASSKEY_REQUEST)
 
     @staticmethod
     def UserConfirmationRequest():
-        return lambda event: HciMatchers.EventWithCode(EventCode.USER_CONFIRMATION_REQUEST)
+        return HciMatchers.EventWithCode(hci.EventCode.USER_CONFIRMATION_REQUEST)
 
     @staticmethod
     def RemoteHostSupportedFeaturesNotification():
-        return lambda event: HciMatchers.EventWithCode(EventCode.REMOTE_HOST_SUPPORTED_FEATURES_NOTIFICATION)
+        return HciMatchers.EventWithCode(hci.EventCode.REMOTE_HOST_SUPPORTED_FEATURES_NOTIFICATION)
 
     @staticmethod
     def LinkKeyNotification():
-        return lambda event: HciMatchers.EventWithCode(EventCode.LINK_KEY_NOTIFICATION)
+        return HciMatchers.EventWithCode(hci.EventCode.LINK_KEY_NOTIFICATION)
 
     @staticmethod
     def SimplePairingComplete():
-        return lambda event: HciMatchers.EventWithCode(EventCode.SIMPLE_PAIRING_COMPLETE)
+        return HciMatchers.EventWithCode(hci.EventCode.SIMPLE_PAIRING_COMPLETE)
 
     @staticmethod
     def Disconnect():
-        return lambda event: HciMatchers.EventWithCode(EventCode.DISCONNECT)
+        return HciMatchers.EventWithCode(hci.EventCode.DISCONNECT)
 
     @staticmethod
     def DisconnectionComplete():
-        return lambda event: HciMatchers.EventWithCode(EventCode.DISCONNECTION_COMPLETE)
+        return HciMatchers.EventWithCode(hci.EventCode.DISCONNECTION_COMPLETE)
 
     @staticmethod
     def RemoteOobDataRequest():
-        return lambda event: HciMatchers.EventWithCode(EventCode.REMOTE_OOB_DATA_REQUEST)
+        return HciMatchers.EventWithCode(hci.EventCode.REMOTE_OOB_DATA_REQUEST)
 
     @staticmethod
     def PinCodeRequest():
-        return lambda event: HciMatchers.EventWithCode(EventCode.PIN_CODE_REQUEST)
+        return HciMatchers.EventWithCode(hci.EventCode.PIN_CODE_REQUEST)
 
     @staticmethod
     def LoopbackOf(packet):
-        return HciMatchers.Exactly(hci_packets.LoopbackCommandBuilder(packet))
+        return HciMatchers.Exactly(hci.LoopbackCommand(payload=packet))
 
     @staticmethod
     def Exactly(packet):
-        data = bytes(packet.Serialize())
+        data = bytes(packet.serialize())
         return lambda event: data == event.payload
 
 
@@ -236,14 +250,10 @@ class NeighborMatchers(object):
 
     @staticmethod
     def _is_matching_inquiry_result(packet, address):
-        hci_event = HciMatchers.ExtractEventWithCode(packet, EventCode.INQUIRY_RESULT)
-        if hci_event is None:
+        event = HciMatchers.ExtractEventWithCode(packet, hci.EventCode.INQUIRY_RESULT)
+        if not isinstance(event, hci.InquiryResult):
             return False
-        inquiry_view = hci_packets.InquiryResultView(hci_event)
-        if inquiry_view is None:
-            return False
-        results = inquiry_view.GetResponses()
-        return any((address == result.bd_addr for result in results))
+        return any((bluetooth.Address(address) == response.bd_addr for response in event.responses))
 
     @staticmethod
     def InquiryResultwithRssi(address):
@@ -251,14 +261,10 @@ class NeighborMatchers(object):
 
     @staticmethod
     def _is_matching_inquiry_result_with_rssi(packet, address):
-        hci_event = HciMatchers.ExtractEventWithCode(packet, EventCode.INQUIRY_RESULT_WITH_RSSI)
-        if hci_event is None:
+        event = HciMatchers.ExtractEventWithCode(packet, hci.EventCode.INQUIRY_RESULT_WITH_RSSI)
+        if not isinstance(event, hci.InquiryResultWithRssi):
             return False
-        inquiry_view = hci_packets.InquiryResultWithRssiView(hci_event)
-        if inquiry_view is None:
-            return False
-        results = inquiry_view.GetResponses()
-        return any((address == result.address for result in results))
+        return any((bluetooth.Address(address) == response.address for response in event.responses))
 
     @staticmethod
     def ExtendedInquiryResult(address):
@@ -266,13 +272,10 @@ class NeighborMatchers(object):
 
     @staticmethod
     def _is_matching_extended_inquiry_result(packet, address):
-        hci_event = HciMatchers.ExtractEventWithCode(packet, EventCode.EXTENDED_INQUIRY_RESULT)
-        if hci_event is None:
+        event = HciMatchers.ExtractEventWithCode(packet, hci.EventCode.EXTENDED_INQUIRY_RESULT)
+        if not isinstance(event, (hci.ExtendedInquiryResult, hci.ExtendedInquiryResultRaw)):
             return False
-        extended_view = hci_packets.ExtendedInquiryResultView(hci_event)
-        if extended_view is None:
-            return False
-        return address == extended_view.GetAddress()
+        return bluetooth.Address(address) == event.address
 
 
 class L2capMatchers(object):
@@ -727,15 +730,18 @@ class SecurityMatchers(object):
 
     @staticmethod
     def UiMsg(type, address=None):
-        return lambda event: True if event.message_type == type and (address == None or address == event.peer) else False
+        return lambda event: True if event.message_type == type and (address == None or address == event.peer
+                                                                    ) else False
 
     @staticmethod
     def BondMsg(type, address=None, reason=None):
-        return lambda event: True if event.message_type == type and (address == None or address == event.peer) and (reason == None or reason == event.reason) else False
+        return lambda event: True if event.message_type == type and (address == None or address == event.peer) and (
+            reason == None or reason == event.reason) else False
 
     @staticmethod
     def HelperMsg(type, address=None):
-        return lambda event: True if event.message_type == type and (address == None or address == event.peer) else False
+        return lambda event: True if event.message_type == type and (address == None or address == event.peer
+                                                                    ) else False
 
 
 class IsoMatchers(object):

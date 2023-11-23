@@ -447,7 +447,7 @@ public class NetworkSuggestionStoreDataTest extends WifiBaseTest {
 
         // Old format with empty suggestion
         String preRFormatXml = String.format(
-                TEST_PRE_R_APP_WITH_EMPTY_SUGGESTION, TEST_PACKAGE_NAME_1, TEST_UID_1);
+                TEST_PRE_R_APP_WITH_EMPTY_SUGGESTION, TEST_PACKAGE_NAME_1);
         deserializeData(preRFormatXml.getBytes());
 
         // New format with empty suggestion
@@ -525,11 +525,6 @@ public class NetworkSuggestionStoreDataTest extends WifiBaseTest {
         homeSp.setFqdn(fqdn);
         homeSp.setFriendlyName(friendlyName);
         config.setHomeSp(homeSp);
-        Map<String, String> friendlyNames = new HashMap<>();
-        friendlyNames.put("en", friendlyName);
-        friendlyNames.put("kr", friendlyName + 1);
-        friendlyNames.put("jp", friendlyName + 2);
-        config.setServiceFriendlyNames(friendlyNames);
         Credential credential = new Credential();
         credential.setRealm(TEST_REALM);
         credential.setCaCertificate(FakeKeys.CA_CERT0);

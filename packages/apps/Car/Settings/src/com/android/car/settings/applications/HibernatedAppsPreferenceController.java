@@ -47,7 +47,7 @@ public final class HibernatedAppsPreferenceController extends PreferenceControll
     }
 
     @Override
-    public int getAvailabilityStatus() {
+    public int getDefaultAvailabilityStatus() {
         return isHibernationEnabled() ? AVAILABLE : CONDITIONALLY_UNAVAILABLE;
     }
 

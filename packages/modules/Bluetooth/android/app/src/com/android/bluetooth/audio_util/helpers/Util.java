@@ -18,11 +18,9 @@ package com.android.bluetooth.audio_util;
 
 import android.content.Context;
 import android.content.pm.PackageManager;
-import android.media.MediaDescription;
 import android.media.MediaMetadata;
 import android.media.browse.MediaBrowser.MediaItem;
 import android.media.session.MediaSession;
-import android.os.Bundle;
 import android.util.Log;
 
 import com.android.bluetooth.R;
@@ -52,7 +50,9 @@ class Util {
      */
     public static final boolean isEmptyData(Metadata data) {
         if (data == null) return true;
-        return (empty_data().equals(data) && data.mediaId.equals("Not Provided"));
+        // Note: We need both equals() and an explicit media id check because equals() does
+        // not check for the media ID.
+        return (empty_data().equals(data) && data.mediaId.equals(Metadata.EMPTY_MEDIA_ID));
     }
 
     /**
@@ -63,40 +63,6 @@ class Util {
     public static boolean areUriImagesSupported(Context context) {
         if (context == null) return false;
         return context.getResources().getBoolean(R.bool.avrcp_target_cover_art_uri_images);
-    }
-
-    /**
-     * Translate a bundle of MediaMetadata keys to audio_util's Metadata
-     */
-    public static Metadata toMetadata(Context context, Bundle bundle) {
-        Metadata.Builder builder = new Metadata.Builder();
-        try {
-            return builder.useContext(context).useDefaults().fromBundle(bundle).build();
-        } catch (Exception e) {
-            Log.e(TAG, "Failed to build Metadata from Bundle, returning empty data", e);
-            return empty_data();
-        }
-    }
-
-    /**
-     * Translate a MediaDescription to audio_util's Metadata
-     */
-    public static Metadata toMetadata(Context context, MediaDescription desc) {
-        // Find GPM_KEY data if it exists
-        MediaMetadata data = null;
-        Bundle extras = (desc != null ? desc.getExtras() : null);
-        if (extras != null && extras.containsKey(GPM_KEY)) {
-            data = (MediaMetadata) extras.get(GPM_KEY);
-        }
-
-        Metadata.Builder builder = new Metadata.Builder();
-        try {
-            return builder.useContext(context).useDefaults().fromMediaDescription(desc)
-                    .fromMediaMetadata(data).build();
-        } catch (Exception e) {
-            Log.e(TAG, "Failed to build Metadata from MediaDescription, returning empty data", e);
-            return empty_data();
-        }
     }
 
     /**

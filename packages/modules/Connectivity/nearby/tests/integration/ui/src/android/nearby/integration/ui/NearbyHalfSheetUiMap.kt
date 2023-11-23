@@ -25,13 +25,13 @@ import android.util.Log
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.uiautomator.By
 import androidx.test.uiautomator.BySelector
-import com.android.server.nearby.fastpair.FastPairManager
 import com.android.server.nearby.util.Environment
 import com.google.common.truth.Truth.assertThat
 
 /** UiMap for Nearby Mainline Half Sheet. */
 object NearbyHalfSheetUiMap {
     private val PACKAGE_NAME: String = getHalfSheetApkPkgName()
+    private const val ACTION_RESOURCES_APK = "android.nearby.SHOW_HALFSHEET"
     private const val ANDROID_WIDGET_BUTTON = "android.widget.Button"
     private const val ANDROID_WIDGET_IMAGE_VIEW = "android.widget.ImageView"
     private const val ANDROID_WIDGET_TEXT_VIEW = "android.widget.TextView"
@@ -54,8 +54,7 @@ object NearbyHalfSheetUiMap {
     fun getHalfSheetApkPkgName(): String {
         val appContext = ApplicationProvider.getApplicationContext<Context>()
         val resolveInfos: MutableList<ResolveInfo> =
-            appContext.packageManager.queryIntentActivities(
-                Intent(FastPairManager.ACTION_RESOURCES_APK),
+            appContext.packageManager.queryIntentActivities(Intent(ACTION_RESOURCES_APK),
                 ResolveInfoFlags.of(MATCH_SYSTEM_ONLY.toLong())
             )
 

@@ -33,6 +33,8 @@ import com.android.managedprovisioning.common.Utils;
 import com.android.managedprovisioning.model.DisclaimersParam;
 import com.android.managedprovisioning.model.ProvisioningParams;
 
+import com.google.android.setupdesign.util.DeviceHelper;
+
 import java.io.File;
 import java.io.IOException;
 import java.lang.annotation.Retention;
@@ -100,12 +102,18 @@ public class TermsProvider {
      */
     public TermsDocument getGeneralDisclaimer() {
         int provisioningCase = determineProvisioningCase(mParams);
-        String heading = mContext.getString(provisioningCase == ProvisioningCase.PROFILE_OWNER
-                ? R.string.work_profile_info
-                : R.string.managed_device_info);
-        String content = mContext.getString(provisioningCase == ProvisioningCase.PROFILE_OWNER
-                ? R.string.admin_has_ability_to_monitor_profile
-                : R.string.admin_has_ability_to_monitor_device);
+        CharSequence deviceName = DeviceHelper.getDeviceName(mContext);
+        String heading =
+                mContext.getString(
+                        provisioningCase == ProvisioningCase.PROFILE_OWNER
+                                ? R.string.work_profile_info
+                                : R.string.managed_device_info);
+        String content =
+                mContext.getString(
+                        provisioningCase == ProvisioningCase.PROFILE_OWNER
+                                ? R.string.admin_has_ability_to_monitor_profile
+                                : R.string.admin_has_ability_to_monitor_device,
+                        deviceName);
         return TermsDocument.createInstance(heading, content);
     }
 

@@ -32,16 +32,14 @@ import com.android.internal.annotations.VisibleForTesting;
  */
 public class GarageModeService implements CarServiceBase {
 
-    private final Context mContext;
     private final Controller mController;
 
     public GarageModeService(Context context) {
-        this(context, null);
+        this(context, /* controller= */ null);
     }
 
     @VisibleForTesting
     protected GarageModeService(Context context, Controller controller) {
-        mContext = context;
         mController = (controller != null ? controller
                 : new Controller(context, Looper.myLooper()));
     }

@@ -59,6 +59,9 @@ size_t read(uint8_t* p_buf, uint32_t len);
 // Update A2DP delay report to BluetoothAudio HAL
 void set_remote_delay(uint16_t delay_report);
 
+// Check whether OPUS is supported
+bool is_opus_supported();
+
 }  // namespace a2dp
 }  // namespace audio
 }  // namespace bluetooth

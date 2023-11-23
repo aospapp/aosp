@@ -38,7 +38,7 @@
     <string name="fully_managed_device_provisioning_summary" msgid="4323948058344613817">"የእርስዎን የሥራ መተግበሪያዎች በቀላሉ ለመድረስ ይህን የኢንፎቴይንመንት ስርዓት ይጠቀሙ። ይህ ተሽከርካሪ የግል አይደለም፣ ስለዚህ የድርጅቱ አስተዳዳሪ የእርስዎን ውሂብ እና እንቅስቃሴ ማየት ሊችሉ ይችላሉ።"</string>
     <string name="fully_managed_device_provisioning_progress_label" msgid="988594700479673633">"የሚተዳደር ተሽከርካሪን በማቀናበር ላይ"</string>
     <string name="fully_managed_device_provisioning_return_device_title" msgid="1578111657911434819">"ማዋቀር ይሰርዙ እና ተሽከርካሪውን ይመለሱ"</string>
-    <string name="fully_managed_device_provisioning_return_device_subheader" msgid="5809488930429106172">"ይህን ተሽከርካሪ ዳግም ያስጀምሩትና ወደ የድርጅት አስተዳዳሪው ይመልሱት ወይም ማዋቀሩን ለመቀጠል ወደ ቀዳሚው ማያ ገጽ ይመለሱ።"</string>
+    <string name="fully_managed_device_provisioning_return_device_subheader" msgid="5809488930429106172">"ይህን ተሽከርካሪ ዳግም ያስጀምሩትና ወደ የድርጅት አስተዳዳሪው ይመልሱት ወይም ማዋቀሩን ለመቀጠል ወደ ቀዳሚው ማያ ገፅ ይመለሱ።"</string>
     <string name="fully_managed_device_cancel_setup_button" msgid="4113790677940440998">"ማዋቀር ይቅር"</string>
     <string name="fully_managed_device_reset_and_return_button" msgid="4951274590516561428">"ዳግም አስጀምር እና ተመለስ"</string>
     <string name="fully_managed_device_provisioning_privacy_title" msgid="4789425994893472324">"የግላዊነት ማስታወቂያ"</string>

@@ -29,6 +29,7 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:clipToPadding="false"
+        android:clipChildren="false"
         android:paddingTop="@dimen/wallpaper_grid_padding_top"
         android:scrollbarSize="@dimen/grid_padding"
         android:scrollbarStyle="outsideOverlay"

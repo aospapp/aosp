@@ -35,10 +35,8 @@ import com.android.managedprovisioning.model.ProvisioningParams;
  * The first activity shown during provisioning.
  */
 public final class CarLandingActivity extends LandingActivity {
-    private static final int ADMIN_INTEGRATED_FLOW_PREPARE_REQUEST_CODE = 1;
 
     private final AccessibilityContextMenuMaker mContextMenuMaker;
-    private LandingActivityBridge mBridge;
     private ProvisioningParams mParams;
     private CarSetupWizardLayoutHelper mLayoutHelper;
 

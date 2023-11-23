@@ -18,7 +18,7 @@
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="phoneAppLabel" product="tablet" msgid="1916019789885839910">"موبائل ڈیٹا"</string>
     <string name="phoneAppLabel" product="default" msgid="130465039375347763">"فون سروسز"</string>
-    <string name="emergencyDialerIconLabel" msgid="8668005772339436680">"ہنگامی ڈائلر"</string>
+    <string name="emergencyDialerIconLabel" msgid="8668005772339436680">"ایمرجنسی ڈائلر"</string>
     <string name="phoneIconLabel" msgid="3015941229249651419">"فون"</string>
     <string name="fdnListLabel" msgid="4119121875004244097">"‏FDN کی فہرست"</string>
     <string name="unknown" msgid="8279698889921830815">"نامعلوم"</string>
@@ -84,7 +84,7 @@
     <string name="smart_forwarding_settings_menu" msgid="8850429887958938540">"اسمارٹ فارورڈنگ"</string>
     <string name="smart_forwarding_settings_menu_summary" msgid="5096947726032885325">"ایک نمبر کے قابل رسائی نہ ہونے کی صورت میں کالز کو ہمیشہ دوسرے نمبر پر فارورڈ کریں"</string>
     <string name="voicemail_notifications_preference_title" msgid="7829238858063382977">"اطلاعات"</string>
-    <string name="cell_broadcast_settings" msgid="8135324242541809924">"ہنگامی براڈکاسٹس"</string>
+    <string name="cell_broadcast_settings" msgid="8135324242541809924">"ایمرجنسی براڈکاسٹس"</string>
     <string name="call_settings" msgid="3677282690157603818">"کال کی ترتیبات"</string>
     <string name="additional_gsm_call_settings" msgid="1561980168685658846">"اضافی ترتیبات"</string>
     <string name="additional_gsm_call_settings_with_label" msgid="7973920539979524908">"اضافی ترتیبات (<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
@@ -133,6 +133,7 @@
     <string name="cdma_call_waiting_in_ims_off" msgid="1099246114368636334">"‏IMS آف کے تحت CDMA کال کا انتظار کرنا"</string>
     <string name="updating_title" msgid="6130548922615719689">"کال کی ترتیبات"</string>
     <string name="call_settings_admin_user_only" msgid="7238947387649986286">"صرف منتظم صارف ہی کال کی ترتیبات تبدیل کر سکتا ہے۔"</string>
+    <string name="phone_account_settings_user_restriction" msgid="9142685151087208396">"صرف منتظم یا دفتر کا صارف ہی فون کے اکاؤنٹ کی ترتیبات تبدیل کر سکتا ہے۔"</string>
     <string name="call_settings_with_label" msgid="8460230435361579511">"ترتیبات (<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
     <string name="error_updating_title" msgid="2024290892676808965">"کال کی ترتیبات کی خرابی"</string>
     <string name="reading_settings" msgid="1605904432450871183">"ترتیبات کو پڑھ رہا ہے…"</string>
@@ -329,9 +330,9 @@
     <string name="cell_bc_sms_enable" msgid="2019708772024632073">"‏سیل نشریہ SMS فعال ہوگیا"</string>
     <string name="cell_bc_sms_disable" msgid="1214238639910875347">"‏سیل نشریہ SMS غیر فعال ہوگیا"</string>
     <string name="cb_sms_settings" msgid="6858093721831312036">"‏سیل نشریہ SMS کی ترتیبات"</string>
-    <string name="enable_disable_emergency_broadcast" msgid="6325655044472196496">"ہنگامی نشریہ"</string>
-    <string name="emergency_broadcast_enable" msgid="5759610647771102442">"ہنگامی نشریہ فعال ہوگیا"</string>
-    <string name="emergency_broadcast_disable" msgid="2844904734469323266">"ہنگامی نشریہ غیر فعال ہوگیا"</string>
+    <string name="enable_disable_emergency_broadcast" msgid="6325655044472196496">"ایمرجنسی نشریہ"</string>
+    <string name="emergency_broadcast_enable" msgid="5759610647771102442">"ایمرجنسی نشریہ فعال ہوگیا"</string>
+    <string name="emergency_broadcast_disable" msgid="2844904734469323266">"ایمرجنسی نشریہ غیر فعال ہوگیا"</string>
     <string name="enable_disable_administrative" msgid="7825925366822117961">"انتظامی"</string>
     <string name="administrative_enable" msgid="5717963431079532028">"انتظامی فعال ہوگیا"</string>
     <string name="administrative_disable" msgid="156796633660118691">"انتظامی غیر فعال ہوگیا"</string>
@@ -537,8 +538,8 @@
     <string name="incall_error_power_off" product="watch" msgid="7191184639454113633">"کال کرنے کیل‏ئے موبائل نیٹ ورک آن کریں، ہوائی جہاز موڈ یا بیٹری سیور موڈ آف کریں۔"</string>
     <string name="incall_error_power_off" product="default" msgid="8131672264311208673">"کال کرنے کیلئے ہوائی جہاز وضع آف کریں۔"</string>
     <string name="incall_error_power_off_wfc" msgid="9125661184694727052">"کال کرنے کیلئے ہوائی جہاز وضع آف کریں یا کسی وائرلیس نیٹ ورک سے منسلک ہوں۔"</string>
-    <string name="incall_error_power_off_thermal" product="default" msgid="8695809601655300168"><b>"فون بہت گرم ہے"</b>\n\n"اس کال کو مکمل نہیں کیا جا سکتا۔ جب آپ کا فون ٹھنڈا ہو جائے تو دوبارہ کوشش کریں۔\n\nآپ اب بھی ہنگامی کالز کر سکتے ہیں۔"</string>
-    <string name="incall_error_ecm_emergency_only" msgid="5622379058883722080">"غیر ہنگامی کال کرنے کیلئے ہنگامی کال بیک موڈ سے اخراج کریں۔"</string>
+    <string name="incall_error_power_off_thermal" product="default" msgid="8695809601655300168"><b>"فون بہت گرم ہے"</b>\n\n"اس کال کو مکمل نہیں کیا جا سکتا۔ جب آپ کا فون ٹھنڈا ہو جائے تو دوبارہ کوشش کریں۔\n\nآپ اب بھی ایمرجنسی کالز کر سکتے ہیں۔"</string>
+    <string name="incall_error_ecm_emergency_only" msgid="5622379058883722080">"غیر ایمرجنسی کال کرنے کیلئے ایمرجنسی کال بیک موڈ سے اخراج کریں۔"</string>
     <string name="incall_error_emergency_only" msgid="8786127461027964653">"نیٹ ورک پر رجسٹرڈ نہیں ہے۔"</string>
     <string name="incall_error_out_of_service" msgid="1927265196942672791">"موبائل نیٹ ورک دستیاب نہیں ہے۔"</string>
     <string name="incall_error_out_of_service_wfc" msgid="4497663185857190885">"موبائل نیٹ ورک دستیاب نہیں ہے۔ کال کرنے کیلئے کسی وائرلیس نیٹ ورک سے منسلک ہوں۔"</string>
@@ -556,19 +557,20 @@
     <string name="incall_error_supp_service_hold" msgid="8535056414643540997">"کالز کو ہولڈ نہیں کیا جا سکتا۔"</string>
     <string name="incall_error_wfc_only_no_wireless_network" msgid="5860742792811400109">"کال کرنے کیلئے کسی وائرلیس نیٹ ورک سے منسلک ہوں۔"</string>
     <string name="incall_error_promote_wfc" msgid="9164896813931363415">"‏کال کرنے کیلئے Wi-Fi کالنگ فعال کریں۔"</string>
-    <string name="emergency_information_hint" msgid="9208897544917793012">"ہنگامی معلومات"</string>
+    <string name="incall_error_satellite_enabled" msgid="1936541518147323016">"کال کرنے کیلئے سیٹلائٹ موڈ کو غیرفعال کریں"</string>
+    <string name="emergency_information_hint" msgid="9208897544917793012">"ایمرجنسی معلومات"</string>
     <string name="emergency_information_owner_hint" msgid="6256909888049185316">"مالک"</string>
     <string name="emergency_information_confirm_hint" msgid="5109017615894918914">"معلومات دیکھنے کیلئے دوبارہ تھپتھپائیں"</string>
-    <string name="emergency_enable_radio_dialog_title" msgid="2667568200755388829">"ہنگامی کال"</string>
+    <string name="emergency_enable_radio_dialog_title" msgid="2667568200755388829">"ایمرجنسی کال"</string>
     <string name="single_emergency_number_title" msgid="8413371079579067196">"ایمرجنسی نمبر"</string>
     <string name="numerous_emergency_numbers_title" msgid="8972398932506755510">"ایمرجنسی نمبرز"</string>
     <string name="emergency_call_shortcut_hint" msgid="1290485125107779500">"<xliff:g id="EMERGENCY_NUMBER">%s</xliff:g> کو کال کرنے کے لئے دوبارہ تھپتھپائيں"</string>
     <string name="emergency_enable_radio_dialog_message" msgid="1695305158151408629">"ریڈیو آن کر رہا ہے…"</string>
     <string name="emergency_enable_radio_dialog_retry" msgid="4329131876852608587">"کوئی سروس نہیں ہے۔ دوبارہ کوشش کی جا رہی ہے…"</string>
-    <string name="radio_off_during_emergency_call" msgid="8011154134040481609">"ہنگامی کال کے دوران ہوائی جہاز موڈ میں داخل نہیں ہو سکتا۔"</string>
-    <string name="dial_emergency_error" msgid="825822413209026039">"کال نہیں کی جا سکتی۔ <xliff:g id="NON_EMERGENCY_NUMBER">%s</xliff:g> ایک ہنگامی نمبر نہیں ہے۔"</string>
-    <string name="dial_emergency_empty_error" msgid="2785803395047793634">"کال نہیں کی جا سکتی۔ ایک ہنگامی نمبر ڈائل کریں۔"</string>
-    <string name="dial_emergency_calling_not_available" msgid="6485846193794727823">"ہنگامی کالنگ دستیاب نہیں ہے"</string>
+    <string name="radio_off_during_emergency_call" msgid="8011154134040481609">"ایمرجنسی کال کے دوران ہوائی جہاز موڈ میں داخل نہیں ہو سکتا۔"</string>
+    <string name="dial_emergency_error" msgid="825822413209026039">"کال نہیں کی جا سکتی۔ <xliff:g id="NON_EMERGENCY_NUMBER">%s</xliff:g> ایک ایمرجنسی نمبر نہیں ہے۔"</string>
+    <string name="dial_emergency_empty_error" msgid="2785803395047793634">"کال نہیں کی جا سکتی۔ ایک ایمرجنسی نمبر ڈائل کریں۔"</string>
+    <string name="dial_emergency_calling_not_available" msgid="6485846193794727823">"ایمرجنسی کالنگ دستیاب نہیں ہے"</string>
     <string name="pin_puk_system_user_only" msgid="1045147220686867922">"‏صرف آلہ کا مالک ہی PIN/PUK کوڈ درج کرسکتا ہے۔"</string>
     <string name="police_type_description" msgid="2819533883972081757">"پولیس"</string>
     <string name="ambulance_type_description" msgid="6798237503553180461">"ایمبولینس"</string>
@@ -633,18 +635,18 @@
     <string name="ota_try_again" msgid="6914781945599998550">"دوبارہ کوشش کریں"</string>
     <string name="ota_next" msgid="2041016619313475914">"اگلا"</string>
     <string name="ecm_exit_dialog" msgid="4200691880721429078">"EcmExitDialog"</string>
-    <string name="phone_entered_ecm_text" msgid="8431238297843035842">"ہنگامی کال بیک طرز میں داخل ہو گیا"</string>
-    <string name="phone_in_ecm_notification_title" msgid="6825016389926367946">"ہنگامی کال بیک طرز"</string>
+    <string name="phone_entered_ecm_text" msgid="8431238297843035842">"ایمرجنسی کال بیک طرز میں داخل ہو گیا"</string>
+    <string name="phone_in_ecm_notification_title" msgid="6825016389926367946">"ایمرجنسی کال بیک طرز"</string>
     <string name="phone_in_ecm_call_notification_text" msgid="653972232922670335">"ڈیٹا کنکشن غیر فعال ہوگیا"</string>
     <string name="phone_in_ecm_notification_complete_time" msgid="7341624337163082759">"<xliff:g id="COMPLETETIME">%s</xliff:g> تک کوئی ڈیٹا کنکشن نہیں"</string>
     <string name="alert_dialog_exit_ecm" msgid="7661603870224398025">"{count,plural, =1{فون ایک منٹ تک ایمرجنسی کال بیک وضع میں رہے گا۔ اس وضع میں رہتے ہوئے ڈیٹا کنکشن کا استعمال کرنے والی کوئی بھی ایپ استعمال نہیں ہو سکتی۔ کیا آپ ابھی باہر نکلنا چاہتے ہیں؟}other{‏فون ‎%s منٹ تک ایمرجنسی کال بیک وضع میں رہے گا۔ اس وضع میں رہتے ہوئے ڈیٹا کنکشن کا استعمال کرنے والی کوئی بھی ایپلیکیشن استعمال نہیں ہو سکتی۔ کیا آپ ابھی باہر نکلنا چاہتے ہیں؟}}"</string>
     <string name="alert_dialog_not_avaialble_in_ecm" msgid="8717711120099503279">"{count,plural, =1{منتخب کردہ کارروائی ایمرجنسی کال بیک وضع میں دستیاب نہیں ہے۔ فون ایک منٹ تک اس وضع میں رہے گا۔ کیا آپ ابھی نکلنا چاہتے ہیں؟}other{‏منتخب کردہ کارروائی ایمرجنسی کال بیک وضع میں دستیاب نہیں ہے۔ فون ‎%s منٹ تک اس وضع میں رہے گا۔ کیا آپ ابھی نکلنا چاہتے ہیں؟}}"</string>
-    <string name="alert_dialog_in_ecm_call" msgid="1207545603149771978">"منتخب کردہ کارروائی ایک ہنگامی کال میں رہتے ہوئے دستیاب نہیں ہے۔"</string>
-    <string name="progress_dialog_exiting_ecm" msgid="9159080081676927217">"موجودہ ہنگامی کال بیک طرز"</string>
+    <string name="alert_dialog_in_ecm_call" msgid="1207545603149771978">"منتخب کردہ کارروائی ایک ایمرجنسی کال میں رہتے ہوئے دستیاب نہیں ہے۔"</string>
+    <string name="progress_dialog_exiting_ecm" msgid="9159080081676927217">"موجودہ ایمرجنسی کال بیک طرز"</string>
     <string name="alert_dialog_yes" msgid="3532525979632841417">"ہاں"</string>
     <string name="alert_dialog_no" msgid="1075632654085988420">"نہیں"</string>
     <string name="alert_dialog_dismiss" msgid="1336356286354517054">"کالعدم کریں"</string>
-    <string name="phone_in_ecm_call_notification_text_without_data_restriction_hint" msgid="3747860785153531225">"فون ہنگامی کال بیک وضع میں ہے"</string>
+    <string name="phone_in_ecm_call_notification_text_without_data_restriction_hint" msgid="3747860785153531225">"فون ایمرجنسی کال بیک وضع میں ہے"</string>
     <string name="phone_in_ecm_notification_complete_time_without_data_restriction_hint" msgid="3690292264812050858">"<xliff:g id="COMPLETETIME">%s</xliff:g> تک"</string>
     <string name="alert_dialog_exit_ecm_without_data_restriction_hint" msgid="7549850847524907932">"{count,plural, =1{فون ایک منٹ تک ایمرجنسی کال بیک وضع میں رہے گا۔\nکیا آپ ابھی باہر نکلنا چاہتے ہیں؟}other{‏فون ‎%s منٹ تک ایمرجنسی کال بیک وضع میں رہے گا۔\nکیا آپ ابھی باہر نکلنا چاہتے ہیں؟}}"</string>
     <string name="voicemail_provider" msgid="4158806657253745294">"سروس"</string>
@@ -668,8 +670,8 @@
     <string name="enable_video_calling_dialog_msg" msgid="7141478720386203540">"‏ویڈیو کالنگ کو آن کرنے کیلئے، آپ کیلئے نیٹ ورک ترتیبات میں Enhanced 4G LTE وضع فعال کرنا ضروری ہے۔"</string>
     <string name="enable_video_calling_dialog_settings" msgid="8697890611305307110">"نیٹ ورک کی ترتیبات"</string>
     <string name="enable_video_calling_dialog_close" msgid="4298929725917045270">"بند کریں"</string>
-    <string name="sim_label_emergency_calls" msgid="9078241989421522310">"ہنگامی کالز"</string>
-    <string name="sim_description_emergency_calls" msgid="5146872803938897296">"صرف ہنگامی کالنگ"</string>
+    <string name="sim_label_emergency_calls" msgid="9078241989421522310">"ایمرجنسی کالز"</string>
+    <string name="sim_description_emergency_calls" msgid="5146872803938897296">"صرف ایمرجنسی کالنگ"</string>
     <string name="sim_description_default" msgid="7474671114363724971">"‏SIM کارڈ، سلاٹ: <xliff:g id="SLOT_ID">%s</xliff:g>"</string>
     <string name="accessibility_settings_activity_title" msgid="7883415189273700298">"ایکسیسبیلٹی"</string>
     <string name="status_hint_label_incoming_wifi_call" msgid="2606052595898044071">"‏Wi-Fi کال منجانب"</string>
@@ -681,7 +683,7 @@
     <string name="callFailed_wifi_lost" msgid="1788036730589163141">"‏Wi-Fi کنکشن کھو گیا۔ کال ختم ہو گئی۔"</string>
     <string name="dialFailed_low_battery" msgid="6857904237423407056">"کم بیٹری کی وجہ سے آپ کی ویڈیو کال نہیں کی جا سکتی۔"</string>
     <string name="callFailed_low_battery" msgid="4056828320214416182">"کم بیٹری کی وجہ سے ویڈیو کال ختم ہو گئی۔"</string>
-    <string name="callFailed_emergency_call_over_wfc_not_available" msgid="5944309590693432042">"‏اس مقام میں Wi-Fi کالنگ پر ہنگامی کالز دستیاب نہیں ہیں۔"</string>
+    <string name="callFailed_emergency_call_over_wfc_not_available" msgid="5944309590693432042">"‏اس مقام میں Wi-Fi کالنگ پر ایمرجنسی کالز دستیاب نہیں ہیں۔"</string>
     <string name="callFailed_wfc_service_not_available_in_this_location" msgid="3624536608369524988">"‏اس مقام میں Wi-Fi کالنگ دستیاب نہیں ہے۔"</string>
     <string name="change_pin_title" msgid="3564254326626797321">"‏صوتی میل PIN تبدیل کریں"</string>
     <string name="change_pin_continue_label" msgid="5177011752453506371">"جاری رکھیں"</string>
@@ -713,6 +715,7 @@
     <string name="clh_callFailed_powerOff_txt" msgid="8279934912560765361">"ہوائی جہاز وضع آن ہے"</string>
     <string name="clh_callFailed_simError_txt" msgid="5128538525762326413">"‏SIM کارڈ تک رسائی حاصل نہیں ہو رہی"</string>
     <string name="clh_incall_error_out_of_service_txt" msgid="2736010617446749869">"موبائل نیٹ ورک دستیاب نہیں ہے"</string>
+    <string name="clh_callFailed_satelliteEnabled_txt" msgid="1675517238240377396">"سیٹلائٹ موڈ آن ہے"</string>
     <string name="clh_callFailed_unassigned_number_txt" msgid="141967660286695682">"جو فون نمبر آپ ڈائل کرنے کی کوشش کر رہے ہیں اس کے ساتھ مسئلہ ہے۔ خرابی کا کوڈ 1۔"</string>
     <string name="clh_callFailed_no_route_to_destination_txt" msgid="4805015149822352308">"کال مکمل نہیں ہو سکی۔ خرابی کا کوڈ 3۔"</string>
     <string name="clh_callFailed_channel_unacceptable_txt" msgid="4062754579408613021">"کال مکمل نہیں ہو سکی۔ خرابی کا کوڈ 6۔"</string>
@@ -837,6 +840,7 @@
     <string name="dsds_dialog_cancel" msgid="3245958947099586655">"منسوخ کریں"</string>
     <string name="removable_esim_string" msgid="7931369811671787649">"‏ہٹانے لائق eSIM کو بطور ڈیفالٹ سیٹ کریں"</string>
     <string name="radio_info_radio_power" msgid="8805595022160471587">"موبائل ریڈیو پاور"</string>
+    <string name="simulate_out_of_service_string" msgid="7787925611727597193">"\'سروس دستیاب نہیں ہے\' موڈ کو سمیولیٹ کریں (صرف ڈیبگ بلڈ کیلئے)"</string>
     <string name="radioInfo_menu_viewADN" msgid="4533179730908559846">"‏SIM ایڈریس بک دیکھیں"</string>
     <string name="radioInfo_menu_viewFDN" msgid="1847236480527032061">"فکسڈ ڈائلنگ نمبرز دیکھیں"</string>
     <string name="radioInfo_menu_viewSDN" msgid="2613431584522392842">"سروس ڈائلنگ نمبرز دیکھیں"</string>
@@ -849,7 +853,7 @@
     <string name="radio_info_ims_reg_status" msgid="25582845222446390">"‏IMS رجسٹریشن: <xliff:g id="STATUS">%1$s</xliff:g>\nوائس اوور LTE‏: <xliff:g id="AVAILABILITY_0">%2$s</xliff:g>\n‎وائس اوور WiFi‏: <xliff:g id="AVAILABILITY_1">%3$s</xliff:g>\n‎ویڈیو کالنگ: <xliff:g id="AVAILABILITY_2">%4$s</xliff:g>\nUT انٹرفیس: <xliff:g id="AVAILABILITY_3">%5$s</xliff:g>"</string>
     <string name="radioInfo_service_in" msgid="45753418231446400">"سروس میں"</string>
     <string name="radioInfo_service_out" msgid="287972405416142312">"سروس میں نہیں ہے"</string>
-    <string name="radioInfo_service_emergency" msgid="4763879891415016848">"صرف ہنگامی کالیں"</string>
+    <string name="radioInfo_service_emergency" msgid="4763879891415016848">"صرف ایمرجنسی کالیں"</string>
     <string name="radioInfo_service_off" msgid="3456583511226783064">"ریڈیو آف کریں"</string>
     <string name="radioInfo_roaming_in" msgid="3156335577793145965">"رومنگ"</string>
     <string name="radioInfo_roaming_not" msgid="1904547918725478110">"رومنگ میں نہيں"</string>
@@ -861,6 +865,7 @@
     <string name="radioInfo_data_connected" msgid="7637335645634239508">"منسلک"</string>
     <string name="radioInfo_data_suspended" msgid="8695262782642002785">"معطل کر دیا گیا"</string>
     <string name="radioInfo_unknown" msgid="5401423738500672850">"نامعلوم"</string>
+    <string name="radioInfo_imei_primary" msgid="5948747378637224400">"بنیادی"</string>
     <string name="radioInfo_display_packets" msgid="6794302192441084157">"پیکٹس"</string>
     <string name="radioInfo_display_bytes" msgid="7701006329222413797">"بائٹس"</string>
     <string name="radioInfo_display_dbm" msgid="7491944975710865703">"dBm"</string>
@@ -887,10 +892,12 @@
     <string name="radio_info_ppp_sent_label" msgid="6542208429356199695">"ڈیٹا بھیج دیا گیا:"</string>
     <string name="radio_info_message_waiting_label" msgid="1886549432566952078">"پیغام منتظر ہے:"</string>
     <string name="radio_info_phone_number_label" msgid="2533852539562512203">"فون نمبر:"</string>
-    <string name="radio_info_band_mode_label" msgid="23480556225515290">"ریڈیو بینڈ منتخب کریں"</string>
     <string name="radio_info_voice_network_type_label" msgid="2395347336419593265">"صوتی نیٹ ورک کی قسم:"</string>
     <string name="radio_info_data_network_type_label" msgid="8886597029237501929">"ڈیٹا نیٹ ورک کی قسم:"</string>
     <string name="radio_info_override_network_type_label" msgid="4176280017221092005">"نیٹ ورک کی قسم کو اوور رائیڈ کریں:"</string>
+    <string name="radio_info_voice_raw_registration_state_label" msgid="2822988327145825128">"آواز کی خام رجسٹریشن کی حیثیت:"</string>
+    <string name="radio_info_data_raw_registration_state_label" msgid="2895895513822604539">"ڈیٹا کی خام رجسٹریشن کی حیثیت:"</string>
+    <string name="radio_info_wlan_data_raw_registration_state_label" msgid="6396894835757296612">"‏WLAN ڈیٹا کی خام رجسٹریشن کی حیثیت:"</string>
     <string name="phone_index_label" msgid="6222406512768964268">"فون انڈیکس منتخب کریں"</string>
     <string name="radio_info_set_perferred_label" msgid="7408131389363136210">"ترجیحی نیٹ ورک کی قسم سیٹ کریں:"</string>
     <string name="radio_info_ping_hostname_v4" msgid="6951237885381284790">"‏میزبان کا نام پنگ کریں‏‎(www.google.com)‎ ‏IPv4:"</string>
@@ -919,4 +926,9 @@
     <string name="call_quality_notification_bluetooth_details" msgid="8348950331707346711">"آپ کا بلوٹوتھ سگنل کمزور ہے۔ اسپیکر فون پر سوئچ کر کے آزمائیں۔"</string>
     <string name="call_quality_notification_name" msgid="3476828289553948830">"کال کی کوالٹی کی اطلاع"</string>
     <string name="notification_channel_sip_account" msgid="1261816025156179637">"‏فرسودہ SIP اکاؤنٹس"</string>
+    <string name="send_from_work_profile_title" msgid="7044759579507604732">"ذاتی ایپ سے پیغام نہیں بھیج سکتے"</string>
+    <string name="send_from_work_profile_description" msgid="2174402508727161974">"آپ کی تنظیم آپ کو صرف دفتری ایپس سے پیغامات بھیجنے کی اجازت دیتی ہے"</string>
+    <string name="send_from_work_profile_cancel" msgid="177746511030381711">"منسوخ کریں"</string>
+    <string name="send_from_work_profile_action_str" msgid="6892775562934243337">"دفتری پروفائل پر سوئچ کریں"</string>
+    <string name="install_messages_on_work_profile_action_str" msgid="3773440996395152903">"دفتری پیغامات ایپ انسٹال کریں"</string>
 </resources>

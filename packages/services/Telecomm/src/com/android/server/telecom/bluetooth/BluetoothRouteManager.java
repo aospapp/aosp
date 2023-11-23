@@ -491,7 +491,8 @@ public class BluetoothRouteManager extends StateMachine {
             SomeArgs args = (SomeArgs) msg.obj;
 
             Log.continueSession(((Session) args.arg1), "BRM.pM_" + msg.what);
-            Log.i(LOG_TAG, "Message received: %s.", MESSAGE_CODE_TO_NAME.get(msg.what));
+            Log.i(LOG_TAG, "%s received message: %s.", this,
+                    MESSAGE_CODE_TO_NAME.get(msg.what));
         } else if (msg.what == RUN_RUNNABLE && msg.obj instanceof Runnable) {
             Log.i(LOG_TAG, "Running runnable for testing");
         } else {
@@ -713,7 +714,7 @@ public class BluetoothRouteManager extends StateMachine {
             return null;
         }
 
-        if (!mDeviceManager.connectAudio(actualAddress)) {
+        if (!mDeviceManager.connectAudio(actualAddress, switchingBtDevices)) {
             boolean shouldRetry = retryCount < MAX_CONNECTION_RETRIES;
             Log.w(LOG_TAG, "Could not connect to %s. Will %s", actualAddress,
                     shouldRetry ? "retry" : "not retry");
@@ -849,12 +850,7 @@ public class BluetoothRouteManager extends StateMachine {
      */
     @VisibleForTesting
     public boolean isInbandRingingEnabled() {
-        BluetoothHeadset bluetoothHeadset = mDeviceManager.getBluetoothHeadset();
-        if (bluetoothHeadset == null) {
-            Log.i(this, "isInbandRingingEnabled: no headset service available.");
-            return false;
-        }
-        return bluetoothHeadset.isInbandRingingEnabled();
+        return mDeviceManager.isInbandRingingEnabled();
     }
 
     private boolean addDevice(String address) {

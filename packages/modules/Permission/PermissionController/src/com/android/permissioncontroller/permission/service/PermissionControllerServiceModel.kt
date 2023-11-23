@@ -28,6 +28,7 @@ import androidx.lifecycle.Observer
 import androidx.lifecycle.Transformations
 import com.android.permissioncontroller.DumpableLog
 import com.android.permissioncontroller.PermissionControllerProto.PermissionControllerDumpProto
+import com.android.permissioncontroller.permission.utils.PermissionMapping
 import com.android.permissioncontroller.permission.data.AppPermGroupUiInfoLiveData
 import com.android.permissioncontroller.permission.data.HibernationSettingStateLiveData
 import com.android.permissioncontroller.permission.data.PackagePermissionsLiveData
@@ -173,7 +174,7 @@ class PermissionControllerServiceModel(private val service: PermissionController
             }
 
             if (Utils.isPermissionDangerousInstalledNotRemoved(permInfo)) {
-                permToGroup[permName] = Utils.getGroupOfPermission(permInfo)
+                permToGroup[permName] = PermissionMapping.getGroupOfPermission(permInfo)
             }
         }
 
@@ -290,9 +291,7 @@ class PermissionControllerServiceModel(private val service: PermissionController
         val unusedAppsCount = Transformations.map(getUnusedPackages()) {
             it?.size ?: 0
         }
-        observeAndCheckForLifecycleState(unusedAppsCount) { unusedAppsCount ->
-            callback.accept(unusedAppsCount ?: 0)
-        }
+        observeAndCheckForLifecycleState(unusedAppsCount) { count -> callback.accept(count ?: 0) }
     }
 
     /**

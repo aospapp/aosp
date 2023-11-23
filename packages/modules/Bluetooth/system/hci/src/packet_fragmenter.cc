@@ -412,7 +412,6 @@ static void reassemble_and_dispatch(BT_HDR* packet) {
 
     if (broadcast_flag != POINT_TO_POINT) {
       LOG_WARN("dropping broadcast packet");
-      android_errorWriteLog(0x534e4554, "169327567");
       buffer_allocator->free(packet);
       return;
     }

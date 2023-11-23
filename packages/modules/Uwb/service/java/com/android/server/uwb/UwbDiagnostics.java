@@ -17,6 +17,7 @@
 package com.android.server.uwb;
 
 import android.content.Context;
+import android.content.Intent;
 import android.os.BugreportManager;
 import android.os.BugreportParams;
 import android.util.Log;
@@ -38,25 +39,149 @@ public class UwbDiagnostics {
     }
 
     /**
-     * Take a bug report if it is not in user build and there is no recent bug report
+     * Take a bug report if it is in user debug build and there is no recent bug report
      */
     public void takeBugReport(String bugTitle) {
-        if (mSystemBuildProperties.isUserBuild()) {
+        if (!mSystemBuildProperties.isUserdebugBuild()) {
+            Log.d(TAG, "Skip bugreport because it can be triggered only in userDebug build");
             return;
         }
         long currentTimeMs = mUwbInjector.getElapsedSinceBootMillis();
-        if ((currentTimeMs - mLastBugReportTimeMs)
+        long timeSinceLastUploadMs = currentTimeMs - mLastBugReportTimeMs;
+        if (timeSinceLastUploadMs
                 < mUwbInjector.getDeviceConfigFacade().getBugReportMinIntervalMs()
                 && mLastBugReportTimeMs > 0) {
+            Log.d(TAG, "Bugreport was filed recently, Skip " + bugTitle);
             return;
         }
-        mLastBugReportTimeMs = currentTimeMs;
+
+        if (!takeBugreportThroughBetterBug(bugTitle)) {
+            takeBugreportThroughBugreportManager(bugTitle);
+        }
+    }
+
+    private boolean takeBugreportThroughBetterBug(String bugTitle) {
+        Intent launchBetterBugIntent =
+                new BetterBugIntentBuilder()
+                        .setIssueTitle(bugTitle)
+                        .setHappenedTimestamp(System.currentTimeMillis())
+                        .build();
+        boolean isIntentUnSafe = mContext
+                .getPackageManager().queryIntentActivities(launchBetterBugIntent, 0)
+                .isEmpty();
+        if (isIntentUnSafe) {
+            Log.d(TAG, "intent is unsafe and skip bugreport from betterBug: " + bugTitle);
+            return false;
+        }
+
+        try {
+            launchBetterBugIntent.addFlags(Intent.FLAG_RECEIVER_FOREGROUND);
+            mContext.startActivity(launchBetterBugIntent);
+            Log.d(TAG, "Taking the bugreport through betterBug: " + bugTitle);
+            mLastBugReportTimeMs = mUwbInjector.getElapsedSinceBootMillis();
+            return true;
+        } catch (RuntimeException e) {
+            Log.e(TAG, "Error taking bugreport: " + e);
+            return false;
+        }
+    }
+
+    private boolean takeBugreportThroughBugreportManager(String bugTitle) {
         BugreportManager bugreportManager = mContext.getSystemService(BugreportManager.class);
         BugreportParams params = new BugreportParams(BugreportParams.BUGREPORT_MODE_FULL);
         try {
             bugreportManager.requestBugreport(params, bugTitle, bugTitle);
+            Log.d(TAG, "Taking the bugreport through bugreportManager: " + bugTitle);
+            mLastBugReportTimeMs = mUwbInjector.getElapsedSinceBootMillis();
+            return true;
         } catch (RuntimeException e) {
             Log.e(TAG, "Error taking bugreport: " + e);
+            return false;
+        }
+    }
+
+    /**
+     * @return the last time when the bug report is taken
+     */
+    long getLastBugReportTimeMs() {
+        return mLastBugReportTimeMs;
+    }
+
+    /**
+     * Builder for communicating with the betterbug.
+     */
+    private class BetterBugIntentBuilder {
+
+        private static final String ACTION_FILE_BUG_DEEPLINK =
+                "com.google.android.apps.betterbug.intent.FILE_BUG_DEEPLINK";
+        private static final boolean DEFAULT_AUTO_UPLOAD_ENABLED = false;
+        private static final boolean DEFAULT_BUGREPORT_REQUIRED = true;
+        private static final String DEFAULT_BUG_ASSIGNEE = "android-uwb-team@google.com";
+        private static final long DEFAULT_COMPONENT_ID = 1042770L;
+
+        private static final String EXTRA_DEEPLINK = "EXTRA_DEEPLINK";
+        private static final String EXTRA_ISSUE_TITLE = "EXTRA_ISSUE_TITLE";
+        private static final String EXTRA_DEEPLINK_SILENT = "EXTRA_DEEPLINK_SILENT";
+        private static final String EXTRA_ADDITIONAL_COMMENT = "EXTRA_ADDITIONAL_COMMENT";
+        private static final String EXTRA_TARGET_PACKAGE = "EXTRA_TARGET_PACKAGE";
+        private static final String EXTRA_REQUIRE_BUGREPORT = "EXTRA_REQUIRE_BUGREPORT";
+        private static final String EXTRA_HAPPENED_TIME = "EXTRA_HAPPENED_TIME";
+        private static final String EXTRA_BUG_ASSIGNEE = "EXTRA_BUG_ASSIGNEE";
+        private static final String EXTRA_COMPONENT_ID = "EXTRA_COMPONENT_ID";
+
+        private final Intent mBetterBugIntent;
+
+        BetterBugIntentBuilder() {
+            mBetterBugIntent = new Intent().setAction(ACTION_FILE_BUG_DEEPLINK)
+                    .putExtra(EXTRA_DEEPLINK, true);
+            setAutoUpload(DEFAULT_AUTO_UPLOAD_ENABLED);
+            setBugreportRequired(DEFAULT_BUGREPORT_REQUIRED);
+            setBugAssignee(DEFAULT_BUG_ASSIGNEE);
+            setComponentId(DEFAULT_COMPONENT_ID);
+        }
+
+        public BetterBugIntentBuilder setIssueTitle(String title) {
+            mBetterBugIntent.putExtra(EXTRA_ISSUE_TITLE, title);
+            return this;
+        }
+
+        public BetterBugIntentBuilder setAutoUpload(boolean autoUploadEnabled) {
+            mBetterBugIntent.putExtra(EXTRA_DEEPLINK_SILENT, autoUploadEnabled);
+            return this;
+        }
+
+        public BetterBugIntentBuilder setTargetPackage(String targetPackage) {
+            mBetterBugIntent.putExtra(EXTRA_TARGET_PACKAGE, targetPackage);
+            return this;
+        }
+
+        public BetterBugIntentBuilder setComponentId(long componentId) {
+            mBetterBugIntent.putExtra(EXTRA_COMPONENT_ID, componentId);
+            return this;
+        }
+
+        public BetterBugIntentBuilder setBugreportRequired(boolean isBugreportRequired) {
+            mBetterBugIntent.putExtra(EXTRA_REQUIRE_BUGREPORT, isBugreportRequired);
+            return this;
+        }
+
+        public BetterBugIntentBuilder setHappenedTimestamp(long happenedTimeSinceEpochMs) {
+            mBetterBugIntent.putExtra(EXTRA_HAPPENED_TIME, happenedTimeSinceEpochMs);
+            return this;
+        }
+
+        public BetterBugIntentBuilder setAdditionalComment(String additionalComment) {
+            mBetterBugIntent.putExtra(EXTRA_ADDITIONAL_COMMENT, additionalComment);
+            return this;
+        }
+
+        public BetterBugIntentBuilder setBugAssignee(String assignee) {
+            mBetterBugIntent.putExtra(EXTRA_BUG_ASSIGNEE, assignee);
+            return this;
+        }
+
+        public Intent build() {
+            return mBetterBugIntent;
         }
     }
 }

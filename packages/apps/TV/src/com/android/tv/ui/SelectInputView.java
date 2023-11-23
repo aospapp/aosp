@@ -287,10 +287,18 @@ public class SelectInputView extends VerticalGridView
         CharSequence customLabel = input.loadCustomLabel(getContext());
         CharSequence label = input.loadLabel(getContext());
         if (TextUtils.isEmpty(customLabel) || customLabel.equals(label)) {
-            inputLabelView.setText(label);
+            if (input.isPassthroughInput()) {
+                inputLabelView.setText(label);
+            } else {
+                inputLabelView.setText(R.string.input_long_label_for_tuner);
+            }
             secondaryInputLabelView.setVisibility(View.GONE);
         } else {
-            inputLabelView.setText(customLabel);
+            if (input.isPassthroughInput()) {
+                inputLabelView.setText(customLabel);
+            } else {
+                inputLabelView.setText(R.string.input_long_label_for_tuner);
+            }
             secondaryInputLabelView.setText(label);
             secondaryInputLabelView.setVisibility(View.VISIBLE);
         }

@@ -26,8 +26,6 @@
 #include <map>
 #include <string>
 
-extern std::map<std::string, int> mock_function_count_map;
-
 // Mock include file to share data between tests and mock
 #include "test/mock/mock_osi_thread_scheduler.h"
 
@@ -47,12 +45,12 @@ struct thread_scheduler_get_priority_range thread_scheduler_get_priority_range;
 
 // Mocked functions, if any
 bool thread_scheduler_enable_real_time(pid_t linux_tid) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return test::mock::osi_thread_scheduler::thread_scheduler_enable_real_time(
       linux_tid);
 }
 bool thread_scheduler_get_priority_range(int& min, int& max) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return test::mock::osi_thread_scheduler::thread_scheduler_get_priority_range(
       min, max);
 }

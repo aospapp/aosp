@@ -24,10 +24,7 @@ import com.google.auto.service.AutoService
 @AutoService(IssueRegistry::class)
 @Suppress("UnstableApiUsage")
 class ConfigLintCheckerIssueRegistry : IssueRegistry() {
-    override val issues = listOf(
-        ConfigSchemaDetector.ISSUE,
-        ParserExceptionDetector.ISSUE
-    )
+    override val issues = listOf(ConfigSchemaDetector.ISSUE, ParserExceptionDetector.ISSUE)
 
     override val api: Int
         get() = CURRENT_API
@@ -35,9 +32,10 @@ class ConfigLintCheckerIssueRegistry : IssueRegistry() {
     override val minApi: Int
         get() = 11
 
-    override val vendor = Vendor(
-        vendorName = "Android",
-        feedbackUrl = "http://b/issues/new?component=1026964",
-        contact = "fiscella@google.com"
-    )
+    override val vendor =
+        Vendor(
+            vendorName = "Android",
+            feedbackUrl = "http://b/issues/new?component=1026964",
+            contact = "fiscella@google.com"
+        )
 }

@@ -25,6 +25,7 @@ import android.net.wifi.WifiConfiguration;
 import android.net.wifi.WifiEnterpriseConfig;
 import android.net.wifi.WifiEnterpriseConfig.Ocsp;
 import android.net.wifi.WifiManager;
+import android.net.wifi.WifiSsid;
 import android.os.RemoteException;
 import android.text.TextUtils;
 import android.util.Log;
@@ -149,7 +150,6 @@ public class SupplicantStaNetworkHalHidlImpl {
     /**
      * Enable/Disable verbose logging.
      *
-     * @param enable true to enable, false to disable.
      */
     void enableVerboseLogging(boolean verboseEnabled, boolean halVerboseEnabled) {
         synchronized (mLock) {
@@ -173,7 +173,8 @@ public class SupplicantStaNetworkHalHidlImpl {
             /** SSID */
             config.SSID = null;
             if (getSsid() && !ArrayUtils.isEmpty(mSsid)) {
-                config.SSID = NativeUtil.encodeSsid(mSsid);
+                config.SSID =
+                        WifiSsid.fromBytes(NativeUtil.byteArrayFromArrayList(mSsid)).toString();
             } else {
                 Log.e(TAG, "failed to read ssid");
                 return false;
@@ -269,7 +270,8 @@ public class SupplicantStaNetworkHalHidlImpl {
     /**
      * Save an entire WifiConfiguration to wpa_supplicant via HIDL.
      *
-     * @param config WifiConfiguration object to be saved.
+     * @param config WifiConfiguration object to be saved. Note that the SSID will already by the
+     *               raw, untranslated SSID to pass to supplicant directly.
      * @return true if succeeds, false otherwise.
      * @throws IllegalArgumentException on malformed configuration params.
      */
@@ -278,8 +280,9 @@ public class SupplicantStaNetworkHalHidlImpl {
             if (config == null) return false;
             /** SSID */
             if (config.SSID != null) {
-                if (!setSsid(NativeUtil.decodeSsid(config.SSID))) {
-                    Log.e(TAG, "failed to set SSID: " + config.SSID);
+                WifiSsid wifiSsid = WifiSsid.fromString(config.SSID);
+                if (!setSsid(NativeUtil.byteArrayToArrayList(wifiSsid.getBytes()))) {
+                    Log.e(TAG, "failed to set SSID: " + wifiSsid);
                     return false;
                 }
             }
@@ -306,8 +309,8 @@ public class SupplicantStaNetworkHalHidlImpl {
             }
             Log.d(TAG, "The target security params: " + securityParams);
 
-            boolean isRequirePmf = getOptimalPmfSettingForConfig(config,
-                    securityParams.isRequirePmf());
+            boolean isRequirePmf = NativeUtil.getOptimalPmfSettingForConfig(config,
+                    securityParams.isRequirePmf(), mWifiGlobals);
             /** RequirePMF */
             if (!setRequirePmf(isRequirePmf)) {
                 Log.e(TAG, config.SSID + ": failed to set requirePMF: " + config.requirePmf);
@@ -316,19 +319,19 @@ public class SupplicantStaNetworkHalHidlImpl {
             /** Key Management Scheme */
             BitSet allowedKeyManagement = securityParams.getAllowedKeyManagement();
             if (allowedKeyManagement.cardinality() != 0) {
-                // Add FT flags if supported.
-                BitSet keyMgmtMask = addFastTransitionFlags(allowedKeyManagement);
-                // Add SHA256 key management flags.
-                keyMgmtMask = addSha256KeyMgmtFlags(keyMgmtMask);
                 // Add upgradable type key management flags for PSK/SAE.
-                keyMgmtMask = addPskSaeUpgradableTypeFlagsIfSupported(
-                        config, keyMgmtMask);
-                if (!setKeyMgmt(wifiConfigurationToSupplicantKeyMgmtMask(keyMgmtMask))) {
+                allowedKeyManagement = addPskSaeUpgradableTypeFlagsIfSupported(
+                        config, allowedKeyManagement);
+                // Add FT flags if supported.
+                allowedKeyManagement = addFastTransitionFlags(allowedKeyManagement);
+                // Add SHA256 key management flags.
+                allowedKeyManagement = addSha256KeyMgmtFlags(allowedKeyManagement);
+                if (!setKeyMgmt(wifiConfigurationToSupplicantKeyMgmtMask(allowedKeyManagement))) {
                     Log.e(TAG, "failed to set Key Management");
                     return false;
                 }
                 // Check and set SuiteB configurations.
-                if (keyMgmtMask.get(WifiConfiguration.KeyMgmt.SUITE_B_192)
+                if (allowedKeyManagement.get(WifiConfiguration.KeyMgmt.SUITE_B_192)
                         && !saveSuiteBConfig(config)) {
                     Log.e(TAG, "Failed to set Suite-B-192 configuration");
                     return false;
@@ -336,8 +339,9 @@ public class SupplicantStaNetworkHalHidlImpl {
             }
             /** Security Protocol */
             BitSet allowedProtocols = securityParams.getAllowedProtocols();
-            if (allowedProtocols.cardinality() != 0
-                    && !setProto(wifiConfigurationToSupplicantProtoMask(allowedProtocols))) {
+            if (allowedProtocols.cardinality() != 0 && !setProto(
+                    wifiConfigurationToSupplicantProtoMask(allowedProtocols, mWifiGlobals,
+                            WifiConfigurationUtil.isConfigForEnterpriseNetwork(config)))) {
                 Log.e(TAG, "failed to set Security Protocol");
                 return false;
             }
@@ -350,7 +354,8 @@ public class SupplicantStaNetworkHalHidlImpl {
                 return false;
             }
             /** Group Cipher */
-            BitSet allowedGroupCiphers = securityParams.getAllowedGroupCiphers();
+            BitSet allowedGroupCiphers = NativeUtil.getOptimalGroupCiphersForConfig(
+                    config, securityParams.getAllowedGroupCiphers(), mWifiGlobals);
             if (allowedGroupCiphers.cardinality() != 0
                     && (!setGroupCipher(wifiConfigurationToSupplicantGroupCipherMask(
                     allowedGroupCiphers)))) {
@@ -358,7 +363,8 @@ public class SupplicantStaNetworkHalHidlImpl {
                 return false;
             }
             /** Pairwise Cipher*/
-            BitSet allowedPairwiseCiphers = securityParams.getAllowedPairwiseCiphers();
+            BitSet allowedPairwiseCiphers = NativeUtil.getOptimalPairwiseCiphersForConfig(
+                    config, securityParams.getAllowedPairwiseCiphers(), mWifiGlobals);
             if (allowedPairwiseCiphers.cardinality() != 0
                     && !setPairwiseCipher(wifiConfigurationToSupplicantPairwiseCipherMask(
                     allowedPairwiseCiphers))) {
@@ -375,14 +381,15 @@ public class SupplicantStaNetworkHalHidlImpl {
                         return false;
                     }
                 } else if (config.preSharedKey.startsWith("\"")) {
-                    if (securityParams.isSecurityType(WifiConfiguration.SECURITY_TYPE_SAE)) {
+                    if (allowedKeyManagement.get(WifiConfiguration.KeyMgmt.SAE)) {
                         /* WPA3 case, field is SAE Password */
                         if (!setSaePassword(
                                 NativeUtil.removeEnclosingQuotes(config.preSharedKey))) {
                             Log.e(TAG, "failed to set sae password");
                             return false;
                         }
-                    } else {
+                    }
+                    if (allowedKeyManagement.get(WifiConfiguration.KeyMgmt.WPA_PSK)) {
                         if (!setPskPassphrase(
                                 NativeUtil.removeEnclosingQuotes(config.preSharedKey))) {
                             Log.e(TAG, "failed to set psk passphrase");
@@ -390,7 +397,9 @@ public class SupplicantStaNetworkHalHidlImpl {
                         }
                     }
                 } else {
-                    if (securityParams.isSecurityType(WifiConfiguration.SECURITY_TYPE_SAE)) {
+                    if (!allowedKeyManagement.get(WifiConfiguration.KeyMgmt.WPA_PSK)
+                            && allowedKeyManagement.get(WifiConfiguration.KeyMgmt.SAE)) {
+
                         return false;
                     }
                     if (!setPsk(NativeUtil.hexStringToByteArray(config.preSharedKey))) {
@@ -438,7 +447,7 @@ public class SupplicantStaNetworkHalHidlImpl {
                 return false;
             }
             /** SAE configuration */
-            if (securityParams.isSecurityType(WifiConfiguration.SECURITY_TYPE_SAE)
+            if (allowedKeyManagement.get(WifiConfiguration.KeyMgmt.SAE)
                     && getV1_4StaNetwork() != null) {
                 /**
                  * Hash-to-Element preference.
@@ -902,13 +911,16 @@ public class SupplicantStaNetworkHalHidlImpl {
         return mask;
     }
 
-    private static int wifiConfigurationToSupplicantProtoMask(BitSet protoMask) {
+    private static int wifiConfigurationToSupplicantProtoMask(BitSet protoMask,
+            WifiGlobals wifiGlobals, boolean isEnterprise) {
         int mask = 0;
         for (int bit = protoMask.nextSetBit(0); bit != -1;
                 bit = protoMask.nextSetBit(bit + 1)) {
             switch (bit) {
                 case WifiConfiguration.Protocol.WPA:
-                    mask |= ISupplicantStaNetwork.ProtoMask.WPA;
+                    if (isEnterprise || !wifiGlobals.isWpaPersonalDeprecated()) {
+                        mask |= ISupplicantStaNetwork.ProtoMask.WPA;
+                    }
                     break;
                 case WifiConfiguration.Protocol.RSN:
                     mask |= ISupplicantStaNetwork.ProtoMask.RSN;
@@ -1607,6 +1619,9 @@ public class SupplicantStaNetworkHalHidlImpl {
         synchronized (mLock) {
             final String methodStr = "setGroupCipher";
             if (!checkISupplicantStaNetworkAndLogFailure(methodStr)) return false;
+            if (mVerboseLoggingEnabled) {
+                Log.d(TAG, String.format("setGroupCipher: 0x%x", groupCipherMask));
+            }
             try {
                 SupplicantStatus status;
                 android.hardware.wifi.supplicant.V1_2.ISupplicantStaNetwork
@@ -1715,6 +1730,9 @@ public class SupplicantStaNetworkHalHidlImpl {
         synchronized (mLock) {
             final String methodStr = "setPairwiseCipher";
             if (!checkISupplicantStaNetworkAndLogFailure(methodStr)) return false;
+            if (mVerboseLoggingEnabled) {
+                Log.d(TAG, String.format("setPairwiseCipher: 0x%x", pairwiseCipherMask));
+            }
             try {
                 SupplicantStatus status;
                 android.hardware.wifi.supplicant.V1_2.ISupplicantStaNetwork
@@ -1839,6 +1857,9 @@ public class SupplicantStaNetworkHalHidlImpl {
         synchronized (mLock) {
             final String methodStr = "setRequirePmf";
             if (!checkISupplicantStaNetworkAndLogFailure(methodStr)) return false;
+            if (mVerboseLoggingEnabled) {
+                Log.d(TAG, "setRequirePmf: " + enable);
+            }
             try {
                 SupplicantStatus status = mISupplicantStaNetwork.setRequirePmf(enable);
                 return checkStatusAndLogFailure(status, methodStr);
@@ -3823,29 +3844,6 @@ public class SupplicantStaNetworkHalHidlImpl {
     }
 
     /**
-     * Update PMF requirement if auto-upgrade offload is supported.
-     *
-     * If SAE auto-upgrade offload is supported and this config enables
-     * both PSK and SAE, do not set PMF requirement to
-     * mandatory to allow the device to roam between PSK and SAE BSSes.
-     * wpa_supplicant will set PMF requirement to optional by default.
-     */
-    private boolean getOptimalPmfSettingForConfig(WifiConfiguration config,
-            boolean isPmfRequiredFromSelectedSecurityParams) {
-        if (config.isSecurityType(WifiConfiguration.SECURITY_TYPE_PSK)
-                && config.getSecurityParams(WifiConfiguration.SECURITY_TYPE_PSK).isEnabled()
-                && config.isSecurityType(WifiConfiguration.SECURITY_TYPE_SAE)
-                && config.getSecurityParams(WifiConfiguration.SECURITY_TYPE_SAE).isEnabled()
-                && mWifiGlobals.isWpa3SaeUpgradeOffloadEnabled()) {
-            if (mVerboseLoggingEnabled) {
-                Log.d(TAG, "Keep optional PMF for SAE auto-upgrade offload.");
-            }
-            return false;
-        }
-        return isPmfRequiredFromSelectedSecurityParams;
-    }
-
-    /**
      * Adds both PSK and SAE AKM if auto-upgrade offload is supported.
      */
     private BitSet addPskSaeUpgradableTypeFlagsIfSupported(
@@ -3855,6 +3853,10 @@ public class SupplicantStaNetworkHalHidlImpl {
             if (!config.isSecurityType(WifiConfiguration.SECURITY_TYPE_PSK)
                     || !config.getSecurityParams(WifiConfiguration.SECURITY_TYPE_PSK).isEnabled()
                     || !mWifiGlobals.isWpa3SaeUpgradeOffloadEnabled()) {
+                return keyManagementFlags;
+            }
+            if (null == getV1_2StaNetwork()) {
+                // SAE HALv1.2 or higher
                 return keyManagementFlags;
             }
 

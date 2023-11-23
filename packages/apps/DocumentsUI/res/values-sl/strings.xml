@@ -92,8 +92,8 @@
     <string name="save_error" msgid="8631128801982095782">"Dokumenta ni bilo mogoče shraniti"</string>
     <string name="create_error" msgid="3092144450044861994">"Mape ni bilo mogoče ustvariti"</string>
     <string name="query_error" msgid="6625421453613879336">"Vsebine trenutno ni mogoče naložiti"</string>
-    <string name="quiet_mode_error_title" msgid="9126656325282792843">"Delovni profil je začasno zaustavljen"</string>
-    <string name="quiet_mode_button" msgid="6977115032320235420">"Vklopi"</string>
+    <string name="quiet_mode_error_title" msgid="554319751414657910">"Delovne aplikacije so začasno zaustavljene"</string>
+    <string name="quiet_mode_button" msgid="8051436551926677305">"Vklopi delovne aplikacije"</string>
     <string name="cant_select_work_files_error_title" msgid="6688716319549644354">"Ni mogoče izbrati službenih datotek"</string>
     <string name="cant_select_work_files_error_message" msgid="683480676150690641">"Skrbnik za IT ne dovoli dostopa do službenih datotek iz osebne aplikacije"</string>
     <string name="cant_select_personal_files_error_title" msgid="3200697170148617742">"Ni mogoče izbrati osebnih datotek"</string>

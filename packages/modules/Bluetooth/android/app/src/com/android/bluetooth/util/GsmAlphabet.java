@@ -25,7 +25,7 @@ import android.util.SparseIntArray;
  * the GSM SMS 7-bit alphabet specified in TS 23.038 6.2.1
  * and UTF-16
  *
- * {@hide}
+ * @hide
  */
 public class GsmAlphabet {
     private static final String TAG = "GSM";
@@ -309,7 +309,6 @@ public class GsmAlphabet {
 
     /**
      * Enable country-specific language tables from MCC-specific overlays.
-     * @context the context to use to get the TelephonyManager
      */
     private static void enableCountrySpecificEncodings() {
         Resources r = Resources.getSystem();

@@ -17,7 +17,49 @@
  ******************************************************************************/
 #include <base/command_line.h>
 #include <base/logging.h>
+#include <base/strings/stringprintf.h>
+#include <osi/include/log.h>
+
 #include "main_int.h"
+
+#ifdef TARGET_FLOSS
+#include <syslog.h>
+static bool MessageHandler(int severity, const char* file, int line,
+                           size_t message_start, const std::string& message) {
+  ASSERT(message_start <= message.size());
+
+  const auto str = base::StringPrintf("%s:%d - %s", file, line,
+                                      message.substr(message_start).c_str());
+
+  switch (severity) {
+    case logging::LOGGING_INFO:
+      severity = LOG_INFO;
+      break;
+
+    case logging::LOGGING_WARNING:
+      severity = LOG_WARNING;
+      break;
+
+    case logging::LOGGING_ERROR:
+      severity = LOG_ERR;
+      break;
+
+    case logging::LOGGING_FATAL:
+      severity = LOG_CRIT;
+      break;
+
+    default:
+      severity = LOG_DEBUG;
+      break;
+  }
+
+  syslog(severity, str.c_str());
+
+  if (severity == LOG_CRIT) abort();
+
+  return true;
+}
+#endif
 
 void init_cpp_logging(config_t* config) {
   // Command line and log level might be also configured in service/main.cpp
@@ -47,10 +89,18 @@ void init_cpp_logging(config_t* config) {
   base::CommandLine::Init(argc, argv);
 
   logging::LoggingSettings log_settings;
+
   if (!logging::InitLogging(log_settings)) {
-    LOG(ERROR) << "Failed to set up logging";
+    LOG_ERROR("Failed to set up logging");
   }
 
   // Android already logs thread_id, proc_id, timestamp, so disable those.
   logging::SetLogItems(false, false, false, false);
+
+#ifdef TARGET_FLOSS
+  log_settings.logging_dest =
+      logging::LOG_TO_SYSTEM_DEBUG_LOG | logging::LOG_TO_STDERR;
+
+  logging::SetLogMessageHandler(MessageHandler);
+#endif
 }

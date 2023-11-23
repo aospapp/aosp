@@ -1,0 +1,680 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--  Copyright (C) 2022 The Android Open Source Project
+
+     Licensed under the Apache License, Version 2.0 (the "License");
+     you may not use this file except in compliance with the License.
+     You may obtain a copy of the License at
+
+          http://www.apache.org/licenses/LICENSE-2.0
+
+     Unless required by applicable law or agreed to in writing, software
+     distributed under the License is distributed on an "AS IS" BASIS,
+     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+     See the License for the specific language governing permissions and
+     limitations under the License.
+ -->
+
+<!--  IMPORTANT! If adding new strings, then run generate_adservices_public_xml.py  -->
+
+<resources xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+    <string name="permlab_accessAdServicesTopics" msgid="1108993892369517728">"AdServices Topics API 액세스"</string>
+    <string name="permdesc_accessAdServicesTopics" msgid="4220466427260104683">"애플리케이션이 AdServices Topics API에 액세스하도록 허용합니다."</string>
+    <string name="permlab_accessAdServicesAttribution" msgid="4498132091418336093">"AdServices Attribution API 액세스"</string>
+    <string name="permdesc_accessAdServicesAttribution" msgid="1644434244130657749">"애플리케이션이 AdServices Attribution API에 액세스하도록 허용합니다."</string>
+    <string name="permlab_accessAdServicesCustomAudience" msgid="2766614780488510189">"AdServices Custom Audience API 액세스"</string>
+    <string name="permdesc_accessAdServicesCustomAudience" msgid="2034811807106784662">"애플리케이션이 AdServices Custom Audience API에 액세스하도록 허용합니다."</string>
+    <string name="permlab_accessAdServicesAdId" msgid="2754825914769538156">"AdId API 액세스"</string>
+    <string name="permdesc_accessAdServicesAdId" msgid="7717770480967762044">"애플리케이션이 AdId API에 액세스하도록 허용합니다."</string>
+    <string name="permlab_accessAdServicesConsent" msgid="3203633397142568707">"AdServices Consent API 액세스"</string>
+    <string name="permdesc_accessAdServicesConsent" msgid="8440334072391708453">"애플리케이션이 AdServices Consent API에 액세스하도록 허용합니다."</string>
+    <string name="permlab_adServicesAccessAdId" msgid="1425385999072194463">"Ad ID API 액세스"</string>
+    <string name="permdesc_adServicesAccessAdId" msgid="5082994464565978279">"애플리케이션이 Ad ID API에 액세스하도록 허용합니다."</string>
+    <string name="permlab_adServicesAccessAppSetId" msgid="1300149048751231124">"App Set ID API 액세스"</string>
+    <string name="permdesc_adServicesAccessAppSetId" msgid="7919418391145455372">"애플리케이션이 App Set ID API에 액세스하도록 허용합니다."</string>
+    <string name="permlab_adServicesAccessConsentService" msgid="5994709782267864205">"Consent Service API 액세스"</string>
+    <string name="permdesc_adServicesAccessConsentService" msgid="4587727715580124241">"애플리케이션이 Consent Service API에 액세스하도록 허용합니다."</string>
+    <string name="permlab_modifyAdServicesState" msgid="3594653261299518914">"AdService의 지원 상태 수정 API 액세스"</string>
+    <string name="permdesc_modifyAdServicesState" msgid="2485849128464307209">"애플리케이션이 AdService의 지원 상태 수정 API에 액세스하도록 허용합니다."</string>
+    <string name="permlab_accessAdServicesState" msgid="482058883975394398">"AdService의 지원 상태 API 액세스"</string>
+    <string name="permdesc_accessAdServicesState" msgid="1165015604618567202">"애플리케이션이 AdService의 지원 상태 API에 액세스하도록 허용합니다."</string>
+    <string name="permlab_accessAdServicesManager" msgid="4816332609066703740">"AdServicesManager API 액세스"</string>
+    <string name="permdesc_accessAdServicesManager" msgid="2619300431637689524">"애플리케이션이 AdServicesManager API에 액세스하도록 허용합니다."</string>
+    <string name="app_label" msgid="5985320129629013968">"Android 시스템"</string>
+    <string name="notificationUI_notification_title_eu" msgid="6328781145332100489">"Android의 광고 개인 정보 보호 베타에 참여하기"</string>
+    <string name="notificationUI_notification_content_eu" msgid="4119222762583017840">"Android는 앱에서 개인 정보 보호를 강화하면서 광고를 표시하는 방법을 개발 중입니다."</string>
+    <string name="notificationUI_notification_cta_eu" msgid="1294908454704864207">"자세히 알아보기"</string>
+    <string name="notificationUI_header_title_eu" msgid="4955298263079910371">"Android 광고 개인 정보 보호 베타"</string>
+    <string name="notificationUI_container1_title_eu" msgid="8315199862119660570">"새로운 기능"</string>
+    <string name="notificationUI_container1_body_text_eu" msgid="1700290522706948241">"개인 정보 보호 샌드박스의 새로운 개인 정보 보호 기능을 이용하면 앱에서 관련성 있는 광고를 표시하되, 다른 개발자의 앱/웹사이트에서 이루어진 사용자 활동에 관해 해당 앱이 학습하는 정보를 제한할 수 있습니다."</string>
+    <string name="notificationUI_container1_control_text_eu" msgid="3158258148321255153">"작동 방식"</string>
+    <string name="notificationUI_container2_title_eu" msgid="7198761373796187596">"참여 방법"</string>
+    <string name="notificationUI_container2_body_text_eu" msgid="5763735880112009239">"베타를 사용 설정하면 앱에서 개인 정보 보호를 강화하면서 광고를 표시하는 새로운 방법을 테스트할 수 있게 됩니다. 언제든지 개인 정보 보호 설정에서 베타 참여를 중단할 수 있습니다."</string>
+    <string name="notificationUI_left_control_button_text_eu" msgid="3573715612232957187">"아니요"</string>
+    <string name="notificationUI_right_control_button_text_eu" msgid="8484787286437052150">"사용 설정"</string>
+    <string name="notificationUI_more_button_text" msgid="8861584693765844519">"더보기"</string>
+    <string name="notificationUI_confirmation_accept_title" msgid="3178322390976087463">"참여해 주셔서 감사합니다"</string>
+    <string name="notificationUI_confirmation_accept_subtitle" msgid="6980730715078085252">"Android 광고 개인 정보 보호 베타에 참여 중입니다. 기기에 개인 정보 보호 샌드박스가 사용 설정되어 있습니다\n\n개인 정보 보호 설정에서 언제든지 자세히 알아보거나 베타 참여를 중단할 수 있습니다"</string>
+    <string name="notificationUI_confirmation_decline_title" msgid="6453417169877486440">"참여하지 않기로 선택했습니다"</string>
+    <string name="notificationUI_confirmation_decline_subtitle" msgid="4194388733937808440">"응답해 주셔서 감사합니다. 기기에서 개인 정보 보호 샌드박스가 사용 중지되었습니다\n\n생각이 바뀌었거나 자세히 알아보고 싶다면 개인 정보 보호 설정으로 이동하세요."</string>
+    <string name="notificationUI_confirmation_left_control_button_text" msgid="7459283556129950513">"개인 정보 보호 설정"</string>
+    <string name="notificationUI_confirmation_right_control_button_text" msgid="1390803936115621269">"확인"</string>
+    <string name="notificationUI_container2_title" msgid="3844342008598264655">"베타 참여 중"</string>
+    <string name="notificationUI_container2_body_text" msgid="758560159693325060">"기기에 개인 정보 보호 샌드박스가 사용 설정되어 있으며 앱에서 개인 정보 보호를 강화하면서 광고를 표시하는 새로운 방법을 테스트할 수 있습니다. 언제든지 개인 정보 보호 설정에서 베타 참여를 중단할 수 있습니다."</string>
+    <string name="notificationUI_right_control_button_text" msgid="4418849554981401536">"확인"</string>
+    <string name="notificationUI_how_it_works_expanded_text1" msgid="5567641119079971239">"Android의 개인 정보 보호 샌드박스는 앱에서 사용자가 좋아할 만한 광고를 표시할 수 있는 새로운 기능을 제공합니다. 이 새로운 기술은 기기 식별자를 사용하지 않습니다.\n\nAndroid와 앱은 사용자가 관심을 보일 만한 광고 종류를 추정하고 관심분야를 기기에 임시 저장합니다. 이렇게 하면 앱이 다른 개발자의 웹사이트/앱에서 이루어진 활동을 추적하지 않고도 사용자가 관심을 보일 만한 광고를 표시할 수 있습니다."</string>
+    <string name="notificationUI_how_it_works_expanded_text2" msgid="6676443093692450581">"개인 정보 보호 샌드박스를 이용한 광고 개인 최적화"</string>
+    <string name="notificationUI_how_it_works_expanded_text3" msgid="603165966360369018">"•  Android에서 관심분야 추정"</string>
+    <string name="notificationUI_how_it_works_expanded_text4" msgid="3910573920883580609">"Android는 사용되는 앱을 기준으로 사용자의 주요 관심분야(예: ‘스포츠’ 또는 ‘여행’)를 정기적으로 추정합니다.\n\n나중에 앱에서 보다 관련성 높은 광고 표시를 위해 이러한 관심분야를 활용하도록 Android에 요청할 수 있습니다.\n\n개인 정보 보호 설정에서 현재 관심분야 목록을 보고 마음에 들지 않는 것을 차단할 수 있습니다."</string>
+    <string name="notificationUI_how_it_works_expanded_text5" msgid="7257714040472055781">"•  앱에서 관심분야 추정"</string>
+    <string name="notificationUI_how_it_works_expanded_text6" msgid="2949292580123453023">"앱에서 관심분야를 추정하고 Android를 통해 임시로 저장할 수 있습니다. 예를 들어 러닝화 구입에 사용했던 앱은 ‘마라톤 뛰기’를 관심분야로 추정할 수 있습니다.\n\n나중에 이 관심분야를 바탕으로 다른 앱에서도 마라톤 관련 광고가 표시될 수 있습니다.\n\n개인 정보 보호 설정에서 관심분야를 저장한 앱 목록을 관리할 수 있습니다."</string>
+    <string name="notificationUI_notification_ga_title" msgid="7090667803616048587">"새로운 광고 개인 정보 보호 기능"</string>
+    <string name="notificationUI_notification_ga_content" msgid="3483979694272908942">"광고와 관련해 더 많은 선택권을 제공하는 새로운 설정과 광고 주제"</string>
+    <string name="notificationUI_header_ga_title" msgid="3557937325021173836">"새로운 광고 개인 정보 보호 기능 출시"</string>
+    <string name="notificationUI_container2_ga_introduction" msgid="2201578950159210581">"Android는 최근 사용한 앱을 기반으로 관심 주제를 파악합니다. 사용하는 앱에서 관심분야를 파악할 수도 있습니다. 나중에 앱에서 개인 맞춤 광고를 표시하기 위해 이 정보를 요청할 수 있습니다. 나에게 광고를 표시하는 데 사용되는 주제와 앱을 직접 선택할 수 있습니다."</string>
+    <string name="notificationUI_container3_ga_introduction" msgid="4247237824558927582">"광고 실적을 측정하기 위해 제한된 유형의 데이터가 앱 간에 공유됩니다."</string>
+    <string name="notificationUI_ga_container1_control_text" msgid="2711321174550177509">"Android에 표시되는 광고에 관해 자세히 알아보기"</string>
+    <string name="notificationUI_how_it_works_row_subtitle1" msgid="8685034725335826096">"더 유용한 광고"</string>
+    <string name="notificationUI_how_it_works_row_body1" msgid="5865369599951938718">"앱에서 광고 개인 최적화에 도움이 되는 정보를 Android에 요청할 수 있습니다."</string>
+    <string name="notificationUI_how_it_works_row_body2" msgid="6601773212442110369">"•  Android는 최근 사용한 앱을 기반으로 관심 주제를 파악합니다."</string>
+    <string name="notificationUI_how_it_works_row_body3" msgid="3692457397642529055">"•  사용 중인 앱에서 내가 앱을 사용하는 방식을 기반으로 내 관심분야를 파악할 수도 있습니다. 예를 들어 장거리용 러닝화를 판매하는 앱을 사용한다면 앱에서 내가 마라톤에 관심이 있다고 판단할 수 있습니다."</string>
+    <string name="notificationUI_how_it_works_row_body4" msgid="8731138074016839243">"나중에 사용 중인 앱에서 광고 주제 또는 이전에 이용한 앱에서 추천한 광고에 관한 정보를 요청할 수 있습니다."</string>
+    <string name="notificationUI_how_it_works_row_body5" msgid="4524382869577899661">"Android는 주제 및 앱 추천 데이터를 정기적으로 자동 삭제합니다. 특정 주제 및 추천하길 원하지 않는 앱을 차단할 수도 있습니다."</string>
+    <string name="notificationUI_how_it_works_subtitle2" msgid="2203542887026049927">"광고 실적 측정"</string>
+    <string name="notificationUI_how_it_works_row_body6" msgid="5368364880910986588">"사용하는 앱에서 광고 실적을 측정하는 데 도움이 되는 정보를 Android에 요청할 수 있습니다. Android는 앱에서 제한된 유형의 데이터(예: 광고가 표시된 시간)를 수집하도록 허용합니다."</string>
+    <string name="notificationUI_notification_ga_title_eu" msgid="5803977334621918481">"새로운 광고 개인 정보 보호 기능 사용해 보기"</string>
+    <string name="notificationUI_notification_ga_content_eu" msgid="8430705356085726474">"광고 주제를 통해 표시되는 광고를 더 세밀하게 제어할 수 있습니다."</string>
+    <string name="notificationUI_notification_ga_cta_eu" msgid="8494461862622985200">"세부정보 보기"</string>
+    <string name="notificationUI_header_ga_title_eu" msgid="6246782633712559485">"새로운 광고 개인 정보 보호 기능 사용해 보기"</string>
+    <string name="notificationUI_container1_body_ga_text_eu" msgid="2461669162863900717">"Android에서는 표시되는 광고와 관련해 사용자에게 더 많은 선택권을 제공하는 새로운 개인 정보 보호 기능을 도입합니다."</string>
+    <string name="notificationUI_container2_body_ga_text_eu" msgid="1692066129509373924">"광고 주제는 앱에서 내 신원 정보와 앱 사용 정보를 보호하면서 관련성 있는 광고를 표시하는 데 도움이 됩니다. Android는 최근 사용한 앱을 기반으로 관심 주제를 파악할 수 있습니다. 나중에 앱을 사용하면 앱에서 광고 개인 최적화를 위해 관련 주제를 Android에 요청할 수 있습니다."</string>
+    <string name="notificationUI_container3_body_ga_text_eu" msgid="5992069735281496875">"기기 설정에서 광고 주제를 확인하고 앱과 공유하길 원하지 않는 주제를 차단할 수 있습니다. Android에서는 광고 주제를 정기적으로 자동 삭제합니다."</string>
+    <string name="notificationUI_change_any_time_in_privacy_settings_eu" msgid="2908767337419331427">"언제든지 개인 정보 보호 설정에서 변경할 수 있습니다."</string>
+    <string name="notificationUI_container1_control_ga_text_eu" msgid="4496835418228234590">"광고 주제에 관해 자세히 알아보기"</string>
+    <string name="notificationUI_learn_more_from_privacy_policy" msgid="7809111628979410445"><a href="https://policies.google.com/privacy">"개인정보처리방침"</a>"에서 Android가 사용자의 데이터를 보호하는 방법을 알아보세요."</string>
+    <string name="notificationUI_right_control_button_ga_text_eu" msgid="7164165910760741822">"사용해 보기"</string>
+    <string name="notificationUI_how_it_works_topics_expanded_text3" msgid="5620813445262745365">"•  사용되는 데이터"</string>
+    <string name="notificationUI_how_it_works_topics_expanded_text4" msgid="398508225331553559">"광고 주제는 내가 이 기기에서 최근 사용한 앱과 사용 빈도에 기반합니다."</string>
+    <string name="notificationUI_how_it_works_topics_expanded_text5" msgid="5976468008939416198">"•  Android의 데이터 사용 방식"</string>
+    <string name="notificationUI_how_it_works_topics_expanded_text6" msgid="6318275524155409408">"Android에서 내가 앱을 사용하는 동안 관심 주제를 파악합니다. 주제 라벨은 사전 정의되어 있으며 예술 및 엔터테인먼트, 쇼핑, 스포츠 등을 포함합니다. 나중에 내가 사용하는 앱에서 광고 개인 최적화를 위해 내 관심 주제 몇 가지를 Android에 요청할 수 있습니다(앱 사용 및 신원 관련 데이터 제외)."</string>
+    <string name="notificationUI_how_it_works_topics_expanded_text7" msgid="4275126336833782389">"•  데이터 관리 방법"</string>
+    <string name="notificationUI_how_it_works_topics_expanded_text8" msgid="2797007387412839612">"Android에서는 주제를 정기적으로 자동 삭제합니다. 앱을 사용하다 보면 동일한 주제가 목록에 다시 표시될 수 있습니다. 사용자는 언제든지 개인 정보 보호 설정에서 Android가 앱과 공유하길 원하지 않는 주제를 차단하고 광고 주제를 사용 중지할 수도 있습니다."</string>
+    <string name="notificationUI_you_can_change_in_privacy_settings" msgid="4781410091509838647">"개인 정보 보호 설정에서 변경할 수 있습니다."</string>
+    <string name="notificationUI_fledge_measurement_title" msgid="1721724915714192994">"기타 광고 개인 정보 보호 기능 출시"</string>
+    <string name="notificationUI_fledge_measurement_introduction_text1" msgid="2217529852483952185">"Android에서는 개인 맞춤 광고를 표시할 때 앱에서 획득할 수 있는 사용자에 관한 정보를 제한하는 새로운 방법도 제공합니다."</string>
+    <string name="notificationUI_fledge_measurement_introduction_text2" msgid="601600895880486962">"•  앱 추천 광고는 내 신원 및 앱 사용 관련 정보를 보호하면서 앱에서 관련성 있는 광고를 표시하도록 지원합니다. 사용하는 앱은 내 활동을 토대로 다른 앱에 표시될 관련 광고를 추천할 수 있습니다. 개인 정보 보호 설정에서 앱 목록을 확인하고 광고 추천을 원하지 않는 앱을 차단할 수 있습니다."</string>
+    <string name="notificationUI_fledge_measurement_introduction_text3" msgid="956235653060248351">"•  광고 측정을 사용하면 광고 실적을 측정하기 위해 광고가 표시된 시간과 같이 제한된 유형의 데이터가 앱 간에 공유됩니다."</string>
+    <string name="notificationUI_fledge_measurement_control_ga_text_eu" msgid="2346851728118443500">"앱 추천 광고 및 광고 측정에 관해 자세히 알아보기"</string>
+    <string name="notificationUI_how_it_works_fledge_measurement_expanded_text0" msgid="2456923104551938349">"앱 추천 광고"</string>
+    <string name="notificationUI_how_it_works_fledge_measurement_expanded_text1" msgid="5606895535548790900">"•  사용되는 데이터"</string>
+    <string name="notificationUI_how_it_works_fledge_measurement_expanded_text2" msgid="6309052819494439288">"이 기기에서 사용하는 앱에서 이루어진 내 활동입니다."</string>
+    <string name="notificationUI_how_it_works_fledge_measurement_expanded_text3" msgid="5347980571056638783">"•  앱에서 이 데이터를 사용하는 방식"</string>
+    <string name="notificationUI_how_it_works_fledge_measurement_expanded_text4" msgid="4738335469671465639">"앱에서 Android에 내 관심분야에 관한 정보를 저장할 수 있습니다. 예를 들어 마라톤 훈련에 관한 앱을 이용한다면 앱은 내가 러닝화에 관심이 있다고 판단하고, 나중에 다른 앱을 사용할 때 이전 앱에서 추천한 러닝화에 관한 광고가 표시될 수 있습니다."</string>
+    <string name="notificationUI_how_it_works_fledge_measurement_expanded_text5" msgid="8737925570089314631">"•  사용자가 데이터를 관리하는 방법"</string>
+    <string name="notificationUI_how_it_works_fledge_measurement_expanded_text6" msgid="495908587748380196">"Android는 앱 추천 데이터를 정기적으로 자동 삭제합니다. 앱을 다시 사용하면 목록에 이 앱이 다시 표시될 수 있습니다."</string>
+    <string name="notificationUI_how_it_works_fledge_measurement_expanded_text7" msgid="8995912218837619600">"언제든지 개인 정보 보호 설정에서 특정 앱이 광고를 추천하지 않도록 차단하거나, 모든 광고 추천 데이터를 재설정하거나, 앱 추천 광고를 사용 중지할 수 있습니다."</string>
+    <string name="notificationUI_how_it_works_fledge_measurement_expanded_text9" msgid="5709134827192739362">"앱을 사용하면 앱에서 광고 실적 측정에 도움이 되는 정보를 Android에 요청할 수 있습니다. Android는 앱 간에 공유할 수 있는 정보를 제한하여 내 개인 정보를 보호합니다."</string>
+    <string name="notificationUI_notification_ga_title_eu_v2" msgid="9132669086237883391">"새로운 광고 개인 정보 보호 기능 출시"</string>
+    <string name="notificationUI_notification_ga_content_eu_v2" msgid="9205285241542339861">"신원을 보호하는 동시에 표시되는 광고와 관련된 보다 많은 선택권 제공"</string>
+    <string name="notificationUI_fledge_measurement_title_v2" msgid="1097778529908285549">"새로운 광고 개인 정보 보호 기능 출시"</string>
+    <string name="notificationUI_fledge_measurement_introduction_text1_v2" msgid="4019531984422364790">"Android에서는 개인 맞춤 광고를 표시할 때 앱에서 획득할 수 있는 사용자 관련 정보를 제한하는 새로운 방법을 도입합니다."</string>
+    <string name="notificationUI_fledge_measurement_introduction_text2_v2" msgid="7324869061552803848">"•  앱 추천 광고 기능에서는 새로운 개인 정보 보호 기능이 앱에서 관련성 있는 광고를 표시할 수 있도록 하는 동시에 사용자의 신원 및 앱 사용에 관한 정보를 보호합니다. 사용하는 앱은 내 활동을 토대로 다른 앱에 표시될 관련성 있는 광고를 추천할 수 있습니다. 개인 정보 보호 설정에서 앱 목록을 확인하고 광고를 추천하지 못하도록 차단할 수 있습니다."</string>
+    <string name="notificationUI_fledge_measurement_introduction_text3_v2" msgid="7061185974787039681">"•  광고 측정 시 광고의 실적을 파악하기 위해 제한된 유형의 데이터(예: 하루 중 광고가 사용자에게 표시된 시간)가 앱 간에 공유됩니다."</string>
+    <string name="notificationUI_how_it_works_fledge_measurement_expanded_text2_v2" msgid="5467298277353569728">"이 기기에서의 내 앱 활동은 광고를 추천하는 데 사용될 수 있습니다."</string>
+    <string name="notificationUI_header_ga_title_eu_v2" msgid="8442776546238998877">"다른 광고 개인 정보 보호 기능 사용 설정"</string>
+    <string name="notificationUI_container1_body_ga_text_eu_v2" msgid="1119632112904754361">"표시되는 광고와 관련해 더 많은 선택권을 보장하기 위해 Android에서 새로운 개인 정보 보호 기능도 제공합니다"</string>
+    <string name="notificationUI_container2_body_ga_text_eu_v2" msgid="7264946073865844642">"광고 주제는 앱에서 내 신원 정보와 앱 사용 정보를 보호하면서 관련성 있는 광고를 표시하는 데 도움이 됩니다. Android는 최근 사용한 앱을 기반으로 관심분야 주제를 파악할 수 있습니다. 나중에 내게 관련성이 더 높은 광고를 표시하기 위해 내가 사용하는 앱에서 Android에 관련 주제를 요청할 수 있습니다."</string>
+    <string name="notificationUI_container3_body_ga_text_eu_v2" msgid="3204499878554843655">"개인 정보 보호 설정에서 광고 주제를 확인하고 앱과 공유하고 싶지 않은 주제를 차단할 수 있습니다. 또한 Android에서 광고 주제를 정기적으로 자동 삭제합니다."</string>
+    <string name="notificationUI_right_control_button_ga_text_eu_v2" msgid="7227289411885047121">"사용 설정"</string>
+    <string name="notificationUI_notification_ga_title_v2" msgid="7429979629916798545">"새로운 광고 개인 정보 보호 기능 출시"</string>
+    <string name="notificationUI_notification_ga_content_v2" msgid="4673081782304081905">"이제 신원을 보호하는 동시에 표시되는 광고와 관련해 더 많은 선택권이 제공됩니다"</string>
+    <string name="notificationUI_header_ga_title_v2" msgid="2079990149331373941">"새로운 광고 개인 정보 보호 기능 출시"</string>
+    <string name="notificationUI_container1_ga_introduction_v2" msgid="3820258766801905248">"표시되는 광고와 관련해 더 많은 선택권을 보장하기 위해 이제 Android에서 새로운 개인 정보 보호 기능을 제공합니다"</string>
+    <string name="notificationUI_next_button_text" msgid="5564270455474313663">"다음"</string>
+    <string name="settingsUI_main_view_title" msgid="1663691082473230496">"개인 정보 보호 샌드박스"</string>
+    <string name="settingsUI_main_view_subtitle" msgid="2059496555507319371">"Android 광고 개인 정보 보호 베타에 참여하기"</string>
+    <string name="settingsUI_privacy_sandbox_beta_switch_title" msgid="5264782269528129670">"개인 정보 보호 샌드박스"</string>
+    <string name="settingsUI_topics_title" msgid="5996189869721397937">"Android에서 추정한 관심분야"</string>
+    <string name="settingsUI_apps_title" msgid="2772289096915264175">"관심분야를 추정하는 앱"</string>
+    <string name="settingsUI_main_view_info_text8" msgid="2262800588014737545">"광고 측정"</string>
+    <string name="settingsUI_main_view_info_text9" msgid="5431131706102562540">"앱은 개인 정보 보호 샌드박스를 사용하여 광고 효과를 측정할 수 있습니다. 이를 위해 광고주는 사용자의 광고 및 앱 상호작용에 관한 데이터를 Android를 통해 임시 저장할 수 있습니다. 저장할 수 있는 데이터의 양은 제한되며 정기적으로 삭제됩니다.\n\n언제든지 개인 정보 보호 샌드박스를 사용 중지하여 이 데이터를 삭제할 수 있습니다."</string>
+    <string name="settingsUI_topics_view_subtitle" msgid="6608135144119617292">"Android는 사용되는 앱을 기준으로 사용자의 주요 관심분야를 정기적으로 추정합니다. 앱은 보다 관련성 높은 광고를 표시하기 위해 Android에 이러한 관심분야를 사용하도록 요청할 수 있습니다\n\n관심분야를 차단하면 차단을 해제하지 않는 한 목록에 다시 추가되지 않습니다. 하지만 관련된 일부 광고는 계속 표시될 수 있습니다."</string>
+    <string name="settingsUI_block_topic_title" msgid="1883542291264768402">"차단"</string>
+    <string name="settingsUI_unblock_topic_title" msgid="1710283575567727667">"차단 해제"</string>
+    <string name="settingsUI_blocked_topics_title" msgid="5030422883546261820">"차단한 관심분야"</string>
+    <string name="settingsUI_reset_topics_title" msgid="6917960006583871987">"모든 관심분야 재설정"</string>
+    <string name="settingsUI_topics_view_no_topics_text" msgid="6954747579303498382">"지금 표시할 관심분야가 없습니다."</string>
+    <string name="settingsUI_topics_view_no_topics_ga_text" msgid="8043163159679359485">"지금 표시할 주제가 없습니다.\n"<a href="https://support.google.com/android?p=ad_privacy">"광고 주제"</a>"에 관해 자세히 알아보기"</string>
+    <string name="settingsUI_topics_view_info_text1" msgid="2477020249748216309">"개인 정보 보호 샌드박스"</string>
+    <string name="settingsUI_topics_view_info_text2" msgid="6223353589295876851">"Android의 광고 개인 정보 보호 베타는 앱에서 사용자가 좋아할 만한 광고를 표시할 수 있는 새로운 기능을 제공합니다. 이 새로운 기술은 기기 식별자를 사용하지 않습니다.\n\nAndroid는 사용자가 관심을 보일 만한 광고 종류를 추정하고 관심분야를 기기에 임시 저장합니다. 이렇게 하면 앱이 다른 개발자의 웹사이트/앱에서 이루어진 활동을 추적하지 않고도 관련성 있는 광고를 표시할 수 있습니다."</string>
+    <string name="settingsUI_topics_view_no_blocked_topics_text" msgid="6553014185055718781">"차단한 관심분야가 없습니다."</string>
+    <string name="settingsUI_no_blocked_topics_ga_text" msgid="377459829879121256">"차단된 주제 없음"</string>
+    <string name="settingsUI_view_blocked_topics_title" msgid="3705333677440361392">"차단된 주제 보기"</string>
+    <string name="settingsUI_topics_are_reset" msgid="7539323750312329931">"관심분야 재설정됨"</string>
+    <string name="settingsUI_topics_are_reset_ga" msgid="5250296990870048195">"주제 재설정됨"</string>
+    <string name="settingsUI_apps_view_subtitle" msgid="8193343057416677400">"앱에서 관심분야를 추정하고 Android를 통해 임시로 저장할 수 있습니다. 나중에 다른 앱이 이 관심분야를 토대로 광고를 표시할 수 있습니다\n\n특정 앱을 차단하면 그 앱은 더 이상 관심분야를 추정하지 않습니다. 차단을 해제하지 않는 한 앱은 목록에 다시 추가되지 않습니다. 차단된 앱에서 이미 추정한 관심분야는 삭제되지만 이와 관련된 일부 광고가 계속 표시될 수도 있습니다"</string>
+    <string name="settingsUI_blocked_apps_title" msgid="1260257485713408637">"차단한 앱"</string>
+    <string name="settingsUI_view_blocked_apps_title" msgid="379556513199380600">"차단된 앱 보기"</string>
+    <string name="settingsUI_reset_apps_title" msgid="6221704974528131179">"앱에서 추정한 관심분야 초기화"</string>
+    <string name="settingsUI_apps_view_no_apps_text" msgid="7460005016322426137">"현재 관심분야를 추정할 만한 앱이 없습니다."</string>
+    <string name="settingsUI_apps_view_no_apps_ga_text" msgid="742044210764257860">"지금 표시할 앱이 없습니다. \n"<a href="https://support.google.com/android?p=ad_privacy">"앱 추천 광고"</a>"에 관해 자세히 알아보기"</string>
+    <string name="settingsUI_apps_view_info_text1" msgid="7835635425477842692">"개인 정보 보호 샌드박스"</string>
+    <string name="settingsUI_apps_view_info_text2" msgid="308547275474796552">"Android의 광고 개인 정보 보호 베타는 앱에서 사용자가 좋아할 만한 광고를 표시할 수 있는 새로운 기능을 제공합니다. 이 새로운 기술은 기기 식별자를 사용하지 않습니다.\n\n앱은 사용자가 관심을 보일 만한 광고 종류를 추정하고 관심분야를 기기에 임시 저장합니다. 이렇게 하면 앱이 다른 개발자의 웹사이트/앱에서 이루어진 활동을 추적하지 않고도 관련성 있는 광고를 표시할 수 있습니다."</string>
+    <string name="settingsUI_apps_view_no_blocked_apps_text" msgid="3953560911214151396">"차단한 앱이 없습니다."</string>
+    <string name="settingsUI_no_blocked_apps_ga_text" msgid="7488680173653861943">"차단된 앱 없음"</string>
+    <string name="settingsUI_measurement_switch_title" msgid="6623116680555954932">"광고 측정 허용"</string>
+    <string name="settingsUI_measurement_view_intro_text" msgid="3608942051176719850">"앱과 광고주는 광고 실적을 측정하는 데 도움이 되는 정보를 Android에 요청할 수 있습니다.\n\n광고 측정 데이터는 기기에서 정기적으로 삭제됩니다."</string>
+    <string name="settingsUI_measurement_view_reset_title" msgid="3063374834649428050">"측정 데이터 재설정"</string>
+    <string name="settingsUI_measurement_view_footer_text" msgid="5978750159738729308">"Android는 앱 간에 공유할 수 있는 정보를 제한하여 내 개인 정보를 보호합니다. 신원 보호를 위해 보고서는 지연 전송됩니다.\n\n브라우저에 비슷한 설정이 있을 수 있습니다. Android와 브라우저 모두에 광고 측정이 사용 설정되어 있는 경우, 내가 사용하는 앱과 방문하는 사이트의 광고 효과를 브라우저에서 측정하게 될 수도 있습니다. 방문 기록은 기기에 비공개로 보관됩니다.\n\nAndroid가 사용자의 데이터를 보호하는 방법에 관한 자세한 내용은 "<a href="https://policies.google.com/privacy">"개인정보처리방침"</a>"을 참고하세요."</string>
+    <string name="settingsUI_measurement_are_reset" msgid="4375330550418573499">"광고 측정 데이터 재설정됨"</string>
+    <string name="settingsUI_dialog_negative_text" msgid="3014088254631375852">"취소"</string>
+    <string name="settingsUI_dialog_opt_out_title" msgid="1862069591629418291">"개인 정보 보호 샌드박스 사용을 중지하시겠습니까?"</string>
+    <string name="settingsUI_dialog_opt_out_message" msgid="5696012172835241848">"생각이 바뀌었거나 Android의 광고 개인 정보 보호 베타에 관해 자세히 알아보고 싶다면 개인 정보 보호 설정으로 이동하세요"</string>
+    <string name="settingsUI_dialog_opt_out_positive_text" msgid="5344259263448028614">"사용 중지"</string>
+    <string name="settingsUI_dialog_block_topic_title" msgid="5744004384480280782">"<xliff:g id="TOPIC">%1$s</xliff:g> 관련 주제를 차단하시겠습니까?"</string>
+    <string name="settingsUI_dialog_block_topic_message" msgid="2581824495438333677">"주제가 차단되며 사용자가 다시 추가하지 않는 한 목록에 다시 표시되지 않습니다. 관련된 일부 광고는 계속 표시될 수 있습니다."</string>
+    <string name="settingsUI_dialog_block_topic_positive_text" msgid="2626152417590300510">"차단"</string>
+    <string name="settingsUI_dialog_unblock_topic_title" msgid="7361000923920947234">"<xliff:g id="TOPIC">%1$s</xliff:g> 앱이 차단 해제됨"</string>
+    <string name="settingsUI_dialog_unblock_topic_message" msgid="1090743551997420666">"Android에서 이 주제를 목록에 다시 추가할 수 있지만 주제가 바로 표시되지는 않을 수도 있습니다."</string>
+    <string name="settingsUI_dialog_unblock_topic_positive_text" msgid="2192452325573789737">"확인"</string>
+    <string name="settingsUI_dialog_reset_topic_title" msgid="8025836207966712435">"모든 광고 주제를 재설정하시겠습니까?"</string>
+    <string name="settingsUI_dialog_reset_topic_message" msgid="4243744527757134000">"목록을 삭제하고 앞으로는 새로운 주제를 추가합니다. 재설정한 주제와 관련된 일부 광고가 계속 표시될 수 있습니다."</string>
+    <string name="settingsUI_dialog_reset_topic_positive_text" msgid="8345697359799280761">"재설정"</string>
+    <string name="settingsUI_dialog_block_app_title" msgid="421160714549264414">"<xliff:g id="APP">%1$s</xliff:g> 앱을 차단하시겠습니까?"</string>
+    <string name="settingsUI_dialog_block_app_message" msgid="758788973278770119">"차단 해제하지 않는 한 이 앱은 광고를 추천하지 않으며 목록에 다시 추가되지도 않습니다. 관련된 일부 광고는 계속 표시될 수 있습니다."</string>
+    <string name="settingsUI_dialog_unblock_app_title" msgid="4360730780049298286">"<xliff:g id="APP">%1$s</xliff:g> 앱이 차단 해제됨"</string>
+    <string name="settingsUI_dialog_unblock_app_message" msgid="5758218424845642060">"앱에서 다시 광고를 추천할 수 있지만 이 앱이 목록에 바로 표시되지는 않을 수도 있습니다. 관련 광고가 표시되기까지 시간이 걸릴 수 있습니다."</string>
+    <string name="settingsUI_dialog_reset_app_title" msgid="5177572712117150557">"앱에서 추천하는 광고를 재설정하시겠습니까?"</string>
+    <string name="settingsUI_dialog_reset_app_message" msgid="7845329616145691006">"목록의 앱에서 제공한 광고 추천 데이터가 삭제되고 앞으로는 앱에서 새로운 광고를 추천합니다. 관련된 일부 광고는 계속 표시될 수 있습니다."</string>
+    <string name="settingsUI_apps_are_reset" msgid="1814400631145418530">"앱 데이터 재설정됨"</string>
+    <string name="settingsUI_dialog_topics_opt_in_title" msgid="8121927422479701361">"광고 주제 사용 설정"</string>
+    <string name="settingsUI_dialog_topics_opt_in_message" msgid="906156509464496182">"Android에서 관심분야 주제를 파악하기 시작하지만, 첫 번째 주제가 표시될 때까지 시간이 걸릴 수 있습니다."</string>
+    <string name="settingsUI_dialog_topics_opt_out_title" msgid="729119757000459089">"광고 주제를 사용 중지하시겠습니까?"</string>
+    <string name="settingsUI_dialog_topics_opt_out_message" msgid="1536431481297878931">"이 주제 목록이 삭제됩니다. Android에서 더 이상 관심분야 주제를 파악하지 않지만, 관련성 있는 광고가 계속 표시될 수도 있습니다."</string>
+    <string name="settingsUI_dialog_apps_opt_in_title" msgid="1802639238531107941">"앱 추천 광고 사용 설정"</string>
+    <string name="settingsUI_dialog_apps_opt_in_message" msgid="6335861029594000364">"앱이 광고를 추천하기 시작할 수 있습니다. 앱이 광고를 추천하기 시작하면 앱 목록이 표시됩니다."</string>
+    <string name="settingsUI_dialog_apps_opt_out_title" msgid="2152898453001885432">"앱 추천 광고를 사용 중지하시겠습니까?"</string>
+    <string name="settingsUI_dialog_apps_opt_out_message" msgid="6894065908128443334">"모든 광고 추천 데이터가 삭제됩니다. 앱이 더 이상 광고를 추천할 수 없지만, 관련성 있는 광고가 계속 표시될 수도 있습니다."</string>
+    <string name="settingsUI_dialog_measurement_opt_in_title" msgid="313317715284771681">"광고 측정 사용 설정"</string>
+    <string name="settingsUI_dialog_measurement_opt_in_message" msgid="1122570790810645916">"Android는 앱에서 광고 실적을 측정할 수 있도록 매우 제한된 정보만 앱과 공유할 수 있습니다."</string>
+    <string name="settingsUI_dialog_measurement_opt_out_title" msgid="1629867723206716370">"광고 측정을 사용 중지하시겠습니까?"</string>
+    <string name="settingsUI_dialog_measurement_opt_out_message" msgid="1050338738668085641">"모든 대기 중인 광고 측정 보고서가 삭제되며 새로운 보고서가 생성되거나 공유되지 않습니다."</string>
+    <string name="settingsUI_main_view_ga_title" msgid="4149820452019697214">"광고 개인 정보 보호"</string>
+    <string name="settingsUI_topics_ga_title" msgid="7324482132761824214">"광고 주제"</string>
+    <string name="settingsUI_apps_ga_title" msgid="1527820834800364372">"앱 추천 광고"</string>
+    <string name="settingsUI_main_view_ad_topics_info" msgid="2643088833140772417">"Android는 최근 사용한 앱과 앱 사용 빈도를 기반으로 관심 주제를 파악합니다."</string>
+    <string name="settingsUI_main_view_apps_info" msgid="1668244327840008046">"앱을 사용하면 앱에서 내가 앱을 사용하는 방식을 기반으로 내 관심분야를 파악할 수도 있습니다."</string>
+    <string name="settingsU_main_view_measurement_info" msgid="7950104699961821635">"사용하는 앱에서 광고 실적 측정에 도움이 되는 정보를 Android에 요구할 수 있습니다. Android는 제한된 유형의 데이터를 앱에서 수집하도록 허용합니다."</string>
+    <string name="settingsU_main_view_learn_more" msgid="2129694798398023916"><a href="https://support.google.com/android?p=ad_privacy">"Android의 광고 개인 정보 보호"</a>"에 관해 자세히 알아보기"</string>
+    <string name="settingsUI_topics_subtitle" msgid="6545976434367750110">"사용/주제 <xliff:g id="TOPICS_COUNT">%1$d</xliff:g>개"</string>
+    <string name="settingsUI_topics_subtitle_plural" msgid="4809219115021801972">"{count,plural, =1{사용/주제 #개}other{사용/주제 #개}}"</string>
+    <string name="settingsUI_apps_subtitle" msgid="387595280958995973">"사용/앱 <xliff:g id="APPS_COUNT">%1$d</xliff:g>개"</string>
+    <string name="settingsUI_apps_subtitle_plural" msgid="3989880089023565457">"{count,plural, =1{사용/앱 #개}other{사용/앱 #개}}"</string>
+    <string name="settingsUI_subtitle_consent_on" msgid="7522464537194619022">"사용"</string>
+    <string name="settingsUI_subtitle_consent_off" msgid="1604274030685784887">"사용 안함"</string>
+    <string name="settingsUI_topics_view_ga_subtitle" msgid="3672784134413586246">"관심 주제는 내가 최근에 사용한 앱을 기반으로 하며 앱에서 내게 개인 맞춤 광고를 표시하기 위해 사용됩니다\n\n앱과 공유하길 원하지 않는 주제를 차단할 수 있습니다. 또한 Android에서는 주제를 정기적으로 자동 삭제합니다"</string>
+    <string name="settingsUI_topics_switch_title" msgid="5856255848598189791">"광고 주제 허용"</string>
+    <string name="settingsUI_blocked_topics_ga_title" msgid="7163366621282449273">"차단한 광고 주제"</string>
+    <string name="settingsUI_reset_topics_ga_title" msgid="5365554894399951300">"모든 광고 주제 재설정"</string>
+    <string name="settingsU_topics_view_footer" msgid="4769146330248953561">"Android는 지난 몇 주 동안 사용한 앱을 기반으로 관심 주제를 파악합니다.\n\n나중에 내게 표시되는 광고를 맞춤설정하기 위해 내가 사용하는 앱에서 Android에 내 주제를 요청할 수 있습니다. Android는 최대 3개의 주제를 공유하며 이때 내 신원 및 앱 사용에 관한 정보는 보호합니다.\n\nAndroid에서는 주제를 정기적으로 자동 삭제합니다. 앱을 사용하다 보면 동일한 주제가 목록에 다시 표시될 수 있습니다. 또한 사용자는 Android가 앱에 공유하는 것을 원하지 않는 주제를 차단할 수도 있습니다.\n\n앱에서 이 설정, 앱 추천 광고 설정, 광고 ID 설정, 사용 중인 앱이 광고를 맞춤설정하는지에 따라 내게 표시되는 광고가 맞춤설정될 수 있습니다."</string>
+    <string name="settingsUI_apps_switch_title" msgid="1308209012769248890">"앱 추천 광고 허용"</string>
+    <string name="settingsUI_apps_view_ga_subtitle" msgid="1911743837387384160">"앱을 사용하면 앱에서 내 관심분야를 파악한 후 다른 앱에 표시될 광고를 추천할 수 있습니다\n\n앱이 광고를 추천하지 못하도록 차단할 수 있습니다. Android에서는 앱 추천 데이터를 정기적으로 자동 삭제합니다"</string>
+    <string name="settingsUI_blocked_apps_ga_title" msgid="1896327995101895088">"차단한 앱"</string>
+    <string name="settingsUI_reset_apps_ga_title" msgid="371969808353100852">"앱 추천 데이터 재설정"</string>
+    <string name="settingsUI_apps_view_footer" msgid="6428897482766556515">"일반적으로 앱에서는 사용 환경을 맞춤설정하기 위해 사용자가 관심을 갖는 항목을 기억합니다. 앱은 또한 Android에 요청해 사용자의 주제에 관한 정보를 저장할 수 있습니다.\n\n예를 들어 사용자가 마라톤 훈련에 관한 앱을 이용한다면 앱은 사용자가 러닝화에 관심이 있는 것으로 파악할 수 있습니다. 나중에 다른 앱을 사용할 때 이전 앱에서 추천한 러닝화에 관한 광고가 표시될 수 있습니다.\n\nAndroid는 앱 추천 데이터를 정기적으로 자동 삭제합니다. 앱을 다시 사용하면 목록에 이 앱이 다시 표시될 수 있습니다. 원하지 않으면 앱이 나에게 광고를 추천하지 않도록 차단할 수 있습니다.\n\n사용하는 앱에서 광고 추천 설정, 광고 주제 설정, 광고 ID 설정, 사용 중인 앱이 광고를 맞춤설정하는지에 따라 나에게 표시되는 광고가 맞춤설정될 수 있습니다."</string>
+    <string name="notificationUI_u18_notification_title" msgid="4880509503177562077">"새로운 광고 개인 정보 보호 기능 사용 가능"</string>
+    <string name="notificationUI_u18_notification_content" msgid="6734418183242286936">"광고 실적을 측정하는 데 도움이 되는 매우 제한된 정보만 앱 간에 공유됩니다."</string>
+    <string name="notificationUI_u18_body1" msgid="5384339364319615715">"광고 측정이라는 새로운 광고 개인 정보 보호 기능이 출시됩니다. 앱에서 광고 실적을 측정하는 데 도움이 되도록 Android에서는 광고가 사용자에게 표시된 시기 등 매우 제한된 정보만 앱 간에 공유합니다."</string>
+    <string name="notificationUI_u18_body3" msgid="4511974346169641579">"광고 개인 정보 보호 설정에서 변경할 수 있습니다."</string>
+    <string name="settingsUI_u18_main_view_measurement_info" msgid="1709326915590855853">"사용하는 앱에서 광고 실적 측정에 도움이 되는 정보를 Android에 요구할 수 있습니다. Android는 제한된 유형의 데이터만 앱에서 수집하도록 허용합니다."</string>
+    <string name="ic_consent_notification_ga_image_description" msgid="6146488914437778539">"음악, 뉴스, 스포츠와 같은 관심분야를 나타내는 기호를 보여주는 컬러 그림"</string>
+    <string name="ic_main_view_ga_image_description" msgid="1846571138870271761">"원 안에 자물쇠가 그려져 있는 컬러 그림"</string>
+    <string name="ic_placeholder_icon_for_empty_apps_list_description" msgid="8171099879240285360">"9개의 점이 사각형을 이루고 있는 작은 흑백 그림"</string>
+    <string name="ic_placeholder_icon_for_empty_topics_list_description" msgid="2112218456926009271">"하트, 삼각형, 사각형과 같은 단순한 도형이 그려져 있는 작은 흑백 그림"</string>
+    <string name="topic10001" msgid="1636806320891333775">"예술 및 엔터테인먼트"</string>
+    <string name="topic10002" msgid="1226367977754287428">"연기 및 연극"</string>
+    <string name="topic10003" msgid="6949890838957814881">"일본 애니메이션 및 망가"</string>
+    <string name="topic10004" msgid="5397903150832181233">"만화 영화"</string>
+    <string name="topic10005" msgid="6316179809581237302">"만화"</string>
+    <string name="topic10006" msgid="7442330644172139790">"콘서트 및 음악 페스티벌"</string>
+    <string name="topic10007" msgid="5537896091418145164">"댄스"</string>
+    <string name="topic10008" msgid="2737343278307552521">"엔터테인먼트 산업"</string>
+    <string name="topic10009" msgid="3252367380340240453">"재미있는 주제 및 퀴즈"</string>
+    <string name="topic10010" msgid="932301479153552725">"재미있는 테스트 및 황당한 설문조사"</string>
+    <string name="topic10011" msgid="3123553390567261985">"유머"</string>
+    <string name="topic10012" msgid="8756486271154511326">"재미있는 사진 및 동영상"</string>
+    <string name="topic10013" msgid="1242353161202448753">"라이브 코미디"</string>
+    <string name="topic10014" msgid="6086156236112755291">"실시간 스포츠 이벤트"</string>
+    <string name="topic10015" msgid="9196350141359833832">"마술"</string>
+    <string name="topic10016" msgid="202419376638900745">"영화 상영작 목록 및 상영 시간"</string>
+    <string name="topic10017" msgid="6737229918787540100">"영화"</string>
+    <string name="topic10018" msgid="6823676154109177487">"액션 및 어드벤처 영화"</string>
+    <string name="topic10019" msgid="6875960630918973127">"애니메이션 영화"</string>
+    <string name="topic10020" msgid="4323870300602151489">"코미디 영화"</string>
+    <string name="topic10021" msgid="446758643774468418">"컬트 및 인디 영화"</string>
+    <string name="topic10022" msgid="3671929742155787005">"다큐멘터리 영화"</string>
+    <string name="topic10023" msgid="3547616830531182863">"드라마"</string>
+    <string name="topic10024" msgid="1044853632986202120">"가족 영화"</string>
+    <string name="topic10025" msgid="5958629223443279316">"공포 영화"</string>
+    <string name="topic10026" msgid="5685515125614860029">"로맨스 영화"</string>
+    <string name="topic10027" msgid="8846353713171614854">"스릴러"</string>
+    <string name="topic10028" msgid="170404703980174756">"음악 및 오디오"</string>
+    <string name="topic10029" msgid="4634600135545614665">"블루스"</string>
+    <string name="topic10030" msgid="7226438392540805771">"클래식 음악"</string>
+    <string name="topic10031" msgid="1488013446112025676">"컨트리 음악"</string>
+    <string name="topic10032" msgid="9053666244854789632">"댄스 및 일렉트로닉 음악"</string>
+    <string name="topic10033" msgid="440063573197454181">"포크 및 전통 음악"</string>
+    <string name="topic10034" msgid="8296307244554241197">"재즈"</string>
+    <string name="topic10035" msgid="9171752741499923310">"음악 스트리밍 및 다운로드"</string>
+    <string name="topic10036" msgid="2490236112725457376">"뮤직 비디오"</string>
+    <string name="topic10037" msgid="1923690469725883551">"악기"</string>
+    <string name="topic10038" msgid="2817492732688549631">"피아노 및 키보드"</string>
+    <string name="topic10039" msgid="8970033643570782019">"팝 음악"</string>
+    <string name="topic10040" msgid="7478395512712452137">"라디오"</string>
+    <string name="topic10041" msgid="3319379117705411886">"라디오 토크쇼"</string>
+    <string name="topic10042" msgid="8830471038440654640">"랩 및 힙합"</string>
+    <string name="topic10043" msgid="8585450284346207691">"록 음악"</string>
+    <string name="topic10044" msgid="3710011249220779842">"클래식 록 및 고전 록"</string>
+    <string name="topic10045" msgid="7593443421067822441">"하드 록 및 프로그레시브 록"</string>
+    <string name="topic10046" msgid="8715621227472631784">"인디 및 얼터너티브 음악"</string>
+    <string name="topic10047" msgid="3518038303049899798">"샘플 및 사운드 라이브러리"</string>
+    <string name="topic10048" msgid="3063505369500799094">"재즈 및 R&amp;B"</string>
+    <string name="topic10049" msgid="8061992014977840818">"사운드트랙"</string>
+    <string name="topic10050" msgid="3540229495848506229">"월드뮤직"</string>
+    <string name="topic10051" msgid="6132468331924347995">"레게 및 카리브해 음악"</string>
+    <string name="topic10052" msgid="8213269199807045473">"온라인 이미지 갤러리"</string>
+    <string name="topic10053" msgid="1378192203082454197">"온라인 동영상"</string>
+    <string name="topic10054" msgid="3727401645405134505">"실시간 동영상 스트리밍"</string>
+    <string name="topic10055" msgid="4943174831732192854">"영화 및 TV 스트리밍"</string>
+    <string name="topic10056" msgid="3066058636154255073">"오페라"</string>
+    <string name="topic10057" msgid="387445514677222034">"TV 가이드 및 참고 자료"</string>
+    <string name="topic10058" msgid="9149178644022969766">"TV 네트워크 및 방송국"</string>
+    <string name="topic10059" msgid="6300562669238320524">"TV 프로그램"</string>
+    <string name="topic10060" msgid="3901256055064835246">"TV 코미디"</string>
+    <string name="topic10061" msgid="8343924749123326062">"TV 다큐멘터리 및 논픽션"</string>
+    <string name="topic10062" msgid="9183355218976951211">"TV 드라마"</string>
+    <string name="topic10063" msgid="644340831620792432">"TV 연속극"</string>
+    <string name="topic10064" msgid="5961885645457010998">"가족용 TV 프로그램"</string>
+    <string name="topic10065" msgid="7916343612028608044">"TV 리얼리티 쇼"</string>
+    <string name="topic10066" msgid="5984396525358003559">"TV 공상과학 및 판타지 프로그램"</string>
+    <string name="topic10067" msgid="6404637729885733437">"시각 예술 및 디자인"</string>
+    <string name="topic10068" msgid="4589856961950168493">"설계"</string>
+    <string name="topic10069" msgid="3129378082034151991">"회화"</string>
+    <string name="topic10070" msgid="2570256568661324147">"사진 및 디지털 예술"</string>
+    <string name="topic10071" msgid="1288722040962471254">"자동차 및 교통"</string>
+    <string name="topic10072" msgid="9155509766616567261">"화물 트럭 및 트레일러"</string>
+    <string name="topic10073" msgid="3748676231341513738">"클래식카"</string>
+    <string name="topic10074" msgid="2040911547161463227">"맞춤 제작 및 고성능 차량"</string>
+    <string name="topic10075" msgid="1242538698445713796">"유가 및 차량용 연료"</string>
+    <string name="topic10076" msgid="8674225812339579627">"자동차(타입별)"</string>
+    <string name="topic10077" msgid="3577709810751953433">"자율 주행 차량"</string>
+    <string name="topic10078" msgid="5493263845129910125">"컨버터블"</string>
+    <string name="topic10079" msgid="3466838852836498580">"쿠페"</string>
+    <string name="topic10080" msgid="3515647285637163190">"해치백"</string>
+    <string name="topic10081" msgid="4135085035401158860">"하이브리드 및 대안 교통수단"</string>
+    <string name="topic10082" msgid="7168659489029594320">"고급 승용차"</string>
+    <string name="topic10083" msgid="1532745144715857802">"마이크로카 및 서브 콤팩트카"</string>
+    <string name="topic10084" msgid="1984231414410381476">"오토바이"</string>
+    <string name="topic10085" msgid="5235555028227554661">"오프로드 차량"</string>
+    <string name="topic10086" msgid="8360336602646460411">"픽업 트럭"</string>
+    <string name="topic10087" msgid="6566900167002195406">"스쿠터 및 모페드"</string>
+    <string name="topic10088" msgid="2899313082601001223">"세단"</string>
+    <string name="topic10089" msgid="1053630346809973163">"스테이션 왜건"</string>
+    <string name="topic10090" msgid="4478565601243447368">"SUV 및 다목적 차량"</string>
+    <string name="topic10091" msgid="3812668311830832874">"다목적 차량"</string>
+    <string name="topic10092" msgid="524130833813249539">"밴 및 미니밴"</string>
+    <string name="topic10093" msgid="8900143351472824542">"견인 및 긴급 출동 서비스"</string>
+    <string name="topic10094" msgid="6205146188176216038">"자동차 및 교통 안전"</string>
+    <string name="topic10095" msgid="7983070264654477553">"차량 부품 및 액세서리"</string>
+    <string name="topic10096" msgid="8148747014459050804">"차량 수리 및 유지관리"</string>
+    <string name="topic10097" msgid="4716536434833425748">"자동차 쇼핑"</string>
+    <string name="topic10098" msgid="6401980112135995019">"중고차"</string>
+    <string name="topic10099" msgid="8018714209926584445">"모터쇼"</string>
+    <string name="topic10100" msgid="2481422464734249871">"뷰티 및•피트니스"</string>
+    <string name="topic10101" msgid="7889144198021629053">"바디아트"</string>
+    <string name="topic10102" msgid="577637051755692238">"페이스 및 바디 케어"</string>
+    <string name="topic10103" msgid="6618157344631408510">"데오도란트"</string>
+    <string name="topic10104" msgid="6043649669944382784">"목욕 및 바디 제품"</string>
+    <string name="topic10105" msgid="3248569527339253661">"클린 뷰티"</string>
+    <string name="topic10106" msgid="1291481249483309832">"메이크업 및 화장품"</string>
+    <string name="topic10107" msgid="1335060201249279923">"네일케어 제품"</string>
+    <string name="topic10108" msgid="4996884435711154930">"향수 및 방향제"</string>
+    <string name="topic10109" msgid="7298403319989686251">"면도기"</string>
+    <string name="topic10110" msgid="5954355866247248022">"패션 및 스타일"</string>
+    <string name="topic10111" msgid="4447710938881368413">"피트니스"</string>
+    <string name="topic10112" msgid="8816530137921714131">"보디빌딩"</string>
+    <string name="topic10113" msgid="8138889299405853557">"피트니스 강의 및 퍼스널 트레이닝"</string>
+    <string name="topic10114" msgid="2172821400279346865">"피트니스 기술 제품"</string>
+    <string name="topic10115" msgid="9060244278068231494">"헤어 케어"</string>
+    <string name="topic10116" msgid="116242880964485085">"도서 및 문학"</string>
+    <string name="topic10117" msgid="8933734721100160863">"아동 문학"</string>
+    <string name="topic10118" msgid="4368531903547695191">"eBook"</string>
+    <string name="topic10119" msgid="2781095265741115471">"잡지"</string>
+    <string name="topic10120" msgid="3099507102655270527">"시"</string>
+    <string name="topic10121" msgid="4466592180799340837">"비즈니스 및 산업"</string>
+    <string name="topic10122" msgid="2375136741125920744">"광고 및 마케팅"</string>
+    <string name="topic10123" msgid="6974082907852347979">"영업"</string>
+    <string name="topic10124" msgid="44474598156972786">"농업 및 임업"</string>
+    <string name="topic10125" msgid="9170394261421539760">"식품 생산"</string>
+    <string name="topic10126" msgid="2210146434071038904">"자동차 산업"</string>
+    <string name="topic10127" msgid="5503077037318678029">"항공 산업"</string>
+    <string name="topic10128" msgid="285525650692719959">"비즈니스 운영"</string>
+    <string name="topic10129" msgid="3094691551566702427">"유연 근무제"</string>
+    <string name="topic10130" msgid="1922351409757117764">"인사"</string>
+    <string name="topic10131" msgid="8598763405951029782">"상업 대출"</string>
+    <string name="topic10132" msgid="1476352626208153907">"건축 및 유지관리"</string>
+    <string name="topic10133" msgid="7089177624979453528">"토목 공학"</string>
+    <string name="topic10134" msgid="3833032373311037601">"방위 산업"</string>
+    <string name="topic10135" msgid="2478808072377000440">"에너지 및 유틸리티"</string>
+    <string name="topic10136" msgid="9083992436834044162">"상수도 및 수처리"</string>
+    <string name="topic10137" msgid="1912599316814246824">"자선 사업"</string>
+    <string name="topic10138" msgid="7428346836350671895">"제조"</string>
+    <string name="topic10139" msgid="1396685812404869953">"금속 및 광업"</string>
+    <string name="topic10140" msgid="5264212052238781441">"MLM 및 비즈니스 기회"</string>
+    <string name="topic10141" msgid="860058416683118730">"제약 및 바이오테크"</string>
+    <string name="topic10142" msgid="2912550934111655896">"인쇄 및 출판"</string>
+    <string name="topic10143" msgid="5690610408227078117">"소매 거래"</string>
+    <string name="topic10144" msgid="3341052306953106368">"벤처 캐피탈"</string>
+    <string name="topic10145" msgid="6886608911083388041">"컴퓨터•및 전자 제품"</string>
+    <string name="topic10146" msgid="8202145175139144216">"컴퓨터 주변 장치"</string>
+    <string name="topic10147" msgid="4687964705548995437">"프린터"</string>
+    <string name="topic10148" msgid="8861628145647459323">"컴퓨터 보안"</string>
+    <string name="topic10149" msgid="1719988773455991739">"바이러스 백신 및 멀웨어"</string>
+    <string name="topic10150" msgid="1482205464872465298">"네트워크 보안"</string>
+    <string name="topic10151" msgid="1772262905623388968">"전자 제품"</string>
+    <string name="topic10152" msgid="651152740021127086">"카메라 및 캠코더"</string>
+    <string name="topic10153" msgid="8741504768717646372">"GPS 및 내비게이션"</string>
+    <string name="topic10154" msgid="5382029798409496090">"홈 자동화"</string>
+    <string name="topic10155" msgid="5243817792730496258">"홈시어터 시스템"</string>
+    <string name="topic10156" msgid="2497791567138856030">"MP3 및 휴대용 미디어 플레이어"</string>
+    <string name="topic10157" msgid="4723439422860510190">"웨어러블 기술"</string>
+    <string name="topic10158" msgid="5345830001295028513">"데이터 백업 및 복구"</string>
+    <string name="topic10159" msgid="6146958285117174314">"데스크톱 컴퓨터"</string>
+    <string name="topic10160" msgid="6624820395549466426">"노트북"</string>
+    <string name="topic10161" msgid="912458758908978530">"네트워킹"</string>
+    <string name="topic10162" msgid="6717352131379507693">"분산 및 클라우드 컴퓨팅"</string>
+    <string name="topic10163" msgid="6344926622025055321">"프로그래밍"</string>
+    <string name="topic10164" msgid="4228888249078845459">"소프트웨어"</string>
+    <string name="topic10165" msgid="5507908999219967161">"오디오 및 음악 소프트웨어"</string>
+    <string name="topic10166" msgid="4768106492755849560">"비즈니스 및 생산성 소프트웨어"</string>
+    <string name="topic10167" msgid="8556935769754922871">"캘린더 및 일정 관리 소프트웨어"</string>
+    <string name="topic10168" msgid="7730134961167790334">"공동작업 및 회의 소프트웨어"</string>
+    <string name="topic10169" msgid="5655084106378890454">"프레젠테이션 소프트웨어"</string>
+    <string name="topic10170" msgid="4638281897205909919">"스프레드시트 소프트웨어"</string>
+    <string name="topic10171" msgid="7910183120486541228">"워드프로세스 소프트웨어"</string>
+    <string name="topic10172" msgid="3626573644414074730">"컴퓨터 출판"</string>
+    <string name="topic10173" msgid="7320053835183057144">"글꼴"</string>
+    <string name="topic10174" msgid="5770469447869586710">"다운로드 관리자"</string>
+    <string name="topic10175" msgid="3475235810022334041">"프리웨어 및 셰어웨어"</string>
+    <string name="topic10176" msgid="6881704501596479881">"그래픽 및 애니메이션 소프트웨어"</string>
+    <string name="topic10177" msgid="6740430730079682579">"지능형 가상 비서"</string>
+    <string name="topic10178" msgid="7261811053741593091">"미디어 플레이어"</string>
+    <string name="topic10179" msgid="2967001567120854492">"모니터링 소프트웨어"</string>
+    <string name="topic10180" msgid="4197420326455130102">"운영체제"</string>
+    <string name="topic10181" msgid="3537573129132698830">"사진 및 동영상 소프트웨어"</string>
+    <string name="topic10182" msgid="7688631285131229981">"사진 소프트웨어"</string>
+    <string name="topic10183" msgid="5994974566140272512">"동영상 소프트웨어"</string>
+    <string name="topic10184" msgid="8685817335076871509">"소프트웨어 유틸리티"</string>
+    <string name="topic10185" msgid="308314128178285390">"웹브라우저"</string>
+    <string name="topic10186" msgid="3147859503481018245">"금융"</string>
+    <string name="topic10187" msgid="7077128721410871032">"회계 및 감사"</string>
+    <string name="topic10188" msgid="2206138708659457910">"세금 신고 준비 및 계획"</string>
+    <string name="topic10189" msgid="4001795553008246784">"뱅킹"</string>
+    <string name="topic10190" msgid="2988430661381243083">"송금 및 이체 서비스"</string>
+    <string name="topic10191" msgid="6196081825838237614">"신용 및 대출"</string>
+    <string name="topic10192" msgid="3290123244833047307">"신용카드"</string>
+    <string name="topic10193" msgid="294407043381146861">"주택담보대출"</string>
+    <string name="topic10194" msgid="2834543407440890272">"개인 대출"</string>
+    <string name="topic10195" msgid="7650553060132394782">"학자금 대출 및 고등교육 파이낸싱"</string>
+    <string name="topic10196" msgid="5395035781876507254">"재무 설계 및 관리"</string>
+    <string name="topic10197" msgid="1287138667488226463">"은퇴 및 연금"</string>
+    <string name="topic10198" msgid="2523256186943366779">"보조금"</string>
+    <string name="topic10199" msgid="3746711537661530183">"보조금"</string>
+    <string name="topic10200" msgid="2394864891391267841">"보험"</string>
+    <string name="topic10201" msgid="4301879117376963742">"자동차 보험"</string>
+    <string name="topic10202" msgid="739808503036239379">"건강 보험"</string>
+    <string name="topic10203" msgid="838786942776142290">"주택 보험"</string>
+    <string name="topic10204" msgid="6591131759521321677">"생명 보험"</string>
+    <string name="topic10205" msgid="3294946723815021478">"여행자 보험"</string>
+    <string name="topic10206" msgid="6166888350685752683">"투자"</string>
+    <string name="topic10207" msgid="2296385804039743999">"상품 및 선물 거래"</string>
+    <string name="topic10208" msgid="2717498987483479091">"환거래 및 환전"</string>
+    <string name="topic10209" msgid="5204948738662951962">"헤지 펀드"</string>
+    <string name="topic10210" msgid="4607225697024266227">"뮤추얼 펀드"</string>
+    <string name="topic10211" msgid="7475381839877166080">"주식 및 채권"</string>
+    <string name="topic10212" msgid="3988751035952286047">"식음료"</string>
+    <string name="topic10213" msgid="1358963098339995471">"요리 및 레시피"</string>
+    <string name="topic10214" msgid="8463864389138867811">"BBQ 및 그릴"</string>
+    <string name="topic10215" msgid="3085467051491069648">"요리"</string>
+    <string name="topic10216" msgid="6043130649326166680">"채식 요리"</string>
+    <string name="topic10217" msgid="7173870057669247536">"비건 요리"</string>
+    <string name="topic10218" msgid="5570240643247064951">"건강한 식생활"</string>
+    <string name="topic10219" msgid="5896715206025463732">"음식 및 식료품 소매업체"</string>
+    <string name="topic10220" msgid="3894580611467039658">"게임"</string>
+    <string name="topic10221" msgid="14471057764591805">"아케이드 및 동전 투입식 게임"</string>
+    <string name="topic10222" msgid="2704894577954508861">"당구"</string>
+    <string name="topic10223" msgid="202900267060220170">"보드게임"</string>
+    <string name="topic10224" msgid="6572627325588452785">"체스 및 추상 전략 게임"</string>
+    <string name="topic10225" msgid="8056906319560292131">"카드 게임"</string>
+    <string name="topic10226" msgid="714463563336281099">"트레이딩 카드 게임"</string>
+    <string name="topic10227" msgid="218768654597520683">"컴퓨터 및 비디오 게임"</string>
+    <string name="topic10228" msgid="850597136074192489">"액션 및 플랫폼 게임"</string>
+    <string name="topic10229" msgid="4284501233897149886">"어드벤처 게임"</string>
+    <string name="topic10230" msgid="7156822286576815181">"캐주얼 게임"</string>
+    <string name="topic10231" msgid="7620407218897744361">"e스포츠"</string>
+    <string name="topic10232" msgid="3029734447275709941">"드라이빙 및 레이싱 게임"</string>
+    <string name="topic10233" msgid="8318075279868138231">"격투 게임"</string>
+    <string name="topic10234" msgid="3899847414436099153">"게임 자료 및 리뷰"</string>
+    <string name="topic10235" msgid="5851356242523630529">"비디오 게임 치트키 및 힌트"</string>
+    <string name="topic10236" msgid="1986665634014804954">"대규모 멀티플레이어 게임"</string>
+    <string name="topic10237" msgid="5569920221620447713">"음악 및 댄스 게임"</string>
+    <string name="topic10238" msgid="7431087331656772530">"샌드박스 게임"</string>
+    <string name="topic10239" msgid="8667462879554115515">"슈팅 게임"</string>
+    <string name="topic10240" msgid="1618985302446756520">"시뮬레이션 게임"</string>
+    <string name="topic10241" msgid="8450778411063723262">"비즈니스 및 경영 시뮬레이션 게임"</string>
+    <string name="topic10242" msgid="8860812940320018907">"도시 건설 게임"</string>
+    <string name="topic10243" msgid="1764694148721971512">"생활 시뮬레이션 게임"</string>
+    <string name="topic10244" msgid="4308588210397969087">"차량 시뮬레이터"</string>
+    <string name="topic10245" msgid="6904368410919496658">"스포츠 게임"</string>
+    <string name="topic10246" msgid="3381244806751528148">"스포츠 매니지먼트 게임"</string>
+    <string name="topic10247" msgid="5927502688389762068">"전략 게임"</string>
+    <string name="topic10248" msgid="8471339627212674032">"비디오 게임 모드(mod) 및 애드온"</string>
+    <string name="topic10249" msgid="5076706536204559962">"학습 게임"</string>
+    <string name="topic10250" msgid="6083030595195401083">"가족용 게임 및 활동"</string>
+    <string name="topic10251" msgid="99237306730665104">"그리기 및 컬러링"</string>
+    <string name="topic10252" msgid="6543039575961394064">"드레스업 및 패션 게임"</string>
+    <string name="topic10253" msgid="566596668186874227">"퍼즐 및 두뇌 게임"</string>
+    <string name="topic10254" msgid="5732147617072023634">"롤플레잉 게임"</string>
+    <string name="topic10255" msgid="2890655077164103057">"탁구"</string>
+    <string name="topic10256" msgid="3302096971402751679">"타일 매칭 게임"</string>
+    <string name="topic10257" msgid="4238531589193902619">"단어 게임"</string>
+    <string name="topic10258" msgid="6995329540076529056">"취미 및 레저"</string>
+    <string name="topic10259" msgid="8649688885811560410">"기념일"</string>
+    <string name="topic10260" msgid="487999213495640080">"생일 및 영명 축일"</string>
+    <string name="topic10261" msgid="8970668366745952094">"다이빙 및 수중 활동"</string>
+    <string name="topic10262" msgid="6644046161469353448">"섬유 및 섬유미술"</string>
+    <string name="topic10263" msgid="848165976917542929">"아웃도어"</string>
+    <string name="topic10264" msgid="6274985117752637104">"낚시"</string>
+    <string name="topic10265" msgid="4134876488948695674">"사냥 및 사격"</string>
+    <string name="topic10266" msgid="6617785039128074351">"페인트볼"</string>
+    <string name="topic10267" msgid="488093331618885003">"RC 및 모델링"</string>
+    <string name="topic10268" msgid="277932389492046264">"결혼식"</string>
+    <string name="topic10269" msgid="8572041514147955202">"가정 및 정원 가꾸기"</string>
+    <string name="topic10270" msgid="2646715182474030951">"원예"</string>
+    <string name="topic10271" msgid="1308931236810509881">"가정 및 인테리어 장식"</string>
+    <string name="topic10272" msgid="8746698707390628887">"가전제품"</string>
+    <string name="topic10273" msgid="344442071339164852">"집 리모델링"</string>
+    <string name="topic10274" msgid="8982330028561451429">"가정 안전 및 보안"</string>
+    <string name="topic10275" msgid="8280198018937968735">"가정용품"</string>
+    <string name="topic10276" msgid="1651598271798609235">"조경 디자인"</string>
+    <string name="topic10277" msgid="7675195736886448994">"인터넷 및 통신"</string>
+    <string name="topic10278" msgid="873251714192341707">"이메일 및 메시지"</string>
+    <string name="topic10279" msgid="6514296374139842600">"이메일"</string>
+    <string name="topic10280" msgid="7976787187115018267">"문자 메시지 및 채팅"</string>
+    <string name="topic10281" msgid="4013341162811169339">"음성 및 영상 채팅"</string>
+    <string name="topic10282" msgid="7810462611906257564">"ISP"</string>
+    <string name="topic10283" msgid="3958287780718485172">"전화 서비스 제공업체"</string>
+    <string name="topic10284" msgid="2415044270290467935">"벨소리 및 모바일 테마"</string>
+    <string name="topic10285" msgid="7056449544316408821">"검색엔진"</string>
+    <string name="topic10286" msgid="3458688996478472971">"스마트폰"</string>
+    <string name="topic10287" msgid="6766203044518402938">"화상회의"</string>
+    <string name="topic10288" msgid="3883137694557636622">"웹 앱 및 온라인 도구"</string>
+    <string name="topic10289" msgid="3392995633794787676">"웹 서비스"</string>
+    <string name="topic10290" msgid="3118880486702986341">"클라우드 스토리지"</string>
+    <string name="topic10291" msgid="6025855926350955094">"웹 디자인 및 개발"</string>
+    <string name="topic10292" msgid="3069720659823056935">"웹 호스팅"</string>
+    <string name="topic10293" msgid="2489957780009828409">"취업 및 교육"</string>
+    <string name="topic10294" msgid="474839431177892843">"교육"</string>
+    <string name="topic10295" msgid="2215489196192620880">"학술 회의 및 간행물"</string>
+    <string name="topic10296" msgid="4494362881225210483">"단과 대학 및 종합 대학"</string>
+    <string name="topic10297" msgid="8596946591674128749">"원격 교육"</string>
+    <string name="topic10298" msgid="6669181180128620422">"조기교육"</string>
+    <string name="topic10299" msgid="989138215800115613">"유치원"</string>
+    <string name="topic10300" msgid="8281464235308602670">"홈스쿨링"</string>
+    <string name="topic10301" msgid="9156890858635333460">"SAT"</string>
+    <string name="topic10302" msgid="1325835179421990876">"교육 및 수업 자료"</string>
+    <string name="topic10303" msgid="3103839978894155537">"직업 및 평생 교육"</string>
+    <string name="topic10304" msgid="8831682558788062486">"취업 정보"</string>
+    <string name="topic10305" msgid="8415203095484493106">"이직 정보 및 계획"</string>
+    <string name="topic10306" msgid="7426556527349374835">"구인/구직 정보"</string>
+    <string name="topic10307" msgid="1187762846826735256">"사법 및 정부 기관"</string>
+    <string name="topic10308" msgid="3346756665358311386">"범죄 및 정의"</string>
+    <string name="topic10309" msgid="2041175328931014735">"법률"</string>
+    <string name="topic10310" msgid="7079570344976872062">"법률 서비스"</string>
+    <string name="topic10311" msgid="2095095138677585525">"뉴스"</string>
+    <string name="topic10312" msgid="939721674816307639">"경제 뉴스"</string>
+    <string name="topic10313" msgid="4159611985538361632">"지역 뉴스"</string>
+    <string name="topic10314" msgid="93219947859117151">"M&amp;A"</string>
+    <string name="topic10315" msgid="5046321177148647481">"신문"</string>
+    <string name="topic10316" msgid="8592980844674525307">"정치"</string>
+    <string name="topic10317" msgid="2412259096368647866">"스포츠 뉴스"</string>
+    <string name="topic10318" msgid="1508449672941031904">"날씨"</string>
+    <string name="topic10319" msgid="3973645291178509390">"세계 뉴스"</string>
+    <string name="topic10320" msgid="5279440074507438174">"온라인 커뮤니티"</string>
+    <string name="topic10321" msgid="7018890132742820265">"클립 아트 및 GIF 애니메이션"</string>
+    <string name="topic10322" msgid="1585737438943011532">"만남 및 데이트"</string>
+    <string name="topic10323" msgid="962863497957179646">"피드 집계 및 소셜 북마크"</string>
+    <string name="topic10324" msgid="1425257460381023853">"파일 공유 및 호스팅"</string>
+    <string name="topic10325" msgid="8698912164970408378">"포럼 및 채팅 공급업체"</string>
+    <string name="topic10326" msgid="2425798096705921796">"마이크로블로그"</string>
+    <string name="topic10327" msgid="8518822987595111212">"사진 및 동영상 공유"</string>
+    <string name="topic10328" msgid="8932708475346340912">"사진 및 이미지 공유"</string>
+    <string name="topic10329" msgid="223933889758324282">"동영상 공유"</string>
+    <string name="topic10330" msgid="188028553492626282">"스킨"</string>
+    <string name="topic10331" msgid="426844238985651925">"소셜 네트워크 앱 및 부가기능"</string>
+    <string name="topic10332" msgid="291747325781232456">"소셜 네트워크"</string>
+    <string name="topic10333" msgid="7950152600374846488">"모임 및 단체"</string>
+    <string name="topic10334" msgid="8671262583721706509">"가족 및 인간관계"</string>
+    <string name="topic10335" msgid="1526523762163185819">"조상 찾기 및 족보"</string>
+    <string name="topic10336" msgid="4551233571090493177">"결혼 생활"</string>
+    <string name="topic10337" msgid="8436172065188964882">"육아"</string>
+    <string name="topic10338" msgid="8896269734682970">"입양"</string>
+    <string name="topic10339" msgid="781900237993621300">"영유아"</string>
+    <string name="topic10340" msgid="6538182603360796294">"어린이 인터넷 안전"</string>
+    <string name="topic10341" msgid="3586543243312398568">"로맨스"</string>
+    <string name="topic10342" msgid="3695176378281477573">"공상과학 및 판타지"</string>
+    <string name="topic10343" msgid="2318169062960263837">"반려동물 및 동물"</string>
+    <string name="topic10344" msgid="2005534117977874327">"반려동물 식품 및 반려동물 관리 용품"</string>
+    <string name="topic10345" msgid="2397329020706244200">"반려동물"</string>
+    <string name="topic10346" msgid="1323702748723563694">"새"</string>
+    <string name="topic10347" msgid="3301879823396773413">"고양이"</string>
+    <string name="topic10348" msgid="8066686305498410222">"개"</string>
+    <string name="topic10349" msgid="5253723822905761195">"물고기 및 수족관"</string>
+    <string name="topic10350" msgid="6164036369108076590">"파충류 및 양서류"</string>
+    <string name="topic10351" msgid="1132984519083501363">"수의사"</string>
+    <string name="topic10352" msgid="6310110390516037997">"부동산"</string>
+    <string name="topic10353" msgid="5114390804081576684">"부지 및 토지"</string>
+    <string name="topic10354" msgid="7980778954791504082">"콘도 및 별장"</string>
+    <string name="topic10355" msgid="7720717354548642600">"참고 자료"</string>
+    <string name="topic10356" msgid="8366981308613661935">"기업 및 개인 부동산"</string>
+    <string name="topic10357" msgid="3185598234676097975">"일반 자료"</string>
+    <string name="topic10358" msgid="6732669037513504019">"계산기 및 참조 도구"</string>
+    <string name="topic10359" msgid="8901932349008990500">"사전 및 백과사전"</string>
+    <string name="topic10360" msgid="6113408769992775754">"교육 자료"</string>
+    <string name="topic10361" msgid="364838820459183817">"사용 방법"</string>
+    <string name="topic10362" msgid="3760998790588600032">"시계 및 달력"</string>
+    <string name="topic10363" msgid="5464708619861040861">"언어 자료"</string>
+    <string name="topic10364" msgid="4685400848805560054">"어학"</string>
+    <string name="topic10365" msgid="5196231842716190887">"번역 도구 및 자료"</string>
+    <string name="topic10366" msgid="7460927054539097025">"지도"</string>
+    <string name="topic10367" msgid="3900361839783743700">"과학"</string>
+    <string name="topic10368" msgid="2069447039109930660">"증강 현실 및 가상 현실"</string>
+    <string name="topic10369" msgid="5747888306428024793">"생물학"</string>
+    <string name="topic10370" msgid="4860829940151353583">"유전학"</string>
+    <string name="topic10371" msgid="8229818210867472466">"화학"</string>
+    <string name="topic10372" msgid="6400467418954574231">"생태학 및 환경"</string>
+    <string name="topic10373" msgid="6990757247198163741">"지리학"</string>
+    <string name="topic10374" msgid="8057983193031950119">"머신러닝 및 인공지능"</string>
+    <string name="topic10375" msgid="8511185098682306025">"수학"</string>
+    <string name="topic10376" msgid="6387800251638760737">"물리학"</string>
+    <string name="topic10377" msgid="7834619927563362042">"로봇공학"</string>
+    <string name="topic10378" msgid="242496862821758873">"쇼핑"</string>
+    <string name="topic10379" msgid="5505228335012447165">"골동품 및 수집품"</string>
+    <string name="topic10380" msgid="4989560205486143927">"의류"</string>
+    <string name="topic10381" msgid="7585496746485093505">"아동 의류"</string>
+    <string name="topic10382" msgid="5088060295126473451">"코스튬"</string>
+    <string name="topic10383" msgid="4947104586590538143">"남성 의류"</string>
+    <string name="topic10384" msgid="3752472493887374077">"여성 의류"</string>
+    <string name="topic10385" msgid="5275843140794803595">"항목별 광고"</string>
+    <string name="topic10386" msgid="5887032952574801982">"소비자 정보"</string>
+    <string name="topic10387" msgid="8474154360410317897">"쿠폰 및 할인 혜택"</string>
+    <string name="topic10388" msgid="3650307363028796765">"포인트 카드 및 프로그램"</string>
+    <string name="topic10389" msgid="1542336508240183221">"기술 지원 및 수리"</string>
+    <string name="topic10390" msgid="831225961168954292">"꽃"</string>
+    <string name="topic10391" msgid="6810540242154911762">"인사장"</string>
+    <string name="topic10392" msgid="2431377771302967625">"파티 및 축제 용품"</string>
+    <string name="topic10393" msgid="2671274205988136926">"쇼핑 포털"</string>
+    <string name="topic10394" msgid="1530096364743244151">"스포츠"</string>
+    <string name="topic10395" msgid="316192616624062917">"미식 축구"</string>
+    <string name="topic10396" msgid="8042120651878490689">"호주 축구"</string>
+    <string name="topic10397" msgid="492901976344700942">"자동차 경주"</string>
+    <string name="topic10398" msgid="3471795015226090296">"야구"</string>
+    <string name="topic10399" msgid="2126280752064021308">"농구"</string>
+    <string name="topic10400" msgid="5440499529264277027">"볼링"</string>
+    <string name="topic10401" msgid="166689951236922024">"복싱"</string>
+    <string name="topic10402" msgid="2451339788231007479">"치어리딩"</string>
+    <string name="topic10403" msgid="6455478521804717635">"대학 스포츠"</string>
+    <string name="topic10404" msgid="5261583496913118024">"크리켓"</string>
+    <string name="topic10405" msgid="482477447879117820">"자전거"</string>
+    <string name="topic10406" msgid="8167644332387528703">"승마"</string>
+    <string name="topic10407" msgid="3237734582719584272">"익스트림 스포츠"</string>
+    <string name="topic10408" msgid="3859749534843254349">"등산"</string>
+    <string name="topic10409" msgid="7485614115639267976">"판타지 스포츠"</string>
+    <string name="topic10410" msgid="5996939009229881074">"골프"</string>
+    <string name="topic10411" msgid="2513997418184786648">"체조"</string>
+    <string name="topic10412" msgid="5411755341358248299">"하키"</string>
+    <string name="topic10413" msgid="3319233613448963890">"아이스 스케이팅"</string>
+    <string name="topic10414" msgid="1797840816328584660">"무술"</string>
+    <string name="topic10415" msgid="2886043330316735719">"오토바이 경주"</string>
+    <string name="topic10416" msgid="3436682172863605224">"올림픽"</string>
+    <string name="topic10417" msgid="8296644015663416236">"럭비"</string>
+    <string name="topic10418" msgid="8276736633218488127">"달리기 및 걷기"</string>
+    <string name="topic10419" msgid="5663062924928275215">"스키 및 스노우보드"</string>
+    <string name="topic10420" msgid="2509320683543423424">"축구"</string>
+    <string name="topic10421" msgid="6512889128030030686">"서핑"</string>
+    <string name="topic10422" msgid="8342986282852879750">"수영"</string>
+    <string name="topic10423" msgid="6333426807705188459">"테니스"</string>
+    <string name="topic10424" msgid="5495511215629567375">"육상"</string>
+    <string name="topic10425" msgid="4009138228283995179">"배구"</string>
+    <string name="topic10426" msgid="7998590461761852196">"레슬링"</string>
+    <string name="topic10427" msgid="6711468161729797769">"여행 및 대중교통"</string>
+    <string name="topic10428" msgid="661919563628063196">"모험 여행"</string>
+    <string name="topic10429" msgid="408270392813634227">"항공 여행"</string>
+    <string name="topic10430" msgid="3046485339481297656">"비즈니스 여행"</string>
+    <string name="topic10431" msgid="7439352609169583150">"렌터카"</string>
+    <string name="topic10432" msgid="5034961318884376752">"크루즈 및 전세기"</string>
+    <string name="topic10433" msgid="6354590445323135986">"가족 여행"</string>
+    <string name="topic10434" msgid="7081309045291255264">"신혼 여행 및 낭만적인 여행"</string>
+    <string name="topic10435" msgid="1064605516265819020">"호텔 및 숙박"</string>
+    <string name="topic10436" msgid="9050375924140897722">"장거리 버스 및 철도"</string>
+    <string name="topic10437" msgid="2655664900730187701">"할인가 및 땡처리 여행"</string>
+    <string name="topic10438" msgid="7944023251845122923">"수화물 및 여행 액세서리"</string>
+    <string name="topic10439" msgid="7845433008088931971">"관광지"</string>
+    <string name="topic10440" msgid="485118071443976808">"해변 및 섬"</string>
+    <string name="topic10441" msgid="518643446480879895">"지역 공원 및 정원"</string>
+    <string name="topic10442" msgid="6534536077484540292">"테마파크"</string>
+    <string name="topic10443" msgid="8787722062991478596">"동물원"</string>
+    <string name="topic10444" msgid="2075863187654728611">"교통 및 경로 플래너"</string>
+    <string name="topic10445" msgid="3460421948068980869">"여행사 및 여행 서비스"</string>
+    <string name="topic10446" msgid="5333138740720504195">"여행 가이드 및 여행 방송"</string>
+</resources>

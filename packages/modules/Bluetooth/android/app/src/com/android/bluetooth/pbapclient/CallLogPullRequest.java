@@ -29,6 +29,8 @@ import android.provider.ContactsContract;
 import android.util.Log;
 import android.util.Pair;
 
+import com.android.bluetooth.BluetoothMethodProxy;
+import com.android.internal.annotations.VisibleForTesting;
 import com.android.vcard.VCardEntry;
 import com.android.vcard.VCardEntry.PhoneData;
 
@@ -42,7 +44,8 @@ public class CallLogPullRequest extends PullRequest {
     private static final boolean DBG = Utils.DBG;
     private static final boolean VDBG = Utils.VDBG;
     private static final String TAG = "PbapCallLogPullRequest";
-    private static final String TIMESTAMP_PROPERTY = "X-IRMC-CALL-DATETIME";
+    @VisibleForTesting
+    static final String TIMESTAMP_PROPERTY = "X-IRMC-CALL-DATETIME";
     private static final String TIMESTAMP_FORMAT = "yyyyMMdd'T'HHmmss";
 
     private final Account mAccount;
@@ -139,23 +142,26 @@ public class CallLogPullRequest extends PullRequest {
         }
     }
 
-    private void updateTimesContacted() {
+    @VisibleForTesting
+    void updateTimesContacted() {
         for (String key : mCallCounter.keySet()) {
             ContentValues values = new ContentValues();
             values.put(ContactsContract.RawContacts.TIMES_CONTACTED, mCallCounter.get(key));
             Uri uri = Uri.withAppendedPath(ContactsContract.PhoneLookup.CONTENT_FILTER_URI,
                     Uri.encode(key));
-            Cursor c = mContext.getContentResolver().query(uri, null, null, null);
-            if (c != null && c.getCount() > 0) {
-                c.moveToNext();
-                String contactId = c.getString(c.getColumnIndex(
-                        ContactsContract.PhoneLookup.CONTACT_ID));
-                if (VDBG) {
-                    Log.d(TAG, "onPullComplete: ID " + contactId + " key : " + key);
+            try (Cursor c = BluetoothMethodProxy.getInstance().contentResolverQuery(
+                    mContext.getContentResolver(), uri, null, null, null)) {
+                if (c != null && c.getCount() > 0) {
+                    c.moveToNext();
+                    String contactId = c.getString(c.getColumnIndex(
+                            ContactsContract.PhoneLookup.CONTACT_ID));
+                    if (VDBG) {
+                        Log.d(TAG, "onPullComplete: ID " + contactId + " key : " + key);
+                    }
+                    String where = ContactsContract.RawContacts.CONTACT_ID + "=" + contactId;
+                    mContext.getContentResolver().update(
+                            ContactsContract.RawContacts.CONTENT_URI, values, where, null);
                 }
-                String where = ContactsContract.RawContacts.CONTACT_ID + "=" + contactId;
-                mContext.getContentResolver().update(
-                        ContactsContract.RawContacts.CONTENT_URI, values, where, null);
             }
         }
         if (DBG) {

@@ -58,15 +58,21 @@ class GetElementAttributesRequest : public VendorPacket {
   using VendorPacket::VendorPacket;
 };
 
+template <class Builder>
+class AttributesResponseBuilderTestUser;
+
 class GetElementAttributesResponseBuilder : public VendorPacketBuilder {
  public:
   virtual ~GetElementAttributesResponseBuilder() = default;
+  using Builder = std::unique_ptr<GetElementAttributesResponseBuilder>;
+  static Builder MakeBuilder(size_t mtu);
 
-  static std::unique_ptr<GetElementAttributesResponseBuilder> MakeBuilder(
-      size_t mtu);
+  size_t AddAttributeEntry(AttributeEntry entry);
+  size_t AddAttributeEntry(Attribute attribute, const std::string& value);
 
-  bool AddAttributeEntry(AttributeEntry entry);
-  bool AddAttributeEntry(Attribute attribute, std::string value);
+  virtual void clear() { entries_.clear(); }
+
+  static constexpr size_t kHeaderSize() { return VendorPacket::kMinSize() + 1; }
 
   virtual size_t size() const override;
   virtual bool Serialize(
@@ -75,6 +81,8 @@ class GetElementAttributesResponseBuilder : public VendorPacketBuilder {
  private:
   std::set<AttributeEntry> entries_;
   size_t mtu_;
+  friend class AttributesResponseBuilderTestUser<
+      GetElementAttributesResponseBuilder>;
 
   GetElementAttributesResponseBuilder(size_t mtu)
       : VendorPacketBuilder(CType::STABLE, CommandPdu::GET_ELEMENT_ATTRIBUTES,

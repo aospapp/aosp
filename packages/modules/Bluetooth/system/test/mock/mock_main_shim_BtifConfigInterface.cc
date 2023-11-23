@@ -87,6 +87,4 @@ bluetooth::shim::BtifConfigInterface::GetPersistentDevices() {
 }
 void bluetooth::shim::BtifConfigInterface::
     ConvertEncryptOrDecryptKeyIfNeeded(){};
-void bluetooth::shim::BtifConfigInterface::Save(){};
-void bluetooth::shim::BtifConfigInterface::Flush(){};
 void bluetooth::shim::BtifConfigInterface::Clear(){};

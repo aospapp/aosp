@@ -30,6 +30,7 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.text.ParseException;
+import java.util.Locale;
 
 public class DigestAuthUtils {
     private static final String TAG = DigestAuthUtils.class.getSimpleName();
@@ -54,12 +55,12 @@ public class DigestAuthUtils {
     public static String generateAuthorizationHeader(WWWAuthenticate parsedHeader,
             GbaCredentials credentials, String method, String uri) {
         if (!TextUtils.isEmpty(parsedHeader.getAlgorithm())
-                && !MD5_ALGORITHM.equals(parsedHeader.getAlgorithm().toLowerCase())) {
+                && !MD5_ALGORITHM.equals(parsedHeader.getAlgorithm().toLowerCase(Locale.ROOT))) {
             Log.e(TAG, "This client only supports MD5 auth");
             return "";
         }
         if (!TextUtils.isEmpty(parsedHeader.getQop())
-                && !AUTH_QOP.equals(parsedHeader.getQop().toLowerCase())) {
+                && !AUTH_QOP.equals(parsedHeader.getQop().toLowerCase(Locale.ROOT))) {
             Log.e(TAG, "This client only supports the auth qop");
             return "";
         }
@@ -137,7 +138,7 @@ public class DigestAuthUtils {
     }
 
     private static String base16(byte[] input) {
-        return BaseEncoding.base16().encode(input).toLowerCase();
+        return BaseEncoding.base16().encode(input).toLowerCase(Locale.ROOT);
     }
 
     private static MessageDigest getMd5Digest() {

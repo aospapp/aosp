@@ -179,7 +179,6 @@ public final class IoStatsEntry implements Parcelable {
     }
 
     @Override
-    @AddedInOrBefore(majorVersion = 33)
     public boolean equals(Object other) {
         if (other instanceof IoStatsEntry) {
             IoStatsEntry uidIoStatEntry = (IoStatsEntry) other;
@@ -193,13 +192,11 @@ public final class IoStatsEntry implements Parcelable {
     }
 
     @Override
-    @AddedInOrBefore(majorVersion = 33)
     public int hashCode() {
         return Objects.hash(uid, runtimeMillis, foreground, background);
     }
 
     @Override
-    @AddedInOrBefore(majorVersion = 33)
     public String toString() {
         return String.format("uid = %d, runtime = %d, foreground = %s, background = %s",
             uid, runtimeMillis, foreground, background);
@@ -354,7 +351,6 @@ public final class IoStatsEntry implements Parcelable {
         }
 
         @Override
-        @AddedInOrBefore(majorVersion = 33)
         public boolean equals(Object other) {
             if (other instanceof Metrics) {
                 Metrics metrics = (Metrics) other;
@@ -369,14 +365,12 @@ public final class IoStatsEntry implements Parcelable {
         }
 
         @Override
-        @AddedInOrBefore(majorVersion = 33)
         public int hashCode() {
             return Objects.hash(bytesRead, bytesWritten, bytesReadFromStorage,
                 bytesWrittenToStorage, fsyncCalls);
         }
 
         @Override
-        @AddedInOrBefore(majorVersion = 33)
         public String toString() {
             return String.format("bytesRead=%d, bytesWritten=%d, bytesReadFromStorage=%d, "
                     + "bytesWrittenToStorage=%d, fsyncCalls=%d", bytesRead, bytesWritten,

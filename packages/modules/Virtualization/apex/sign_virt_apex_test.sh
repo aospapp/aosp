@@ -23,8 +23,11 @@ TEST_DIR=$(dirname $0)
 # To access host tools
 PATH=$TEST_DIR:$PATH
 DEBUGFS=$TEST_DIR/debugfs_static
+BLKID=$TEST_DIR/blkid
+FSCKEROFS=$TEST_DIR/fsck.erofs
 
-deapexer --debugfs_path $DEBUGFS extract $TEST_DIR/com.android.virt.apex $TMP_ROOT
+deapexer --debugfs_path $DEBUGFS --blkid_path $BLKID --fsckerofs_path $FSCKEROFS \
+  extract $TEST_DIR/com.android.virt.apex $TMP_ROOT
 
 if [ "$(ls -A $TMP_ROOT/etc/fs/)" ]; then
   sign_virt_apex $TEST_DIR/test.com.android.virt.pem $TMP_ROOT

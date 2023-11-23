@@ -19,7 +19,7 @@
     <string name="app_name" msgid="6963366455471441257">"USB 處理常式"</string>
     <string name="usb_saved_devices" msgid="2829442070749964872">"已儲存的裝置"</string>
     <string name="usb_pref_delete_title" msgid="3885061814853467483">"移除 USB 裝置的處理應用程式"</string>
-    <string name="usb_pref_delete_message" msgid="5849493572520646218">"您確定要為 %1$s 刪除預設的處理應用程式嗎？"</string>
+    <string name="usb_pref_delete_message" msgid="5849493572520646218">"你確定要為 %1$s 刪除預設的處理應用程式嗎？"</string>
     <string name="usb_pref_delete_yes" msgid="7803356145103146036">"是"</string>
     <string name="usb_pref_delete_cancel" msgid="5999791462730255929">"取消"</string>
     <string name="usb_resolving_handlers" msgid="1943100136172948686">"正在取得支援的處理常式"</string>

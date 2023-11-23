@@ -71,20 +71,16 @@ public class ColorSeedOption extends ColorOption {
         Resources res = view.getContext().getResources();
         @ColorInt int[] colors = mPreviewInfo.resolveColors(res);
 
-        int padding = view.isActivated()
-                ? res.getDimensionPixelSize(R.dimen.color_seed_option_tile_padding_selected)
-                : res.getDimensionPixelSize(R.dimen.color_seed_option_tile_padding);
         for (int i = 0; i < mPreviewColorIds.length; i++) {
             ImageView colorPreviewImageView = view.findViewById(mPreviewColorIds[i]);
             colorPreviewImageView.getDrawable().setColorFilter(colors[i], Mode.SRC);
-            colorPreviewImageView.setPadding(padding, padding, padding, padding);
         }
 
         view.setContentDescription(getContentDescription(view.getContext()));
     }
 
     @Override
-    protected CharSequence getContentDescription(Context context) {
+    public CharSequence getContentDescription(Context context) {
         // Override because we want all options with the same description.
         return context.getString(R.string.wallpaper_color_title);
     }
@@ -104,6 +100,7 @@ public class ColorSeedOption extends ColorOption {
         /**
          * Returns the colors to be applied corresponding with the current
          * configuration's UI mode.
+         * @param res resources to read to the UI mode configuration from
          * @return one of {@link #lightColors} or {@link #darkColors}
          */
         @ColorInt
@@ -111,6 +108,17 @@ public class ColorSeedOption extends ColorOption {
             boolean night = (res.getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK)
                     == Configuration.UI_MODE_NIGHT_YES;
             return night ? darkColors : lightColors;
+        }
+
+        /**
+         * Returns the preview colors based on whether dark theme or light theme colors are
+         * requested.
+         * @param darkTheme if true, returns dark theme colors, otherwise returns light theme colors
+         * @return one of {@link #lightColors} or {@link #darkColors}
+         */
+        @ColorInt
+        public int[] resolveColors(boolean darkTheme) {
+            return darkTheme ? darkColors : lightColors;
         }
     }
 

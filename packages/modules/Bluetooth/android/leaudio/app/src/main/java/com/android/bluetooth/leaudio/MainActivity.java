@@ -522,6 +522,11 @@ public class MainActivity extends AppCompatActivity {
                     }
 
                     @Override
+                    public void onSetActivePresetForGroupClicked(BluetoothDevice device, int preset_index) {
+                        leAudioViewModel.hapSetActivePresetForGroup(device, preset_index);
+                    }
+
+                    @Override
                     public void onChangePresetNameClicked(BluetoothDevice device, int preset_index,
                             String name) {
                         leAudioViewModel.hapChangePresetName(device, preset_index, name);

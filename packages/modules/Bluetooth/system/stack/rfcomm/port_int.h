@@ -189,6 +189,8 @@ typedef struct {
   bool keep_port_handle;    /* true if port is not deallocated when closing */
   /* it is set to true for server when allocating port */
   uint16_t keep_mtu; /* Max MTU that port can receive by server */
+  uint16_t sec_mask; /* Bitmask of security requirements for this port */
+                     /* see the BTM_SEC_* values in btm_api_types.h */
 } tPORT;
 
 /* Define the PORT/RFCOMM control structure
@@ -201,27 +203,27 @@ typedef struct {
 /*
  * Functions provided by the port_utils.cc
 */
-extern tPORT* port_allocate_port(uint8_t dlci, const RawAddress& bd_addr);
-extern void port_set_defaults(tPORT* p_port);
-extern void port_select_mtu(tPORT* p_port);
-extern void port_release_port(tPORT* p_port);
-extern tPORT* port_find_mcb_dlci_port(tRFC_MCB* p_mcb, uint8_t dlci);
-extern tRFC_MCB* port_find_mcb(const RawAddress& bd_addr);
-extern tPORT* port_find_dlci_port(uint8_t dlci);
-extern tPORT* port_find_port(uint8_t dlci, const RawAddress& bd_addr);
-extern uint32_t port_get_signal_changes(tPORT* p_port, uint8_t old_signals,
-                                        uint8_t signal);
-extern uint32_t port_flow_control_user(tPORT* p_port);
-extern void port_flow_control_peer(tPORT* p_port, bool enable, uint16_t count);
+tPORT* port_allocate_port(uint8_t dlci, const RawAddress& bd_addr);
+void port_set_defaults(tPORT* p_port);
+void port_select_mtu(tPORT* p_port);
+void port_release_port(tPORT* p_port);
+tPORT* port_find_mcb_dlci_port(tRFC_MCB* p_mcb, uint8_t dlci);
+tRFC_MCB* port_find_mcb(const RawAddress& bd_addr);
+tPORT* port_find_dlci_port(uint8_t dlci);
+tPORT* port_find_port(uint8_t dlci, const RawAddress& bd_addr);
+uint32_t port_get_signal_changes(tPORT* p_port, uint8_t old_signals,
+                                 uint8_t signal);
+uint32_t port_flow_control_user(tPORT* p_port);
+void port_flow_control_peer(tPORT* p_port, bool enable, uint16_t count);
 
 /*
  * Functions provided by the port_rfc.cc
 */
-extern int port_open_continue(tPORT* p_port);
-extern void port_start_port_open(tPORT* p_port);
-extern void port_start_par_neg(tPORT* p_port);
-extern void port_start_control(tPORT* p_port);
-extern void port_start_close(tPORT* p_port);
-extern void port_rfc_closed(tPORT* p_port, uint8_t res);
+int port_open_continue(tPORT* p_port);
+void port_start_port_open(tPORT* p_port);
+void port_start_par_neg(tPORT* p_port);
+void port_start_control(tPORT* p_port);
+void port_start_close(tPORT* p_port);
+void port_rfc_closed(tPORT* p_port, uint8_t res);
 
 #endif

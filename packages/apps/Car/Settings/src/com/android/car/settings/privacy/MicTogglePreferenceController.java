@@ -84,7 +84,7 @@ public class MicTogglePreferenceController extends PreferenceController<ColoredS
     }
 
     @Override
-    protected int getAvailabilityStatus() {
+    protected int getDefaultAvailabilityStatus() {
         boolean hasFeatureMicToggle = mSensorPrivacyManager.supportsSensorToggle(
                 SensorPrivacyManager.Sensors.MICROPHONE);
         return hasFeatureMicToggle ? AVAILABLE : UNSUPPORTED_ON_DEVICE;

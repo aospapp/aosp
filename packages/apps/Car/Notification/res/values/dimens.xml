@@ -88,6 +88,12 @@
     <!-- HUN Scrim -->
     <dimen name="headsup_scrim_height">464dp</dimen>
 
+    <!-- Y position for HUN window. With the default gravity it is ignored.
+         When using {@link Gravity#TOP} or {@link Gravity#BOTTOM} when implementing
+         CarHeadsUpNotificationContainer#getWindowManagerLayoutParams it provides an offset from
+         the given edge. -->
+    <dimen name="headsup_notification_window_y_offset">160dp</dimen>
+
     <!-- Swipe Animation -->
     <item name="error_factor_multiplier" format="float" type="dimen">1.2</item>
     <item name="fling_percentage_of_width_to_dismiss" format="float" type="dimen">0.05</item>

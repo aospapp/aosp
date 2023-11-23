@@ -20,6 +20,6 @@
     <string name="public_safety_message" msgid="7373019453807671797">"सूचनामूलक सन्देश"</string>
     <string name="cmas_amber_alert" msgid="740474290634511931">"सार्वजनिक रूपमा सहायता लिन अनुरोध गरिएको सन्देश"</string>
     <string name="enable_cmas_severe_threat_alerts_title" msgid="4570611095431464471">"चेतावनीसम्बन्धी सतर्कताहरू"</string>
-    <string name="enable_public_safety_messages_title" msgid="6173886162636474286">"सूचनामूलक सन्देशहरू"</string>
-    <string name="enable_cmas_amber_alerts_title" msgid="3896845887375326185">"सार्वजनिक रूपमा सहायता लिन अनुरोध गरिएका सन्देशहरू"</string>
+    <string name="enable_public_safety_messages_title" msgid="6173886162636474286">"सूचनामूलक म्यासेजहरू"</string>
+    <string name="enable_cmas_amber_alerts_title" msgid="3896845887375326185">"सार्वजनिक रूपमा सहायता लिन अनुरोध गरिएका म्यासेजहरू"</string>
 </resources>

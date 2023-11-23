@@ -19,6 +19,8 @@ package com.android.car.themeplayground;
 import android.app.Activity;
 import android.content.Intent;
 
+import java.util.Objects;
+
 /**
  * Utility class for changing the theme of the app at run time.
  */
@@ -30,7 +32,7 @@ public class Utils {
      * Set the theme of the Activity, and restart it by creating a new Activity of the same type.
      */
     public static void changeToTheme(Activity activity, String themeName, int themeResId) {
-        sThemeName = themeName;
+        sThemeName = Objects.requireNonNull(themeName, "Theme name can not be null");
         sThemeResId = themeResId;
         activity.finish();
         activity.startActivity(new Intent(activity, activity.getClass()));
@@ -38,7 +40,7 @@ public class Utils {
 
     /** Set the theme of the activity, according to the configuration. */
     public static void onActivityCreateSetTheme(Activity activity) {
-        if (sThemeName.equals("")) {
+        if (Objects.equals(sThemeName, "")) {
             activity.setTheme(android.R.style.Theme_DeviceDefault);
         } else {
             activity.setTheme(sThemeResId);

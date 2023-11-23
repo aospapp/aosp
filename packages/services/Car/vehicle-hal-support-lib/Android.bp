@@ -26,7 +26,8 @@ java_test_helper_library {
 
     static_libs: [
         "android.hidl.base-V1.0-java",
-        "android.hardware.automotive.vehicle-V1-java",
+        "android.hardware.automotive.vehicle-V2-java",
+        "android.hardware.automotive.vehicle.property-V2-java",
         "android.hardware.automotive.vehicle-V2.0-java"
     ],
 

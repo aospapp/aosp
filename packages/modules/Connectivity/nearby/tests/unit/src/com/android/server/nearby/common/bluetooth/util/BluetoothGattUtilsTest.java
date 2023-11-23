@@ -34,14 +34,12 @@ import org.junit.runner.RunWith;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
-import java.util.UUID;
 
 /** Unit tests for {@link BluetoothGattUtils}. */
 @Presubmit
 @SmallTest
 @RunWith(AndroidJUnit4.class)
 public class BluetoothGattUtilsTest {
-    private static final UUID TEST_UUID = UUID.randomUUID();
     private static final ImmutableSet<String> GATT_HIDDEN_CONSTANTS = ImmutableSet.of(
             "GATT_WRITE_REQUEST_BUSY", "GATT_WRITE_REQUEST_FAIL", "GATT_WRITE_REQUEST_SUCCESS");
 

@@ -31,6 +31,7 @@ import android.widget.TextView;
 import androidx.annotation.Nullable;
 
 import com.android.launcher3.AbstractFloatingView;
+import com.android.launcher3.DeviceProfile;
 import com.android.launcher3.R;
 import com.android.launcher3.anim.Interpolators;
 import com.android.launcher3.compat.AccessibilityManagerCompat;
@@ -64,8 +65,25 @@ public class Snackbar extends AbstractFloatingView {
         show(activity, labelStringRedId, NO_ID, onDismissed, null);
     }
 
+    /** Show a snackbar with just a label. */
+    public static <T extends Context & ActivityContext> void show(T activity, String labelString,
+            Runnable onDismissed) {
+        show(activity, labelString, NO_ID, onDismissed, null);
+    }
+
     /** Show a snackbar with a label and action. */
     public static <T extends Context & ActivityContext> void show(T activity, int labelStringResId,
+            int actionStringResId, Runnable onDismissed, @Nullable Runnable onActionClicked) {
+        show(
+                activity,
+                activity.getResources().getString(labelStringResId),
+                actionStringResId,
+                onDismissed,
+                onActionClicked);
+    }
+
+    /** Show a snackbar with a label and action. */
+    public static <T extends Context & ActivityContext> void show(T activity, String labelString,
             int actionStringResId, Runnable onDismissed, @Nullable Runnable onActionClicked) {
         closeOpenViews(activity, true, TYPE_SNACKBAR);
         Snackbar snackbar = new Snackbar(activity, null);
@@ -97,11 +115,14 @@ public class Snackbar extends AbstractFloatingView {
                 dragLayer.getWidth() - maxMarginLeftRight * 2 - insets.left - insets.right,
                 absoluteMaxWidth);
         params.width = minWidth;
-        params.setMargins(0, 0, 0, marginBottom + insets.bottom);
+        DeviceProfile deviceProfile = activity.getDeviceProfile();
+        params.setMargins(0, 0, 0, marginBottom
+                + (deviceProfile.isTaskbarPresent
+                ? deviceProfile.taskbarHeight + deviceProfile.getTaskbarOffsetY()
+                : insets.bottom));
 
         TextView labelView = snackbar.findViewById(R.id.label);
-        String labelText = res.getString(labelStringResId);
-        labelView.setText(labelText);
+        labelView.setText(labelString);
 
         TextView actionView = snackbar.findViewById(R.id.action);
         float actionWidth;
@@ -122,7 +143,7 @@ public class Snackbar extends AbstractFloatingView {
             actionView.setVisibility(GONE);
         }
 
-        int totalContentWidth = (int) (labelView.getPaint().measureText(labelText) + actionWidth)
+        int totalContentWidth = (int) (labelView.getPaint().measureText(labelString) + actionWidth)
                 + labelView.getPaddingRight() + labelView.getPaddingLeft()
                 + padding * 2;
         if (totalContentWidth > params.width) {

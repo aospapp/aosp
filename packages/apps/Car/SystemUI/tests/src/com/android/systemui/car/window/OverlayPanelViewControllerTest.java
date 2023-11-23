@@ -144,10 +144,11 @@ public class OverlayPanelViewControllerTest extends SysuiTestCase {
     }
 
     @Test
-    public void animateCollapsePanel_isNotExpanded_doesNotCollapse() {
+    public void animateCollapsePanel_isNotExpandedOrVisible_doesNotCollapse() {
         mOverlayPanelViewController.inflate(mBaseLayout);
         mOverlayPanelViewController.setShouldAnimateCollapsePanel(true);
         mOverlayPanelViewController.setPanelExpanded(false);
+        mOverlayPanelViewController.setPanelVisible(false);
 
         mOverlayPanelViewController.animateCollapsePanel();
 
@@ -156,7 +157,7 @@ public class OverlayPanelViewControllerTest extends SysuiTestCase {
     }
 
     @Test
-    public void animateCollapsePanel_isNotVisible_doesNotCollapse() {
+    public void animateCollapsePanel_isNotVisible_collapses() {
         mOverlayPanelViewController.inflate(mBaseLayout);
         mOverlayPanelViewController.setShouldAnimateCollapsePanel(true);
         mOverlayPanelViewController.setPanelExpanded(true);
@@ -165,7 +166,20 @@ public class OverlayPanelViewControllerTest extends SysuiTestCase {
         mOverlayPanelViewController.animateCollapsePanel();
 
         assertThat(mOverlayPanelViewController.mAnimateCollapsePanelCalled).isTrue();
-        assertThat(mOverlayPanelViewController.mOnAnimateCollapsePanelCalled).isFalse();
+        assertThat(mOverlayPanelViewController.mOnAnimateCollapsePanelCalled).isTrue();
+    }
+
+    @Test
+    public void animateCollapsePanel_isNotExpanded_collapses() {
+        mOverlayPanelViewController.inflate(mBaseLayout);
+        mOverlayPanelViewController.setShouldAnimateCollapsePanel(true);
+        mOverlayPanelViewController.setPanelExpanded(false);
+        mOverlayPanelViewController.setPanelVisible(true);
+
+        mOverlayPanelViewController.animateCollapsePanel();
+
+        assertThat(mOverlayPanelViewController.mAnimateCollapsePanelCalled).isTrue();
+        assertThat(mOverlayPanelViewController.mOnAnimateCollapsePanelCalled).isTrue();
     }
 
     @Test
@@ -196,10 +210,13 @@ public class OverlayPanelViewControllerTest extends SysuiTestCase {
 
         mOverlayPanelViewController.animateCollapsePanel();
 
+        ArgumentCaptor<Animator> animatorCaptor = ArgumentCaptor.forClass(Animator.class);
         ArgumentCaptor<Float> endValueCaptor = ArgumentCaptor.forClass(Float.class);
         verify(mFlingAnimationUtils).apply(
-                any(Animator.class), anyFloat(), endValueCaptor.capture(), anyFloat());
+                animatorCaptor.capture(), anyFloat(), endValueCaptor.capture(), anyFloat());
         assertThat(endValueCaptor.getValue().intValue()).isEqualTo(0);
+        // clean up animator listeners to prevent subsequent calls after test execution is finished
+        animatorCaptor.getValue().removeAllListeners();
     }
 
     @Test
@@ -218,11 +235,14 @@ public class OverlayPanelViewControllerTest extends SysuiTestCase {
 
         mOverlayPanelViewController.animateCollapsePanel();
 
+        ArgumentCaptor<Animator> animatorCaptor = ArgumentCaptor.forClass(Animator.class);
         ArgumentCaptor<Float> endValueCaptor = ArgumentCaptor.forClass(Float.class);
         verify(mFlingAnimationUtils).apply(
-                any(Animator.class), anyFloat(), endValueCaptor.capture(), anyFloat());
+                animatorCaptor.capture(), anyFloat(), endValueCaptor.capture(), anyFloat());
         assertThat(endValueCaptor.getValue().intValue()).isEqualTo(
                 mOverlayPanelViewController.getLayout().getHeight());
+        // clean up animator listeners to prevent subsequent calls after test execution is finished
+        animatorCaptor.getValue().removeAllListeners();
     }
 
     @Test

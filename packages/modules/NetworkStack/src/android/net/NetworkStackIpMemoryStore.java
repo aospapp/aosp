@@ -20,13 +20,15 @@ import android.content.Context;
 
 import androidx.annotation.NonNull;
 
+import com.android.networkstack.ipmemorystore.IpMemoryStoreService;
+
 import java.util.concurrent.ExecutionException;
 import java.util.function.Consumer;
 
 /**
  * service used to communicate with the ip memory store service in network stack,
  * which is running in the same module.
- * @see com.android.server.connectivity.ipmemorystore.IpMemoryStoreService
+ * @see IpMemoryStoreService
  * @hide
  */
 public class NetworkStackIpMemoryStore extends IpMemoryStoreClient {

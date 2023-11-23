@@ -17,5 +17,5 @@ limitations under the License.
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="app_name" msgid="6575346965016311017">"地圖"</string>
-    <string name="error_text" msgid="5575174711944349180">"為安裝任何地圖應用程式。請與你的車輛製造商聯絡。"</string>
+    <string name="error_text" msgid="5575174711944349180">"未安裝任何地圖應用程式。請與你的車輛製造商聯絡。"</string>
 </resources>

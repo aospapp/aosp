@@ -17,11 +17,14 @@
 package android.car.evs;
 
 import static com.android.car.internal.ExcludeFromCodeCoverageGeneratedReport.BOILERPLATE_CODE;
+import static com.android.car.internal.ExcludeFromCodeCoverageGeneratedReport.DUMP_INFO;
 
 import android.annotation.NonNull;
+import android.annotation.SuppressLint;
 import android.annotation.SystemApi;
 import android.car.Car;
 import android.car.annotation.AddedInOrBefore;
+import android.car.annotation.ApiRequirements;
 import android.car.annotation.RequiredFeature;
 import android.hardware.HardwareBuffer;
 import android.os.Parcel;
@@ -39,7 +42,7 @@ import java.util.Objects;
  */
 @SystemApi
 @RequiredFeature(Car.CAR_EVS_SERVICE)
-public final class CarEvsBufferDescriptor implements Parcelable {
+public final class CarEvsBufferDescriptor implements Parcelable, AutoCloseable {
     @AddedInOrBefore(majorVersion = 33)
     public static final @NonNull Parcelable.Creator<CarEvsBufferDescriptor> CREATOR =
             new Parcelable.Creator<CarEvsBufferDescriptor>() {
@@ -96,9 +99,28 @@ public final class CarEvsBufferDescriptor implements Parcelable {
     }
 
     @Override
-    @AddedInOrBefore(majorVersion = 33)
+    @ExcludeFromCodeCoverageGeneratedReport(reason = DUMP_INFO)
     public String toString() {
         return "CarEvsBufferDescriptor: id = " + mId + ", buffer = " + mHardwareBuffer;
+    }
+
+    @Override
+    @SuppressLint("GenericException")
+    protected void finalize() throws Throwable {
+        try {
+            close();
+        } finally {
+            super.finalize();
+        }
+    }
+
+    @Override
+    @ApiRequirements(minCarVersion = ApiRequirements.CarVersion.UPSIDE_DOWN_CAKE_0,
+            minPlatformVersion = ApiRequirements.PlatformVersion.TIRAMISU_0)
+    public void close() {
+        if (!mHardwareBuffer.isClosed()) {
+            mHardwareBuffer.close();
+        }
     }
 
     /**

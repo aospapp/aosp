@@ -23,9 +23,7 @@ import android.view.SurfaceControl;
 
 import com.android.wm.shell.common.SyncTransactionQueue;
 import com.android.wm.shell.fullscreen.FullscreenTaskListener;
-import com.android.wm.shell.fullscreen.FullscreenUnfoldController;
 
-import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
@@ -37,9 +35,8 @@ public class CarFullscreenTaskMonitorListener extends FullscreenTaskListener {
 
     public CarFullscreenTaskMonitorListener(
             AtomicReference<CarActivityManager> carActivityManagerRef,
-            SyncTransactionQueue syncQueue,
-            Optional<FullscreenUnfoldController> unfoldController) {
-        super(syncQueue, unfoldController);
+            SyncTransactionQueue syncQueue) {
+        super(syncQueue);
         mCarActivityManagerRef = carActivityManagerRef;
     }
     @Override
@@ -48,7 +45,7 @@ public class CarFullscreenTaskMonitorListener extends FullscreenTaskListener {
         super.onTaskAppeared(taskInfo, leash);
         CarActivityManager carAM = mCarActivityManagerRef.get();
         if (carAM != null) {
-            carAM.onTaskAppeared(taskInfo);
+            carAM.onTaskAppeared(taskInfo, leash);
         } else {
             Log.w(TAG, "CarActivityManager is null, skip onTaskAppeared: taskInfo=" + taskInfo);
         }

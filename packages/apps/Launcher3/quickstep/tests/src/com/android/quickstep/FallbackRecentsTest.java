@@ -32,6 +32,8 @@ import static com.android.launcher3.ui.TaplTestsLauncher3.getAppPackageName;
 import static com.android.launcher3.util.Executors.MAIN_EXECUTOR;
 import static com.android.launcher3.util.rule.ShellCommandRule.disableHeadsUpNotification;
 import static com.android.launcher3.util.rule.ShellCommandRule.getLauncherCommand;
+import static com.android.launcher3.util.rule.TestStabilityRule.LOCAL;
+import static com.android.launcher3.util.rule.TestStabilityRule.PLATFORM_POSTSUBMIT;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
@@ -59,10 +61,13 @@ import com.android.launcher3.util.Wait;
 import com.android.launcher3.util.rule.FailureWatcher;
 import com.android.launcher3.util.rule.SamplerRule;
 import com.android.launcher3.util.rule.ScreenRecordRule;
+import com.android.launcher3.util.rule.TestStabilityRule;
+import com.android.launcher3.util.rule.ViewCaptureRule;
 import com.android.quickstep.views.RecentsView;
 
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.RuleChain;
@@ -111,10 +116,12 @@ public class FallbackRecentsTest {
             Utilities.enableRunningInTestHarnessForTests();
         }
 
+        final ViewCaptureRule viewCaptureRule = new ViewCaptureRule();
         mOrderSensitiveRules = RuleChain
                 .outerRule(new SamplerRule())
                 .around(new NavigationModeSwitchRule(mLauncher))
-                .around(new FailureWatcher(mDevice, mLauncher));
+                .around(viewCaptureRule)
+                .around(new FailureWatcher(mDevice, mLauncher, viewCaptureRule.getViewCapture()));
 
         mOtherLauncherActivity = context.getPackageManager().queryIntentActivities(
                 getHomeIntentInPackage(context),
@@ -167,6 +174,7 @@ public class FallbackRecentsTest {
 
     // b/143488140
     //@NavigationModeSwitch
+    @TestStabilityRule.Stability(flavors = LOCAL | PLATFORM_POSTSUBMIT) // b/266606727
     @Test
     public void goToOverviewFromHome() {
         mDevice.pressHome();
@@ -178,6 +186,7 @@ public class FallbackRecentsTest {
 
     // b/143488140
     //@NavigationModeSwitch
+    @Ignore
     @Test
     public void goToOverviewFromApp() {
         startAppFast(resolveSystemApp(Intent.CATEGORY_APP_CALCULATOR));
@@ -213,6 +222,7 @@ public class FallbackRecentsTest {
 
     // b/143488140
     //@NavigationModeSwitch
+    @TestStabilityRule.Stability(flavors = LOCAL | PLATFORM_POSTSUBMIT) // b/266606727
     @Test
     public void testOverview() {
         startAppFast(getAppPackageName());

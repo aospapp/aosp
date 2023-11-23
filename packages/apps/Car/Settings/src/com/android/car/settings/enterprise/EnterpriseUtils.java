@@ -47,6 +47,8 @@ public final class EnterpriseUtils {
     // TODO: ideally, we should not create a special user restriction other than what are
     // defined in UserManager.
     public static final String DISABLED_INPUT_METHOD = "disabled-input-method";
+    // TODO: same as for DISABLED_INPUT_METHOD
+    public static final String BLOCKED_UNINSTALL_APP = "blocked-uninstall-app";
 
     static final String[] CAMERA_PERMISSIONS = new String[] {
             Manifest.permission.CAMERA
@@ -253,7 +255,10 @@ public final class EnterpriseUtils {
      * @return {@code RestrictedLockUtils.EnforcedAdmin}
      */
     public static EnforcedAdmin getEnforcedAdmin(Context context, @UserIdInt int adminUser,
-            String restriction, String restrictedPackage) {
+            @Nullable String restriction, String restrictedPackage) {
+        if (restriction == null) {
+            return null;
+        }
         EnforcedAdmin admin = null;
         if (hasUserRestrictionByDpm(context, restriction)) {
             admin = RestrictedLockUtilsInternal.checkIfRestrictionEnforced(
@@ -267,13 +272,16 @@ public final class EnterpriseUtils {
                 admin = RestrictedLockUtilsInternal.checkIfRestrictionEnforced(
                         context, restriction, adminUser);
             }
-        } else if (restriction == DISABLED_INPUT_METHOD) {
+        } else if (restriction.equals(DISABLED_INPUT_METHOD)) {
             if (restrictedPackage == null) {
                 LOG.e("getEnforcedAdmin() for " + DISABLED_INPUT_METHOD
                         + " fails since restrictedPackage is null");
                 return admin;
             }
             admin = RestrictedLockUtilsInternal.checkIfInputMethodDisallowed(
+                    context, restrictedPackage, context.getUserId());
+        } else if (restriction.equals(BLOCKED_UNINSTALL_APP)) {
+            admin = RestrictedLockUtilsInternal.checkIfUninstallBlocked(
                     context, restrictedPackage, context.getUserId());
         }
         LOG.v("getEnforcedAdmin():" + admin);

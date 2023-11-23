@@ -27,8 +27,11 @@ public class ShimUtilsTest {
     public void testGetInstance() {
         final ShimUtils shim = ShimUtils.getInstance();
         assertTrue(shim instanceof ShimUtils);
-        if (SdkLevel.isAtLeastT()) {
-            assertTrue(shim instanceof ShimUtilsMinT);
+
+        if (SdkLevel.isAtLeastU()) {
+            assertTrue(shim instanceof ShimUtilsMinU);
+        } else if (SdkLevel.isAtLeastT()) {
+            assertTrue(shim instanceof ShimUtilsT);
         } else {
             assertTrue(shim instanceof ShimUtilsRAndS);
         }

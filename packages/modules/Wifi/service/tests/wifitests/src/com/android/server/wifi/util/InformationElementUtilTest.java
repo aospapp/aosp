@@ -442,6 +442,35 @@ public class InformationElementUtilTest extends WifiBaseTest {
      * Expect the function to return a string with the proper security information.
      */
     @Test
+    public void buildCapabilities_rsnElementWithWpa3EnterpriseOnlyNetworkNoGroupMgmtCiherSuite() {
+        InformationElement ie = new InformationElement();
+        ie.id = InformationElement.EID_RSN;
+        ie.bytes = new byte[] {
+                // Version
+                (byte) 0x01, (byte) 0x00,
+                // Group cipher suite: TKIP
+                (byte) 0x00, (byte) 0x0F, (byte) 0xAC, (byte) 0x02,
+                // Pairwise cipher count
+                (byte) 0x01, (byte) 0x00,
+                // Pairwise cipher suite: CCMP
+                (byte) 0x00, (byte) 0x0F, (byte) 0xAC, (byte) 0x04,
+                // AKM count
+                (byte) 0x01, (byte) 0x00,
+                // AMK suite: EAP/SHA256
+                (byte) 0x00, (byte) 0x0F, (byte) 0xAC, (byte) 0x05,
+                // RSN capabilities
+                (byte) 0xc0, (byte) 0x00,
+        };
+        verifyCapabilityStringFromIeWithoutOweSupported(ie,
+                "[WPA2-EAP/SHA256-CCMP]"
+                        + "[RSN-EAP/SHA256-CCMP][MFPR][MFPC]");
+    }
+
+    /**
+     * Test Capabilities.generateCapabilitiesString() with a RSN IE.
+     * Expect the function to return a string with the proper security information.
+     */
+    @Test
     public void buildCapabilities_rsnElementWithWpa3EnterpriseTransitionNetwork() {
         InformationElement ie = new InformationElement();
         ie.id = InformationElement.EID_RSN;
@@ -475,7 +504,6 @@ public class InformationElementUtilTest extends WifiBaseTest {
     /**
      * Test Capabilities.generateCapabilitiesString() with a RSN IE.
      * Expect the function to return a string with the proper security information.
-     * If there is no group management cipher set, ignore the MFPR capability.
      */
     @Test
     public void buildCapabilities_rsnElementWithoutGroupManagementCipherButSetMfpr() {
@@ -500,7 +528,7 @@ public class InformationElementUtilTest extends WifiBaseTest {
                 (byte) 0x40, (byte) 0x00,
         };
         verifyCapabilityStringFromIeWithoutOweSupported(ie,
-                "[WPA2-EAP/SHA1-CCMP+TKIP][RSN-EAP/SHA1-CCMP+TKIP]");
+                "[WPA2-EAP/SHA1-CCMP+TKIP][RSN-EAP/SHA1-CCMP+TKIP][MFPR]");
     }
 
     /**
@@ -659,6 +687,65 @@ public class InformationElementUtilTest extends WifiBaseTest {
                 (byte) 0x00, (byte) 0x00 };
         verifyCapabilityStringFromIeWithOweSupported(ieRsn,
                 "[RSN-SAE+FT/SAE-CCMP]");
+    }
+
+    /**
+     * Test Capabilities.generateCapabilitiesString() with RSN IE, CCMP and SAE+SAE_EXT_KEY.
+     * Expect the function to return a string with the proper security information.
+     */
+    @Test
+    public void buildCapabilities_rsnSaeSaeExtKeyElement() {
+        InformationElement ieRsn = new InformationElement();
+        ieRsn.id = InformationElement.EID_RSN;
+        ieRsn.bytes = new byte[] {
+                // RSNE Version (0x0001)
+                (byte) 0x01, (byte) 0x00,
+                // Group cipher suite: CCMP
+                (byte) 0x00, (byte) 0x0F, (byte) 0xAC, (byte) 0x04,
+                // Number of cipher suites (1)
+                (byte) 0x01, (byte) 0x00,
+                // Cipher suite: CCMP
+                (byte) 0x00, (byte) 0x0F, (byte) 0xAC, (byte) 0x04,
+                // Number of AKMs (2)
+                (byte) 0x02, (byte) 0x00,
+                // SAE AKM
+                (byte) 0x00, (byte) 0x0F, (byte) 0xAC, (byte) 0x08,
+                // SAE-EXT-KEY AKM
+                (byte) 0x00, (byte) 0x0F, (byte) 0xAC, (byte) 0x18,
+                // Padding
+                (byte) 0x00, (byte) 0x00 };
+        verifyCapabilityStringFromIeWithOweSupported(ieRsn,
+                "[RSN-SAE+SAE_EXT_KEY-CCMP]");
+    }
+
+    /**
+     * Test Capabilities.generateCapabilitiesString() with RSN IE, CCMP and
+     * SAE_EXT_KEY+FT_SAE_EXT_KEY.
+     * Expect the function to return a string with the proper security information.
+     */
+    @Test
+    public void buildCapabilities_rsnSaeExtKeyFtSaeExtKeyElement() {
+        InformationElement ieRsn = new InformationElement();
+        ieRsn.id = InformationElement.EID_RSN;
+        ieRsn.bytes = new byte[] {
+                // RSNE Version (0x0001)
+                (byte) 0x01, (byte) 0x00,
+                // Group cipher suite: CCMP
+                (byte) 0x00, (byte) 0x0F, (byte) 0xAC, (byte) 0x04,
+                // Number of cipher suites (1)
+                (byte) 0x01, (byte) 0x00,
+                // Cipher suite: CCMP
+                (byte) 0x00, (byte) 0x0F, (byte) 0xAC, (byte) 0x04,
+                // Number of AKMs (2)
+                (byte) 0x02, (byte) 0x00,
+                // SAE-EXT-KEY AKM
+                (byte) 0x00, (byte) 0x0F, (byte) 0xAC, (byte) 0x18,
+                // FT-SAE-EXT-KEY AKM
+                (byte) 0x00, (byte) 0x0F, (byte) 0xAC, (byte) 0x19,
+                // Padding
+                (byte) 0x00, (byte) 0x00 };
+        verifyCapabilityStringFromIeWithOweSupported(ieRsn,
+                "[RSN-SAE_EXT_KEY+FT/SAE_EXT_KEY-CCMP]");
     }
 
     /**

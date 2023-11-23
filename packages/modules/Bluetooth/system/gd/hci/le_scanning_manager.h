@@ -54,6 +54,8 @@ class LeScanningManager : public bluetooth::Module {
   virtual void SetScanParameters(
       ScannerId scanner_id, LeScanType scan_type, uint16_t scan_interval, uint16_t scan_window);
 
+  virtual void SetScanFilterPolicy(LeScanningFilterPolicy filter_policy);
+
   /* Scan filter */
   virtual void ScanFilterEnable(bool enable);
 
@@ -91,6 +93,8 @@ class LeScanningManager : public bluetooth::Module {
   virtual void TrackAdvertiser(uint8_t filter_index, ScannerId scanner_id);
 
   virtual void RegisterScanningCallback(ScanningCallback* scanning_callback);
+
+  virtual bool IsAdTypeFilterSupported() const;
 
   static const ModuleFactory Factory;
 

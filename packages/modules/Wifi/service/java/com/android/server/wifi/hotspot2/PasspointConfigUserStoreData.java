@@ -76,6 +76,7 @@ public class PasspointConfigUserStoreData implements WifiConfigStore.StoreData {
     private static final String XML_TAG_HAS_EVER_CONNECTED = "HasEverConnected";
     private static final String XML_TAG_IS_FROM_SUGGESTION = "IsFromSuggestion";
     private static final String XML_TAG_IS_TRUSTED = "IsTrusted";
+    private static final String XML_TAG_IS_RESTRICTED = "IsRestricted";
     private static final String XML_TAG_CONNECT_CHOICE = "ConnectChoice";
     private static final String XML_TAG_CONNECT_CHOICE_RSSI = "ConnectChoiceRssi";
 
@@ -209,6 +210,7 @@ public class PasspointConfigUserStoreData implements WifiConfigStore.StoreData {
         XmlUtil.writeNextValue(out, XML_TAG_HAS_EVER_CONNECTED, provider.getHasEverConnected());
         XmlUtil.writeNextValue(out, XML_TAG_IS_FROM_SUGGESTION, provider.isFromSuggestion());
         XmlUtil.writeNextValue(out, XML_TAG_IS_TRUSTED, provider.isTrusted());
+        XmlUtil.writeNextValue(out, XML_TAG_IS_RESTRICTED, provider.isRestricted());
         XmlUtil.writeNextValue(out, XML_TAG_CONNECT_CHOICE, provider.getConnectChoice());
         XmlUtil.writeNextValue(out, XML_TAG_CONNECT_CHOICE_RSSI, provider.getConnectChoiceRssi());
         if (provider.getConfig() != null) {
@@ -285,6 +287,7 @@ public class PasspointConfigUserStoreData implements WifiConfigStore.StoreData {
         boolean isFromSuggestion = false;
         boolean shared = false;
         boolean isTrusted = true;
+        boolean isRestricted = false;
         PasspointConfiguration config = null;
         String connectChoice = null;
         int connectChoiceRssi = 0;
@@ -325,6 +328,9 @@ public class PasspointConfigUserStoreData implements WifiConfigStore.StoreData {
                         break;
                     case XML_TAG_IS_TRUSTED:
                         isTrusted = (boolean) value;
+                        break;
+                    case XML_TAG_IS_RESTRICTED:
+                        isRestricted = (boolean) value;
                         break;
                     case XML_TAG_CONNECT_CHOICE:
                         connectChoice = (String) value;
@@ -371,6 +377,14 @@ public class PasspointConfigUserStoreData implements WifiConfigStore.StoreData {
         provider.setUserConnectChoice(connectChoice, connectChoiceRssi);
         if (isFromSuggestion) {
             provider.setTrusted(isTrusted);
+            provider.setRestricted(isRestricted);
+        } else {
+            if (!isTrusted) {
+                Log.w(TAG, "non-suggestion passpoint should not be untrusted");
+            }
+            if (isRestricted) {
+                Log.w(TAG, "non-suggestion passpoint should not be restricted");
+            }
         }
         return provider;
     }

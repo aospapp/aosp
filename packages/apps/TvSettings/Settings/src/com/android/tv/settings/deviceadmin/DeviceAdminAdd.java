@@ -85,7 +85,6 @@ public class DeviceAdminAdd extends FragmentActivity {
     DevicePolicyManager mDPM;
     AppOpsManager mAppOps;
     DeviceAdminInfo mDeviceAdmin;
-    String mProfileOwnerName;
 
     boolean mRefreshing;
     boolean mAddingProfileOwner;
@@ -145,8 +144,6 @@ public class DeviceAdminAdd extends FragmentActivity {
             setResult(RESULT_CANCELED);
             setFinishOnTouchOutside(true);
             mAddingProfileOwner = true;
-            mProfileOwnerName =
-                    getIntent().getStringExtra(DevicePolicyManager.EXTRA_PROFILE_OWNER_NAME);
             String callingPackage = getCallingPackage();
             if (callingPackage == null || !callingPackage.equals(who.getPackageName())) {
                 Log.e(TAG, "Unknown or incorrect caller");
@@ -310,8 +307,7 @@ public class DeviceAdminAdd extends FragmentActivity {
         }
         if (mAddingProfileOwner) {
             try {
-                mDPM.setProfileOwner(mDeviceAdmin.getComponent(),
-                        mProfileOwnerName, UserHandle.myUserId());
+                mDPM.setProfileOwner(mDeviceAdmin.getComponent(), UserHandle.myUserId());
             } catch (RuntimeException re) {
                 setResult(Activity.RESULT_CANCELED);
             }

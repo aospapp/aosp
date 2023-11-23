@@ -52,7 +52,7 @@ public final class EnterpriseSetDefaultAppsPreferenceController
     }
 
     @Override
-    protected int getAvailabilityStatus() {
+    protected int getDefaultAvailabilityStatus() {
         if (mCount == null) {
             mCount = getNumberOfEnterpriseSetDefaultApps();
             mLogger.d("Number of apps: " + mCount);

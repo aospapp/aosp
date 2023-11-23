@@ -20,7 +20,11 @@ import static com.google.common.truth.Truth.assertThat;
 
 import static org.junit.Assert.fail;
 
+import android.bluetooth.BluetoothAdapter;
+import android.bluetooth.BluetoothAssignedNumbers;
 import android.bluetooth.BluetoothDevice;
+import android.bluetooth.le.ScanFilter;
+import android.os.Parcel;
 import android.os.ParcelUuid;
 import android.util.SparseArray;
 
@@ -43,6 +47,83 @@ public class BleFilterTest {
 
     public static final ParcelUuid EDDYSTONE_SERVICE_DATA_PARCELUUID =
             ParcelUuid.fromString("0000FEAA-0000-1000-8000-00805F9B34FB");
+
+    private final BleFilter mEddystoneFilter = createEddystoneFilter();
+    private final BleFilter mEddystoneUidFilter = createEddystoneUidFilter();
+    private final BleFilter mEddystoneUrlFilter = createEddystoneUrlFilter();
+    private final BleFilter mEddystoneEidFilter = createEddystoneEidFilter();
+    private final BleFilter mIBeaconWithoutUuidFilter = createIBeaconWithoutUuidFilter();
+    private final BleFilter mIBeaconWithUuidFilter = createIBeaconWithUuidFilter();
+    private final BleFilter mChromecastFilter =
+            new BleFilter.Builder().setServiceUuid(
+                    new ParcelUuid(UUID.fromString("0000FEA0-0000-1000-8000-00805F9B34FB")))
+                    .build();
+    private final BleFilter mEddystoneWithDeviceNameFilter =
+            new BleFilter.Builder()
+                    .setServiceUuid(EDDYSTONE_SERVICE_DATA_PARCELUUID)
+                    .setDeviceName("BERT")
+                    .build();
+    private final BleFilter mEddystoneWithDeviceAddressFilter =
+            new BleFilter.Builder()
+                    .setServiceUuid(EDDYSTONE_SERVICE_DATA_PARCELUUID)
+                    .setDeviceAddress("00:11:22:33:AA:BB")
+                    .build();
+    private final BleFilter mServiceUuidWithMaskFilter1 =
+            new BleFilter.Builder()
+                    .setServiceUuid(
+                            new ParcelUuid(UUID.fromString("0000FEA0-0000-1000-8000-00805F9B34FB")),
+                            new ParcelUuid(UUID.fromString("0000000-0000-000-FFFF-FFFFFFFFFFFF")))
+                    .build();
+    private final BleFilter mServiceUuidWithMaskFilter2 =
+            new BleFilter.Builder()
+                    .setServiceUuid(
+                            new ParcelUuid(UUID.fromString("0000FEA0-0000-1000-8000-00805F9B34FB")),
+                            new ParcelUuid(UUID.fromString("FFFFFFF-FFFF-FFF-FFFF-FFFFFFFFFFFF")))
+                    .build();
+
+    private final BleFilter mSmartSetupFilter =
+            new BleFilter.Builder()
+                    .setManufacturerData(
+                            BluetoothAssignedNumbers.GOOGLE,
+                            new byte[] {0x00, 0x10},
+                            new byte[] {0x00, (byte) 0xFF})
+                    .build();
+    private final BleFilter mWearFilter =
+            new BleFilter.Builder()
+                    .setManufacturerData(
+                            BluetoothAssignedNumbers.GOOGLE,
+                            new byte[] {0x00, 0x00, 0x00},
+                            new byte[] {0x00, 0x00, (byte) 0xFF})
+                    .build();
+    private final BleFilter mFakeSmartSetupSubsetFilter =
+            new BleFilter.Builder()
+                    .setManufacturerData(
+                            BluetoothAssignedNumbers.GOOGLE,
+                            new byte[] {0x00, 0x10, 0x50},
+                            new byte[] {0x00, (byte) 0xFF, (byte) 0xFF})
+                    .build();
+    private final BleFilter mFakeSmartSetupNotSubsetFilter =
+            new BleFilter.Builder()
+                    .setManufacturerData(
+                            BluetoothAssignedNumbers.GOOGLE,
+                            new byte[] {0x00, 0x10, 0x50},
+                            new byte[] {0x00, (byte) 0x00, (byte) 0xFF})
+                    .build();
+
+    private final BleFilter mFakeFilter1 =
+            new BleFilter.Builder()
+                    .setServiceData(
+                            ParcelUuid.fromString("0000110B-0000-1000-8000-00805F9B34FB"),
+                            new byte[] {0x51, 0x64},
+                            new byte[] {0x00, (byte) 0xFF})
+                    .build();
+    private final BleFilter mFakeFilter2 =
+            new BleFilter.Builder()
+                    .setServiceData(
+                            ParcelUuid.fromString("0000110B-0000-1000-8000-00805F9B34FB"),
+                            new byte[] {0x51, 0x64, 0x34},
+                            new byte[] {0x00, (byte) 0xFF, (byte) 0xFF})
+                    .build();
 
     private ParcelUuid mServiceDataUuid;
     private BleSighting mBleSighting;
@@ -229,6 +310,16 @@ public class BleFilterTest {
     }
 
     @Test
+    public void serviceDataUuidNotInBleRecord() {
+        byte[] bleRecord = FastPairTestData.eir_1;
+        byte[] serviceData = {(byte) 0xe0, (byte) 0x00};
+
+        // Verify Service Data with 2-byte UUID, no data, and NOT in scan record
+        BleFilter filter = mFilterBuilder.setServiceData(mServiceDataUuid, serviceData).build();
+        assertThat(matches(filter, null, 0, bleRecord)).isFalse();
+    }
+
+    @Test
     public void serviceDataMask() {
         byte[] bleRecord = FastPairTestData.sd1;
         BleFilter filter;
@@ -263,6 +354,18 @@ public class BleFilterTest {
         mFilterBuilder.setServiceData(mServiceDataUuid, serviceData, mask).build();
     }
 
+    @Test
+    public void serviceDataMaskNotInBleRecord() {
+        byte[] bleRecord = FastPairTestData.eir_1;
+        BleFilter filter;
+
+        // Verify matching partial manufacturer with data and mask
+        byte[] serviceData1 = {(byte) 0xe0, (byte) 0x00, (byte) 0x15};
+        byte[] mask1 = {(byte) 0xff, (byte) 0xff, (byte) 0xff};
+        filter = mFilterBuilder.setServiceData(mServiceDataUuid, serviceData1, mask1).build();
+        assertThat(matches(filter, null, 0, bleRecord)).isFalse();
+    }
+
 
     @Test
     public void deviceNameTest() {
@@ -280,12 +383,241 @@ public class BleFilterTest {
         assertThat(matches(filter, null, 0, bleRecord)).isFalse();
     }
 
+    @Test
+    public void deviceNameNotInBleRecord() {
+        // Verify the name filter does not match
+        byte[] bleRecord = FastPairTestData.eir_1;
+        BleFilter filter = mFilterBuilder.setDeviceName("Pedometer").build();
+        assertThat(matches(filter, null, 0, bleRecord)).isFalse();
+    }
+
+    @Test
+    public void serviceUuid() {
+        byte[] bleRecord = FastPairTestData.eddystone_header_and_uuid;
+        ParcelUuid uuid = ParcelUuid.fromString("0000FEAA-0000-1000-8000-00805F9B34FB");
+
+        BleFilter filter = mFilterBuilder.setServiceUuid(uuid).build();
+        assertMatches(filter, null, 0, bleRecord);
+    }
+
+    @Test
+    public void serviceUuidNoMatch() {
+        // Verify the name filter does not match
+        byte[] bleRecord = FastPairTestData.eddystone_header_and_uuid;
+        ParcelUuid uuid = ParcelUuid.fromString("00001804-0000-1000-8000-000000000000");
+
+        BleFilter filter = mFilterBuilder.setServiceUuid(uuid).build();
+        assertThat(matches(filter, null, 0, bleRecord)).isFalse();
+    }
+
+    @Test
+    public void serviceUuidNotInBleRecord() {
+        // Verify the name filter does not match
+        byte[] bleRecord = FastPairTestData.eir_1;
+        ParcelUuid uuid = ParcelUuid.fromString("00001804-0000-1000-8000-000000000000");
+
+        BleFilter filter = mFilterBuilder.setServiceUuid(uuid).build();
+        assertThat(matches(filter, null, 0, bleRecord)).isFalse();
+    }
+
+    @Test
+    public void serviceUuidMask() {
+        byte[] bleRecord = FastPairTestData.eddystone_header_and_uuid;
+        ParcelUuid uuid = ParcelUuid.fromString("0000FEAA-0000-1000-8000-00805F9B34FB");
+        ParcelUuid mask = ParcelUuid.fromString("00000000-0000-0000-0000-FFFFFFFFFFFF");
+        BleFilter filter = mFilterBuilder.setServiceUuid(uuid, mask).build();
+        assertMatches(filter, null, 0, bleRecord);
+    }
+
+
+    @Test
+    public void macAddress() {
+        byte[] bleRecord = FastPairTestData.eddystone_header_and_uuid;
+        String macAddress = "00:11:22:33:AA:BB";
+        BluetoothAdapter adapter = BluetoothAdapter.getDefaultAdapter();
+
+        BluetoothDevice device = adapter.getRemoteDevice(macAddress);
+        BleFilter filter = mFilterBuilder.setDeviceAddress(macAddress).build();
+        assertMatches(filter, device, 0, bleRecord);
+    }
+
+    @Test
+    public void macAddressNoMatch() {
+        byte[] bleRecord = FastPairTestData.eddystone_header_and_uuid;
+        String macAddress = "00:11:22:33:AA:00";
+        BluetoothAdapter adapter = BluetoothAdapter.getDefaultAdapter();
+
+        BluetoothDevice device = adapter.getRemoteDevice("00:11:22:33:AA:BB");
+        BleFilter filter = mFilterBuilder.setDeviceAddress(macAddress).build();
+        assertThat(matches(filter, device, 0, bleRecord)).isFalse();
+    }
+
+    @Test
+    public void eddystoneIsSuperset() {
+        // Verify eddystone subtypes pass.
+        assertThat(mEddystoneFilter.isSuperset(mEddystoneFilter)).isTrue();
+        assertThat(mEddystoneUidFilter.isSuperset(mEddystoneUidFilter)).isTrue();
+        assertThat(mEddystoneFilter.isSuperset(mEddystoneUidFilter)).isTrue();
+        assertThat(mEddystoneFilter.isSuperset(mEddystoneEidFilter)).isTrue();
+        assertThat(mEddystoneFilter.isSuperset(mEddystoneUrlFilter)).isTrue();
+
+        // Non-eddystone beacon filters should never be supersets.
+        assertThat(mEddystoneFilter.isSuperset(mIBeaconWithoutUuidFilter)).isFalse();
+        assertThat(mEddystoneFilter.isSuperset(mWearFilter)).isFalse();
+        assertThat(mEddystoneFilter.isSuperset(mSmartSetupFilter)).isFalse();
+        assertThat(mEddystoneFilter.isSuperset(mChromecastFilter)).isFalse();
+        assertThat(mEddystoneFilter.isSuperset(mFakeFilter1)).isFalse();
+        assertThat(mEddystoneFilter.isSuperset(mFakeFilter2)).isFalse();
+
+        assertThat(mEddystoneUidFilter.isSuperset(mWearFilter)).isFalse();
+        assertThat(mEddystoneUidFilter.isSuperset(mSmartSetupFilter)).isFalse();
+        assertThat(mEddystoneUidFilter.isSuperset(mChromecastFilter)).isFalse();
+        assertThat(mEddystoneUidFilter.isSuperset(mFakeFilter1)).isFalse();
+        assertThat(mEddystoneUidFilter.isSuperset(mFakeFilter2)).isFalse();
+    }
+
+    @Test
+    public void iBeaconIsSuperset() {
+        // Verify that an iBeacon filter is a superset of itself and any filters that specify UUIDs.
+        assertThat(mIBeaconWithoutUuidFilter.isSuperset(mIBeaconWithoutUuidFilter)).isTrue();
+        assertThat(mIBeaconWithoutUuidFilter.isSuperset(mIBeaconWithUuidFilter)).isTrue();
+
+        // Non-iBeacon filters should never be supersets.
+        assertThat(mIBeaconWithoutUuidFilter.isSuperset(mEddystoneEidFilter)).isFalse();
+        assertThat(mIBeaconWithoutUuidFilter.isSuperset(mEddystoneUrlFilter)).isFalse();
+        assertThat(mIBeaconWithoutUuidFilter.isSuperset(mEddystoneUidFilter)).isFalse();
+        assertThat(mIBeaconWithoutUuidFilter.isSuperset(mWearFilter)).isFalse();
+        assertThat(mIBeaconWithoutUuidFilter.isSuperset(mSmartSetupFilter)).isFalse();
+        assertThat(mIBeaconWithoutUuidFilter.isSuperset(mChromecastFilter)).isFalse();
+        assertThat(mIBeaconWithoutUuidFilter.isSuperset(mFakeFilter1)).isFalse();
+        assertThat(mIBeaconWithoutUuidFilter.isSuperset(mFakeFilter2)).isFalse();
+    }
+
+    @Test
+    public void mixedFilterIsSuperset() {
+        // Compare service data vs manufacturer data filters to verify we detect supersets
+        // correctly in filters that aren't for iBeacon and Eddystone.
+        assertThat(mWearFilter.isSuperset(mIBeaconWithoutUuidFilter)).isFalse();
+        assertThat(mSmartSetupFilter.isSuperset(mIBeaconWithoutUuidFilter)).isFalse();
+        assertThat(mChromecastFilter.isSuperset(mIBeaconWithoutUuidFilter)).isFalse();
+
+        assertThat(mWearFilter.isSuperset(mEddystoneFilter)).isFalse();
+        assertThat(mSmartSetupFilter.isSuperset(mEddystoneFilter)).isFalse();
+        assertThat(mChromecastFilter.isSuperset(mEddystoneFilter)).isFalse();
+
+        assertThat(mWearFilter.isSuperset(mEddystoneUidFilter)).isFalse();
+        assertThat(mSmartSetupFilter.isSuperset(mEddystoneUidFilter)).isFalse();
+        assertThat(mChromecastFilter.isSuperset(mEddystoneUidFilter)).isFalse();
+
+        assertThat(mWearFilter.isSuperset(mEddystoneEidFilter)).isFalse();
+        assertThat(mSmartSetupFilter.isSuperset(mEddystoneEidFilter)).isFalse();
+        assertThat(mChromecastFilter.isSuperset(mEddystoneEidFilter)).isFalse();
+
+        assertThat(mWearFilter.isSuperset(mEddystoneUrlFilter)).isFalse();
+        assertThat(mSmartSetupFilter.isSuperset(mEddystoneUrlFilter)).isFalse();
+        assertThat(mChromecastFilter.isSuperset(mEddystoneUrlFilter)).isFalse();
+
+        assertThat(mWearFilter.isSuperset(mIBeaconWithUuidFilter)).isFalse();
+        assertThat(mSmartSetupFilter.isSuperset(mIBeaconWithUuidFilter)).isFalse();
+        assertThat(mChromecastFilter.isSuperset(mIBeaconWithUuidFilter)).isFalse();
+
+        assertThat(mWearFilter.isSuperset(mChromecastFilter)).isFalse();
+        assertThat(mSmartSetupFilter.isSuperset(mChromecastFilter)).isFalse();
+        assertThat(mSmartSetupFilter.isSuperset(mWearFilter)).isFalse();
+        assertThat(mChromecastFilter.isSuperset(mWearFilter)).isFalse();
+
+        assertThat(mFakeFilter1.isSuperset(mFakeFilter2)).isTrue();
+        assertThat(mFakeFilter2.isSuperset(mFakeFilter1)).isFalse();
+        assertThat(mSmartSetupFilter.isSuperset(mFakeSmartSetupSubsetFilter)).isTrue();
+        assertThat(mSmartSetupFilter.isSuperset(mFakeSmartSetupNotSubsetFilter)).isFalse();
+
+        assertThat(mEddystoneFilter.isSuperset(mEddystoneWithDeviceNameFilter)).isTrue();
+        assertThat(mEddystoneFilter.isSuperset(mEddystoneWithDeviceAddressFilter)).isTrue();
+        assertThat(mEddystoneWithDeviceAddressFilter.isSuperset(mEddystoneFilter)).isFalse();
+
+        assertThat(mChromecastFilter.isSuperset(mServiceUuidWithMaskFilter1)).isTrue();
+        assertThat(mServiceUuidWithMaskFilter2.isSuperset(mServiceUuidWithMaskFilter1)).isFalse();
+        assertThat(mServiceUuidWithMaskFilter1.isSuperset(mServiceUuidWithMaskFilter2)).isTrue();
+        assertThat(mEddystoneFilter.isSuperset(mServiceUuidWithMaskFilter1)).isFalse();
+    }
+
+    @Test
+    public void toOsFilter_getTheSameFilterParameter() {
+        BleFilter nearbyFilter = createTestFilter();
+        ScanFilter osFilter = nearbyFilter.toOsFilter();
+        assertFilterValuesEqual(nearbyFilter, osFilter);
+    }
+
+    @Test
+    public void describeContents() {
+        BleFilter nearbyFilter = createTestFilter();
+        assertThat(nearbyFilter.describeContents()).isEqualTo(0);
+    }
+
+    @Test
+    public void testHashCode() {
+        BleFilter nearbyFilter = createTestFilter();
+        BleFilter compareFilter = new BleFilter("BERT", "00:11:22:33:AA:BB",
+                new ParcelUuid(UUID.fromString("0000FEA0-0000-1000-8000-00805F9B34FB")),
+                new ParcelUuid(UUID.fromString("FFFFFFF-FFFF-FFF-FFFF-FFFFFFFFFFFF")),
+                ParcelUuid.fromString("0000110B-0000-1000-8000-00805F9B34FB"),
+                new byte[] {0x51, 0x64}, new byte[] {0x00, (byte) 0xFF},
+                BluetoothAssignedNumbers.GOOGLE, new byte[] {0x00, 0x10},
+                new byte[] {0x00, (byte) 0xFF});
+        assertThat(nearbyFilter.hashCode()).isEqualTo(compareFilter.hashCode());
+    }
+
+    @Test
+    public void testToString() {
+        BleFilter nearbyFilter = createTestFilter();
+        assertThat(nearbyFilter.toString()).isEqualTo("BleFilter [deviceName=BERT,"
+                + " deviceAddress=00:11:22:33:AA:BB, uuid=0000fea0-0000-1000-8000-00805f9b34fb,"
+                + " uuidMask=0fffffff-ffff-0fff-ffff-ffffffffffff,"
+                + " serviceDataUuid=0000110b-0000-1000-8000-00805f9b34fb,"
+                + " serviceData=[81, 100], serviceDataMask=[0, -1],"
+                + " manufacturerId=224, manufacturerData=[0, 16], manufacturerDataMask=[0, -1]]");
+    }
+
+    @Test
+    public void testParcel() {
+        BleFilter nearbyFilter = createTestFilter();
+        Parcel parcel = Parcel.obtain();
+        nearbyFilter.writeToParcel(parcel, 0);
+        parcel.setDataPosition(0);
+        BleFilter compareFilter = BleFilter.CREATOR.createFromParcel(
+                parcel);
+        parcel.recycle();
+        assertThat(compareFilter.getDeviceName()).isEqualTo("BERT");
+    }
+
+    @Test
+    public void testCreatorNewArray() {
+        BleFilter[] nearbyFilters  = BleFilter.CREATOR.newArray(2);
+        assertThat(nearbyFilters.length).isEqualTo(2);
+    }
+
     private static boolean matches(
             BleFilter filter, BluetoothDevice device, int rssi, byte[] bleRecord) {
         return filter.matches(new BleSighting(device,
                 bleRecord, rssi, 0 /* timestampNanos */));
     }
 
+    private static void assertFilterValuesEqual(BleFilter nearbyFilter, ScanFilter osFilter) {
+        assertThat(osFilter.getDeviceAddress()).isEqualTo(nearbyFilter.getDeviceAddress());
+        assertThat(osFilter.getDeviceName()).isEqualTo(nearbyFilter.getDeviceName());
+
+        assertThat(osFilter.getManufacturerData()).isEqualTo(nearbyFilter.getManufacturerData());
+        assertThat(osFilter.getManufacturerDataMask())
+                .isEqualTo(nearbyFilter.getManufacturerDataMask());
+        assertThat(osFilter.getManufacturerId()).isEqualTo(nearbyFilter.getManufacturerId());
+
+        assertThat(osFilter.getServiceData()).isEqualTo(nearbyFilter.getServiceData());
+        assertThat(osFilter.getServiceDataMask()).isEqualTo(nearbyFilter.getServiceDataMask());
+        assertThat(osFilter.getServiceDataUuid()).isEqualTo(nearbyFilter.getServiceDataUuid());
+
+        assertThat(osFilter.getServiceUuid()).isEqualTo(nearbyFilter.getServiceUuid());
+        assertThat(osFilter.getServiceUuidMask()).isEqualTo(nearbyFilter.getServiceUuidMask());
+    }
 
     private static void assertMatches(
             BleFilter filter, BluetoothDevice device, int rssi, byte[] bleRecordBytes) {
@@ -325,10 +657,10 @@ public class BleFilterTest {
 
         // UUID match.
         if (filter.getServiceUuid() != null
-                && !matchesServiceUuids(filter.getServiceUuid(), filter.getServiceUuidMask(),
-                bleRecord.getServiceUuids())) {
-            fail("The filter specifies a service UUID but it doesn't match "
-                    + "what's in the scan record");
+                && !matchesServiceUuids(filter.getServiceUuid(),
+                filter.getServiceUuidMask(), bleRecord.getServiceUuids())) {
+            fail("The filter specifies a service UUID "
+                    + "but it doesn't match what's in the scan record");
         }
 
         // Service data match
@@ -401,6 +733,95 @@ public class BleFilterTest {
         }
     }
 
+    private static String byteString(Map<ParcelUuid, byte[]> bytesMap) {
+        StringBuilder builder = new StringBuilder();
+        for (Map.Entry<ParcelUuid, byte[]> entry : bytesMap.entrySet()) {
+            builder.append(builder.toString().isEmpty() ? "  " : "\n  ");
+            builder.append(entry.getKey().toString());
+            builder.append(" --> ");
+            builder.append(byteString(entry.getValue()));
+        }
+        return builder.toString();
+    }
+
+    private static String byteString(SparseArray<byte[]> bytesArray) {
+        StringBuilder builder = new StringBuilder();
+        for (int i = 0; i < bytesArray.size(); i++) {
+            builder.append(builder.toString().isEmpty() ? "  " : "\n  ");
+            builder.append(byteString(bytesArray.valueAt(i)));
+        }
+        return builder.toString();
+    }
+
+    private static BleFilter createTestFilter() {
+        BleFilter.Builder builder = new BleFilter.Builder();
+        builder
+                .setServiceUuid(
+                        new ParcelUuid(UUID.fromString("0000FEA0-0000-1000-8000-00805F9B34FB")),
+                        new ParcelUuid(UUID.fromString("FFFFFFF-FFFF-FFF-FFFF-FFFFFFFFFFFF")))
+                .setDeviceAddress("00:11:22:33:AA:BB")
+                .setDeviceName("BERT")
+                .setManufacturerData(
+                        BluetoothAssignedNumbers.GOOGLE,
+                        new byte[] {0x00, 0x10},
+                        new byte[] {0x00, (byte) 0xFF})
+                .setServiceData(
+                        ParcelUuid.fromString("0000110B-0000-1000-8000-00805F9B34FB"),
+                        new byte[] {0x51, 0x64},
+                        new byte[] {0x00, (byte) 0xFF});
+        return builder.build();
+    }
+
+    // ref to beacon.decode.BeaconFilterBuilder.eddystoneFilter()
+    private static BleFilter createEddystoneFilter() {
+        return new BleFilter.Builder().setServiceUuid(EDDYSTONE_SERVICE_DATA_PARCELUUID).build();
+    }
+    // ref to beacon.decode.BeaconFilterBuilder.eddystoneUidFilter()
+    private static BleFilter createEddystoneUidFilter() {
+        return new BleFilter.Builder()
+                .setServiceUuid(EDDYSTONE_SERVICE_DATA_PARCELUUID)
+                .setServiceData(
+                        EDDYSTONE_SERVICE_DATA_PARCELUUID, new byte[] {(short) 0x00},
+                        new byte[] {(byte) 0xf0})
+                .build();
+    }
+
+    // ref to beacon.decode.BeaconFilterBuilder.eddystoneUrlFilter()
+    private static BleFilter createEddystoneUrlFilter() {
+        return new BleFilter.Builder()
+                .setServiceUuid(EDDYSTONE_SERVICE_DATA_PARCELUUID)
+                .setServiceData(
+                        EDDYSTONE_SERVICE_DATA_PARCELUUID,
+                        new byte[] {(short) 0x10}, new byte[] {(byte) 0xf0})
+                .build();
+    }
+
+    // ref to beacon.decode.BeaconFilterBuilder.eddystoneEidFilter()
+    private static BleFilter createEddystoneEidFilter() {
+        return new BleFilter.Builder()
+                .setServiceUuid(EDDYSTONE_SERVICE_DATA_PARCELUUID)
+                .setServiceData(
+                        EDDYSTONE_SERVICE_DATA_PARCELUUID,
+                        new byte[] {(short) 0x30}, new byte[] {(byte) 0xf0})
+                .build();
+    }
+
+    // ref to beacon.decode.BeaconFilterBuilder.iBeaconWithoutUuidFilter()
+    private static BleFilter createIBeaconWithoutUuidFilter() {
+        byte[] data = {(byte) 0x02, (byte) 0x15};
+        byte[] mask = {(byte) 0xff, (byte) 0xff};
+
+        return new BleFilter.Builder().setManufacturerData((short) 0x004C, data, mask).build();
+    }
+
+    // ref to beacon.decode.BeaconFilterBuilder.iBeaconWithUuidFilter()
+    private static BleFilter createIBeaconWithUuidFilter() {
+        byte[] data = getFilterData(ParcelUuid.fromString("0000FEAA-0000-1000-8000-00805F9B34FB"));
+        byte[] mask = getFilterMask(ParcelUuid.fromString("0000FEAA-0000-1000-8000-00805F9B34FB"));
+
+        return new BleFilter.Builder().setManufacturerData((short) 0x004C, data, mask).build();
+    }
+
     // Ref to beacon.decode.AppleBeaconDecoder.getFilterData
     private static byte[] getFilterData(ParcelUuid uuid) {
         byte[] data = new byte[18];
@@ -416,6 +837,20 @@ public class BleFilterTest {
             }
         }
         return data;
+    }
+
+    // Ref to beacon.decode.AppleBeaconDecoder.getFilterMask
+    private static byte[] getFilterMask(ParcelUuid uuid) {
+        byte[] mask = new byte[18];
+        mask[0] = (byte) 0xff;
+        mask[1] = (byte) 0xff;
+        // Check if UUID is needed in data
+        if (uuid != null) {
+            for (int i = 0; i < 16; i++) {
+                mask[i + 2] = (byte) 0xff;
+            }
+        }
+        return mask;
     }
 
     // Ref to beacon.decode.AppleBeaconDecoder.uuidToByteArray
@@ -452,25 +887,5 @@ public class BleFilterTest {
         }
         return ((uuid.getMostSignificantBits() & mask.getMostSignificantBits())
                 == (data.getMostSignificantBits() & mask.getMostSignificantBits()));
-    }
-
-    private static String byteString(Map<ParcelUuid, byte[]> bytesMap) {
-        StringBuilder builder = new StringBuilder();
-        for (Map.Entry<ParcelUuid, byte[]> entry : bytesMap.entrySet()) {
-            builder.append(builder.toString().isEmpty() ? "  " : "\n  ");
-            builder.append(entry.getKey().toString());
-            builder.append(" --> ");
-            builder.append(byteString(entry.getValue()));
-        }
-        return builder.toString();
-    }
-
-    private static String byteString(SparseArray<byte[]> bytesArray) {
-        StringBuilder builder = new StringBuilder();
-        for (int i = 0; i < bytesArray.size(); i++) {
-            builder.append(builder.toString().isEmpty() ? "  " : "\n  ");
-            builder.append(byteString(bytesArray.valueAt(i)));
-        }
-        return builder.toString();
     }
 }

@@ -27,6 +27,7 @@
     <string name="notification_channel_network_status" msgid="1631786866932924838">"Тармактын абалы"</string>
     <string name="notification_channel_network_alerts" msgid="1391603215241200880">"Тармактын эскертүүлөрү"</string>
     <string name="notification_channel_network_available" msgid="8454366142428864948">"Жеткиликтүү тармактар"</string>
+    <string name="notification_channel_apm_alerts" msgid="6775293475896473489">"APM эскертүүлөрү"</string>
     <string name="wifi_suggestion_title" msgid="2564179935989099139">"Сунушталган Wi‑Fi тармактарына туташасызбы?"</string>
     <string name="wifi_suggestion_content" msgid="6985149577828091835">"<xliff:g id="NAME">%s</xliff:g> сунуштаган тармактар. Түзмөк автоматтык түрдө туташышы мүмкүн."</string>
     <string name="wifi_suggestion_action_allow_app" msgid="7757859972144671588">"Уруксат берүү"</string>
@@ -49,11 +50,12 @@
     <string name="wifi_connect_alert_title" msgid="2368200646665663612">"Туташууга уруксатпы?"</string>
     <string name="wifi_connect_alert_message" msgid="7226456300982080746">"%1$s колдонмосу %2$s Wifi тармагына туташкысы келет"</string>
     <string name="wifi_connect_default_application" msgid="8917703737222707062">"Колдонмо"</string>
-    <string name="accept" msgid="8346431649376483879">"Кабыл алуу"</string>
+    <string name="accept" msgid="8346431649376483879">"Ооба"</string>
     <string name="decline" msgid="4172251727603762084">"Баш тартуу"</string>
     <string name="ok" msgid="847575529546290102">"Жарайт"</string>
     <string name="wifi_p2p_invitation_sent_title" msgid="6552639940428040869">"Чакыруу жөнөтүлдү"</string>
     <string name="wifi_p2p_invitation_to_connect_title" msgid="8917157937652519251">"Туташууга чакыруу"</string>
+    <string name="wifi_p2p_invitation_seconds_remaining" msgid="4214101104506918344">"{0,plural, =1{# секундда кабыл алыңыз.}other{# секундда кабыл алыңыз.}}"</string>
     <string name="wifi_p2p_from_message" msgid="5921308150192756898">"Жөнөтүүчү:"</string>
     <string name="wifi_p2p_to_message" msgid="3809923305696994787">"Алуучу:"</string>
     <string name="wifi_p2p_enter_pin_message" msgid="5200220251738047620">"Талап кылынган PIN\'ди териңиз:"</string>
@@ -63,12 +65,12 @@
     <string name="wifi_p2p_frequency_conflict_message" product="default" msgid="2226863827636191980">"Телефон <xliff:g id="DEVICE_NAME">%1$s</xliff:g> менен байланышып турганда, Wi-Fi\'дан убактылуу ажыратылат"</string>
     <string name="dlg_ok" msgid="254496739491689405">"Жарайт"</string>
     <string name="wifi_cannot_connect_with_randomized_mac_title" msgid="2344570489693915253">"<xliff:g id="SSID">%1$s</xliff:g> менен туташпай жатат"</string>
-    <string name="wifi_cannot_connect_with_randomized_mac_message" msgid="4834133226521813352">"Купуялык жөндөөлөрүн өзгөртүү үчүн таптап, кайталап көрүңүз"</string>
-    <string name="wifi_disable_mac_randomization_dialog_title" msgid="2054540994993681606">"Купуялык жөндөөлөрүн өзгөртөсүзбү?"</string>
+    <string name="wifi_cannot_connect_with_randomized_mac_message" msgid="4834133226521813352">"Купуялык параметрлерин өзгөртүү үчүн таптап, кайталап көрүңүз"</string>
+    <string name="wifi_disable_mac_randomization_dialog_title" msgid="2054540994993681606">"Купуялык параметрлерин өзгөртөсүзбү?"</string>
     <string name="wifi_disable_mac_randomization_dialog_message" msgid="8874064864332248988">"Туташуу үчүн <xliff:g id="SSID">%1$s</xliff:g> MAC дарегиңизди – уникалдуу идентификаторду колдонушу керек. Учурда бул тармактын купуялык жөндөөсү башаламан иретте түзүлгөн идентификаторду колдонууда. \n\nУшуну менен түзмөгүңүздүн жайгашкан жерине жакын жердеги түзмөктөр көз сала алышат."</string>
     <string name="wifi_disable_mac_randomization_dialog_confirm_text" msgid="6954419863076751626">"Жөндөөнү өзгөртүү"</string>
     <string name="wifi_disable_mac_randomization_dialog_success" msgid="5849155828154391387">"Жөндөө жаңырды. Кайра туташып көрүңүз."</string>
-    <string name="wifi_disable_mac_randomization_dialog_failure" msgid="2894643619143813096">"Купуялык жөндөөлөрүн өзгөртүүгө болбойт"</string>
+    <string name="wifi_disable_mac_randomization_dialog_failure" msgid="2894643619143813096">"Купуялык параметрлерин өзгөртүүгө болбойт"</string>
     <string name="wifi_disable_mac_randomization_dialog_network_not_found" msgid="7359256966900782004">"Тармак табылган жок"</string>
     <string name="wifi_eap_error_message_code_32756" msgid="2620877003804313434">"<xliff:g id="SSID">%1$s</xliff:g> : EAP аутентификация катасы 32756"</string>
     <!-- no translation found for wifi_eap_error_message_code_32756_carrier_overrides:0 (9114567205305206743) -->
@@ -102,19 +104,19 @@
   </string-array>
     <string name="wifi_eap_error_message_code_32767" msgid="7094289719914089006">"<xliff:g id="SSID">%1$s</xliff:g> : EAP аутентификация катасы 32767"</string>
   <string-array name="wifi_eap_error_message_code_32767_carrier_overrides">
-    <item msgid="873264900678243330">"<xliff:g id="CARRIER_ID_PREFIX">:::1839:::</xliff:g><xliff:g id="SSID">%1$s</xliff:g> : Verizon Wi-Fi Access\'ке туташууда маселе келип чыкты. Кийинчерээк же башка жерден кайталаңыз."</item>
+    <item msgid="3756793972687282940">"<xliff:g id="CARRIER_ID_PREFIX">:::1839:::</xliff:g><xliff:g id="SSID">%1$s</xliff:g> : Verizon Wi-Fi Access\'ке туташууда маселе келип чыкты. Кийинчерээк же башка жерден кайталаңыз. (Ката = 32767)"</item>
   </string-array>
     <string name="wifi_eap_error_message_code_16384" msgid="575394783233092922">"<xliff:g id="SSID">%1$s</xliff:g> : EAP аутентификация катасы 16384"</string>
   <string-array name="wifi_eap_error_message_code_16384_carrier_overrides">
-    <item msgid="5042774904407799226">"<xliff:g id="CARRIER_ID_PREFIX">:::1839:::</xliff:g><xliff:g id="SSID">%1$s</xliff:g> : 16384 катасынан улам Verizon Wi-Fi Access\'ке туташууда маселе келип чыкты."</item>
+    <item msgid="270219697600808218">"<xliff:g id="CARRIER_ID_PREFIX">:::1839:::</xliff:g><xliff:g id="SSID">%1$s</xliff:g> : Verizon Wi-Fi\'га туташууда маселе келип чыкты. (Ката = 16384)"</item>
   </string-array>
     <string name="wifi_eap_error_message_code_16385" msgid="8392878664662215609">"<xliff:g id="SSID">%1$s</xliff:g> : EAP аутентификация катасы 16385"</string>
   <string-array name="wifi_eap_error_message_code_16385_carrier_overrides">
-    <item msgid="1251122579833932025">"<xliff:g id="CARRIER_ID_PREFIX">:::1839:::</xliff:g><xliff:g id="SSID">%1$s</xliff:g> : 16385 катасынан улам Verizon Wi-Fi Access\'ке туташууда маселе келип чыкты."</item>
+    <item msgid="50575315771146940">"<xliff:g id="CARRIER_ID_PREFIX">:::1839:::</xliff:g><xliff:g id="SSID">%1$s</xliff:g> : Verizon Wi-Fi\'га туташууда маселе келип чыкты. (Ката = 16385)"</item>
   </string-array>
     <string name="wifi_eap_error_message_unknown_error_code" msgid="4480884285384231323">"<xliff:g id="SSID">%1$s</xliff:g> : EAP аутентификация катасы, белгисиз ката коду"</string>
   <string-array name="wifi_eap_error_message_unknown_error_code_carrier_overrides">
-    <item msgid="6141795443609380009">"<xliff:g id="CARRIER_ID_PREFIX">:::1839:::</xliff:g><xliff:g id="SSID">%1$s</xliff:g> : Verizon Wi-Fi Access\'ке туташууда маселе келип чыкты."</item>
+    <item msgid="2705387186478280792">"<xliff:g id="CARRIER_ID_PREFIX">:::1839:::</xliff:g><xliff:g id="SSID">%1$s</xliff:g> : Verizon Wi-Fi\'га туташууда маселе келип чыкты. (Ката = Белгисиз)"</item>
   </string-array>
     <string name="wifi_softap_auto_shutdown_timeout_expired_title" msgid="4896534374569504484">"Байланыш түйүнү  өчүрүлдү"</string>
     <string name="wifi_softap_auto_shutdown_timeout_expired_summary" msgid="7975476698140267728">"Туташып турган түзмөктөр жок. Өзгөртүү үчүн таптап коюңуз."</string>
@@ -125,6 +127,11 @@
     <string name="wifi_interface_priority_message_plural" msgid="8178086373318831859">"Бул төмөнкү колдонмолордо маселелерди жаратышы мүмкүн: <xliff:g id="APPS">%3$s</xliff:g>."</string>
     <string name="wifi_interface_priority_approve" msgid="7877379614986261096">"Уруксат берүү"</string>
     <string name="wifi_interface_priority_reject" msgid="1378461018835886777">"Тыюу салуу"</string>
+    <string name="wifi_interface_priority_interface_name_sta" msgid="5107477901500010776">"STA"</string>
+    <string name="wifi_interface_priority_interface_name_ap" msgid="161777054136866061">"Wi‑Fi байланыш түйүнү"</string>
+    <string name="wifi_interface_priority_interface_name_ap_bridge" msgid="1270364818879977821">"Wi‑Fi байланыш түйүнү"</string>
+    <string name="wifi_interface_priority_interface_name_p2p" msgid="1278122698099149708">"Wi‑Fi Direct"</string>
+    <string name="wifi_interface_priority_interface_name_nan" msgid="8812888073122966870">"Wi‑Fi Aware"</string>
     <string name="wifi_ca_cert_dialog_title" msgid="3872340345882915806">"Бул ишенимдүү тармакпы?"</string>
     <string name="wifi_ca_cert_dialog_continue_text" msgid="1674156611893471003">"Ооба, туташтырылсын"</string>
     <string name="wifi_ca_cert_dialog_abort_text" msgid="1303170595421648059">"Жок, туташтырылбасын"</string>
@@ -132,14 +139,18 @@
     <string name="wifi_ca_cert_dialog_message_server_name_text" msgid="3707809865604348289">"Сервердин аталышы:\n<xliff:g id="VALUE">%1$s</xliff:g>\n\n"</string>
     <string name="wifi_ca_cert_dialog_message_issuer_name_text" msgid="1147216922475192304">"Чыгарган тараптын аталышы:\n<xliff:g id="VALUE">%1$s</xliff:g>\n\n"</string>
     <string name="wifi_ca_cert_dialog_message_organization_text" msgid="4936354600863239487">"Уюм:\n<xliff:g id="VALUE">%1$s</xliff:g>\n\n"</string>
+    <string name="wifi_ca_cert_dialog_message_expiration_text" msgid="1612917217606436217">"Тастыктаманын мөөнөтү качан аяктайт:\n<xliff:g id="VALUE">%1$s</xliff:g>\n\n"</string>
+    <string name="wifi_ca_cert_dialog_message_signature_name_text" msgid="8455163626514894233">"SHA-256 манжа изи:\n<xliff:g id="VALUE">%1$s</xliff:g>\n\n"</string>
     <string name="wifi_ca_cert_dialog_message_contact_text" msgid="5799083318641183815">"Байланыш:\n<xliff:g id="VALUE">%1$s</xliff:g>\n\n"</string>
-    <string name="wifi_ca_cert_dialog_message_signature_name_text" msgid="704614002854299776">"Колтамга:\n<xliff:g id="VALUE">%1$s</xliff:g>\n\n"</string>
     <string name="wifi_ca_cert_notification_title" msgid="537569884930429796">"Тармакты текшерүү керек"</string>
     <string name="wifi_ca_cert_notification_message" msgid="6413248690626616961">"Туташуудан мурун <xliff:g id="SSID">%1$s</xliff:g> тармагынын чоо-жайын карап чыгыңыз. Улантуу үчүн басып коюңуз."</string>
     <string name="wifi_ca_cert_failed_to_install_ca_cert" msgid="4864192219789736195">"Тастыктама орнотулган жок."</string>
+    <string name="wifi_tofu_invalid_cert_chain_title" msgid="332710627417595752">"<xliff:g id="VALUE">%1$s</xliff:g> менен туташпай жатат"</string>
+    <string name="wifi_tofu_invalid_cert_chain_message" msgid="7047987920029432392">"Сервердин тастыктама чынжыры жараксыз."</string>
+    <string name="wifi_tofu_invalid_cert_chain_ok_text" msgid="9098567577510279854">"Макул"</string>
     <string name="wifi_ca_cert_dialog_preT_title" msgid="6916320484037009061">"Бул тармак ырасталган жок"</string>
-    <string name="wifi_ca_cert_dialog_preT_continue_text" msgid="3181614240421159530">"Баары бир туташуу"</string>
-    <string name="wifi_ca_cert_dialog_preT_abort_text" msgid="1195575129023960325">"Туташпасын"</string>
+    <string name="wifi_ca_cert_dialog_preT_continue_text" msgid="9118713368838029797">"Байланышта болуу"</string>
+    <string name="wifi_ca_cert_dialog_preT_abort_text" msgid="1331309662999405224">"Азыр ажыратуу"</string>
     <string name="wifi_ca_cert_dialog_preT_message_hint" msgid="5682518783200852031">"Тармактын <xliff:g id="SSID">%1$s</xliff:g> тастыктамасы жок."</string>
     <string name="wifi_ca_cert_dialog_preT_message_link" msgid="6325483132538546884">"Тастыктамаларды кошконду үйрөнүп алыңыз"</string>
     <string name="wifi_ca_cert_notification_preT_title" msgid="7255129934648316663">"Бул тармак ырасталган жок"</string>
@@ -150,4 +161,15 @@
     <string name="wifi_enable_request_dialog_message" msgid="6395169178524938278">"Wi‑Fi\'ды Ыкчам жөндөөлөрдөн өчүрсөңүз болот"</string>
     <string name="wifi_enable_request_dialog_positive_button" msgid="6050832555821470466">"Уруксат берүү"</string>
     <string name="wifi_enable_request_dialog_negative_button" msgid="4754219902374918882">"Тыюу салуу"</string>
+    <string name="wifi_enabled_apm_first_time_title" msgid="4814302384637588804">"Wi‑Fi учак режиминде күйгүзүлөт"</string>
+    <string name="wifi_enabled_apm_first_time_message" msgid="6416193199042203037">"Эгер Wi-Fi күйүк бойдон калса, кийинки жолу учак режимине өткөнүңүздө түзмөгүңүз аны эстеп калат"</string>
+    <string name="apm_enabled_first_time_title" msgid="2534167413190488009">"Wi‑Fi күйгөн бойдон калат"</string>
+    <string name="apm_enabled_first_time_message" msgid="6093911536874954410">"Түзмөгүңүз учак режиминде Wi‑Fi\'га туташкан бойдон калат. Кааласаңыз, Wi‑Fi\'ды өчүрүп койсоңуз болот."</string>
+    <string name="wifi_network_disabled_by_admin_title" msgid="9057697656855227293">"Жеткиликсиз тармак"</string>
+    <string name="wifi_network_disabled_by_admin_message" msgid="7830360441333155462">"<xliff:g id="SSID">%1$s</xliff:g> администраторуңуз тарабынан өчүрүлдү."</string>
+    <string name="wifi_network_disabled_by_admin_button" msgid="3350310756265122689">"Жабуу"</string>
+    <string name="wifi_network_switch_dialog_title_no_internet" msgid="4116969009784041242">"<xliff:g id="SSID_0">%1$s</xliff:g> Интернетке туташпай турат окшойт. <xliff:g id="SSID_1">%2$s</xliff:g> тармагына которуласызбы?"</string>
+    <string name="wifi_network_switch_dialog_title_bad_internet" msgid="6013385270249705547">"<xliff:g id="SSID_0">%1$s</xliff:g> байланышы начар. <xliff:g id="SSID_1">%2$s</xliff:g> тармагына которуласызбы?"</string>
+    <string name="wifi_network_switch_dialog_positive_button" msgid="7845507995422722454">"Которгуч"</string>
+    <string name="wifi_network_switch_dialog_negative_button" msgid="1496665895689498806">"Которулбасын"</string>
 </resources>

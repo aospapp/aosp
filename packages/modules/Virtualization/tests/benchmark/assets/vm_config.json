@@ -4,9 +4,7 @@
   },
   "task": {
     "type": "microdroid_launcher",
-    "command": "empty_payload.so",
-    "args": []
+    "command": "MicrodroidIdleNativeLib.so"
   },
   "export_tombstones": true
 }
-

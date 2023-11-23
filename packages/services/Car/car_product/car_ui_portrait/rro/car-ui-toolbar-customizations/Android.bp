@@ -20,6 +20,9 @@ runtime_resource_overlay {
     name: "GoogleCarUiPortraitToolbarBase",
     manifest: "AndroidManifest.xml",
     resource_dirs: ["res"],
+    static_libs: [
+        "car-portrait-ui-common"
+    ],
 }
 
 override_runtime_resource_overlay {
@@ -27,6 +30,7 @@ override_runtime_resource_overlay {
     base: "GoogleCarUiPortraitToolbarBase",
     package_name: "com.android.car.media.googlecaruiportrait.toolbar.rro",
     target_package_name: "com.android.car.media",
+    category: "caruiportrait.toolbar.media",
 }
 
 override_runtime_resource_overlay {
@@ -34,4 +38,21 @@ override_runtime_resource_overlay {
     base: "GoogleCarUiPortraitToolbarBase",
     package_name: "com.android.car.dialer.googlecaruiportrait.toolbar.rro",
     target_package_name: "com.android.car.dialer",
+    category: "caruiportrait.toolbar.dialer",
+}
+
+override_runtime_resource_overlay {
+    name: "generated_caruiportrait_toolbar-com-android-car-radio",
+    base: "GoogleCarUiPortraitToolbarBase",
+    package_name: "com.android.car.radio.googlecaruiportrait.toolbar.rro",
+    target_package_name: "com.android.car.radio",
+    category: "caruiportrait.toolbar.radio",
+}
+
+override_runtime_resource_overlay {
+    name: "generated_caruiportrait_toolbar-com-android-car-messenger",
+    base: "GoogleCarUiPortraitToolbarBase",
+    package_name: "com.android.car.messenger.googlecaruiportrait.toolbar.rro",
+    target_package_name: "com.android.car.messenger",
+    category: "caruiportrait.toolbar.messenger",
 }

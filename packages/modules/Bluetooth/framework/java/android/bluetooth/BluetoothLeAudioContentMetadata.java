@@ -129,22 +129,21 @@ public final class BluetoothLeAudioContentMetadata implements Parcelable {
      * @hide
      */
     @SystemApi
-    public static final @NonNull Parcelable.Creator<BluetoothLeAudioContentMetadata> CREATOR =
-            new Parcelable.Creator<BluetoothLeAudioContentMetadata>() {
-                public @NonNull BluetoothLeAudioContentMetadata createFromParcel(
-                        @NonNull Parcel in) {
-                    final String programInfo = in.readString();
-                    final String language = in.readString();
-                    final int rawMetadataLength = in.readInt();
-                    byte[] rawMetadata = new byte[rawMetadataLength];
-                    in.readByteArray(rawMetadata);
-                    return new BluetoothLeAudioContentMetadata(programInfo, language, rawMetadata);
-                }
+    @NonNull
+    public static final Creator<BluetoothLeAudioContentMetadata> CREATOR = new Creator<>() {
+        public @NonNull BluetoothLeAudioContentMetadata createFromParcel(@NonNull Parcel in) {
+            final String programInfo = in.readString();
+            final String language = in.readString();
+            final int rawMetadataLength = in.readInt();
+            byte[] rawMetadata = new byte[rawMetadataLength];
+            in.readByteArray(rawMetadata);
+            return new BluetoothLeAudioContentMetadata(programInfo, language, rawMetadata);
+        }
 
-                public @NonNull BluetoothLeAudioContentMetadata[] newArray(int size) {
-                    return new BluetoothLeAudioContentMetadata[size];
-                }
-            };
+        public @NonNull BluetoothLeAudioContentMetadata[] newArray(int size) {
+            return new BluetoothLeAudioContentMetadata[size];
+        }
+    };
 
     /**
      * Construct a {@link BluetoothLeAudioContentMetadata} from raw bytes.

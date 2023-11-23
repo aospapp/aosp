@@ -26,14 +26,12 @@ namespace bluetooth {
 namespace topshim {
 namespace rust {
 
-struct RustRawAddress;
-
 class ControllerIntf {
  public:
   ControllerIntf() : controller_(controller_get_interface()) {}
   ~ControllerIntf();
 
-  RustRawAddress read_local_addr() const;
+  RawAddress read_local_addr() const;
 
  private:
   const controller_t* controller_;

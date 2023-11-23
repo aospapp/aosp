@@ -61,7 +61,9 @@ java_defaults {
     // uncomment when b/13249961 is fixed
     // sdk_version: "current",
     platform_apis: true,
-    required: ["ConnectivityChecker"],
+    data: [":ConnectivityChecker"],
+    per_testcase_directory: true,
+    host_required: ["net-tests-utils-host-common"],
     test_config_template: "AndroidTestTemplate.xml",
 }
 
@@ -72,9 +74,9 @@ java_defaults {
 android_test {
     name: "CtsNetTestCases",
     defaults: ["CtsNetTestCasesDefaults", "ConnectivityNextEnableDefaults"],
-    // TODO: CTS should not depend on the entirety of the networkstack code.
     static_libs: [
-        "NetworkStackApiCurrentLib",
+        "DhcpPacketLib",
+        "NetworkStackApiCurrentShims",
     ],
     test_suites: [
         "cts",
@@ -86,7 +88,8 @@ java_defaults {
     name: "CtsNetTestCasesApiStableDefaults",
     // TODO: CTS should not depend on the entirety of the networkstack code.
     static_libs: [
-        "NetworkStackApiStableLib",
+        "DhcpPacketLib",
+        "NetworkStackApiStableShims",
     ],
     jni_uses_sdk_apis: true,
     min_sdk_version: "29",
@@ -98,10 +101,10 @@ java_defaults {
 android_test {
     name: "CtsNetTestCasesLatestSdk",
     defaults: [
+        "ConnectivityTestsLatestSdkDefaults",
         "CtsNetTestCasesDefaults",
         "CtsNetTestCasesApiStableDefaults",
     ],
-    target_sdk_version: "33",
     test_suites: [
         "general-tests",
         "mts-dnsresolver",
@@ -111,19 +114,39 @@ android_test {
     ],
 }
 
-android_test {
-    name: "CtsNetTestCasesMaxTargetSdk31",  // Must match CtsNetTestCasesMaxTargetSdk31 annotation.
+java_defaults {
+    name: "CtsNetTestCasesMaxTargetSdkDefaults",
     defaults: [
         "CtsNetTestCasesDefaults",
         "CtsNetTestCasesApiStableDefaults",
     ],
-    target_sdk_version: "31",
-    package_name: "android.net.cts.maxtargetsdk31",  // CTS package names must be unique.
-    instrumentation_target_package: "android.net.cts.maxtargetsdk31",
     test_suites: [
         "cts",
         "general-tests",
-        "mts-networking",
+        "mts-tethering",
     ],
 }
 
+android_test {
+    name: "CtsNetTestCasesMaxTargetSdk33",  // Must match CtsNetTestCasesMaxTargetSdk33 annotation.
+    defaults: ["CtsNetTestCasesMaxTargetSdkDefaults"],
+    target_sdk_version: "33",
+    package_name: "android.net.cts.maxtargetsdk33",
+    instrumentation_target_package: "android.net.cts.maxtargetsdk33",
+}
+
+android_test {
+    name: "CtsNetTestCasesMaxTargetSdk31",  // Must match CtsNetTestCasesMaxTargetSdk31 annotation.
+    defaults: ["CtsNetTestCasesMaxTargetSdkDefaults"],
+    target_sdk_version: "31",
+    package_name: "android.net.cts.maxtargetsdk31",  // CTS package names must be unique.
+    instrumentation_target_package: "android.net.cts.maxtargetsdk31",
+}
+
+android_test {
+    name: "CtsNetTestCasesMaxTargetSdk30",  // Must match CtsNetTestCasesMaxTargetSdk30 annotation.
+    defaults: ["CtsNetTestCasesMaxTargetSdkDefaults"],
+    target_sdk_version: "30",
+    package_name: "android.net.cts.maxtargetsdk30",  // CTS package names must be unique.
+    instrumentation_target_package: "android.net.cts.maxtargetsdk30",
+}

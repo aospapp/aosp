@@ -31,6 +31,8 @@
     <string name="enabled" msgid="5127188665060746381">"فعال"</string>
     <string name="disabled" msgid="4589065923272201387">"غیر فعال"</string>
     <string name="unavailable" msgid="1610732303812180196">"غیر دستیاب ہے"</string>
+    <string name="allow" msgid="6982558814345894019">"اجازت دیں"</string>
+    <string name="deny" msgid="8291577308813053917">"مسترد کریں"</string>
     <string name="header_category_suggestions" msgid="106077820663753645">"تجاویز"</string>
     <string name="header_category_quick_settings" msgid="3785334008768367890">"فوری ترتیبات"</string>
     <string name="header_category_general_settings" msgid="3897615781153506434">"عام ترتیبات"</string>
@@ -51,6 +53,7 @@
     <string name="sound_category_title" msgid="7899816751041939518">"آواز"</string>
     <string name="applications_category_title" msgid="7112019490898586223">"ایپس"</string>
     <string name="device_pref_category_title" msgid="8292572846154873762">"آلہ کی ترجیحات"</string>
+    <string name="accessibility_category_title" msgid="1552664829936369592">"ایکسیسبیلٹی"</string>
     <string name="remotes_and_accessories_category_title" msgid="4795119810430255047">"ریموٹس اور لوازمات"</string>
     <string name="display_and_sound_category_title" msgid="9203309625380755860">"ڈسپلے اور آواز"</string>
     <string name="help_and_feedback_category_title" msgid="7036505833991003031">"مدد اور تاثرات"</string>
@@ -109,7 +112,8 @@
     <string name="device_backup_restore" msgid="3634531946308269398">"بیک اپ لیں اور بحال کریں"</string>
     <string name="device_factory_reset" msgid="1110189450013225971">"فیکٹری ڈیٹا ری سیٹ"</string>
     <string name="device_calibration" msgid="2907914144048739705">"کیلیبریشن"</string>
-    <string name="device_energy_saver" msgid="1105023232841036991">"انرجی سیور"</string>
+    <string name="device_energy_saver" msgid="6611757996220443028">"ٹائمر بند کریں"</string>
+    <string name="device_energy_saver_summary" msgid="5306058475316008429">"TV بند کرنے اور توانائی بچانے کے لیے ٹائمرز سیٹ کریں"</string>
     <string name="overlay_internal_slice_title" msgid="6427352417573831625"></string>
     <string name="device_fastpair" msgid="1235240814051277047">"آلات"</string>
     <string name="surround_sound_select_formats" msgid="6070283650131226239">"فارمیٹس منتخب کریں"</string>
@@ -118,7 +122,7 @@
     <string name="surround_sound_format_e_ac3" msgid="6923129088903887242">"Dolby Digital Plus"</string>
     <string name="surround_sound_format_dts" msgid="8331816247117135587">"DTS"</string>
     <string name="surround_sound_format_dts_hd" msgid="4268947520371740146">"DTS-HD"</string>
-    <string name="surround_sound_format_dts_uhd" msgid="2844983210044263719">"DTS-UHD"</string>
+    <string name="surround_sound_format_dts_uhd" msgid="4340749818133578788">"DTS:X"</string>
     <string name="surround_sound_format_dolby_mat" msgid="3029804841912462928">"Dolby TrueHD کے ساتھ Dolby Atmos"</string>
     <string name="surround_sound_format_dolby_truehd" msgid="5113046743572967088">"Dolby TrueHD"</string>
     <string name="surround_sound_format_e_ac3_joc" msgid="3360344066462262996">"Dolby Digital Plus کے ساتھ Dolby Atmos"</string>
@@ -147,10 +151,38 @@
     <string name="hdmi_cec_settings_title" msgid="7120729705063868627">"HDMI-CEC"</string>
     <string name="advanced_sound_settings_title" msgid="319921303039469139">"جدید ترین صوتی ترتیبات"</string>
     <string name="game_mode_title" msgid="7280816243531315755">"گیم وضع کی اجازت"</string>
-    <string name="match_content_frame_rate_title" msgid="153291168560947689">"مماثل مواد کا فریم ریٹ"</string>
-    <string name="match_content_frame_rate_seamless" msgid="5900012519258795448">"مناسب"</string>
+    <string name="match_content_dynamic_range_title" msgid="2794980556561655838">"مماثل مواد کا ڈائنیمک رینج"</string>
+    <string name="match_content_dynamic_range_summary" msgid="2255683926227355398">"اس اختیار کو فعال کرنے پر، یہ سسٹم مواد سے مماثل کرنے کے لیے مختلف ڈائنیمک رینج فارمیٹس کے مابین سوئچ ہو جائے گا۔ فارمیٹ سوئچ کے دوران اس سے اسکرین سیاہ ہو سکتی ہے۔\n\nمزید ڈائنیمک رینج اختیارات کے لیے جدید ترین ڈسپلے کی ترتیبات پر کلک کریں۔"</string>
+    <string name="preferred_dynamic_range_title" msgid="5064883672337010588">"ترجیحی ڈائنیمک رینج"</string>
+    <string name="preferred_dynamic_range_selection_system_title" msgid="4505030483876080996">"سسٹم کی ترجیحی تبدیلی"</string>
+    <string name="preferred_dynamic_range_selection_system_desc" msgid="5712920601553613576">"آئیے سسٹم فارمیٹ کی تبدیلی کا نظم کریں"</string>
+    <string name="preferred_dynamic_range_selection_system_summary" msgid="4509062596428781094">"جب یہ اختیار منتخب کیا جائے گا تو سسٹم آپ کے ڈسپلے پر بھیجے جانے کے لیے ایک مناسب ڈائنیمک رینج کا تعین کرے گا اور ضرورت کے مطابق مواد کو اس ڈائنیمک رینج میں تبدیل کر دے گا۔"</string>
+    <string name="preferred_dynamic_range_selection_passthrough_desc" msgid="4831260397179583737">"ہمیشہ مواد کے فارمیٹ سے مماثل ہوتا ہے"</string>
+    <string name="preferred_dynamic_range_selection_force_title" msgid="4448836594133973103">"زبردستی تبدیلی"</string>
+    <string name="preferred_dynamic_range_selection_force_desc" msgid="1418542349290684513">"ترجیحی فارمیٹ میں زبردستی تبدیلی کرتا ہے"</string>
+    <string name="preferred_dynamic_range_selection_force_summary" msgid="8381058061765216239">"ترجیحی فارمیٹ میں زبردستی تبدیلی۔ زبردستی تبدیلی کا اثر ڈسپلے وضع یا HDR فارمیٹ میں دیگر ترتیبات پر پڑ سکتا ہے۔"</string>
+    <string name="preferred_dynamic_range_selection_force_sdr_title" msgid="3135104063034317252">"ہمیشہ SDR میں"</string>
+    <string name="preferred_dynamic_range_selection_force_hdr_title" msgid="1032587815433139859">"ہمیشہ <xliff:g id="HDR_TYPE">%s</xliff:g> میں"</string>
+    <string name="preferred_dynamic_range_force_dialog_title" msgid="6865110024863661702">"کیا آپ زبردستی HDR آؤٹ پٹ کرنا چاہتے ہیں؟"</string>
+    <string name="preferred_dynamic_range_force_dialog_desc" msgid="7758323258282201656">"بطور ڈیفالٹ <xliff:g id="HDR_TYPE">%s</xliff:g> میں زبردستی تبدیلی کی جائے گی۔"</string>
+    <string name="preferred_dynamic_range_force_dialog_desc_4k30_issue" msgid="4938418395391206131">"آپ کا ڈسپلے 1080p 60Hz ریزولیوشن پر چلے گا۔ 4k 60Hz ریزولیوشن پر چلنے پر یہ اختیار آپ کے ڈسپلے کے ساتھ موافقت نہیں رکھتا ہے۔"</string>
+    <string name="selection_dolby_vision_not_supported_sidebar" msgid="8994591316574824115">"Dolby Vision موجودہ ریزولوشن میں تعاون یافتہ نہیں ہے۔ اگر آپ Dolby Vision کو دستی طور پر فعال کرتے ہیں تو آپ کے ڈسپلے کی ریزولوشن 1080p 60Hz میں تبدیل ہو جائے گی"</string>
+    <string name="manual_dolby_vision_format_on_4k60_title" msgid="4172263676512376500">"ریزولوشن کو 1080p 60Hz میں تبدیل کریں؟"</string>
+    <string name="dynamic_range_selection_force_dv_title" msgid="8070148109262327094">"Dolby Vision میں ہمیشہ زبردستی تبدیلی کریں"</string>
+    <string name="dynamic_range_selection_force_dv_summary" msgid="1052851029985095562">"اگر اعلی درجے کی ڈسپلے کی ترتیبات میں HDR فارمیٹس میں Dolby Vision کو غیر فعال کر دیا جاتا ہے تو Dolby Vision میں زبردستی تبدیلی اسے دوبارہ فعال کر دے گی۔"</string>
+    <string name="dynamic_range_selection_force_hdr10_title" msgid="1221688206945051384">"HDR10 میں ہمیشہ زبردستی تبدیلی کریں"</string>
+    <string name="dynamic_range_selection_force_hdr10_summary" msgid="7784573527636502784">"اگر HDR10 کو HDR فارمیٹس میں اعلیٰ ڈسپلے کی ترتیبات میں غیر فعال کر دیا گیا ہے تو HDR10 میں زبردستی تبدیلی اسے دوبارہ فعال کر دے گی۔"</string>
+    <string name="dynamic_range_selection_force_hlg_title" msgid="3976190987768712696">"HLG میں ہمیشہ زبردستی تبدیلی کریں"</string>
+    <string name="dynamic_range_selection_force_hlg_summary" msgid="5371949016689544001">"اگر HLG کو HDR فارمیٹس میں اعلیٰ ڈسپلے کی ترتیبات میں غیر فعال کر دیا گیا ہے تو HLG میں زبردستی تبدیلی اسے دوبارہ فعال کر دے گی۔"</string>
+    <string name="dynamic_range_selection_force_hdr10plus_title" msgid="1305556000063625735">"+HDR10 میں ہمیشہ زبردستی تبدیلی کریں"</string>
+    <string name="dynamic_range_selection_force_hdr10plus_summary" msgid="918038386222537401">"اگر HDR10+‎ کو HDR فارمیٹس میں اعلیٰ ڈسپلے کی ترتیبات میں غیر فعال کر دیا گیا ہے تو HDR10+‎ میں زبردستی تبدیلی اسے دوبارہ فعال کر دے گی۔"</string>
+    <string name="dynamic_range_selection_force_sdr_title" msgid="1063579223517652945">"ہمیشہ SDR میں زبردستی تبدیلی کریں"</string>
+    <string name="dynamic_range_selection_force_sdr_summary" msgid="2874771365465898941">"SDR میں زبردستی تبدیلی اعلیٰ ڈسپلے کی ترتیبات میں HDR فارمیٹس میں تمام فارمیٹس کو غیر فعال کر دے گی۔"</string>
+    <string name="match_content_frame_rate_title" msgid="153291168560947689">"مواد کا فریم ریٹ مماثل بنائیں"</string>
+    <string name="match_content_frame_rate_seamless" msgid="5577846750811067585">"ہموار صرف"</string>
     <string name="match_content_frame_rate_seamless_summary" msgid="2737466163964133210">"اگر ایپ اس کی درخواست کرتی ہے تو آپ کا آلہ اس کے آؤٹ پٹ کو اس مواد کے اصل فریم ریٹ سے مماثل کرے گا جس کو آپ دیکھ رہے ہیں، صرف اس صورت میں جب آپ کا TV ایک مناسب منتقلی کو انجام دے سکتا ہے۔"</string>
-    <string name="match_content_frame_rate_non_seamless" msgid="1534300397118594640">"غیر مناسب"</string>
+    <string name="match_content_frame_rate_seamless_not_supported_summary" msgid="98559950465123792">"آپ کا منسلک کردہ ڈسپلے ہموار ریفریش ریٹ ٹرانزیشنز کو سپورٹ نہیں کرتا ہے۔ اس اختیار کا کوئی اثر نہیں ہوگا جب تک کہ آپ کسی ایسے ڈسپلے میں تبدیل نہیں کرتے جو اسے سپورٹ کرتا ہو۔"</string>
+    <string name="match_content_frame_rate_non_seamless" msgid="2702658727234710031">"ہمیشہ"</string>
     <string name="match_content_frame_rate_non_seamless_summary" msgid="6831699459487130055">"اگر ایپ اس کی درخواست کرتی ہے تو آپ کا آلہ اس کے آؤٹ پٹ کو اس مواد کے اصل فریم ریٹ سے مماثل کرے گا جس کو آپ دیکھ رہے ہیں۔ ویڈیو پلے بیک سے باہر نکلنے یا داخل ہونے کے دوران ہو سکتا ہے ایک سیکنڈ کے لیے آپ کی اسکرین خالی ہو جائے۔"</string>
     <string name="match_content_frame_rate_never" msgid="1678354793095148423">"کبھی نہیں"</string>
     <string name="match_content_frame_rate_never_summary" msgid="742977618080396095">"اگر ایپ اس کی درخواست کرتی ہے تو بھی آپ کا آلہ کبھی اس کے آؤٹ پٹ کو اس مواد کے اصل فریم ریٹ سے مماثل کرنے کی کوشش نہیں کرے گا جس کو آپ دیکھ رہے ہیں۔"</string>
@@ -167,6 +199,7 @@
     <string name="hdr_format_selection_manual_desc" msgid="8865649615882146772">"دستیاب فارمیٹس سے دستی طور پر فارمیٹس منتخب کریں"</string>
     <string name="hdr_format_supported_title" msgid="1458594819224612431">"تعاون یافتہ فارمیٹس"</string>
     <string name="hdr_format_unsupported_title" msgid="715318408107924941">"غیر تعاون یافتہ فارمیٹس"</string>
+    <string name="hdr_format_sdr" msgid="7211377112392255102">"SDR"</string>
     <string name="hdr_format_hdr10" msgid="8063543267227491062">"HDR10"</string>
     <string name="hdr_format_hlg" msgid="454510079939620321">"HLG"</string>
     <string name="hdr_format_hdr10plus" msgid="4371652089162162876">"+HDR10"</string>
@@ -182,10 +215,14 @@
     <string name="resolution_selection_title" msgid="2873993320284587853">"ریزولیوشن"</string>
     <string name="resolution_selection_auto_title" msgid="4738671207331027385">"خودکار"</string>
     <string name="resolution_selection_dialog_title" msgid="4029798035133645272">"ریزولیوشن کو تبدیل کر دیا گیا ہے"</string>
+    <string name="resolution_selection_with_mode_dialog_title" msgid="5011192408613100514">"ریزولیوشن کو ‎%1$s میں تبدیل کریں؟"</string>
     <string name="resolution_selection_dialog_desc" msgid="3667357611495669701">"اب سے ‏%1$s کا استعمال کرنے کے لیے \'ٹھیک ہے\' کو منتخب کریں۔"</string>
+    <string name="resolution_selection_disabled_dolby_vision_dialog_desc" msgid="7952404018654828187">"Dolby ویژن ‎%1$s پر تعاون یافتہ نہیں ہے اور \"جدید ترین ڈسپلے کی ترتیبات\" میں غیر فعال ہو جائے گا"</string>
+    <string name="resolution_hdr_description_info" msgid="2408761621976850238">"یہ موڈ اس کو سپورٹ کرتا ہے: %1$s\nکچھ TVs پر، HDR کے مزید فارمیٹس کو فعال کرنے کے لیے آپ کو بہتر کردہ HDMI کو آن کرنا پڑ سکتا ہے۔ یہ دیکھنے کے لیے اپنے TV کی ترتیبات چیک کریں کہ آیا یہ تعاون یافتہ ہے یا نہیں۔"</string>
     <string name="resolution_selection_dialog_cancel" msgid="3683616572317946129">"منسوخ کریں"</string>
     <string name="resolution_selection_dialog_ok" msgid="3123351228545013492">"ٹھیک ہے"</string>
     <string name="resolution_selection_hz" msgid="4425902505388495637">"Hz"</string>
+    <string name="resolution_display_mode" msgid="6633857172598855480">"<xliff:g id="RESOLUTION">%1$s</xliff:g> (<xliff:g id="REFRESH_RATE">%2$s</xliff:g> Hz)"</string>
     <string name="device_storage_clear_cache_title" msgid="14370154552302965">"کیش کیا ہوا ڈیٹا صاف کریں؟"</string>
     <string name="device_storage_clear_cache_message" msgid="4352802738505831032">"یہ سبھی ایپس کیلئے کیش کیے ہوئے ڈیٹا کو صاف کر دے گا۔"</string>
     <string name="default_audio_output_settings_title" msgid="5441937324539531999"></string>
@@ -257,7 +294,6 @@
     <string name="system_inputs" msgid="5552840337357572096">"ان پٹس"</string>
     <string name="system_inputs_devices" msgid="2158421111699829399">"ان پٹس اور آلات"</string>
     <string name="system_home_theater_control" msgid="6228949628173590310">"ہوم تھیئٹر کنٹرول"</string>
-    <string name="system_accessibility" msgid="3081009195560501010">"ایکسیسبیلٹی"</string>
     <string name="system_developer_options" msgid="8480844257066475479">"ڈویلپر کے اختیارات"</string>
     <string name="accessibility_none" msgid="6355646833528306702">"کوئی نہیں"</string>
     <string name="system_diagnostic" msgid="1654842813331919958">"استعمال اور تشخیصات"</string>
@@ -307,6 +343,7 @@
     <string name="do_disclosure_generic" msgid="8390478119591845948">"یہ آلہ آپ کی تنظیم کے زیر انتظام ہے۔"</string>
     <string name="do_disclosure_with_name" msgid="4755509039938948975">"یہ آلہ <xliff:g id="ORGANIZATION_NAME">%s</xliff:g> کے زیر انتظام ہے۔"</string>
     <string name="do_disclosure_learn_more_separator" msgid="4226390963162716446">" "</string>
+    <string name="hdr_capability" msgid="3331021013422460270">"- %1$s"</string>
     <string name="learn_more" msgid="820336467414665686">"مزید جانیں"</string>
     <string name="default_camera_app_title" msgid="4573905807226306484">"{count,plural, =1{کیمرا ایپ}other{کیمرا ایپس}}"</string>
     <string name="default_calendar_app_title" msgid="1533912443930743532">"کیلنڈر ایپ"</string>
@@ -590,6 +627,7 @@
     <string name="recently_accessed_show_all" msgid="5234849189704717855">"سبھی دیکھیں"</string>
     <string name="microphone" msgid="7893752847683941214">"مائیکروفون"</string>
     <string name="mic_toggle_title" msgid="7193417007060235665">"مائیکروفون تک رسائی"</string>
+    <string name="mic_remote_toggle_title" msgid="7153283895012570080">"آپ کے ریموٹ پر مائکروفون تک رسائی"</string>
     <string name="open_mic_permissions" msgid="8121871594807641073">"مائیکروفون تک ایپ کی رسائی"</string>
     <string name="microphone_physical_privacy_enabled_title" msgid="6135130916399886772">"مائیکروفون تک رسائی مسدود ہے"</string>
     <string name="microphone_physical_privacy_enabled_text" msgid="401238365312924088">"غیر مسدود کرنے کے لیے، کیمرا تک رسائی کی اجازت دینے کے لیے اپنے آلے پر رازداری سوئچ کو \'مائیکروفون آن ہے\' وضع پر لے جائیں۔"</string>
@@ -599,7 +637,11 @@
     <string name="camera_physical_privacy_enabled_title" msgid="1944155695921165511">"کیمرے تک رسائی مسدود ہے"</string>
     <string name="camera_physical_privacy_enabled_text" msgid="6692088634676282779">"غیر مسدود کرنے کی خاطر، کیمرا تک رسائی کی اجازت دینے کے لیے اپنے آلے پر موجود رازداری سوئچ کو \'کیمرا آن ہے\' وضع پر لے جائیں۔"</string>
     <string name="mic_toggle_info_title" msgid="1086545614315873599">"مائیکروفون تک رسائی: <xliff:g id="SENSOR_STATE">%s</xliff:g>"</string>
-    <string name="mic_toggle_info_content" msgid="4699624900513326055">"آن ہونے پر، اجازت والی تمام ایپس اور سروسز اس آلے پر کسی بھی مائیکروفون تک رسائی حاصل کر سکتی ہیں۔\n\nحسب ضرورت پروٹوکول والے آڈیو پیریفیرلز اس ترتیب سے متاثر نہیں ہوں گے۔"</string>
+    <string name="mic_toggle_info_content" msgid="3187791167208947239">"آن ہونے پر، تمام ایپس اور سروسز جنہیں مائیکروفون استعمال کرنے کی اجازت ہے وہ اس تک رسائی حاصل کر سکیں گی۔\n\nآف ہونے پر، کوئی ایپس یا سروسز مائیکروفون تک رسائی حاصل نہیں کر سکیں گی۔ لیکن آپ پھر بھی اپنے ریموٹ پر اسسٹنٹ بٹن دبا کر اپنی Google اسسٹنٹ سے بات کر سکتے ہیں۔\n\nTV سے مواصلت کرنے کے لیے حسب ضرورت پروٹوکولز استعمال کرنے والے آڈیو آلات اس ترتیب سے متاثر نہیں ہو سکتے۔"</string>
+    <string name="mic_remote_toggle_on_info_title" msgid="8503441878870972046">"مائیکروفون ریموٹ پر فعال ہے"</string>
+    <string name="mic_remote_toggle_on_info_content" msgid="2715872916376493679">"Google اسسٹنٹ آپ کے ریموٹ پر مائکروفون تک رسائی حاصل کرنے کے قابل ہے۔ آپ اپنے ریموٹ پر Google اسسٹنٹ بٹن دبا کر اپنی اسسٹنٹ سے بات کر سکیں گے۔"</string>
+    <string name="mic_remote_toggle_off_info_title" msgid="4902909833546393713">"مائیکروفون ریموٹ پر غیر فعال ہے"</string>
+    <string name="mic_remote_toggle_off_info_content" msgid="8062526350553191004">"آپ اپنے ریموٹ کا استعمال کرتے ہوئے اپنی Google اسسٹنٹ سے بات نہیں کر سکیں گے۔ Google اسسٹنٹ بٹن استعمال کرنے کے لیے، مائیکروفون تک رسائی کو فعال کریں۔"</string>
     <string name="camera_toggle_info_title" msgid="3871317082313736088">"کیمرے تک رسائی: <xliff:g id="SENSOR_STATE">%s</xliff:g>"</string>
     <string name="camera_toggle_info_content" msgid="2999965953853204003">"آن ہونے پر، اجازت والی تمام ایپس اور سروسز اس آلے پر کسی بھی کیمرے تک رسائی حاصل کر سکتی ہیں۔\n\nحسب ضرورت پروٹوکول والے کیمرا پیریفیرلز اس ترتیب سے متاثر نہیں ہوں گے۔"</string>
     <string name="sensor_toggle_info_on" msgid="4568111889147132257">"آن"</string>
@@ -625,9 +667,34 @@
     <string name="location_history_desc" msgid="926674012916014270">"اس اکاؤنٹ کیلئے مقام کی سرگزشت آن کر دیے جانے پر، Google آپ کی ایپس کے ذریعے استعمال کیلئے آپ کے آلہ کے مقام کا ڈیٹا اسٹور کر سکتا ہے۔\n\nمثلاً، Google Maps آپ کو ڈائریکشنز دے سکتا ہے اور Google Now روزانہ کے دو طرفہ سفر کے بارے میں آپ کو مطلع کر سکتا ہے۔\n\nآپ کسی بھی وقت مقام کی سرگزشت آف کر سکتے ہیں لیکن ایسا کرنے سے یہ حذف نہیں ہوگی۔ اپنے مقام کی سرگزشت دیکھنے اور اس کا نظم کرنے کیلئے، maps.google.com/locationhistory ملاحظہ کریں۔"</string>
     <string name="delete_location_history_title" msgid="707559064715633152">"مقام کی سرگزشت حذف کریں"</string>
     <string name="delete_location_history_desc" msgid="4035229731487113147">"اس سے اس Google اکاؤنٹ کیلئے اس آلہ سے اسٹور کردہ سبھی مقام کی سرگزشت حذف ہو جائے گی۔ آپ اس تنسیخ کو واپس نہیں لا سکتے ہیں۔ Google Now سمیت کچھ ایپس کام کرنا بند کر دیں گی۔"</string>
-    <string name="system_services" msgid="5754310941186053151">"سروسز"</string>
+    <string name="accessibility_screen_readers_category_title" msgid="7742526514873922018">"اسکرین ریڈرز"</string>
+    <string name="accessibility_display_category_title" msgid="593444602101558017">"ڈسپلے"</string>
+    <string name="accessibility_interaction_controls_category_title" msgid="5290687835178852745">"انٹرایکشن کنٹرولز"</string>
+    <string name="accessibility_audio_and_onscreen_text_category_title" msgid="113841605896486212">"آڈیو اور اسکرین پر موجود ٹیکسٹ"</string>
+    <string name="accessibility_experimental_category_title" msgid="3401773834179170206">"تجرباتی"</string>
+    <string name="accessibility_services_category_title" msgid="8813843874978910442">"سروسز"</string>
     <string name="accessibility_service_settings" msgid="3251334786870932423">"سروس کی ترتیبات"</string>
+    <string name="accessibility_screen_reader_flattened_component_name" msgid="6834614827111101213">"com.google.android.marvin.talkback/com.google.android.marvin.talkback.TalkBackService"</string>
     <string name="accessibility_toggle_high_text_contrast_preference_title" msgid="9200419191468995574">"اعلی تناسب امتزاج والا ٹیکسٹ"</string>
+    <string name="accessibility_toggle_bold_text_preference_title" msgid="3328992531170432669">"بولڈ ٹیکسٹ"</string>
+    <string name="accessibility_color_correction" msgid="6765093204922184119">"رنگ کی اصلاح"</string>
+    <string name="color_correction_usage" msgid="4160611639548748657">"رنگ کی اصلاح استعمال کریں"</string>
+    <string name="color_correction_color_mode" msgid="5081377780734779169">"رنگ کی وضع"</string>
+    <string name="color_correction_mode_deuteranomaly" msgid="1513793544554228224">"سرخ اور سبز رنگ دیکھنے کی صلاحیت میں کمی"</string>
+    <string name="color_correction_mode_deuteranomaly_summary" msgid="5991561481464520986">"سرخ-سبز"</string>
+    <string name="color_correction_mode_protanomaly" msgid="8105793166015115037">"سرخ اور سبز کی بے قاعدہ رنگ بینی"</string>
+    <string name="color_correction_mode_protanomaly_summary" msgid="3247619910784115563">"سرخ-سبز"</string>
+    <string name="color_correction_mode_tritanomaly" msgid="757769418392736089">"نیلے پیلے رنگ کی شناخت کرنے میں دشواری"</string>
+    <string name="color_correction_mode_tritanomaly_summary" msgid="137712354510881252">"نیلا-پیلا"</string>
+    <string name="color_correction_mode_grayscale" msgid="2592973844160514484">"خاکستری"</string>
+    <string name="palette_color_red" msgid="507196433434979086">"سرخ"</string>
+    <string name="palette_color_orange" msgid="6209196069366109835">"نارنجی"</string>
+    <string name="palette_color_yellow" msgid="298466132578870590">"پیلا"</string>
+    <string name="palette_color_green" msgid="4904783063036825668">"سبز"</string>
+    <string name="palette_color_cyan" msgid="3212217287628948203">"سیان"</string>
+    <string name="palette_color_blue" msgid="8836682634988540630">"نیلا"</string>
+    <string name="palette_color_purple" msgid="2123828754639683555">"جامنی"</string>
+    <string name="palette_color_gray" msgid="4014534773994261194">"خاکستری"</string>
     <string name="accessibility_shortcut" msgid="5856158637840030531">"ایکسیسبیلٹی شارٹ کٹ"</string>
     <string name="accessibility_shortcut_enable" msgid="6603542432267329986">"ایکسیسبیلٹی شارٹ کٹ کو فعال کریں"</string>
     <string name="accessibility_shortcut_service" msgid="2053250146891420311">"شارٹ کٹ سروس"</string>
@@ -701,7 +768,7 @@
     <string name="system_always_check" msgid="384870282800221580">"ہمیشہ چیک کریں"</string>
     <string name="system_bt_hci_log" msgid="1891838112637932603">"بلوٹوتھ HCI لاگنگ"</string>
     <string name="system_email_address" msgid="3725494874473757217">"ای میل پتہ"</string>
-    <string name="system_usb_debugging" msgid="2158285492172755923">"USB ڈیبگ کرنا"</string>
+    <string name="system_usb_debugging" msgid="2158285492172755923">"USB ڈیبگنگ"</string>
     <string name="system_allow_mock_locations" msgid="2483106887711851466">"فرضی مقامات کی اجازت دیں"</string>
     <string name="system_select_debug_app" msgid="6200987902307533721">"ڈیبگ ایپ منتخب کریں"</string>
     <string name="system_wait_for_debugger" msgid="5715878008542589060">"ڈیبگر کا انتظار کریں"</string>
@@ -885,12 +952,24 @@
     <string name="device_daydreams_sleep_description" msgid="6237610484915504587">"غیر فعالیت کے اس دورانیے کے بعد اسکرین سیور شروع ہو جاتا ہے۔ اگر کوئی اسکرین سیور منتخب نہیں ہے تو ڈسپلے آف ہو جاتا ہے۔"</string>
     <string name="device_daydreams_sleep_summary" msgid="3081688734381995693">"غیرفعالیت کے <xliff:g id="SLEEP_DESCRIPTION">%1$s</xliff:g> کے بعد"</string>
     <string name="device_energy_saver_screen_off" msgid="6908468996426629480">"ڈسپلے آف کریں"</string>
-    <string name="device_energy_saver_screen_off_description" msgid="4469679706899396071">"<xliff:g id="SLEEP_DESCRIPTION">%1$s</xliff:g> کے بعد"</string>
-    <string name="device_energy_saver_screen_off_dialog_title" msgid="4092476553760123309">"کے بعد ڈسپلے آف کریں"</string>
-    <string name="device_energy_saver_allow_turning_screen_off" msgid="3832490233158066073">"سکرین آف کرنے کی اجازت دیں"</string>
-    <string name="device_energy_saver_allow_turning_screen_off_description" msgid="6369746832941270786">"میڈیا پلے بیک کے دوران"</string>
-    <string name="device_energy_saver_confirmation_title" msgid="3888708298070409591">"اینرجی سیور کی ترتیبات کی توثیق کریں"</string>
-    <string name="device_energy_saver_confirmation_text" msgid="3157546670441493125">"براہ کرم نئی ترتیب کی توثیق <xliff:g id="SLEEP_TIME">%1$s</xliff:g> پر کریں، جس میں اینرجی کے استعمال میں اضافہ کا امکان موجود ہے۔"</string>
+    <!-- no translation found for device_energy_saver_timeout_description (3206609135199137514) -->
+    <skip />
+    <string name="device_energy_saver_confirmation_title" msgid="7614859812773584773">"پاور اور توانائی کی ترتیب کی تصدیق کریں"</string>
+    <string name="device_energy_saver_confirmation_message" msgid="7789453187001013951">"اپنے TV کو زیادہ وقفے کے لیے آن کر کے چھوڑنے پر توانی کا استعمال بڑھ سکتا ہے"</string>
+    <string name="device_energy_saver_disable_allow_turning_screen_off_title" msgid="1468097048101593731">"توانائی بچانے والی ترتیب کو غیر فعال کریں"</string>
+    <string name="device_energy_saver_disable_allow_turning_screen_off_text" msgid="6334963903866002164">"براہ کرم توثیق کریں کہ دیکھتے ہوئے ڈسپلے کو بند ہونے سے روکیں، جس میں توانائی کے استعمال میں اضافے کا امکان ہے۔"</string>
+    <string name="device_energy_saver_sleep_timeout" msgid="1841900768718452039">"غیر فعال ہرنے پر"</string>
+    <string name="device_energy_saver_attentive_timeout" msgid="3649486668821348087">"دیکھنے پر"</string>
+    <string name="device_energy_saver_category_title" msgid="170076161677525986">"خودکار طور پر آف کریں"</string>
+    <string name="device_energy_saver_sleep_timeout_dialog_title" msgid="6588352532253294558">"غیر فعال ہونے پر خودکار طور پر آف کریں"</string>
+    <string name="device_energy_saver_attentive_timeout_dialog_title" msgid="3273988875711109352">"دیکھتے وقت خودکار طور پر آف کریں"</string>
+    <string name="device_energy_saver_validation_sleep" msgid="7490897287741107840">"\"غیر فعال ہونے کے وقت\" کا ٹائمر \"دیکھنے کے وقت\" کے ٹائمر سے کم ہونا چاہیے"</string>
+    <string name="device_energy_saver_validation_attentive" msgid="1461105528087097435">"\"دیکھنے کے وقت\" کا ٹائمر \"غیر فعال ہونے کے وقت\" کے ٹائمر سے زیادہ ہونا چاہیے"</string>
+    <string name="limit_network_in_standby_toggle_title" msgid="6587185599397355336">"اسٹینڈ بائی میں نیٹ ورک کنکشن محدود کریں"</string>
+    <string name="limit_network_in_standby_toggle_summary" msgid="9127792748675581174">"اسٹینڈ بائی وضع میں کم توانائی استعمال کرتا ہے"</string>
+    <string name="limit_network_in_standby_toggle_info" msgid="566947772381093991">"اسٹینڈ بائی وضع میں ہونے پر سوائے خودکار اپ ڈیٹس موصول کرنے کے، آپ کا TV آپ کے نیٹ ورک سے غیر منسلک ہو جائے گا۔ اس سے آپ کے TV کی توانائی کے استعمال میں کمی واقع ہو سکتی ہے، حالانکہ اس کا مطلب یہ بھی ہے کہ اسٹینڈ بائی میں رہتے ہوئے ہو سکتا ہے کہ آپ Cast اور Google اسسٹنٹ جیسے فنکشنز استعمال کرنے کے قابل نہ ہوں۔"</string>
+    <string name="limit_network_in_standby_confirm_title" msgid="789232987058850322">"اسٹینڈ بائی میں نیٹ ورک کنکشن کی اجازت دیں"</string>
+    <string name="limit_network_in_standby_confirm_message" msgid="7176699480768019689">"اسٹینڈ بائی میں نیٹ ورک کنکشن کی اجازت دینے سے اسٹینڈ بائی توانائی کے استعمال میں اضافہ ہوگا۔"</string>
     <string name="backup_configure_account_default_summary" msgid="2170733614341544296">"فی الحال کوئی بھی اکاؤنٹ بیک اپ لیا گیا ڈیٹا اسٹور نہیں کر رہا ہے"</string>
     <string name="backup_erase_dialog_title" msgid="6008454053276987100"></string>
     <string name="backup_erase_dialog_message" msgid="222169533402624861">"آپ کے Wi‑Fi پاس ورڈز، بُک مارکس، دوسری ترتیبات اور ایپ کے ڈیٹا کا بیک اپ لینا بند کریں، اور Google سرورز پر موجود سبھی کاپیاں حذف کریں؟"</string>
@@ -978,12 +1057,17 @@
     <string name="time_to_start_read_title" msgid="6565449163802837806">"پڑھنا شروع کرنے کا وقت"</string>
     <string name="time_to_valid_audio_title" msgid="7246101824813414348">"درست آڈیو ڈیٹا کا وقت"</string>
     <string name="empty_audio_duration_title" msgid="9024377320171450683">"خالی آڈیو کا دورانیہ"</string>
+    <string name="record_audio_source_title" msgid="9087784503276397929">"ریکارڈ کردہ آڈیو ماخذ"</string>
+    <string name="record_audio_source_dialog_title" msgid="6556408220589197097">"اگلی ریکارڈنگ کیلئے ریکارڈ کردہ آڈیو ماخذ منتخب کریں"</string>
+    <string name="recorded_microphones_title" msgid="5466988146086215426">"ریکارڈ کردہ مائیکروفون (مائیکروفونز)"</string>
     <string name="show_audio_recording_start_failed" msgid="9131762831381326605">"آڈیو ریکارڈنگ شروع کرنے میں ناکام۔"</string>
     <string name="show_audio_recording_failed" msgid="8128216664039868681">"آڈیو ریکارڈنگ ناکام ہو گئی۔"</string>
     <string name="title_data_saver" msgid="7500278996154002792">"ڈیٹا سیور"</string>
     <string name="summary_data_saver" msgid="6793558728898207405">"کم موبائل ڈیٹا استعمال کرنے کے ليے ویڈیو کے معیار کو خودکار طور پر ایڈجسٹ کریں"</string>
     <string name="title_data_alert" msgid="8262081890052682475">"ڈیٹا کا استعمال اور الرٹس"</string>
     <string name="data_saver_header_info" msgid="2706725187498535785">"آپ انٹرنیٹ سے Wi-Fi، ایتھرنیٹ یا اپنے فون کے ہاٹ اسپاٹ کے ساتھ منسلک کر سکتے ہیں۔"</string>
+    <string name="bluetooth_ask_discovery_title" msgid="4955540555242269694">"دوسرے بلوٹوتھ آلات پر مرئی بنائیں؟"</string>
+    <string name="bluetooth_ask_discovery_message" msgid="8609666862877703398">"ایپ آپ کے TV کو <xliff:g id="TIMEOUT">%1$d</xliff:g> سیکنڈ کیلئے دیگر بلوٹوتھ آلات پر مرئی بنانا چاہتی ہے۔"</string>
     <string name="help_center_title" msgid="6109822142761302433"></string>
     <string name="disabled_by_policy_title" msgid="2220484346213756472">"کارروائی کی اجازت نہیں ہے"</string>
     <string name="disabled_by_policy_title_adjust_volume" msgid="4229779946666263271">"والیوم تبدیل نہیں کر سکتے"</string>
@@ -1034,4 +1118,9 @@
     <string name="power_on_behavior" msgid="927607372303160716">"برتاؤ پر پاور"</string>
     <string name="reset_options_title" msgid="7632580482285108955">"ری سیٹ کریں"</string>
     <string name="adb_pairing_device_dialog_ethernet_pairing_code_label" msgid="7551782499828944838">"ایتھرنیٹ سے جوڑا بنانے کا کوڈ"</string>
+    <string name="energy_modes" msgid="1331693860386361744">"توانائی کی وضعیں"</string>
+    <string name="energy_modes_summary" msgid="7196407759836930799">"TV کے استعمال میں نہ ہونے پر توانائی کی کارکردگی کو بہتر بنائیں"</string>
+    <string name="energy_mode_enables" msgid="357960364751477627">"فعال کرتا ہے:"</string>
+    <string name="energy_mode_eco_hint" msgid="1461517905015359947">"نوٹ کریں کہ یہ وضع آلہ کی بجلی کی کھپت کو بڑھا سکتی ہے۔"</string>
+    <string name="energy_modes_confirmation_title" msgid="4520280098781914825">"\"<xliff:g id="ENERGYMODENAME">%s</xliff:g>\" کو فعال کریں"</string>
 </resources>

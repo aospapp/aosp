@@ -21,7 +21,6 @@ import android.text.TextUtils;
 import android.util.AttributeSet;
 
 import androidx.preference.PreferenceViewHolder;
-import androidx.preference.SwitchPreference;
 
 import com.android.tv.twopanelsettings.slices.CustomContentDescriptionUtil;
 import com.android.tv.twopanelsettings.slices.HasCustomContentDescription;
@@ -30,7 +29,7 @@ import com.android.tv.twopanelsettings.slices.HasCustomContentDescription;
  * Preference that allows external classes to set its view's content description for accessibility
  * purposes.
  */
-public class CustomContentDescriptionSwitchPreference extends SwitchPreference implements
+public class CustomContentDescriptionSwitchPreference extends SwitchWithSoundPreference implements
         HasCustomContentDescription {
 
     private String mContentDescription;

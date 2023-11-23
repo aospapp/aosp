@@ -31,6 +31,8 @@
     <string name="enabled" msgid="5127188665060746381">"Activat"</string>
     <string name="disabled" msgid="4589065923272201387">"Desactivat"</string>
     <string name="unavailable" msgid="1610732303812180196">"No disponible"</string>
+    <string name="allow" msgid="6982558814345894019">"Permet"</string>
+    <string name="deny" msgid="8291577308813053917">"Denega"</string>
     <string name="header_category_suggestions" msgid="106077820663753645">"Suggeriments"</string>
     <string name="header_category_quick_settings" msgid="3785334008768367890">"Configuració ràpida"</string>
     <string name="header_category_general_settings" msgid="3897615781153506434">"Configuració general"</string>
@@ -51,6 +53,7 @@
     <string name="sound_category_title" msgid="7899816751041939518">"So"</string>
     <string name="applications_category_title" msgid="7112019490898586223">"Aplicacions"</string>
     <string name="device_pref_category_title" msgid="8292572846154873762">"Preferències del dispositiu"</string>
+    <string name="accessibility_category_title" msgid="1552664829936369592">"Accessibilitat"</string>
     <string name="remotes_and_accessories_category_title" msgid="4795119810430255047">"Comandaments i accessoris"</string>
     <string name="display_and_sound_category_title" msgid="9203309625380755860">"Pantalla i so"</string>
     <string name="help_and_feedback_category_title" msgid="7036505833991003031">"Ajuda i suggeriments"</string>
@@ -109,7 +112,8 @@
     <string name="device_backup_restore" msgid="3634531946308269398">"Còpia de seguretat i restauració"</string>
     <string name="device_factory_reset" msgid="1110189450013225971">"Restabliment de les dades de fàbrica"</string>
     <string name="device_calibration" msgid="2907914144048739705">"Calibratge"</string>
-    <string name="device_energy_saver" msgid="1105023232841036991">"Estalvi d\'energia"</string>
+    <string name="device_energy_saver" msgid="6611757996220443028">"Temporitzador d\'apagament"</string>
+    <string name="device_energy_saver_summary" msgid="5306058475316008429">"Configura temporitzadors per apagar el televisor i estalviar energia"</string>
     <string name="overlay_internal_slice_title" msgid="6427352417573831625"></string>
     <string name="device_fastpair" msgid="1235240814051277047">"Dispositius"</string>
     <string name="surround_sound_select_formats" msgid="6070283650131226239">"Selecciona els formats"</string>
@@ -118,7 +122,7 @@
     <string name="surround_sound_format_e_ac3" msgid="6923129088903887242">"Dolby Digital Plus"</string>
     <string name="surround_sound_format_dts" msgid="8331816247117135587">"DTS"</string>
     <string name="surround_sound_format_dts_hd" msgid="4268947520371740146">"DTS-HD"</string>
-    <string name="surround_sound_format_dts_uhd" msgid="2844983210044263719">"DTS-UHD"</string>
+    <string name="surround_sound_format_dts_uhd" msgid="4340749818133578788">"DTS:X"</string>
     <string name="surround_sound_format_dolby_mat" msgid="3029804841912462928">"Dolby Atmos amb Dolby TrueHD"</string>
     <string name="surround_sound_format_dolby_truehd" msgid="5113046743572967088">"Dolby TrueHD"</string>
     <string name="surround_sound_format_e_ac3_joc" msgid="3360344066462262996">"Dolby Atmos amb Dolby Digital Plus"</string>
@@ -147,11 +151,39 @@
     <string name="hdmi_cec_settings_title" msgid="7120729705063868627">"HDMI-CEC"</string>
     <string name="advanced_sound_settings_title" msgid="319921303039469139">"Configuració avançada del so"</string>
     <string name="game_mode_title" msgid="7280816243531315755">"Permet el mode de joc"</string>
-    <string name="match_content_frame_rate_title" msgid="153291168560947689">"Adapta als fotogrames per segon del contingut"</string>
-    <string name="match_content_frame_rate_seamless" msgid="5900012519258795448">"Transició continua"</string>
+    <string name="match_content_dynamic_range_title" msgid="2794980556561655838">"Iguala amb el rang dinàmic del contingut"</string>
+    <string name="match_content_dynamic_range_summary" msgid="2255683926227355398">"En activar aquesta opció, el sistema canviarà entre els diferents formats de rang dinàmic per igualar-lo amb el del contingut. És possible que la pantalla es torni negra durant el canvi de format.\n\nFes clic a Configuració avançada de la pantalla per a més opcions de rang dinàmic."</string>
+    <string name="preferred_dynamic_range_title" msgid="5064883672337010588">"Rang dinàmic preferit"</string>
+    <string name="preferred_dynamic_range_selection_system_title" msgid="4505030483876080996">"Conversió preferida pel sistema"</string>
+    <string name="preferred_dynamic_range_selection_system_desc" msgid="5712920601553613576">"Permet que el sistema gestioni la conversió del format"</string>
+    <string name="preferred_dynamic_range_selection_system_summary" msgid="4509062596428781094">"En seleccionar aquesta opció, el sistema determinarà un rang dinàmic adequat perquè s\'enviï a la teva pantalla i converteixi el contingut en aquest rang dinàmic segons calgui."</string>
+    <string name="preferred_dynamic_range_selection_passthrough_desc" msgid="4831260397179583737">"Sempre coincideix amb el format del contingut"</string>
+    <string name="preferred_dynamic_range_selection_force_title" msgid="4448836594133973103">"Força la conversió"</string>
+    <string name="preferred_dynamic_range_selection_force_desc" msgid="1418542349290684513">"Força la conversió a un format preferit"</string>
+    <string name="preferred_dynamic_range_selection_force_summary" msgid="8381058061765216239">"Força la conversió a un format preferit. Aquesta acció pot afectar altres opcions de configuració del mode de visualització o del format HDR."</string>
+    <string name="preferred_dynamic_range_selection_force_sdr_title" msgid="3135104063034317252">"Sempre a SDR"</string>
+    <string name="preferred_dynamic_range_selection_force_hdr_title" msgid="1032587815433139859">"Sempre a <xliff:g id="HDR_TYPE">%s</xliff:g>"</string>
+    <string name="preferred_dynamic_range_force_dialog_title" msgid="6865110024863661702">"Vols forçar la sortida HDR?"</string>
+    <string name="preferred_dynamic_range_force_dialog_desc" msgid="7758323258282201656">"De manera predeterminada, la conversió es forçarà a <xliff:g id="HDR_TYPE">%s</xliff:g>."</string>
+    <string name="preferred_dynamic_range_force_dialog_desc_4k30_issue" msgid="4938418395391206131">"La pantalla s\'executarà amb una resolució de 1080p a 60Hz. Aquesta opció no és compatible amb la teva pantalla quan s\'executa amb una resolució de 4K a 60Hz."</string>
+    <string name="selection_dolby_vision_not_supported_sidebar" msgid="8994591316574824115">"Dolby Vision no s\'admet amb la resolució actual. Si actives Dolby Vision manualment, es canviarà a una resolució de pantalla de 1080p a 60 Hz."</string>
+    <string name="manual_dolby_vision_format_on_4k60_title" msgid="4172263676512376500">"Vols canviar a una resolució de 1080p a 60 Hz?"</string>
+    <string name="dynamic_range_selection_force_dv_title" msgid="8070148109262327094">"Força sempre la conversió a Dolby Vision"</string>
+    <string name="dynamic_range_selection_force_dv_summary" msgid="1052851029985095562">"Si Dolby Vision no està activat als formats HDR de la configuració avançada de la pantalla, forçant la conversió a Dolby Vision es tornarà a activar."</string>
+    <string name="dynamic_range_selection_force_hdr10_title" msgid="1221688206945051384">"Força sempre la conversió a HDR10"</string>
+    <string name="dynamic_range_selection_force_hdr10_summary" msgid="7784573527636502784">"Si HDR10 no està activat als formats HDR de la configuració avançada de la pantalla, forçant la conversió a HDR10 es tornarà a activar."</string>
+    <string name="dynamic_range_selection_force_hlg_title" msgid="3976190987768712696">"Força sempre la conversió a HLG"</string>
+    <string name="dynamic_range_selection_force_hlg_summary" msgid="5371949016689544001">"Si HLG no està activat als formats HDR de la configuració avançada de la pantalla, forçant la conversió a HLG es tornarà a activar."</string>
+    <string name="dynamic_range_selection_force_hdr10plus_title" msgid="1305556000063625735">"Força sempre la conversió a HDR10+"</string>
+    <string name="dynamic_range_selection_force_hdr10plus_summary" msgid="918038386222537401">"Si HDR10+ no està activat als formats HDR de la configuració avançada de la pantalla, forçant la conversió a HDR10+ es tornarà a activar."</string>
+    <string name="dynamic_range_selection_force_sdr_title" msgid="1063579223517652945">"Força sempre la conversió a SDR"</string>
+    <string name="dynamic_range_selection_force_sdr_summary" msgid="2874771365465898941">"Si forces la conversió a SDR, es desactivaran tots els formats als formats HDR de la configuració avançada de la pantalla."</string>
+    <string name="match_content_frame_rate_title" msgid="153291168560947689">"Fes coincidir amb els FPS del contingut"</string>
+    <string name="match_content_frame_rate_seamless" msgid="5577846750811067585">"Només transicions fluides"</string>
     <string name="match_content_frame_rate_seamless_summary" msgid="2737466163964133210">"Si l\'aplicació ho sol·licita, el dispositiu mostrarà el contingut que estàs mirant amb els fotogrames per segon del vídeo original, NOMÉS si el televisor pot efectuar una transició continua."</string>
-    <string name="match_content_frame_rate_non_seamless" msgid="1534300397118594640">"Transició no continua"</string>
-    <string name="match_content_frame_rate_non_seamless_summary" msgid="6831699459487130055">"Si l\'aplicació ho sol·licita, el dispositiu mostrarà el contingut que estàs mirant amb els fotogrames per segon del vídeo original. Això pot provocar que la pantalla es quedi en blanc un segon en entrar a la reproducció d\'un vídeo o sortir-ne."</string>
+    <string name="match_content_frame_rate_seamless_not_supported_summary" msgid="98559950465123792">"La pantalla connectada no admet transicions amb una freqüència d\'actualització sense interrupcions. Aquesta opció no tindrà efecte tret que canviïs a una pantalla compatible."</string>
+    <string name="match_content_frame_rate_non_seamless" msgid="2702658727234710031">"Sempre"</string>
+    <string name="match_content_frame_rate_non_seamless_summary" msgid="6831699459487130055">"Si l\'aplicació ho sol·licita, el dispositiu farà coincidir la sortida amb els fotogrames per segon originals del contingut que estàs mirant. Això pot provocar que la pantalla es quedi en blanc un segon en entrar a la reproducció d\'un vídeo o sortir-ne."</string>
     <string name="match_content_frame_rate_never" msgid="1678354793095148423">"Mai"</string>
     <string name="match_content_frame_rate_never_summary" msgid="742977618080396095">"Encara que l\'aplicació ho sol·liciti, el dispositiu mai no provarà de mostrar el contingut que estàs mirant amb els fotogrames per segon del vídeo original."</string>
     <string name="font_scale_settings_title" msgid="4114019544800225980">"Ajust del text"</string>
@@ -167,6 +199,7 @@
     <string name="hdr_format_selection_manual_desc" msgid="8865649615882146772">"Tria els formats manualment d\'entre els disponibles"</string>
     <string name="hdr_format_supported_title" msgid="1458594819224612431">"FORMATS COMPATIBLES"</string>
     <string name="hdr_format_unsupported_title" msgid="715318408107924941">"FORMATS NO COMPATIBLES"</string>
+    <string name="hdr_format_sdr" msgid="7211377112392255102">"SDR"</string>
     <string name="hdr_format_hdr10" msgid="8063543267227491062">"HDR10"</string>
     <string name="hdr_format_hlg" msgid="454510079939620321">"HLG"</string>
     <string name="hdr_format_hdr10plus" msgid="4371652089162162876">"HDR10+"</string>
@@ -182,10 +215,14 @@
     <string name="resolution_selection_title" msgid="2873993320284587853">"Resolució"</string>
     <string name="resolution_selection_auto_title" msgid="4738671207331027385">"Automàtica"</string>
     <string name="resolution_selection_dialog_title" msgid="4029798035133645272">"S\'ha canviat la resolució"</string>
+    <string name="resolution_selection_with_mode_dialog_title" msgid="5011192408613100514">"Vols canviar la resolució a %1$s?"</string>
     <string name="resolution_selection_dialog_desc" msgid="3667357611495669701">"Selecciona D\'acord per utilitzar %1$s a partir d\'ara."</string>
+    <string name="resolution_selection_disabled_dolby_vision_dialog_desc" msgid="7952404018654828187">"Dolby Vision no s\'admet a %1$s i es desactivarà a Configuració avançada de la pantalla"</string>
+    <string name="resolution_hdr_description_info" msgid="2408761621976850238">"Aquest mode admet: %1$s\nEn alguns televisors, és possible que hagis d\'activar l\'HDMI millorat per tenir disponibles més formats HDR. Comprova la configuració del televisor per veure si és compatible."</string>
     <string name="resolution_selection_dialog_cancel" msgid="3683616572317946129">"Cancel·la"</string>
     <string name="resolution_selection_dialog_ok" msgid="3123351228545013492">"D\'acord"</string>
     <string name="resolution_selection_hz" msgid="4425902505388495637">"Hz"</string>
+    <string name="resolution_display_mode" msgid="6633857172598855480">"<xliff:g id="RESOLUTION">%1$s</xliff:g> (<xliff:g id="REFRESH_RATE">%2$s</xliff:g> Hz)"</string>
     <string name="device_storage_clear_cache_title" msgid="14370154552302965">"Vols esborrar dades emmagatzem. a memòria cau?"</string>
     <string name="device_storage_clear_cache_message" msgid="4352802738505831032">"S\'esborraran dades aplicacions a la memòria cau."</string>
     <string name="default_audio_output_settings_title" msgid="5441937324539531999"></string>
@@ -236,7 +273,7 @@
     <string name="bluetooth_rename" msgid="7791922876280337194">"Canvia el nom del dispositiu connectat"</string>
     <string name="bluetooth_forget_action_title" msgid="2351140076684719196">"Oblida"</string>
     <string name="bluetooth_forget_confirm" msgid="5175414848391021666">"Oblida el dispositiu %1$s"</string>
-    <string name="bluetooth_serial_number_label" msgid="6639294603220209971">"Adreça Bluetooth"</string>
+    <string name="bluetooth_serial_number_label" msgid="6639294603220209971">"Adreça de Bluetooth"</string>
     <string name="bluetooth_connected_status" msgid="8629393539370085418">"Connectat"</string>
     <string name="bluetooth_disconnected_status" msgid="7617866963193224775">"Desconnectat"</string>
     <string name="bluetooth_empty_list_user_restricted" msgid="1610743588460010736">"No tens permís per canviar la configuració del Bluetooth."</string>
@@ -257,7 +294,6 @@
     <string name="system_inputs" msgid="5552840337357572096">"Entrades"</string>
     <string name="system_inputs_devices" msgid="2158421111699829399">"Entrades i dispositius"</string>
     <string name="system_home_theater_control" msgid="6228949628173590310">"Control de cinema domèstic"</string>
-    <string name="system_accessibility" msgid="3081009195560501010">"Accessibilitat"</string>
     <string name="system_developer_options" msgid="8480844257066475479">"Opcions per a desenvolupadors"</string>
     <string name="accessibility_none" msgid="6355646833528306702">"Cap"</string>
     <string name="system_diagnostic" msgid="1654842813331919958">"Ús i diagnòstic"</string>
@@ -307,6 +343,7 @@
     <string name="do_disclosure_generic" msgid="8390478119591845948">"La teva organització gestiona aquest dispositiu."</string>
     <string name="do_disclosure_with_name" msgid="4755509039938948975">"<xliff:g id="ORGANIZATION_NAME">%s</xliff:g> gestiona aquest dispositiu."</string>
     <string name="do_disclosure_learn_more_separator" msgid="4226390963162716446">" "</string>
+    <string name="hdr_capability" msgid="3331021013422460270">"- %1$s"</string>
     <string name="learn_more" msgid="820336467414665686">"Més informació"</string>
     <string name="default_camera_app_title" msgid="4573905807226306484">"{count,plural, =1{Aplicació de càmera}other{Aplicacions de càmera}}"</string>
     <string name="default_calendar_app_title" msgid="1533912443930743532">"Aplicació de calendari"</string>
@@ -365,7 +402,7 @@
     <string name="device_status_title" msgid="9051569510258883673">"Estat"</string>
     <string name="battery_status_title" msgid="8850166742025222210">"Estat de la bateria"</string>
     <string name="battery_level_title" msgid="2672804570916248736">"Nivell de la bateria"</string>
-    <string name="status_bt_address" msgid="7190052214963950844">"Adreça Bluetooth"</string>
+    <string name="status_bt_address" msgid="7190052214963950844">"Adreça de Bluetooth"</string>
     <string name="status_up_time" msgid="1758102680983108313">"Temps d\'activitat"</string>
     <string name="legal_information" msgid="1087445528481370874">"Informació legal"</string>
     <string name="copyright_title" msgid="5879660711078649518">"Drets d\'autor"</string>
@@ -590,6 +627,7 @@
     <string name="recently_accessed_show_all" msgid="5234849189704717855">"Mostra-ho tot"</string>
     <string name="microphone" msgid="7893752847683941214">"Micròfon"</string>
     <string name="mic_toggle_title" msgid="7193417007060235665">"Accés al micròfon"</string>
+    <string name="mic_remote_toggle_title" msgid="7153283895012570080">"Accés al micròfon del comandament"</string>
     <string name="open_mic_permissions" msgid="8121871594807641073">"Accés de les aplicacions al micròfon"</string>
     <string name="microphone_physical_privacy_enabled_title" msgid="6135130916399886772">"Accés al micròfon bloquejat"</string>
     <string name="microphone_physical_privacy_enabled_text" msgid="401238365312924088">"Per desbloquejar-lo, mou l\'interruptor de privadesa del dispositiu a la posició Micròfon activat per permetre l\'accés al micròfon."</string>
@@ -599,7 +637,11 @@
     <string name="camera_physical_privacy_enabled_title" msgid="1944155695921165511">"Accés a la càmera bloquejat"</string>
     <string name="camera_physical_privacy_enabled_text" msgid="6692088634676282779">"Per desbloquejar-lo, mou l\'interruptor de privadesa del dispositiu a la posició Càmera activada per permetre l\'accés a la càmera."</string>
     <string name="mic_toggle_info_title" msgid="1086545614315873599">"Accés al micròfon: <xliff:g id="SENSOR_STATE">%s</xliff:g>"</string>
-    <string name="mic_toggle_info_content" msgid="4699624900513326055">"Quan s\'activa, tots els serveis i aplicacions amb permís poden accedir a qualsevol micròfon d\'aquest dispositiu.\n\nAquesta opció de configuració no afectarà els perifèrics d\'àudio que disposin d\'un protocol personalitzat."</string>
+    <string name="mic_toggle_info_content" msgid="3187791167208947239">"Si l\'actives, totes les aplicacions i els serveis que poden utilitzar el micròfon podran accedir-hi.\n\nSi el desactives, cap aplicació ni servei podrà accedir al micròfon. Però encara podràs parlar amb el teu Assistent de Google fent clic al botó de l\'Assistent del comandament.\n\nPot ser que els dispositius d\'àudio que fan servir protocols personalitzats per comunicar-se amb la televisió no estiguin afectats per aquesta opció de configuració."</string>
+    <string name="mic_remote_toggle_on_info_title" msgid="8503441878870972046">"El micròfon està activat al comandament"</string>
+    <string name="mic_remote_toggle_on_info_content" msgid="2715872916376493679">"L\'Assistent de Google pot accedir al micròfon del comandament. Podràs parlar amb el teu Assistent fent clic al botó de l\'Assistent de Google del comandament."</string>
+    <string name="mic_remote_toggle_off_info_title" msgid="4902909833546393713">"El micròfon està desactivat al comandament"</string>
+    <string name="mic_remote_toggle_off_info_content" msgid="8062526350553191004">"No podràs parlar amb el teu Assistent de Google amb el comandament. Per poder utilitzar el botó de l\'Assistent de Google, has d\'activar l\'accés al micròfon."</string>
     <string name="camera_toggle_info_title" msgid="3871317082313736088">"Accés a la càmera: <xliff:g id="SENSOR_STATE">%s</xliff:g>"</string>
     <string name="camera_toggle_info_content" msgid="2999965953853204003">"Quan s\'activa, tots els serveis i aplicacions amb permís poden accedir a qualsevol càmera d\'aquest dispositiu.\n\nAquesta opció de configuració no afectarà els perifèrics de càmera que disposin d\'un protocol personalitzat."</string>
     <string name="sensor_toggle_info_on" msgid="4568111889147132257">"Activat"</string>
@@ -625,9 +667,34 @@
     <string name="location_history_desc" msgid="926674012916014270">"Si l\'historial d\'ubicacions està activat per a aquest compte, Google pot desar les dades d\'ubicació del dispositiu perquè les teves aplicacions les utilitzin.\n\nPer exemple, Google Maps et pot donar indicacions i Google Now et pot informar sobre l\'estat del trànsit al trajecte de casa a la feina.\n\nPots desactivar l\'historial d\'ubicacions en qualsevol moment, però aquesta acció no n\'esborra les dades. Per consultar i gestionar l\'historial d\'ubicacions, accedeix a maps.google.com/locationhistory."</string>
     <string name="delete_location_history_title" msgid="707559064715633152">"Suprimeix l\'historial d\'ubicacions"</string>
     <string name="delete_location_history_desc" msgid="4035229731487113147">"Així se suprimirà tot l\'historial d\'ubicacions d\'aquest dispositiu que hi hagi emmagatzemat en aquest compte de Google. L\'acció no es pot desfer. Algunes aplicacions, com ara Google Now, deixaran de funcionar."</string>
-    <string name="system_services" msgid="5754310941186053151">"Serveis"</string>
+    <string name="accessibility_screen_readers_category_title" msgid="7742526514873922018">"Lectors de pantalla"</string>
+    <string name="accessibility_display_category_title" msgid="593444602101558017">"Pantalla"</string>
+    <string name="accessibility_interaction_controls_category_title" msgid="5290687835178852745">"Controls d\'interacció"</string>
+    <string name="accessibility_audio_and_onscreen_text_category_title" msgid="113841605896486212">"Àudio i text en pantalla"</string>
+    <string name="accessibility_experimental_category_title" msgid="3401773834179170206">"Experimental"</string>
+    <string name="accessibility_services_category_title" msgid="8813843874978910442">"Serveis"</string>
     <string name="accessibility_service_settings" msgid="3251334786870932423">"Configuració del servei"</string>
+    <string name="accessibility_screen_reader_flattened_component_name" msgid="6834614827111101213">"com.google.android.marvin.talkback/com.google.android.marvin.talkback.TalkBackService"</string>
     <string name="accessibility_toggle_high_text_contrast_preference_title" msgid="9200419191468995574">"Text d\'alt contrast"</string>
+    <string name="accessibility_toggle_bold_text_preference_title" msgid="3328992531170432669">"Text en negreta"</string>
+    <string name="accessibility_color_correction" msgid="6765093204922184119">"Correcció de color"</string>
+    <string name="color_correction_usage" msgid="4160611639548748657">"Utilitza la correcció de color"</string>
+    <string name="color_correction_color_mode" msgid="5081377780734779169">"Mode de color"</string>
+    <string name="color_correction_mode_deuteranomaly" msgid="1513793544554228224">"Deuteranomalia"</string>
+    <string name="color_correction_mode_deuteranomaly_summary" msgid="5991561481464520986">"Vermell-verd"</string>
+    <string name="color_correction_mode_protanomaly" msgid="8105793166015115037">"Protanomalia"</string>
+    <string name="color_correction_mode_protanomaly_summary" msgid="3247619910784115563">"Vermell-verd"</string>
+    <string name="color_correction_mode_tritanomaly" msgid="757769418392736089">"Tritanomalia"</string>
+    <string name="color_correction_mode_tritanomaly_summary" msgid="137712354510881252">"Blau-groc"</string>
+    <string name="color_correction_mode_grayscale" msgid="2592973844160514484">"Escala de grisos"</string>
+    <string name="palette_color_red" msgid="507196433434979086">"Vermell"</string>
+    <string name="palette_color_orange" msgid="6209196069366109835">"Taronja"</string>
+    <string name="palette_color_yellow" msgid="298466132578870590">"Groc"</string>
+    <string name="palette_color_green" msgid="4904783063036825668">"Verd"</string>
+    <string name="palette_color_cyan" msgid="3212217287628948203">"Cian"</string>
+    <string name="palette_color_blue" msgid="8836682634988540630">"Blau"</string>
+    <string name="palette_color_purple" msgid="2123828754639683555">"Porpra"</string>
+    <string name="palette_color_gray" msgid="4014534773994261194">"Gris"</string>
     <string name="accessibility_shortcut" msgid="5856158637840030531">"Drecera d\'accessibilitat"</string>
     <string name="accessibility_shortcut_enable" msgid="6603542432267329986">"Activa la drecera d\'accessibilitat"</string>
     <string name="accessibility_shortcut_service" msgid="2053250146891420311">"Servei associat a la drecera"</string>
@@ -670,7 +737,7 @@
     <string name="color_yellow" msgid="3519470952904560404">"Groc"</string>
     <string name="color_magenta" msgid="2377854703399624607">"Magenta"</string>
     <string name="accessibility_toggle_audio_description_preference_title" msgid="933923296129403548">"Audiodescripció"</string>
-    <string name="accessibility_audio_description_summary" msgid="2027813223650517036">"Escolta una descripció del que passa a la pantalla en pel·licules i sèries compatibles"</string>
+    <string name="accessibility_audio_description_summary" msgid="2027813223650517036">"Escolta una descripció del que passa a la pantalla en pel·lícules i sèries compatibles"</string>
     <string name="system_accessibility_status" msgid="8504842254080682515">"Activa"</string>
     <string name="system_accessibility_config" msgid="4820879735377962851">"Configuració"</string>
     <string name="system_accessibility_service_on_confirm_title" msgid="4547924421106540376">"Vols fer servir <xliff:g id="SERVICE">%1$s</xliff:g>?"</string>
@@ -716,8 +783,8 @@
     <string name="system_show_hardware_layer" msgid="5833664339844452290">"Mostra la capa de programari"</string>
     <string name="system_show_gpu_overdraw" msgid="5073007513540516704">"Mostra el sobredibuix de la GPU"</string>
     <string name="system_show_surface_updates" msgid="7680759813613585278">"Mostra els canvis de superfície"</string>
-    <string name="system_window_animation_scale" msgid="685477540250939659">"Escala de l\'animació de la finestra"</string>
-    <string name="system_transition_animation_scale" msgid="7266380208347453619">"Escala de l\'animació de transició"</string>
+    <string name="system_window_animation_scale" msgid="685477540250939659">"Escala d\'animació de la finestra"</string>
+    <string name="system_transition_animation_scale" msgid="7266380208347453619">"Escala d\'animació de la transició"</string>
     <string name="system_animator_duration_scale" msgid="3829445237130423625">"Escala de durada de l\'animació"</string>
     <string name="system_strict_mode_enabled" msgid="7392183793064579588">"Mode estricte activat"</string>
     <string name="system_profile_gpu_rendering" msgid="1113416260742329348">"Perfil de representació de GPU"</string>
@@ -736,7 +803,7 @@
     <string name="system_desc_show_hardware_layer" msgid="3483713991865249527">"Il·lumina capes de maquinari en verd en actualitzar-se"</string>
     <string name="system_desc_show_gpu_overdraw" msgid="74019834911598588">"De millor a pitjor: blau, verd, vermell clar, vermell"</string>
     <string name="system_desc_show_surface_updates" msgid="4018685547515133353">"Il·lumina superfície de finestres en actualitzar-se"</string>
-    <string name="system_desc_strict_mode_enabled" msgid="1974896408481676324">"Il·lumina si aplicacions tarden molt al procés principal"</string>
+    <string name="system_desc_strict_mode_enabled" msgid="1974896408481676324">"Il·lumina la pantalla quan les aplicacions facin operacions llargues al fil principal"</string>
     <string name="system_desc_profile_gpu_rendering" msgid="1594070211030991">"Mesura temps represen. a adb shell dumpsys gfxinfo"</string>
     <string name="security_unknown_sources_title" msgid="2012801664240314305">"Fonts desconegudes"</string>
     <string name="security_unknown_sources_desc" msgid="7196715598352173267">"Permet instal·lar aplicacions que no siguin de Play Store"</string>
@@ -885,12 +952,24 @@
     <string name="device_daydreams_sleep_description" msgid="6237610484915504587">"L\'estalvi de pantalla s\'inicia després d\'aquest període d\'inactivitat. Si no se\'n selecciona cap, la pantalla s\'apaga."</string>
     <string name="device_daydreams_sleep_summary" msgid="3081688734381995693">"<xliff:g id="SLEEP_DESCRIPTION">%1$s</xliff:g> d\'inactivitat"</string>
     <string name="device_energy_saver_screen_off" msgid="6908468996426629480">"Desactiva la pantalla"</string>
-    <string name="device_energy_saver_screen_off_description" msgid="4469679706899396071">"Després de: <xliff:g id="SLEEP_DESCRIPTION">%1$s</xliff:g>"</string>
-    <string name="device_energy_saver_screen_off_dialog_title" msgid="4092476553760123309">"Temps per desactivar la pantalla"</string>
-    <string name="device_energy_saver_allow_turning_screen_off" msgid="3832490233158066073">"Permet desactivar la pantalla"</string>
-    <string name="device_energy_saver_allow_turning_screen_off_description" msgid="6369746832941270786">"Durant la reproducció de contingut multimèdia"</string>
-    <string name="device_energy_saver_confirmation_title" msgid="3888708298070409591">"Confirma la configuració d\'Estalvi d\'energia"</string>
-    <string name="device_energy_saver_confirmation_text" msgid="3157546670441493125">"Confirma que la nova configuració és <xliff:g id="SLEEP_TIME">%1$s</xliff:g>, que pot incrementar l\'ús d\'energia."</string>
+    <!-- no translation found for device_energy_saver_timeout_description (3206609135199137514) -->
+    <skip />
+    <string name="device_energy_saver_confirmation_title" msgid="7614859812773584773">"Confirma l\'opció de configuració de potència i energia"</string>
+    <string name="device_energy_saver_confirmation_message" msgid="7789453187001013951">"Deixar el televisor encès durant un període llarg pot augmentar el consum d\'energia"</string>
+    <string name="device_energy_saver_disable_allow_turning_screen_off_title" msgid="1468097048101593731">"Desactiva l\'opció de configuració d\'estalvi d\'energia"</string>
+    <string name="device_energy_saver_disable_allow_turning_screen_off_text" msgid="6334963903866002164">"Confirma que vols evitar que la pantalla es desactivi mentre mires contingut, cosa que pot incrementar l\'ús d\'energia."</string>
+    <string name="device_energy_saver_sleep_timeout" msgid="1841900768718452039">"Mentre estigui inactiu"</string>
+    <string name="device_energy_saver_attentive_timeout" msgid="3649486668821348087">"Mentre estigui mirant contingut"</string>
+    <string name="device_energy_saver_category_title" msgid="170076161677525986">"Desactiva automàticament"</string>
+    <string name="device_energy_saver_sleep_timeout_dialog_title" msgid="6588352532253294558">"Desactiva automàticament quan es detecti inactivitat"</string>
+    <string name="device_energy_saver_attentive_timeout_dialog_title" msgid="3273988875711109352">"Desactiva automàticament quan s\'estigui veient"</string>
+    <string name="device_energy_saver_validation_sleep" msgid="7490897287741107840">"El temporitzador Mentre estigui inactiu ha de durar menys que el temporitzador Mentre estigui mirant contingut"</string>
+    <string name="device_energy_saver_validation_attentive" msgid="1461105528087097435">"El temporitzador Mentre estigui mirant contingut ha de durar més que el temporitzador Mentre estigui inactiu"</string>
+    <string name="limit_network_in_standby_toggle_title" msgid="6587185599397355336">"Limita la connexió a la xarxa en espera"</string>
+    <string name="limit_network_in_standby_toggle_summary" msgid="9127792748675581174">"Consumeix menys energia en mode d\'espera"</string>
+    <string name="limit_network_in_standby_toggle_info" msgid="566947772381093991">"El televisor es desconnectarà de la xarxa quan estigui en mode d\'espera, excepte per rebre actualitzacions automàtiques. Això pot disminuir el consum d\'energia del televisor, però també implica que pot ser que no puguis utilitzar funcions com Cast i l\'Assistent de Google en mode d\'espera."</string>
+    <string name="limit_network_in_standby_confirm_title" msgid="789232987058850322">"Permet la connexió a la xarxa en mode d\'espera"</string>
+    <string name="limit_network_in_standby_confirm_message" msgid="7176699480768019689">"Permetre la connexió a la xarxa en mode d\'espera augmentarà el consum d\'energia d\'aquest mode."</string>
     <string name="backup_configure_account_default_summary" msgid="2170733614341544296">"Actualment no hi ha cap compte que emmagatzemi dades de còpia de seguretat."</string>
     <string name="backup_erase_dialog_title" msgid="6008454053276987100"></string>
     <string name="backup_erase_dialog_message" msgid="222169533402624861">"Vols deixar de crear còpies de seguretat de les contrasenyes de Wi-Fi, de les adreces d\'interès, d\'altres configuracions i dades d\'aplicacions i, a més, esborrar totes les còpies dels servidors de Google?"</string>
@@ -959,10 +1038,10 @@
     <string name="manage_external_storage_title" msgid="8139593207533811077">"Accés a tots els fitxers"</string>
     <string name="permit_manage_external_storage" msgid="1776899171934627417">"Permet l\'accés per gestionar tots els fitxers"</string>
     <string name="allow_manage_external_storage_description" msgid="4288250228151617611">"Permet que aquesta aplicació llegeixi, modifiqui i suprimeixi tots els fitxers d\'aquest dispositiu o de qualsevol volum d\'emmagatzematge connectat. L\'aplicació podrà accedir als fitxers sense el teu coneixement explícit."</string>
-    <string name="picture_in_picture_title" msgid="2636935591386702348">"Pantalla en pantalla"</string>
-    <string name="picture_in_picture_app_detail_switch" msgid="3688997906817583854">"Permet Pantalla en pantalla"</string>
-    <string name="picture_in_picture_empty_text" msgid="4370198922852736600">"Cap de les aplicacions instal·lades no admet pantalla en pantalla"</string>
-    <string name="picture_in_picture_app_detail_summary" msgid="3296649114939705896">"Permet que les aplicacions creïn una finestra de pantalla en pantalla mentre estan obertes o després de sortir-ne (per exemple, per seguir veient un vídeo). Aquesta finestra es mostra sobre altres aplicacions que estàs utilitzant."</string>
+    <string name="picture_in_picture_title" msgid="2636935591386702348">"Imatge sobre imatge"</string>
+    <string name="picture_in_picture_app_detail_switch" msgid="3688997906817583854">"Permet imatge sobre imatge"</string>
+    <string name="picture_in_picture_empty_text" msgid="4370198922852736600">"Cap de les aplicacions instal·lades no admet imatge sobre imatge"</string>
+    <string name="picture_in_picture_app_detail_summary" msgid="3296649114939705896">"Permet que les aplicacions creïn una finestra d\'imatge sobre imatge mentre estan obertes o després de sortir-ne (per exemple, per seguir mirant un vídeo). Aquesta finestra es mostra sobre altres aplicacions que estàs utilitzant."</string>
     <string name="alarms_and_reminders_description" msgid="4063972350154624500">"Permet que les aplicacions configurin alarmes i programin accions urgents. Això permet a les aplicacions executar-se en segon pla i, per tant, és possible que es consumeixi més bateria.\n\nSi aquest permís està desactivat, les alarmes i els esdeveniments urgents que ja hagin programat les aplicacions no funcionaran."</string>
     <string name="turn_screen_on_title" msgid="5293798529284629011">"Activa la pantalla"</string>
     <string name="allow_turn_screen_on" msgid="4903401106871656521">"Permet que activi la pantalla"</string>
@@ -978,12 +1057,17 @@
     <string name="time_to_start_read_title" msgid="6565449163802837806">"Temps per iniciar la lectura"</string>
     <string name="time_to_valid_audio_title" msgid="7246101824813414348">"Temps per validar les dades d\'àudio"</string>
     <string name="empty_audio_duration_title" msgid="9024377320171450683">"Durada de l\'àudio buit"</string>
+    <string name="record_audio_source_title" msgid="9087784503276397929">"Font de l\'àudio de la gravació"</string>
+    <string name="record_audio_source_dialog_title" msgid="6556408220589197097">"Selecciona la font d\'àudio per a la pròxima gravació"</string>
+    <string name="recorded_microphones_title" msgid="5466988146086215426">"Micròfons de la gravació"</string>
     <string name="show_audio_recording_start_failed" msgid="9131762831381326605">"No s\'ha pogut començar a gravar àudio."</string>
     <string name="show_audio_recording_failed" msgid="8128216664039868681">"No s\'ha pogut gravar àudio."</string>
-    <string name="title_data_saver" msgid="7500278996154002792">"Economitzador de dades"</string>
+    <string name="title_data_saver" msgid="7500278996154002792">"Estalvi de dades"</string>
     <string name="summary_data_saver" msgid="6793558728898207405">"Ajusta la qualitat del vídeo automàticament per utilitzar menys dades mòbils"</string>
     <string name="title_data_alert" msgid="8262081890052682475">"Alertes i ús de dades"</string>
     <string name="data_saver_header_info" msgid="2706725187498535785">"Pots connectar-te a Internet per Wi‑Fi, Ethernet o mitjançant el punt d\'accés Wi‑Fi del teu telèfon."</string>
+    <string name="bluetooth_ask_discovery_title" msgid="4955540555242269694">"Vols que sigui visible per a altres dispositius Bluetooth?"</string>
+    <string name="bluetooth_ask_discovery_message" msgid="8609666862877703398">"Una aplicació vol que el televisor sigui visible per a la resta de dispositius Bluetooth durant <xliff:g id="TIMEOUT">%1$d</xliff:g> segons."</string>
     <string name="help_center_title" msgid="6109822142761302433"></string>
     <string name="disabled_by_policy_title" msgid="2220484346213756472">"Acció no permesa"</string>
     <string name="disabled_by_policy_title_adjust_volume" msgid="4229779946666263271">"No es pot canviar el volum"</string>
@@ -1034,4 +1118,9 @@
     <string name="power_on_behavior" msgid="927607372303160716">"Activa el comportament"</string>
     <string name="reset_options_title" msgid="7632580482285108955">"Restableix"</string>
     <string name="adb_pairing_device_dialog_ethernet_pairing_code_label" msgid="7551782499828944838">"Codi de sincronització d\'Ethernet"</string>
+    <string name="energy_modes" msgid="1331693860386361744">"Modes d\'energia"</string>
+    <string name="energy_modes_summary" msgid="7196407759836930799">"Millora l\'eficiència energètica quan el televisor no es fa servir"</string>
+    <string name="energy_mode_enables" msgid="357960364751477627">"Activa:"</string>
+    <string name="energy_mode_eco_hint" msgid="1461517905015359947">"Tingues en compte que aquest mode pot augmentar el consum d\'energia del dispositiu."</string>
+    <string name="energy_modes_confirmation_title" msgid="4520280098781914825">"Activa <xliff:g id="ENERGYMODENAME">%s</xliff:g>"</string>
 </resources>

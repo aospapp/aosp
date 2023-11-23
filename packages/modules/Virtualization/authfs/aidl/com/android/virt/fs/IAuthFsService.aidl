@@ -21,6 +21,8 @@ import com.android.virt.fs.IAuthFs;
 
 /** @hide */
 interface IAuthFsService {
+    const String AUTHFS_SERVICE_SOCKET_NAME = "authfs_service";
+
     /**
      * Creates an AuthFS mount given the config. Returns the binder object that represent the AuthFS
      * instance. The AuthFS setup is deleted once the lifetime of the returned binder object ends.

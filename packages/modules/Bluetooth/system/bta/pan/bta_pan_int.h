@@ -162,24 +162,24 @@ extern tBTA_PAN_CB bta_pan_cb;
 /*****************************************************************************
  *  Function prototypes
  ****************************************************************************/
-extern tBTA_PAN_SCB* bta_pan_scb_alloc(void);
-extern void bta_pan_scb_dealloc(tBTA_PAN_SCB* p_scb);
-extern uint8_t bta_pan_scb_to_idx(tBTA_PAN_SCB* p_scb);
-extern tBTA_PAN_SCB* bta_pan_scb_by_handle(uint16_t handle);
-extern bool bta_pan_hdl_event(BT_HDR_RIGID* p_msg);
+tBTA_PAN_SCB* bta_pan_scb_alloc(void);
+void bta_pan_scb_dealloc(tBTA_PAN_SCB* p_scb);
+uint8_t bta_pan_scb_to_idx(tBTA_PAN_SCB* p_scb);
+tBTA_PAN_SCB* bta_pan_scb_by_handle(uint16_t handle);
+bool bta_pan_hdl_event(BT_HDR_RIGID* p_msg);
 
 /* action functions */
-extern void bta_pan_enable(tBTA_PAN_DATA* p_data);
-extern void bta_pan_disable(void);
-extern void bta_pan_set_role(tBTA_PAN_DATA* p_data);
-extern void bta_pan_open(tBTA_PAN_SCB* p_scb, tBTA_PAN_DATA* p_data);
-extern void bta_pan_api_close(tBTA_PAN_SCB* p_scb, tBTA_PAN_DATA* p_data);
-extern void bta_pan_rx_path(tBTA_PAN_SCB* p_scb, tBTA_PAN_DATA* p_data);
-extern void bta_pan_tx_path(tBTA_PAN_SCB* p_scb, tBTA_PAN_DATA* p_data);
-extern void bta_pan_tx_flow(tBTA_PAN_SCB* p_scb, tBTA_PAN_DATA* p_data);
-extern void bta_pan_conn_open(tBTA_PAN_SCB* p_scb, tBTA_PAN_DATA* p_data);
-extern void bta_pan_conn_close(tBTA_PAN_SCB* p_scb, tBTA_PAN_DATA* p_data);
-extern void bta_pan_write_buf(tBTA_PAN_SCB* p_scb, tBTA_PAN_DATA* p_data);
-extern void bta_pan_free_buf(tBTA_PAN_SCB* p_scb, tBTA_PAN_DATA* p_data);
+void bta_pan_enable(tBTA_PAN_DATA* p_data);
+void bta_pan_disable(void);
+void bta_pan_set_role(tBTA_PAN_DATA* p_data);
+void bta_pan_open(tBTA_PAN_SCB* p_scb, tBTA_PAN_DATA* p_data);
+void bta_pan_api_close(tBTA_PAN_SCB* p_scb, tBTA_PAN_DATA* p_data);
+void bta_pan_rx_path(tBTA_PAN_SCB* p_scb, tBTA_PAN_DATA* p_data);
+void bta_pan_tx_path(tBTA_PAN_SCB* p_scb, tBTA_PAN_DATA* p_data);
+void bta_pan_tx_flow(tBTA_PAN_SCB* p_scb, tBTA_PAN_DATA* p_data);
+void bta_pan_conn_open(tBTA_PAN_SCB* p_scb, tBTA_PAN_DATA* p_data);
+void bta_pan_conn_close(tBTA_PAN_SCB* p_scb, tBTA_PAN_DATA* p_data);
+void bta_pan_write_buf(tBTA_PAN_SCB* p_scb, tBTA_PAN_DATA* p_data);
+void bta_pan_free_buf(tBTA_PAN_SCB* p_scb, tBTA_PAN_DATA* p_data);
 
 #endif /* BTA_PAN_INT_H */

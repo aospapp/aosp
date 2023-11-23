@@ -40,7 +40,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeoutException;
 
-
 /**
  * This class provides the public APIs to control the Bluetooth Input
  * Device Profile.
@@ -263,7 +262,9 @@ public final class BluetoothHidHost implements BluetoothProfile {
         mProfileConnector.connect(context, listener);
     }
 
-    /*package*/ void close() {
+    /** @hide */
+    @Override
+    public void close() {
         if (VDBG) log("close()");
         mProfileConnector.disconnect();
     }

@@ -21,6 +21,7 @@ import static android.app.Activity.RESULT_OK;
 import static com.android.car.settings.accounts.AddAccountPreferenceController.NEW_USER_DISCLAIMER_REQUEST;
 import static com.android.car.settings.common.PreferenceController.AVAILABLE;
 import static com.android.car.settings.common.PreferenceController.AVAILABLE_FOR_VIEWING;
+import static com.android.car.settings.common.PreferenceController.CONDITIONALLY_UNAVAILABLE;
 import static com.android.car.settings.common.PreferenceController.DISABLED_FOR_PROFILE;
 import static com.android.car.settings.enterprise.ActionDisabledByAdminDialogFragment.DISABLED_BY_ADMIN_CONFIRM_DIALOG_TAG;
 
@@ -115,12 +116,81 @@ public class AddAccountPreferenceControllerTest {
     }
 
     @Test
+    public void cannotModifyUsers_addAccountButtonShouldBeAvailableForViewing_zoneWrite() {
+        EnterpriseTestUtils
+                .mockUserRestrictionSetByDpm(mMockUserManager, TEST_RESTRICTION, true);
+
+        mController.onCreate(mLifecycleOwner);
+        mController.setAvailabilityStatusForZone("write");
+
+        PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
+                AVAILABLE_FOR_VIEWING);
+    }
+
+    @Test
+    public void cannotModifyUsers_addAccountButtonShouldBeAvailableForViewing_zoneRead() {
+        EnterpriseTestUtils
+                .mockUserRestrictionSetByDpm(mMockUserManager, TEST_RESTRICTION, true);
+
+        mController.onCreate(mLifecycleOwner);
+        mController.setAvailabilityStatusForZone("read");
+
+        PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
+                AVAILABLE_FOR_VIEWING);
+    }
+
+    @Test
+    public void cannotModifyUsers_addAccountButtonShouldBeAvailableForViewing_zoneHidden() {
+        EnterpriseTestUtils
+                .mockUserRestrictionSetByDpm(mMockUserManager, TEST_RESTRICTION, true);
+
+        mController.onCreate(mLifecycleOwner);
+        mController.setAvailabilityStatusForZone("hidden");
+
+        PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
+                CONDITIONALLY_UNAVAILABLE);
+    }
+
+    @Test
     public void newUserDisclaimerUnackowledged_addAccountButtonShouldBeAvailableForViewing() {
         when(mMockDpm.isNewUserDisclaimerAcknowledged()).thenReturn(false);
 
         mController.onCreate(mLifecycleOwner);
 
         assertThat(mController.getAvailabilityStatus()).isEqualTo(AVAILABLE_FOR_VIEWING);
+    }
+
+    @Test
+    public void newUserDisclaimerUnackowledged_addAccountButtonBeAvailableForViewing_zoneWrite() {
+        when(mMockDpm.isNewUserDisclaimerAcknowledged()).thenReturn(false);
+
+        mController.onCreate(mLifecycleOwner);
+        mController.setAvailabilityStatusForZone("write");
+
+        PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
+                AVAILABLE_FOR_VIEWING);
+    }
+
+    @Test
+    public void newUserDisclaimerUnackowledged_addAccountButtonBeAvailableForViewing_zoneRead() {
+        when(mMockDpm.isNewUserDisclaimerAcknowledged()).thenReturn(false);
+
+        mController.onCreate(mLifecycleOwner);
+        mController.setAvailabilityStatusForZone("read");
+
+        PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
+                AVAILABLE_FOR_VIEWING);
+    }
+
+    @Test
+    public void newUserDisclaimerUnackowledged_addAccountButtonBeAvailableForViewing_zoneHidden() {
+        when(mMockDpm.isNewUserDisclaimerAcknowledged()).thenReturn(false);
+
+        mController.onCreate(mLifecycleOwner);
+        mController.setAvailabilityStatusForZone("hidden");
+
+        PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
+                CONDITIONALLY_UNAVAILABLE);
     }
 
     @Test
@@ -131,6 +201,42 @@ public class AddAccountPreferenceControllerTest {
         mController.onCreate(mLifecycleOwner);
 
         assertThat(mController.getAvailabilityStatus()).isEqualTo(DISABLED_FOR_PROFILE);
+    }
+
+    @Test
+    public void cannotModifyUsers_restrictedByUm_addAccountButtonShouldBeDisabled_zoneWrite() {
+        EnterpriseTestUtils
+                .mockUserRestrictionSetByUm(mMockUserManager, TEST_RESTRICTION, true);
+
+        mController.onCreate(mLifecycleOwner);
+        mController.setAvailabilityStatusForZone("write");
+
+        PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
+                DISABLED_FOR_PROFILE);
+    }
+
+    @Test
+    public void cannotModifyUsers_restrictedByUm_addAccountButtonShouldBeDisabled_zoneRead() {
+        EnterpriseTestUtils
+                .mockUserRestrictionSetByUm(mMockUserManager, TEST_RESTRICTION, true);
+
+        mController.onCreate(mLifecycleOwner);
+        mController.setAvailabilityStatusForZone("read");
+
+        PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
+                DISABLED_FOR_PROFILE);
+    }
+
+    @Test
+    public void cannotModifyUsers_restrictedByUm_addAccountButtonShouldBeDisabled_zoneHidden() {
+        EnterpriseTestUtils
+                .mockUserRestrictionSetByUm(mMockUserManager, TEST_RESTRICTION, true);
+
+        mController.onCreate(mLifecycleOwner);
+        mController.setAvailabilityStatusForZone("hidden");
+
+        PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
+                DISABLED_FOR_PROFILE);
     }
 
     @Test
@@ -145,6 +251,45 @@ public class AddAccountPreferenceControllerTest {
     }
 
     @Test
+    public void cannotModifyUsers_addAccountButtonShouldBeDisabled_zoneWrite() {
+        when(mMockProfileHelper.isDemoOrGuest()).thenReturn(true);
+        EnterpriseTestUtils
+                .mockUserRestrictionSetByDpm(mMockUserManager, TEST_RESTRICTION, true);
+
+        mController.onCreate(mLifecycleOwner);
+        mController.setAvailabilityStatusForZone("write");
+
+        PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
+                DISABLED_FOR_PROFILE);
+    }
+
+    @Test
+    public void cannotModifyUsers_addAccountButtonShouldBeDisabled_zoneRead() {
+        when(mMockProfileHelper.isDemoOrGuest()).thenReturn(true);
+        EnterpriseTestUtils
+                .mockUserRestrictionSetByDpm(mMockUserManager, TEST_RESTRICTION, true);
+
+        mController.onCreate(mLifecycleOwner);
+        mController.setAvailabilityStatusForZone("read");
+
+        PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
+                DISABLED_FOR_PROFILE);
+    }
+
+    @Test
+    public void cannotModifyUsers_addAccountButtonShouldBeDisabled_zoneHidden() {
+        when(mMockProfileHelper.isDemoOrGuest()).thenReturn(true);
+        EnterpriseTestUtils
+                .mockUserRestrictionSetByDpm(mMockUserManager, TEST_RESTRICTION, true);
+
+        mController.onCreate(mLifecycleOwner);
+        mController.setAvailabilityStatusForZone("hidden");
+
+        PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
+                DISABLED_FOR_PROFILE);
+    }
+
+    @Test
     public void cannotModifyUsers_demoOrGuestUser_addAccountButtonShouldBeDisabled() {
         when(mMockProfileHelper.isDemoOrGuest()).thenReturn(true);
 
@@ -154,12 +299,78 @@ public class AddAccountPreferenceControllerTest {
     }
 
     @Test
+    public void cannotModifyUsers_demoOrGuestUser_addAccountButtonShouldBeDisabled_zoneWrite() {
+        when(mMockProfileHelper.isDemoOrGuest()).thenReturn(true);
+
+        mController.onCreate(mLifecycleOwner);
+        mController.setAvailabilityStatusForZone("write");
+
+        PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
+                DISABLED_FOR_PROFILE);
+    }
+
+    @Test
+    public void cannotModifyUsers_demoOrGuestUser_addAccountButtonShouldBeDisabled_zoneRead() {
+        when(mMockProfileHelper.isDemoOrGuest()).thenReturn(true);
+
+        mController.onCreate(mLifecycleOwner);
+        mController.setAvailabilityStatusForZone("read");
+
+        PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
+                DISABLED_FOR_PROFILE);
+    }
+
+    @Test
+    public void cannotModifyUsers_demoOrGuestUser_addAccountButtonShouldBeDisabled_zoneHidden() {
+        when(mMockProfileHelper.isDemoOrGuest()).thenReturn(true);
+
+        mController.onCreate(mLifecycleOwner);
+        mController.setAvailabilityStatusForZone("hidden");
+
+        PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
+                DISABLED_FOR_PROFILE);
+    }
+
+    @Test
     public void canModifyUsers_addAccountButtonShouldBeAvailable() {
         when(mMockProfileHelper.canCurrentProcessModifyAccounts()).thenReturn(true);
 
         mController.onCreate(mLifecycleOwner);
 
         assertThat(mController.getAvailabilityStatus()).isEqualTo(AVAILABLE);
+    }
+
+    @Test
+    public void canModifyUsers_addAccountButtonShouldBeAvailable_zoneWrite() {
+        when(mMockProfileHelper.canCurrentProcessModifyAccounts()).thenReturn(true);
+
+        mController.onCreate(mLifecycleOwner);
+        mController.setAvailabilityStatusForZone("write");
+
+        PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
+                AVAILABLE);
+    }
+
+    @Test
+    public void canModifyUsers_addAccountButtonShouldBeAvailable_zoneRead() {
+        when(mMockProfileHelper.canCurrentProcessModifyAccounts()).thenReturn(true);
+
+        mController.onCreate(mLifecycleOwner);
+        mController.setAvailabilityStatusForZone("read");
+
+        PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
+                AVAILABLE_FOR_VIEWING);
+    }
+
+    @Test
+    public void canModifyUsers_addAccountButtonShouldBeAvailable_zoneHidden() {
+        when(mMockProfileHelper.canCurrentProcessModifyAccounts()).thenReturn(true);
+
+        mController.onCreate(mLifecycleOwner);
+        mController.setAvailabilityStatusForZone("hidden");
+
+        PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
+                CONDITIONALLY_UNAVAILABLE);
     }
 
     @Test

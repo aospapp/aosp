@@ -18,7 +18,7 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="assist_action_play_label" msgid="6278705468288338172">"Predvajaj"</string>
-    <string name="assist_action_reply_label" msgid="6946087036560525072">"Odgovor"</string>
+    <string name="assist_action_reply_label" msgid="6946087036560525072">"Odgovori"</string>
     <string name="action_mute_short" msgid="5239851786101022633">"Prezri"</string>
     <string name="action_mute_long" msgid="6846675719189989477">"Izklopi zvok pogovora"</string>
     <string name="action_unmute_short" msgid="7157822835069715986">"Znova prikaži"</string>
@@ -53,4 +53,11 @@
     <string name="see_more_message" msgid="6343183827924395955">"Pokaži več"</string>
     <string name="restricted_hun_message_content" msgid="631111937988857716">"Novo sporočilo"</string>
     <string name="manage_text" msgid="4225197445283791757">"Upravljaj"</string>
+    <string name="category_navigation" msgid="4406139232918521087">"navigation"</string>
+    <string name="category_call" msgid="2249490790700877973">"call"</string>
+    <string name="category_message" msgid="451360226248504859">"msg"</string>
+    <string name="hun_suppression_channel_name" msgid="8298850157350352525">"Glej naprej – onemogočanje"</string>
+    <string name="hun_suppression_notification_title_park" msgid="2790860076784227523">"Ostanite na tekočem z najnovejšimi"</string>
+    <string name="hun_suppression_notification_title_drive" msgid="4403363470548899844">"Osredotočite se na vožnjo"</string>
+    <string name="hun_suppression_notification_description" msgid="5269238832987802104">"Nekatera nova obvestila so shranjena v središču za obvestila."</string>
 </resources>

@@ -106,7 +106,7 @@ public class WifiTetherPreferenceController extends
     }
 
     @Override
-    protected int getAvailabilityStatus() {
+    protected int getDefaultAvailabilityStatus() {
         if (!mReceivedTetheringEventCallback) {
             return AVAILABLE_FOR_VIEWING;
         }

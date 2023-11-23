@@ -13,21 +13,20 @@
     See the License for the specific language governing permissions and
     limitations under the License.
 -->
-
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-          xmlns:tools="http://schemas.android.com/tools"
-          package="com.android.wallpaper.tests">
+    package="com.android.wallpaper">
 
-    <uses-sdk android:targetSdkVersion="29" android:minSdkVersion="29"/>
-
+    <uses-permission android:name="android.permission.CUSTOMIZE_SYSTEM_UI" />
     <application>
-        <uses-library android:name="android.test.runner"/>
+        <uses-library android:name="android.test.runner" />
+
+        <activity android:name="com.android.wallpaper.picker.PreviewActivity"
+            android:resizeableActivity="false">
+        </activity>
     </application>
 
-    <instrumentation
-        android:functionalTest="false"
-        android:handleProfiling="false"
-        android:name="androidx.test.runner.AndroidJUnitRunner"
-        android:targetPackage="com.android.wallpaper">
-    </instrumentation>
+    <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
+        android:targetPackage="com.android.wallpaper"
+        android:label="Tests for WallpaperPicker2" />
+
 </manifest>

@@ -26,15 +26,19 @@ import android.text.TextUtils;
 import android.util.ArrayMap;
 import android.util.Log;
 
+import com.android.net.module.util.InetAddressUtils;
+
 import java.io.UnsupportedEncodingException;
 import java.net.InetAddress;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 
 /**
  * A class representing service information for network service discovery
- * {@see NsdManager}
+ * @see NsdManager
  */
 public final class NsdServiceInfo implements Parcelable {
 
@@ -46,7 +50,7 @@ public final class NsdServiceInfo implements Parcelable {
 
     private final ArrayMap<String, byte[]> mTxtRecord = new ArrayMap<>();
 
-    private InetAddress mHost;
+    private final List<InetAddress> mHostAddresses = new ArrayList<>();
 
     private int mPort;
 
@@ -84,17 +88,32 @@ public final class NsdServiceInfo implements Parcelable {
         mServiceType = s;
     }
 
-    /** Get the host address. The host address is valid for a resolved service. */
+    /**
+     * Get the host address. The host address is valid for a resolved service.
+     *
+     * @deprecated Use {@link #getHostAddresses()} to get the entire list of addresses for the host.
+     */
+    @Deprecated
     public InetAddress getHost() {
-        return mHost;
+        return mHostAddresses.size() == 0 ? null : mHostAddresses.get(0);
     }
 
-    /** Set the host address */
+    /**
+     * Set the host address
+     *
+     * @deprecated Use {@link #setHostAddresses(List)} to set multiple addresses for the host.
+     */
+    @Deprecated
     public void setHost(InetAddress s) {
-        mHost = s;
+        setHostAddresses(Collections.singletonList(s));
     }
 
-    /** Get port number. The port number is valid for a resolved service. */
+    /**
+     * Get port number. The port number is valid for a resolved service.
+     *
+     * The port is valid for all addresses.
+     * @see #getHostAddresses()
+     */
     public int getPort() {
         return mPort;
     }
@@ -102,6 +121,24 @@ public final class NsdServiceInfo implements Parcelable {
     /** Set port number */
     public void setPort(int p) {
         mPort = p;
+    }
+
+    /**
+     * Get the host addresses.
+     *
+     * All host addresses are valid for the resolved service.
+     * All addresses share the same port
+     * @see #getPort()
+     */
+    @NonNull
+    public List<InetAddress> getHostAddresses() {
+        return new ArrayList<>(mHostAddresses);
+    }
+
+    /** Set the host addresses */
+    public void setHostAddresses(@NonNull List<InetAddress> addresses) {
+        mHostAddresses.clear();
+        mHostAddresses.addAll(addresses);
     }
 
     /**
@@ -359,7 +396,7 @@ public final class NsdServiceInfo implements Parcelable {
         StringBuilder sb = new StringBuilder();
         sb.append("name: ").append(mServiceName)
                 .append(", type: ").append(mServiceType)
-                .append(", host: ").append(mHost)
+                .append(", hostAddresses: ").append(TextUtils.join(", ", mHostAddresses))
                 .append(", port: ").append(mPort)
                 .append(", network: ").append(mNetwork);
 
@@ -377,12 +414,6 @@ public final class NsdServiceInfo implements Parcelable {
     public void writeToParcel(Parcel dest, int flags) {
         dest.writeString(mServiceName);
         dest.writeString(mServiceType);
-        if (mHost != null) {
-            dest.writeInt(1);
-            dest.writeByteArray(mHost.getAddress());
-        } else {
-            dest.writeInt(0);
-        }
         dest.writeInt(mPort);
 
         // TXT record key/value pairs.
@@ -401,6 +432,10 @@ public final class NsdServiceInfo implements Parcelable {
 
         dest.writeParcelable(mNetwork, 0);
         dest.writeInt(mInterfaceIndex);
+        dest.writeInt(mHostAddresses.size());
+        for (InetAddress address : mHostAddresses) {
+            InetAddressUtils.parcelInetAddress(dest, address, flags);
+        }
     }
 
     /** Implement the Parcelable interface */
@@ -410,13 +445,6 @@ public final class NsdServiceInfo implements Parcelable {
                 NsdServiceInfo info = new NsdServiceInfo();
                 info.mServiceName = in.readString();
                 info.mServiceType = in.readString();
-
-                if (in.readInt() == 1) {
-                    try {
-                        info.mHost = InetAddress.getByAddress(in.createByteArray());
-                    } catch (java.net.UnknownHostException e) {}
-                }
-
                 info.mPort = in.readInt();
 
                 // TXT record key/value pairs.
@@ -432,6 +460,10 @@ public final class NsdServiceInfo implements Parcelable {
                 }
                 info.mNetwork = in.readParcelable(null, Network.class);
                 info.mInterfaceIndex = in.readInt();
+                int size = in.readInt();
+                for (int i = 0; i < size; i++) {
+                    info.mHostAddresses.add(InetAddressUtils.unparcelInetAddress(in));
+                }
                 return info;
             }
 

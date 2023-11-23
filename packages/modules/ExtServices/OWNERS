@@ -16,5 +16,7 @@ juliacr@google.com
 toki@google.com
 tonymak@google.com
 licha@google.com
+# AdServices
+npattan@google.com
 
 include platform/packages/modules/common:/MODULES_OWNERS  # see go/mainline-owners-policy

@@ -111,7 +111,10 @@ cc_test {
     shared_libs: [
         "libutils",
     ],
-    test_suites: ["device-tests", "mts-statsd"],
+    test_suites: [
+        "device-tests",
+        "mts-statsd",
+    ],
     test_config: "libstatssocket_test.xml",
     //TODO(b/153588990): Remove when the build system properly separates.
     //32bit and 64bit architectures.
@@ -125,4 +128,5 @@ cc_test {
         },
     },
     require_root: true,
+    min_sdk_version: "30",
 }

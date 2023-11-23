@@ -16,6 +16,7 @@
 
 package com.android.car.settings.system;
 
+import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -33,6 +34,8 @@ import android.content.pm.PackageManager;
 import android.os.AsyncTask;
 import android.os.IBinder;
 import android.os.ServiceManager;
+import android.os.UserHandle;
+import android.os.UserManager;
 
 import androidx.fragment.app.FragmentManager;
 import androidx.test.core.app.ApplicationProvider;
@@ -45,6 +48,8 @@ import com.android.car.settings.testutils.BaseCarSettingsTestActivity;
 import com.android.car.settings.testutils.PollingCheck;
 import com.android.car.ui.toolbar.MenuItem;
 import com.android.dx.mockito.inline.extended.ExtendedMockito;
+import com.android.settingslib.RestrictedLockUtils;
+import com.android.settingslib.RestrictedLockUtilsInternal;
 
 import org.junit.After;
 import org.junit.Before;
@@ -84,16 +89,19 @@ public class ResetAppPrefFragmentTest {
     private IPackageManager mIPackageManager;
     @Mock
     private AppOpsManager mAppOpsManager;
-
+    @Mock
+    private RestrictedLockUtils.EnforcedAdmin mEnforcedAdmin;
     @Before
     public void setUp() throws Throwable {
         MockitoAnnotations.initMocks(this);
 
         mSession = ExtendedMockito.mockitoSession()
                 .mockStatic(ServiceManager.class, withSettings().lenient())
+                .mockStatic(RestrictedLockUtilsInternal.class, withSettings().lenient())
+                .mockStatic(UserHandle.class, withSettings().lenient())
                 .startMocking();
-        IBinder notificationBinder = mock(IBinder.class);
-        IBinder packageManagerBinder = mock(IBinder.class);
+        IBinder notificationBinder = mock(IBinder.class, withSettings().lenient());
+        IBinder packageManagerBinder = mock(IBinder.class, withSettings().lenient());
         when(notificationBinder.queryLocalInterface("android.app.INotificationManager")).thenReturn(
                 mINotificationManager);
         when(packageManagerBinder.queryLocalInterface(
@@ -105,7 +113,7 @@ public class ResetAppPrefFragmentTest {
         mActivity = mActivityTestRule.getActivity();
         mFragmentManager = mActivity.getSupportFragmentManager();
         setUpFragment();
-        when(mFragment.requireContext()).thenReturn(mContext);
+        ExtendedMockito.lenient().when(mFragment.requireContext()).thenReturn(mContext);
         when(mContext.getApplicationContext()).thenReturn(mContext);
         when(mContext.getSystemService(AppOpsManager.class)).thenReturn(mAppOpsManager);
         when(mContext.getPackageManager()).thenReturn(mMockPm);
@@ -113,6 +121,7 @@ public class ResetAppPrefFragmentTest {
         mAppInfoList.add(createApplicationInfo(ENABLED_PKG_NAME, true));
         mAppInfoList.add(createApplicationInfo(DISABLED_PKG_NAME, false));
         when(mMockPm.getInstalledApplications(anyInt())).thenReturn(mAppInfoList);
+        when(UserHandle.myUserId()).thenReturn(100);
 
         mResetButton = mActivity.getToolbar().getMenuItems().get(0);
     }
@@ -163,6 +172,19 @@ public class ResetAppPrefFragmentTest {
         triggerResetButtonAndWaitForTask();
 
         verify(mIPackageManager).resetApplicationPreferences(anyInt());
+    }
+
+    @Test
+    public void resetClicked_adminDisallowResetsApplicationPreferences() throws Throwable {
+        ExtendedMockito.when(RestrictedLockUtilsInternal.checkIfRestrictionEnforced(
+                        mActivity,
+                        UserManager.DISALLOW_APPS_CONTROL, UserHandle.myUserId()))
+                .thenReturn(mEnforcedAdmin);
+        ExtendedMockito.when(RestrictedLockUtilsInternal.hasBaseUserRestriction(mActivity,
+                        UserManager.DISALLOW_APPS_CONTROL, UserHandle.myUserId()))
+                .thenReturn(false);
+        assertThrows(NullPointerException.class, ()->triggerResetButtonAndWaitForTask());
+        verify(mIPackageManager, never()).resetApplicationPreferences(anyInt());
     }
 
     @Test

@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--  Copyright (C) 2023 The Android Open Source Project
+
+     Licensed under the Apache License, Version 2.0 (the "License");
+     you may not use this file except in compliance with the License.
+     You may obtain a copy of the License at
+
+          http://www.apache.org/licenses/LICENSE-2.0
+
+     Unless required by applicable law or agreed to in writing, software
+     distributed under the License is distributed on an "AS IS" BASIS,
+     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+     See the License for the specific language governing permissions and
+     limitations under the License.
+ -->
+
+<resources xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+    <string name="energy_mode_low_title" msgid="2408371934616917432">"প্রয়োজনীয় নেটওয়ার্ক ফিচার"</string>
+    <string name="energy_mode_low_subtitle" msgid="3541491740634993554">"কম শক্তি খরচ"</string>
+    <string name="energy_mode_low_info" msgid="7336221780506353827">"টিভি ব্যবহার না হলে নেটওয়ার্ক কানেকশন বন্ধ করুন।"</string>
+  <string-array name="energy_mode_low_features">
+    <item msgid="4976202876230149030">"গুরুত্বপূর্ণ আপডেট এবং ফাংশন"</item>
+  </string-array>
+    <string name="energy_mode_low_eco_hint" msgid="2421460758847643655"></string>
+    <string name="energy_mode_moderate_title" msgid="6131212898797802584">"প্রস্তাবিত নেটওয়ার্ক ফিচার"</string>
+    <string name="energy_mode_moderate_subtitle" msgid="8452759001885415587">"অপ্টিমাইজ করা শক্তি খরচ"</string>
+    <string name="energy_mode_moderate_info" msgid="8606735947366228051">"নেটওয়ার্কে টিভি চালু করে এমন ফিচারগুলি চালু করে (স্ট্যান্ডবাই মোড)।"</string>
+  <string-array name="energy_mode_moderate_features">
+    <item msgid="2654586107956150296">"[Insert feature 1]"</item>
+    <item msgid="8724721267222341891">"[Insert feature 2]"</item>
+  </string-array>
+    <string name="energy_mode_moderate_eco_hint" msgid="252189162446856286"></string>
+    <string name="energy_mode_high_title" msgid="4428472238583662129">"অতিরিক্ত নেটওয়ার্কের ফিচার"</string>
+    <string name="energy_mode_high_subtitle" msgid="3146607061198429672">"শক্তির ব্যবহার বৃদ্ধি"</string>
+    <string name="energy_mode_high_info" msgid="3151321275701804406">"প্রস্তাবিত ফিচার ছাড়াও, এই বিকল্পটি অতিরিক্ত ফিচার চালু করে যখন টিভি ব্যবহার করা হয় না, যা পাওয়ার খরচ বাড়াতে পারে।"</string>
+  <string-array name="energy_mode_high_features">
+    <item msgid="3018897868803319747">"[Insert feature 1]"</item>
+    <item msgid="170760143032597722">"[Insert feature 2]"</item>
+  </string-array>
+    <!-- no translation found for energy_mode_high_eco_hint (3266580507783627848) -->
+    <skip />
+</resources>

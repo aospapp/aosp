@@ -16,7 +16,6 @@
 
 import logging
 
-from bluetooth_packets_python3 import hci_packets
 from blueberry.tests.gd.cert.captures import SecurityCaptures
 from blueberry.tests.gd.cert.closable import Closable
 from blueberry.tests.gd.cert.closable import safeClose

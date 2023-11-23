@@ -17,15 +17,16 @@
 #ifndef ATOM_MATCHING_TRACKER_H
 #define ATOM_MATCHING_TRACKER_H
 
-#include "src/statsd_config.pb.h"
-#include "logd/LogEvent.h"
-#include "matchers/matcher_util.h"
-
 #include <utils/RefBase.h>
 
 #include <set>
 #include <unordered_map>
 #include <vector>
+
+#include "guardrail/StatsdStats.h"
+#include "logd/LogEvent.h"
+#include "matchers/matcher_util.h"
+#include "src/statsd_config.pb.h"
 
 namespace android {
 namespace os {
@@ -47,17 +48,17 @@ public:
     //                          CombinationAtomMatchingTrackers using DFS.
     // stack: a bit map to record which matcher has been visited on the stack. This is for detecting
     //        circle dependency.
-    virtual bool init(const std::vector<AtomMatcher>& allAtomMatchers,
-                      const std::vector<sp<AtomMatchingTracker>>& allAtomMatchingTrackers,
-                      const std::unordered_map<int64_t, int>& matcherMap,
-                      std::vector<bool>& stack) = 0;
+    virtual optional<InvalidConfigReason> init(
+            const std::vector<AtomMatcher>& allAtomMatchers,
+            const std::vector<sp<AtomMatchingTracker>>& allAtomMatchingTrackers,
+            const std::unordered_map<int64_t, int>& matcherMap, std::vector<bool>& stack) = 0;
 
     // Update appropriate state on config updates. Primarily, all indices need to be updated.
     // This matcher and all of its children are guaranteed to be preserved across the update.
     // matcher: the AtomMatcher proto from the config.
     // index: the index of this matcher in mAllAtomMatchingTrackers.
     // atomMatchingTrackerMap: map from matcher id to index in mAllAtomMatchingTrackers
-    virtual bool onConfigUpdated(
+    virtual optional<InvalidConfigReason> onConfigUpdated(
             const AtomMatcher& matcher, const int index,
             const std::unordered_map<int64_t, int>& atomMatchingTrackerMap) = 0;
 
@@ -87,6 +88,10 @@ public:
         return mProtoHash;
     }
 
+    bool isInitialized() {
+        return mInitialized;
+    }
+
 protected:
     // Name of this matching. We don't really need the name, but it makes log message easy to debug.
     const int64_t mId;
@@ -106,8 +111,8 @@ protected:
     // Used to determine if the definition of this matcher has changed across a config update.
     const uint64_t mProtoHash;
 
-    FRIEND_TEST(MetricsManagerTest, TestCreateAtomMatchingTrackerSimple);
-    FRIEND_TEST(MetricsManagerTest, TestCreateAtomMatchingTrackerCombination);
+    FRIEND_TEST(MetricsManagerUtilTest, TestCreateAtomMatchingTrackerSimple);
+    FRIEND_TEST(MetricsManagerUtilTest, TestCreateAtomMatchingTrackerCombination);
     FRIEND_TEST(ConfigUpdateTest, TestUpdateMatchers);
 };
 

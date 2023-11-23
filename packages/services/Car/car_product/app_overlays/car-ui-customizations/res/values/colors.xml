@@ -17,7 +17,6 @@
 */
 -->
 <resources>
-
     <!-- The Switch track's background color. -->
     <color name="car_ui_seekbar_track_background">#757575</color>
     <!-- The Switch track's progress color. -->
@@ -32,4 +31,8 @@
     <color name="car_ui_seekbar_thumb">#FFFFFF</color>
     <!-- The SeekBar thumb color when disabled. Use for the dark theme. -->
     <color name="car_ui_seekbar_thumb_disabled_on_dark">#757575</color>
+    <!-- The Switch thumb's color. -->
+    <color name="car_ui_switch_thumb_color">@color/car_ui_text_color_primary</color>
+    <!-- The preference category icon color-->
+    <color name="car_ui_preference_icon_color">@color/car_ui_text_color_primary</color>
 </resources>

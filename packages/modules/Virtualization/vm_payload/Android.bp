@@ -1,0 +1,82 @@
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
+// The Rust implementation of the C API.
+rust_ffi_static {
+    name: "libvm_payload_impl",
+    crate_name: "vm_payload",
+    visibility: ["//visibility:private"],
+    srcs: ["src/*.rs"],
+    include_dirs: ["include"],
+    prefer_rlib: true,
+    // Require unsafe blocks for inside unsafe functions.
+    flags: ["-Dunsafe_op_in_unsafe_fn"],
+    rustlibs: [
+        "android.system.virtualization.payload-rust",
+        "libandroid_logger",
+        "libanyhow",
+        "libbinder_rs",
+        "liblazy_static",
+        "liblibc",
+        "liblog_rust",
+        "librpcbinder_rs",
+        "libvsock",
+    ],
+    // The sanitize section below fixes the fuzzer build in b/256166339.
+    // TODO(b/250854486): Remove the sanitize section once the bug is fixed.
+    sanitize: {
+        address: false,
+    },
+}
+
+// Rust wrappers round the C API for Rust clients.
+// (Yes, this involves going Rust -> C -> Rust.)
+rust_bindgen {
+    name: "libvm_payload_bindgen",
+    wrapper_src: "include-restricted/vm_payload_restricted.h",
+    crate_name: "vm_payload_bindgen",
+    source_stem: "bindings",
+    apex_available: ["com.android.compos"],
+    visibility: ["//packages/modules/Virtualization/compos"],
+    shared_libs: [
+        "libvm_payload#current",
+    ],
+}
+
+// Shared library for clients to link against.
+cc_library_shared {
+    name: "libvm_payload",
+    shared_libs: [
+        "libbinder_ndk",
+        "libbinder_rpc_unstable",
+        "liblog",
+    ],
+    whole_static_libs: ["libvm_payload_impl"],
+    export_static_lib_headers: ["libvm_payload_impl"],
+    installable: false,
+    version_script: "libvm_payload.map.txt",
+    stubs: {
+        symbol_file: "libvm_payload.map.txt",
+        // Implementation is available inside a Microdroid VM.
+        implementation_installable: false,
+    },
+}
+
+// Just the headers. Mostly useful for clients that only want the
+// declaration of AVmPayload_main().
+cc_library_headers {
+    name: "vm_payload_headers",
+    apex_available: ["com.android.compos"],
+    export_include_dirs: ["include"],
+}
+
+// Restricted headers for use by internal clients & associated tests.
+cc_library_headers {
+    name: "vm_payload_restricted_headers",
+    header_libs: ["vm_payload_headers"],
+    export_header_lib_headers: ["vm_payload_headers"],
+    export_include_dirs: ["include-restricted"],
+    apex_available: ["com.android.compos"],
+    visibility: ["//packages/modules/Virtualization:__subpackages__"],
+}

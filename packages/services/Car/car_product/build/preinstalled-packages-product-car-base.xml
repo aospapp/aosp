@@ -36,9 +36,14 @@
     </install-in-user-type>
 
     <!-- RemoteProvisioner app does not have any UI and will only be run as
-    a background service -->
+    a background service. To be replaced by com.android.rkpdapp. -->
     <install-in-user-type package="com.android.remoteprovisioner">
         <install-in user-type="SYSTEM" />
+    </install-in-user-type>
+
+    <!-- This background service is responsible for remote key provisioning. -->
+    <install-in-user-type package="com.android.rkpdapp">
+      <install-in user-type="SYSTEM" />
     </install-in-user-type>
 
     <install-in-user-type package="android.car.cluster">
@@ -53,6 +58,12 @@
     <install-in-user-type package="com.android.proxyhandler">
         <install-in user-type="SYSTEM"/>
     </install-in-user-type>
+
+    <!-- This is a test satellite service used for verifying Telephony satellite modules. -->
+    <install-in-user-type package="com.google.android.telephony.satellite">
+        <install-in user-type="SYSTEM"/>
+    </install-in-user-type>
+
 <!--
   Apps that need to run on SYSTEM and evaluated by package owner.
   Here the apps will have FULL and SYSTEM.
@@ -147,8 +158,20 @@
         <install-in user-type="SYSTEM" />
     </install-in-user-type>
 
+    <!-- Required to implement GbaService -->
+    <install-in-user-type package="com.android.gbaservice">
+        <install-in user-type="FULL" />
+        <install-in user-type="SYSTEM" />
+    </install-in-user-type>
+
     <!-- Contains exported and single user service -->
     <install-in-user-type package="com.android.ons">
+        <install-in user-type="FULL" />
+        <install-in user-type="SYSTEM" />
+    </install-in-user-type>
+
+    <!-- Required to implement QualifiedNetworksService to bind with AccessNetworksManager -->
+    <install-in-user-type package="com.android.telephony.qns">
         <install-in user-type="FULL" />
         <install-in user-type="SYSTEM" />
     </install-in-user-type>
@@ -237,8 +260,41 @@
         <install-in user-type="SYSTEM" />
     </install-in-user-type>
 
+    <!-- Required to provide keyboard layouts to the KeyboardLayoutManager -->
+    <install-in-user-type package="com.android.inputdevices">
+        <install-in user-type="FULL" />
+        <install-in user-type="SYSTEM" />
+    </install-in-user-type>
+
     <!-- CarService updatable resources -->
     <install-in-user-type package="com.android.car.resources.vendor">
+        <install-in user-type="FULL" />
+        <install-in user-type="SYSTEM" />
+    </install-in-user-type>
+
+ <!--
+   Apps that initially were marked as FULL only but are actually
+   required on SYSTEM user as well.
+ -->
+    <install-in-user-type package="com.android.uwb.resources">
+        <install-in user-type="FULL" />
+        <install-in user-type="SYSTEM" />
+    </install-in-user-type>
+    <install-in-user-type package="com.android.sdksandbox">
+        <install-in user-type="FULL" />
+        <install-in user-type="SYSTEM" />
+    </install-in-user-type>
+    <install-in-user-type package="com.android.permissioncontroller">
+        <install-in user-type="FULL" />
+        <install-in user-type="SYSTEM" />
+        <install-in user-type="PROFILE" />
+    </install-in-user-type>
+    <install-in-user-type package="com.android.permissioncontroller.car.rro">
+        <install-in user-type="FULL" />
+        <install-in user-type="SYSTEM" />
+        <install-in user-type="PROFILE" />
+    </install-in-user-type>
+    <install-in-user-type package="com.android.devicelockcontroller">
         <install-in user-type="FULL" />
         <install-in user-type="SYSTEM" />
     </install-in-user-type>
@@ -248,9 +304,6 @@
   Here the apps will have FULL only.
 -->
     <install-in-user-type package="com.android.htmlviewer">
-        <install-in user-type="FULL" />
-    </install-in-user-type>
-    <install-in-user-type package="com.android.inputdevices">
         <install-in user-type="FULL" />
     </install-in-user-type>
     <!-- IntentResolver only consists of Activity and requires user interaction -->
@@ -352,12 +405,6 @@
     <install-in-user-type package="com.android.wifi.dialog">
         <install-in user-type="FULL" />
     </install-in-user-type>
-    <install-in-user-type package="com.android.permissioncontroller.car.rro">
-        <install-in user-type="FULL" />
-    </install-in-user-type>
-    <install-in-user-type package="com.android.uwb.resources">
-        <install-in user-type="FULL" />
-    </install-in-user-type>
     <!-- Provides ability to configure network preferences. -->
     <install-in-user-type package="com.google.android.car.networking.preferenceupdater">
         <install-in user-type="FULL" />
@@ -373,9 +420,6 @@
         <install-in user-type="FULL" />
     </install-in-user-type>
     <install-in-user-type package="com.android.ondevicepersonalization.services">
-        <install-in user-type="FULL" />
-    </install-in-user-type>
-    <install-in-user-type package="com.android.sdksandbox">
         <install-in user-type="FULL" />
     </install-in-user-type>
     <!-- Mainline module -->
@@ -397,8 +441,32 @@
     <install-in-user-type package="com.android.car.rotaryplayground">
         <install-in user-type="FULL" />
     </install-in-user-type>
-    <install-in-user-type package="com.android.permissioncontroller">
+    <!-- Mainline module -->
+    <install-in-user-type package="com.android.healthconnect.controller">
         <install-in user-type="FULL" />
-        <install-in user-type="SYSTEM" />
+    </install-in-user-type>
+    <!-- Mainline module -->
+    <install-in-user-type package="com.android.health.connect.backuprestore">
+        <install-in user-type="FULL" />
+    </install-in-user-type>
+    <!-- Mainline module -->
+    <install-in-user-type package="com.android.federatedcompute.services">
+        <install-in user-type="FULL" />
+    </install-in-user-type>
+    <!-- CredentialManager only consists of Activity components and requires user interaction -->
+    <install-in-user-type package="com.android.credentialmanager">
+        <install-in user-type="FULL" />
+			</install-in-user-type>
+    <!-- Defines permissions for VirtualMachineManager -->
+    <install-in-user-type package="com.android.virtualmachine.res">
+        <install-in user-type="FULL" />
+    </install-in-user-type>
+    <!-- Required by FederatedCompute Service -->
+    <install-in-user-type package="com.android.federatedcompute">
+        <install-in user-type="FULL" />
+    </install-in-user-type>
+    <!-- RRO package to be applied when the system boots up for secondary user-->
+    <install-in-user-type package="com.android.systemui.md.passenger.car.rro">
+        <install-in user-type="FULL" />
     </install-in-user-type>
 </config>

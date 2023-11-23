@@ -33,11 +33,18 @@
 #include <string>
 
 #include "device/include/controller.h"  // TODO Remove
+#include "gd/common/init_flags.h"
+#include "gd/hal/snoop_logger.h"
+#include "gd/os/system_properties.h"
+#include "gd/os/metrics.h"
+#include "hci/include/btsnoop.h"
 #include "main/shim/shim.h"
+#include "main/shim/metrics_api.h"
 #include "osi/include/allocator.h"
 #include "osi/include/log.h"
 #include "stack/btm/btm_sec.h"
 #include "stack/include/bt_hdr.h"
+#include "stack/include/btu.h"  // do_in_main_thread
 #include "stack/include/l2c_api.h"
 #include "stack/l2cap/l2c_int.h"
 #include "types/raw_address.h"
@@ -46,6 +53,9 @@ void btsnd_hcic_enhanced_flush(uint16_t handle,
                                uint8_t packet_type);  // TODO Remove
 
 using base::StringPrintf;
+
+extern fixed_queue_t* btu_general_alarm_queue;
+tL2C_AVDT_CHANNEL_INFO av_media_channels[MAX_ACTIVE_AVDT_CONN];
 
 tBT_TRANSPORT l2c_get_transport_from_fixed_cid(uint16_t fixed_cid) {
   if (fixed_cid >= L2CAP_ATT_CID && fixed_cid <= L2CAP_SMP_CID)
@@ -62,6 +72,29 @@ uint16_t L2CA_Register2(uint16_t psm, const tL2CAP_APPL_INFO& p_cb_info,
   BTM_SetSecurityLevel(false, "", 0, sec_level, psm, 0, 0);
   return ret;
 }
+
+uint16_t L2CA_LeCreditDefault() {
+  static const uint16_t sL2CAP_LE_CREDIT_DEFAULT =
+      bluetooth::os::GetSystemPropertyUint32Base(
+          "bluetooth.l2cap.le.credit_default.value", 0xffff);
+  return sL2CAP_LE_CREDIT_DEFAULT;
+}
+
+uint16_t L2CA_LeCreditThreshold() {
+  static const uint16_t sL2CAP_LE_CREDIT_THRESHOLD =
+      bluetooth::os::GetSystemPropertyUint32Base(
+          "bluetooth.l2cap.le.credit_threshold.value", 0x0040);
+  return sL2CAP_LE_CREDIT_THRESHOLD;
+}
+
+static bool check_l2cap_credit() {
+  CHECK(L2CA_LeCreditThreshold() < L2CA_LeCreditDefault())
+      << "Threshold must be smaller than default credits";
+  return true;
+}
+
+// Replace static assert with startup assert depending of the config
+static const bool enforce_assert = check_l2cap_credit();
 
 /*******************************************************************************
  *
@@ -563,7 +596,16 @@ uint16_t L2CA_ConnectLECocReq(uint16_t psm, const RawAddress& p_bd_addr,
   if (p_lcb->link_state == LST_CONNECTED) {
     if (p_ccb->p_lcb->transport == BT_TRANSPORT_LE) {
       L2CAP_TRACE_DEBUG("%s LE Link is up", __func__);
-      l2c_csm_execute(p_ccb, L2CEVT_L2CA_CONNECT_REQ, NULL);
+      // post this asynchronously to avoid out-of-order callback invocation
+      // should this operation fail
+      if (bluetooth::common::init_flags::
+              asynchronously_start_l2cap_coc_is_enabled()) {
+        do_in_main_thread(FROM_HERE,
+                          base::Bind(&l2c_csm_execute, base::Unretained(p_ccb),
+                                     L2CEVT_L2CA_CONNECT_REQ, nullptr));
+      } else {
+        l2c_csm_execute(p_ccb, L2CEVT_L2CA_CONNECT_REQ, NULL);
+      }
     }
   }
 
@@ -780,9 +822,21 @@ std::vector<uint16_t> L2CA_ConnectCreditBasedReq(uint16_t psm,
 
   L2CAP_TRACE_DEBUG("%s LE Link is up", __func__);
 
+  /* Check if there is no ongoing connection request */
+  if (p_lcb->pending_ecoc_conn_cnt > 0) {
+    LOG_WARN("There is ongoing connection request, PSM: 0x%04x", psm);
+    return allocated_cids;
+  }
+
   tL2C_CCB* p_ccb_primary;
 
-  for (int i = 0; i < 5; i++) {
+  /* Make sure user set proper value for number of cids */
+  if (p_cfg->number_of_channels > L2CAP_CREDIT_BASED_MAX_CIDS ||
+      p_cfg->number_of_channels == 0) {
+    p_cfg->number_of_channels = L2CAP_CREDIT_BASED_MAX_CIDS;
+  }
+
+  for (int i = 0; i < p_cfg->number_of_channels; i++) {
     /* Allocate a channel control block */
     tL2C_CCB* p_ccb = l2cu_allocate_ccb(p_lcb, 0);
     if (p_ccb == NULL) {
@@ -831,8 +885,8 @@ std::vector<uint16_t> L2CA_ConnectCreditBasedReq(uint16_t psm,
  *
  *  Description      Start reconfigure procedure on Connection Oriented Channel.
  *
- *  Parameters:      Vector of channels for which configuration should be changed
- *                   New local channel configuration
+ *  Parameters:      Vector of channels for which configuration should be
+ *changed New local channel configuration
  *
  *  Return value:    true if peer is connected
  *
@@ -1023,6 +1077,29 @@ uint8_t L2CA_SetTraceLevel(uint8_t new_level) {
 
 /*******************************************************************************
  *
+ * Function         L2CA_UseLatencyMode
+ *
+ * Description      Sets acl use latency mode.
+ *
+ * Returns          true if a valid channel, else false
+ *
+ ******************************************************************************/
+bool L2CA_UseLatencyMode(const RawAddress& bd_addr, bool use_latency_mode) {
+  /* Find the link control block for the acl channel */
+  tL2C_LCB* p_lcb = l2cu_find_lcb_by_bd_addr(bd_addr, BT_TRANSPORT_BR_EDR);
+  if (p_lcb == nullptr) {
+    LOG_WARN("L2CAP - no LCB for L2CA_SetUseLatencyMode, BDA: %s",
+             bd_addr.ToString().c_str());
+    return false;
+  }
+  LOG_INFO("BDA: %s, use_latency_mode: %s", bd_addr.ToString().c_str(),
+           use_latency_mode ? "true" : "false");
+  p_lcb->use_latency_mode = use_latency_mode;
+  return true;
+}
+
+/*******************************************************************************
+ *
  * Function         L2CA_SetAclPriority
  *
  * Description      Sets the transmission priority for a channel.
@@ -1040,6 +1117,21 @@ bool L2CA_SetAclPriority(const RawAddress& bd_addr, tL2CAP_PRIORITY priority) {
   VLOG(1) << __func__ << " BDA: " << bd_addr
           << ", priority: " << std::to_string(priority);
   return (l2cu_set_acl_priority(bd_addr, priority, false));
+}
+
+/*******************************************************************************
+ *
+ * Function         L2CA_SetAclLatency
+ *
+ * Description      Sets the transmission latency for a channel.
+ *
+ * Returns          true if a valid channel, else false
+ *
+ ******************************************************************************/
+bool L2CA_SetAclLatency(const RawAddress& bd_addr, tL2CAP_LATENCY latency) {
+  LOG_INFO("BDA: %s, latency: %s", bd_addr.ToString().c_str(),
+           std::to_string(latency).c_str());
+  return l2cu_set_acl_latency(bd_addr, latency);
 }
 
 /*******************************************************************************
@@ -1264,6 +1356,16 @@ bool L2CA_ConnectFixedChnl(uint16_t fixed_cid, const RawAddress& rem_bda) {
   }
 
   if (transport == BT_TRANSPORT_LE) {
+    auto argument_list = std::vector<std::pair<bluetooth::os::ArgumentType, int>>();
+    argument_list.push_back(std::make_pair(bluetooth::os::ArgumentType::L2CAP_CID, fixed_cid));
+
+    bluetooth::shim::LogMetricBluetoothLEConnectionMetricEvent(
+        rem_bda,
+        android::bluetooth::le::LeConnectionOriginType::ORIGIN_NATIVE,
+        android::bluetooth::le::LeConnectionType::CONNECTION_TYPE_LE_ACL,
+        android::bluetooth::le::LeConnectionState::STATE_LE_ACL_START,
+        argument_list);
+
     bool ret = l2cu_create_conn_le(p_lcb);
     if (!ret) {
       LOG_WARN("Unable to create fixed channel le connection fixed_cid:0x%04x",
@@ -1497,6 +1599,16 @@ bool L2CA_SetLeGattTimeout(const RawAddress& rem_bda, uint16_t idle_tout) {
   return true;
 }
 
+bool L2CA_MarkLeLinkAsActive(const RawAddress& rem_bda) {
+  tL2C_LCB* p_lcb = l2cu_find_lcb_by_bd_addr(rem_bda, BT_TRANSPORT_LE);
+  if (p_lcb == NULL) {
+    return false;
+  }
+  LOG(INFO) << __func__ << "setting link to " << rem_bda << " as active";
+  p_lcb->with_active_local_clients = true;
+  return true;
+}
+
 /*******************************************************************************
  *
  * Function         L2CA_DataWrite
@@ -1672,4 +1784,137 @@ bool L2CA_IsLinkEstablished(const RawAddress& bd_addr,
   }
 
   return l2cu_find_lcb_by_bd_addr(bd_addr, transport) != nullptr;
+}
+
+/*******************************************************************************
+**
+** Function         L2CA_SetMediaStreamChannel
+**
+** Description      This function is called to set/reset the ccb of active media
+**                      streaming channel
+**
+**  Parameters:     local_media_cid: The local cid provided to A2DP to be used
+**                      for streaming
+**                  status: The status of media streaming on this channel
+**
+** Returns          void
+**
+*******************************************************************************/
+void L2CA_SetMediaStreamChannel(uint16_t local_media_cid, bool status) {
+  uint16_t i;
+  int set_channel = -1;
+  bluetooth::hal::SnoopLogger* snoop_logger = bluetooth::shim::GetSnoopLogger();
+
+  if (snoop_logger == nullptr) {
+    LOG_ERROR("bluetooth::shim::GetSnoopLogger() is nullptr");
+    return;
+  }
+
+  if (snoop_logger->GetBtSnoopMode() != snoop_logger->kBtSnoopLogModeFiltered) {
+    return;
+  }
+
+  LOG_DEBUG("local_media_cid=%d, status=%s", local_media_cid,
+            (status ? "add" : "remove"));
+
+  if (status) {
+    for (i = 0; i < MAX_ACTIVE_AVDT_CONN; i++) {
+      if (!(av_media_channels[i].is_active)) {
+        set_channel = i;
+        break;
+      }
+    }
+
+    if (set_channel < 0) {
+      L2CAP_TRACE_ERROR("%s: No empty slot found to set media channel",
+                        __func__);
+      return;
+    }
+
+    av_media_channels[set_channel].p_ccb =
+        l2cu_find_ccb_by_cid(NULL, local_media_cid);
+
+    if (!av_media_channels[set_channel].p_ccb ||
+        !av_media_channels[set_channel].p_ccb->p_lcb) {
+      return;
+    }
+    av_media_channels[set_channel].local_cid = local_media_cid;
+
+    snoop_logger->AddA2dpMediaChannel(
+        av_media_channels[set_channel].p_ccb->p_lcb->Handle(),
+        av_media_channels[set_channel].local_cid,
+        av_media_channels[set_channel].p_ccb->remote_cid);
+
+    L2CAP_TRACE_EVENT(
+        "%s: Set A2DP media snoop filtering for local_cid: %d, remote_cid: %d",
+        __func__, local_media_cid,
+        av_media_channels[set_channel].p_ccb->remote_cid);
+  } else {
+    for (i = 0; i < MAX_ACTIVE_AVDT_CONN; i++) {
+      if (av_media_channels[i].is_active &&
+          av_media_channels[i].local_cid == local_media_cid) {
+        set_channel = i;
+        break;
+      }
+    }
+
+    if (set_channel < 0) {
+      L2CAP_TRACE_ERROR("%s: The channel %d not found in active media channels",
+                        __func__, local_media_cid);
+      return;
+    }
+
+    if (!av_media_channels[set_channel].p_ccb ||
+        !av_media_channels[set_channel].p_ccb->p_lcb) {
+      return;
+    }
+
+    snoop_logger->RemoveA2dpMediaChannel(
+        av_media_channels[set_channel].p_ccb->p_lcb->Handle(),
+        av_media_channels[set_channel].local_cid);
+
+    L2CAP_TRACE_EVENT("%s: Reset A2DP media snoop filtering for local_cid: %d",
+                      __func__, local_media_cid);
+  }
+
+  av_media_channels[set_channel].is_active = status;
+}
+
+/*******************************************************************************
+**
+** Function         L2CA_isMediaChannel
+**
+** Description      This function returns if the channel id passed as parameter
+**                      is an A2DP streaming channel
+**
+**  Parameters:     handle: Connection handle with the remote device
+**                  channel_id: Channel ID
+**                  is_local_cid: Signifies if the channel id passed is local
+**                      cid or remote cid (true if local, remote otherwise)
+**
+** Returns          bool
+**
+*******************************************************************************/
+bool L2CA_isMediaChannel(uint16_t handle, uint16_t channel_id,
+                         bool is_local_cid) {
+  int i;
+  bool ret = false;
+
+  for (i = 0; i < MAX_ACTIVE_AVDT_CONN; i++) {
+    if (av_media_channels[i].is_active) {
+      if (!av_media_channels[i].p_ccb || !av_media_channels[i].p_ccb->p_lcb) {
+        continue;
+      }
+      if (((!is_local_cid &&
+            channel_id == av_media_channels[i].p_ccb->remote_cid) ||
+           (is_local_cid &&
+            channel_id == av_media_channels[i].p_ccb->local_cid)) &&
+          handle == av_media_channels[i].p_ccb->p_lcb->Handle()) {
+        ret = true;
+        break;
+      }
+    }
+  }
+
+  return ret;
 }

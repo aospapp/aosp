@@ -28,21 +28,30 @@ namespace android {
 namespace automotive {
 namespace watchdog {
 
+namespace {
+
 using ::android::base::StringPrintf;
 using ::android::base::WriteStringToFile;
 
-namespace {
+const int64_t kMillisPerClockTick = 1000 / sysconf(_SC_CLK_TCK);
+
+int64_t clockTicksToMillis(int64_t ticks) {
+    return ticks * kMillisPerClockTick;
+}
 
 std::string toString(const ProcStatInfo& info) {
     const auto& cpuStats = info.cpuStats;
-    return StringPrintf("Cpu Stats:\nUserTime: %" PRIu64 " NiceTime: %" PRIu64 " SysTime: %" PRIu64
-                        " IdleTime: %" PRIu64 " IoWaitTime: %" PRIu64 " IrqTime: %" PRIu64
-                        " SoftIrqTime: %" PRIu64 " StealTime: %" PRIu64 " GuestTime: %" PRIu64
-                        " GuestNiceTime: %" PRIu64 "\nNumber of running processes: %" PRIu32
+    return StringPrintf("Cpu Stats:\nUserTimeMillis: %" PRIu64 " NiceTimeMillis: %" PRIu64
+                        " SysTimeMillis: %" PRIu64 " IdleTimeMillis: %" PRIu64
+                        " IoWaitTimeMillis: %" PRIu64 " IrqTimeMillis: %" PRIu64
+                        " SoftIrqTimeMillis: %" PRIu64 " StealTimeMillis: %" PRIu64
+                        " GuestTimeMillis: %" PRIu64 " GuestNiceTimeMillis: %" PRIu64
+                        "\nNumber of running processes: %" PRIu32
                         "\nNumber of blocked processes: %" PRIu32,
-                        cpuStats.userTime, cpuStats.niceTime, cpuStats.sysTime, cpuStats.idleTime,
-                        cpuStats.ioWaitTime, cpuStats.irqTime, cpuStats.softIrqTime,
-                        cpuStats.stealTime, cpuStats.guestTime, cpuStats.guestNiceTime,
+                        cpuStats.userTimeMillis, cpuStats.niceTimeMillis, cpuStats.sysTimeMillis,
+                        cpuStats.idleTimeMillis, cpuStats.ioWaitTimeMillis, cpuStats.irqTimeMillis,
+                        cpuStats.softIrqTimeMillis, cpuStats.stealTimeMillis,
+                        cpuStats.guestTimeMillis, cpuStats.guestNiceTimeMillis,
                         info.runnableProcessCount, info.ioBlockedProcessCount);
 }
 
@@ -68,17 +77,18 @@ TEST(ProcStatCollectorTest, TestValidStatFile) {
             "softirq 33275060 934664 11958403 5111 516325 200333 0 341482 10651335 0 8667407\n";
     ProcStatInfo expectedFirstDelta;
     expectedFirstDelta.cpuStats = {
-            .userTime = 6200,
-            .niceTime = 5700,
-            .sysTime = 1700,
-            .idleTime = 3100,
-            .ioWaitTime = 1100,
-            .irqTime = 5200,
-            .softIrqTime = 3900,
-            .stealTime = 0,
-            .guestTime = 0,
-            .guestNiceTime = 0,
+            .userTimeMillis = clockTicksToMillis(6200),
+            .niceTimeMillis = clockTicksToMillis(5700),
+            .sysTimeMillis = clockTicksToMillis(1700),
+            .idleTimeMillis = clockTicksToMillis(3100),
+            .ioWaitTimeMillis = clockTicksToMillis(1100),
+            .irqTimeMillis = clockTicksToMillis(5200),
+            .softIrqTimeMillis = clockTicksToMillis(3900),
+            .stealTimeMillis = clockTicksToMillis(0),
+            .guestTimeMillis = clockTicksToMillis(0),
+            .guestNiceTimeMillis = clockTicksToMillis(0),
     };
+    expectedFirstDelta.contextSwitchesCount = 579020168;
     expectedFirstDelta.runnableProcessCount = 17;
     expectedFirstDelta.ioBlockedProcessCount = 5;
 
@@ -105,7 +115,7 @@ TEST(ProcStatCollectorTest, TestValidStatFile) {
             "cpu3 3000 920 240 850 500 430 340 0 0 0\n"
             "intr 694351583 0 0 0 297062868 0 5922464 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 "
             "0 0\n"
-            "ctxt 579020168\n"
+            "ctxt 810020192\n"
             "btime 1579718450\n"
             "processes 113804\n"
             "procs_running 10\n"
@@ -113,17 +123,18 @@ TEST(ProcStatCollectorTest, TestValidStatFile) {
             "softirq 33275060 934664 11958403 5111 516325 200333 0 341482 10651335 0 8667407\n";
     ProcStatInfo expectedSecondDelta;
     expectedSecondDelta.cpuStats = {
-            .userTime = 10000,
-            .niceTime = 3000,
-            .sysTime = 300,
-            .idleTime = 1000,
-            .ioWaitTime = 1100,
-            .irqTime = 1000,
-            .softIrqTime = 2000,
-            .stealTime = 0,
-            .guestTime = 0,
-            .guestNiceTime = 0,
+            .userTimeMillis = clockTicksToMillis(10000),
+            .niceTimeMillis = clockTicksToMillis(3000),
+            .sysTimeMillis = clockTicksToMillis(300),
+            .idleTimeMillis = clockTicksToMillis(1000),
+            .ioWaitTimeMillis = clockTicksToMillis(1100),
+            .irqTimeMillis = clockTicksToMillis(1000),
+            .softIrqTimeMillis = clockTicksToMillis(2000),
+            .stealTimeMillis = clockTicksToMillis(0),
+            .guestTimeMillis = clockTicksToMillis(0),
+            .guestNiceTimeMillis = clockTicksToMillis(0),
     };
+    expectedFirstDelta.contextSwitchesCount = 810020192;
     expectedSecondDelta.runnableProcessCount = 10;
     expectedSecondDelta.ioBlockedProcessCount = 2;
 
@@ -186,6 +197,31 @@ TEST(ProcStatCollectorTest, TestErrorOnMissingCpuLine) {
 
     ASSERT_TRUE(collector.enabled()) << "Temporary file is inaccessible";
     EXPECT_FALSE(collector.collect().ok()) << "No error returned due to missing cpu line";
+}
+
+TEST(ProcStatCollectorTest, TestErrorOnMissingCtxtLine) {
+    constexpr char contents[] =
+            "cpu  16200 8700 2000 4100 1250 6200 5900 0 0 0\n"
+            "cpu0 2400 2900 600 690 340 4300 2100 0 0 0\n"
+            "cpu1 1900 2380 510 760 51 370 1500 0 0 0\n"
+            "cpu2 900 400 400 1000 600 400 160 0 0 0\n"
+            "cpu3 1000 20 190 650 109 130 140 0 0 0\n"
+            "intr 694351583 0 0 0 297062868 0 5922464 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 "
+            "0 0\n"
+            "btime 1579718450\n"
+            "processes 113804\n"
+            "procs_running 17\n"
+            "procs_blocked 5\n"
+            "softirq 33275060 934664 11958403 5111 516325 200333 0 341482 10651335 0 8667407\n";
+    TemporaryFile tf;
+    ASSERT_NE(tf.fd, -1);
+    ASSERT_TRUE(WriteStringToFile(contents, tf.path));
+
+    ProcStatCollector collector(tf.path);
+    collector.init();
+
+    ASSERT_TRUE(collector.enabled()) << "Temporary file is inaccessible";
+    EXPECT_FALSE(collector.collect().ok()) << "No error returned due to missing ctxt line";
 }
 
 TEST(ProcStatCollectorTest, TestErrorOnMissingProcsRunningLine) {
@@ -276,7 +312,7 @@ TEST(ProcStatCollectorTest, TestProcStatContentsFromDevice) {
     /* The below checks should pass because the /proc/stats file should have the CPU time spent
      * since bootup and there should be at least one running process.
      */
-    EXPECT_GT(info.totalCpuTime(), static_cast<uint64_t>(0));
+    EXPECT_GT(info.totalCpuTimeMillis(), 0);
     EXPECT_GT(info.totalProcessCount(), static_cast<uint32_t>(0));
 }
 

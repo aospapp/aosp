@@ -20,7 +20,7 @@ import static android.car.CarOccupantZoneManager.OccupantZoneInfo;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import static org.testng.Assert.expectThrows;
+import static org.junit.Assert.assertThrows;
 
 import android.car.Car;
 import android.car.CarOccupantZoneManager;
@@ -65,7 +65,7 @@ public class CarOccupantZoneManagerPermissionTest {
 
     @Test
     public void testDisplayIdForDriver() {
-        SecurityException thrown = expectThrows(SecurityException.class,
+        SecurityException thrown = assertThrows(SecurityException.class,
                 () -> mCarOccupantZoneManager.getDisplayIdForDriver(
                         CarOccupantZoneManager.DISPLAY_TYPE_MAIN));
         assertThat(thrown.getMessage()).isEqualTo(
@@ -74,7 +74,7 @@ public class CarOccupantZoneManagerPermissionTest {
 
     @Test
     public void testGetAudioZoneIdForOccupant() {
-        SecurityException thrown = expectThrows(SecurityException.class,
+        SecurityException thrown = assertThrows(SecurityException.class,
                 () -> mCarOccupantZoneManager.getAudioZoneIdForOccupant(mAnyOccupantZone));
         assertThat(thrown.getMessage()).isEqualTo(
                 "requires permission " + Car.PERMISSION_CAR_CONTROL_AUDIO_SETTINGS);
@@ -82,7 +82,7 @@ public class CarOccupantZoneManagerPermissionTest {
 
     @Test
     public void testGetOccupantForAudioZoneId() {
-        SecurityException thrown = expectThrows(SecurityException.class,
+        SecurityException thrown = assertThrows(SecurityException.class,
                 () -> mCarOccupantZoneManager.getOccupantForAudioZoneId(/* audioZoneId = */
                         ANY_ZONE_ID));
         assertThat(thrown.getMessage()).isEqualTo(
@@ -91,10 +91,14 @@ public class CarOccupantZoneManagerPermissionTest {
 
     @Test
     public void testAssignProfileUserToOccupantZone() {
-        SecurityException thrown = expectThrows(SecurityException.class,
+        SecurityException thrown = assertThrows(SecurityException.class,
                 () -> mCarOccupantZoneManager.assignProfileUserToOccupantZone(
                         mAnyOccupantZone, /* audioZoneId = */ ANY_ZONE_ID));
-        assertThat(thrown.getMessage()).isEqualTo(
-                "requires permission " + android.Manifest.permission.MANAGE_USERS);
+        assertThat(thrown.getMessage()).isEqualTo(getPermissionFailureMsg());
+    }
+
+    private String getPermissionFailureMsg() {
+        return "requires any of [android.permission.MANAGE_USERS, android.car.permission"
+                + ".MANAGE_OCCUPANT_ZONE]";
     }
 }

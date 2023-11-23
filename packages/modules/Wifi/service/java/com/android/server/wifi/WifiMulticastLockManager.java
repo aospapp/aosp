@@ -117,9 +117,11 @@ public class WifiMulticastLockManager {
         pw.println("mMulticastEnabled " + mMulticastEnabled);
         pw.println("mMulticastDisabled " + mMulticastDisabled);
         pw.println("Multicast Locks held:");
-        for (Multicaster l : mMulticasters) {
-            pw.print("    ");
-            pw.println(l);
+        synchronized (mMulticasters) {
+            for (Multicaster l : mMulticasters) {
+                pw.print("    ");
+                pw.println(l);
+            }
         }
     }
 

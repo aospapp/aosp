@@ -20,7 +20,6 @@
     <item name="android:textSize">18sp</item>
   </style>
   <style name="SectionContainer">
-    <!-- Customize your theme here. -->
     <item name="android:background">@drawable/border</item>
     <item name="android:padding">3dp</item>
     <item name="android:layout_margin">5dp</item>

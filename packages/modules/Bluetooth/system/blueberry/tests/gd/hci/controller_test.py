@@ -18,10 +18,10 @@ import time
 
 from blueberry.tests.gd.cert import gd_base_test
 from blueberry.tests.gd.cert.truth import assertThat
-from bluetooth_packets_python3 import hci_packets
 from google.protobuf import empty_pb2 as empty_proto
 from blueberry.facade.hci import controller_facade_pb2 as controller_facade
 from mobly import test_runner
+import hci_packets as hci
 
 
 class ControllerTest(gd_base_test.GdBaseTestClass):
@@ -51,7 +51,7 @@ class ControllerTest(gd_base_test.GdBaseTestClass):
             number_of_sets = self.dut.hci_controller.GetLeNumberOfSupportedAdvertisingSets(empty_proto.Empty())
             assertThat(number_of_sets.value).isGreaterThan(5)  # Android threshold for CTS
             supported = self.dut.hci_controller.IsSupportedCommand(
-                controller_facade.OpCodeMsg(op_code=int(hci_packets.OpCode.LE_SET_EXTENDED_ADVERTISING_PARAMETERS)))
+                controller_facade.OpCodeMsg(op_code=int(hci.OpCode.LE_SET_EXTENDED_ADVERTISING_PARAMETERS)))
             assertThat(supported.supported).isEqualTo(True)
 
 

@@ -69,6 +69,7 @@ public class ProvisioningManagerTest {
             .setProvisioningAction(ACTION_PROVISION_MANAGED_PROFILE)
             .setDeviceAdminComponentName(TEST_ADMIN)
             .build();
+    private final static String testPackageName = "com.android.managedprovisioning";
 
     @Mock private Context mContext;
     @Mock private ProvisioningControllerFactory mFactory;
@@ -91,6 +92,8 @@ public class ProvisioningManagerTest {
                     msg.getCallback().run();
                     return null;
                 });
+        when(mContext.getPackageName()).thenReturn(testPackageName);
+        when(mContext.getApplicationContext()).thenReturn(mContext);
         mManager = new ProvisioningManager(
                 mContext,
                 mFactory,

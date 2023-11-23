@@ -25,8 +25,7 @@
 #include <aidl/android/hardware/automotive/evs/DisplayDesc.h>
 #include <aidl/android/hardware/automotive/evs/DisplayState.h>
 
-#include <semaphore.h>
-
+#include <condition_variable>
 #include <thread>
 
 namespace aidl::android::hardware::automotive::evs::implementation {
@@ -61,10 +60,10 @@ private:
     } mBuffer;
 
     // State of a rendering thread
-    enum class RenderThreadStates {
-        kStopped = 0,
-        kStopping = 1,
-        kRunning = 2,
+    enum RenderThreadStates {
+        STOPPED = 0,
+        STOPPING = 1,
+        RUN = 2,
     };
 
     uint64_t mDisplayId;
@@ -81,17 +80,14 @@ private:
 
     // Variables to synchronize a rendering thread w/ main and binder threads
     std::thread mRenderThread;
-    std::atomic<RenderThreadStates> mState = RenderThreadStates::kRunning;
+    RenderThreadStates mState GUARDED_BY(mLock) = STOPPED;
     bool mBufferReady = false;
-    // Render the contents of forwarded buffers
     void renderFrames();
-    // Initialize GL in the context of a caller's thread and prepare a graphic
-    // buffer to use.
     bool initializeGlContextLocked() REQUIRES(mLock);
 
-    sem_t mBufferReadyToUse;
-    sem_t mBufferReadyToRender;
-    sem_t mBufferDone;
+    std::condition_variable mBufferReadyToUse;
+    std::condition_variable mBufferReadyToRender;
+    std::condition_variable mBufferDone;
 };
 
 }  // namespace aidl::android::hardware::automotive::evs::implementation

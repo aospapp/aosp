@@ -1,0 +1,45 @@
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
+rust_bindgen {
+    name: "liblibfdt_bindgen",
+    crate_name: "libfdt_bindgen",
+    wrapper_src: "bindgen/fdt.h",
+    source_stem: "bindings",
+    bindgen_flags: [
+        "--size_t-is-usize",
+        "--allowlist-type=fdt_.*",
+        "--allowlist-function=fdt_.*",
+        "--allowlist-var=FDT_.*",
+        "--use-core",
+        "--raw-line=#![no_std]",
+        "--ctypes-prefix=core::ffi",
+    ],
+    static_libs: [
+        "libfdt",
+    ],
+    apex_available: ["com.android.virt"],
+}
+
+rust_library_rlib {
+    name: "liblibfdt",
+    crate_name: "libfdt",
+    srcs: [
+        "src/lib.rs",
+        ":liblibfdt_bindgen",
+    ],
+    edition: "2021",
+    no_stdlibs: true,
+    prefer_rlib: true,
+    stdlibs: [
+        "libcore.rust_sysroot",
+    ],
+    rustlibs: [
+        "liblibfdt_bindgen",
+    ],
+    whole_static_libs: [
+        "libfdt",
+    ],
+    apex_available: ["com.android.virt"],
+}

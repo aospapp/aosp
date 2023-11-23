@@ -76,6 +76,7 @@
         android:protectionLevel="signature|setup"/>
 
     <application
+        android:name=".CarSettingsApplication"
         android:icon="@drawable/ic_launcher_settings"
         android:theme="@style/CarSettingTheme"
         android:label="@string/settings_label"
@@ -94,16 +95,6 @@
             android:theme="@style/ActionDialogTheme"
             android:exported="false"
             android:launchMode="singleTask">
-        </activity>
-
-        <activity
-            android:name=".common.CarSettingActivities$QuickSettingActivity"
-            android:launchMode="singleInstance"
-            android:finishOnTaskLaunch="true"
-            android:windowSoftInputMode="adjustPan"
-            android:exported="true">
-            <meta-data android:name="com.android.car.settings.SINGLE_PANE" android:value="true"/>
-            <meta-data android:name="distractionOptimized" android:value="true"/>
         </activity>
 
         <activity
@@ -660,23 +651,6 @@
             <meta-data android:name="distractionOptimized" android:value="true"/>
         </activity-alias>
 
-        <activity-alias
-            android:name="Settings_Launcher_QuickSetting"
-            android:label="@string/settings_label"
-            android:launchMode="singleInstance"
-            android:exported="true"
-            android:finishOnTaskLaunch="true"
-            android:targetActivity=".common.CarSettingActivities$QuickSettingActivity"
-            android:enabled="@bool/config_enable_quick_settings_icon">
-            <intent-filter android:priority="1">
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.DEFAULT" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-            <meta-data android:name="com.android.car.settings.SINGLE_PANE" android:value="true"/>
-            <meta-data android:name="distractionOptimized" android:value="true"/>
-        </activity-alias>
-
         <activity android:name=".enterprise.RemoteRequestBugreportActivity"
             android:excludeFromRecents="true"
             android:exported="true"
@@ -731,7 +705,8 @@
         <activity
             android:name=".accounts.AddAccountActivity"
             android:theme="@android:style/Theme.Translucent.NoTitleBar"
-            android:configChanges="orientation|keyboardHidden|screenSize"/>
+            android:configChanges="orientation|keyboardHidden|screenSize"
+            android:exported="true"/>
 
         <activity
             android:name=".applications.managedomainurls.ManageDomainUrlsActivity"
@@ -1029,6 +1004,11 @@
         able to call this receiver. Therefore, it should not be exported. -->
         <receiver
             android:name=".qc.SettingsQCBroadcastReceiver"
+            android:exported="false">
+        </receiver>
+
+        <receiver
+            android:name=".qc.DisabledQCToastBroadcastReceiver"
             android:exported="false">
         </receiver>
 

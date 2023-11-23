@@ -130,11 +130,13 @@ public class RttTestUtils {
                 RangingResult rangingResult;
                 halResults.add(new RangingResult(RangingResult.STATUS_SUCCESS,
                         peer.macAddress, rangeCmBase, rangeStdDevCmBase, rssiBase,
-                        8, 5, null, null, null, rangeTimestampBase, true));
+                        8, 5, null, null, null, rangeTimestampBase, true, 5180,
+                        ScanResult.CHANNEL_WIDTH_40MHZ));
                 if (peer.peerHandle == null) {
                     rangingResult = new RangingResult(RangingResult.STATUS_SUCCESS,
                             peer.macAddress, rangeCmBase++, rangeStdDevCmBase++, rssiBase++,
-                            8, 5, null, null, null, rangeTimestampBase++, true);
+                            8, 5, null, null, null, rangeTimestampBase++, true, 5180,
+                            ScanResult.CHANNEL_WIDTH_40MHZ);
                 } else {
                     rangingResult = new RangingResult(RangingResult.STATUS_SUCCESS,
                             peer.peerHandle, rangeCmBase++, rangeStdDevCmBase++, rssiBase++,
@@ -147,15 +149,15 @@ public class RttTestUtils {
             results.add(new RangingResult(RangingResult.STATUS_SUCCESS,
                     MacAddress.fromString("10:01:02:03:04:05"), rangeCmBase++,
                     rangeStdDevCmBase++, rssiBase++, 8, 4, null, null,
-                    null, rangeTimestampBase++, true));
+                    null, rangeTimestampBase++, true, 5180, ScanResult.CHANNEL_WIDTH_40MHZ));
             results.add(new RangingResult(RangingResult.STATUS_SUCCESS,
                     MacAddress.fromString("1A:0B:0C:0D:0E:0F"), rangeCmBase++,
                     rangeStdDevCmBase++, rssiBase++, 9, 3, null, null,
-                    null, rangeTimestampBase++, true));
+                    null, rangeTimestampBase++, true, 5180, ScanResult.CHANNEL_WIDTH_40MHZ));
             results.add(new RangingResult(RangingResult.STATUS_SUCCESS,
                     MacAddress.fromString("08:09:08:07:06:05"), rangeCmBase++,
                     rangeStdDevCmBase++, rssiBase++, 10, 2, null, null,
-                    null, rangeTimestampBase++, true));
+                    null, rangeTimestampBase++, true, 5180, ScanResult.CHANNEL_WIDTH_40MHZ));
             halResults.addAll(results);
         }
 

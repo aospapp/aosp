@@ -53,4 +53,9 @@
     <string name="button_additional_lang_broadcast" translatable="false">Set Additional lang alerts for GSM CMAS</string>
     <string name="message_id_label" translatable="false">Message ID:</string>
     <string name="category_id_label" translatable="false">Category:</string>
+    <string name="message_body_label" translatable="false">Message Body:</string>
+    <string name="language_code_label" translatable="false">Language Code:</string>
+    <string name="button_gsm_cmas_alert" translatable="false">Send GSM CMAS Alert \n with ServiceCategory, MessageBody</string>
+    <string name="message_body_hint" translatable="false">default text will be used</string>
+    <string name="language_code_hint" translatable="false">by default, English/en will be used</string>
 </resources>

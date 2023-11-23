@@ -26,6 +26,27 @@
      the test with 'atest android.permission2.cts.PermissionPolicyTest' to verify it.
     -->
 
+    <!-- Allows an application to read the driver monitoring settings information.
+         <p>Protection level: signature|privileged
+    -->
+    <permission android:name="android.car.permission.READ_DRIVER_MONITORING_SETTINGS"
+                android:protectionLevel="signature|privileged"
+                android:label="@string/car_permission_label_read_driver_monitoring_settings"
+                android:description="@string/car_permission_desc_read_driver_monitoring_settings"/>
+    <!-- Allows an application to control the driver monitoring settings information.
+         <p>Protection level: signature|privileged
+    -->
+    <permission android:name="android.car.permission.CONTROL_DRIVER_MONITORING_SETTINGS"
+                android:protectionLevel="signature|privileged"
+                android:label="@string/car_permission_label_control_driver_monitoring_settings"
+                android:description="@string/car_permission_desc_control_driver_monitoring_settings"/>
+    <!-- Allows an application to read the driver monitoring states information.
+         <p>Protection level: signature|privileged
+    -->
+    <permission android:name="android.car.permission.READ_DRIVER_MONITORING_STATES"
+                android:protectionLevel="signature|privileged"
+                android:label="@string/car_permission_label_read_driver_monitoring_states"
+                android:description="@string/car_permission_desc_read_driver_monitoring_states"/>
     <!-- Used for runtime permissions related to monitoring vehicle information. -->
     <permission-group android:name="android.car.permission-group.CAR_MONITORING"
          android:icon="@drawable/perm_group_car"
@@ -49,6 +70,14 @@
                 android:protectionLevel="signature|privileged"
                 android:label="@string/car_permission_label_control_car_energy"
                 android:description="@string/car_permission_desc_control_car_energy"/>
+
+    <!-- Allows CarService to connect to OEM CarService.
+         <p>Protection level: signature|privileged
+    -->
+    <permission android:name="android.car.permission.BIND_OEM_CAR_SERVICE"
+                android:protectionLevel="signature|privileged"
+                android:label="@string/car_permission_label_bind_oem_car_service"
+                android:description="@string/car_permission_desc_bind_oem_car_service"/>
 
     <!-- Allows an application to adjust the vehicle's range remaining information.
          <p>Protection level: signature|privileged
@@ -90,6 +119,14 @@
          android:label="@string/car_permission_label_control_car_windows"
          android:description="@string/car_permission_desc_control_car_windows"/>
 
+    <!-- Allows an application to control the vehicle glove box.
+        <p>Protection level: signature|privileged
+    -->
+    <permission android:name="android.car.permission.CONTROL_GLOVE_BOX"
+                android:protectionLevel="signature|privileged"
+                android:label="@string/car_permission_label_control_glove_box"
+                android:description="@string/car_permission_desc_control_glove_box"/>
+
     <!-- Allows an application to control the vehicle mirrors.
          <p>Protection level: signature|privileged
     -->
@@ -105,6 +142,15 @@
          android:protectionLevel="signature|privileged"
          android:label="@string/car_permission_label_control_car_seats"
          android:description="@string/car_permission_desc_control_car_seats"/>
+
+    <!-- Allows an application to enable/disable a seat's ability to deploy airbag(s) when triggered
+         (e.g. by a crash).
+         <p>Protection level: signature|privileged
+    -->
+    <permission android:name="android.car.permission.CONTROL_CAR_AIRBAGS"
+                android:protectionLevel="signature|privileged"
+                android:label="@string/car_permission_label_control_car_airbags"
+                android:description="@string/car_permission_desc_control_car_airbags"/>
 
     <!-- Allows an application to read the vehicle mileage information.
          <p>Protection level: signature|privileged
@@ -217,14 +263,6 @@
          android:label="@string/car_permission_label_access_projection_status"
          android:description="@string/car_permission_desc_access_projection_status"/>
 
-    <!-- Must be required by projection service to ensure only system can bind to it.
-         <p>Protection level: signature
-    -->
-    <permission android:name="android.car.permission.BIND_PROJECTION_SERVICE"
-         android:protectionLevel="signature"
-         android:label="@string/car_permission_label_bind_projection_service"
-         android:description="@string/car_permission_desc_bind_projection_service"/>
-
     <!-- Allows an application to emulate the vehicle HAL for testing purposes.
          <p>Protection level: signature|privileged
     -->
@@ -277,14 +315,6 @@
                 android:label="@string/car_permission_label_car_epoch_time"
                 android:description="@string/car_permission_desc_car_epoch_time"/>
 
-    <!-- Allows an application to read and write car's storage encryption binding seed.
-         <p>Protection level: signature|privileged
-    -->
-    <permission android:name="android.car.permission.STORAGE_ENCRYPTION_BINDING_SEED"
-                android:protectionLevel="signature|privileged"
-                android:label="@string/car_permission_label_encryption_binding_seed"
-                android:description="@string/car_permission_desc_encryption_binding_seed"/>
-
     <!-- Allows an application to read the vehicle exterior lights state.
          <p>Protection level: signature|privileged
     -->
@@ -321,7 +351,7 @@
          <p>Protection level: signature|privileged
     -->
     <permission android:name="android.car.permission.CAR_POWER"
-         android:protectionLevel="signature|privileged"
+         android:protectionLevel="signature|privileged|vendorPrivileged"
          android:label="@string/car_permission_label_car_power"
          android:description="@string/car_permission_desc_car_power"/>
 
@@ -333,6 +363,14 @@
          android:protectionLevel="normal"
          android:label="@string/car_permission_label_car_powertrain"
          android:description="@string/car_permission_desc_car_powertrain"/>
+
+    <!-- Allows an application to control the vehicle's powertrain information.
+         <p>Protection level: signature|privileged
+    -->
+    <permission android:name="android.car.permission.CONTROL_CAR_POWERTRAIN"
+         android:protectionLevel="signature|privileged"
+         android:label="@string/car_permission_label_control_car_powertrain"
+         android:description="@string/car_permission_desc_control_car_powertrain"/>
 
     <!-- Allows an application to access {@link android.car.navigation.CarNavigationStatusManager}
          to report navigation data. This information may be displayed by the vehicle in the
@@ -360,14 +398,6 @@
          android:protectionLevel="signature|privileged"
          android:label="@string/car_permission_label_diag_clear"
          android:description="@string/car_permission_desc_diag_clear"/>
-
-    <!-- Must be required by VMS client service to ensure only system can bind to it.
-         <p>Protection level: signature
-    -->
-    <permission android:name="android.car.permission.BIND_VMS_CLIENT"
-         android:protectionLevel="signature"
-         android:label="@string/car_permission_label_bind_vms_client"
-         android:description="@string/car_permission_desc_bind_vms_client"/>
 
     <!-- Allows an application to publich VMS messages.
          <p>Protection level: signature|privileged
@@ -459,26 +489,10 @@
          android:label="@string/car_permission_label_audio_settings"
          android:description="@string/car_permission_desc_audio_settings"/>
 
-    <!-- Must be required by instrument cluster service to ensure only system can bind to it.
-         <p>Protection level: signature
-    -->
     <permission android:name="android.car.permission.RECEIVE_CAR_AUDIO_DUCKING_EVENTS"
          android:protectionLevel="signature|privileged"
          android:label="@string/car_permission_label_receive_ducking"
          android:description="@string/car_permission_desc_receive_ducking"/>
-
-    <permission android:name="android.car.permission.BIND_INSTRUMENT_CLUSTER_RENDERER_SERVICE"
-         android:protectionLevel="signature"
-         android:label="@string/car_permission_label_bind_instrument_cluster_rendering"
-         android:description="@string/car_permission_desc_bind_instrument_cluster_rendering"/>
-
-    <!-- Allows an application to handle the vehicle input events.
-         <p>Protection level: signature
-    -->
-    <permission android:name="android.car.permission.BIND_CAR_INPUT_SERVICE"
-         android:protectionLevel="signature"
-         android:label="@string/car_permission_label_bind_input_service"
-         android:description="@string/car_permission_desc_bind_input_service"/>
 
     <!-- Allows an application to declare activities to be displayed in the instrument cluster.
          <p>Protection level: signature|privileged
@@ -910,7 +924,7 @@
          <p>Protection level: signature|privileged
     -->
     <permission android:name="android.car.permission.CONTROL_CAR_POWER_POLICY"
-                android:protectionLevel="signature|privileged"
+                android:protectionLevel="signature|privileged|vendorPrivileged"
                 android:label="@string/car_permission_label_control_car_power_policy"
                 android:description="@string/car_permission_desc_control_car_power_policy"/>
 
@@ -918,7 +932,7 @@
          <p>Protection level: signature|privileged
     -->
     <permission android:name="android.car.permission.CONTROL_SHUTDOWN_PROCESS"
-                android:protectionLevel="signature|privileged"
+                android:protectionLevel="signature|privileged|vendorPrivileged"
                 android:label="@string/car_permission_label_adjust_shutdown_process"
                 android:description="@string/car_permission_desc_adjust_shutdown_process"/>
 
@@ -938,6 +952,146 @@
         android:protectionLevel="signature|privileged"
         android:label="@string/car_permission_label_control_car_app_launch"
         android:description="@string/car_permission_desc_control_car_app_launch"/>
+
+    <!-- Allows an application to set its own thread's scheduling policy and priority.
+         <p>Protection level: signature|privileged
+    -->
+    <permission android:name="android.car.permission.MANAGE_THREAD_PRIORITY"
+        android:protectionLevel="signature|privileged"
+        android:label="@string/car_permission_label_manage_thread_priority"
+        android:description="@string/car_permission_desc_manage_thread_priority"/>
+
+    <!-- Allows applications to assign / un-assign zones to users -->
+    <permission android:name="android.car.permission.MANAGE_OCCUPANT_ZONE"
+                android:protectionLevel="signature|privileged"
+                android:label="@string/car_permission_label_manage_occupant_zone"
+                android:description="@string/car_permission_desc_manage_occupant_zone"/>
+
+    <!-- Allows an application to receive remote task requests.
+         <p>Protection level: normal
+    -->
+    <permission android:name="android.car.permission.USE_REMOTE_ACCESS"
+         android:protectionLevel="normal"
+         android:label="@string/car_permission_label_use_remote_access"
+         android:description="@string/car_permission_desc_use_remote_access"/>
+
+    <!-- Allows an application to receive remote task requests and decide to target power state
+         after remote task execution is completed.
+         <p>Protection level: signature|privileged
+    -->
+    <permission android:name="android.car.permission.CONTROL_REMOTE_ACCESS"
+        android:protectionLevel="signature|privileged"
+        android:label="@string/car_permission_label_control_remote_access"
+        android:description="@string/car_permission_desc_control_remote_access"/>
+
+     <!-- Allows an application to control the vehicle's steering wheel.
+         <p>Protection level: signature|privileged
+      -->
+     <permission android:name="android.car.permission.CONTROL_STEERING_WHEEL"
+        android:protectionLevel="signature|privileged"
+        android:label="@string/car_permission_label_control_steering_wheel"
+        android:description="@string/car_permission_desc_control_steering_wheel"/>
+
+    <!-- Allows an application to read the vehicle ADAS settings information.
+         <p>Protection level: signature|privileged
+    -->
+    <permission android:name="android.car.permission.READ_ADAS_SETTINGS"
+         android:protectionLevel="signature|privileged"
+         android:label="@string/car_permission_label_read_adas_settings"
+         android:description="@string/car_permission_desc_read_adas_settings"/>
+
+    <!-- Allows an application to control the vehicle ADAS settings information.
+         <p>Protection level: signature|privileged
+    -->
+    <permission android:name="android.car.permission.CONTROL_ADAS_SETTINGS"
+         android:protectionLevel="signature|privileged"
+         android:label="@string/car_permission_label_control_adas_settings"
+         android:description="@string/car_permission_desc_control_adas_settings"/>
+
+    <!-- Allows an application to read the vehicle ADAS states information.
+         <p>Protection level: signature|privileged
+    -->
+    <permission android:name="android.car.permission.READ_ADAS_STATES"
+         android:protectionLevel="signature|privileged"
+         android:label="@string/car_permission_label_read_adas_states"
+         android:description="@string/car_permission_desc_read_adas_states"/>
+
+    <!-- Allows an application to control the vehicle ADAS states information.
+         <p>Protection level: signature|privileged
+    -->
+    <permission android:name="android.car.permission.CONTROL_ADAS_STATES"
+         android:protectionLevel="signature|privileged"
+         android:label="@string/car_permission_label_control_adas_states"
+         android:description="@string/car_permission_desc_control_adas_states"/>
+
+    <!-- Allows an application to monitor the states of other occupant zones in the car and peer
+         apps (apps that have the same package name as the caller) installed in those zones,
+         and manage the power of those zones.
+         <p>Protection level: signature|privileged
+    -->
+    <permission android:name="android.car.permission.MANAGE_REMOTE_DEVICE"
+                android:protectionLevel="signature|privileged"
+                android:label="@string/car_permission_label_manage_remote_device"
+                android:description="@string/car_permission_desc_manage_remote_device"/>
+
+    <!-- Allows an application to establish connection and communicate to peer apps (apps that have
+         the same package name as the caller) installed in other occupant zones in the car.
+         <p>Protection level: signature|privileged
+    -->
+    <permission android:name="android.car.permission.MANAGE_OCCUPANT_CONNECTION"
+                android:protectionLevel="signature|privileged"
+                android:label="@string/car_permission_label_manage_occupant_connection"
+                android:description="@string/car_permission_desc_manage_occupant_connection"/>
+
+    <!-- Allows an application to access the mirrored Surface of a Task represented by the given
+         Token.
+         <p>Protection level: signature|privileged
+    -->
+    <permission android:name="android.car.permission.ACCESS_MIRRORED_SURFACE"
+        android:protectionLevel="signature|privileged"
+        android:label="@string/car_permission_label_access_mirrored_surface"
+        android:description="@string/car_permission_desc_access_mirrored_surface"/>
+
+    <!-- Allows an application to create an mirroring Token of a Display.
+         <p>Protection level: signature|privileged
+    -->
+    <permission android:name="android.car.permission.MIRROR_DISPLAY"
+        android:protectionLevel="signature|privileged"
+        android:label="@string/car_permission_label_mirror_display"
+        android:description="@string/car_permission_desc_mirror_display"/>
+
+    <!-- Allows an application to register itself as the system ui proxy. It is intended to be used
+     only by the car system ui.
+     <p>Protection level: signature|privileged
+    -->
+    <permission android:name="android.car.permission.REGISTER_CAR_SYSTEM_UI_PROXY"
+        android:protectionLevel="signature|privileged"
+        android:label="@string/car_permission_label_register_car_system_ui_proxy"
+        android:description="@string/car_permission_desc_register_car_system_ui_proxy"/>
+
+    <!-- Allows an application to manage the car system ui and create task views.
+     <p>Protection level: signature|privileged
+    -->
+    <permission android:name="android.car.permission.MANAGE_CAR_SYSTEM_UI"
+        android:protectionLevel="signature|privileged"
+        android:label="@string/car_permission_label_manage_car_system_ui"
+        android:description="@string/car_permission_desc_manage_car_system_ui"/>
+
+    <!-- Allows an application to read the vehicle's windshield wipers.
+        <p>Protection level: signature|privileged
+     -->
+     <permission android:name="android.car.permission.READ_WINDSHIELD_WIPERS"
+        android:protectionLevel="signature|privileged"
+        android:label="@string/car_permission_label_read_windshield_wipers"
+        android:description="@string/car_permission_desc_read_windshield_wipers"/>
+
+     <!-- Allows an application to control the vehicle's windshield wipers.
+         <p>Protection level: signature|privileged
+      -->
+     <permission android:name="android.car.permission.CONTROL_WINDSHIELD_WIPERS"
+        android:protectionLevel="signature|privileged"
+        android:label="@string/car_permission_label_control_windshield_wipers"
+        android:description="@string/car_permission_desc_control_windshield_wipers"/>
 
     <!-- NOTE: when you're adding a new permission, you should edit
          cts/tests/tests/permission2/res/raw/automotive_android_manifest.xml accordingly and run

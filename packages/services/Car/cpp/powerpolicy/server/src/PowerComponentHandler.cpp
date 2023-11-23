@@ -39,6 +39,9 @@ void PowerComponentHandler::init() {
     Mutex::Autolock lock(mMutex);
     mAccumulatedPolicy = std::make_shared<CarPowerPolicy>();
     for (const auto componentId : ::ndk::enum_range<PowerComponent>()) {
+        if (componentId >= PowerComponent::MINIMUM_CUSTOM_COMPONENT_VALUE) {
+            continue;  // skip custom components
+        }
         mAccumulatedPolicy->disabledComponents.push_back(componentId);
     }
 }
@@ -46,42 +49,74 @@ void PowerComponentHandler::init() {
 void PowerComponentHandler::applyPowerPolicy(const CarPowerPolicyPtr& powerPolicy) {
     Mutex::Autolock lock(mMutex);
     std::unordered_map<PowerComponent, bool> componentStates;
+    std::unordered_map<int, bool> customComponentStates;
+
+    auto setComponentStates = [](auto& map, const auto& componentsVec, auto value) {
+        for (const auto component : componentsVec) {
+            map[component] = value;
+        }
+    };
+
     mAccumulatedPolicy->policyId = powerPolicy->policyId;
-    for (const auto component : mAccumulatedPolicy->enabledComponents) {
-        componentStates[component] = true;
-    }
-    for (const auto component : mAccumulatedPolicy->disabledComponents) {
-        componentStates[component] = false;
-    }
-    for (const auto component : powerPolicy->enabledComponents) {
-        componentStates[component] = true;
-    }
-    for (const auto component : powerPolicy->disabledComponents) {
-        componentStates[component] = false;
-    }
+    setComponentStates(componentStates, mAccumulatedPolicy->enabledComponents, true);
+    setComponentStates(componentStates, mAccumulatedPolicy->disabledComponents, false);
+    setComponentStates(componentStates, powerPolicy->enabledComponents, true);
+    setComponentStates(componentStates, powerPolicy->disabledComponents, false);
+
+    setComponentStates(customComponentStates, mAccumulatedPolicy->enabledCustomComponents, true);
+    setComponentStates(customComponentStates, mAccumulatedPolicy->disabledCustomComponents, false);
+    setComponentStates(customComponentStates, powerPolicy->enabledCustomComponents, true);
+    setComponentStates(customComponentStates, powerPolicy->disabledCustomComponents, false);
+
     mAccumulatedPolicy->enabledComponents.clear();
     mAccumulatedPolicy->disabledComponents.clear();
-    for (const auto [component, state] : componentStates) {
-        if (state) {
-            mAccumulatedPolicy->enabledComponents.push_back(component);
-        } else {
-            mAccumulatedPolicy->disabledComponents.push_back(component);
+    mAccumulatedPolicy->enabledCustomComponents.clear();
+    mAccumulatedPolicy->disabledCustomComponents.clear();
+
+    auto setAccumulatedPolicy = [](auto& statesMap, auto& enabledComponents,
+                                   auto& disabledComponents) {
+        for (const auto [component, state] : statesMap) {
+            if (state) {
+                enabledComponents.push_back(component);
+            } else {
+                disabledComponents.push_back(component);
+            }
         }
+    };
+
+    setAccumulatedPolicy(componentStates, mAccumulatedPolicy->enabledComponents,
+                         mAccumulatedPolicy->disabledComponents);
+    setAccumulatedPolicy(customComponentStates, mAccumulatedPolicy->enabledCustomComponents,
+                         mAccumulatedPolicy->disabledCustomComponents);
+}
+
+template <typename T>
+Result<bool> getComponentState(const T& componentId, const std::vector<T>& enabledComponents,
+                               const std::vector<T>& disabledComponents) {
+    auto findComponent = [componentId](const std::vector<T> components) -> bool {
+        return std::find(components.begin(), components.end(), componentId) != components.end();
+    };
+
+    if (findComponent(enabledComponents)) {
+        return true;
     }
+    if (findComponent(disabledComponents)) {
+        return false;
+    }
+    return Error() << StringPrintf("Invalid power component(%d)", componentId);
+}
+
+Result<bool> PowerComponentHandler::getCustomPowerComponentState(const int componentId) const {
+    Mutex::Autolock lock(mMutex);
+
+    return getComponentState(componentId, mAccumulatedPolicy->enabledCustomComponents,
+                             mAccumulatedPolicy->disabledCustomComponents);
 }
 
 Result<bool> PowerComponentHandler::getPowerComponentState(const PowerComponent componentId) const {
     Mutex::Autolock lock(mMutex);
-    auto findComponent = [componentId](const std::vector<PowerComponent>& components) -> bool {
-        return std::find(components.begin(), components.end(), componentId) != components.end();
-    };
-    if (findComponent(mAccumulatedPolicy->enabledComponents)) {
-        return true;
-    }
-    if (findComponent(mAccumulatedPolicy->disabledComponents)) {
-        return false;
-    }
-    return Error() << StringPrintf("Invalid power component(%d)", componentId);
+    return getComponentState(componentId, mAccumulatedPolicy->enabledComponents,
+                             mAccumulatedPolicy->disabledComponents);
 }
 
 CarPowerPolicyPtr PowerComponentHandler::getAccumulatedPolicy() const {
@@ -93,7 +128,12 @@ Result<void> PowerComponentHandler::dump(int fd) {
     Mutex::Autolock lock(mMutex);
     const char* indent = "  ";
     const char* doubleIndent = "    ";
-    auto printComponents = [fd](const std::vector<PowerComponent>& components) {
+
+    auto customComponentToString = [](int component) -> std::string {
+        return std::to_string(component);
+    };
+
+    auto printComponents = [fd](const auto& components, auto toStringFunc) {
         bool isNotFirst = false;
         for (const auto component : components) {
             if (isNotFirst) {
@@ -101,16 +141,22 @@ Result<void> PowerComponentHandler::dump(int fd) {
             } else {
                 isNotFirst = true;
             }
-            WriteStringToFd(toString(component), fd);
+            WriteStringToFd(toStringFunc(component), fd);
         }
         WriteStringToFd("\n", fd);
     };
 
     WriteStringToFd(StringPrintf("%sCurrent state of power components:\n", indent), fd);
     WriteStringToFd(StringPrintf("%sEnabled components: ", doubleIndent), fd);
-    printComponents(mAccumulatedPolicy->enabledComponents);
+    printComponents(mAccumulatedPolicy->enabledComponents,
+                    aidl::android::frameworks::automotive::powerpolicy::toString);
     WriteStringToFd(StringPrintf("%sDisabled components: ", doubleIndent), fd);
-    printComponents(mAccumulatedPolicy->disabledComponents);
+    printComponents(mAccumulatedPolicy->disabledComponents,
+                    aidl::android::frameworks::automotive::powerpolicy::toString);
+    WriteStringToFd(StringPrintf("%sEnabled custom components: ", doubleIndent), fd);
+    printComponents(mAccumulatedPolicy->enabledCustomComponents, customComponentToString);
+    WriteStringToFd(StringPrintf("%sDisabled custom components: ", doubleIndent), fd);
+    printComponents(mAccumulatedPolicy->disabledCustomComponents, customComponentToString);
 
     return {};
 }

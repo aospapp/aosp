@@ -48,14 +48,19 @@ public class QsService extends TileService {
     private void update() {
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
         boolean tracingOn = prefs.getBoolean(getString(R.string.pref_key_tracing_on), false);
+        boolean stackSamplingOn = prefs.getBoolean(
+                getString(R.string.pref_key_stack_sampling_on), false);
 
         String titleString = getString(tracingOn ? R.string.stop_tracing: R.string.record_trace);
 
         getQsTile().setIcon(Icon.createWithResource(this, R.drawable.bugfood_icon));
-        getQsTile().setState(tracingOn ? Tile.STATE_ACTIVE : Tile.STATE_INACTIVE);
+        // If stack sampling is active, the "Record trace" tile cannot be interacted with.
+        // Otherwise, it should reflect the current trace state (active vs. inactive).
+        getQsTile().setState(stackSamplingOn ? Tile.STATE_UNAVAILABLE :
+                (tracingOn ? Tile.STATE_ACTIVE : Tile.STATE_INACTIVE));
         getQsTile().setLabel(titleString);
         getQsTile().updateTile();
-        Receiver.updateDeveloperOptionsWatcher(this);
+        Receiver.updateDeveloperOptionsWatcher(this, /* fromBootIntent */ false);
     }
 
     /** When we click the tile, toggle tracing state.

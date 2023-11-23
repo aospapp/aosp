@@ -23,16 +23,20 @@
 #include "WatchdogProcessService.h"
 #include "WatchdogServiceHelper.h"
 
+#include <aidl/android/automotive/watchdog/BnCarWatchdog.h>
+#include <aidl/android/automotive/watchdog/ICarWatchdogClient.h>
+#include <aidl/android/automotive/watchdog/ICarWatchdogMonitor.h>
+#include <aidl/android/automotive/watchdog/IResourceOveruseListener.h>
+#include <aidl/android/automotive/watchdog/ResourceOveruseStats.h>
+#include <aidl/android/automotive/watchdog/ResourceType.h>
+#include <aidl/android/automotive/watchdog/StateType.h>
+#include <aidl/android/automotive/watchdog/TimeoutLength.h>
 #include <android-base/result.h>
-#include <android/automotive/watchdog/BnCarWatchdog.h>
-#include <android/automotive/watchdog/BnResourceOveruseListener.h>
-#include <android/automotive/watchdog/ResourceOveruseStats.h>
-#include <android/automotive/watchdog/ResourceType.h>
-#include <android/automotive/watchdog/StateType.h>
-#include <binder/IBinder.h>
-#include <binder/Status.h>
+#include <android/binder_auto_utils.h>
+#include <android/binder_manager.h>
 #include <gtest/gtest_prod.h>
 #include <utils/Errors.h>
+#include <utils/RefBase.h>
 #include <utils/String16.h>
 #include <utils/StrongPointer.h>
 #include <utils/Vector.h>
@@ -52,11 +56,10 @@ class WatchdogBinderMediatorPeer;
 
 }  // namespace internal
 
-class WatchdogBinderMediatorInterface : public BnCarWatchdog {
+class WatchdogBinderMediatorInterface : public aidl::android::automotive::watchdog::BnCarWatchdog {
 public:
     virtual android::base::Result<void> init() = 0;
     virtual void terminate() = 0;
-    virtual status_t dump(int fd, const Vector<android::String16>& args) = 0;
 };
 
 // WatchdogBinderMediator implements the public carwatchdog binder APIs such that it forwards
@@ -67,44 +70,57 @@ public:
             const android::sp<WatchdogProcessServiceInterface>& watchdogProcessService,
             const android::sp<WatchdogPerfServiceInterface>& watchdogPerfService,
             const android::sp<WatchdogServiceHelperInterface>& watchdogServiceHelper,
-            const std::function<android::base::Result<void>(const char*,
-                                                            const android::sp<android::IBinder>&)>&
+            const android::sp<IoOveruseMonitorInterface>& ioOveruseMonitor,
+            const std::function<android::base::Result<void>(ndk::ICInterface*, const char*)>&
                     addServiceHandler = nullptr);
     ~WatchdogBinderMediator() { terminate(); }
 
     // Implements ICarWatchdog.aidl APIs.
-    status_t dump(int fd, const Vector<android::String16>& args) override;
-    android::binder::Status registerClient(const android::sp<ICarWatchdogClient>& client,
-                                           TimeoutLength timeout) override;
-    android::binder::Status unregisterClient(
-            const android::sp<ICarWatchdogClient>& client) override;
-    android::binder::Status tellClientAlive(const android::sp<ICarWatchdogClient>& client,
-                                            int32_t sessionId) override;
-    android::binder::Status addResourceOveruseListener(
-            const std::vector<ResourceType>& resourceTypes,
-            const android::sp<IResourceOveruseListener>& listener);
-    android::binder::Status removeResourceOveruseListener(
-            const android::sp<IResourceOveruseListener>& listener);
-    android::binder::Status getResourceOveruseStats(
-            const std::vector<ResourceType>& resourceTypes,
-            std::vector<ResourceOveruseStats>* resourceOveruseStats);
+    binder_status_t dump(int fd, const char** args, uint32_t numArgs) override;
+    ndk::ScopedAStatus registerClient(
+            const std::shared_ptr<aidl::android::automotive::watchdog::ICarWatchdogClient>& client,
+            aidl::android::automotive::watchdog::TimeoutLength timeout) override;
+    ndk::ScopedAStatus unregisterClient(
+            const std::shared_ptr<aidl::android::automotive::watchdog::ICarWatchdogClient>& client)
+            override;
+    ndk::ScopedAStatus tellClientAlive(
+            const std::shared_ptr<aidl::android::automotive::watchdog::ICarWatchdogClient>& client,
+            int32_t sessionId) override;
+    ndk::ScopedAStatus addResourceOveruseListener(
+            const std::vector<aidl::android::automotive::watchdog::ResourceType>& resourceTypes,
+            const std::shared_ptr<aidl::android::automotive::watchdog::IResourceOveruseListener>&
+                    listener);
+    ndk::ScopedAStatus removeResourceOveruseListener(
+            const std::shared_ptr<aidl::android::automotive::watchdog::IResourceOveruseListener>&
+                    listener);
+    ndk::ScopedAStatus getResourceOveruseStats(
+            const std::vector<aidl::android::automotive::watchdog::ResourceType>& resourceTypes,
+            std::vector<aidl::android::automotive::watchdog::ResourceOveruseStats>*
+                    resourceOveruseStats);
 
     // Deprecated APIs.
-    android::binder::Status registerMediator(
-            const android::sp<ICarWatchdogClient>& mediator) override;
-    android::binder::Status unregisterMediator(
-            const android::sp<ICarWatchdogClient>& mediator) override;
-    android::binder::Status registerMonitor(
-            const android::sp<ICarWatchdogMonitor>& monitor) override;
-    android::binder::Status unregisterMonitor(
-            const android::sp<ICarWatchdogMonitor>& monitor) override;
-    android::binder::Status tellMediatorAlive(const android::sp<ICarWatchdogClient>& mediator,
-                                              const std::vector<int32_t>& clientsNotResponding,
-                                              int32_t sessionId) override;
-    android::binder::Status tellDumpFinished(const android::sp<ICarWatchdogMonitor>& monitor,
-                                             int32_t pid) override;
-    android::binder::Status notifySystemStateChange(StateType type, int32_t arg1,
-                                                    int32_t arg2) override;
+    ndk::ScopedAStatus registerMediator(
+            const std::shared_ptr<aidl::android::automotive::watchdog::ICarWatchdogClient>&
+                    mediator) override;
+    ndk::ScopedAStatus unregisterMediator(
+            const std::shared_ptr<aidl::android::automotive::watchdog::ICarWatchdogClient>&
+                    mediator) override;
+    ndk::ScopedAStatus registerMonitor(
+            const std::shared_ptr<aidl::android::automotive::watchdog::ICarWatchdogMonitor>&
+                    monitor) override;
+    ndk::ScopedAStatus unregisterMonitor(
+            const std::shared_ptr<aidl::android::automotive::watchdog::ICarWatchdogMonitor>&
+                    monitor) override;
+    ndk::ScopedAStatus tellMediatorAlive(
+            const std::shared_ptr<aidl::android::automotive::watchdog::ICarWatchdogClient>&
+                    mediator,
+            const std::vector<int32_t>& clientsNotResponding, int32_t sessionId) override;
+    ndk::ScopedAStatus tellDumpFinished(
+            const std::shared_ptr<aidl::android::automotive::watchdog::ICarWatchdogMonitor>&
+                    monitor,
+            int32_t pid) override;
+    ndk::ScopedAStatus notifySystemStateChange(aidl::android::automotive::watchdog::StateType type,
+                                               int32_t arg1, int32_t arg2) override;
 
 protected:
     android::base::Result<void> init();
@@ -115,23 +131,19 @@ protected:
         mIoOveruseMonitor.clear();
         if (mWatchdogInternalHandler != nullptr) {
             mWatchdogInternalHandler->terminate();
-            mWatchdogInternalHandler.clear();
+            mWatchdogInternalHandler.reset();
         }
     }
 
 private:
-    status_t dumpServices(int fd, const Vector<String16>& args);
-    status_t dumpHelpText(const int fd, const std::string& errorMsg);
-
     android::sp<WatchdogProcessServiceInterface> mWatchdogProcessService;
     android::sp<WatchdogPerfServiceInterface> mWatchdogPerfService;
     android::sp<WatchdogServiceHelperInterface> mWatchdogServiceHelper;
     android::sp<IoOveruseMonitorInterface> mIoOveruseMonitor;
-    android::sp<WatchdogInternalHandler> mWatchdogInternalHandler;
+    std::shared_ptr<WatchdogInternalHandlerInterface> mWatchdogInternalHandler;
 
     // Used by tests to stub the call to IServiceManager.
-    std::function<android::base::Result<void>(const char*, const android::sp<android::IBinder>&)>
-            mAddServiceHandler;
+    std::function<android::base::Result<void>(ndk::ICInterface*, const char*)> mAddServiceHandler;
 
     friend class ServiceManager;
 
@@ -139,8 +151,6 @@ private:
     friend class internal::WatchdogBinderMediatorPeer;
     FRIEND_TEST(WatchdogBinderMediatorTest, TestInit);
     FRIEND_TEST(WatchdogBinderMediatorTest, TestErrorOnInitWithNullServiceInstances);
-    FRIEND_TEST(WatchdogBinderMediatorTest, TestTerminate);
-    FRIEND_TEST(WatchdogBinderMediatorTest, TestHandlesEmptyDumpArgs);
 };
 
 }  // namespace watchdog

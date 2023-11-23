@@ -22,14 +22,23 @@ import android.car.builtin.util.Slogf;
 import android.car.test.ICarTest;
 import android.content.Context;
 import android.os.IBinder;
+import android.os.Looper;
+import android.os.MessageQueue.OnFileDescriptorEventListener;
+import android.os.ParcelFileDescriptor;
 import android.os.RemoteException;
+import android.os.ServiceSpecificException;
 
 import com.android.car.internal.ExcludeFromCodeCoverageGeneratedReport;
 import com.android.car.internal.util.IndentingPrintWriter;
 import com.android.internal.annotations.GuardedBy;
 
+import java.io.ByteArrayOutputStream;
+import java.io.FileDescriptor;
+import java.io.FileInputStream;
+import java.io.IOException;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -103,6 +112,138 @@ class CarTestService extends ICarTest.Stub implements CarServiceBase {
         releaseToken(token);
     }
 
+    @Override
+    public String dumpVhal(List<String> options, long waitTimeoutMs) throws RemoteException {
+        CarServiceUtils.assertPermission(mContext, Car.PERMISSION_CAR_TEST_SERVICE);
+        try (NativePipe pipe = NativePipe.newPipe()) {
+            mICarImpl.dumpVhal(pipe.getFileDescriptor(), options);
+            return pipe.getOutput(waitTimeoutMs);
+        } catch (IOException | InterruptedException e) {
+            throw new ServiceSpecificException(0,
+                    "Error: fail to create or access pipe used for dumping VHAL, options: "
+                    + options + ", error: " + e);
+        }
+    }
+
+    @Override
+    public boolean hasAidlVhal() throws RemoteException {
+        CarServiceUtils.assertPermission(mContext, Car.PERMISSION_CAR_TEST_SERVICE);
+        return mICarImpl.hasAidlVhal();
+    }
+
+    @Override
+    public String getOemServiceName() {
+        return mICarImpl.getOemServiceName();
+    }
+
+    private static class FdEventListener implements OnFileDescriptorEventListener {
+        private static final int BUFFER_SIZE = 1024;
+        private byte[] mBuffer = new byte[BUFFER_SIZE];
+        private ByteArrayOutputStream mOutputStream = new ByteArrayOutputStream();
+        private Looper mLooper;
+        private IOException mException = null;
+
+        FdEventListener(Looper looper) {
+            mLooper = looper;
+        }
+
+        @Override
+        public int onFileDescriptorEvents(FileDescriptor fd, int events) {
+            if ((events & EVENT_INPUT) != 0) {
+                try {
+                    FileInputStream inputStream = new FileInputStream(fd);
+                    while (inputStream.available() != 0) {
+                        int size = inputStream.read(mBuffer);
+                        mOutputStream.write(mBuffer, /* off= */ 0, size);
+                    }
+                } catch (IOException e) {
+                    mException = e;
+                    return 0;
+                }
+            }
+            if ((events & EVENT_ERROR) != 0) {
+                // The remote end closes the connection.
+                mLooper.quit();
+                return 0;
+            }
+            return EVENT_INPUT | EVENT_ERROR;
+        }
+
+        public String getOutput() throws IOException {
+            if (mException != null) {
+                throw mException;
+            }
+            return mOutputStream.toString();
+        }
+    }
+
+    // A helper class to create a native pipe used in debug functions.
+    private static class NativePipe implements AutoCloseable {
+        private final ParcelFileDescriptor mWriter;
+        private final ParcelFileDescriptor mReader;
+        private Thread mThread;
+        private Looper mLooper;
+        private FdEventListener mEventListener;
+
+        private NativePipe(ParcelFileDescriptor writer, ParcelFileDescriptor reader) {
+            mWriter = writer;
+            mReader = reader;
+
+            // Start a new thread to read from pipe to prevent the writer blocking on write.
+            mThread = new Thread(() -> {
+                Looper.prepare();
+                mLooper = Looper.myLooper();
+                mEventListener = new FdEventListener(mLooper);
+                Looper.myQueue().addOnFileDescriptorEventListener(mReader.getFileDescriptor(),
+                        OnFileDescriptorEventListener.EVENT_INPUT
+                        | OnFileDescriptorEventListener.EVENT_ERROR, mEventListener);
+                Looper.loop();
+            }, "nativePipe_readThread");
+            mThread.start();
+        }
+
+        public static NativePipe newPipe() throws IOException {
+            ParcelFileDescriptor[] pipe = ParcelFileDescriptor.createPipe();
+            ParcelFileDescriptor reader = new ParcelFileDescriptor(pipe[0]);
+            ParcelFileDescriptor writer = new ParcelFileDescriptor(pipe[1]);
+            return new NativePipe(writer, reader);
+        }
+
+        public ParcelFileDescriptor getFileDescriptor() {
+            return mWriter;
+        }
+
+        /**
+         * Reads all the output data received from the pipe. This function should only be called
+         * once for one pipe.
+         */
+        public String getOutput(long waitTimeoutMs) throws IOException, InterruptedException {
+            // Close our side for the writer.
+            mWriter.close();
+            // Wait until we read all the data from the pipe.
+            try {
+                mThread.join(waitTimeoutMs);
+                if (!mThread.isAlive()) {
+                    return mEventListener.getOutput();
+                }
+            } catch (InterruptedException e) {
+                mLooper.quit();
+                throw e;
+            }
+            // If the other side don't close the writer FD within timeout, we would forcefully
+            // quit the looper, causing the thread to end.
+            mLooper.quit();
+            throw new ServiceSpecificException(0,
+                    "timeout while waiting for VHAL to close writer FD");
+        }
+
+        @Override
+        public void close() throws IOException {
+            mReader.close();
+            // No need to close mOutputStream because close for ByteArrayOutputStream is no-op.
+        }
+    }
+
     private void releaseToken(IBinder token) {
         Slogf.d(TAG, "releaseToken, token: " + token);
         synchronized (mLock) {
@@ -112,7 +253,10 @@ class CarTestService extends ICarTest.Stub implements CarServiceBase {
             }
 
             if (mTokens.size() == 0) {
-                CarServiceUtils.runOnMainSync(mICarImpl::init);
+                CarServiceUtils.runOnMainSync(() -> {
+                    mICarImpl.priorityInit();
+                    mICarImpl.init();
+                });
             }
         }
     }

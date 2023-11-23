@@ -17,13 +17,9 @@
 package com.android.launcher3.tapl;
 
 import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
-import androidx.test.uiautomator.By;
-import androidx.test.uiautomator.BySelector;
 import androidx.test.uiautomator.UiObject2;
-import androidx.test.uiautomator.Until;
 
-import com.android.launcher3.testing.TestProtocol;
+import com.android.launcher3.testing.shared.TestProtocol;
 
 import java.util.regex.Pattern;
 
@@ -32,7 +28,7 @@ import java.util.regex.Pattern;
  */
 public final class Widget extends Launchable implements WorkspaceDragSource {
 
-    private static final Pattern LONG_CLICK_EVENT = Pattern.compile("Widgets.onLongClick");
+    static final Pattern LONG_CLICK_EVENT = Pattern.compile("Widgets.onLongClick");
 
     Widget(LauncherInstrumentation launcher, UiObject2 icon) {
         super(launcher, icon);
@@ -69,48 +65,51 @@ public final class Widget extends Launchable implements WorkspaceDragSource {
      */
     @NonNull
     public WidgetResizeFrame dragWidgetToWorkspace() {
-        return dragWidgetToWorkspace(/* configurable= */ false, /* acceptsConfig= */ false);
+        return dragWidgetToWorkspace(-1, -1, 1, 1);
     }
 
     /**
-     * Drags a configurable widget from the widgets container to the workspace, either accepts or
-     * cancels the configuration based on {@code acceptsConfig}, and returns the resize frame that
-     * is shown if the widget is added.
+     * Drags a non-configurable widget from the widgets container to the workspace at cellX and
+     * cellY and returns the resize frame that is shown after the widget is added.
      */
-    @Nullable
-    public WidgetResizeFrame dragConfigWidgetToWorkspace(boolean acceptsConfig) {
-        return dragWidgetToWorkspace(/* configurable= */ true, acceptsConfig);
-    }
+    @NonNull
+    public WidgetResizeFrame dragWidgetToWorkspace(int cellX, int cellY, int spanX, int spanY) {
+        try (LauncherInstrumentation.Closable e = mLauncher.eventsCheck();
+             LauncherInstrumentation.Closable c = mLauncher.addContextLayer(
+                     "Dragging widget to workspace cell " + cellX + "," + cellY)) {
+            if (cellX == -1 || cellY == -1) {
+                internalDragToWorkspace(/* startsActivity= */ false, /* isWidgetShortcut= */
+                        false);
+            } else {
+                dragToWorkspaceCellPosition(/* startsActivity= */ false, /* isWidgetShortcut= */
+                        false, cellX, cellY, spanX, spanY);
+            }
 
-    /**
-     * Drags a widget from the widgets container to the workspace and returns the resize frame that
-     * is shown after the widget is added.
-     *
-     * <p> If {@code configurable} is true, then either accepts or cancels the configuration based
-     * on {@code acceptsConfig}.
-     */
-    @Nullable
-    private WidgetResizeFrame dragWidgetToWorkspace(
-            boolean configurable, boolean acceptsConfig) {
-        dragToWorkspace(/* startsActivity= */ configurable, /* isWidgetShortcut= */ false);
-
-        if (configurable) {
-            // Configure the widget.
-            BySelector selector = By.text(acceptsConfig ? "OK" : "Cancel");
-            mLauncher.getDevice()
-                    .wait(Until.findObject(selector), LauncherInstrumentation.WAIT_TIME_MS)
-                    .click();
-
-            // If the widget configuration was cancelled, then the widget wasn't added to the home
-            // screen. In that case, we cannot return a resize frame.
-            if (!acceptsConfig) {
-                return null;
+            try (LauncherInstrumentation.Closable closable = mLauncher.addContextLayer(
+                    "want to get widget resize frame")) {
+                return new WidgetResizeFrame(mLauncher);
             }
         }
+    }
 
-        try (LauncherInstrumentation.Closable c = mLauncher.addContextLayer(
-                "want to get widget resize frame")) {
-            return new WidgetResizeFrame(mLauncher);
-        }
+    /**
+     * Drags an object to the center of homescreen.
+     *
+     * @param startsActivity   whether it's expected to start an activity.
+     * @param isWidgetShortcut whether we drag a widget shortcut
+     * @param cellX            X position in the CellLayout
+     * @param cellY            Y position in the CellLayout
+     */
+    private void dragToWorkspaceCellPosition(boolean startsActivity, boolean isWidgetShortcut,
+            int cellX, int cellY, int spanX, int spanY) {
+        Launchable launchable = getLaunchable();
+        LauncherInstrumentation launcher = launchable.mLauncher;
+        Workspace.dragIconToWorkspaceCellPosition(
+                launcher,
+                launchable,
+                cellX, cellY, spanX, spanY,
+                startsActivity,
+                isWidgetShortcut,
+                launchable::addExpectedEventsForLongClick);
     }
 }

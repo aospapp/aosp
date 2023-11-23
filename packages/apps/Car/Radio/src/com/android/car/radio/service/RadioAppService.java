@@ -102,6 +102,8 @@ public class RadioAppService extends MediaBrowserService implements LifecycleOwn
     private long mLastProgramListPush;
     @GuardedBy("mLock")
     private RegionConfig mRegionConfigCache;
+    @GuardedBy("mLock")
+    private boolean mCanUpdateCurrentProgram;
 
     private SkipController mSkipController;
 
@@ -197,6 +199,19 @@ public class RadioAppService extends MediaBrowserService implements LifecycleOwn
         return mLifecycleRegistry;
     }
 
+    @GuardedBy("mLock")
+    private void setCanUpdateCurrentProgramLocked() {
+        if (mCanUpdateCurrentProgram) {
+            return;
+        }
+        mCanUpdateCurrentProgram = true;
+    }
+
+    @GuardedBy("mLock")
+    private boolean canUpdateCurrentProgramLocked() {
+        return mCanUpdateCurrentProgram;
+    }
+
     private void onPlaybackStateChanged(int newState) {
         Log.d(TAG, "onPlaybackStateChanged new state [%d]", newState);
         synchronized (mLock) {
@@ -243,6 +258,7 @@ public class RadioAppService extends MediaBrowserService implements LifecycleOwn
                 } catch (IllegalArgumentException | UnsupportedOperationException e) {
                     Log.e(TAG, "Can't restore recently selected program: " + sel, e);
                 }
+                setCanUpdateCurrentProgramLocked();
                 return;
             }
 
@@ -345,6 +361,7 @@ public class RadioAppService extends MediaBrowserService implements LifecycleOwn
                 if (tuneCb == null) return;
                 mRadioTuner.tune(sel, tuneCb.alsoCall(
                         succ -> tryExec(() -> callback.onFinished(succ))));
+                setCanUpdateCurrentProgramLocked();
             }
         }
 
@@ -359,6 +376,7 @@ public class RadioAppService extends MediaBrowserService implements LifecycleOwn
                 if (tuneCb == null) return;
                 mRadioTuner.seek(forward, tuneCb.alsoCall(
                         succ -> tryExec(() -> callback.onFinished(succ))));
+                setCanUpdateCurrentProgramLocked();
             }
         }
 
@@ -391,6 +409,7 @@ public class RadioAppService extends MediaBrowserService implements LifecycleOwn
                 if (tuneCb == null) return;
                 mRadioTuner.step(forward, tuneCb.alsoCall(
                         succ -> tryExec(() -> callback.onFinished(succ))));
+                setCanUpdateCurrentProgramLocked();
             }
         }
 
@@ -445,6 +464,10 @@ public class RadioAppService extends MediaBrowserService implements LifecycleOwn
             Log.d(TAG, "Program info changed: %s", info);
 
             synchronized (mLock) {
+                if (!canUpdateCurrentProgramLocked()) {
+                    return;
+                }
+
                 mCurrentProgram = info;
 
                 /* Storing recently selected program might be limited to explicit tune calls only

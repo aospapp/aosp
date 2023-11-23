@@ -48,9 +48,11 @@ import android.util.Log;
 
 import com.android.car.CarLog;
 import com.android.car.CarPropertyService;
+import com.android.car.internal.property.CarPropertyConfigList;
 import com.android.car.telemetry.ResultStore;
 import com.android.car.telemetry.publisher.AbstractPublisher;
 import com.android.car.telemetry.publisher.PublisherFactory;
+import com.android.car.telemetry.scriptexecutorinterface.BundleList;
 import com.android.car.telemetry.scriptexecutorinterface.IScriptExecutor;
 import com.android.car.telemetry.scriptexecutorinterface.IScriptExecutorListener;
 
@@ -67,8 +69,10 @@ import org.mockito.stubbing.Answer;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.PriorityBlockingQueue;
@@ -147,7 +151,8 @@ public final class DataBrokerTest extends AbstractExtendedMockitoCarServiceTestC
     @Before
     public void setUp() throws Exception {
         when(mMockCarPropertyService.getPropertyList())
-                .thenReturn(Collections.singletonList(PROP_CONFIG));
+                .thenReturn(new CarPropertyConfigList(
+                        Collections.singletonList(PROP_CONFIG)));
         mockPackageManager();
 
         mFakeScriptExecutor = new FakeScriptExecutor();
@@ -354,6 +359,33 @@ public final class DataBrokerTest extends AbstractExtendedMockitoCarServiceTestC
     }
 
     @Test
+    public void testScheduleNextTask_whenScriptExecutorBypassed_shouldStoreFinalResult()
+            throws Exception {
+        mData.putBoolean("bypass successful", true);
+        mData.putDouble("value of pi", 3.14159265359);
+        TelemetryProto.Subscriber subscriberWithoutHandler =
+                TelemetryProto.Subscriber.newBuilder().setPublisher(
+                        PUBLISHER_CONFIGURATION).setPriority(PRIORITY_HIGH).build();
+        TelemetryProto.MetricsConfig metricConfigForBypass =
+                TelemetryProto.MetricsConfig.newBuilder().setName("Bypass").setVersion(
+                        1).addSubscribers(subscriberWithoutHandler).build();
+        ScriptExecutionTask bypassTask = new ScriptExecutionTask(
+                new DataSubscriber(mDataBroker, metricConfigForBypass, subscriberWithoutHandler),
+                mData,
+                SystemClock.elapsedRealtime(),
+                false,
+                TelemetryProto.Publisher.PublisherCase.STATS.getNumber());
+        mDataBroker.getTaskQueue().add(bypassTask);
+
+        mDataBroker.scheduleNextTask();
+        waitForTelemetryThreadToFinish();
+
+        assertThat(mFakeScriptExecutor.getInvokeScriptCount()).isEqualTo(0);
+        verify(mMockDataBrokerListener).onMetricsReport(
+                eq(bypassTask.getMetricsConfig().getName()), eq(mData), isNull());
+    }
+
+    @Test
     public void testScheduleNextTask_whenInterimDataExists_shouldPassToScriptExecutor()
             throws Exception {
         mData.putDouble("value of golden ratio", 1.618033);
@@ -428,6 +460,24 @@ public final class DataBrokerTest extends AbstractExtendedMockitoCarServiceTestC
         assertThat(mFakeScriptExecutor.getInvokeScriptForLargeInputCount()).isEqualTo(1);
         assertThat(mFakeScriptExecutor.getInvokeScriptCount()).isEqualTo(1);
         assertThat(taskQueue).isEmpty();
+    }
+
+    @Test
+    public void testScheduleNextTask_withBundleList_shouldPassData() throws Exception {
+        List<PersistableBundle> bundles = new ArrayList<>();
+        bundles.add(new PersistableBundle());
+        bundles.add(new PersistableBundle());
+        ScriptExecutionTask highPriorityTask = new ScriptExecutionTask(
+                new DataSubscriber(mDataBroker, METRICS_CONFIG_FOO, SUBSCRIBER_FOO),
+                bundles,
+                SystemClock.elapsedRealtime(),
+                TelemetryProto.Publisher.PublisherCase.STATS.getNumber());
+        mDataBroker.getTaskQueue().add(highPriorityTask);
+
+        mDataBroker.scheduleNextTask();
+
+        waitForTelemetryThreadToFinish();
+        assertThat(mFakeScriptExecutor.getInvokeScriptForBundleListCount()).isEqualTo(1);
     }
 
     @Test
@@ -671,6 +721,7 @@ public final class DataBrokerTest extends AbstractExtendedMockitoCarServiceTestC
         private IScriptExecutorListener mListener;
         private int mInvokeScriptCount = 0;
         private int mInvokeScriptForLargeInputCount = 0;
+        private int mInvokeScriptForBundleListCount = 0;
         private int mFailApi = 0;
         private PersistableBundle mSavedState = null;
 
@@ -715,6 +766,19 @@ public final class DataBrokerTest extends AbstractExtendedMockitoCarServiceTestC
                     PersistableBundle.readFromStream(input);
                 } catch (IOException e) { }
             });
+        }
+
+        @Override
+        public void invokeScriptForBundleList(String scriptBody, String functionName,
+                BundleList bundleList, PersistableBundle savedState,
+                IScriptExecutorListener listener) throws RemoteException {
+            mInvokeScriptForBundleListCount++;
+            mSavedState = savedState;
+            mListener = listener;
+            if (mFailApi > 0) {
+                mFailApi--;
+                throw new RemoteException("Simulated failure");
+            }
         }
 
         @Override
@@ -771,6 +835,11 @@ public final class DataBrokerTest extends AbstractExtendedMockitoCarServiceTestC
         /** Returns number of times invokeScriptForLargeInput() was called. */
         public int getInvokeScriptForLargeInputCount() {
             return mInvokeScriptForLargeInputCount;
+        }
+
+        /** Returns number of times invokeScriptForBundleList() was called. */
+        public int getInvokeScriptForBundleListCount() {
+            return mInvokeScriptForBundleListCount;
         }
 
         /** Returns the interim data passed in invokeScript(). */

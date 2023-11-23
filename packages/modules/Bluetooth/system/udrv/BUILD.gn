@@ -25,7 +25,6 @@ source_set("udrv") {
     "//bt/system/",
     "//bt/system/internal_include",
     "//bt/system/stack/include",
-    "//bt/system/utils/include",
   ]
 
   configs += [

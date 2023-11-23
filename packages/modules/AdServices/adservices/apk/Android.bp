@@ -16,9 +16,65 @@ package {
     default_applicable_licenses: ["Android-Apache-2.0"],
 }
 
+filegroup {
+    name: "adservicesapk-filegroup",
+    srcs: [
+        "java/**/*.java",
+    ],
+}
+
 android_app_certificate {
     name: "com.android.adservices.api.certificate",
     certificate: "com.android.adservices.api",
+}
+
+android_app {
+    name: "AdExtServicesApk",
+    sdk_version: "module_current",
+    min_sdk_version: "30",
+    // This is not enforced by PackageManager but we keep this
+    // here since this APK is used for S- only.
+    // TODO(b/263904312): Support for max_sdk_version.
+    max_sdk_version: "32",
+    certificate: ":com.android.adservices.api.certificate",
+    privileged: true,
+    srcs: [
+        "java/**/*.java",
+    ],
+    libs: ["android.ext.adservices"],
+    optional_uses_libs: ["android.ext.adservices"],
+    manifest: "AdExtServicesManifest.xml",
+    package_name: "com.android.ext.adservices.api",
+    static_libs: [
+        "adservices-service-core",
+        "androidx-constraintlayout_constraintlayout",
+        "androidx.preference_preference",
+        "androidx.fragment_fragment",
+        "androidx.recyclerview_recyclerview",
+        // TODO(b/230653497): Try to remove this.
+        "androidx.room_room-runtime",
+        "mobile_data_downloader_lib",
+        "tflite_support_classifiers_java",
+        "SettingsLibActionBarShadow",
+        "SettingsLibSettingsTheme",
+        "SettingsLibCollapsingToolbarBaseActivity",
+        "SettingsLibMainSwitchPreference",
+    ],
+    // TODO(b/269145496): Remove dex_preopt: false.
+    dex_preopt: {
+        enabled: false,
+    },
+    jarjar_rules: "jarjar_rules.txt",
+    resource_dirs: ["res"],
+    aaptflags: [
+        // Don't compress *.tflite files. Compressed models cannot be loaded on device.
+        "-0 .tflite",
+    ],
+    optimize: {
+        proguard_flags_files: ["proguard.flags"],
+    },
+    required: ["privapp_allowlist_com.android.adservices.api.xml"],
+    apex_available: ["com.android.extservices"],
 }
 
 android_app {
@@ -36,10 +92,56 @@ android_app {
     ],
     static_libs: [
         "adservices-service-core",
+        "androidx-constraintlayout_constraintlayout",
+        "androidx.preference_preference",
+        "androidx.fragment_fragment",
+        "androidx.recyclerview_recyclerview",
+        // TODO(b/230653497): Try to remove this.
+        "androidx.room_room-runtime",
+        "mobile_data_downloader_lib",
+        "tflite_support_classifiers_java",
+        "SettingsLibActionBarShadow",
+        "SettingsLibSettingsTheme",
+        "SettingsLibCollapsingToolbarBaseActivity",
+        "SettingsLibMainSwitchPreference",
     ],
-    // TODO(b/208705888): Renable tflite.
-    // jni_libs: ["libtensorflowlite_jni"],
-    use_embedded_native_libs: true,
+    jarjar_rules: "jarjar_rules.txt",
+    resource_dirs: [
+        "res",
+        "publicres",
+    ],
+    aaptflags: [
+        // Don't compress *.tflite files. Compressed models cannot be loaded on device.
+        "-0 .tflite",
+    ],
+    optimize: {
+        shrink_resources: true,
+        proguard_flags_files: ["proguard.flags"],
+    },
     required: ["privapp_allowlist_com.android.adservices.api.xml"],
     apex_available: ["com.android.adservices"],
+}
+
+// Assets needs to be bundled via this android_library since our classes in service-core needs to
+// load assets.
+android_library {
+    name: "adservices-assets",
+    sdk_version: "module_current",
+    min_sdk_version: "30",
+    static_libs: [
+        "androidx-constraintlayout_constraintlayout",
+        "SettingsLibSettingsTheme",
+    ],
+    asset_dirs: [
+        "assets",
+    ],
+    aaptflags: [
+        // Don't compress *.tflite files. Compressed models cannot be loaded on device.
+        "-0 .tflite",
+    ],
+    // Must use EmptyManifest.xml since "adservices-assets" will also be used by the
+    // service-core tests. If we use the normal "AndroidManifest.xml", we will redeclare permissions
+    // in the tests.
+    // See b/228270294 for the error about duplicated permissions.
+    manifest: "EmptyManifest.xml",
 }

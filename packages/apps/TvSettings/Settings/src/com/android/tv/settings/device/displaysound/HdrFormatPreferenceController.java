@@ -16,13 +16,27 @@
 
 package com.android.tv.settings.device.displaysound;
 
+
+import static android.content.DialogInterface.OnClickListener;
+import static android.view.Display.HdrCapabilities.HDR_TYPE_DOLBY_VISION;
+
+import static com.android.tv.settings.device.displaysound.DisplaySoundUtils.createAlertDialog;
+import static com.android.tv.settings.device.displaysound.DisplaySoundUtils.disableHdrType;
+import static com.android.tv.settings.device.displaysound.DisplaySoundUtils.doesCurrentModeNotSupportDvBecauseLimitedTo4k30;
+import static com.android.tv.settings.device.displaysound.DisplaySoundUtils.enableHdrType;
+import static com.android.tv.settings.device.displaysound.DisplaySoundUtils.findMode1080p60;
+import static com.android.tv.settings.device.displaysound.DisplaySoundUtils.isHdrFormatSupported;
+
 import android.content.Context;
 import android.hardware.display.DisplayManager;
+import android.hardware.display.HdrConversionMode;
+import android.view.Display;
 
 import androidx.preference.Preference;
 import androidx.preference.SwitchPreference;
 
 import com.android.settingslib.core.AbstractPreferenceController;
+import com.android.tv.settings.R;
 
 import java.util.Arrays;
 import java.util.Set;
@@ -58,7 +72,12 @@ public class HdrFormatPreferenceController extends AbstractPreferenceController 
         super.updateState(preference);
         if (preference.getKey().equals(getPreferenceKey())) {
             preference.setEnabled(getPreferenceEnabledState());
-            ((SwitchPreference) preference).setChecked(getPreferenceCheckedState());
+            Display.Mode mode = mDisplayManager.getDisplay(Display.DEFAULT_DISPLAY).getMode();
+            if (!isHdrFormatSupported(mode, mHdrType)) {
+                ((SwitchPreference) preference).setChecked(false);
+            } else {
+                ((SwitchPreference) preference).setChecked(getPreferenceCheckedState());
+            }
         }
     }
 
@@ -91,13 +110,51 @@ public class HdrFormatPreferenceController extends AbstractPreferenceController 
     private void onPreferenceClicked(SwitchPreference preference) {
         final boolean enabled = preference.isChecked();
 
-        Set<Integer> disabledHdrTypes = toSet(mDisplayManager.getUserDisabledHdrTypes());
         if (enabled) {
-            disabledHdrTypes.remove(mHdrType);
+            Display display = mDisplayManager.getDisplay(Display.DEFAULT_DISPLAY);
+            if (mHdrType == HDR_TYPE_DOLBY_VISION
+                    && doesCurrentModeNotSupportDvBecauseLimitedTo4k30(display)) {
+                enableDvAndChangeTo1080p60(display, preference);
+            } else {
+                enableHdrType(mDisplayManager, mHdrType);
+            }
         } else {
-            disabledHdrTypes.add(mHdrType);
+            disableHdrType(mDisplayManager, mHdrType);
+            // If HDR output type is mHdrType, change the HDR output type. This can happen in 2
+            // cases:
+            // mHdrType is selected by implementation in case of AUTO - re-calling
+            // setHdrConversionMode will handle this as mHdrType is no longer permissible coz of
+            // setUserDisabledHdrTypes
+            // mHdrType is selected by user by using FORCE. Change the preferred strategy to AUTO
+            // and mHdrType is no longer permissible coz of setUserDisabledHdrTypes
+            if (mDisplayManager.getHdrConversionModeSetting().getPreferredHdrOutputType()
+                    == mHdrType) {
+                mDisplayManager.setHdrConversionMode(
+                        new HdrConversionMode(HdrConversionMode.HDR_CONVERSION_SYSTEM));
+            }
         }
-        mDisplayManager.setUserDisabledHdrTypes(toArray(disabledHdrTypes));
+    }
+
+    private void enableDvAndChangeTo1080p60(Display display, SwitchPreference preference) {
+        String dialogDescription =
+                mContext.getString(
+                        R.string.preferred_dynamic_range_force_dialog_desc_4k30_issue);
+        String title =
+                mContext.getString(
+                        R.string.manual_dolby_vision_format_on_4k60_title);
+        OnClickListener onOkClicked = (dialog, which) -> {
+            mDisplayManager.setGlobalUserPreferredDisplayMode(findMode1080p60(display));
+            preference.setChecked(true);
+            enableHdrType(mDisplayManager, HDR_TYPE_DOLBY_VISION);
+            dialog.dismiss();
+
+        };
+        OnClickListener onCancelClicked = (dialog, which) -> {
+            dialog.dismiss();
+            preference.setChecked(false);
+        };
+        createAlertDialog(mContext, title, dialogDescription, onOkClicked, onCancelClicked)
+                .show();
     }
 
     private int[] toArray(Set<Integer> set) {

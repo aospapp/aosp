@@ -29,7 +29,7 @@
 #include "avct_api.h"
 #include "avct_int.h"
 #include "bt_target.h"
-#include "bt_utils.h"
+#include "device/include/device_iot_config.h"
 #include "osi/include/allocator.h"
 #include "osi/include/osi.h"
 #include "types/raw_address.h"
@@ -172,6 +172,10 @@ void avct_lcb_event(tAVCT_LCB* p_lcb, uint8_t event, tAVCT_LCB_EVT* p_data) {
 
   /* look up the state table for the current state */
   state_table = avct_lcb_st_tbl[p_lcb->state];
+
+  if (p_lcb->state == AVCT_LCB_IDLE_ST && event == AVCT_LCB_LL_OPEN_EVT)
+    DEVICE_IOT_CONFIG_ADDR_INT_ADD_ONE(p_lcb->peer_addr,
+                                       IOT_CONF_KEY_AVRCP_CONN_COUNT);
 
   /* set next state */
   p_lcb->state = state_table[event][AVCT_LCB_NEXT_STATE];

@@ -86,4 +86,11 @@ public class NsdShimImpl implements NsdShim {
             throws UnsupportedApiLevelException {
         throw new UnsupportedApiLevelException("Resolve with executor is only supported on T+");
     }
+
+    @Override
+    public void stopServiceResolution(@NonNull NsdManager nsdManager,
+            @NonNull NsdManager.ResolveListener resolveListener)
+            throws UnsupportedApiLevelException {
+        throw new UnsupportedApiLevelException("Stop service resolution is only supported on U+");
+    }
 }

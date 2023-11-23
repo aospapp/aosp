@@ -83,6 +83,12 @@ public final class SystemPowerControlHelperTest extends AbstractExtendedMockitoT
                 "freeze mem standby disk", true);
 
         testHelperMockedFileRead(SystemPowerControlHelper::isSystemSupportingDeepSleep,
+                "freeze standby disk mem\n", true);
+
+        testHelperMockedFileRead(SystemPowerControlHelper::isSystemSupportingDeepSleep,
+                "freeze standby disk mem ", true);
+
+        testHelperMockedFileRead(SystemPowerControlHelper::isSystemSupportingDeepSleep,
                 SystemPowerControlHelper.SUSPEND_TYPE_MEM, true);
 
         testHelperMockedFileRead(SystemPowerControlHelper::isSystemSupportingDeepSleep,
@@ -96,6 +102,12 @@ public final class SystemPowerControlHelperTest extends AbstractExtendedMockitoT
     public void testIsSystemSupportingHibernation() throws Exception {
         testHelperMockedFileRead(SystemPowerControlHelper::isSystemSupportingHibernation,
                 "freeze mem standby disk", true);
+
+        testHelperMockedFileRead(SystemPowerControlHelper::isSystemSupportingHibernation,
+                "freeze mem standby disk\n", true);
+
+        testHelperMockedFileRead(SystemPowerControlHelper::isSystemSupportingHibernation,
+                "freeze mem standby disk ", true);
 
         testHelperMockedFileRead(SystemPowerControlHelper::isSystemSupportingHibernation,
                 SystemPowerControlHelper.SUSPEND_TYPE_DISK, true);

@@ -18,6 +18,7 @@ package android.app.appsearch;
 
 import android.annotation.NonNull;
 import android.annotation.Nullable;
+import android.app.appsearch.annotation.CanIgnoreReturnValue;
 import android.util.ArraySet;
 
 import java.util.Set;
@@ -30,7 +31,9 @@ import java.util.Set;
  */
 public class VisibilityPermissionDocument extends GenericDocument {
 
-    /** The Schema type for documents that hold AppSearch's metadata, e.g. visibility settings. */
+    /**
+     * The Schema type for documents that hold AppSearch's metadata, such as visibility settings.
+     */
     public static final String SCHEMA_TYPE = "VisibilityPermissionType";
 
     /** Property that holds the required permissions to access the schema. */
@@ -73,6 +76,7 @@ public class VisibilityPermissionDocument extends GenericDocument {
         }
 
         /** Sets whether this schema has opted out of platform surfacing. */
+        @CanIgnoreReturnValue
         @NonNull
         public Builder setVisibleToAllRequiredPermissions(
                 @NonNull Set<Integer> allRequiredPermissions) {

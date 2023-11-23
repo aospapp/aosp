@@ -28,6 +28,7 @@
 
 #include <android/multinetwork.h>
 #include <gtest/gtest.h>
+#include <netdutils/NetNativeTestBase.h>
 
 namespace {
 constexpr int MAXPACKET = 8 * 1024;
@@ -101,7 +102,9 @@ void expectAnswersNotValid(int fd, int expectedErrno) {
 
 } // namespace
 
-TEST (NativeDnsAsyncTest, Async_Query) {
+class NativeDnsAsyncTest : public NetNativeTestBase {};
+
+TEST_F(NativeDnsAsyncTest, Async_Query) {
     // V4
     int fd1 = android_res_nquery(
             NETWORK_UNSPECIFIED, "www.google.com", ns_c_in, ns_t_a, 0);
@@ -123,7 +126,7 @@ TEST (NativeDnsAsyncTest, Async_Query) {
     expectAnswersValid(fd1, AF_INET6, ns_r_noerror);
 }
 
-TEST (NativeDnsAsyncTest, Async_Send) {
+TEST_F(NativeDnsAsyncTest, Async_Send) {
     // V4
     uint8_t buf1[MAXPACKET] = {};
     int len1 = res_mkquery(ns_o_query, "www.googleapis.com",
@@ -162,7 +165,7 @@ TEST (NativeDnsAsyncTest, Async_Send) {
     expectAnswersValid(fd1, AF_INET6, ns_r_noerror);
 }
 
-TEST (NativeDnsAsyncTest, Async_NXDOMAIN) {
+TEST_F(NativeDnsAsyncTest, Async_NXDOMAIN) {
     uint8_t buf[MAXPACKET] = {};
     int len = res_mkquery(ns_o_query, "test1-nx.metric.gstatic.com",
             ns_c_in, ns_t_a, nullptr, 0, nullptr, buf, sizeof(buf));
@@ -191,7 +194,7 @@ TEST (NativeDnsAsyncTest, Async_NXDOMAIN) {
     expectAnswersValid(fd1, AF_INET6, ns_r_nxdomain);
 }
 
-TEST (NativeDnsAsyncTest, Async_Cancel) {
+TEST_F(NativeDnsAsyncTest, Async_Cancel) {
     int fd = android_res_nquery(
             NETWORK_UNSPECIFIED, "www.google.com", ns_c_in, ns_t_a, 0);
     errno = 0;
@@ -202,7 +205,7 @@ TEST (NativeDnsAsyncTest, Async_Cancel) {
     // otherwise it will hit fdsan double-close fd.
 }
 
-TEST (NativeDnsAsyncTest, Async_Query_MALFORMED) {
+TEST_F(NativeDnsAsyncTest, Async_Query_MALFORMED) {
     // Empty string to create BLOB and query, we will get empty result and rcode = 0
     // on DNSTLS.
     int fd = android_res_nquery(
@@ -221,7 +224,7 @@ TEST (NativeDnsAsyncTest, Async_Query_MALFORMED) {
     EXPECT_EQ(-EMSGSIZE, fd);
 }
 
-TEST (NativeDnsAsyncTest, Async_Send_MALFORMED) {
+TEST_F(NativeDnsAsyncTest, Async_Send_MALFORMED) {
     uint8_t buf[10] = {};
     // empty BLOB
     int fd = android_res_nsend(NETWORK_UNSPECIFIED, buf, 10, 0);

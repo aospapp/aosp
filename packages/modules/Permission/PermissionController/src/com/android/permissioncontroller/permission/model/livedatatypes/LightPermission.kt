@@ -16,11 +16,12 @@
 
 package com.android.permissioncontroller.permission.model.livedatatypes
 
+import android.content.pm.PackageInfo
 import android.content.pm.PackageManager
 import android.content.pm.PermissionInfo
+import com.android.permissioncontroller.permission.utils.PermissionMapping.isRuntimePlatformPermission
 import com.android.permissioncontroller.permission.utils.SoftRestrictedPermissionPolicy
 import com.android.permissioncontroller.permission.utils.Utils
-import com.android.permissioncontroller.permission.utils.Utils.isRuntimePlatformPermission
 
 /**
  * Represents a single permission, and its state
@@ -71,6 +72,20 @@ data class LightPermission(
     val isOneTime = flags and PackageManager.FLAG_PERMISSION_ONE_TIME != 0
     /** Whether this permission is an instant app permission */
     val isInstantPerm = permInfo.protectionFlags and PermissionInfo.PROTECTION_FLAG_INSTANT != 0
+    /** Whether this permission is implicitly added to the package */
+    val isImplicit: Boolean by lazy {
+        var implicit = false
+        for ((permName, permFlags) in
+        pkgInfo.requestedPermissions.zip(pkgInfo.requestedPermissionsFlags)) {
+            if (permName == permInfo.name &&
+                (permFlags and PackageInfo.REQUESTED_PERMISSION_IMPLICIT) != 0
+            ) {
+                implicit = true
+                break
+            }
+        }
+        implicit
+    }
     /** Whether this permission is a runtime only permission */
     val isRuntimeOnly =
         permInfo.protectionFlags and PermissionInfo.PROTECTION_FLAG_RUNTIME_ONLY != 0

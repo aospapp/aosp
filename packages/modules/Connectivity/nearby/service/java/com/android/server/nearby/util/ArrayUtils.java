@@ -45,4 +45,11 @@ public class ArrayUtils {
         }
         return result;
     }
+
+    /**
+     * @return true when the array is null or length is 0
+     */
+    public static boolean isEmpty(byte[] bytes) {
+        return bytes == null || bytes.length == 0;
+    }
 }

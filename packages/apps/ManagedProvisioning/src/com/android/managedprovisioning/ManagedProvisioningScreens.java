@@ -23,6 +23,7 @@ public enum ManagedProvisioningScreens {
     PROVISIONING,
     ADMIN_INTEGRATED_PREPARE,
     RESET_AND_RETURN_DEVICE,
+    RESET_DEVICE,
     WEB,
     ENCRYPT,
     POST_ENCRYPT,

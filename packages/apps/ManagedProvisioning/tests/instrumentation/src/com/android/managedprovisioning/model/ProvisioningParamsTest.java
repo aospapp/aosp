@@ -75,7 +75,7 @@ public class ProvisioningParamsTest extends AndroidTestCase {
     private static final boolean TEST_USE_MOBILE_DATA = true;
 
     // Wifi info
-    private static final String TEST_SSID = "TestWifi";
+    private static final String TEST_SSID = "\"TestWifi\"";
     private static final boolean TEST_HIDDEN = true;
     private static final String TEST_SECURITY_TYPE = "WPA2";
     private static final String TEST_PASSWORD = "GoogleRock";
@@ -506,40 +506,6 @@ public class ProvisioningParamsTest extends AndroidTestCase {
                         .build();
 
         assertThat(provisioningParams.allowProvisioningAfterUserSetupComplete).isFalse();
-    }
-
-    @SmallTest
-    public void testKeepScreenOn_notSet_isFalse() {
-        ProvisioningParams params = createDefaultProvisioningParamsBuilder()
-                .build();
-
-        assertThat(params.keepScreenOn).isFalse();
-    }
-
-    @SmallTest
-    public void testKeepScreenOn_setTrue_isTrue() {
-        ProvisioningParams params = createDefaultProvisioningParamsBuilder()
-                .setKeepScreenOn(true)
-                .build();
-
-        assertThat(params.keepScreenOn).isTrue();
-    }
-
-    @SmallTest
-    public void testKeepScreenOn_setFalse_isFalse() {
-        ProvisioningParams params = createDefaultProvisioningParamsBuilder()
-                .setKeepScreenOn(false)
-                .build();
-
-        assertThat(params.keepScreenOn).isFalse();
-    }
-
-    @SmallTest
-    public void testAllowOffline_notSet_isFalse() {
-        ProvisioningParams params = createDefaultProvisioningParamsBuilder()
-                .build();
-
-        assertThat(params.allowOffline).isFalse();
     }
 
     @SmallTest

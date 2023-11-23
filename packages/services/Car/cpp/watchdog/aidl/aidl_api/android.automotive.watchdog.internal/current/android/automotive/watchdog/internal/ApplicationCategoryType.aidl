@@ -34,7 +34,7 @@
 package android.automotive.watchdog.internal;
 @Backing(type="int")
 enum ApplicationCategoryType {
-  OTHERS = 0,
-  MAPS = 1,
-  MEDIA = 2,
+  OTHERS,
+  MAPS,
+  MEDIA,
 }

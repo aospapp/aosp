@@ -31,6 +31,8 @@
     <string name="enabled" msgid="5127188665060746381">"Aktif"</string>
     <string name="disabled" msgid="4589065923272201387">"Nonaktif"</string>
     <string name="unavailable" msgid="1610732303812180196">"Tidak tersedia"</string>
+    <string name="allow" msgid="6982558814345894019">"Izinkan"</string>
+    <string name="deny" msgid="8291577308813053917">"Tolak"</string>
     <string name="header_category_suggestions" msgid="106077820663753645">"Saran"</string>
     <string name="header_category_quick_settings" msgid="3785334008768367890">"Setelan Cepat"</string>
     <string name="header_category_general_settings" msgid="3897615781153506434">"Setelan Umum"</string>
@@ -51,6 +53,7 @@
     <string name="sound_category_title" msgid="7899816751041939518">"Suara"</string>
     <string name="applications_category_title" msgid="7112019490898586223">"Aplikasi"</string>
     <string name="device_pref_category_title" msgid="8292572846154873762">"Preferensi Perangkat"</string>
+    <string name="accessibility_category_title" msgid="1552664829936369592">"Aksesibilitas"</string>
     <string name="remotes_and_accessories_category_title" msgid="4795119810430255047">"Remote &amp; aksesori"</string>
     <string name="display_and_sound_category_title" msgid="9203309625380755860">"Tampilan &amp; Suara"</string>
     <string name="help_and_feedback_category_title" msgid="7036505833991003031">"Bantuan &amp; Masukan"</string>
@@ -109,7 +112,8 @@
     <string name="device_backup_restore" msgid="3634531946308269398">"Pencadangan &amp; Pemulihan"</string>
     <string name="device_factory_reset" msgid="1110189450013225971">"Reset ke setelan pabrik"</string>
     <string name="device_calibration" msgid="2907914144048739705">"Kalibrasi"</string>
-    <string name="device_energy_saver" msgid="1105023232841036991">"Penghemat energi"</string>
+    <string name="device_energy_saver" msgid="6611757996220443028">"Timer untuk Mematikan TV"</string>
+    <string name="device_energy_saver_summary" msgid="5306058475316008429">"Atur timer untuk mematikan TV dan menghemat energi"</string>
     <string name="overlay_internal_slice_title" msgid="6427352417573831625"></string>
     <string name="device_fastpair" msgid="1235240814051277047">"Perangkat"</string>
     <string name="surround_sound_select_formats" msgid="6070283650131226239">"Pilih format"</string>
@@ -118,7 +122,7 @@
     <string name="surround_sound_format_e_ac3" msgid="6923129088903887242">"Dolby Digital Plus"</string>
     <string name="surround_sound_format_dts" msgid="8331816247117135587">"DTS"</string>
     <string name="surround_sound_format_dts_hd" msgid="4268947520371740146">"DTS-HD"</string>
-    <string name="surround_sound_format_dts_uhd" msgid="2844983210044263719">"DTS-UHD"</string>
+    <string name="surround_sound_format_dts_uhd" msgid="4340749818133578788">"DTS:X"</string>
     <string name="surround_sound_format_dolby_mat" msgid="3029804841912462928">"Dolby Atmos dengan Dolby TrueHD"</string>
     <string name="surround_sound_format_dolby_truehd" msgid="5113046743572967088">"Dolby TrueHD"</string>
     <string name="surround_sound_format_e_ac3_joc" msgid="3360344066462262996">"Dolby Atmos dengan Dolby Digital Plus"</string>
@@ -147,11 +151,39 @@
     <string name="hdmi_cec_settings_title" msgid="7120729705063868627">"HDMI-CEC"</string>
     <string name="advanced_sound_settings_title" msgid="319921303039469139">"Setelan suara lanjutan"</string>
     <string name="game_mode_title" msgid="7280816243531315755">"Izinkan mode game"</string>
+    <string name="match_content_dynamic_range_title" msgid="2794980556561655838">"Sesuaikan rentang dinamis konten"</string>
+    <string name="match_content_dynamic_range_summary" msgid="2255683926227355398">"Saat mengaktifkan opsi ini, sistem akan beralih antara format rentang dinamis yang berbeda untuk menyesuaikan konten. Hal ini dapat menyebabkan layar hitam selama peralihan format.\n\nKlik setelan Tampilan Lanjutan untuk melihat opsi rentang dinamis lainnya."</string>
+    <string name="preferred_dynamic_range_title" msgid="5064883672337010588">"Rentang dinamis pilihan"</string>
+    <string name="preferred_dynamic_range_selection_system_title" msgid="4505030483876080996">"Konversi pilihan sistem"</string>
+    <string name="preferred_dynamic_range_selection_system_desc" msgid="5712920601553613576">"Memungkinkan sistem mengelola konversi format"</string>
+    <string name="preferred_dynamic_range_selection_system_summary" msgid="4509062596428781094">"Saat opsi ini dipilih, sistem akan menentukan rentang dinamis yang sesuai untuk ditampilkan di layar Anda dan mengonversi konten ke rentang dinamis ini sesuai kebutuhan."</string>
+    <string name="preferred_dynamic_range_selection_passthrough_desc" msgid="4831260397179583737">"Selalu sesuaikan format konten"</string>
+    <string name="preferred_dynamic_range_selection_force_title" msgid="4448836594133973103">"Paksa konversi"</string>
+    <string name="preferred_dynamic_range_selection_force_desc" msgid="1418542349290684513">"Memaksa konversi ke format pilihan"</string>
+    <string name="preferred_dynamic_range_selection_force_summary" msgid="8381058061765216239">"Paksa konversi ke format pilihan. Memaksa konversi dapat memengaruhi setelan lain di Mode Tampilan atau Format HDR."</string>
+    <string name="preferred_dynamic_range_selection_force_sdr_title" msgid="3135104063034317252">"Selalu konversi ke SDR"</string>
+    <string name="preferred_dynamic_range_selection_force_hdr_title" msgid="1032587815433139859">"Selalu konversi ke <xliff:g id="HDR_TYPE">%s</xliff:g>"</string>
+    <string name="preferred_dynamic_range_force_dialog_title" msgid="6865110024863661702">"Ingin memaksa output HDR?"</string>
+    <string name="preferred_dynamic_range_force_dialog_desc" msgid="7758323258282201656">"Secara default, konversi akan dipaksa ke <xliff:g id="HDR_TYPE">%s</xliff:g>."</string>
+    <string name="preferred_dynamic_range_force_dialog_desc_4k30_issue" msgid="4938418395391206131">"Layar Anda akan berjalan pada resolusi 1080p 60 Hz. Opsi ini tidak kompatibel dengan layar Anda saat berjalan pada resolusi 4k 60 Hz."</string>
+    <string name="selection_dolby_vision_not_supported_sidebar" msgid="8994591316574824115">"Dolby Vision tidak didukung pada resolusi saat ini. Jika Anda mengaktifkan Dolby Vision secara manual, resolusi layar akan diubah menjadi 1080p 60Hz"</string>
+    <string name="manual_dolby_vision_format_on_4k60_title" msgid="4172263676512376500">"Ubah resolusi menjadi 1080p 60Hz?"</string>
+    <string name="dynamic_range_selection_force_dv_title" msgid="8070148109262327094">"Selalu paksa konversi ke Dolby Vision"</string>
+    <string name="dynamic_range_selection_force_dv_summary" msgid="1052851029985095562">"Jika Dolby Vision dinonaktifkan dalam Format HDR di Setelan Tampilan Lanjutan, memaksa konversi ke Dolby Vision akan mengaktifkannya lagi."</string>
+    <string name="dynamic_range_selection_force_hdr10_title" msgid="1221688206945051384">"Selalu paksa konversi ke HDR10"</string>
+    <string name="dynamic_range_selection_force_hdr10_summary" msgid="7784573527636502784">"Jika HDR10 dinonaktifkan dalam Format HDR di Setelan Tampilan Lanjutan, memaksa konversi ke HDR10 akan mengaktifkannya lagi."</string>
+    <string name="dynamic_range_selection_force_hlg_title" msgid="3976190987768712696">"Selalu paksa konversi ke HLG"</string>
+    <string name="dynamic_range_selection_force_hlg_summary" msgid="5371949016689544001">"Jika HLG dinonaktifkan dalam Format HDR di Setelan Tampilan Lanjutan, memaksa konversi ke HLG akan mengaktifkannya lagi."</string>
+    <string name="dynamic_range_selection_force_hdr10plus_title" msgid="1305556000063625735">"Selalu paksa konversi ke HDR10+"</string>
+    <string name="dynamic_range_selection_force_hdr10plus_summary" msgid="918038386222537401">"Jika HDR10+ dinonaktifkan dalam Format HDR di Setelan Tampilan Lanjutan, memaksa konversi ke HDR10+ akan mengaktifkannya lagi."</string>
+    <string name="dynamic_range_selection_force_sdr_title" msgid="1063579223517652945">"Selalu paksa konversi ke SDR"</string>
+    <string name="dynamic_range_selection_force_sdr_summary" msgid="2874771365465898941">"Memaksa konversi ke SDR akan menonaktifkan semua format dalam Format HDR di Setelan Tampilan Lanjutan."</string>
     <string name="match_content_frame_rate_title" msgid="153291168560947689">"Sesuaikan kecepatan frame konten"</string>
-    <string name="match_content_frame_rate_seamless" msgid="5900012519258795448">"Lancar"</string>
+    <string name="match_content_frame_rate_seamless" msgid="5577846750811067585">"Transisi yang Lancar"</string>
     <string name="match_content_frame_rate_seamless_summary" msgid="2737466163964133210">"Jika aplikasi memintanya, perangkat akan mencocokkan outputnya ke kecepatan frame asli konten yang sedang Anda tonton, HANYA jika TV dapat melakukan transisi yang lancar."</string>
-    <string name="match_content_frame_rate_non_seamless" msgid="1534300397118594640">"Tidak lancar"</string>
-    <string name="match_content_frame_rate_non_seamless_summary" msgid="6831699459487130055">"Jika aplikasi memintanya, perangkat akan mencocokkan outputnya ke kecepatan frame asli konten yang sedang Anda tonton. Hal ini dapat menyebabkan layar kosong sebentar saat keluar dari atau masuk ke pemutaran video."</string>
+    <string name="match_content_frame_rate_seamless_not_supported_summary" msgid="98559950465123792">"Layar yang terhubung tidak mendukung transisi kecepatan refresh yang lancar. Opsi ini tidak akan berpengaruh kecuali jika Anda menggunakan layar yang mendukungnya."</string>
+    <string name="match_content_frame_rate_non_seamless" msgid="2702658727234710031">"Selalu"</string>
+    <string name="match_content_frame_rate_non_seamless_summary" msgid="6831699459487130055">"Jika aplikasi memintanya, perangkat akan menyesuaikan outputnya agar cocok dengan kecepatan frame asli dari konten yang sedang Anda tonton. Hal ini dapat membuat layar kosong sebentar saat Anda keluar dari atau masuk ke pemutaran video."</string>
     <string name="match_content_frame_rate_never" msgid="1678354793095148423">"Jangan pernah"</string>
     <string name="match_content_frame_rate_never_summary" msgid="742977618080396095">"Meskipun aplikasi memintanya, perangkat tidak akan mencoba mencocokkan outputnya ke kecepatan frame asli konten yang sedang Anda tonton."</string>
     <string name="font_scale_settings_title" msgid="4114019544800225980">"Penskalaan teks"</string>
@@ -167,6 +199,7 @@
     <string name="hdr_format_selection_manual_desc" msgid="8865649615882146772">"Memilih format secara manual dari format yang tersedia"</string>
     <string name="hdr_format_supported_title" msgid="1458594819224612431">"FORMAT YANG DIDUKUNG"</string>
     <string name="hdr_format_unsupported_title" msgid="715318408107924941">"FORMAT YANG TIDAK DIDUKUNG"</string>
+    <string name="hdr_format_sdr" msgid="7211377112392255102">"SDR"</string>
     <string name="hdr_format_hdr10" msgid="8063543267227491062">"HDR10"</string>
     <string name="hdr_format_hlg" msgid="454510079939620321">"HLG"</string>
     <string name="hdr_format_hdr10plus" msgid="4371652089162162876">"HDR10+"</string>
@@ -182,10 +215,14 @@
     <string name="resolution_selection_title" msgid="2873993320284587853">"Resolusi"</string>
     <string name="resolution_selection_auto_title" msgid="4738671207331027385">"Otomatis"</string>
     <string name="resolution_selection_dialog_title" msgid="4029798035133645272">"Resolusi telah diubah"</string>
+    <string name="resolution_selection_with_mode_dialog_title" msgid="5011192408613100514">"Ubah resolusi ke %1$s?"</string>
     <string name="resolution_selection_dialog_desc" msgid="3667357611495669701">"Pilih Oke untuk menggunakan %1$s mulai sekarang."</string>
+    <string name="resolution_selection_disabled_dolby_vision_dialog_desc" msgid="7952404018654828187">"Dolby Vision tidak didukung di %1$s dan akan dinonaktifkan di \"Setelan Tampilan Lanjutan\""</string>
+    <string name="resolution_hdr_description_info" msgid="2408761621976850238">"Mode ini mendukung: %1$s\nDi beberapa TV, Anda mungkin perlu mengaktifkan HDMI yang Ditingkatkan untuk memungkinkan lebih banyak format HDR. Periksa setelan TV Anda untuk melihat apakah fitur ini didukung."</string>
     <string name="resolution_selection_dialog_cancel" msgid="3683616572317946129">"Batal"</string>
     <string name="resolution_selection_dialog_ok" msgid="3123351228545013492">"Oke"</string>
     <string name="resolution_selection_hz" msgid="4425902505388495637">"Hz"</string>
+    <string name="resolution_display_mode" msgid="6633857172598855480">"<xliff:g id="RESOLUTION">%1$s</xliff:g> (<xliff:g id="REFRESH_RATE">%2$s</xliff:g> Hz)"</string>
     <string name="device_storage_clear_cache_title" msgid="14370154552302965">"Hapus data dalam cache?"</string>
     <string name="device_storage_clear_cache_message" msgid="4352802738505831032">"Ini akan menghapus data cache untuk semua apl."</string>
     <string name="default_audio_output_settings_title" msgid="5441937324539531999"></string>
@@ -257,7 +294,6 @@
     <string name="system_inputs" msgid="5552840337357572096">"Masukan"</string>
     <string name="system_inputs_devices" msgid="2158421111699829399">"Input &amp; Perangkat"</string>
     <string name="system_home_theater_control" msgid="6228949628173590310">"Kontrol teater rumah"</string>
-    <string name="system_accessibility" msgid="3081009195560501010">"Aksesibilitas"</string>
     <string name="system_developer_options" msgid="8480844257066475479">"Opsi developer"</string>
     <string name="accessibility_none" msgid="6355646833528306702">"Tidak ada"</string>
     <string name="system_diagnostic" msgid="1654842813331919958">"Penggunaan &amp; diagnostik"</string>
@@ -307,6 +343,7 @@
     <string name="do_disclosure_generic" msgid="8390478119591845948">"Perangkat ini dikelola oleh organisasi."</string>
     <string name="do_disclosure_with_name" msgid="4755509039938948975">"Perangkat ini dikelola oleh <xliff:g id="ORGANIZATION_NAME">%s</xliff:g> ."</string>
     <string name="do_disclosure_learn_more_separator" msgid="4226390963162716446">" "</string>
+    <string name="hdr_capability" msgid="3331021013422460270">"- %1$s"</string>
     <string name="learn_more" msgid="820336467414665686">"Pelajari lebih lanjut"</string>
     <string name="default_camera_app_title" msgid="4573905807226306484">"{count,plural, =1{Aplikasi kamera}other{Aplikasi kamera}}"</string>
     <string name="default_calendar_app_title" msgid="1533912443930743532">"aplikasi Kalender"</string>
@@ -503,7 +540,7 @@
     <string name="storage_migrate_away" msgid="7880100961434638430">"Pindahkan data ke penyimpanan lainnya"</string>
     <string name="storage_no_apps" msgid="95566375753627272">"Tidak ada aplikasi untuk dicadangkan"</string>
     <string name="storage_forget" msgid="4671975563260507003">"Lupakan penyimpanan perangkat ini"</string>
-    <string name="storage_forget_wall_of_text" msgid="230454348256179142">"Untuk menggunakan aplikasi atau data dalam drive ini, colokkan kembali drive tersebut. Selain itu, Anda dapat memilih untuk melupakan penyimpanan ini jika drive tidak tersedia.\n\nJika Anda memilih Lupakan, semua data di dalam drive akan hilang selamanya.\n\nAnda dapat memasang aplikasi lagi nanti, namun data yang tersimpan dalam drive ini akan hilang."</string>
+    <string name="storage_forget_wall_of_text" msgid="230454348256179142">"Untuk menggunakan aplikasi atau data dalam drive ini, colokkan kembali drive tersebut. Selain itu, Anda dapat memilih untuk melupakan penyimpanan ini jika drive tidak tersedia.\n\nJika Anda memilih Lupakan, semua data di dalam drive akan hilang selamanya.\n\nAnda dapat menginstal aplikasi lagi nanti, namun data yang tersimpan dalam drive ini akan hilang."</string>
     <string name="storage_device_storage_section" msgid="22958375769694027">"Penyimpanan perangkat"</string>
     <string name="storage_removable_storage_section" msgid="280332107650735088">"Penyimpanan yang dapat dicopot"</string>
     <string name="storage_reset_section" msgid="3896575204828589494">"Reset"</string>
@@ -590,6 +627,7 @@
     <string name="recently_accessed_show_all" msgid="5234849189704717855">"Lihat semua"</string>
     <string name="microphone" msgid="7893752847683941214">"Mikrofon"</string>
     <string name="mic_toggle_title" msgid="7193417007060235665">"Akses mikrofon"</string>
+    <string name="mic_remote_toggle_title" msgid="7153283895012570080">"Akses mikrofon di remote"</string>
     <string name="open_mic_permissions" msgid="8121871594807641073">"Akses aplikasi ke mikrofon"</string>
     <string name="microphone_physical_privacy_enabled_title" msgid="6135130916399886772">"Akses mikrofon diblokir"</string>
     <string name="microphone_physical_privacy_enabled_text" msgid="401238365312924088">"Untuk berhenti memblokir, alihkan tombol privasi di perangkat ke posisi mikrofon aktif untuk mengizinkan akses mikrofon."</string>
@@ -599,7 +637,11 @@
     <string name="camera_physical_privacy_enabled_title" msgid="1944155695921165511">"Akses kamera diblokir"</string>
     <string name="camera_physical_privacy_enabled_text" msgid="6692088634676282779">"Untuk berhenti memblokir, alihkan tombol privasi di perangkat ke posisi kamera aktif untuk mengizinkan akses kamera."</string>
     <string name="mic_toggle_info_title" msgid="1086545614315873599">"Akses Mikrofon: <xliff:g id="SENSOR_STATE">%s</xliff:g>"</string>
-    <string name="mic_toggle_info_content" msgid="4699624900513326055">"Jika diaktifkan, semua aplikasi dan layanan yang memiliki izin dapat mengakses mikrofon di perangkat ini.\n\nPeriferal audio dengan protokol khusus tidak akan terpengaruh oleh setelan ini."</string>
+    <string name="mic_toggle_info_content" msgid="3187791167208947239">"Jika diaktifkan, semua aplikasi dan layanan yang diizinkan menggunakan mikrofon akan dapat mengaksesnya.\n\nJika dinonaktifkan, tidak ada aplikasi atau layanan yang dapat mengakses mikrofon. Namun, Anda masih dapat berbicara dengan Asisten Google dengan menekan tombol Asisten Google di remote.\n\nPerangkat audio yang menggunakan protokol kustom untuk berkomunikasi dengan TV mungkin tidak terpengaruh dengan setelan ini."</string>
+    <string name="mic_remote_toggle_on_info_title" msgid="8503441878870972046">"Mikrofon diaktifkan di remote"</string>
+    <string name="mic_remote_toggle_on_info_content" msgid="2715872916376493679">"Asisten Google dapat mengakses mikrofon di remote. Anda akan dapat berbicara dengan Asisten dengan menekan tombol Asisten Google di remote."</string>
+    <string name="mic_remote_toggle_off_info_title" msgid="4902909833546393713">"Mikrofon dinonaktifkan di remote"</string>
+    <string name="mic_remote_toggle_off_info_content" msgid="8062526350553191004">"Anda tidak akan dapat berbicara dengan Asisten Google menggunakan remote. Agar dapat menggunakan tombol Asisten Google, aktifkan akses mikrofon."</string>
     <string name="camera_toggle_info_title" msgid="3871317082313736088">"Akses Kamera: <xliff:g id="SENSOR_STATE">%s</xliff:g>"</string>
     <string name="camera_toggle_info_content" msgid="2999965953853204003">"Jika diaktifkan, semua aplikasi dan layanan yang memiliki izin dapat mengakses kamera di perangkat ini.\n\nPeriferal kamera dengan protokol khusus tidak akan terpengaruh oleh setelan ini."</string>
     <string name="sensor_toggle_info_on" msgid="4568111889147132257">"Aktif"</string>
@@ -625,9 +667,34 @@
     <string name="location_history_desc" msgid="926674012916014270">"Saat Histori Lokasi diaktifkan untuk akun ini, Google dapat menyimpan data lokasi perangkat Anda untuk digunakan oleh aplikasi Anda.\n\nMisalnya, Google Maps dapat memberi rute dan Google Now dapat memberi informasi tentang lalu lintas perjalanan.\n\nAnda dapat menonaktifkan Histori Lokasi kapan saja, namun menonaktifkannya tidak akan menghapusnya. Untuk melihat dan mengelola Histori Lokasi Anda, kunjungi maps.google.com/locationhistory."</string>
     <string name="delete_location_history_title" msgid="707559064715633152">"Hapus histori lokasi"</string>
     <string name="delete_location_history_desc" msgid="4035229731487113147">"Tindakan ini akan menghapus semua Histori Lokasi yang tersimpan dari perangkat untuk Akun Google ini. Anda tidak dapat mengurungkan penghapusan. Beberapa aplikasi, termasuk Google Now, akan berhenti bekerja."</string>
-    <string name="system_services" msgid="5754310941186053151">"Layanan"</string>
+    <string name="accessibility_screen_readers_category_title" msgid="7742526514873922018">"Pembaca Layar"</string>
+    <string name="accessibility_display_category_title" msgid="593444602101558017">"Layar"</string>
+    <string name="accessibility_interaction_controls_category_title" msgid="5290687835178852745">"Kontrol Interaksi"</string>
+    <string name="accessibility_audio_and_onscreen_text_category_title" msgid="113841605896486212">"Audio &amp; Teks di Layar"</string>
+    <string name="accessibility_experimental_category_title" msgid="3401773834179170206">"Eksperimental"</string>
+    <string name="accessibility_services_category_title" msgid="8813843874978910442">"Layanan"</string>
     <string name="accessibility_service_settings" msgid="3251334786870932423">"Setelan layanan"</string>
+    <string name="accessibility_screen_reader_flattened_component_name" msgid="6834614827111101213">"com.google.android.marvin.talkback/com.google.android.marvin.talkback.TalkBackService"</string>
     <string name="accessibility_toggle_high_text_contrast_preference_title" msgid="9200419191468995574">"Teks kontras tinggi"</string>
+    <string name="accessibility_toggle_bold_text_preference_title" msgid="3328992531170432669">"Teks tebal"</string>
+    <string name="accessibility_color_correction" msgid="6765093204922184119">"Koreksi warna"</string>
+    <string name="color_correction_usage" msgid="4160611639548748657">"Gunakan koreksi warna"</string>
+    <string name="color_correction_color_mode" msgid="5081377780734779169">"Mode Warna"</string>
+    <string name="color_correction_mode_deuteranomaly" msgid="1513793544554228224">"Deuteranomali"</string>
+    <string name="color_correction_mode_deuteranomaly_summary" msgid="5991561481464520986">"Merah-hijau"</string>
+    <string name="color_correction_mode_protanomaly" msgid="8105793166015115037">"Protanomali"</string>
+    <string name="color_correction_mode_protanomaly_summary" msgid="3247619910784115563">"Merah-hijau"</string>
+    <string name="color_correction_mode_tritanomaly" msgid="757769418392736089">"Tritanomali"</string>
+    <string name="color_correction_mode_tritanomaly_summary" msgid="137712354510881252">"Biru-kuning"</string>
+    <string name="color_correction_mode_grayscale" msgid="2592973844160514484">"Hitam putih"</string>
+    <string name="palette_color_red" msgid="507196433434979086">"Merah"</string>
+    <string name="palette_color_orange" msgid="6209196069366109835">"Oranye"</string>
+    <string name="palette_color_yellow" msgid="298466132578870590">"Kuning"</string>
+    <string name="palette_color_green" msgid="4904783063036825668">"Hijau"</string>
+    <string name="palette_color_cyan" msgid="3212217287628948203">"Sian"</string>
+    <string name="palette_color_blue" msgid="8836682634988540630">"Biru"</string>
+    <string name="palette_color_purple" msgid="2123828754639683555">"Ungu"</string>
+    <string name="palette_color_gray" msgid="4014534773994261194">"Abu-abu"</string>
     <string name="accessibility_shortcut" msgid="5856158637840030531">"Pintasan aksesibilitas"</string>
     <string name="accessibility_shortcut_enable" msgid="6603542432267329986">"Aktifkan pintasan aksesibilitas"</string>
     <string name="accessibility_shortcut_service" msgid="2053250146891420311">"Layanan pintasan"</string>
@@ -670,7 +737,7 @@
     <string name="color_yellow" msgid="3519470952904560404">"Kuning"</string>
     <string name="color_magenta" msgid="2377854703399624607">"Merah keunguan"</string>
     <string name="accessibility_toggle_audio_description_preference_title" msgid="933923296129403548">"Deskripsi audio"</string>
-    <string name="accessibility_audio_description_summary" msgid="2027813223650517036">"Dengarkan deskripsi tentang hal yang sedang terjadi di layar pada film dan acara TV yang didukung"</string>
+    <string name="accessibility_audio_description_summary" msgid="2027813223650517036">"Dengarkan deskripsi tentang hal yang sedang terjadi di layar pada film dan acara TV yang mendukung deskripsi audio"</string>
     <string name="system_accessibility_status" msgid="8504842254080682515">"Aktifkan"</string>
     <string name="system_accessibility_config" msgid="4820879735377962851">"Konfigurasi"</string>
     <string name="system_accessibility_service_on_confirm_title" msgid="4547924421106540376">"Gunakan <xliff:g id="SERVICE">%1$s</xliff:g>?"</string>
@@ -685,8 +752,8 @@
     <string name="system_play_sample" msgid="3934369914309865584">"Mainkan sampel"</string>
     <string name="system_install_voice_data" msgid="8016395777968958673">"Instal data suara"</string>
     <string name="system_general" msgid="687760148454147771">"Umum"</string>
-    <string name="system_debugging" msgid="1576324426385458481">"Debugging"</string>
-    <string name="system_input" msgid="4457152980514604873">"Masukan"</string>
+    <string name="system_debugging" msgid="1576324426385458481">"Proses debug"</string>
+    <string name="system_input" msgid="4457152980514604873">"Input"</string>
     <string name="system_drawing" msgid="5802739024643871942">"Gambar"</string>
     <string name="system_monitoring" msgid="7997260748312620855">"Pemantauan"</string>
     <string name="system_apps" msgid="8481888654606868074">"Aplikasi"</string>
@@ -701,12 +768,12 @@
     <string name="system_always_check" msgid="384870282800221580">"Selalu periksa"</string>
     <string name="system_bt_hci_log" msgid="1891838112637932603">"Pencatatan log HCI Bluetooth"</string>
     <string name="system_email_address" msgid="3725494874473757217">"Alamat email"</string>
-    <string name="system_usb_debugging" msgid="2158285492172755923">"Debugging USB"</string>
+    <string name="system_usb_debugging" msgid="2158285492172755923">"Proses debug USB"</string>
     <string name="system_allow_mock_locations" msgid="2483106887711851466">"Mengizinkan lokasi palsu"</string>
     <string name="system_select_debug_app" msgid="6200987902307533721">"Memilih aplikasi debug"</string>
     <string name="system_wait_for_debugger" msgid="5715878008542589060">"Tunggu debugger"</string>
     <string name="system_verify_apps_over_usb" msgid="7289212844195483932">"Memverifikasi aplikasi melalui USB"</string>
-    <string name="system_desc_verify_apps_over_usb" msgid="7737988681480237094">"Memeriksa perilaku berbahaya pada aplikasi yang terinstal melalui ADB/ADT"</string>
+    <string name="system_desc_verify_apps_over_usb" msgid="7737988681480237094">"Periksa keberadaan perilaku berbahaya di aplikasi yang diinstal melalui ADB/ADT"</string>
     <string name="system_wifi_verbose_logging" msgid="3097788974146704831">"Pencatatan log panjang Wi-Fi"</string>
     <string name="system_desc_wifi_verbose_logging" msgid="3537578245428327314">"Mengaktifkan pencatatan log panjang Wi-Fi"</string>
     <string name="system_show_touches" msgid="8244331695139748286">"Menampilkan sentuhan"</string>
@@ -715,7 +782,7 @@
     <string name="system_show_gpu_view_updates" msgid="1625918928089365222">"Menampilkan pembaruan tampilan GPU"</string>
     <string name="system_show_hardware_layer" msgid="5833664339844452290">"Menampilkan lapisan hardware"</string>
     <string name="system_show_gpu_overdraw" msgid="5073007513540516704">"Menampilkan kelebihan GPU"</string>
-    <string name="system_show_surface_updates" msgid="7680759813613585278">"Menampilkan pembaruan permukaan"</string>
+    <string name="system_show_surface_updates" msgid="7680759813613585278">"Tampilkan pembaruan permukaan"</string>
     <string name="system_window_animation_scale" msgid="685477540250939659">"Skala animasi jendela"</string>
     <string name="system_transition_animation_scale" msgid="7266380208347453619">"Skala animasi transisi"</string>
     <string name="system_animator_duration_scale" msgid="3829445237130423625">"Skala durasi animator"</string>
@@ -723,7 +790,7 @@
     <string name="system_profile_gpu_rendering" msgid="1113416260742329348">"Rendering GPU profil"</string>
     <string name="system_enable_traces" msgid="108745519968154528">"Mengaktifkan jejak"</string>
     <string name="system_dont_keep_activities" msgid="4641165963339846161">"Jangan simpan kegiatan"</string>
-    <string name="system_background_process_limit" msgid="1985373407150771045">"Batas proses latar belakang"</string>
+    <string name="system_background_process_limit" msgid="1985373407150771045">"Batas proses di belakang"</string>
     <string name="system_show_all_anrs" msgid="5353216640638263217">"Menampilkan semua ANR"</string>
     <string name="system_desc_stay_awake" msgid="8485868071929937500">"Menonaktifkan mode tidur"</string>
     <string name="system_desc_hdcp_checking" msgid="1664068008848077241">"Digunakan untuk konten DRM saja"</string>
@@ -731,12 +798,12 @@
     <string name="system_desc_bt_hci_log" msgid="2592649923221658103">"Aktifkan pencatatan log pengintaian HCI Bluetooth"</string>
     <string name="system_desc_usb_debugging" msgid="5672275208185222785">"Mode debug ketika USB terhubung"</string>
     <string name="system_desc_wait_for_debugger" msgid="7213496668606417691">"Aplikasi yang di-debug menunggu debugger menempel sebelum berjalan"</string>
-    <string name="system_desc_show_layout_bounds" msgid="5275008598296135852">"Menampilkan batas klip, margin, dll."</string>
+    <string name="system_desc_show_layout_bounds" msgid="5275008598296135852">"Tampilkan batas klip, margin, dll."</string>
     <string name="system_desc_show_gpu_view_updates" msgid="9088343415389734854">"Mengedipkan tampilan dalam jendela saat digambar dengan GPU"</string>
-    <string name="system_desc_show_hardware_layer" msgid="3483713991865249527">"Lapisan hardware berkedip hijau saat memperbarui"</string>
+    <string name="system_desc_show_hardware_layer" msgid="3483713991865249527">"Buat lapisan hardware berkedip hijau saat update"</string>
     <string name="system_desc_show_gpu_overdraw" msgid="74019834911598588">"Terbaik-terburuk: biru, hijau, merah terang, merah"</string>
-    <string name="system_desc_show_surface_updates" msgid="4018685547515133353">"Mengedipkan seluruh permukaan jendela saat memperbarui"</string>
-    <string name="system_desc_strict_mode_enabled" msgid="1974896408481676324">"Layar berkedip saat apl berjalan lama di utas utama"</string>
+    <string name="system_desc_show_surface_updates" msgid="4018685547515133353">"Buat seluruh permukaan jendela berkedip saat diperbarui"</string>
+    <string name="system_desc_strict_mode_enabled" msgid="1974896408481676324">"Buat layar berkedip saat aplikasi berjalan lama di thread utama"</string>
     <string name="system_desc_profile_gpu_rendering" msgid="1594070211030991">"Mengukur waktu rendering di adb shell dumpsys gfxinfo"</string>
     <string name="security_unknown_sources_title" msgid="2012801664240314305">"Sumber tidak dikenal"</string>
     <string name="security_unknown_sources_desc" msgid="7196715598352173267">"Izinkan penginstalan aplikasi dari sumber selain Google Play Store"</string>
@@ -855,7 +922,7 @@
     <string name="device_apps_app_management_force_stop_desc" msgid="1980972142863114899">"Jika Anda menghentikan aplikasi secara paksa, mungkin fungsinya akan terganggu."</string>
     <string name="device_apps_app_management_uninstall" msgid="4171103696233332967">"Uninstal"</string>
     <string name="device_apps_app_management_uninstall_updates" msgid="5647988075828648951">"Uninstal pembaruan"</string>
-    <string name="device_apps_app_management_uninstall_updates_desc" msgid="4508586498292236706">"Semua pembaruan untuk aplikasi sistem Android ini akan dicopot pemasangannya."</string>
+    <string name="device_apps_app_management_uninstall_updates_desc" msgid="4508586498292236706">"Semua update untuk aplikasi sistem Android ini akan di-uninstal."</string>
     <string name="device_apps_app_management_disable" msgid="819003297535493633">"Nonaktifkan"</string>
     <string name="device_apps_app_management_disable_desc" msgid="9143166267511427607">"Ingin menonaktifkan aplikasi ini?"</string>
     <string name="device_apps_app_management_enable" msgid="9173340340253029114">"Aktifkan"</string>
@@ -885,17 +952,29 @@
     <string name="device_daydreams_sleep_description" msgid="6237610484915504587">"Screen saver dimulai setelah periode tidak aktif ini. Jika tidak ada screen saver yang dipilih, layar akan dimatikan."</string>
     <string name="device_daydreams_sleep_summary" msgid="3081688734381995693">"Setelah tidak aktif selama <xliff:g id="SLEEP_DESCRIPTION">%1$s</xliff:g>"</string>
     <string name="device_energy_saver_screen_off" msgid="6908468996426629480">"Matikan layar"</string>
-    <string name="device_energy_saver_screen_off_description" msgid="4469679706899396071">"Setelah <xliff:g id="SLEEP_DESCRIPTION">%1$s</xliff:g>"</string>
-    <string name="device_energy_saver_screen_off_dialog_title" msgid="4092476553760123309">"Matikan layar setelah"</string>
-    <string name="device_energy_saver_allow_turning_screen_off" msgid="3832490233158066073">"Izinkan mematikan layar"</string>
-    <string name="device_energy_saver_allow_turning_screen_off_description" msgid="6369746832941270786">"Selama pemutaran media"</string>
-    <string name="device_energy_saver_confirmation_title" msgid="3888708298070409591">"Konfirmasi setelan Penghemat Energi"</string>
-    <string name="device_energy_saver_confirmation_text" msgid="3157546670441493125">"Konfirmasi setelan baru ke <xliff:g id="SLEEP_TIME">%1$s</xliff:g>, yang memiliki potensi peningkatan penggunaan energi."</string>
+    <!-- no translation found for device_energy_saver_timeout_description (3206609135199137514) -->
+    <skip />
+    <string name="device_energy_saver_confirmation_title" msgid="7614859812773584773">"Konfirmasi setelan Daya &amp; Energi"</string>
+    <string name="device_energy_saver_confirmation_message" msgid="7789453187001013951">"Membiarkan TV tetap menyala dalam waktu lama dapat meningkatkan penggunaan energi"</string>
+    <string name="device_energy_saver_disable_allow_turning_screen_off_title" msgid="1468097048101593731">"Nonaktifkan setelan penghemat energi"</string>
+    <string name="device_energy_saver_disable_allow_turning_screen_off_text" msgid="6334963903866002164">"Konfirmasi untuk mencegah layar dinonaktifkan saat menonton, yang berpotensi meningkatkan penggunaan energi."</string>
+    <string name="device_energy_saver_sleep_timeout" msgid="1841900768718452039">"Saat tidak aktif"</string>
+    <string name="device_energy_saver_attentive_timeout" msgid="3649486668821348087">"Saat menonton"</string>
+    <string name="device_energy_saver_category_title" msgid="170076161677525986">"Nonaktifkan otomatis"</string>
+    <string name="device_energy_saver_sleep_timeout_dialog_title" msgid="6588352532253294558">"Nonaktifkan otomatis saat tidak aktif"</string>
+    <string name="device_energy_saver_attentive_timeout_dialog_title" msgid="3273988875711109352">"Nonaktifkan otomatis saat menonton"</string>
+    <string name="device_energy_saver_validation_sleep" msgid="7490897287741107840">"Timer \"Saat tidak aktif\" harus lebih singkat daripada timer \"Saat menonton\""</string>
+    <string name="device_energy_saver_validation_attentive" msgid="1461105528087097435">"Timer \"Saat menonton\" harus lebih lama daripada timer \"Saat tidak aktif\""</string>
+    <string name="limit_network_in_standby_toggle_title" msgid="6587185599397355336">"Batasi koneksi jaringan di mode standby"</string>
+    <string name="limit_network_in_standby_toggle_summary" msgid="9127792748675581174">"Menggunakan lebih sedikit energi dalam mode standby"</string>
+    <string name="limit_network_in_standby_toggle_info" msgid="566947772381093991">"TV akan diputus dari jaringan saat dalam mode standby, kecuali untuk menerima update otomatis. Hal ini dapat meningkatkan penggunaan energi TV. Selain itu, Anda mungkin tidak dapat menggunakan fungsi seperti Cast dan Asisten Google saat dalam mode standby."</string>
+    <string name="limit_network_in_standby_confirm_title" msgid="789232987058850322">"Izinkan koneksi jaringan dalam mode standby"</string>
+    <string name="limit_network_in_standby_confirm_message" msgid="7176699480768019689">"Mengizinkan koneksi jaringan dalam mode standby akan meningkatkan penggunaan energi saat standby."</string>
     <string name="backup_configure_account_default_summary" msgid="2170733614341544296">"Saat ini tidak ada akun yang menyimpan data cadangan"</string>
     <string name="backup_erase_dialog_title" msgid="6008454053276987100"></string>
     <string name="backup_erase_dialog_message" msgid="222169533402624861">"Berhenti mencadangkan sandi Wi-Fi, bookmark, setelan lainnya, dan data aplikasi, serta hapus semua salinan di server Google?"</string>
     <string name="privacy_backup_data" msgid="3604057980102997914">"Cadangkan data saya"</string>
-    <string name="privacy_backup_account" msgid="4527813051841860610">"Akun cadangan"</string>
+    <string name="privacy_backup_account" msgid="4527813051841860610">"Akun pencadangan"</string>
     <string name="privacy_automatic_restore" msgid="7117805818589418118">"Pemulihan otomatis"</string>
     <string name="factory_reset_device" msgid="6509900821515094361">"Reset perangkat"</string>
     <string name="factory_reset_description" msgid="6697396335158766785">"Tindakan ini akan memulihkan perangkat ke setelan default dan menghapus semua data, akun, file, dan aplikasi yang didownload."</string>
@@ -964,7 +1043,7 @@
     <string name="picture_in_picture_empty_text" msgid="4370198922852736600">"Tidak ada aplikasi terinstal yang mendukung Picture-in-picture"</string>
     <string name="picture_in_picture_app_detail_summary" msgid="3296649114939705896">"Mengizinkan aplikasi membuat jendela picture-in-picture saat aplikasi terbuka atau setelah Anda membiarkannya terbuka (misalnya, untuk melanjutkan aktivitas menonton video). Jendela ini ditampilkan di atas aplikasi lain yang sedang digunakan."</string>
     <string name="alarms_and_reminders_description" msgid="4063972350154624500">"Izinkan aplikasi menyetel alarm dan menjadwalkan tindakan berjangka waktu. Hal ini memungkinkan aplikasi berjalan di latar belakang, yang dapat menggunakan lebih banyak daya.\n\nJika izin ini nonaktif, alarm dan acara berbasis waktu yang dijadwalkan oleh aplikasi tidak akan berfungsi."</string>
-    <string name="turn_screen_on_title" msgid="5293798529284629011">"Aktifkan layar"</string>
+    <string name="turn_screen_on_title" msgid="5293798529284629011">"Pengaktifan layar"</string>
     <string name="allow_turn_screen_on" msgid="4903401106871656521">"Izinkan pengaktifan layar"</string>
     <string name="allow_turn_screen_on_description" msgid="7521761625343889415">"Mengizinkan aplikasi mengaktifkan layar. Jika diizinkan, aplikasi dapat mengaktifkan layar kapan saja tanpa izin eksplisit dari Anda."</string>
     <string name="special_access" msgid="21806055758289916">"Akses aplikasi khusus"</string>
@@ -978,12 +1057,17 @@
     <string name="time_to_start_read_title" msgid="6565449163802837806">"Waktu untuk mulai membaca"</string>
     <string name="time_to_valid_audio_title" msgid="7246101824813414348">"Waktu untuk data audio yang valid"</string>
     <string name="empty_audio_duration_title" msgid="9024377320171450683">"Durasi audio kosong"</string>
+    <string name="record_audio_source_title" msgid="9087784503276397929">"Sumber audio yang direkam"</string>
+    <string name="record_audio_source_dialog_title" msgid="6556408220589197097">"Pilih sumber audio untuk rekaman berikutnya"</string>
+    <string name="recorded_microphones_title" msgid="5466988146086215426">"Mikrofon yang direkam"</string>
     <string name="show_audio_recording_start_failed" msgid="9131762831381326605">"Gagal memulai perekaman audio."</string>
     <string name="show_audio_recording_failed" msgid="8128216664039868681">"Perekaman audio gagal."</string>
     <string name="title_data_saver" msgid="7500278996154002792">"Penghemat Data"</string>
     <string name="summary_data_saver" msgid="6793558728898207405">"Otomatis menyesuaikan kualitas video agar menggunakan lebih sedikit data seluler"</string>
     <string name="title_data_alert" msgid="8262081890052682475">"Penggunaan data dan notifikasi"</string>
     <string name="data_saver_header_info" msgid="2706725187498535785">"Anda dapat terhubung ke internet menggunakan Wi-Fi, Ethernet, atau hotspot ponsel Anda."</string>
+    <string name="bluetooth_ask_discovery_title" msgid="4955540555242269694">"Tampilkan untuk perangkat Bluetooth lain?"</string>
+    <string name="bluetooth_ask_discovery_message" msgid="8609666862877703398">"Aplikasi ingin menampilkan TV Anda untuk perangkat Bluetooth lain selama <xliff:g id="TIMEOUT">%1$d</xliff:g> detik."</string>
     <string name="help_center_title" msgid="6109822142761302433"></string>
     <string name="disabled_by_policy_title" msgid="2220484346213756472">"Tindakan tidak diizinkan"</string>
     <string name="disabled_by_policy_title_adjust_volume" msgid="4229779946666263271">"Volume tidak dapat diubah"</string>
@@ -1018,7 +1102,7 @@
     <string name="network_connection_request_dialog_title" msgid="4103963119407212989">"Perangkat yang digunakan dengan <xliff:g id="APPNAME">%1$s</xliff:g>"</string>
     <string name="network_connection_timeout_dialog_message" msgid="8408857135950230472">"Perangkat tidak ditemukan. Pastikan perangkat diaktifkan dan dapat terhubung ke jaringan."</string>
     <string name="network_connection_timeout_dialog_ok" msgid="5374522862360880609">"Coba lagi"</string>
-    <string name="network_connection_errorstate_dialog_message" msgid="3346121178275518630">"Ada masalah. Aplikasi telah membatalkan permintaan untuk memilih perangkat."</string>
+    <string name="network_connection_errorstate_dialog_message" msgid="3346121178275518630">"Terjadi error. Aplikasi telah membatalkan permintaan untuk memilih perangkat."</string>
     <string name="network_connection_connect_successful" msgid="2981223044343511313">"Koneksi berhasil"</string>
     <string name="network_connection_request_dialog_showall" msgid="2653775399674126208">"Tampilkan semua"</string>
     <string name="progress_scanning" msgid="3323638586482686516">"Menelusuri"</string>
@@ -1034,4 +1118,9 @@
     <string name="power_on_behavior" msgid="927607372303160716">"Tampilan saat menyala"</string>
     <string name="reset_options_title" msgid="7632580482285108955">"Reset"</string>
     <string name="adb_pairing_device_dialog_ethernet_pairing_code_label" msgid="7551782499828944838">"Kode penyambungan ethernet"</string>
+    <string name="energy_modes" msgid="1331693860386361744">"Mode Energi"</string>
+    <string name="energy_modes_summary" msgid="7196407759836930799">"Tingkatkan efisiensi energi saat TV sedang tidak digunakan"</string>
+    <string name="energy_mode_enables" msgid="357960364751477627">"Mengaktifkan:"</string>
+    <string name="energy_mode_eco_hint" msgid="1461517905015359947">"Perhatikan bahwa mode ini dapat meningkatkan konsumsi energi perangkat."</string>
+    <string name="energy_modes_confirmation_title" msgid="4520280098781914825">"Aktifkan \"<xliff:g id="ENERGYMODENAME">%s</xliff:g>\""</string>
 </resources>

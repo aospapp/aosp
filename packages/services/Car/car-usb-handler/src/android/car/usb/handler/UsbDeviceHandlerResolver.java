@@ -110,7 +110,7 @@ public final class UsbDeviceHandlerResolver {
     public interface StartAoapFailureListener {
 
         /** Called if startAoap fails. */
-        void onFailure();
+        void onFailure(UsbDevice failedDevice);
     }
 
     /**
@@ -151,7 +151,7 @@ public final class UsbDeviceHandlerResolver {
                                 requestAoapSwitch(device, filter);
                             } catch (IOException e) {
                                 Log.w(TAG, "Start AOAP command failed:" + e);
-                                failureListener.onFailure();
+                                failureListener.onFailure(device);
                             }
                         } else {
                             Log.i(TAG, "Ignore AOAP switch for device " + device
@@ -243,7 +243,12 @@ public final class UsbDeviceHandlerResolver {
 
     private String getHashed(String serial) {
         try {
-            return MessageDigest.getInstance("MD5").digest(serial.getBytes()).toString();
+            byte[] digest = MessageDigest.getInstance("MD5").digest(serial.getBytes());
+            StringBuilder sb = new StringBuilder(digest.length * 2);
+            for (byte b : digest) {
+                sb.append(String.format("%02x", b));
+            }
+            return sb.toString();
         } catch (NoSuchAlgorithmException e) {
             Log.w(TAG, "could not create MD5 for serial number: " + serial);
             return Integer.toString(serial.hashCode());

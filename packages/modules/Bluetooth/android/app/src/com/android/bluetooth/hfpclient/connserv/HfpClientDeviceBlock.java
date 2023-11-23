@@ -56,7 +56,7 @@ public class HfpClientDeviceBlock {
         mDevice = device;
         mConnServ = connServ;
         mServiceInterface = serviceInterface;
-        mTAG = "HfpClientDeviceBlock." + mDevice.getAddress();
+        mTAG = "HfpClientDeviceBlock." + mDevice;
         mPhoneAccount = mConnServ.createAccount(device);
         mTelecomManager = mConnServ.getSystemService(TelecomManager.class);
 

@@ -201,7 +201,7 @@ public class TestWallpaperPersister implements WallpaperPersister {
                 mCurrentLockWallpaper = mPendingLockWallpaper;
                 mPendingLockWallpaper = null;
             }
-            mCallback.onSuccess(mWallpaperInfo);
+            mCallback.onSuccess(mWallpaperInfo, mDestination);
             mWallpaperChangedNotifier.notifyWallpaperChanged();
         }
     }
@@ -211,7 +211,12 @@ public class TestWallpaperPersister implements WallpaperPersister {
     }
 
     @Override
-    public void onLiveWallpaperSet() {
+    public void onLiveWallpaperSet(@Destination int destination) {
+    }
+
+    @Override
+    public void setLiveWallpaperMetadata(WallpaperInfo wallpaperInfo, String effects,
+            @Destination int destination) {
     }
 
     /** Returns the last requested wallpaper bitmap scale. */
@@ -230,15 +235,19 @@ public class TestWallpaperPersister implements WallpaperPersister {
         return mWallpaperPosition;
     }
 
+    @Override
     public boolean saveStaticWallpaperMetadata(List<String> attributions, String actionUrl,
-            int actionLabelRes, int actionIconRes, String collectionId, int wallpaperId) {
+            int actionLabelRes, int actionIconRes, String collectionId, int wallpaperId,
+            @Destination int destination) {
         return false;
     }
 
+    @Override
     public int getDefaultWhichWallpaper() {
         return 0;
     }
 
+    @Override
     public int setBitmapToWallpaperManagerCompat(Bitmap wallpaperBitmap, boolean allowBackup,
             int whichWallpaper) {
         return 0;

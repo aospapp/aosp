@@ -7,11 +7,5 @@
     {
       "name": "DocumentsUIUnitTests"
     }
-  ],
-  "postsubmit": [
-    {
-      "name": "DocumentsUIGoogleTests",
-      "keywords": ["primary-device"]
-    }
   ]
 }

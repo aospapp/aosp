@@ -17,6 +17,7 @@
 
 <PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
                   xmlns:settings="http://schemas.android.com/apk/res-auto"
+                  xmlns:custom="http://schemas.android.com/apk/res-auto"
                   android:title="@string/accounts_category_title">
     <com.android.settingslib.RestrictedPreference
         android:icon="@drawable/ic_add"
@@ -27,6 +28,7 @@
     <com.android.settingslib.widget.FooterPreference
         android:key="do_org_footer"
         android:selectable="false"
+        custom:isPreferenceVisible="false"
         android:title="@string/do_disclosure_generic" />
 
 </PreferenceScreen>

@@ -67,11 +67,14 @@ public class DefaultCategoryProvider implements CategoryProvider {
      * Relative category priorities. Lower numbers correspond to higher priorities (i.e., should
      * appear higher in the categories list).
      */
-    protected static final int PRIORITY_MY_PHOTOS = 1;
+    public static final int PRIORITY_MY_PHOTOS_WHEN_CREATIVE_WALLPAPERS_DISABLED = 1;
+    private static final int PRIORITY_MY_PHOTOS_WHEN_CREATIVE_WALLPAPERS_ENABLED = 51;
     private static final int PRIORITY_SYSTEM = 100;
     private static final int PRIORITY_ON_DEVICE = 200;
     private static final int PRIORITY_LIVE = 300;
     private static final int PRIORITY_THIRD_PARTY = 400;
+    public static final int CREATIVE_CATEGORY_PRIORITY = 1;
+
     protected static List<Category> sSystemCategories;
 
     protected final Context mAppContext;
@@ -150,8 +153,39 @@ public class DefaultCategoryProvider implements CategoryProvider {
         return false;
     }
 
+    /**
+     * This function returns the value of priority of MyPhotos depending on whether
+     * the CreativeWallpaperFlag is enabled or not
+     * @param context
+     * @return the value of priority of MyPhotos
+     */
+    public static int getPriorityMyPhotos(Context context) {
+        boolean isCreativeWallpaperFlagEnabled = InjectorProvider.getInjector().getFlags()
+                .isAIWallpaperEnabled(context);
+        if (isCreativeWallpaperFlagEnabled) {
+            return PRIORITY_MY_PHOTOS_WHEN_CREATIVE_WALLPAPERS_ENABLED;
+        } else
+            return PRIORITY_MY_PHOTOS_WHEN_CREATIVE_WALLPAPERS_DISABLED;
+    }
+
+    /**
+     * Returns an appropriate "my photos" custom photo category for the given device form factor.
+     */
+    private static Category getMyPhotosCategory(Context context) {
+        return new ImageCategory(
+                context.getString(R.string.my_photos_category_title),
+                context.getString(R.string.image_wallpaper_collection_id),
+                getPriorityMyPhotos(context),
+                R.drawable.wallpaperpicker_emptystate /* overlayIconResId */);
+    }
+
     @Override
     public boolean isFeaturedCollectionAvailable() {
+        return false;
+    }
+
+    @Override
+    public boolean isCreativeCategoryAvailable() {
         return false;
     }
 
@@ -182,7 +216,7 @@ public class DefaultCategoryProvider implements CategoryProvider {
      * the receiver.
      */
     protected static class FetchCategoriesTask extends AsyncTask<Void, Category, Void> {
-        private CategoryReceiver mReceiver;
+        protected final CategoryReceiver mReceiver;
         private PartnerProvider mPartnerProvider;
         protected final Context mAppContext;
 
@@ -197,7 +231,7 @@ public class DefaultCategoryProvider implements CategoryProvider {
                     mAppContext);
 
             // "My photos" wallpapers
-            publishProgress(getMyPhotosCategory());
+            publishProgress(getMyPhotosCategory(mAppContext));
 
             publishDeviceCategories();
 
@@ -370,17 +404,6 @@ public class DefaultCategoryProvider implements CategoryProvider {
                     mAppContext.getString(R.string.on_device_wallpaper_collection_id),
                     onDeviceWallpapers,
                     PRIORITY_ON_DEVICE);
-        }
-
-        /**
-         * Returns an appropriate "my photos" custom photo category for the given device form factor.
-         */
-        private Category getMyPhotosCategory() {
-            return new ImageCategory(
-                    mAppContext.getString(R.string.my_photos_category_title),
-                    mAppContext.getString(R.string.image_wallpaper_collection_id),
-                    PRIORITY_MY_PHOTOS,
-                    R.drawable.wallpaperpicker_emptystate /* overlayIconResId */);
         }
 
         @Override

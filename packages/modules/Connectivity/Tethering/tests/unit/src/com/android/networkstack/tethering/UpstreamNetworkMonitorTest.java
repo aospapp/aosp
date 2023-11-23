@@ -49,7 +49,7 @@ import android.net.LinkAddress;
 import android.net.LinkProperties;
 import android.net.NetworkCapabilities;
 import android.net.NetworkRequest;
-import android.net.util.SharedLog;
+import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.Message;
@@ -60,11 +60,15 @@ import androidx.test.runner.AndroidJUnit4;
 
 import com.android.internal.util.State;
 import com.android.internal.util.StateMachine;
+import com.android.net.module.util.SharedLog;
 import com.android.networkstack.tethering.TestConnectivityManager.NetworkRequestInfo;
 import com.android.networkstack.tethering.TestConnectivityManager.TestNetworkAgent;
+import com.android.testutils.DevSdkIgnoreRule;
+import com.android.testutils.DevSdkIgnoreRule.IgnoreAfter;
 
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.ArgumentCaptor;
@@ -91,6 +95,8 @@ public class UpstreamNetworkMonitorTest {
             .addTransportType(TRANSPORT_CELLULAR).addCapability(NET_CAPABILITY_DUN).build();
     private static final NetworkCapabilities WIFI_CAPABILITIES = new NetworkCapabilities.Builder()
             .addTransportType(TRANSPORT_WIFI).addCapability(NET_CAPABILITY_INTERNET).build();
+
+    @Rule public final DevSdkIgnoreRule mIgnoreRule = new DevSdkIgnoreRule();
 
     @Mock private Context mContext;
     @Mock private EntitlementManager mEntitleMgr;
@@ -301,6 +307,7 @@ public class UpstreamNetworkMonitorTest {
     }
 
     @Test
+    @IgnoreAfter(Build.VERSION_CODES.TIRAMISU)
     public void testSelectPreferredUpstreamType() throws Exception {
         final Collection<Integer> preferredTypes = new ArrayList<>();
         preferredTypes.add(TYPE_WIFI);
@@ -556,6 +563,7 @@ public class UpstreamNetworkMonitorTest {
     }
 
     @Test
+    @IgnoreAfter(Build.VERSION_CODES.TIRAMISU)
     public void testSelectMobileWhenMobileIsNotDefault() {
         final Collection<Integer> preferredTypes = new ArrayList<>();
         // Mobile has higher pirority than wifi.

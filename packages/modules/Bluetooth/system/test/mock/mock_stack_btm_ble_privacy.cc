@@ -24,8 +24,6 @@
 #include <map>
 #include <string>
 
-extern std::map<std::string, int> mock_function_count_map;
-
 // Original included files, if any
 // NOTE: Since this is a mock file with mock definitions some number of
 //       include files may not be required.  The include-what-you-use
@@ -69,51 +67,51 @@ struct btm_ble_resolving_list_init btm_ble_resolving_list_init;
 
 // Mocked functions, if any
 void btm_ble_clear_resolving_list_complete(uint8_t* p, uint16_t evt_len) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   test::mock::stack_btm_ble_privacy::btm_ble_clear_resolving_list_complete(
       p, evt_len);
 }
 void btm_ble_add_resolving_list_entry_complete(uint8_t* p, uint16_t evt_len) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   test::mock::stack_btm_ble_privacy::btm_ble_add_resolving_list_entry_complete(
       p, evt_len);
 }
 void btm_ble_remove_resolving_list_entry_complete(uint8_t* p,
                                                   uint16_t evt_len) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   test::mock::stack_btm_ble_privacy::
       btm_ble_remove_resolving_list_entry_complete(p, evt_len);
 }
 void btm_ble_read_resolving_list_entry_complete(const uint8_t* p,
                                                 uint16_t evt_len) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   test::mock::stack_btm_ble_privacy::btm_ble_read_resolving_list_entry_complete(
       p, evt_len);
 }
 tBTM_STATUS btm_ble_remove_resolving_list_entry(tBTM_SEC_DEV_REC* p_dev_rec) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return test::mock::stack_btm_ble_privacy::btm_ble_remove_resolving_list_entry(
       p_dev_rec);
 }
 void btm_ble_clear_resolving_list(void) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   test::mock::stack_btm_ble_privacy::btm_ble_clear_resolving_list();
 }
 bool btm_ble_read_resolving_list_entry(tBTM_SEC_DEV_REC* p_dev_rec) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return test::mock::stack_btm_ble_privacy::btm_ble_read_resolving_list_entry(
       p_dev_rec);
 }
 void btm_ble_resolving_list_load_dev(tBTM_SEC_DEV_REC& p_dev_rec) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
 }
 void btm_ble_resolving_list_remove_dev(tBTM_SEC_DEV_REC* p_dev_rec) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   test::mock::stack_btm_ble_privacy::btm_ble_resolving_list_remove_dev(
       p_dev_rec);
 }
 void btm_ble_resolving_list_init(uint8_t max_irk_list_sz) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   test::mock::stack_btm_ble_privacy::btm_ble_resolving_list_init(
       max_irk_list_sz);
 }

@@ -20,6 +20,8 @@ import static org.junit.Assert.assertNotNull;
 import static org.mockito.Mockito.*;
 
 import android.net.wifi.WifiManager;
+import android.os.Handler;
+import android.os.test.TestLooper;
 import android.telephony.PhoneStateListener;
 import android.telephony.TelephonyManager;
 
@@ -42,6 +44,8 @@ public class MboOceControllerTest extends WifiBaseTest {
     private static final String INTERFACE_NAME = "wlan0";
 
     private MboOceController mMboOceController;
+    private TestLooper mLooper;
+    private WifiThreadRunner mWifiThreadRunner;
     @Mock ConcreteClientModeManager mClientModeManager;
     @Mock TelephonyManager mTelephonyManager;
     @Mock ActiveModeWarden mActiveModeWarden;
@@ -54,12 +58,17 @@ public class MboOceControllerTest extends WifiBaseTest {
         /* Ensure Looper exists */
         MockitoAnnotations.initMocks(this);
 
+        mLooper = new TestLooper();
+        mWifiThreadRunner = new WifiThreadRunner(new Handler(mLooper.getLooper()));
+        mWifiThreadRunner.setTimeoutsAreErrors(true);
         when(mActiveModeWarden.getPrimaryClientModeManager())
                 .thenReturn(mClientModeManager);
         when(mActiveModeWarden.getPrimaryClientModeManagerNullable())
                 .thenReturn(mClientModeManager);
 
-        mMboOceController = new MboOceController(mTelephonyManager, mActiveModeWarden);
+        mMboOceController = new MboOceController(mTelephonyManager, mActiveModeWarden,
+                mWifiThreadRunner);
+        mMboOceController.enableVerboseLogging(true);
     }
 
     /**
@@ -115,9 +124,12 @@ public class MboOceControllerTest extends WifiBaseTest {
         dataConnectionStateListener = enableMboOceController(true, false);
         dataConnectionStateListener.onDataConnectionStateChanged(TelephonyManager.DATA_CONNECTED,
                 TelephonyManager.NETWORK_TYPE_LTE);
+        mLooper.dispatchAll();
         verify(mClientModeManager).setMboCellularDataStatus(true);
+
         dataConnectionStateListener.onDataConnectionStateChanged(
                 TelephonyManager.DATA_DISCONNECTED, TelephonyManager.NETWORK_TYPE_LTE);
+        mLooper.dispatchAll();
         verify(mClientModeManager).setMboCellularDataStatus(false);
     }
 

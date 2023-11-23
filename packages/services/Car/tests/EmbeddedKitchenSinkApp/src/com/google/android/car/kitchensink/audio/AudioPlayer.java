@@ -36,7 +36,9 @@ import android.media.AudioAttributes;
 import android.media.AudioDeviceInfo;
 import android.media.AudioFocusRequest;
 import android.media.AudioManager;
+import android.media.AudioRouting.OnRoutingChangedListener;
 import android.media.MediaPlayer;
+import android.os.Handler;
 import android.util.Log;
 
 import androidx.annotation.Nullable;
@@ -139,6 +141,8 @@ public class AudioPlayer {
     private final AudioDeviceInfo mPreferredDeviceInfo;
 
     private final AtomicBoolean mPlaying = new AtomicBoolean(false);
+    @Nullable
+    private final OnRoutingChangedListener mAudioRoutingListener;
 
     private volatile boolean mHandleFocus;
     private volatile boolean mRepeat;
@@ -147,15 +151,18 @@ public class AudioPlayer {
 
 
     public AudioPlayer(Context context, int resourceId, AudioAttributes attrib) {
-        this(context, resourceId, attrib, /* deviceInfo= */ null);
+        this(context, resourceId, attrib, /* preferredDeviceInfo= */ null,
+                /* routingListener= */ null);
     }
 
     public AudioPlayer(Context context, int resourceId, AudioAttributes attrib,
-            @Nullable AudioDeviceInfo preferredDeviceInfo) {
+            @Nullable AudioDeviceInfo preferredDeviceInfo,
+            @Nullable OnRoutingChangedListener routingListener) {
         mContext = context;
         mResourceId = resourceId;
         mAttrib = attrib;
         mPreferredDeviceInfo = preferredDeviceInfo;
+        mAudioRoutingListener = routingListener;
     }
 
     public int getUsage() {
@@ -270,6 +277,10 @@ public class AudioPlayer {
         }
 
         mPlayer.start();
+        if (mAudioRoutingListener != null) {
+            Log.i(TAG, "doStart addOnRoutingChangedListener " + mAudioRoutingListener);
+            mPlayer.addOnRoutingChangedListener(mAudioRoutingListener, Handler.getMain());
+        }
         sendPlayerStateChanged(PLAYER_STATE_STARTED);
     }
 

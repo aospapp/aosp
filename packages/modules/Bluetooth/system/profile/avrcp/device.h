@@ -16,12 +16,12 @@
 
 #pragma once
 
+#include <base/cancelable_callback.h>
+#include <base/functional/bind.h>
+
 #include <iostream>
 #include <memory>
 #include <stack>
-
-#include <base/bind.h>
-#include <base/cancelable_callback.h>
 
 #include "avrcp_internal.h"
 #include "hardware/avrcp/avrcp.h"
@@ -29,14 +29,18 @@
 #include "packet/avrcp/avrcp_packet.h"
 #include "packet/avrcp/capabilities_packet.h"
 #include "packet/avrcp/change_path.h"
+#include "packet/avrcp/get_current_player_application_setting_value.h"
 #include "packet/avrcp/get_element_attributes_packet.h"
 #include "packet/avrcp/get_folder_items.h"
 #include "packet/avrcp/get_item_attributes.h"
 #include "packet/avrcp/get_total_number_of_items.h"
+#include "packet/avrcp/list_player_application_setting_attributes.h"
+#include "packet/avrcp/list_player_application_setting_values.h"
 #include "packet/avrcp/play_item.h"
 #include "packet/avrcp/register_notification_packet.h"
 #include "packet/avrcp/set_addressed_player.h"
 #include "packet/avrcp/set_browsed_player.h"
+#include "packet/avrcp/set_player_application_setting_value.h"
 #include "packet/avrcp/vendor_packet.h"
 #include "profile/avrcp/media_id_map.h"
 #include "raw_address.h"
@@ -113,7 +117,8 @@ class Device {
    */
   void RegisterInterfaces(MediaInterface* interface,
                           A2dpInterface* a2dp_interface,
-                          VolumeInterface* volume_interface);
+                          VolumeInterface* volume_interface,
+                          PlayerSettingsInterface* player_settings_interface);
 
   /**
    * Set the maximum size of a AVRCP Browsing Packet. This is done after the
@@ -183,6 +188,13 @@ class Device {
   virtual void GetPlayStatusResponse(uint8_t label, PlayStatus status);
   virtual void PlaybackStatusNotificationResponse(uint8_t label, bool interim,
                                                   PlayStatus status);
+
+  // PLAYER APPLICATION SETTINGS CHANGED
+  virtual void HandlePlayerSettingChanged(
+      std::vector<PlayerAttribute> attributes, std::vector<uint8_t> values);
+  virtual void PlayerSettingChangedNotificationResponse(
+      uint8_t label, bool interim, std::vector<PlayerAttribute> attributes,
+      std::vector<uint8_t> values);
 
   // GET ELEMENT ATTRIBUTE
   // TODO (apanicke): Add a Handler function for this so if a specific device
@@ -258,6 +270,24 @@ class Device {
       uint8_t label, std::shared_ptr<SetAddressedPlayerRequest> request,
       uint16_t curr_player, std::vector<MediaPlayerInfo> players);
 
+  // LIST PLAYER APPLICATION SETTING ATTRIBUTES
+  virtual void ListPlayerApplicationSettingAttributesResponse(
+      uint8_t label, std::vector<PlayerAttribute> attributes);
+
+  // LIST PLAYER APPLICATION SETTING VALUES
+  virtual void ListPlayerApplicationSettingValuesResponse(
+      uint8_t label, PlayerAttribute setting, std::vector<uint8_t> values);
+
+  // GET CURRENT PLAYER APPLICATION SETTING VALUE
+  virtual void GetPlayerApplicationSettingValueResponse(
+      uint8_t label, std::vector<PlayerAttribute> attributes,
+      std::vector<uint8_t> values);
+
+  // SET PLAYER APPLICATION SETTING VALUE
+  virtual void SetPlayerApplicationSettingValueResponse(uint8_t label,
+                                                        CommandPdu pdu,
+                                                        bool success);
+
   /********************
    * MESSAGE REQUESTS
    ********************/
@@ -320,6 +350,7 @@ class Device {
   Notification track_changed_ = Notification(false, 0);
   Notification play_status_changed_ = Notification(false, 0);
   Notification play_pos_changed_ = Notification(false, 0);
+  Notification player_setting_changed_ = Notification(false, 0);
   Notification now_playing_changed_ = Notification(false, 0);
   Notification addr_player_changed_ = Notification(false, 0);
   Notification avail_players_changed_ = Notification(false, 0);
@@ -338,6 +369,7 @@ class Device {
   MediaInterface* media_interface_ = nullptr;
   A2dpInterface* a2dp_interface_ = nullptr;
   VolumeInterface* volume_interface_ = nullptr;
+  PlayerSettingsInterface* player_settings_interface_ = nullptr;
 
   // Labels used for messages currently in flight.
   std::set<uint8_t> active_labels_;

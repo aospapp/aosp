@@ -20,9 +20,9 @@ import android.app.Application
 import android.content.pm.PackageManager
 import android.util.Log
 import com.android.permissioncontroller.PermissionControllerApplication
+import com.android.permissioncontroller.permission.utils.PermissionMapping.isRuntimePlatformPermission
 import com.android.permissioncontroller.permission.model.livedatatypes.LightPermInfo
 import com.android.permissioncontroller.permission.utils.Utils.OS_PKG
-import com.android.permissioncontroller.permission.utils.Utils.isRuntimePlatformPermission
 import kotlinx.coroutines.Job
 
 /**
@@ -46,8 +46,10 @@ class LightPermInfoLiveData private constructor(
      * Callback from the PackageBroadcastReceiver.
      *
      * <p>Package updates might change permission properties
+     *
+     * Note: packageName is unused.
      */
-    override fun onPackageUpdate(ignored: String) {
+    override fun onPackageUpdate(packageName: String) {
         updateAsync()
     }
 

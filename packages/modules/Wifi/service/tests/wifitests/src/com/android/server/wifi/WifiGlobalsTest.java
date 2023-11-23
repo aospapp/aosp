@@ -25,6 +25,7 @@ import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.when;
 
 import android.content.Context;
+import android.net.wifi.WifiConfiguration;
 
 import androidx.test.filters.SmallTest;
 
@@ -45,6 +46,9 @@ public class WifiGlobalsTest extends WifiBaseTest {
 
     @Mock private Context mContext;
 
+    private static final int TEST_NETWORK_ID = 54;
+    private static final String TEST_SSID = "\"GoogleGuest\"";
+
     @Before
     public void setUp() {
         MockitoAnnotations.initMocks(this);
@@ -53,6 +57,8 @@ public class WifiGlobalsTest extends WifiBaseTest {
         mResources.setInteger(R.integer.config_wifiPollRssiIntervalMilliseconds, 3000);
         mResources.setInteger(R.integer.config_wifiClientModeImplNumLogRecs, 200);
         mResources.setBoolean(R.bool.config_wifiSaveFactoryMacToWifiConfigStore, true);
+        mResources.setStringArray(R.array.config_wifiForceDisableMacRandomizationSsidPrefixList,
+                new String[] {TEST_SSID});
         when(mContext.getResources()).thenReturn(mResources);
 
         mWifiGlobals = new WifiGlobals(mContext);
@@ -62,10 +68,8 @@ public class WifiGlobalsTest extends WifiBaseTest {
     @Test
     public void testPollRssiIntervalIsSetCorrectly() throws Exception {
         assertEquals(3000, mWifiGlobals.getPollRssiIntervalMillis());
-        mResources.setInteger(R.integer.config_wifiPollRssiIntervalMilliseconds, 6000);
-        assertEquals(6000, mWifiGlobals.getPollRssiIntervalMillis());
-        mResources.setInteger(R.integer.config_wifiPollRssiIntervalMilliseconds, 7000);
-        assertEquals(6000, mWifiGlobals.getPollRssiIntervalMillis());
+        mResources.setInteger(R.integer.config_wifiPollRssiIntervalMilliseconds, 9000);
+        assertEquals(9000, new WifiGlobals(mContext).getPollRssiIntervalMillis());
     }
 
     /** Verify that Bluetooth active is set correctly with BT state/connection state changes */
@@ -127,5 +131,51 @@ public class WifiGlobalsTest extends WifiBaseTest {
     @Test
     public void testSaveFactoryMacToConfigStoreEnabled() throws Exception {
         assertEquals(true, mWifiGlobals.isSaveFactoryMacToConfigStoreEnabled());
+    }
+
+    @Test
+    public void testQuotedStringSsidPrefixParsedCorrectly() throws Exception {
+        assertEquals(1, mWifiGlobals.getMacRandomizationUnsupportedSsidPrefixes().size());
+        assertTrue(mWifiGlobals.getMacRandomizationUnsupportedSsidPrefixes()
+                .contains(TEST_SSID.substring(0, TEST_SSID.length() - 1)));
+    }
+
+
+    /**
+     * Test that isDeprecatedSecurityTypeNetwork returns true due to WEP network
+     */
+    @Test
+    public void testDeprecatedNetworkSecurityTypeWep()
+            throws Exception {
+        mResources.setBoolean(R.bool.config_wifiWepDeprecated, true);
+        mWifiGlobals = new WifiGlobals(mContext);
+        assertTrue(mWifiGlobals.isWepDeprecated());
+
+        WifiConfiguration config = new WifiConfiguration();
+        config.networkId = TEST_NETWORK_ID;
+        config.SSID = TEST_SSID;
+        config.setSecurityParams(WifiConfiguration.SECURITY_TYPE_WEP);
+
+        assertTrue(mWifiGlobals.isDeprecatedSecurityTypeNetwork(config));
+    }
+
+    /**
+     * Test that isDeprecatedSecurityTypeNetwork returns true due to WPA-Personal network
+     */
+    @Test
+    public void testDeprecatedNetworkSecurityTypeWpaPersonal()
+            throws Exception {
+        mResources.setBoolean(R.bool.config_wifiWpaPersonalDeprecated, true);
+        mWifiGlobals = new WifiGlobals(mContext);
+        assertTrue(mWifiGlobals.isWpaPersonalDeprecated());
+
+        WifiConfiguration config = new WifiConfiguration();
+        config.networkId = TEST_NETWORK_ID;
+        config.SSID = TEST_SSID;
+        config.setSecurityParams(WifiConfiguration.SECURITY_TYPE_PSK);
+        config.allowedProtocols.set(WifiConfiguration.Protocol.WPA);
+        config.allowedProtocols.clear(WifiConfiguration.Protocol.RSN);
+
+        assertTrue(mWifiGlobals.isDeprecatedSecurityTypeNetwork(config));
     }
 }

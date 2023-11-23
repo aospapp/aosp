@@ -16,7 +16,6 @@
 
 package com.android.car.audio;
 
-import android.annotation.NonNull;
 import android.hardware.automotive.audiocontrol.AudioGainConfigInfo;
 
 import java.util.Objects;
@@ -25,47 +24,61 @@ import java.util.Objects;
  * Audio Gain Config Information for a given Device based on its address.
  */
 public class CarAudioGainConfigInfo {
-    private final int mZoneId;
-    private final String mAddress;
-    private final int mVolumeIndex;
-
-    private CarAudioGainConfigInfo(int zoneId, @NonNull String address, int volumeIndex) {
-        mZoneId = zoneId;
-        mAddress = Objects.requireNonNull(address);
-        mVolumeIndex = volumeIndex;
-    }
+    private final AudioGainConfigInfo mAudioGainConfigInfo;
 
     /**
-     * Builds the car audio gain info configuration based on the {@link AudioGainConfigInfo}
-     * @param audioGainConfig audio gain info
+     * Constructor of the car audio gain info configuration based on the {@link
+     * AudioGainConfigInfo}.
      *
+     * @param audioGainConfigInfo {@link AudioGainConfigInfo} to convert.
      * @return new car audio gain info
      */
-    public static CarAudioGainConfigInfo build(AudioGainConfigInfo audioGainConfig) {
-        return new CarAudioGainConfigInfo(audioGainConfig.zoneId,
-                audioGainConfig.devicePortAddress, audioGainConfig.volumeIndex);
+    public CarAudioGainConfigInfo(AudioGainConfigInfo audioGainConfigInfo) {
+        mAudioGainConfigInfo = audioGainConfigInfo;
     }
 
-    /**
-     * Creates {@link AudioGainConfigInfo} instance from contents of {@link CarAudioGainConfigInfo}.
-     */
-    public AudioGainConfigInfo generateAudioGainConfigInfo() {
-        AudioGainConfigInfo agci = new AudioGainConfigInfo();
-        agci.zoneId = mZoneId;
-        agci.devicePortAddress = mAddress;
-        agci.volumeIndex = mVolumeIndex;
-        return agci;
+    public AudioGainConfigInfo getAudioGainConfigInfo() {
+        return mAudioGainConfigInfo;
     }
 
     public int getZoneId() {
-        return mZoneId;
+        return mAudioGainConfigInfo.zoneId;
     }
 
     public String getDeviceAddress() {
-        return mAddress;
+        return mAudioGainConfigInfo.devicePortAddress;
     }
 
     public int getVolumeIndex() {
-        return mVolumeIndex;
+        return mAudioGainConfigInfo.volumeIndex;
+    }
+
+    /** Returns the string representation of the car audio gain configuration */
+    public String toString() {
+        return "zone: "
+                + getZoneId()
+                + ", address: "
+                + getDeviceAddress()
+                + ", Volume Index: "
+                + getVolumeIndex();
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (!(o instanceof CarAudioGainConfigInfo)) {
+            return false;
+        }
+        CarAudioGainConfigInfo other = (CarAudioGainConfigInfo) o;
+        return getZoneId() == other.getZoneId()
+                && getDeviceAddress().equals(other.getDeviceAddress())
+                && getVolumeIndex() == other.getVolumeIndex();
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(getZoneId(), getDeviceAddress(), getVolumeIndex());
     }
 }

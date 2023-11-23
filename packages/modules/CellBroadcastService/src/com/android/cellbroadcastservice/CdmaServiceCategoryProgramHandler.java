@@ -16,8 +16,11 @@
 
 package com.android.cellbroadcastservice;
 
-import static com.android.cellbroadcastservice.CellBroadcastStatsLog.CELL_BROADCAST_MESSAGE_ERROR__TYPE__CDMA_SCP_HANDLING_ERROR;
-import static com.android.cellbroadcastservice.CellBroadcastStatsLog.CELL_BROADCAST_MESSAGE_ERROR__TYPE__UNEXPECTED_CDMA_SCP_MESSAGE_TYPE_FROM_FWK;
+import static com.android.cellbroadcastservice.CellBroadcastMetrics.ERR_SCP_EMPTY;
+import static com.android.cellbroadcastservice.CellBroadcastMetrics.ERR_SCP_HANDLING;
+import static com.android.cellbroadcastservice.CellBroadcastMetrics.ERR_UNEXPECTED_SPC_MSG_FROM_FWK;
+import static com.android.cellbroadcastservice.CellBroadcastMetrics.RPT_SPC;
+import static com.android.cellbroadcastservice.CellBroadcastMetrics.SRC_CBS;
 
 import android.Manifest;
 import android.app.Activity;
@@ -109,6 +112,8 @@ public final class CdmaServiceCategoryProgramHandler extends WakeLockStateMachin
     protected boolean handleSmsMessage(Message message) {
         if (message.obj instanceof CdmaScpMessage) {
             CdmaScpMessage cdmaScpMessage = (CdmaScpMessage) message.obj;
+            CellBroadcastServiceMetrics.getInstance()
+                    .logMessageReported(mContext, RPT_SPC, SRC_CBS, 0, 0);
             return handleServiceCategoryProgramData(cdmaScpMessage.mProgamData,
                     cdmaScpMessage.mOriginatingAddress, cdmaScpMessage.mSlotIndex,
                     cdmaScpMessage.mCallback);
@@ -116,9 +121,8 @@ public final class CdmaServiceCategoryProgramHandler extends WakeLockStateMachin
             final String errorMessage =
                     "handleMessage got object of type: " + message.obj.getClass().getName();
             loge(errorMessage);
-            CellBroadcastStatsLog.write(CellBroadcastStatsLog.CB_MESSAGE_ERROR,
-                    CELL_BROADCAST_MESSAGE_ERROR__TYPE__UNEXPECTED_CDMA_SCP_MESSAGE_TYPE_FROM_FWK,
-                    errorMessage);
+            CellBroadcastServiceMetrics.getInstance().logMessageError(
+                    ERR_UNEXPECTED_SPC_MSG_FROM_FWK, errorMessage);
             return false;
         }
     }
@@ -138,9 +142,7 @@ public final class CdmaServiceCategoryProgramHandler extends WakeLockStateMachin
             final String errorMessage =
                     "handleServiceCategoryProgramData: program data list is null!";
             loge(errorMessage);
-            CellBroadcastStatsLog.write(CellBroadcastStatsLog.CB_MESSAGE_ERROR,
-                    CellBroadcastStatsLog.CELL_BROADCAST_MESSAGE_ERROR__TYPE__CDMA_SCP_EMPTY,
-                    errorMessage);
+            CellBroadcastServiceMetrics.getInstance().logMessageError(ERR_SCP_EMPTY, errorMessage);
             return false;
         }
 
@@ -170,9 +172,8 @@ public final class CdmaServiceCategoryProgramHandler extends WakeLockStateMachin
             if ((resultCode != Activity.RESULT_OK) && (resultCode != Intents.RESULT_SMS_HANDLED)) {
                 final String errorMessage = "SCP results error: result code = " + resultCode;
                 loge(errorMessage);
-                CellBroadcastStatsLog.write(CellBroadcastStatsLog.CB_MESSAGE_ERROR,
-                        CELL_BROADCAST_MESSAGE_ERROR__TYPE__CDMA_SCP_HANDLING_ERROR,
-                        errorMessage);
+                CellBroadcastServiceMetrics.getInstance().logMessageError(
+                        ERR_SCP_HANDLING, errorMessage);
                 return;
             }
             Bundle extras = getResultExtras(false);

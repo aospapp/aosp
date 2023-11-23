@@ -12,11 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# cartelemetryd service
-PRODUCT_PACKAGES += android.automotive.telemetryd@1.0
-
 # Selinux public policies for cartelemetry
 PRODUCT_PUBLIC_SEPOLICY_DIRS += packages/services/Car/cpp/telemetry/cartelemetryd/sepolicy/public
+
+# cartelemetryd service
+PRODUCT_PACKAGES += android.automotive.telemetryd@1.0
 
 # Selinux private policies for cartelemetry
 PRODUCT_PRIVATE_SEPOLICY_DIRS += packages/services/Car/cpp/telemetry/cartelemetryd/sepolicy/private

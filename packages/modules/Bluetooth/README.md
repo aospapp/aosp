@@ -30,7 +30,8 @@ sudo apt-get install repo git-core gnupg flex bison gperf build-essential \
   libprotobuf-dev ninja-build generate-ninja protobuf-compiler \
   libre2-9 debmake \
   llvm libc++abi-dev \
-  libre2-dev libdouble-conversion-dev
+  libre2-dev libdouble-conversion-dev \
+  libgtest-dev libgmock-dev libabsl-dev
 ```
 
 You will also need a recent-ish version of Rust and Cargo. Please follow the
@@ -87,26 +88,6 @@ pushd libchrome
 ./gen-src-pkg.sh $(readlink -f ../outdir/libchrome)
 popd
 sudo dpkg -i outdir/libchrome/*.deb
-```
-
-The googletest packages provided by Debian/Ubuntu (libgmock-dev and
-libgtest-dev) do not provide pkg-config files, so you can build your own
-googletest using the steps below:
-
-```sh
-git clone https://github.com/google/googletest.git -b release-1.10.0
-cd googletest        # Main directory of the cloned repository.
-mkdir build          # Create a directory to hold the build output.
-cd build
-cmake ..             # Generate native build scripts for GoogleTest.
-sudo make install -DCMAKE_INSTALL_PREFIX=/usr
-
-# Optional steps if pkgconfig isn't installed to desired location
-# Modify the source (/usr/lib/x86_64-linux-gnu) and target (/usr/lib) based on
-# your local installation.
-for f in $(ls /usr/lib/x86_64-linux-gnu/pkgconfig/{gtest,gmock}*); do \
-  ln -sf $f /usr/lib/pkgconfig/$(basename $f);
-done
 ```
 
 ### Rust dependencies

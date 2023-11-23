@@ -1,9 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="system_tracing" msgid="4719188511746319848">"सिस्टीम माग काढणे"</string>
-    <string name="record_system_activity" msgid="4339462312915377825">"सिस्टीम अ‍ॅक्टिव्हिटी रेकॉर्ड करा आणि कामगिरी सुधारण्यासाठी तिचे नंतर विश्लेषण करा"</string>
+    <string name="system_tracing" msgid="4719188511746319848">"System Tracing"</string>
+    <string name="record_system_activity" msgid="4339462312915377825">"सिस्टीम अ‍ॅक्टिव्हिटी रेकॉर्ड करा आणि परफॉर्मन्स सुधारण्यासाठी तिचे नंतर विश्लेषण करा"</string>
     <string name="record_trace" msgid="6416875085186661845">"रेकॉर्डचा माग"</string>
+    <string name="record_trace_summary" msgid="6705357754827849292">"\"माग ठेवण्यासंबंधित सेटिंग्ज\" मधील कॉंफिगरेशन सेट वापरून सिस्टीमचा माग कॅप्चर करते"</string>
+    <string name="record_stack_samples" msgid="3498368637185702335">"सीपीयू प्रोफाइल रेकॉर्ड करा"</string>
+    <string name="record_stack_samples_summary" msgid="7827953921526410478">"\"सीपीयू\" ची वर्गवारी तपासून माग ठेवतानादेखील कॉलस्टॅकचा नमुना घेणे सुरू केले जाऊ शकते"</string>
     <string name="start_new_trace" msgid="8177130420802170353">"नवीन ट्रेस सुरू करा"</string>
     <string name="trace_debuggable_applications" msgid="7957069895298887899">"डीबग करण्यायोग्य ॲप्लिकेशन ट्रेस करा"</string>
     <string name="categories" msgid="2280163673538611008">"वर्गवार्‍या"</string>
@@ -17,7 +20,9 @@
     <string name="show_quick_settings_tile" msgid="4971147332635291585">"झटपट सेटिंग्ज टाइल दाखवा"</string>
     <string name="saving_trace" msgid="1468692734770800541">"माग सेव्ह करत आहे"</string>
     <string name="trace_saved" msgid="5869970594780992309">"माग सेव्ह केला"</string>
-    <string name="tap_to_share" msgid="6766732404489536899">"तुमचा माग शेअर करण्यासाठी टॅप करा"</string>
+    <string name="saving_stack_samples" msgid="8174915522390525221">"स्टॅक नमुने सेव्ह करत आहे"</string>
+    <string name="stack_samples_saved" msgid="8863295751647724616">"स्टॅक नमुने सेव्ह केले"</string>
+    <string name="tap_to_share" msgid="4440713575852187545">"तुमचे रेकॉर्डिंग शेअर करण्यासाठी टॅप करा"</string>
     <string name="attaching_to_report" msgid="2629202947947275886">"बग रिपोर्टला ट्रेस अटॅच करत आहे"</string>
     <string name="attached_to_report" msgid="5806905349184608870">"बग रिपोर्टला ट्रेस अटॅच करा"</string>
     <string name="attached_to_report_summary" msgid="7665675771190391355">"BetterBug उघडण्यासाठी टॅप करा"</string>
@@ -25,18 +30,19 @@
     <string name="tracing_categories_unavailable" msgid="5609076391417077752">"माग काढण्याच्या काही वर्गवार्‍या अनुपलब्ध आहेत:"</string>
     <string name="trace_is_being_recorded" msgid="5947378146009337469">"माग रेकॉर्ड केला जात आहे"</string>
     <string name="tap_to_stop_tracing" msgid="6533282719573871806">"माग काढणे थांबवण्यासाठी टॅप करा"</string>
-    <string name="clear_saved_traces" msgid="4809195654452260944">"सेव्ह केलेले माग साफ करा"</string>
-    <string name="clear_saved_traces_summary" msgid="6035923138201219577">"ट्रेस एका महिन्यानंतर साफ केले जातात"</string>
-    <string name="clear_saved_traces_question" msgid="2184026613055303818">"सेव्ह केलेले ट्रेस साफ करायचे का?"</string>
-    <string name="all_traces_will_be_deleted" msgid="6646545462206955920">"/data/local/traces मधून सर्व ट्रेस हटवले जातील"</string>
+    <string name="stack_samples_are_being_recorded" msgid="8669254939248349583">"स्टॅक नमुने रेकॉर्ड केले जात आहेत"</string>
+    <string name="tap_to_stop_stack_sampling" msgid="5911317684139059415">"स्टॅकचा नमुना घेणे बंद करण्यासाठी टॅप करा"</string>
+    <string name="clear_saved_files" msgid="9156079311231446825">"सेव्ह केलेल्या फाइल साफ करा"</string>
+    <string name="clear_saved_files_summary" msgid="109751867417553670">"एका महिन्यानंतर रेकॉर्डिंग साफ केली जातात"</string>
+    <string name="clear_saved_files_question" msgid="8586686617760838834">"सेव्ह केलेल्या फाइल साफ करायच्या का?"</string>
+    <string name="all_recordings_will_be_deleted" msgid="7731693738485947891">"/data/local/traces मधून सर्व रेकॉर्डिंग हटवली जातील"</string>
     <string name="clear" msgid="5484761795406948056">"साफ करा"</string>
     <string name="system_traces_storage_title" msgid="8294090839883366871">"सिस्टम माग"</string>
     <string name="keywords" msgid="736547007949049535">"systrace, माग काढणे, कामगिरी"</string>
-    <string name="share_trace" msgid="4528525067822044385">"काढलेला माग शेअर करायचा का?"</string>
+    <string name="share_file" msgid="1982029143280382271">"फाइल शेअर करायची का?"</string>
     <string name="system_trace_sensitive_data" msgid="3069389866696009549">"सिस्टमचा माग काढणे फायलींमध्ये संवेदनशील सिस्टम आणि अ‍ॅप डेटा (जसे की अ‍ॅप वापर) यांचा समावेश असू शकतो. ज्या लोकांवर आणि अ‍ॅपवर तुमचा विश्वास आहे केवळ त्यांच्यासह हा सिस्टमचा माग शेअर करा."</string>
     <string name="share" msgid="8443979083706282338">"शेअर करा"</string>
     <string name="dont_show_again" msgid="6662492041164390600">"पुन्हा दाखवू नका"</string>
-    <string name="use_perfetto_beta" msgid="2725630143916520160">"परफेट्टो (बीटा) वापरा"</string>
     <string name="long_traces" msgid="5110949471775966329">"मोठे ट्रेस"</string>
     <string name="long_traces_summary" msgid="419034282946761469">"सातत्याने डिव्हाइस स्टोरेजवर सेव्ह केले जाते"</string>
     <string name="long_traces_summary_betterbug" msgid="445546400875135624">"डिव्हाइस स्टोरेजमध्ये सातत्याने सेव्ह केले जाते (बग रिपोर्टना आपोआप अटॅच केले जाणार नाही)"</string>
@@ -58,9 +64,12 @@
     <string name="sixteen_thousand_kb" msgid="7342517169232459259">"१६३८४ KB"</string>
     <string name="thirtytwo_thousand_kb" msgid="654328198799196150">"३२७६८ KB"</string>
     <string name="sixtyfive_thousand_kb" msgid="8168144138598305306">"६५५३६ KB"</string>
-    <string name="stop_on_bugreport" msgid="2045328149107284734">"बग रिपोर्टचा ट्रेस ठेवणे बंद करा"</string>
-    <string name="stop_on_bugreport_summary" msgid="7844074306038850040">"बगरिपोर्ट सुरू झाल्यावर अ‍ॅक्टिव्ह असलेली ट्रेस ठेवण्याची रेकॉर्डिंग बंद करते."</string>
-    <string name="attach_to_bug_report" msgid="2953745117960948415">"बग रिपोर्टना ट्रेस अटॅच करा"</string>
-    <string name="attach_to_bug_report_summary" msgid="2225208904634565377">"बग रिपोर्ट संग्रहित केल्यावर प्रगतीपथावर असलेले माग BetterBug ला आपोआप पाठवा"</string>
-    <string name="link_to_traces" msgid="6569969595898995517">"माग ठेवलेल्या फाइल पहा"</string>
+    <string name="stop_on_bugreport" msgid="4591832600597126422">"बग रिपोर्टसाठी रेकॉर्ड करणे बंद करा"</string>
+    <string name="stop_on_bugreport_summary" msgid="1601834864982891381">"बगरिपोर्ट सुरू झाल्यावर अ‍ॅक्टिव्ह असलेली रेकॉर्डिंग बंद करते"</string>
+    <string name="attach_to_bug_report" msgid="5388986830016247490">"बग रिपोर्टना रेकॉर्डिंग जोडा"</string>
+    <string name="attach_to_bug_report_summary" msgid="4213730623971240002">"बग रिपोर्ट गोळा केला जातो, तेव्हा प्रगतीपथावरील रेकॉर्डिंग BetterBug ला आपोआप पाठवा"</string>
+    <string name="link_to_traces" msgid="1404687523304348490">"सेव्ह केलेल्या फाइल पहा"</string>
+    <string name="pref_category_trace_settings" msgid="6507535407023329628">"सेटिंग्जचा माग ठेवा"</string>
+    <string name="pref_category_saved_files" msgid="1477491400970413291">"सेव्ह केलेल्या फाइल"</string>
+    <string name="pref_category_misc" msgid="6217624054980014683">"संकीर्ण"</string>
 </resources>

@@ -32,6 +32,7 @@ import com.android.car.media.common.source.MediaSource;
 import com.android.car.media.common.source.MediaTrampolineHelper;
 import com.android.car.radio.bands.ProgramType;
 import com.android.car.radio.service.RadioAppService;
+import com.android.car.radio.service.RadioAppServiceWrapper;
 import com.android.car.radio.util.Log;
 import com.android.car.ui.baselayout.Insets;
 import com.android.car.ui.baselayout.InsetsChangedListener;
@@ -39,7 +40,7 @@ import com.android.car.ui.toolbar.MenuItem;
 import com.android.car.ui.toolbar.TabLayout;
 import com.android.car.ui.toolbar.ToolbarController;
 
-import java.util.Arrays;
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -60,9 +61,11 @@ public class RadioActivity extends FragmentActivity implements InsetsChangedList
     private static final String EXTRA_RADIO_APP_FOREGROUND =
             "android.intent.action.RADIO_APP_STATE";
 
+    private boolean mIsConnected;
     private RadioController mRadioController;
     private BandController mBandController = new BandController();
     private ToolbarController mToolbar;
+    private ViewPager mViewPager;
     private RadioPagerAdapter mRadioPagerAdapter;
 
     private boolean mUseSourceLogoForAppSelector;
@@ -79,13 +82,16 @@ public class RadioActivity extends FragmentActivity implements InsetsChangedList
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        Log.d(TAG, "Radio app main activity created");
+        Log.i(TAG, "Radio app main activity created");
 
         setContentView(R.layout.radio_activity);
 
         mMediaTrampoline = new MediaTrampolineHelper(this);
 
         mRadioController = new RadioController(this);
+
+        mRadioController.getConnectionState().observe(this, this::onConnectionStateChanged);
+
         mRadioController.getCurrentProgram().observe(this, info -> {
             ProgramType programType = ProgramType.fromSelector(info.getSelector());
             if (programType != null) {
@@ -96,8 +102,7 @@ public class RadioActivity extends FragmentActivity implements InsetsChangedList
 
         mRadioPagerAdapter =
                 new RadioPagerAdapter(this, getSupportFragmentManager(), mRadioController);
-        ViewPager viewPager = findViewById(R.id.viewpager);
-        viewPager.setAdapter(mRadioPagerAdapter);
+        mViewPager = findViewById(R.id.viewpager);
 
         mUseSourceLogoForAppSelector =
                 getResources().getBoolean(R.bool.use_media_source_logo_for_app_selector);
@@ -108,11 +113,18 @@ public class RadioActivity extends FragmentActivity implements InsetsChangedList
         if (!mUseSourceLogoForAppSelector) {
             mToolbar.setLogo(R.drawable.logo_fm_radio);
         }
-        mToolbar.registerOnTabSelectedListener(t ->
-                viewPager.setCurrentItem(mToolbar.getTabPosition(t)));
+        mToolbar.registerOnTabSelectedListener(t -> {
+            if (mIsConnected) {
+                mViewPager.setCurrentItem(mToolbar.getTabPosition(t));
+            }
+        });
 
-        updateMenuItems();
-        setupTabsWithViewPager(viewPager);
+        mViewPager.addOnPageChangeListener(new ViewPager.SimpleOnPageChangeListener() {
+            @Override
+            public void onPageSelected(int position) {
+                mToolbar.selectTab(position);
+            }
+        });
     }
 
     @Override
@@ -202,13 +214,16 @@ public class RadioActivity extends FragmentActivity implements InsetsChangedList
         mBandController.setSupportedProgramTypes(supported);
     }
 
-    private void setupTabsWithViewPager(ViewPager viewPager) {
-        viewPager.addOnPageChangeListener(new ViewPager.SimpleOnPageChangeListener() {
-            @Override
-            public void onPageSelected(int position) {
-                mToolbar.selectTab(position);
-            }
-        });
+    private void onConnectionStateChanged(@RadioAppServiceWrapper.ConnectionState int state) {
+        if (state == RadioAppServiceWrapper.STATE_CONNECTED) {
+            mIsConnected = true;
+            mViewPager.setAdapter(mRadioPagerAdapter);
+        } else {
+            mIsConnected = false;
+            mViewPager.setAdapter(null);
+        }
+        Log.i(TAG, "onConnectionStateChanged connected: " + mIsConnected);
+        updateMenuItems();
         updateTabs();
     }
 
@@ -230,15 +245,22 @@ public class RadioActivity extends FragmentActivity implements InsetsChangedList
                 .setOnClickListener(m -> startActivity(appSelectorIntent))
                 .build();
 
-        mToolbar.setMenuItems(Arrays.asList(bandSelectorMenuItem, appSelectorMenuItem));
+        ArrayList<MenuItem> menuItems = new ArrayList<>(2);
+        if (mIsConnected) {
+            menuItems.add(bandSelectorMenuItem);
+        }
+        menuItems.add(appSelectorMenuItem);
+        mToolbar.setMenuItems(menuItems);
     }
 
     private void updateTabs() {
         mToolbar.clearAllTabs();
-        for (int i = 0; i < mRadioPagerAdapter.getCount(); i++) {
-            Drawable icon = mRadioPagerAdapter.getPageIcon(i);
-            CharSequence title = mRadioPagerAdapter.getPageTitle(i);
-            mToolbar.addTab(new TabLayout.Tab(icon, title));
+        if (mIsConnected) {
+            for (int i = 0; i < mRadioPagerAdapter.getCount(); i++) {
+                Drawable icon = mRadioPagerAdapter.getPageIcon(i);
+                CharSequence title = mRadioPagerAdapter.getPageTitle(i);
+                mToolbar.addTab(new TabLayout.Tab(icon, title));
+            }
         }
     }
 }

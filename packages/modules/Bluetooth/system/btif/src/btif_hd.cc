@@ -27,15 +27,17 @@
  ***********************************************************************************/
 #define LOG_TAG "BTIF_HD"
 
+#include "btif/include/btif_hd.h"
+
 #include <cstdint>
 
 #include "bt_target.h"  // Must be first to define build configuration
-
 #include "bta/include/bta_hd_api.h"
+#include "bta/sys/bta_sys.h"
 #include "btif/include/btif_common.h"
-#include "btif/include/btif_hd.h"
-#include "btif/include/btif_storage.h"
+#include "btif/include/btif_profile_storage.h"
 #include "btif/include/btif_util.h"
+#include "gd/common/init_flags.h"
 #include "include/hardware/bt_hd.h"
 #include "osi/include/allocator.h"
 #include "osi/include/compat.h"
@@ -51,10 +53,10 @@
 #define COD_HID_COMBO 0x05C0
 #define COD_HID_MAJOR 0x0500
 
-extern bool bta_dm_check_if_only_hd_connected(const RawAddress& peer_addr);
-extern bool check_cod_hid(const RawAddress* remote_bdaddr);
-extern bool check_cod_hid(const RawAddress& bd_addr);
-extern void btif_hh_service_registration(bool enable);
+bool bta_dm_check_if_only_hd_connected(const RawAddress& peer_addr);
+bool check_cod_hid(const RawAddress* remote_bdaddr);
+bool check_cod_hid(const RawAddress& bd_addr);
+void btif_hh_service_registration(bool enable);
 
 /* HD request events */
 typedef enum { BTIF_HD_DUMMY_REQ_EVT = 0 } btif_hd_req_evt_t;
@@ -66,7 +68,7 @@ static tBTA_HD_APP_INFO app_info;
 static tBTA_HD_QOS_INFO in_qos;
 static tBTA_HD_QOS_INFO out_qos;
 
-static void intr_data_copy_cb(uint16_t event, char* p_dst, char* p_src) {
+static void intr_data_copy_cb(uint16_t event, char* p_dst, const char* p_src) {
   tBTA_HD_INTR_DATA* p_dst_data = (tBTA_HD_INTR_DATA*)p_dst;
   tBTA_HD_INTR_DATA* p_src_data = (tBTA_HD_INTR_DATA*)p_src;
   uint8_t* p_data;
@@ -84,7 +86,7 @@ static void intr_data_copy_cb(uint16_t event, char* p_dst, char* p_src) {
   p_dst_data->p_data = p_data;
 }
 
-static void set_report_copy_cb(uint16_t event, char* p_dst, char* p_src) {
+static void set_report_copy_cb(uint16_t event, char* p_dst, const char* p_src) {
   tBTA_HD_SET_REPORT* p_dst_data = (tBTA_HD_SET_REPORT*)p_dst;
   tBTA_HD_SET_REPORT* p_src_data = (tBTA_HD_SET_REPORT*)p_src;
   uint8_t* p_data;
@@ -162,6 +164,7 @@ static void btif_hd_upstreams_evt(uint16_t event, char* p_param) {
       BTIF_TRACE_DEBUG("%s: status=%d", __func__, p_data->status);
       btif_hd_cb.status = BTIF_HD_DISABLED;
       if (btif_hd_cb.service_dereg_active) {
+        bta_sys_deregister(BTA_ID_HD);
         BTIF_TRACE_WARNING("registering hid host now");
         btif_hh_service_registration(TRUE);
         btif_hd_cb.service_dereg_active = FALSE;
@@ -181,6 +184,7 @@ static void btif_hd_upstreams_evt(uint16_t event, char* p_param) {
         addr = NULL;
       }
 
+      LOG_INFO("Registering HID device app");
       btif_hd_cb.app_registered = TRUE;
       HAL_CBACK(bt_hd_callbacks, application_state_cb, addr,
                 BTHD_APP_STATE_REGISTERED);
@@ -192,7 +196,10 @@ static void btif_hd_upstreams_evt(uint16_t event, char* p_param) {
                 BTHD_APP_STATE_NOT_REGISTERED);
       if (btif_hd_cb.service_dereg_active) {
         BTIF_TRACE_WARNING("disabling hid device service now");
-        btif_hd_free_buf();
+        if (!bluetooth::common::init_flags::
+                delay_hidh_cleanup_until_hidh_ready_start_is_enabled()) {
+          btif_hd_free_buf();
+        }
         BTA_HdDisable();
       }
       break;
@@ -200,7 +207,7 @@ static void btif_hd_upstreams_evt(uint16_t event, char* p_param) {
     case BTA_HD_OPEN_EVT: {
       RawAddress* addr = (RawAddress*)&p_data->conn.bda;
       BTIF_TRACE_WARNING("BTA_HD_OPEN_EVT, address=%s",
-                         addr->ToString().c_str());
+                         ADDRESS_TO_LOGGABLE_CSTR(*addr));
       /* Check if the connection is from hid host and not hid device */
       if (check_cod_hid(addr)) {
         /* Incoming connection from hid device, reject it */
@@ -393,14 +400,9 @@ static bt_status_t register_app(bthd_app_param_t* p_app_param,
 
   if (btif_hd_cb.app_registered) {
     BTIF_TRACE_WARNING("%s: application already registered", __func__);
-    return BT_STATUS_BUSY;
+    return BT_STATUS_DONE;
   }
 
-  if (strlen(p_app_param->name) >= BTIF_HD_APP_NAME_LEN ||
-      strlen(p_app_param->description) >= BTIF_HD_APP_DESCRIPTION_LEN ||
-      strlen(p_app_param->provider) >= BTIF_HD_APP_PROVIDER_LEN) {
-    android_errorWriteLog(0x534e4554, "113037220");
-  }
   app_info.p_name = (char*)osi_calloc(BTIF_HD_APP_NAME_LEN);
   strlcpy(app_info.p_name, p_app_param->name, BTIF_HD_APP_NAME_LEN);
   app_info.p_description = (char*)osi_calloc(BTIF_HD_APP_DESCRIPTION_LEN);

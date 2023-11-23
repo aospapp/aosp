@@ -1,0 +1,680 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--  Copyright (C) 2022 The Android Open Source Project
+
+     Licensed under the Apache License, Version 2.0 (the "License");
+     you may not use this file except in compliance with the License.
+     You may obtain a copy of the License at
+
+          http://www.apache.org/licenses/LICENSE-2.0
+
+     Unless required by applicable law or agreed to in writing, software
+     distributed under the License is distributed on an "AS IS" BASIS,
+     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+     See the License for the specific language governing permissions and
+     limitations under the License.
+ -->
+
+<!--  IMPORTANT! If adding new strings, then run generate_adservices_public_xml.py  -->
+
+<resources xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+    <string name="permlab_accessAdServicesTopics" msgid="1108993892369517728">"‏دسترسی به میانای برنامه‌سازی کاربردی AdServices Topics"</string>
+    <string name="permdesc_accessAdServicesTopics" msgid="4220466427260104683">"‏به برنامه اجازه می‌دهد به میانای برنامه‌سازی کاربردی AdServices Topics دسترسی داشته باشد."</string>
+    <string name="permlab_accessAdServicesAttribution" msgid="4498132091418336093">"‏دسترسی به میاناهای برنامه‌سازی کاربردی AdServices Attribution"</string>
+    <string name="permdesc_accessAdServicesAttribution" msgid="1644434244130657749">"‏به برنامه اجازه می‌دهد به میاناهای برنامه‌سازی کاربردی AdServices Attribution دسترسی داشته باشد."</string>
+    <string name="permlab_accessAdServicesCustomAudience" msgid="2766614780488510189">"‏دسترسی به میانای برنامه‌سازی کاربردی AdServices Custom Audience"</string>
+    <string name="permdesc_accessAdServicesCustomAudience" msgid="2034811807106784662">"‏به برنامه اجازه می‌دهد به میانای برنامه‌سازی کاربردی AdServices Custom Audience دسترسی داشته باشد."</string>
+    <string name="permlab_accessAdServicesAdId" msgid="2754825914769538156">"دسترسی به میانای برنامه‌سازی کاربردی شناسه تبلیغاتی"</string>
+    <string name="permdesc_accessAdServicesAdId" msgid="7717770480967762044">"به برنامه اجازه می‌دهد به میانای برنامه‌سازی کاربردی شناسه تبلیغاتی دسترسی داشته باشد"</string>
+    <string name="permlab_accessAdServicesConsent" msgid="3203633397142568707">"‏دسترسی به میانای برنامه‌سازی کاربردی AdServices Consent"</string>
+    <string name="permdesc_accessAdServicesConsent" msgid="8440334072391708453">"‏به برنامه اجازه می‌دهد به میانای برنامه‌سازی کاربردی AdServices Consent دسترسی داشته باشد."</string>
+    <string name="permlab_adServicesAccessAdId" msgid="1425385999072194463">"‏دسترسی به میانای برنامه‌سازی کاربردی Ad ID"</string>
+    <string name="permdesc_adServicesAccessAdId" msgid="5082994464565978279">"‏به برنامه اجازه می‌دهد به میانای برنامه‌سازی کاربردی Ad ID دسترسی داشته باشد."</string>
+    <string name="permlab_adServicesAccessAppSetId" msgid="1300149048751231124">"‏دسترسی به میانای برنامه‌سازی کاربردی App Set ID"</string>
+    <string name="permdesc_adServicesAccessAppSetId" msgid="7919418391145455372">"‏به برنامه اجازه می‌دهد به میانای برنامه‌سازی کاربردی App Set ID دسترسی داشته باشد."</string>
+    <string name="permlab_adServicesAccessConsentService" msgid="5994709782267864205">"‏دسترسی به میانای برنامه‌سازی کاربردی Consent Service"</string>
+    <string name="permdesc_adServicesAccessConsentService" msgid="4587727715580124241">"‏به برنامه اجازه می‌دهد به میانای برنامه‌سازی کاربردی Consent Service دسترسی داشته باشد."</string>
+    <string name="permlab_modifyAdServicesState" msgid="3594653261299518914">"‏دسترسی به میانای برنامه‌سازی کاربردی تغییر وضعیت فعال‌سازی AdService"</string>
+    <string name="permdesc_modifyAdServicesState" msgid="2485849128464307209">"‏به برنامه اجازه می‌دهد به میانای برنامه‌سازی کاربردی تغییر وضعیت فعال‌سازی AdService دسترسی داشته باشد."</string>
+    <string name="permlab_accessAdServicesState" msgid="482058883975394398">"‏دسترسی به میانای برنامه‌سازی کاربردی وضعیت فعال‌سازی AdService"</string>
+    <string name="permdesc_accessAdServicesState" msgid="1165015604618567202">"‏به برنامه اجازه می‌دهد به میانای برنامه‌سازی کاربردی وضعیت فعال‌سازی AdService دسترسی داشته باشد."</string>
+    <string name="permlab_accessAdServicesManager" msgid="4816332609066703740">"‏دسترسی به میاناهای برنامه‌سازی کاربردی AdServicesManager"</string>
+    <string name="permdesc_accessAdServicesManager" msgid="2619300431637689524">"‏به برنامه اجازه می‌دهد به میاناهای برنامه‌سازی کاربردی AdServicesManager دسترسی داشته باشد"</string>
+    <string name="app_label" msgid="5985320129629013968">"‏سیستم Android"</string>
+    <string name="notificationUI_notification_title_eu" msgid="6328781145332100489">"‏به نسخه بتای حریم خصوصی آگهی‌های Android بپیوندید"</string>
+    <string name="notificationUI_notification_content_eu" msgid="4119222762583017840">"‏Android درحال کاوش راه‌های خصوصی‌تری برای نمایش آگهی در برنامه‌ها است"</string>
+    <string name="notificationUI_notification_cta_eu" msgid="1294908454704864207">"بیشتر بدانید"</string>
+    <string name="notificationUI_header_title_eu" msgid="4955298263079910371">"‏نسخه بتای حریم خصوصی آگهی‌های Android"</string>
+    <string name="notificationUI_container1_title_eu" msgid="8315199862119660570">"تازه‌ها"</string>
+    <string name="notificationUI_container1_body_text_eu" msgid="1700290522706948241">"ویژگی‌های جدید حریم خصوصی در «جعبه ایمنی حریم خصوصی» به برنامه‌ها اجازه می‌دهد آگهی‌های مرتبط به شما نشان دهند، اما آنچه را که این برنامه‌ها می‌توانند درباره فعالیت‌های شما در وب‌سایت‌ها و برنامه‌های توسعه‌دهندگان دیگر متوجه شوند محدود می‌کند."</string>
+    <string name="notificationUI_container1_control_text_eu" msgid="3158258148321255153">"سازوکار عمل"</string>
+    <string name="notificationUI_container2_title_eu" msgid="7198761373796187596">"نحوه مشارکت"</string>
+    <string name="notificationUI_container2_body_text_eu" msgid="5763735880112009239">"روشن کردن نسخه بتا به برنامه‌ها اجازه می‌دهد این روش‌های خصوصی‌تر جدید را برای نمایش آگهی به شما آزمایش کنند. هرزمان خواستید می‌توانید نسخه بتا را در تنظیمات حریم خصوصی خاموش کنید."</string>
+    <string name="notificationUI_left_control_button_text_eu" msgid="3573715612232957187">"نه متشکرم"</string>
+    <string name="notificationUI_right_control_button_text_eu" msgid="8484787286437052150">"روشن کردن"</string>
+    <string name="notificationUI_more_button_text" msgid="8861584693765844519">"بیشتر"</string>
+    <string name="notificationUI_confirmation_accept_title" msgid="3178322390976087463">"از مشارکت شما سپاس‌گزاریم"</string>
+    <string name="notificationUI_confirmation_accept_subtitle" msgid="6980730715078085252">"‏شما عضوی از نسخه بتای حریم خصوصی آگهی‌های Android هستید. «جعبه ایمنی حریم خصوصی» برای دستگاه شما روشن شده است.\n\nهرزمان بخواهید می‌توانید در تنظیمات حریم خصوصی اطلاعات بیشتری کسب کنید یا نسخه بتا را خاموش کنید."</string>
+    <string name="notificationUI_confirmation_decline_title" msgid="6453417169877486440">"انتخاب کرده‌اید که شرکت نکنید"</string>
+    <string name="notificationUI_confirmation_decline_subtitle" msgid="4194388733937808440">"از پاسختان سپاس‌گزاریم. «جعبه ایمنی حریم خصوصی» برای دستگاه خاموش شده است.\n\nاگر نظرتان تغییر کرد یا خواستید اطلاعات بیشتری کسب کنید، به تنظیمات حریم خصوصی بروید."</string>
+    <string name="notificationUI_confirmation_left_control_button_text" msgid="7459283556129950513">"تنظیمات حریم خصوصی"</string>
+    <string name="notificationUI_confirmation_right_control_button_text" msgid="1390803936115621269">"متوجه‌ام"</string>
+    <string name="notificationUI_container2_title" msgid="3844342008598264655">"شما عضوی از نسخه بتا هستید"</string>
+    <string name="notificationUI_container2_body_text" msgid="758560159693325060">"«جعبه ایمنی حریم خصوصی» در دستگاهتان روشن است و برنامه‌ها می‌توانند این روش‌های خصوصی‌تر جدید را برای نمایش آگهی به شما آزمایش کنند. هرزمان خواستید می‌توانید نسخه بتا را در تنظیمات حریم خصوصی خاموش کنید."</string>
+    <string name="notificationUI_right_control_button_text" msgid="4418849554981401536">"متوجه‌ام"</string>
+    <string name="notificationUI_how_it_works_expanded_text1" msgid="5567641119079971239">"‏«جعبه ایمنی حریم خصوصی Android» ویژگی‌های جدیدی را ارائه می‌کند که برنامه‌ها می‌توانند بااستفاده از آن‌ها آگهی‌هایی به شما نشان دهند که شاید بپسندید. این فناوری‌ها از شناسه‌های دستگاه استفاده نمی‌کنند.\n\nAndroid و برنامه‌های شما می‌توانند انواع آگهی‌هایی را که ممکن است به آن‌ها علاقه داشته باشید ارزیابی کنند و این علایق را به‌طور موقت در دستگاهتان ذخیره کنند. این ویژگی به برنامه‌ها امکان می‌دهد بدون ردیابی فعالیت شما در وب‌سایت‌ها و برنامه‌های توسعه‌دهندگان دیگر، آگهی‌هایی را که ممکن است بپسندید به شما نشان دهند."</string>
+    <string name="notificationUI_how_it_works_expanded_text2" msgid="6676443093692450581">"شخصی‌سازی آگهی با «جعبه ایمنی حریم خصوصی»"</string>
+    <string name="notificationUI_how_it_works_expanded_text3" msgid="603165966360369018">"‏•  علایق ارزیابی‌شده توسط Android"</string>
+    <string name="notificationUI_how_it_works_expanded_text4" msgid="3910573920883580609">"‏Android به‌طور دوره‌ای موضوع‌های اصلی موردعلاقه‌تان را براساس برنامه‌هایی که استفاده می‌کنید ارزیابی می‌کند؛ به‌عنوان مثال «ورزش» یا «سفر».\n\nبعداً، برنامه‌ها می‌توانند به Android درخواست دهند که از این موضوع‌ها برای نشان دادن آگهی‌های مرتبط‌تر به شما استفاده کنند.\n\nمی‌توانید فهرست موضوع‌های فعلی را در تنظیمات حریم خصوصی خود ببینید و هر موردی را که نمی‌پسندید مسدود کنید."</string>
+    <string name="notificationUI_how_it_works_expanded_text5" msgid="7257714040472055781">"•  علایق ارزیابی‌شده توسط برنامه‌ها"</string>
+    <string name="notificationUI_how_it_works_expanded_text6" msgid="2949292580123453023">"‏برنامه‌ها می‌توانند علایق شما را ارزیابی کنند و آن‌ها را به‌طور موقت در Android ذخیره کنند. برای مثال، برنامه‌ای که از آن برای خرید کفش دو استفاده می‌کنید ممکن است علاقه شما را به‌عنوان «دوی ماراتون» ارزیابی کند.\n\nبعداً، براساس این علاقه، برنامه دیگری می‌تواند آگهی مربوط به دوی ماراتن به شما نشان دهد.\n\nمی‌توانید فهرست برنامه‌هایی را که علایق شما را ذخیره کرده‌اند در تنظیمات حریم خصوصی مدیریت کنید."</string>
+    <string name="notificationUI_notification_ga_title" msgid="7090667803616048587">"ویژگی‌های جدید حریم خصوصی آگهی"</string>
+    <string name="notificationUI_notification_ga_content" msgid="3483979694272908942">"موضوع‌های آگهی و کنترل‌های جدید حق انتخاب بیشتری در آگهی‌هایی که می‌بینید به شما می‌دهد."</string>
+    <string name="notificationUI_header_ga_title" msgid="3557937325021173836">"اکنون ویژگی‌های حریم خصوصی آگهی جدیدی دردسترس است"</string>
+    <string name="notificationUI_container2_ga_introduction" msgid="2201578950159210581">"‏Android براساس برنامه‌هایی که اخیراً از آن‌ها استفاده کرده‌اید موضوع‌های موردعلاقه شما را ثبت می‌کند. به‌علاوه، برنامه‌ها می‌توانند تعیین کنند چه چیزهایی را دوست دارید. برنامه‌ها بعداً می‌توانند برای نمایش آگهی‌های شخصی‌سازی‌شده این اطلاعات را درخواست دهند. می‌توانید انتخاب کنید از کدام موضوع‌ها و سایت‌ها برای نمایش آگهی به شما استفاده شود."</string>
+    <string name="notificationUI_container3_ga_introduction" msgid="4247237824558927582">"برای سنجش عملکرد آگهی، انواع محدودی از داده بین برنامه‌ها هم‌رسانی می‌شود."</string>
+    <string name="notificationUI_ga_container1_control_text" msgid="2711321174550177509">"‏اطلاعات بیشتر درباره آگهی‌ها در Android"</string>
+    <string name="notificationUI_how_it_works_row_subtitle1" msgid="8685034725335826096">"آگهی‌های مفیدتر"</string>
+    <string name="notificationUI_how_it_works_row_body1" msgid="5865369599951938718">"‏برنامه‌ها برای کمک به شخصی‌سازی آگهی‌هایی که می‌بینید اطلاعاتی از Android درخواست کنند."</string>
+    <string name="notificationUI_how_it_works_row_body2" msgid="6601773212442110369">"‏•  Android براساس برنامه‌هایی که اخیراً از آن‌ها استفاده کرده‌اید موضوع‌های موردعلاقه شما را ثبت می‌کند."</string>
+    <string name="notificationUI_how_it_works_row_body3" msgid="3692457397642529055">"•  برنامه‌هایی که استفاده می‌کنید نیز می‌توانند براساس نحوه استفاده شما از آن برنامه‌ها تشخیص دهند چه چیزهایی را دوست دارید. برای مثال، اگر از برنامه‌ای که کفش مخصوص دوی استقامت می‌فروشد استفاده کنید، ممکن است آن برنامه نتیجه‌گیری کند که به دو ماراتون علاقه دارید."</string>
+    <string name="notificationUI_how_it_works_row_body4" msgid="8731138074016839243">"بعداً، برنامه‌ای که از آن استفاده می‌کنید می‌تواند این اطلاعات را (یا موضوع‌های آگهی یا آگهی‌های پیشنهادهای برنامه‌هایی که استفاده کرده‌اید) درخواست کند."</string>
+    <string name="notificationUI_how_it_works_row_body5" msgid="4524382869577899661">"‏Android مرتباً موضوع‌ها و داده‌های پیشنهادی برنامه‌ها را به‌طور خودکار حذف می‌کند. خودتان هم می‌توانید موضوع‌ها و برنامه‌های خاصی را که نمی‌خواهید پیشنهاد بدهند مسدود کنید."</string>
+    <string name="notificationUI_how_it_works_subtitle2" msgid="2203542887026049927">"سنجش میزان موفقیت آگهی"</string>
+    <string name="notificationUI_how_it_works_row_body6" msgid="5368364880910986588">"‏برنامه‌هایی که استفاده می‌کنید می‌توانند اطلاعاتی از Android درخواست کنند تا بتوانند عملکرد آگهی‌هایشان را بسنجند. Android به برنامه‌ها اجازه می‌دهد انواع محدودی داده جمع‌آوری کنند، مانند زمانی از روز که آگهی به شما نشان داده شده است."</string>
+    <string name="notificationUI_notification_ga_title_eu" msgid="5803977334621918481">"ویژگی‌های جدید حریم خصوصی آگهی را امتحان کنید"</string>
+    <string name="notificationUI_notification_ga_content_eu" msgid="8430705356085726474">"با موضوع آگهی برای آگهی‌هایی که می‌بینید حق انتخاب بیشتری دارید"</string>
+    <string name="notificationUI_notification_ga_cta_eu" msgid="8494461862622985200">"مشاهده جزئیات"</string>
+    <string name="notificationUI_header_ga_title_eu" msgid="6246782633712559485">"ویژگی‌های جدید حریم خصوصی آگهی را امتحان کنید"</string>
+    <string name="notificationUI_container1_body_ga_text_eu" msgid="2461669162863900717">"‏Android درحال راه‌اندازی ویژگی‌های حریم خصوصی جدیدی است که حق انتخاب بیشتری در آگهی‌هایی که می‌بینید به شما می‌دهد."</string>
+    <string name="notificationUI_container2_body_ga_text_eu" msgid="1692066129509373924">"‏موضوع‌های آگهی کمک می‌کنند برنامه‌ها آگهی‌های مرتبط به شما نشان دهند و درعین‌حال از هویت شما و اطلاعات مربوط به استفاده شما از برنامه‌ها محافظت می‌کنند. Android می‌تواند براساس برنامه‌هایی که اخیراً از آن‌ها استفاده کرده‌اید موضوع‌های موردعلاقه شما را ثبت کند. بعداً برنامه‌ای که از آن استفاده می‌کنید می‌تواند برای شخصی‌سازی آگهی‌هایی که می‌بینید، موضوع‌های مرتبط را از Android درخواست کند."</string>
+    <string name="notificationUI_container3_body_ga_text_eu" msgid="5992069735281496875">"‏می‌توانید موضوع‌های آگهی را در تنظیمات دستگاهتان ببینید و آن‌هایی را که نمی‌خواهید با برنامه‌ها هم‌رسانی شوند مسدود کنید. Android نیز مرتباً موضوع‌های آگهی را به‌طور خودکار حذف می‌کند."</string>
+    <string name="notificationUI_change_any_time_in_privacy_settings_eu" msgid="2908767337419331427">"هروقت بخواهید می‌توانید نظرتان را در تنظیمات حریم خصوصی تغییر دهید."</string>
+    <string name="notificationUI_container1_control_ga_text_eu" msgid="4496835418228234590">"اطلاعات بیشتر درباره موضوع‌های آگهی"</string>
+    <string name="notificationUI_learn_more_from_privacy_policy" msgid="7809111628979410445">"‏در "<a href="https://policies.google.com/privacy">"خط‌مشی رازداری"</a>" ما، اطلاعات بیشتری درباره اینکه Android چگونه از داده‌هایتان محافظت می‌کند کسب کنید."</string>
+    <string name="notificationUI_right_control_button_ga_text_eu" msgid="7164165910760741822">"امتحان کنید"</string>
+    <string name="notificationUI_how_it_works_topics_expanded_text3" msgid="5620813445262745365">"•  از چه داده‌هایی استفاده می‌شود"</string>
+    <string name="notificationUI_how_it_works_topics_expanded_text4" msgid="398508225331553559">"موضوع‌های آگهی شما براساس برنامه‌هایی که اخیراً از آن‌ها استفاده کرده‌اید و میزان استفاده از آن‌ها است."</string>
+    <string name="notificationUI_how_it_works_topics_expanded_text5" msgid="5976468008939416198">"•  نحوه استفاده ما از این داده‌ها"</string>
+    <string name="notificationUI_how_it_works_topics_expanded_text6" msgid="6318275524155409408">"‏هنگامی که از برنامه‌ها استفاده می‌کنید، Android به موضوع‌های موردعلاقه‌تان پی می‌برد. برچسب‌های موضوع ازپیش تعیین شده‌اند و شامل مواردی نظیر هنر و سرگرمی، خرید، و ورزش هستند. بعداً، برنامه‌ای که از آن استفاده می‌کنید می‌تواند برای شخصی‌سازی آگهی‌هایی که می‌بینید، برخی‌از موضوعات شما را از Android درخواست کند (اما نمی‌تواند اطلاعات مربوط به استفاده شما از برنامه یا هویت شما را درخواست کند)."</string>
+    <string name="notificationUI_how_it_works_topics_expanded_text7" msgid="4275126336833782389">"•  چگونه می‌توانید داده‌هایتان را مدیریت کنید"</string>
+    <string name="notificationUI_how_it_works_topics_expanded_text8" msgid="2797007387412839612">"‏Android مرتباً موضوع‌ها را به‌طور خودکار حذف می‌کند. همان‌طور که به استفاده از برنامه‌ها ادامه می‌دهید، ممکن است موضوعی دوباره در فهرست پیدا شود. همچنین می‌توانید موضوع‌هایی را که نمی‌خواهید Android با برنامه‌ها هم‌رسانی کند مسدود کنید و هر زمان بخواهید موضوع‌های آگهی را در تنظیمات حریم خصوصی خاموش کنید."</string>
+    <string name="notificationUI_you_can_change_in_privacy_settings" msgid="4781410091509838647">"می‌توانید تغییرات موردنظرتان را در تنظیمات حریم خصوصی اعمال کنید."</string>
+    <string name="notificationUI_fledge_measurement_title" msgid="1721724915714192994">"اکنون ویژگی‌های حریم خصوصی آگهی بیشتری دردسترس است"</string>
+    <string name="notificationUI_fledge_measurement_introduction_text1" msgid="2217529852483952185">"‏Android همچنین روش‌های جدیدی ارائه می‌دهد تا اطلاعاتی را که برنامه‌ها می‌توانند هنگام نمایش آگهی‌های شخصی‌سازی‌شده درباره شما کسب کنند محدود کنید."</string>
+    <string name="notificationUI_fledge_measurement_introduction_text2" msgid="601600895880486962">"•  آگهی‌های پیشنهادی برنامه از هویت شما و اطلاعات مربوط به استفاده شما از برنامه محافظت می‌کند و درعین‌حال به برنامه‌ها امکان می‌دهد آگهی‌های مرتبط به شما نشان دهند. براساس فعالیتتان، برنامه‌ای که از آن استفاده می‌کنید می‌تواند در برنامه‌های دیگر آگهی‌های مرتبط پیشنهاد دهد. در تنظیمات حریم خصوصی می‌توانید فهرست برنامه‌ها را ببینید و قابلیت ارائه پیشنهاد را برای آن‌ها مسدود کنید."</string>
+    <string name="notificationUI_fledge_measurement_introduction_text3" msgid="956235653060248351">"•  با سنجش آگهی، انواع محدودی از داده بین برنامه‌ها هم‌رسانی می‌شود تا عملکرد آگهی‌ها سنجیده شود؛ داده‌هایی مثل زمانی از روز که آگهی به شما نشان داده شده است."</string>
+    <string name="notificationUI_fledge_measurement_control_ga_text_eu" msgid="2346851728118443500">"اطلاعات بیشتر درباره آگهی‌های پیشنهادی برنامه و سنجش آگهی"</string>
+    <string name="notificationUI_how_it_works_fledge_measurement_expanded_text0" msgid="2456923104551938349">"آگهی‌های پیشنهادی برنامه"</string>
+    <string name="notificationUI_how_it_works_fledge_measurement_expanded_text1" msgid="5606895535548790900">"•  از چه داده‌هایی استفاده می‌شود"</string>
+    <string name="notificationUI_how_it_works_fledge_measurement_expanded_text2" msgid="6309052819494439288">"فعالیت شما در برنامه‌ای که در این دستگاه از آن استفاده می‌کنید."</string>
+    <string name="notificationUI_how_it_works_fledge_measurement_expanded_text3" msgid="5347980571056638783">"•  برنامه‌ها چگونه از این داده‌ها استفاده می‌کنند"</string>
+    <string name="notificationUI_how_it_works_fledge_measurement_expanded_text4" msgid="4738335469671465639">"‏برنامه‌ها می‌توانند اطلاعاتی درباره چیزهایی که می‌پسندید در Android ذخیره کنند. برای مثال، اگر از برنامه‌ای درباره تمرین دو مارتون استفاده کنید، آن برنامه ممکن است نتیجه‌گیری کند که به کفش مخصوص دویدن علاقه‌مند هستید. اگر بعداً از برنامه دیگری استفاده کنید، آن برنامه می‌تواند آگهی کفش مخصوص دویدن را که توسط سایت اول پیشنهاد شده است به شما نشان دهد."</string>
+    <string name="notificationUI_how_it_works_fledge_measurement_expanded_text5" msgid="8737925570089314631">"•  چگونه می‌توانید داده‌هایتان را مدیریت کنید"</string>
+    <string name="notificationUI_how_it_works_fledge_measurement_expanded_text6" msgid="495908587748380196">"‏Android مرتباً داده‌های پیشنهادی برنامه‌ها را به‌طور خودکار حذف می‌کند. اگر از برنامه‌ای دوباره استفاده کنید ممکن است دوباره در فهرست پیدا شود."</string>
+    <string name="notificationUI_how_it_works_fledge_measurement_expanded_text7" msgid="8995912218837619600">"به‌علاوه هرزمان خواستید در تنظیمات حریم خصوصی می‌توانید آگهی‌های پیشنهادی برنامه‌ها را خاموش کنید، نگذارید برنامه‌های به شما آگهی پیشنهاد دهند، یا همه داده‌های پیشنهاد آگهی را بازنشانی کنید."</string>
+    <string name="notificationUI_how_it_works_fledge_measurement_expanded_text9" msgid="5709134827192739362">"‏برنامه‌هایی که استفاده می‌کنید می‌توانند اطلاعاتی از Android درخواست کنند که به آن‌ها کمک می‌کند عملکرد آگهی‌هایشان را بسنجند. Android با محدود کردن اطلاعاتی که برنامه‌ها می‌توانند با یکدیگر هم‌رسانی کنند از حریم خصوصی شما محافظت می‌کند."</string>
+    <string name="notificationUI_notification_ga_title_eu_v2" msgid="9132669086237883391">"اکنون ویژگی‌های حریم خصوصی آگهی جدیدی دردسترس است"</string>
+    <string name="notificationUI_notification_ga_content_eu_v2" msgid="9205285241542339861">"انتخاب بیشتری برای آگهی‌هایی که می‌بینید داشته باشید و درعین‌حال از هویتتان محافظت کنید"</string>
+    <string name="notificationUI_fledge_measurement_title_v2" msgid="1097778529908285549">"اکنون ویژگی‌های حریم خصوصی آگهی جدیدی دردسترس است"</string>
+    <string name="notificationUI_fledge_measurement_introduction_text1_v2" msgid="4019531984422364790">"‏Android درحال عرضه کردن روش‌های جدیدی برای محدود کردن اطلاعاتی است که برنامه‌ها می‌توانند هنگام نمایش آگهی‌های شخصی‌سازی‌شده درباره شما کسب کنند."</string>
+    <string name="notificationUI_fledge_measurement_introduction_text2_v2" msgid="7324869061552803848">"•  با آگهی‌های پیشنهادی برنامه، ویژگی‌های جدید حریم خصوصی از هویت شما و اطلاعات مربوط به استفاده‌تان از برنامه محافظت می‌کند و به برنامه‌ها امکان می‌دهد آگهی‌های مرتبط به شما نشان دهند. براساس فعالیتتان، برنامه‌ای که از آن استفاده می‌کنید می‌تواند در برنامه‌های دیگر آگهی‌های مرتبط پیشنهاد دهد. در تنظیمات حریم خصوصی، می‌توانید فهرست برنامه‌ها را ببینید و قابلیت ارائه پیشنهاد را برای آن‌ها مسدود کنید."</string>
+    <string name="notificationUI_fledge_measurement_introduction_text3_v2" msgid="7061185974787039681">"•  با سنجش آگهی، انواع محدودی از داده‌ها بین برنامه‌ها هم‌رسانی می‌شود تا برنامه‌ها از عملکرد آگهی‌هایشان مطلع شوند؛ داده‌هایی مثل زمانی از روز که آگهی به شما نشان داده شده است."</string>
+    <string name="notificationUI_how_it_works_fledge_measurement_expanded_text2_v2" msgid="5467298277353569728">"از فعالیت شما در برنامه‌های این دستگاه می‌توان برای پیشنهاد کردن آگهی استفاده کرد."</string>
+    <string name="notificationUI_header_ga_title_eu_v2" msgid="8442776546238998877">"ویژگی حریم خصوصی آگهی دیگری را روشن کنید"</string>
+    <string name="notificationUI_container1_body_ga_text_eu_v2" msgid="1119632112904754361">"‏Android ویژگی حریم خصوصی جدیدی نیز ارائه می‌دهد که انتخاب بیشتری برای آگهی‌هایی که می‌بینید دراختیارتان قرار می‌دهد."</string>
+    <string name="notificationUI_container2_body_ga_text_eu_v2" msgid="7264946073865844642">"‏موضوع آگهی به برنامه‌ها کمک می‌کند آگهی‌های مرتبط به شما نشان دهند و درعین‌حال از هویت شما و اطلاعات مربوط به استفاده‌تان از برنامه‌ها محافظت شود. Android می‌تواند براساس برنامه‌هایی که اخیراً از آن‌ها استفاده کرده‌اید به موضوع‌های موردعلاقه‌تان پی ببرد. بعداً، برنامه‌ای که از آن استفاده می‌کنید می‌تواند موضوع‌های مرتبط را از Android درخواست کند تا آگهی‌های مرتبط‌تری به شما نشان دهد."</string>
+    <string name="notificationUI_container3_body_ga_text_eu_v2" msgid="3204499878554843655">"‏می‌توانید موضوعات آگهی را در تنظیمات حریم خصوصی‌تان ببینید و موضوعاتی را که نمی‌خواهید با برنامه‌ها هم‌رسانی شود مسدود کنید. Android همچنین موضوعات آگهی را مرتباً به‌طور خودکار حذف می‌کند."</string>
+    <string name="notificationUI_right_control_button_ga_text_eu_v2" msgid="7227289411885047121">"آن را روشن کنید"</string>
+    <string name="notificationUI_notification_ga_title_v2" msgid="7429979629916798545">"اکنون ویژگی‌های حریم خصوصی آگهی جدیدی دردسترس است"</string>
+    <string name="notificationUI_notification_ga_content_v2" msgid="4673081782304081905">"اکنون برای آگهی‌هایی که می‌بینید انتخاب‌های بیشتری دردسترس است و درعین‌حال از هویتتان محافظت می‌شود"</string>
+    <string name="notificationUI_header_ga_title_v2" msgid="2079990149331373941">"اکنون ویژگی‌های حریم خصوصی آگهی جدیدی دردسترس است"</string>
+    <string name="notificationUI_container1_ga_introduction_v2" msgid="3820258766801905248">"‏Android اکنون ویژگی‌های حریم خصوصی جدیدی ارائه می‌دهد که انتخاب بیشتری برای آگهی‌هایی که می‌بینید دراختیارتان قرار می‌دهد."</string>
+    <string name="notificationUI_next_button_text" msgid="5564270455474313663">"بعدی"</string>
+    <string name="settingsUI_main_view_title" msgid="1663691082473230496">"جعبه ایمنی حریم خصوصی"</string>
+    <string name="settingsUI_main_view_subtitle" msgid="2059496555507319371">"‏شرکت در نسخه بتای حریم خصوصی آگهی‌های Android"</string>
+    <string name="settingsUI_privacy_sandbox_beta_switch_title" msgid="5264782269528129670">"جعبه ایمنی حریم خصوصی"</string>
+    <string name="settingsUI_topics_title" msgid="5996189869721397937">"‏علایق ارزیابی‌شده توسط Android"</string>
+    <string name="settingsUI_apps_title" msgid="2772289096915264175">"برنامه‌هایی که علایق را ارزیابی می‌کنند"</string>
+    <string name="settingsUI_main_view_info_text8" msgid="2262800588014737545">"سنجش آگهی"</string>
+    <string name="settingsUI_main_view_info_text9" msgid="5431131706102562540">"‏برنامه‌ها می‌توانند از «جعبه ایمنی حریم خصوصی» برای سنجش اثربخشی آگهی‌هایشان استفاده کنند. برای انجام این کار، تبلیغ‌کنندگان می‌توانند داده‌های مربوط به تعاملات شما بین آگهی‌ها و برنامه‌هایشان را به‌طور موقت در Android ذخیره کنند. مقدار داده‌ای که آن‌ها می‌توانند ذخیره کنند محدود است و این داده‌ها به‌طور منظم حذف خواهند شد.\n\nهرزمان خواستید با خاموش کردن «جعبه ایمنی حریم خصوصی» می‌توانید این داده‌ها را حذف کنید."</string>
+    <string name="settingsUI_topics_view_subtitle" msgid="6608135144119617292">"‏Android به‌طور دوره‌ای موضوع‌های اصلی موردعلاقه‌تان را براساس برنامه‌هایی که استفاده می‌کنید ارزیابی می‌کند. برنامه‌ها می‌توانند به Android درخواست بدهند که از این موضوع‌ها برای نشان دادن آگهی‌های مرتبط‌تر به شما استفاده کنند.\n\nاگر موضوعی را مسدود کنید، تا زمانی‌که آن را رفع انسداد نکنید دوباره به فهرست اضافه نخواهد شد. ممکن است همچنان برخی‌از آگهی‌های مرتبط را مشاهده کنید."</string>
+    <string name="settingsUI_block_topic_title" msgid="1883542291264768402">"مسدود کردن"</string>
+    <string name="settingsUI_unblock_topic_title" msgid="1710283575567727667">"لغو انسداد"</string>
+    <string name="settingsUI_blocked_topics_title" msgid="5030422883546261820">"علایقی که مسدود کرده‌اید"</string>
+    <string name="settingsUI_reset_topics_title" msgid="6917960006583871987">"بازنشاندن همه موضوع‌های موردعلاقه"</string>
+    <string name="settingsUI_topics_view_no_topics_text" msgid="6954747579303498382">"درحال‌حاضر علاقه‌ای برای نمایش وجود ندارد."</string>
+    <string name="settingsUI_topics_view_no_topics_ga_text" msgid="8043163159679359485">"درحال‌حاضر موضوعی برای نمایش وجود ندارد.\nدرباره "<a href="https://support.google.com/android?p=ad_privacy">"موضوعات آگهی"</a>" بیشتر بدانید"</string>
+    <string name="settingsUI_topics_view_info_text1" msgid="2477020249748216309">"جعبه ایمنی حریم خصوصی"</string>
+    <string name="settingsUI_topics_view_info_text2" msgid="6223353589295876851">"‏نسخه بتای حریم خصوصی آگهی‌های Android ویژگی‌های جدیدی را ارائه می‌کند که برنامه‌ها بااستفاده از آن‌ها می‌توانند آگهی‌هایی به شما نشان دهند که شاید بپسندید. این فناوری‌ها از شناسه‌های دستگاه استفاده نمی‌کنند.\n\nAndroid می‌تواند انواع آگهی‌هایی را که ممکن است به آن‌ها علاقه داشته باشید ارزیابی کند و این علایق را به‌طور موقت در دستگاهتان ذخیره کند. این ویژگی به برنامه‌ها امکان می‌دهد بدون ردیابی فعالیت شما در وب‌سایت‌ها و برنامه‌های توسعه‌دهندگان دیگر، آگهی‌های مرتبط به شما نشان دهند."</string>
+    <string name="settingsUI_topics_view_no_blocked_topics_text" msgid="6553014185055718781">"موضوع موردعلاقه‌ای که مسدود شده باشد ندارید"</string>
+    <string name="settingsUI_no_blocked_topics_ga_text" msgid="377459829879121256">"موضوعی مسدود نشده است"</string>
+    <string name="settingsUI_view_blocked_topics_title" msgid="3705333677440361392">"مشاهده موضوع‌های مسدودشده"</string>
+    <string name="settingsUI_topics_are_reset" msgid="7539323750312329931">"موضوع‌های موردعلاقه بازنشانی شد"</string>
+    <string name="settingsUI_topics_are_reset_ga" msgid="5250296990870048195">"موضوع‌ها بازنشانی شدند"</string>
+    <string name="settingsUI_apps_view_subtitle" msgid="8193343057416677400">"‏برنامه‌ها می‌توانند علایق شما را ارزیابی کنند و آن‌ها را به‌طور موقت در Android ذخیره کنند. بعداً، برنامه دیگری می‌تواند براساس این علایق به شما آگهی نشان دهد.\n\nاگر برنامه‌ای را مسدود کنید، این برنامه دیگر علایق را ارزیابی نخواهد کرد. تا زمانی‌که آن را لغو انسداد نکنید دیگر به این فهرست برنامه اضافه نخواهد شد. علایقی که برنامه قبلاً ارزیابی کرده است حذف خواهد شد، اما ممکن است همچنان آگهی‌هایی مرتبط با آن‌ها ببینید."</string>
+    <string name="settingsUI_blocked_apps_title" msgid="1260257485713408637">"برنامه‌هایی که مسدود کرده‌اید"</string>
+    <string name="settingsUI_view_blocked_apps_title" msgid="379556513199380600">"مشاهده برنامه‌های مسدودشده"</string>
+    <string name="settingsUI_reset_apps_title" msgid="6221704974528131179">"بازنشانی علایق ارزیابی‌شده توسط برنامه‌ها"</string>
+    <string name="settingsUI_apps_view_no_apps_text" msgid="7460005016322426137">"درحال‌حاضر هیچ برنامه‌ای برای شما علاقه ایجاد نمی‌کند"</string>
+    <string name="settingsUI_apps_view_no_apps_ga_text" msgid="742044210764257860">"درحال‌حاضر برنامه‌ای برای نمایش وجود ندارد. \nدرباره "<a href="https://support.google.com/android?p=ad_privacy">"آگهی‌های پیشنهادی برنامه"</a>" بیشتر بدانید"</string>
+    <string name="settingsUI_apps_view_info_text1" msgid="7835635425477842692">"جعبه ایمنی حریم خصوصی"</string>
+    <string name="settingsUI_apps_view_info_text2" msgid="308547275474796552">"‏نسخه بتای حریم خصوصی آگهی‌های Android ویژگی‌های جدیدی را ارائه می‌کند که برنامه‌ها بااستفاده از آن‌ها می‌توانند آگهی‌هایی به شما نشان دهند که شاید بپسندید. این فناوری‌ها از شناسه‌های دستگاه استفاده نمی‌کنند.\n\nبرنامه‌ها می‌توانند انواع آگهی‌هایی را که ممکن است به آن‌ها علاقه داشته باشید ارزیابی کنند و این علایق را به‌طور موقت در دستگاهتان ذخیره کنند. این ویژگی به برنامه‌ها امکان می‌دهد بدون ردیابی فعالیت شما در وب‌سایت‌ها و برنامه‌های توسعه‌دهندگان دیگر، آگهی‌های مرتبط به شما نشان دهند."</string>
+    <string name="settingsUI_apps_view_no_blocked_apps_text" msgid="3953560911214151396">"هیچ برنامه مسدودشده‌ای ندارید"</string>
+    <string name="settingsUI_no_blocked_apps_ga_text" msgid="7488680173653861943">"برنامه‌ای مسدود نشده است"</string>
+    <string name="settingsUI_measurement_switch_title" msgid="6623116680555954932">"مجاز کردن سنجش آگهی"</string>
+    <string name="settingsUI_measurement_view_intro_text" msgid="3608942051176719850">"‏برنامه‌ها و تبلیغ‌کنندگان می‌توانند از Android اطلاعات درخواست کنند. این اطلاعات به آن‌ها کمک می‌کند عملکرد آگهی‌هایشان را بسنجند.\n\nداده‌های سنجش آگهی مرتباً از دستگاهتان حذف می‌شود."</string>
+    <string name="settingsUI_measurement_view_reset_title" msgid="3063374834649428050">"بازنشانی داده‌های سنجش"</string>
+    <string name="settingsUI_measurement_view_footer_text" msgid="5978750159738729308">"‏Android با محدود کردن اطلاعاتی که برنامه‌ها می‌توانند با یکدیگر هم‌رسانی کنند، از حریم خصوصی شما محافظت می‌کند. برای محافظت از هویت شما، گزارش‌ها با تأخیر ارسال می‌شود.\n\nمرورگر شما ممکن است تنظیم مشابهی داشته باشد. اگر سنجش آگهی هم برای Android و هم برای مرورگر روشن باشد، ممکن است شرکتی بتواند اثربخشی آگهی بین برنامه‌هایی را که از آن‌ها استفاده می‌کنید و سایت‌هایی که بازدید می‌کنید بسنجد. سابقه مرورتان به‌صورت خصوصی در دستگاهتان نگهداری می‌شود.\n\nدر "<a href="https://policies.google.com/privacy">"خط‌مشی رازداری"</a>" ما، اطلاعات بیشتری درباره اینکه Android چگونه از داده‌هایتان محافظت می‌کند کسب کنید."</string>
+    <string name="settingsUI_measurement_are_reset" msgid="4375330550418573499">"داده‌های سنجش آگهی بازنشانی شد"</string>
+    <string name="settingsUI_dialog_negative_text" msgid="3014088254631375852">"لغو"</string>
+    <string name="settingsUI_dialog_opt_out_title" msgid="1862069591629418291">"«جعبه ایمنی حریم خصوصی» خاموش شود؟"</string>
+    <string name="settingsUI_dialog_opt_out_message" msgid="5696012172835241848">"‏اگر نظرتان عوض شد یا خواستید درباره نسخه بتای حریم خصوصی آگهی‌های Android اطلاعات بیشتری کسب کنید، به تنظیمات حریم خصوصی‌تان بروید"</string>
+    <string name="settingsUI_dialog_opt_out_positive_text" msgid="5344259263448028614">"خاموش کردن"</string>
+    <string name="settingsUI_dialog_block_topic_title" msgid="5744004384480280782">"‫«<xliff:g id="TOPIC">%1$s</xliff:g>» مسدود شود؟"</string>
+    <string name="settingsUI_dialog_block_topic_message" msgid="2581824495438333677">"این موضوع مسدود خواهد شد و دیگر به فهرستتان اضافه نخواهد شد، مگراینکه آن را دوباره اضافه کنید. ممکن است همچنان تعدادی آگهی مرتبط ببینید."</string>
+    <string name="settingsUI_dialog_block_topic_positive_text" msgid="2626152417590300510">"مسدود کردن"</string>
+    <string name="settingsUI_dialog_unblock_topic_title" msgid="7361000923920947234">"«<xliff:g id="TOPIC">%1$s</xliff:g>» لغو انسداد شد"</string>
+    <string name="settingsUI_dialog_unblock_topic_message" msgid="1090743551997420666">"‏Android ممکن است این موضوع را دوباره به فهرستتان اضافه کند، اما شاید فوراً نمایش داده نشود"</string>
+    <string name="settingsUI_dialog_unblock_topic_positive_text" msgid="2192452325573789737">"تأیید"</string>
+    <string name="settingsUI_dialog_reset_topic_title" msgid="8025836207966712435">"همه موضوع‌های آگهی بازنشانی شود؟"</string>
+    <string name="settingsUI_dialog_reset_topic_message" msgid="4243744527757134000">"فهرستتان پاک خواهد شد و ازاین‌پس موضوع‌های جدیدی اضافه خواهد شد. ممکن است همچنان تعدادی آگهی مرتبط با موضوع‌هایی که بازنشانی کرده‌اید ببینید."</string>
+    <string name="settingsUI_dialog_reset_topic_positive_text" msgid="8345697359799280761">"بازنشانی"</string>
+    <string name="settingsUI_dialog_block_app_title" msgid="421160714549264414">"‫«<xliff:g id="APP">%1$s</xliff:g>» مسدود شود؟"</string>
+    <string name="settingsUI_dialog_block_app_message" msgid="758788973278770119">"این برنامه دیگر آگهی پیشنهاد نخواهد داد و دوباره به فهرستتان اضافه نخواهد شد، مگراینکه آن را رفع انسداد کنید. ممکن است همچنان تعدادی آگهی مرتبط ببینید."</string>
+    <string name="settingsUI_dialog_unblock_app_title" msgid="4360730780049298286">"<xliff:g id="APP">%1$s</xliff:g> لغو انسداد شد"</string>
+    <string name="settingsUI_dialog_unblock_app_message" msgid="5758218424845642060">"این برنامه می‌تواند دوباره به شما آگهی پیشنهاد دهد، اما ممکن است فوراً در فهرستتان نمایش داده نشود. ممکن است مدتی طول بکشد تا آگهی‌های مرتبط را ببینید."</string>
+    <string name="settingsUI_dialog_reset_app_title" msgid="5177572712117150557">"آگهی‌های پیشنهادشده توسط برنامه‌ها بازنشانی شود؟"</string>
+    <string name="settingsUI_dialog_reset_app_message" msgid="7845329616145691006">"داده‌های پیشنهاد آگهی مربوط به برنامه‌های فهرستتان حذف خواهد شد و برنامه‌ها ازاین‌پس آگهی‌های جدیدی پیشنهاد خواهند داد. ممکن است همچنان تعدادی آگهی مرتبط ببینید."</string>
+    <string name="settingsUI_apps_are_reset" msgid="1814400631145418530">"داده‌های برنامه بازنشانی شد"</string>
+    <string name="settingsUI_dialog_topics_opt_in_title" msgid="8121927422479701361">"موضوع‌های آگهی روشن است"</string>
+    <string name="settingsUI_dialog_topics_opt_in_message" msgid="906156509464496182">"‏Android شروع به ثبت موضوع‌های موردعلاقه می‌کند، اما ممکن است مدتی طول بکشد تا اولین موضوع‌ها نشان داده شوند."</string>
+    <string name="settingsUI_dialog_topics_opt_out_title" msgid="729119757000459089">"موضوع‌های آگهی خاموش شود؟"</string>
+    <string name="settingsUI_dialog_topics_opt_out_message" msgid="1536431481297878931">"‏این فهرست موضوعات حذف خواهد شد. Android دیگر موضوعات موردعلاقه را ثبت نمی‌کند، اما همچنان ممکن است آگهی‌های مرتبط ببینید."</string>
+    <string name="settingsUI_dialog_apps_opt_in_title" msgid="1802639238531107941">"آگهی‌های پیشنهادی برنامه روشن است"</string>
+    <string name="settingsUI_dialog_apps_opt_in_message" msgid="6335861029594000364">"ممکن است برنامه‌ها شروع به پیشنهاد آگهی کنند. پس‌از اینکه برنامه‌ها شروع به پیشنهاد آگهی کنند، فهرستی از برنامه‌ها را خواهید دید."</string>
+    <string name="settingsUI_dialog_apps_opt_out_title" msgid="2152898453001885432">"آگهی‌های پیشنهادی برنامه خاموش شود؟"</string>
+    <string name="settingsUI_dialog_apps_opt_out_message" msgid="6894065908128443334">"همه داده‌های پیشنهاد آگهی حذف خواهد شد. برنامه‌ها دیگر نمی‌توانند آگهی پیشنهاد دهند، اما همچنان ممکن است آگهی‌های مرتبط ببینید."</string>
+    <string name="settingsUI_dialog_measurement_opt_in_title" msgid="313317715284771681">"سنجش آگهی‌ها روشن است"</string>
+    <string name="settingsUI_dialog_measurement_opt_in_message" msgid="1122570790810645916">"‏Android فقط می‌تواند اطلاعات بسیار محدودی را با برنامه‌ها هم‌رسانی کند تا به برنامه‌ها کمک کند عملکرد آگهی‌هایشان را بسنجند."</string>
+    <string name="settingsUI_dialog_measurement_opt_out_title" msgid="1629867723206716370">"سنجش آگهی‌ها خاموش شود؟"</string>
+    <string name="settingsUI_dialog_measurement_opt_out_message" msgid="1050338738668085641">"همه گزارش‌های سنجش آگهی که دردست انجام است حذف خواهد شد و هیچ گزارش جدیدی تولید یا هم‌رسانی نخواهد شد."</string>
+    <string name="settingsUI_main_view_ga_title" msgid="4149820452019697214">"حریم خصوصی آگهی"</string>
+    <string name="settingsUI_topics_ga_title" msgid="7324482132761824214">"موضوع‌های آگهی"</string>
+    <string name="settingsUI_apps_ga_title" msgid="1527820834800364372">"آگهی‌های پیشنهادی برنامه"</string>
+    <string name="settingsUI_main_view_ad_topics_info" msgid="2643088833140772417">"‏Android براساس برنامه‌هایی که اخیراً از آن‌ها استفاده کرده‌اید و تعداد دفعاتی که از آن‌ها استفاده کرده‌اید به موضوعات موردعلاقه‌تان پی می‌برد."</string>
+    <string name="settingsUI_main_view_apps_info" msgid="1668244327840008046">"همچنین برنامه‌هایی که استفاده می‌کنید می‌توانند براساس نحوه استفاده‌تان از آن برنامه‌ها تشخیص دهند چه چیزهایی را دوست دارید."</string>
+    <string name="settingsU_main_view_measurement_info" msgid="7950104699961821635">"‏برنامه‌هایی که از آن‌ها استفاده می‌کنید ممکن است اطلاعاتی از Android درخواست کنند تا بتوانند عملکرد آگهی‌هایشان را بسنجند. Android به برنامه‌ها اجازه می‌دهد انواع محدودی از داده‌ها را جمع‌آوری کنند."</string>
+    <string name="settingsU_main_view_learn_more" msgid="2129694798398023916">"‏درباره "<a href="https://support.google.com/android?p=ad_privacy">"حریم خصوصی آگهی در Android"</a>" بیشتر بدانید"</string>
+    <string name="settingsUI_topics_subtitle" msgid="6545976434367750110">"روشن / <xliff:g id="TOPICS_COUNT">%1$d</xliff:g> موضوع"</string>
+    <string name="settingsUI_topics_subtitle_plural" msgid="4809219115021801972">"{count,plural, =1{روشن / # موضوع}one{روشن / # موضوع}other{روشن / # موضوع}}"</string>
+    <string name="settingsUI_apps_subtitle" msgid="387595280958995973">"روشن / <xliff:g id="APPS_COUNT">%1$d</xliff:g> برنامه"</string>
+    <string name="settingsUI_apps_subtitle_plural" msgid="3989880089023565457">"{count,plural, =1{روشن / # برنامه}one{روشن / # برنامه}other{روشن / # برنامه}}"</string>
+    <string name="settingsUI_subtitle_consent_on" msgid="7522464537194619022">"روشن"</string>
+    <string name="settingsUI_subtitle_consent_off" msgid="1604274030685784887">"خاموش"</string>
+    <string name="settingsUI_topics_view_ga_subtitle" msgid="3672784134413586246">"‏موضوع‌های موردعلاقه براساس برنامه‌هایی که اخیراً از آن‌ها استفاده کرده‌اید تعیین می‌شود و برنامه‌ها برای نمایش آگهی‌های شخصی‌سازی‌شده از این اطلاعات استفاده می‌کنند.\n\nمی‌توانید موضوع‌هایی را که نمی‌خواهید با برنامه‌ها هم‌رسانی شود مسدود کنید. Android نیز مرتباً موضوع‌ها را به‌طور خودکار حذف می‌کند."</string>
+    <string name="settingsUI_topics_switch_title" msgid="5856255848598189791">"مجاز کردن موضوع‌های آگهی"</string>
+    <string name="settingsUI_blocked_topics_ga_title" msgid="7163366621282449273">"موضوع‌های آگهی‌ای که مسدود کرده‌اید"</string>
+    <string name="settingsUI_reset_topics_ga_title" msgid="5365554894399951300">"بازنشانی همه موضوع‌های آگهی"</string>
+    <string name="settingsU_topics_view_footer" msgid="4769146330248953561">"‏Android موضوع‌های موردعلاقه‌تان را براساس برنامه‌هایی که در چند هفته گذشته استفاده کرده‌اید مدنظر می‌گیرد.\n\nبعداً، یکی از برنامه‌هایی که استفاده می‌کنید می‌تواند برای شخصی کردن آگهی‌هایی که می‌بینید موضوع‌های شما را از Android درخواست کند. Android ضمن محافظت از هویت و اطلاعات مربوط به استفاده شما از برنامه، حداکثر ۳ موضوع را هم‌رسانی می‌کند.\n\nAndroid مرتباً موضوع‌ها را به‌طور خودکار حذف می‌کند. با ادامه استفاده از برنامه، ممکن است موضوعی دوباره در فهرست ظاهر شود. یا می‌توانید موضوع‌هایی را که نمی‌خواهید Android با برنامه‌ها هم‌رسانی کند مسدود کند.\n\nدر برنامه‌های شما، آگهی‌هایی که می‌بینید ممکن است شخصی‌سازی شوند، که این می‌تواند براساس این تنظیم، تنظیم آگهی‌های پیشنهادی برنامه، تنظیمات شناسه تبلیغاتی شما، و اینکه آیا برنامه مورداستفاده‌تان آگهی‌ها را شخصی می‌کند یا نه باشد."</string>
+    <string name="settingsUI_apps_switch_title" msgid="1308209012769248890">"مجاز کردن آگهی‌های پیشنهادی برنامه"</string>
+    <string name="settingsUI_apps_view_ga_subtitle" msgid="1911743837387384160">"‏برنامه‌هایی که استفاده می‌کنید می‌توانند آنچه را دوست دارید تشخیص دهند و سپس در برنامه‌های دیگر آگهی پیشنهاد دهند.\n\nهمچنین می‌توانید برنامه‌ها را مسدود کنید تا پیشنهاد ندهند. Android نیز مرتباً داده‌های پیشنهادی برنامه‌ها را به‌طور خودکار حذف می‌کند."</string>
+    <string name="settingsUI_blocked_apps_ga_title" msgid="1896327995101895088">"برنامه‌هایی که مسدود کرده‌اید"</string>
+    <string name="settingsUI_reset_apps_ga_title" msgid="371969808353100852">"بازنشانی داده‌های پیشنهادی برنامه"</string>
+    <string name="settingsUI_apps_view_footer" msgid="6428897482766556515">"‏برنامه‌هایی که استفاده می‌کنید معمولاً علایق شما را به‌خاطر می‌سپارند تا بتوانند تجربه شما را شخصی‌سازی کنند. برنامه‌ها می‌توانند اطلاعات مربوط به موضوعات شما را نیز با کمک Android ذخیره کنند.\n\nبرای مثال، اگر از برنامه‌ای درباره تمرین دو مارتون استفاده کنید، ممکن است برنامه نتیجه‌گیری کند که به کفش مخصوص دویدن علاقه‌مند هستید. اگر بعداً از برنامه دیگری استفاده کنید، آن برنامه می‌تواند آگهی‌ای درخصوص کفش دو به شما نشان دهد که توسط برنامه اول پیشنهاد شده است.\n\nAndroid مرتباً داده‌های پیشنهادی برنامه‌ها را به‌طور خودکار حذف می‌کند. اگر از برنامه‌ای دوباره استفاده کنید ممکن است دوباره در فهرست پیدا شود. همچنین می‌توانید آگهی‌های پیشنهادی برنامه‌ها را مسدود کنید.\n\nبسته به این تنظیم، تنظیم موضوع‌های آگهی، تنظیمات شناسه تبلیغاتی شما، و اینکه آیا برنامه‌ای که از آن استفاده می‌کنید آگهی‌ها را شخصی‌سازی می‌کند یا نه، ممکن است آگهی‌هایی که در برنامه‌هایتان می‌بینید شخصی‌سازی شود."</string>
+    <string name="notificationUI_u18_notification_title" msgid="4880509503177562077">"ویژگی جدید حریم خصوصی آگهی دردسترس است"</string>
+    <string name="notificationUI_u18_notification_content" msgid="6734418183242286936">"فقط اطلاعات بسیار محدودی بین برنامه‌ها هم‌رسانی می‌شود تا به سنجش عملکرد آگهی‌ها کمک شود"</string>
+    <string name="notificationUI_u18_body1" msgid="5384339364319615715">"‏درحال راه‌اندازی ویژگی حریم خصوصی آگهی جدیدی به نام سنجش آگهی هستیم. Android فقط اطلاعات بسیار محدودی را بین برنامه‌ها هم‌رسانی می‌کند (مثل زمانی‌که آگهی به شما نشان داده شده است) تا به برنامه‌ها کمک کند عملکرد آگهی‌ها را بسنجند."</string>
+    <string name="notificationUI_u18_body3" msgid="4511974346169641579">"می‌توانید تغییرات موردنظرتان را در تنظیمات حریم خصوصی آگهی اعمال کنید."</string>
+    <string name="settingsUI_u18_main_view_measurement_info" msgid="1709326915590855853">"‏برنامه‌هایی که استفاده می‌کنید ممکن است اطلاعاتی از Android درخواست کنند تا بتوانند عملکرد آگهی‌هایشان را بسنجند. Android به برنامه‌ها اجازه می‌دهد فقط انواع محدودی از داده‌ها را جمع‌آوری کنند."</string>
+    <string name="ic_consent_notification_ga_image_description" msgid="6146488914437778539">"تصویر رنگارنگ نمادهایی که علایقی مثل موسیقی، اخبار، و ورزش را نشان می‌دهند"</string>
+    <string name="ic_main_view_ga_image_description" msgid="1846571138870271761">"تصویر رنگارنگ قفلی درون دایره"</string>
+    <string name="ic_placeholder_icon_for_empty_apps_list_description" msgid="8171099879240285360">"تصویر سیاه‌وسفید کوچکی از نه نقطه که یک مربع را شکل داده‌اند"</string>
+    <string name="ic_placeholder_icon_for_empty_topics_list_description" msgid="2112218456926009271">"تصویر سیاه‌وسفید کوچکی از اشکال ساده مثل قلب، مثلث، و مربع"</string>
+    <string name="topic10001" msgid="1636806320891333775">"هنر و سرگرمی"</string>
+    <string name="topic10002" msgid="1226367977754287428">"بازیگری و تئاتر"</string>
+    <string name="topic10003" msgid="6949890838957814881">"انیمه و مانگا"</string>
+    <string name="topic10004" msgid="5397903150832181233">"کارتون"</string>
+    <string name="topic10005" msgid="6316179809581237302">"داستان مصور"</string>
+    <string name="topic10006" msgid="7442330644172139790">"کنسرت و جشنواره موسیقی"</string>
+    <string name="topic10007" msgid="5537896091418145164">"رقص"</string>
+    <string name="topic10008" msgid="2737343278307552521">"صنعت سرگرمی"</string>
+    <string name="topic10009" msgid="3252367380340240453">"سرگرمی و اطلاعات عمومی"</string>
+    <string name="topic10010" msgid="932301479153552725">"آزمایش‌های خنده‌دار و نظرسنجی‌های بامزه"</string>
+    <string name="topic10011" msgid="3123553390567261985">"شوخی"</string>
+    <string name="topic10012" msgid="8756486271154511326">"عکس و ویدیو بامزه"</string>
+    <string name="topic10013" msgid="1242353161202448753">"کمدی زنده"</string>
+    <string name="topic10014" msgid="6086156236112755291">"رویدادهای زنده ورزشی"</string>
+    <string name="topic10015" msgid="9196350141359833832">"تردستی"</string>
+    <string name="topic10016" msgid="202419376638900745">"فهرستگان فیلم‌ها و زمان‌های پخش تئاتر"</string>
+    <string name="topic10017" msgid="6737229918787540100">"فیلم"</string>
+    <string name="topic10018" msgid="6823676154109177487">"فیلم‌های اکشن و ماجراجویی"</string>
+    <string name="topic10019" msgid="6875960630918973127">"فیلم‌های انیمیشنی"</string>
+    <string name="topic10020" msgid="4323870300602151489">"فیلم‌های کمدی"</string>
+    <string name="topic10021" msgid="446758643774468418">"فیلم‌های فرقه‌ای و ایندی"</string>
+    <string name="topic10022" msgid="3671929742155787005">"فیلم‌های مستند"</string>
+    <string name="topic10023" msgid="3547616830531182863">"فیلم‌های درام"</string>
+    <string name="topic10024" msgid="1044853632986202120">"فیلم‌های خانوادگی"</string>
+    <string name="topic10025" msgid="5958629223443279316">"فیلم‌های ترسناک"</string>
+    <string name="topic10026" msgid="5685515125614860029">"فیلم‌های عاشقانه"</string>
+    <string name="topic10027" msgid="8846353713171614854">"مهیج"</string>
+    <string name="topic10028" msgid="170404703980174756">"موسیقی و صوت"</string>
+    <string name="topic10029" msgid="4634600135545614665">"بلوز"</string>
+    <string name="topic10030" msgid="7226438392540805771">"موسیقی کلاسیک"</string>
+    <string name="topic10031" msgid="1488013446112025676">"موسیقی کانتری"</string>
+    <string name="topic10032" msgid="9053666244854789632">"موسیقی الکترونیک و رقص"</string>
+    <string name="topic10033" msgid="440063573197454181">"موسیقی سنتی و فولک"</string>
+    <string name="topic10034" msgid="8296307244554241197">"جاز"</string>
+    <string name="topic10035" msgid="9171752741499923310">"بارگیری و جاری‌سازی موسیقی"</string>
+    <string name="topic10036" msgid="2490236112725457376">"نماهنگ"</string>
+    <string name="topic10037" msgid="1923690469725883551">"آلات موسیقی"</string>
+    <string name="topic10038" msgid="2817492732688549631">"پیانو و کی‌بورد"</string>
+    <string name="topic10039" msgid="8970033643570782019">"موسیقی پاپ"</string>
+    <string name="topic10040" msgid="7478395512712452137">"رادیو"</string>
+    <string name="topic10041" msgid="3319379117705411886">"رادیو بحث و گفتگو"</string>
+    <string name="topic10042" msgid="8830471038440654640">"رپ و هیپ‌هاپ"</string>
+    <string name="topic10043" msgid="8585450284346207691">"موسیقی راک"</string>
+    <string name="topic10044" msgid="3710011249220779842">"راک کلاسیک و موسیقی قدیمی"</string>
+    <string name="topic10045" msgid="7593443421067822441">"هارد راک و پراگرسیو"</string>
+    <string name="topic10046" msgid="8715621227472631784">"موسیقی آلترناتیو و ایندی"</string>
+    <string name="topic10047" msgid="3518038303049899798">"کتابخانه صوتی و نمونه صدا"</string>
+    <string name="topic10048" msgid="3063505369500799094">"سول و آر اند بی"</string>
+    <string name="topic10049" msgid="8061992014977840818">"موسیقی فیلم"</string>
+    <string name="topic10050" msgid="3540229495848506229">"موسیقی جهانی"</string>
+    <string name="topic10051" msgid="6132468331924347995">"موسیقی کارائیبی و رگِی"</string>
+    <string name="topic10052" msgid="8213269199807045473">"گالری تصاویر آنلاین"</string>
+    <string name="topic10053" msgid="1378192203082454197">"ویدیو آنلاین"</string>
+    <string name="topic10054" msgid="3727401645405134505">"جاری‌سازی ویدیویی زنده"</string>
+    <string name="topic10055" msgid="4943174831732192854">"جاری‌سازی فیلم و نمایش تلویزیونی"</string>
+    <string name="topic10056" msgid="3066058636154255073">"اپرا"</string>
+    <string name="topic10057" msgid="387445514677222034">"مرجع و راهنمای تلویزیون"</string>
+    <string name="topic10058" msgid="9149178644022969766">"ایستگاه و شبکه تلویزیونی"</string>
+    <string name="topic10059" msgid="6300562669238320524">"برنامه و نمایش تلویزیونی"</string>
+    <string name="topic10060" msgid="3901256055064835246">"کمدی تلویزیونی"</string>
+    <string name="topic10061" msgid="8343924749123326062">"برنامه غیرتخیلی و مستند تلویزیونی"</string>
+    <string name="topic10062" msgid="9183355218976951211">"نمایش درام تلویزیونی"</string>
+    <string name="topic10063" msgid="644340831620792432">"سریال‌های آبکی تلویزیونی"</string>
+    <string name="topic10064" msgid="5961885645457010998">"نمایش‌های خانوادگی تلویزیونی"</string>
+    <string name="topic10065" msgid="7916343612028608044">"نمایش‌های واقع‌گرای تلویزیونی"</string>
+    <string name="topic10066" msgid="5984396525358003559">"نمایش‌های فانتزی و علمی-تخیلی تلویزیونی"</string>
+    <string name="topic10067" msgid="6404637729885733437">"هنرهای تجسمی و طراحی"</string>
+    <string name="topic10068" msgid="4589856961950168493">"طراحی"</string>
+    <string name="topic10069" msgid="3129378082034151991">"نقاشی"</string>
+    <string name="topic10070" msgid="2570256568661324147">"هنرهای دیجیتالی و عکاسی"</string>
+    <string name="topic10071" msgid="1288722040962471254">"اتومبیل و وسایل نقلیه"</string>
+    <string name="topic10072" msgid="9155509766616567261">"کامیون باری و تریلر"</string>
+    <string name="topic10073" msgid="3748676231341513738">"وسایل نقلیه کلاسیک"</string>
+    <string name="topic10074" msgid="2040911547161463227">"خودرو سفارشی و با عملکرد بالا"</string>
+    <string name="topic10075" msgid="1242538698445713796">"قیمت بنزین و تأمین سوخت خودرو"</string>
+    <string name="topic10076" msgid="8674225812339579627">"وسایل نقلیه موتوری (براساس نوع)"</string>
+    <string name="topic10077" msgid="3577709810751953433">"وسایل نقلیه خودران"</string>
+    <string name="topic10078" msgid="5493263845129910125">"خودروِ روبازشو"</string>
+    <string name="topic10079" msgid="3466838852836498580">"خودروِ دودر"</string>
+    <string name="topic10080" msgid="3515647285637163190">"خودروِ هاچ‌بک"</string>
+    <string name="topic10081" msgid="4135085035401158860">"وسایل نقلیه ترکیبی و جایگزین"</string>
+    <string name="topic10082" msgid="7168659489029594320">"وسایل نقلیه تجملی"</string>
+    <string name="topic10083" msgid="1532745144715857802">"خودرو بسیار کوچک و کامپکت کوچک"</string>
+    <string name="topic10084" msgid="1984231414410381476">"موتورسیکلت"</string>
+    <string name="topic10085" msgid="5235555028227554661">"وسایل نقلیه بیابان‌گرد"</string>
+    <string name="topic10086" msgid="8360336602646460411">"وانت"</string>
+    <string name="topic10087" msgid="6566900167002195406">"اسکوتر و موتورسیکلت گازی"</string>
+    <string name="topic10088" msgid="2899313082601001223">"سدان"</string>
+    <string name="topic10089" msgid="1053630346809973163">"استیشن واگن"</string>
+    <string name="topic10090" msgid="4478565601243447368">"خودرو شاسی‌بلند و کراس‌اوور"</string>
+    <string name="topic10091" msgid="3812668311830832874">"کراس‌اوور"</string>
+    <string name="topic10092" msgid="524130833813249539">"ون و مینی‌ون"</string>
+    <string name="topic10093" msgid="8900143351472824542">"یدک‌کش و امداد جاده‌ای"</string>
+    <string name="topic10094" msgid="6205146188176216038">"ایمنی ترافیک و خودرو"</string>
+    <string name="topic10095" msgid="7983070264654477553">"قطعات و لوازم جانبی خودرو"</string>
+    <string name="topic10096" msgid="8148747014459050804">"تعمیر و نگهداری خودرو"</string>
+    <string name="topic10097" msgid="4716536434833425748">"خرید خودرو"</string>
+    <string name="topic10098" msgid="6401980112135995019">"خودرو دست‌دوم"</string>
+    <string name="topic10099" msgid="8018714209926584445">"نمایش‌های خودرو"</string>
+    <string name="topic10100" msgid="2481422464734249871">"زیبایی و تناسب اندام"</string>
+    <string name="topic10101" msgid="7889144198021629053">"هنر بدن"</string>
+    <string name="topic10102" msgid="577637051755692238">"مراقبت از صورت و بدن"</string>
+    <string name="topic10103" msgid="6618157344631408510">"ضدتعریق"</string>
+    <string name="topic10104" msgid="6043649669944382784">"محصولات حمام و بدن"</string>
+    <string name="topic10105" msgid="3248569527339253661">"زیباییِ پاک"</string>
+    <string name="topic10106" msgid="1291481249483309832">"لوازم آرایشی و زیبایی"</string>
+    <string name="topic10107" msgid="1335060201249279923">"محصولات مراقبت از ناخن"</string>
+    <string name="topic10108" msgid="4996884435711154930">"عطر و ادکلن"</string>
+    <string name="topic10109" msgid="7298403319989686251">"تیغ و ریش‌تراش"</string>
+    <string name="topic10110" msgid="5954355866247248022">"مد و لباس"</string>
+    <string name="topic10111" msgid="4447710938881368413">"تناسب اندام"</string>
+    <string name="topic10112" msgid="8816530137921714131">"بدنسازی"</string>
+    <string name="topic10113" msgid="8138889299405853557">"آموزش تناسب اندام و تعلیم شخصی"</string>
+    <string name="topic10114" msgid="2172821400279346865">"محصولات فناوری تناسب اندام"</string>
+    <string name="topic10115" msgid="9060244278068231494">"مراقبت از مو"</string>
+    <string name="topic10116" msgid="116242880964485085">"کتاب و ادبیات"</string>
+    <string name="topic10117" msgid="8933734721100160863">"ادبیات کودکان"</string>
+    <string name="topic10118" msgid="4368531903547695191">"کتاب الکترونیک"</string>
+    <string name="topic10119" msgid="2781095265741115471">"مجله"</string>
+    <string name="topic10120" msgid="3099507102655270527">"شعر"</string>
+    <string name="topic10121" msgid="4466592180799340837">"کسب‌وکار و صنعت"</string>
+    <string name="topic10122" msgid="2375136741125920744">"تبلیغات و بازاریابی"</string>
+    <string name="topic10123" msgid="6974082907852347979">"فروش"</string>
+    <string name="topic10124" msgid="44474598156972786">"کشاورزی و جنگل‌داری"</string>
+    <string name="topic10125" msgid="9170394261421539760">"تولید مواد غذایی"</string>
+    <string name="topic10126" msgid="2210146434071038904">"صنعت خودرو"</string>
+    <string name="topic10127" msgid="5503077037318678029">"صنعت هوانوردی"</string>
+    <string name="topic10128" msgid="285525650692719959">"فعالیت‌های تجاری"</string>
+    <string name="topic10129" msgid="3094691551566702427">"ساعات کاری انعطاف‌پذیر"</string>
+    <string name="topic10130" msgid="1922351409757117764">"منابع انسانی"</string>
+    <string name="topic10131" msgid="8598763405951029782">"وام‌دهی تجاری"</string>
+    <string name="topic10132" msgid="1476352626208153907">"ساخت‌وساز و تعمیر و نگهداری"</string>
+    <string name="topic10133" msgid="7089177624979453528">"مهندسی عمران"</string>
+    <string name="topic10134" msgid="3833032373311037601">"صنایع دفاعی"</string>
+    <string name="topic10135" msgid="2478808072377000440">"انرژی و تأسیسات"</string>
+    <string name="topic10136" msgid="9083992436834044162">"تأمین و تصفیه آب"</string>
+    <string name="topic10137" msgid="1912599316814246824">"صنعت مهمان‌نوازی"</string>
+    <string name="topic10138" msgid="7428346836350671895">"تولید"</string>
+    <string name="topic10139" msgid="1396685812404869953">"فلز و معدن"</string>
+    <string name="topic10140" msgid="5264212052238781441">"‏MLM و فرصت‌های کاری"</string>
+    <string name="topic10141" msgid="860058416683118730">"داروسازی و زیست‌فناوری"</string>
+    <string name="topic10142" msgid="2912550934111655896">"چاپ و نشر"</string>
+    <string name="topic10143" msgid="5690610408227078117">"تجارت خرده‌فروشی"</string>
+    <string name="topic10144" msgid="3341052306953106368">"سرمایه‌گذاری خطرپذیر"</string>
+    <string name="topic10145" msgid="6886608911083388041">"رایانه و تجهیزات الکترونیکی"</string>
+    <string name="topic10146" msgid="8202145175139144216">"لوازم جانبی رایانه"</string>
+    <string name="topic10147" msgid="4687964705548995437">"چاپگر"</string>
+    <string name="topic10148" msgid="8861628145647459323">"امنیت رایانه"</string>
+    <string name="topic10149" msgid="1719988773455991739">"ضدویروس و بدافزار"</string>
+    <string name="topic10150" msgid="1482205464872465298">"امنیت شبکه"</string>
+    <string name="topic10151" msgid="1772262905623388968">"تجهیزات الکترونیکی مصرفی"</string>
+    <string name="topic10152" msgid="651152740021127086">"دوربین عکس‌برداری و فیلم‌برداری"</string>
+    <string name="topic10153" msgid="8741504768717646372">"‏GPS و ناوبری"</string>
+    <string name="topic10154" msgid="5382029798409496090">"خودکارسازی خانه"</string>
+    <string name="topic10155" msgid="5243817792730496258">"سیستم سینمای خانگی"</string>
+    <string name="topic10156" msgid="2497791567138856030">"‏MP3 و پخش‌کننده رسانه قابل‌حمل"</string>
+    <string name="topic10157" msgid="4723439422860510190">"فناوری پوشیدنی"</string>
+    <string name="topic10158" msgid="5345830001295028513">"پشتیبان‌گیری و بازیابی داده‌ها"</string>
+    <string name="topic10159" msgid="6146958285117174314">"رایانه رومیزی"</string>
+    <string name="topic10160" msgid="6624820395549466426">"رایانه کیفی و نوت‌بوک"</string>
+    <string name="topic10161" msgid="912458758908978530">"ایجاد شبکه"</string>
+    <string name="topic10162" msgid="6717352131379507693">"پردازش ابری و توزیع‌شده"</string>
+    <string name="topic10163" msgid="6344926622025055321">"برنامه‌نویسی"</string>
+    <string name="topic10164" msgid="4228888249078845459">"نرم‌افزار"</string>
+    <string name="topic10165" msgid="5507908999219967161">"نرم‌افزار موسیقی و صدا"</string>
+    <string name="topic10166" msgid="4768106492755849560">"نرم‌افزار بهره‌وری و کسب‌وکار"</string>
+    <string name="topic10167" msgid="8556935769754922871">"نرم‌افزار زمان‌بندی و تقویم"</string>
+    <string name="topic10168" msgid="7730134961167790334">"نرم‌افزار کنفرانس و مشارکت"</string>
+    <string name="topic10169" msgid="5655084106378890454">"نرم‌افزار ارائه"</string>
+    <string name="topic10170" msgid="4638281897205909919">"نرم‌افزار صفحه‌گسترده"</string>
+    <string name="topic10171" msgid="7910183120486541228">"نرم‌افزار واژه‌پرداز"</string>
+    <string name="topic10172" msgid="3626573644414074730">"نشر رومیزی"</string>
+    <string name="topic10173" msgid="7320053835183057144">"قلم"</string>
+    <string name="topic10174" msgid="5770469447869586710">"مدیریت بارگیری"</string>
+    <string name="topic10175" msgid="3475235810022334041">"نرم‌افزار رایگان و اشتراکی"</string>
+    <string name="topic10176" msgid="6881704501596479881">"نرم‌افزار پویانمایی و گرافیک"</string>
+    <string name="topic10177" msgid="6740430730079682579">"دستیار شخصی هوشمند"</string>
+    <string name="topic10178" msgid="7261811053741593091">"پخش‌کننده رسانه"</string>
+    <string name="topic10179" msgid="2967001567120854492">"نرم‌افزار نظارت"</string>
+    <string name="topic10180" msgid="4197420326455130102">"سیستم‌عامل"</string>
+    <string name="topic10181" msgid="3537573129132698830">"نرم‌افزار عکس و ویدیو"</string>
+    <string name="topic10182" msgid="7688631285131229981">"نرم‌افزار عکس"</string>
+    <string name="topic10183" msgid="5994974566140272512">"نرم‌افزار ویدیو"</string>
+    <string name="topic10184" msgid="8685817335076871509">"نرم‌افزارهای سودمند"</string>
+    <string name="topic10185" msgid="308314128178285390">"مرورگر وب"</string>
+    <string name="topic10186" msgid="3147859503481018245">"مالی"</string>
+    <string name="topic10187" msgid="7077128721410871032">"حسابداری و حسابرسی"</string>
+    <string name="topic10188" msgid="2206138708659457910">"آماده‌سازی و برنامه‌ریزی مالیاتی"</string>
+    <string name="topic10189" msgid="4001795553008246784">"بانک‌داری"</string>
+    <string name="topic10190" msgid="2988430661381243083">"خدمات انتقال وجه و حواله"</string>
+    <string name="topic10191" msgid="6196081825838237614">"وام‌دهی و اعتبار"</string>
+    <string name="topic10192" msgid="3290123244833047307">"کارت اعتباری"</string>
+    <string name="topic10193" msgid="294407043381146861">"تأمین هزینه خرید خانه"</string>
+    <string name="topic10194" msgid="2834543407440890272">"وام شخصی"</string>
+    <string name="topic10195" msgid="7650553060132394782">"تأمین هزینه کالج و وام دانش‌آموزی"</string>
+    <string name="topic10196" msgid="5395035781876507254">"مدیریت و برنامه‌ریزی مالی"</string>
+    <string name="topic10197" msgid="1287138667488226463">"بازنشستگی و مستمری"</string>
+    <string name="topic10198" msgid="2523256186943366779">"پژوهانه"</string>
+    <string name="topic10199" msgid="3746711537661530183">"پژوهانه"</string>
+    <string name="topic10200" msgid="2394864891391267841">"بیمه"</string>
+    <string name="topic10201" msgid="4301879117376963742">"بیمه خودرو"</string>
+    <string name="topic10202" msgid="739808503036239379">"بیمه درمانی"</string>
+    <string name="topic10203" msgid="838786942776142290">"بیمه خانه"</string>
+    <string name="topic10204" msgid="6591131759521321677">"بیمه عمر"</string>
+    <string name="topic10205" msgid="3294946723815021478">"بیمه مسافرت"</string>
+    <string name="topic10206" msgid="6166888350685752683">"سرمایه‌گذاری"</string>
+    <string name="topic10207" msgid="2296385804039743999">"کالای اقتصادی و تجارت آتی"</string>
+    <string name="topic10208" msgid="2717498987483479091">"تبادل خارجی و ارز"</string>
+    <string name="topic10209" msgid="5204948738662951962">"صندوق پوشش ریسک"</string>
+    <string name="topic10210" msgid="4607225697024266227">"صندوق سرمایه‌گذاری مشترک"</string>
+    <string name="topic10211" msgid="7475381839877166080">"سهام و اوراق قرضه"</string>
+    <string name="topic10212" msgid="3988751035952286047">"غذا و نوشیدنی"</string>
+    <string name="topic10213" msgid="1358963098339995471">"آشپزی و دستور پخت"</string>
+    <string name="topic10214" msgid="8463864389138867811">"باربیکیو و کباب کردن"</string>
+    <string name="topic10215" msgid="3085467051491069648">"سبک آشپزی"</string>
+    <string name="topic10216" msgid="6043130649326166680">"غذای گیاهی"</string>
+    <string name="topic10217" msgid="7173870057669247536">"غذای مخصوص پاک‌گیاه‌خواران"</string>
+    <string name="topic10218" msgid="5570240643247064951">"سالم خواری"</string>
+    <string name="topic10219" msgid="5896715206025463732">"خرده‌فروشی خواروبار و مواد غذایی"</string>
+    <string name="topic10220" msgid="3894580611467039658">"بازی"</string>
+    <string name="topic10221" msgid="14471057764591805">"بازی‌های سکه‌ای و آرکید"</string>
+    <string name="topic10222" msgid="2704894577954508861">"بیلیارد"</string>
+    <string name="topic10223" msgid="202900267060220170">"بازی‌های صفحه‌ای"</string>
+    <string name="topic10224" msgid="6572627325588452785">"بازی‌های استراتژی انتزاعی و شطرنج"</string>
+    <string name="topic10225" msgid="8056906319560292131">"بازی‌های کارتی"</string>
+    <string name="topic10226" msgid="714463563336281099">"بازی‌های جمع‌آوری کارت"</string>
+    <string name="topic10227" msgid="218768654597520683">"بازی‌های ویدیویی و رایانه‌ای"</string>
+    <string name="topic10228" msgid="850597136074192489">"بازی‌های اکشن و پلاتفرم"</string>
+    <string name="topic10229" msgid="4284501233897149886">"بازی‌های ماجراجویی"</string>
+    <string name="topic10230" msgid="7156822286576815181">"بازی‌های نامرتب"</string>
+    <string name="topic10231" msgid="7620407218897744361">"بازی‌های ویدیویی رقابتی"</string>
+    <string name="topic10232" msgid="3029734447275709941">"بازی‌های اتومبیل‌رانی و مسابقه‌ای"</string>
+    <string name="topic10233" msgid="8318075279868138231">"بازی‌های مبارزه‌ای"</string>
+    <string name="topic10234" msgid="3899847414436099153">"مرور و مرجع بازی"</string>
+    <string name="topic10235" msgid="5851356242523630529">"نکته‌ها و حقه‌های بازی ویدیویی"</string>
+    <string name="topic10236" msgid="1986665634014804954">"بازی‌های چندنفره گسترده"</string>
+    <string name="topic10237" msgid="5569920221620447713">"بازی‌های موسیقی و رقص"</string>
+    <string name="topic10238" msgid="7431087331656772530">"بازی‌های سندباکس"</string>
+    <string name="topic10239" msgid="8667462879554115515">"بازی‌های تیراندازی"</string>
+    <string name="topic10240" msgid="1618985302446756520">"بازی‌های شبیه‌سازی"</string>
+    <string name="topic10241" msgid="8450778411063723262">"بازی‌های کسب‌وکار و سرمایه‌گذاری"</string>
+    <string name="topic10242" msgid="8860812940320018907">"بازی‌های شهرسازی"</string>
+    <string name="topic10243" msgid="1764694148721971512">"بازی‌های شبیه‌سازی زندگی"</string>
+    <string name="topic10244" msgid="4308588210397969087">"شبیه‌سازی خودرو"</string>
+    <string name="topic10245" msgid="6904368410919496658">"بازی‌های ورزشی"</string>
+    <string name="topic10246" msgid="3381244806751528148">"بازی‌های مدیریت ورزشی"</string>
+    <string name="topic10247" msgid="5927502688389762068">"بازی‌های استراتژی"</string>
+    <string name="topic10248" msgid="8471339627212674032">"برافزا و بهبوددهنده بازی ویدیویی"</string>
+    <string name="topic10249" msgid="5076706536204559962">"بازی‌های آموزشی"</string>
+    <string name="topic10250" msgid="6083030595195401083">"فعالیت‌ها و بازی‌های خانوادگی"</string>
+    <string name="topic10251" msgid="99237306730665104">"نقاشی و رنگ‌آمیزی"</string>
+    <string name="topic10252" msgid="6543039575961394064">"بازی‌های لباس پوشیدن و مد"</string>
+    <string name="topic10253" msgid="566596668186874227">"بازی‌های فکری و معمایی"</string>
+    <string name="topic10254" msgid="5732147617072023634">"بازی‌های نقش‌آفرینی"</string>
+    <string name="topic10255" msgid="2890655077164103057">"تنیس روی میز"</string>
+    <string name="topic10256" msgid="3302096971402751679">"بازی با کاشی"</string>
+    <string name="topic10257" msgid="4238531589193902619">"بازی با واژه‌ها"</string>
+    <string name="topic10258" msgid="6995329540076529056">"سرگرمی و تفریح"</string>
+    <string name="topic10259" msgid="8649688885811560410">"سالگرد"</string>
+    <string name="topic10260" msgid="487999213495640080">"تاریخ تولد و روز نام‌گذاری"</string>
+    <string name="topic10261" msgid="8970668366745952094">"فعالیت‌های زیرآب و غواصی"</string>
+    <string name="topic10262" msgid="6644046161469353448">"هنر نساجی و بافت"</string>
+    <string name="topic10263" msgid="848165976917542929">"فضای باز"</string>
+    <string name="topic10264" msgid="6274985117752637104">"ماهی‌گیری"</string>
+    <string name="topic10265" msgid="4134876488948695674">"شکار و تیراندازی"</string>
+    <string name="topic10266" msgid="6617785039128074351">"پینت‌بال"</string>
+    <string name="topic10267" msgid="488093331618885003">"کنترل رادیویی و مدل‌سازی"</string>
+    <string name="topic10268" msgid="277932389492046264">"عروسی"</string>
+    <string name="topic10269" msgid="8572041514147955202">"خانه و باغ"</string>
+    <string name="topic10270" msgid="2646715182474030951">"باغبانی"</string>
+    <string name="topic10271" msgid="1308931236810509881">"دکوراسیون داخلی و خانه"</string>
+    <string name="topic10272" msgid="8746698707390628887">"لوازم خانگی"</string>
+    <string name="topic10273" msgid="344442071339164852">"بهینه‌سازی خانه"</string>
+    <string name="topic10274" msgid="8982330028561451429">"ایمنی و امنیت خانه"</string>
+    <string name="topic10275" msgid="8280198018937968735">"ملزومات خانه"</string>
+    <string name="topic10276" msgid="1651598271798609235">"طراحی چشم‌انداز"</string>
+    <string name="topic10277" msgid="7675195736886448994">"اینترنت و مخابرات"</string>
+    <string name="topic10278" msgid="873251714192341707">"ایمیل و پیام‌رسانی"</string>
+    <string name="topic10279" msgid="6514296374139842600">"ایمیل"</string>
+    <string name="topic10280" msgid="7976787187115018267">"پیامک و پیام‌رسانی فوری"</string>
+    <string name="topic10281" msgid="4013341162811169339">"گپ صوتی و ویدیویی"</string>
+    <string name="topic10282" msgid="7810462611906257564">"‏پردازشگر سیگنال تصویر (ISP)"</string>
+    <string name="topic10283" msgid="3958287780718485172">"رساننده خدمات تلفن"</string>
+    <string name="topic10284" msgid="2415044270290467935">"آهنگ زنگ و زمینه تلفن همراه"</string>
+    <string name="topic10285" msgid="7056449544316408821">"موتور جستجو"</string>
+    <string name="topic10286" msgid="3458688996478472971">"تلفن هوشمند"</string>
+    <string name="topic10287" msgid="6766203044518402938">"کنفرانس ازراه‌دور"</string>
+    <string name="topic10288" msgid="3883137694557636622">"برنامه وب و ابزار آنلاین"</string>
+    <string name="topic10289" msgid="3392995633794787676">"خدمات وب"</string>
+    <string name="topic10290" msgid="3118880486702986341">"فضای ذخیره‌سازی ابری"</string>
+    <string name="topic10291" msgid="6025855926350955094">"طراحی و توسعه وب"</string>
+    <string name="topic10292" msgid="3069720659823056935">"میزبانی وب"</string>
+    <string name="topic10293" msgid="2489957780009828409">"شغل و آموزش"</string>
+    <string name="topic10294" msgid="474839431177892843">"آموزش"</string>
+    <string name="topic10295" msgid="2215489196192620880">"کنفرانس و انتشارات دانشگاهی"</string>
+    <string name="topic10296" msgid="4494362881225210483">"کالج و دانشگاه"</string>
+    <string name="topic10297" msgid="8596946591674128749">"آموزش ازراه‌دور"</string>
+    <string name="topic10298" msgid="6669181180128620422">"آموزش خردسالان"</string>
+    <string name="topic10299" msgid="989138215800115613">"پیش‌دبستانی"</string>
+    <string name="topic10300" msgid="8281464235308602670">"آموزش در خانه"</string>
+    <string name="topic10301" msgid="9156890858635333460">"آزمون‌های استاندارد و پذیرش"</string>
+    <string name="topic10302" msgid="1325835179421990876">"منابع کلاس و تدریس"</string>
+    <string name="topic10303" msgid="3103839978894155537">"آموزش شغلی و مداوم"</string>
+    <string name="topic10304" msgid="8831682558788062486">"شغل"</string>
+    <string name="topic10305" msgid="8415203095484493106">"برنامه‌ریزی و منابع شغلی"</string>
+    <string name="topic10306" msgid="7426556527349374835">"فهرستگان شغلی"</string>
+    <string name="topic10307" msgid="1187762846826735256">"قانون و دولت"</string>
+    <string name="topic10308" msgid="3346756665358311386">"جنایت و عدالت"</string>
+    <string name="topic10309" msgid="2041175328931014735">"حقوقی"</string>
+    <string name="topic10310" msgid="7079570344976872062">"خدمات حقوقی"</string>
+    <string name="topic10311" msgid="2095095138677585525">"اخبار"</string>
+    <string name="topic10312" msgid="939721674816307639">"اخبار اقتصادی"</string>
+    <string name="topic10313" msgid="4159611985538361632">"اخبار محلی"</string>
+    <string name="topic10314" msgid="93219947859117151">"ادغام و تملک"</string>
+    <string name="topic10315" msgid="5046321177148647481">"مطبوعات"</string>
+    <string name="topic10316" msgid="8592980844674525307">"سیاسی"</string>
+    <string name="topic10317" msgid="2412259096368647866">"اخبار ورزشی"</string>
+    <string name="topic10318" msgid="1508449672941031904">"آب‌وهوا"</string>
+    <string name="topic10319" msgid="3973645291178509390">"اخبار جهان"</string>
+    <string name="topic10320" msgid="5279440074507438174">"انجمن آنلاین"</string>
+    <string name="topic10321" msgid="7018890132742820265">"‏قطعه هنری و GIF پویانمایی‌شده"</string>
+    <string name="topic10322" msgid="1585737438943011532">"دوستیابی و شخصیت"</string>
+    <string name="topic10323" msgid="962863497957179646">"نشانک‌گذاری اجتماعی و انبوهش جارزن"</string>
+    <string name="topic10324" msgid="1425257460381023853">"هم‌رسانی و میزبانی فایل"</string>
+    <string name="topic10325" msgid="8698912164970408378">"ارائه‌دهند گپ و تالار گفتمان"</string>
+    <string name="topic10326" msgid="2425798096705921796">"مایکروبلاگ‌نویسی"</string>
+    <string name="topic10327" msgid="8518822987595111212">"هم‌رسانی عکس و ویدیو"</string>
+    <string name="topic10328" msgid="8932708475346340912">"هم‌رسانی عکس و تصویر"</string>
+    <string name="topic10329" msgid="223933889758324282">"هم‌رسانی ویدیو"</string>
+    <string name="topic10330" msgid="188028553492626282">"جلد"</string>
+    <string name="topic10331" msgid="426844238985651925">"برافزا و برنامه شبکه اجتماعی"</string>
+    <string name="topic10332" msgid="291747325781232456">"شبکه اجتماعی"</string>
+    <string name="topic10333" msgid="7950152600374846488">"افراد و اجتماع"</string>
+    <string name="topic10334" msgid="8671262583721706509">"خانواده و روابط"</string>
+    <string name="topic10335" msgid="1526523762163185819">"شجره‌نامه و سلسله‌شناسی"</string>
+    <string name="topic10336" msgid="4551233571090493177">"ازدواج"</string>
+    <string name="topic10337" msgid="8436172065188964882">"فرزندداری"</string>
+    <string name="topic10338" msgid="8896269734682970">"فرزندخواندگی"</string>
+    <string name="topic10339" msgid="781900237993621300">"نوزادان و کودکان نوپا"</string>
+    <string name="topic10340" msgid="6538182603360796294">"امنیت کودکان در اینترنت"</string>
+    <string name="topic10341" msgid="3586543243312398568">"عاشقانه"</string>
+    <string name="topic10342" msgid="3695176378281477573">"علمی-تخیلی و فانتزی"</string>
+    <string name="topic10343" msgid="2318169062960263837">"حیوانات خانگی و سایر حیوانات"</string>
+    <string name="topic10344" msgid="2005534117977874327">"غذا و لوازم مراقبت از حیوانات خانگی"</string>
+    <string name="topic10345" msgid="2397329020706244200">"حیوانات خانگی"</string>
+    <string name="topic10346" msgid="1323702748723563694">"پرندگان"</string>
+    <string name="topic10347" msgid="3301879823396773413">"گربه"</string>
+    <string name="topic10348" msgid="8066686305498410222">"سگ"</string>
+    <string name="topic10349" msgid="5253723822905761195">"ماهی و آکواریوم"</string>
+    <string name="topic10350" msgid="6164036369108076590">"خزندگان و دوزیستان"</string>
+    <string name="topic10351" msgid="1132984519083501363">"دامپزشکان"</string>
+    <string name="topic10352" msgid="6310110390516037997">"املاک و مستغلات"</string>
+    <string name="topic10353" msgid="5114390804081576684">"زمین و ملک"</string>
+    <string name="topic10354" msgid="7980778954791504082">"املاک ویژه تعطیلات و مالکیت شراکتی"</string>
+    <string name="topic10355" msgid="7720717354548642600">"مرجع"</string>
+    <string name="topic10356" msgid="8366981308613661935">"فهرستگاه شخصی و کسب‌وکار"</string>
+    <string name="topic10357" msgid="3185598234676097975">"مرجع عمومی"</string>
+    <string name="topic10358" msgid="6732669037513504019">"ابزار مرجع و ماشین‌حساب"</string>
+    <string name="topic10359" msgid="8901932349008990500">"واژه‌نام و دانش‌نامه"</string>
+    <string name="topic10360" msgid="6113408769992775754">"منابع آموزشی"</string>
+    <string name="topic10361" msgid="364838820459183817">"چگونگی"</string>
+    <string name="topic10362" msgid="3760998790588600032">"زمان و تقویم"</string>
+    <string name="topic10363" msgid="5464708619861040861">"منابع زبان"</string>
+    <string name="topic10364" msgid="4685400848805560054">"مطالعه زبان خارجی"</string>
+    <string name="topic10365" msgid="5196231842716190887">"منابع و ابزار ترجمه"</string>
+    <string name="topic10366" msgid="7460927054539097025">"نقشه"</string>
+    <string name="topic10367" msgid="3900361839783743700">"علم"</string>
+    <string name="topic10368" msgid="2069447039109930660">"واقعیت مجازی و افزوده"</string>
+    <string name="topic10369" msgid="5747888306428024793">"علوم زیستی"</string>
+    <string name="topic10370" msgid="4860829940151353583">"وراثت"</string>
+    <string name="topic10371" msgid="8229818210867472466">"شیمی"</string>
+    <string name="topic10372" msgid="6400467418954574231">"بوم‌شناسی و محیط زیست"</string>
+    <string name="topic10373" msgid="6990757247198163741">"زمین‌شناسی"</string>
+    <string name="topic10374" msgid="8057983193031950119">"یادگیری ماشین و هوش مصنوعی"</string>
+    <string name="topic10375" msgid="8511185098682306025">"ریاضی"</string>
+    <string name="topic10376" msgid="6387800251638760737">"فیزیک"</string>
+    <string name="topic10377" msgid="7834619927563362042">"روباتیک"</string>
+    <string name="topic10378" msgid="242496862821758873">"خرید"</string>
+    <string name="topic10379" msgid="5505228335012447165">"عتیقه و کلکسیون"</string>
+    <string name="topic10380" msgid="4989560205486143927">"پوشاک"</string>
+    <string name="topic10381" msgid="7585496746485093505">"لباس کودکان"</string>
+    <string name="topic10382" msgid="5088060295126473451">"لباس مناسبتی"</string>
+    <string name="topic10383" msgid="4947104586590538143">"لباس مردان"</string>
+    <string name="topic10384" msgid="3752472493887374077">"لباس زنان"</string>
+    <string name="topic10385" msgid="5275843140794803595">"طبقه‌بندی‌شده‌ها"</string>
+    <string name="topic10386" msgid="5887032952574801982">"منابع مصرف‌کننده"</string>
+    <string name="topic10387" msgid="8474154360410317897">"پیشنهاد تخفیف و کوپن"</string>
+    <string name="topic10388" msgid="3650307363028796765">"برنامه و کارت وفاداری"</string>
+    <string name="topic10389" msgid="1542336508240183221">"تعمیر و پشتیبانی فنی"</string>
+    <string name="topic10390" msgid="831225961168954292">"گل"</string>
+    <string name="topic10391" msgid="6810540242154911762">"کارت تبریک"</string>
+    <string name="topic10392" msgid="2431377771302967625">"لوازم مهمانی و تعطیلات"</string>
+    <string name="topic10393" msgid="2671274205988136926">"درگاه خرید"</string>
+    <string name="topic10394" msgid="1530096364743244151">"ورزش"</string>
+    <string name="topic10395" msgid="316192616624062917">"فوتبال آمریکایی"</string>
+    <string name="topic10396" msgid="8042120651878490689">"فوتبال استرالیایی"</string>
+    <string name="topic10397" msgid="492901976344700942">"مسابقه اتومبیل‌رانی"</string>
+    <string name="topic10398" msgid="3471795015226090296">"بیسبال"</string>
+    <string name="topic10399" msgid="2126280752064021308">"بسکتبال"</string>
+    <string name="topic10400" msgid="5440499529264277027">"بولینگ"</string>
+    <string name="topic10401" msgid="166689951236922024">"بوکس"</string>
+    <string name="topic10402" msgid="2451339788231007479">"تشویق‌گری"</string>
+    <string name="topic10403" msgid="6455478521804717635">"ورزش‌های کالج"</string>
+    <string name="topic10404" msgid="5261583496913118024">"کریکت"</string>
+    <string name="topic10405" msgid="482477447879117820">"دوچرخه‌سواری"</string>
+    <string name="topic10406" msgid="8167644332387528703">"اسب‌سواری"</string>
+    <string name="topic10407" msgid="3237734582719584272">"ورزش‌های سنگین"</string>
+    <string name="topic10408" msgid="3859749534843254349">"صخره‌نوردی و کوهنوردی"</string>
+    <string name="topic10409" msgid="7485614115639267976">"ورزش‌های فانتزی"</string>
+    <string name="topic10410" msgid="5996939009229881074">"گلف"</string>
+    <string name="topic10411" msgid="2513997418184786648">"ژیمناستیک"</string>
+    <string name="topic10412" msgid="5411755341358248299">"هاکی"</string>
+    <string name="topic10413" msgid="3319233613448963890">"اسکیت روی یخ"</string>
+    <string name="topic10414" msgid="1797840816328584660">"هنرهای رزمی"</string>
+    <string name="topic10415" msgid="2886043330316735719">"مسابقه موتورسواری"</string>
+    <string name="topic10416" msgid="3436682172863605224">"المپیک"</string>
+    <string name="topic10417" msgid="8296644015663416236">"راگبی"</string>
+    <string name="topic10418" msgid="8276736633218488127">"دویدن و پیاده‌روی"</string>
+    <string name="topic10419" msgid="5663062924928275215">"اسکی و اسنوبردسواری"</string>
+    <string name="topic10420" msgid="2509320683543423424">"فوتبال"</string>
+    <string name="topic10421" msgid="6512889128030030686">"موج‌سواری"</string>
+    <string name="topic10422" msgid="8342986282852879750">"شنا"</string>
+    <string name="topic10423" msgid="6333426807705188459">"تنیس"</string>
+    <string name="topic10424" msgid="5495511215629567375">"دو و میدانی"</string>
+    <string name="topic10425" msgid="4009138228283995179">"والیبال"</string>
+    <string name="topic10426" msgid="7998590461761852196">"كشتی"</string>
+    <string name="topic10427" msgid="6711468161729797769">"سفر و حمل‌ونقل"</string>
+    <string name="topic10428" msgid="661919563628063196">"سفر ماجراجویی"</string>
+    <string name="topic10429" msgid="408270392813634227">"سفر هوایی"</string>
+    <string name="topic10430" msgid="3046485339481297656">"سفر کاری"</string>
+    <string name="topic10431" msgid="7439352609169583150">"اجاره خودرو"</string>
+    <string name="topic10432" msgid="5034961318884376752">"سفر دریایی و دربستی"</string>
+    <string name="topic10433" msgid="6354590445323135986">"سفر خانوادگی"</string>
+    <string name="topic10434" msgid="7081309045291255264">"ماه‌عسل و سفر عاشقانه"</string>
+    <string name="topic10435" msgid="1064605516265819020">"هتل و اقامتگاه"</string>
+    <string name="topic10436" msgid="9050375924140897722">"اتوبوس و قطار بین‌شهری"</string>
+    <string name="topic10437" msgid="2655664900730187701">"سفرهای کم‌هزینه و لحظه آخری"</string>
+    <string name="topic10438" msgid="7944023251845122923">"لوازم سفر و چمدان"</string>
+    <string name="topic10439" msgid="7845433008088931971">"مقاصد گردشگری"</string>
+    <string name="topic10440" msgid="485118071443976808">"ساحل و جزیره"</string>
+    <string name="topic10441" msgid="518643446480879895">"پارک و باغ منطقه‌ای"</string>
+    <string name="topic10442" msgid="6534536077484540292">"پارک موضوعی"</string>
+    <string name="topic10443" msgid="8787722062991478596">"باغ‌وحش"</string>
+    <string name="topic10444" msgid="2075863187654728611">"برنامه‌ریز مسیر و ترافیک"</string>
+    <string name="topic10445" msgid="3460421948068980869">"خدمات و آژانس‌های مسافرتی"</string>
+    <string name="topic10446" msgid="5333138740720504195">"راهنمای سفر و سفرنامه"</string>
+</resources>

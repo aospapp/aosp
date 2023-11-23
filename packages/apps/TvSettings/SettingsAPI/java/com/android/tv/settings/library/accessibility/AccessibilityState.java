@@ -52,10 +52,13 @@ public class AccessibilityState implements State {
     private static final String TOGGLE_HIGH_TEXT_CONTRAST_KEY = "toggle_high_text_contrast";
     private static final String TOGGLE_AUDIO_DESCRIPTION_KEY = "toggle_audio_description";
     private static final String ACCESSIBILITY_SERVICES_KEY = "system_accessibility_services";
+    private static final String TOGGLE_BOLD_TEXT_KEY = "toggle_bold_text";
+    private static final int BOLD_TEXT_ADJUSTMENT = 500;
 
     private PreferenceCompat mServicesPref;
     private PreferenceCompat mHighContrastPreference;
     private PreferenceCompat mAudioDescriptionPreference;
+    private PreferenceCompat mBoldTextPreference;
 
     private final AccessibilityManager.AccessibilityStateChangeListener
             mAccessibilityStateChangeListener = enabled -> refreshServices();
@@ -87,6 +90,12 @@ public class AccessibilityState implements State {
         mAudioDescriptionPreference.setChecked(Settings.Secure.getInt(
                 mContext.getContentResolver(),
                 Settings.Secure.ENABLED_ACCESSIBILITY_AUDIO_DESCRIPTION_BY_DEFAULT, 0) == 1);
+
+        mBoldTextPreference = mPreferenceCompatManager.getOrCreatePrefCompat(
+                TOGGLE_BOLD_TEXT_KEY);
+        mBoldTextPreference.setChecked(Settings.Secure.getInt(
+                mContext.getContentResolver(),
+                Settings.Secure.FONT_WEIGHT_ADJUSTMENT, 0) == BOLD_TEXT_ADJUSTMENT);
 
         mServicesPref = mPreferenceCompatManager.getOrCreatePrefCompat(ACCESSIBILITY_SERVICES_KEY);
         refreshServices();
@@ -143,6 +152,11 @@ public class AccessibilityState implements State {
                     Settings.Secure.ENABLED_ACCESSIBILITY_AUDIO_DESCRIPTION_BY_DEFAULT,
                     (mAudioDescriptionPreference.getChecked() == STATUS_ON ? 1 : 0));
             return true;
+        } else if (TextUtils.equals(key[0], TOGGLE_BOLD_TEXT_KEY)) {
+            Settings.Secure.putInt(mContext.getContentResolver(),
+                    Settings.Secure.FONT_WEIGHT_ADJUSTMENT,
+                    (mBoldTextPreference.getChecked() == STATUS_ON ? BOLD_TEXT_ADJUSTMENT : 0));
+            return true;
         }
         return false;
     }
@@ -163,6 +177,11 @@ public class AccessibilityState implements State {
             final boolean value = (Boolean) newValue;
             mAudioDescriptionPreference.setChecked(value);
             refreshToggleAudioDescriptionUI();
+            return true;
+        } else if (TextUtils.equals(key[0], TOGGLE_BOLD_TEXT_KEY)) {
+            final boolean value = (Boolean) newValue;
+            mBoldTextPreference.setChecked(value);
+            refreshToggleBoldTextUI();
             return true;
         }
         return false;
@@ -188,6 +207,12 @@ public class AccessibilityState implements State {
     private void refreshToggleAudioDescriptionUI() {
         if (mUIUpdateCallback != null) {
             mUIUpdateCallback.notifyUpdate(getStateIdentifier(), mAudioDescriptionPreference);
+        }
+    }
+
+    private void refreshToggleBoldTextUI() {
+        if (mUIUpdateCallback != null) {
+            mUIUpdateCallback.notifyUpdate(getStateIdentifier(), mBoldTextPreference);
         }
     }
 

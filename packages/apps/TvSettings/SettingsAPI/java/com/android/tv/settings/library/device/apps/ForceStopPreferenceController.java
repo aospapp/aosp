@@ -18,6 +18,7 @@ package com.android.tv.settings.library.device.apps;
 
 import android.app.Activity;
 import android.app.admin.DevicePolicyManager;
+import android.apphibernation.AppHibernationManager;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
@@ -75,8 +76,15 @@ public class ForceStopPreferenceController extends AppActionPreferenceController
         i.putExtra(EXTRA_GUIDANCE_BREADCRUMB, getAppName());
         mPreferenceCompat.setIntent(i);
 
+        AppHibernationManager ahm = mContext.getSystemService(
+                AppHibernationManager.class);
+        boolean isPackageHibernated = ahm.isHibernatingForUser(mAppEntry.info.packageName);
+
         if (dpm.packageHasActiveAdmins(mAppEntry.info.packageName)) {
             // User can't force stop device admin.
+            mPreferenceCompat.setVisible(false);
+        } else if (isPackageHibernated) {
+            // Hibernated apps are always stopped.
             mPreferenceCompat.setVisible(false);
         } else if ((mAppEntry.info.flags & ApplicationInfo.FLAG_STOPPED) == 0) {
             // If the app isn't explicitly stopped, then always show the
@@ -89,12 +97,13 @@ public class ForceStopPreferenceController extends AppActionPreferenceController
                     mAppEntry.info.packageName});
             intent.putExtra(Intent.EXTRA_UID, mAppEntry.info.uid);
             intent.putExtra(Intent.EXTRA_USER_HANDLE, UserHandle.getUserId(mAppEntry.info.uid));
-            mContext.sendOrderedBroadcast(intent, null, new BroadcastReceiver() {
-                @Override
-                public void onReceive(Context context, Intent intent) {
-                    mPreferenceCompat.setVisible(getResultCode() != Activity.RESULT_CANCELED);
-                }
-            }, null, Activity.RESULT_CANCELED, null, null);
+            mContext.sendOrderedBroadcast(intent,
+                    android.Manifest.permission.HANDLE_QUERY_PACKAGE_RESTART, new BroadcastReceiver() {
+                        @Override
+                        public void onReceive(Context context, Intent intent) {
+                            mPreferenceCompat.setVisible(getResultCode() != Activity.RESULT_CANCELED);
+                        }
+                    }, null, Activity.RESULT_CANCELED, null, null);
         }
         super.update();
     }

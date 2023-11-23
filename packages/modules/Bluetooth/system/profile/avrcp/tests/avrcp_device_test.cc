@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include <base/bind.h>
+#include <base/functional/bind.h>
 #include <base/logging.h>
 #include <base/threading/thread.h>
 #include <gmock/gmock.h>
@@ -50,9 +50,18 @@ using ::testing::SaveArg;
 
 bool get_pts_avrcp_test(void) { return false; }
 
-const stack_config_t interface = {
-    nullptr, get_pts_avrcp_test, nullptr, nullptr, nullptr, nullptr, nullptr,
-    nullptr};
+const stack_config_t interface = {nullptr, get_pts_avrcp_test,
+                                  nullptr, nullptr,
+                                  nullptr, nullptr,
+                                  nullptr, nullptr,
+                                  nullptr, nullptr,
+                                  nullptr, nullptr,
+                                  nullptr, nullptr,
+                                  nullptr, nullptr,
+                                  nullptr, nullptr,
+                                  nullptr, nullptr,
+                                  nullptr, nullptr,
+                                  nullptr};
 
 // TODO (apanicke): All the tests below are just basic positive unit tests.
 // Add more tests to increase code coverage.
@@ -124,7 +133,8 @@ TEST_F(AvrcpDeviceTest, trackChangedTest) {
   MockMediaInterface interface;
   NiceMock<MockA2dpInterface> a2dp_interface;
 
-  test_device->RegisterInterfaces(&interface, &a2dp_interface, nullptr);
+  test_device->RegisterInterfaces(&interface, &a2dp_interface, nullptr,
+                                  nullptr);
 
   SongInfo info = {"test_id",
                    {// The attribute map
@@ -165,11 +175,73 @@ TEST_F(AvrcpDeviceTest, trackChangedTest) {
   test_device->HandleTrackUpdate();
 }
 
+TEST_F(AvrcpDeviceTest, playerSettingsChangedTest) {
+  MockMediaInterface interface;
+  NiceMock<MockA2dpInterface> a2dp_interface;
+  MockPlayerSettingsInterface player_settings_interface;
+  std::vector<PlayerAttribute> attributes = {PlayerAttribute::REPEAT,
+                                             PlayerAttribute::SHUFFLE};
+  std::vector<uint8_t> attributes_values = {
+      static_cast<uint8_t>(PlayerRepeatValue::OFF),
+      static_cast<uint8_t>(PlayerShuffleValue::ALL)};
+
+  test_device->RegisterInterfaces(&interface, &a2dp_interface, nullptr,
+                                  &player_settings_interface);
+
+  EXPECT_CALL(player_settings_interface, GetCurrentPlayerSettingValue(_, _))
+      .Times(1)
+      .WillRepeatedly(InvokeCb<1>(attributes, attributes_values));
+
+  // Test the interim response for player settings changed
+  auto interim_response =
+      RegisterNotificationResponseBuilder::MakePlayerSettingChangedBuilder(
+          true, attributes, attributes_values);
+  EXPECT_CALL(response_cb,
+              Call(1, false, matchPacket(std::move(interim_response))))
+      .Times(1);
+
+  auto request = RegisterNotificationRequestBuilder::MakeBuilder(
+      Event::PLAYER_APPLICATION_SETTING_CHANGED, 0);
+  auto pkt = TestAvrcpPacket::Make();
+  request->Serialize(pkt);
+  SendMessage(1, pkt);
+
+  // Test the changed response for player settings changed
+  auto changed_response =
+      RegisterNotificationResponseBuilder::MakePlayerSettingChangedBuilder(
+          false, attributes, attributes_values);
+  EXPECT_CALL(response_cb,
+              Call(1, false, matchPacket(std::move(changed_response))))
+      .Times(1);
+
+  test_device->HandlePlayerSettingChanged(attributes, attributes_values);
+}
+
+TEST_F(AvrcpDeviceTest, playerSettingsChangedNotSupportedTest) {
+  MockMediaInterface interface;
+  NiceMock<MockA2dpInterface> a2dp_interface;
+
+  test_device->RegisterInterfaces(&interface, &a2dp_interface, nullptr,
+                                  nullptr);
+
+  auto response = RejectBuilder::MakeBuilder(CommandPdu::REGISTER_NOTIFICATION,
+                                             Status::INVALID_COMMAND);
+  EXPECT_CALL(response_cb, Call(1, false, matchPacket(std::move(response))))
+      .Times(1);
+
+  auto request = RegisterNotificationRequestBuilder::MakeBuilder(
+      Event::PLAYER_APPLICATION_SETTING_CHANGED, 0);
+  auto pkt = TestAvrcpPacket::Make();
+  request->Serialize(pkt);
+  SendMessage(1, pkt);
+}
+
 TEST_F(AvrcpDeviceTest, playStatusTest) {
   MockMediaInterface interface;
   NiceMock<MockA2dpInterface> a2dp_interface;
 
-  test_device->RegisterInterfaces(&interface, &a2dp_interface, nullptr);
+  test_device->RegisterInterfaces(&interface, &a2dp_interface, nullptr,
+                                  nullptr);
 
   PlayStatus status1 = {0x1234, 0x5678, PlayState::PLAYING};
   PlayStatus status2 = {0x1234, 0x5678, PlayState::STOPPED};
@@ -211,7 +283,8 @@ TEST_F(AvrcpDeviceTest, playPositionTest) {
   MockMediaInterface interface;
   NiceMock<MockA2dpInterface> a2dp_interface;
 
-  test_device->RegisterInterfaces(&interface, &a2dp_interface, nullptr);
+  test_device->RegisterInterfaces(&interface, &a2dp_interface, nullptr,
+                                  nullptr);
 
   // TODO (apanicke): Add an underlying message loop so we can test the playing
   // state.
@@ -255,7 +328,8 @@ TEST_F(AvrcpDeviceTest, trackChangedBeforeInterimTest) {
   MockMediaInterface interface;
   NiceMock<MockA2dpInterface> a2dp_interface;
 
-  test_device->RegisterInterfaces(&interface, &a2dp_interface, nullptr);
+  test_device->RegisterInterfaces(&interface, &a2dp_interface, nullptr,
+                                  nullptr);
 
   // Pretend the device is active
   EXPECT_CALL(a2dp_interface, active_peer())
@@ -320,7 +394,8 @@ TEST_F(AvrcpDeviceTest, playStatusChangedBeforeInterimTest) {
   EXPECT_CALL(a2dp_interface, active_peer())
       .WillRepeatedly(Return(test_device->GetAddress()));
 
-  test_device->RegisterInterfaces(&interface, &a2dp_interface, nullptr);
+  test_device->RegisterInterfaces(&interface, &a2dp_interface, nullptr,
+                                  nullptr);
 
   MediaInterface::PlayStatusCallback interim_cb;
   MediaInterface::PlayStatusCallback changed_cb;
@@ -374,7 +449,8 @@ TEST_F(AvrcpDeviceTest, playPositionChangedBeforeInterimTest) {
   EXPECT_CALL(a2dp_interface, active_peer())
       .WillRepeatedly(Return(test_device->GetAddress()));
 
-  test_device->RegisterInterfaces(&interface, &a2dp_interface, nullptr);
+  test_device->RegisterInterfaces(&interface, &a2dp_interface, nullptr,
+                                  nullptr);
 
   MediaInterface::PlayStatusCallback interim_cb;
   MediaInterface::PlayStatusCallback changed_cb;
@@ -425,7 +501,8 @@ TEST_F(AvrcpDeviceTest, nowPlayingChangedBeforeInterim) {
   MockMediaInterface interface;
   NiceMock<MockA2dpInterface> a2dp_interface;
 
-  test_device->RegisterInterfaces(&interface, &a2dp_interface, nullptr);
+  test_device->RegisterInterfaces(&interface, &a2dp_interface, nullptr,
+                                  nullptr);
 
   SongInfo info = {"test_id",
                    {// The attribute map
@@ -483,7 +560,8 @@ TEST_F(AvrcpDeviceTest, addressPlayerChangedBeforeInterim) {
   MockMediaInterface interface;
   NiceMock<MockA2dpInterface> a2dp_interface;
 
-  test_device->RegisterInterfaces(&interface, &a2dp_interface, nullptr);
+  test_device->RegisterInterfaces(&interface, &a2dp_interface, nullptr,
+                                  nullptr);
 
   MediaInterface::MediaListCallback interim_cb;
   MediaInterface::MediaListCallback changed_cb;
@@ -540,7 +618,8 @@ TEST_F(AvrcpDeviceTest, nowPlayingTest) {
   MockMediaInterface interface;
   NiceMock<MockA2dpInterface> a2dp_interface;
 
-  test_device->RegisterInterfaces(&interface, &a2dp_interface, nullptr);
+  test_device->RegisterInterfaces(&interface, &a2dp_interface, nullptr,
+                                  nullptr);
 
   SongInfo info = {"test_id",
                    {// The attribute map
@@ -583,7 +662,8 @@ TEST_F(AvrcpDeviceTest, getPlayStatusTest) {
   MockMediaInterface interface;
   NiceMock<MockA2dpInterface> a2dp_interface;
 
-  test_device->RegisterInterfaces(&interface, &a2dp_interface, nullptr);
+  test_device->RegisterInterfaces(&interface, &a2dp_interface, nullptr,
+                                  nullptr);
 
   PlayStatus status = {0x1234, 0x5678, PlayState::PLAYING};
 
@@ -609,7 +689,8 @@ TEST_F(AvrcpDeviceTest, getElementAttributesTest) {
   MockMediaInterface interface;
   NiceMock<MockA2dpInterface> a2dp_interface;
 
-  test_device->RegisterInterfaces(&interface, &a2dp_interface, nullptr);
+  test_device->RegisterInterfaces(&interface, &a2dp_interface, nullptr,
+                                  nullptr);
 
   SongInfo info = {"test_id",
                    {// The attribute map
@@ -651,7 +732,8 @@ TEST_F(AvrcpDeviceTest, getElementAttributesWithCoverArtTest) {
   MockMediaInterface interface;
   NiceMock<MockA2dpInterface> a2dp_interface;
 
-  test_device->RegisterInterfaces(&interface, &a2dp_interface, nullptr);
+  test_device->RegisterInterfaces(&interface, &a2dp_interface, nullptr,
+                                  nullptr);
 
   SongInfo info = {"test_id",
                    {// The attribute map
@@ -715,7 +797,7 @@ TEST_F(AvrcpDeviceTest, getElementAttributesMtuTest) {
                  &response_cb);
   Device device(RawAddress::kAny, true, cb, truncated_packet->size(), 0xFFFF);
 
-  device.RegisterInterfaces(&interface, &a2dp_interface, nullptr);
+  device.RegisterInterfaces(&interface, &a2dp_interface, nullptr, nullptr);
 
   SongInfo info = {"test_id",
                    {AttributeEntry(Attribute::TITLE, "1234truncated")}};
@@ -733,7 +815,8 @@ TEST_F(AvrcpDeviceTest, getTotalNumberOfItemsMediaPlayersTest) {
   MockMediaInterface interface;
   NiceMock<MockA2dpInterface> a2dp_interface;
 
-  test_device->RegisterInterfaces(&interface, &a2dp_interface, nullptr);
+  test_device->RegisterInterfaces(&interface, &a2dp_interface, nullptr,
+                                  nullptr);
 
   std::vector<MediaPlayerInfo> player_list = {
       {0, "player1", true}, {1, "player2", true}, {2, "player3", true},
@@ -757,7 +840,8 @@ TEST_F(AvrcpDeviceTest, getTotalNumberOfItemsVFSTest) {
   MockMediaInterface interface;
   NiceMock<MockA2dpInterface> a2dp_interface;
 
-  test_device->RegisterInterfaces(&interface, &a2dp_interface, nullptr);
+  test_device->RegisterInterfaces(&interface, &a2dp_interface, nullptr,
+                                  nullptr);
 
   std::vector<ListItem> vfs_list = {
       {ListItem::FOLDER, {"id1", true, "folder1"}, SongInfo()},
@@ -782,7 +866,8 @@ TEST_F(AvrcpDeviceTest, getTotalNumberOfItemsNowPlayingTest) {
   MockMediaInterface interface;
   NiceMock<MockA2dpInterface> a2dp_interface;
 
-  test_device->RegisterInterfaces(&interface, &a2dp_interface, nullptr);
+  test_device->RegisterInterfaces(&interface, &a2dp_interface, nullptr,
+                                  nullptr);
 
   std::vector<SongInfo> now_playing_list = {
       {"test_id1", {}}, {"test_id2", {}}, {"test_id3", {}},
@@ -806,7 +891,8 @@ TEST_F(AvrcpDeviceTest, getMediaPlayerListTest) {
   MockMediaInterface interface;
   NiceMock<MockA2dpInterface> a2dp_interface;
 
-  test_device->RegisterInterfaces(&interface, &a2dp_interface, nullptr);
+  test_device->RegisterInterfaces(&interface, &a2dp_interface, nullptr,
+                                  nullptr);
 
   MediaPlayerInfo info = {0, "Test Player", true};
   std::vector<MediaPlayerInfo> list = {info};
@@ -830,7 +916,8 @@ TEST_F(AvrcpDeviceTest, getNowPlayingListTest) {
   MockMediaInterface interface;
   NiceMock<MockA2dpInterface> a2dp_interface;
 
-  test_device->RegisterInterfaces(&interface, &a2dp_interface, nullptr);
+  test_device->RegisterInterfaces(&interface, &a2dp_interface, nullptr,
+                                  nullptr);
   SetBipClientStatus(false);
 
   SongInfo info = {"test_id",
@@ -863,7 +950,8 @@ TEST_F(AvrcpDeviceTest, getNowPlayingListWithCoverArtTest) {
   MockMediaInterface interface;
   NiceMock<MockA2dpInterface> a2dp_interface;
 
-  test_device->RegisterInterfaces(&interface, &a2dp_interface, nullptr);
+  test_device->RegisterInterfaces(&interface, &a2dp_interface, nullptr,
+                                  nullptr);
   SetBipClientStatus(true);
 
   SongInfo info = {"test_id",
@@ -896,7 +984,8 @@ TEST_F(AvrcpDeviceTest, getVFSFolderTest) {
   MockMediaInterface interface;
   NiceMock<MockA2dpInterface> a2dp_interface;
 
-  test_device->RegisterInterfaces(&interface, &a2dp_interface, nullptr);
+  test_device->RegisterInterfaces(&interface, &a2dp_interface, nullptr,
+                                  nullptr);
 
   FolderInfo info = {"test_id", true, "Test Folder"};
   ListItem item = {ListItem::FOLDER, info, SongInfo()};
@@ -932,7 +1021,7 @@ TEST_F(AvrcpDeviceTest, getFolderItemsMtuTest) {
 
   Device device(RawAddress::kAny, true, cb, 0xFFFF,
                 truncated_packet->size() + FolderItem::kHeaderSize() + 5);
-  device.RegisterInterfaces(&interface, &a2dp_interface, nullptr);
+  device.RegisterInterfaces(&interface, &a2dp_interface, nullptr, nullptr);
 
   FolderInfo info0 = {"test_id0", true, "Test Folder0"};
   FolderInfo info1 = {"test_id1", true, "Test Folder1"};
@@ -961,7 +1050,8 @@ TEST_F(AvrcpDeviceTest, changePathTest) {
   MockMediaInterface interface;
   NiceMock<MockA2dpInterface> a2dp_interface;
 
-  test_device->RegisterInterfaces(&interface, &a2dp_interface, nullptr);
+  test_device->RegisterInterfaces(&interface, &a2dp_interface, nullptr,
+                                  nullptr);
 
   FolderInfo info0 = {"test_id0", true, "Test Folder0"};
   FolderInfo info1 = {"test_id1", true, "Test Folder1"};
@@ -1056,7 +1146,8 @@ TEST_F(AvrcpDeviceTest, getItemAttributesNowPlayingTest) {
   MockMediaInterface interface;
   NiceMock<MockA2dpInterface> a2dp_interface;
 
-  test_device->RegisterInterfaces(&interface, &a2dp_interface, nullptr);
+  test_device->RegisterInterfaces(&interface, &a2dp_interface, nullptr,
+                                  nullptr);
 
   SongInfo info = {"test_id",
                    {// The attribute map
@@ -1097,7 +1188,8 @@ TEST_F(AvrcpDeviceTest, getItemAttributesNowPlayingWithCoverArtTest) {
   MockMediaInterface interface;
   NiceMock<MockA2dpInterface> a2dp_interface;
 
-  test_device->RegisterInterfaces(&interface, &a2dp_interface, nullptr);
+  test_device->RegisterInterfaces(&interface, &a2dp_interface, nullptr,
+                                  nullptr);
 
   SongInfo info = {"test_id",
                    {// The attribute map
@@ -1168,7 +1260,7 @@ TEST_F(AvrcpDeviceTest, getItemAttributesMtuTest) {
                     uint8_t b, bool c, AvrcpResponse d) { a->Call(b, c, d); },
                  &response_cb);
   Device device(RawAddress::kAny, true, cb, 0xFFFF, truncated_packet->size());
-  device.RegisterInterfaces(&interface, &a2dp_interface, nullptr);
+  device.RegisterInterfaces(&interface, &a2dp_interface, nullptr, nullptr);
 
   SongInfo info = {"test_id",
                    {AttributeEntry(Attribute::TITLE, "1234truncated")}};
@@ -1187,7 +1279,8 @@ TEST_F(AvrcpDeviceTest, setAddressedPlayerTest) {
   MockMediaInterface interface;
   NiceMock<MockA2dpInterface> a2dp_interface;
 
-  test_device->RegisterInterfaces(&interface, &a2dp_interface, nullptr);
+  test_device->RegisterInterfaces(&interface, &a2dp_interface, nullptr,
+                                  nullptr);
 
   MediaPlayerInfo info = {0, "Test Player", true};
   std::vector<MediaPlayerInfo> list = {info};
@@ -1221,7 +1314,8 @@ TEST_F(AvrcpDeviceTest, setBrowsedPlayerTest) {
   MockMediaInterface interface;
   NiceMock<MockA2dpInterface> a2dp_interface;
 
-  test_device->RegisterInterfaces(&interface, &a2dp_interface, nullptr);
+  test_device->RegisterInterfaces(&interface, &a2dp_interface, nullptr,
+                                  nullptr);
 
   EXPECT_CALL(interface, SetBrowsedPlayer(_, _))
       .Times(3)
@@ -1260,7 +1354,8 @@ TEST_F(AvrcpDeviceTest, volumeChangedTest) {
   NiceMock<MockA2dpInterface> a2dp_interface;
   MockVolumeInterface vol_interface;
 
-  test_device->RegisterInterfaces(&interface, &a2dp_interface, &vol_interface);
+  test_device->RegisterInterfaces(&interface, &a2dp_interface, &vol_interface,
+                                  nullptr);
 
   // Pretend the device is active
   EXPECT_CALL(a2dp_interface, active_peer())
@@ -1298,7 +1393,8 @@ TEST_F(AvrcpDeviceTest, volumeChangedNonActiveTest) {
   NiceMock<MockA2dpInterface> a2dp_interface;
   MockVolumeInterface vol_interface;
 
-  test_device->RegisterInterfaces(&interface, &a2dp_interface, &vol_interface);
+  test_device->RegisterInterfaces(&interface, &a2dp_interface, &vol_interface,
+                                  nullptr);
 
   // Pretend the device isn't active
   EXPECT_CALL(a2dp_interface, active_peer())
@@ -1338,7 +1434,8 @@ TEST_F(AvrcpDeviceTest, volumeRejectedTest) {
   NiceMock<MockA2dpInterface> a2dp_interface;
   MockVolumeInterface vol_interface;
 
-  test_device->RegisterInterfaces(&interface, &a2dp_interface, &vol_interface);
+  test_device->RegisterInterfaces(&interface, &a2dp_interface, &vol_interface,
+                                  nullptr);
 
   auto reg_notif =
       RegisterNotificationRequestBuilder::MakeBuilder(Event::VOLUME_CHANGED, 0);
@@ -1370,7 +1467,8 @@ TEST_F(AvrcpDeviceTest, playPushedActiveDeviceTest) {
   NiceMock<MockA2dpInterface> a2dp_interface;
   MockVolumeInterface vol_interface;
 
-  test_device->RegisterInterfaces(&interface, &a2dp_interface, &vol_interface);
+  test_device->RegisterInterfaces(&interface, &a2dp_interface, &vol_interface,
+                                  nullptr);
 
   // Pretend the device is active
   EXPECT_CALL(a2dp_interface, active_peer())
@@ -1401,7 +1499,8 @@ TEST_F(AvrcpDeviceTest, playPushedInactiveDeviceTest) {
   NiceMock<MockA2dpInterface> a2dp_interface;
   MockVolumeInterface vol_interface;
 
-  test_device->RegisterInterfaces(&interface, &a2dp_interface, &vol_interface);
+  test_device->RegisterInterfaces(&interface, &a2dp_interface, &vol_interface,
+                                  nullptr);
 
   // Pretend the device is not active
   EXPECT_CALL(a2dp_interface, active_peer())
@@ -1435,7 +1534,8 @@ TEST_F(AvrcpDeviceTest, mediaKeyActiveDeviceTest) {
   NiceMock<MockA2dpInterface> a2dp_interface;
   MockVolumeInterface vol_interface;
 
-  test_device->RegisterInterfaces(&interface, &a2dp_interface, &vol_interface);
+  test_device->RegisterInterfaces(&interface, &a2dp_interface, &vol_interface,
+                                  nullptr);
 
   // Pretend the device is active
   EXPECT_CALL(a2dp_interface, active_peer())
@@ -1464,7 +1564,8 @@ TEST_F(AvrcpDeviceTest, mediaKeyInactiveDeviceTest) {
   NiceMock<MockA2dpInterface> a2dp_interface;
   MockVolumeInterface vol_interface;
 
-  test_device->RegisterInterfaces(&interface, &a2dp_interface, &vol_interface);
+  test_device->RegisterInterfaces(&interface, &a2dp_interface, &vol_interface,
+                                  nullptr);
 
   // Pretend the device is not active
   EXPECT_CALL(a2dp_interface, active_peer())
@@ -1492,8 +1593,61 @@ TEST_F(AvrcpDeviceTest, mediaKeyInactiveDeviceTest) {
 TEST_F(AvrcpDeviceTest, getCapabilitiesTest) {
   MockMediaInterface interface;
   NiceMock<MockA2dpInterface> a2dp_interface;
+  MockPlayerSettingsInterface player_settings_interface;
 
-  test_device->RegisterInterfaces(&interface, &a2dp_interface, nullptr);
+  test_device->RegisterInterfaces(&interface, &a2dp_interface, nullptr,
+                                  &player_settings_interface);
+
+  // GetCapabilities with CapabilityID COMPANY_ID
+  auto request_company_id_response =
+      GetCapabilitiesResponseBuilder::MakeCompanyIdBuilder(0x001958);
+  request_company_id_response->AddCompanyId(0x002345);
+  EXPECT_CALL(
+      response_cb,
+      Call(1, false, matchPacket(std::move(request_company_id_response))))
+      .Times(1);
+
+  auto request_company_id =
+      TestAvrcpPacket::Make(get_capabilities_request_company_id);
+  SendMessage(1, request_company_id);
+
+  // GetCapabilities with CapabilityID EVENTS_SUPPORTED
+  auto request_events_supported_response =
+      GetCapabilitiesResponseBuilder::MakeEventsSupportedBuilder(
+          Event::PLAYBACK_STATUS_CHANGED);
+  request_events_supported_response->AddEvent(Event::TRACK_CHANGED);
+  request_events_supported_response->AddEvent(Event::PLAYBACK_POS_CHANGED);
+  request_events_supported_response->AddEvent(
+      Event::PLAYER_APPLICATION_SETTING_CHANGED);
+
+  EXPECT_CALL(
+      response_cb,
+      Call(2, false, matchPacket(std::move(request_events_supported_response))))
+      .Times(1);
+
+  auto request_events_supported =
+      TestAvrcpPacket::Make(get_capabilities_request);
+  SendMessage(2, request_events_supported);
+
+  // GetCapabilities with CapabilityID UNKNOWN
+  auto request_unknown_response = RejectBuilder::MakeBuilder(
+      CommandPdu::GET_CAPABILITIES, Status::INVALID_PARAMETER);
+
+  EXPECT_CALL(response_cb,
+              Call(3, false, matchPacket(std::move(request_unknown_response))))
+      .Times(1);
+
+  auto request_unknown =
+      TestAvrcpPacket::Make(get_capabilities_request_unknown);
+  SendMessage(3, request_unknown);
+}
+
+TEST_F(AvrcpDeviceTest, getCapabilitiesPlayerSettingsNotSupportedTest) {
+  MockMediaInterface interface;
+  NiceMock<MockA2dpInterface> a2dp_interface;
+
+  test_device->RegisterInterfaces(&interface, &a2dp_interface, nullptr,
+                                  nullptr);
 
   // GetCapabilities with CapabilityID COMPANY_ID
   auto request_company_id_response =
@@ -1541,7 +1695,8 @@ TEST_F(AvrcpDeviceTest, getInvalidItemAttributesTest) {
   MockMediaInterface interface;
   NiceMock<MockA2dpInterface> a2dp_interface;
 
-  test_device->RegisterInterfaces(&interface, &a2dp_interface, nullptr);
+  test_device->RegisterInterfaces(&interface, &a2dp_interface, nullptr,
+                                  nullptr);
 
   SongInfo info = {"test_id",
                    {// The attribute map
@@ -1576,11 +1731,345 @@ TEST_F(AvrcpDeviceTest, getInvalidItemAttributesTest) {
   SendBrowseMessage(1, request);
 }
 
+TEST_F(AvrcpDeviceTest, listPlayerSettingsTest) {
+  MockMediaInterface interface;
+  NiceMock<MockA2dpInterface> a2dp_interface;
+  MockPlayerSettingsInterface player_settings_interface;
+  std::vector<PlayerAttribute> attributes = {PlayerAttribute::REPEAT,
+                                             PlayerAttribute::SHUFFLE};
+
+  test_device->RegisterInterfaces(&interface, &a2dp_interface, nullptr,
+                                  &player_settings_interface);
+
+  EXPECT_CALL(player_settings_interface, ListPlayerSettings(_))
+      .WillRepeatedly(InvokeCb<0>(attributes));
+
+  auto player_settings_list_response =
+      ListPlayerApplicationSettingAttributesResponseBuilder::MakeBuilder(
+          attributes);
+
+  EXPECT_CALL(
+      response_cb,
+      Call(1, false, matchPacket(std::move(player_settings_list_response))))
+      .Times(1);
+
+  auto request =
+      TestAvrcpPacket::Make(list_player_application_setting_attributes_request);
+  SendMessage(1, request);
+}
+
+TEST_F(AvrcpDeviceTest, listPlayerSettingsNotSupportedTest) {
+  MockMediaInterface interface;
+  NiceMock<MockA2dpInterface> a2dp_interface;
+
+  test_device->RegisterInterfaces(&interface, &a2dp_interface, nullptr,
+                                  nullptr);
+
+  auto response = RejectBuilder::MakeBuilder(
+      CommandPdu::LIST_PLAYER_APPLICATION_SETTING_ATTRIBUTES,
+      Status::INVALID_COMMAND);
+
+  EXPECT_CALL(response_cb, Call(1, false, matchPacket(std::move(response))))
+      .Times(1);
+
+  auto request =
+      TestAvrcpPacket::Make(list_player_application_setting_attributes_request);
+  SendMessage(1, request);
+}
+
+TEST_F(AvrcpDeviceTest, listPlayerSettingValuesTest) {
+  MockMediaInterface interface;
+  NiceMock<MockA2dpInterface> a2dp_interface;
+  MockPlayerSettingsInterface player_settings_interface;
+  PlayerAttribute attribute = PlayerAttribute::REPEAT;
+  std::vector<uint8_t> attribute_values = {
+      static_cast<uint8_t>(PlayerRepeatValue::OFF),
+      static_cast<uint8_t>(PlayerRepeatValue::SINGLE),
+      static_cast<uint8_t>(PlayerRepeatValue::ALL),
+      static_cast<uint8_t>(PlayerRepeatValue::GROUP)};
+
+  test_device->RegisterInterfaces(&interface, &a2dp_interface, nullptr,
+                                  &player_settings_interface);
+
+  EXPECT_CALL(player_settings_interface, ListPlayerSettingValues(attribute, _))
+      .WillRepeatedly(InvokeCb<1>(attribute, attribute_values));
+
+  auto player_settings_list_values_response =
+      ListPlayerApplicationSettingValuesResponseBuilder::MakeBuilder(
+          attribute_values);
+
+  EXPECT_CALL(
+      response_cb,
+      Call(1, false,
+           matchPacket(std::move(player_settings_list_values_response))))
+      .Times(1);
+
+  auto request = TestAvrcpPacket::Make(
+      list_player_application_setting_attribute_values_request);
+  SendMessage(1, request);
+}
+
+TEST_F(AvrcpDeviceTest, listPlayerSettingValuesNotSupportedTest) {
+  MockMediaInterface interface;
+  NiceMock<MockA2dpInterface> a2dp_interface;
+
+  test_device->RegisterInterfaces(&interface, &a2dp_interface, nullptr,
+                                  nullptr);
+
+  auto response = RejectBuilder::MakeBuilder(
+      CommandPdu::LIST_PLAYER_APPLICATION_SETTING_VALUES,
+      Status::INVALID_COMMAND);
+
+  EXPECT_CALL(response_cb, Call(1, false, matchPacket(std::move(response))))
+      .Times(1);
+
+  auto request = TestAvrcpPacket::Make(
+      list_player_application_setting_attribute_values_request);
+  SendMessage(1, request);
+}
+
+TEST_F(AvrcpDeviceTest, invalidSettingListPlayerSettingValuesTest) {
+  MockMediaInterface interface;
+  NiceMock<MockA2dpInterface> a2dp_interface;
+  MockPlayerSettingsInterface player_settings_interface;
+
+  test_device->RegisterInterfaces(&interface, &a2dp_interface, nullptr,
+                                  &player_settings_interface);
+
+  auto rej_rsp = RejectBuilder::MakeBuilder(
+      CommandPdu::LIST_PLAYER_APPLICATION_SETTING_VALUES,
+      Status::INVALID_PARAMETER);
+  EXPECT_CALL(response_cb, Call(1, false, matchPacket(std::move(rej_rsp))))
+      .Times(1);
+
+  auto list_values_request = TestAvrcpPacket::Make(
+      invalid_setting_list_player_application_setting_attribute_values_request);
+  SendMessage(1, list_values_request);
+}
+
+TEST_F(AvrcpDeviceTest, invalidLengthListPlayerSettingValuesTest) {
+  MockMediaInterface interface;
+  NiceMock<MockA2dpInterface> a2dp_interface;
+  MockPlayerSettingsInterface player_settings_interface;
+
+  test_device->RegisterInterfaces(&interface, &a2dp_interface, nullptr,
+                                  &player_settings_interface);
+
+  auto rej_rsp = RejectBuilder::MakeBuilder(
+      CommandPdu::LIST_PLAYER_APPLICATION_SETTING_VALUES,
+      Status::INVALID_PARAMETER);
+  EXPECT_CALL(response_cb, Call(1, false, matchPacket(std::move(rej_rsp))))
+      .Times(1);
+
+  auto list_values_request = TestAvrcpPacket::Make(
+      invalid_length_list_player_application_setting_attribute_values_request);
+  SendMessage(1, list_values_request);
+}
+
+TEST_F(AvrcpDeviceTest, getCurrentPlayerApplicationSettingValueTest) {
+  MockMediaInterface interface;
+  NiceMock<MockA2dpInterface> a2dp_interface;
+  MockPlayerSettingsInterface player_settings_interface;
+  std::vector<PlayerAttribute> attributes = {PlayerAttribute::REPEAT,
+                                             PlayerAttribute::SHUFFLE};
+  std::vector<uint8_t> attributes_values = {
+      static_cast<uint8_t>(PlayerRepeatValue::OFF),
+      static_cast<uint8_t>(PlayerShuffleValue::OFF)};
+
+  test_device->RegisterInterfaces(&interface, &a2dp_interface, nullptr,
+                                  &player_settings_interface);
+
+  EXPECT_CALL(player_settings_interface,
+              GetCurrentPlayerSettingValue(attributes, _))
+      .WillRepeatedly(InvokeCb<1>(attributes, attributes_values));
+
+  auto player_settings_get_current_values_response =
+      GetCurrentPlayerApplicationSettingValueResponseBuilder::MakeBuilder(
+          attributes, attributes_values);
+
+  EXPECT_CALL(
+      response_cb,
+      Call(1, false,
+           matchPacket(std::move(player_settings_get_current_values_response))))
+      .Times(1);
+
+  auto request = TestAvrcpPacket::Make(
+      get_current_player_application_setting_value_request);
+  SendMessage(1, request);
+}
+
+TEST_F(AvrcpDeviceTest,
+       getCurrentPlayerApplicationSettingValueNotSupportedTest) {
+  MockMediaInterface interface;
+  NiceMock<MockA2dpInterface> a2dp_interface;
+
+  test_device->RegisterInterfaces(&interface, &a2dp_interface, nullptr,
+                                  nullptr);
+
+  auto response = RejectBuilder::MakeBuilder(
+      CommandPdu::GET_CURRENT_PLAYER_APPLICATION_SETTING_VALUE,
+      Status::INVALID_COMMAND);
+
+  EXPECT_CALL(response_cb, Call(1, false, matchPacket(std::move(response))))
+      .Times(1);
+
+  auto request = TestAvrcpPacket::Make(
+      get_current_player_application_setting_value_request);
+  SendMessage(1, request);
+}
+
+TEST_F(AvrcpDeviceTest,
+       invalidSettingGetCurrentPlayerApplicationSettingValueTest) {
+  MockMediaInterface interface;
+  NiceMock<MockA2dpInterface> a2dp_interface;
+  MockPlayerSettingsInterface player_settings_interface;
+
+  test_device->RegisterInterfaces(&interface, &a2dp_interface, nullptr,
+                                  &player_settings_interface);
+
+  auto rej_rsp = RejectBuilder::MakeBuilder(
+      CommandPdu::GET_CURRENT_PLAYER_APPLICATION_SETTING_VALUE,
+      Status::INVALID_PARAMETER);
+  EXPECT_CALL(response_cb, Call(1, false, matchPacket(std::move(rej_rsp))))
+      .Times(1);
+
+  auto request = TestAvrcpPacket::Make(
+      invalid_setting_get_current_player_application_setting_value_request);
+  SendMessage(1, request);
+}
+
+TEST_F(AvrcpDeviceTest,
+       invalidLengthGetCurrentPlayerApplicationSettingValueTest) {
+  MockMediaInterface interface;
+  NiceMock<MockA2dpInterface> a2dp_interface;
+  MockPlayerSettingsInterface player_settings_interface;
+
+  test_device->RegisterInterfaces(&interface, &a2dp_interface, nullptr,
+                                  &player_settings_interface);
+
+  auto rej_rsp = RejectBuilder::MakeBuilder(
+      CommandPdu::GET_CURRENT_PLAYER_APPLICATION_SETTING_VALUE,
+      Status::INVALID_PARAMETER);
+  EXPECT_CALL(response_cb, Call(1, false, matchPacket(std::move(rej_rsp))))
+      .Times(1);
+
+  auto request = TestAvrcpPacket::Make(
+      invalid_length_get_current_player_application_setting_value_request);
+  SendMessage(1, request);
+}
+
+TEST_F(AvrcpDeviceTest, setPlayerApplicationSettingValueTest) {
+  MockMediaInterface interface;
+  NiceMock<MockA2dpInterface> a2dp_interface;
+  MockPlayerSettingsInterface player_settings_interface;
+  std::vector<PlayerAttribute> attributes = {PlayerAttribute::REPEAT,
+                                             PlayerAttribute::SHUFFLE};
+  std::vector<uint8_t> attributes_values = {
+      static_cast<uint8_t>(PlayerRepeatValue::OFF),
+      static_cast<uint8_t>(PlayerShuffleValue::OFF)};
+
+  test_device->RegisterInterfaces(&interface, &a2dp_interface, nullptr,
+                                  &player_settings_interface);
+
+  EXPECT_CALL(player_settings_interface,
+              SetPlayerSettings(attributes, attributes_values, _))
+      .WillRepeatedly(InvokeCb<2>(true));
+
+  auto set_player_settings_response =
+      SetPlayerApplicationSettingValueResponseBuilder::MakeBuilder();
+
+  EXPECT_CALL(
+      response_cb,
+      Call(1, false, matchPacket(std::move(set_player_settings_response))))
+      .Times(1);
+
+  auto request =
+      TestAvrcpPacket::Make(set_player_application_setting_value_request);
+  SendMessage(1, request);
+}
+
+TEST_F(AvrcpDeviceTest, setPlayerApplicationSettingValueNotSupportedTest) {
+  MockMediaInterface interface;
+  NiceMock<MockA2dpInterface> a2dp_interface;
+
+  test_device->RegisterInterfaces(&interface, &a2dp_interface, nullptr,
+                                  nullptr);
+
+  auto response = RejectBuilder::MakeBuilder(
+      CommandPdu::SET_PLAYER_APPLICATION_SETTING_VALUE,
+      Status::INVALID_COMMAND);
+
+  EXPECT_CALL(response_cb, Call(1, false, matchPacket(std::move(response))))
+      .Times(1);
+
+  auto request =
+      TestAvrcpPacket::Make(set_player_application_setting_value_request);
+  SendMessage(1, request);
+}
+
+TEST_F(AvrcpDeviceTest, invalidSettingSetPlayerApplicationSettingValueTest) {
+  MockMediaInterface interface;
+  NiceMock<MockA2dpInterface> a2dp_interface;
+  MockPlayerSettingsInterface player_settings_interface;
+
+  test_device->RegisterInterfaces(&interface, &a2dp_interface, nullptr,
+                                  &player_settings_interface);
+
+  auto rej_rsp = RejectBuilder::MakeBuilder(
+      CommandPdu::SET_PLAYER_APPLICATION_SETTING_VALUE,
+      Status::INVALID_PARAMETER);
+  EXPECT_CALL(response_cb, Call(1, false, matchPacket(std::move(rej_rsp))))
+      .Times(1);
+
+  auto request = TestAvrcpPacket::Make(
+      invalid_setting_set_player_application_setting_value_request);
+  SendMessage(1, request);
+}
+
+TEST_F(AvrcpDeviceTest, invalidValueSetPlayerApplicationSettingValueTest) {
+  MockMediaInterface interface;
+  NiceMock<MockA2dpInterface> a2dp_interface;
+  MockPlayerSettingsInterface player_settings_interface;
+
+  test_device->RegisterInterfaces(&interface, &a2dp_interface, nullptr,
+                                  &player_settings_interface);
+
+  auto rej_rsp = RejectBuilder::MakeBuilder(
+      CommandPdu::SET_PLAYER_APPLICATION_SETTING_VALUE,
+      Status::INVALID_PARAMETER);
+  EXPECT_CALL(response_cb, Call(1, false, matchPacket(std::move(rej_rsp))))
+      .Times(1);
+
+  auto request = TestAvrcpPacket::Make(
+      invalid_value_set_player_application_setting_value_request);
+  SendMessage(1, request);
+}
+
+TEST_F(AvrcpDeviceTest, invalidLengthSetPlayerApplicationSettingValueTest) {
+  MockMediaInterface interface;
+  NiceMock<MockA2dpInterface> a2dp_interface;
+  MockPlayerSettingsInterface player_settings_interface;
+
+  test_device->RegisterInterfaces(&interface, &a2dp_interface, nullptr,
+                                  &player_settings_interface);
+
+  auto rej_rsp = RejectBuilder::MakeBuilder(
+      CommandPdu::SET_PLAYER_APPLICATION_SETTING_VALUE,
+      Status::INVALID_PARAMETER);
+  EXPECT_CALL(response_cb, Call(1, false, matchPacket(std::move(rej_rsp))))
+      .Times(1);
+
+  auto request = TestAvrcpPacket::Make(
+      invalid_length_set_player_application_setting_value_request);
+  SendMessage(1, request);
+}
+
 TEST_F(AvrcpDeviceTest, invalidRegisterNotificationTest) {
   MockMediaInterface interface;
   NiceMock<MockA2dpInterface> a2dp_interface;
 
-  test_device->RegisterInterfaces(&interface, &a2dp_interface, nullptr);
+  test_device->RegisterInterfaces(&interface, &a2dp_interface, nullptr,
+                                  nullptr);
 
   auto reg_notif_rej_rsp = RejectBuilder::MakeBuilder(
       CommandPdu::REGISTER_NOTIFICATION, Status::INVALID_PARAMETER);
@@ -1596,7 +2085,8 @@ TEST_F(AvrcpDeviceTest, invalidVendorPacketTest) {
   MockMediaInterface interface;
   NiceMock<MockA2dpInterface> a2dp_interface;
 
-  test_device->RegisterInterfaces(&interface, &a2dp_interface, nullptr);
+  test_device->RegisterInterfaces(&interface, &a2dp_interface, nullptr,
+                                  nullptr);
 
   auto rsp = RejectBuilder::MakeBuilder(static_cast<CommandPdu>(0), Status::INVALID_COMMAND);
   EXPECT_CALL(response_cb, Call(1, false, matchPacket(std::move(rsp)))).Times(1);
@@ -1608,7 +2098,8 @@ TEST_F(AvrcpDeviceTest, invalidCapabilitiesPacketTest) {
   MockMediaInterface interface;
   NiceMock<MockA2dpInterface> a2dp_interface;
 
-  test_device->RegisterInterfaces(&interface, &a2dp_interface, nullptr);
+  test_device->RegisterInterfaces(&interface, &a2dp_interface, nullptr,
+                                  nullptr);
 
   auto rsp = RejectBuilder::MakeBuilder(CommandPdu::GET_CAPABILITIES, Status::INVALID_PARAMETER);
   EXPECT_CALL(response_cb, Call(1, false, matchPacket(std::move(rsp)))).Times(1);
@@ -1620,7 +2111,8 @@ TEST_F(AvrcpDeviceTest, invalidGetElementAttributesPacketTest) {
   MockMediaInterface interface;
   NiceMock<MockA2dpInterface> a2dp_interface;
 
-  test_device->RegisterInterfaces(&interface, &a2dp_interface, nullptr);
+  test_device->RegisterInterfaces(&interface, &a2dp_interface, nullptr,
+                                  nullptr);
 
   auto rsp = RejectBuilder::MakeBuilder(CommandPdu::GET_ELEMENT_ATTRIBUTES, Status::INVALID_PARAMETER);
   EXPECT_CALL(response_cb, Call(1, false, matchPacket(std::move(rsp)))).Times(1);
@@ -1632,7 +2124,8 @@ TEST_F(AvrcpDeviceTest, invalidPlayItemPacketTest) {
   MockMediaInterface interface;
   NiceMock<MockA2dpInterface> a2dp_interface;
 
-  test_device->RegisterInterfaces(&interface, &a2dp_interface, nullptr);
+  test_device->RegisterInterfaces(&interface, &a2dp_interface, nullptr,
+                                  nullptr);
 
   auto rsp = RejectBuilder::MakeBuilder(CommandPdu::PLAY_ITEM, Status::INVALID_PARAMETER);
   EXPECT_CALL(response_cb, Call(1, false, matchPacket(std::move(rsp)))).Times(1);
@@ -1644,7 +2137,8 @@ TEST_F(AvrcpDeviceTest, invalidSetAddressedPlayerPacketTest) {
   MockMediaInterface interface;
   NiceMock<MockA2dpInterface> a2dp_interface;
 
-  test_device->RegisterInterfaces(&interface, &a2dp_interface, nullptr);
+  test_device->RegisterInterfaces(&interface, &a2dp_interface, nullptr,
+                                  nullptr);
 
   auto rsp = RejectBuilder::MakeBuilder(CommandPdu::SET_ADDRESSED_PLAYER, Status::INVALID_PARAMETER);
   EXPECT_CALL(response_cb, Call(1, false, matchPacket(std::move(rsp)))).Times(1);
@@ -1656,7 +2150,8 @@ TEST_F(AvrcpDeviceTest, invalidBrowsePacketTest) {
   MockMediaInterface interface;
   NiceMock<MockA2dpInterface> a2dp_interface;
 
-  test_device->RegisterInterfaces(&interface, &a2dp_interface, nullptr);
+  test_device->RegisterInterfaces(&interface, &a2dp_interface, nullptr,
+                                  nullptr);
 
   auto rsp = GeneralRejectBuilder::MakeBuilder(Status::INVALID_COMMAND);
   EXPECT_CALL(response_cb, Call(1, false, matchPacket(std::move(rsp)))).Times(1);
@@ -1668,7 +2163,8 @@ TEST_F(AvrcpDeviceTest, invalidGetFolderItemsPacketTest) {
   MockMediaInterface interface;
   NiceMock<MockA2dpInterface> a2dp_interface;
 
-  test_device->RegisterInterfaces(&interface, &a2dp_interface, nullptr);
+  test_device->RegisterInterfaces(&interface, &a2dp_interface, nullptr,
+                                  nullptr);
 
   auto rsp = GetFolderItemsResponseBuilder::MakePlayerListBuilder(Status::INVALID_PARAMETER, 0x0000, 0xFFFF);
   EXPECT_CALL(response_cb, Call(1, true, matchPacket(std::move(rsp)))).Times(1);
@@ -1680,7 +2176,8 @@ TEST_F(AvrcpDeviceTest, invalidGetTotalNumberOfItemsPacketTest) {
   MockMediaInterface interface;
   NiceMock<MockA2dpInterface> a2dp_interface;
 
-  test_device->RegisterInterfaces(&interface, &a2dp_interface, nullptr);
+  test_device->RegisterInterfaces(&interface, &a2dp_interface, nullptr,
+                                  nullptr);
 
   auto rsp = GetTotalNumberOfItemsResponseBuilder::MakeBuilder(Status::INVALID_PARAMETER, 0x0000, 0xFFFF);
   EXPECT_CALL(response_cb, Call(1, true, matchPacket(std::move(rsp)))).Times(1);
@@ -1692,7 +2189,8 @@ TEST_F(AvrcpDeviceTest, invalidChangePathPacketTest) {
   MockMediaInterface interface;
   NiceMock<MockA2dpInterface> a2dp_interface;
 
-  test_device->RegisterInterfaces(&interface, &a2dp_interface, nullptr);
+  test_device->RegisterInterfaces(&interface, &a2dp_interface, nullptr,
+                                  nullptr);
 
   auto rsp = ChangePathResponseBuilder::MakeBuilder(Status::INVALID_PARAMETER, 0);
   EXPECT_CALL(response_cb, Call(1, true, matchPacket(std::move(rsp)))).Times(1);
@@ -1704,7 +2202,8 @@ TEST_F(AvrcpDeviceTest, invalidGetItemAttributesPacketTest) {
   MockMediaInterface interface;
   NiceMock<MockA2dpInterface> a2dp_interface;
 
-  test_device->RegisterInterfaces(&interface, &a2dp_interface, nullptr);
+  test_device->RegisterInterfaces(&interface, &a2dp_interface, nullptr,
+                                  nullptr);
 
   auto rsp = GetItemAttributesResponseBuilder::MakeBuilder(Status::INVALID_PARAMETER, 0xFFFF);
   EXPECT_CALL(response_cb, Call(1, true, matchPacket(std::move(rsp)))).Times(1);

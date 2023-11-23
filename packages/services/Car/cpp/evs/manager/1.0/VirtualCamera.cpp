@@ -15,12 +15,12 @@
  */
 
 #include "VirtualCamera.h"
-#include "HalCamera.h"
+
 #include "Enumerator.h"
+#include "HalCamera.h"
 
 #include <ui/GraphicBufferAllocator.h>
 #include <ui/GraphicBufferMapper.h>
-
 
 namespace android {
 namespace automotive {
@@ -28,16 +28,11 @@ namespace evs {
 namespace V1_0 {
 namespace implementation {
 
-
-VirtualCamera::VirtualCamera(sp<HalCamera> halCamera) :
-    mHalCamera(halCamera) {
-}
-
+VirtualCamera::VirtualCamera(sp<HalCamera> halCamera) : mHalCamera(halCamera) {}
 
 VirtualCamera::~VirtualCamera() {
     shutdown();
 }
-
 
 void VirtualCamera::shutdown() {
     // In normal operation, the stream should already be stopped by the time we get here
@@ -68,7 +63,6 @@ void VirtualCamera::shutdown() {
     mHalCamera = nullptr;
 }
 
-
 bool VirtualCamera::deliverFrame(const BufferDesc& buffer) {
     if (buffer.memHandle == nullptr) {
         // Warn if we got an unexpected stream termination
@@ -87,8 +81,8 @@ bool VirtualCamera::deliverFrame(const BufferDesc& buffer) {
             return false;
         } else if (mFramesHeld.size() >= mFramesAllowed) {
             // Indicate that we declined to send the frame to the client because they're at quota
-            ALOGI("Skipping new frame as we hold %zu of %u allowed.",
-                  mFramesHeld.size(), mFramesAllowed);
+            ALOGI("Skipping new frame as we hold %zu of %u allowed.", mFramesHeld.size(),
+                  mFramesAllowed);
             return false;
         } else {
             // Keep a record of this frame so we can clean up if we have to in case of client death
@@ -101,13 +95,11 @@ bool VirtualCamera::deliverFrame(const BufferDesc& buffer) {
     }
 }
 
-
 // Methods from ::android::hardware::automotive::evs::V1_0::IEvsCamera follow.
 Return<void> VirtualCamera::getCameraInfo(getCameraInfo_cb info_cb) {
     // Straight pass through to hardware layer
     return mHalCamera->getHwCamera()->getCameraInfo(info_cb);
 }
-
 
 Return<EvsResult> VirtualCamera::setMaxFramesInFlight(uint32_t bufferCount) {
     // How many buffers are we trying to add (or remove if negative)
@@ -125,8 +117,7 @@ Return<EvsResult> VirtualCamera::setMaxFramesInFlight(uint32_t bufferCount) {
     return EvsResult::OK;
 }
 
-
-Return<EvsResult> VirtualCamera::startVideoStream(const ::android::sp<IEvsCameraStream>& stream)  {
+Return<EvsResult> VirtualCamera::startVideoStream(const ::android::sp<IEvsCameraStream>& stream) {
     // We only support a single stream at a time
     if (mStreamState != STOPPED) {
         ALOGE("ignoring startVideoStream call when a stream is already running.");
@@ -154,7 +145,6 @@ Return<EvsResult> VirtualCamera::startVideoStream(const ::android::sp<IEvsCamera
 
     return EvsResult::OK;
 }
-
 
 Return<void> VirtualCamera::doneWithFrame(const BufferDesc& buffer) {
     if (buffer.memHandle == nullptr) {
@@ -184,8 +174,7 @@ Return<void> VirtualCamera::doneWithFrame(const BufferDesc& buffer) {
     return Void();
 }
 
-
-Return<void> VirtualCamera::stopVideoStream()  {
+Return<void> VirtualCamera::stopVideoStream() {
     if (mStreamState == RUNNING) {
         // Tell the frame delivery pipeline we don't want any more frames
         mStreamState = STOPPING;
@@ -210,21 +199,19 @@ Return<void> VirtualCamera::stopVideoStream()  {
     return Void();
 }
 
-
-Return<int32_t> VirtualCamera::getExtendedInfo(uint32_t opaqueIdentifier)  {
+Return<int32_t> VirtualCamera::getExtendedInfo(uint32_t opaqueIdentifier) {
     // Pass straight through to the hardware device
     return mHalCamera->getHwCamera()->getExtendedInfo(opaqueIdentifier);
 }
 
-
-Return<EvsResult> VirtualCamera::setExtendedInfo(uint32_t opaqueIdentifier, int32_t opaqueValue)  {
+Return<EvsResult> VirtualCamera::setExtendedInfo(uint32_t opaqueIdentifier, int32_t opaqueValue) {
     // Pass straight through to the hardware device
     // TODO: Should we restrict access to this entry point somehow?
     return mHalCamera->getHwCamera()->setExtendedInfo(opaqueIdentifier, opaqueValue);
 }
 
-} // namespace implementation
-} // namespace V1_0
-} // namespace evs
-} // namespace automotive
-} // namespace android
+}  // namespace implementation
+}  // namespace V1_0
+}  // namespace evs
+}  // namespace automotive
+}  // namespace android

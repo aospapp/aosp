@@ -8,6 +8,9 @@
         },
         {
           "exclude-annotation": "android.platform.test.annotations.FlakyTest"
+        },
+        {
+          "exclude-annotation": "android.platform.test.annotations.RequiresDevice"
         }
       ]
     }

@@ -714,37 +714,49 @@ public class KeyChainActivity extends AppCompatActivity {
             mFromPolicy = isFromPolicy;
         }
         @Override protected Void doInBackground(Void... unused) {
-            try {
-                if (mAlias != null) {
-                    KeyChain.KeyChainConnection connection = KeyChain.bind(KeyChainActivity.this);
-                    try {
-                        // This is a safety check to make sure an alias was not somehow chosen by
-                        // the user but is not user-selectable.
-                        // However, if the alias was selected by the Device Owner / Profile Owner
-                        // (by implementing DeviceAdminReceiver), then there's no need to check
-                        // this.
-                        if (!mFromPolicy && (!connection.getService().isUserSelectable(mAlias))) {
-                            Log.w(TAG, String.format("Alias %s not user-selectable.", mAlias));
-                            //TODO: Should we invoke the callback with null here to indicate error?
-                            return null;
-                        }
-                        connection.getService().setGrant(mSenderUid, mAlias, true);
-                    } finally {
-                        connection.close();
-                    }
+            if (mAlias == null) {
+                respondWithAlias(null);
+                return null;
+            }
+            try (KeyChain.KeyChainConnection connection = KeyChain.bind(KeyChainActivity.this)) {
+                // This is a safety check to make sure an alias was not somehow chosen by
+                // the user but is not user-selectable.
+                // However, if the alias was selected by the Device Owner / Profile Owner
+                // (by implementing DeviceAdminReceiver), then there's no need to check
+                // this.
+                if (!mFromPolicy && (!connection.getService().isUserSelectable(mAlias))) {
+                    Log.w(TAG, String.format("Alias %s not user-selectable.", mAlias));
+                    respondWithAlias(null);
+                    return null;
                 }
-                mKeyChainAliasResponse.alias(mAlias);
+                connection.getService().setGrant(mSenderUid, mAlias, true);
+                respondWithAlias(mAlias);
             } catch (InterruptedException ignored) {
                 Thread.currentThread().interrupt();
                 Log.d(TAG, "interrupted while granting access", ignored);
+                respondWithAlias(null);
+            } catch (IllegalArgumentException ignored) {
+                Log.d(TAG, "attempt to set grant on a non-existent alias", ignored);
+                respondWithAlias(null);
             } catch (Exception ignored) {
-                // don't just catch RemoteException, caller could
-                // throw back a RuntimeException across processes
-                // which we should protect against.
+                // Catchall so we always call mKeyChainAliasResponse
                 Log.e(TAG, "error while granting access", ignored);
+                respondWithAlias(null);
             }
             return null;
         }
+
+        private void respondWithAlias(String alias) {
+            try {
+                mKeyChainAliasResponse.alias(alias);
+            } catch (Exception e) {
+                // don't just catch RemoteException, caller could
+                // throw back a RuntimeException across processes
+                // which we should protect against.
+                Log.e(TAG, "Error while returning alias", e);
+            }
+        }
+
         @Override protected void onPostExecute(Void unused) {
             finishActivity();
         }

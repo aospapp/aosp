@@ -30,7 +30,7 @@ namespace rust {
 
 struct A2dpCodecConfig;
 struct RustPresentationPosition;
-struct RustRawAddress;
+struct RustPlayStatus;
 
 class A2dpIntf {
  public:
@@ -39,17 +39,18 @@ class A2dpIntf {
 
   // interface for Settings
   int init() const;
-  int connect(RustRawAddress bt_addr) const;
-  int disconnect(RustRawAddress bt_addr) const;
-  int set_silence_device(RustRawAddress bt_addr, bool silent) const;
-  int set_active_device(RustRawAddress bt_addr) const;
-  int config_codec(RustRawAddress bt_addr, ::rust::Vec<A2dpCodecConfig> codec_preferences) const;
+  uint32_t connect(RawAddress addr) const;
+  uint32_t disconnect(RawAddress addr) const;
+  int set_silence_device(RawAddress addr, bool silent) const;
+  int set_active_device(RawAddress addr) const;
+  int config_codec(RawAddress addr, ::rust::Vec<A2dpCodecConfig> codec_preferences) const;
   void cleanup() const;
 
   // interface for Audio server
   bool set_audio_config(A2dpCodecConfig rconfig) const;
   bool start_audio_request() const;
   bool stop_audio_request() const;
+  bool suspend_audio_request() const;
   RustPresentationPosition get_presentation_position() const;
 
  private:
@@ -65,11 +66,18 @@ class AvrcpIntf {
 
   void init();
   void cleanup();
-  int connect(RustRawAddress bt_addr);
-  int disconnect(RustRawAddress bt_addr);
+  uint32_t connect(RawAddress addr);
+  uint32_t disconnect(RawAddress addr);
 
   // interface for Audio server
   void set_volume(int8_t volume);
+
+  void set_playback_status(const ::rust::String& status);
+  void set_position(int64_t position_us);
+  void set_metadata(
+      const ::rust::String& title, const ::rust::String& artist, const ::rust::String& album, int64_t length_us);
+  // Used by qualification
+  uint16_t add_player(const ::rust::String& name, bool browsing_supported);
 
  private:
   bluetooth::avrcp::ServiceInterface* intf_;

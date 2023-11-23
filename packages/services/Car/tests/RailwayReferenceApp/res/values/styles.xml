@@ -16,15 +16,12 @@
   -->
 <resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <style name="BodyText" parent="TextAppearance.AppCompat.Body2">
-        <item name="android:textColor">@android:color/black</item>
     </style>
     <style name="InputText" parent="TextAppearance.AppCompat.Body1">
         <item name="android:textColor">@android:color/black</item>
     </style>
     <style name="SectionHeaderText" parent="TextAppearance.AppCompat.Subhead">
-        <item name="android:textColor">@android:color/black</item>
     </style>
     <style name="TitleText" parent="TextAppearance.AppCompat.Title">
-        <item name="android:textColor">@android:color/black</item>
     </style>
 </resources>

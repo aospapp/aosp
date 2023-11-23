@@ -319,7 +319,6 @@ static void bnep_data_ind(uint16_t l2cap_cid, BT_HDR* p_buf) {
   uint8_t* p = (uint8_t*)(p_buf + 1) + p_buf->offset;
   uint16_t rem_len = p_buf->len;
   if (rem_len == 0) {
-    android_errorWriteLog(0x534e4554, "78286118");
     osi_free(p_buf);
     return;
   }
@@ -341,7 +340,6 @@ static void bnep_data_ind(uint16_t l2cap_cid, BT_HDR* p_buf) {
   type &= 0x7f;
   if (type >= sizeof(bnep_frame_hdr_sizes) / sizeof(bnep_frame_hdr_sizes[0])) {
     LOG_INFO("BNEP - rcvd frame, bad type: 0x%02x", type);
-    android_errorWriteLog(0x534e4554, "68818034");
     osi_free(p_buf);
     return;
   }
@@ -371,7 +369,6 @@ static void bnep_data_ind(uint16_t l2cap_cid, BT_HDR* p_buf) {
       org_len = rem_len;
       do {
         if (org_len < 2) {
-          android_errorWriteLog(0x534e4554, "67863755");
           break;
         }
         ext = *p++;
@@ -379,13 +376,11 @@ static void bnep_data_ind(uint16_t l2cap_cid, BT_HDR* p_buf) {
 
         new_len = (length + 2);
         if (new_len > org_len) {
-          android_errorWriteLog(0x534e4554, "67863755");
           break;
         }
 
         if ((ext & 0x7F) == BNEP_EXTENSION_FILTER_CONTROL) {
           if (length == 0) {
-            android_errorWriteLog(0x534e4554, "79164722");
             break;
           }
           if (*p > BNEP_FILTER_MULTI_ADDR_RESPONSE_MSG) {
@@ -447,7 +442,6 @@ static void bnep_data_ind(uint16_t l2cap_cid, BT_HDR* p_buf) {
           /* if unknown extension present stop processing */
           if (ext_type != BNEP_EXTENSION_FILTER_CONTROL) break;
 
-          android_errorWriteLog(0x534e4554, "69271284");
           p = bnep_process_control_packet(p_bcb, p, &rem_len, true);
         }
       }

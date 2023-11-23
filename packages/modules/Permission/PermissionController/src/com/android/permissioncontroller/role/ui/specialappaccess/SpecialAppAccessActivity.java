@@ -27,11 +27,12 @@ import androidx.fragment.app.Fragment;
 
 import com.android.permissioncontroller.DeviceUtils;
 import com.android.permissioncontroller.R;
-import com.android.permissioncontroller.role.model.Role;
-import com.android.permissioncontroller.role.model.Roles;
 import com.android.permissioncontroller.role.ui.SettingsActivity;
 import com.android.permissioncontroller.role.ui.auto.AutoSpecialAppAccessFragment;
 import com.android.permissioncontroller.role.ui.specialappaccess.handheld.HandheldSpecialAppAccessFragment;
+import com.android.permissioncontroller.role.utils.RoleUiBehaviorUtils;
+import com.android.role.controller.model.Role;
+import com.android.role.controller.model.Roles;
 
 /**
  * Activity for a special app access.
@@ -75,7 +76,8 @@ public class SpecialAppAccessActivity extends SettingsActivity {
             finish();
             return;
         }
-        if (!role.isVisible(this)) {
+
+        if (!RoleUiBehaviorUtils.isVisible(role, this)) {
             Log.e(LOG_TAG, "Role is invisible: " + roleName);
             finish();
             return;

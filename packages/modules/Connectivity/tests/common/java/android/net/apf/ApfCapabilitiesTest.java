@@ -33,6 +33,7 @@ import androidx.test.filters.SmallTest;
 import androidx.test.runner.AndroidJUnit4;
 
 import com.android.testutils.DevSdkIgnoreRule;
+import com.android.testutils.DevSdkIgnoreRule.IgnoreAfter;
 import com.android.testutils.DevSdkIgnoreRule.IgnoreUpTo;
 
 import org.junit.Before;
@@ -83,7 +84,11 @@ public class ApfCapabilitiesTest {
         assertTrue(caps.hasDataAccess());
     }
 
-    @Test
+    // the property is deleted in U, on S & T getApfDrop8023Frames() is mainline and
+    // hardcoded to return true, so this simply verifies the unused property is also true,
+    // as modifying it would not take effect.  For S+ change NetworkStack's
+    // config_apfDrop802_3Frames instead.
+    @Test @IgnoreAfter(Build.VERSION_CODES.TIRAMISU)
     public void testGetApfDrop8023Frames() {
         // Get com.android.internal.R.bool.config_apfDrop802_3Frames. The test cannot directly
         // use R.bool.config_apfDrop802_3Frames because that is not a stable resource ID.
@@ -105,7 +110,11 @@ public class ApfCapabilitiesTest {
                 ApfCapabilities.getApfDrop8023Frames());
     }
 
-    @Test
+    // the property is deleted in U, on S & T getApfEtherTypeBlackList() is mainline and
+    // hardcoded to return a specific default set of ethertypes, so this simply verifies
+    // that the unused property hasn't been changed away from the default, as it would
+    // not take effect.  For S+ change NetworkStack's config_apfEthTypeDenyList instead.
+    @Test @IgnoreAfter(Build.VERSION_CODES.TIRAMISU)
     public void testGetApfEtherTypeBlackList() {
         // Get com.android.internal.R.array.config_apfEthTypeBlackList. The test cannot directly
         // use R.array.config_apfEthTypeBlackList because that is not a stable resource ID.

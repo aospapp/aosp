@@ -30,9 +30,12 @@ import android.bluetooth.BluetoothA2dp;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothProfile;
+import android.bluetooth.BluetoothSinkAudioPolicy;
+import android.bluetooth.BluetoothStatusCodes;
 import android.content.ContentValues;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
+import android.os.Bundle;
 
 import androidx.room.Room;
 import androidx.room.testing.MigrationTestHelper;
@@ -56,6 +59,7 @@ import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 
 @MediumTest
@@ -385,6 +389,12 @@ public final class DatabaseManagerTest {
                 value, true);
         testSetGetCustomMetaCase(false, BluetoothDevice.METADATA_FAST_PAIR_CUSTOMIZED_FIELDS,
                 value, true);
+        testSetGetCustomMetaCase(false, BluetoothDevice.METADATA_LE_AUDIO,
+                value, true);
+        testSetGetCustomMetaCase(false, BluetoothDevice.METADATA_GMCS_CCCD,
+                value, true);
+        testSetGetCustomMetaCase(false, BluetoothDevice.METADATA_GTBS_CCCD,
+                value, true);
         testSetGetCustomMetaCase(false, badKey, value, false);
 
         // Device is in database
@@ -443,6 +453,26 @@ public final class DatabaseManagerTest {
                 value, true);
         testSetGetCustomMetaCase(true, BluetoothDevice.METADATA_FAST_PAIR_CUSTOMIZED_FIELDS,
                 value, true);
+        testSetGetCustomMetaCase(true, BluetoothDevice.METADATA_LE_AUDIO,
+                value, true);
+        testSetGetCustomMetaCase(true, BluetoothDevice.METADATA_GMCS_CCCD,
+                value, true);
+        testSetGetCustomMetaCase(true, BluetoothDevice.METADATA_GTBS_CCCD,
+                value, true);
+    }
+    @Test
+    public void testSetGetAudioPolicyMetaData() {
+        int badKey = 100;
+        BluetoothSinkAudioPolicy value = new BluetoothSinkAudioPolicy.Builder()
+                .setCallEstablishPolicy(BluetoothSinkAudioPolicy.POLICY_ALLOWED)
+                .setActiveDevicePolicyAfterConnection(BluetoothSinkAudioPolicy.POLICY_NOT_ALLOWED)
+                .setInBandRingtonePolicy(BluetoothSinkAudioPolicy.POLICY_ALLOWED)
+                .build();
+
+        // Device is not in database
+        testSetGetAudioPolicyMetadataCase(false, value, true);
+        // Device is in database
+        testSetGetAudioPolicyMetadataCase(true, value, true);
     }
 
     @Test
@@ -622,6 +652,31 @@ public final class DatabaseManagerTest {
         mDatabaseManager.mMetadataCache.clear();
         // Wait for clear database
         TestUtils.waitForLooperToFinishScheduledTask(mDatabaseManager.getHandlerLooper());
+    }
+
+    @Test
+    public void testSetGetPreferredAudioProfiles() {
+        Bundle preferences = new Bundle();
+        preferences.putInt(BluetoothAdapter.AUDIO_MODE_OUTPUT_ONLY, BluetoothProfile.LE_AUDIO);
+        preferences.putInt(BluetoothAdapter.AUDIO_MODE_DUPLEX, BluetoothProfile.LE_AUDIO);
+
+        // TEST 1: If input is invalid, throws the right Exception
+        Assert.assertThrows(NullPointerException.class,
+                () -> mDatabaseManager.setPreferredAudioProfiles(null, preferences));
+        Assert.assertThrows(NullPointerException.class,
+                () -> mDatabaseManager.setPreferredAudioProfiles(new ArrayList<>(), null));
+        Assert.assertThrows(IllegalArgumentException.class,
+                () -> mDatabaseManager.setPreferredAudioProfiles(new ArrayList<>(), preferences));
+        Assert.assertThrows(IllegalArgumentException.class,
+                () -> mDatabaseManager.getPreferredAudioProfiles(null));
+
+        // TEST 2: If not stored, setter fails and getter returns an empty Bundle
+        testSetGetPreferredAudioProfilesCase(false, preferences, Bundle.EMPTY,
+                BluetoothStatusCodes.ERROR_DEVICE_NOT_BONDED);
+
+        // TEST 3: If stored, setter succeeds and getter returns the stored preference
+        testSetGetPreferredAudioProfilesCase(true, preferences, preferences,
+                BluetoothStatusCodes.SUCCESS);
     }
 
     @Test
@@ -1139,7 +1194,7 @@ public final class DatabaseManagerTest {
     @Test
     public void testDatabaseMigration_111_112() throws IOException {
         String testString = "TEST STRING";
-        // Create a database with version 109
+        // Create a database with version 111
         SupportSQLiteDatabase db = testHelper.createDatabase(DB_NAME, 111);
         // insert a device to the database
         ContentValues device = new ContentValues();
@@ -1180,6 +1235,105 @@ public final class DatabaseManagerTest {
             // Check the new columns was added with default value
             assertColumnBlobData(cursor, "spatial_audio", null);
             assertColumnBlobData(cursor, "fastpair_customized", null);
+        }
+    }
+
+    @Test
+    public void testDatabaseMigration_113_114() throws IOException {
+        // Create a database with version 113
+        SupportSQLiteDatabase db = testHelper.createDatabase(DB_NAME, 113);
+        // insert a device to the database
+        ContentValues device = new ContentValues();
+        device.put("address", TEST_BT_ADDR);
+        device.put("migrated", false);
+        assertThat(db.insert("metadata", SQLiteDatabase.CONFLICT_IGNORE, device),
+                CoreMatchers.not(-1));
+        // Migrate database from 113 to 114
+        db.close();
+        db = testHelper.runMigrationsAndValidate(DB_NAME, 114, true,
+                MetadataDatabase.MIGRATION_113_114);
+        Cursor cursor = db.query("SELECT * FROM metadata");
+        assertHasColumn(cursor, "le_audio", true);
+        while (cursor.moveToNext()) {
+            // Check the new columns was added with default value
+            assertColumnBlobData(cursor, "le_audio", null);
+        }
+    }
+
+    @Test
+    public void testDatabaseMigration_114_115() throws IOException {
+        // Create a database with version 114
+        SupportSQLiteDatabase db = testHelper.createDatabase(DB_NAME, 114);
+        // insert a device to the database
+        ContentValues device = new ContentValues();
+        device.put("address", TEST_BT_ADDR);
+        device.put("migrated", false);
+        assertThat(db.insert("metadata", SQLiteDatabase.CONFLICT_IGNORE, device),
+                CoreMatchers.not(-1));
+
+        // Migrate database from 114 to 115
+        db.close();
+        db = testHelper.runMigrationsAndValidate(DB_NAME, 115, true,
+                MetadataDatabase.MIGRATION_114_115);
+        Cursor cursor = db.query("SELECT * FROM metadata");
+
+        assertHasColumn(cursor, "call_establish_audio_policy", true);
+        assertHasColumn(cursor, "connecting_time_audio_policy", true);
+        assertHasColumn(cursor, "in_band_ringtone_audio_policy", true);
+        while (cursor.moveToNext()) {
+            // Check the new columns was added with default value
+            assertColumnBlobData(cursor, "call_establish_audio_policy", null);
+            assertColumnBlobData(cursor, "connecting_time_audio_policy", null);
+            assertColumnBlobData(cursor, "in_band_ringtone_audio_policy", null);
+        }
+    }
+
+    @Test
+    public void testDatabaseMigration_115_116() throws IOException {
+        // Create a database with version 115
+        SupportSQLiteDatabase db = testHelper.createDatabase(DB_NAME, 115);
+        // insert a device to the database
+        ContentValues device = new ContentValues();
+        device.put("address", TEST_BT_ADDR);
+        device.put("migrated", false);
+        assertThat(db.insert("metadata", SQLiteDatabase.CONFLICT_IGNORE, device),
+                CoreMatchers.not(-1));
+
+        // Migrate database from 115 to 116
+        db.close();
+        db = testHelper.runMigrationsAndValidate(DB_NAME, 116, true,
+                MetadataDatabase.MIGRATION_115_116);
+        Cursor cursor = db.query("SELECT * FROM metadata");
+        assertHasColumn(cursor, "preferred_output_only_profile", true);
+        assertHasColumn(cursor, "preferred_duplex_profile", true);
+        while (cursor.moveToNext()) {
+            // Check the new columns was added with default value
+            assertColumnIntData(cursor, "preferred_output_only_profile", 0);
+            assertColumnIntData(cursor, "preferred_duplex_profile", 0);
+        }
+    }
+
+    @Test
+    public void testDatabaseMigration_116_117() throws IOException {
+        // Create a database with version 116
+        SupportSQLiteDatabase db = testHelper.createDatabase(DB_NAME, 116);
+        // insert a device to the database
+        ContentValues device = new ContentValues();
+        device.put("address", TEST_BT_ADDR);
+        device.put("migrated", false);
+        assertThat(db.insert("metadata", SQLiteDatabase.CONFLICT_IGNORE, device),
+                CoreMatchers.not(-1));
+        // Migrate database from 116 to 117
+        db.close();
+        db = testHelper.runMigrationsAndValidate(DB_NAME, 117, true,
+                MetadataDatabase.MIGRATION_116_117);
+        Cursor cursor = db.query("SELECT * FROM metadata");
+        assertHasColumn(cursor, "gmcs_cccd", true);
+        assertHasColumn(cursor, "gtbs_cccd", true);
+        while (cursor.moveToNext()) {
+            // Check the new columns was added with default value
+            assertColumnBlobData(cursor, "gmcs_cccd", null);
+            assertColumnBlobData(cursor, "gtbs_cccd", null);
         }
     }
 
@@ -1347,6 +1501,102 @@ public final class DatabaseManagerTest {
         restartDatabaseManagerHelper();
         Assert.assertArrayEquals(value,
                 mDatabaseManager.getCustomMeta(mTestDevice, key));
+
+        mDatabaseManager.factoryReset();
+        mDatabaseManager.mMetadataCache.clear();
+        // Wait for clear database
+        TestUtils.waitForLooperToFinishScheduledTask(mDatabaseManager.getHandlerLooper());
+    }
+
+    void testSetGetAudioPolicyMetadataCase(boolean stored,
+                BluetoothSinkAudioPolicy policy, boolean expectedResult) {
+        BluetoothSinkAudioPolicy testPolicy = new BluetoothSinkAudioPolicy.Builder().build();
+        if (stored) {
+            Metadata data = new Metadata(TEST_BT_ADDR);
+            mDatabaseManager.mMetadataCache.put(TEST_BT_ADDR, data);
+            mDatabase.insert(data);
+            Assert.assertEquals(expectedResult,
+                    mDatabaseManager.setAudioPolicyMetadata(mTestDevice, testPolicy));
+        }
+        Assert.assertEquals(expectedResult,
+                mDatabaseManager.setAudioPolicyMetadata(mTestDevice, policy));
+        if (expectedResult) {
+            // Check for callback and get value
+            Assert.assertEquals(policy,
+                    mDatabaseManager.getAudioPolicyMetadata(mTestDevice));
+        } else {
+            Assert.assertNull(mDatabaseManager.getAudioPolicyMetadata(mTestDevice));
+            return;
+        }
+        // Wait for database update
+        TestUtils.waitForLooperToFinishScheduledTask(mDatabaseManager.getHandlerLooper());
+
+        // Check whether the value is saved in database
+        restartDatabaseManagerHelper();
+        Assert.assertEquals(policy,
+                mDatabaseManager.getAudioPolicyMetadata(mTestDevice));
+
+        mDatabaseManager.factoryReset();
+        mDatabaseManager.mMetadataCache.clear();
+        // Wait for clear database
+        TestUtils.waitForLooperToFinishScheduledTask(mDatabaseManager.getHandlerLooper());
+    }
+
+    void testSetGetPreferredAudioProfilesCase(boolean stored, Bundle preferencesToSet,
+            Bundle expectedPreferences, int expectedSetResult) {
+        if (stored) {
+            Metadata data = new Metadata(TEST_BT_ADDR);
+            Metadata data2 = new Metadata(TEST_BT_ADDR2);
+            mDatabaseManager.mMetadataCache.put(TEST_BT_ADDR, data);
+            mDatabaseManager.mMetadataCache.put(TEST_BT_ADDR2, data2);
+            mDatabase.insert(data);
+            mDatabase.insert(data2);
+        }
+        List<BluetoothDevice> groupDevices = new ArrayList<>();
+        groupDevices.add(mTestDevice);
+        groupDevices.add(mTestDevice2);
+
+        Assert.assertEquals(expectedSetResult,
+                mDatabaseManager.setPreferredAudioProfiles(groupDevices, preferencesToSet));
+        Bundle testDevicePreferences = mDatabaseManager.getPreferredAudioProfiles(mTestDevice);
+        Bundle testDevice2Preferences = mDatabaseManager.getPreferredAudioProfiles(mTestDevice2);
+        Assert.assertNotNull(testDevicePreferences);
+        Assert.assertNotNull(testDevice2Preferences);
+
+        Assert.assertEquals(expectedPreferences.getInt(BluetoothAdapter.AUDIO_MODE_OUTPUT_ONLY),
+                testDevicePreferences.getInt(BluetoothAdapter.AUDIO_MODE_OUTPUT_ONLY));
+        Assert.assertEquals(expectedPreferences.getInt(BluetoothAdapter.AUDIO_MODE_DUPLEX),
+                testDevicePreferences.getInt(BluetoothAdapter.AUDIO_MODE_DUPLEX));
+        Assert.assertEquals(0,
+                testDevice2Preferences.getInt(BluetoothAdapter.AUDIO_MODE_OUTPUT_ONLY));
+        Assert.assertEquals(0, testDevice2Preferences.getInt(BluetoothAdapter.AUDIO_MODE_DUPLEX));
+
+        // Wait for database update
+        TestUtils.waitForLooperToFinishScheduledTask(mDatabaseManager.getHandlerLooper());
+
+        List<Metadata> list = mDatabase.load();
+
+        // Check number of metadata in the database
+        if (!stored) {
+            Assert.assertEquals(0, list.size());
+            return;
+        }
+        Assert.assertEquals(2, list.size());
+
+        // Check whether the device is in database
+        restartDatabaseManagerHelper();
+        testDevicePreferences = mDatabaseManager.getPreferredAudioProfiles(mTestDevice);
+        testDevice2Preferences = mDatabaseManager.getPreferredAudioProfiles(mTestDevice2);
+        Assert.assertNotNull(testDevicePreferences);
+        Assert.assertNotNull(testDevice2Preferences);
+
+        Assert.assertEquals(expectedPreferences.getInt(BluetoothAdapter.AUDIO_MODE_OUTPUT_ONLY),
+                testDevicePreferences.getInt(BluetoothAdapter.AUDIO_MODE_OUTPUT_ONLY));
+        Assert.assertEquals(expectedPreferences.getInt(BluetoothAdapter.AUDIO_MODE_DUPLEX),
+                testDevicePreferences.getInt(BluetoothAdapter.AUDIO_MODE_DUPLEX));
+        Assert.assertEquals(0,
+                testDevice2Preferences.getInt(BluetoothAdapter.AUDIO_MODE_OUTPUT_ONLY));
+        Assert.assertEquals(0, testDevice2Preferences.getInt(BluetoothAdapter.AUDIO_MODE_DUPLEX));
 
         mDatabaseManager.factoryReset();
         mDatabaseManager.mMetadataCache.clear();

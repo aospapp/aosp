@@ -29,6 +29,8 @@
     <string name="static_wallpaper_presentation_mode_message" msgid="417940227049360906">"Jelenleg beállított"</string>
     <string name="rotating_wallpaper_presentation_mode_message" msgid="3361676041605733288">"Napi háttérkép"</string>
     <string name="wallpaper_destination_both" msgid="1124197176741944063">"Kezdő- és lezárási képernyő"</string>
+    <string name="choose_a_wallpaper_section_title" msgid="1009823506890453891">"Háttérkép kiválasztása"</string>
+    <string name="creative_wallpaper_title" msgid="8459226435723103934">"Háttérkép létrehozása"</string>
     <string name="home_screen_message" msgid="106444102822522813">"Kezdőképernyő"</string>
     <string name="lock_screen_message" msgid="1534506081955058013">"Lezárási képernyő"</string>
     <string name="home_and_lock_short_label" msgid="2937922943541927983">"Kezdő- és lezárási képernyő"</string>
@@ -64,6 +66,7 @@
     <string name="explore_lock_screen" msgid="268938342103703665">"A lezárási képernyő hátterének felfedezése"</string>
     <string name="refresh_daily_wallpaper_home_content_description" msgid="2770445044556164259">"A kezdőképernyő napi háttérképének frissítése"</string>
     <string name="refresh_daily_wallpaper_content_description" msgid="4362142658237147583">"Napi háttérkép frissítése"</string>
+    <string name="preview_screen_description" msgid="3386387053327775919">"Háttérkép előnézeti képernyője"</string>
     <string name="refreshing_daily_wallpaper_dialog_message" msgid="1975910873362855761">"Napi háttérkép frissítése…"</string>
     <string name="refresh_daily_wallpaper_failed_message" msgid="4749879993812557166">"Nem sikerült frissíteni a napi háttérképet. Ellenőrizze hálózati kapcsolatát, majd próbálkozzon újra."</string>
     <string name="on_device_wallpapers_category_title" msgid="805819102071369004">"Eszközön lévő háttérképek"</string>
@@ -81,10 +84,12 @@
     <string name="tab_info" msgid="818614080690111416">"Információ"</string>
     <string name="tab_customize" msgid="2533745409174959960">"Személyre szabás"</string>
     <string name="tab_effects" msgid="3213606157589233901">"Effektek"</string>
+    <string name="tab_share" msgid="6676269624804601227">"Megosztás"</string>
     <string name="my_photos" msgid="8613021349284084982">"Saját fotóim"</string>
     <string name="configure_wallpaper" msgid="849882179182976621">"Beállítások…"</string>
     <string name="delete_live_wallpaper" msgid="589212696102662329">"Törlés"</string>
-    <string name="delete_wallpaper_confirmation" msgid="33790318361863778">"Törli ezt a háttérképet a telefonjáról?"</string>
+    <string name="edit_live_wallpaper" msgid="3132060073690558045">"Szerkesztés"</string>
+    <string name="delete_wallpaper_confirmation" msgid="1905114562243802354">"Törli ezt a háttérképet az eszközről?"</string>
     <string name="bottom_action_bar_back" msgid="8237013112999946725">"Vissza"</string>
     <string name="bottom_action_bar_edit" msgid="1214742990893082138">"Módosítás"</string>
     <string name="bottom_action_bar_download" msgid="3983122338076389421">"Letöltés"</string>
@@ -95,11 +100,19 @@
     <string name="previous_page_content_description" msgid="1138597031571078429">"Előző"</string>
     <string name="wallpaper_title" msgid="6754214682228331092">"Háttérkép"</string>
     <string name="wallpaper_preview_card_content_description" msgid="6049261033541034584">"Háttérkép előnézete"</string>
+    <string name="lock_wallpaper_preview_card_content_description" msgid="5236839857695985498">"Lezárási képernyő háttérképének előnézete"</string>
+    <string name="home_wallpaper_preview_card_content_description" msgid="4059418716070821630">"Kezdőképernyő háttérképének előnézete"</string>
     <string name="collection_not_exist_msg" msgid="3504852962885064842">"Nincs ilyen gyűjtemény"</string>
+    <string name="wallpaper_exit_split_screen" msgid="1928870664619591636">"Lépjen ki az osztott képernyős módból, és próbálja újra"</string>
     <string name="cancel" msgid="4970902691067201584">"Mégse"</string>
     <string name="hide_ui_preview_text" msgid="6766076482511252295">"UI előnézetének elrejtése"</string>
     <string name="hint_hide_ui_preview" msgid="4527603797714586070">"UI: rejtve előnézetben. Felfedés: dupla koppintás."</string>
     <string name="show_ui_preview_text" msgid="5993063062417070806">"UI előnézetének megjelenítése"</string>
+    <string name="hide_preview_controls_content_description" msgid="894958599274977655">"Előnézet-vezérlők megjelenítve. Elrejtés: dupla koppintás."</string>
+    <string name="hide_preview_controls_action" msgid="3419260118386783295">"Előnézet-vezérlők elrejtése"</string>
+    <string name="show_preview_controls_content_description" msgid="908147864005440602">"Előnézet-vezérlők elrejtve. Megjelenítés: dupla koppintás."</string>
+    <string name="show_preview_controls_action" msgid="7700775001986890400">"Előnézet-vezérlők megjelenítése"</string>
+    <string name="hide_wallpaper_info_action" msgid="6572492484253895374">"Háttérképadatok elrejtése"</string>
     <string name="hint_show_ui_preview" msgid="2744155435325318349">"UI: látható előnézetben. Elrejtés: dupla koppintás."</string>
     <string name="wallpaper_picker_entry_title" msgid="5185793991582084891">"Háttérkép megváltoztatása"</string>
     <string name="lockscreen_wallpaper_preview_card_content_description" msgid="2244890820627302245">"Lezárási képernyő háttérképének előnézete"</string>
@@ -111,4 +124,10 @@
     <string name="settings_snackbar_description" msgid="890168814524778486">"Engedélyezze a fájlokat és a médiatartalmakat a beállításokban."</string>
     <string name="settings_snackbar_enable" msgid="5992112808061426068">"Engedélyezés"</string>
     <string name="open_my_photos" msgid="4107196465713868381">"Saját fotóim megnyitása"</string>
+    <string name="lock_screen_tab" msgid="6672930765010407652">"Lezárási képernyő"</string>
+    <string name="home_screen_tab" msgid="1080445697837877526">"Kezdőképernyő"</string>
+    <string name="reset" msgid="4945445169532850631">"Alaphelyzet"</string>
+    <string name="reset_confirmation_dialog_title" msgid="3391905685838213712">"Visszavonja a módosításokat?"</string>
+    <string name="reset_confirmation_dialog_message" msgid="888669268626289603">"A módosítások nem lesznek mentve"</string>
+    <string name="more_wallpapers" msgid="8116268433411881705">"További hátterek"</string>
 </resources>

@@ -1,5 +1,8 @@
 {
   "name": "com.android.wifi",
-  "version": 339990000
+
+  // Placeholder module version to be replaced during build.
+  // Do not change!
+  "version": 0
 }
 

@@ -18,6 +18,8 @@ package com.android.car.settings.enterprise;
 
 
 import static com.android.car.settings.common.PreferenceController.AVAILABLE;
+import static com.android.car.settings.common.PreferenceController.AVAILABLE_FOR_VIEWING;
+import static com.android.car.settings.common.PreferenceController.CONDITIONALLY_UNAVAILABLE;
 import static com.android.car.settings.common.PreferenceController.DISABLED_FOR_PROFILE;
 
 import static com.google.common.truth.Truth.assertThat;
@@ -65,7 +67,78 @@ public final class AlwaysOnVpnCurrentUserPreferenceControllerTest extends
     }
 
     @Test
+    public void testAlwaysOnVpnPackageSet_preferenceEnabled_zoneWrite() {
+        mAlwaysOnVpnCurrentUserPreferenceController.setAvailabilityStatusForZone("write");
+        when(mVpnManager.getAlwaysOnVpnPackageForUser(anyInt())).thenReturn("com.test");
+
+        mAlwaysOnVpnCurrentUserPreferenceController.updateState(mPreference);
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mAlwaysOnVpnCurrentUserPreferenceController.getAvailabilityStatus(), AVAILABLE);
+    }
+
+    @Test
+    public void testAlwaysOnVpnPackageSet_preferenceEnabled_zoneRead() {
+        mAlwaysOnVpnCurrentUserPreferenceController.setAvailabilityStatusForZone("read");
+        when(mVpnManager.getAlwaysOnVpnPackageForUser(anyInt())).thenReturn("com.test");
+
+        mAlwaysOnVpnCurrentUserPreferenceController.updateState(mPreference);
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mAlwaysOnVpnCurrentUserPreferenceController.getAvailabilityStatus(),
+                AVAILABLE_FOR_VIEWING);
+    }
+
+    @Test
+    public void testAlwaysOnVpnPackageSet_preferenceEnabled_zoneHidden() {
+        mAlwaysOnVpnCurrentUserPreferenceController.setAvailabilityStatusForZone("hidden");
+        when(mVpnManager.getAlwaysOnVpnPackageForUser(anyInt())).thenReturn("com.test");
+
+        mAlwaysOnVpnCurrentUserPreferenceController.updateState(mPreference);
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mAlwaysOnVpnCurrentUserPreferenceController.getAvailabilityStatus(),
+                CONDITIONALLY_UNAVAILABLE);
+    }
+
+    @Test
     public void testAlwaysOnVpnPackageNotSet_preferenceDisabled() {
+        when(mVpnManager.getAlwaysOnVpnPackageForUser(anyInt())).thenReturn(null);
+
+        mAlwaysOnVpnCurrentUserPreferenceController.updateState(mPreference);
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mAlwaysOnVpnCurrentUserPreferenceController.getAvailabilityStatus(),
+                DISABLED_FOR_PROFILE);
+    }
+
+    @Test
+    public void testAlwaysOnVpnPackageNotSet_preferenceDisabled_zoneWrite() {
+        mAlwaysOnVpnCurrentUserPreferenceController.setAvailabilityStatusForZone("write");
+        when(mVpnManager.getAlwaysOnVpnPackageForUser(anyInt())).thenReturn(null);
+
+        mAlwaysOnVpnCurrentUserPreferenceController.updateState(mPreference);
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mAlwaysOnVpnCurrentUserPreferenceController.getAvailabilityStatus(),
+                DISABLED_FOR_PROFILE);
+    }
+
+    @Test
+    public void testAlwaysOnVpnPackageNotSet_preferenceDisabled_zoneRead() {
+        mAlwaysOnVpnCurrentUserPreferenceController.setAvailabilityStatusForZone("read");
+        when(mVpnManager.getAlwaysOnVpnPackageForUser(anyInt())).thenReturn(null);
+
+        mAlwaysOnVpnCurrentUserPreferenceController.updateState(mPreference);
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mAlwaysOnVpnCurrentUserPreferenceController.getAvailabilityStatus(),
+                DISABLED_FOR_PROFILE);
+    }
+
+    @Test
+    public void testAlwaysOnVpnPackageNotSet_preferenceDisabled_zoneHidden() {
+        mAlwaysOnVpnCurrentUserPreferenceController.setAvailabilityStatusForZone("hidden");
         when(mVpnManager.getAlwaysOnVpnPackageForUser(anyInt())).thenReturn(null);
 
         mAlwaysOnVpnCurrentUserPreferenceController.updateState(mPreference);

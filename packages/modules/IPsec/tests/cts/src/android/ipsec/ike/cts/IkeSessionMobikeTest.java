@@ -18,6 +18,8 @@ package android.ipsec.ike.cts;
 
 import static android.net.ipsec.ike.IkeSessionConfiguration.EXTENSION_TYPE_FRAGMENTATION;
 import static android.net.ipsec.ike.IkeSessionConfiguration.EXTENSION_TYPE_MOBIKE;
+import static android.net.ipsec.ike.IkeSessionParams.ESP_ENCAP_TYPE_AUTO;
+import static android.net.ipsec.ike.IkeSessionParams.ESP_IP_VERSION_AUTO;
 import static android.net.ipsec.ike.IkeSessionParams.IKE_OPTION_MOBIKE;
 import static android.net.ipsec.ike.IkeSessionParams.IKE_OPTION_REKEY_MOBILITY;
 import static android.net.ipsec.ike.SaProposal.DH_GROUP_2048_BIT_MODP;
@@ -144,13 +146,14 @@ public class IkeSessionMobikeTest extends IkeSessionPskTestBase {
     }
 
     @Test
-    public void testMigrateNetworksWithoutXfrmMigrate() throws Exception {
+    public void testMigrateNetworks() throws Exception {
         if (!hasTunnelsFeature()) return;
 
         final IkeSession ikeSession =
                 setupAndVerifyIkeSessionWithMobility(
                         IKE_INIT_RESP,
                         IKE_AUTH_RESP,
+                        mRemoteAddress,
                         true /* mobikeSupportedByServer */,
                         new int[] {IKE_OPTION_MOBIKE});
 
@@ -164,31 +167,48 @@ public class IkeSessionMobikeTest extends IkeSessionPskTestBase {
         // IKE_AUTH message.
         int expectedMsgId = 2;
 
+        // TODO (b/277662795): Generate canned values and add testing for encap-type-change
+        // migrations
         setNetworkAndVerifyConnectionInfoChange(
-                ikeSession, mSecondaryTunNetworkContext, expectedMsgId++, IKE_UPDATE_SA_RESP);
-        final IpSecTransformCallRecord[] migrateRecords =
-                injectCreateChildRespAndVerifyTransformsMigrated(
-                        mSecondaryTunNetworkContext, expectedMsgId++, IKE_CREATE_CHILD_RESP);
-        injectDeleteChildRespAndVerifyTransformsDeleted(
+                ikeSession,
                 mSecondaryTunNetworkContext,
                 expectedMsgId++,
-                IKE_DELETE_CHILD_RESP,
-                firstTransformRecordA,
-                firstTransformRecordB);
+                IKE_UPDATE_SA_RESP,
+                ESP_IP_VERSION_AUTO,
+                mSecondaryLocalAddr,
+                mRemoteAddress);
 
-        // Close IKE Session
-        ikeSession.close();
-        mSecondaryTunNetworkContext.tunUtils.awaitReqAndInjectResp(
-                IKE_DETERMINISTIC_INITIATOR_SPI,
-                expectedMsgId++,
-                true /* expectedUseEncap */,
-                DELETE_IKE_RESP);
-        verifyCloseIkeAndChildBlocking(migrateRecords[0], migrateRecords[1]);
+        if (hasTunnelMigrationFeature()) {
+            verifyTransformsMigratedAndGetTransforms();
+
+            // TODO (b/277662795): Verify closing IKE session. Will require regenerating
+            // DELETE_IKE_RESP for the kernel-MOBIKE case, where the message ID is 3 instead of 5
+        } else {
+            final IpSecTransformCallRecord[] migrateRecords =
+                    injectCreateChildRespAndVerifyTransformsMigrated(
+                            mSecondaryTunNetworkContext, expectedMsgId++, IKE_CREATE_CHILD_RESP);
+            injectDeleteChildRespAndVerifyTransformsDeleted(
+                    mSecondaryTunNetworkContext,
+                    expectedMsgId++,
+                    IKE_DELETE_CHILD_RESP,
+                    firstTransformRecordA,
+                    firstTransformRecordB);
+
+            // Close IKE Session
+            ikeSession.close();
+            mSecondaryTunNetworkContext.tunUtils.awaitReqAndInjectResp(
+                    IKE_DETERMINISTIC_INITIATOR_SPI,
+                    expectedMsgId++,
+                    true /* expectedUseEncap */,
+                    DELETE_IKE_RESP);
+            verifyCloseIkeAndChildBlocking(migrateRecords[0], migrateRecords[1]);
+        }
     }
 
     private IkeSession setupAndVerifyIkeSessionWithMobility(
             String ikeInitRespHex,
             String ikeAuthRespHex,
+            InetAddress remoteAddress,
             boolean mobikeSupportedByServer,
             int[] ikeOptions)
             throws Exception {
@@ -201,14 +221,14 @@ public class IkeSessionMobikeTest extends IkeSessionPskTestBase {
                         .build();
 
         final IkeSessionParams.Builder ikeParamsBuilder =
-                createIkeParamsBuilderBase(mRemoteAddress, saProposal);
+                createIkeParamsBuilderBase(remoteAddress, saProposal);
         for (int option : ikeOptions) {
             ikeParamsBuilder.addIkeOption(option);
         }
 
         final IkeSessionParams ikeParams = ikeParamsBuilder.build();
 
-        final IkeSession ikeSession = openIkeSessionWithTunnelModeChild(mRemoteAddress, ikeParams);
+        final IkeSession ikeSession = openIkeSessionWithTunnelModeChild(remoteAddress, ikeParams);
         performSetupIkeAndFirstChildBlocking(
                 ikeInitRespHex, true /* expectedAuthUseEncap */, ikeAuthRespHex);
         if (mobikeSupportedByServer) {
@@ -229,9 +249,13 @@ public class IkeSessionMobikeTest extends IkeSessionPskTestBase {
             IkeSession ikeSession,
             TunNetworkContext tunNetworkContext,
             int expectedMsgId,
-            String ikeUpdateSaResp)
+            String ikeUpdateSaResp,
+            int ipVersion,
+            InetAddress expectedLocalAddress,
+            InetAddress expectedRemoteAddress)
             throws Exception {
-        ikeSession.setNetwork(tunNetworkContext.tunNetwork);
+        ikeSession.setNetwork(tunNetworkContext.tunNetwork, ipVersion, ESP_ENCAP_TYPE_AUTO,
+                IkeSessionParams.NATT_KEEPALIVE_INTERVAL_AUTO);
 
         tunNetworkContext.tunUtils.awaitReqAndInjectResp(
                 IKE_DETERMINISTIC_INITIATOR_SPI,
@@ -239,17 +263,20 @@ public class IkeSessionMobikeTest extends IkeSessionPskTestBase {
                 true /* expectedUseEncap */,
                 ikeUpdateSaResp);
 
-        verifyConnectionInfoChange(tunNetworkContext.tunNetwork, mSecondaryLocalAddr);
+        verifyConnectionInfoChange(tunNetworkContext.tunNetwork, expectedLocalAddress,
+                expectedRemoteAddress);
     }
 
     private void verifyConnectionInfoChange(
-            Network expectedNetwork, InetAddress expectedLocalAddress) throws Exception {
+            Network expectedNetwork,
+            InetAddress expectedLocalAddress,
+            InetAddress expectedRemoteAddress) throws Exception {
         final IkeSessionConnectionInfo connectionInfo =
                 mIkeSessionCallback.awaitOnIkeSessionConnectionInfoChanged();
         assertNotNull(connectionInfo);
         assertEquals(expectedNetwork, connectionInfo.getNetwork());
         assertEquals(expectedLocalAddress, connectionInfo.getLocalAddress());
-        assertEquals(mRemoteAddress, connectionInfo.getRemoteAddress());
+        assertEquals(expectedRemoteAddress, connectionInfo.getRemoteAddress());
     }
 
     private IpSecTransformCallRecord[] injectCreateChildRespAndVerifyTransformsMigrated(
@@ -261,6 +288,10 @@ public class IkeSessionMobikeTest extends IkeSessionPskTestBase {
                 true /* expectedUseEncap */,
                 ikeCreateChildResp);
 
+        return verifyTransformsMigratedAndGetTransforms();
+    }
+
+    private IpSecTransformCallRecord[] verifyTransformsMigratedAndGetTransforms() throws Exception {
         final IpSecTransformCallRecord[] migrateRecords =
                 mFirstChildSessionCallback.awaitNextMigratedIpSecTransform();
         assertNotNull(migrateRecords);
@@ -293,6 +324,7 @@ public class IkeSessionMobikeTest extends IkeSessionPskTestBase {
                 setupAndVerifyIkeSessionWithMobility(
                         IKE_INIT_RESP,
                         IKE_AUTH_RESP,
+                        mRemoteAddress,
                         true /* mobikeSupportedByServer */,
                         new int[] {IKE_OPTION_MOBIKE});
 
@@ -361,6 +393,7 @@ public class IkeSessionMobikeTest extends IkeSessionPskTestBase {
                 setupAndVerifyIkeSessionWithMobility(
                         ikeInitResp,
                         IkeAuthRespWithoutMobikeSupport,
+                        mRemoteAddress,
                         false /* mobikeSupportedByServer */,
                         ikeOptions);
 
@@ -372,7 +405,8 @@ public class IkeSessionMobikeTest extends IkeSessionPskTestBase {
 
         // Rekey-based mobility
         ikeSession.setNetwork(mSecondaryTunNetworkContext.tunNetwork);
-        verifyConnectionInfoChange(mSecondaryTunNetworkContext.tunNetwork, mSecondaryLocalAddr);
+        verifyConnectionInfoChange(mSecondaryTunNetworkContext.tunNetwork, mSecondaryLocalAddr,
+                mRemoteAddress);
 
         // Local request message ID starts from 2 because there is one IKE_INIT message and a single
         // IKE_AUTH message.

@@ -13,21 +13,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include <vector>
-#include <stdio.h>
-#include <fcntl.h>
-#include <alloca.h>
-#include <unistd.h>
-#include <sys/ioctl.h>
-#include <malloc.h>
-#include <png.h>
-
 #include "VideoTex.h"
+
 #include "glError.h"
 
 #include <ui/GraphicBuffer.h>
 #include <ui/GraphicBufferAllocator.h>
 #include <ui/GraphicBufferMapper.h>
+
+#include <alloca.h>
+#include <fcntl.h>
+#include <malloc.h>
+#include <png.h>
+#include <stdio.h>
+#include <sys/ioctl.h>
+#include <unistd.h>
+
+#include <vector>
 
 namespace android {
 namespace automotive {
@@ -39,10 +41,7 @@ namespace support {
 // and this is our work around.
 using ::android::GraphicBuffer;
 
-
-VideoTex::VideoTex(EGLDisplay glDisplay)
-    : TexWrapper()
-    , mDisplay(glDisplay) {
+VideoTex::VideoTex(EGLDisplay glDisplay) : TexWrapper(), mDisplay(glDisplay) {
     // Nothing but initialization here...
 }
 
@@ -53,7 +52,6 @@ VideoTex::~VideoTex() {
         mKHRimage = EGL_NO_IMAGE_KHR;
     }
 }
-
 
 // Return true if the texture contents are changed
 bool VideoTex::refresh(const BufferDesc& imageBuffer) {
@@ -69,10 +67,10 @@ bool VideoTex::refresh(const BufferDesc& imageBuffer) {
     }
 
     // create a GraphicBuffer from the existing handle
-    sp<GraphicBuffer> imageGraphicBuffer = new GraphicBuffer(
-        imageBuffer.memHandle, GraphicBuffer::CLONE_HANDLE, imageBuffer.width,
-        imageBuffer.height, imageBuffer.format, 1, // layer count
-        GRALLOC_USAGE_HW_TEXTURE, imageBuffer.stride);
+    sp<GraphicBuffer> imageGraphicBuffer =
+            new GraphicBuffer(imageBuffer.memHandle, GraphicBuffer::CLONE_HANDLE, imageBuffer.width,
+                              imageBuffer.height, imageBuffer.format, 1,  // layer count
+                              GRALLOC_USAGE_HW_TEXTURE, imageBuffer.stride);
 
     if (imageGraphicBuffer.get() == nullptr) {
         ALOGE("Failed to allocate GraphicBuffer to wrap image handle");
@@ -81,15 +79,13 @@ bool VideoTex::refresh(const BufferDesc& imageBuffer) {
         return true;
     }
 
-
     // Get a GL compatible reference to the graphics buffer we've been given
     EGLint eglImageAttributes[] = {EGL_IMAGE_PRESERVED_KHR, EGL_TRUE, EGL_NONE};
     EGLClientBuffer clientBuf = static_cast<EGLClientBuffer>(imageGraphicBuffer->getNativeBuffer());
-    mKHRimage = eglCreateImageKHR(mDisplay, EGL_NO_CONTEXT,
-                                  EGL_NATIVE_BUFFER_ANDROID, clientBuf,
+    mKHRimage = eglCreateImageKHR(mDisplay, EGL_NO_CONTEXT, EGL_NATIVE_BUFFER_ANDROID, clientBuf,
                                   eglImageAttributes);
     if (mKHRimage == EGL_NO_IMAGE_KHR) {
-        const char *msg = getEGLError();
+        const char* msg = getEGLError();
         ALOGE("error creating EGLImage: %s", msg);
         return false;
     } else {

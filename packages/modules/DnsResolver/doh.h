@@ -54,6 +54,7 @@ struct FeatureFlags {
     uint64_t probe_timeout_ms;
     uint64_t idle_timeout_ms;
     bool use_session_resumption;
+    bool enable_early_data;
 };
 
 using ValidationCallback = void (*)(uint32_t net_id, bool success, const char* ip_addr,

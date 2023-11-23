@@ -8,7 +8,6 @@ import static org.mockito.Mockito.when;
 
 import android.content.ContentResolver;
 import android.content.Context;
-import android.os.Build;
 import android.provider.Settings;
 import android.service.quickaccesswallet.QuickAccessWalletClient;
 
@@ -22,11 +21,9 @@ import org.junit.runner.RunWith;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.robolectric.RobolectricTestRunner;
-import org.robolectric.annotation.Config;
 import org.robolectric.shadows.ShadowLog;
 
 @RunWith(RobolectricTestRunner.class)
-@Config(sdk = Build.VERSION_CODES.R)
 public class WalletPluginServiceTest {
 
     private final Context mContext = ApplicationProvider.getApplicationContext();

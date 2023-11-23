@@ -27,12 +27,9 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_alignParentStart="true"
-        android:layout_marginStart="@dimen/notification_card_margin_horizontal"
-        android:paddingBottom="@dimen/notification_header_text_padding_bottom"
-        android:paddingTop="@dimen/notification_header_text_padding_top"
         android:text="@string/notification_older"
-        android:textAppearance="?android:attr/textAppearanceLarge"
-        android:visibility="gone"/>
+        android:visibility="gone"
+        style="@style/NotificationCenterHeaderText"/>
 
     <Button
         android:id="@+id/clear_all_button"

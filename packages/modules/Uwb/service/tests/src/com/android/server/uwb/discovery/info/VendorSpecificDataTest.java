@@ -24,6 +24,8 @@ import androidx.test.runner.AndroidJUnit4;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
+import java.util.Optional;
+
 /**
  * Unit test for {@link VendorSpecificData}
  */
@@ -38,17 +40,26 @@ public class VendorSpecificDataTest {
 
     @Test
     public void fromBytes_emptyData() {
-        assertThat(VendorSpecificData.fromBytes(new byte[] {})).isNull();
+        assertThat(VendorSpecificData.fromBytes(new byte[] {}, Optional.empty())).isNull();
     }
 
     @Test
     public void fromBytes_dataTooShort() {
-        assertThat(VendorSpecificData.fromBytes(new byte[] {0x01})).isNull();
+        assertThat(VendorSpecificData.fromBytes(new byte[] {0x01}, Optional.empty())).isNull();
     }
 
     @Test
     public void fromBytes_succeed() {
-        VendorSpecificData info = VendorSpecificData.fromBytes(BYTES);
+        VendorSpecificData info = VendorSpecificData.fromBytes(BYTES, Optional.empty());
+        assertThat(info).isNotNull();
+
+        assertThat(info.vendorId).isEqualTo(ID);
+        assertThat(info.vendorData).isEqualTo(DATA);
+    }
+
+    @Test
+    public void fromBytes_succeedProvidedId() {
+        VendorSpecificData info = VendorSpecificData.fromBytes(DATA, Optional.of(ID));
         assertThat(info).isNotNull();
 
         assertThat(info.vendorId).isEqualTo(ID);

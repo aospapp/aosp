@@ -14,13 +14,13 @@
  * limitations under the License.
  */
 
-#ifdef OS_ANDROID
+#ifdef __ANDROID__
 #include <private/android_filesystem_config.h>
 #include <unistd.h>
 #endif
 
 bool is_bluetooth_uid() {
-#ifdef OS_ANDROID
+#ifdef __ANDROID__
   return getuid() == AID_BLUETOOTH;
 #else
   return false;

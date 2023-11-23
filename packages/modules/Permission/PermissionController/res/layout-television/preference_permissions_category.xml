@@ -25,7 +25,7 @@
               android:paddingTop="16dp"
               android:paddingBottom="16dp">
     <TextView
-        android:id="@+android:id/title"
+        android:id="@android:id/title"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:textColor="@color/settings_category_text_color"
@@ -33,7 +33,7 @@
         android:textStyle="bold"/>
 
     <TextView
-        android:id="@+android:id/summary"
+        android:id="@android:id/summary"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="4dp"

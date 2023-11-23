@@ -22,8 +22,6 @@ import android.util.Log;
 import com.android.systemui.dagger.SysUISingleton;
 import com.android.systemui.shared.system.TaskStackChangeListener;
 
-import javax.inject.Inject;
-
 /**
  * An implementation of TaskStackChangeListener, that listens for changes in the system
  * task stack and notifies the navigation bar.
@@ -32,9 +30,9 @@ import javax.inject.Inject;
 class ButtonSelectionStateListener implements TaskStackChangeListener {
     private static final String TAG = ButtonSelectionStateListener.class.getSimpleName();
 
-    private final ButtonSelectionStateController mButtonSelectionStateController;
+    /* Visible so that subclasses can make calls to this controller. */
+    protected final ButtonSelectionStateController mButtonSelectionStateController;
 
-    @Inject
     ButtonSelectionStateListener(ButtonSelectionStateController carSystemButtonController) {
         mButtonSelectionStateController = carSystemButtonController;
     }

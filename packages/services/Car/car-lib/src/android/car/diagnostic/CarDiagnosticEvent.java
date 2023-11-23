@@ -393,7 +393,6 @@ public final class CarDiagnosticEvent implements Parcelable {
     }
 
     @Override
-    @AddedInOrBefore(majorVersion = 33)
     public boolean equals(Object otherObject) {
         if (this == otherObject) {
             return true;
@@ -448,7 +447,6 @@ public final class CarDiagnosticEvent implements Parcelable {
     }
 
     @Override
-    @AddedInOrBefore(majorVersion = 33)
     public int hashCode() {
         Integer[] intKeys = new Integer[mIntValues.size()];
         Integer[] floatKeys = new Integer[mFloatValues.size()];
@@ -476,7 +474,6 @@ public final class CarDiagnosticEvent implements Parcelable {
     }
 
     @Override
-    @AddedInOrBefore(majorVersion = 33)
     public String toString() {
         return String.format(
                 "%s diagnostic frame {\n"
@@ -785,15 +782,12 @@ public final class CarDiagnosticEvent implements Parcelable {
         @AddedInOrBefore(majorVersion = 33)
         public static final int MISFIRE_INCOMPLETE = 0x1 << 5;
 
-        @AddedInOrBefore(majorVersion = 33)
         static final IgnitionMonitor.Decoder COMPONENTS_DECODER =
                 new IgnitionMonitor.Decoder(COMPONENTS_AVAILABLE, COMPONENTS_INCOMPLETE);
 
-        @AddedInOrBefore(majorVersion = 33)
         static final IgnitionMonitor.Decoder FUEL_SYSTEM_DECODER =
                 new IgnitionMonitor.Decoder(FUEL_SYSTEM_AVAILABLE, FUEL_SYSTEM_INCOMPLETE);
 
-        @AddedInOrBefore(majorVersion = 33)
         static final IgnitionMonitor.Decoder MISFIRE_DECODER =
                 new IgnitionMonitor.Decoder(MISFIRE_AVAILABLE, MISFIRE_INCOMPLETE);
 
@@ -905,40 +899,32 @@ public final class CarDiagnosticEvent implements Parcelable {
         @AddedInOrBefore(majorVersion = 33)
         public static final int CATALYST_INCOMPLETE = 0x1 << 21;
 
-        @AddedInOrBefore(majorVersion = 33)
         static final IgnitionMonitor.Decoder EGR_DECODER =
                 new IgnitionMonitor.Decoder(EGR_AVAILABLE, EGR_INCOMPLETE);
 
-        @AddedInOrBefore(majorVersion = 33)
         static final IgnitionMonitor.Decoder OXYGEN_SENSOR_HEATER_DECODER =
                 new IgnitionMonitor.Decoder(OXYGEN_SENSOR_HEATER_AVAILABLE,
                         OXYGEN_SENSOR_HEATER_INCOMPLETE);
 
-        @AddedInOrBefore(majorVersion = 33)
         static final IgnitionMonitor.Decoder OXYGEN_SENSOR_DECODER =
                 new IgnitionMonitor.Decoder(OXYGEN_SENSOR_AVAILABLE, OXYGEN_SENSOR_INCOMPLETE);
 
-        @AddedInOrBefore(majorVersion = 33)
         static final IgnitionMonitor.Decoder AC_REFRIGERANT_DECODER =
                 new IgnitionMonitor.Decoder(AC_REFRIGERANT_AVAILABLE,
                         AC_REFRIGERANT_INCOMPLETE);
 
-        @AddedInOrBefore(majorVersion = 33)
         static final IgnitionMonitor.Decoder SECONDARY_AIR_SYSTEM_DECODER =
                 new IgnitionMonitor.Decoder(SECONDARY_AIR_SYSTEM_AVAILABLE,
                         SECONDARY_AIR_SYSTEM_INCOMPLETE);
 
-        @AddedInOrBefore(majorVersion = 33)
         static final IgnitionMonitor.Decoder EVAPORATIVE_SYSTEM_DECODER =
                 new IgnitionMonitor.Decoder(EVAPORATIVE_SYSTEM_AVAILABLE,
                         EVAPORATIVE_SYSTEM_INCOMPLETE);
 
-        @AddedInOrBefore(majorVersion = 33)
         static final IgnitionMonitor.Decoder HEATED_CATALYST_DECODER =
                 new IgnitionMonitor.Decoder(HEATED_CATALYST_AVAILABLE,
                         HEATED_CATALYST_INCOMPLETE);
 
-        @AddedInOrBefore(majorVersion = 33)
         static final IgnitionMonitor.Decoder CATALYST_DECODER =
                 new IgnitionMonitor.Decoder(CATALYST_AVAILABLE, CATALYST_INCOMPLETE);
 
@@ -1014,29 +1000,23 @@ public final class CarDiagnosticEvent implements Parcelable {
         @AddedInOrBefore(majorVersion = 33)
         public static final int NMHC_CATALYST_INCOMPLETE = 0x1 << 17;
 
-        @AddedInOrBefore(majorVersion = 33)
         static final IgnitionMonitor.Decoder EGR_OR_VVT_DECODER =
                 new IgnitionMonitor.Decoder(EGR_OR_VVT_AVAILABLE, EGR_OR_VVT_INCOMPLETE);
 
-        @AddedInOrBefore(majorVersion = 33)
         static final IgnitionMonitor.Decoder PM_FILTER_DECODER =
                 new IgnitionMonitor.Decoder(PM_FILTER_AVAILABLE, PM_FILTER_INCOMPLETE);
 
-        @AddedInOrBefore(majorVersion = 33)
         static final IgnitionMonitor.Decoder EXHAUST_GAS_SENSOR_DECODER =
                 new IgnitionMonitor.Decoder(EXHAUST_GAS_SENSOR_AVAILABLE,
                         EXHAUST_GAS_SENSOR_INCOMPLETE);
 
-        @AddedInOrBefore(majorVersion = 33)
         static final IgnitionMonitor.Decoder BOOST_PRESSURE_DECODER =
                 new IgnitionMonitor.Decoder(BOOST_PRESSURE_AVAILABLE,
                         BOOST_PRESSURE_INCOMPLETE);
 
-        @AddedInOrBefore(majorVersion = 33)
         static final IgnitionMonitor.Decoder NOx_SCR_DECODER =
                 new IgnitionMonitor.Decoder(NOx_SCR_AVAILABLE, NOx_SCR_INCOMPLETE);
 
-        @AddedInOrBefore(majorVersion = 33)
         static final IgnitionMonitor.Decoder NMHC_CATALYST_DECODER =
                 new IgnitionMonitor.Decoder(NMHC_CATALYST_AVAILABLE, NMHC_CATALYST_INCOMPLETE);
 

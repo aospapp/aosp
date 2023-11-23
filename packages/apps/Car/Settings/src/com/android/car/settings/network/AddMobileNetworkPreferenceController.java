@@ -54,7 +54,7 @@ public class AddMobileNetworkPreferenceController extends PreferenceController<P
     }
 
     @Override
-    protected int getAvailabilityStatus() {
+    protected int getDefaultAvailabilityStatus() {
         EuiccManager euiccManager = getContext().getSystemService(EuiccManager.class);
         if (!euiccManager.isEnabled()) {
             return UNSUPPORTED_ON_DEVICE;

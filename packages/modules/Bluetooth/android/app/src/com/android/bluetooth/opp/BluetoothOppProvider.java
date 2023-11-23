@@ -44,6 +44,10 @@ import android.database.sqlite.SQLiteQueryBuilder;
 import android.net.Uri;
 import android.util.Log;
 
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+
 /**
  * This provider allows application to interact with Bluetooth OPP manager
  */
@@ -98,7 +102,7 @@ public final class BluetoothOppProvider extends ContentProvider {
      * when a new version of the provider needs an updated version of the
      * database.
      */
-    private final class DatabaseHelper extends SQLiteOpenHelper {
+    private static final class DatabaseHelper extends SQLiteOpenHelper {
 
         DatabaseHelper(final Context context) {
             super(context, DB_NAME, null, DB_VERSION);
@@ -137,7 +141,7 @@ public final class BluetoothOppProvider extends ContentProvider {
 
     }
 
-    private void createTable(SQLiteDatabase db) {
+    private static void createTable(SQLiteDatabase db) {
         try {
             db.execSQL("CREATE TABLE " + DB_TABLE + "(" + BluetoothShare._ID
                     + " INTEGER PRIMARY KEY AUTOINCREMENT," + BluetoothShare.URI + " TEXT, "
@@ -155,7 +159,7 @@ public final class BluetoothOppProvider extends ContentProvider {
         }
     }
 
-    private void dropTable(SQLiteDatabase db) {
+    private static void dropTable(SQLiteDatabase db) {
         try {
             db.execSQL("DROP TABLE IF EXISTS " + DB_TABLE);
         } catch (SQLException ex) {
@@ -196,6 +200,62 @@ public final class BluetoothOppProvider extends ContentProvider {
         if (i != null) {
             to.put(key, i);
         }
+    }
+
+    private static void putString(String key, Cursor from, ContentValues to) {
+        to.put(key, from.getString(from.getColumnIndexOrThrow(key)));
+    }
+    private static void putInteger(String key, Cursor from, ContentValues to) {
+        to.put(key, from.getInt(from.getColumnIndexOrThrow(key)));
+    }
+    private static void putLong(String key, Cursor from, ContentValues to) {
+        to.put(key, from.getLong(from.getColumnIndexOrThrow(key)));
+    }
+
+    /**
+     * @hide
+     */
+    public static boolean oppDatabaseMigration(Context ctx, Cursor cursor) {
+        boolean result = true;
+        SQLiteDatabase db = new DatabaseHelper(ctx).getWritableDatabase();
+        while (cursor.moveToNext()) {
+            try {
+                ContentValues values = new ContentValues();
+
+                final List<String> stringKeys =  new ArrayList<>(Arrays.asList(
+                            BluetoothShare.URI,
+                            BluetoothShare.FILENAME_HINT,
+                            BluetoothShare.MIMETYPE,
+                            BluetoothShare.DESTINATION));
+                for (String k : stringKeys) {
+                    putString(k, cursor, values);
+                }
+
+                final List<String> integerKeys =  new ArrayList<>(Arrays.asList(
+                            BluetoothShare.VISIBILITY,
+                            BluetoothShare.USER_CONFIRMATION,
+                            BluetoothShare.DIRECTION,
+                            BluetoothShare.STATUS,
+                            Constants.MEDIA_SCANNED));
+                for (String k : integerKeys) {
+                    putInteger(k, cursor, values);
+                }
+
+                final List<String> longKeys =  new ArrayList<>(Arrays.asList(
+                            BluetoothShare.TOTAL_BYTES,
+                            BluetoothShare.TIMESTAMP));
+                for (String k : longKeys) {
+                    putLong(k, cursor, values);
+                }
+
+                db.insert(DB_TABLE, null, values);
+                Log.d(TAG, "One item migrated: " + values);
+            } catch (IllegalArgumentException e) {
+                Log.e(TAG, "Failed to migrate one item: " + e);
+                result = false;
+            }
+        }
+        return result;
     }
 
     @Override

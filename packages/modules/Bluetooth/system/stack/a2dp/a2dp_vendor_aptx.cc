@@ -30,7 +30,6 @@
 
 #include "a2dp_vendor.h"
 #include "a2dp_vendor_aptx_encoder.h"
-#include "bt_utils.h"
 #include "btif_av_co.h"
 #include "osi/include/log.h"
 #include "osi/include/osi.h"
@@ -619,6 +618,9 @@ bool A2dpCodecConfigAptx::setCodecConfig(const uint8_t* p_peer_codec_info,
   tA2DP_APTX_CIE result_config_cie;
   uint8_t sampleRate;
   uint8_t channelMode;
+
+  peer_info_cie.future1 = A2DP_APTX_FUTURE_1;
+  peer_info_cie.future2 = A2DP_APTX_FUTURE_2;
 
   // Save the internal state
   btav_a2dp_codec_config_t saved_codec_config = codec_config_;

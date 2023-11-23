@@ -15,18 +15,12 @@
  */
 package com.android.customization.model.color;
 
-import static com.android.customization.model.ResourceConstants.ANDROID_PACKAGE;
-import static com.android.customization.model.ResourceConstants.ICONS_FOR_PREVIEW;
 import static com.android.customization.model.ResourceConstants.OVERLAY_CATEGORY_COLOR;
 import static com.android.customization.model.ResourceConstants.OVERLAY_CATEGORY_SYSTEM_PALETTE;
 import static com.android.customization.model.color.ColorUtils.toColorString;
 
 import android.content.Context;
 import android.content.pm.PackageManager;
-import android.content.pm.PackageManager.NameNotFoundException;
-import android.content.res.Resources;
-import android.content.res.Resources.NotFoundException;
-import android.graphics.drawable.Drawable;
 import android.text.TextUtils;
 import android.util.Log;
 
@@ -79,27 +73,5 @@ class ColorBundlePreviewExtractor {
             }
         }
         builder.setStyle(s);
-    }
-
-    void addAndroidIconOverlay(ColorBundle.Builder builder) throws NameNotFoundException {
-        addSystemDefaultIcons(builder, ICONS_FOR_PREVIEW);
-    }
-
-    void addSystemDefaultIcons(ColorBundle.Builder builder, String... previewIcons) {
-        try {
-            for (String iconName : previewIcons) {
-                builder.addIcon(loadIconPreviewDrawable(iconName));
-            }
-        } catch (NameNotFoundException | NotFoundException e) {
-            Log.w(TAG, "Didn't find android package icons, will skip preview", e);
-        }
-    }
-
-    Drawable loadIconPreviewDrawable(String drawableName)
-            throws NameNotFoundException, NotFoundException {
-        Resources packageRes = mPackageManager.getResourcesForApplication(ANDROID_PACKAGE);
-        Resources res = Resources.getSystem();
-        return res.getDrawable(packageRes.getIdentifier(drawableName, "drawable",
-                        ANDROID_PACKAGE), null);
     }
 }

@@ -1073,6 +1073,8 @@ class CarProjectionService extends ICarProjection.Stub implements CarServiceBase
                     sendApFailed(reason);
                     break;
                 }
+                default:
+                    break;
             }
         }
 

@@ -22,7 +22,9 @@ import static android.Manifest.permission.WRITE_DEVICE_CONFIG;
 import static com.google.common.truth.Truth.assertThat;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyZeroInteractions;
 
@@ -60,6 +62,7 @@ import com.android.server.appsearch.contactsindexer.appsearchtypes.Person;
 
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
@@ -69,11 +72,14 @@ import org.mockito.ArgumentCaptor;
 import java.io.File;
 import java.util.Arrays;
 import java.util.List;
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -134,6 +140,101 @@ public class ContactsIndexerUserInstanceTest extends ProviderTestCase2<FakeConta
                 .setForceOverride(true).build();
         db.setSchemaAsync(setSchemaRequest).get();
         super.tearDown();
+    }
+
+    @Test
+    public void testHandleMultipleNotifications_onlyOneDeltaUpdateCanBeScheduledAndRun()
+            throws Exception {
+        try {
+            long dataQueryDelayMs = 5000;
+            getProvider().setDataQueryDelayMs(dataQueryDelayMs);
+            BlockingQueue<Runnable> queue = new LinkedBlockingQueue<>();
+            ThreadPoolExecutor singleThreadedExecutor =
+                    new ThreadPoolExecutor(/*corePoolSize=*/1, /*maximumPoolSize=*/
+                            1, /*KeepAliveTime=*/ 0L, TimeUnit.MILLISECONDS, queue);
+            ContactsIndexerUserInstance instance = ContactsIndexerUserInstance.createInstance(
+                    mContext, mContactsDir,
+                    mConfigForTest, singleThreadedExecutor);
+
+            int numOfNotifications = 20;
+            for (int i = 0; i < numOfNotifications / 2; ++i) {
+                int docCount = 2;
+                // Insert contacts to trigger delta update.
+                ContentResolver resolver = mContext.getContentResolver();
+                ContentValues dummyValues = new ContentValues();
+                for (int j = 0; j < docCount; j++) {
+                    resolver.insert(ContactsContract.Contacts.CONTENT_URI, dummyValues);
+                }
+                instance.handleDeltaUpdate();
+            }
+            // Sleep here so the active delta update can be run for some time. While
+            // notifications come before and afterwards.
+            Thread.sleep(1500);
+            long totalTaskAfterFirstDeltaUpdate = singleThreadedExecutor.getTaskCount();
+            for (int i = 0; i < numOfNotifications / 2; ++i) {
+                int docCount = 2;
+                // Insert contacts to trigger delta update.
+                ContentResolver resolver = mContext.getContentResolver();
+                ContentValues dummyValues = new ContentValues();
+                for (int j = 0; j < docCount; j++) {
+                    resolver.insert(ContactsContract.Contacts.CONTENT_URI, dummyValues);
+                }
+                instance.handleDeltaUpdate();
+            }
+
+            // The total task count will be increased if there is another delta update scheduled.
+            assertThat(singleThreadedExecutor.getTaskCount()).isEqualTo(
+                    totalTaskAfterFirstDeltaUpdate);
+        } finally {
+            getProvider().setDataQueryDelayMs(0);
+        }
+    }
+
+    @Test
+    public void testHandleNotificationDuringUpdate_oneAdditionalUpdateWillBeRun()
+            throws Exception {
+        try {
+            long dataQueryDelayMs = 5000;
+            getProvider().setDataQueryDelayMs(dataQueryDelayMs);
+            BlockingQueue<Runnable> queue = new LinkedBlockingQueue<>();
+            ThreadPoolExecutor singleThreadedExecutor =
+                    new ThreadPoolExecutor(/*corePoolSize=*/1, /*maximumPoolSize=*/
+                            1, /*KeepAliveTime=*/ 0L, TimeUnit.MILLISECONDS, queue);
+            ContactsIndexerUserInstance instance = ContactsIndexerUserInstance.createInstance(
+                    mContext, mContactsDir,
+                    mConfigForTest, singleThreadedExecutor);
+            int docCount = 10;
+            // Insert contacts to trigger delta update.
+            ContentResolver resolver = mContext.getContentResolver();
+            ContentValues dummyValues = new ContentValues();
+
+            for (int j = 0; j < docCount; j++) {
+                resolver.insert(ContactsContract.Contacts.CONTENT_URI, dummyValues);
+            }
+            instance.handleDeltaUpdate();
+            // Sleep here so the active delta update can be run for some time to make sure
+            // notification come during an update.
+            Thread.sleep(1500);
+            long totalTaskAfterFirstDeltaUpdate = singleThreadedExecutor.getTaskCount();
+            // Insert contacts to trigger delta update.
+            for (int j = 0; j < docCount; j++) {
+                resolver.insert(ContactsContract.Contacts.CONTENT_URI, dummyValues);
+            }
+            instance.handleDeltaUpdate();
+
+            //The 2nd update won't be scheduled right away.
+            assertThat(singleThreadedExecutor.getTaskCount()).isEqualTo(
+                    totalTaskAfterFirstDeltaUpdate);
+
+            // To make sure the 1st update has been finished.
+            Thread.sleep(dataQueryDelayMs);
+
+            // This means additional task has been run by the 1st delta update to handle
+            // the change notification.
+            assertThat(singleThreadedExecutor.getActiveCount()).isEqualTo(1);
+        } finally {
+            getProvider().setDataQueryDelayMs(0);
+        }
     }
 
     @Test
@@ -203,11 +304,16 @@ public class ContactsIndexerUserInstanceTest extends ProviderTestCase2<FakeConta
     }
 
     @Test
-    public void testStart_subsequentRun_doesNotScheduleFullUpdateJob() throws Exception {
+    public void testStart_subsequentRunWithNoScheduledJob_schedulesFullUpdateJob()
+            throws Exception {
+        // Trigger an initial full update.
         executeAndWaitForCompletion(
                 mInstance.doFullUpdateInternalAsync(new CancellationSignal(), mUpdateStats),
                 mSingleThreadedExecutor);
 
+        // By default mockJobScheduler.getPendingJob() would return null. This simulates the
+        // scenario where the scheduled full update job after the initial run is cancelled
+        // due to some reason.
         JobScheduler mockJobScheduler = mock(JobScheduler.class);
         mContextWrapper.setJobScheduler(mockJobScheduler);
         ContactsIndexerUserInstance instance = ContactsIndexerUserInstance.createInstance(
@@ -244,10 +350,70 @@ public class ContactsIndexerUserInstanceTest extends ProviderTestCase2<FakeConta
         instance.startAsync();
 
         // Wait for all async tasks to complete
-        mSingleThreadedExecutor.submit(() -> {
-        }).get();
+        latch.await(30L, TimeUnit.SECONDS);
 
-        verifyZeroInteractions(mockJobScheduler);
+        ArgumentCaptor<JobInfo> jobInfoArgumentCaptor = ArgumentCaptor.forClass(JobInfo.class);
+        verify(mockJobScheduler).schedule(jobInfoArgumentCaptor.capture());
+        JobInfo fullUpdateJob = jobInfoArgumentCaptor.getValue();
+        assertThat(fullUpdateJob.isRequireBatteryNotLow()).isTrue();
+        assertThat(fullUpdateJob.isRequireDeviceIdle()).isTrue();
+        assertThat(fullUpdateJob.isPersisted()).isTrue();
+        assertThat(fullUpdateJob.isPeriodic()).isFalse();
+    }
+
+    @Test
+    public void testStart_subsequentRunWithScheduledJob_doesNotScheduleFullUpdateJob()
+            throws Exception {
+        // Trigger an initial full update.
+        executeAndWaitForCompletion(
+                mInstance.doFullUpdateInternalAsync(new CancellationSignal(), mUpdateStats),
+                mSingleThreadedExecutor);
+
+        JobScheduler mockJobScheduler = mock(JobScheduler.class);
+        JobInfo mockJobInfo = mock(JobInfo.class);
+        // getPendingJob() should return a non-null value to simulate the scenario where a
+        // background job is already scheduled.
+        doReturn(mockJobInfo).when(mockJobScheduler).getPendingJob(
+                ContactsIndexerMaintenanceService.MIN_INDEXER_JOB_ID +
+                        mContext.getUser().getIdentifier());
+        mContextWrapper.setJobScheduler(mockJobScheduler);
+        ContactsIndexerUserInstance instance = ContactsIndexerUserInstance.createInstance(
+                mContext, mContactsDir, mConfigForTest, mSingleThreadedExecutor);
+
+        int docCount = 100;
+        CountDownLatch latch = new CountDownLatch(docCount);
+        GlobalSearchSessionShim shim =
+                GlobalSearchSessionShimImpl.createGlobalSearchSessionAsync(mContext).get();
+        ObserverCallback callback = new ObserverCallback() {
+            @Override
+            public void onSchemaChanged(SchemaChangeInfo changeInfo) {
+                // Do nothing
+            }
+
+            @Override
+            public void onDocumentChanged(DocumentChangeInfo changeInfo) {
+                for (int i = 0; i < changeInfo.getChangedDocumentIds().size(); i++) {
+                    latch.countDown();
+                }
+            }
+        };
+        shim.registerObserverCallback(mContext.getPackageName(),
+                new ObserverSpec.Builder().addFilterSchemas("builtin:Person").build(),
+                mSingleThreadedExecutor,
+                callback);
+        // Insert contacts to trigger delta update.
+        ContentResolver resolver = mContext.getContentResolver();
+        ContentValues dummyValues = new ContentValues();
+        for (int i = 0; i < docCount; i++) {
+            resolver.insert(ContactsContract.Contacts.CONTENT_URI, dummyValues);
+        }
+
+        instance.startAsync();
+
+        // Wait for all async tasks to complete
+        latch.await(30L, TimeUnit.SECONDS);
+
+        verify(mockJobScheduler, never()).schedule(any());
     }
 
     @Test
@@ -263,7 +429,7 @@ public class ContactsIndexerUserInstanceTest extends ProviderTestCase2<FakeConta
                 mSingleThreadedExecutor);
 
         AppSearchHelper searchHelper = AppSearchHelper.createAppSearchHelper(mContext,
-                mSingleThreadedExecutor);
+                mSingleThreadedExecutor, mConfigForTest);
         List<String> contactIds = searchHelper.getAllContactIdsAsync().get();
         assertThat(contactIds.size()).isEqualTo(500);
     }
@@ -279,11 +445,11 @@ public class ContactsIndexerUserInstanceTest extends ProviderTestCase2<FakeConta
         }
 
         executeAndWaitForCompletion(mInstance.doDeltaUpdateAsync(/*indexingLimit=*/ -1,
-                        mUpdateStats),
+                mUpdateStats),
                 mSingleThreadedExecutor);
 
         AppSearchHelper searchHelper = AppSearchHelper.createAppSearchHelper(mContext,
-                mSingleThreadedExecutor);
+                mSingleThreadedExecutor, mConfigForTest);
         List<String> contactIds = searchHelper.getAllContactIdsAsync().get();
         assertThat(contactIds.size()).isEqualTo(250);
 
@@ -317,11 +483,11 @@ public class ContactsIndexerUserInstanceTest extends ProviderTestCase2<FakeConta
         }
 
         executeAndWaitForCompletion(mInstance.doDeltaUpdateAsync(/*indexingLimit=*/ 100,
-                        mUpdateStats),
+                mUpdateStats),
                 mSingleThreadedExecutor);
 
         AppSearchHelper searchHelper = AppSearchHelper.createAppSearchHelper(mContext,
-                mSingleThreadedExecutor);
+                mSingleThreadedExecutor, mConfigForTest);
         List<String> contactIds = searchHelper.getAllContactIdsAsync().get();
         assertThat(contactIds.size()).isEqualTo(100);
     }
@@ -337,7 +503,7 @@ public class ContactsIndexerUserInstanceTest extends ProviderTestCase2<FakeConta
         }
 
         executeAndWaitForCompletion(mInstance.doDeltaUpdateAsync(/*indexingLimit=*/ -1,
-                        mUpdateStats),
+                mUpdateStats),
                 mSingleThreadedExecutor);
 
         // Delete a few contacts to trigger delta update.
@@ -351,11 +517,11 @@ public class ContactsIndexerUserInstanceTest extends ProviderTestCase2<FakeConta
                 /*extras=*/ null);
 
         executeAndWaitForCompletion(mInstance.doDeltaUpdateAsync(/*indexingLimit=*/ -1,
-                        mUpdateStats),
+                mUpdateStats),
                 mSingleThreadedExecutor);
 
         AppSearchHelper searchHelper = AppSearchHelper.createAppSearchHelper(mContext,
-                mSingleThreadedExecutor);
+                mSingleThreadedExecutor, mConfigForTest);
         List<String> contactIds = searchHelper.getAllContactIdsAsync().get();
         assertThat(contactIds.size()).isEqualTo(6);
         assertThat(contactIds).containsNoneOf("2", "3", "5", "7");
@@ -401,11 +567,11 @@ public class ContactsIndexerUserInstanceTest extends ProviderTestCase2<FakeConta
 
         mUpdateStats.clear();
         executeAndWaitForCompletion(mInstance.doDeltaUpdateAsync(/*indexingLimit=*/ -1,
-                        mUpdateStats),
+                mUpdateStats),
                 mSingleThreadedExecutor);
 
         AppSearchHelper searchHelper = AppSearchHelper.createAppSearchHelper(mContext,
-                mSingleThreadedExecutor);
+                mSingleThreadedExecutor, mConfigForTest);
         List<String> contactIds = searchHelper.getAllContactIdsAsync().get();
         assertThat(contactIds.size()).isEqualTo(6);
         assertThat(contactIds).containsNoneOf("2", "3", "5", "7");
@@ -462,11 +628,11 @@ public class ContactsIndexerUserInstanceTest extends ProviderTestCase2<FakeConta
 
         mUpdateStats.clear();
         executeAndWaitForCompletion(mInstance.doDeltaUpdateAsync(/*indexingLimit=*/ -1,
-                        mUpdateStats),
+                mUpdateStats),
                 mSingleThreadedExecutor);
 
         AppSearchHelper searchHelper = AppSearchHelper.createAppSearchHelper(mContext,
-                mSingleThreadedExecutor);
+                mSingleThreadedExecutor, mConfigForTest);
         List<String> contactIds = searchHelper.getAllContactIdsAsync().get();
         assertThat(contactIds.size()).isEqualTo(11);
         assertThat(contactIds).containsNoneOf("2", "3", "5", "7");
@@ -493,6 +659,12 @@ public class ContactsIndexerUserInstanceTest extends ProviderTestCase2<FakeConta
         assertThat(mUpdateStats.mContactsDeleteSucceededCount).isEqualTo(4);
     }
 
+    // TODO(b/243542728) This tests whether a full update job will be run to prune the person
+    //  corpus when AppSearch reaches its max document limit. So we do want to change the device
+    //  config on the system to make the max document limit 100. And after we try to index 250
+    //  documents, the full update can be triggered. Disable this test for now as the asked
+    //  permissions are always denied.
+    @Ignore
     @Test
     public void testDeltaUpdate_outOfSpaceError_fullUpdateScheduled() throws Exception {
         UiAutomation uiAutomation = InstrumentationRegistry.getInstrumentation().getUiAutomation();
@@ -500,7 +672,7 @@ public class ContactsIndexerUserInstanceTest extends ProviderTestCase2<FakeConta
         try {
             uiAutomation.adoptShellPermissionIdentity(READ_DEVICE_CONFIG, WRITE_DEVICE_CONFIG);
             maxDocumentCountBeforeTest = FrameworkAppSearchConfig.getInstance(
-                    mSingleThreadedExecutor).getCachedLimitConfigMaxDocumentCount();
+                    mSingleThreadedExecutor).getMaxDocumentCount();
             int totalContactCount = 250;
             int maxDocumentCount = 100;
             // Override the configs in AppSearch. This is hard to be mocked since we are not testing
@@ -509,7 +681,8 @@ public class ContactsIndexerUserInstanceTest extends ProviderTestCase2<FakeConta
                     FrameworkAppSearchConfig.KEY_LIMIT_CONFIG_MAX_DOCUMENT_COUNT,
                     String.valueOf(maxDocumentCount), false);
             // Cancel any existing jobs.
-            ContactsIndexerMaintenanceService.cancelFullUpdateJob(mContext, mContext.getUserId());
+            ContactsIndexerMaintenanceService.cancelFullUpdateJobIfScheduled(mContext,
+                    mContext.getUser());
 
             JobScheduler mockJobScheduler = mock(JobScheduler.class);
             mContextWrapper.setJobScheduler(mockJobScheduler);
@@ -588,7 +761,8 @@ public class ContactsIndexerUserInstanceTest extends ProviderTestCase2<FakeConta
         AppSearchSessionShim db = AppSearchSessionShimImpl.createSearchSessionAsync(
                 searchContext).get();
         SetSchemaRequest setSchemaRequest = new SetSchemaRequest.Builder()
-                .addSchemas(TestUtils.CONTACT_POINT_SCHEMA_WITH_APP_IDS_OPTIONAL, Person.SCHEMA)
+                .addSchemas(TestUtils.CONTACT_POINT_SCHEMA_WITH_APP_IDS_OPTIONAL,
+                        Person.getSchema(mConfigForTest))
                 .setForceOverride(true).build();
         db.setSchemaAsync(setSchemaRequest).get();
 
@@ -631,7 +805,8 @@ public class ContactsIndexerUserInstanceTest extends ProviderTestCase2<FakeConta
         AppSearchSessionShim db = AppSearchSessionShimImpl.createSearchSessionAsync(
                 searchContext).get();
         SetSchemaRequest setSchemaRequest = new SetSchemaRequest.Builder()
-                .addSchemas(TestUtils.CONTACT_POINT_SCHEMA_WITH_LABEL_REPEATED, Person.SCHEMA)
+                .addSchemas(TestUtils.CONTACT_POINT_SCHEMA_WITH_LABEL_REPEATED,
+                        Person.getSchema(mConfigForTest))
                 .setForceOverride(true).build();
         db.setSchemaAsync(setSchemaRequest).get();
         // Setup a latch

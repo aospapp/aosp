@@ -47,6 +47,7 @@ java_sdk_library {
 
     stub_only_libs: [
         "framework-bluetooth",
+        "framework-annotations-lib",
     ],
 
     test: {
@@ -63,6 +64,7 @@ java_sdk_library {
 
     // Only allowed car modules only. Allowed to add tests here.
     visibility: [
+        "//external/robolectric-shadows",
         "//packages/services/Car/car-lib",
         "//packages/services/Car/car-lib-module",
         "//packages/services/Car/car-test-lib",
@@ -74,8 +76,17 @@ java_sdk_library {
         "//packages/services/Car/cpp/watchdog/car-watchdog-lib",
         "//cts/tests/tests/car_builtin",
         "//frameworks/opt/car/services/builtInServices",
+        "//frameworks/opt/car/services/builtInServices/tests",
         "//frameworks/opt/car/services/updatableServices",
         "//frameworks/opt/car/services/updatableServices/tests",
+    ],
+
+    permitted_packages: [
+        "android.car.builtin",
+    ],
+
+    droiddoc_options: [
+       "--include-annotations --pass-through-annotation android.annotation.RequiresApi"
     ],
 
     compile_dex: true,

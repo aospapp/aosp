@@ -22,6 +22,7 @@ import android.hardware.camera2.CameraAccessException;
 import android.hardware.camera2.CameraCharacteristics;
 import android.hardware.camera2.CameraManager;
 import android.os.Build.VERSION_CODES;
+import android.os.Handler;
 
 import com.android.camera.debug.Log;
 import com.android.camera.debug.Log.Tag;
@@ -42,7 +43,8 @@ import javax.annotation.Nonnull;
  * Pick camera ids from a list of devices based on defined characteristics.
  */
 @TargetApi(VERSION_CODES.LOLLIPOP)
-public class Camera2OneCameraManagerImpl implements OneCameraManager {
+public class Camera2OneCameraManagerImpl extends CameraManager.AvailabilityCallback
+        implements OneCameraManager {
     private static final Tag TAG = new Tag("Camera2OneCamMgr");
     /**
      * Create a new camera2 api hardware manager.
@@ -65,6 +67,7 @@ public class Camera2OneCameraManagerImpl implements OneCameraManager {
 
     private final CameraManager mCameraManager;
     private Hashtable<Facing, String> mCameraFacingCache = new Hashtable<Facing, String>();
+    private AvailabilityCallback mAvailabilityCallback;
 
     public Camera2OneCameraManagerImpl(CameraManager cameraManger) {
         mCameraManager = cameraManger;
@@ -122,6 +125,12 @@ public class Camera2OneCameraManagerImpl implements OneCameraManager {
         return new OneCameraCharacteristicsImpl(getCameraCharacteristics(key));
     }
 
+    @Override
+    public void setAvailabilityCallback(AvailabilityCallback callback, Handler handler) {
+        mAvailabilityCallback = callback;
+        mCameraManager.registerAvailabilityCallback(this, handler);
+    }
+
     public CameraCharacteristics getCameraCharacteristics(
           @Nonnull CameraId key)
           throws OneCameraAccessException {
@@ -129,6 +138,13 @@ public class Camera2OneCameraManagerImpl implements OneCameraManager {
             return mCameraManager.getCameraCharacteristics(key.getValue());
         } catch (CameraAccessException ex) {
             throw new OneCameraAccessException("Unable to get camera characteristics", ex);
+        }
+    }
+
+    @Override
+    public void onCameraAccessPrioritiesChanged() {
+        if (mAvailabilityCallback != null) {
+            mAvailabilityCallback.onCameraAccessPrioritiesChanged();
         }
     }
 

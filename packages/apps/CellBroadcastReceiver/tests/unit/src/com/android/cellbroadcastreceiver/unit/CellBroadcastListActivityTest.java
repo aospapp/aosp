@@ -47,7 +47,11 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
+import android.app.Fragment;
 import android.app.NotificationManager;
+import android.content.Context;
+import android.content.pm.PackageManager;
+import android.content.res.Resources;
 import android.database.Cursor;
 import android.database.MatrixCursor;
 import android.os.Bundle;
@@ -55,14 +59,24 @@ import android.os.Handler;
 import android.os.Looper;
 import android.os.UserManager;
 import android.provider.Telephony;
+import android.telephony.SmsCbMessage;
+import android.telephony.SubscriptionInfo;
+import android.telephony.SubscriptionManager;
+import android.view.ActionMode;
 import android.view.Menu;
+import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.WindowManager;
+import android.widget.CheckedTextView;
+import android.widget.ListView;
 
+import com.android.cellbroadcastreceiver.CellBroadcastCursorAdapter;
 import com.android.cellbroadcastreceiver.CellBroadcastListActivity;
 import com.android.cellbroadcastreceiver.CellBroadcastListItem;
 import com.android.cellbroadcastreceiver.R;
+import com.android.internal.view.menu.ContextMenuBuilder;
+import com.android.settingslib.collapsingtoolbar.CollapsingToolbarBaseActivity;
 
 import org.junit.After;
 import org.junit.Before;
@@ -71,6 +85,8 @@ import org.mockito.Captor;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
+import java.lang.reflect.Field;
+import java.util.Arrays;
 import java.util.List;
 
 public class CellBroadcastListActivityTest extends
@@ -87,6 +103,12 @@ public class CellBroadcastListActivityTest extends
     @Captor
     private ArgumentCaptor<String> mColumnCaptor;
 
+    private void setWatchFeatureEnabled(boolean enabled) {
+        PackageManager mockPackageManager = mock(PackageManager.class);
+        doReturn(enabled).when(mockPackageManager).hasSystemFeature(PackageManager.FEATURE_WATCH);
+        mContext.injectPackageManager(mockPackageManager);
+    }
+
     @Before
     public void setUp() throws Exception {
         super.setUp();
@@ -95,6 +117,11 @@ public class CellBroadcastListActivityTest extends
         injectSystemService(UserManager.class, mMockUserManager);
 
         doReturn(true).when(mMockUserManager).isAdminUser();
+
+        SubscriptionManager mockSubscriptionManager = mock(SubscriptionManager.class);
+        injectSystemService(SubscriptionManager.class, mockSubscriptionManager);
+        SubscriptionInfo mockSubInfo = mock(SubscriptionInfo.class);
+        doReturn(mockSubInfo).when(mockSubscriptionManager).getActiveSubscriptionInfo(anyInt());
     }
 
     @After
@@ -107,7 +134,45 @@ public class CellBroadcastListActivityTest extends
     }
 
     public void testOnCreate() throws Throwable {
-        startActivity();
+        Resources spyRes = mContext.getResources();
+        doReturn(false).when(spyRes).getBoolean(R.bool.disable_capture_alert_dialog);
+        CellBroadcastListActivity activity = startActivity();
+        int flags = activity.getWindow().getAttributes().flags;
+        assertEquals((flags & WindowManager.LayoutParams.FLAG_SECURE), 0);
+        stopActivity();
+    }
+
+    public void testOnCreateForWatch() throws Throwable {
+        setWatchFeatureEnabled(true);
+
+        CellBroadcastListActivity activity = startActivity();
+
+        Field customizeLayoutResIdField =
+                CollapsingToolbarBaseActivity.class.getDeclaredField("mCustomizeLayoutResId");
+        customizeLayoutResIdField.setAccessible(true);
+        assertTrue(customizeLayoutResIdField.getInt(activity) != 0);
+
+        assertNotNull(activity.findViewById(R.id.content_frame));
+        stopActivity();
+    }
+
+    public void testContextMenuForWatch() throws Throwable {
+        setWatchFeatureEnabled(true);
+        CellBroadcastListActivity activity = startActivity();
+        ContextMenuBuilder contextMenu = new ContextMenuBuilder(mContext);
+
+        activity.mListFragment.getListView().createContextMenu(contextMenu);
+
+        assertNotNull(contextMenu.findItem(MENU_DELETE));
+    }
+
+    public void testOnCreateWithCaptureRestriction() throws Throwable {
+        Resources spyRes = mContext.getResources();
+        doReturn(true).when(spyRes).getBoolean(R.bool.disable_capture_alert_dialog);
+        CellBroadcastListActivity activity = startActivity();
+        int flags = activity.getWindow().getAttributes().flags;
+        assertEquals((flags & WindowManager.LayoutParams.FLAG_SECURE),
+                WindowManager.LayoutParams.FLAG_SECURE);
         stopActivity();
     }
 
@@ -143,11 +208,7 @@ public class CellBroadcastListActivityTest extends
         stopActivity();
     }
 
-    public void testOnLoadFinishedWithData() throws Throwable {
-        CellBroadcastListActivity activity = startActivity();
-        assertNotNull(activity.mListFragment);
-
-        // create data with one entry so that the "no alert" text view is invisible
+    private static MatrixCursor makeTestCursor() {
         MatrixCursor data =
                 new MatrixCursor(CellBroadcastListActivity.CursorLoaderListFragment.QUERY_COLUMNS);
         data.addRow(new Object[] {
@@ -158,11 +219,11 @@ public class CellBroadcastListActivityTest extends
                 "", //Telephony.CellBroadcasts.PLMN,
                 0, //Telephony.CellBroadcasts.LAC,
                 0, //Telephony.CellBroadcasts.CID,
-                "", //Telephony.CellBroadcasts.SERIAL_NUMBER,
+                0, //Telephony.CellBroadcasts.SERIAL_NUMBER,
                 0, //Telephony.CellBroadcasts.SERVICE_CATEGORY,
                 "", //Telephony.CellBroadcasts.LANGUAGE_CODE,
                 0, //Telephony.CellBroadcasts.DATA_CODING_SCHEME,
-                "", //Telephony.CellBroadcasts.MESSAGE_BODY,
+                "testAlert", //Telephony.CellBroadcasts.MESSAGE_BODY,
                 0, //Telephony.CellBroadcasts.MESSAGE_FORMAT,
                 0, //Telephony.CellBroadcasts.MESSAGE_PRIORITY,
                 0, //Telephony.CellBroadcasts.ETWS_WARNING_TYPE,
@@ -179,7 +240,15 @@ public class CellBroadcastListActivityTest extends
                 "", //Telephony.CellBroadcasts.GEOMETRIES,
                 0 //Telephony.CellBroadcasts.MAXIMUM_WAIT_TIME
         });
-        activity.mListFragment.onLoadFinished(null, data);
+        return data;
+    }
+
+    public void testOnLoadFinishedWithData() throws Throwable {
+        CellBroadcastListActivity activity = startActivity();
+        assertNotNull(activity.mListFragment);
+
+        // create data with one entry so that the "no alert" text view is invisible
+        activity.mListFragment.onLoadFinished(null, makeTestCursor());
         assertEquals(View.INVISIBLE, activity.findViewById(R.id.empty).getVisibility());
         stopActivity();
     }
@@ -219,7 +288,7 @@ public class CellBroadcastListActivityTest extends
         // create mock delete menu item
         MenuItem mockMenuItem = mock(MenuItem.class);
         doReturn(MENU_DELETE).when(mockMenuItem).getItemId();
-        activity.mListFragment.toggleSelectedItem(1, 1);
+        activity.mListFragment.getListView().setItemChecked(0, true);
 
         // must call looper.prepare to create alertdialog
         Looper.prepare();
@@ -230,8 +299,267 @@ public class CellBroadcastListActivityTest extends
                 activity.mListFragment.getFragmentManager().findFragmentByTag(
                         CellBroadcastListActivity.CursorLoaderListFragment.KEY_DELETE_DIALOG));
 
-        verify(mockCursor, atLeastOnce()).getColumnIndexOrThrow(eq(Telephony.CellBroadcasts._ID));
-        activity.mListFragment.clearSelectedMessages();
+        verify(mockCursor, atLeastOnce()).getColumnIndex(eq(Telephony.CellBroadcasts._ID));
+        stopActivity();
+    }
+
+    public void testOnContextItemSelectedDeleteForWatch() throws Throwable {
+        setWatchFeatureEnabled(true);
+        CellBroadcastListActivity activity = startActivity();
+        Cursor mockCursor = mock(Cursor.class);
+        doReturn(0).when(mockCursor).getPosition();
+        doReturn(10L).when(mockCursor).getLong(anyInt());
+        activity.mListFragment.mAdapter.swapCursor(mockCursor);
+        MenuItem mockMenuItem = mock(MenuItem.class);
+        doReturn(MENU_DELETE).when(mockMenuItem).getItemId();
+        activity.mListFragment.getListView().setSelection(1);
+
+        activity.mListFragment.onContextItemSelected(mockMenuItem);
+        waitForHandlerAction(Handler.getMain(), TEST_TIMEOUT_MILLIS);
+
+
+        Fragment frag = activity.mListFragment.getFragmentManager().findFragmentByTag(
+                CellBroadcastListActivity.CursorLoaderListFragment.KEY_DELETE_DIALOG);
+        assertNotNull("onContextItemSelected - MENU_DELETE should create alert dialog",
+                frag);
+        long[] rowId = frag.getArguments().getLongArray(
+                CellBroadcastListActivity.CursorLoaderListFragment.DeleteDialogFragment.ROW_ID);
+        long[] expectedResult = {10L};
+        assertTrue(Arrays.equals(expectedResult, rowId));
+        stopActivity();
+    }
+
+    public void testOnActionItemClickedDelete() throws Throwable {
+        CellBroadcastListActivity activity = startActivity();
+        assertNotNull(activity.mListFragment);
+
+        // Mock out the adapter cursor
+        Cursor mockCursor = mock(Cursor.class);
+        doReturn(0).when(mockCursor).getPosition();
+        doReturn(0L).when(mockCursor).getLong(anyInt());
+        activity.mListFragment.mAdapter.swapCursor(mockCursor);
+
+        // create mock delete menu item
+        MenuItem mockMenuItem = mock(MenuItem.class);
+        doReturn(R.id.action_delete).when(mockMenuItem).getItemId();
+        activity.mListFragment.getListView().setItemChecked(0, true);
+
+        // must call looper.prepare to create alertdialog
+        Looper.prepare();
+        ActionMode mode = mock(ActionMode.class);
+        activity.mListFragment.getMultiChoiceModeListener().onActionItemClicked(mode, mockMenuItem);
+        waitForHandlerAction(Handler.getMain(), TEST_TIMEOUT_MILLIS);
+
+        assertNotNull("onContextItemSelected - MENU_DELETE_ALL should create alert dialog",
+                activity.mListFragment.getFragmentManager().findFragmentByTag(
+                        CellBroadcastListActivity.CursorLoaderListFragment.KEY_DELETE_DIALOG));
+
+        verify(mockCursor, atLeastOnce()).getColumnIndex(eq(Telephony.CellBroadcasts._ID));
+        stopActivity();
+    }
+
+    public void testOnActionTitleOnMultiSelect() throws Throwable {
+        CellBroadcastListActivity activity = startActivity();
+        assertNotNull(activity.mListFragment);
+
+        activity.mListFragment.getListView().setItemChecked(0, true);
+        activity.mListFragment.getListView().setItemChecked(1, true);
+
+        ActionMode mode = mock(ActionMode.class);
+        activity.mListFragment.getMultiChoiceModeListener().onItemCheckedStateChanged(
+                mode, 0, 0, true);
+        ArgumentCaptor<CharSequence> title = ArgumentCaptor.forClass(CharSequence.class);
+        verify(mode, atLeastOnce()).setTitle(title.capture());
+        assertEquals("title should be the number of selected items",
+                title.getValue(), "2");
+
+        activity.mListFragment.getListView().setItemChecked(1, false);
+        activity.mListFragment.getMultiChoiceModeListener().onItemCheckedStateChanged(
+                mode, 0, 0, true);
+        verify(mode, atLeastOnce()).setTitle(title.capture());
+        assertEquals("title should be the number of selected items",
+                title.getValue(), "1");
+
+        activity.mListFragment.getListView().setItemChecked(1, true);
+        Menu menu = mock(Menu.class);
+        MenuInflater inflator = mock(MenuInflater.class);
+        doReturn(inflator).when(mode).getMenuInflater();
+        activity.mListFragment.getMultiChoiceModeListener().onCreateActionMode(mode, menu);
+        verify(mode, atLeastOnce()).setTitle(title.capture());
+        assertEquals("title should be the number of selected items",
+                title.getValue(), "2");
+    }
+
+    public void testOnActionItemClickedDeleteOnMultiSelect() throws Throwable {
+        CellBroadcastListActivity activity = startActivity();
+        assertNotNull(activity.mListFragment);
+
+        long rowId1 = 20;
+        long rowId2 = 30;
+        long rowId3 = 40;
+        MatrixCursor data =
+                new MatrixCursor(CellBroadcastListActivity.CursorLoaderListFragment.QUERY_COLUMNS);
+        data.addRow(new Object[] {
+                rowId1, //Telephony.CellBroadcasts._ID,
+                0, //Telephony.CellBroadcasts.SLOT_INDEX,
+                1, //Telephony.CellBroadcasts.SUBSCRIPTION_ID,
+                -1, //Telephony.CellBroadcasts.GEOGRAPHICAL_SCOPE,
+                "", //Telephony.CellBroadcasts.PLMN,
+                0, //Telephony.CellBroadcasts.LAC,
+                0, //Telephony.CellBroadcasts.CID,
+                "", //Telephony.CellBroadcasts.SERIAL_NUMBER,
+                0, //Telephony.CellBroadcasts.SERVICE_CATEGORY,
+                "", //Telephony.CellBroadcasts.LANGUAGE_CODE,
+                0, //Telephony.CellBroadcasts.DATA_CODING_SCHEME,
+                "", //Telephony.CellBroadcasts.MESSAGE_BODY,
+                0, //Telephony.CellBroadcasts.MESSAGE_FORMAT,
+                0, //Telephony.CellBroadcasts.MESSAGE_PRIORITY,
+                0, //Telephony.CellBroadcasts.ETWS_WARNING_TYPE,
+                0, //Telephony.CellBroadcasts.CMAS_MESSAGE_CLASS,
+                0, //Telephony.CellBroadcasts.CMAS_CATEGORY,
+                0, //Telephony.CellBroadcasts.CMAS_RESPONSE_TYPE,
+                0, //Telephony.CellBroadcasts.CMAS_SEVERITY,
+                0, //Telephony.CellBroadcasts.CMAS_URGENCY,
+                0, //Telephony.CellBroadcasts.CMAS_CERTAINTY,
+                0, //Telephony.CellBroadcasts.RECEIVED_TIME,
+                0, //Telephony.CellBroadcasts.LOCATION_CHECK_TIME,
+                false, //Telephony.CellBroadcasts.MESSAGE_BROADCASTED,
+                true, //Telephony.CellBroadcasts.MESSAGE_DISPLAYED,
+                "", //Telephony.CellBroadcasts.GEOMETRIES,
+                0 //Telephony.CellBroadcasts.MAXIMUM_WAIT_TIME
+        });
+        data.addRow(new Object[] {
+                rowId2, //Telephony.CellBroadcasts._ID,
+                0, //Telephony.CellBroadcasts.SLOT_INDEX,
+                1, //Telephony.CellBroadcasts.SUBSCRIPTION_ID,
+                -1, //Telephony.CellBroadcasts.GEOGRAPHICAL_SCOPE,
+                "", //Telephony.CellBroadcasts.PLMN,
+                0, //Telephony.CellBroadcasts.LAC,
+                0, //Telephony.CellBroadcasts.CID,
+                "", //Telephony.CellBroadcasts.SERIAL_NUMBER,
+                0, //Telephony.CellBroadcasts.SERVICE_CATEGORY,
+                "", //Telephony.CellBroadcasts.LANGUAGE_CODE,
+                0, //Telephony.CellBroadcasts.DATA_CODING_SCHEME,
+                "", //Telephony.CellBroadcasts.MESSAGE_BODY,
+                0, //Telephony.CellBroadcasts.MESSAGE_FORMAT,
+                0, //Telephony.CellBroadcasts.MESSAGE_PRIORITY,
+                0, //Telephony.CellBroadcasts.ETWS_WARNING_TYPE,
+                0, //Telephony.CellBroadcasts.CMAS_MESSAGE_CLASS,
+                0, //Telephony.CellBroadcasts.CMAS_CATEGORY,
+                0, //Telephony.CellBroadcasts.CMAS_RESPONSE_TYPE,
+                0, //Telephony.CellBroadcasts.CMAS_SEVERITY,
+                0, //Telephony.CellBroadcasts.CMAS_URGENCY,
+                0, //Telephony.CellBroadcasts.CMAS_CERTAINTY,
+                0, //Telephony.CellBroadcasts.RECEIVED_TIME,
+                0, //Telephony.CellBroadcasts.LOCATION_CHECK_TIME,
+                false, //Telephony.CellBroadcasts.MESSAGE_BROADCASTED,
+                true, //Telephony.CellBroadcasts.MESSAGE_DISPLAYED,
+                "", //Telephony.CellBroadcasts.GEOMETRIES,
+                0 //Telephony.CellBroadcasts.MAXIMUM_WAIT_TIME
+        });
+        data.addRow(new Object[] {
+                rowId3, //Telephony.CellBroadcasts._ID,
+                0, //Telephony.CellBroadcasts.SLOT_INDEX,
+                1, //Telephony.CellBroadcasts.SUBSCRIPTION_ID,
+                -1, //Telephony.CellBroadcasts.GEOGRAPHICAL_SCOPE,
+                "", //Telephony.CellBroadcasts.PLMN,
+                0, //Telephony.CellBroadcasts.LAC,
+                0, //Telephony.CellBroadcasts.CID,
+                "", //Telephony.CellBroadcasts.SERIAL_NUMBER,
+                0, //Telephony.CellBroadcasts.SERVICE_CATEGORY,
+                "", //Telephony.CellBroadcasts.LANGUAGE_CODE,
+                0, //Telephony.CellBroadcasts.DATA_CODING_SCHEME,
+                "", //Telephony.CellBroadcasts.MESSAGE_BODY,
+                0, //Telephony.CellBroadcasts.MESSAGE_FORMAT,
+                0, //Telephony.CellBroadcasts.MESSAGE_PRIORITY,
+                0, //Telephony.CellBroadcasts.ETWS_WARNING_TYPE,
+                0, //Telephony.CellBroadcasts.CMAS_MESSAGE_CLASS,
+                0, //Telephony.CellBroadcasts.CMAS_CATEGORY,
+                0, //Telephony.CellBroadcasts.CMAS_RESPONSE_TYPE,
+                0, //Telephony.CellBroadcasts.CMAS_SEVERITY,
+                0, //Telephony.CellBroadcasts.CMAS_URGENCY,
+                0, //Telephony.CellBroadcasts.CMAS_CERTAINTY,
+                0, //Telephony.CellBroadcasts.RECEIVED_TIME,
+                0, //Telephony.CellBroadcasts.LOCATION_CHECK_TIME,
+                false, //Telephony.CellBroadcasts.MESSAGE_BROADCASTED,
+                true, //Telephony.CellBroadcasts.MESSAGE_DISPLAYED,
+                "", //Telephony.CellBroadcasts.GEOMETRIES,
+                0 //Telephony.CellBroadcasts.MAXIMUM_WAIT_TIME
+        });
+        activity.mListFragment.mAdapter.swapCursor(data);
+
+        // create mock delete menu item
+        MenuItem mockMenuItem = mock(MenuItem.class);
+        doReturn(R.id.action_delete).when(mockMenuItem).getItemId();
+        activity.mListFragment.getListView().setItemChecked(0, true);
+        activity.mListFragment.getListView().setItemChecked(2, true);
+
+        // must call looper.prepare to create alertdialog
+        Looper.prepare();
+        ActionMode mode = mock(ActionMode.class);
+        activity.mListFragment.getMultiChoiceModeListener().onActionItemClicked(mode, mockMenuItem);
+        waitForHandlerAction(Handler.getMain(), TEST_TIMEOUT_MILLIS);
+
+        assertNotNull("onContextItemSelected - MENU_DELETE_ALL should create alert dialog",
+                activity.mListFragment.getFragmentManager().findFragmentByTag(
+                        CellBroadcastListActivity.CursorLoaderListFragment.KEY_DELETE_DIALOG));
+
+        Fragment frag = activity.mListFragment.getFragmentManager().findFragmentByTag(
+                CellBroadcastListActivity.CursorLoaderListFragment.KEY_DELETE_DIALOG);
+        long[] rowId = frag.getArguments().getLongArray(
+                CellBroadcastListActivity.CursorLoaderListFragment.DeleteDialogFragment.ROW_ID);
+        long[] expectedResult = {rowId1, rowId3};
+        assertTrue(Arrays.equals(expectedResult, expectedResult));
+        stopActivity();
+    }
+
+    public void testOnActionItemClickedViewDetail() throws Throwable {
+        CellBroadcastListActivity activity = startActivity();
+        assertNotNull(activity.mListFragment);
+
+        // Mock out the adapter cursor
+        Cursor mockCursor = mock(Cursor.class);
+        doReturn(1).when(mockCursor).getPosition();
+        doReturn(0L).when(mockCursor).getLong(anyInt());
+        activity.mListFragment.mAdapter.swapCursor(mockCursor);
+
+        // create mock delete menu item
+        MenuItem mockMenuItem = mock(MenuItem.class);
+        doReturn(R.id.action_detail_info).when(mockMenuItem).getItemId();
+        activity.mListFragment.getListView().setItemChecked(0, true);
+
+        // must call looper.prepare to create alertdialog
+        Looper.prepare();
+        boolean alertDialogCreated = false;
+        try {
+            ActionMode mode = mock(ActionMode.class);
+            activity.mListFragment.getMultiChoiceModeListener()
+                    .onActionItemClicked(mode, mockMenuItem);
+        } catch (WindowManager.BadTokenException e) {
+            // We can't mock WindowManager because WindowManagerImpl is final, so instead we just
+            // verify that this exception is thrown when we try to create the AlertDialog
+            alertDialogCreated = true;
+        }
+
+        assertTrue("onContextItemSelected - MENU_VIEW_DETAILS should create alert dialog",
+                alertDialogCreated);
+
+        // getColumnIndex is called 13 times within CellBroadcastCursorAdapter.createFromCursor
+        verify(mockCursor, times(13)).getColumnIndex(mColumnCaptor.capture());
+        List<String> columns = mColumnCaptor.getAllValues();
+        assertTrue(contains(columns, PLMN));
+        assertTrue(contains(columns, LAC));
+        assertTrue(contains(columns, CID));
+        assertTrue(contains(columns, ETWS_WARNING_TYPE));
+        assertTrue(contains(columns, CMAS_MESSAGE_CLASS));
+        assertTrue(contains(columns, CMAS_CATEGORY));
+        assertTrue(contains(columns, CMAS_RESPONSE_TYPE));
+        assertTrue(contains(columns, CMAS_SEVERITY));
+        assertTrue(contains(columns, CMAS_URGENCY));
+        assertTrue(contains(columns, CMAS_CERTAINTY));
+        assertTrue(contains(columns, DELIVERY_TIME));
+        assertTrue(contains(columns, DATA_CODING_SCHEME));
+        assertTrue(contains(columns, MAXIMUM_WAIT_TIME));
         stopActivity();
     }
 
@@ -362,5 +690,62 @@ public class CellBroadcastListActivityTest extends
         Bundle bundle = new Bundle();
         activity.mListFragment.onSaveInstanceState(bundle);
         assertTrue(bundle.containsKey(KEY_LOADER_ID));
+    }
+
+    public void testActionModeSate() {
+        CellBroadcastCursorAdapter adapter = new CellBroadcastCursorAdapter(mock(Context.class),
+                null);
+        boolean actionMode = adapter.getIsActionMode();
+        assertEquals(false, actionMode);
+
+        adapter.setIsActionMode(true);
+        actionMode = adapter.getIsActionMode();
+        assertEquals(true, actionMode);
+
+        CellBroadcastCursorAdapter adapter2 = new CellBroadcastCursorAdapter(mock(Context.class),
+                null);
+        actionMode = adapter2.getIsActionMode();
+        assertEquals(false, actionMode);
+
+        adapter2.setIsActionMode(true);
+        actionMode = adapter2.getIsActionMode();
+        assertEquals(true, actionMode);
+    }
+
+    public void testCursorAdaptorBindViewForWatch() {
+        // Watch layout misses checkbox.
+        // mockListItemView.findViewById(R.id.checkBox) returns null as default setting up this
+        // usecase.
+        CellBroadcastListItem mockListItemView = mock(CellBroadcastListItem.class);
+        ListView mockListView = mock(ListView.class);
+        MatrixCursor data = makeTestCursor();
+        data.moveToFirst();
+        CellBroadcastCursorAdapter adapter = new CellBroadcastCursorAdapter(mContext,
+                mockListView);
+
+        adapter.bindView(mockListItemView, mContext, data);
+
+        ArgumentCaptor<SmsCbMessage> messageCaptor = ArgumentCaptor.forClass(SmsCbMessage.class);
+        verify(mockListItemView).bind(messageCaptor.capture());
+        assertEquals("testAlert", messageCaptor.getValue().getMessageBody());
+    }
+
+    public void testCursorAdaptorBindView() {
+        CellBroadcastListItem mockListItemView = mock(CellBroadcastListItem.class);
+        ListView mockListView = mock(ListView.class);
+        CheckedTextView mockCheckbox = mock(CheckedTextView.class);
+        doReturn(mockCheckbox).when(mockListItemView).findViewById(R.id.checkBox);
+        MatrixCursor data = makeTestCursor();
+        data.moveToFirst();
+        CellBroadcastCursorAdapter adapter = new CellBroadcastCursorAdapter(mContext,
+                mockListView);
+
+        adapter.setIsActionMode(true);
+        adapter.bindView(mockListItemView, mContext, data);
+        verify(mockCheckbox).setVisibility(View.VISIBLE);
+
+        adapter.setIsActionMode(false);
+        adapter.bindView(mockListItemView, mContext, data);
+        verify(mockCheckbox).setVisibility(View.GONE);
     }
 }

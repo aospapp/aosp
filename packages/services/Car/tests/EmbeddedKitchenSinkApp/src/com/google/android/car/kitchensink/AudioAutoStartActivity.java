@@ -129,7 +129,6 @@ public final class AudioAutoStartActivity extends Activity {
 
     private void requestAudioFocus() {
         int delayedFocusRequestResults;
-        int message;
         synchronized (mLock) {
             if (mFocusRequest != null) {
                 return;

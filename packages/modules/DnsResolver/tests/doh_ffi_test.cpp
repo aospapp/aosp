@@ -23,27 +23,73 @@
 #include <resolv.h>
 
 #include <NetdClient.h>
+#include <android-base/unique_fd.h>
 #include <gmock/gmock-matchers.h>
 #include <gtest/gtest.h>
+#include <netdutils/NetNativeTestBase.h>
 
-static const char* GOOGLE_SERVER_IP = "8.8.8.8";
-static const int TIMEOUT_MS = 3000;
+constexpr char GOOGLE_SERVER_IP[] = "8.8.8.8";
+constexpr char GOOGLE_SERVER_IPV6[] = "2001:4860:4860::8888";
+static const int TIMEOUT_MS = 10000;
 constexpr int MAXPACKET = (8 * 1024);
 constexpr unsigned int MINIMAL_NET_ID = 100;
 
+using android::base::unique_fd;
+
+// TODO: Move to DoHFFITest class.
 std::mutex m;
 std::condition_variable cv;
 unsigned int dnsNetId;
 
-TEST(DoHFFITest, SmokeTest) {
-    getNetworkForDns(&dnsNetId);
-    // To ensure that we have a real network.
-    ASSERT_GE(dnsNetId, MINIMAL_NET_ID) << "No available networks";
+namespace {
 
+bool haveIpv4() {
+    const sockaddr_in server = {
+            .sin_family = AF_INET,
+            .sin_addr.s_addr = __constant_htonl(0x08080808L)  // 8.8.8.8
+    };
+    unique_fd sock(socket(AF_INET, SOCK_DGRAM | SOCK_CLOEXEC, IPPROTO_UDP));
+    if (sock == -1) {
+        PLOG(INFO) << "Failed to create socket";
+        return false;
+    }
+    return connect(sock, reinterpret_cast<const sockaddr*>(&server), sizeof(server)) == 0;
+}
+
+bool haveIpv6() {
+    const sockaddr_in6 server = {
+            .sin6_family = AF_INET6,
+            .sin6_addr.s6_addr = {0x20, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}  // 2000::
+    };
+    unique_fd sock(socket(AF_INET6, SOCK_DGRAM | SOCK_CLOEXEC, IPPROTO_UDP));
+    if (sock == -1) {
+        PLOG(INFO) << "Failed to create socket";
+        return false;
+    }
+    return connect(sock, reinterpret_cast<const sockaddr*>(&server), sizeof(server)) == 0;
+}
+
+}  // namespace
+
+class DoHFFITest : public NetNativeTestBase {
+  public:
+    static void SetUpTestSuite() { doh_init_logger(DOH_LOG_LEVEL_DEBUG); }
+};
+
+TEST_F(DoHFFITest, SmokeTest) {
+    getNetworkForDns(&dnsNetId);
+    ASSERT_GE(dnsNetId, MINIMAL_NET_ID) << "No available networks";
+    LOG(INFO) << "dnsNetId: " << dnsNetId;
+
+    const bool have_ipv4 = haveIpv4();
+    const bool have_ipv6 = haveIpv6();
+    ASSERT_TRUE(have_ipv4 | have_ipv6) << "No connectivity on network " << dnsNetId;
+
+    const static char* server_ip = have_ipv6 ? GOOGLE_SERVER_IPV6 : GOOGLE_SERVER_IP;
     auto validation_cb = [](uint32_t netId, bool success, const char* ip_addr, const char* host) {
         EXPECT_EQ(netId, dnsNetId);
         EXPECT_TRUE(success);
-        EXPECT_STREQ(ip_addr, GOOGLE_SERVER_IP);
+        EXPECT_STREQ(ip_addr, server_ip);
         EXPECT_STREQ(host, "");
         cv.notify_one();
     };
@@ -57,13 +103,13 @@ TEST(DoHFFITest, SmokeTest) {
             .probe_timeout_ms = TIMEOUT_MS,
             .idle_timeout_ms = TIMEOUT_MS,
             .use_session_resumption = true,
+            .enable_early_data = true,
     };
 
-    // TODO: Use a local server instead of dns.google.
     // sk_mark doesn't matter here because this test doesn't have permission to set sk_mark.
     // The DNS packet would be sent via default network.
-    EXPECT_EQ(doh_net_new(doh, dnsNetId, "https://dns.google/dns-query", /* domain */ "",
-                          GOOGLE_SERVER_IP, /* sk_mark */ 0, /* cert_path */ "", &flags),
+    EXPECT_EQ(doh_net_new(doh, dnsNetId, "https://dns.google/dns-query", /* domain */ "", server_ip,
+                          /* sk_mark */ 0, /* cert_path */ "", &flags),
               0);
     {
         std::unique_lock<std::mutex> lk(m);

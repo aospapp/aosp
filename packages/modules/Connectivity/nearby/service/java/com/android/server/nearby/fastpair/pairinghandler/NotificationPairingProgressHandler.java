@@ -20,7 +20,6 @@ import android.annotation.Nullable;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothManager;
 import android.content.Context;
-import android.text.TextUtils;
 import android.util.Log;
 
 import com.android.server.nearby.common.bluetooth.fastpair.FastPairConnection;
@@ -68,7 +67,7 @@ public class NotificationPairingProgressHandler extends PairingProgressHandlerBa
     @Override
     public void onReadyToPair() {
         super.onReadyToPair();
-        mFastPairNotificationManager.showConnectingNotification();
+        mFastPairNotificationManager.showConnectingNotification(mItem);
     }
 
     @Override
@@ -79,32 +78,24 @@ public class NotificationPairingProgressHandler extends PairingProgressHandlerBa
             String address) {
         String deviceName = super.onPairedCallbackCalled(connection, accountKey, footprints,
                 address);
-
         int batteryLevel = -1;
 
         BluetoothManager bluetoothManager = mContext.getSystemService(BluetoothManager.class);
         BluetoothAdapter bluetoothAdapter = bluetoothManager.getAdapter();
-        if (bluetoothAdapter != null) {
-            // Need to check battery level here set that to -1 for now
-            batteryLevel = -1;
+        if (address != null && bluetoothAdapter != null) {
+            batteryLevel = bluetoothAdapter.getRemoteDevice(address).getBatteryLevel();
         } else {
-            Log.v(
-                    "NotificationPairingProgressHandler",
-                    "onPairedCallbackCalled getBatteryLevel failed,"
-                            + " adapter is null");
+            Log.v(TAG, "onPairedCallbackCalled getBatteryLevel failed");
         }
-        mFastPairNotificationManager.showPairingSucceededNotification(
-                !TextUtils.isEmpty(mCompanionApp) ? mCompanionApp : null,
-                batteryLevel,
-                deviceName,
-                address);
+        mFastPairNotificationManager
+                .showPairingSucceededNotification(mItem, batteryLevel, deviceName);
         return deviceName;
     }
 
     @Override
     public void onPairingFailed(Throwable throwable) {
         super.onPairingFailed(throwable);
-        mFastPairNotificationManager.showPairingFailedNotification(mAccountKey);
+        mFastPairNotificationManager.showPairingFailedNotification(mItem, mAccountKey);
         mFastPairNotificationManager.notifyPairingProcessDone(
                 /* success= */ false,
                 /* forceNotify= */ false,
@@ -115,6 +106,19 @@ public class NotificationPairingProgressHandler extends PairingProgressHandlerBa
     @Override
     public void onPairingSuccess(String address) {
         super.onPairingSuccess(address);
+        int batteryLevel = -1;
+
+        BluetoothManager bluetoothManager = mContext.getSystemService(BluetoothManager.class);
+        BluetoothAdapter bluetoothAdapter = bluetoothManager.getAdapter();
+        String deviceName = null;
+        if (address != null && bluetoothAdapter != null) {
+            deviceName = bluetoothAdapter.getRemoteDevice(address).getName();
+            batteryLevel = bluetoothAdapter.getRemoteDevice(address).getBatteryLevel();
+        } else {
+            Log.v(TAG, "onPairedCallbackCalled getBatteryLevel failed");
+        }
+        mFastPairNotificationManager
+                .showPairingSucceededNotification(mItem, batteryLevel, deviceName);
         mFastPairNotificationManager.notifyPairingProcessDone(
                 /* success= */ true,
                 /* forceNotify= */ false,

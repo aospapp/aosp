@@ -35,7 +35,7 @@
     <string name="could_not_use_app" msgid="8137587876138569083">"<xliff:g id="APP">%1$s</xliff:g> ব্যৱহাৰ কৰিব পৰা নগ\'ল৷"</string>
     <string name="pay_with" msgid="5531545488795798945">"ইয়াৰ জৰিয়তে পৰিশোধ কৰক"</string>
     <string name="complete_with" msgid="6797459104103012992">"ইয়াৰ জৰিয়তে সম্পূৰ্ণ কৰক"</string>
-    <string name="default_pay_app_removed" msgid="4108250545457437360">"আপোনাৰ পচন্দৰ \'টিপক আৰু পৰিশোধ কৰক\' এপটো আঁতৰোৱা হৈছে৷ অন্য এটা বাছনি কৰিবনে?"</string>
+    <string name="default_pay_app_removed" msgid="4108250545457437360">"আপোনাৰ পচন্দৰ \'টিপক আৰু পৰিশোধ কৰক\' এপ্‌টো আঁতৰোৱা হৈছে৷ অন্য এটা বাছনি কৰিবনে?"</string>
     <string name="ask_nfc_tap" msgid="2925239870458286340">"সম্পূৰ্ণ কৰিবলৈ অন্য এটা ডিভাইচত টিপক"</string>
     <string name="wifi_connect" msgid="6250727951843550671">"সংযোগ কৰক"</string>
     <string name="status_unable_to_connect" msgid="9183908200295307657">"নেটৱৰ্কৰ লগত সংযোগ কৰিব পৰা নগ\'ল"</string>
@@ -53,4 +53,6 @@
     <string name="tag_dispatch_failed" msgid="3562984995049738400">"এই NFC টেগৰ বাবে কোনো সমৰ্থিত এপ্লিকেশ্বন নাই"</string>
     <string name="nfc_blocking_alert_title" msgid="1086172436984457085">"NFC হয়তো অৱৰোধ কৰি ৰখা আছে"</string>
     <string name="nfc_blocking_alert_message" msgid="7003156052570107490">"কেনেকৈ সমাধান কৰিব লাগে সেয়া জানিবলৈ টিপক।"</string>
+    <string name="nfc_logging_alert_title" msgid="5300867034660942987">"NFC ডেটা ৰেকৰ্ড কৰি থকা হৈছে"</string>
+    <string name="nfc_logging_alert_message" msgid="1550187184825467942">"ৰেকৰ্ড কৰা বন্ধ কৰিবলৈ টিপক।"</string>
 </resources>

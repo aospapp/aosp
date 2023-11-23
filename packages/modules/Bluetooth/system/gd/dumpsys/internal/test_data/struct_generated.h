@@ -5,6 +5,12 @@
 
 #include "flatbuffers/flatbuffers.h"
 
+// Ensure the included flatbuffers.h is the same version as when this file was
+// generated, otherwise it may not be compatible.
+static_assert(
+    FLATBUFFERS_VERSION_MAJOR == 2 && FLATBUFFERS_VERSION_MINOR == 0 && FLATBUFFERS_VERSION_REVISION == 7,
+    "Non-compatible flatbuffers version included");
+
 namespace testing {
 
 struct TestSubTable;
@@ -20,7 +26,7 @@ struct TestSubTable FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
     return GetField<int32_t>(VT_PLACEHOLDER, 0);
   }
   bool Verify(flatbuffers::Verifier& verifier) const {
-    return VerifyTableStart(verifier) && VerifyField<int32_t>(verifier, VT_PLACEHOLDER) && verifier.EndTable();
+    return VerifyTableStart(verifier) && VerifyField<int32_t>(verifier, VT_PLACEHOLDER, 4) && verifier.EndTable();
   }
 };
 
@@ -34,7 +40,6 @@ struct TestSubTableBuilder {
   explicit TestSubTableBuilder(flatbuffers::FlatBufferBuilder& _fbb) : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
-  TestSubTableBuilder& operator=(const TestSubTableBuilder&);
   flatbuffers::Offset<TestSubTable> Finish() {
     const auto end = fbb_.EndTable(start_);
     auto o = flatbuffers::Offset<TestSubTable>(end);
@@ -71,7 +76,6 @@ struct TestTableStructBuilder {
   explicit TestTableStructBuilder(flatbuffers::FlatBufferBuilder& _fbb) : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
-  TestTableStructBuilder& operator=(const TestTableStructBuilder&);
   flatbuffers::Offset<TestTableStruct> Finish() {
     const auto end = fbb_.EndTable(start_);
     auto o = flatbuffers::Offset<TestTableStruct>(end);

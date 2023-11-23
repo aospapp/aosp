@@ -46,19 +46,20 @@ import com.android.permissioncontroller.permission.data.PackagePermissionsLiveDa
 import com.android.permissioncontroller.permission.data.PackagePermissionsLiveData.Companion.NON_RUNTIME_NORMAL_PERMS
 import com.android.permissioncontroller.permission.data.SmartUpdateMediatorLiveData
 import com.android.permissioncontroller.permission.data.get
-import com.android.permissioncontroller.permission.model.v31.AppPermissionUsage
 import com.android.permissioncontroller.permission.model.livedatatypes.AppPermGroupUiInfo.PermGrantState
+import com.android.permissioncontroller.permission.model.v31.AppPermissionUsage
 import com.android.permissioncontroller.permission.ui.Category
-import com.android.permissioncontroller.permission.ui.handheld.v31.is7DayToggleEnabled
 import com.android.permissioncontroller.permission.utils.IPC
+import com.android.permissioncontroller.permission.utils.KotlinUtils
+import com.android.permissioncontroller.permission.utils.PermissionMapping
 import com.android.permissioncontroller.permission.utils.Utils
 import com.android.permissioncontroller.permission.utils.Utils.AppPermsLastAccessType
 import com.android.permissioncontroller.permission.utils.navigateSafe
-import kotlinx.coroutines.GlobalScope
-import kotlinx.coroutines.launch
 import java.time.Instant
 import java.util.concurrent.TimeUnit
 import kotlin.math.max
+import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.launch
 
 /**
  * ViewModel for the AppPermissionGroupsFragment. Has a liveData with the UI information for all
@@ -158,7 +159,7 @@ class AppPermissionGroupsViewModel(
             }
 
             for (groupName in groups) {
-                val isSystem = Utils.getPlatformPermissionGroups().contains(groupName)
+                val isSystem = PermissionMapping.getPlatformPermissionGroups().contains(groupName)
                 appPermGroupUiInfoLiveDatas[groupName]?.value?.let { uiInfo ->
                     if (SdkLevel.isAtLeastT() && !uiInfo.shouldShow) {
                         return@let
@@ -229,9 +230,9 @@ class AppPermissionGroupsViewModel(
     fun setAutoRevoke(enabled: Boolean) {
         GlobalScope.launch(IPC) {
             val aom = app.getSystemService(AppOpsManager::class.java)!!
-            val uid = LightPackageInfoLiveData[packageName, user].getInitializedValue()?.uid
+            val lightPackageInfo = LightPackageInfoLiveData[packageName, user].getInitializedValue()
 
-            if (uid != null) {
+            if (lightPackageInfo != null) {
                 Log.i(LOG_TAG, "sessionId $sessionId setting auto revoke enabled to $enabled for" +
                     "$packageName $user")
                 val tag = if (enabled) {
@@ -240,15 +241,15 @@ class AppPermissionGroupsViewModel(
                     APP_PERMISSION_GROUPS_FRAGMENT_AUTO_REVOKE_ACTION__ACTION__SWITCH_DISABLED
                 }
                 PermissionControllerStatsLog.write(
-                    APP_PERMISSION_GROUPS_FRAGMENT_AUTO_REVOKE_ACTION, sessionId, uid, packageName,
-                    tag)
+                    APP_PERMISSION_GROUPS_FRAGMENT_AUTO_REVOKE_ACTION, sessionId,
+                    lightPackageInfo.uid, packageName, tag)
 
                 val mode = if (enabled) {
                     MODE_ALLOWED
                 } else {
                     MODE_IGNORED
                 }
-                aom.setUidMode(OPSTR_AUTO_REVOKE_PERMISSIONS_IF_UNUSED, uid, mode)
+                aom.setUidMode(OPSTR_AUTO_REVOKE_PERMISSIONS_IF_UNUSED, lightPackageInfo.uid, mode)
                 if (isHibernationEnabled() &&
                     SdkLevel.isAtLeastSv2() &&
                     !enabled) {
@@ -280,7 +281,7 @@ class AppPermissionGroupsViewModel(
             return
         }
 
-        val aggregateDataFilterBeginDays = if (is7DayToggleEnabled())
+        val aggregateDataFilterBeginDays = if (KotlinUtils.is7DayToggleEnabled())
             AGGREGATE_DATA_FILTER_BEGIN_DAYS_7 else AGGREGATE_DATA_FILTER_BEGIN_DAYS_1
 
         accessTime.clear()

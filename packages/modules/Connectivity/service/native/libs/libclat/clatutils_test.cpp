@@ -19,6 +19,7 @@
 #include <gtest/gtest.h>
 #include <linux/if_packet.h>
 #include <linux/if_tun.h>
+#include <netinet/in.h>
 #include "tun_interface.h"
 
 extern "C" {
@@ -164,7 +165,7 @@ TEST_F(ClatUtils, ConfigurePacketSocket) {
     TunInterface v6Iface;
     ASSERT_EQ(0, v6Iface.init());
 
-    int s = socket(AF_PACKET, SOCK_DGRAM | SOCK_CLOEXEC, htons(ETH_P_IPV6));
+    const int s = socket(AF_PACKET, SOCK_RAW | SOCK_CLOEXEC, htons(ETH_P_IPV6));
     EXPECT_LE(0, s);
     struct in6_addr addr6;
     EXPECT_EQ(1, inet_pton(AF_INET6, "2001:db8::f00", &addr6));
@@ -180,6 +181,32 @@ TEST_F(ClatUtils, ConfigurePacketSocket) {
 
     close(s);
     v6Iface.destroy();
+}
+
+// This is not a realistic test because we can't test generateIPv6Address here since it requires
+// manipulating routing, which we can't do without talking to the real netd on the system.
+// See test MakeChecksumNeutral.
+// TODO: remove this test once EthernetTetheringTest can test on mainline test coverage branch.
+TEST_F(ClatUtils, GenerateIpv6AddressFailWithUlaSocketAddress) {
+    // Create an interface for generateIpv6Address to connect to.
+    TunInterface tun;
+    ASSERT_EQ(0, tun.init());
+
+    // Unused because v6 address is ULA and makeChecksumNeutral has never called.
+    in_addr v4 = {inet_addr(kIPv4LocalAddr)};
+    // Not a NAT64 prefix because test can't connect to in generateIpv6Address.
+    // Used to be a fake address from the tun interface for generating an IPv6 socket address.
+    // nat64Prefix won't be used in MakeChecksumNeutral because MakeChecksumNeutral has never
+    // be called.
+    in6_addr nat64Prefix = tun.dstAddr();  // not realistic
+    in6_addr v6;
+    EXPECT_EQ(1, inet_pton(AF_INET6, "::", &v6));  // initialize as zero
+
+    // 0u is MARK_UNSET
+    EXPECT_EQ(-ENETUNREACH, generateIpv6Address(tun.name().c_str(), v4, nat64Prefix, &v6, 0u));
+    EXPECT_TRUE(IN6_IS_ADDR_ULA(&v6));
+
+    tun.destroy();
 }
 
 }  // namespace clat

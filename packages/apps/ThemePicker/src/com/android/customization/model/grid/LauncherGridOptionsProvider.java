@@ -19,12 +19,17 @@ import android.content.ContentResolver;
 import android.content.ContentValues;
 import android.content.Context;
 import android.content.res.Resources;
+import android.database.ContentObserver;
 import android.database.Cursor;
+import android.net.Uri;
 import android.os.Bundle;
+import android.os.Handler;
 import android.view.SurfaceView;
 
 import androidx.annotation.Nullable;
 import androidx.annotation.WorkerThread;
+import androidx.lifecycle.LiveData;
+import androidx.lifecycle.MutableLiveData;
 
 import com.android.customization.model.ResourceConstants;
 import com.android.wallpaper.R;
@@ -53,6 +58,7 @@ public class LauncherGridOptionsProvider {
     private final Context mContext;
     private final PreviewUtils mPreviewUtils;
     private List<GridOption> mOptions;
+    private OptionChangeLiveData mLiveData;
 
     public LauncherGridOptionsProvider(Context context, String authorityMetadataKey) {
         mPreviewUtils = new PreviewUtils(context, authorityMetadataKey);
@@ -116,5 +122,53 @@ public class LauncherGridOptionsProvider {
         values.put("name", name);
         return mContext.getContentResolver().update(mPreviewUtils.getUri(DEFAULT_GRID), values,
                 null, null);
+    }
+
+    /**
+     * Returns an observable that receives a new value each time that the grid options are changed.
+     * Do not call if {@link #areGridsAvailable()} returns false
+     */
+    public LiveData<Object> getOptionChangeObservable(
+            @Nullable Handler handler) {
+        if (mLiveData == null) {
+            mLiveData = new OptionChangeLiveData(
+                    mContext, mPreviewUtils.getUri(DEFAULT_GRID), handler);
+        }
+
+        return mLiveData;
+    }
+
+    private static class OptionChangeLiveData extends MutableLiveData<Object> {
+
+        private final ContentResolver mContentResolver;
+        private final Uri mUri;
+        private final ContentObserver mContentObserver;
+
+        OptionChangeLiveData(
+                Context context,
+                Uri uri,
+                @Nullable Handler handler) {
+            mContentResolver = context.getContentResolver();
+            mUri = uri;
+            mContentObserver = new ContentObserver(handler) {
+                @Override
+                public void onChange(boolean selfChange) {
+                    postValue(new Object());
+                }
+            };
+        }
+
+        @Override
+        protected void onActive() {
+            mContentResolver.registerContentObserver(
+                    mUri,
+                    /* notifyForDescendants= */ true,
+                    mContentObserver);
+        }
+
+        @Override
+        protected void onInactive() {
+            mContentResolver.unregisterContentObserver(mContentObserver);
+        }
     }
 }

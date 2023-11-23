@@ -15,8 +15,8 @@ android_robolectric_test {
 
     libs: [
         "robolectric_android-all-stub",
-        "Robolectric_all-target",
-        "mockito-robolectric-prebuilt",
+        //"Robolectric_all-target",
+        //"mockito-robolectric-prebuilt",
         "truth-prebuilt",
     ],
 
@@ -25,4 +25,5 @@ android_robolectric_test {
     test_options: {
         timeout: 36000,
     },
+    upstream: true,
 }

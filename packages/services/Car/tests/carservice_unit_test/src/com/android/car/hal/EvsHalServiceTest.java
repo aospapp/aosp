@@ -46,6 +46,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Set;
+import java.util.stream.IntStream;
 
 @RunWith(MockitoJUnitRunner.class)
 public class EvsHalServiceTest {
@@ -59,8 +60,8 @@ public class EvsHalServiceTest {
 
     private EvsHalService mEvsHalService;
 
-    private final int TRUE = 1;
-    private final int FALSE = 0;
+    private static final int TRUE = 1;
+    private static final int FALSE = 0;
 
     private final HalPropValueBuilder mPropValueBuilder = new HalPropValueBuilder(/*isAidl=*/true);
 
@@ -134,6 +135,16 @@ public class EvsHalServiceTest {
                 EvsServiceType.REARVIEW);
         mEvsHalService.onHalEvents(ImmutableList.of(v));
         verify(mListener, never()).onEvent(anyInt(), anyBoolean());
+    }
+
+    @Test
+    public void getAllSupportedProperties() {
+        subscribeListener(ImmutableSet.of(EVS_SERVICE_REQUEST));
+
+        int[] supported = mEvsHalService.getAllSupportedProperties();
+        assertThat(supported.length > 0).isTrue();
+        assertThat(IntStream.of(supported).anyMatch(x -> x == VehicleProperty.EVS_SERVICE_REQUEST))
+                .isTrue();
     }
 
     // TODO(b/179029031): Adds more tests to verify the surround view service integration.

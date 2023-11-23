@@ -25,7 +25,6 @@ import libcore.util.EmptyArray;
 import java.util.Arrays;
 
 // Copy of frameworks/base/core/java/android/util/LongArray.java
-
 /**
  * Implements a growing array of long primitives.
  *

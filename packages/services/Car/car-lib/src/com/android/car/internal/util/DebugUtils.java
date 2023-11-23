@@ -19,7 +19,6 @@ package com.android.car.internal.util;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 
-
 // Copied from frameworks/base and kept only used codes
 /**
  * <p>Various utilities for debugging and logging.</p>
@@ -57,7 +56,8 @@ public final class DebugUtils {
      *
      * @hide
      */
-    public static String flagsToString(Class<?> clazz, String prefix, int flags) {
+    public static String flagsToString(Class<?> clazz, String prefix, int flagsToConvert) {
+        int flags = flagsToConvert;
         final StringBuilder res = new StringBuilder();
         boolean flagsWasZero = flags == 0;
 

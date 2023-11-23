@@ -17,7 +17,7 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="cancel" msgid="1942863792086990604">"ବାତିଲ୍ କରନ୍ତୁ"</string>
+    <string name="cancel" msgid="1942863792086990604">"ବାତିଲ କରନ୍ତୁ"</string>
     <string name="emergency_action_title" msgid="4329795972111990414">"ଜରୁରୀକାଳୀନ SOS"</string>
     <string name="emergency_action_subtitle" msgid="5667616628096114616">"<xliff:g id="EMERGENCY_NUMBER">%1$s</xliff:g>କୁ ଏକ କଲ୍ ପ୍ରସ୍ତୁତ କରାଯାଉଛି"</string>
     <string name="count_down_unit" msgid="7461042666268976220">"ସେ."</string>

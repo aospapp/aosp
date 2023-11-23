@@ -88,7 +88,7 @@ public class WifiTetherStateSwitchPreferenceController extends
 
     @Override
     public void enablePreference() {
-        getPreference().setEnabled(true);
+        getPreference().setEnabled(getAvailabilityStatus() == AVAILABLE);
     }
 
     @Override

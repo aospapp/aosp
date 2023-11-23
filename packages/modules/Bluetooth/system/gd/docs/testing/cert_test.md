@@ -75,15 +75,7 @@ Assume user has an Android checkout and finished `source build/envsetup.sh` and
 ### Run GD cert tests on host machine
 
 ```shell
-$ANDROID_BUILD_TOP/packages/modules/Bluetooth/system/gd/cert/run --host
-```
-
-#### Python 3.8+
-The cert tests require >python3.8 to operate and the associated python
-virtualenv package.  The script may help properly install these requisites.
-
-```shell
-source $ANDROID_BUILD_TOP/packages/modules/Bluetooth/system/gd/cert/set_up_virtualenv.sh
+$ANDROID_BUILD_TOP/packages/modules/Bluetooth/system/gd/cert/run
 ```
 
 ### Run GD cert tests on devices for the first time
@@ -105,7 +97,6 @@ $ANDROID_BUILD_TOP/packages/modules/Bluetooth/system/gd/cert/run
 
 ### `packages/modules/Bluetooth/system/gd/cert/run` command reference
 
-*   `--host`: Run tests on host only using `root-canal`
 *   `--clean`: Remove any test setup files and do a clean test run
 *   `--repeat=N`: Repeat running the same set of tests N times without redoing
     test setup

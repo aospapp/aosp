@@ -99,8 +99,10 @@ public class SecurityParamsTest {
         int[] expectedAllowedKeyManagement = new int[] {KeyMgmt.WPA_EAP, KeyMgmt.IEEE8021X};
         int[] expectedAllowedProtocols = new int[] {};
         int[] expectedAllowedAuthAlgorithms = new int[] {};
-        int[] expectedAllowedPairwiseCiphers = new int[] {};
-        int[] expectedAllowedGroupCiphers = new int[] {};
+        int[] expectedAllowedPairwiseCiphers = new int[] {
+                PairwiseCipher.CCMP, PairwiseCipher.TKIP, PairwiseCipher.GCMP_256};
+        int[] expectedAllowedGroupCiphers = new int[] {GroupCipher.CCMP, GroupCipher.TKIP,
+                GroupCipher.GCMP_256};
         boolean expectedRequirePmf = false;
         SecurityParams p = SecurityParams.createSecurityParamsBySecurityType(
                 expectedSecurityType);
@@ -117,8 +119,9 @@ public class SecurityParamsTest {
         int[] expectedAllowedKeyManagement = new int[] {KeyMgmt.WPA_EAP, KeyMgmt.IEEE8021X};
         int[] expectedAllowedProtocols = new int[] {};
         int[] expectedAllowedAuthAlgorithms = new int[] {};
-        int[] expectedAllowedPairwiseCiphers = new int[] {};
-        int[] expectedAllowedGroupCiphers = new int[] {};
+        int[] expectedAllowedPairwiseCiphers = new int[] {
+                PairwiseCipher.CCMP, PairwiseCipher.GCMP_256};
+        int[] expectedAllowedGroupCiphers = new int[] {GroupCipher.CCMP, GroupCipher.GCMP_256};
         boolean expectedRequirePmf = false;
         SecurityParams p = SecurityParams.createSecurityParamsBySecurityType(
                 expectedSecurityType);
@@ -135,8 +138,9 @@ public class SecurityParamsTest {
         int[] expectedAllowedKeyManagement = new int[] {KeyMgmt.WPA_EAP, KeyMgmt.IEEE8021X};
         int[] expectedAllowedProtocols = new int[] {};
         int[] expectedAllowedAuthAlgorithms = new int[] {};
-        int[] expectedAllowedPairwiseCiphers = new int[] {};
-        int[] expectedAllowedGroupCiphers = new int[] {};
+        int[] expectedAllowedPairwiseCiphers = new int[] {
+                PairwiseCipher.CCMP, PairwiseCipher.GCMP_256};
+        int[] expectedAllowedGroupCiphers = new int[] {GroupCipher.CCMP, GroupCipher.GCMP_256};
         boolean expectedRequirePmf = true;
         SecurityParams p = SecurityParams.createSecurityParamsBySecurityType(
                 expectedSecurityType);

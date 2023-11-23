@@ -16,51 +16,65 @@
 
 package com.android.permissioncontroller.safetycenter.ui;
 
+import static android.os.Build.VERSION_CODES.TIRAMISU;
+
 import android.content.Context;
 import android.safetycenter.SafetyCenterEntry;
-import android.util.Log;
+import android.text.TextUtils;
 
+import androidx.annotation.Nullable;
+import androidx.annotation.RequiresApi;
 import androidx.preference.Preference;
+import androidx.preference.PreferenceViewHolder;
+
+import com.android.permissioncontroller.R;
+import com.android.permissioncontroller.safetycenter.ui.model.SafetyCenterViewModel;
+import com.android.permissioncontroller.safetycenter.ui.view.SafetyEntryView;
 
 /** A preference that displays a visual representation of a {@link SafetyCenterEntry}. */
-public class SafetyEntryPreference extends Preference {
+@RequiresApi(TIRAMISU)
+public final class SafetyEntryPreference extends Preference implements ComparablePreference {
 
-    private static final String TAG = SafetyEntryPreference.class.getSimpleName();
+    private final PositionInCardList mPosition;
+    private final SafetyCenterEntry mEntry;
+    private final SafetyCenterViewModel mViewModel;
+    @Nullable private final Integer mLaunchTaskId;
 
-    public SafetyEntryPreference(Context context, SafetyCenterEntry entry) {
+    public SafetyEntryPreference(
+            Context context,
+            @Nullable Integer launchTaskId,
+            SafetyCenterEntry entry,
+            PositionInCardList position,
+            SafetyCenterViewModel viewModel) {
         super(context);
-        setTitle(entry.getTitle());
-        setSummary(entry.getSummary());
-        setIcon(toSeverityLevel(entry.getSeverityLevel()).getEntryIconResId());
-        if (entry.getPendingIntent() != null) {
-            setOnPreferenceClickListener(unused -> {
-                try {
-                    entry.getPendingIntent().send();
-                } catch (Exception ex) {
-                    Log.e(TAG,
-                            String.format("Failed to execute pending intent for entry: %s", entry),
-                            ex);
-                }
-                return true;
-            });
-        }
+
+        mEntry = entry;
+        mPosition = position;
+        mViewModel = viewModel;
+        mLaunchTaskId = launchTaskId;
+
+        setLayoutResource(R.layout.preference_entry);
     }
 
-    private static SeverityLevel toSeverityLevel(int entrySeverityLevel) {
-        switch (entrySeverityLevel) {
-            case SafetyCenterEntry.ENTRY_SEVERITY_LEVEL_UNKNOWN:
-                return SeverityLevel.SEVERITY_LEVEL_UNKNOWN;
-            case SafetyCenterEntry.ENTRY_SEVERITY_LEVEL_UNSPECIFIED:
-                return SeverityLevel.NONE;
-            case SafetyCenterEntry.ENTRY_SEVERITY_LEVEL_OK:
-                return SeverityLevel.INFORMATION;
-            case SafetyCenterEntry.ENTRY_SEVERITY_LEVEL_RECOMMENDATION:
-                return SeverityLevel.RECOMMENDATION;
-            case SafetyCenterEntry.ENTRY_SEVERITY_LEVEL_CRITICAL_WARNING:
-                return SeverityLevel.CRITICAL_WARNING;
+    @Override
+    public void onBindViewHolder(PreferenceViewHolder holder) {
+        super.onBindViewHolder(holder);
+
+        ((SafetyEntryView) holder.itemView).showEntry(mEntry, mPosition, mLaunchTaskId, mViewModel);
+    }
+
+    @Override
+    public boolean isSameItem(Preference other) {
+        return other instanceof SafetyEntryPreference
+                && TextUtils.equals(mEntry.getId(), ((SafetyEntryPreference) other).mEntry.getId());
+    }
+
+    @Override
+    public boolean hasSameContents(Preference other) {
+        if (other instanceof SafetyEntryPreference) {
+            SafetyEntryPreference o = (SafetyEntryPreference) other;
+            return mEntry.equals(o.mEntry) && mPosition == o.mPosition;
         }
-        throw new IllegalArgumentException(
-                String.format("Unexpected SafetyCenterEntry.EntrySeverityLevel: %s",
-                        entrySeverityLevel));
+        return false;
     }
 }

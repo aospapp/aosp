@@ -116,13 +116,6 @@ public class DataStallUtils {
      */
     public static final String CONFIG_TCP_PACKETS_FAIL_PERCENTAGE = "tcp_packets_fail_percentage";
 
-    /** Corresponds to enum from bionic/libc/include/netinet/tcp.h. */
-    public static final int TCP_ESTABLISHED = 1;
-    public static final int TCP_SYN_SENT = 2;
-    public static final int TCP_SYN_RECV = 3;
-    public static final int TCP_MONITOR_STATE_FILTER =
-            (1 << TCP_ESTABLISHED) | (1 << TCP_SYN_SENT) | (1 << TCP_SYN_RECV);
-
     /**
      * Threshold for the minimal tcp packets count to evaluate data stall via tcp info.
      */

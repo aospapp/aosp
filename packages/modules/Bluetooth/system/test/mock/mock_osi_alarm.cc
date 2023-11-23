@@ -26,8 +26,6 @@
 #include <map>
 #include <string>
 
-extern std::map<std::string, int> mock_function_count_map;
-
 // Mock include file to share data between tests and mock
 #include "test/mock/mock_osi_alarm.h"
 
@@ -55,45 +53,45 @@ struct alarm_set_on_mloop alarm_set_on_mloop;
 
 // Mocked functions, if any
 void alarm_cancel(alarm_t* alarm) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   test::mock::osi_alarm::alarm_cancel(alarm);
 }
 void alarm_cleanup(void) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   test::mock::osi_alarm::alarm_cleanup();
 }
 void alarm_debug_dump(int fd) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   test::mock::osi_alarm::alarm_debug_dump(fd);
 }
 void alarm_free(alarm_t* alarm) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   test::mock::osi_alarm::alarm_free(alarm);
 }
 uint64_t alarm_get_remaining_ms(const alarm_t* alarm) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return test::mock::osi_alarm::alarm_get_remaining_ms(alarm);
 }
 bool alarm_is_scheduled(const alarm_t* alarm) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return test::mock::osi_alarm::alarm_is_scheduled(alarm);
 }
 alarm_t* alarm_new(const char* name) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return test::mock::osi_alarm::alarm_new(name);
 }
 alarm_t* alarm_new_periodic(const char* name) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return test::mock::osi_alarm::alarm_new_periodic(name);
 }
 void alarm_set(alarm_t* alarm, uint64_t interval_ms, alarm_callback_t cb,
                void* data) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   test::mock::osi_alarm::alarm_set(alarm, interval_ms, cb, data);
 }
 void alarm_set_on_mloop(alarm_t* alarm, uint64_t interval_ms,
                         alarm_callback_t cb, void* data) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   test::mock::osi_alarm::alarm_set_on_mloop(alarm, interval_ms, cb, data);
 }
 // Mocked functions complete

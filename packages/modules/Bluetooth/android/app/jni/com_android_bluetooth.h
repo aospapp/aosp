@@ -165,6 +165,9 @@ int register_com_android_bluetooth_le_audio(JNIEnv* env);
 int register_com_android_bluetooth_vc(JNIEnv* env);
 
 int register_com_android_bluetooth_csip_set_coordinator(JNIEnv* env);
+
+int register_com_android_bluetooth_btservice_BluetoothQualityReport(
+    JNIEnv* env);
 }  // namespace android
 
 #endif /* COM_ANDROID_BLUETOOTH_H */

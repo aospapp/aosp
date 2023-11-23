@@ -66,7 +66,7 @@ typedef struct {
  * Returns          Integer value or -1 on error.
  *
  ******************************************************************************/
-extern int16_t utl_str2int(const char* p_s);
+int16_t utl_str2int(const char* p_s);
 
 /*******************************************************************************
  *
@@ -81,7 +81,7 @@ extern int16_t utl_str2int(const char* p_s);
  * Returns          0 if strings match, nonzero otherwise.
  *
  ******************************************************************************/
-extern int utl_strucmp(const char* p_s, const char* p_t);
+int utl_strucmp(const char* p_s, const char* p_t);
 
 /*******************************************************************************
  *
@@ -95,7 +95,7 @@ extern int utl_strucmp(const char* p_s, const char* p_t);
  * Returns          Length of string.
  *
  ******************************************************************************/
-extern uint8_t utl_itoa(uint16_t i, char* p_s);
+uint8_t utl_itoa(uint16_t i, char* p_s);
 
 /*******************************************************************************
  *
@@ -121,7 +121,7 @@ extern uint8_t utl_itoa(uint16_t i, char* p_s);
  * Returns          true if successful, Otherwise false
  *
  ******************************************************************************/
-extern bool utl_set_device_class(tBTA_UTL_COD* p_cod, uint8_t cmd);
+bool utl_set_device_class(tBTA_UTL_COD* p_cod, uint8_t cmd);
 
 /*******************************************************************************
  *
@@ -134,7 +134,7 @@ extern bool utl_set_device_class(tBTA_UTL_COD* p_cod, uint8_t cmd);
  * Returns          true if successful, Otherwise false
  *
  ******************************************************************************/
-extern bool utl_isintstr(const char* p_s);
+bool utl_isintstr(const char* p_s);
 
 /*******************************************************************************
  *
@@ -146,7 +146,7 @@ extern bool utl_isintstr(const char* p_s);
  * Returns          true if successful, Otherwise false
  *
  ******************************************************************************/
-extern bool utl_isdialchar(const char d);
+bool utl_isdialchar(const char d);
 
 /*******************************************************************************
  *
@@ -159,6 +159,6 @@ extern bool utl_isdialchar(const char d);
  * Returns          true if successful, Otherwise false
  *
  ******************************************************************************/
-extern bool utl_isdialstr(const char* p_s);
+bool utl_isdialstr(const char* p_s);
 
 #endif /* UTL_H */

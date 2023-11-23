@@ -25,6 +25,8 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
+import static org.junit.Assume.assumeFalse;
 import static org.junit.Assume.assumeTrue;
 
 import android.net.MacAddress;
@@ -397,6 +399,124 @@ public class SoftApConfigurationTest {
         SoftApConfiguration original = new SoftApConfiguration.Builder()
                 .setBssid(MacAddress.fromString("01:aa:bb:cc:dd:ee"))
                 .build();
+    }
+
+    @Test
+    public void testValidWpa2PasswordLength() {
+        // ASCII
+        new SoftApConfiguration.Builder().setPassphrase(
+                "password",
+                SoftApConfiguration.SECURITY_TYPE_WPA2_PSK);
+        // Pass without IllegalArgumentException
+
+        // UTF-8
+        new SoftApConfiguration.Builder().setPassphrase(
+                "パスワード",
+                SoftApConfiguration.SECURITY_TYPE_WPA2_PSK);
+        // Pass without IllegalArgumentException
+    }
+
+    @Test
+    public void testValidWpa3SaeTransitionPasswordLength() {
+        // ASCII
+        new SoftApConfiguration.Builder().setPassphrase(
+                "password",
+                SoftApConfiguration.SECURITY_TYPE_WPA3_SAE_TRANSITION);
+        // Pass without IllegalArgumentException
+
+        // UTF-8
+        new SoftApConfiguration.Builder().setPassphrase(
+                "パスワード",
+                SoftApConfiguration.SECURITY_TYPE_WPA3_SAE_TRANSITION);
+        // Pass without IllegalArgumentException
+    }
+
+    @Test
+    public void testInvalidWpa2PasswordLength() {
+        assumeFalse(SdkLevel.isAtLeastT());
+        // Too short ASCII
+        try {
+            new SoftApConfiguration.Builder().setPassphrase(
+                    "Short!",
+                    SoftApConfiguration.SECURITY_TYPE_WPA2_PSK);
+            fail("Short ASCII password did not throw exception!");
+        } catch (IllegalArgumentException e) {
+            // Success
+        }
+
+        // Too long ASCII
+        try {
+            new SoftApConfiguration.Builder().setPassphrase(
+                    "This ASCII passphrase is definitely much too long to be valid...",
+                    SoftApConfiguration.SECURITY_TYPE_WPA2_PSK);
+            fail("Long ASCII password did not throw exception!");
+        } catch (IllegalArgumentException e) {
+            // Success
+        }
+
+        // Too short UTF-8
+        try {
+            new SoftApConfiguration.Builder().setPassphrase(
+                    "短い",
+                    SoftApConfiguration.SECURITY_TYPE_WPA2_PSK);
+            fail("Short UTF-8 password did not throw exception!");
+        } catch (IllegalArgumentException e) {
+            // Success
+        }
+
+        // Too long UTF-8
+        try {
+            new SoftApConfiguration.Builder().setPassphrase(
+                    "このパスワードはちょっと長すぎて使えられません。",
+                    SoftApConfiguration.SECURITY_TYPE_WPA2_PSK);
+            fail("Long UTF-8 password did not throw exception!");
+        } catch (IllegalArgumentException e) {
+            // Success
+        }
+    }
+
+    @Test
+    public void testInvalidWpa3SaeTransitionPasswordLength() {
+        assumeFalse(SdkLevel.isAtLeastT());
+        // Too short ASCII
+        try {
+            new SoftApConfiguration.Builder().setPassphrase(
+                    "Short!",
+                    SoftApConfiguration.SECURITY_TYPE_WPA3_SAE_TRANSITION);
+            fail("Short ASCII password did not throw exception!");
+        } catch (IllegalArgumentException e) {
+            // Success
+        }
+
+        // Too long ASCII
+        try {
+            new SoftApConfiguration.Builder().setPassphrase(
+                    "This ASCII passphrase is definitely much too long to be valid...",
+                    SoftApConfiguration.SECURITY_TYPE_WPA3_SAE_TRANSITION);
+            fail("Long ASCII password did not throw exception!");
+        } catch (IllegalArgumentException e) {
+            // Success
+        }
+
+        // Too short UTF-8
+        try {
+            new SoftApConfiguration.Builder().setPassphrase(
+                    "短い",
+                    SoftApConfiguration.SECURITY_TYPE_WPA3_SAE_TRANSITION);
+            fail("Short UTF-8 password did not throw exception!");
+        } catch (IllegalArgumentException e) {
+            // Success
+        }
+
+        // Too long UTF-8
+        try {
+            new SoftApConfiguration.Builder().setPassphrase(
+                    "このパスワードはちょっと長すぎて使えられません。",
+                    SoftApConfiguration.SECURITY_TYPE_WPA3_SAE_TRANSITION);
+            fail("Long UTF-8 password did not throw exception!");
+        } catch (IllegalArgumentException e) {
+            // Success
+        }
     }
 
     @Test(expected = IllegalArgumentException.class)

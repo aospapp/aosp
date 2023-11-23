@@ -28,12 +28,15 @@
 #define LOG_TAG "bt_btif_pan"
 
 #include <arpa/inet.h>
-#include <base/bind.h>
+#include <base/functional/bind.h>
 #include <base/location.h>
 #include <fcntl.h>
 #include <linux/if_ether.h>
 #include <linux/if_tun.h>
 #include <net/if.h>
+#ifdef __ANDROID__
+#include <pan.sysprop.h>
+#endif
 #include <poll.h>
 #include <sys/ioctl.h>
 #include <unistd.h>
@@ -93,6 +96,16 @@ static btpan_interface_t pan_if = {
 
 const btpan_interface_t* btif_pan_get_interface() { return &pan_if; }
 
+static bool pan_nap_is_enabled() {
+#ifdef __ANDROID__
+  // replace build time config PAN_NAP_DISABLED with runtime
+  static const bool nap_is_enabled =
+      android::sysprop::bluetooth::Pan::nap().value_or(true);
+  return nap_is_enabled;
+#else
+  return true;
+#endif
+}
 /*******************************************************************************
  **
  ** Function        btif_pan_init
@@ -118,9 +131,9 @@ void btif_pan_init() {
     btpan_cb.enabled = 1;
 
     int role = BTPAN_ROLE_NONE;
-#if PAN_NAP_DISABLED == FALSE
-    role |= BTPAN_ROLE_PANNAP;
-#endif
+    if (pan_nap_is_enabled()) {
+      role |= BTPAN_ROLE_PANNAP;
+    }
 #if PANU_DISABLED == FALSE
     role |= BTPAN_ROLE_PANU;
 #endif
@@ -569,7 +582,7 @@ static void bta_pan_callback_transfer(uint16_t event, char* p_param) {
       btpan_conn_t* conn;
       BTIF_TRACE_DEBUG("BTA_PAN_OPENING_EVT handle %d, addr: %s",
                        p_data->opening.handle,
-                       p_data->opening.bd_addr.ToString().c_str());
+                       ADDRESS_TO_LOGGABLE_CSTR(p_data->opening.bd_addr));
       conn = btpan_find_conn_addr(p_data->opening.bd_addr);
 
       asrt(conn != NULL);

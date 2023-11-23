@@ -27,12 +27,12 @@
 #include <string.h>
 
 #include "bt_target.h"
-#include "bt_utils.h"
 #include "gatt_int.h"
 #include "l2c_api.h"
 #include "osi/include/allocator.h"
 #include "osi/include/log.h"
 #include "osi/include/osi.h"
+#include "stack/arbiter/acl_arbiter.h"
 #include "stack/eatt/eatt.h"
 #include "stack/include/bt_types.h"
 #include "types/bluetooth/uuid.h"
@@ -197,6 +197,11 @@ void gatt_act_read(tGATT_CLCB* p_clcb, uint16_t offset) {
 
     case GATT_READ_MULTIPLE:
       op_code = GATT_REQ_READ_MULTI;
+      memcpy(&msg.read_multi, p_clcb->p_attr_buf, sizeof(tGATT_READ_MULTI));
+      break;
+
+    case GATT_READ_MULTIPLE_VAR_LEN:
+      op_code = GATT_REQ_READ_MULTI_VAR;
       memcpy(&msg.read_multi, p_clcb->p_attr_buf, sizeof(tGATT_READ_MULTI));
       break;
 
@@ -531,7 +536,6 @@ void gatt_process_error_rsp(tGATT_TCB& tcb, tGATT_CLCB* p_clcb,
   VLOG(1) << __func__;
 
   if (len < 4) {
-    android_errorWriteLog(0x534e4554, "79591688");
     LOG(ERROR) << "Error response too short";
     // Specification does not clearly define what should happen if error
     // response is too short. General rule in BT Spec 5.0 Vol 3, Part F 3.4.1.1
@@ -591,7 +595,8 @@ void gatt_process_prep_write_rsp(tGATT_TCB& tcb, tGATT_CLCB* p_clcb,
   VLOG(1) << StringPrintf("value resp op_code = %s len = %d",
                           gatt_dbg_op_name(op_code), len);
 
-  if (len < GATT_PREP_WRITE_RSP_MIN_LEN) {
+  if (len < GATT_PREP_WRITE_RSP_MIN_LEN ||
+      len > GATT_PREP_WRITE_RSP_MIN_LEN + sizeof(value.value)) {
     LOG(ERROR) << "illegal prepare write response length, discard";
     gatt_end_operation(p_clcb, GATT_INVALID_PDU, &value);
     return;
@@ -600,16 +605,21 @@ void gatt_process_prep_write_rsp(tGATT_TCB& tcb, tGATT_CLCB* p_clcb,
   STREAM_TO_UINT16(value.handle, p);
   STREAM_TO_UINT16(value.offset, p);
 
-  value.len = len - 4;
+  value.len = len - GATT_PREP_WRITE_RSP_MIN_LEN;
 
   memcpy(value.value, p, value.len);
+
+  bool subtype_is_write_prepare = (p_clcb->op_subtype == GATT_WRITE_PREPARE);
 
   if (!gatt_check_write_long_terminate(tcb, p_clcb, &value)) {
     gatt_send_prepare_write(tcb, p_clcb);
     return;
   }
 
-  if (p_clcb->op_subtype == GATT_WRITE_PREPARE) {
+  // We now know that we have not terminated, or else we would have returned
+  // early.  We free the buffer only if the subtype is not equal to
+  // GATT_WRITE_PREPARE, so checking here is adequate to prevent UAF.
+  if (subtype_is_write_prepare) {
     /* application should verify handle offset
        and value are matched or not */
     gatt_end_operation(p_clcb, p_clcb->status, &value);
@@ -752,6 +762,10 @@ void gatt_process_notification(tGATT_TCB& tcb, uint16_t cid, uint8_t op_code,
     // Make sure we don't read past the remaining data even if the length says
     // we can Also need to watch comparing the int16_t with the uint16_t
     value.len = std::min((uint16_t)rem_len, value.len);
+    if (value.len > sizeof(value.value)) {
+      LOG(ERROR) << "Unexpected value.len (>GATT_MAX_ATTR_LEN), stop";
+      return ;
+    }
     STREAM_TO_ARRAY(value.value, p, value.len);
     // Accounting
     rem_len -= value.len;
@@ -856,7 +870,6 @@ void gatt_process_read_by_type_rsp(tGATT_TCB& tcb, tGATT_CLCB* p_clcb,
     else if (p_clcb->operation == GATTC_OPTYPE_DISCOVERY &&
              p_clcb->op_subtype == GATT_DISC_INC_SRVC) {
       if (value_len < 4) {
-        android_errorWriteLog(0x534e4554, "158833854");
         LOG(ERROR) << __func__ << " Illegal Response length, must be at least 4.";
         gatt_end_operation(p_clcb, GATT_INVALID_PDU, NULL);
         return;
@@ -915,7 +928,6 @@ void gatt_process_read_by_type_rsp(tGATT_TCB& tcb, tGATT_CLCB* p_clcb,
     } else /* discover characterisitic */
     {
       if (value_len < 3) {
-        android_errorWriteLog(0x534e4554, "158778659");
         LOG(ERROR) << __func__ << " Illegal Response length, must be at least 3.";
         gatt_end_operation(p_clcb, GATT_INVALID_PDU, NULL);
         return;
@@ -1096,11 +1108,32 @@ void gatt_process_mtu_rsp(tGATT_TCB& tcb, tGATT_CLCB* p_clcb, uint16_t len,
   } else {
     STREAM_TO_UINT16(mtu, p_data);
 
-    if (mtu < tcb.payload_size && mtu >= GATT_DEF_BLE_MTU_SIZE)
-      tcb.payload_size = mtu;
-  }
+    LOG_INFO("Local pending MTU %d, Remote (%s) MTU %d",
+             tcb.pending_user_mtu_exchange_value,
+             tcb.peer_bda.ToString().c_str(), mtu);
 
-  BTM_SetBleDataLength(tcb.peer_bda, tcb.payload_size + L2CAP_PKT_OVERHEAD);
+    /* Aim for MAX as we did in the request */
+    if (mtu < GATT_DEF_BLE_MTU_SIZE) {
+      tcb.payload_size = GATT_DEF_BLE_MTU_SIZE;
+    } else {
+      tcb.payload_size = std::min(mtu, (uint16_t)(GATT_MAX_MTU_SIZE));
+    }
+
+    bluetooth::shim::arbiter::GetArbiter().OnIncomingMtuResp(tcb.tcb_idx,
+                                                             tcb.payload_size);
+
+    /* This is just to track the biggest MTU requested by the user.
+     * This value will be used in the BTM_SetBleDataLength */
+    if (tcb.pending_user_mtu_exchange_value > tcb.max_user_mtu) {
+      tcb.max_user_mtu =
+          std::min(tcb.pending_user_mtu_exchange_value, tcb.payload_size);
+    }
+    tcb.pending_user_mtu_exchange_value = 0;
+
+    LOG_INFO("MTU Exchange resulted in: %d", tcb.payload_size);
+
+    BTM_SetBleDataLength(tcb.peer_bda, tcb.max_user_mtu + L2CAP_PKT_OVERHEAD);
+  }
 
   gatt_end_operation(p_clcb, status, NULL);
 }
@@ -1125,15 +1158,17 @@ uint8_t gatt_cmd_to_rsp_code(uint8_t cmd_code) {
 
 /** Find next command in queue and sent to server */
 bool gatt_cl_send_next_cmd_inq(tGATT_TCB& tcb) {
-  std::queue<tGATT_CMD_Q>* cl_cmd_q;
+  std::deque<tGATT_CMD_Q>* cl_cmd_q = nullptr;
 
-  while (!tcb.cl_cmd_q.empty() ||
-         EattExtension::GetInstance()->IsOutstandingMsgInSendQueue(tcb.peer_bda)) {
-    if (!tcb.cl_cmd_q.empty()) {
+  while (
+      gatt_is_outstanding_msg_in_att_send_queue(tcb) ||
+      EattExtension::GetInstance()->IsOutstandingMsgInSendQueue(tcb.peer_bda)) {
+    if (gatt_is_outstanding_msg_in_att_send_queue(tcb)) {
       cl_cmd_q = &tcb.cl_cmd_q;
     } else {
       EattChannel* channel =
-          EattExtension::GetInstance()->GetChannelWithQueuedData(tcb.peer_bda);
+          EattExtension::GetInstance()->GetChannelWithQueuedDataToSend(
+              tcb.peer_bda);
       cl_cmd_q = &channel->cl_cmd_q_;
     }
 
@@ -1147,7 +1182,7 @@ bool gatt_cl_send_next_cmd_inq(tGATT_TCB& tcb) {
 
     if (att_ret != GATT_SUCCESS && att_ret != GATT_CONGESTED) {
       LOG(ERROR) << __func__ << ": L2CAP sent error";
-      cl_cmd_q->pop();
+      cl_cmd_q->pop_front();
       continue;
     }
 
@@ -1179,7 +1214,7 @@ bool gatt_cl_send_next_cmd_inq(tGATT_TCB& tcb) {
 void gatt_client_handle_server_rsp(tGATT_TCB& tcb, uint16_t cid,
                                    uint8_t op_code, uint16_t len,
                                    uint8_t* p_data) {
-  VLOG(1) << __func__ << " opcode: " << loghex(op_code);
+  VLOG(1) << __func__ << " opcode: " << loghex(op_code) << " cid" << +cid;
 
   uint16_t payload_size = gatt_tcb_get_payload_size_rx(tcb, cid);
 
@@ -1198,17 +1233,23 @@ void gatt_client_handle_server_rsp(tGATT_TCB& tcb, uint16_t cid,
 
   uint8_t cmd_code = 0;
   tGATT_CLCB* p_clcb = gatt_cmd_dequeue(tcb, cid, &cmd_code);
-  uint8_t rsp_code = gatt_cmd_to_rsp_code(cmd_code);
-  if (!p_clcb || (rsp_code != op_code && op_code != GATT_RSP_ERROR)) {
-    LOG(WARNING) << StringPrintf(
-        "ATT - Ignore wrong response. Receives (%02x) Request(%02x) Ignored",
-        op_code, rsp_code);
+  if (!p_clcb) {
+    LOG_WARN("ATT - clcb already not in use, ignoring response");
+    gatt_cl_send_next_cmd_inq(tcb);
     return;
   }
 
-  if (!p_clcb->in_use) {
-    LOG(WARNING) << "ATT - clcb already not in use, ignoring response";
+  uint8_t rsp_code = gatt_cmd_to_rsp_code(cmd_code);
+  if (!p_clcb) {
+    LOG_WARN("ATT - clcb already not in use, ignoring response");
     gatt_cl_send_next_cmd_inq(tcb);
+    return;
+  }
+
+  if (rsp_code != op_code && op_code != GATT_RSP_ERROR) {
+    LOG(WARNING) << StringPrintf(
+        "ATT - Ignore wrong response. Receives (%02x) Request(%02x) Ignored",
+        op_code, rsp_code);
     return;
   }
 

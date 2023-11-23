@@ -559,16 +559,27 @@ class Navigator {
         }
         boolean hasFocusableDescendant = false;
         for (AccessibilityNodeInfo webView : webViews) {
-            AccessibilityNodeInfo focusableDescendant = mTreeTraverser.depthFirstSearch(webView,
-                    Utils::canPerformFocus);
-            if (focusableDescendant != null) {
+            if (webViewHasFocusableDescendants(webView)) {
                 hasFocusableDescendant = true;
-                focusableDescendant.recycle();
                 break;
             }
         }
         Utils.recycleNodes(webViews);
         return hasFocusableDescendant;
+    }
+
+    private boolean webViewHasFocusableDescendants(@NonNull AccessibilityNodeInfo webView) {
+        AccessibilityNodeInfo focusableDescendant = mTreeTraverser.depthFirstSearch(webView,
+                Utils::canPerformFocus);
+        if (focusableDescendant == null) {
+            return false;
+        }
+        focusableDescendant.recycle();
+        return true;
+    }
+
+    private boolean isWebViewWithFocusableDescendants(@NonNull AccessibilityNodeInfo node) {
+        return Utils.isWebView(node) && webViewHasFocusableDescendants(node);
     }
 
     /**
@@ -815,7 +826,7 @@ class Navigator {
         if (Utils.isFocusArea(node) || Utils.isFocusParkingView(node)) {
             return bounds;
         }
-        if (Utils.canTakeFocus(node) || containsWebViewWithFocusableDescendants(node)) {
+        if (Utils.canTakeFocus(node) || isWebViewWithFocusableDescendants(node)) {
             return Utils.getBoundsInScreen(node);
         }
         for (int i = 0; i < node.getChildCount(); i++) {

@@ -37,7 +37,7 @@ interface IVirtualizationService {
      * The file must be open with both read and write permissions, and should be a new empty file.
      */
     void initializeWritablePartition(
-            in ParcelFileDescriptor imageFd, long size, PartitionType type);
+            in ParcelFileDescriptor imageFd, long sizeBytes, PartitionType type);
 
     /**
      * Create or update an idsig file that digests the given APK file. The idsig file follows the
@@ -53,17 +53,4 @@ interface IVirtualizationService {
      * and as such is only permitted from the shell user.
      */
     VirtualMachineDebugInfo[] debugListVms();
-
-    /**
-     * Hold a strong reference to a VM in VirtualizationService. This method is only intended for
-     * debug purposes, and as such is only permitted from the shell user.
-     */
-    void debugHoldVmRef(IVirtualMachine vm);
-
-    /**
-     * Drop reference to a VM that is being held by VirtualizationService. Returns the reference if
-     * VM was found and null otherwise. This method is only intended for debug purposes, and as such
-     * is only permitted from the shell user.
-     */
-    @nullable IVirtualMachine debugDropVmRef(int cid);
 }

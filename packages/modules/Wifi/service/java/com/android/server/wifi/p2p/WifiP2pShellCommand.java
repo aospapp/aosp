@@ -19,6 +19,7 @@ package com.android.server.wifi.p2p;
 import android.content.Context;
 import android.net.MacAddress;
 import android.net.NetworkInfo;
+import android.net.wifi.SynchronousExecutor;
 import android.net.wifi.p2p.WifiP2pConfig;
 import android.net.wifi.p2p.WifiP2pDevice;
 import android.net.wifi.p2p.WifiP2pDeviceList;
@@ -199,7 +200,7 @@ public class WifiP2pShellCommand extends BasicShellCommandHandler {
                         new WifiP2pManager.GroupInfoListener() {
                             @Override
                             public void onGroupInfoAvailable(WifiP2pGroup group) {
-                                pw.println(group.toString());
+                                pw.println(group);
                                 countDownLatch.countDown();
                             }
                         });
@@ -247,6 +248,25 @@ public class WifiP2pShellCommand extends BasicShellCommandHandler {
                         });
                 countDownLatch.await(1000, TimeUnit.MILLISECONDS);
                 return 0;
+            case "get-listen-state": {
+                mWifiP2pManager.getListenState(sWifiP2pChannel, new SynchronousExecutor(),
+                        state -> {
+                            switch (state) {
+                                case WifiP2pManager.WIFI_P2P_LISTEN_STARTED:
+                                    pw.println("STARTED");
+                                    break;
+                                case WifiP2pManager.WIFI_P2P_LISTEN_STOPPED:
+                                    pw.println("STOPPED");
+                                    break;
+                                default:
+                                    pw.println("UNKNOWN");
+                                    break;
+                            }
+                            countDownLatch.countDown();
+                        });
+                countDownLatch.await(1000, TimeUnit.MILLISECONDS);
+                return 0;
+            }
             case "get-network-info":
                 mWifiP2pManager.requestNetworkInfo(sWifiP2pChannel,
                         new WifiP2pManager.NetworkInfoListener() {
@@ -535,6 +555,8 @@ public class WifiP2pShellCommand extends BasicShellCommandHandler {
         pw.println("    Get P2P state.");
         pw.println("  get-discovery-state");
         pw.println("    Indicate whether p2p discovery is running or not.");
+        pw.println("  get-listen-state");
+        pw.println("    Indicate whether p2p listen is running or not.");
         pw.println("  list-saved-groups");
         pw.println("    List saved groups.");
         pw.println("  delete-saved-group <networkId>");

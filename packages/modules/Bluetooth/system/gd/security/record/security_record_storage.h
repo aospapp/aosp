@@ -31,11 +31,11 @@ namespace bluetooth {
 namespace security {
 namespace record {
 
-#if defined(OS_GENERIC)
-static const char* CONFIG_FILE_PATH = "bt_config.conf";
-#else   // !defined(OS_GENERIC)
+#ifdef __ANDROID__
 static const char* CONFIG_FILE_PATH = "/data/misc/bluedroid/bt_config.conf";
-#endif  // defined(OS_GENERIC)
+#else   // !__ANDROID__
+static const char* CONFIG_FILE_PATH = "bt_config.conf";
+#endif  // __ANDROID__
 
 class SecurityRecordStorage {
  public:

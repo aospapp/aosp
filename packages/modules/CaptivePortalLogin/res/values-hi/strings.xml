@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="app_name" msgid="5832002141924282426">"CaptivePortalLogin"</string>
+    <string name="app_name" msgid="9113573340518078598">"कैप्टिव पोर्टल लॉगिन"</string>
     <string name="action_use_network" msgid="8239049683838236305">"इस नेटवर्क का उपयोग जैसा है वैसा ही करें"</string>
     <string name="action_do_not_use_network" msgid="6324702363356892396">"इस नेटवर्क का उपयोग न करें"</string>
     <string name="action_bar_label" msgid="2023171629563754892">"नेटवर्क में साइन इन करें"</string>

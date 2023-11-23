@@ -17,6 +17,9 @@
 package com.android.car.settings.common;
 
 import static com.android.car.settings.common.PreferenceController.AVAILABLE;
+import static com.android.car.settings.common.PreferenceController.AVAILABLE_FOR_VIEWING;
+import static com.android.car.settings.common.PreferenceController.CONDITIONALLY_UNAVAILABLE;
+import static com.android.car.settings.common.PreferenceController.DISABLED_FOR_PROFILE;
 import static com.android.car.settings.common.PreferenceController.UNSUPPORTED_ON_DEVICE;
 
 import static com.google.common.truth.Truth.assertThat;
@@ -209,6 +212,108 @@ public class PreferenceControllerTest {
     @Test
     public void getAvailabilityStatus_defaultsToAvailable() {
         assertThat(mController.getAvailabilityStatus()).isEqualTo(AVAILABLE);
+    }
+
+    @Test
+    public void getAvailabilityStatus_defaultsToAvailable_zoneWrite() {
+        mController.setAvailabilityStatusForZone("write");
+        assertThat(mController.getAvailabilityStatus()).isEqualTo(AVAILABLE);
+    }
+
+    @Test
+    public void getAvailabilityStatus_defaultsToAvailable_zoneRead() {
+        mController.setAvailabilityStatusForZone("read");
+        assertThat(mController.getAvailabilityStatus()).isEqualTo(AVAILABLE_FOR_VIEWING);
+    }
+
+    @Test
+    public void getAvailabilityStatus_defaultsToAvailable_zoneHidden() {
+        mController.setAvailabilityStatusForZone("hidden");
+        assertThat(mController.getAvailabilityStatus()).isEqualTo(CONDITIONALLY_UNAVAILABLE);
+    }
+
+    @Test
+    public void getAvailabilityStatus_defaultsToConditionallyUnavailable_zoneWrite() {
+        mController.setAvailabilityStatus(CONDITIONALLY_UNAVAILABLE);
+        mController.setAvailabilityStatusForZone("write");
+        assertThat(mController.getAvailabilityStatus()).isEqualTo(CONDITIONALLY_UNAVAILABLE);
+    }
+
+    @Test
+    public void getAvailabilityStatus_defaultsToConditionallyUnavailable_zoneRead() {
+        mController.setAvailabilityStatus(CONDITIONALLY_UNAVAILABLE);
+        mController.setAvailabilityStatusForZone("read");
+        assertThat(mController.getAvailabilityStatus()).isEqualTo(CONDITIONALLY_UNAVAILABLE);
+    }
+
+    @Test
+    public void getAvailabilityStatus_defaultsToConditionallyUnavailable_zoneHidden() {
+        mController.setAvailabilityStatus(CONDITIONALLY_UNAVAILABLE);
+        mController.setAvailabilityStatusForZone("hidden");
+        assertThat(mController.getAvailabilityStatus()).isEqualTo(CONDITIONALLY_UNAVAILABLE);
+    }
+
+    @Test
+    public void getAvailabilityStatus_defaultsToUnsupportedOnDevice_zoneWrite() {
+        mController.setAvailabilityStatus(UNSUPPORTED_ON_DEVICE);
+        mController.setAvailabilityStatusForZone("write");
+        assertThat(mController.getAvailabilityStatus()).isEqualTo(UNSUPPORTED_ON_DEVICE);
+    }
+
+    @Test
+    public void getAvailabilityStatus_defaultsToUnsupportedOnDevice_zoneRead() {
+        mController.setAvailabilityStatus(UNSUPPORTED_ON_DEVICE);
+        mController.setAvailabilityStatusForZone("read");
+        assertThat(mController.getAvailabilityStatus()).isEqualTo(UNSUPPORTED_ON_DEVICE);
+    }
+
+    @Test
+    public void getAvailabilityStatus_defaultsToUnsupportedOnDevice_zoneHidden() {
+        mController.setAvailabilityStatus(UNSUPPORTED_ON_DEVICE);
+        mController.setAvailabilityStatusForZone("hidden");
+        assertThat(mController.getAvailabilityStatus()).isEqualTo(UNSUPPORTED_ON_DEVICE);
+    }
+
+    @Test
+    public void getAvailabilityStatus_defaultsToDisabledForProfile_zoneWrite() {
+        mController.setAvailabilityStatus(DISABLED_FOR_PROFILE);
+        mController.setAvailabilityStatusForZone("write");
+        assertThat(mController.getAvailabilityStatus()).isEqualTo(DISABLED_FOR_PROFILE);
+    }
+
+    @Test
+    public void getAvailabilityStatus_defaultsToDisabledForProfile_zoneRead() {
+        mController.setAvailabilityStatus(DISABLED_FOR_PROFILE);
+        mController.setAvailabilityStatusForZone("read");
+        assertThat(mController.getAvailabilityStatus()).isEqualTo(DISABLED_FOR_PROFILE);
+    }
+
+    @Test
+    public void getAvailabilityStatus_defaultsToDisabledForProfile_zoneHidden() {
+        mController.setAvailabilityStatus(DISABLED_FOR_PROFILE);
+        mController.setAvailabilityStatusForZone("hidden");
+        assertThat(mController.getAvailabilityStatus()).isEqualTo(DISABLED_FOR_PROFILE);
+    }
+
+    @Test
+    public void getAvailabilityStatus_defaultsToAvailableForViewing_zoneWrite() {
+        mController.setAvailabilityStatus(AVAILABLE_FOR_VIEWING);
+        mController.setAvailabilityStatusForZone("write");
+        assertThat(mController.getAvailabilityStatus()).isEqualTo(AVAILABLE_FOR_VIEWING);
+    }
+
+    @Test
+    public void getAvailabilityStatus_defaultsToAvailableForViewing_zoneRead() {
+        mController.setAvailabilityStatus(AVAILABLE_FOR_VIEWING);
+        mController.setAvailabilityStatusForZone("read");
+        assertThat(mController.getAvailabilityStatus()).isEqualTo(AVAILABLE_FOR_VIEWING);
+    }
+
+    @Test
+    public void getAvailabilityStatus_defaultsToAvailableForViewing_zoneHidden() {
+        mController.setAvailabilityStatus(AVAILABLE_FOR_VIEWING);
+        mController.setAvailabilityStatusForZone("hidden");
+        assertThat(mController.getAvailabilityStatus()).isEqualTo(CONDITIONALLY_UNAVAILABLE);
     }
 
     @Test

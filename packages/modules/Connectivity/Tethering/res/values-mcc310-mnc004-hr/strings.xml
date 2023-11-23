@@ -16,9 +16,9 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="no_upstream_notification_title" msgid="5030042590486713460">"Modemsko povezivanje nema internet"</string>
-    <string name="no_upstream_notification_message" msgid="3843613362272973447">"Uređaji se ne mogu povezati"</string>
-    <string name="no_upstream_notification_disable_button" msgid="6385491461813507624">"Isključivanje modemskog povezivanja"</string>
-    <string name="upstream_roaming_notification_title" msgid="3015912166812283303">"Uključena je žarišna točka ili modemsko povezivanje"</string>
-    <string name="upstream_roaming_notification_message" msgid="6724434706748439902">"U roamingu su mogući dodatni troškovi"</string>
+    <string name="no_upstream_notification_title" msgid="3584617491053416666">"Modemsko povezivanje nema internet"</string>
+    <string name="no_upstream_notification_message" msgid="5626323795587558017">"Uređaji se ne mogu povezati"</string>
+    <string name="no_upstream_notification_disable_button" msgid="868677179945695858">"Isključi modemsko povezivanje"</string>
+    <string name="upstream_roaming_notification_title" msgid="2870229486619751829">"Uključena je žarišna točka ili modemsko povezivanje"</string>
+    <string name="upstream_roaming_notification_message" msgid="5229740963392849544">"U roamingu su mogući dodatni troškovi"</string>
 </resources>

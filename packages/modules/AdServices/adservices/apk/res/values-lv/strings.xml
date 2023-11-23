@@ -1,0 +1,680 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--  Copyright (C) 2022 The Android Open Source Project
+
+     Licensed under the Apache License, Version 2.0 (the "License");
+     you may not use this file except in compliance with the License.
+     You may obtain a copy of the License at
+
+          http://www.apache.org/licenses/LICENSE-2.0
+
+     Unless required by applicable law or agreed to in writing, software
+     distributed under the License is distributed on an "AS IS" BASIS,
+     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+     See the License for the specific language governing permissions and
+     limitations under the License.
+ -->
+
+<!--  IMPORTANT! If adding new strings, then run generate_adservices_public_xml.py  -->
+
+<resources xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+    <string name="permlab_accessAdServicesTopics" msgid="1108993892369517728">"piekļuve saskarnei AdServices Topics API"</string>
+    <string name="permdesc_accessAdServicesTopics" msgid="4220466427260104683">"Ļauj lietojumprogrammai piekļūt saskarnei AdServices Topics API."</string>
+    <string name="permlab_accessAdServicesAttribution" msgid="4498132091418336093">"piekļuve saskarnēm AdServices Attribution API"</string>
+    <string name="permdesc_accessAdServicesAttribution" msgid="1644434244130657749">"Ļauj lietojumprogrammai piekļūt saskarnēm AdServices Attribution API."</string>
+    <string name="permlab_accessAdServicesCustomAudience" msgid="2766614780488510189">"piekļuve saskarnei AdServices Custom Audience API"</string>
+    <string name="permdesc_accessAdServicesCustomAudience" msgid="2034811807106784662">"Ļauj lietojumprogrammai piekļūt saskarnei AdServices Custom Audience API."</string>
+    <string name="permlab_accessAdServicesAdId" msgid="2754825914769538156">"Piekļuve reklamēšanas ID API"</string>
+    <string name="permdesc_accessAdServicesAdId" msgid="7717770480967762044">"Ļauj lietojumprogrammai piekļūt reklamēšanas ID API."</string>
+    <string name="permlab_accessAdServicesConsent" msgid="3203633397142568707">"piekļuve saskarnei AdServices Consent API"</string>
+    <string name="permdesc_accessAdServicesConsent" msgid="8440334072391708453">"Ļauj lietojumprogrammai piekļūt saskarnei AdServices Consent API."</string>
+    <string name="permlab_adServicesAccessAdId" msgid="1425385999072194463">"piekļuve saskarnei Ad ID API"</string>
+    <string name="permdesc_adServicesAccessAdId" msgid="5082994464565978279">"Ļauj lietojumprogrammai piekļūt saskarnei Ad ID API."</string>
+    <string name="permlab_adServicesAccessAppSetId" msgid="1300149048751231124">"piekļuve saskarnei App Set ID API"</string>
+    <string name="permdesc_adServicesAccessAppSetId" msgid="7919418391145455372">"Ļauj lietojumprogrammai piekļūt saskarnei App Set ID API."</string>
+    <string name="permlab_adServicesAccessConsentService" msgid="5994709782267864205">"Piekļuve saskarnei Consent Service API"</string>
+    <string name="permdesc_adServicesAccessConsentService" msgid="4587727715580124241">"Ļauj lietojumprogrammai piekļūt saskarnei Consent Service API."</string>
+    <string name="permlab_modifyAdServicesState" msgid="3594653261299518914">"Piekļuve AdService iespējošanas statusa pārveidošanas API"</string>
+    <string name="permdesc_modifyAdServicesState" msgid="2485849128464307209">"Ļauj lietojumprogrammai piekļūt AdService iespējošanas statusa pārveidošanas API."</string>
+    <string name="permlab_accessAdServicesState" msgid="482058883975394398">"Piekļuve AdService iespējošanas statusa API"</string>
+    <string name="permdesc_accessAdServicesState" msgid="1165015604618567202">"Ļauj lietojumprogrammai piekļūt AdService iespējošanas statusa API."</string>
+    <string name="permlab_accessAdServicesManager" msgid="4816332609066703740">"Piekļuve AdServicesManager saskarnēm API"</string>
+    <string name="permdesc_accessAdServicesManager" msgid="2619300431637689524">"Ļauj lietojumprogrammai piekļūt AdServicesManager saskarnēm API."</string>
+    <string name="app_label" msgid="5985320129629013968">"Android sistēma"</string>
+    <string name="notificationUI_notification_title_eu" msgid="6328781145332100489">"Pievienojieties Android reklāmu konfidencialitātes beta programmai"</string>
+    <string name="notificationUI_notification_content_eu" msgid="4119222762583017840">"Operētājsistēmā Android tiek izmēģināti citi reklāmu rādīšanas veidi, kas labāk aizsargā konfidencialitāti"</string>
+    <string name="notificationUI_notification_cta_eu" msgid="1294908454704864207">"Uzzināt vairāk"</string>
+    <string name="notificationUI_header_title_eu" msgid="4955298263079910371">"Android reklāmu konfidencialitātes beta programma"</string>
+    <string name="notificationUI_container1_title_eu" msgid="8315199862119660570">"Jaunumi"</string>
+    <string name="notificationUI_container1_body_text_eu" msgid="1700290522706948241">"Konfidencialitātes smilškastes jaunās konfidencialitātes funkcijas ļauj lietotnēs jums rādīt atbilstošas reklāmas, bet vienlaikus ierobežo informāciju, ko lietotnes var iegūt par jūsu darbībām tīmekļa vietnēs vai citu izstrādātāju lietotnēs."</string>
+    <string name="notificationUI_container1_control_text_eu" msgid="3158258148321255153">"Kā tā darbojas"</string>
+    <string name="notificationUI_container2_title_eu" msgid="7198761373796187596">"Kā piedalīties"</string>
+    <string name="notificationUI_container2_body_text_eu" msgid="5763735880112009239">"Ieslēdzot beta versiju, lietotnēm tiek atļauts testēt šos jaunos reklāmu rādīšanas veidus, kas nodrošina lielāku konfidencialitāti. Savos konfidencialitātes iestatījumos varat jebkurā laikā izslēgt beta versiju."</string>
+    <string name="notificationUI_left_control_button_text_eu" msgid="3573715612232957187">"Nē, paldies"</string>
+    <string name="notificationUI_right_control_button_text_eu" msgid="8484787286437052150">"Ieslēgt"</string>
+    <string name="notificationUI_more_button_text" msgid="8861584693765844519">"Vairāk"</string>
+    <string name="notificationUI_confirmation_accept_title" msgid="3178322390976087463">"Pateicamies par dalību!"</string>
+    <string name="notificationUI_confirmation_accept_subtitle" msgid="6980730715078085252">"Jūs piedalāties Android reklāmu konfidencialitātes beta programmā. Jūsu ierīcē ir ieslēgta konfidencialitātes smilškaste.\n\nKonfidencialitātes iestatījumos jebkurā laikā varat uzzināt vairāk vai izslēgt beta versiju."</string>
+    <string name="notificationUI_confirmation_decline_title" msgid="6453417169877486440">"Izvēlējāties nepiedalīties"</string>
+    <string name="notificationUI_confirmation_decline_subtitle" msgid="4194388733937808440">"Paldies par atbildi! Jūsu ierīcē ir ieslēgta konfidencialitātes smilškaste.\n\nJa pārdomājat vai vēlaties iegūt plašāku informāciju, atveriet konfidencialitātes iestatījumus."</string>
+    <string name="notificationUI_confirmation_left_control_button_text" msgid="7459283556129950513">"Konfidencialitātes iestatījumi"</string>
+    <string name="notificationUI_confirmation_right_control_button_text" msgid="1390803936115621269">"Labi"</string>
+    <string name="notificationUI_container2_title" msgid="3844342008598264655">"Jūs piedalāties beta programmā"</string>
+    <string name="notificationUI_container2_body_text" msgid="758560159693325060">"Konfidencialitātes smilškaste ir ieslēgta jūsu ierīcei, un lietotnes var testēt šos jaunos reklāmu rādīšanas veidus, kas nodrošina lielāku konfidencialitāti. Savos konfidencialitātes iestatījumos varat jebkurā laikā izslēgt beta versiju."</string>
+    <string name="notificationUI_right_control_button_text" msgid="4418849554981401536">"Labi"</string>
+    <string name="notificationUI_how_it_works_expanded_text1" msgid="5567641119079971239">"Android konfidencialitātes smilškaste ietver jaunas funkcijas, ko lietotnes var izmantot, lai rādītu reklāmas, kas jums varētu interesēt. Šīs tehnoloģijas neizmanto ierīču identifikatorus.\n\nOperētājsistēma Android un jūsu lietotnes var aptuveni noteikt, kādas reklāmas varētu jūs interesēt, un šīs intereses īslaicīgi var saglabāt jūsu ierīcē. Tādējādi lietotnes var rādīt reklāmas, kas jums varētu interesēt, neizsekojot jūsu darbības tīmekļa vietnēs un citu izstrādātāju lietotnēs."</string>
+    <string name="notificationUI_how_it_works_expanded_text2" msgid="6676443093692450581">"Reklāmu personalizācija, izmantojot konfidencialitātes smilškasti"</string>
+    <string name="notificationUI_how_it_works_expanded_text3" msgid="603165966360369018">"•  Operētājsistēmā Android aptuveni noteiktās intereses"</string>
+    <string name="notificationUI_how_it_works_expanded_text4" msgid="3910573920883580609">"Operētājsistēmā Android pēc jūsu izmantojām lietotnēm periodiski tiek noteiktas jūsu galvenās intereses (piemēram, sports vai ceļošana).\n\nVēlāk lietotne operētājsistēmai Android var pieprasīt atļauju izmantot šīs intereses, lai rādītu jums atbilstošākas reklāmas.\n\nKonfidencialitātes iestatījumos varat skatīt pašreizējo interešu sarakstu un bloķēt tās intereses, kas jums nešķiet atbilstošas."</string>
+    <string name="notificationUI_how_it_works_expanded_text5" msgid="7257714040472055781">"•  Lietotnēs noteiktās intereses"</string>
+    <string name="notificationUI_how_it_works_expanded_text6" msgid="2949292580123453023">"Lietotnēs var tikt aptuveni noteiktas jūsu intereses, un tās īslaicīgi var tikt saglabātas Android ierīcē. Piemēram, lietotne, kurā iegādājāties skriešanas apavus, var secināt, ka interesējaties par skriešanu maratonos.\n\nVēlāk, pamatojoties uz noteikto interesi, citā lietotnē jums var tikt parādīta ar maratoniem saistīta reklāma.\n\nSavos konfidencialitātes iestatījumos varat pārvaldīt to lietotņu sarakstu, kurā tiek saglabātas intereses."</string>
+    <string name="notificationUI_notification_ga_title" msgid="7090667803616048587">"Jaunas reklāmu konfidencialitātes funkcijas"</string>
+    <string name="notificationUI_notification_ga_content" msgid="3483979694272908942">"Reklāmu tēmas un jaunas vadīklas sniedz lielākas izvēles iespējas attiecībā uz jums rādītajām reklāmām."</string>
+    <string name="notificationUI_header_ga_title" msgid="3557937325021173836">"Tagad ir pieejamas jaunas reklāmu konfidencialitātes funkcijas"</string>
+    <string name="notificationUI_container2_ga_introduction" msgid="2201578950159210581">"Android nosaka, kādas tēmas jūs interesē, ņemot vērā nesen izmantotās lietotnes. Arī jūsu izmantotās lietotnes var noteikt, kas jums patīk. Vēlāk lietotnes var pieprasīt šo informāciju, lai rādītu jums personalizētas reklāmas. Varat izvēlēties, kuras tēmas un lietotnes tiek izmantotas, lai rādītu jums reklāmas."</string>
+    <string name="notificationUI_container3_ga_introduction" msgid="4247237824558927582">"Lai novērtētu reklāmas veiktspēju, lietotnes kopīgo noteikta veida datus."</string>
+    <string name="notificationUI_ga_container1_control_text" msgid="2711321174550177509">"Plašāka informācija par reklāmām operētājsistēmā Android"</string>
+    <string name="notificationUI_how_it_works_row_subtitle1" msgid="8685034725335826096">"Noderīgākas reklāmas"</string>
+    <string name="notificationUI_how_it_works_row_body1" msgid="5865369599951938718">"Lietotnes var pieprasīt no operētājsistēmas Android informāciju, lai palīdzētu personalizēt jums rādītās reklāmas."</string>
+    <string name="notificationUI_how_it_works_row_body2" msgid="6601773212442110369">"•  Android nosaka, kādas tēmas jūs interesē, ņemot vērā nesen izmantotās lietotnes."</string>
+    <string name="notificationUI_how_it_works_row_body3" msgid="3692457397642529055">"•  Izmantotās lietotnes var arī noteikt to, kas jums patīk, ņemot vērā to, kā jūs izmantojat šīs lietotnes. Piemēram, ja izmantojat lietotni, kurā tiek tirgoti garo distanču skriešanas apavi, lietotne var izsecināt, ka interesējaties par maratonu skriešanu."</string>
+    <string name="notificationUI_how_it_works_row_body4" msgid="8731138074016839243">"Vēlāk kādā izmantotajā lietotnē var tikt lūgta šī informācija — vai nu jūsu reklāmu tēmas, vai arī jūsu izmantotajās lietotnēs ieteiktās reklāmas."</string>
+    <string name="notificationUI_how_it_works_row_body5" msgid="4524382869577899661">"Operētājsistēmā Android tēmas un lietotņu ieteiktie dati regulāri tiek automātiski dzēsti. Varat arī bloķēt konkrētas tēmas un lietotnes, lai nesaņemtu to ieteikumus."</string>
+    <string name="notificationUI_how_it_works_subtitle2" msgid="2203542887026049927">"Reklāmas veiktspējas izvērtēšana"</string>
+    <string name="notificationUI_how_it_works_row_body6" msgid="5368364880910986588">"Jūsu izmantotās lietotnes var pieprasīt informāciju no operētājsistēmas Android, lai varētu efektīvāk novērtēt reklāmu veiktspēju šajās lietotnēs. Android ļauj lietotnēm vākt tikai noteiktu veidu datus, piemēram, par diennakts laiku, kad reklāma tika jums parādīta."</string>
+    <string name="notificationUI_notification_ga_title_eu" msgid="5803977334621918481">"Izmēģiniet jaunas reklāmu konfidencialitātes funkcijas"</string>
+    <string name="notificationUI_notification_ga_content_eu" msgid="8430705356085726474">"Reklāmu tēmas sniedz lielākas izvēles iespējas attiecībā uz jums rādītajām reklāmām."</string>
+    <string name="notificationUI_notification_ga_cta_eu" msgid="8494461862622985200">"Skatīt detalizētu informāciju"</string>
+    <string name="notificationUI_header_ga_title_eu" msgid="6246782633712559485">"Izmēģiniet jaunas reklāmu konfidencialitātes funkcijas"</string>
+    <string name="notificationUI_container1_body_ga_text_eu" msgid="2461669162863900717">"Android izlaiž jaunas konfidencialitātes funkcijas, kas sniedz lielākas izvēles iespējas attiecībā uz jums rādītajām reklāmām."</string>
+    <string name="notificationUI_container2_body_ga_text_eu" msgid="1692066129509373924">"Reklāmu tēmas palīdz lietotnēm rādīt jums atbilstošas reklāmas, vienlaikus aizsargājot jūsu identitāti un informāciju par lietotņu izmantojumu. Android var noteikt, kādas tēmas jūs interesē, ņemot vērā nesen izmantotās lietotnes. Vēlāk, lai personalizētu jums rādītās reklāmas, kāda jūsu izmantotā lietotne var pieprasīt no operētājsistēmas Android atbilstošās tēmas."</string>
+    <string name="notificationUI_container3_body_ga_text_eu" msgid="5992069735281496875">"Varat skatīt reklāmu tēmas ierīces iestatījumos un bloķēt tēmas, ko nevēlaties atļaut kopīgot ar lietotnēm. Android arī regulāri dzēš reklāmu tēmas automātiski."</string>
+    <string name="notificationUI_change_any_time_in_privacy_settings_eu" msgid="2908767337419331427">"Savu izvēli varat jebkurā laikā mainīt konfidencialitātes iestatījumos."</string>
+    <string name="notificationUI_container1_control_ga_text_eu" msgid="4496835418228234590">"Plašāka informācija par reklāmu tēmām"</string>
+    <string name="notificationUI_learn_more_from_privacy_policy" msgid="7809111628979410445">"Lai uzzinātu vairāk par to, kā Android aizsargā jūsu datus, skatiet mūsu "<a href="https://policies.google.com/privacy">"konfidencialitātes politiku"</a>"."</string>
+    <string name="notificationUI_right_control_button_ga_text_eu" msgid="7164165910760741822">"Izmēģināt"</string>
+    <string name="notificationUI_how_it_works_topics_expanded_text3" msgid="5620813445262745365">"•  Kādi dati tiek izmantoti"</string>
+    <string name="notificationUI_how_it_works_topics_expanded_text4" msgid="398508225331553559">"reklāmu tēmas tiek noteiktas, pamatojoties uz lietotnēm, ko nesen esat izmantojis šajā ierīcē, un to, cik bieži izmantojat šīs lietotnes."</string>
+    <string name="notificationUI_how_it_works_topics_expanded_text5" msgid="5976468008939416198">"•  Kā mēs izmantojam šos datus"</string>
+    <string name="notificationUI_how_it_works_topics_expanded_text6" msgid="6318275524155409408">"Operētājsistēmā Android tiek reģistrētas tēmas, kas jūs interesē. Tēmu iezīmes ir iepriekš definētas, piemēram, Māksla un izklaide, Pirkumi un Sports. Vēlāk kāda jūsu lietota lietotne var pieprasīt Android kopīgot jūsu tēmas (bet ne datus par jūsu identitāti vai to, kā izmantojat lietotnes), lai personalizētu jums rādītās reklāmas."</string>
+    <string name="notificationUI_how_it_works_topics_expanded_text7" msgid="4275126336833782389">"•  Datu pārvaldības iespējas"</string>
+    <string name="notificationUI_how_it_works_topics_expanded_text8" msgid="2797007387412839612">"Operētājsistēmā Android tiek automātiski regulāri dzēstas tēmas. Turpinot izmantot lietotnes, tēma var tikt atkārtoti iekļauta sarakstā. Konfidencialitātes iestatījumos jebkurā brīdī varat bloķēt tēmas, ko nevēlaties kopīgot ar lietotnēm, un izslēgt reklāmu tēmas."</string>
+    <string name="notificationUI_you_can_change_in_privacy_settings" msgid="4781410091509838647">"Varat veikt izmaiņas konfidencialitātes iestatījumos."</string>
+    <string name="notificationUI_fledge_measurement_title" msgid="1721724915714192994">"Tagad ir pieejamas citas reklāmu konfidencialitātes funkcijas"</string>
+    <string name="notificationUI_fledge_measurement_introduction_text1" msgid="2217529852483952185">"Android piedāvā arī jaunas iespējas ierobežot, kādu informāciju par jums lietotnes var iegūt, rādot jums personalizētas reklāmas."</string>
+    <string name="notificationUI_fledge_measurement_introduction_text2" msgid="601600895880486962">"•  Izmantojot lietotņu ieteiktas reklāmas, lietotnēs var rādīt jums atbilstošas reklāmas un vienlaikus aizsargāt jūsu identitāti un informāciju par lietotņu izmantojumu. Lietotne, ko izmantojat, var ieteikt ar jūsu darbībām saistītas reklāmas rādīšanai citās lietotnēs. Konfidencialitātes iestatījumos varat skatīt lietotņu sarakstu un bloķēt konkrētas lietotnes, lai tās nevarētu ieteikt reklāmas."</string>
+    <string name="notificationUI_fledge_measurement_introduction_text3" msgid="956235653060248351">"•  Izmantojot reklāmu izvērtēšanu, starp lietotnēm tiek kopīgoti noteiktu veidu dati, lai izvērtētu šo lietotņu reklāmu veiktspēju, piemēram, diennakts laiku, kad reklāma tika parādīta jums."</string>
+    <string name="notificationUI_fledge_measurement_control_ga_text_eu" msgid="2346851728118443500">"Plašāka informācija par lietotnēs ieteiktajām reklāmām un reklāmu izvērtēšanu"</string>
+    <string name="notificationUI_how_it_works_fledge_measurement_expanded_text0" msgid="2456923104551938349">"Lietotnēs ieteiktās reklāmas"</string>
+    <string name="notificationUI_how_it_works_fledge_measurement_expanded_text1" msgid="5606895535548790900">"•  Kādi dati tiek izmantoti"</string>
+    <string name="notificationUI_how_it_works_fledge_measurement_expanded_text2" msgid="6309052819494439288">"Jūsu darbības lietotnē, ko šajā ierīcē lietojāt."</string>
+    <string name="notificationUI_how_it_works_fledge_measurement_expanded_text3" msgid="5347980571056638783">"•  Kā lietotnes izmanto šos datus"</string>
+    <string name="notificationUI_how_it_works_fledge_measurement_expanded_text4" msgid="4738335469671465639">"Lietotnes operētājsistēmā Android var glabāt informāciju par jūsu interesēm. Piemēram, ja izmantojat lietotni, kurā sniegta informācija par trenēšanos maratona noskriešanai, var tikt pieņemts, ka jūs interesē skriešanas apavi. Ja vēlāk lietosiet citu lietotni, tajā var tikt rādīta skriešanas apavu reklāma, pamatojoties uz iepriekš apmeklētās lietotnes izsecinātajām interesēm."</string>
+    <string name="notificationUI_how_it_works_fledge_measurement_expanded_text5" msgid="8737925570089314631">"•  Kā varat pārvaldīt savus datus"</string>
+    <string name="notificationUI_how_it_works_fledge_measurement_expanded_text6" msgid="495908587748380196">"Operētājsistēmā Android tiek automātiski regulāri dzēsti lietotņu ieteiktie dati.  Ja kādu lietotni lietosiet atkārtoti, tā var atkal tikt iekļauta sarakstā."</string>
+    <string name="notificationUI_how_it_works_fledge_measurement_expanded_text7" msgid="8995912218837619600">"Jebkurā brīdī konfidencialitātes iestatījumos varat bloķēt lietotni, lai tā vairs neieteiktu reklāmas, kā arī varat atiestatīt visus reklāmu ieteikumu datus  vai izslēgt lietotņu ieteiktās reklāmas."</string>
+    <string name="notificationUI_how_it_works_fledge_measurement_expanded_text9" msgid="5709134827192739362">"Jūsu izmantotās lietotnes var lūgt operētājsistēmas Android informāciju, kas var palīdzēt novērtēt reklāmu veiktspēju. Android tiek aizsargāta jūsu konfidencialitāte, ierobežojot informāciju, ko lietotnes var kopīgot cita ar citu."</string>
+    <string name="notificationUI_notification_ga_title_eu_v2" msgid="9132669086237883391">"Tagad ir pieejamas jaunas reklāmu konfidencialitātes funkcijas"</string>
+    <string name="notificationUI_notification_ga_content_eu_v2" msgid="9205285241542339861">"Iegūstiet lielākas izvēles iespējas attiecībā uz jums rādītajām reklāmām, vienlaikus aizsargājot savu identitāti"</string>
+    <string name="notificationUI_fledge_measurement_title_v2" msgid="1097778529908285549">"Tagad ir pieejamas jaunas reklāmu konfidencialitātes funkcijas"</string>
+    <string name="notificationUI_fledge_measurement_introduction_text1_v2" msgid="4019531984422364790">"Ieviešam operētājsistēmā Android jaunas iespējas ierobežot, kādu informāciju par jums lietotnes var iegūt, rādot jums personalizētas reklāmas."</string>
+    <string name="notificationUI_fledge_measurement_introduction_text2_v2" msgid="7324869061552803848">"• Izmantojot lietotņu ieteiktas reklāmas, jaunas konfidencialitātes funkcijas palīdz aizsargāt jūsu identitāti un informāciju par lietotņu izmantojumu, vienlaikus nodrošinot atbilstošu reklāmu rādīšanu lietotnēs. Lietotne, ko izmantojat, var ieteikt ar jūsu darbībām saistītas reklāmas rādīšanai citās lietotnēs. Konfidencialitātes iestatījumos varat skatīt lietotņu sarakstu un bloķēt konkrētas lietotnes, lai tās nevarētu ieteikt reklāmas."</string>
+    <string name="notificationUI_fledge_measurement_introduction_text3_v2" msgid="7061185974787039681">"• Izmantojot reklāmu izvērtēšanu, lai izprastu lietotnēs rādīto reklāmu veiktspēju, starp lietotnēm tiek kopīgoti noteiktu veidu dati, piemēram, diennakts laiks, kad reklāma jums tika parādīta."</string>
+    <string name="notificationUI_how_it_works_fledge_measurement_expanded_text2_v2" msgid="5467298277353569728">"Jūsu darbības kādā lietotnē, kuru izmantojat šajā ierīcē, var tikt izmantotas reklāmu ieteikšanai."</string>
+    <string name="notificationUI_header_ga_title_eu_v2" msgid="8442776546238998877">"Ieslēdziet vēl vienu reklāmu konfidencialitātes funkciju"</string>
+    <string name="notificationUI_container1_body_ga_text_eu_v2" msgid="1119632112904754361">"Android piedāvā arī jaunu konfidencialitātes funkciju, kas sniedz lielākas izvēles iespējas attiecībā uz jums rādītajām reklāmām."</string>
+    <string name="notificationUI_container2_body_ga_text_eu_v2" msgid="7264946073865844642">"Reklāmu tēmas palīdz lietotnēm rādīt jums atbilstošas reklāmas, vienlaikus aizsargājot jūsu identitāti un informāciju par lietotņu izmantojumu. Android var noteikt, kādas tēmas jūs interesē, ņemot vērā nesen izmantotās lietotnes. Vēlāk, lai rādītu jums atbilstošākas reklāmas, kāda jūsu izmantotā lietotne var pieprasīt no operētājsistēmas Android atbilstošās tēmas."</string>
+    <string name="notificationUI_container3_body_ga_text_eu_v2" msgid="3204499878554843655">"Varat skatīt reklāmu tēmas konfidencialitātes iestatījumos un bloķēt tēmas, ko nevēlaties atļaut kopīgot ar lietotnēm. Android arī regulāri dzēš reklāmu tēmas automātiski."</string>
+    <string name="notificationUI_right_control_button_ga_text_eu_v2" msgid="7227289411885047121">"Ieslēgt"</string>
+    <string name="notificationUI_notification_ga_title_v2" msgid="7429979629916798545">"Tagad ir pieejamas jaunas reklāmu konfidencialitātes funkcijas"</string>
+    <string name="notificationUI_notification_ga_content_v2" msgid="4673081782304081905">"Tagad ir pieejamas lielākas izvēles iespējas attiecībā uz jums rādītajām reklāmām, un vienlaikus tiek aizsargāta jūsu identitāte"</string>
+    <string name="notificationUI_header_ga_title_v2" msgid="2079990149331373941">"Tagad ir pieejamas jaunas reklāmu konfidencialitātes funkcijas"</string>
+    <string name="notificationUI_container1_ga_introduction_v2" msgid="3820258766801905248">"Android tagad piedāvā jaunas konfidencialitātes funkcijas, kas sniedz lielākas izvēles iespējas attiecībā uz jums rādītajām reklāmām."</string>
+    <string name="notificationUI_next_button_text" msgid="5564270455474313663">"Tālāk"</string>
+    <string name="settingsUI_main_view_title" msgid="1663691082473230496">"Konfidencialitātes smilškaste"</string>
+    <string name="settingsUI_main_view_subtitle" msgid="2059496555507319371">"Piedalieties Android reklāmu konfidencialitātes beta programmā"</string>
+    <string name="settingsUI_privacy_sandbox_beta_switch_title" msgid="5264782269528129670">"Konfidencialitātes smilškaste"</string>
+    <string name="settingsUI_topics_title" msgid="5996189869721397937">"Operētājsistēmā Android noteiktās intereses"</string>
+    <string name="settingsUI_apps_title" msgid="2772289096915264175">"Lietotnes, kurās tiek noteiktas intereses"</string>
+    <string name="settingsUI_main_view_info_text8" msgid="2262800588014737545">"Reklāmu izvērtēšana"</string>
+    <string name="settingsUI_main_view_info_text9" msgid="5431131706102562540">"Konfidencialitātes smilškaste lietotnēs var tikt izmantota, lai izvērtētu lietotnēs rādīto reklāmu efektivitāti. Lai to paveiktu, reklāmdevēji Android ierīcē īslaicīgi var saglabāt datus par jūsu darbībām ar reklāmām un lietotnēs. Datu daudzums, ko reklāmdevēji var saglabāt, ir ierobežots, un dati tiks regulāri dzēsti.\n\nJebkurā laikā varat dzēst šos datus, izslēdzot konfidencialitātes smilškasti."</string>
+    <string name="settingsUI_topics_view_subtitle" msgid="6608135144119617292">"Operētājsistēmā Android pēc jūsu izmantotajām ierīcēm periodiski tiek noteiktas jūsu galvenās intereses. Lietotnes operētājsistēmā Android var pieprasīt atļauju izmantot šīs intereses, lai rādītu jums atbilstošākas reklāmas.\n\nJa kādu no interesēm bloķēsiet, tā netiks pievienota sarakstam, līdz to atbloķēsiet. Iespējams, tik un tā redzēsiet dažas saistītas reklāmas."</string>
+    <string name="settingsUI_block_topic_title" msgid="1883542291264768402">"Bloķēt"</string>
+    <string name="settingsUI_unblock_topic_title" msgid="1710283575567727667">"Atbloķēt"</string>
+    <string name="settingsUI_blocked_topics_title" msgid="5030422883546261820">"Bloķētās intereses"</string>
+    <string name="settingsUI_reset_topics_title" msgid="6917960006583871987">"Atiestatīt visas intereses"</string>
+    <string name="settingsUI_topics_view_no_topics_text" msgid="6954747579303498382">"Pašlaik nav parādāmu interešu."</string>
+    <string name="settingsUI_topics_view_no_topics_ga_text" msgid="8043163159679359485">"Pašlaik nav parādāmu tēmu.\nUzziniet vairāk par "<a href="https://support.google.com/android?p=ad_privacy">"reklāmu tēmām"</a>"."</string>
+    <string name="settingsUI_topics_view_info_text1" msgid="2477020249748216309">"Konfidencialitātes smilškaste"</string>
+    <string name="settingsUI_topics_view_info_text2" msgid="6223353589295876851">"Android reklāmu konfidencialitātes beta programma ietver jaunas funkcijas, ko lietotnes var izmantot, lai rādītu reklāmas, kas jums varētu interesēt. Šīs tehnoloģijas neizmanto ierīču identifikatorus.\n\nOperētājsistēma Android var aptuveni noteikt, kādas reklāmas jūs varētu interesēt, un šīs intereses var īslaicīgi saglabāt jūsu ierīcē. Tādējādi lietotnes var rādīt jums atbilstošas reklāmas, neizsekojot jūsu darbības tīmekļa vietnēs un citu izstrādātāju lietotnēs."</string>
+    <string name="settingsUI_topics_view_no_blocked_topics_text" msgid="6553014185055718781">"Jums nav bloķētu interešu"</string>
+    <string name="settingsUI_no_blocked_topics_ga_text" msgid="377459829879121256">"Nav bloķētu tēmu"</string>
+    <string name="settingsUI_view_blocked_topics_title" msgid="3705333677440361392">"Skatīt bloķētās tēmas"</string>
+    <string name="settingsUI_topics_are_reset" msgid="7539323750312329931">"Intereses ir atiestatītas"</string>
+    <string name="settingsUI_topics_are_reset_ga" msgid="5250296990870048195">"Tēmas tika atiestatītas."</string>
+    <string name="settingsUI_apps_view_subtitle" msgid="8193343057416677400">"Lietotnēs var tikt aptuveni noteiktas jūsu intereses, un tās īslaicīgi var tikt saglabātas Android ierīcē. Vēlāk cita lietotne var jums rādīt uz šīm interesēm balstītu reklāmu.\n\nJa kādu lietotni bloķēsiet, tā vairs nevarēs noteikt jūsu intereses. Tā netiks pievienota šim lietotņu sarakstam, līdz to neatbloķēsiet. Intereses, kas lietotnē jau tika noteiktas, tiks dzēstas, taču jums joprojām var tikt rādītas dažas atbilstošas reklāmas."</string>
+    <string name="settingsUI_blocked_apps_title" msgid="1260257485713408637">"Jūsu bloķētās lietotnes"</string>
+    <string name="settingsUI_view_blocked_apps_title" msgid="379556513199380600">"Skatīt bloķētās lietotnes"</string>
+    <string name="settingsUI_reset_apps_title" msgid="6221704974528131179">"Atiestatīt lietotnēs noteiktās intereses"</string>
+    <string name="settingsUI_apps_view_no_apps_text" msgid="7460005016322426137">"Šobrīd nevienā lietotnē netiek noteiktas jūsu intereses"</string>
+    <string name="settingsUI_apps_view_no_apps_ga_text" msgid="742044210764257860">"Pašlaik nav parādāmu lietotņu. \nUzziniet vairāk par "<a href="https://support.google.com/android?p=ad_privacy">"lietotņu ieteiktām reklāmām"</a>"."</string>
+    <string name="settingsUI_apps_view_info_text1" msgid="7835635425477842692">"Konfidencialitātes smilškaste"</string>
+    <string name="settingsUI_apps_view_info_text2" msgid="308547275474796552">"Android reklāmu konfidencialitātes beta programma ietver jaunas funkcijas, ko lietotnes var izmantot, lai rādītu reklāmas, kas jums varētu interesēt. Šīs tehnoloģijas neizmanto ierīču identifikatorus.\n\nLietotnes var aptuveni noteikt, kādas reklāmas jūs varētu interesēt, un šīs intereses var īslaicīgi saglabāt jūsu ierīcē. Tādējādi lietotnes var rādīt jums atbilstošas reklāmas, neizsekojot jūsu darbības tīmekļa vietnēs un citu izstrādātāju lietotnēs."</string>
+    <string name="settingsUI_apps_view_no_blocked_apps_text" msgid="3953560911214151396">"Nav bloķēta neviena lietotne"</string>
+    <string name="settingsUI_no_blocked_apps_ga_text" msgid="7488680173653861943">"Nav bloķētu lietotņu"</string>
+    <string name="settingsUI_measurement_switch_title" msgid="6623116680555954932">"Atļaut reklāmu izvērtēšanu"</string>
+    <string name="settingsUI_measurement_view_intro_text" msgid="3608942051176719850">"Lietotnes un reklāmdevēji var pieprasīt no operētājsistēmas Android informāciju, kas palīdz izvērtēt to reklāmu veiktspēju.\n\nReklāmu izvērtēšanas dati tiek regulāri dzēsti no jūsu ierīces."</string>
+    <string name="settingsUI_measurement_view_reset_title" msgid="3063374834649428050">"Atiestatīt izvērtēšanas datus"</string>
+    <string name="settingsUI_measurement_view_footer_text" msgid="5978750159738729308">"Android aizsargā jūsu konfidencialitāti, ierobežojot informāciju, ko lietotnes var savstarpēji kopīgot. Lai aizsargātu jūsu identitāti, pārskati tiek sūtīti ar aizkavi.\n\nIespējams, jūsu pārlūkprogrammā ir līdzīgs iestatījums. Ja reklāmu izvērtēšana ir ieslēgta gan operētājsistēmā Android, gan jūsu pārlūkprogrammā, iespējams, kāds uzņēmums var izvērtēt konkrētas reklāmas efektivitāti jūsu izmantotajās lietotnēs un apmeklētajās vietnēs. Jūsu pārlūkošanas vēsture tiek saglabāta privāti jūsu ierīcē.\n\nLai uzzinātu vairāk par to, kā Android aizsargā jūsu datus, skatiet mūsu "<a href="https://policies.google.com/privacy">"konfidencialitātes politiku"</a>"."</string>
+    <string name="settingsUI_measurement_are_reset" msgid="4375330550418573499">"Tika atiestatīti reklāmu izvērtēšanas dati."</string>
+    <string name="settingsUI_dialog_negative_text" msgid="3014088254631375852">"Atcelt"</string>
+    <string name="settingsUI_dialog_opt_out_title" msgid="1862069591629418291">"Vai izslēgt konfidencialitātes smilškasti?"</string>
+    <string name="settingsUI_dialog_opt_out_message" msgid="5696012172835241848">"Ja pārdomājat vai vēlaties uzzināt vairāk par Android reklāmu konfidencialitātes beta programmu, dodieties uz konfidencialitātes iestatījumiem."</string>
+    <string name="settingsUI_dialog_opt_out_positive_text" msgid="5344259263448028614">"Izslēgt"</string>
+    <string name="settingsUI_dialog_block_topic_title" msgid="5744004384480280782">"Vai bloķēt tēmu “<xliff:g id="TOPIC">%1$s</xliff:g>”?"</string>
+    <string name="settingsUI_dialog_block_topic_message" msgid="2581824495438333677">"Šī tēma tiks bloķēta un netiks atkal pievienota jūsu sarakstam, ja vien to nepievienosiet. Jums joprojām var tikt rādītas dažas atbilstošas reklāmas."</string>
+    <string name="settingsUI_dialog_block_topic_positive_text" msgid="2626152417590300510">"Bloķēt"</string>
+    <string name="settingsUI_dialog_unblock_topic_title" msgid="7361000923920947234">"Tēma “<xliff:g id="TOPIC">%1$s</xliff:g>” ir atbloķēta"</string>
+    <string name="settingsUI_dialog_unblock_topic_message" msgid="1090743551997420666">"Android var atkal pievienot šo tēmu sarakstam, taču, iespējams, tā netiks rādīta uzreiz."</string>
+    <string name="settingsUI_dialog_unblock_topic_positive_text" msgid="2192452325573789737">"Labi"</string>
+    <string name="settingsUI_dialog_reset_topic_title" msgid="8025836207966712435">"Vai atiestatīt visas reklāmu tēmas?"</string>
+    <string name="settingsUI_dialog_reset_topic_message" msgid="4243744527757134000">"Jūsu saraksts tiks notīrīts, un ar laiku tiks pievienotas jaunas tēmas. Jums joprojām var tikt rādītas dažas atiestatītajām tēmām atbilstošas reklāmas."</string>
+    <string name="settingsUI_dialog_reset_topic_positive_text" msgid="8345697359799280761">"Atiestatīt"</string>
+    <string name="settingsUI_dialog_block_app_title" msgid="421160714549264414">"Vai bloķēt lietotni <xliff:g id="APP">%1$s</xliff:g>?"</string>
+    <string name="settingsUI_dialog_block_app_message" msgid="758788973278770119">"Šī lietotne neieteiks reklāmas un netiks atkal pievienota jūsu sarakstam, ja vien to neatbloķēsiet. Jums joprojām var tikt rādītas dažas atbilstošas reklāmas."</string>
+    <string name="settingsUI_dialog_unblock_app_title" msgid="4360730780049298286">"Lietotne <xliff:g id="APP">%1$s</xliff:g> ir atbloķēta"</string>
+    <string name="settingsUI_dialog_unblock_app_message" msgid="5758218424845642060">"Šī lietotne atkal var ieteikt reklāmas, taču, iespējams, tā netiks uzreiz rādīta sarakstā. Var paiet kāds laiks, līdz tiks rādītas saistītas reklāmas."</string>
+    <string name="settingsUI_dialog_reset_app_title" msgid="5177572712117150557">"Vai atiestatīt lietotņu ieteiktās reklāmas?"</string>
+    <string name="settingsUI_dialog_reset_app_message" msgid="7845329616145691006">"Reklāmu ieteikumu dati no jūsu sarakstā iekļautajām lietotnēm tiks dzēsti, un turpmāk lietotnēs tiks ieteiktas jaunas reklāmas. Jums joprojām var tikt rādītas dažas atbilstošas reklāmas."</string>
+    <string name="settingsUI_apps_are_reset" msgid="1814400631145418530">"Tika atiestatīti lietotņu dati."</string>
+    <string name="settingsUI_dialog_topics_opt_in_title" msgid="8121927422479701361">"Reklāmu tēmas ir ieslēgtas"</string>
+    <string name="settingsUI_dialog_topics_opt_in_message" msgid="906156509464496182">"Operētājsistēmā Android tiks sākta interesējošo tēmu reģistrēšana, taču var paiet kāds laiks, līdz tiks parādītas pirmās tēmas."</string>
+    <string name="settingsUI_dialog_topics_opt_out_title" msgid="729119757000459089">"Vai izslēgt reklāmu tēmas?"</string>
+    <string name="settingsUI_dialog_topics_opt_out_message" msgid="1536431481297878931">"Tēmu saraksts tiks izdzēsts. Operētājsistēmā Android vairs netiks reģistrētas interesējošās tēmas, taču jums joprojām var tikt rādītas atbilstošas reklāmas."</string>
+    <string name="settingsUI_dialog_apps_opt_in_title" msgid="1802639238531107941">"Lietotņu ieteiktas reklāmas ir ieslēgtas"</string>
+    <string name="settingsUI_dialog_apps_opt_in_message" msgid="6335861029594000364">"Lietotnēs var tikt sākta reklāmu ieteikšana. Kad tajās tiks sākta reklāmu ieteikšana, tiks parādīts lietotņu saraksts."</string>
+    <string name="settingsUI_dialog_apps_opt_out_title" msgid="2152898453001885432">"Vai izslēgt lietotņu ieteiktas reklāmas?"</string>
+    <string name="settingsUI_dialog_apps_opt_out_message" msgid="6894065908128443334">"Visi reklāmu ieteikumu dati tiks izdzēsti. Lietotnēs vairs nevarēs ieteikt reklāmas, taču jums joprojām var tikt rādītas atbilstošas reklāmas."</string>
+    <string name="settingsUI_dialog_measurement_opt_in_title" msgid="313317715284771681">"Reklāmu novērtēšana ir ieslēgta"</string>
+    <string name="settingsUI_dialog_measurement_opt_in_message" msgid="1122570790810645916">"Operētājsistēmā Android drīkst kopīgot ar lietotnēm tikai stingri ierobežotu informāciju, lai lietotnēs varētu efektīvāk mērīt attiecīgo lietotņu reklāmu veiktspēju."</string>
+    <string name="settingsUI_dialog_measurement_opt_out_title" msgid="1629867723206716370">"Vai izslēgt reklāmu novērtēšanu?"</string>
+    <string name="settingsUI_dialog_measurement_opt_out_message" msgid="1050338738668085641">"Visi neapstiprinātie reklāmu novērtēšanas pārskati tiks izdzēsti, un netiks ne ģenerēti, ne kopīgoti jauni pārskati."</string>
+    <string name="settingsUI_main_view_ga_title" msgid="4149820452019697214">"Reklāmu konfidencialitāte"</string>
+    <string name="settingsUI_topics_ga_title" msgid="7324482132761824214">"Reklāmu tēmas"</string>
+    <string name="settingsUI_apps_ga_title" msgid="1527820834800364372">"Lietotnēs ieteiktās reklāmas"</string>
+    <string name="settingsUI_main_view_ad_topics_info" msgid="2643088833140772417">"Android nosaka, kādas tēmas jūs interesē, ņemot vērā nesen izmantotās lietotnes un to, cik bieži izmantojat šīs lietotnes."</string>
+    <string name="settingsUI_main_view_apps_info" msgid="1668244327840008046">"Jūsu izmantotās lietotnes var arī noteikt, kas jums patīk, ņemot vērā to, kā jūs izmantojat šīs lietotnes."</string>
+    <string name="settingsU_main_view_measurement_info" msgid="7950104699961821635">"Jūsu izmantotās lietotnes var pieprasīt informāciju no operētājsistēmas Android, lai varētu efektīvāk novērtēt reklāmu veiktspēju šajās lietotnēs. Android ļauj lietotnēm vākt tikai noteiktu veidu datus."</string>
+    <string name="settingsU_main_view_learn_more" msgid="2129694798398023916">"Uzziniet vairāk par "<a href="https://support.google.com/android?p=ad_privacy">"reklāmu konfidencialitāti operētājsistēmā Android"</a>"."</string>
+    <string name="settingsUI_topics_subtitle" msgid="6545976434367750110">"Ieslēgtas / <xliff:g id="TOPICS_COUNT">%1$d</xliff:g> tēma(-s)"</string>
+    <string name="settingsUI_topics_subtitle_plural" msgid="4809219115021801972">"{count,plural, =1{Ieslēgti, # tēma}zero{Ieslēgti, # tēmu}one{Ieslēgti, # tēma}other{Ieslēgti, # tēmas}}"</string>
+    <string name="settingsUI_apps_subtitle" msgid="387595280958995973">"Ieslēgtas / <xliff:g id="APPS_COUNT">%1$d</xliff:g> lietotne(-s)"</string>
+    <string name="settingsUI_apps_subtitle_plural" msgid="3989880089023565457">"{count,plural, =1{Ieslēgti, # lietotne}zero{Ieslēgti, # lietotņu}one{Ieslēgti, # lietotne}other{Ieslēgti, # lietotnes}}"</string>
+    <string name="settingsUI_subtitle_consent_on" msgid="7522464537194619022">"Ieslēgta"</string>
+    <string name="settingsUI_subtitle_consent_off" msgid="1604274030685784887">"Izslēgts"</string>
+    <string name="settingsUI_topics_view_ga_subtitle" msgid="3672784134413586246">"Interešu tēmu pamatā ir jūsu nesen izmantotās lietotnes, un lietotnes izmanto šīs tēmas, lai rādītu jums personalizētas reklāmas.\n\nVarat bloķēt tēmas, ko nevēlaties kopīgot ar lietotnēm. Operētājsistēmā Android tēmas regulāri tiek arī automātiski dzēstas."</string>
+    <string name="settingsUI_topics_switch_title" msgid="5856255848598189791">"Atļaut reklāmu tēmas"</string>
+    <string name="settingsUI_blocked_topics_ga_title" msgid="7163366621282449273">"Jūsu bloķētās reklāmu tēmas"</string>
+    <string name="settingsUI_reset_topics_ga_title" msgid="5365554894399951300">"Atiestatīt visas reklāmu tēmas"</string>
+    <string name="settingsU_topics_view_footer" msgid="4769146330248953561">"Android nosaka, kādas tēmas jūs interesē, ņemot vērā dažu pēdējo nedēļu laikā izmantotās lietotnes.\n\nVēlāk, lai personalizētu jums rādītās reklāmas, kāda jūsu izmantotā lietotne var pieprasīt no operētājsistēmas Android tēmas, kas jūs interesē. Operētājsistēmā Android tiek kopīgotas ne vairāk kā trīs tēmas, vienlaikus aizsargājot jūsu identitāti un informāciju par lietotņu izmantojumu.\n\nOperētājsistēmā Android tēmas regulāri tiek automātiski dzēstas. Turpinot izmantot lietotnes, kāda tēma var tikt atkal parādīta sarakstā. Varat arī bloķēt konkrētas tēmas, lai operētājsistēmā Android tās netiktu kopīgotas ar lietotnēm.\n\nLietotnēs redzamās reklāmas var tikt personalizētas, ņemot vērā šo iestatījumu, lietotnēs ieteikto reklāmu iestatījumu, jūsu reklamēšanas ID iestatījumus un to, vai attiecīgajā lietotnē tiek personalizētas reklāmas."</string>
+    <string name="settingsUI_apps_switch_title" msgid="1308209012769248890">"Atļaut lietotnēs ieteiktās reklāmas"</string>
+    <string name="settingsUI_apps_view_ga_subtitle" msgid="1911743837387384160">"Jūsu izmantotās lietotnes var noteikt, kas jums patīk, un pēc tam ieteikt reklāmas citās lietotnēs.\n\nVarat bloķēt lietotnes, lai netiktu sniegti ieteikumi. Operētājsistēmā Android lietotņu ieteiktie dati regulāri tiek arī automātiski dzēsti."</string>
+    <string name="settingsUI_blocked_apps_ga_title" msgid="1896327995101895088">"Jūsu bloķētās lietotnes"</string>
+    <string name="settingsUI_reset_apps_ga_title" msgid="371969808353100852">"Atiestatīt lietotņu ieteiktos datus"</string>
+    <string name="settingsUI_apps_view_footer" msgid="6428897482766556515">"Lietotnēs bieži vien tiek saglabāta informācija par lietotāju interesēm, lai personalizētu lietošanas iespējas. No lietotnēm iegūtā informācija par tēmām, kuras jūs interesē, var tikt glabāta arī operētājsistēmā Android.\n\nPiemēram, ja izmantojat lietotni, kas saistīta ar treniņiem maratonam, šajā lietotnē var tikt noteikts, ka jūs interesē skriešanas apavi. Vēlāk citā lietotnē jums var tikt parādīta skriešanas apavu reklāma, ko ieteikusi pirmā lietotne.\n\nOperētājsistēmā Android lietotņu ieteiktie dati regulāri tiek automātiski dzēsti. Ja atkārtoti izmantosiet lietotni, tā var tikt atkal parādīta sarakstā. Varat arī bloķēt konkrētu lietotni, lai tā nevarētu ieteikt jums rādāmās reklāmas.\n\nLietotnēs redzamās reklāmas var tikt personalizētas, ņemot vērā šo iestatījumu, reklāmu tēmu iestatījumu, jūsu reklamēšanas ID iestatījumus un to, vai attiecīgajā lietotnē tiek personalizētas reklāmas."</string>
+    <string name="notificationUI_u18_notification_title" msgid="4880509503177562077">"Pieejamas jaunas reklāmu konfidencialitātes funkcijas"</string>
+    <string name="notificationUI_u18_notification_content" msgid="6734418183242286936">"Ar lietotnēm tiek kopīgota tikai ļoti ierobežota informācija, ko tās izmanto reklāmu veiktspējas novērtēšanai"</string>
+    <string name="notificationUI_u18_body1" msgid="5384339364319615715">"Tiek izlaista jauna reklāmu konfidencialitātes funkcija, ko dēvē par reklāmu novērtēšanu. Operētājsistēma Android ar lietotnēm kopīgo ļoti ierobežotu informāciju (piemēram, kad jums tika parādīta reklāma), ko lietotnes izmanto reklāmu veiktspējas novērtēšanai."</string>
+    <string name="notificationUI_u18_body3" msgid="4511974346169641579">"Varat veikt izmaiņas reklāmu konfidencialitātes iestatījumos."</string>
+    <string name="settingsUI_u18_main_view_measurement_info" msgid="1709326915590855853">"Jūsu izmantotās lietotnes var pieprasīt informāciju no operētājsistēmas Android, lai varētu efektīvāk novērtēt reklāmu veiktspēju šajās lietotnēs. Android atļauj lietotnēm vākt tikai ļoti ierobežotus datus."</string>
+    <string name="ic_consent_notification_ga_image_description" msgid="6146488914437778539">"Krāsaina ilustrācija ar simboliem, kas apzīmē interešu tēmas, piemēram, mūziku, ziņas un sportu"</string>
+    <string name="ic_main_view_ga_image_description" msgid="1846571138870271761">"Krāsaina ilustrācija ar slēdzeni aplī"</string>
+    <string name="ic_placeholder_icon_for_empty_apps_list_description" msgid="8171099879240285360">"Maza melnbalta ilustrācija ar deviņiem kvadrātā izkārtotiem punktiem"</string>
+    <string name="ic_placeholder_icon_for_empty_topics_list_description" msgid="2112218456926009271">"Maza melnbalta ilustrācija ar vienkāršām formām, piemēram, sirsniņu, trijstūri un kvadrātu"</string>
+    <string name="topic10001" msgid="1636806320891333775">"Māksla un izklaide"</string>
+    <string name="topic10002" msgid="1226367977754287428">"Aktiermāksla un teātris"</string>
+    <string name="topic10003" msgid="6949890838957814881">"Anime un manga"</string>
+    <string name="topic10004" msgid="5397903150832181233">"Multiplikācijas filmas"</string>
+    <string name="topic10005" msgid="6316179809581237302">"Komiksi"</string>
+    <string name="topic10006" msgid="7442330644172139790">"Kocerti un mūzikas festivāli"</string>
+    <string name="topic10007" msgid="5537896091418145164">"Dejas"</string>
+    <string name="topic10008" msgid="2737343278307552521">"Izklaides nozare"</string>
+    <string name="topic10009" msgid="3252367380340240453">"Joki un viktorīnas"</string>
+    <string name="topic10010" msgid="932301479153552725">"Smieklīgi testi un muļķīgas aptaujas"</string>
+    <string name="topic10011" msgid="3123553390567261985">"Humors"</string>
+    <string name="topic10012" msgid="8756486271154511326">"Jautri attēli un videoklipi"</string>
+    <string name="topic10013" msgid="1242353161202448753">"Komēdija tiešraidē"</string>
+    <string name="topic10014" msgid="6086156236112755291">"Sporta notikumu tiešraides"</string>
+    <string name="topic10015" msgid="9196350141359833832">"Maģija"</string>
+    <string name="topic10016" msgid="202419376638900745">"Filmu seansi un teātru programmas"</string>
+    <string name="topic10017" msgid="6737229918787540100">"Filmas"</string>
+    <string name="topic10018" msgid="6823676154109177487">"Asa sižeta un piedzīvojumu filmas"</string>
+    <string name="topic10019" msgid="6875960630918973127">"Animācijas filmas"</string>
+    <string name="topic10020" msgid="4323870300602151489">"Komēdijas"</string>
+    <string name="topic10021" msgid="446758643774468418">"Kulta un neatkarīgās filmas"</string>
+    <string name="topic10022" msgid="3671929742155787005">"Dokumentālās filmas"</string>
+    <string name="topic10023" msgid="3547616830531182863">"Drāmas"</string>
+    <string name="topic10024" msgid="1044853632986202120">"Ģimenes filmas"</string>
+    <string name="topic10025" msgid="5958629223443279316">"Šausmu filmas"</string>
+    <string name="topic10026" msgid="5685515125614860029">"Romantiskas filmas"</string>
+    <string name="topic10027" msgid="8846353713171614854">"Spriedzes filmas"</string>
+    <string name="topic10028" msgid="170404703980174756">"Mūzika un audio"</string>
+    <string name="topic10029" msgid="4634600135545614665">"Blūzs"</string>
+    <string name="topic10030" msgid="7226438392540805771">"Klasiskā mūzika"</string>
+    <string name="topic10031" msgid="1488013446112025676">"Kantri mūzika"</string>
+    <string name="topic10032" msgid="9053666244854789632">"Deju un elektroniskā mūzika"</string>
+    <string name="topic10033" msgid="440063573197454181">"Tautas mūzika un tradicionālā mūzika"</string>
+    <string name="topic10034" msgid="8296307244554241197">"Džezs"</string>
+    <string name="topic10035" msgid="9171752741499923310">"Mūzikas straumēšana un lejupielāde"</string>
+    <string name="topic10036" msgid="2490236112725457376">"Mūzikas videoklipi"</string>
+    <string name="topic10037" msgid="1923690469725883551">"Mūzikas instrumenti"</string>
+    <string name="topic10038" msgid="2817492732688549631">"Taustiņinstrumenti"</string>
+    <string name="topic10039" msgid="8970033643570782019">"Popmūzika"</string>
+    <string name="topic10040" msgid="7478395512712452137">"Radio"</string>
+    <string name="topic10041" msgid="3319379117705411886">"Sarunu radio"</string>
+    <string name="topic10042" msgid="8830471038440654640">"Reps un hiphops"</string>
+    <string name="topic10043" msgid="8585450284346207691">"Rokmūzika"</string>
+    <string name="topic10044" msgid="3710011249220779842">"Klasiskais roks un vecās dziesmas"</string>
+    <string name="topic10045" msgid="7593443421067822441">"Hārdroks un progresīvā mūzika"</string>
+    <string name="topic10046" msgid="8715621227472631784">"Neatkarīgā un alternatīvā mūzika"</string>
+    <string name="topic10047" msgid="3518038303049899798">"Paraugu un skaņu bibliotēkas"</string>
+    <string name="topic10048" msgid="3063505369500799094">"Soulmūzika un R&amp;B"</string>
+    <string name="topic10049" msgid="8061992014977840818">"Filmu mūzika"</string>
+    <string name="topic10050" msgid="3540229495848506229">"Pasaules mūzika"</string>
+    <string name="topic10051" msgid="6132468331924347995">"Regejs un Karību mūzika"</string>
+    <string name="topic10052" msgid="8213269199807045473">"Tiešsaistes attēlu galerijas"</string>
+    <string name="topic10053" msgid="1378192203082454197">"Tiešsaistes video"</string>
+    <string name="topic10054" msgid="3727401645405134505">"Video straumēšana tiešraidē"</string>
+    <string name="topic10055" msgid="4943174831732192854">"Filmu un TV straumēšana"</string>
+    <string name="topic10056" msgid="3066058636154255073">"Opera"</string>
+    <string name="topic10057" msgid="387445514677222034">"TV programma un uzziņu materiāli"</string>
+    <string name="topic10058" msgid="9149178644022969766">"Televīzijas tīkli un programmas"</string>
+    <string name="topic10059" msgid="6300562669238320524">"TV pārraides un programmas"</string>
+    <string name="topic10060" msgid="3901256055064835246">"TV komēdijas"</string>
+    <string name="topic10061" msgid="8343924749123326062">"Dokumentālās un zinātniskās pārraides"</string>
+    <string name="topic10062" msgid="9183355218976951211">"TV drāmas"</string>
+    <string name="topic10063" msgid="644340831620792432">"TV ziepju operas"</string>
+    <string name="topic10064" msgid="5961885645457010998">"Ģimenei paredzētas televīzijas pārraides"</string>
+    <string name="topic10065" msgid="7916343612028608044">"TV realitātes šovi"</string>
+    <string name="topic10066" msgid="5984396525358003559">"Zinātniskās fantastikas un fantāzijas TV šovi"</string>
+    <string name="topic10067" msgid="6404637729885733437">"Vizuālā māksla un dizains"</string>
+    <string name="topic10068" msgid="4589856961950168493">"Dizains"</string>
+    <string name="topic10069" msgid="3129378082034151991">"Gleznošana"</string>
+    <string name="topic10070" msgid="2570256568661324147">"Fotogrāfija un digitālā māksla"</string>
+    <string name="topic10071" msgid="1288722040962471254">"Automašīnas un transportlīdzekļi"</string>
+    <string name="topic10072" msgid="9155509766616567261">"Kravas automašīnas un autopiekabes"</string>
+    <string name="topic10073" msgid="3748676231341513738">"Klasiskie transportlīdzekļi"</string>
+    <string name="topic10074" msgid="2040911547161463227">"Pielāgotas un sacīkšu automašīnas"</string>
+    <string name="topic10075" msgid="1242538698445713796">"Degvielas cenas un uzpilde"</string>
+    <string name="topic10076" msgid="8674225812339579627">"Motorizēti transportlīdzekļi (pēc veida)"</string>
+    <string name="topic10077" msgid="3577709810751953433">"Autonomi transportlīdzekļi"</string>
+    <string name="topic10078" msgid="5493263845129910125">"Kabrioleti"</string>
+    <string name="topic10079" msgid="3466838852836498580">"Kupejas"</string>
+    <string name="topic10080" msgid="3515647285637163190">"Hečbeki"</string>
+    <string name="topic10081" msgid="4135085035401158860">"Hibrīdauto un transportlīdzekļi, kas darbojas ar alternatīvu degvielu"</string>
+    <string name="topic10082" msgid="7168659489029594320">"Grezni transportlīdzekļi"</string>
+    <string name="topic10083" msgid="1532745144715857802">"Mikroautomašīnas un īpaši kompaktas automašīnas"</string>
+    <string name="topic10084" msgid="1984231414410381476">"Motocikli"</string>
+    <string name="topic10085" msgid="5235555028227554661">"Bezceļu transportlīdzekļi"</string>
+    <string name="topic10086" msgid="8360336602646460411">"Pikapi"</string>
+    <string name="topic10087" msgid="6566900167002195406">"Motorolleri un mopēdi"</string>
+    <string name="topic10088" msgid="2899313082601001223">"Sedani"</string>
+    <string name="topic10089" msgid="1053630346809973163">"Autofurgoni"</string>
+    <string name="topic10090" msgid="4478565601243447368">"Apvidus automašīnas un krosoveri"</string>
+    <string name="topic10091" msgid="3812668311830832874">"Krosoveri"</string>
+    <string name="topic10092" msgid="524130833813249539">"Furgoni un minifurgoni"</string>
+    <string name="topic10093" msgid="8900143351472824542">"Aizvilkšana un palīdzība ārkārtas situācijās uz ceļa"</string>
+    <string name="topic10094" msgid="6205146188176216038">"Transportlīdzekļu un satiksmes drošība"</string>
+    <string name="topic10095" msgid="7983070264654477553">"Transportlīdzekļu daļas un piederumi"</string>
+    <string name="topic10096" msgid="8148747014459050804">"Transportlīdzekļu remonts un apkope"</string>
+    <string name="topic10097" msgid="4716536434833425748">"Transportlīdzekļu iegāde"</string>
+    <string name="topic10098" msgid="6401980112135995019">"Lietoti transportlīdzekļi"</string>
+    <string name="topic10099" msgid="8018714209926584445">"Transportlīdzekļu izstādes"</string>
+    <string name="topic10100" msgid="2481422464734249871">"Skaistums un fitness"</string>
+    <string name="topic10101" msgid="7889144198021629053">"Ķermeņa apgleznošana"</string>
+    <string name="topic10102" msgid="577637051755692238">"Sejas un ķermeņa kopšana"</string>
+    <string name="topic10103" msgid="6618157344631408510">"Antiperspiranti"</string>
+    <string name="topic10104" msgid="6043649669944382784">"Produkti vannas istabai un ķermenim"</string>
+    <string name="topic10105" msgid="3248569527339253661">"Videi draudzīga skaistumkopšana"</string>
+    <string name="topic10106" msgid="1291481249483309832">"Kosmētika"</string>
+    <string name="topic10107" msgid="1335060201249279923">"Nagu kopšanas produkti"</string>
+    <string name="topic10108" msgid="4996884435711154930">"Smaržas"</string>
+    <string name="topic10109" msgid="7298403319989686251">"Skuvekļi"</string>
+    <string name="topic10110" msgid="5954355866247248022">"Mode un stils"</string>
+    <string name="topic10111" msgid="4447710938881368413">"Fitness"</string>
+    <string name="topic10112" msgid="8816530137921714131">"Kultūrisms"</string>
+    <string name="topic10113" msgid="8138889299405853557">"Fitnesa programmas un individuālās nodarbības"</string>
+    <string name="topic10114" msgid="2172821400279346865">"Fitnesa tehnoloģijas produkti"</string>
+    <string name="topic10115" msgid="9060244278068231494">"Matu kopšana"</string>
+    <string name="topic10116" msgid="116242880964485085">"Grāmatas un literatūra"</string>
+    <string name="topic10117" msgid="8933734721100160863">"Bērnu literatūra"</string>
+    <string name="topic10118" msgid="4368531903547695191">"E-grāmatas"</string>
+    <string name="topic10119" msgid="2781095265741115471">"Žurnāli"</string>
+    <string name="topic10120" msgid="3099507102655270527">"Dzeja"</string>
+    <string name="topic10121" msgid="4466592180799340837">"Uzņēmējdarbība un rūpniecība"</string>
+    <string name="topic10122" msgid="2375136741125920744">"Reklamēšana un mārketings"</string>
+    <string name="topic10123" msgid="6974082907852347979">"Pārdošana"</string>
+    <string name="topic10124" msgid="44474598156972786">"Lauksaimniecība un mežkopība"</string>
+    <string name="topic10125" msgid="9170394261421539760">"Pārtikas rūpniecība"</string>
+    <string name="topic10126" msgid="2210146434071038904">"Autotransporta nozare"</string>
+    <string name="topic10127" msgid="5503077037318678029">"Aviācijas nozare"</string>
+    <string name="topic10128" msgid="285525650692719959">"Uzņēmējdarbības operācijas"</string>
+    <string name="topic10129" msgid="3094691551566702427">"Elastīgs darba režīms"</string>
+    <string name="topic10130" msgid="1922351409757117764">"Cilvēkresursi"</string>
+    <string name="topic10131" msgid="8598763405951029782">"Komerciāli aizdevumi"</string>
+    <string name="topic10132" msgid="1476352626208153907">"Būvniecība un uzturēšana"</string>
+    <string name="topic10133" msgid="7089177624979453528">"Civilā inženierija"</string>
+    <string name="topic10134" msgid="3833032373311037601">"Aizsardzības nozare"</string>
+    <string name="topic10135" msgid="2478808072377000440">"Enerģija un komunālie pakalpojumi"</string>
+    <string name="topic10136" msgid="9083992436834044162">"Ūdensapgāde un ūdens apstrāde"</string>
+    <string name="topic10137" msgid="1912599316814246824">"Viesmīlības nozare"</string>
+    <string name="topic10138" msgid="7428346836350671895">"Ražošana"</string>
+    <string name="topic10139" msgid="1396685812404869953">"Metāli un kalnrūpniecība"</string>
+    <string name="topic10140" msgid="5264212052238781441">"Vairāklīmeņu mārketings un uzņēmējdarbības iespējas"</string>
+    <string name="topic10141" msgid="860058416683118730">"Farmācija un biotehnoloģija"</string>
+    <string name="topic10142" msgid="2912550934111655896">"Drukāšana un izdevējdarbība"</string>
+    <string name="topic10143" msgid="5690610408227078117">"Mazumtirdzniecība"</string>
+    <string name="topic10144" msgid="3341052306953106368">"Riska kapitāls"</string>
+    <string name="topic10145" msgid="6886608911083388041">"Datori un elektronika"</string>
+    <string name="topic10146" msgid="8202145175139144216">"Datora palīgiekārtas"</string>
+    <string name="topic10147" msgid="4687964705548995437">"Printeri"</string>
+    <string name="topic10148" msgid="8861628145647459323">"Datoru drošība"</string>
+    <string name="topic10149" msgid="1719988773455991739">"Antivīrusu programmas un ļaunprātīga programmatūra"</string>
+    <string name="topic10150" msgid="1482205464872465298">"Tīkla drošība"</string>
+    <string name="topic10151" msgid="1772262905623388968">"Patēriņa elektronika"</string>
+    <string name="topic10152" msgid="651152740021127086">"Kameras un videoierakstītāji"</string>
+    <string name="topic10153" msgid="8741504768717646372">"GPS un navigācija"</string>
+    <string name="topic10154" msgid="5382029798409496090">"Mājas ierīču automatizācija"</string>
+    <string name="topic10155" msgid="5243817792730496258">"Mājas kinozāles sistēmas"</string>
+    <string name="topic10156" msgid="2497791567138856030">"MP3 un pārnēsājami multivides atskaņotāji"</string>
+    <string name="topic10157" msgid="4723439422860510190">"Valkājama tehnoloģija"</string>
+    <string name="topic10158" msgid="5345830001295028513">"Datu dublēšana un atkopšana"</string>
+    <string name="topic10159" msgid="6146958285117174314">"Galddatori"</string>
+    <string name="topic10160" msgid="6624820395549466426">"Klēpjdatori un piezīmjdatori"</string>
+    <string name="topic10161" msgid="912458758908978530">"Tīklošana"</string>
+    <string name="topic10162" msgid="6717352131379507693">"Izkliedētā skaitļošana un mākoņdatošana"</string>
+    <string name="topic10163" msgid="6344926622025055321">"Programmēšana"</string>
+    <string name="topic10164" msgid="4228888249078845459">"Programmatūra"</string>
+    <string name="topic10165" msgid="5507908999219967161">"Audio un mūzikas programmatūra"</string>
+    <string name="topic10166" msgid="4768106492755849560">"Uzņēmējdarbības un produktivitātes programmatūra"</string>
+    <string name="topic10167" msgid="8556935769754922871">"Kalendāru un plānošanas programmatūra"</string>
+    <string name="topic10168" msgid="7730134961167790334">"Sadarbības un konferenču programmatūra"</string>
+    <string name="topic10169" msgid="5655084106378890454">"Prezentāciju programmatūra"</string>
+    <string name="topic10170" msgid="4638281897205909919">"Izklājlapu programmatūra"</string>
+    <string name="topic10171" msgid="7910183120486541228">"Tekstapstrādes programmatūra"</string>
+    <string name="topic10172" msgid="3626573644414074730">"Maketēšana"</string>
+    <string name="topic10173" msgid="7320053835183057144">"Fonti"</string>
+    <string name="topic10174" msgid="5770469447869586710">"Lejupielādes pārvaldnieki"</string>
+    <string name="topic10175" msgid="3475235810022334041">"Bezmaksas programmatūra un izplatāmprogrammatūra"</string>
+    <string name="topic10176" msgid="6881704501596479881">"Grafikas un animācijas programmatūra"</string>
+    <string name="topic10177" msgid="6740430730079682579">"Viedie personiskie asistenti"</string>
+    <string name="topic10178" msgid="7261811053741593091">"Multivides atskaņotāji"</string>
+    <string name="topic10179" msgid="2967001567120854492">"Pārraudzības programmatūra"</string>
+    <string name="topic10180" msgid="4197420326455130102">"Operētājsistēmas"</string>
+    <string name="topic10181" msgid="3537573129132698830">"Foto un video programmatūra"</string>
+    <string name="topic10182" msgid="7688631285131229981">"Fotoattēlu apstrādes programmatūra"</string>
+    <string name="topic10183" msgid="5994974566140272512">"Video programmatūra"</string>
+    <string name="topic10184" msgid="8685817335076871509">"Utilītprogrammas"</string>
+    <string name="topic10185" msgid="308314128178285390">"Pārlūkprogrammas"</string>
+    <string name="topic10186" msgid="3147859503481018245">"Finanses"</string>
+    <string name="topic10187" msgid="7077128721410871032">"Finanses un auditēšana"</string>
+    <string name="topic10188" msgid="2206138708659457910">"Nodokļu deklarāciju sagatavošana un plānošana"</string>
+    <string name="topic10189" msgid="4001795553008246784">"Banku darījumi"</string>
+    <string name="topic10190" msgid="2988430661381243083">"Naudas pārskaitījumu un elektronisko pārvedumu pakalpojumi"</string>
+    <string name="topic10191" msgid="6196081825838237614">"Kredīti un aizdevumi"</string>
+    <string name="topic10192" msgid="3290123244833047307">"Kredītkartes"</string>
+    <string name="topic10193" msgid="294407043381146861">"Mājas finansējums"</string>
+    <string name="topic10194" msgid="2834543407440890272">"Aizdevumi privātpersonām"</string>
+    <string name="topic10195" msgid="7650553060132394782">"Studentu aizņēmumi un augstskolas finansēšana"</string>
+    <string name="topic10196" msgid="5395035781876507254">"Finanšu plānošana un pārvaldība"</string>
+    <string name="topic10197" msgid="1287138667488226463">"Aiziešana pensijā un pensijas"</string>
+    <string name="topic10198" msgid="2523256186943366779">"Subsīdijas"</string>
+    <string name="topic10199" msgid="3746711537661530183">"Dotācijas"</string>
+    <string name="topic10200" msgid="2394864891391267841">"Apdrošināšana"</string>
+    <string name="topic10201" msgid="4301879117376963742">"Automašīnu apdrošināšana"</string>
+    <string name="topic10202" msgid="739808503036239379">"Veselības apdrošināšana"</string>
+    <string name="topic10203" msgid="838786942776142290">"Mājas apdrošināšana"</string>
+    <string name="topic10204" msgid="6591131759521321677">"Dzīvības apdrošināšana"</string>
+    <string name="topic10205" msgid="3294946723815021478">"Ceļojuma apdrošināšana"</string>
+    <string name="topic10206" msgid="6166888350685752683">"Investēšana"</string>
+    <string name="topic10207" msgid="2296385804039743999">"Preču un nākotnes līgumu tirdzniecība"</string>
+    <string name="topic10208" msgid="2717498987483479091">"Valūtas un valūtas maiņa"</string>
+    <string name="topic10209" msgid="5204948738662951962">"Riska ieguldījumu fondi"</string>
+    <string name="topic10210" msgid="4607225697024266227">"Kopfondi"</string>
+    <string name="topic10211" msgid="7475381839877166080">"Akcijas un obligācijas"</string>
+    <string name="topic10212" msgid="3988751035952286047">"Pārtika un dzērieni"</string>
+    <string name="topic10213" msgid="1358963098339995471">"Kulinārija un receptes"</string>
+    <string name="topic10214" msgid="8463864389138867811">"Grilēšana"</string>
+    <string name="topic10215" msgid="3085467051491069648">"Dažādu valstu virtuve"</string>
+    <string name="topic10216" msgid="6043130649326166680">"Veģetārā virtuve"</string>
+    <string name="topic10217" msgid="7173870057669247536">"Vegāniskā virtuve"</string>
+    <string name="topic10218" msgid="5570240643247064951">"Veselīgs uzturs"</string>
+    <string name="topic10219" msgid="5896715206025463732">"Pārtikas mazumtirdzniecība"</string>
+    <string name="topic10220" msgid="3894580611467039658">"Spēles"</string>
+    <string name="topic10221" msgid="14471057764591805">"Arkādes un monētu spēles"</string>
+    <string name="topic10222" msgid="2704894577954508861">"Biljards"</string>
+    <string name="topic10223" msgid="202900267060220170">"Galda spēles"</string>
+    <string name="topic10224" msgid="6572627325588452785">"Šahs un abstraktas stratēģijas spēles"</string>
+    <string name="topic10225" msgid="8056906319560292131">"Kāršu spēles"</string>
+    <string name="topic10226" msgid="714463563336281099">"Kolekcionējamas kāršu spēles"</string>
+    <string name="topic10227" msgid="218768654597520683">"Datorspēles un videospēles"</string>
+    <string name="topic10228" msgid="850597136074192489">"Asa sižeta un platformu spēles"</string>
+    <string name="topic10229" msgid="4284501233897149886">"Piedzīvojumu spēles"</string>
+    <string name="topic10230" msgid="7156822286576815181">"Vienkāršas spēles"</string>
+    <string name="topic10231" msgid="7620407218897744361">"Videospēļu sacensības"</string>
+    <string name="topic10232" msgid="3029734447275709941">"Braukšanas un sacīkšu spēles"</string>
+    <string name="topic10233" msgid="8318075279868138231">"Cīņu spēles"</string>
+    <string name="topic10234" msgid="3899847414436099153">"Uzziņas materiāli un atsauksmes par spēlēm"</string>
+    <string name="topic10235" msgid="5851356242523630529">"Videospēļu priekšrocību kodi un norādes"</string>
+    <string name="topic10236" msgid="1986665634014804954">"Lielas vairāku spēlētāju spēles"</string>
+    <string name="topic10237" msgid="5569920221620447713">"Mūzikas un deju spēles"</string>
+    <string name="topic10238" msgid="7431087331656772530">"Brīva stila spēles"</string>
+    <string name="topic10239" msgid="8667462879554115515">"Šaušanas spēles"</string>
+    <string name="topic10240" msgid="1618985302446756520">"Simulācijas spēles"</string>
+    <string name="topic10241" msgid="8450778411063723262">"Uzņēmējdarbības spēles"</string>
+    <string name="topic10242" msgid="8860812940320018907">"Pilsētu būvniecības stratēģijas spēles"</string>
+    <string name="topic10243" msgid="1764694148721971512">"Dzīves simulācijas spēles"</string>
+    <string name="topic10244" msgid="4308588210397969087">"Transportlīdzekļu simulatori"</string>
+    <string name="topic10245" msgid="6904368410919496658">"Sporta spēles"</string>
+    <string name="topic10246" msgid="3381244806751528148">"Sporta stratēģijas spēles"</string>
+    <string name="topic10247" msgid="5927502688389762068">"Stratēģiskās spēles"</string>
+    <string name="topic10248" msgid="8471339627212674032">"Videospēļu režīmi un papildinājumi"</string>
+    <string name="topic10249" msgid="5076706536204559962">"Izglītojošas spēles"</string>
+    <string name="topic10250" msgid="6083030595195401083">"Ģimenei paredzētas spēles un aktivitātes"</string>
+    <string name="topic10251" msgid="99237306730665104">"Zīmēšana un krāsošana"</string>
+    <string name="topic10252" msgid="6543039575961394064">"Ģērbšanās un modes spēles"</string>
+    <string name="topic10253" msgid="566596668186874227">"Puzles un prāta spēles"</string>
+    <string name="topic10254" msgid="5732147617072023634">"Lomu spēles"</string>
+    <string name="topic10255" msgid="2890655077164103057">"Galda teniss"</string>
+    <string name="topic10256" msgid="3302096971402751679">"Mozaīkas spēles"</string>
+    <string name="topic10257" msgid="4238531589193902619">"Vārdu spēles"</string>
+    <string name="topic10258" msgid="6995329540076529056">"Vaļasprieki un brīvais laiks"</string>
+    <string name="topic10259" msgid="8649688885811560410">"Jubilejas"</string>
+    <string name="topic10260" msgid="487999213495640080">"Dzimšanas dienas un vārda dienas"</string>
+    <string name="topic10261" msgid="8970668366745952094">"Niršana un zemūdens aktivitātes"</string>
+    <string name="topic10262" msgid="6644046161469353448">"Šķiedras un tekstila māksla"</string>
+    <string name="topic10263" msgid="848165976917542929">"Ārpus telpām"</string>
+    <string name="topic10264" msgid="6274985117752637104">"Makšķerēšana"</string>
+    <string name="topic10265" msgid="4134876488948695674">"Medības un šaušana"</string>
+    <string name="topic10266" msgid="6617785039128074351">"Peintbols"</string>
+    <string name="topic10267" msgid="488093331618885003">"Radiovadība un modelēšana"</string>
+    <string name="topic10268" msgid="277932389492046264">"Kāzas"</string>
+    <string name="topic10269" msgid="8572041514147955202">"Māja un dārzs"</string>
+    <string name="topic10270" msgid="2646715182474030951">"Dārzkopība"</string>
+    <string name="topic10271" msgid="1308931236810509881">"Mājokļa iekārtošana un interjera dekorēšana"</string>
+    <string name="topic10272" msgid="8746698707390628887">"Sadzīves ierīces"</string>
+    <string name="topic10273" msgid="344442071339164852">"Mājokļa labiekārtošana"</string>
+    <string name="topic10274" msgid="8982330028561451429">"Mājokļa drošība"</string>
+    <string name="topic10275" msgid="8280198018937968735">"Mājsaimniecības piederumi"</string>
+    <string name="topic10276" msgid="1651598271798609235">"Ainavu arhitektūra"</string>
+    <string name="topic10277" msgid="7675195736886448994">"Internets un telekomunikācijas"</string>
+    <string name="topic10278" msgid="873251714192341707">"E-pasts un ziņojumapmaiņa"</string>
+    <string name="topic10279" msgid="6514296374139842600">"E-pasts"</string>
+    <string name="topic10280" msgid="7976787187115018267">"Īsziņas un tūlītējā ziņojumapmaiņa"</string>
+    <string name="topic10281" msgid="4013341162811169339">"Balss un video tērzēšana"</string>
+    <string name="topic10282" msgid="7810462611906257564">"ISP"</string>
+    <string name="topic10283" msgid="3958287780718485172">"Telefonsakaru operatori"</string>
+    <string name="topic10284" msgid="2415044270290467935">"Zvana signāli un motīvi mobilajām ierīcēm"</string>
+    <string name="topic10285" msgid="7056449544316408821">"Meklētājprogrammas"</string>
+    <string name="topic10286" msgid="3458688996478472971">"Viedtālruņi"</string>
+    <string name="topic10287" msgid="6766203044518402938">"Telekonferences"</string>
+    <string name="topic10288" msgid="3883137694557636622">"Tīmekļa lietotnes un tiešsaistes rīki"</string>
+    <string name="topic10289" msgid="3392995633794787676">"Tīmekļa pakalpojumi"</string>
+    <string name="topic10290" msgid="3118880486702986341">"Mākoņa krātuves"</string>
+    <string name="topic10291" msgid="6025855926350955094">"Tīmekļa dizains un izstrāde"</string>
+    <string name="topic10292" msgid="3069720659823056935">"Tīmekļa mitināšana"</string>
+    <string name="topic10293" msgid="2489957780009828409">"Darbs un izglītība"</string>
+    <string name="topic10294" msgid="474839431177892843">"Izglītība"</string>
+    <string name="topic10295" msgid="2215489196192620880">"Akadēmiskas konferences un publikācijas"</string>
+    <string name="topic10296" msgid="4494362881225210483">"Koledžas un universitātes"</string>
+    <string name="topic10297" msgid="8596946591674128749">"Tālmācība"</string>
+    <string name="topic10298" msgid="6669181180128620422">"Izglītība agrā bērnībā"</string>
+    <string name="topic10299" msgid="989138215800115613">"Pirmsskolas vecuma bērni"</string>
+    <string name="topic10300" msgid="8281464235308602670">"Mājmācība"</string>
+    <string name="topic10301" msgid="9156890858635333460">"Standartizēti un iestāšanās pārbaudījumi"</string>
+    <string name="topic10302" msgid="1325835179421990876">"Nodarbībām un mācību telpām paredzēti materiāli"</string>
+    <string name="topic10303" msgid="3103839978894155537">"Arodizglītība un tālākizglītība"</string>
+    <string name="topic10304" msgid="8831682558788062486">"Darbs"</string>
+    <string name="topic10305" msgid="8415203095484493106">"Karjeras iespējas un plānošana"</string>
+    <string name="topic10306" msgid="7426556527349374835">"Vakances"</string>
+    <string name="topic10307" msgid="1187762846826735256">"Likumdošana un valdība"</string>
+    <string name="topic10308" msgid="3346756665358311386">"Noziegumi un tiesībsargājošās iestādes"</string>
+    <string name="topic10309" msgid="2041175328931014735">"Juridiskie jautājumi"</string>
+    <string name="topic10310" msgid="7079570344976872062">"Juridiskie pakalpojumi"</string>
+    <string name="topic10311" msgid="2095095138677585525">"Ziņas"</string>
+    <string name="topic10312" msgid="939721674816307639">"Ekonomikas ziņas"</string>
+    <string name="topic10313" msgid="4159611985538361632">"Vietējās ziņas"</string>
+    <string name="topic10314" msgid="93219947859117151">"Apvienošanās un pārņemšana"</string>
+    <string name="topic10315" msgid="5046321177148647481">"Laikraksti"</string>
+    <string name="topic10316" msgid="8592980844674525307">"Politika"</string>
+    <string name="topic10317" msgid="2412259096368647866">"Sporta ziņas"</string>
+    <string name="topic10318" msgid="1508449672941031904">"Laikapstākļi"</string>
+    <string name="topic10319" msgid="3973645291178509390">"Pasaules ziņas"</string>
+    <string name="topic10320" msgid="5279440074507438174">"Tiešsaistes kopienas"</string>
+    <string name="topic10321" msgid="7018890132742820265">"Klipkopas un animēti GIF attēli"</string>
+    <string name="topic10322" msgid="1585737438943011532">"Randiņi un iepazīšanās sludinājumi"</string>
+    <string name="topic10323" msgid="962863497957179646">"Informācijas plūsmas apkopošana un sociālās grāmatzīmes"</string>
+    <string name="topic10324" msgid="1425257460381023853">"Failu kopīgošana un mitināšana"</string>
+    <string name="topic10325" msgid="8698912164970408378">"Forumi un tērzēšanas nodrošinātāji"</string>
+    <string name="topic10326" msgid="2425798096705921796">"Mikroemuāri"</string>
+    <string name="topic10327" msgid="8518822987595111212">"Fotoattēlu un videoklipu kopīgošana"</string>
+    <string name="topic10328" msgid="8932708475346340912">"Fotoattēlu un citu attēlu kopīgošana"</string>
+    <string name="topic10329" msgid="223933889758324282">"Video kopīgošana"</string>
+    <string name="topic10330" msgid="188028553492626282">"Veidoli"</string>
+    <string name="topic10331" msgid="426844238985651925">"Sociālo tīklu lietotnes un papildinājumi"</string>
+    <string name="topic10332" msgid="291747325781232456">"Sociālie tīkli"</string>
+    <string name="topic10333" msgid="7950152600374846488">"Cilvēki un sabiedrība"</string>
+    <string name="topic10334" msgid="8671262583721706509">"Ģimene un attiecības"</string>
+    <string name="topic10335" msgid="1526523762163185819">"Priekšteči un ģenealoģija"</string>
+    <string name="topic10336" msgid="4551233571090493177">"Laulības"</string>
+    <string name="topic10337" msgid="8436172065188964882">"Bērnu audzināšana"</string>
+    <string name="topic10338" msgid="8896269734682970">"Adopcija"</string>
+    <string name="topic10339" msgid="781900237993621300">"Zīdaiņi un mazuļi"</string>
+    <string name="topic10340" msgid="6538182603360796294">"Bērnu drošība internetā"</string>
+    <string name="topic10341" msgid="3586543243312398568">"Romantika"</string>
+    <string name="topic10342" msgid="3695176378281477573">"Zinātniskā fantastika un fantāzija"</string>
+    <string name="topic10343" msgid="2318169062960263837">"Mājdzīvnieki un dzīvnieki"</string>
+    <string name="topic10344" msgid="2005534117977874327">"Mājdzīvnieku barība un aprūpes piederumi"</string>
+    <string name="topic10345" msgid="2397329020706244200">"Mājdzīvnieki"</string>
+    <string name="topic10346" msgid="1323702748723563694">"Putni"</string>
+    <string name="topic10347" msgid="3301879823396773413">"Kaķi"</string>
+    <string name="topic10348" msgid="8066686305498410222">"Suņi"</string>
+    <string name="topic10349" msgid="5253723822905761195">"Zivis un akvāriji"</string>
+    <string name="topic10350" msgid="6164036369108076590">"Rāpuļi un abinieki"</string>
+    <string name="topic10351" msgid="1132984519083501363">"Veterinārārsti"</string>
+    <string name="topic10352" msgid="6310110390516037997">"Nekustamais īpašums"</string>
+    <string name="topic10353" msgid="5114390804081576684">"Apbūves gabali un zeme"</string>
+    <string name="topic10354" msgid="7980778954791504082">"Atpūtas namu īre un atpūtas īpašumi"</string>
+    <string name="topic10355" msgid="7720717354548642600">"Atsauce"</string>
+    <string name="topic10356" msgid="8366981308613661935">"Informācija par uzņēmumiem un personām"</string>
+    <string name="topic10357" msgid="3185598234676097975">"Vispārīgi uzziņu materiāli"</string>
+    <string name="topic10358" msgid="6732669037513504019">"Kalkulatori un uzziņu rīki"</string>
+    <string name="topic10359" msgid="8901932349008990500">"Vārdnīcas un enciklopēdijas"</string>
+    <string name="topic10360" msgid="6113408769992775754">"Izglītojoši materiāli"</string>
+    <string name="topic10361" msgid="364838820459183817">"Norādījumi"</string>
+    <string name="topic10362" msgid="3760998790588600032">"Laiks un kalendāri"</string>
+    <string name="topic10363" msgid="5464708619861040861">"Valodu resursi"</string>
+    <string name="topic10364" msgid="4685400848805560054">"Svešvalodu mācības"</string>
+    <string name="topic10365" msgid="5196231842716190887">"Tulkošanas rīki un resursi"</string>
+    <string name="topic10366" msgid="7460927054539097025">"Kartes"</string>
+    <string name="topic10367" msgid="3900361839783743700">"Zinātne"</string>
+    <string name="topic10368" msgid="2069447039109930660">"Papildinātā un virtuālā realitāte"</string>
+    <string name="topic10369" msgid="5747888306428024793">"Bioloģiskās zinātnes"</string>
+    <string name="topic10370" msgid="4860829940151353583">"Ģenētika"</string>
+    <string name="topic10371" msgid="8229818210867472466">"Ķīmija"</string>
+    <string name="topic10372" msgid="6400467418954574231">"Ekoloģija un vide"</string>
+    <string name="topic10373" msgid="6990757247198163741">"Ģeoloģija"</string>
+    <string name="topic10374" msgid="8057983193031950119">"Mašīnmācīšanās un mākslīgais intelekts"</string>
+    <string name="topic10375" msgid="8511185098682306025">"Matemātika"</string>
+    <string name="topic10376" msgid="6387800251638760737">"Fizika"</string>
+    <string name="topic10377" msgid="7834619927563362042">"Robotika"</string>
+    <string name="topic10378" msgid="242496862821758873">"Iepirkšanās"</string>
+    <string name="topic10379" msgid="5505228335012447165">"Senlietas un kolekcionējami priekšmeti"</string>
+    <string name="topic10380" msgid="4989560205486143927">"Apģērbs"</string>
+    <string name="topic10381" msgid="7585496746485093505">"Bērnu apģērbs"</string>
+    <string name="topic10382" msgid="5088060295126473451">"Kostīmi"</string>
+    <string name="topic10383" msgid="4947104586590538143">"Vīriešu apģērbs"</string>
+    <string name="topic10384" msgid="3752472493887374077">"Sieviešu apģērbs"</string>
+    <string name="topic10385" msgid="5275843140794803595">"Sludinājumi"</string>
+    <string name="topic10386" msgid="5887032952574801982">"Patērētāju resursi"</string>
+    <string name="topic10387" msgid="8474154360410317897">"Kuponi un atlaižu piedāvājumi"</string>
+    <string name="topic10388" msgid="3650307363028796765">"Lojalitātes kartes un programmas"</string>
+    <string name="topic10389" msgid="1542336508240183221">"Tehniskais atbalsts un remonts"</string>
+    <string name="topic10390" msgid="831225961168954292">"Puķes"</string>
+    <string name="topic10391" msgid="6810540242154911762">"Apsveikuma kartītes"</string>
+    <string name="topic10392" msgid="2431377771302967625">"Ballīšu un svētku preces"</string>
+    <string name="topic10393" msgid="2671274205988136926">"Iepirkšanās portāli"</string>
+    <string name="topic10394" msgid="1530096364743244151">"Sports"</string>
+    <string name="topic10395" msgid="316192616624062917">"Amerikāņu futbols"</string>
+    <string name="topic10396" msgid="8042120651878490689">"Austrālijas futbols"</string>
+    <string name="topic10397" msgid="492901976344700942">"Autosacīkstes"</string>
+    <string name="topic10398" msgid="3471795015226090296">"Beisbols"</string>
+    <string name="topic10399" msgid="2126280752064021308">"Basketbols"</string>
+    <string name="topic10400" msgid="5440499529264277027">"Boulings"</string>
+    <string name="topic10401" msgid="166689951236922024">"Bokss"</string>
+    <string name="topic10402" msgid="2451339788231007479">"Karsējmeiteņu uzstāšanās"</string>
+    <string name="topic10403" msgid="6455478521804717635">"Augstskolas sports"</string>
+    <string name="topic10404" msgid="5261583496913118024">"Krikets"</string>
+    <string name="topic10405" msgid="482477447879117820">"Riteņbraukšana"</string>
+    <string name="topic10406" msgid="8167644332387528703">"Jāšana"</string>
+    <string name="topic10407" msgid="3237734582719584272">"Ekstrēmie sporta veidi"</string>
+    <string name="topic10408" msgid="3859749534843254349">"Kāpšana klintīs un kalnos"</string>
+    <string name="topic10409" msgid="7485614115639267976">"Simulācijas sports"</string>
+    <string name="topic10410" msgid="5996939009229881074">"Golfs"</string>
+    <string name="topic10411" msgid="2513997418184786648">"Vingrošana"</string>
+    <string name="topic10412" msgid="5411755341358248299">"Hokejs"</string>
+    <string name="topic10413" msgid="3319233613448963890">"Slidošana"</string>
+    <string name="topic10414" msgid="1797840816328584660">"Cīņas māksla"</string>
+    <string name="topic10415" msgid="2886043330316735719">"Motociklu sacīkstes"</string>
+    <string name="topic10416" msgid="3436682172863605224">"Olimpiskās spēles"</string>
+    <string name="topic10417" msgid="8296644015663416236">"Regbijs"</string>
+    <string name="topic10418" msgid="8276736633218488127">"Skriešana un iešana"</string>
+    <string name="topic10419" msgid="5663062924928275215">"Slēpošana un snovbords"</string>
+    <string name="topic10420" msgid="2509320683543423424">"Futbols"</string>
+    <string name="topic10421" msgid="6512889128030030686">"Sērfošana"</string>
+    <string name="topic10422" msgid="8342986282852879750">"Peldēšana"</string>
+    <string name="topic10423" msgid="6333426807705188459">"Teniss"</string>
+    <string name="topic10424" msgid="5495511215629567375">"Vieglatlētika"</string>
+    <string name="topic10425" msgid="4009138228283995179">"Volejbols"</string>
+    <string name="topic10426" msgid="7998590461761852196">"Cīņas sports"</string>
+    <string name="topic10427" msgid="6711468161729797769">"Ceļojumi un transports"</string>
+    <string name="topic10428" msgid="661919563628063196">"Piedzīvojumu tūrisms"</string>
+    <string name="topic10429" msgid="408270392813634227">"Ceļojumi ar lidmašīnu"</string>
+    <string name="topic10430" msgid="3046485339481297656">"Komandējumi"</string>
+    <string name="topic10431" msgid="7439352609169583150">"Automašīnu noma"</string>
+    <string name="topic10432" msgid="5034961318884376752">"Kruīzi un čarterreisi"</string>
+    <string name="topic10433" msgid="6354590445323135986">"Ceļojumi ģimenēm"</string>
+    <string name="topic10434" msgid="7081309045291255264">"Medusmēneša vai romantiski ceļojumi"</string>
+    <string name="topic10435" msgid="1064605516265819020">"Viesnīcas un apmešanās vietas"</string>
+    <string name="topic10436" msgid="9050375924140897722">"Tālo maršrutu autobusi un vilcieni"</string>
+    <string name="topic10437" msgid="2655664900730187701">"Zemu izmaksu un pēdējā brīža ceļojumi"</string>
+    <string name="topic10438" msgid="7944023251845122923">"Bagāža un ceļošanas piederumi"</string>
+    <string name="topic10439" msgid="7845433008088931971">"Tūristu galamērķi"</string>
+    <string name="topic10440" msgid="485118071443976808">"Pludmales un salas"</string>
+    <string name="topic10441" msgid="518643446480879895">"Reģionālie parki un dārzi"</string>
+    <string name="topic10442" msgid="6534536077484540292">"Tematiskie parki"</string>
+    <string name="topic10443" msgid="8787722062991478596">"Zooloģiskie dārzi"</string>
+    <string name="topic10444" msgid="2075863187654728611">"Satiksmes un maršrutu plānotāji"</string>
+    <string name="topic10445" msgid="3460421948068980869">"Ceļojumu aģentūras un pakalpojumi"</string>
+    <string name="topic10446" msgid="5333138740720504195">"Tūrisma ceļveži un ceļojumu apraksti"</string>
+</resources>

@@ -62,4 +62,5 @@
     <dimen name="settings_info_fragment_title_text_max_width_long">240dp</dimen>
     <dimen name="settings_info_fragment_title_text_max_width_short">200dp</dimen>
     <dimen name="settings_info_fragment_summary_text_size">12sp</dimen>
+    <dimen name="settings_eco_info_fragment_hint_margin_top">16dp</dimen>
 </resources>

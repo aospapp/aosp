@@ -60,6 +60,11 @@ public class TelephonyConferenceBase extends Conference {
          * @param conference The conference.
          */
         public void onDestroyed(Conference conference) {}
+
+        /**
+         * Listener called when a conference either reaches capacity or is no longer at capacity.
+         */
+        public void onConferenceCapacityChanged() {}
     }
 
     private final Set<TelephonyConferenceListener> mListeners = Collections.newSetFromMap(
@@ -234,6 +239,14 @@ public class TelephonyConferenceBase extends Conference {
         for (TelephonyConferenceListener listener : mListeners) {
             listener.onConferenceMembershipChanged(connection);
         }
+    }
+
+    /**
+     * Notifies the {@link TelephonyConferenceListener}s when the capacity of the conference has
+     * changed.
+     */
+    public void notifyConferenceCapacityChanged() {
+        mListeners.forEach(l -> l.onConferenceCapacityChanged());
     }
 
     /**

@@ -15,6 +15,17 @@
     limitations under the License.
 -->
 <resources>
+    <!-- Whether heads-up notifications should be suppressed and throttled.
+         When set to false, the notification will not use the queue for throttling,
+         prioritisation and expiration -->
+    <bool name="config_suppressAndThrottleHeadsUp">true</bool>
+    <!-- Whether heads-up notifications should be expired from queue when driving. -->
+    <bool name="config_expireHeadsUpWhenDriving">true</bool>
+    <!-- Whether heads-up notifications should be expired from queue when parked. -->
+    <bool name="config_expireHeadsUpWhenParked">true</bool>
+    <!-- Whether active heads-up notifications should be dismissed when
+     Notification center is visible. -->
+    <bool name="config_dismissHeadsUpWhenNotificationCenterOpens">true</bool>
     <!-- Whether navigation heads-up notifications should be shown. May be set to false if there is a dedicated screen for navigation. -->
     <bool name="config_showNavigationHeadsup">true</bool>
     <!-- Whether card background color can be set or not for category Notification.CATEGORY_NAVIGATION. -->
@@ -39,6 +50,8 @@
     <bool name="config_clearAllNotificationsAnimationFromBottomUp">true</bool>
     <!-- Whether to collapse notification shade panel on clear all notification animation end -->
     <bool name="config_collapseShadePanelAfterClearAllNotifications">false</bool>
+    <!-- Whether to collapse notification shade panel after manage button click -->
+    <bool name="config_collapseShadePanelAfterManageButtonPress">true</bool>
     <!-- The number of lines of body text to show in HUNs -->
     <integer name="config_headsUpNotificationMaxBodyLines">3</integer>
     <!-- The number of lines of body text to show for notifications inside the notification panel -->
@@ -76,4 +89,18 @@
     <bool name="config_enableMessageNotificationDirectReply">true</bool>
     <!-- Whether to focus on HUN when new HUN is revealed. -->
     <bool name="config_focusHUNWhenShown">true</bool>
+    <!-- Alpha for older notifications when config_showRecentAndOldHeaders is true -->
+    <item name="config_olderNotificationsAlpha" format="float" type="dimen">1</item>
+    <!-- Whether to show expansion header in group notifications.  -->
+    <bool name="config_showExpansionHeader">true</bool>
+    <!-- Whether to use custom colors for message notification count text button. -->
+    <bool name="config_useCustomColorForMessageNotificationCountTextButton">false</bool>
+    <!-- Alpha for disabled count text button in message notifications. -->
+    <item name="config_disabledCountTextButtonAlpha" format="float" type="dimen">1</item>
+    <!-- When true, ignore the notification color for warning notification background and use @color/warning_background_color instead. -->
+    <bool name="config_useCustomColorsForWarningNotification">false</bool>
+    <!-- When true, ignore the notification color for information notification background and use @color/information_background_color instead. -->
+    <bool name="config_useCustomColorsForInformationNotification">false</bool>
+    <!-- When true, message HUN will be dismissed when reply or play action buttons are pressed. -->
+    <bool name="config_dismissMessageHunWhenReplyOrPlayActionButtonPressed">false</bool>
 </resources>

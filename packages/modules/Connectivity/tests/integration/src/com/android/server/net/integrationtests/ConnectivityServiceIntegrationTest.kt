@@ -25,7 +25,6 @@ import android.content.Intent
 import android.content.ServiceConnection
 import android.content.res.Resources
 import android.net.ConnectivityManager
-import android.net.ConnectivityResources
 import android.net.IDnsResolver
 import android.net.INetd
 import android.net.LinkProperties
@@ -37,7 +36,6 @@ import android.net.NetworkRequest
 import android.net.TestNetworkStackClient
 import android.net.Uri
 import android.net.metrics.IpConnectivityLog
-import android.net.util.MultinetworkPolicyTracker
 import android.os.ConditionVariable
 import android.os.IBinder
 import android.os.SystemConfigManager
@@ -47,12 +45,19 @@ import android.util.Log
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.android.connectivity.resources.R
+import com.android.server.BpfNetMaps
 import com.android.server.ConnectivityService
 import com.android.server.NetworkAgentWrapper
 import com.android.server.TestNetIdManager
+import com.android.server.connectivity.ConnectivityResources
 import com.android.server.connectivity.MockableSystemProperties
+import com.android.server.connectivity.MultinetworkPolicyTracker
 import com.android.server.connectivity.ProxyTracker
+import com.android.testutils.RecorderCallback.CallbackEntry.LinkPropertiesChanged
 import com.android.testutils.TestableNetworkCallback
+import kotlin.test.assertEquals
+import kotlin.test.assertTrue
+import kotlin.test.fail
 import org.junit.After
 import org.junit.Before
 import org.junit.BeforeClass
@@ -71,11 +76,6 @@ import org.mockito.Mockito.mock
 import org.mockito.Mockito.spy
 import org.mockito.MockitoAnnotations
 import org.mockito.Spy
-import kotlin.test.assertEquals
-import kotlin.test.assertFalse
-import kotlin.test.assertNotNull
-import kotlin.test.assertTrue
-import kotlin.test.fail
 
 const val SERVICE_BIND_TIMEOUT_MS = 5_000L
 const val TEST_TIMEOUT_MS = 10_000L
@@ -208,11 +208,17 @@ class ConnectivityServiceIntegrationTest {
         doReturn(mock(ProxyTracker::class.java)).`when`(deps).makeProxyTracker(any(), any())
         doReturn(mock(MockableSystemProperties::class.java)).`when`(deps).systemProperties
         doReturn(TestNetIdManager()).`when`(deps).makeNetIdManager()
+        doReturn(mock(BpfNetMaps::class.java)).`when`(deps).getBpfNetMaps(any(), any())
         doAnswer { inv ->
-            object : MultinetworkPolicyTracker(inv.getArgument(0), inv.getArgument(1),
-                    inv.getArgument(2)) {
-                override fun getResourcesForActiveSubId() = resources
-            }
+            MultinetworkPolicyTracker(inv.getArgument(0),
+                    inv.getArgument(1),
+                    inv.getArgument(2),
+                    object : MultinetworkPolicyTracker.Dependencies() {
+                        override fun getResourcesForActiveSubId(
+                                connResources: ConnectivityResources,
+                                activeSubId: Int
+                        ) = resources
+                    })
         }.`when`(deps).makeMultinetworkPolicyTracker(any(), any(), any())
         return deps
     }
@@ -282,15 +288,16 @@ class ConnectivityServiceIntegrationTest {
 
         testCb.expectAvailableCallbacks(na.network, validated = false, tmt = TEST_TIMEOUT_MS)
 
-        val capportData = testCb.expectLinkPropertiesThat(na, TEST_TIMEOUT_MS) {
-            it.captivePortalData != null
+        val capportData = testCb.expect<LinkPropertiesChanged>(na, TEST_TIMEOUT_MS) {
+            it.lp.captivePortalData != null
         }.lp.captivePortalData
-        assertNotNull(capportData)
         assertTrue(capportData.isCaptive)
         assertEquals(Uri.parse("https://login.capport.android.com"), capportData.userPortalUrl)
         assertEquals(Uri.parse("https://venueinfo.capport.android.com"), capportData.venueInfoUrl)
 
-        val nc = testCb.expectCapabilitiesWith(NET_CAPABILITY_CAPTIVE_PORTAL, na, TEST_TIMEOUT_MS)
-        assertFalse(nc.hasCapability(NET_CAPABILITY_VALIDATED))
+        testCb.expectCaps(na, TEST_TIMEOUT_MS) {
+            it.hasCapability(NET_CAPABILITY_CAPTIVE_PORTAL) &&
+                    !it.hasCapability(NET_CAPABILITY_VALIDATED)
+        }
     }
 }

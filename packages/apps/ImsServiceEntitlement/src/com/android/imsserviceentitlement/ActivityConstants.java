@@ -35,6 +35,9 @@ public final class ActivityConstants {
     public static final int LAUNCH_APP_UPDATE = 1;
     public static final int LAUNCH_APP_SHOW_TC = 2;
 
+    /** Constants shared by QNS module */
+    public static final String EXTRA_URL = "EXTRA_URL";
+
     /**
      * Returns {@code true} if the app is launched for WFC activation; {@code false} for emergency
      * address update or displaying terms & conditions.
@@ -65,6 +68,14 @@ public final class ActivityConstants {
                         SubscriptionManager.INVALID_SUBSCRIPTION_ID);
         Log.d(TAG, "Start Activity with subId : " + subId);
         return subId;
+    }
+
+    public static String getUrl(Intent intent) {
+        String url = "";
+        if (intent == null || (url = intent.getStringExtra(EXTRA_URL)) == null) {
+            return "";
+        }
+        return url;
     }
 
     private ActivityConstants() {}

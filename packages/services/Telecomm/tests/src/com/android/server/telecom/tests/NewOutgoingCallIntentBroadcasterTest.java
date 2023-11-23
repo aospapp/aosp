@@ -56,6 +56,7 @@ import android.test.suitebuilder.annotation.SmallTest;
 import com.android.server.telecom.Call;
 import com.android.server.telecom.CallsManager;
 import com.android.server.telecom.DefaultDialerCache;
+import com.android.server.telecom.MmiUtils;
 import com.android.server.telecom.NewOutgoingCallIntentBroadcaster;
 import com.android.server.telecom.PhoneAccountRegistrar;
 import com.android.server.telecom.PhoneNumberUtilsAdapter;
@@ -93,13 +94,14 @@ public class NewOutgoingCallIntentBroadcasterTest extends TelecomTestCase {
     @Mock private RoleManagerAdapter mRoleManagerAdapter;
     @Mock private DefaultDialerCache mDefaultDialerCache;
 
+    @Mock private MmiUtils mMmiUtils;
     private PhoneNumberUtilsAdapter mPhoneNumberUtilsAdapter = new PhoneNumberUtilsAdapterImpl();
 
     @Override
     @Before
     public void setUp() throws Exception {
         super.setUp();
-        when(mCall.getInitiatingUser()).thenReturn(UserHandle.CURRENT);
+        when(mCall.getAssociatedUser()).thenReturn(UserHandle.CURRENT);
         when(mCallsManager.getLock()).thenReturn(new TelecomSystem.SyncRoot() { });
         when(mCallsManager.getSystemStateHelper()).thenReturn(mSystemStateHelper);
         when(mCallsManager.getCurrentUserHandle()).thenReturn(mUserHandle);
@@ -214,12 +216,25 @@ public class NewOutgoingCallIntentBroadcasterTest extends TelecomTestCase {
         verifyNoCallPlaced();
     }
 
+    @Test
+    public void testNoCallsPlacedWithContentUri() {
+        Uri handle = Uri.parse("content://com.android.contacts/data/1");
+        Intent intent = new Intent(Intent.ACTION_CALL, handle);
+
+        int result = processIntent(intent, true).disconnectCause;
+
+        assertEquals(DisconnectCause.NO_PHONE_NUMBER_SUPPLIED, result);
+        verify(mContext, never()).getContentResolver();
+        verifyNoBroadcastSent();
+        verifyNoCallPlaced();
+    }
+
     @SmallTest
     @Test
     public void testEmergencyCallWithNonDefaultDialer() {
         Uri handle = Uri.parse("tel:6505551911");
         doReturn(true).when(mComponentContextFixture.getTelephonyManager())
-                .isPotentialEmergencyNumber(eq(handle.getSchemeSpecificPart()));
+                .isEmergencyNumber(eq(handle.getSchemeSpecificPart()));
         Intent intent = new Intent(Intent.ACTION_CALL, handle);
 
         String ui_package_string = "sample_string_1";
@@ -246,6 +261,58 @@ public class NewOutgoingCallIntentBroadcasterTest extends TelecomTestCase {
         assertEquals(Intent.ACTION_DIAL, dialerIntent.getAction());
         assertEquals(handle, dialerIntent.getData());
         assertEquals(Intent.FLAG_ACTIVITY_NEW_TASK, dialerIntent.getFlags());
+    }
+
+    @Test
+    public void testDangerousMmiCodeWithNonDefaultDialer() {
+        Uri handle = Uri.parse("tel:*21*1234567#");
+        doReturn(true).when(mMmiUtils).isDangerousMmiOrVerticalCode(handle);
+        Intent intent = new Intent(Intent.ACTION_CALL, handle);
+
+        String ui_package_string = "sample_string_1";
+        String dialer_default_class_string = "sample_string_2";
+        mComponentContextFixture.putResource(com.android.internal.R.string.config_defaultDialer,
+                ui_package_string);
+        mComponentContextFixture.putResource(R.string.dialer_default_class,
+                dialer_default_class_string);
+        when(mDefaultDialerCache.getSystemDialerApplication()).thenReturn(ui_package_string);
+        when(mDefaultDialerCache.getDialtactsSystemDialerComponent()).thenReturn(
+                new ComponentName(ui_package_string, dialer_default_class_string));
+
+        int result = processIntent(intent, false).disconnectCause;
+
+        assertEquals(DisconnectCause.OUTGOING_CANCELED, result);
+        verifyNoBroadcastSent();
+        verifyNoCallPlaced();
+
+        ArgumentCaptor<Intent> dialerIntentCaptor = ArgumentCaptor.forClass(Intent.class);
+        verify(mContext).startActivityAsUser(dialerIntentCaptor.capture(), any(UserHandle.class));
+        Intent dialerIntent = dialerIntentCaptor.getValue();
+        assertEquals(new ComponentName(ui_package_string, dialer_default_class_string),
+                dialerIntent.getComponent());
+        assertEquals(Intent.ACTION_DIAL, dialerIntent.getAction());
+        assertEquals(handle, dialerIntent.getData());
+        assertEquals(Intent.FLAG_ACTIVITY_NEW_TASK, dialerIntent.getFlags());
+    }
+
+    @Test
+    public void testNonDangerousMmiCodeWithNonDefaultDialer() {
+        Uri handle = Uri.parse("tel:*12*1234567#");
+        doReturn(false).when(mMmiUtils).isDangerousMmiOrVerticalCode(handle);
+        Intent intent = new Intent(Intent.ACTION_CALL, handle);
+
+        String ui_package_string = "sample_string_1";
+        String dialer_default_class_string = "sample_string_2";
+        mComponentContextFixture.putResource(com.android.internal.R.string.config_defaultDialer,
+                ui_package_string);
+        mComponentContextFixture.putResource(R.string.dialer_default_class,
+                dialer_default_class_string);
+        when(mDefaultDialerCache.getSystemDialerApplication()).thenReturn(ui_package_string);
+        when(mDefaultDialerCache.getDialtactsSystemDialerComponent()).thenReturn(
+                new ComponentName(ui_package_string, dialer_default_class_string));
+
+        int result = processIntent(intent, false).disconnectCause;
+        assertEquals(DisconnectCause.NOT_DISCONNECTED, result);
     }
 
     @SmallTest
@@ -290,7 +357,7 @@ public class NewOutgoingCallIntentBroadcasterTest extends TelecomTestCase {
     public void testActionEmergencyWithNonEmergencyNumber() {
         Uri handle = Uri.parse("tel:6505551911");
         doReturn(false).when(mComponentContextFixture.getTelephonyManager())
-                .isPotentialEmergencyNumber(eq(handle.getSchemeSpecificPart()));
+                .isEmergencyNumber(eq(handle.getSchemeSpecificPart()));
         Intent intent = new Intent(Intent.ACTION_CALL_EMERGENCY, handle);
         int result = processIntent(intent, true).disconnectCause;
 
@@ -304,7 +371,7 @@ public class NewOutgoingCallIntentBroadcasterTest extends TelecomTestCase {
         int videoState = VideoProfile.STATE_BIDIRECTIONAL;
         boolean isSpeakerphoneOn = true;
         doReturn(true).when(mComponentContextFixture.getTelephonyManager())
-                .isPotentialEmergencyNumber(eq(handle.getSchemeSpecificPart()));
+                .isEmergencyNumber(eq(handle.getSchemeSpecificPart()));
         intent.putExtra(TelecomManager.EXTRA_START_CALL_WITH_SPEAKERPHONE, isSpeakerphoneOn);
         intent.putExtra(TelecomManager.EXTRA_START_CALL_WITH_VIDEO_STATE, videoState);
 
@@ -426,7 +493,7 @@ public class NewOutgoingCallIntentBroadcasterTest extends TelecomTestCase {
         result.receiver.setResultData(newEmergencyNumber);
 
         doReturn(true).when(mComponentContextFixture.getTelephonyManager())
-                .isPotentialEmergencyNumber(eq(newEmergencyNumber));
+                .isEmergencyNumber(eq(newEmergencyNumber));
         result.receiver.onReceive(mContext, result.intent);
         verify(mCall).disconnect(eq(0L));
     }
@@ -475,7 +542,7 @@ public class NewOutgoingCallIntentBroadcasterTest extends TelecomTestCase {
             boolean isDefaultPhoneApp) {
         NewOutgoingCallIntentBroadcaster b = new NewOutgoingCallIntentBroadcaster(
                 mContext, mCallsManager, intent, mPhoneNumberUtilsAdapter,
-                isDefaultPhoneApp, mDefaultDialerCache);
+                isDefaultPhoneApp, mDefaultDialerCache, mMmiUtils);
         NewOutgoingCallIntentBroadcaster.CallDisposition cd = b.evaluateCall();
         if (cd.disconnectCause == DisconnectCause.NOT_DISCONNECTED) {
             b.processCall(mCall, cd);

@@ -19,6 +19,7 @@ package com.android.documentsui;
 import static com.android.documentsui.base.Shared.LAUNCHER_TARGET_CLASS;
 import static com.android.documentsui.base.SharedMinimal.DEBUG;
 
+import android.annotation.SuppressLint;
 import android.content.BroadcastReceiver;
 import android.content.ComponentName;
 import android.content.Context;
@@ -45,6 +46,7 @@ public class PreBootReceiver extends BroadcastReceiver {
     private static final String DOWNLOADS_TARGET_CLASS =
             "com.android.documentsui.ViewDownloadsActivity";
 
+    @SuppressLint("NewApi") // OverlayManager is @hdie
     @Override
     public void onReceive(Context context, Intent intent) {
         final PackageManager pm = context.getPackageManager();

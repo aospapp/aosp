@@ -45,6 +45,7 @@ import static org.mockito.Mockito.when;
 
 import android.app.StatsManager;
 import android.car.telemetry.TelemetryProto;
+import android.content.Context;
 import android.os.Looper;
 import android.os.Message;
 import android.os.PersistableBundle;
@@ -54,6 +55,7 @@ import android.os.SystemClock;
 import com.android.car.telemetry.AtomsProto.AppStartMemoryStateCaptured;
 import com.android.car.telemetry.AtomsProto.Atom;
 import com.android.car.telemetry.AtomsProto.ProcessMemoryState;
+import com.android.car.telemetry.ResultStore;
 import com.android.car.telemetry.StatsLogProto;
 import com.android.car.telemetry.StatsLogProto.ConfigMetricsReport;
 import com.android.car.telemetry.StatsLogProto.DimensionsValue;
@@ -77,8 +79,6 @@ import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.junit.MockitoJUnitRunner;
 
-import java.io.File;
-import java.io.FileInputStream;
 import java.nio.file.Files;
 import java.util.Arrays;
 
@@ -259,16 +259,18 @@ public class StatsPublisherTest {
             new FakeHandlerWrapper(Looper.getMainLooper(), FakeHandlerWrapper.Mode.QUEUEING);
     private final FakePublisherListener mFakePublisherListener = new FakePublisherListener();
 
-    private File mRootDirectory;
+    private ResultStore mResultStore;
     private StatsPublisher mPublisher;  // subject
 
+    @Mock private Context mMockContext;
     @Mock private StatsManagerProxy mStatsManager;
 
     @Captor private ArgumentCaptor<PersistableBundle> mBundleCaptor;
 
     @Before
     public void setUp() throws Exception {
-        mRootDirectory = Files.createTempDirectory("telemetry_test").toFile();
+        mResultStore = new ResultStore(
+                mMockContext, Files.createTempDirectory("telemetry_test").toFile());
         mPublisher = createRestartedPublisher();
         when(mStatsManager.getStatsMetadata()).thenReturn(CONFIG_STATS_REPORT.toByteArray());
     }
@@ -277,11 +279,11 @@ public class StatsPublisherTest {
      * Emulates a restart by creating a new StatsPublisher. StatsManager and PersistableBundle
      * stays the same.
      */
-    private StatsPublisher createRestartedPublisher() throws Exception {
+    private StatsPublisher createRestartedPublisher() {
         return new StatsPublisher(
                 mFakePublisherListener,
                 mStatsManager,
-                mRootDirectory,
+                mResultStore,
                 mFakeHandlerWrapper.getMockHandler());
     }
 
@@ -349,7 +351,8 @@ public class StatsPublisherTest {
         mPublisher.removeDataSubscriber(DATA_SUBSCRIBER_1);
 
         verify(mStatsManager, times(1)).removeConfig(SUBSCRIBER_1_HASH);
-        assertThat(getSavedStatsConfigs().keySet()).isEmpty();
+        assertThat(mResultStore.getPublisherData(StatsPublisher.class.getSimpleName(), false))
+                .isNull();
         assertThat(mPublisher.hasDataSubscriber(DATA_SUBSCRIBER_1)).isFalse();
     }
 
@@ -373,7 +376,8 @@ public class StatsPublisherTest {
         publisher2.removeAllDataSubscribers();
 
         verify(mStatsManager, times(1)).removeConfig(SUBSCRIBER_1_HASH);
-        assertThat(getSavedStatsConfigs().keySet()).isEmpty();
+        assertThat(mResultStore.getPublisherData(StatsPublisher.class.getSimpleName(), false))
+                .isNull();
         assertThat(publisher2.hasDataSubscriber(DATA_SUBSCRIBER_1)).isFalse();
     }
 
@@ -383,8 +387,7 @@ public class StatsPublisherTest {
 
         assertThat(mFakeHandlerWrapper.getQueuedMessages()).hasSize(1);
         Message msg = mFakeHandlerWrapper.getQueuedMessages().get(0);
-        long expectedPullPeriodMillis = 10 * 60 * 1000;  // 10 minutes
-        assertThatMessageIsScheduledWithGivenDelay(msg, expectedPullPeriodMillis);
+        assertThatMessageIsScheduledWithGivenDelay(msg, 0);
     }
 
     @Test
@@ -450,22 +453,22 @@ public class StatsPublisherTest {
 
         verify(subscriber1).push(mBundleCaptor.capture(), anyBoolean());
         PersistableBundle bundle1 = mBundleCaptor.getValue();
-        assertThat(bundle1.getLongArray("elapsed_timestamp_nanos"))
+        assertThat(bundle1.getLongArray("stats.elapsed_timestamp_nanos"))
             .asList().containsExactly(99999999L);
-        assertThat(bundle1.getIntArray("uid")).asList().containsExactly(1000);
-        assertThat(Arrays.asList(bundle1.getStringArray("activity_name")))
+        assertThat(bundle1.getIntArray("stats.uid")).asList().containsExactly(1000);
+        assertThat(Arrays.asList(bundle1.getStringArray("stats.activity_name")))
             .containsExactly("activityName");
-        assertThat(bundle1.getLongArray("rss_in_bytes")).asList().containsExactly(1234L);
+        assertThat(bundle1.getLongArray("stats.rss_in_bytes")).asList().containsExactly(1234L);
         verify(subscriber2).push(mBundleCaptor.capture(), anyBoolean());
         PersistableBundle bundle2 = mBundleCaptor.getValue();
-        assertThat(bundle2.getIntArray("uid")).asList().containsExactly(234);
-        assertThat(bundle2.getLongArray("rss_in_bytes")).asList().containsExactly(4567L);
-        assertThat(bundle2.getLongArray("elapsed_timestamp_nanos"))
+        assertThat(bundle2.getIntArray("stats.uid")).asList().containsExactly(234);
+        assertThat(bundle2.getLongArray("stats.rss_in_bytes")).asList().containsExactly(4567L);
+        assertThat(bundle2.getLongArray("stats.elapsed_timestamp_nanos"))
             .asList().containsExactly(445678901L);
     }
 
     @Test
-    public void testBundleWithLargeSize_isLargeData() throws Exception {
+    public void testBundleWithLargeSize_isLargeData() {
         PersistableBundle bundle = new PersistableBundle();
         bundle.putBooleanArray("bool", new boolean[1000]);
         bundle.putLongArray("long", new long[1000]);
@@ -481,7 +484,7 @@ public class StatsPublisherTest {
     }
 
     @Test
-    public void testBundleWithSmallSize_isNotLargeData() throws Exception {
+    public void testBundleWithSmallSize_isNotLargeData() {
         PersistableBundle bundle = new PersistableBundle();
         bundle.putBooleanArray("bool", new boolean[100]);
         bundle.putLongArray("long", new long[100]);
@@ -518,16 +521,6 @@ public class StatsPublisherTest {
         assertThat(mFakePublisherListener.mFailedConfigs).containsExactly(METRICS_CONFIG);
         assertThat(mFakePublisherListener.mPublisherFailure)
                 .hasMessageThat().contains("Found invalid configs");
-    }
-
-    private PersistableBundle getSavedStatsConfigs() throws Exception {
-        File savedConfigsFile = new File(mRootDirectory, StatsPublisher.SAVED_STATS_CONFIGS_FILE);
-        if (!savedConfigsFile.exists()) {
-            return new PersistableBundle();
-        }
-        try (FileInputStream fileInputStream = new FileInputStream(savedConfigsFile)) {
-            return PersistableBundle.readFromStream(fileInputStream);
-        }
     }
 
     private static void assertThatMessageIsScheduledWithGivenDelay(Message msg, long delayMillis) {

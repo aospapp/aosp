@@ -366,6 +366,8 @@ struct TestModel {
         return newTestModel;
     }
 
+    bool hasControlFlow() const { return !referenced.empty(); }
+
     bool hasQuant8CoupledOperands() const {
         bool result = false;
         forEachSubgraph([&result](const TestSubgraph& subgraph) {

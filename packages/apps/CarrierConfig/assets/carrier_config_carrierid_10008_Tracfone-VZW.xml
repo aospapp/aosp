@@ -7,4 +7,5 @@
         <item value="55BB3B316919620008AA76A4891E90384BFF2A76AE95C395FE738C2AC609F13F"/>
     </string-array>
     <boolean name="inflate_signal_strength_bool" value="true" />
+    <boolean name="enabledTransID" value="true"/>
 </carrier_config>

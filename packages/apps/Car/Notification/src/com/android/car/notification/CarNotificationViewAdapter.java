@@ -42,7 +42,9 @@ import com.android.car.notification.template.MessageNotificationViewHolder;
 import com.android.car.ui.recyclerview.ContentLimitingAdapter;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
@@ -68,6 +70,7 @@ public class CarNotificationViewAdapter extends ContentLimitingAdapter<RecyclerV
     private final CarNotificationItemController mNotificationItemController;
 
     private List<NotificationGroup> mNotifications = new ArrayList<>();
+    private Map<String, Integer> mGroupKeyToCountMap = new HashMap<>();
     private LinearLayoutManager mLayoutManager;
     private RecyclerView.RecycledViewPool mViewPool;
     private CarUxRestrictions mCarUxRestrictions;
@@ -164,7 +167,8 @@ public class CarNotificationViewAdapter extends ContentLimitingAdapter<RecyclerV
                 ((CarNotificationHeaderViewHolder) holder).bind(hasNotifications());
                 return;
             case NotificationViewType.FOOTER:
-                ((CarNotificationFooterViewHolder) holder).bind(hasNotifications());
+                ((CarNotificationFooterViewHolder) holder).bind(hasNotifications(),
+                        mHasSeenNotifications);
                 return;
             case NotificationViewType.RECENTS:
                 ((CarNotificationRecentsViewHolder) holder).bind(mHasUnseenNotifications);
@@ -173,13 +177,11 @@ public class CarNotificationViewAdapter extends ContentLimitingAdapter<RecyclerV
                 ((CarNotificationOlderViewHolder) holder)
                         .bind(mHasSeenNotifications, !mHasUnseenNotifications);
                 return;
-            case NotificationViewType.GROUP_EXPANDED:
+            case NotificationViewType.GROUP:
                 ((GroupNotificationViewHolder) holder)
-                        .bind(notificationGroup, this, /* isExpanded= */ true);
-                return;
-            case NotificationViewType.GROUP_COLLAPSED:
-                ((GroupNotificationViewHolder) holder)
-                        .bind(notificationGroup, this, /* isExpanded= */ false);
+                        .bind(notificationGroup, this, /* isExpanded= */
+                                isExpanded(notificationGroup.getGroupKey(),
+                                        notificationGroup.isSeen()));
                 return;
             case NotificationViewType.GROUP_SUMMARY:
                 ((CarNotificationBaseViewHolder) holder).setHideDismissButton(true);
@@ -192,10 +194,11 @@ public class CarNotificationViewAdapter extends ContentLimitingAdapter<RecyclerV
 
         if (shouldRestrictMessagePreview() && (viewType == NotificationViewType.MESSAGE
                 || viewType == NotificationViewType.MESSAGE_IN_GROUP)) {
-            ((MessageNotificationViewHolder) holder)
-                    .bindRestricted(alertEntry, /* isInGroup= */ false, /* isHeadsUp= */false);
+            ((MessageNotificationViewHolder) holder).bindRestricted(alertEntry, /* isInGroup= */
+                    false, /* isHeadsUp= */ false, notificationGroup.isSeen());
         } else {
-            carNotificationTypeItem.bind(alertEntry, false, (CarNotificationBaseViewHolder) holder);
+            carNotificationTypeItem.bind(alertEntry, false, (CarNotificationBaseViewHolder) holder,
+                    notificationGroup.isSeen());
         }
     }
 
@@ -222,11 +225,7 @@ public class CarNotificationViewAdapter extends ContentLimitingAdapter<RecyclerV
                 new ExpandedNotification(notificationGroup.getGroupKey(),
                         notificationGroup.isSeen());
         if (notificationGroup.isGroup()) {
-            if (mExpandedNotifications.contains(expandedNotification)) {
-                return NotificationViewType.GROUP_EXPANDED;
-            } else {
-                return NotificationViewType.GROUP_COLLAPSED;
-            }
+            return NotificationViewType.GROUP;
         } else if (mExpandedNotifications.contains(expandedNotification)) {
             // when there are 2 notifications left in the expanded notification and one of them is
             // removed at that time the item type changes from group to normal and hence the
@@ -431,11 +430,19 @@ public class CarNotificationViewAdapter extends ContentLimitingAdapter<RecyclerV
     /**
      * Updates notifications and update views.
      *
-     * @param setRecyclerViewListHeaderAndFooter sets the header and footer on the entire list of
+     * @param setRecyclerViewListHeadersAndFooters sets the header and footer on the entire list of
      * items within the recycler view. This is NOT the header/footer for the grouped notifications.
      */
     public void setNotifications(List<NotificationGroup> notifications,
             boolean setRecyclerViewListHeadersAndFooters) {
+        mGroupKeyToCountMap.clear();
+        notifications.forEach(notificationGroup -> {
+            if ((mGroupKeyToCountMap.computeIfPresent(notificationGroup.getGroupKey(),
+                    (key, currentValue) -> currentValue + 1)) == null) {
+                mGroupKeyToCountMap.put(notificationGroup.getGroupKey(), 1);
+            }
+        });
+
         if (mShowRecentsAndOlderHeaders && !mIsGroupNotificationAdapter) {
             List<NotificationGroup> seenNotifications = new ArrayList<>();
             List<NotificationGroup> unseenNotifications = new ArrayList<>();
@@ -639,6 +646,13 @@ public class CarNotificationViewAdapter extends ContentLimitingAdapter<RecyclerV
     }
 
     /**
+     * Returns {@code true} if there are multiple groups with the same {@code groupKey}.
+     */
+    public boolean shouldRemoveGroupSummary(String groupKey) {
+        return mGroupKeyToCountMap.getOrDefault(groupKey, /* defaultValue= */ 0) <= 1;
+    }
+
+    /**
      * Sets the NotificationClickHandlerFactory that allows for a hook to run a block off code
      * when  the notification is clicked. This is useful to dismiss a screen after
      * a notification list clicked.
@@ -653,7 +667,7 @@ public class CarNotificationViewAdapter extends ContentLimitingAdapter<RecyclerV
      * @param start Initial adapter position of the notification groups.
      * @param end Final adapter position of the notification groups.
      */
-    /* package */ void setNotificationsAsSeen(int start, int end) {
+    void setVisibleNotificationsAsSeen(int start, int end) {
         if (mNotificationDataManager == null || mIsGroupNotificationAdapter) {
             return;
         }
@@ -664,7 +678,7 @@ public class CarNotificationViewAdapter extends ContentLimitingAdapter<RecyclerV
         List<AlertEntry> notifications = new ArrayList();
         for (int i = start; i <= end; i++) {
             NotificationGroup group = mNotifications.get(i);
-            AlertEntry groupSummary =  group.getGroupSummaryNotification();
+            AlertEntry groupSummary = group.getGroupSummaryNotification();
             if (groupSummary != null) {
                 notifications.add(groupSummary);
             }
@@ -672,7 +686,7 @@ public class CarNotificationViewAdapter extends ContentLimitingAdapter<RecyclerV
             notifications.addAll(group.getChildNotifications());
         }
 
-        mNotificationDataManager.setNotificationsAsSeen(notifications);
+        mNotificationDataManager.setVisibleNotificationsAsSeen(notifications);
     }
 
     @Override
@@ -691,7 +705,7 @@ public class CarNotificationViewAdapter extends ContentLimitingAdapter<RecyclerV
 
         @Override
         public boolean equals(Object obj) {
-            if (!(obj instanceof  ExpandedNotification)) {
+            if (!(obj instanceof ExpandedNotification)) {
                 return false;
             }
             ExpandedNotification other = (ExpandedNotification) obj;

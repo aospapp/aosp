@@ -21,7 +21,7 @@
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="application_name" msgid="321870838342157591">"Live Wallpaper Picker"</string>
     <string name="live_wallpaper_picker_title" msgid="6152733341691314608">"Select live wallpaper"</string>
-    <string name="live_wallpaper_picker_label" msgid="295628316836042825">"Live wallpapers"</string>
+    <string name="live_wallpaper_picker_label" msgid="295628316836042825">"Live Wallpapers"</string>
     <string name="live_wallpaper_preview_title" msgid="908570871421455329">"Live wallpaper preview"</string>
     <string name="configure_wallpaper" msgid="4308477548538487192">"Settings…"</string>
     <string name="delete_live_wallpaper" msgid="2401799265848069389">"Delete"</string>
@@ -35,7 +35,7 @@
     <string name="which_wallpaper_option_home_screen_and_lock_screen" msgid="1650093303691767601">"Home screen and lock screen"</string>
     <string name="explore_further" msgid="489032063223099244">"Explore"</string>
     <string name="tab_info" msgid="5501369870701932475">"Info"</string>
-    <string name="tab_customize" msgid="9007237541087328909">"Customise"</string>
+    <string name="tab_customize" msgid="9007237541087328909">"Customize"</string>
     <string name="delete_wallpaper_confirmation" msgid="252765957117597457">"Delete this wallpaper from your phone?"</string>
     <string name="collapse_attribution_panel" msgid="5368959884531941653">"Collapse wallpaper info panel"</string>
     <string name="expand_attribution_panel" msgid="6540929859713706255">"Expand wallpaper info panel"</string>

@@ -48,8 +48,9 @@ public class LogpersistPreferenceController extends AbstractLogpersistPreference
         mLogpersistClearDialog = new AlertDialog.Builder(mContext)
                 .setMessage(R.string.dev_logpersist_clear_warning_message)
                 .setTitle(R.string.dev_logpersist_clear_warning_title)
-                .setPositiveButton(android.R.string.yes, (dialog, which) -> setLogpersistOff(true))
-                .setNegativeButton(android.R.string.no, (dialog, which) -> updateLogpersistValues())
+                .setPositiveButton(android.R.string.ok, (dialog, which) -> setLogpersistOff(true))
+                .setNegativeButton(android.R.string.cancel,
+                        (dialog, which) -> updateLogpersistValues())
                 .show();
         mLogpersistClearDialog.setOnDismissListener(dialog -> mLogpersistClearDialog = null);
     }

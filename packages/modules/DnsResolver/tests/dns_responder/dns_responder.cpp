@@ -41,6 +41,8 @@
 #include <netdutils/InternetAddresses.h>
 #include <netdutils/SocketOption.h>
 
+using android::base::ErrnoError;
+using android::base::Result;
 using android::base::unique_fd;
 using android::netdutils::BackoffSequence;
 using android::netdutils::enableSockopt;
@@ -76,7 +78,7 @@ std::string bytesToHexStr(std::span<const uint8_t> bytes) {
 
 // Because The address might still being set up (b/186181084), This is a wrapper function
 // that retries bind() if errno is EADDRNOTAVAIL
-int bindSocket(int socket, const sockaddr* address, socklen_t address_len) {
+Result<void> bindSocket(int socket, const sockaddr* address, socklen_t address_len) {
     // Set the wrapper to try bind() at most 6 times with backoff time
     // (100 ms, 200 ms, ..., 1600 ms).
     auto backoff = BackoffSequence<milliseconds>::Builder()
@@ -85,20 +87,13 @@ int bindSocket(int socket, const sockaddr* address, socklen_t address_len) {
                            .build();
 
     while (true) {
-        int ret = bind(socket, address, address_len);
-        if (ret == 0 || errno != EADDRNOTAVAIL) {
-            return ret;
-        }
-
-        if (!backoff.hasNextTimeout()) break;
+        if (0 == bind(socket, address, address_len)) return {};
+        if (errno != EADDRNOTAVAIL) return ErrnoError();
+        if (!backoff.hasNextTimeout()) return ErrnoError();
 
         LOG(WARNING) << "Retry to bind " << addr2str(address, address_len);
         std::this_thread::sleep_for(backoff.getNextTimeout());
     }
-
-    // Set errno before return since it might have been changed somewhere.
-    errno = EADDRNOTAVAIL;
-    return -1;
 }
 
 /* DNS struct helpers */
@@ -890,7 +885,7 @@ bool DNSResponder::fillRdata(const std::string& rdatastr, DNSRecord& record) {
             LOG(ERROR) << "invalid name length";
             return false;
         }
-        record.rdata = move(rdata);
+        record.rdata = std::move(rdata);
     } else {
         LOG(ERROR) << "unhandled qtype " << dnstype2str(record.rtype);
         return false;
@@ -1257,8 +1252,9 @@ unique_fd DNSResponder::createListeningSocket(int socket_type) {
                 struct sockaddr_in addr = {.sin_family = AF_INET,
                                            .sin_port = htons(mdns_port),
                                            .sin_addr = {INADDR_ANY}};
-                if (bindSocket(fd.get(), (struct sockaddr*)&addr, sizeof(addr))) {
-                    LOG(ERROR) << "Unable to bind socket to interface.";
+                if (auto result = bindSocket(fd.get(), (struct sockaddr*)&addr, sizeof(addr));
+                    !result.ok()) {
+                    LOG(ERROR) << "failed to bind. MDNS IPv4: " << result.error().message();
                     return {};
                 }
             } else if (ai_res->ai_family == AF_INET6) {
@@ -1276,17 +1272,18 @@ unique_fd DNSResponder::createListeningSocket(int socket_type) {
                         .sin6_port = htons(mdns_port),
                         .sin6_addr = IN6ADDR_ANY_INIT,
                 };
-                if (bindSocket(fd.get(), (struct sockaddr*)&addr, sizeof(addr))) {
-                    LOG(ERROR) << "Unable to bind socket to interface.MDNS IPV6";
+                if (auto result = bindSocket(fd.get(), (struct sockaddr*)&addr, sizeof(addr));
+                    !result.ok()) {
+                    LOG(ERROR) << "failed to bind. MDNS IPV6: " << result.error().message();
                     return {};
                 }
             }
             return fd;
         } else {
             const char* socket_str = (socket_type == SOCK_STREAM) ? "TCP" : "UDP";
-            if (bindSocket(fd.get(), ai->ai_addr, ai->ai_addrlen)) {
-                PLOG(ERROR) << "failed to bind " << socket_str << " " << host_str << ":"
-                            << listen_service_;
+            if (auto result = bindSocket(fd.get(), ai->ai_addr, ai->ai_addrlen); !result.ok()) {
+                LOG(ERROR) << "failed to bind " << socket_str << " " << host_str << ":"
+                           << listen_service_ << " " << result.error().message();
                 continue;
             }
             LOG(INFO) << "bound to " << socket_str << " " << host_str << ":" << listen_service_;

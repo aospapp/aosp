@@ -13,10 +13,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include "hci/hci_metrics_logging.h"
+
 #include <frameworks/proto_logging/stats/enums/bluetooth/hci/enums.pb.h>
 
+#include "common/audit_log.h"
 #include "common/strings.h"
-#include "hci/hci_metrics_logging.h"
 #include "os/metrics.h"
 #include "storage/device.h"
 
@@ -191,9 +193,9 @@ void log_link_layer_connection_command(std::unique_ptr<CommandView>& command_vie
       break;
     }
     case OpCode::LE_CLEAR_FILTER_ACCEPT_LIST: {
-      auto le_clear_connect_list_view = LeClearFilterAcceptListView::Create(
+      auto le_clear_filter_accept_list_view = LeClearFilterAcceptListView::Create(
           LeConnectionManagementCommandView::Create(std::move(connection_management_command_view)));
-      ASSERT(le_clear_connect_list_view.IsValid());
+      ASSERT(le_clear_filter_accept_list_view.IsValid());
       direction = android::bluetooth::DIRECTION_INCOMING;
       link_type = android::bluetooth::LINK_TYPE_ACL;
       break;
@@ -371,9 +373,9 @@ void log_link_layer_connection_command_status(std::unique_ptr<CommandView>& comm
       break;
     }
     case OpCode::LE_CLEAR_FILTER_ACCEPT_LIST: {
-      auto le_clear_connect_list_view = LeClearFilterAcceptListView::Create(
+      auto le_clear_filter_accept_list_view = LeClearFilterAcceptListView::Create(
           LeConnectionManagementCommandView::Create(std::move(connection_management_command_view)));
-      ASSERT(le_clear_connect_list_view.IsValid());
+      ASSERT(le_clear_filter_accept_list_view.IsValid());
       direction = android::bluetooth::DIRECTION_INCOMING;
       link_type = android::bluetooth::LINK_TYPE_ACL;
       break;
@@ -433,9 +435,9 @@ void log_link_layer_connection_command_complete(EventView event_view, std::uniqu
 
   switch (op_code) {
     case OpCode::LE_CLEAR_FILTER_ACCEPT_LIST: {
-      auto le_clear_connect_list_view = LeClearFilterAcceptListView::Create(
+      auto le_clear_filter_accept_list_view = LeClearFilterAcceptListView::Create(
           LeConnectionManagementCommandView::Create(std::move(connection_management_command_view)));
-      ASSERT(le_clear_connect_list_view.IsValid());
+      ASSERT(le_clear_filter_accept_list_view.IsValid());
       direction = android::bluetooth::DIRECTION_INCOMING;
       link_type = android::bluetooth::LINK_TYPE_ACL;
       break;
@@ -517,6 +519,10 @@ void log_link_layer_connection_other_hci_event(EventView packet, storage::Storag
           connection_handle,
           status,
           storage_module);
+
+      if (status != ErrorCode::SUCCESS) {
+        common::LogConnectionAdminAuditEvent("Connecting", address, status);
+      }
       break;
     }
     case EventCode::CONNECTION_REQUEST: {
@@ -568,21 +574,35 @@ void log_link_layer_connection_other_hci_event(EventView packet, storage::Storag
 
 void log_link_layer_connection_event_le_meta(LeMetaEventView le_meta_event_view) {
   SubeventCode leEvt = le_meta_event_view.GetSubeventCode();
-  auto le_connection_complete_view = LeConnectionCompleteView::Create(std::move(le_meta_event_view));
-  if (!le_connection_complete_view.IsValid()) {
+  if (leEvt != SubeventCode::ENHANCED_CONNECTION_COMPLETE && leEvt != SubeventCode::CONNECTION_COMPLETE) {
     // function is called for all le meta events. Only need to process le connection complete.
     return;
   }
-  ASSERT(le_connection_complete_view.IsValid());
-  // init parameters to log
+
   EventCode event_code = EventCode::LE_META_EVENT;
-  Address address = le_connection_complete_view.GetPeerAddress();
-  uint32_t connection_handle = le_connection_complete_view.GetConnectionHandle();
+  Address address;
+  uint32_t connection_handle;
   android::bluetooth::DirectionEnum direction = android::bluetooth::DIRECTION_UNKNOWN;
   uint16_t link_type = android::bluetooth::LINK_TYPE_ACL;
-  ErrorCode status = le_connection_complete_view.GetStatus();
+  ErrorCode status;
   ErrorCode reason = ErrorCode::UNKNOWN_HCI_COMMAND;
   uint32_t cmd = android::bluetooth::hci::CMD_UNKNOWN;
+
+  if (leEvt == SubeventCode::CONNECTION_COMPLETE) {
+    auto le_connection_complete_view = LeConnectionCompleteView::Create(std::move(le_meta_event_view));
+    ASSERT(le_connection_complete_view.IsValid());
+    address = le_connection_complete_view.GetPeerAddress();
+    connection_handle = le_connection_complete_view.GetConnectionHandle();
+    status = le_connection_complete_view.GetStatus();
+  } else if (leEvt == SubeventCode::ENHANCED_CONNECTION_COMPLETE) {
+    auto le_enhanced_connection_complete_view = LeEnhancedConnectionCompleteView::Create(std::move(le_meta_event_view));
+    ASSERT(le_enhanced_connection_complete_view.IsValid());
+    address = le_enhanced_connection_complete_view.GetPeerAddress();
+    connection_handle = le_enhanced_connection_complete_view.GetConnectionHandle();
+    status = le_enhanced_connection_complete_view.GetStatus();
+  } else {
+    LOG_ALWAYS_FATAL("WTF");
+  }
 
   os::LogMetricLinkLayerConnectionEvent(
       &address,
@@ -594,6 +614,12 @@ void log_link_layer_connection_event_le_meta(LeMetaEventView le_meta_event_view)
       static_cast<uint16_t>(leEvt),
       static_cast<uint16_t>(status),
       static_cast<uint16_t>(reason));
+
+  if (status != ErrorCode::SUCCESS && status != ErrorCode::UNKNOWN_CONNECTION) {
+    // ERROR CODE 0x02, unknown connection identifier, means connection attempt was cancelled by host, so probably no
+    // need to log it.
+    common::LogConnectionAdminAuditEvent("Connecting", address, status);
+  }
 }
 
 void log_classic_pairing_other_hci_event(EventView packet) {
@@ -768,14 +794,6 @@ void log_classic_pairing_command_status(std::unique_ptr<CommandView>& command_vi
       value = static_cast<int64_t>(set_connection_encryption_view.GetEncryptionEnable());
       break;
     }
-    case OpCode::DELETE_STORED_LINK_KEY: {
-      DeleteStoredLinkKeyView delete_stored_link_key_view
-      = DeleteStoredLinkKeyView::Create(std::move(security_command_view));
-      ASSERT(delete_stored_link_key_view.IsValid());
-      address = delete_stored_link_key_view.GetBdAddr();
-      value = static_cast<int64_t>(delete_stored_link_key_view.GetDeleteAllFlag());
-      break;
-    }
     case OpCode::REMOTE_NAME_REQUEST: {
       RemoteNameRequestView remote_name_request_view = RemoteNameRequestView::Create(std::move(discovery_command_view));
       ASSERT(remote_name_request_view.IsValid());
@@ -904,12 +922,6 @@ void log_classic_pairing_command_complete(EventView event_view, std::unique_ptr<
   ASSERT(security_command_view.IsValid());
 
   switch (op_code) {
-    case OpCode::DELETE_STORED_LINK_KEY: {
-      auto delete_stored_link_key_complete_view = DeleteStoredLinkKeyCompleteView::Create(std::move(command_complete_view));
-      ASSERT(delete_stored_link_key_complete_view.IsValid());
-      status = delete_stored_link_key_complete_view.GetStatus();
-      break;
-    }
     case OpCode::READ_LOCAL_OOB_DATA: {
       auto read_local_oob_data_complete_view = ReadLocalOobDataCompleteView::Create(std::move(command_complete_view));
       ASSERT(read_local_oob_data_complete_view.IsValid());

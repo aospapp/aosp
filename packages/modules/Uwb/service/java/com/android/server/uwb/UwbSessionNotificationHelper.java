@@ -41,11 +41,15 @@ public class UwbSessionNotificationHelper {
                 break;
             case UwbUciConstants.REASON_ERROR_INSUFFICIENT_SLOTS_PER_RR:
             case UwbUciConstants.REASON_ERROR_SLOT_LENGTH_NOT_SUPPORTED:
+            case UwbUciConstants.REASON_ERROR_INVALID_UL_TDOA_RANDOM_WINDOW:
             case UwbUciConstants.REASON_ERROR_MAC_ADDRESS_MODE_NOT_SUPPORTED:
             case UwbUciConstants.REASON_ERROR_INVALID_RANGING_INTERVAL:
             case UwbUciConstants.REASON_ERROR_INVALID_STS_CONFIG:
             case UwbUciConstants.REASON_ERROR_INVALID_RFRAME_CONFIG:
                 rangingChangeReason = RangingChangeReason.BAD_PARAMETERS;
+                break;
+            case UwbUciConstants.REASON_REGULATION_UWB_OFF:
+                rangingChangeReason = RangingChangeReason.SYSTEM_REGULATION;
                 break;
         }
         return rangingChangeReason;
@@ -70,6 +74,9 @@ public class UwbSessionNotificationHelper {
             case UwbUciConstants.STATUS_CODE_CCC_LIFECYCLE:
             case UwbUciConstants.STATUS_CODE_CCC_SE_BUSY:
                 rangingChangeReason = RangingChangeReason.PROTOCOL_SPECIFIC;
+                break;
+            case UwbUciConstants.REASON_ERROR_INSUFFICIENT_SLOTS_PER_RR:
+                rangingChangeReason = RangingChangeReason.INSUFFICIENT_SLOTS_PER_RR;
                 break;
         }
         return rangingChangeReason;

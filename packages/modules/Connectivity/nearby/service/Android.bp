@@ -24,23 +24,6 @@ filegroup {
     ],
 }
 
-filegroup {
-    name: "nearby-service-string-res",
-    srcs: [
-        "java/**/Constant.java",
-        "java/**/UserActionHandlerBase.java",
-        "java/**/UserActionHandler.java",
-        "java/**/FastPairConstants.java",
-    ],
-}
-
-java_library {
-    name: "nearby-service-string",
-    srcs: [":nearby-service-string-res"],
-    libs: ["framework-bluetooth"],
-    sdk_version: "module_current",
-}
-
 // Common lib for nearby end-to-end testing.
 java_library {
     name: "nearby-common-lib",
@@ -85,10 +68,12 @@ java_library {
     ],
     libs: [
         "androidx.annotation_annotation",
-        "framework-bluetooth.stubs.module_lib", // TODO(b/215722418): Change to framework-bluetooth once fixed
+        "framework-bluetooth",
         "error_prone_annotations",
+        "framework-configinfrastructure",
         "framework-connectivity-t.impl",
-        "framework-statsd.stubs.module_lib",
+        "framework-statsd",
+        "HalfSheetUX",
     ],
     static_libs: [
         "androidx.core_core",

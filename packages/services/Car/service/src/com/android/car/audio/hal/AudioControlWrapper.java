@@ -42,6 +42,7 @@ public interface AudioControlWrapper {
     int AUDIOCONTROL_FEATURE_AUDIO_GROUP_MUTING = 2;
     int AUDIOCONTROL_FEATURE_AUDIO_FOCUS_WITH_METADATA = 3;
     int AUDIOCONTROL_FEATURE_AUDIO_GAIN_CALLBACK = 4;
+    int AUDIOCONTROL_FEATURE_AUDIO_MODULE_CALLBACK = 5;
 
     @IntDef({
             AUDIOCONTROL_FEATURE_AUDIO_FOCUS,
@@ -49,6 +50,7 @@ public interface AudioControlWrapper {
             AUDIOCONTROL_FEATURE_AUDIO_GROUP_MUTING,
             AUDIOCONTROL_FEATURE_AUDIO_FOCUS_WITH_METADATA,
             AUDIOCONTROL_FEATURE_AUDIO_GAIN_CALLBACK,
+            AUDIOCONTROL_FEATURE_AUDIO_MODULE_CALLBACK,
     })
     @Retention(RetentionPolicy.SOURCE)
     @interface AudioControlFeature {
@@ -135,6 +137,19 @@ public interface AudioControlWrapper {
      * @param carZonesMutingInfo list of information about addresses to mute to relay to the HAL.
      */
     void onDevicesToMuteChange(@NonNull List<MutingInfo> carZonesMutingInfo);
+
+    /**
+     * Registers callback for HAL audio module change notification with IAudioControl. Only works
+     * if {@code supportsHalAudioModuleChangeCallback} returns true.
+     *
+     * @param moduleChangeCallback the callback to register on the IAudioControl HAL.
+     */
+    void setModuleChangeCallback(HalAudioModuleChangeCallback moduleChangeCallback);
+
+    /**
+     * Clears all module change callbacks that's registered on the AudioControl HAL
+     */
+    void clearModuleChangeCallback();
 
     /**
      * Registers recipient to be notified if AudioControl HAL service dies.

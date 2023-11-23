@@ -18,6 +18,7 @@ package com.android.tv;
 
 import android.annotation.TargetApi;
 import android.content.Context;
+import android.media.tv.AitInfo;
 import android.media.tv.TvContentRating;
 import android.media.tv.TvInputInfo;
 import android.media.tv.TvTrackInfo;
@@ -581,6 +582,12 @@ public class InputSessionManager {
         @Override
         public void onSignalStrength(String inputId, int value) {
             mDelegate.onSignalStrength(inputId, value);
+        }
+
+        @TargetApi(Build.VERSION_CODES.TIRAMISU)
+        @Override
+        public void onAitInfoUpdated(String inputId, AitInfo aitInfo) {
+            mDelegate.onAitInfoUpdated(inputId, aitInfo);
         }
     }
 

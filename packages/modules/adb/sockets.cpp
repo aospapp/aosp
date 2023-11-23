@@ -20,6 +20,7 @@
 
 #include <ctype.h>
 #include <errno.h>
+#include <inttypes.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -119,33 +120,56 @@ enum class SocketFlushResult {
 };
 
 static SocketFlushResult local_socket_flush_incoming(asocket* s) {
+    D("LS(%u) %s: %zu bytes in queue", s->id, __func__, s->packet_queue.size());
+    uint32_t bytes_flushed = 0;
     if (!s->packet_queue.empty()) {
         std::vector<adb_iovec> iov = s->packet_queue.iovecs();
         ssize_t rc = adb_writev(s->fd, iov.data(), iov.size());
-        if (rc > 0 && static_cast<size_t>(rc) == s->packet_queue.size()) {
-            s->packet_queue.clear();
-        } else if (rc > 0) {
-            s->packet_queue.drop_front(rc);
-            fdevent_add(s->fde, FDE_WRITE);
-            return SocketFlushResult::TryAgain;
+        D("LS(%u) %s: rc = %zd", s->id, __func__, rc);
+        if (rc > 0) {
+            bytes_flushed = rc;
+            if (static_cast<size_t>(rc) == s->packet_queue.size()) {
+                s->packet_queue.clear();
+            } else {
+                s->packet_queue.drop_front(rc);
+            }
         } else if (rc == -1 && errno == EAGAIN) {
-            fdevent_add(s->fde, FDE_WRITE);
-            return SocketFlushResult::TryAgain;
+            // fd is full.
         } else {
-            // We failed to write, but it's possible that we can still read from the socket.
-            // Give that a try before giving up.
+            // rc == 0, probably.
+            // The other side closed its read side of the fd, but it's possible that we can still
+            // read from the socket. Give that a try before giving up.
             s->has_write_error = true;
         }
     }
 
+    bool fd_full = !s->packet_queue.empty() && !s->has_write_error;
+    if (s->transport && s->peer) {
+        if (s->available_send_bytes.has_value()) {
+            // Deferred acks are available.
+            send_ready(s->id, s->peer->id, s->transport, bytes_flushed);
+        } else {
+            // Deferred acks aren't available, we should ask for more data as long as we've made any
+            // progress.
+            if (bytes_flushed != 0) {
+                send_ready(s->id, s->peer->id, s->transport, 0);
+            }
+        }
+    }
+
     // If we sent the last packet of a closing socket, we can now destroy it.
-    if (s->closing) {
+    if (s->closing && !fd_full) {
         s->close(s);
         return SocketFlushResult::Destroyed;
     }
 
-    fdevent_del(s->fde, FDE_WRITE);
-    return SocketFlushResult::Completed;
+    if (fd_full) {
+        fdevent_add(s->fde, FDE_WRITE);
+        return SocketFlushResult::TryAgain;
+    } else {
+        fdevent_del(s->fde, FDE_WRITE);
+        return SocketFlushResult::Completed;
+    }
 }
 
 // Returns false if the socket has been closed and destroyed as a side-effect of this function.
@@ -176,8 +200,7 @@ static bool local_socket_flush_outgoing(asocket* s) {
         is_eof = 1;
         break;
     }
-    D("LS(%d): fd=%d post avail loop. r=%d is_eof=%d forced_eof=%d", s->id, s->fd, r, is_eof,
-      s->fde->force_eof);
+    D("LS(%d): fd=%d post avail loop. r=%d is_eof=%d", s->id, s->fd, r, is_eof);
 
     if (avail != max_payload && s->peer) {
         data.resize(max_payload - avail);
@@ -186,6 +209,11 @@ static bool local_socket_flush_outgoing(asocket* s) {
         // so save variables for debug printing below.
         unsigned saved_id = s->id;
         int saved_fd = s->fd;
+
+        if (s->available_send_bytes) {
+            *s->available_send_bytes -= data.size();
+        }
+
         r = s->peer->enqueue(s->peer, std::move(data));
         D("LS(%u): fd=%d post peer->enqueue(). r=%d", saved_id, saved_fd, r);
 
@@ -200,17 +228,20 @@ static bool local_socket_flush_outgoing(asocket* s) {
         }
 
         if (r > 0) {
-            /* if the remote cannot accept further events,
-            ** we disable notification of READs.  They'll
-            ** be enabled again when we get a call to ready()
-            */
-            fdevent_del(s->fde, FDE_READ);
+            if (s->available_send_bytes) {
+                if (*s->available_send_bytes <= 0) {
+                    D("LS(%u): send buffer full (%" PRId64 ")", saved_id, *s->available_send_bytes);
+                    fdevent_del(s->fde, FDE_READ);
+                }
+            } else {
+                D("LS(%u): acks not deferred, blocking", saved_id);
+                fdevent_del(s->fde, FDE_READ);
+            }
         }
     }
 
-    // Don't allow a forced eof if data is still there.
-    if ((s->fde->force_eof && !r) || is_eof) {
-        D(" closing because is_eof=%d r=%d s->fde.force_eof=%d", is_eof, r, s->fde->force_eof);
+    if (is_eof) {
+        D(" closing because is_eof=%d", is_eof);
         s->close(s);
         return false;
     }
@@ -340,7 +371,7 @@ static void local_socket_close(asocket* s) {
     /* otherwise, put on the closing list
     */
     D("LS(%d): closing", s->id);
-    s->closing = 1;
+    s->closing = true;
     fdevent_del(s->fde, FDE_READ);
     remove_socket(s);
     D("LS(%d): put on socket_closing_list fd=%d", s->id, s->fd);
@@ -364,7 +395,6 @@ static void local_socket_event_func(int fd, unsigned ev, void* _s) {
                 break;
 
             case SocketFlushResult::Completed:
-                s->peer->ready(s->peer);
                 break;
         }
     }
@@ -385,6 +415,32 @@ static void local_socket_event_func(int fd, unsigned ev, void* _s) {
     }
 }
 
+void local_socket_ack(asocket* s, std::optional<int32_t> acked_bytes) {
+    // acked_bytes can be negative!
+    //
+    // In the future, we can use this to preemptively supply backpressure, instead
+    // of waiting for the writer to hit its limit.
+    if (s->available_send_bytes.has_value() != acked_bytes.has_value()) {
+        LOG(ERROR) << "delayed ack mismatch: socket = " << s->available_send_bytes.has_value()
+                   << ", payload = " << acked_bytes.has_value();
+        return;
+    }
+
+    if (s->available_send_bytes.has_value()) {
+        D("LS(%d) received delayed ack, available bytes: %" PRId64 " += %" PRIu32, s->id,
+          *s->available_send_bytes, *acked_bytes);
+
+        // This can't (reasonably) overflow: available_send_bytes is 64-bit.
+        *s->available_send_bytes += *acked_bytes;
+        if (*s->available_send_bytes > 0) {
+            s->ready(s);
+        }
+    } else {
+        D("LS(%d) received ack", s->id);
+        s->ready(s);
+    }
+}
+
 asocket* create_local_socket(unique_fd ufd) {
     int fd = ufd.release();
     asocket* s = new asocket();
@@ -402,7 +458,7 @@ asocket* create_local_socket(unique_fd ufd) {
 
 asocket* create_local_service_socket(std::string_view name, atransport* transport) {
 #if !ADB_HOST
-    if (asocket* s = daemon_service_to_socket(name); s) {
+    if (asocket* s = daemon_service_to_socket(name, transport); s) {
         return s;
     }
 #endif
@@ -413,6 +469,7 @@ asocket* create_local_service_socket(std::string_view name, atransport* transpor
 
     int fd_value = fd.get();
     asocket* s = create_local_socket(std::move(fd));
+    s->transport = transport;
     LOG(VERBOSE) << "LS(" << s->id << "): bound to '" << name << "' via " << fd_value;
 
 #if !ADB_HOST
@@ -501,12 +558,23 @@ asocket* create_remote_socket(unsigned id, atransport* t) {
 }
 
 void connect_to_remote(asocket* s, std::string_view destination) {
+#if ADB_HOST
+    // Snoop reverse:forward: requests to track them so that an
+    // appropriate filter (to figure out whether the remote is
+    // allowed to connect locally) can be applied.
+    s->transport->UpdateReverseConfig(destination);
+#endif
     D("Connect_to_remote call RS(%d) fd=%d", s->id, s->fd);
     apacket* p = get_apacket();
 
     LOG(VERBOSE) << "LS(" << s->id << ": connect(" << destination << ")";
     p->msg.command = A_OPEN;
     p->msg.arg0 = s->id;
+
+    if (s->transport->SupportsDelayedAck()) {
+        p->msg.arg1 = INITIAL_DELAYED_ACK_BYTES;
+        s->available_send_bytes = 0;
+    }
 
     // adbd used to expect a null-terminated string.
     // Keep doing so to maintain backward compatibility.

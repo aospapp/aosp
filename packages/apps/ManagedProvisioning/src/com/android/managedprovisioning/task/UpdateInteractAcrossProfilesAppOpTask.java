@@ -65,12 +65,16 @@ public class UpdateInteractAcrossProfilesAppOpTask extends AbstractProvisioningT
 
     @Override
     public void run(int userId) {
+        ProvisionLogger.logi("Running UpdateInteractAcrossProfilesAppOpTask.");
         Set<String> previousCrossProfileApps =
                 mCrossProfileAppsSnapshot.hasSnapshot(userId) ?
                         mCrossProfileAppsSnapshot.getSnapshot(userId) :
                         new ArraySet<>();
+        ProvisionLogger.logi("Previous cross profile apps snapshot: " + previousCrossProfileApps);
+
         mCrossProfileAppsSnapshot.takeNewSnapshot(userId);
         Set<String> currentCrossProfileApps = mCrossProfileAppsSnapshot.getSnapshot(userId);
+        ProvisionLogger.logi("current cross profile apps snapshot: " + currentCrossProfileApps);
 
         updateAfterOtaChanges(previousCrossProfileApps, currentCrossProfileApps);
     }
@@ -88,22 +92,31 @@ public class UpdateInteractAcrossProfilesAppOpTask extends AbstractProvisioningT
 
     private void grantNewConfigurableDefaultCrossProfilePackages(
             Set<String> newCrossProfilePackages) {
+        ProvisionLogger.logi("Granting INTERACT_ACROSS_PROFILES to the new default cross profile "
+                + "apps: " + newCrossProfilePackages);
+
         final String op =
                 AppOpsManager.permissionToOp(Manifest.permission.INTERACT_ACROSS_PROFILES);
         for (String crossProfilePackageName : newCrossProfilePackages) {
             if (!mCrossProfileApps.canConfigureInteractAcrossProfiles(crossProfilePackageName)) {
+                ProvisionLogger.logi("Can't grant appop to unconfigurable app: "
+                        + crossProfilePackageName);
                 continue;
             }
             try {
                 final int uid = mPackageManager.getPackageUid(
                         crossProfilePackageName, /* flags= */ 0);
                 if (appOpIsChangedFromDefault(op, uid, crossProfilePackageName)) {
+                    ProvisionLogger.logi("Can't change appop from non default value: ("
+                            + crossProfilePackageName + ", " + mAppOpsManager.unsafeCheckOpNoThrow(
+                                    op, uid, crossProfilePackageName) + ")");
                     continue;
                 }
             } catch (PackageManager.NameNotFoundException e) {
                 ProvisionLogger.loge("Missing package, this should not happen.", e);
                 continue;
             }
+            ProvisionLogger.logi("Setting appop to allowed for " + crossProfilePackageName);
             mCrossProfileApps.setInteractAcrossProfilesAppOp(crossProfilePackageName,
                     AppOpsManager.MODE_ALLOWED);
         }
@@ -116,6 +129,8 @@ public class UpdateInteractAcrossProfilesAppOpTask extends AbstractProvisioningT
      * instead of per-UID causing issues for applications with shared UIDs.
      */
     private void reapplyCrossProfileAppsPermission() {
+        ProvisionLogger.logi("Reapplying INTERACT_ACROSS_PROFILES for apps with non default "
+                + "values.");
         final Set<Integer> uids = getUidsWithNonDefaultMode();
         reapplyCrossProfileAppsPermissionForUids(uids);
     }
@@ -205,10 +220,17 @@ public class UpdateInteractAcrossProfilesAppOpTask extends AbstractProvisioningT
      */
     private void setInteractAcrossProfilesAppOpForPackage(
             int uid, String packageName, @AppOpsManager.Mode int mode) {
+        final String op =
+                AppOpsManager.permissionToOp(Manifest.permission.INTERACT_ACROSS_PROFILES);
+        int previousMode = mAppOpsManager.unsafeCheckOpNoThrow(op, uid, packageName);
         mAppOpsManager.setMode(
                 OP_INTERACT_ACROSS_PROFILES, uid, packageName,
                 AppOpsManager.opToDefaultMode(OP_INTERACT_ACROSS_PROFILES));
         mAppOpsManager.setUidMode(OP_INTERACT_ACROSS_PROFILES, uid, mode);
+        int currentMode = mAppOpsManager.unsafeCheckOpNoThrow(op, uid, packageName);
+        ProvisionLogger.logi(
+                "Reapplying INTERACT_ACROSS_PROFILES for " + packageName + " with uid + " + uid
+                        + ", previous mode: " + previousMode + ", current mode is " + currentMode);
     }
 
     private boolean appOpIsChangedFromDefault(String op, int uid, String packageName) {

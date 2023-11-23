@@ -142,6 +142,7 @@ class ControllerFacadeService : public ControllerFacade::Service {
   SUPPORTED_API(SupportsBlePowerControlRequest)
   SUPPORTED_API(SupportsBlePowerChangeIndication)
   SUPPORTED_API(SupportsBlePathLossMonitoring)
+  SUPPORTED_API(SupportsBlePeriodicAdvertisingAdi)
 
   ::grpc::Status GetLeNumberOfSupportedAdvertisingSets(
       ::grpc::ServerContext* context, const ::google::protobuf::Empty* request, SingleValueMsg* response) override {

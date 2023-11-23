@@ -18,12 +18,13 @@ package com.android.bluetooth.bas;
 
 import static android.bluetooth.BluetoothDevice.PHY_LE_1M_MASK;
 import static android.bluetooth.BluetoothDevice.PHY_LE_2M_MASK;
-import static android.bluetooth.BluetoothDevice.TRANSPORT_AUTO;
+import static android.bluetooth.BluetoothDevice.TRANSPORT_LE;
 
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothGatt;
 import android.bluetooth.BluetoothGattCallback;
 import android.bluetooth.BluetoothGattCharacteristic;
+import android.bluetooth.BluetoothGattDescriptor;
 import android.bluetooth.BluetoothGattService;
 import android.bluetooth.BluetoothProfile;
 import android.os.Looper;
@@ -51,9 +52,10 @@ public class BatteryStateMachine extends StateMachine {
 
     static final UUID GATT_BATTERY_SERVICE_UUID =
             UUID.fromString("0000180f-0000-1000-8000-00805f9b34fb");
-
     static final UUID GATT_BATTERY_LEVEL_CHARACTERISTIC_UUID =
             UUID.fromString("00002a19-0000-1000-8000-00805f9b34fb");
+    static final UUID CLIENT_CHARACTERISTIC_CONFIG_DESCRIPTOR_UUID =
+            UUID.fromString("00002902-0000-1000-8000-00805f9b34fb");
 
     static final int CONNECT = 1;
     static final int DISCONNECT = 2;
@@ -231,7 +233,7 @@ public class BatteryStateMachine extends StateMachine {
             mBluetoothGatt.close();
         }
         mBluetoothGatt = mDevice.connectGatt(service, /*autoConnect=*/false,
-                mGattCallback, TRANSPORT_AUTO, /*opportunistic=*/true,
+                mGattCallback, TRANSPORT_LE, /*opportunistic=*/true,
                 PHY_LE_1M_MASK | PHY_LE_2M_MASK, getHandler());
         return mBluetoothGatt != null;
     }
@@ -359,10 +361,9 @@ public class BatteryStateMachine extends StateMachine {
                     log(TAG, "Connection canceled to " + mDevice);
                     if (mBluetoothGatt != null) {
                         mBluetoothGatt.disconnect();
-                        transitionTo(mDisconnecting);
-                    } else {
-                        transitionTo(mDisconnected);
                     }
+                    // As we're not yet connected we don't need to wait for callbacks.
+                    transitionTo(mDisconnected);
                     break;
                 case CONNECTION_STATE_CHANGED:
                     processConnectionEvent(message.arg1);
@@ -553,7 +554,8 @@ public class BatteryStateMachine extends StateMachine {
                 return;
             }
 
-            gatt.setCharacteristicNotification(batteryLevel, /*enable=*/true);
+            // This may not trigger onCharacteristicRead if CCCD is already set but then
+            // onCharacteristicChanged will be triggered soon.
             gatt.readCharacteristic(batteryLevel);
         }
 
@@ -575,6 +577,23 @@ public class BatteryStateMachine extends StateMachine {
 
             if (GATT_BATTERY_LEVEL_CHARACTERISTIC_UUID.equals(characteristic.getUuid())) {
                 updateBatteryLevel(value);
+                BluetoothGattDescriptor cccd =
+                        characteristic.getDescriptor(CLIENT_CHARACTERISTIC_CONFIG_DESCRIPTOR_UUID);
+                if (cccd != null) {
+                    gatt.setCharacteristicNotification(characteristic, /*enable=*/true);
+                    gatt.writeDescriptor(cccd, BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE);
+                } else {
+                    Log.w(TAG, "No CCCD for battery level characteristic, "
+                            + "it won't be notified");
+                }
+            }
+        }
+
+        @Override
+        public void onDescriptorWrite(BluetoothGatt gatt, BluetoothGattDescriptor descriptor,
+                int status) {
+            if (status != BluetoothGatt.GATT_SUCCESS) {
+                Log.w(TAG, "Failed to write descriptor " + descriptor.getUuid());
             }
         }
 

@@ -14,8 +14,9 @@
  * limitations under the License.
  */
 
-#include <log/log.h>
 #include "HalDisplay.h"
+
+#include <log/log.h>
 
 namespace android {
 namespace automotive {
@@ -23,8 +24,7 @@ namespace evs {
 namespace V1_0 {
 namespace implementation {
 
-HalDisplay::HalDisplay(sp<IEvsDisplay>& display) :
-  mHwDisplay(display) {
+HalDisplay::HalDisplay(sp<IEvsDisplay>& display) : mHwDisplay(display) {
     // nothing to do.
 }
 
@@ -100,8 +100,8 @@ Return<EvsResult> HalDisplay::returnTargetBufferForDisplay(const BufferDesc& buf
     }
 }
 
-} // namespace implementation
-} // namespace V1_0
-} // namespace evs
-} // namespace automotive
-} // namespace android
+}  // namespace implementation
+}  // namespace V1_0
+}  // namespace evs
+}  // namespace automotive
+}  // namespace android

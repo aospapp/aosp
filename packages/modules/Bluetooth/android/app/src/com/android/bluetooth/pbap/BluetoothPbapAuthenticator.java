@@ -34,6 +34,7 @@ package com.android.bluetooth.pbap;
 
 import android.util.Log;
 
+import com.android.internal.annotations.VisibleForTesting;
 import com.android.obex.Authenticator;
 import com.android.obex.PasswordAuthentication;
 
@@ -44,10 +45,10 @@ import com.android.obex.PasswordAuthentication;
 public class BluetoothPbapAuthenticator implements Authenticator {
     private static final String TAG = "PbapAuthenticator";
 
-    private boolean mChallenged;
-    private boolean mAuthCancelled;
-    private String mSessionKey;
-    private PbapStateMachine mPbapStateMachine;
+    @VisibleForTesting boolean mChallenged;
+    @VisibleForTesting boolean mAuthCancelled;
+    @VisibleForTesting String mSessionKey;
+    @VisibleForTesting PbapStateMachine mPbapStateMachine;
 
     BluetoothPbapAuthenticator(final PbapStateMachine stateMachine) {
         mPbapStateMachine = stateMachine;

@@ -16,6 +16,7 @@
 
 package com.android.services.telephony.rcs;
 
+import android.telephony.ims.SipDialogState;
 import android.telephony.ims.SipMessage;
 import android.util.ArrayMap;
 import android.util.ArraySet;
@@ -33,6 +34,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Set;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 /**
@@ -69,10 +71,13 @@ public class SipSessionTracker {
 
     private final RcsStats mRcsStats;
     int mSubId;
+    private SipDialogsStateListener mSipDialogsListener;
+    private String mDelegateKey;
 
     public SipSessionTracker(int subId, RcsStats rcsStats) {
         mSubId = subId;
         mRcsStats = rcsStats;
+        mDelegateKey = String.valueOf(UUID.randomUUID());
     }
 
     /**
@@ -152,6 +157,7 @@ public class SipSessionTracker {
             logi("Dialog closed: " + d);
         }
         mTrackedDialogs.removeAll(dialogsToCleanup);
+        notifySipDialogState();
     }
 
     /**
@@ -213,6 +219,7 @@ public class SipSessionTracker {
         }
         mTrackedDialogs.clear();
         mPendingAck.clear();
+        notifySipDialogState();
     }
 
     /**
@@ -308,6 +315,7 @@ public class SipSessionTracker {
                 d.close();
                 logi("Dialog closed: " + d);
             }
+            notifySipDialogState();
         };
     }
 
@@ -365,16 +373,47 @@ public class SipSessionTracker {
         if (statusCode >= 300) {
             mRcsStats.onSipTransportSessionClosed(mSubId, m.getCallIdParameter(), statusCode, true);
             d.close();
+            notifySipDialogState();
             return;
         }
         if (toTag == null) logw("updateSipDialogState: No to tag for message: " + m);
         if (statusCode >= 200) {
             mRcsStats.confirmedSipTransportSession(m.getCallIdParameter(), statusCode);
             d.confirm(toTag);
+            notifySipDialogState();
             return;
         }
         // 1XX responses still require updates to dialogs.
         d.earlyResponse(toTag);
+        notifySipDialogState();
+    }
+
+    /**
+     * This is a listener to handle SipDialog state of delegate
+     * @param listener {@link SipDialogsStateListener}
+     * @param isNeedNotify It indicates whether the current dialogs state should be notified.
+     */
+    public void setSipDialogsListener(SipDialogsStateListener listener,
+            boolean isNeedNotify) {
+        mSipDialogsListener = listener;
+        if (listener == null) {
+            return;
+        }
+        if (isNeedNotify) {
+            notifySipDialogState();
+        }
+    }
+
+    private void notifySipDialogState() {
+        if (mSipDialogsListener == null) {
+            return;
+        }
+        List<SipDialogState> dialogStates = new ArrayList<>();
+        for (SipDialog d : mTrackedDialogs) {
+            SipDialogState dialog = new SipDialogState.Builder(d.getState()).build();
+            dialogStates.add(dialog);
+        }
+        mSipDialogsListener.reMappingSipDelegateState(mDelegateKey, dialogStates);
     }
 
     private void logi(String log) {

@@ -111,13 +111,13 @@
     </style>
 
     <style name="EmptyStateTitleText">
-        <item name="android:textColor">@color/empty_state_text</item>
+        <item name="android:textColor">@color/empty_state_text_color</item>
         <item name="android:textSize">14sp</item>
         <item name="fontFamily">@string/config_fontFamilyMedium</item>
     </style>
 
     <style name="EmptyStateMessageText">
-        <item name="android:textColor">@color/empty_state_text</item>
+        <item name="android:textColor">@color/empty_state_text_color</item>
         <item name="android:textSize">12sp</item>
     </style>
 

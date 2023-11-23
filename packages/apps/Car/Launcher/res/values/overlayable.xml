@@ -1,5 +1,5 @@
 <?xml version='1.0' encoding='UTF-8'?>
-<!-- Copyright (C) 2022 The Android Open Source Project
+<!-- Copyright (C) 2023 The Android Open Source Project
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
@@ -16,27 +16,63 @@ REGENERATE USING packages/apps/Car/libs/tools/rro/generate-overlayable.py
 <resources>
   <overlayable name="CarLauncher">
     <policy type="system|product|signature">
+      <item type="animator" name="recents_clear_all"/>
       <item type="array" name="config_homeCardModuleClasses"/>
       <item type="array" name="config_homeCardPreferredMapActivities"/>
       <item type="array" name="config_taskViewPackages"/>
       <item type="array" name="hidden_apps"/>
+      <item type="array" name="packages_hidden_from_recents"/>
+      <item type="attr" name="cardCornerRadius"/>
+      <item type="attr" name="cornerFamily"/>
+      <item type="attr" name="cornerSize"/>
+      <item type="attr" name="shapeAppearanceOverlay"/>
+      <item type="attr" name="strokeColor"/>
+      <item type="attr" name="strokeWidth"/>
+      <item type="bool" name="car_app_show_recent_apps"/>
+      <item type="bool" name="car_app_show_toolbar"/>
+      <item type="bool" name="config_allow_reordering"/>
+      <item type="bool" name="config_useRemoteCarTaskView"/>
+      <item type="bool" name="show_seek_bar"/>
+      <item type="bool" name="use_defined_app_grid_dimensions"/>
+      <item type="bool" name="use_media_source_color_for_seek_bar"/>
+      <item type="bool" name="use_vertical_app_grid"/>
+      <item type="color" name="app_item_on_hover_background_color"/>
+      <item type="color" name="app_item_on_hover_border_color"/>
+      <item type="color" name="app_name_color"/>
       <item type="color" name="card_background_scrim"/>
+      <item type="color" name="clear_all_recents_text_color"/>
       <item type="color" name="date_divider_bar_color"/>
+      <item type="color" name="default_recents_thumbnail_color"/>
       <item type="color" name="dialer_button_icon_color"/>
       <item type="color" name="dialer_end_call_button_color"/>
+      <item type="color" name="dialer_icon_tint_state_list"/>
       <item type="color" name="icon_tint"/>
+      <item type="color" name="launcher_home_icon_color"/>
       <item type="color" name="media_button_tint"/>
       <item type="color" name="minimized_progress_bar_background"/>
+      <item type="color" name="page_indicator_bar_color"/>
       <item type="color" name="recent_apps_line_divider_color"/>
+      <item type="color" name="recents_background_color"/>
+      <item type="color" name="seek_bar_color"/>
+      <item type="color" name="shortcuts_icon_color"/>
       <item type="color" name="tap_for_more_text_color"/>
       <item type="dimen" name="app_bar_height"/>
       <item type="dimen" name="app_grid_header_margin"/>
+      <item type="dimen" name="app_grid_height"/>
+      <item type="dimen" name="app_grid_margin_horizontal"/>
+      <item type="dimen" name="app_grid_margin_vertical"/>
       <item type="dimen" name="app_grid_row_margin"/>
       <item type="dimen" name="app_grid_touch_target_size"/>
+      <item type="dimen" name="app_grid_width"/>
       <item type="dimen" name="app_icon_description_margin"/>
       <item type="dimen" name="app_icon_opacity"/>
       <item type="dimen" name="app_icon_opacity_unavailable"/>
       <item type="dimen" name="app_icon_ripple_radius"/>
+      <item type="dimen" name="app_icon_scaled_size"/>
+      <item type="dimen" name="app_icon_size"/>
+      <item type="dimen" name="app_item_highlight_corner_radius"/>
+      <item type="dimen" name="app_item_highlight_edge_width"/>
+      <item type="dimen" name="app_name_margin_horizontal"/>
       <item type="dimen" name="app_touch_target_margin"/>
       <item type="dimen" name="app_touch_target_padding"/>
       <item type="dimen" name="button_outline_thickness"/>
@@ -56,16 +92,28 @@ REGENERATE USING packages/apps/Car/libs/tools/rro/generate-overlayable.py
       <item type="dimen" name="descriptive_text_margin_top"/>
       <item type="dimen" name="descriptive_text_only_top_margin"/>
       <item type="dimen" name="descriptive_text_with_controls_top_margin"/>
+      <item type="dimen" name="disabled_recent_task_alpha"/>
+      <item type="dimen" name="fling_threshold"/>
       <item type="dimen" name="home_card_button_size"/>
       <item type="dimen" name="horizontal_border_size"/>
       <item type="dimen" name="icon_size"/>
       <item type="dimen" name="launcher_card_corner_radius"/>
       <item type="dimen" name="main_screen_widget_margin"/>
       <item type="dimen" name="media_top_margin"/>
+      <item type="dimen" name="page_indicator_edge_corner_radius"/>
+      <item type="dimen" name="page_indicator_height"/>
+      <item type="dimen" name="page_snap_threshold"/>
       <item type="dimen" name="panel_margin"/>
       <item type="dimen" name="playback_controls_margin"/>
       <item type="dimen" name="recent_apps_divider_margin"/>
       <item type="dimen" name="recent_apps_row_height"/>
+      <item type="dimen" name="recent_task_col_space"/>
+      <item type="dimen" name="recent_task_dismiss_button_size"/>
+      <item type="dimen" name="recent_task_icon_size"/>
+      <item type="dimen" name="recent_task_start_swipe_threshold"/>
+      <item type="dimen" name="recent_task_swiped_threshold"/>
+      <item type="dimen" name="recent_task_width"/>
+      <item type="dimen" name="recent_task_width_first"/>
       <item type="dimen" name="search_bar_drawable_text_padding"/>
       <item type="dimen" name="search_bar_margin"/>
       <item type="dimen" name="search_box_height"/>
@@ -75,23 +123,36 @@ REGENERATE USING packages/apps/Car/libs/tools/rro/generate-overlayable.py
       <item type="dimen" name="secondary_text_margin_top"/>
       <item type="dimen" name="tap_text_margin"/>
       <item type="dimen" name="text_block_top_margin"/>
+      <item type="dimen" name="threshold_to_start_drag_drop"/>
       <item type="dimen" name="vertical_border_size"/>
+      <item type="drawable" name="app_item_highlight"/>
       <item type="drawable" name="car_button_background"/>
+      <item type="drawable" name="control_bar_contact_image_background"/>
+      <item type="drawable" name="control_bar_image_background"/>
       <item type="drawable" name="default_audio_background"/>
+      <item type="drawable" name="dialer_button_active_state_circle"/>
+      <item type="drawable" name="ic_app_info"/>
       <item type="drawable" name="ic_apps_black"/>
       <item type="drawable" name="ic_arrow_back_black"/>
       <item type="drawable" name="ic_call_end"/>
       <item type="drawable" name="ic_call_end_button"/>
       <item type="drawable" name="ic_clear_black"/>
       <item type="drawable" name="ic_dialpad"/>
-      <item type="drawable" name="ic_mic_off"/>
+      <item type="drawable" name="ic_force_stop_caution_icon"/>
+      <item type="drawable" name="ic_launcher_home"/>
       <item type="drawable" name="ic_mic_on"/>
       <item type="drawable" name="ic_mute_activatable"/>
+      <item type="drawable" name="ic_recent_dismiss"/>
       <item type="drawable" name="ic_search_black"/>
+      <item type="drawable" name="page_indicator_bar"/>
+      <item type="drawable" name="recent_clear_all_button_background"/>
+      <item type="drawable" name="recent_dismiss_button_background"/>
+      <item type="drawable" name="recent_task_hidden_icon"/>
       <item type="id" name="app_icon"/>
       <item type="id" name="app_item"/>
       <item type="id" name="app_name"/>
       <item type="id" name="apps_grid"/>
+      <item type="id" name="apps_grid_background"/>
       <item type="id" name="bottom_card"/>
       <item type="id" name="bottom_edge"/>
       <item type="id" name="bottom_line"/>
@@ -105,10 +166,13 @@ REGENERATE USING packages/apps/Car/libs/tools/rro/generate-overlayable.py
       <item type="id" name="card_icon"/>
       <item type="id" name="card_name"/>
       <item type="id" name="card_view"/>
+      <item type="id" name="clear_all_button"/>
+      <item type="id" name="clear_all_button_focus_area"/>
       <item type="id" name="descriptive_text_layout"/>
       <item type="id" name="descriptive_text_with_controls_layout"/>
       <item type="id" name="divider"/>
       <item type="id" name="divider_horizontal"/>
+      <item type="id" name="empty_state"/>
       <item type="id" name="end_edge"/>
       <item type="id" name="focus_area"/>
       <item type="id" name="maps_card"/>
@@ -116,13 +180,25 @@ REGENERATE USING packages/apps/Car/libs/tools/rro/generate-overlayable.py
       <item type="id" name="media_layout"/>
       <item type="id" name="media_playback_controls_bar"/>
       <item type="id" name="optional_image"/>
+      <item type="id" name="optional_progress_bar"/>
+      <item type="id" name="optional_seek_bar"/>
+      <item type="id" name="optional_seek_bar_with_times_container"/>
       <item type="id" name="optional_timer"/>
       <item type="id" name="optional_timer_separator"/>
+      <item type="id" name="optional_times"/>
+      <item type="id" name="page_indicator"/>
+      <item type="id" name="page_indicator_container"/>
       <item type="id" name="primary_text"/>
       <item type="id" name="recent_apps_row"/>
+      <item type="id" name="recent_tasks_group"/>
+      <item type="id" name="recent_tasks_list"/>
+      <item type="id" name="recent_tasks_list_focus_area"/>
       <item type="id" name="secondary_text"/>
       <item type="id" name="start_edge"/>
       <item type="id" name="tap_for_more_text"/>
+      <item type="id" name="task_dismiss_button"/>
+      <item type="id" name="task_icon"/>
+      <item type="id" name="task_thumbnail"/>
       <item type="id" name="text_block"/>
       <item type="id" name="text_block_layout"/>
       <item type="id" name="top_card"/>
@@ -130,7 +206,22 @@ REGENERATE USING packages/apps/Car/libs/tools/rro/generate-overlayable.py
       <item type="id" name="top_line"/>
       <item type="id" name="vertical_barrier"/>
       <item type="integer" name="car_app_selector_column_number"/>
+      <item type="integer" name="car_app_selector_row_number"/>
       <item type="integer" name="card_content_text_block_max_lines"/>
+      <item type="integer" name="config_msg_register_mirroring_pkg_code"/>
+      <item type="integer" name="config_msg_send_mirroring_pkg_code"/>
+      <item type="integer" name="config_msg_unregister_mirroring_pkg_code"/>
+      <item type="integer" name="config_recents_columns_per_page"/>
+      <item type="integer" name="ms_background_highlight_duration"/>
+      <item type="integer" name="ms_drop_animation_delay"/>
+      <item type="integer" name="ms_long_press_animation_duration"/>
+      <item type="integer" name="ms_off_page_hover_before_scroll"/>
+      <item type="integer" name="ms_release_animation_duration"/>
+      <item type="integer" name="ms_scrollbar_appear_animation_delay"/>
+      <item type="integer" name="ms_scrollbar_appear_animation_duration"/>
+      <item type="integer" name="ms_scrollbar_fade_animation_delay"/>
+      <item type="integer" name="ms_scrollbar_fade_animation_duration"/>
+      <item type="integer" name="optional_seekbar_max"/>
       <item type="integer" name="playback_controls_bar_columns"/>
       <item type="layout" name="app_grid_activity"/>
       <item type="layout" name="app_item"/>
@@ -144,15 +235,34 @@ REGENERATE USING packages/apps/Car/libs/tools/rro/generate-overlayable.py
       <item type="layout" name="card_fragment"/>
       <item type="layout" name="control_bar_container"/>
       <item type="layout" name="descriptive_text"/>
+      <item type="layout" name="optional_seek_bar_with_times"/>
       <item type="layout" name="recent_apps_row"/>
+      <item type="layout" name="recent_task_view"/>
+      <item type="layout" name="recent_task_view_first"/>
+      <item type="layout" name="recent_task_view_hidden"/>
+      <item type="layout" name="recent_task_view_inner"/>
+      <item type="layout" name="recents_activity"/>
       <item type="layout" name="tap_for_more_text"/>
       <item type="layout" name="text_block"/>
+      <item type="string" name="app_launcher_app_info_action"/>
+      <item type="string" name="app_launcher_stop_app_action"/>
+      <item type="string" name="app_launcher_stop_app_cant_stop_text"/>
+      <item type="string" name="app_launcher_stop_app_dialog_text"/>
+      <item type="string" name="app_launcher_stop_app_dialog_title"/>
+      <item type="string" name="app_launcher_stop_app_success_toast_text"/>
       <item type="string" name="app_launcher_title_all_apps"/>
       <item type="string" name="app_launcher_title_media_only"/>
       <item type="string" name="app_title"/>
+      <item type="string" name="config_msg_mirroring_pkg_name_key"/>
+      <item type="string" name="config_msg_mirroring_redirect_uri_key"/>
+      <item type="string" name="config_msg_mirroring_service_class_name"/>
+      <item type="string" name="config_msg_mirroring_service_pkg_name"/>
+      <item type="string" name="config_passengerLauncherComponent"/>
       <item type="string" name="config_smallCanvasOptimizedMapIntent"/>
+      <item type="string" name="default_media_song_title"/>
       <item type="string" name="dialing_call_text"/>
       <item type="string" name="driving_toast_text"/>
+      <item type="string" name="failure_opening_recent_task_message"/>
       <item type="string" name="fake_weather_footer_text"/>
       <item type="string" name="fake_weather_main_text"/>
       <item type="string" name="hide_debug_apps"/>
@@ -161,15 +271,32 @@ REGENERATE USING packages/apps/Car/libs/tools/rro/generate-overlayable.py
       <item type="string" name="projected_launch_text"/>
       <item type="string" name="projected_onclick_launch_error_toast_text"/>
       <item type="string" name="projection_devices"/>
+      <item type="string" name="recents_clear_all_text"/>
+      <item type="string" name="recents_empty_state_text"/>
+      <item type="string" name="reset_appgrid_dialogue_message"/>
+      <item type="string" name="reset_appgrid_title"/>
       <item type="string" name="show_debug_apps"/>
       <item type="string" name="tap_for_more_info_text"/>
       <item type="string" name="tap_to_launch_text"/>
+      <item type="string" name="times_separator"/>
       <item type="string" name="weather_app_name"/>
+      <item type="style" name="ActionDialogTheme"/>
+      <item type="style" name="AppDisplayNameStyle"/>
       <item type="style" name="CardViewStyle"/>
+      <item type="style" name="ClearAllRecentTasksButton"/>
+      <item type="style" name="ClearAllRecentTasksButtonFocusArea"/>
       <item type="style" name="ContextualSpace"/>
+      <item type="style" name="HiddenRecentTaskThumbnail"/>
       <item type="style" name="HorizontalLineDivider"/>
+      <item type="style" name="RecentTaskDismissButton"/>
+      <item type="style" name="RecentTaskIcon"/>
+      <item type="style" name="RecentTaskThumbnail"/>
+      <item type="style" name="RecentTaskThumbnail.RoundedBorder"/>
+      <item type="style" name="RecentTasksList"/>
+      <item type="style" name="RecentTasksListFocusArea"/>
       <item type="style" name="Theme.Launcher"/>
       <item type="style" name="Theme.Launcher.AppGridActivity"/>
+      <item type="style" name="Theme.Launcher.AppGridActivity.NoToolbar"/>
       <item type="style" name="TitleText"/>
     </policy>
   </overlayable>

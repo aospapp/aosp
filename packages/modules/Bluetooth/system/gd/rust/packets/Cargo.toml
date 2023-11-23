@@ -21,12 +21,12 @@ build = "build.rs"
 
 [dependencies]
 
-bindgen = "*"
-bytes = "*"
-num-derive = "*"
-num-traits = "*"
-thiserror = "*"
-walkdir = "*"
+bindgen = "0.64"
+bytes = "1.0"
+num-derive = "0.3"
+num-traits = "0.2"
+thiserror = "1.0"
+walkdir = "2.2"
 
 [lib]
 path = "lib.rs"

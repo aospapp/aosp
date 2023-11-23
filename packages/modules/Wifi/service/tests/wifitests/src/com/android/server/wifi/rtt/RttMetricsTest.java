@@ -30,6 +30,7 @@ import androidx.test.filters.SmallTest;
 
 import com.android.server.wifi.Clock;
 import com.android.server.wifi.WifiBaseTest;
+import com.android.server.wifi.hal.WifiRttController;
 import com.android.server.wifi.proto.nano.WifiMetricsProto;
 
 import org.junit.Before;
@@ -216,13 +217,17 @@ public class RttMetricsTest extends WifiBaseTest {
         RangingRequest requestAp6 = getDummyRangingRequest(6, 0);
 
         mDut.clear();
-        mDut.recordResult(requestAp1, getDummyRangingResults(RttNative.FRAMEWORK_RTT_STATUS_SUCCESS,
+        mDut.recordResult(requestAp1, getDummyRangingResults(
+                WifiRttController.FRAMEWORK_RTT_STATUS_SUCCESS,
                 requestAp1, 5, 0), 500);
-        mDut.recordResult(requestAp2, getDummyRangingResults(RttNative.FRAMEWORK_RTT_STATUS_SUCCESS,
+        mDut.recordResult(requestAp2, getDummyRangingResults(
+                WifiRttController.FRAMEWORK_RTT_STATUS_SUCCESS,
                 requestAp2, 10, 30), 1500);
-        mDut.recordResult(requestAp5, getDummyRangingResults(RttNative.FRAMEWORK_RTT_STATUS_SUCCESS,
+        mDut.recordResult(requestAp5, getDummyRangingResults(
+                WifiRttController.FRAMEWORK_RTT_STATUS_SUCCESS,
                 requestAp5, 0.3, -0.2), 700);
-        mDut.recordResult(requestAp6, getDummyRangingResults(RttNative.FRAMEWORK_RTT_STATUS_SUCCESS,
+        mDut.recordResult(requestAp6, getDummyRangingResults(
+                WifiRttController.FRAMEWORK_RTT_STATUS_SUCCESS,
                 requestAp6, 40, 30), 1800);
         log = mDut.consolidateProto();
 
@@ -261,13 +266,17 @@ public class RttMetricsTest extends WifiBaseTest {
 
         mDut.clear();
         mDut.recordResult(requestMixed03, getDummyRangingResults(
-                RttNative.FRAMEWORK_RTT_STATUS_SUCCESS, requestMixed03, 5, 0), 6400);
+                WifiRttController.FRAMEWORK_RTT_STATUS_SUCCESS,
+                requestMixed03, 5, 0), 6400);
         mDut.recordResult(requestMixed25, getDummyRangingResults(
-                RttNative.FRAMEWORK_RTT_STATUS_SUCCESS, requestMixed25, 10, 30), 7800);
+                WifiRttController.FRAMEWORK_RTT_STATUS_SUCCESS,
+                requestMixed25, 10, 30), 7800);
         mDut.recordResult(requestMixed50, getDummyRangingResults(
-                RttNative.FRAMEWORK_RTT_STATUS_SUCCESS, requestMixed50, 0.3, -0.2), 3100);
+                WifiRttController.FRAMEWORK_RTT_STATUS_SUCCESS,
+                        requestMixed50, 0.3, -0.2), 3100);
         mDut.recordResult(requestMixed08, getDummyRangingResults(
-                RttNative.FRAMEWORK_RTT_STATUS_SUCCESS, requestMixed08, 40, 30), 9500);
+                WifiRttController.FRAMEWORK_RTT_STATUS_SUCCESS,
+                requestMixed08, 40, 30), 9500);
         log = mDut.consolidateProto();
 
         checkMainStats("Sequence Mixed AP/Aware", log, 0, 0, 1, 2);
@@ -321,7 +330,7 @@ public class RttMetricsTest extends WifiBaseTest {
         mDut.clear();
         RangingRequest requestMixed25 = getDummyRangingRequest(2, 5);
         List<RangingResult> resultMixed25 = getDummyRangingResults(
-                RttNative.FRAMEWORK_RTT_STATUS_SUCCESS, requestMixed25, 10, 30);
+                WifiRttController.FRAMEWORK_RTT_STATUS_SUCCESS, requestMixed25, 10, 30);
         // remove some results
         resultMixed25.remove(3); // Second Aware result: distance = 100
         resultMixed25.remove(0); // First AP result: distance = 10
@@ -401,22 +410,22 @@ public class RttMetricsTest extends WifiBaseTest {
 
         mDut.clear();
 
-        recordResultNTimes(RttNative.FRAMEWORK_RTT_STATUS_SUCCESS, 5);
-        recordResultNTimes(RttNative.FRAMEWORK_RTT_STATUS_FAILURE, 6);
-        recordResultNTimes(RttNative.FRAMEWORK_RTT_STATUS_FAIL_NO_RSP, 7);
-        recordResultNTimes(RttNative.FRAMEWORK_RTT_STATUS_FAIL_REJECTED, 8);
-        recordResultNTimes(RttNative.FRAMEWORK_RTT_STATUS_FAIL_NOT_SCHEDULED_YET, 9);
-        recordResultNTimes(RttNative.FRAMEWORK_RTT_STATUS_FAIL_TM_TIMEOUT, 10);
-        recordResultNTimes(RttNative.FRAMEWORK_RTT_STATUS_FAIL_AP_ON_DIFF_CHANNEL, 11);
-        recordResultNTimes(RttNative.FRAMEWORK_RTT_STATUS_FAIL_NO_CAPABILITY, 12);
-        recordResultNTimes(RttNative.FRAMEWORK_RTT_STATUS_ABORTED, 13);
-        recordResultNTimes(RttNative.FRAMEWORK_RTT_STATUS_FAIL_INVALID_TS, 14);
-        recordResultNTimes(RttNative.FRAMEWORK_RTT_STATUS_FAIL_PROTOCOL, 15);
-        recordResultNTimes(RttNative.FRAMEWORK_RTT_STATUS_FAIL_SCHEDULE, 16);
-        recordResultNTimes(RttNative.FRAMEWORK_RTT_STATUS_FAIL_BUSY_TRY_LATER, 17);
-        recordResultNTimes(RttNative.FRAMEWORK_RTT_STATUS_INVALID_REQ, 18);
-        recordResultNTimes(RttNative.FRAMEWORK_RTT_STATUS_NO_WIFI, 19);
-        recordResultNTimes(RttNative.FRAMEWORK_RTT_STATUS_FAIL_FTM_PARAM_OVERRIDE, 20);
+        recordResultNTimes(WifiRttController.FRAMEWORK_RTT_STATUS_SUCCESS, 5);
+        recordResultNTimes(WifiRttController.FRAMEWORK_RTT_STATUS_FAILURE, 6);
+        recordResultNTimes(WifiRttController.FRAMEWORK_RTT_STATUS_FAIL_NO_RSP, 7);
+        recordResultNTimes(WifiRttController.FRAMEWORK_RTT_STATUS_FAIL_REJECTED, 8);
+        recordResultNTimes(WifiRttController.FRAMEWORK_RTT_STATUS_FAIL_NOT_SCHEDULED_YET, 9);
+        recordResultNTimes(WifiRttController.FRAMEWORK_RTT_STATUS_FAIL_TM_TIMEOUT, 10);
+        recordResultNTimes(WifiRttController.FRAMEWORK_RTT_STATUS_FAIL_AP_ON_DIFF_CHANNEL, 11);
+        recordResultNTimes(WifiRttController.FRAMEWORK_RTT_STATUS_FAIL_NO_CAPABILITY, 12);
+        recordResultNTimes(WifiRttController.FRAMEWORK_RTT_STATUS_ABORTED, 13);
+        recordResultNTimes(WifiRttController.FRAMEWORK_RTT_STATUS_FAIL_INVALID_TS, 14);
+        recordResultNTimes(WifiRttController.FRAMEWORK_RTT_STATUS_FAIL_PROTOCOL, 15);
+        recordResultNTimes(WifiRttController.FRAMEWORK_RTT_STATUS_FAIL_SCHEDULE, 16);
+        recordResultNTimes(WifiRttController.FRAMEWORK_RTT_STATUS_FAIL_BUSY_TRY_LATER, 17);
+        recordResultNTimes(WifiRttController.FRAMEWORK_RTT_STATUS_INVALID_REQ, 18);
+        recordResultNTimes(WifiRttController.FRAMEWORK_RTT_STATUS_NO_WIFI, 19);
+        recordResultNTimes(WifiRttController.FRAMEWORK_RTT_STATUS_FAIL_FTM_PARAM_OVERRIDE, 20);
 
         log = mDut.consolidateProto();
 

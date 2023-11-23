@@ -16,7 +16,7 @@
 
 use android_system_virtualizationservice::aidl::android::system::virtualizationservice::IVirtualizationService::IVirtualizationService;
 use android_system_virtualizationservice::aidl::android::system::virtualizationservice::PartitionType::PartitionType;
-use android_system_virtualizationservice::binder::{ParcelFileDescriptor, Strong};
+use binder::ParcelFileDescriptor;
 use anyhow::{Context, Error};
 use std::convert::TryInto;
 use std::fs::OpenOptions;
@@ -24,7 +24,7 @@ use std::path::Path;
 
 /// Initialise an empty partition image of the given size to be used as a writable partition.
 pub fn command_create_partition(
-    service: Strong<dyn IVirtualizationService>,
+    service: &dyn IVirtualizationService,
     image_path: &Path,
     size: u64,
     partition_type: PartitionType,

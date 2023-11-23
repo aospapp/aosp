@@ -13,4 +13,6 @@
     <string name="localPhoneName" msgid="9119254982537191352">"মোৰ নাম"</string>
     <string name="defaultnumber" msgid="5348816189286607406">"০০০০০০"</string>
     <string name="pbap_notification_group" msgid="4215789331721465381">"ব্লুটুথ সম্পৰ্ক শ্বেয়াৰ"</string>
+    <string name="phonebook_advance_feature_support" msgid="8129553051734505128">"ফ’নবুকৰ উচ্চখাপৰ সুবিধা সমৰ্থন কৰা হয়"</string>
+    <string name="repair_for_adv_phonebook_feature" msgid="3489797973131684927">"ফ’নবুকৰ উচ্চখাপৰ সুবিধাৰ বাবে পুনৰ পেয়াৰ কৰক"</string>
 </resources>

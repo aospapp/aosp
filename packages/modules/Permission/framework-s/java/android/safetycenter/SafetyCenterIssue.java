@@ -17,6 +17,7 @@
 package android.safetycenter;
 
 import static android.os.Build.VERSION_CODES.TIRAMISU;
+import static android.os.Build.VERSION_CODES.UPSIDE_DOWN_CAKE;
 
 import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
@@ -29,9 +30,12 @@ import android.annotation.SystemApi;
 import android.app.PendingIntent;
 import android.os.Parcel;
 import android.os.Parcelable;
+import android.safetycenter.config.SafetySourcesGroup;
 import android.text.TextUtils;
 
 import androidx.annotation.RequiresApi;
+
+import com.android.modules.utils.build.SdkLevel;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -91,13 +95,19 @@ public final class SafetyCenterIssue implements Parcelable {
                     CharSequence title = TextUtils.CHAR_SEQUENCE_CREATOR.createFromParcel(in);
                     CharSequence subtitle = TextUtils.CHAR_SEQUENCE_CREATOR.createFromParcel(in);
                     CharSequence summary = TextUtils.CHAR_SEQUENCE_CREATOR.createFromParcel(in);
-                    return new Builder(id, title, summary)
-                            .setSubtitle(subtitle)
-                            .setSeverityLevel(in.readInt())
-                            .setDismissible(in.readBoolean())
-                            .setShouldConfirmDismissal(in.readBoolean())
-                            .setActions(in.createTypedArrayList(Action.CREATOR))
-                            .build();
+                    SafetyCenterIssue.Builder builder =
+                            new Builder(id, title, summary)
+                                    .setSubtitle(subtitle)
+                                    .setSeverityLevel(in.readInt())
+                                    .setDismissible(in.readBoolean())
+                                    .setShouldConfirmDismissal(in.readBoolean())
+                                    .setActions(in.createTypedArrayList(Action.CREATOR));
+                    if (SdkLevel.isAtLeastU()) {
+                        builder.setAttributionTitle(
+                                TextUtils.CHAR_SEQUENCE_CREATOR.createFromParcel(in));
+                        builder.setGroupId(in.readString());
+                    }
+                    return builder.build();
                 }
 
                 @Override
@@ -114,6 +124,8 @@ public final class SafetyCenterIssue implements Parcelable {
     private final boolean mDismissible;
     private final boolean mShouldConfirmDismissal;
     @NonNull private final List<Action> mActions;
+    @Nullable private final CharSequence mAttributionTitle;
+    @Nullable private final String mGroupId;
 
     private SafetyCenterIssue(
             @NonNull String id,
@@ -123,7 +135,9 @@ public final class SafetyCenterIssue implements Parcelable {
             @IssueSeverityLevel int severityLevel,
             boolean isDismissible,
             boolean shouldConfirmDismissal,
-            @NonNull List<Action> actions) {
+            @NonNull List<Action> actions,
+            @Nullable CharSequence attributionTitle,
+            @Nullable String groupId) {
         mId = id;
         mTitle = title;
         mSubtitle = subtitle;
@@ -132,6 +146,8 @@ public final class SafetyCenterIssue implements Parcelable {
         mDismissible = isDismissible;
         mShouldConfirmDismissal = shouldConfirmDismissal;
         mActions = actions;
+        mAttributionTitle = attributionTitle;
+        mGroupId = groupId;
     }
 
     /**
@@ -161,6 +177,24 @@ public final class SafetyCenterIssue implements Parcelable {
         return mSummary;
     }
 
+    /**
+     * Returns the attribution title of this issue, or {@code null} if it has none.
+     *
+     * <p>This is displayed in the UI and helps to attribute issue cards to a particular source.
+     *
+     * @throws UnsupportedOperationException if accessed from a version lower than {@link
+     *     UPSIDE_DOWN_CAKE}
+     */
+    @Nullable
+    @RequiresApi(UPSIDE_DOWN_CAKE)
+    public CharSequence getAttributionTitle() {
+        if (!SdkLevel.isAtLeastU()) {
+            throw new UnsupportedOperationException(
+                    "Method not supported for versions lower than UPSIDE_DOWN_CAKE");
+        }
+        return mAttributionTitle;
+    }
+
     /** Returns the {@link IssueSeverityLevel} of this issue. */
     @IssueSeverityLevel
     public int getSeverityLevel() {
@@ -188,6 +222,26 @@ public final class SafetyCenterIssue implements Parcelable {
         return mActions;
     }
 
+    /**
+     * Returns the ID of the {@link SafetySourcesGroup} that this issue belongs to, or {@code null}
+     * if it has none.
+     *
+     * <p>This ID is used for displaying the issue on its corresponding subpage in the Safety Center
+     * UI.
+     *
+     * @throws UnsupportedOperationException if accessed from a version lower than {@link
+     *     UPSIDE_DOWN_CAKE}
+     */
+    @Nullable
+    @RequiresApi(UPSIDE_DOWN_CAKE)
+    public String getGroupId() {
+        if (!SdkLevel.isAtLeastU()) {
+            throw new UnsupportedOperationException(
+                    "Method not supported for versions lower than UPSIDE_DOWN_CAKE");
+        }
+        return mGroupId;
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
@@ -200,7 +254,9 @@ public final class SafetyCenterIssue implements Parcelable {
                 && TextUtils.equals(mTitle, that.mTitle)
                 && TextUtils.equals(mSubtitle, that.mSubtitle)
                 && TextUtils.equals(mSummary, that.mSummary)
-                && Objects.equals(mActions, that.mActions);
+                && Objects.equals(mActions, that.mActions)
+                && TextUtils.equals(mAttributionTitle, that.mAttributionTitle)
+                && Objects.equals(mGroupId, that.mGroupId);
     }
 
     @Override
@@ -213,15 +269,16 @@ public final class SafetyCenterIssue implements Parcelable {
                 mSeverityLevel,
                 mDismissible,
                 mShouldConfirmDismissal,
-                mActions);
+                mActions,
+                mAttributionTitle,
+                mGroupId);
     }
 
     @Override
     public String toString() {
         return "SafetyCenterIssue{"
-                + "mId='"
+                + "mId="
                 + mId
-                + '\''
                 + ", mTitle="
                 + mTitle
                 + ", mSubtitle="
@@ -236,6 +293,10 @@ public final class SafetyCenterIssue implements Parcelable {
                 + mShouldConfirmDismissal
                 + ", mActions="
                 + mActions
+                + ", mAttributionTitle="
+                + mAttributionTitle
+                + ", mGroupId="
+                + mGroupId
                 + '}';
     }
 
@@ -254,6 +315,10 @@ public final class SafetyCenterIssue implements Parcelable {
         dest.writeBoolean(mDismissible);
         dest.writeBoolean(mShouldConfirmDismissal);
         dest.writeTypedList(mActions);
+        if (SdkLevel.isAtLeastU()) {
+            TextUtils.writeToParcel(mAttributionTitle, dest, flags);
+            dest.writeString(mGroupId);
+        }
     }
 
     /** Builder class for {@link SafetyCenterIssue}. */
@@ -267,6 +332,8 @@ public final class SafetyCenterIssue implements Parcelable {
         private boolean mDismissible = true;
         private boolean mShouldConfirmDismissal = true;
         private List<Action> mActions = new ArrayList<>();
+        @Nullable private CharSequence mAttributionTitle;
+        @Nullable private String mGroupId;
 
         /**
          * Creates a {@link Builder} for a {@link SafetyCenterIssue}.
@@ -292,6 +359,8 @@ public final class SafetyCenterIssue implements Parcelable {
             mDismissible = issue.mDismissible;
             mShouldConfirmDismissal = issue.mShouldConfirmDismissal;
             mActions = new ArrayList<>(issue.mActions);
+            mAttributionTitle = issue.mAttributionTitle;
+            mGroupId = issue.mGroupId;
         }
 
         /** Sets the ID for this issue. */
@@ -319,6 +388,25 @@ public final class SafetyCenterIssue implements Parcelable {
         @NonNull
         public Builder setSummary(@NonNull CharSequence summary) {
             mSummary = requireNonNull(summary);
+            return this;
+        }
+
+        /**
+         * Sets or clears the optional attribution title for this issue.
+         *
+         * <p>This is displayed in the UI and helps to attribute issue cards to a particular source.
+         *
+         * @throws UnsupportedOperationException if accessed from a version lower than {@link
+         *     UPSIDE_DOWN_CAKE}
+         */
+        @NonNull
+        @RequiresApi(UPSIDE_DOWN_CAKE)
+        public Builder setAttributionTitle(@Nullable CharSequence attributionTitle) {
+            if (!SdkLevel.isAtLeastU()) {
+                throw new UnsupportedOperationException(
+                        "Method not supported for versions lower than UPSIDE_DOWN_CAKE");
+            }
+            mAttributionTitle = attributionTitle;
             return this;
         }
 
@@ -358,6 +446,27 @@ public final class SafetyCenterIssue implements Parcelable {
             return this;
         }
 
+        /**
+         * Sets the ID of {@link SafetySourcesGroup} that this issue belongs to. Defaults to a
+         * {@code null} value.
+         *
+         * <p>This ID is used for displaying the issue on its corresponding subpage in the Safety
+         * Center UI.
+         *
+         * @throws UnsupportedOperationException if accessed from a version lower than {@link
+         *     UPSIDE_DOWN_CAKE}
+         */
+        @NonNull
+        @RequiresApi(UPSIDE_DOWN_CAKE)
+        public Builder setGroupId(@Nullable String groupId) {
+            if (!SdkLevel.isAtLeastU()) {
+                throw new UnsupportedOperationException(
+                        "Method not supported for versions lower than UPSIDE_DOWN_CAKE");
+            }
+            mGroupId = groupId;
+            return this;
+        }
+
         /** Creates the {@link SafetyCenterIssue} defined by this {@link Builder}. */
         @NonNull
         public SafetyCenterIssue build() {
@@ -369,7 +478,9 @@ public final class SafetyCenterIssue implements Parcelable {
                     mSeverityLevel,
                     mDismissible,
                     mShouldConfirmDismissal,
-                    unmodifiableList(new ArrayList<>(mActions)));
+                    unmodifiableList(new ArrayList<>(mActions)),
+                    mAttributionTitle,
+                    mGroupId);
         }
     }
 
@@ -378,10 +489,7 @@ public final class SafetyCenterIssue implements Parcelable {
      *
      * <p>When a user initiates an {@link Action}, that action's associated {@link PendingIntent}
      * will be executed, and the {@code successMessage} will be displayed if present.
-     *
-     * @hide
      */
-    @SystemApi
     public static final class Action implements Parcelable {
 
         @NonNull
@@ -392,12 +500,19 @@ public final class SafetyCenterIssue implements Parcelable {
                         String id = in.readString();
                         CharSequence label = TextUtils.CHAR_SEQUENCE_CREATOR.createFromParcel(in);
                         PendingIntent pendingIntent = in.readTypedObject(PendingIntent.CREATOR);
-                        return new Builder(id, label, pendingIntent)
-                                .setWillResolve(in.readBoolean())
-                                .setIsInFlight(in.readBoolean())
-                                .setSuccessMessage(
-                                        TextUtils.CHAR_SEQUENCE_CREATOR.createFromParcel(in))
-                                .build();
+                        Builder builder =
+                                new Builder(id, label, pendingIntent)
+                                        .setWillResolve(in.readBoolean())
+                                        .setIsInFlight(in.readBoolean())
+                                        .setSuccessMessage(
+                                                TextUtils.CHAR_SEQUENCE_CREATOR.createFromParcel(
+                                                        in));
+                        if (SdkLevel.isAtLeastU()) {
+                            ConfirmationDialogDetails confirmationDialogDetails =
+                                    in.readTypedObject(ConfirmationDialogDetails.CREATOR);
+                            builder.setConfirmationDialogDetails(confirmationDialogDetails);
+                        }
+                        return builder.build();
                     }
 
                     @Override
@@ -412,6 +527,7 @@ public final class SafetyCenterIssue implements Parcelable {
         private final boolean mWillResolve;
         private final boolean mInFlight;
         @Nullable private final CharSequence mSuccessMessage;
+        @Nullable private final ConfirmationDialogDetails mConfirmationDialogDetails;
 
         private Action(
                 @NonNull String id,
@@ -419,13 +535,15 @@ public final class SafetyCenterIssue implements Parcelable {
                 @NonNull PendingIntent pendingIntent,
                 boolean willResolve,
                 boolean inFlight,
-                @Nullable CharSequence successMessage) {
+                @Nullable CharSequence successMessage,
+                @Nullable ConfirmationDialogDetails confirmationDialogDetails) {
             mId = id;
             mLabel = label;
             mPendingIntent = pendingIntent;
             mWillResolve = willResolve;
             mInFlight = inFlight;
             mSuccessMessage = successMessage;
+            mConfirmationDialogDetails = confirmationDialogDetails;
         }
 
         /** Returns the ID of this action. */
@@ -473,6 +591,19 @@ public final class SafetyCenterIssue implements Parcelable {
             return mSuccessMessage;
         }
 
+        /**
+         * Returns the optional data to be displayed in the confirmation dialog prior to launching
+         * the {@link PendingIntent} when the action is clicked on.
+         */
+        @Nullable
+        @RequiresApi(UPSIDE_DOWN_CAKE)
+        public ConfirmationDialogDetails getConfirmationDialogDetails() {
+            if (!SdkLevel.isAtLeastU()) {
+                throw new UnsupportedOperationException();
+            }
+            return mConfirmationDialogDetails;
+        }
+
         @Override
         public boolean equals(Object o) {
             if (this == o) return true;
@@ -483,13 +614,21 @@ public final class SafetyCenterIssue implements Parcelable {
                     && Objects.equals(mPendingIntent, action.mPendingIntent)
                     && mWillResolve == action.mWillResolve
                     && mInFlight == action.mInFlight
-                    && TextUtils.equals(mSuccessMessage, action.mSuccessMessage);
+                    && TextUtils.equals(mSuccessMessage, action.mSuccessMessage)
+                    && Objects.equals(
+                            mConfirmationDialogDetails, action.mConfirmationDialogDetails);
         }
 
         @Override
         public int hashCode() {
             return Objects.hash(
-                    mId, mLabel, mSuccessMessage, mWillResolve, mInFlight, mPendingIntent);
+                    mId,
+                    mLabel,
+                    mSuccessMessage,
+                    mWillResolve,
+                    mInFlight,
+                    mPendingIntent,
+                    mConfirmationDialogDetails);
         }
 
         @Override
@@ -507,6 +646,8 @@ public final class SafetyCenterIssue implements Parcelable {
                     + mInFlight
                     + ", mSuccessMessage="
                     + mSuccessMessage
+                    + ", mConfirmationDialogDetails="
+                    + mConfirmationDialogDetails
                     + '}';
         }
 
@@ -523,6 +664,120 @@ public final class SafetyCenterIssue implements Parcelable {
             dest.writeBoolean(mWillResolve);
             dest.writeBoolean(mInFlight);
             TextUtils.writeToParcel(mSuccessMessage, dest, flags);
+            if (SdkLevel.isAtLeastU()) {
+                dest.writeTypedObject(mConfirmationDialogDetails, flags);
+            }
+        }
+
+        /** Data for an action confirmation dialog to be shown before action is executed. */
+        @RequiresApi(UPSIDE_DOWN_CAKE)
+        public static final class ConfirmationDialogDetails implements Parcelable {
+
+            @NonNull
+            public static final Creator<ConfirmationDialogDetails> CREATOR =
+                    new Creator<ConfirmationDialogDetails>() {
+                        @Override
+                        public ConfirmationDialogDetails createFromParcel(Parcel in) {
+                            CharSequence title =
+                                    TextUtils.CHAR_SEQUENCE_CREATOR.createFromParcel(in);
+                            CharSequence text =
+                                    TextUtils.CHAR_SEQUENCE_CREATOR.createFromParcel(in);
+                            CharSequence acceptButtonText =
+                                    TextUtils.CHAR_SEQUENCE_CREATOR.createFromParcel(in);
+                            CharSequence denyButtonText =
+                                    TextUtils.CHAR_SEQUENCE_CREATOR.createFromParcel(in);
+                            return new ConfirmationDialogDetails(
+                                    title, text, acceptButtonText, denyButtonText);
+                        }
+
+                        @Override
+                        public ConfirmationDialogDetails[] newArray(int size) {
+                            return new ConfirmationDialogDetails[size];
+                        }
+                    };
+
+            @NonNull private final CharSequence mTitle;
+            @NonNull private final CharSequence mText;
+            @NonNull private final CharSequence mAcceptButtonText;
+            @NonNull private final CharSequence mDenyButtonText;
+
+            public ConfirmationDialogDetails(
+                    @NonNull CharSequence title,
+                    @NonNull CharSequence text,
+                    @NonNull CharSequence acceptButtonText,
+                    @NonNull CharSequence denyButtonText) {
+                mTitle = requireNonNull(title);
+                mText = requireNonNull(text);
+                mAcceptButtonText = requireNonNull(acceptButtonText);
+                mDenyButtonText = requireNonNull(denyButtonText);
+            }
+
+            /** Returns the title of action confirmation dialog. */
+            @NonNull
+            public CharSequence getTitle() {
+                return mTitle;
+            }
+
+            /** Returns the text of action confirmation dialog. */
+            @NonNull
+            public CharSequence getText() {
+                return mText;
+            }
+
+            /** Returns the text of the button to accept action execution. */
+            @NonNull
+            public CharSequence getAcceptButtonText() {
+                return mAcceptButtonText;
+            }
+
+            /** Returns the text of the button to deny action execution. */
+            @NonNull
+            public CharSequence getDenyButtonText() {
+                return mDenyButtonText;
+            }
+
+            @Override
+            public int describeContents() {
+                return 0;
+            }
+
+            @Override
+            public void writeToParcel(@NonNull Parcel dest, int flags) {
+                TextUtils.writeToParcel(mTitle, dest, flags);
+                TextUtils.writeToParcel(mText, dest, flags);
+                TextUtils.writeToParcel(mAcceptButtonText, dest, flags);
+                TextUtils.writeToParcel(mDenyButtonText, dest, flags);
+            }
+
+            @Override
+            public boolean equals(Object o) {
+                if (this == o) return true;
+                if (!(o instanceof ConfirmationDialogDetails)) return false;
+                ConfirmationDialogDetails that = (ConfirmationDialogDetails) o;
+                return TextUtils.equals(mTitle, that.mTitle)
+                        && TextUtils.equals(mText, that.mText)
+                        && TextUtils.equals(mAcceptButtonText, that.mAcceptButtonText)
+                        && TextUtils.equals(mDenyButtonText, that.mDenyButtonText);
+            }
+
+            @Override
+            public int hashCode() {
+                return Objects.hash(mTitle, mText, mAcceptButtonText, mDenyButtonText);
+            }
+
+            @Override
+            public String toString() {
+                return "ConfirmationDialogDetails{"
+                        + "mTitle="
+                        + mTitle
+                        + ", mText="
+                        + mText
+                        + ", mAcceptButtonText="
+                        + mAcceptButtonText
+                        + ", mDenyButtonText="
+                        + mDenyButtonText
+                        + '}';
+            }
         }
 
         /** Builder class for {@link Action}. */
@@ -534,6 +789,7 @@ public final class SafetyCenterIssue implements Parcelable {
             private boolean mWillResolve;
             private boolean mInFlight;
             @Nullable private CharSequence mSuccessMessage;
+            @Nullable private ConfirmationDialogDetails mConfirmationDialogDetails;
 
             /**
              * Creates a new {@link Builder} for an {@link Action}.
@@ -549,6 +805,22 @@ public final class SafetyCenterIssue implements Parcelable {
                 mId = requireNonNull(id);
                 mLabel = requireNonNull(label);
                 mPendingIntent = requireNonNull(pendingIntent);
+            }
+
+            /** Creates a {@link Builder} with the values from the given {@link Action}. */
+            @RequiresApi(UPSIDE_DOWN_CAKE)
+            public Builder(@NonNull Action action) {
+                if (!SdkLevel.isAtLeastU()) {
+                    throw new UnsupportedOperationException();
+                }
+                requireNonNull(action);
+                mId = action.mId;
+                mLabel = action.mLabel;
+                mPendingIntent = action.mPendingIntent;
+                mWillResolve = action.mWillResolve;
+                mInFlight = action.mInFlight;
+                mSuccessMessage = action.mSuccessMessage;
+                mConfirmationDialogDetails = action.mConfirmationDialogDetails;
             }
 
             /** Sets the ID of this {@link Action} */
@@ -609,11 +881,32 @@ public final class SafetyCenterIssue implements Parcelable {
                 return this;
             }
 
+            /**
+             * Sets the optional data to be displayed in the confirmation dialog prior to launching
+             * the {@link PendingIntent} when the action is clicked on.
+             */
+            @NonNull
+            @RequiresApi(UPSIDE_DOWN_CAKE)
+            public Builder setConfirmationDialogDetails(
+                    @Nullable ConfirmationDialogDetails confirmationDialogDetails) {
+                if (!SdkLevel.isAtLeastU()) {
+                    throw new UnsupportedOperationException();
+                }
+                mConfirmationDialogDetails = confirmationDialogDetails;
+                return this;
+            }
+
             /** Creates the {@link Action} defined by this {@link Builder}. */
             @NonNull
             public Action build() {
                 return new Action(
-                        mId, mLabel, mPendingIntent, mWillResolve, mInFlight, mSuccessMessage);
+                        mId,
+                        mLabel,
+                        mPendingIntent,
+                        mWillResolve,
+                        mInFlight,
+                        mSuccessMessage,
+                        mConfirmationDialogDetails);
             }
         }
     }
@@ -628,6 +921,6 @@ public final class SafetyCenterIssue implements Parcelable {
             default:
         }
         throw new IllegalArgumentException(
-                String.format("Unexpected IssueSeverityLevel for SafetyCenterIssue: %s", value));
+                "Unexpected IssueSeverityLevel for SafetyCenterIssue: " + value);
     }
 }

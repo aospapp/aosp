@@ -15,56 +15,48 @@
  */
 package com.android.car.vehiclehal.test;
 
-import static org.junit.Assert.assertEquals;
+import static com.google.common.truth.Truth.assertThat;
 
-import android.hardware.automotive.vehicle.V2_0.IVehicle;
+import android.car.test.CarTestManager;
 
-import java.io.File;
-import java.util.ArrayList;
-import java.util.Arrays;
+import java.util.List;
 
 class JsonVhalEventGenerator implements VhalEventGenerator {
 
     // Exactly one iteration is required for JSON-based end-to-end test
     private static final String NUM_OF_ITERATION = "1";
 
-    private IVehicle mVehicle;
-    private File mFile;
+    private final CarTestManager mCarTestManager;
+    private final long mVhalDumpTimeoutMs;
+    private String mContent;
+    private String mId;
 
-    JsonVhalEventGenerator(IVehicle vehicle) {
-        mVehicle = vehicle;
+    JsonVhalEventGenerator(CarTestManager carTestManager, long vhalDumpTimeoutMs) {
+        mCarTestManager = carTestManager;
+        mVhalDumpTimeoutMs = vhalDumpTimeoutMs;
     }
 
-    public JsonVhalEventGenerator setJsonFile(File file) throws Exception {
-        if (!file.exists()) {
-            throw new Exception("JSON test data file does not exist: " + file.getAbsolutePath());
-        }
-        mFile = file;
+    public JsonVhalEventGenerator setJson(String content) {
+        mContent = content;
         return this;
     }
 
     @Override
     public void start() throws Exception {
-        ArrayList<String> options = new ArrayList<String>(Arrays.asList(
-                "--debughal", "--genfakedata", "--startjson", mFile.getAbsolutePath(),
-                NUM_OF_ITERATION));
+        List<String> options = List.of("--genfakedata", "--startjson", "--content", mContent,
+                NUM_OF_ITERATION);
 
-        NativePipeHelper pipe = new NativePipeHelper();
-        pipe.create();
-        mVehicle.debug(pipe.getNativeHandle(), options);
-        assertEquals("", pipe.getOutput());
-        pipe.close();
+        String output = mCarTestManager.dumpVhal(options, mVhalDumpTimeoutMs);
+
+        assertThat(output).contains("started successfully");
+        mId = output.substring(output.indexOf("ID: ") + 4);
     }
 
     @Override
     public void stop() throws Exception {
-        ArrayList<String> options = new ArrayList<String>(Arrays.asList(
-                "--debughal", "--genfakedata", "--stopjson",
-                mFile.getAbsolutePath()));
-        NativePipeHelper pipe = new NativePipeHelper();
-        pipe.create();
-        mVehicle.debug(pipe.getNativeHandle(), options);
-        assertEquals("", pipe.getOutput());
-        pipe.close();
+        List<String> options = List.of("--genfakedata", "--stopjson", mId);
+
+        // Ignore output since the generator might have already stopped.
+        mCarTestManager.dumpVhal(options, mVhalDumpTimeoutMs);
     }
 }

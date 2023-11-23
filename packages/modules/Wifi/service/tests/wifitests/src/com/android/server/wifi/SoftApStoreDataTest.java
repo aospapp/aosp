@@ -22,12 +22,13 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assume.assumeTrue;
 import static org.mockito.Mockito.any;
-import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import android.app.test.MockAnswerUtil;
 import android.content.Context;
 import android.net.MacAddress;
 import android.net.wifi.SoftApConfiguration;
@@ -41,6 +42,7 @@ import androidx.test.filters.SmallTest;
 
 import com.android.internal.util.FastXmlSerializer;
 import com.android.modules.utils.build.SdkLevel;
+import com.android.server.wifi.util.EncryptedData;
 import com.android.server.wifi.util.InformationElementUtil;
 import com.android.server.wifi.util.SettingsMigrationDataHolder;
 import com.android.server.wifi.util.WifiConfigStoreEncryptionUtil;
@@ -59,6 +61,8 @@ import java.io.ByteArrayOutputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * Unit tests for {@link com.android.server.wifi.SoftApStoreData}.
@@ -282,6 +286,9 @@ public class SoftApStoreDataTest extends WifiBaseTest {
     @Mock private WifiMigration.SettingsMigrationData mOemMigrationData;
     @Mock private SettingsMigrationDataHolder mSettingsMigrationDataHolder;
     SoftApStoreData mSoftApStoreData;
+    @Mock private WifiConfigStoreEncryptionUtil mWifiConfigStoreEncryptionUtil;
+    private Map<EncryptedData, byte[]> mEncryptedDataMap = new HashMap<>();
+    private boolean mShouldEncrypt = false;
 
     @Before
     public void setUp() throws Exception {
@@ -293,6 +300,18 @@ public class SoftApStoreDataTest extends WifiBaseTest {
         mSoftApStoreData = new SoftApStoreData(mContext, mSettingsMigrationDataHolder, mDataSource);
         TEST_BLOCKEDLIST.add(MacAddress.fromString(TEST_BLOCKED_CLIENT));
         TEST_ALLOWEDLIST.add(MacAddress.fromString(TEST_ALLOWED_CLIENT));
+        doAnswer(new MockAnswerUtil.AnswerWithArguments() {
+            public EncryptedData answer(byte[] data) {
+                EncryptedData encryptedData = new EncryptedData(data, data);
+                mEncryptedDataMap.put(encryptedData, data);
+                return encryptedData;
+            }
+        }).when(mWifiConfigStoreEncryptionUtil).encrypt(any());
+        doAnswer(new MockAnswerUtil.AnswerWithArguments() {
+            public byte[] answer(EncryptedData data) {
+                return mEncryptedDataMap.get(data);
+            }
+        }).when(mWifiConfigStoreEncryptionUtil).decrypt(any());
     }
 
     /**
@@ -314,7 +333,7 @@ public class SoftApStoreDataTest extends WifiBaseTest {
         final XmlSerializer out = new FastXmlSerializer();
         final ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
         out.setOutput(outputStream, StandardCharsets.UTF_8.name());
-        mSoftApStoreData.serializeData(out, mock(WifiConfigStoreEncryptionUtil.class));
+        mSoftApStoreData.serializeData(out, mShouldEncrypt ? mWifiConfigStoreEncryptionUtil : null);
         out.flush();
         return outputStream.toByteArray();
     }
@@ -331,7 +350,7 @@ public class SoftApStoreDataTest extends WifiBaseTest {
         in.setInput(inputStream, StandardCharsets.UTF_8.name());
         mSoftApStoreData.deserializeData(in, in.getDepth(),
                 WifiConfigStore.ENCRYPT_CREDENTIALS_CONFIG_STORE_DATA_VERSION,
-                mock(WifiConfigStoreEncryptionUtil.class));
+                mShouldEncrypt ? mWifiConfigStoreEncryptionUtil : null);
     }
 
     /**
@@ -843,5 +862,30 @@ public class SoftApStoreDataTest extends WifiBaseTest {
                 TEST_BRIDGED_OPPORTUNISTIC_SHUTDOWN_ENABLED);
         assertEquals(softApConfig.isIeee80211axEnabled(), TEST_80211AX_ENABLED);
         assertEquals(softApConfig.isUserConfiguration(), true);
+    }
+
+    /**
+     * Verify that the store data is serialized/deserialized correctly.
+     *
+     * @throws Exception when test fails it throws exception
+     */
+    @Test
+    public void serializeDeserializeSoftApEncrypted() throws Exception {
+        SoftApConfiguration softApConfig = new SoftApConfiguration.Builder().setSsid(TEST_SSID)
+                .setPassphrase(TEST_PASSPHRASE, SoftApConfiguration.SECURITY_TYPE_WPA2_PSK)
+                .setBand(TEST_BAND).build();
+        when(mDataSource.toSerialize()).thenReturn(softApConfig);
+        mShouldEncrypt = true;
+        byte[] serializedData = serializeData();
+        deserializeData(serializedData);
+        ArgumentCaptor<SoftApConfiguration> softapConfigCaptor =
+                ArgumentCaptor.forClass(SoftApConfiguration.class);
+        verify(mDataSource).fromDeserialized(softapConfigCaptor.capture());
+        SoftApConfiguration softApConfigDeserialized = softapConfigCaptor.getValue();
+        assertNotNull(softApConfigDeserialized);
+        assertEquals(softApConfig.getPassphrase(),
+                softApConfigDeserialized.getPassphrase());
+        assertEquals(softApConfig.getSecurityType(),
+                softApConfigDeserialized.getSecurityType());
     }
 }

@@ -22,11 +22,45 @@ package com.android.networkstack.tethering.metrics;
 import "frameworks/proto_logging/stats/enums/stats/connectivity/tethering.proto";
 
 /**
+ * Represents an event that logs information about a successful switch to an upstream network.
+ */
+message UpstreamEvent {
+  // Indicates the transport type of network.
+  optional .android.stats.connectivity.UpstreamType upstream_type = 1;
+
+  // The duration of network usage.
+  optional int64 duration_millis = 2;
+
+  // The amount of data received from tethered clients.
+  optional int64 tx_bytes = 3;
+
+  // The amount of data received from remote.
+  optional int64 rx_bytes = 4;
+}
+
+message UpstreamEvents {
+  repeated UpstreamEvent upstream_event = 1;
+}
+
+/**
  * Logs Tethering events
  */
 message NetworkTetheringReported {
-   optional .android.stats.connectivity.ErrorCode error_code = 1;
-   optional .android.stats.connectivity.DownstreamType downstream_type = 2;
-   optional .android.stats.connectivity.UpstreamType upstream_type = 3;
-   optional .android.stats.connectivity.UserType user_type = 4;
+    // Tethering error code
+    optional .android.stats.connectivity.ErrorCode error_code = 1;
+
+    // Tethering downstream type
+    optional .android.stats.connectivity.DownstreamType downstream_type = 2;
+
+    // Transport type of upstream network
+    optional .android.stats.connectivity.UpstreamType upstream_type = 3  [deprecated = true];
+
+    // The user type of switching tethering
+    optional .android.stats.connectivity.UserType user_type = 4;
+
+    // Log each transport type of upstream network event
+    optional UpstreamEvents upstream_events = 5;
+
+    // A time period that a downstreams exists
+    optional int64 duration_millis = 6;
 }

@@ -18,6 +18,7 @@ package com.android.server.wifi.p2p;
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.AdditionalMatchers.aryEq;
@@ -32,9 +33,12 @@ import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
+import static org.mockito.Mockito.when;
 
 import android.app.test.MockAnswerUtil.AnswerWithArguments;
 import android.hardware.wifi.supplicant.FreqRange;
@@ -65,6 +69,8 @@ import android.text.TextUtils;
 import androidx.test.filters.SmallTest;
 
 import com.android.server.wifi.WifiBaseTest;
+import com.android.server.wifi.WifiInjector;
+import com.android.server.wifi.WifiSettingsConfigStore;
 import com.android.server.wifi.util.NativeUtil;
 
 import org.junit.Before;
@@ -92,6 +98,7 @@ public class SupplicantP2pIfaceHalAidlImplTest extends WifiBaseTest {
     private @Mock ISupplicantP2pIface mISupplicantP2pIfaceMock;
     private @Mock ISupplicantP2pNetwork mISupplicantP2pNetworkMock;
     private @Mock WifiP2pMonitor mWifiMonitor;
+    private @Mock WifiInjector mWifiInjector;
     private @Mock IBinder mServiceBinderMock;
 
     final String mIfaceName = "virtual_interface_name";
@@ -139,7 +146,7 @@ public class SupplicantP2pIfaceHalAidlImplTest extends WifiBaseTest {
 
     private class SupplicantP2pIfaceHalSpy extends SupplicantP2pIfaceHalAidlImpl {
         SupplicantP2pIfaceHalSpy() {
-            super(mWifiMonitor);
+            super(mWifiMonitor, mWifiInjector);
         }
 
         @Override
@@ -2357,10 +2364,9 @@ public class SupplicantP2pIfaceHalAidlImplTest extends WifiBaseTest {
 
         // Convert these to long to help with comparisons.
         MacAddress[] clients = capturedClients.getValue();
-        ArrayList<Long> expectedClients = new ArrayList<Long>() {{
-                add(NativeUtil.macAddressToLong(mGroupOwnerMacAddressBytes));
-                add(NativeUtil.macAddressToLong(mPeerMacAddressBytes));
-            }};
+        List<Long> expectedClients = List.of(
+                NativeUtil.macAddressToLong(mGroupOwnerMacAddressBytes),
+                NativeUtil.macAddressToLong(mPeerMacAddressBytes));
         ArrayList<Long> receivedClients = new ArrayList<Long>();
         for (MacAddress client : clients) {
             receivedClients.add(NativeUtil.macAddressToLong(client.data));
@@ -2562,6 +2568,45 @@ public class SupplicantP2pIfaceHalAidlImplTest extends WifiBaseTest {
         verify(mISupplicantP2pIfaceMock).setVendorElements(
                 eq(P2pFrameTypeMask.P2P_FRAME_PROBE_RESP_P2P),
                 aryEq(new byte[0]));
+    }
+
+    /**
+     * Test that getSupportedFeatures returns the expected feature sets.
+     */
+    @Test
+    public void testGetSupportedFeatures() {
+        WifiSettingsConfigStore mockConfigStore = mock(WifiSettingsConfigStore.class);
+        when(mWifiInjector.getSettingsConfigStore()).thenReturn(mockConfigStore);
+
+        // If the service version cannot be retrieved, expect the default feature set.
+        when(mockConfigStore.get(any())).thenReturn(-1);
+        long defaultFeatureSet = mDut.getSupportedFeatures();
+        verify(mockConfigStore).get(any());
+
+        // Full feature set can be retrieved once we have the service version.
+        when(mockConfigStore.get(any())).thenReturn(2);
+        long fullFeatureSet = mDut.getSupportedFeatures();
+        assertNotEquals(defaultFeatureSet, fullFeatureSet);
+        verify(mockConfigStore, times(2)).get(any());
+
+        // Service version should be cached on subsequent calls.
+        assertEquals(fullFeatureSet, mDut.getSupportedFeatures());
+        verifyNoMoreInteractions(mockConfigStore);
+    }
+
+    /**
+     * Test the EAPOL Ip Address Allocation configuration Parameters
+     */
+    @Test
+    public void testConfigureEapolIpAddressAllocationParamsSuccess() throws Exception {
+        doNothing().when(mISupplicantP2pIfaceMock).configureEapolIpAddressAllocationParams(
+                anyInt(), anyInt(), anyInt(), anyInt());
+        executeAndValidateInitializationSequence(false, false);
+
+        assertTrue(mDut.configureEapolIpAddressAllocationParams(0x0101A8C0,
+                0x00FFFFFF, 0x0501A8C0, 0x0801A8C0));
+        verify(mISupplicantP2pIfaceMock).configureEapolIpAddressAllocationParams(eq(0x0101A8C0),
+                eq(0x00FFFFFF), eq(0x0501A8C0), eq(0x0801A8C0));
     }
 
     /**

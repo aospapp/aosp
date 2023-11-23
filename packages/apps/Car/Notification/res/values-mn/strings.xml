@@ -49,4 +49,11 @@
     <string name="see_more_message" msgid="6343183827924395955">"Дэлгэрэнгүй харах"</string>
     <string name="restricted_hun_message_content" msgid="631111937988857716">"Шинэ мессеж"</string>
     <string name="manage_text" msgid="4225197445283791757">"Удирдах"</string>
+    <string name="category_navigation" msgid="4406139232918521087">"навигац"</string>
+    <string name="category_call" msgid="2249490790700877973">"залгах"</string>
+    <string name="category_message" msgid="451360226248504859">"мсж"</string>
+    <string name="hun_suppression_channel_name" msgid="8298850157350352525">"Анхаараарай! онцлогийг дарах"</string>
+    <string name="hun_suppression_notification_title_park" msgid="2790860076784227523">"Хамгийн сүүлийн үеийн мэдээлэлтэй байгаарай"</string>
+    <string name="hun_suppression_notification_title_drive" msgid="4403363470548899844">"Жолоо барихдаа төвлөрөх"</string>
+    <string name="hun_suppression_notification_description" msgid="5269238832987802104">"Зарим шинэ мэдэгдлийг Мэдэгдлийн төвд хадгалсан."</string>
 </resources>

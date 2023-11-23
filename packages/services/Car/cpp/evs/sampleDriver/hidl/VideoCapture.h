@@ -16,15 +16,14 @@
 #ifndef ANDROID_HARDWARE_AUTOMOTIVE_EVS_V1_1_VIDEOCAPTURE_H
 #define ANDROID_HARDWARE_AUTOMOTIVE_EVS_V1_1_VIDEOCAPTURE_H
 
+#include <linux/videodev2.h>
+
 #include <atomic>
 #include <functional>
 #include <set>
 #include <thread>
 
-#include <linux/videodev2.h>
-
 typedef v4l2_buffer imageBuffer;
-
 
 class VideoCapture {
 public:
@@ -35,10 +34,10 @@ public:
     void stopStream();
 
     // Valid only after open()
-    __u32   getWidth()          { return mWidth; };
-    __u32   getHeight()         { return mHeight; };
-    __u32   getStride()         { return mStride; };
-    __u32   getV4LFormat()      { return mFormat; };
+    __u32 getWidth() { return mWidth; };
+    __u32 getHeight() { return mHeight; };
+    __u32 getStride() { return mStride; };
+    __u32 getV4LFormat() { return mFormat; };
 
     // NULL until stream is started
     void* getLatestData() {
@@ -52,10 +51,10 @@ public:
         return mPixelBuffers[latestBufferId];
     }
 
-    bool isFrameReady()             { return !mFrames.empty(); }
-    void markFrameConsumed(int id)  { returnFrame(id); }
+    bool isFrameReady() { return !mFrames.empty(); }
+    void markFrameConsumed(int id) { returnFrame(id); }
 
-    bool isOpen()                   { return mDeviceFd >= 0; }
+    bool isOpen() { return mDeviceFd >= 0; }
 
     int setParameter(struct v4l2_control& control);
     int getParameter(struct v4l2_control& control);
@@ -69,25 +68,25 @@ private:
 
     int mNumBuffers = 0;
     std::unique_ptr<v4l2_buffer[]> mBufferInfos = nullptr;
-    std::unique_ptr<void*[]>       mPixelBuffers = nullptr;
+    std::unique_ptr<void*[]> mPixelBuffers = nullptr;
 
-    __u32   mFormat = 0;
-    __u32   mWidth  = 0;
-    __u32   mHeight = 0;
-    __u32   mStride = 0;
+    __u32 mFormat = 0;
+    __u32 mWidth = 0;
+    __u32 mHeight = 0;
+    __u32 mStride = 0;
 
     std::function<void(VideoCapture*, imageBuffer*, void*)> mCallback;
 
-    std::thread mCaptureThread;             // The thread we'll use to dispatch frames
-    std::atomic<int> mRunMode;              // Used to signal the frame loop (see RunModes below)
-    std::set<int> mFrames;                  // Set of available frame buffers
+    std::thread mCaptureThread;  // The thread we'll use to dispatch frames
+    std::atomic<int> mRunMode;   // Used to signal the frame loop (see RunModes below)
+    std::set<int> mFrames;       // Set of available frame buffers
 
     // Careful changing these -- we're using bit-wise ops to manipulate these
     enum RunModes {
-        STOPPED     = 0,
-        RUN         = 1,
-        STOPPING    = 2,
+        STOPPED = 0,
+        RUN = 1,
+        STOPPING = 2,
     };
 };
 
-#endif // ANDROID_HARDWARE_AUTOMOTIVE_EVS_V1_0_VIDEOCAPTURE_
+#endif  // ANDROID_HARDWARE_AUTOMOTIVE_EVS_V1_0_VIDEOCAPTURE_

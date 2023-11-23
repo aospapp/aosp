@@ -99,6 +99,8 @@ public class WifiShellCommandTest extends WifiBaseTest {
     @Mock WifiGlobals mWifiGlobals;
     @Mock WifiThreadRunner mWifiThreadRunner;
     @Mock ScanRequestProxy mScanRequestProxy;
+    @Mock WifiDiagnostics mWifiDiagnostics;
+    @Mock DeviceConfigFacade mDeviceConfig;
 
     WifiShellCommand mWifiShellCommand;
 
@@ -123,6 +125,8 @@ public class WifiShellCommandTest extends WifiBaseTest {
         when(mWifiInjector.getWifiNetworkFactory()).thenReturn(mWifiNetworkFactory);
         when(mWifiInjector.getScanRequestProxy()).thenReturn(mScanRequestProxy);
         when(mContext.getSystemService(ConnectivityManager.class)).thenReturn(mConnectivityManager);
+        when(mWifiInjector.getWifiDiagnostics()).thenReturn(mWifiDiagnostics);
+        when(mWifiInjector.getDeviceConfigFacade()).thenReturn(mDeviceConfig);
 
         mWifiShellCommand = new WifiShellCommand(mWifiInjector, mWifiService, mContext,
                 mWifiGlobals, mWifiThreadRunner);
@@ -163,16 +167,12 @@ public class WifiShellCommandTest extends WifiBaseTest {
                 new Binder(), new FileDescriptor(), new FileDescriptor(), new FileDescriptor(),
                 new String[]{"get-ipreach-disconnect"});
         verify(mWifiGlobals).getIpReachabilityDisconnectEnabled();
-        mWifiShellCommand.getOutPrintWriter().toString().contains(
-                "IPREACH_DISCONNECT state is true");
 
         when(mWifiGlobals.getIpReachabilityDisconnectEnabled()).thenReturn(false);
         mWifiShellCommand.exec(
                 new Binder(), new FileDescriptor(), new FileDescriptor(), new FileDescriptor(),
                 new String[]{"get-ipreach-disconnect"});
         verify(mWifiGlobals, times(2)).getIpReachabilityDisconnectEnabled();
-        mWifiShellCommand.getOutPrintWriter().toString().contains(
-                "IPREACH_DISCONNECT state is false");
     }
 
     @Test
@@ -215,8 +215,6 @@ public class WifiShellCommandTest extends WifiBaseTest {
                 new Binder(), new FileDescriptor(), new FileDescriptor(), new FileDescriptor(),
                 new String[]{"get-poll-rssi-interval-msecs"});
         verify(mWifiGlobals).getPollRssiIntervalMillis();
-        mWifiShellCommand.getOutPrintWriter().toString().contains(
-                "WifiGlobals.getPollRssiIntervalMillis() = 5");
     }
 
     @Test
@@ -344,7 +342,6 @@ public class WifiShellCommandTest extends WifiBaseTest {
                 new Binder(), new FileDescriptor(), new FileDescriptor(), new FileDescriptor(),
                 new String[]{"network-suggestions-has-user-approved", TEST_PACKAGE});
         verify(mWifiNetworkSuggestionsManager).hasUserApprovedForApp(TEST_PACKAGE);
-        mWifiShellCommand.getOutPrintWriter().toString().contains("yes");
 
         when(mWifiNetworkSuggestionsManager.hasUserApprovedForApp(TEST_PACKAGE))
                 .thenReturn(false);
@@ -352,7 +349,6 @@ public class WifiShellCommandTest extends WifiBaseTest {
                 new Binder(), new FileDescriptor(), new FileDescriptor(), new FileDescriptor(),
                 new String[]{"network-suggestions-has-user-approved", TEST_PACKAGE});
         verify(mWifiNetworkSuggestionsManager, times(2)).hasUserApprovedForApp(TEST_PACKAGE);
-        mWifiShellCommand.getOutPrintWriter().toString().contains("no");
     }
 
     @Test
@@ -401,7 +397,6 @@ public class WifiShellCommandTest extends WifiBaseTest {
                 new Binder(), new FileDescriptor(), new FileDescriptor(), new FileDescriptor(),
                 new String[]{"imsi-protection-exemption-has-user-approved-for-carrier", "5"});
         verify(mWifiCarrierInfoManager).hasUserApprovedImsiPrivacyExemptionForCarrier(5);
-        mWifiShellCommand.getOutPrintWriter().toString().contains("yes");
 
         when(mWifiCarrierInfoManager.hasUserApprovedImsiPrivacyExemptionForCarrier(5))
                 .thenReturn(false);
@@ -409,7 +404,6 @@ public class WifiShellCommandTest extends WifiBaseTest {
                 new Binder(), new FileDescriptor(), new FileDescriptor(), new FileDescriptor(),
                 new String[]{"imsi-protection-exemption-has-user-approved-for-carrier", "5"});
         verify(mWifiCarrierInfoManager, times(2)).hasUserApprovedImsiPrivacyExemptionForCarrier(5);
-        mWifiShellCommand.getOutPrintWriter().toString().contains("no");
     }
 
     @Test
@@ -452,7 +446,6 @@ public class WifiShellCommandTest extends WifiBaseTest {
                 new Binder(), new FileDescriptor(), new FileDescriptor(), new FileDescriptor(),
                 new String[]{"network-requests-has-user-approved", TEST_PACKAGE});
         verify(mWifiNetworkFactory).hasUserApprovedApp(TEST_PACKAGE);
-        mWifiShellCommand.getOutPrintWriter().toString().contains("yes");
 
         when(mWifiNetworkFactory.hasUserApprovedApp(TEST_PACKAGE))
                 .thenReturn(false);
@@ -460,7 +453,6 @@ public class WifiShellCommandTest extends WifiBaseTest {
                 new Binder(), new FileDescriptor(), new FileDescriptor(), new FileDescriptor(),
                 new String[]{"network-requests-has-user-approved", TEST_PACKAGE});
         verify(mWifiNetworkFactory, times(2)).hasUserApprovedApp(TEST_PACKAGE);
-        mWifiShellCommand.getOutPrintWriter().toString().contains("no");
     }
 
     @Test
@@ -734,7 +726,7 @@ public class WifiShellCommandTest extends WifiBaseTest {
         verify(mWifiService).isScanAlwaysAvailable();
         verify(mWifiService).getConnectionInfo(SHELL_PACKAGE_NAME, null);
 
-        verify(mPrimaryClientModeManager, never()).syncRequestConnectionInfo();
+        verify(mPrimaryClientModeManager, never()).getConnectionInfo();
         verify(mActiveModeWarden, never()).getClientModeManagers();
 
         // rooted shell.
@@ -746,17 +738,17 @@ public class WifiShellCommandTest extends WifiBaseTest {
 
         WifiInfo wifiInfo = new WifiInfo();
         wifiInfo.setSupplicantState(SupplicantState.COMPLETED);
-        when(mPrimaryClientModeManager.syncRequestConnectionInfo()).thenReturn(wifiInfo);
-        when(additionalClientModeManager.syncRequestConnectionInfo()).thenReturn(wifiInfo);
+        when(mPrimaryClientModeManager.getConnectionInfo()).thenReturn(wifiInfo);
+        when(additionalClientModeManager.getConnectionInfo()).thenReturn(wifiInfo);
 
         mWifiShellCommand.exec(
                 new Binder(), new FileDescriptor(), new FileDescriptor(), new FileDescriptor(),
                 new String[]{"status"});
         verify(mActiveModeWarden).getClientModeManagers();
-        verify(mPrimaryClientModeManager).syncRequestConnectionInfo();
-        verify(mPrimaryClientModeManager).syncGetCurrentNetwork();
-        verify(additionalClientModeManager).syncRequestConnectionInfo();
-        verify(additionalClientModeManager).syncGetCurrentNetwork();
+        verify(mPrimaryClientModeManager).getConnectionInfo();
+        verify(mPrimaryClientModeManager).getCurrentNetwork();
+        verify(additionalClientModeManager).getConnectionInfo();
+        verify(additionalClientModeManager).getCurrentNetwork();
     }
 
     @Test
@@ -1002,5 +994,13 @@ public class WifiShellCommandTest extends WifiBaseTest {
                                 .build())
                         .build()),
                 (ConnectivityManager.NetworkCallback) any());
+    }
+
+    @Test
+    public void testTakeBugreport() {
+        when(mDeviceConfig.isInterfaceFailureBugreportEnabled()).thenReturn(true);
+        mWifiShellCommand.exec(new Binder(), new FileDescriptor(), new FileDescriptor(),
+                new FileDescriptor(), new String[]{"take-bugreport"});
+        verify(mWifiDiagnostics).takeBugReport("Wifi bugreport test", "");
     }
 }

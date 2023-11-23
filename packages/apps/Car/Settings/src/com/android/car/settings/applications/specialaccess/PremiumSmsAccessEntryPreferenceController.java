@@ -42,7 +42,7 @@ public class PremiumSmsAccessEntryPreferenceController extends PreferenceControl
     }
 
     @Override
-    protected int getAvailabilityStatus() {
+    protected int getDefaultAvailabilityStatus() {
         return getContext().getResources().getBoolean(R.bool.config_show_premium_sms) ? AVAILABLE
                 : UNSUPPORTED_ON_DEVICE;
     }

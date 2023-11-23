@@ -29,9 +29,9 @@
     <string name="next" msgid="1004321437324424398">"ඊළඟ"</string>
     <string name="setting_up_workspace" msgid="7862472373642601041">"කාර්යාල පැතිකඩ පිහිටුවමින්..."</string>
     <string name="admin_has_ability_to_monitor_profile" msgid="1018585795537086728">"ඔබගේ IT පරිපාලකට මෙම පැතිකඩ හා සම්බන්ධ සැකසීම්, ආයතනික ප්‍රවේශය, යෙදුම්, අවසර, දත්ත සහ ජාල ක්‍රියාකාරකම්, මෙන්ම ඔබගේ ඇමතුම් ඉතිහාසය සහ සම්බන්ධතා සෙවීම් ඉතිහාසය නිරීක්ෂණය කිරීමට සහ කළමනාකරණය කිරීමට හැකිය. වැඩි විස්තර සඳහා සහ ඔබගේ සංවිධානයේ පෞද්ගලිකත්ව ප්‍රතිපත්ති ගැන තව දැන ගැනීමට ඔබගේ IT පරිපාලක අමතන්න."</string>
-    <string name="admin_has_ability_to_monitor_device" msgid="6303112630697870695">"ඔබේ ජාල ක්‍රියාකාරකම්, මෙන්ම ඔබේ උපාංගයේ ස්ථානය, ඇමතුම් ඉතිහාසය, සහ සම්බන්ධතා සෙවීම් ඉතිහාසය ඇතුළුව, සැකසීම්, සංස්ථාපිත ප්‍රවේශය, යෙදුම්, අවසර සහ මෙම උපාංගය සමඟ සම්බන්ධිත දත්ත නිරීක්‍ෂණ කිරීමේ සහ කළමනා කිරීමේ හැකියාව ඔබේ පරිපාලකට තිබේ.<xliff:g id="LINE_BREAK">
+    <string name="admin_has_ability_to_monitor_device" msgid="7786186939607332934">"ඔබේ ජාල ක්‍රියාකාරකම් මෙන්ම ඔබේ උපාංගයේ ස්ථානය, ඇමතුම් ඉතිහාසය සහ සම්බන්ධතා සෙවීම් ඉතිහාසය ඇතුළුව, සැකසීම්, සංස්ථාපිත ප්‍රවේශය, යෙදුම්, අවසර සහ මෙම <xliff:g id="DEVICE_NAME">%1$s</xliff:g> සමග සම්බන්ධිත දත්ත නිරීක්ෂණය කිරීමේ සහ කළමනාකරණය කිරීමේ හැකියාව ඔබේ IT පරිපාලකට තිබේ.<xliff:g id="LINE_BREAK">
 
-</xliff:g>ඔබගේ සංවිධානයේ පෞද්ගලිකත්ව ප්‍රතිපත්ති ඇතුළුව තවත් තොරතුරු සඳහා ඔබගේ තොරතුරු තාක්‍ෂණ පරිපාලකයා සම්බන්ධ කර ගන්න."</string>
+</xliff:g>ඔබේ සංවිධානයේ පෞද්ගලිකත්ව ප්‍රතිපත්ති ඇතුළුව තවත් තොරතුරු සඳහා ඔබේ IT පරිපාලක අමතන්න."</string>
     <string name="theft_protection_disabled_warning" msgid="3708092473574738478">"සොරකම්වලින්-ආරක්ෂා වීමේ විශේෂාංග භාවිත කිරීම සඳහා, ඔබට ඔබේ උපාංගය සඳහා මුරපදයකින් ආරක්ෂිත තිර අගුලක් තිබිය යුතුය."</string>
     <string name="contact_your_admin_for_more_info" msgid="9209568156969966347">"ඔබේ සංවිධානයේ පෞද්ගලිකත්ව ප්‍රතිපත්ති ඇතුළුව, තව තොරතුරු සඳහා ඔබේ තොරතුරු තාක්‍ෂණ පරිපාලකයා සම්බන්ධ කර ගන්න."</string>
     <string name="learn_more_link" msgid="3012495805919550043">"තව දැනගන්න"</string>
@@ -50,8 +50,8 @@
     <string name="sure_you_want_to_delete_profile" msgid="6927697984573575564">"ඔබ දිගටම කරගෙන ගියහොත්, මෙම පැතිකඩේ සියලු යෙදුම් සහ දත්ත මැකෙනු ඇත."</string>
     <string name="delete_profile" msgid="2299218578684663459">"මකන්න"</string>
     <string name="cancel_delete_profile" msgid="5155447537894046036">"අවලංගු කරන්න"</string>
-    <string name="encrypt_device_text_for_profile_owner_setup" msgid="7828515754696057140">"ඔබගේ කාර්යාල පැතිකඩේ සැකසීමට, ඔබගේ උපාංගය සංකේතනය කිරීමට අවශ්‍ය වේ. මෙයට ටික වෙලාවක් ගත වේ."</string>
-    <string name="encrypt_device_text_for_device_owner_setup" msgid="5194673142404735676">"මෙම උපාංගය පිහිටුවීමට එය මුලින් සංකේතනය කළ යුතුයි. මෙයට ටික වේලාවක් ගනී."</string>
+    <string name="encrypt_device_text_for_profile_owner_setup" msgid="6865483664167134470">"ඔබේ කාර්යාල පැතිකඩ පිහිටුවීම සඳහා, ඔබේ <xliff:g id="DEVICE_NAME">%1$s</xliff:g> සංකේතනය කිරීමට අවශ්‍ය වේ. මෙයට ටික වෙලාවක් ගත වීමට ඉඩ ඇත."</string>
+    <string name="encrypt_device_text_for_device_owner_setup" msgid="230099563510460941">"මෙම <xliff:g id="DEVICE_NAME">%1$s</xliff:g> පිහිටුවීම සඳහා, එය පළමුව සංකේතනය කිරීමට අවශ්‍ය වේ. මෙයට ටික වෙලාවක් ගත වීමට ඉඩ ඇත."</string>
     <string name="encrypt_this_device_question" msgid="8719916619866892601">"මෙම උපාංගය සංකේතනය කරන්නද?"</string>
     <string name="encrypt" msgid="1749320161747489212">"සංකේතනය"</string>
     <string name="continue_provisioning_notify_title" msgid="5191449100153186648">"සංකේතනය සම්පූර්ණයි"</string>
@@ -59,7 +59,7 @@
     <string name="managed_provisioning_error_text" msgid="7063621174570680890">"ඔබගේ කාර්යාල පැතිකඩ සැකසීමට නොහැකි විය. ඔබගේ IT අංශය සම්බන්ධ කර ගන්න හෝ පසුව නැවත උත්සාහ කරන්න."</string>
     <string name="cant_add_work_profile" msgid="9217268909964154934">"කාර්යාල පැතිකඩ එකතු කිරීමට නොහැක"</string>
     <string name="cant_replace_or_remove_work_profile" msgid="7861054306792698290">"කාර්ය පැතිකඩ ප්‍රතිස්ථාපනය කිරීමට හෝ ඉවත් කිරීමට නොහැකිය"</string>
-    <string name="work_profile_cant_be_added_contact_admin" msgid="5393019630297157418">"මෙම උපාංගයට කාර්යාල පැතිකඩක් එක් කළ නොහැක. ඔබට ගැටලු තිබේ නම්, ඔබගේ තොරතුරු තාක්‍ෂණ පරිපාලකයා සම්බන්ධ කර ගන්න."</string>
+    <string name="work_profile_cant_be_added_contact_admin" msgid="4866281518235832928">"මෙම <xliff:g id="DEVICE_NAME">%1$s</xliff:g> වෙත කාර්ය පැතිකඩක් එක් කළ නොහැක. ඔබට ප්‍රශ්න තිබේ නම්, ඔබේ IT පරිපාලක අමතන්න."</string>
     <string name="change_device_launcher" msgid="4523563368433637980">"උපාංග දියත්කරණය වෙනස් කරන්න"</string>
     <string name="launcher_app_cant_be_used_by_work_profile" msgid="3524366082000739743">"මෙම දියත්කරණය යෙදුම ඔබගේ කාර්යාල පැතිකඩ මඟින් භාවිතා කිරීමට නොහැක"</string>
     <string name="cancel_provisioning" msgid="3408069559452653724">"අවලංගු කරන්න"</string>
@@ -67,9 +67,9 @@
     <string name="user_setup_incomplete" msgid="6494920045526591079">"පරිශීලක පිහිටුවීම අසම්පූර්ණයි"</string>
     <string name="default_owned_device_username" msgid="3915120202811807955">"කාර්යාල උපාංගයේ පරිශීලකයා"</string>
     <string name="setup_work_device" msgid="6003988351437862369">"වැඩ උපාංගය පිහිටුවමින්..."</string>
-    <string name="device_doesnt_allow_encryption_contact_admin" msgid="5124643338424539794">"මෙම උපාංගය සැකසීමට අවශ්‍ය සංකේතනයට අවසර නොදෙයි. උදවු සඳහා, ඔබේ තොරතුරු තාක්‍ෂණ පරිපාලකයා සම්බන්ධ කර ගන්න."</string>
-    <string name="stop_setup_reset_device_question" msgid="7547191251522623210">"උපාංග ස්ථාපනය නවතා යලි සකසන්නද?"</string>
-    <string name="this_will_reset_take_back_first_screen" msgid="4623290347188404725">"මෙමඟින් පිහිටුවීම අවසන් කර ඔබේ උපාංගය යළි සකසා ඔබව ආපසු මුල් තිරයට ගෙන යනු ඇත"</string>
+    <string name="device_doesnt_allow_encryption_contact_admin" msgid="410347019947997299">"පිහිටුවීමට අවශ්‍ය සංකේතනය සඳහා මෙම <xliff:g id="DEVICE_NAME">%1$s</xliff:g> ඉඩ නොදෙයි. උදවු සඳහා, ඔබේ IT පරිපාලක සම්බන්ධ කර ගන්න."</string>
+    <string name="stop_setup_reset_device_question" msgid="2323844935990001069">"පිහිටුවීම නවතා <xliff:g id="DEVICE_NAME">%1$s</xliff:g> යළි සකසන්න ද?"</string>
+    <string name="this_will_reset_take_back_first_screen" msgid="5881727570968119259">"මෙය ඔබේ <xliff:g id="DEVICE_NAME">%1$s</xliff:g> යළි සකසා ඔබව ආපසු මුල් තිරයට ගෙන යනු ඇත"</string>
     <string name="device_owner_cancel_message" msgid="2529288571742712065">"පිහිටුවීම නවත්වා ඔබේ උපාංගයේ දත්ත මකන්නද?"</string>
     <string name="device_owner_cancel_cancel" msgid="1052951540909389275">"අවලංගු කරන්න"</string>
     <string name="device_owner_error_ok" msgid="2002250763093787051">"හරි"</string>
@@ -79,10 +79,10 @@
     <string name="something_went_wrong" msgid="3593223774041784329">"යමක් වැරදී ගියේය"</string>
     <string name="couldnt_set_up_device" msgid="5137950404283642302">"උපාංගය සැකසීමට නොහැකි විය. උදවු සඳහා, ඔබේ තොරතුරු තාක්‍ෂණ පරිපාලකයා සම්බන්ධ කර ගන්න."</string>
     <string name="contact_your_admin_for_help" msgid="2009904021552323731">"උදවු සඳහා ඔබේ තොරතුරු තාක්‍ෂණ පරිපාලක අමතන්න"</string>
-    <string name="reset_device" msgid="5483853913241939262">"මෙම උපාංගය යළි සකසා නැවත එය පිහිටුවීමට උත්සාහ කරන්න"</string>
-    <string name="device_already_set_up" msgid="507881934487140294">"උපාංගය දැනටමත් පිහිටුවා තිබේ"</string>
+    <string name="reset_device" msgid="265029891515486543">"මෙම <xliff:g id="DEVICE_NAME">%1$s</xliff:g> යළි සකසා එය නැවත සැකසීමට උත්සාහ කරන්න"</string>
+    <string name="device_already_set_up" msgid="2916285974248611835">"<xliff:g id="DEVICE_NAME">%1$s</xliff:g> දැනටමත් පිහිටුවා ඇත"</string>
     <string name="error_wifi" msgid="1850288843966836571">"Wi-Fi වෙත සම්බන්ධ වීමට නොහැකි විය"</string>
-    <string name="device_has_reset_protection_contact_admin" msgid="2662050020376475656">"ඔබේ උපාංගයේ යළි සැකසුම් ආරක්‍ෂාව සක්‍රීයයි. උදවු සඳහා, ඔබේ තොරතුරු තාක්‍ෂණ පරිපාලකයා සම්බන්ධ කර ගන්න."</string>
+    <string name="device_has_reset_protection_contact_admin" msgid="5922267426079555686">"ඔබේ <xliff:g id="DEVICE_NAME">%1$s</xliff:g> හි යළි සැකසීමේ ආරක්ෂාව ක්‍රියාත්මකයි. උදවු සඳහා, ඔබේ IT පරිපාලක සම්බන්ධ කර ගන්න."</string>
     <string name="frp_clear_progress_title" msgid="8628074089458234965">"මකමින්"</string>
     <string name="frp_clear_progress_text" msgid="1740164332830598827">"කරුණාකර රැඳී සිටින්න..."</string>
     <string name="error_hash_mismatch" msgid="1145488923243178454">"චෙක්සම් දෝෂය හේතුවෙන් පරිපාලක යෙදුම භාවිත කළ නොහැක. උදවු සඳහා ඔබේ තොරතුරු තාක්‍ෂණ පරිපාලකයා සම්බන්ධ කරගන්න."</string>
@@ -128,9 +128,9 @@
     <string name="comp_profile_benefits_description" msgid="379837075456998273">"කාර්යාල පැතිකඩක් භාවිතා කිරීම මඟින් ඔබගේ කාර්යාල යෙදුම් එක තැනක තබා ගත හැක"</string>
     <string name="setup_profile_encryption" msgid="5241291404536277038">"ඔබගේ පැතිකඩ සංකේතනය පිහිටුවන්න"</string>
     <string name="setup_profile_progress" msgid="7742718527853325656">"ඔබගේ පැතිකඩ පිහිටුවීම. ප්‍රගතිය පෙන්වමින්"</string>
-    <string name="setup_device" msgid="6725265673245816366">"ඔබගේ උපාංගය සකසන්න"</string>
-    <string name="setup_device_encryption" msgid="7852944465414197103">"ඔබගේ උපාංග සංකේතනය පිහිටුවන්න"</string>
-    <string name="setup_device_progress" msgid="7035335208571175393">"ඔබගේ උපාංගය පිහිටුවීම. ප්‍රගතිය පෙන්වමින්"</string>
+    <string name="setup_device" msgid="1679201701102889156">"ඔබේ <xliff:g id="DEVICE_NAME">%1$s</xliff:g> පිහිටුවන්න"</string>
+    <string name="setup_device_encryption" msgid="2628196093806001835">"ඔබේ <xliff:g id="DEVICE_NAME">%1$s</xliff:g> පිහිටුවන්න. සංකේතනය"</string>
+    <string name="setup_device_progress" msgid="8792474713196537598">"ඔබේ <xliff:g id="DEVICE_NAME">%1$s</xliff:g> පිහිටුවන්න. ප්‍රගතිය පෙන්වයි"</string>
     <string name="learn_more_label" msgid="2723716758654655009">"තව දැන ගැනීමේ බොත්තම"</string>
     <string name="mdm_icon_label" msgid="3399134595549660561">"<xliff:g id="ICON_LABEL">%1$s</xliff:g> නිරූපකය"</string>
     <string name="section_heading" msgid="3924666803774291908">"<xliff:g id="SECTION_HEADING">%1$s</xliff:g> කොටස් මාතෘකාව."</string>
@@ -158,7 +158,7 @@
     <string name="brand_screen_header" msgid="8865808542690116648">"මෙම උපාංගය ඔබේ සංවිධානයට අයත් වේ"</string>
     <string name="brand_screen_subheader" msgid="7664792208784456436">"මෙම දුරකථනය කළමනා කිරීමටත් නිරීක්‍ෂණ කිරීමටත් පහත සඳහන් යෙදුම භාවිත කෙරේ"</string>
     <string name="account_management_disclaimer_header" msgid="8013083414694316564">"ඔබගේ ගිණුම කළමනාකරණය කෙරේ"</string>
-    <string name="account_management_disclaimer_subheader" msgid="5146471918840236988">"ආරක්ෂක ප්‍රතිපත්ති බලාත්මක කිරීම සඳහා ඔබගේ තොරතුරු තාක්ෂණ පරිපාලක ජංගම උපාංග කළමනාකරණය භාවිත කරයි"</string>
+    <string name="account_management_disclaimer_subheader" msgid="8991450067243733878">"ආරක්ෂක ප්‍රතිපත්ති බලාත්මක කිරීම සඳහා ඔබේ IT පරිපාලක ජංගම කළමනාකරණය භාවිතා කරයි"</string>
     <string name="downloading_administrator_header" msgid="8660294318893902915">"කාර්යාල සැකසීම සඳහා සූදානම් වේ…"</string>
     <string name="work_profile_provisioning_accept_header_post_suw" msgid="1353127953275291089">"අපි ඔබේ වැඩ පැතිකඩ පිහිටුවමු"</string>
     <string name="work_profile_provisioning_step_1_header" msgid="7914961694921466366">"කාර්යාල යෙදුම් ඔබේ කාර්යාල පැතිකඩේ තබනු ලැබේ"</string>
@@ -168,32 +168,35 @@
     <string name="work_profile_provisioning_summary" msgid="3436190271657388747">"කාර්යාල යෙදුම් ඔබේ කාර්යාල පැතිකඩේ තබා ඇත. ඔබ දවසේ වැඩ අවසන් කළ විට ඔබට ඔබේ කාර්යාල යෙදුම් විරාම ගැන්විය හැකිය. ඔබේ කාර්යාල පැතිකඩේ ඇති දත්ත ඔබේ IT පරිපාලකට දෘශ්‍යමාන වේ."</string>
     <string name="fully_managed_device_provisioning_accept_header" msgid="2944032660440403130">"ඔබේ කාර්යාල උපාංගය සකසමු"</string>
     <string name="fully_managed_device_provisioning_step_1_header" msgid="6396274703116708592">"ඔබේ කාර්යා යෙදුම් ඔබේ ඇඟිලි තුඩුවල තබා ගන්න"</string>
-    <string name="fully_managed_device_provisioning_step_2_header" msgid="7165472083121590030">"මෙම උපාංගය පුද්ගලික නොවේ"</string>
-    <string name="fully_managed_device_provisioning_step_2_subheader" msgid="2848998570491578119">"ඔබේ තොරතුරු තාක්‍ෂණ පරිපාලකයාට මෙම උපාංගය මත ඔබේ දත්ත සහ ක්‍රියාකාරකම බැලිය හැකි වීමට ඉඩ ඇත."</string>
+    <string name="fully_managed_device_provisioning_step_2_header" msgid="142633978260399682">"මෙම <xliff:g id="DEVICE_NAME">%1$s</xliff:g> පෞද්ගලික නොවේ"</string>
+    <string name="fully_managed_device_provisioning_step_2_subheader" msgid="3981784440341141618">"ඔබේ IT පරිපාලකට මෙම <xliff:g id="DEVICE_NAME">%1$s</xliff:g> හි ඔබේ දත්ත සහ ක්‍රියාකාරකම් බැලීමට හැකි විය හැක"</string>
     <string name="fully_managed_device_provisioning_permissions_header" msgid="2852101532084770993">"ඔබගේ ක්‍රියාකාරකම් සහ දත්ත"</string>
     <string name="fully_managed_device_provisioning_permissions_secondary_header" msgid="4419374850927705136">"යෙදුම් අවසර"</string>
-    <string name="fully_managed_device_provisioning_permissions_secondary_subheader" msgid="8328298923037335068">"ඔබගේ IT පරිපාලකට මයික්‍ර‍ෆෝනය, කැමරාව සහ ස්ථාන අවසර වැනි මෙම උපාංගයේ යෙදුම් සඳහා අවසර සැකසිය හැකිය."</string>
+    <string name="fully_managed_device_provisioning_permissions_secondary_subheader" msgid="1973320148595109400">"ඔබේ IT පරිපාලකට මයික්‍ර‍ෆෝනය, කැමරාව සහ ස්ථාන අවසර වැනි මෙම <xliff:g id="DEVICE_NAME">%1$s</xliff:g> හි යෙදුම් සඳහා අවසර සැකසිය හැක."</string>
     <string name="fully_managed_device_provisioning_progress_label" msgid="3925516135130021966">"ඔබේ උපාංගය සැකසීම…"</string>
-    <string name="fully_managed_device_provisioning_summary" msgid="1090645190066781456">"පහසුවෙන් ඔබගේ කාර්යාල යෙදුම් වෙත ප්‍රවේශ වීමට මෙම උපාංගය භාවිත කරන්න. මෙම උපාංගය පුද්ගලික නොවේ, එබැවින් ඔබගේ IT පරිපාලකට ඔබගේ දත්ත සහ ක්‍රියාකාරකම් බැලීමට හැකි විය හැකිය."</string>
-    <string name="fully_managed_device_with_permission_control_provisioning_summary" msgid="6634797147105465856">"පහසුවෙන් ඔබගේ කාර්යාල යෙදුම් වෙත ප්‍රවේශ වීමට මෙම උපාංගය භාවිත කරන්න. මෙම උපාංගය පුද්ගලික නොවේ, එබැවින් ඔබගේ IT පරිපාලකට ඔබගේ ක්‍රියාකාරකම් සහ දත්ත බැලීමට හැකි විය හැකිය. ඔබගේ IT පරිපාලකට මයික්‍ර‍ෆෝනය, කැමරාව සහ ස්ථාන අවසර වැනි මෙම උපාංගයේ යෙදුම් සඳහා අවසර සැකසීමටද හැකිය."</string>
+    <string name="fully_managed_device_provisioning_summary" msgid="2532673962822596806">"පහසුවෙන් ඔබේ කාර්යාල යෙදුම් වෙත ප්‍රවේශ වීමට මෙම <xliff:g id="DEVICE_NAME_0">%1$s</xliff:g> භාවිත කරන්න. මෙම <xliff:g id="DEVICE_NAME_1">%1$s</xliff:g> පෞද්ගලික නොවේ, එබැවින් ඔබේ IT පරිපාලකට ඔබේ දත්ත සහ ක්‍රියාකාරකම් බැලීමට හැකි විය හැක."</string>
+    <string name="fully_managed_device_with_permission_control_provisioning_summary" msgid="3487964472228264628">"පහසුවෙන් ඔබේ කාර්යාල යෙදුම් වෙත ප්‍රවේශ වීමට මෙම <xliff:g id="DEVICE_NAME_0">%1$s</xliff:g> භාවිත කරන්න. මෙම <xliff:g id="DEVICE_NAME_1">%1$s</xliff:g> පෞද්ගලික නොවේ, එබැවින් ඔබේ IT පරිපාලකට ඔබේ ක්‍රියාකාරකම් සහ දත්ත බැලීමට හැකි විය හැක. ඔබේ IT පරිපාලකට මයික්‍ර‍ෆෝනය, කැමරාව සහ ස්ථාන අවසර වැනි මෙම උපාංගයෙහි යෙදුම් සඳහා අවසර සැකසීමට ද හැක."</string>
     <string name="fully_managed_device_provisioning_return_device_title" msgid="8500829014794276683">"මෙම උපාංගය ඔබගේ IT පරිපාලකට ආපසු දෙන්න"</string>
     <string name="fully_managed_device_provisioning_return_device_subheader" msgid="6194410367910957686">"පෙර තිරයට ආපසු යන්න, නැතහොත් මෙම උපාංගය නැවත සකසා එය IT පරිපාලකට ආපසු දෙන්න."</string>
     <string name="fully_managed_device_cancel_setup_button" msgid="4910041382610777599">"පිහිටුවීම අවලංගු කරන්න"</string>
     <string name="fully_managed_device_reset_and_return_button" msgid="6451125722998550681">"යළි සකසන්න &amp; උපාංගය ආපසු දෙන්න"</string>
+    <string name="fully_managed_device_unsupported_DPC_in_headless_mode_header" msgid="7938653381656306039">"උපාංගය පිහිටුවිය නොහැක"</string>
+    <string name="fully_managed_device_unsupported_DPC_in_headless_mode_subheader" msgid="5158035482490079567">"මෙම උපාංගය සම්පූර්ණයෙන් කළමනාකරණය කෙරෙන ප්‍රකාරයට ලියාපදිංචි කළ නොහැක. ඔබේ උපාංගය කර්මාන්තශාලා යළි සකසා ඔබේ IT පරිපාලක සම්බන්ධ කර ගන්න."</string>
+    <string name="fully_managed_device_reset_button" msgid="5957116315144904542">"කර්මාන්තශාලා යළි සැකසීම"</string>
     <string name="cope_provisioning_step_1_header" msgid="1945759718804756423">"කාර්යාල යෙදුම් කාර්යාල පැතිකඩේ ඇති අතර, IT පාලක කළමනා. කරයි"</string>
     <string name="cope_provisioning_step_2_header" msgid="2388399739294883042">"පෞද්ගලික යෙදුම් වෙන් කර කාර්යාල යෙදුම්වලින් සඟවා ඇත"</string>
     <string name="cope_provisioning_step_3_header" msgid="7161795433847296201">"ඔබේ IT පරිපාලකට මෙම උපාංගය පාලනය කර යෙදුම් අවහිර කළ හැකිය"</string>
-    <string name="cope_provisioning_summary" msgid="993014104601034878">"කාර්යාල යෙදුම් ඔබේ කාර්යාල පැතිකඩේ තබා ඇති අතර ඔබේ IT පරිපාලක විසින් කළමනාකරණය කර ඇත. පෞද්ගලික යෙදුම් වෙන් කර කාර්යාල යෙදුම්වලින් සඟවා ඇත. ඔබේ IT පරිපාලකට මෙම උපාංගය පාලනය කර නිශ්චිත යෙදුම් අවහිර කළ හැකිය."</string>
+    <string name="cope_provisioning_summary" msgid="4993405755138454918">"කාර්යාල යෙදුම් ඔබේ කාර්යාල පැතිකඩෙහි තබා ඇති අතර ඔබේ තොරතුරු තාක්ෂණ පරිපාලක විසින් කළමනාකරණය කරනු ඇත. පුද්ගලික යෙදුම් වෙනම වන අතර කාර්යාල යෙදුම්වලින් සඟවා ඇත. ඔබේ තොරතුරු තාක්ෂණ පරිපාලකට මෙම <xliff:g id="DEVICE_NAME">%1$s</xliff:g> පාලනය කර ඇතැම් යෙදුම් අවහිර කිරීමට හැක."</string>
     <string name="just_a_sec" msgid="6244676028626237220">"තත්පරයක් ඉන්න…"</string>
     <string name="fully_managed_device_provisioning_privacy_title" msgid="4017627906103556021">"පෞද්ගලිකත්ව සිහි කැඳවීම"</string>
-    <string name="fully_managed_device_provisioning_privacy_body" msgid="2219074604343348608">"ඔබේ තොරතුරු තාක්‍ෂණ පරිපාලකයාට මෙම උපාංගය මත ඔබේ දත්ත සහ ක්‍රියාකාරකම බැලිය හැකි වීමට ඉඩ ඇත"</string>
-    <string name="financed_device_screen_header" msgid="6875169548352717124">"මෙම උපාංගය <xliff:g id="CREDITOR_NAME">%s</xliff:g> මගින් සැපයේ"</string>
-    <string name="financed_make_payments_subheader_title" msgid="7880606710044254210">"මෙම උපාංගය සඳහා ගෙවීම් සිදු කරන්න"</string>
-    <string name="financed_make_payments_subheader_description" msgid="1222254084091306375">"<xliff:g id="CREDITOR_NAME_0">%1$s</xliff:g> හට මෙම උපාංගය සඳහා ඔබට ගෙවීම් කළ හැකි වන ලෙස <xliff:g id="CREDITOR_NAME_1">%2$s</xliff:g> යෙදුම ස්ථාපනය කළ හැකිය."</string>
-    <string name="financed_restrict_device_subheader_title" msgid="2138828664816418195">"මෙම උපාංගය සීමා කළ හැකිය"</string>
-    <string name="financed_restrict_device_subheader_description" msgid="5683975693718163300">"ඔබ ගෙවීම් සිදු නොකරන්නේ නම් <xliff:g id="CREDITOR_NAME">%1$s</xliff:g> හට මෙම උපාංගයට ඔබට ප්‍රවේශය සීමා කළ හැකිය."</string>
-    <string name="error_role_holder_hash_mismatch" msgid="6201584198247885437">"උපාංගය පිහිටුවිය නොහැකිය. ඔබගේ IT පරිපාලක අමතන්න සහ \"වලංගු නොවන චෙක්සම්\" වෙත යොමු දක්වන්න."</string>
+    <string name="fully_managed_device_provisioning_privacy_body" msgid="2107315052054483060">"ඔබේ IT පරිපාලකට මෙම <xliff:g id="DEVICE_NAME">%1$s</xliff:g> හි ඔබේ දත්ත සහ ක්‍රියාකාරකම් බැලීමට හැකි විය හැක"</string>
+    <string name="financed_device_screen_header" msgid="5934940812896302344">"මෙම <xliff:g id="DEVICE_NAME">%1$s</xliff:g> සපයනු ලබන්නේ <xliff:g id="CREDITOR_NAME">%2$s</xliff:g> විසිනි"</string>
+    <string name="financed_make_payments_subheader_title" msgid="743966229235451097">"මෙම <xliff:g id="DEVICE_NAME">%1$s</xliff:g> සඳහා ගෙවීම් කරන්න"</string>
+    <string name="financed_make_payments_subheader_description" msgid="7391276584735956742">"<xliff:g id="CREDITOR_NAME_0">%1$s</xliff:g> හට මෙම <xliff:g id="DEVICE_NAME">%3$s</xliff:g> සඳහා ඔබට ගෙවීම් කළ හැකි වන ලෙස <xliff:g id="CREDITOR_NAME_1">%2$s</xliff:g> යෙදුම ස්ථාපනය කළ හැක."</string>
+    <string name="financed_restrict_device_subheader_title" msgid="4248650736543742083">"මෙම <xliff:g id="DEVICE_NAME">%1$s</xliff:g> සීමා කළ හැක"</string>
+    <string name="financed_restrict_device_subheader_description" msgid="1539908048861880628">"ඔබ ගෙවීම් සිදු නොකරන්නේ නම් <xliff:g id="CREDITOR_NAME">%1$s</xliff:g> හට මෙම <xliff:g id="DEVICE_NAME">%2$s</xliff:g> හට ඔබට ප්‍රවේශය සීමා කළ හැක."</string>
+    <string name="error_role_holder_hash_mismatch" msgid="5098975629103567172">"<xliff:g id="DEVICE_NAME">%1$s</xliff:g> පිහිටුවිය නොහැක. ඔබේ IT පරිපාලක අමතන්න සහ \"වලංගු නොවන චෙක්සම්\" වෙත යොමු දක්වන්න."</string>
     <string name="error_role_holder_download_install_failed" msgid="8151968372180693228">"පසුව නැවත උත්සාහ කරන්න හෝ උදවු සඳහා ඔබ‍ගේ IT පරිපාලකගෙන් විමසන්න"</string>
-    <string name="error_role_holder_package_invalid" msgid="2631207759497988833">"උපාංගය පිහිටුවිය නොහැකිය. ඔබගේ IT පරිපාලක අමතන්න සහ \"අතුරුදහන් හෝ දූෂිත සංරචක\" වෙත යොමු දක්වන්න."</string>
+    <string name="error_role_holder_package_invalid" msgid="8159929740916126242">"<xliff:g id="DEVICE_NAME">%1$s</xliff:g> පිහිටුවිය නොහැක. ඔබේ IT පරිපාලක අමතන්න සහ \"අස්ථානගත හෝ සදොස් වූ සංරචක\" වෙත යොමු දක්වන්න."</string>
     <string name="setting_up" msgid="1478847967385506664">"පිහිටුවමින්…"</string>
 </resources>

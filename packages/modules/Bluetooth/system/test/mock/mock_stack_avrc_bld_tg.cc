@@ -19,19 +19,18 @@
  *   Functions generated:3
  */
 
-#include <map>
-#include <string>
-
-extern std::map<std::string, int> mock_function_count_map;
-
 #include <base/logging.h>
 #include <string.h>
+
+#include <map>
+#include <string>
 
 #include "avrc_api.h"
 #include "avrc_defs.h"
 #include "osi/include/osi.h"
 #include "stack/avrc/avrc_int.h"
 #include "stack/include/bt_hdr.h"
+#include "test/common/mock_functions.h"
 
 #ifndef UNUSED_ATTR
 #define UNUSED_ATTR
@@ -39,10 +38,10 @@ extern std::map<std::string, int> mock_function_count_map;
 
 tAVRC_STS AVRC_BldResponse(uint8_t handle, tAVRC_RESPONSE* p_rsp,
                            BT_HDR** pp_pkt) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return 0;
 }
 tAVRC_STS avrc_bld_group_navigation_rsp(uint16_t navi_id, BT_HDR* p_pkt) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return 0;
 }

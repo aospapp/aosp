@@ -39,8 +39,8 @@ public final class DeviceAdminAddPoliciesPreferenceController
     }
 
     @Override
-    protected int getAvailabilityStatus() {
-        int superStatus = super.getAvailabilityStatus();
+    protected int getDefaultAvailabilityStatus() {
+        int superStatus = super.getDefaultAvailabilityStatus();
         if (superStatus != AVAILABLE) return superStatus;
 
         return isProfileOrDeviceOwner() ? DISABLED_FOR_PROFILE : AVAILABLE;

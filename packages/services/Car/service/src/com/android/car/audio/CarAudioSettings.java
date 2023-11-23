@@ -21,7 +21,7 @@ import android.content.ContentResolver;
 import android.content.Context;
 import android.provider.Settings;
 
-import com.android.car.util.Utils;
+import com.android.car.CarServiceUtils;
 
 import java.util.Objects;
 
@@ -48,13 +48,15 @@ public class CarAudioSettings {
         mContext = Objects.requireNonNull(context);
     }
 
-    int getStoredVolumeGainIndexForUser(@UserIdInt int userId, int zoneId, int groupId) {
-        return getIntForUser(getVolumeSettingsKeyForGroup(zoneId, groupId), -1, userId);
+    int getStoredVolumeGainIndexForUser(@UserIdInt int userId, int zoneId, int configId,
+            int groupId) {
+        return getIntForUser(getVolumeSettingsKeyForGroup(zoneId, configId, groupId),
+                /* defaultValue= */ -1, userId);
     }
 
-    void storeVolumeGainIndexForUser(@UserIdInt int userId, int zoneId, int groupId,
+    void storeVolumeGainIndexForUser(@UserIdInt int userId, int zoneId, int configId, int groupId,
             int gainIndex) {
-        putIntForUser(getVolumeSettingsKeyForGroup(zoneId, groupId),
+        putIntForUser(getVolumeSettingsKeyForGroup(zoneId, configId, groupId),
                 gainIndex,
                 userId);
     }
@@ -65,19 +67,20 @@ public class CarAudioSettings {
                 masterMuteValue ? 1 : 0);
     }
 
-    boolean getMasterMute() {
+    boolean isMasterMute() {
         return Settings.Global.getInt(mContext.getContentResolver(),
                 VOLUME_SETTINGS_KEY_MASTER_MUTE, 0) != 0;
     }
 
-    void storeVolumeGroupMuteForUser(@UserIdInt int userId, int zoneId, int groupId,
+    void storeVolumeGroupMuteForUser(@UserIdInt int userId, int zoneId, int configId, int groupId,
             boolean isMuted) {
-        putIntForUser(getMuteSettingsKeyForGroup(zoneId, groupId),
+        putIntForUser(getMuteSettingsKeyForGroup(zoneId, configId, groupId),
                 isMuted ? 1 : 0, userId);
     }
 
-    boolean getVolumeGroupMuteForUser(@UserIdInt int userId, int zoneId, int groupId) {
-        return getIntForUser(getMuteSettingsKeyForGroup(zoneId, groupId),
+    boolean getVolumeGroupMuteForUser(@UserIdInt int userId, int zoneId, int configId,
+            int groupId) {
+        return getIntForUser(getMuteSettingsKeyForGroup(zoneId, configId, groupId),
                 /* defaultValue= */ 0, userId) != 0;
     }
 
@@ -107,21 +110,23 @@ public class CarAudioSettings {
         return Settings.Secure.getInt(getContentResolverForUser(userId), name, defaultValue);
     }
 
-    private static String getVolumeSettingsKeyForGroup(int zoneId, int groupId) {
-        return VOLUME_SETTINGS_KEY_FOR_GROUP_PREFIX
-                + getFormattedZoneIdAndGroupIdKey(zoneId, groupId);
+    private static String getVolumeSettingsKeyForGroup(int zoneId, int configId, int groupId) {
+        return getFormattedZoneIdAndGroupIdKey(VOLUME_SETTINGS_KEY_FOR_GROUP_PREFIX, zoneId,
+                configId, groupId);
     }
 
-    private static String getMuteSettingsKeyForGroup(int zoneId, int groupId) {
-        return VOLUME_SETTINGS_KEY_FOR_GROUP_MUTE_PREFIX
-                + getFormattedZoneIdAndGroupIdKey(zoneId, groupId);
+    private static String getMuteSettingsKeyForGroup(int zoneId, int configId, int groupId) {
+        return getFormattedZoneIdAndGroupIdKey(VOLUME_SETTINGS_KEY_FOR_GROUP_MUTE_PREFIX, zoneId,
+                configId, groupId);
     }
 
-    private static String getFormattedZoneIdAndGroupIdKey(int zoneId, int groupId) {
-        return new StringBuilder().append(zoneId).append('/').append(groupId).toString();
+    private static String getFormattedZoneIdAndGroupIdKey(String prefix, int zoneId, int configId,
+            int groupId) {
+        return new StringBuilder().append(prefix).append(zoneId).append('/').append(configId)
+                .append('/').append(groupId).toString();
     }
 
     ContentResolver getContentResolverForUser(@UserIdInt int userId) {
-        return Utils.getContentResolverForUser(mContext, userId);
+        return CarServiceUtils.getContentResolverForUser(mContext, userId);
     }
 }

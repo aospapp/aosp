@@ -17,7 +17,11 @@
 package android.car.app;
 
 import android.app.ActivityManager.RunningTaskInfo;
+import android.car.app.ICarSystemUIProxy;
+import android.car.app.ICarSystemUIProxyCallback;
 import android.content.ComponentName;
+import java.util.List;
+
 
 /** @hide */
 interface ICarActivityService {
@@ -37,7 +41,7 @@ interface ICarActivityService {
     /**
      * Reports that a Task is created.
      */
-    void onTaskAppeared(in IBinder token, in RunningTaskInfo taskInfo) = 2;
+    void onTaskAppeared(in IBinder token, in RunningTaskInfo taskInfo, in SurfaceControl leash) = 8;
 
     /**
      * Reports that a Task is vanished.
@@ -53,5 +57,49 @@ interface ICarActivityService {
      * Unregisters the caller from TaskMonitor.
      */
     void unregisterTaskMonitor(in IBinder token) = 5;
+
+    /** See {@link CarActivityManager#getVisibleTasks(int)} */
+    List<RunningTaskInfo> getVisibleTasks(int displayId) = 6;
+
+    /** See {@link CarActivityManager#startUserPickerOnDisplay(int)} */
+    void startUserPickerOnDisplay(int displayId) = 7;
+
+    /** See {@link CarActivityManager#createTaskMirroringToken(int)} */
+    IBinder createTaskMirroringToken(int taskId) = 9;
+
+    /** See {@link CarActivityManager#createDisplayMirroringToken(int)} */
+    IBinder createDisplayMirroringToken(int displayId) = 10;
+
+    /** See {@link CarActivityManager#getMirroredSurface(IBinder, Rect)} */
+    SurfaceControl getMirroredSurface(in IBinder mirroringToken, out Rect bounds) = 11;
+
+    /**
+     * Registers a System UI proxy which is meant to host all the system ui interaction that is
+     * required by other apps.
+     */
+    void registerCarSystemUIProxy(in ICarSystemUIProxy carSystemUIProxy) = 12;
+
+    /**
+     * Adds a callback to monitor the lifecycle of System UI proxy. Calling this for an already
+     * registered callback will result in a no-op.
+     */
+    void addCarSystemUIProxyCallback(in ICarSystemUIProxyCallback callback) = 13;
+
+    /**
+     * Removes the callback to monitor the lifecycle of System UI proxy.
+     * Calling this for an already unregistered callback will result in a no-op
+     */
+    void removeCarSystemUIProxyCallback(in ICarSystemUIProxyCallback callback) = 14;
+
+    /** See {@link CarActivityManager#moveRootTaskToDisplay(int, int)} */
+    void moveRootTaskToDisplay(int taskId, int displayId) = 15;
+
+    /**
+     * Returns true if the {@link CarSystemUIProxy} is registered, false otherwise.
+     */
+    boolean isCarSystemUIProxyRegistered() = 16;
+
+    void setPersistentActivitiesOnRootTask(in List<ComponentName> activities,
+        in IBinder launchCookie) = 17;
 }
 

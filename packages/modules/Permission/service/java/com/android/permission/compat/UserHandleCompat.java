@@ -45,4 +45,15 @@ public final class UserHandleCompat {
     public static int getUserId(int uid) {
         return UserHandle.getUserHandleForUid(uid).getIdentifier();
     }
+
+    /**
+     * Get the UID from the give user ID and app ID
+     *
+     * @param userId the user ID
+     * @param appId the app ID
+     * @return the UID
+     */
+    public static int getUid(@UserIdInt int userId, int appId) {
+        return UserHandle.of(userId).getUid(appId);
+    }
 }

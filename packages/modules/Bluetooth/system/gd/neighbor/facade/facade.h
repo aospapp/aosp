@@ -22,7 +22,6 @@
 #include "neighbor/connectability.h"
 #include "neighbor/discoverability.h"
 #include "neighbor/inquiry.h"
-#include "neighbor/name.h"
 #include "neighbor/page.h"
 #include "neighbor/scan.h"
 

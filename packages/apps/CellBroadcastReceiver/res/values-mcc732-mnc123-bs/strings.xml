@@ -16,6 +16,7 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="pws_other_message_identifiers" msgid="7584680083580968019">"CO informacije"</string>
-    <string name="enable_emergency_alerts_message_title" msgid="7743983160317594328">"CO redovan kanal za emitiranje"</string>
+    <string name="pws_other_message_identifiers" msgid="2599140065404166379">"Upozorenja operatera"</string>
+    <string name="enable_emergency_alerts_message_title" msgid="5866241905489219012">"Upozorenja operatera"</string>
+    <string name="enable_emergency_alerts_message_summary" msgid="1632942133491437690">"Kanal za upozorenja operatera"</string>
 </resources>

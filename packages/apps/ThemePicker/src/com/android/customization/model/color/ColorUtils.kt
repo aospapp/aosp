@@ -22,18 +22,14 @@ import android.os.SystemProperties
 import android.util.Log
 import androidx.annotation.ColorInt
 
-/**
- * Utility to wrap Monet's color extraction
- */
+/** Utility to wrap Monet's color extraction */
 object ColorUtils {
     private const val TAG = "ColorUtils"
     private const val MONET_FLAG = "flag_monet"
     private var sSysuiRes: Resources? = null
     private var sFlagId = 0
 
-    /**
-     * Returns true if color extraction is enabled in systemui.
-     */
+    /** Returns true if color extraction is enabled in systemui. */
     @JvmStatic
     fun isMonetEnabled(context: Context): Boolean {
         var monetEnabled = SystemProperties.getBoolean("persist.systemui.flag_monet", false)
@@ -41,8 +37,11 @@ object ColorUtils {
             if (sSysuiRes == null) {
                 try {
                     val pm = context.packageManager
-                    val sysUIInfo = pm.getApplicationInfo("com.android.systemui",
-                            PackageManager.GET_META_DATA or PackageManager.MATCH_SYSTEM_ONLY)
+                    val sysUIInfo =
+                        pm.getApplicationInfo(
+                            "com.android.systemui",
+                            PackageManager.GET_META_DATA or PackageManager.MATCH_SYSTEM_ONLY
+                        )
                     if (sysUIInfo != null) {
                         sSysuiRes = pm.getResourcesForApplication(sysUIInfo)
                     }
@@ -51,8 +50,9 @@ object ColorUtils {
                 }
             }
             if (sFlagId == 0) {
-                sFlagId = if (sSysuiRes == null) 0 else sSysuiRes!!.getIdentifier(
-                        MONET_FLAG, "bool", "com.android.systemui")
+                sFlagId =
+                    if (sSysuiRes == null) 0
+                    else sSysuiRes!!.getIdentifier(MONET_FLAG, "bool", "com.android.systemui")
             }
             if (sFlagId > 0) {
                 monetEnabled = sSysuiRes!!.getBoolean(sFlagId)

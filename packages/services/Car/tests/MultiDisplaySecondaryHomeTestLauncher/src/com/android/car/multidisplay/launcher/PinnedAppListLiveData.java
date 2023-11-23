@@ -29,6 +29,7 @@ import androidx.lifecycle.LiveData;
 import static com.android.car.multidisplay.launcher.PinnedAppListViewModel.PINNED_APPS_KEY;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 
@@ -64,7 +65,7 @@ class PinnedAppListLiveData extends LiveData<List<AppEntry>> {
                 final SharedPreferences sp = mContext.getSharedPreferences(PINNED_APPS_KEY, 0);
                 final Set<String> pinnedAppsComponents = sp.getStringSet(PINNED_APPS_KEY, null);
                 if (pinnedAppsComponents == null) {
-                    return null;
+                    return Collections.emptyList();
                 }
 
                 for (String componentString : pinnedAppsComponents) {

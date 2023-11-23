@@ -96,7 +96,7 @@ public class DatePickerPreferenceControllerTest {
         ArgumentCaptor<BroadcastReceiver> broadcastReceiverArgumentCaptor = ArgumentCaptor.forClass(
                 BroadcastReceiver.class);
         verify(mContext).registerReceiver(broadcastReceiverArgumentCaptor.capture(), any(),
-                eq(Context.RECEIVER_EXPORTED_UNAUDITED));
+                eq(Context.RECEIVER_NOT_EXPORTED));
         broadcastReceiverArgumentCaptor.getValue().onReceive(mContext,
                 new Intent(Intent.ACTION_TIME_CHANGED));
         assertThat(mPreference.isEnabled()).isFalse();
@@ -110,7 +110,7 @@ public class DatePickerPreferenceControllerTest {
         ArgumentCaptor<BroadcastReceiver> broadcastReceiverArgumentCaptor = ArgumentCaptor.forClass(
                 BroadcastReceiver.class);
         verify(mContext).registerReceiver(broadcastReceiverArgumentCaptor.capture(), any(),
-                eq(Context.RECEIVER_EXPORTED_UNAUDITED));
+                eq(Context.RECEIVER_NOT_EXPORTED));
         broadcastReceiverArgumentCaptor.getValue().onReceive(mContext,
                 new Intent(Intent.ACTION_TIME_CHANGED));
         assertThat(mPreference.isEnabled()).isTrue();

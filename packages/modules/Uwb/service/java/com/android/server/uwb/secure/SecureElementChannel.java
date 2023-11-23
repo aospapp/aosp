@@ -62,8 +62,7 @@ public class SecureElementChannel {
     // sleep and leads to the test timing out.
     @VisibleForTesting
     SecureElementChannel(
-            @NonNull OmapiConnection omapiConnection,
-            boolean removeDelayBetweenRetriesForTest) {
+            @NonNull OmapiConnection omapiConnection, boolean removeDelayBetweenRetriesForTest) {
         this.mOmapiConnection = omapiConnection;
         this.mRemoveDelayBetweenRetriesForTest = removeDelayBetweenRetriesForTest;
     }
@@ -105,8 +104,10 @@ public class SecureElementChannel {
                 break;
             }
 
-            logw("Open channel failed because SE is temporarily unavailable. "
-                    + "Total attempts so far: " + (i + 1));
+            logw(
+                    "Open channel failed because SE is temporarily unavailable. "
+                            + "Total attempts so far: "
+                            + (i + 1));
 
             threadSleep(DELAY_BETWEEN_SE_RETRY_ATTEMPTS_MILLIS);
         }
@@ -150,7 +151,7 @@ public class SecureElementChannel {
      * Transmits a Command APDU defined by the FiRa to the FiRa applet.
      */
     @NonNull
-    public ResponseApdu transmit(FiRaCommand fiRaCommand) throws IOException {
+    public ResponseApdu transmit(@NonNull FiRaCommand fiRaCommand) throws IOException {
         return transmit(fiRaCommand.getCommandApdu());
     }
 
@@ -158,8 +159,7 @@ public class SecureElementChannel {
      * Transmits a Command APDU to FiRa applet.
      */
     @NonNull
-    public ResponseApdu transmit(CommandApdu command)
-            throws IOException {
+    public ResponseApdu transmit(@NonNull CommandApdu command) throws IOException {
         ResponseApdu responseApdu = ResponseApdu.fromStatusWord(SW_TEMPORARILY_UNAVAILABLE);
 
         if (!mIsOpened) {
@@ -170,14 +170,15 @@ public class SecureElementChannel {
             if (responseApdu.getStatusWord() != SW_TEMPORARILY_UNAVAILABLE.toInt()) {
                 return responseApdu;
             }
-            logw("Transmit failed because SE is temporarily unavailable. "
-                    + "Total attempts so far: " + (i + 1));
+            logw(
+                    "Transmit failed because SE is temporarily unavailable. "
+                            + "Total attempts so far: "
+                            + (i + 1));
             threadSleep(DELAY_BETWEEN_SE_RETRY_ATTEMPTS_MILLIS);
         }
         logw("All transmit attempts for SE failed!");
         return responseApdu;
     }
-
 
     private void threadSleep(long millis) {
         if (!mRemoveDelayBetweenRetriesForTest) {
@@ -189,11 +190,11 @@ public class SecureElementChannel {
         }
     }
 
-    private void logw(String log) {
-        Log.w(LOG_TAG, log);
+    private void logw(String dbgMsg) {
+        Log.w(LOG_TAG, dbgMsg);
     }
 
-    private void loge(String log) {
-        Log.e(LOG_TAG, log);
+    private void loge(String dbgMsg) {
+        Log.e(LOG_TAG, dbgMsg);
     }
 }

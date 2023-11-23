@@ -4,18 +4,17 @@ package {
 
 java_defaults {
     name: "bluetooth-module-sdk-version-defaults",
-    min_sdk_version: "current",
-    target_sdk_version: "current",
+    min_sdk_version: "Tiramisu",
 }
 
 filegroup {
     name: "framework-bluetooth-sources",
+    defaults: ["framework-sources-module-defaults"],
     srcs: [
-        "java/**/*.java",
         "java/**/*.aidl",
+        "java/**/*.java",
     ],
     path: "java",
-    visibility: ["//frameworks/base"],
 }
 
 // defaults shared between `framework-bluetooth` & `framework-bluetooth-pre-jarjar`
@@ -25,10 +24,11 @@ java_defaults {
     name: "framework-bluetooth-defaults",
     defaults: ["bluetooth-module-sdk-version-defaults"],
     static_libs: [
-        "modules-utils-synchronous-result-receiver",
         "PlatformProperties",
+        "modules-utils-synchronous-result-receiver",
     ],
     libs: [
+        "app-compat-annotations",
         "framework-tethering.stubs.module_lib",
         "unsupportedappusage", // for android.compat.annotation.UnsupportedAppUsage
     ],
@@ -46,8 +46,6 @@ java_library {
     defaults: ["framework-bluetooth-defaults"],
     sdk_version: "module_current",
     libs: ["framework-annotations-lib"],
-    // java_api_finder must accompany `srcs` (`srcs` defined in `framework-bluetooth-defaults`)
-    plugins: ["java_api_finder"],
     installable: false,
 }
 
@@ -55,14 +53,14 @@ java_library {
 java_sdk_library {
     name: "framework-bluetooth",
     defaults: [
-        "framework-module-defaults",
         "framework-bluetooth-defaults",
+        "framework-module-defaults",
     ],
 
     jarjar_rules: ":bluetooth-jarjar-rules",
     installable: true,
     optimize: {
-        enabled: false
+        enabled: false,
     },
     hostdex: true, // for hiddenapi check
 
@@ -70,14 +68,18 @@ java_sdk_library {
         "//external/sl4a/Common",
         "//frameworks/opt/wear",
         "//packages/modules/Bluetooth/android/app/tests/unit",
+        "//packages/modules/Bluetooth/framework/tests/bumble",
+        "//packages/modules/Bluetooth/android/pandora/server",
         "//packages/modules/Bluetooth/service",
         "//packages/modules/Connectivity/nearby/tests/multidevices/clients/test_support/fastpair_provider",
         "//packages/services/Car/car-builtin-lib",
+        // TODO(240720385)
+        "//packages/services/Car/tests/carservice_unit_test",
         ":__subpackages__",
     ],
 
     apex_available: [
-        "com.android.bluetooth",
+        "com.android.btservices",
     ],
 
     permitted_packages: [
@@ -95,11 +97,12 @@ java_defaults {
     name: "framework-bluetooth-tests-defaults",
     sdk_version: "core_platform",
     libs: [
+        "app-compat-annotations",
         // order matters: classes in framework-bluetooth are resolved before framework, meaning
         // @hide APIs in framework-bluetooth are resolved before @SystemApi stubs in framework
         "framework-bluetooth.impl",
-        "framework",
 
+        "framework",
         // if sdk_version="" this gets automatically included, but here we need to add manually.
         "framework-res",
     ],
@@ -109,4 +112,18 @@ java_defaults {
 filegroup {
     name: "bluetooth-jarjar-rules",
     srcs: ["jarjar-rules.txt"],
+}
+
+java_api_contribution {
+    name: "framework-bluetooth-public-stubs",
+    api_surface: "public",
+    api_file: "api/current.txt",
+    visibility: [
+        "//build/orchestrator/apis",
+    ],
+}
+
+platform_compat_config {
+    name: "framework-bluetooth-compat-config",
+    src: ":framework-bluetooth",
 }

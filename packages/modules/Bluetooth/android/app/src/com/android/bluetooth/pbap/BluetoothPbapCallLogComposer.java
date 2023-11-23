@@ -15,7 +15,6 @@
  */
 package com.android.bluetooth.pbap;
 
-import android.content.ContentResolver;
 import android.content.Context;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteException;
@@ -25,7 +24,9 @@ import android.provider.CallLog.Calls;
 import android.text.TextUtils;
 import android.util.Log;
 
+import com.android.bluetooth.BluetoothMethodProxy;
 import com.android.bluetooth.R;
+import com.android.internal.annotations.VisibleForTesting;
 import com.android.vcard.VCardBuilder;
 import com.android.vcard.VCardConfig;
 import com.android.vcard.VCardConstants;
@@ -41,19 +42,24 @@ import java.util.Calendar;
 public class BluetoothPbapCallLogComposer {
     private static final String TAG = "PbapCallLogComposer";
 
-    private static final String FAILURE_REASON_FAILED_TO_GET_DATABASE_INFO =
+    @VisibleForTesting
+    static final String FAILURE_REASON_FAILED_TO_GET_DATABASE_INFO =
             "Failed to get database information";
 
-    private static final String FAILURE_REASON_NO_ENTRY = "There's no exportable in the database";
+    @VisibleForTesting
+    static final String FAILURE_REASON_NO_ENTRY = "There's no exportable in the database";
 
-    private static final String FAILURE_REASON_NOT_INITIALIZED =
+    @VisibleForTesting
+    static final String FAILURE_REASON_NOT_INITIALIZED =
             "The vCard composer object is not correctly initialized";
 
     /** Should be visible only from developers... (no need to translate, hopefully) */
-    private static final String FAILURE_REASON_UNSUPPORTED_URI =
+    @VisibleForTesting
+    static final String FAILURE_REASON_UNSUPPORTED_URI =
             "The Uri vCard composer received is not supported by the composer.";
 
-    private static final String NO_ERROR = "No error";
+    @VisibleForTesting
+    static final String NO_ERROR = "No error";
 
     /** The projection to use when querying the call log table */
     private static final String[] sCallLogProjection = new String[]{
@@ -80,7 +86,6 @@ public class BluetoothPbapCallLogComposer {
     private static final String VCARD_PROPERTY_CALLTYPE_MISSED = "MISSED";
 
     private final Context mContext;
-    private ContentResolver mContentResolver;
     private Cursor mCursor;
 
     private boolean mTerminateIsCalled;
@@ -91,7 +96,6 @@ public class BluetoothPbapCallLogComposer {
 
     public BluetoothPbapCallLogComposer(final Context context) {
         mContext = context;
-        mContentResolver = context.getContentResolver();
     }
 
     public boolean init(final Uri contentUri, final String selection, final String[] selectionArgs,
@@ -104,8 +108,9 @@ public class BluetoothPbapCallLogComposer {
             return false;
         }
 
-        mCursor =
-                mContentResolver.query(contentUri, projection, selection, selectionArgs, sortOrder);
+        mCursor = BluetoothMethodProxy.getInstance().contentResolverQuery(
+                mContext.getContentResolver(), contentUri, projection, selection, selectionArgs,
+                sortOrder);
 
         if (mCursor == null) {
             mErrorReason = FAILURE_REASON_FAILED_TO_GET_DATABASE_INFO;
@@ -175,8 +180,8 @@ public class BluetoothPbapCallLogComposer {
     /**
      * This static function is to compose vCard for phone own number
      */
-    public String composeVCardForPhoneOwnNumber(int phonetype, String phoneName, String phoneNumber,
-            boolean vcardVer21) {
+    public static String composeVCardForPhoneOwnNumber(int phonetype, String phoneName,
+            String phoneNumber, boolean vcardVer21) {
         final int vcardType = (vcardVer21 ? VCardConfig.VCARD_TYPE_V21_GENERIC
                 : VCardConfig.VCARD_TYPE_V30_GENERIC)
                 | VCardConfig.FLAG_REFRAIN_PHONE_NUMBER_FORMATTING;

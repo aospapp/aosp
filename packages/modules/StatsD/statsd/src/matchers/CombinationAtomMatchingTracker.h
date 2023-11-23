@@ -31,12 +31,14 @@ class CombinationAtomMatchingTracker : public AtomMatchingTracker {
 public:
     CombinationAtomMatchingTracker(const int64_t& id, const int index, const uint64_t protoHash);
 
-    bool init(const std::vector<AtomMatcher>& allAtomMatchers,
-              const std::vector<sp<AtomMatchingTracker>>& allAtomMatchingTrackers,
-              const std::unordered_map<int64_t, int>& matcherMap, std::vector<bool>& stack);
+    optional<InvalidConfigReason> init(
+            const std::vector<AtomMatcher>& allAtomMatchers,
+            const std::vector<sp<AtomMatchingTracker>>& allAtomMatchingTrackers,
+            const std::unordered_map<int64_t, int>& matcherMap, std::vector<bool>& stack);
 
-    bool onConfigUpdated(const AtomMatcher& matcher, const int index,
-                         const std::unordered_map<int64_t, int>& atomMatchingTrackerMap) override;
+    optional<InvalidConfigReason> onConfigUpdated(
+            const AtomMatcher& matcher, const int index,
+            const std::unordered_map<int64_t, int>& atomMatchingTrackerMap) override;
 
     ~CombinationAtomMatchingTracker();
 

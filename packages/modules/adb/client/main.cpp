@@ -107,9 +107,7 @@ int adb_server_main(int is_daemon, const std::string& socket_spec, const char* o
     // act like Ctrl-C.
     signal(SIGBREAK, [](int) { raise(SIGINT); });
 #endif
-    signal(SIGINT, [](int) {
-        fdevent_run_on_main_thread([]() { exit(0); });
-    });
+    signal(SIGINT, [](int) { fdevent_run_on_looper([]() { exit(0); }); });
 
     if (one_device) {
         transport_set_one_device(one_device);
@@ -220,7 +218,7 @@ int adb_server_main(int is_daemon, const std::string& socket_spec, const char* o
         // We don't accept() client connections until this point: this way, clients
         // can't see wonky state early in startup even if they're connecting directly
         // to the server instead of going through the adb program.
-        fdevent_run_on_main_thread([] { enable_server_sockets(); });
+        fdevent_run_on_looper([] { enable_server_sockets(); });
     });
     notify_thread.detach();
 

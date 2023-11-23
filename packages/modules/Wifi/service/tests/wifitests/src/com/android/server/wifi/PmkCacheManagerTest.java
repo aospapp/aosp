@@ -52,6 +52,8 @@ public class PmkCacheManagerTest extends WifiBaseTest {
             MacAddress.fromString("aa:bb:cc:dd:ee:ff");
     private static final MacAddress TEST_MAC_ADDRESS_2 =
             MacAddress.fromString("aa:bb:cc:dd:ee:00");
+    private static final MacAddress TEST_BSSID =
+            MacAddress.fromString("01:02:03:04:05:06");
 
     @Mock private Clock mClock;
     @Mock private Handler mHandler;
@@ -70,15 +72,41 @@ public class PmkCacheManagerTest extends WifiBaseTest {
     }
 
     private void preparePmkCache() throws Exception {
-        mPmkCacheManager.add(TEST_MAC_ADDRESS, 0, 1500, generatePmkDataFromString("Cache"));
+        mPmkCacheManager.add(TEST_MAC_ADDRESS, 0, null, 1500,
+                generatePmkDataFromString("Cache"));
 
-        mPmkCacheManager.add(TEST_MAC_ADDRESS, 1, 1000, generatePmkDataFromString("HelloWorld"));
-        mPmkCacheManager.add(TEST_MAC_ADDRESS, 1, 1500, generatePmkDataFromString("HelloWorld2"));
-        mPmkCacheManager.add(TEST_MAC_ADDRESS, 1, 3000, generatePmkDataFromString("HelloWorld3"));
+        mPmkCacheManager.add(TEST_MAC_ADDRESS, 1, null, 1000,
+                generatePmkDataFromString("HelloWorld"));
+        mPmkCacheManager.add(TEST_MAC_ADDRESS, 1, null, 1500,
+                generatePmkDataFromString("HelloWorld2"));
+        mPmkCacheManager.add(TEST_MAC_ADDRESS, 1, null, 3000,
+                generatePmkDataFromString("HelloWorld3"));
 
-        mPmkCacheManager.add(TEST_MAC_ADDRESS, 2, 1000, generatePmkDataFromString("HelloWorld"));
-        mPmkCacheManager.add(TEST_MAC_ADDRESS, 2, 1500, generatePmkDataFromString("HelloWorld2"));
-        mPmkCacheManager.add(TEST_MAC_ADDRESS_2, 2, 3000, generatePmkDataFromString("HelloWorld3"));
+        mPmkCacheManager.add(TEST_MAC_ADDRESS, 2, null, 1000,
+                generatePmkDataFromString("HelloWorld"));
+        mPmkCacheManager.add(TEST_MAC_ADDRESS, 2, null, 1500,
+                generatePmkDataFromString("HelloWorld2"));
+        mPmkCacheManager.add(TEST_MAC_ADDRESS_2, 2, null, 3000,
+                generatePmkDataFromString("HelloWorld3"));
+    }
+
+    private void preparePmkCacheWithBssid() throws Exception {
+        mPmkCacheManager.add(TEST_MAC_ADDRESS, 0, TEST_BSSID, 1500,
+                generatePmkDataFromString("Cache"));
+
+        mPmkCacheManager.add(TEST_MAC_ADDRESS, 1, TEST_BSSID, 1000,
+                generatePmkDataFromString("HelloWorld"));
+        mPmkCacheManager.add(TEST_MAC_ADDRESS, 1, TEST_BSSID, 1500,
+                generatePmkDataFromString("HelloWorld2"));
+        mPmkCacheManager.add(TEST_MAC_ADDRESS, 1, TEST_BSSID, 3000,
+                generatePmkDataFromString("HelloWorld3"));
+
+        mPmkCacheManager.add(TEST_MAC_ADDRESS, 2, TEST_BSSID, 1000,
+                generatePmkDataFromString("HelloWorld"));
+        mPmkCacheManager.add(TEST_MAC_ADDRESS, 2, TEST_BSSID, 1500,
+                generatePmkDataFromString("HelloWorld2"));
+        mPmkCacheManager.add(TEST_MAC_ADDRESS_2, 2, TEST_BSSID, 3000,
+                generatePmkDataFromString("HelloWorld3"));
     }
 
     @After
@@ -103,8 +131,37 @@ public class PmkCacheManagerTest extends WifiBaseTest {
     }
 
     @Test
+    public void testGetWithBssid() throws Exception {
+        preparePmkCacheWithBssid();
+
+        List<ArrayList<Byte>> pmkDataList;
+
+        pmkDataList = mPmkCacheManager.get(0);
+        assertEquals(1, pmkDataList.size());
+
+        pmkDataList = mPmkCacheManager.get(1);
+        assertEquals(1, pmkDataList.size());
+
+        // No PMK cache for this network
+        pmkDataList = mPmkCacheManager.get(99);
+        assertNull(pmkDataList);
+    }
+
+    @Test
     public void testRemove() throws Exception {
         preparePmkCache();
+
+        mPmkCacheManager.remove(1);
+        List<ArrayList<Byte>> pmkDataList = mPmkCacheManager.get(1);
+        assertNull(pmkDataList);
+
+        // Remove non-existent cache should not crash.
+        mPmkCacheManager.remove(99);
+    }
+
+    @Test
+    public void testRemoveWithBssid() throws Exception {
+        preparePmkCacheWithBssid();
 
         mPmkCacheManager.remove(1);
         List<ArrayList<Byte>> pmkDataList = mPmkCacheManager.get(1);
@@ -141,12 +198,39 @@ public class PmkCacheManagerTest extends WifiBaseTest {
     }
 
     @Test
+    public void testRemoveIfNeededWithBssid() throws Exception {
+        preparePmkCacheWithBssid();
+
+        List<ArrayList<Byte>> pmkDataList;
+
+        // MAC address is not changed, do nothing.
+        pmkDataList = mPmkCacheManager.get(1);
+        assertEquals(1, pmkDataList.size());
+        mPmkCacheManager.remove(1, TEST_MAC_ADDRESS);
+        pmkDataList = mPmkCacheManager.get(1);
+        assertEquals(1, pmkDataList.size());
+
+        // MAC address is changed and all entries are associated with this MAC address.
+        mPmkCacheManager.remove(1, TEST_MAC_ADDRESS_2);
+        pmkDataList = mPmkCacheManager.get(1);
+        assertNull(pmkDataList);
+
+        // MAC address is changed and partial entries are associated with this MAC address.
+        pmkDataList = mPmkCacheManager.get(2);
+        assertEquals(1, pmkDataList.size());
+        mPmkCacheManager.remove(2, TEST_MAC_ADDRESS_2);
+        pmkDataList = mPmkCacheManager.get(2);
+        assertEquals(1, pmkDataList.size());
+    }
+
+    @Test
     public void testPmkCacheExpirationUpdate() throws Exception {
 
         final long testStartSeconds = 100;
         when(mClock.getElapsedSinceBootMillis()).thenReturn(testStartSeconds * 1000L);
         // Add the first entry, the next updating time is the expiration of the first entry.
-        mPmkCacheManager.add(TEST_MAC_ADDRESS, 0, 1500, generatePmkDataFromString("Cache"));
+        mPmkCacheManager.add(TEST_MAC_ADDRESS, 0, null, 1500,
+                generatePmkDataFromString("Cache"));
         verify(mHandler).postDelayed(
                 /* private listener */ any(),
                 eq(PmkCacheManager.PMK_CACHE_EXPIRATION_ALARM_TAG),
@@ -154,7 +238,8 @@ public class PmkCacheManagerTest extends WifiBaseTest {
 
         // The expiration of the second one is smaller, and the next updating time is changed.
         reset(mHandler);
-        mPmkCacheManager.add(TEST_MAC_ADDRESS, 1, 1000, generatePmkDataFromString("HelloWorld"));
+        mPmkCacheManager.add(TEST_MAC_ADDRESS, 1, null, 1000,
+                generatePmkDataFromString("HelloWorld"));
         verify(mHandler).postDelayed(
                 /* private listener */ any(),
                 eq(PmkCacheManager.PMK_CACHE_EXPIRATION_ALARM_TAG),
@@ -162,7 +247,40 @@ public class PmkCacheManagerTest extends WifiBaseTest {
 
         // The expiration of the third one is greater, and the next updating time is not changed.
         reset(mHandler);
-        mPmkCacheManager.add(TEST_MAC_ADDRESS, 2, 3000, generatePmkDataFromString("HelloWorld3"));
+        mPmkCacheManager.add(TEST_MAC_ADDRESS, 2, null, 3000,
+                generatePmkDataFromString("HelloWorld3"));
+        verify(mHandler).postDelayed(
+                /* private listener */ any(),
+                eq(PmkCacheManager.PMK_CACHE_EXPIRATION_ALARM_TAG),
+                eq((1000 - testStartSeconds) * 1000));
+    }
+
+    @Test
+    public void testPmkCacheExpirationUpdateWithBssid() throws Exception {
+
+        final long testStartSeconds = 100;
+        when(mClock.getElapsedSinceBootMillis()).thenReturn(testStartSeconds * 1000L);
+        // Add the first entry, the next updating time is the expiration of the first entry.
+        mPmkCacheManager.add(TEST_MAC_ADDRESS, 0, TEST_BSSID, 1500,
+                generatePmkDataFromString("Cache"));
+        verify(mHandler).postDelayed(
+                /* private listener */ any(),
+                eq(PmkCacheManager.PMK_CACHE_EXPIRATION_ALARM_TAG),
+                eq((1500 - testStartSeconds) * 1000));
+
+        // The expiration of the second one is smaller, and the next updating time is changed.
+        reset(mHandler);
+        mPmkCacheManager.add(TEST_MAC_ADDRESS, 1, TEST_BSSID, 1000,
+                generatePmkDataFromString("HelloWorld"));
+        verify(mHandler).postDelayed(
+                /* private listener */ any(),
+                eq(PmkCacheManager.PMK_CACHE_EXPIRATION_ALARM_TAG),
+                eq((1000 - testStartSeconds) * 1000));
+
+        // The expiration of the third one is greater, and the next updating time is not changed.
+        reset(mHandler);
+        mPmkCacheManager.add(TEST_MAC_ADDRESS, 2, TEST_BSSID, 3000,
+                generatePmkDataFromString("HelloWorld3"));
         verify(mHandler).postDelayed(
                 /* private listener */ any(),
                 eq(PmkCacheManager.PMK_CACHE_EXPIRATION_ALARM_TAG),
@@ -174,11 +292,15 @@ public class PmkCacheManagerTest extends WifiBaseTest {
 
         List<ArrayList<Byte>> pmkDataList;
 
-        mPmkCacheManager.add(TEST_MAC_ADDRESS, 0, 1500, generatePmkDataFromString("Cache"));
+        mPmkCacheManager.add(TEST_MAC_ADDRESS, 0, null, 1500,
+                generatePmkDataFromString("Cache"));
 
-        mPmkCacheManager.add(TEST_MAC_ADDRESS, 1, 1000, generatePmkDataFromString("HelloWorld"));
-        mPmkCacheManager.add(TEST_MAC_ADDRESS, 1, 1500, generatePmkDataFromString("HelloWorld2"));
-        mPmkCacheManager.add(TEST_MAC_ADDRESS, 1, 3000, generatePmkDataFromString("HelloWorld3"));
+        mPmkCacheManager.add(TEST_MAC_ADDRESS, 1, null, 1000,
+                generatePmkDataFromString("HelloWorld"));
+        mPmkCacheManager.add(TEST_MAC_ADDRESS, 1, null, 1500,
+                generatePmkDataFromString("HelloWorld2"));
+        mPmkCacheManager.add(TEST_MAC_ADDRESS, 1, null, 3000,
+                generatePmkDataFromString("HelloWorld3"));
         pmkDataList = mPmkCacheManager.get(0);
         assertEquals(1, pmkDataList.size());
         pmkDataList = mPmkCacheManager.get(1);
@@ -201,6 +323,43 @@ public class PmkCacheManagerTest extends WifiBaseTest {
         pmkDataList = mPmkCacheManager.get(1);
         assertEquals(1, pmkDataList.size());
 
+    }
+
+    @Test
+    public void testPmkCacheExpirationWithBssid() throws Exception {
+
+        List<ArrayList<Byte>> pmkDataList;
+
+        mPmkCacheManager.add(TEST_MAC_ADDRESS, 0, TEST_BSSID, 1500,
+                generatePmkDataFromString("Cache"));
+
+        //With new PMKCache changes i.e. with BSSID, PMKCache should be always the latest one
+        mPmkCacheManager.add(TEST_MAC_ADDRESS, 1, TEST_BSSID, 1000,
+                generatePmkDataFromString("HelloWorld"));
+        mPmkCacheManager.add(TEST_MAC_ADDRESS, 1, TEST_BSSID, 1500,
+                generatePmkDataFromString("HelloWorld2"));
+        mPmkCacheManager.add(TEST_MAC_ADDRESS, 1, TEST_BSSID, 3000,
+                generatePmkDataFromString("HelloWorld3"));
+        pmkDataList = mPmkCacheManager.get(0);
+        assertEquals(1, pmkDataList.size());
+        pmkDataList = mPmkCacheManager.get(1);
+        assertEquals(1, pmkDataList.size());
+
+        // Advance to 1500s, the entry of network ID 0 should be removed.
+        when(mClock.getElapsedSinceBootMillis()).thenReturn(1500 * 1000L);
+        mPmkCacheManager.updatePmkCacheExpiration();
+        pmkDataList = mPmkCacheManager.get(0);
+        assertNull(pmkDataList);
+        pmkDataList = mPmkCacheManager.get(1);
+        assertEquals(1, pmkDataList.size());
+
+        // Advance to 3000s, the entry of network ID 1 should be removed.
+        when(mClock.getElapsedSinceBootMillis()).thenReturn(3000 * 1000L);
+        mPmkCacheManager.updatePmkCacheExpiration();
+        pmkDataList = mPmkCacheManager.get(0);
+        assertNull(pmkDataList);
+        pmkDataList = mPmkCacheManager.get(1);
+        assertNull(pmkDataList);
     }
 
     private ArrayList<Byte> generatePmkDataFromString(String dataStr) {

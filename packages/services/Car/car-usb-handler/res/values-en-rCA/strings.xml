@@ -19,12 +19,12 @@
     <string name="app_name" msgid="6963366455471441257">"USB Handler"</string>
     <string name="usb_saved_devices" msgid="2829442070749964872">"Saved devices"</string>
     <string name="usb_pref_delete_title" msgid="3885061814853467483">"Remove handling app for USB device"</string>
-    <string name="usb_pref_delete_message" msgid="5849493572520646218">"Are you sure that you want to delete default handling app for %1$s?"</string>
+    <string name="usb_pref_delete_message" msgid="5849493572520646218">"Are you sure you wan to delete dafault handling app for %1$s?"</string>
     <string name="usb_pref_delete_yes" msgid="7803356145103146036">"Yes"</string>
     <string name="usb_pref_delete_cancel" msgid="5999791462730255929">"Cancel"</string>
     <string name="usb_resolving_handlers" msgid="1943100136172948686">"Getting supported handlers"</string>
     <string name="usb_unknown_device" msgid="4211439272338937095">"Unknown USB device"</string>
-    <string name="usb_boot_service_notification" msgid="8519949189071048797">"Analysing USB devices"</string>
+    <string name="usb_boot_service_notification" msgid="8519949189071048797">"Analyzing USB devices"</string>
   <string-array name="config_AoapIncompatibleDeviceIds">
     <item msgid="4267974637522344258">"18d1:9302"</item>
   </string-array>

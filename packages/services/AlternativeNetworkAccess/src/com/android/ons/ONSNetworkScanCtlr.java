@@ -40,10 +40,10 @@ import com.android.telephony.Rlog;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.stream.Collectors;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 /**
  * Network Scan controller class which will scan for the specific bands as requested and
@@ -266,10 +266,15 @@ public class ONSNetworkScanCtlr {
     }
 
     /* get mcc mnc from cell info if the cell is for LTE */
-    private String getMccMnc(CellInfo cellInfo) {
+    @VisibleForTesting
+    protected String getMccMnc(CellInfo cellInfo) {
         if (cellInfo instanceof CellInfoLte) {
             return ((CellInfoLte) cellInfo).getCellIdentity().getMccString()
                     + ((CellInfoLte) cellInfo).getCellIdentity().getMncString();
+        }
+        else if (cellInfo instanceof CellInfoNr) {
+            return ((CellInfoNr) cellInfo).getCellIdentity().getMccString()
+                    + ((CellInfoNr) cellInfo).getCellIdentity().getMncString();
         }
 
         return null;

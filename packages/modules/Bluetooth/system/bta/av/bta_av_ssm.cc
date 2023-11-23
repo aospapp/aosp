@@ -24,6 +24,8 @@
 
 #include "bt_target.h"  // Must be first to define build configuration
 
+#define LOG_TAG "bt_bta_av"
+
 #include "bta/av/bta_av_int.h"
 #include "osi/include/log.h"
 
@@ -418,16 +420,16 @@ static void bta_av_better_stream_state_machine(tBTA_AV_SCB* p_scb,
 
   if (previous_state != p_scb->state) {
     LOG_INFO("peer %s p_scb=%#x(%p) AV event=0x%x(%s) state=%d(%s) -> %d(%s)",
-             p_scb->PeerAddress().ToString().c_str(), p_scb->hndl, p_scb, event,
-             bta_av_evt_code(event), previous_state,
+             ADDRESS_TO_LOGGABLE_CSTR(p_scb->PeerAddress()), p_scb->hndl, p_scb,
+             event, bta_av_evt_code(event), previous_state,
              bta_av_sst_code(previous_state), p_scb->state,
              bta_av_sst_code(p_scb->state));
 
   } else {
-    LOG_DEBUG("peer %s p_scb=%#x(%p) AV event=0x%x(%s) state=%d(%s)",
-              p_scb->PeerAddress().ToString().c_str(), p_scb->hndl, p_scb,
-              event, bta_av_evt_code(event), p_scb->state,
-              bta_av_sst_code(p_scb->state));
+    LOG_VERBOSE("peer %s p_scb=%#x(%p) AV event=0x%x(%s) state=%d(%s)",
+                ADDRESS_TO_LOGGABLE_CSTR(p_scb->PeerAddress()), p_scb->hndl,
+                p_scb, event, bta_av_evt_code(event), p_scb->state,
+                bta_av_sst_code(p_scb->state));
   }
 
   if (event_handler1 != nullptr) {
@@ -518,7 +520,7 @@ void bta_av_set_scb_sst_init(tBTA_AV_SCB* p_scb) {
 
   APPL_TRACE_VERBOSE(
       "%s: peer %s AV (hndl=0x%x) state=%d(%s) next state=%d(%s) p_scb=%p",
-      __func__, p_scb->PeerAddress().ToString().c_str(), p_scb->hndl,
+      __func__, ADDRESS_TO_LOGGABLE_CSTR(p_scb->PeerAddress()), p_scb->hndl,
       p_scb->state, bta_av_sst_code(p_scb->state), next_state,
       bta_av_sst_code(next_state), p_scb);
 

@@ -78,6 +78,7 @@ public class WifiTetherPasswordPreferenceController extends
         syncPassword();
     }
 
+    @SuppressWarnings("MissingSuperCall") // TODO: Fix me
     @Override
     protected void onStartInternal() {
         int newSecurityType = mSharedPreferences.getInt(

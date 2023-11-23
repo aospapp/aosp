@@ -49,6 +49,9 @@ cc_prebuilt_library_shared {
         android_arm: {
             srcs: ["android_arm/neuralnetworks_sample_sl_driver_prebuilt.so"],
         },
+        android_riscv64: {
+            srcs: ["android_riscv64/neuralnetworks_sample_sl_driver_prebuilt.so"],
+        },
     },
     apex_available: ["//apex_available:platform"],
 }

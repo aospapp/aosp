@@ -42,8 +42,8 @@
     <string name="action_missing_private_key" msgid="7543470057312920042">"Тастыктаманы орнотуу үчүн купуя ачкыч талап кылынат"</string>
     <string name="action_missing_user_cert" msgid="3727411730202316771">"Купуя ачкыкты орнотуу үчүн тастыктама талап кылынат"</string>
     <string name="select_certificate_usage_title" msgid="8853023485944920851">"Тастыктаманын түрүн тандоо"</string>
-    <string name="redirect_ca_certificate_title" msgid="3457516863949244510">"Жөндөөлөргө өтүп, Тастыктоочу борбордун (ТБ) тастыктамаларын орнотуңуз"</string>
-    <string name="redirect_ca_certificate_with_app_info_message" msgid="934477720755323579">"Жөндөөлөргө өтүп, бул <xliff:g id="REQUESTING_APP">%1$s</xliff:g> тастыктамасын орнотушуңуз керек. Ишенимдүү уюмдардын Тастыктоочу борборлорунун (ТБ) тастыктамаларын гана колдонуңуз."</string>
+    <string name="redirect_ca_certificate_title" msgid="3457516863949244510">"Параметрлерге өтүп, Тастыктоочу борбордун (ТБ) тастыктамаларын орнотуңуз"</string>
+    <string name="redirect_ca_certificate_with_app_info_message" msgid="934477720755323579">"Параметрлерге өтүп, бул <xliff:g id="REQUESTING_APP">%1$s</xliff:g> тастыктамасын орнотушуңуз керек. Ишенимдүү уюмдардын Тастыктоочу борборлорунун (ТБ) тастыктамаларын гана колдонуңуз."</string>
     <string name="redirect_ca_certificate_close_button" msgid="4291301659747279488">"Жабуу"</string>
     <string name="invalid_certificate_title" msgid="6500315398016809635">"Бул файлды колдонууга болбойт"</string>
     <string name="invalid_certificate_close_button" msgid="350986774973653102">"Жабуу"</string>

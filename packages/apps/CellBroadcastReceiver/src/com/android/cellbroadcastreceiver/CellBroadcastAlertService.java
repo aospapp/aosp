@@ -19,9 +19,23 @@ package com.android.cellbroadcastreceiver;
 import static android.telephony.SmsCbMessage.MESSAGE_FORMAT_3GPP;
 import static android.telephony.SmsCbMessage.MESSAGE_FORMAT_3GPP2;
 
+import static com.android.cellbroadcastservice.CellBroadcastMetrics.FILTER_NOTFILTERED;
+import static com.android.cellbroadcastservice.CellBroadcastMetrics.FILTER_NOTSHOW_ECBM;
+import static com.android.cellbroadcastservice.CellBroadcastMetrics.FILTER_NOTSHOW_EMPTYBODY;
+import static com.android.cellbroadcastservice.CellBroadcastMetrics.FILTER_NOTSHOW_FILTERED;
+import static com.android.cellbroadcastservice.CellBroadcastMetrics.FILTER_NOTSHOW_MISMATCH_DEVICE_LANG_SETTING;
+import static com.android.cellbroadcastservice.CellBroadcastMetrics.FILTER_NOTSHOW_MISMATCH_PREF_SECONDLANG;
+import static com.android.cellbroadcastservice.CellBroadcastMetrics.FILTER_NOTSHOW_PREF_SECONDLANG_OFF;
+import static com.android.cellbroadcastservice.CellBroadcastMetrics.FILTER_NOTSHOW_TESTMODE;
+import static com.android.cellbroadcastservice.CellBroadcastMetrics.FILTER_NOTSHOW_USERPREF;
+import static com.android.cellbroadcastservice.CellBroadcastMetrics.RPT_CDMA;
+import static com.android.cellbroadcastservice.CellBroadcastMetrics.RPT_GSM;
+import static com.android.cellbroadcastservice.CellBroadcastMetrics.SRC_CBR;
+
 import android.annotation.NonNull;
 import android.app.ActivityManager;
 import android.app.Notification;
+import android.app.Notification.Action;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
@@ -40,6 +54,7 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
+import android.os.PowerManager;
 import android.os.SystemProperties;
 import android.os.UserHandle;
 import android.preference.PreferenceManager;
@@ -53,7 +68,6 @@ import android.text.TextUtils;
 import android.util.Log;
 
 import com.android.cellbroadcastreceiver.CellBroadcastChannelManager.CellBroadcastChannelRange;
-import com.android.cellbroadcastservice.CellBroadcastStatsLog;
 import com.android.internal.annotations.VisibleForTesting;
 
 import java.util.ArrayList;
@@ -89,7 +103,6 @@ public class CellBroadcastAlertService extends Service {
     private static final int REQUEST_CODE_DELETE_INTENT = 2;
 
     /** Use the same notification ID for non-emergency alerts. */
-    @VisibleForTesting
     public static final int NOTIFICATION_ID = 1;
     public static final int SETTINGS_CHANGED_NOTIFICATION_ID = 2;
 
@@ -120,7 +133,7 @@ public class CellBroadcastAlertService extends Service {
      * alert tone.
      */
     static final String NOTIFICATION_CHANNEL_EMERGENCY_ALERTS_IN_VOICECALL =
-        "broadcastMessagesInVoiceCall";
+            "broadcastMessagesInVoiceCall";
 
     /**
      * Notification channel for informing the user when a new Carrier's WEA settings have been
@@ -150,6 +163,7 @@ public class CellBroadcastAlertService extends Service {
         TEST,
         AREA,
         INFO,
+        MUTE,
         OTHER
     }
 
@@ -194,13 +208,11 @@ public class CellBroadcastAlertService extends Service {
     public void onDestroy() {
         // Stop listening for incoming calls.
         mTelephonyManager.listen(mPhoneStateListener, 0);
-
     }
 
     /**
      * Check if the enabled message should be displayed to users in the form of pop-up dialog.
      *
-     * @param message
      * @return True if the full screen alert should be displayed to the users. False otherwise.
      */
     public boolean shouldDisplayFullScreenMessage(@NonNull SmsCbMessage message) {
@@ -227,17 +239,23 @@ public class CellBroadcastAlertService extends Service {
     public boolean shouldDisplayMessage(SmsCbMessage message) {
         TelephonyManager tm = ((TelephonyManager) mContext.getSystemService(
                 Context.TELEPHONY_SERVICE)).createForSubscriptionId(message.getSubscriptionId());
+
         if (tm.getEmergencyCallbackMode() && CellBroadcastSettings.getResources(
                 mContext, message.getSubscriptionId()).getBoolean(R.bool.ignore_messages_in_ecbm)) {
             // Ignore the message in ECBM.
             // It is for LTE only mode. For 1xRTT, incoming pages should be ignored in the modem.
             Log.d(TAG, "ignoring alert of type " + message.getServiceCategory() + " in ECBM");
+
+            CellBroadcastReceiverMetrics.getInstance()
+                    .logMessageFiltered(FILTER_NOTSHOW_ECBM, message);
             return false;
         }
         // Check if the channel is enabled by the user or configuration.
         if (!isChannelEnabled(message)) {
             Log.d(TAG, "ignoring alert of type " + message.getServiceCategory()
                     + " by user preference");
+            CellBroadcastReceiverMetrics.getInstance()
+                    .logMessageFiltered(FILTER_NOTSHOW_USERPREF, message);
             return false;
         }
 
@@ -245,6 +263,8 @@ public class CellBroadcastAlertService extends Service {
         String msgBody = message.getMessageBody();
         if (msgBody == null || msgBody.length() == 0) {
             Log.e(TAG, "Empty content or Unsupported charset");
+            CellBroadcastReceiverMetrics.getInstance()
+                    .logMessageFiltered(FILTER_NOTSHOW_EMPTYBODY, message);
             return false;
         }
 
@@ -257,7 +277,7 @@ public class CellBroadcastAlertService extends Service {
         if (range != null && range.mFilterLanguage) {
             // language filtering based on CBR second language settings
             final String secondLanguageCode = CellBroadcastSettings.getResources(mContext,
-                    message.getSubscriptionId())
+                            message.getSubscriptionId())
                     .getString(R.string.emergency_alert_second_language_code);
             if (!secondLanguageCode.isEmpty()) {
                 SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
@@ -270,9 +290,13 @@ public class CellBroadcastAlertService extends Service {
                         && !secondLanguageCode.equalsIgnoreCase(messageLanguage)) {
                     Log.w(TAG, "Ignoring message in the unspecified second language:"
                             + messageLanguage);
+                    CellBroadcastReceiverMetrics.getInstance()
+                            .logMessageFiltered(FILTER_NOTSHOW_MISMATCH_PREF_SECONDLANG, message);
                     return false;
                 } else if (!receiveInSecondLanguage) {
                     Log.d(TAG, "Ignoring message in second language because setting is off");
+                    CellBroadcastReceiverMetrics.getInstance()
+                            .logMessageFiltered(FILTER_NOTSHOW_PREF_SECONDLANG_OFF, message);
                     return false;
                 }
             } else {
@@ -284,6 +308,8 @@ public class CellBroadcastAlertService extends Service {
                         && !messageLanguage.equalsIgnoreCase(deviceLanguage)) {
                     Log.d(TAG, "ignoring the alert due to language mismatch. Message lang="
                             + messageLanguage + ", device lang=" + deviceLanguage);
+                    CellBroadcastReceiverMetrics.getInstance().logMessageFiltered(
+                            FILTER_NOTSHOW_MISMATCH_DEVICE_LANG_SETTING, message);
                     return false;
                 }
             }
@@ -293,6 +319,8 @@ public class CellBroadcastAlertService extends Service {
         // testing mode (testing mode can be enabled by dialer code *#*#CMAS#*#*.
         if (range != null && range.mTestMode && !CellBroadcastReceiver.isTestingMode(mContext)) {
             Log.d(TAG, "ignoring the alert due to not in testing mode");
+            CellBroadcastReceiverMetrics.getInstance()
+                    .logMessageFiltered(FILTER_NOTSHOW_TESTMODE, message);
             return false;
         }
 
@@ -304,12 +332,15 @@ public class CellBroadcastAlertService extends Service {
                 if (!TextUtils.isEmpty(filter)) {
                     if (message.getMessageBody().toLowerCase().contains(filter)) {
                         Log.i(TAG, "Skipped message due to filter: " + filter);
+                        CellBroadcastReceiverMetrics.getInstance()
+                                .logMessageFiltered(FILTER_NOTSHOW_FILTERED, message);
                         return false;
                     }
                 }
             }
         }
 
+        CellBroadcastReceiverMetrics.getInstance().logMessageFiltered(FILTER_NOTFILTERED, message);
         return true;
     }
 
@@ -328,13 +359,11 @@ public class CellBroadcastAlertService extends Service {
         }
 
         if (message.getMessageFormat() == MESSAGE_FORMAT_3GPP) {
-            CellBroadcastStatsLog.write(CellBroadcastStatsLog.CB_MESSAGE_REPORTED,
-                    CellBroadcastStatsLog.CELL_BROADCAST_MESSAGE_REPORTED__TYPE__GSM,
-                    CellBroadcastStatsLog.CELL_BROADCAST_MESSAGE_REPORTED__SOURCE__CB_RECEIVER_APP);
+            CellBroadcastReceiverMetrics.getInstance().logMessageReported(mContext,
+                    RPT_GSM, SRC_CBR, message.getSerialNumber(), message.getServiceCategory());
         } else if (message.getMessageFormat() == MESSAGE_FORMAT_3GPP2) {
-            CellBroadcastStatsLog.write(CellBroadcastStatsLog.CB_MESSAGE_REPORTED,
-                    CellBroadcastStatsLog.CELL_BROADCAST_MESSAGE_REPORTED__TYPE__CDMA,
-                    CellBroadcastStatsLog.CELL_BROADCAST_MESSAGE_REPORTED__SOURCE__CB_RECEIVER_APP);
+            CellBroadcastReceiverMetrics.getInstance().logMessageReported(mContext,
+                    RPT_CDMA, SRC_CBR, message.getSerialNumber(), message.getServiceCategory());
         }
 
         if (!shouldDisplayMessage(message)) {
@@ -370,13 +399,20 @@ public class CellBroadcastAlertService extends Service {
                         Log.d(TAG, "ignoring the alert due to configured channels was marked "
                                 + "as do not display");
                     }
-                    if (CellBroadcastSettings.getResources(mContext, message.getSubscriptionId())
-                            .getBoolean(R.bool.enable_write_alerts_to_sms_inbox)) {
+                    boolean bWriteAlertsToSmsInboxEnabled =
+                            CellBroadcastSettings
+                            .getResources(mContext, message.getSubscriptionId())
+                            .getBoolean(R.bool.enable_write_alerts_to_sms_inbox);
+                    CellBroadcastReceiverMetrics.getInstance().getFeatureMetrics(mContext)
+                            .onChangedStoreSms(bWriteAlertsToSmsInboxEnabled);
+
+                    if (bWriteAlertsToSmsInboxEnabled) {
                         if (CellBroadcastReceiver.isTestingMode(getApplicationContext())
                                 || (range != null && range.mWriteToSmsInbox)) {
                             provider.writeMessageToSmsInbox(message, mContext);
                         }
                     }
+
                     return ret;
                 });
     }
@@ -388,10 +424,10 @@ public class CellBroadcastAlertService extends Service {
      */
     private void markMessageDisplayed(SmsCbMessage message) {
         mContext.getContentResolver().update(
-                Uri.withAppendedPath(Telephony.CellBroadcasts.CONTENT_URI,"displayed"),
+                Uri.withAppendedPath(Telephony.CellBroadcasts.CONTENT_URI, "displayed"),
                 new ContentValues(),
                 Telephony.CellBroadcasts.RECEIVED_TIME + "=?",
-                new String[] {Long.toString(message.getReceivedTime())});
+                new String[]{Long.toString(message.getReceivedTime())});
     }
 
     private void showNewAlert(Intent intent) {
@@ -414,6 +450,8 @@ public class CellBroadcastAlertService extends Service {
             Log.d(TAG, "CMAS received in dialing/during voicecall.");
             sRemindAfterCallFinish = true;
         }
+        CellBroadcastReceiverMetrics.getInstance().getFeatureMetrics(mContext)
+                .onChangedAlertDuringCall(sRemindAfterCallFinish);
 
         // Either shown the dialog, adding it to notification (non emergency, or delayed emergency),
         CellBroadcastChannelManager channelManager = new CellBroadcastChannelManager(
@@ -447,6 +485,7 @@ public class CellBroadcastAlertService extends Service {
                     .addNewMessageToList(cbm);
             addToNotificationBar(cbm, messageList, this, false, true, false);
         }
+        CellBroadcastReceiverMetrics.getInstance().logFeatureChangedAsNeeded(mContext);
     }
 
     /**
@@ -644,11 +683,16 @@ public class CellBroadcastAlertService extends Service {
         // range.mOverrideDnd is per channel configuration. override_dnd is the main config
         // applied for all channels.
         Resources res = CellBroadcastSettings.getResources(mContext, message.getSubscriptionId());
-        if ((res.getBoolean(R.bool.show_override_dnd_settings)
+        boolean isWatch = getPackageManager().hasSystemFeature(PackageManager.FEATURE_WATCH);
+        boolean isOverallEnabledOverrideDnD =
+                isWatch || (res.getBoolean(R.bool.show_override_dnd_settings)
                 && prefs.getBoolean(CellBroadcastSettings.KEY_OVERRIDE_DND, false))
-                || (range != null && range.mOverrideDnd) || res.getBoolean(R.bool.override_dnd)) {
+                || res.getBoolean(R.bool.override_dnd);
+        if (isOverallEnabledOverrideDnD || (range != null && range.mOverrideDnd)) {
             audioIntent.putExtra(CellBroadcastAlertAudio.ALERT_AUDIO_OVERRIDE_DND_EXTRA, true);
         }
+        CellBroadcastReceiverMetrics.getInstance().getFeatureMetrics(mContext)
+                .onChangedOverrideDnD(channelManager, isOverallEnabledOverrideDnD);
 
         String messageBody = message.getMessageBody();
 
@@ -664,19 +708,27 @@ public class CellBroadcastAlertService extends Service {
             Log.d(TAG, "Message language = " + language);
             audioIntent.putExtra(CellBroadcastAlertAudio.ALERT_AUDIO_MESSAGE_LANGUAGE,
                     language);
+            CellBroadcastReceiverMetrics.getInstance().getFeatureMetrics(mContext)
+                    .onChangedEnableAlertSpeech(true);
+        } else {
+            CellBroadcastReceiverMetrics.getInstance().getFeatureMetrics(mContext)
+                    .onChangedEnableAlertSpeech(false);
         }
+
 
         audioIntent.putExtra(CellBroadcastAlertAudio.ALERT_AUDIO_SUB_INDEX,
                 message.getSubscriptionId());
         audioIntent.putExtra(CellBroadcastAlertAudio.ALERT_AUDIO_DURATION,
                 (range != null) ? range.mAlertDuration : -1);
+
         startService(audioIntent);
 
         ArrayList<SmsCbMessage> messageList = new ArrayList<>();
         messageList.add(message);
 
-        // For FEATURE_WATCH, the dialog doesn't make sense from a UI/UX perspective
-        if (getPackageManager().hasSystemFeature(PackageManager.FEATURE_WATCH)) {
+        // For FEATURE_WATCH, the dialog doesn't make sense from a UI/UX perspective.
+        // But the audio & vibration still breakthrough DND.
+        if (isWatch) {
             addToNotificationBar(message, messageList, this, false, true, false);
         } else {
             Intent alertDialogIntent = createDisplayMessageIntent(this,
@@ -712,11 +764,13 @@ public class CellBroadcastAlertService extends Service {
 
         boolean isWatch = context.getPackageManager()
                 .hasSystemFeature(PackageManager.FEATURE_WATCH);
+        int notificationId = NOTIFICATION_ID;
         // Create intent to show the new messages when user selects the notification.
         Intent intent;
         if (isWatch) {
-            // For FEATURE_WATCH we want to mark as read
-            intent = createMarkAsReadIntent(context, message.getReceivedTime());
+            // For FEATURE_WATCH we want to mark as read and use a unique notification id
+            notificationId = (message.getServiceCategory() << 16 | message.getSerialNumber());
+            intent = createMarkAsReadIntent(context, message.getReceivedTime(), notificationId);
         } else {
             // For anything else we handle it normally
             intent = createDisplayMessageIntent(context, CellBroadcastAlertDialog.class,
@@ -731,7 +785,7 @@ public class CellBroadcastAlertService extends Service {
 
         PendingIntent pi;
         if (isWatch) {
-            pi = PendingIntent.getBroadcast(context, 0, intent, 0);
+            pi = PendingIntent.getBroadcast(context, 0, intent, PendingIntent.FLAG_IMMUTABLE);
         } else {
             pi = PendingIntent.getActivity(context, REQUEST_CODE_CONTENT_INTENT, intent,
                             PendingIntent.FLAG_UPDATE_CURRENT
@@ -770,8 +824,8 @@ public class CellBroadcastAlertService extends Service {
 
         if (isWatch) {
             builder.setDeleteIntent(pi);
-            // FEATURE_WATCH/CWH devices see this as priority
-            builder.setVibrate(new long[]{0});
+            builder.addAction(new Action(android.R.drawable.ic_delete,
+                    context.getString(android.R.string.ok), pi));
         } else {
             // If this is a notification coming from the foreground dialog, should dismiss the
             // foreground alert dialog when swipe the notification. This is needed
@@ -793,18 +847,32 @@ public class CellBroadcastAlertService extends Service {
 
         // increment unread alert count (decremented when user dismisses alert dialog)
         int unreadCount = messageList.size();
-        if (unreadCount > 1) {
+        if (unreadCount > 1 || res.getBoolean(R.bool.disable_capture_alert_dialog)) {
             // use generic count of unread broadcasts if more than one unread
-            builder.setContentTitle(context.getString(R.string.notification_multiple_title));
+            if (res.getBoolean(R.bool.show_alert_title)) {
+                builder.setContentTitle(context.getString(R.string.notification_multiple_title));
+            }
             builder.setContentText(context.getString(R.string.notification_multiple, unreadCount));
         } else {
-            builder.setContentTitle(channelName)
-                    .setContentText(messageBody)
-                    .setStyle(new Notification.BigTextStyle()
-                            .bigText(messageBody));
+            if (res.getBoolean(R.bool.show_alert_title)) {
+                builder.setContentTitle(channelName);
+            }
+            builder.setContentText(messageBody)
+                    .setStyle(new Notification.BigTextStyle().bigText(messageBody));
         }
 
-        notificationManager.notify(NOTIFICATION_ID, builder.build());
+        notificationManager.notify(notificationId, builder.build());
+
+        // SysUI does not wake screen up when notification received. For emergency alert, manually
+        // wakes up the screen for 1 second.
+        if (isWatch) {
+            PowerManager powerManager = (PowerManager) context
+                    .getSystemService(Context.POWER_SERVICE);
+            PowerManager.WakeLock fullWakeLock = powerManager.newWakeLock(
+                    (PowerManager.SCREEN_BRIGHT_WAKE_LOCK | PowerManager.FULL_WAKE_LOCK
+                            | PowerManager.ACQUIRE_CAUSES_WAKEUP), TAG);
+            fullWakeLock.acquire(1000);
+        }
 
         // FEATURE_WATCH devices do not have global sounds for notifications; only vibrate.
         // TW requires sounds for 911/919
@@ -831,29 +899,51 @@ public class CellBroadcastAlertService extends Service {
     static void createNotificationChannels(Context context) {
         NotificationManager notificationManager =
                 (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
-        notificationManager.createNotificationChannel(
-                new NotificationChannel(
-                        NOTIFICATION_CHANNEL_HIGH_PRIORITY_EMERGENCY_ALERTS,
-                        context.getString(
-                                R.string.notification_channel_emergency_alerts_high_priority),
-                        NotificationManager.IMPORTANCE_HIGH));
-        notificationManager.createNotificationChannel(
-                new NotificationChannel(
-                        NOTIFICATION_CHANNEL_EMERGENCY_ALERTS,
-                        context.getString(R.string.notification_channel_emergency_alerts),
-                        NotificationManager.IMPORTANCE_LOW));
+        final NotificationChannel highPriorityEmergency = new NotificationChannel(
+                NOTIFICATION_CHANNEL_HIGH_PRIORITY_EMERGENCY_ALERTS,
+                context.getString(R.string.notification_channel_emergency_alerts_high_priority),
+                NotificationManager.IMPORTANCE_HIGH);
+
+        final NotificationChannel emergency = new NotificationChannel(
+                NOTIFICATION_CHANNEL_EMERGENCY_ALERTS,
+                context.getString(R.string.notification_channel_emergency_alerts),
+                NotificationManager.IMPORTANCE_LOW);
+
         final NotificationChannel nonEmergency = new NotificationChannel(
                 NOTIFICATION_CHANNEL_NON_EMERGENCY_ALERTS,
                 context.getString(R.string.notification_channel_broadcast_messages),
                 NotificationManager.IMPORTANCE_DEFAULT);
         nonEmergency.enableVibration(true);
-        notificationManager.createNotificationChannel(nonEmergency);
 
         final NotificationChannel emergencyAlertInVoiceCall = new NotificationChannel(
             NOTIFICATION_CHANNEL_EMERGENCY_ALERTS_IN_VOICECALL,
             context.getString(R.string.notification_channel_broadcast_messages_in_voicecall),
             NotificationManager.IMPORTANCE_HIGH);
         emergencyAlertInVoiceCall.enableVibration(true);
+
+        if (context.getPackageManager().hasSystemFeature(PackageManager.FEATURE_WATCH)) {
+            highPriorityEmergency.setImportance(NotificationManager.IMPORTANCE_MAX);
+            highPriorityEmergency.enableVibration(true);
+            highPriorityEmergency.setVibrationPattern(new long[]{0});
+            highPriorityEmergency.setBypassDnd(true);
+
+            emergency.setImportance(NotificationManager.IMPORTANCE_HIGH);
+            emergency.enableVibration(true);
+            emergency.setVibrationPattern(new long[]{0});
+            emergency.setBypassDnd(true);
+
+            nonEmergency.setImportance(NotificationManager.IMPORTANCE_HIGH);
+            nonEmergency.enableVibration(true);
+            nonEmergency.setVibrationPattern(new long[]{0});
+
+            emergencyAlertInVoiceCall.setImportance(NotificationManager.IMPORTANCE_HIGH);
+            emergencyAlertInVoiceCall.enableVibration(true);
+            emergencyAlertInVoiceCall.setVibrationPattern(new long[]{0});
+        }
+
+        notificationManager.createNotificationChannel(highPriorityEmergency);
+        notificationManager.createNotificationChannel(emergency);
+        notificationManager.createNotificationChannel(nonEmergency);
         notificationManager.createNotificationChannel(emergencyAlertInVoiceCall);
 
         final NotificationChannel settingsUpdate = new NotificationChannel(
@@ -882,10 +972,11 @@ public class CellBroadcastAlertService extends Service {
      * @param deliveryTime time the message was sent in order to mark as read
      * @return delete intent to add to the pending intent
      */
-    static Intent createMarkAsReadIntent(Context context, long deliveryTime) {
+    static Intent createMarkAsReadIntent(Context context, long deliveryTime, int notificationId) {
         Intent deleteIntent = new Intent(context, CellBroadcastInternalReceiver.class);
         deleteIntent.setAction(CellBroadcastReceiver.ACTION_MARK_AS_READ);
         deleteIntent.putExtra(CellBroadcastReceiver.EXTRA_DELIVERY_TIME, deliveryTime);
+        deleteIntent.putExtra(CellBroadcastReceiver.EXTRA_NOTIF_ID, notificationId);
         return deleteIntent;
     }
 

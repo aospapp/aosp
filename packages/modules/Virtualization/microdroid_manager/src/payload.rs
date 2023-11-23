@@ -14,12 +14,10 @@
 
 //! Routines for handling payload
 
-mod apex;
-
 use crate::instance::ApexData;
 use crate::ioutil::wait_for_file;
 use anyhow::Result;
-use apex::verify;
+use apexutil::verify;
 use log::info;
 use microdroid_metadata::{read_metadata, ApexPayload, Metadata};
 use std::time::Duration;

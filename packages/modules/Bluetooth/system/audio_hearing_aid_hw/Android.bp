@@ -9,7 +9,8 @@ package {
 
 cc_defaults {
     name: "audio_hearing_aid_hw_defaults",
-    defaults: ["libchrome_shared_support_defaults"],
+    defaults: ["fluoride_common_options"],
+    shared_libs: ["libchrome"],
     include_dirs: [
         "packages/modules/Bluetooth/system",
         "packages/modules/Bluetooth/system/gd",
@@ -28,7 +29,7 @@ cc_library {
         "src/audio_hearing_aid_hw_utils.cc",
     ],
     apex_available: [
-        "com.android.bluetooth",
+        "com.android.btservices",
     ],
     shared_libs: [
         "liblog",
@@ -42,6 +43,7 @@ cc_test {
     test_suites: ["device-tests"],
     defaults: [
         "audio_hearing_aid_hw_defaults",
+        "bluetooth_gtest_x86_asan_workaround",
         "mts_defaults",
     ],
     srcs: [
@@ -54,4 +56,5 @@ cc_test {
         "audio.hearing_aid.default",
         "libosi",
     ],
+    min_sdk_version: "29",
 }

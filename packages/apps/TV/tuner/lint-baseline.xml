@@ -169,4 +169,20 @@
             line="101"/>
     </issue>
 
+    <issue
+        id="NewApi"
+        message="Call requires API level 26 (current min is 23): `new android.app.Notification.TvExtender`">
+        <location
+            file="packages/apps/TV/tuner/src/com/android/tv/tuner/setup/BaseTunerSetupActivity.java"
+            line="416"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Cast from `TvExtender` to `Extender` requires API level 26 (current min is 23)">
+        <location
+            file="packages/apps/TV/tuner/src/com/android/tv/tuner/setup/BaseTunerSetupActivity.java"
+            line="416"/>
+    </issue>
+
 </issues>

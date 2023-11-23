@@ -46,5 +46,10 @@ enum StateChangeReason {
    * Used to signal the first adapter state message after boot
    */
    SYSTEM_BOOT,
+
+  /**
+   * The adapter state changed because of a system regulation.
+   */
+  SYSTEM_REGULATION,
 }
 

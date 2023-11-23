@@ -15,6 +15,23 @@
             ]
         },
         {
+            "name": "CtsPermission3TestCases",
+            "options": [
+                {
+                    "include-filter": "android.permission3.cts.SafetyLabelChangesJobServiceTest"
+                }
+            ]
+        },
+        {
+            "name": "CtsPermissionTestCases",
+            "options": [
+                {
+                    "include-filter": "android.permission.cts.LocationAccessCheckTest"
+                }
+            ],
+            "file_patterns": ["LocationAccessCheck\\.java"]
+        },
+        {
             "name": "CtsBackupTestCases",
             "options": [
                 {

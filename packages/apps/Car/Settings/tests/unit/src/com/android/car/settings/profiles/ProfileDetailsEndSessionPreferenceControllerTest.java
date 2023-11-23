@@ -17,6 +17,7 @@
 package com.android.car.settings.profiles;
 
 import static com.android.car.settings.common.PreferenceController.AVAILABLE;
+import static com.android.car.settings.common.PreferenceController.AVAILABLE_FOR_VIEWING;
 import static com.android.car.settings.common.PreferenceController.CONDITIONALLY_UNAVAILABLE;
 import static com.android.car.settings.common.PreferenceController.UNSUPPORTED_ON_DEVICE;
 
@@ -100,11 +101,71 @@ public final class ProfileDetailsEndSessionPreferenceControllerTest {
     }
 
     @Test
+    public void getAvailabilityStatus_nullDpm_unsupportedOnDevice_zoneWrite() {
+        when(mContext.getSystemService(DevicePolicyManager.class)).thenReturn(null);
+        initPreferenceController();
+        mPreferenceController.setAvailabilityStatusForZone("write");
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), UNSUPPORTED_ON_DEVICE);
+    }
+
+    @Test
+    public void getAvailabilityStatus_nullDpm_unsupportedOnDevice_zoneRead() {
+        when(mContext.getSystemService(DevicePolicyManager.class)).thenReturn(null);
+        initPreferenceController();
+        mPreferenceController.setAvailabilityStatusForZone("read");
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), UNSUPPORTED_ON_DEVICE);
+    }
+
+    @Test
+    public void getAvailabilityStatus_nullDpm_unsupportedOnDevice_zoneHidden() {
+        when(mContext.getSystemService(DevicePolicyManager.class)).thenReturn(null);
+        initPreferenceController();
+        mPreferenceController.setAvailabilityStatusForZone("hidden");
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), UNSUPPORTED_ON_DEVICE);
+    }
+
+    @Test
     public void getAvailabilityStatus_logoutDisabled_unsupportedOnDevice() {
         when(mContext.getSystemService(DevicePolicyManager.class)).thenReturn(mDpm);
         when(mDpm.isLogoutEnabled()).thenReturn(false);
         when(mDpm.getLogoutUser()).thenReturn(mUserHandle);
         initPreferenceController();
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), CONDITIONALLY_UNAVAILABLE);
+    }
+
+    @Test
+    public void getAvailabilityStatus_logoutDisabled_unsupportedOnDevice_zoneWrite() {
+        when(mContext.getSystemService(DevicePolicyManager.class)).thenReturn(mDpm);
+        when(mDpm.isLogoutEnabled()).thenReturn(false);
+        when(mDpm.getLogoutUser()).thenReturn(mUserHandle);
+        initPreferenceController();
+        mPreferenceController.setAvailabilityStatusForZone("write");
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), CONDITIONALLY_UNAVAILABLE);
+    }
+
+    @Test
+    public void getAvailabilityStatus_logoutDisabled_unsupportedOnDevice_zoneRead() {
+        when(mContext.getSystemService(DevicePolicyManager.class)).thenReturn(mDpm);
+        when(mDpm.isLogoutEnabled()).thenReturn(false);
+        when(mDpm.getLogoutUser()).thenReturn(mUserHandle);
+        initPreferenceController();
+        mPreferenceController.setAvailabilityStatusForZone("read");
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), CONDITIONALLY_UNAVAILABLE);
+    }
+
+    @Test
+    public void getAvailabilityStatus_logoutDisabled_unsupportedOnDevice_zoneHidden() {
+        when(mContext.getSystemService(DevicePolicyManager.class)).thenReturn(mDpm);
+        when(mDpm.isLogoutEnabled()).thenReturn(false);
+        when(mDpm.getLogoutUser()).thenReturn(mUserHandle);
+        initPreferenceController();
+        mPreferenceController.setAvailabilityStatusForZone("hidden");
         PreferenceControllerTestUtil.assertAvailability(
                 mPreferenceController.getAvailabilityStatus(), CONDITIONALLY_UNAVAILABLE);
     }
@@ -120,6 +181,39 @@ public final class ProfileDetailsEndSessionPreferenceControllerTest {
     }
 
     @Test
+    public void getAvailabilityStatus_noLogoutUser_unsupportedOnDevice_zoneWrite() {
+        when(mContext.getSystemService(DevicePolicyManager.class)).thenReturn(mDpm);
+        when(mDpm.isLogoutEnabled()).thenReturn(true);
+        when(mDpm.getLogoutUser()).thenReturn(null);
+        initPreferenceController();
+        mPreferenceController.setAvailabilityStatusForZone("write");
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), CONDITIONALLY_UNAVAILABLE);
+    }
+
+    @Test
+    public void getAvailabilityStatus_noLogoutUser_unsupportedOnDevice_zoneRead() {
+        when(mContext.getSystemService(DevicePolicyManager.class)).thenReturn(mDpm);
+        when(mDpm.isLogoutEnabled()).thenReturn(true);
+        when(mDpm.getLogoutUser()).thenReturn(null);
+        initPreferenceController();
+        mPreferenceController.setAvailabilityStatusForZone("read");
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), CONDITIONALLY_UNAVAILABLE);
+    }
+
+    @Test
+    public void getAvailabilityStatus_noLogoutUser_unsupportedOnDevice_zoneHidden() {
+        when(mContext.getSystemService(DevicePolicyManager.class)).thenReturn(mDpm);
+        when(mDpm.isLogoutEnabled()).thenReturn(true);
+        when(mDpm.getLogoutUser()).thenReturn(null);
+        initPreferenceController();
+        mPreferenceController.setAvailabilityStatusForZone("hidden");
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), CONDITIONALLY_UNAVAILABLE);
+    }
+
+    @Test
     public void getAvailabilityStatus_logoutEnabled_hasLogoutUser_available() {
         when(mContext.getSystemService(DevicePolicyManager.class)).thenReturn(mDpm);
         when(mDpm.isLogoutEnabled()).thenReturn(true);
@@ -127,6 +221,39 @@ public final class ProfileDetailsEndSessionPreferenceControllerTest {
         initPreferenceController();
         PreferenceControllerTestUtil.assertAvailability(
                 mPreferenceController.getAvailabilityStatus(), AVAILABLE);
+    }
+
+    @Test
+    public void getAvailabilityStatus_logoutEnabled_hasLogoutUser_available_zoneWrite() {
+        when(mContext.getSystemService(DevicePolicyManager.class)).thenReturn(mDpm);
+        when(mDpm.isLogoutEnabled()).thenReturn(true);
+        when(mDpm.getLogoutUser()).thenReturn(mUserHandle);
+        initPreferenceController();
+        mPreferenceController.setAvailabilityStatusForZone("write");
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), AVAILABLE);
+    }
+
+    @Test
+    public void getAvailabilityStatus_logoutEnabled_hasLogoutUser_available_zoneRead() {
+        when(mContext.getSystemService(DevicePolicyManager.class)).thenReturn(mDpm);
+        when(mDpm.isLogoutEnabled()).thenReturn(true);
+        when(mDpm.getLogoutUser()).thenReturn(mUserHandle);
+        initPreferenceController();
+        mPreferenceController.setAvailabilityStatusForZone("read");
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), AVAILABLE_FOR_VIEWING);
+    }
+
+    @Test
+    public void getAvailabilityStatus_logoutEnabled_hasLogoutUser_available_zoneHidden() {
+        when(mContext.getSystemService(DevicePolicyManager.class)).thenReturn(mDpm);
+        when(mDpm.isLogoutEnabled()).thenReturn(true);
+        when(mDpm.getLogoutUser()).thenReturn(mUserHandle);
+        initPreferenceController();
+        mPreferenceController.setAvailabilityStatusForZone("hidden");
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), CONDITIONALLY_UNAVAILABLE);
     }
 
     @Test

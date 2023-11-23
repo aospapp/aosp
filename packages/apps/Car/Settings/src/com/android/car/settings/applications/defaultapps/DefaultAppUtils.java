@@ -59,14 +59,21 @@ public class DefaultAppUtils {
 
         Bitmap bitmap;
         if (original instanceof BitmapDrawable) {
-            bitmap = Bitmap.createScaledBitmap(((BitmapDrawable) original).getBitmap(), width,
-                    height, false);
+            Bitmap originalBitmap = ((BitmapDrawable) original).getBitmap();
+            bitmap = Bitmap.createScaledBitmap(originalBitmap, width, height, false);
+
+            // When a new BitmapDrawable is created, it defaults to DisplayMetrics.DENSITY_DEFAULT
+            // density. Depending on the original bitmap density, this could increase the
+            // intrinsic height/width of the new BitmapDrawable.
+            BitmapDrawable scaledBitmap = new BitmapDrawable(/* res= */ null, bitmap);
+            scaledBitmap.setTargetDensity(originalBitmap.getDensity());
+            return scaledBitmap;
         } else {
             bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
             Canvas canvas = new Canvas(bitmap);
             original.setBounds(0, 0, canvas.getWidth(), canvas.getHeight());
             original.draw(canvas);
         }
-        return new BitmapDrawable(null, bitmap);
+        return new BitmapDrawable(/* res= */ null, bitmap);
     }
 }

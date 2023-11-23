@@ -17,7 +17,7 @@
 #ifndef BLE_SCANNER_H
 #define BLE_SCANNER_H
 
-#include <base/bind.h>
+#include <base/functional/bind.h>
 #include <base/memory/weak_ptr.h>
 
 #include <vector>

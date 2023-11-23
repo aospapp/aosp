@@ -26,6 +26,8 @@
 
 #define LOG_TAG "bt_btif_gatt"
 
+#include "btif_gatt.h"
+
 #include <errno.h>
 #include <hardware/bluetooth.h>
 #include <hardware/bt_gatt.h>
@@ -33,14 +35,13 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "btif_common.h"
-#include "btif_util.h"
-
 #include "bta_api.h"
 #include "bta_gatt_api.h"
-#include "btif_gatt.h"
+#include "btif_common.h"
 #include "btif_gatt_util.h"
 #include "btif_storage.h"
+#include "btif_util.h"
+#include "main/shim/distance_measurement_manager.h"
 
 const btgatt_callbacks_t* bt_gatt_callbacks = NULL;
 
@@ -55,6 +56,7 @@ const btgatt_callbacks_t* bt_gatt_callbacks = NULL;
  ******************************************************************************/
 static bt_status_t btif_gatt_init(const btgatt_callbacks_t* callbacks) {
   bt_gatt_callbacks = callbacks;
+  BTA_GATTS_InitBonded();
   return BT_STATUS_SUCCESS;
 }
 
@@ -101,5 +103,7 @@ const btgatt_interface_t* btif_gatt_get_interface() {
   // until those dependencies are properly abstracted for tests.
   btgattInterface.scanner = get_ble_scanner_instance();
   btgattInterface.advertiser = get_ble_advertiser_instance();
+  btgattInterface.distance_measurement_manager =
+      bluetooth::shim::get_distance_measurement_instance();
   return &btgattInterface;
 }

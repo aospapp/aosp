@@ -102,7 +102,7 @@ android_test {
 
     test_suites: [
         "device-tests",
-        "mts",
+        "mts-documentsui",
     ],
 
     platform_apis: true,

@@ -19,15 +19,20 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
           xmlns:tools="http://schemas.android.com/tools"
     package="com.android.captiveportallogin.tests">
+
+    <!-- Other permissions are inherited from the manifest of the app. But note that this test
+         cannot obtain all the app's permissions because some of them require being preinstalled or
+         having the MAINLINE_NETWORK_STACK permission. -->
     <uses-permission android:name="android.permission.CHANGE_NETWORK_STATE" />
 
-    <application android:debuggable="true">
+    <application>
         <uses-library android:name="android.test.runner" />
         <provider android:name="androidx.core.content.FileProvider"
                   android:authorities="com.android.captiveportallogin.tests.fileprovider"
                   android:exported="false"
                   android:grantUriPermissions="true"
                   tools:replace="android:authorities" >
+            <!-- Use the same relative file_paths resource as the real provider -->
             <meta-data
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/file_paths"

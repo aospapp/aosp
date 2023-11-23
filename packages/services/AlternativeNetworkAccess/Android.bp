@@ -27,10 +27,20 @@ android_app {
         "telephony-common",
         "app-compat-annotations",
     ],
-    srcs: ["src/**/*.java"],
+    srcs: [
+        "src/**/*.java",
+        ":statslog-ons-java-gen",
+    ],
     aaptflags: ["--auto-add-overlay"],
     certificate: "platform",
     optimize: {
         proguard_flags_files: ["proguard.flags"],
     },
+}
+
+genrule {
+    name: "statslog-ons-java-gen",
+    tools: ["stats-log-api-gen"],
+    cmd: "$(location stats-log-api-gen) --java $(out) --module ons --javaPackage com.android.ons --javaClass OnsStatsLog",
+    out: ["com/android/ons/OnsStatsLog.java"],
 }

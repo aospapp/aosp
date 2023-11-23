@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2020 The Android Open Source Project
+ * Copyright (C) 2022 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,41 +16,50 @@
 
 package com.android.car.user;
 
-import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth.assertWithMessage;
 
 import android.car.user.UserSwitchResult;
 
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
 
+import java.util.Arrays;
+import java.util.Collection;
+
+@RunWith(Parameterized.class)
 public final class UserSwitchResultTest {
 
-    @Test
-    public void testIUserSwitchResult_checkStatusAndMessage() {
-        String msg = "Test Message";
-        UserSwitchResult result =
-                new UserSwitchResult(UserSwitchResult.STATUS_SUCCESSFUL, msg);
-        assertThat(result.getStatus()).isEqualTo(UserSwitchResult.STATUS_SUCCESSFUL);
-        assertThat(result.getErrorMessage()).isEqualTo(msg);
+    private final int mStatus;
+    private final boolean mExpectedIsSuccess;
+
+    public UserSwitchResultTest(int status, boolean expectedIsSuccess) {
+        mStatus = status;
+        mExpectedIsSuccess = expectedIsSuccess;
+    }
+
+    @Parameterized.Parameters
+    public static Collection<?> statusToIsSuccessMapping() {
+        return Arrays.asList(new Object[][]{
+            { UserSwitchResult.STATUS_SUCCESSFUL, true },
+            { UserSwitchResult.STATUS_OK_USER_ALREADY_IN_FOREGROUND, true },
+            { UserSwitchResult.STATUS_ANDROID_FAILURE, false},
+            { UserSwitchResult.STATUS_HAL_FAILURE, false},
+            { UserSwitchResult.STATUS_HAL_INTERNAL_FAILURE, false},
+            { UserSwitchResult.STATUS_INVALID_REQUEST, false},
+            { UserSwitchResult.STATUS_UX_RESTRICTION_FAILURE, false},
+            { UserSwitchResult.STATUS_TARGET_USER_ALREADY_BEING_SWITCHED_TO, false},
+            { UserSwitchResult.STATUS_TARGET_USER_ABANDONED_DUE_TO_A_NEW_REQUEST, false},
+            { UserSwitchResult.STATUS_NOT_SWITCHABLE, false},
+            { UserSwitchResult.STATUS_NOT_LOGGED_IN, false}
+        });
     }
 
     @Test
-    public void testIUserSwitchResult_isSuccess_failure() {
-        UserSwitchResult result =
-                new UserSwitchResult(UserSwitchResult.STATUS_ANDROID_FAILURE, null);
-        assertThat(result.isSuccess()).isFalse();
-    }
+    public void testIsSuccess() {
+        UserSwitchResult result = new UserSwitchResult(mStatus, /* errorMessage= */ null);
 
-    @Test
-    public void testIUserSwitchResult_isSuccess_success() {
-        UserSwitchResult result =
-                new UserSwitchResult(UserSwitchResult.STATUS_SUCCESSFUL, null);
-        assertThat(result.isSuccess()).isTrue();
-    }
-
-    @Test
-    public void testIUserSwitchResult_isSuccess_requestedState() {
-        UserSwitchResult result =
-                new UserSwitchResult(UserSwitchResult.STATUS_OK_USER_ALREADY_IN_FOREGROUND, null);
-        assertThat(result.isSuccess()).isTrue();
+        assertWithMessage("result(%s).isSuccess()", UserSwitchResult.statusToString(mStatus))
+                .that(result.isSuccess()).isEqualTo(mExpectedIsSuccess);
     }
 }

@@ -49,4 +49,11 @@
     <string name="see_more_message" msgid="6343183827924395955">"অধিক চাওক"</string>
     <string name="restricted_hun_message_content" msgid="631111937988857716">"নতুন বাৰ্তা"</string>
     <string name="manage_text" msgid="4225197445283791757">"পৰিচালনা কৰক"</string>
+    <string name="category_navigation" msgid="4406139232918521087">"নেভিগেশ্বন"</string>
+    <string name="category_call" msgid="2249490790700877973">"কল কৰক"</string>
+    <string name="category_message" msgid="451360226248504859">"বাৰ্তা"</string>
+    <string name="hun_suppression_channel_name" msgid="8298850157350352525">"সতৰ্ক হওক সুবিধাটো জোৰকৈ অফ কৰা হৈছে"</string>
+    <string name="hun_suppression_notification_title_park" msgid="2790860076784227523">"শেহতীয়া পৰিস্থিতিৰ বিষয়ে অৱগত হৈ থাকক"</string>
+    <string name="hun_suppression_notification_title_drive" msgid="4403363470548899844">"গাড়ী চলোৱাত মনোনিৱেশ কৰক"</string>
+    <string name="hun_suppression_notification_description" msgid="5269238832987802104">"কিছুমান নতুন জাননী জাননী কেন্দ্ৰত ছেভ কৰা হৈছে"</string>
 </resources>

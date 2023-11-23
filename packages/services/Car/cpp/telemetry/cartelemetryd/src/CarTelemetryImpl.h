@@ -20,6 +20,7 @@
 #include "TelemetryServer.h"
 
 #include <aidl/android/frameworks/automotive/telemetry/BnCarTelemetry.h>
+#include <aidl/android/frameworks/automotive/telemetry/CallbackConfig.h>
 #include <aidl/android/frameworks/automotive/telemetry/CarData.h>
 #include <utils/String16.h>
 #include <utils/Vector.h>
@@ -30,15 +31,23 @@ namespace android {
 namespace automotive {
 namespace telemetry {
 
+using ::aidl::android::frameworks::automotive::telemetry::CallbackConfig;
+using ::aidl::android::frameworks::automotive::telemetry::CarData;
+using ::aidl::android::frameworks::automotive::telemetry::ICarTelemetryCallback;
+
 // Implementation of android.frameworks.automotive.telemetry.ICarTelemetry.
 class CarTelemetryImpl : public aidl::android::frameworks::automotive::telemetry::BnCarTelemetry {
 public:
     // Doesn't own `server`.
     explicit CarTelemetryImpl(TelemetryServer* server);
 
-    ndk::ScopedAStatus write(
-            const std::vector<aidl::android::frameworks::automotive::telemetry::CarData>& dataList)
-            override;
+    ndk::ScopedAStatus write(const std::vector<CarData>& dataList) override;
+
+    ndk::ScopedAStatus addCallback(const CallbackConfig& config,
+                                   const std::shared_ptr<ICarTelemetryCallback>& callback) override;
+
+    ndk::ScopedAStatus removeCallback(
+            const std::shared_ptr<ICarTelemetryCallback>& callback) override;
 
 private:
     TelemetryServer* mTelemetryServer;  // not owned

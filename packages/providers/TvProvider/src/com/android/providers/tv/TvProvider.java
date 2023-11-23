@@ -146,7 +146,8 @@ public class TvProvider extends ContentProvider {
 
     private static final String EMPTY_STRING = "";
 
-    private static final long MAX_PROGRAM_DATA_DELAY_IN_MILLIS = 10 * 1000; // 10 seconds
+    private static final long PROGRAM_DATA_START_WATCH_DELAY_IN_MILLIS = 10 * 1000; // 10 seconds
+    private static final long PROGRAM_DATA_END_WATCH_DELAY_IN_MILLIS = 1 * 1000; // 1 second
 
     private static final Map<String, String> sChannelProjectionMap = new HashMap<>();
     private static final Map<String, String> sProgramProjectionMap = new HashMap<>();
@@ -1201,7 +1202,11 @@ public class TvProvider extends ContentProvider {
                 new AsyncTask<Void, Void, Void>() {
                     @Override
                     protected Void doInBackground(Void... params) {
-                        deleteUnconsolidatedWatchedProgramsRows();
+                        try {
+                            deleteUnconsolidatedWatchedProgramsRows();
+                        } catch (Exception e) {
+                            Log.e(TAG, "deleteUnconsolidatedWatchedProgramsRows " + e);
+                        }
                         return null;
                     }
                 };
@@ -1599,7 +1604,7 @@ public class TvProvider extends ContentProvider {
             if (rowId > 0) {
                 mLogHandler.removeMessages(WatchLogHandler.MSG_TRY_CONSOLIDATE_ALL);
                 mLogHandler.sendEmptyMessageDelayed(WatchLogHandler.MSG_TRY_CONSOLIDATE_ALL,
-                        MAX_PROGRAM_DATA_DELAY_IN_MILLIS);
+                        PROGRAM_DATA_START_WATCH_DELAY_IN_MILLIS);
                 return TvContract.buildWatchedProgramUri(rowId);
             }
             Log.w(TAG, "Failed to insert row for " + values + ". Channel does not exist.");
@@ -1609,7 +1614,7 @@ public class TvProvider extends ContentProvider {
             args.arg1 = values.getAsString(WatchedPrograms.COLUMN_INTERNAL_SESSION_TOKEN);
             args.arg2 = watchEndTime;
             Message msg = mLogHandler.obtainMessage(WatchLogHandler.MSG_CONSOLIDATE, args);
-            mLogHandler.sendMessageDelayed(msg, MAX_PROGRAM_DATA_DELAY_IN_MILLIS);
+            mLogHandler.sendMessageDelayed(msg, PROGRAM_DATA_END_WATCH_DELAY_IN_MILLIS);
             return null;
         }
         // All the other cases are invalid.

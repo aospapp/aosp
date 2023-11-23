@@ -18,6 +18,7 @@ package com.android.car.settings.security;
 
 import static com.android.car.settings.common.PreferenceController.AVAILABLE;
 import static com.android.car.settings.common.PreferenceController.AVAILABLE_FOR_VIEWING;
+import static com.android.car.settings.common.PreferenceController.CONDITIONALLY_UNAVAILABLE;
 import static com.android.car.settings.common.PreferenceController.DISABLED_FOR_PROFILE;
 import static com.android.car.settings.enterprise.ActionDisabledByAdminDialogFragment.DISABLED_BY_ADMIN_CONFIRM_DIALOG_TAG;
 import static com.android.car.settings.testutils.EnterpriseTestUtils.mockUserRestrictionSetByDpm;
@@ -93,12 +94,84 @@ public class CredentialsResetPreferenceControllerTest {
     }
 
     @Test
+    public void getAvailabilityStatus_restrictedByUm_disabled_zoneWrite() {
+        mPreferenceController.onCreate(mLifecycleOwner);
+        mockUserRestrictionSetByUm(mMockUserManager, TEST_RESTRICTION, true);
+
+        mPreferenceController.onCreate(mLifecycleOwner);
+        mPreferenceController.setAvailabilityStatusForZone("write");
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), DISABLED_FOR_PROFILE);
+    }
+
+    @Test
+    public void getAvailabilityStatus_restrictedByUm_disabled_zoneRead() {
+        mPreferenceController.onCreate(mLifecycleOwner);
+        mockUserRestrictionSetByUm(mMockUserManager, TEST_RESTRICTION, true);
+
+        mPreferenceController.onCreate(mLifecycleOwner);
+        mPreferenceController.setAvailabilityStatusForZone("read");
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), DISABLED_FOR_PROFILE);
+    }
+
+    @Test
+    public void getAvailabilityStatus_restrictedByUm_disabled_zoneHidden() {
+        mPreferenceController.onCreate(mLifecycleOwner);
+        mockUserRestrictionSetByUm(mMockUserManager, TEST_RESTRICTION, true);
+
+        mPreferenceController.onCreate(mLifecycleOwner);
+        mPreferenceController.setAvailabilityStatusForZone("hidden");
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), DISABLED_FOR_PROFILE);
+    }
+
+    @Test
     public void getAvailabilityStatus_restrictedByDpm_viewing() {
         mockUserRestrictionSetByDpm(mMockUserManager, TEST_RESTRICTION, true);
 
         mPreferenceController.onCreate(mLifecycleOwner);
 
         assertThat(mPreferenceController.getAvailabilityStatus()).isEqualTo(AVAILABLE_FOR_VIEWING);
+        assertThat(mPreference.isEnabled()).isFalse();
+    }
+
+    @Test
+    public void getAvailabilityStatus_restrictedByDpm_viewing_zoneWrite() {
+        mockUserRestrictionSetByDpm(mMockUserManager, TEST_RESTRICTION, true);
+
+        mPreferenceController.onCreate(mLifecycleOwner);
+        mPreferenceController.setAvailabilityStatusForZone("wrtie");
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), AVAILABLE_FOR_VIEWING);
+        assertThat(mPreference.isEnabled()).isFalse();
+    }
+
+    @Test
+    public void getAvailabilityStatus_restrictedByDpm_viewing_zoneRead() {
+        mockUserRestrictionSetByDpm(mMockUserManager, TEST_RESTRICTION, true);
+
+        mPreferenceController.onCreate(mLifecycleOwner);
+        mPreferenceController.setAvailabilityStatusForZone("read");
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), AVAILABLE_FOR_VIEWING);
+        assertThat(mPreference.isEnabled()).isFalse();
+    }
+
+    @Test
+    public void getAvailabilityStatus_restrictedByDpm_viewing_zoneHidden() {
+        mockUserRestrictionSetByDpm(mMockUserManager, TEST_RESTRICTION, true);
+
+        mPreferenceController.onCreate(mLifecycleOwner);
+        mPreferenceController.setAvailabilityStatusForZone("hidden");
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), CONDITIONALLY_UNAVAILABLE);
         assertThat(mPreference.isEnabled()).isFalse();
     }
 
@@ -114,6 +187,45 @@ public class CredentialsResetPreferenceControllerTest {
     }
 
     @Test
+    public void getAvailabilityStatus_restrictedByBothUmDpm_disabled_zoneWrite() {
+        mPreferenceController.onCreate(mLifecycleOwner);
+        mockUserRestrictionSetByDpm(mMockUserManager, TEST_RESTRICTION, true);
+        mockUserRestrictionSetByUm(mMockUserManager, TEST_RESTRICTION, true);
+
+        mPreferenceController.onCreate(mLifecycleOwner);
+        mPreferenceController.setAvailabilityStatusForZone("write");
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), DISABLED_FOR_PROFILE);
+    }
+
+    @Test
+    public void getAvailabilityStatus_restrictedByBothUmDpm_disabled_zoneRead() {
+        mPreferenceController.onCreate(mLifecycleOwner);
+        mockUserRestrictionSetByDpm(mMockUserManager, TEST_RESTRICTION, true);
+        mockUserRestrictionSetByUm(mMockUserManager, TEST_RESTRICTION, true);
+
+        mPreferenceController.onCreate(mLifecycleOwner);
+        mPreferenceController.setAvailabilityStatusForZone("read");
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), DISABLED_FOR_PROFILE);
+    }
+
+    @Test
+    public void getAvailabilityStatus_restrictedByBothUmDpm_disabled_zoneHidden() {
+        mPreferenceController.onCreate(mLifecycleOwner);
+        mockUserRestrictionSetByDpm(mMockUserManager, TEST_RESTRICTION, true);
+        mockUserRestrictionSetByUm(mMockUserManager, TEST_RESTRICTION, true);
+
+        mPreferenceController.onCreate(mLifecycleOwner);
+        mPreferenceController.setAvailabilityStatusForZone("hidden");
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), DISABLED_FOR_PROFILE);
+    }
+
+    @Test
     public void getAvailabilityStatus_unrestricted_available() {
         mPreferenceController.onCreate(mLifecycleOwner);
         mockUserRestrictionSetByUm(mMockUserManager, TEST_RESTRICTION, false);
@@ -122,6 +234,45 @@ public class CredentialsResetPreferenceControllerTest {
         mPreferenceController.onCreate(mLifecycleOwner);
 
         assertThat(mPreferenceController.getAvailabilityStatus()).isEqualTo(AVAILABLE);
+    }
+
+    @Test
+    public void getAvailabilityStatus_unrestricted_available_zoneWrite() {
+        mPreferenceController.onCreate(mLifecycleOwner);
+        mockUserRestrictionSetByUm(mMockUserManager, TEST_RESTRICTION, false);
+        mockUserRestrictionSetByDpm(mMockUserManager, TEST_RESTRICTION, false);
+
+        mPreferenceController.onCreate(mLifecycleOwner);
+        mPreferenceController.setAvailabilityStatusForZone("write");
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), AVAILABLE);
+    }
+
+    @Test
+    public void getAvailabilityStatus_unrestricted_available_zoneRead() {
+        mPreferenceController.onCreate(mLifecycleOwner);
+        mockUserRestrictionSetByUm(mMockUserManager, TEST_RESTRICTION, false);
+        mockUserRestrictionSetByDpm(mMockUserManager, TEST_RESTRICTION, false);
+
+        mPreferenceController.onCreate(mLifecycleOwner);
+        mPreferenceController.setAvailabilityStatusForZone("read");
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), AVAILABLE_FOR_VIEWING);
+    }
+
+    @Test
+    public void getAvailabilityStatus_unrestricted_available_zoneHidden() {
+        mPreferenceController.onCreate(mLifecycleOwner);
+        mockUserRestrictionSetByUm(mMockUserManager, TEST_RESTRICTION, false);
+        mockUserRestrictionSetByDpm(mMockUserManager, TEST_RESTRICTION, false);
+
+        mPreferenceController.onCreate(mLifecycleOwner);
+        mPreferenceController.setAvailabilityStatusForZone("hidden");
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), CONDITIONALLY_UNAVAILABLE);
     }
 
     @Test

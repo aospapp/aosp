@@ -186,4 +186,9 @@
             app:popExitAnim="@anim/activity_close_exit"
             app:popEnterAnim="@anim/activity_open_enter"/>
     </fragment>
+
+    <fragment
+        android:id="@+id/app_data_sharing_updates"
+        android:name="com.android.permissioncontroller.permission.ui.handheld.v34.AppDataSharingUpdatesWrapperFragment"
+        android:label="AppDataSharingUpdates"/>
 </navigation>

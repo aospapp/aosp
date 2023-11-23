@@ -17,6 +17,8 @@
 package android.car.builtin.os;
 
 import android.annotation.SystemApi;
+import android.car.builtin.annotation.AddedIn;
+import android.car.builtin.annotation.PlatformVersion;
 import android.os.Trace;
 
 /**
@@ -35,5 +37,6 @@ public final class TraceHelper {
      * {@link Trace#TRACE_TAG_SYSTEM_SERVER}, so {code System Server} tracing should be enabled from
      * trace tools to access these traces.
      */
+    @AddedIn(PlatformVersion.TIRAMISU_0)
     public static final long TRACE_TAG_CAR_SERVICE = Trace.TRACE_TAG_SYSTEM_SERVER;
 }

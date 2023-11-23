@@ -16,11 +16,15 @@
 
 # All apps that should be included in CarUiPortrait builds
 PRODUCT_PACKAGES += \
+    car-ui-lib-diagnostic-plugin \
+    car-ui-lib-portrait-proxyplugin \
+    car-ui-lib-portrait-sharedlibrary \
+    CarNotification \
+    CarUiPortraitCommon \
+    CarUiPortraitLauncher \
     CarUiPortraitSettings \
     CarUiPortraitSystemUI \
-    CarNotification \
-    car-ui-lib-diagnostic-plugin \
-    PaintBooth \
+    PaintBooth
 
 # All apps to be excluded in car_ui_portrait builds should be specified as part of CarUiPortraitHideApps.
 PRODUCT_PACKAGES += \

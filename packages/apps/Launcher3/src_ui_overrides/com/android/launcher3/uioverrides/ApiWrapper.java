@@ -18,10 +18,17 @@ package com.android.launcher3.uioverrides;
 
 import android.app.Person;
 import android.content.Context;
+import android.content.pm.LauncherActivityInfo;
 import android.content.pm.ShortcutInfo;
 
 import com.android.launcher3.Utilities;
 
+import java.util.Collections;
+import java.util.Map;
+
+/**
+ * A wrapper for the hidden API calls
+ */
 public class ApiWrapper {
 
     public static final boolean TASKBAR_DRAWN_IN_PROCESS = false;
@@ -30,10 +37,7 @@ public class ApiWrapper {
         return Utilities.EMPTY_PERSON_ARRAY;
     }
 
-    /**
-     * Returns the minimum space that should be left empty at the end of hotseat
-     */
-    public static int getHotseatEndOffset(Context context) {
-        return 0;
+    public static Map<String, LauncherActivityInfo> getActivityOverrides(Context context) {
+        return Collections.emptyMap();
     }
 }

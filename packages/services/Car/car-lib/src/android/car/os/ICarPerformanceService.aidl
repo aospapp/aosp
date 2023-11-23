@@ -16,13 +16,29 @@
 
 package android.car.os;
 
-import android.car.os.ICpuAvailabilityChangeListener;
-import android.car.os.CpuAvailabilityMonitoringConfig;
+import android.car.os.ThreadPolicyWithPriority;
 
 /** @hide */
 interface ICarPerformanceService {
-    // addCpuAvailabilityChangeListener needs to get callingUid, so it cannot be oneway.
-    void addCpuAvailabilityChangeListener(
-        in CpuAvailabilityMonitoringConfig config, in ICpuAvailabilityChangeListener listener);
-    oneway void removeCpuAvailabilityChangeListener(in ICpuAvailabilityChangeListener listener);
+    /**
+     * Sets the thread priority for a specific thread.
+     *
+     * The thread must belong to the calling process.
+     *
+     * @throws SecurityException If permission check failed.
+     * @throws ServiceSpecificException If the operation failed.
+     * @throws IllegalArgumentException If the provided tid does not belong to the calling process.
+     */
+    void setThreadPriority(int tid, in ThreadPolicyWithPriority policyWithPriority);
+
+    /**
+     * Gets the thread priority for a specific thread.
+     *
+     * The thread must belong to the calling process.
+     *
+     * @throws SecurityException If permission check failed.
+     * @throws ServiceSpecificException If the operation failed.
+     * @throws IllegalArgumentException If the provided tid does not belong to the calling process.
+     */
+    ThreadPolicyWithPriority getThreadPriority(int tid);
 }

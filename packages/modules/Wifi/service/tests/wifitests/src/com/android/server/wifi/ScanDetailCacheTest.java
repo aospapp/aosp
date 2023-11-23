@@ -32,7 +32,7 @@ import org.mockito.MockitoAnnotations;
  * Unit tests for {@link com.android.server.wifi.ScanDetailCache}.
  */
 @SmallTest
-public class ScanDetailCacheTest {
+public class ScanDetailCacheTest extends WifiBaseTest {
     private static final int TEST_MAX_SIZE = 5;
     private static final int TEST_TRIM_SIZE = 2;
     private static final String TEST_BSSID_1 = "0a:08:5c:67:89:01";

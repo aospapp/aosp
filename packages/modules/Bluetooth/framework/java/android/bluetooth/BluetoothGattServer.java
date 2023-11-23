@@ -389,6 +389,33 @@ public final class BluetoothGattServer implements BluetoothProfile {
                     }
                 }
 
+                /**
+                 * Callback invoked when the given connection's subrate parameters are changed
+                 * @hide
+                 */
+                @Override
+                public void onSubrateChange(String address, int subrateFactor, int latency,
+                        int contNum, int timeout, int status) {
+                    if (DBG) {
+                        Log.d(TAG,
+                                "onSubrateChange() - "
+                                        + "Device=" + BluetoothUtils.toAnonymizedAddress(address)
+                                        + ", subrateFactor=" + subrateFactor
+                                        + ", latency=" + latency + ", contNum=" + contNum
+                                        + ", timeout=" + timeout + ", status=" + status);
+                    }
+                    BluetoothDevice device = mAdapter.getRemoteDevice(address);
+                    if (device == null) {
+                        return;
+                    }
+
+                    try {
+                        mCallback.onSubrateChange(
+                                device, subrateFactor, latency, contNum, timeout, status);
+                    } catch (Exception ex) {
+                        Log.w(TAG, "Unhandled exception: " + ex);
+                    }
+                }
             };
 
     /**
@@ -403,6 +430,15 @@ public final class BluetoothGattServer implements BluetoothProfile {
         mServerIf = 0;
         mTransport = transport;
         mServices = new ArrayList<BluetoothGattService>();
+    }
+
+    /**
+     * Get the identifier of the BluetoothGattServer, or 0 if it is closed
+     *
+     * @hide
+     */
+    public int getServerIf() {
+        return mServerIf;
     }
 
     /**
@@ -442,11 +478,12 @@ public final class BluetoothGattServer implements BluetoothProfile {
     /**
      * Close this GATT server instance.
      *
-     * Application should call this method as early as possible after it is done with
-     * this GATT server.
+     * <p>Application should call this method as early as possible after it is done with this GATT
+     * server.
      */
     @RequiresBluetoothConnectPermission
     @RequiresPermission(android.Manifest.permission.BLUETOOTH_CONNECT)
+    @Override
     public void close() {
         if (DBG) Log.d(TAG, "close()");
         unregisterCallback();
@@ -476,7 +513,7 @@ public final class BluetoothGattServer implements BluetoothProfile {
      * success or failure if the function returns true.
      *
      * @param callback GATT callback handler that will receive asynchronous callbacks.
-     * @param eatt_support indicates if server can use eatt
+     * @param eattSupport indicates if server can use eatt
      * @return true, the callback will be called to notify success or failure, false on immediate
      * error
      * @hide
@@ -485,7 +522,7 @@ public final class BluetoothGattServer implements BluetoothProfile {
     @RequiresBluetoothConnectPermission
     @RequiresPermission(android.Manifest.permission.BLUETOOTH_CONNECT)
     /*package*/ boolean registerCallback(BluetoothGattServerCallback callback,
-                                         boolean eatt_support) {
+                                         boolean eattSupport) {
         if (DBG) Log.d(TAG, "registerCallback()");
         if (mService == null) {
             Log.e(TAG, "GATT service not available");
@@ -504,7 +541,7 @@ public final class BluetoothGattServer implements BluetoothProfile {
             try {
                 final SynchronousResultReceiver recv = SynchronousResultReceiver.get();
                 mService.registerServer(new ParcelUuid(uuid), mBluetoothGattServerCallback,
-                        eatt_support, mAttributionSource, recv);
+                        eattSupport, mAttributionSource, recv);
                 recv.awaitResultNoInterrupt(getSyncTimeout()).getValue(null);
             } catch (RemoteException | TimeoutException e) {
                 Log.e(TAG, "", e);
@@ -589,7 +626,7 @@ public final class BluetoothGattServer implements BluetoothProfile {
     public boolean connect(BluetoothDevice device, boolean autoConnect) {
         if (DBG) {
             Log.d(TAG,
-                    "connect() - device: " + device.getAddress() + ", auto: " + autoConnect);
+                    "connect() - device: " + device + ", auto: " + autoConnect);
         }
         if (mService == null || mServerIf == 0) return false;
 
@@ -617,7 +654,7 @@ public final class BluetoothGattServer implements BluetoothProfile {
     @RequiresBluetoothConnectPermission
     @RequiresPermission(android.Manifest.permission.BLUETOOTH_CONNECT)
     public void cancelConnection(BluetoothDevice device) {
-        if (DBG) Log.d(TAG, "cancelConnection() - device: " + device.getAddress());
+        if (DBG) Log.d(TAG, "cancelConnection() - device: " + device);
         if (mService == null || mServerIf == 0) return;
 
         try {
@@ -702,7 +739,7 @@ public final class BluetoothGattServer implements BluetoothProfile {
     @RequiresPermission(android.Manifest.permission.BLUETOOTH_CONNECT)
     public boolean sendResponse(BluetoothDevice device, int requestId,
             int status, int offset, byte[] value) {
-        if (VDBG) Log.d(TAG, "sendResponse() - device: " + device.getAddress());
+        if (VDBG) Log.d(TAG, "sendResponse() - device: " + device);
         if (mService == null || mServerIf == 0) return false;
 
         try {
@@ -781,7 +818,7 @@ public final class BluetoothGattServer implements BluetoothProfile {
     public int notifyCharacteristicChanged(@NonNull BluetoothDevice device,
             @NonNull BluetoothGattCharacteristic characteristic, boolean confirm,
             @NonNull byte[] value) {
-        if (VDBG) Log.d(TAG, "notifyCharacteristicChanged() - device: " + device.getAddress());
+        if (VDBG) Log.d(TAG, "notifyCharacteristicChanged() - device: " + device);
         if (mService == null || mServerIf == 0) {
             return BluetoothStatusCodes.ERROR_PROFILE_SERVICE_NOT_BOUND;
         }

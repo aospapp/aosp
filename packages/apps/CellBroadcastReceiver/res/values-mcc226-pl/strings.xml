@@ -16,8 +16,8 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="enable_public_safety_messages_title" msgid="2315613513862198922">"Pomarańczowy alert"</string>
-    <string name="public_safety_message" msgid="2115576467671679192">"Alert dla Rumunii: pomarańczowy alert"</string>
+    <string name="enable_public_safety_messages_title" msgid="2475018227538267649">"Alert o zaginięciu dziecka"</string>
+    <string name="public_safety_message" msgid="5242662040426167782">"Alert dla Rumunii: alert o zaginięciu dziecka"</string>
     <string name="cmas_presidential_level_alert" msgid="8476571012670281437">"Alert dla Rumunii: alert prezydencki"</string>
     <string name="cmas_extreme_alert" msgid="1713701020039340032">"Alert dla Rumunii: ekstremalny alert"</string>
     <string name="cmas_extreme_immediate_observed_alert" msgid="9008972835754333116">"Alert dla Rumunii: ekstremalny alert"</string>

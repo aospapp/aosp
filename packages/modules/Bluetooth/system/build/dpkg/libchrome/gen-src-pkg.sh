@@ -7,17 +7,17 @@ if [ -z "$1" ]; then
 fi
 
 outdir="$1"
-pkgdir=libchrome-930012
-origtar=libchrome_930012.orig.tar.gz
+pkgdir=libchrome-1094370
+origtar=libchrome_1094370.orig.tar.gz
 scriptdir="$( cd "$( dirname "$0" )" && pwd )"
 
 # Pin the libchrome branch + commit
-libchrome_branch=master
-libchrome_commit=4b86c42f09b7c8d88b0233c60f59bafeb4d8df19
+libchrome_branch=main
+libchrome_commit=0519670b5b553bdb42e22d05448358a312c5e78e
 
 # Pin the platform2 branch + commit
 platform2_branch=main
-platform2_commit=4567e833015453b3ea322eec1201cc41ecdfdec0
+platform2_commit=a50a38e57053510332e3fe2ba116c0a7952ad511
 
 tmpdir=$(mktemp -d)
 echo Generating source package in "${tmpdir}".
@@ -32,13 +32,18 @@ cd "${pkgdir}"
 cp -a ../platform2/{common-mk,.gn} .
 
 # Download libchrome source and apply Chrome OS's patches.
-git clone --branch "${libchrome_branch}" https://chromium.googlesource.com/aosp/platform/external/libchrome || exit 1
+git clone --branch "${libchrome_branch}" https://chromium.googlesource.com/chromiumos/platform/libchrome || exit 1
 cd libchrome
 git checkout "${libchrome_commit}"
 rm -rf .git
-while read -r patch; do
+
+# Apply all patches (even conditional ones).
+# If this is problematic on a future revision, we may need to parse
+# "libchrome_tools/patches/patches.config" and exclude ones found
+# there.
+for patch in $(ls "libchrome_tools/patches/" | grep .patch); do
   patch -p1 < "libchrome_tools/patches/${patch}"
-done < <(grep -E '^[^#]' "libchrome_tools/patches/patches")
+done
 
 # Clean up temporary platform2 checkout.
 cd ../..

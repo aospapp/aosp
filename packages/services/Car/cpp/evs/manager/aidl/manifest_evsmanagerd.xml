@@ -18,7 +18,7 @@
         <name>android.hardware.automotive.evs</name>
         <fqname>IEvsEnumerator/default</fqname>
     </hal>
-    <hal format="hidl">
+    <hal format="hidl" max-level="8">
         <name>android.hardware.automotive.evs</name>
         <transport>hwbinder</transport>
         <fqname>@1.1::IEvsEnumerator/default</fqname>

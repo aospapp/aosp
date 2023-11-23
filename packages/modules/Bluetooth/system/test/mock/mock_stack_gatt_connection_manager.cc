@@ -19,19 +19,15 @@
  *   Functions generated:16
  */
 
-#include <map>
-#include <string>
-
-extern std::map<std::string, int> mock_function_count_map;
-
-#include <base/bind.h>
-#include <base/callback.h>
+#include <base/functional/bind.h>
+#include <base/functional/callback.h>
 #include <base/location.h>
 #include <base/logging.h>
 
 #include <map>
 #include <memory>
 #include <set>
+#include <string>
 
 #include "main/shim/shim.h"
 #include "osi/include/alarm.h"
@@ -39,6 +35,7 @@ extern std::map<std::string, int> mock_function_count_map;
 #include "stack/btm/btm_ble_bgconn.h"
 #include "stack/gatt/connection_manager.h"
 #include "stack/include/l2c_api.h"
+#include "test/common/mock_functions.h"
 #include "types/raw_address.h"
 
 using namespace connection_manager;
@@ -49,46 +46,51 @@ using namespace connection_manager;
 
 bool connection_manager::background_connect_add(uint8_t app_id,
                                                 const RawAddress& address) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return false;
 }
 bool connection_manager::background_connect_remove(uint8_t app_id,
                                                    const RawAddress& address) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return false;
 }
 bool connection_manager::direct_connect_add(uint8_t app_id,
                                             const RawAddress& address) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return false;
 }
 bool connection_manager::direct_connect_remove(uint8_t app_id,
                                                const RawAddress& address) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return false;
 }
 bool connection_manager::remove_unconditional(const RawAddress& address) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return false;
 }
 std::set<tAPP_ID> connection_manager::get_apps_connecting_to(
     const RawAddress& address) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return std::set<tAPP_ID>();
 }
-void connection_manager::dump(int fd) { mock_function_count_map[__func__]++; }
+void connection_manager::dump(int fd) { inc_func_call_count(__func__); }
 void connection_manager::on_app_deregistered(uint8_t app_id) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
 }
 void connection_manager::on_connection_complete(const RawAddress& address) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
 }
 
 void connection_manager::on_connection_timed_out_from_shim(
     const RawAddress& address) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
 }
 
 void connection_manager::reset(bool after_reset) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
+}
+
+bool connection_manager::is_background_connection(const RawAddress& address) {
+  inc_func_call_count(__func__);
+  return false;
 }

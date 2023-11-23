@@ -192,6 +192,10 @@
         <item>427</item>
         <!-- Germany -->
         <item>262</item>
+        <!-- Norway -->
+        <item>242</item>
+        <!-- Italy -->
+        <item>222</item>
     </string-array>
 
     <!-- Values that are retrieved from the ListPreference.
@@ -260,6 +264,7 @@
     <string name="link_method" translatable="false">smart_linkify</string>
 
     <!-- Whether enabling copy message text into clipboard by long press -->
+    <!-- Check the configuration 'link_method' as well to make the url copy disabled as needed -->
     <bool name="enable_text_copy">true</bool>
 
     <!-- Whether to override the language of the alert dialog's title to match the message locale -->
@@ -285,4 +290,19 @@
 
     <!-- Name of a font family to use for headlines in SettingsLib. -->
     <string name="config_headlineFontFamily" translatable="false"></string>
+
+    <!-- Whether enabling capture message screen -->
+    <bool name="disable_capture_alert_dialog">false</bool>
+
+    <!-- Whether to show the alert dialog title -->
+    <bool name="show_alert_title">true</bool>
+
+    <!-- Pulsation pattern to be used as the default for the alert.
+    The 1st parameter is the color to be changed.
+    The 2nd parameter indicates how long the pulsation to last in ms. It must be positive.
+    If it is not specified or invalid, default value will be 10s.
+    The 3rd and 4th parameters indicate the intervals to set highlight color on/off. They must be
+    positive. If they are not specified or invalid, default value will be 1s. -->
+    <integer-array name="default_pulsation_pattern">
+    </integer-array>
 </resources>

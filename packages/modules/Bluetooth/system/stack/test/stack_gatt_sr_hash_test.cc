@@ -21,13 +21,12 @@
 #include "crypto_toolbox/crypto_toolbox.h"
 #include "stack/gatt/gatt_int.h"
 #include "stack/test/common/mock_eatt.h"
+#include "test/common/mock_functions.h"
 #include "types/bluetooth/uuid.h"
 
 using bluetooth::Uuid;
 
 tGATT_CB gatt_cb;
-
-std::map<std::string, int> mock_function_count_map;
 
 static void add_item_to_list(std::list<tGATT_SRV_LIST_ELEM>& srv_list_info,
                       tGATT_SVC_DB* db, bool is_primary) {

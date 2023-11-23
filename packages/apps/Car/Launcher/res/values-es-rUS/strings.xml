@@ -18,8 +18,17 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="app_title" msgid="1995858460392177468">"Selector para vehículos"</string>
+    <string name="reset_appgrid_title" msgid="814562055108028366">"Restablecer la cuadrícula de apps al orden alfabético"</string>
+    <string name="reset_appgrid_dialogue_message" msgid="8275758912490987735">"Esta función quitará todo el orden personalizado. ¿Quieres continuar?"</string>
     <string name="app_launcher_title_all_apps" msgid="3215107396036838217">"Todas las apps"</string>
     <string name="app_launcher_title_media_only" msgid="4400886555907422816">"Apps multimedia"</string>
+    <string name="app_launcher_stop_app_action" msgid="1081680842410279692">"Detener la app"</string>
+    <string name="app_launcher_app_info_action" msgid="6388181061002827660">"Información de la app"</string>
+    <string name="app_launcher_stop_app_success_toast_text" msgid="2117271772351005349">"Se detuvo <xliff:g id="APP_NAME">%1$s</xliff:g>."</string>
+    <string name="app_launcher_stop_app_dialog_title" msgid="8276889322638001144">"¿Quieres detener la app?"</string>
+    <string name="app_launcher_stop_app_dialog_text" msgid="3264059639436254372">"Si fuerzas la detención de una app, es posible que funcione incorrectamente."</string>
+    <string name="app_launcher_stop_app_cant_stop_text" msgid="4766841417948746773">"No se puede detener la app."</string>
+    <string name="default_media_song_title" msgid="2970305231647817808"></string>
     <string name="driving_toast_text" msgid="149483091947120092">"No puedes usar <xliff:g id="APP_NAME">%1$s</xliff:g> mientras conduces."</string>
     <string name="tap_for_more_info_text" msgid="2043549383814415585">"Presiona la tarjeta para obtener más información"</string>
     <string name="tap_to_launch_text" msgid="6910695705119260847">"Presiona la tarjeta para iniciar"</string>
@@ -34,4 +43,8 @@
     <string name="fake_weather_footer_text" msgid="4570172025869749926">"Mountain View • M: --° M: --°"</string>
     <string name="hide_debug_apps" msgid="6128313544379622475">"Ocultar apps de depuración"</string>
     <string name="show_debug_apps" msgid="4521073121286325786">"Mostrar apps de depuración"</string>
+    <string name="times_separator" msgid="6180368193321715816">"/"</string>
+    <string name="recents_empty_state_text" msgid="6703106170272215731">"No hay elementos recientes"</string>
+    <string name="recents_clear_all_text" msgid="2088678071417053923">"Borrar todo"</string>
+    <string name="failure_opening_recent_task_message" msgid="9097595793150874357">"La app no está disponible"</string>
 </resources>

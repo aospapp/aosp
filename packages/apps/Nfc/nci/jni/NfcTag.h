@@ -20,15 +20,18 @@
 
 #pragma once
 #include <vector>
-#include "NfcJniUtil.h"
-#include "SyncEvent.h"
 
+#include "NfcJniUtil.h"
+#include "NfcStatsUtil.h"
+#include "SyncEvent.h"
 #include "nfa_rw_api.h"
 
 #define MIN_FWI (11)
 #define MAX_FWI (14)
 
 class NfcTag {
+  friend class NfcTagTest;
+
  public:
   enum ActivationState { Idle, Sleep, Active };
   static const int MAX_NUM_TECHNOLOGY =
@@ -446,6 +449,7 @@ class NfcTag {
   int mNumDiscTechList;
   int mTechListTail;  // Index of Last added entry in mTechList
   bool mIsMultiProtocolTag;
+  NfcStatsUtil* mNfcStatsUtil;
 
   /*******************************************************************************
   **

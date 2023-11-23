@@ -45,7 +45,7 @@ public class CellularFallbackTogglePreferenceController extends
     }
 
     @Override
-    protected int getAvailabilityStatus() {
+    protected int getDefaultAvailabilityStatus() {
         return avoidBadWifiConfigEnabled() ? UNSUPPORTED_ON_DEVICE : AVAILABLE;
     }
 

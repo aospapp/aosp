@@ -18,6 +18,7 @@ package com.android.car.settings.datetime;
 
 import static com.android.car.settings.common.PreferenceController.AVAILABLE;
 import static com.android.car.settings.common.PreferenceController.AVAILABLE_FOR_VIEWING;
+import static com.android.car.settings.common.PreferenceController.CONDITIONALLY_UNAVAILABLE;
 import static com.android.car.settings.enterprise.ActionDisabledByAdminDialogFragment.DISABLED_BY_ADMIN_CONFIRM_DIALOG_TAG;
 
 import static com.google.common.truth.Truth.assertThat;
@@ -163,6 +164,41 @@ public class AutoTimeZoneTogglePreferenceControllerTest {
     }
 
     @Test
+    public void testGetAvailabilityStatus_restricted_availableForViewing_zoneWrite() {
+        when(mMockUserManager.hasUserRestriction(TEST_RESTRICTION)).thenReturn(true);
+
+        mController.setAvailabilityStatusForZone("write");
+        mController.onCreate(mLifecycleOwner);
+
+        PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
+                AVAILABLE_FOR_VIEWING);
+        assertThat(mPreference.isEnabled()).isFalse();
+    }
+
+    @Test
+    public void testGetAvailabilityStatus_restricted_availableForViewing_zoneRead() {
+        when(mMockUserManager.hasUserRestriction(TEST_RESTRICTION)).thenReturn(true);
+
+        mController.setAvailabilityStatusForZone("read");
+        mController.onCreate(mLifecycleOwner);
+
+        PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
+                AVAILABLE_FOR_VIEWING);
+        assertThat(mPreference.isEnabled()).isFalse();
+    }
+
+    @Test
+    public void testGetAvailabilityStatus_restricted_availableForViewing_zoneHidden() {
+        when(mMockUserManager.hasUserRestriction(TEST_RESTRICTION)).thenReturn(true);
+
+        mController.setAvailabilityStatusForZone("hidden");
+        mController.onCreate(mLifecycleOwner);
+
+        PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
+                CONDITIONALLY_UNAVAILABLE);
+    }
+
+    @Test
     public void testGetAvailabilityStatus_notRestricted_available() {
         when(mMockUserManager.hasUserRestriction(TEST_RESTRICTION)).thenReturn(false);
 
@@ -170,6 +206,41 @@ public class AutoTimeZoneTogglePreferenceControllerTest {
 
         assertThat(mController.getAvailabilityStatus()).isEqualTo(AVAILABLE);
         assertThat(mPreference.isEnabled()).isTrue();
+    }
+
+    @Test
+    public void testGetAvailabilityStatus_notRestricted_available_zoneWrite() {
+        when(mMockUserManager.hasUserRestriction(TEST_RESTRICTION)).thenReturn(false);
+
+        mController.setAvailabilityStatusForZone("write");
+        mController.onCreate(mLifecycleOwner);
+
+        PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
+                AVAILABLE);
+        assertThat(mPreference.isEnabled()).isTrue();
+    }
+
+    @Test
+    public void testGetAvailabilityStatus_notRestricted_available_zoneRead() {
+        when(mMockUserManager.hasUserRestriction(TEST_RESTRICTION)).thenReturn(false);
+
+        mController.setAvailabilityStatusForZone("read");
+        mController.onCreate(mLifecycleOwner);
+
+        PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
+                AVAILABLE_FOR_VIEWING);
+        assertThat(mPreference.isEnabled()).isFalse();
+    }
+
+    @Test
+    public void testGetAvailabilityStatus_notRestricted_available_zoneHidden() {
+        when(mMockUserManager.hasUserRestriction(TEST_RESTRICTION)).thenReturn(false);
+
+        mController.setAvailabilityStatusForZone("hidden");
+        mController.onCreate(mLifecycleOwner);
+
+        PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
+                CONDITIONALLY_UNAVAILABLE);
     }
 
     @Test

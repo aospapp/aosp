@@ -255,24 +255,26 @@ ScopedAStatus HalCamera::doneWithFrame(BufferDesc buffer) {
     std::lock_guard<std::mutex> lock(mFrameMutex);
 
     // Find this frame in our list of outstanding frames
-    unsigned i;
-    for (i = 0; i < mFrames.size(); i++) {
-        if (mFrames[i].frameId == buffer.bufferId) {
-            break;
-        }
-    }
-
-    if (i == mFrames.size()) {
+    auto it = std::find_if(mFrames.begin(), mFrames.end(),
+                           [id = buffer.bufferId](const FrameRecord& rec) {
+                               return rec.frameId == id;
+                           });
+    if (it == mFrames.end()) {
         LOG(WARNING) << "We got a frame back with an ID we don't recognize!";
         return ScopedAStatus::ok();
     }
 
     // Are there still clients using this buffer?
-    mFrames[i].refCount--;
-    if (mFrames[i].refCount > 0) {
-        LOG(DEBUG) << "Buffer " << buffer.bufferId << " is still being used by "
-                   << mFrames[i].refCount << " other client(s).";
-        return ScopedAStatus::ok();
+    if (it->refCount > 0) {
+        it->refCount = it->refCount - 1;
+        if (it->refCount > 0) {
+            LOG(DEBUG) << "Buffer " << buffer.bufferId << " is still being used by " << it->refCount
+                       << " other client(s).";
+            return ScopedAStatus::ok();
+        }
+    } else {
+        LOG(WARNING) << "Buffer " << buffer.bufferId
+                     << " is returned with a zero reference counter.";
     }
 
     // Since all our clients are done with this buffer, return it to the device layer
@@ -292,7 +294,11 @@ ScopedAStatus HalCamera::doneWithFrame(BufferDesc buffer) {
 // Methods from ::aidl::android::hardware::automotive::evs::IEvsCameraStream follow.
 ScopedAStatus HalCamera::deliverFrame(const std::vector<BufferDesc>& buffers) {
     LOG(VERBOSE) << "Received a frame";
-    // Frames are being forwarded to v1.1 clients only who requested new frame.
+
+    // Reports the number of received buffers
+    mUsageStats->framesReceived(buffers);
+
+    // Frames are being forwarded to HIDL v1.1 and AIDL clients only who requested new frame.
     const auto timestamp = buffers[0].timestamp;
     // TODO(b/145750636): For now, we are using a approximately half of 1 seconds / 30 frames = 33ms
     //           but this must be derived from current framerate.
@@ -328,37 +334,34 @@ ScopedAStatus HalCamera::deliverFrame(const std::vector<BufferDesc>& buffers) {
                 }
             }
         }
-    }
 
-    // Reports the number of received buffers
-    mUsageStats->framesReceived(buffers);
-
-    if (frameDeliveries < 1) {
-        // If none of our clients could accept the frame, then return it
-        // right away.
-        LOG(INFO) << "Trivially rejecting frame (" << buffers[0].bufferId << ") from " << getId()
-                  << " with no acceptance";
-        if (!mHwCamera->doneWithFrame(buffers).isOk()) {
-            LOG(WARNING) << "Failed to return buffers";
-        }
-
-        // Reports a returned buffer
-        mUsageStats->framesReturned(buffers);
-    } else {
-        // Add an entry for this frame in our tracking list.
-        unsigned i;
-        for (i = 0; i < mFrames.size(); ++i) {
-            if (mFrames[i].refCount == 0) {
-                break;
+        if (frameDeliveries < 1) {
+            // If none of our clients could accept the frame, then return it
+            // right away.
+            LOG(INFO) << "Trivially rejecting frame (" << buffers[0].bufferId << ") from "
+                      << getId() << " with no acceptance";
+            if (!mHwCamera->doneWithFrame(buffers).isOk()) {
+                LOG(WARNING) << "Failed to return buffers";
             }
-        }
 
-        if (i == mFrames.size()) {
-            mFrames.push_back(buffers[0].bufferId);
+            // Reports a returned buffer
+            mUsageStats->framesReturned(buffers);
         } else {
-            mFrames[i].frameId = buffers[0].bufferId;
+            // Add an entry for this frame in our tracking list.
+            unsigned i;
+            for (i = 0; i < mFrames.size(); ++i) {
+                if (mFrames[i].refCount == 0) {
+                    break;
+                }
+            }
+
+            if (i == mFrames.size()) {
+                mFrames.push_back(buffers[0].bufferId);
+            } else {
+                mFrames[i].frameId = buffers[0].bufferId;
+            }
+            mFrames[i].refCount = frameDeliveries;
         }
-        mFrames[i].refCount = frameDeliveries;
     }
 
     return ScopedAStatus::ok();

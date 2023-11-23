@@ -16,25 +16,17 @@
 
 package com.android.systemui.wm;
 
-import static android.view.InsetsState.ITYPE_IME;
-import static android.view.InsetsState.ITYPE_NAVIGATION_BAR;
-import static android.view.InsetsState.ITYPE_STATUS_BAR;
-
 import static com.google.common.truth.Truth.assertThat;
 
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.when;
 
 import android.car.settings.CarSettings;
-import android.graphics.Insets;
-import android.graphics.Point;
 import android.os.Handler;
 import android.provider.Settings;
 import android.testing.AndroidTestingRunner;
 import android.testing.TestableLooper;
 import android.view.IWindowManager;
-import android.view.InsetsSourceControl;
-import android.view.InsetsState;
 
 import androidx.test.filters.SmallTest;
 
@@ -42,7 +34,6 @@ import com.android.systemui.SysuiTestCase;
 import com.android.wm.shell.common.DisplayController;
 import com.android.wm.shell.common.DisplayInsetsController;
 import com.android.wm.shell.common.DisplayLayout;
-import com.android.wm.shell.common.TransactionPool;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -69,8 +60,6 @@ public class DisplaySystemBarsControllerTest extends SysuiTestCase {
     private DisplayInsetsController mDisplayInsetsController;
     @Mock
     private Handler mHandler;
-    @Mock
-    private TransactionPool mTransactionPool;
 
     @Before
     public void setUp() {
@@ -83,8 +72,7 @@ public class DisplaySystemBarsControllerTest extends SysuiTestCase {
                 mIWindowManager,
                 mDisplayController,
                 mDisplayInsetsController,
-                mHandler,
-                mTransactionPool
+                mHandler
         );
     }
 
@@ -100,23 +88,5 @@ public class DisplaySystemBarsControllerTest extends SysuiTestCase {
         mController.onDisplayAdded(DISPLAY_ID);
 
         assertThat(BarControlPolicy.sSettingValue).isEqualTo(text);
-    }
-
-    @Test
-    public void onControlsChanged_parentClassGetsImeControls() {
-        mController.onDisplayAdded(DISPLAY_ID);
-        assertThat(mController.mPerDisplaySparseArray.size()).isEqualTo(1);
-        DisplaySystemBarsController.PerDisplay display = mController.mPerDisplaySparseArray.get(
-                DISPLAY_ID);
-        assertThat(display).isNotNull();
-
-        InsetsSourceControl[] controls = new InsetsSourceControl[] {
-            new InsetsSourceControl(ITYPE_STATUS_BAR, null, new Point(), Insets.NONE),
-            new InsetsSourceControl(ITYPE_NAVIGATION_BAR, null, new Point(), Insets.NONE),
-            new InsetsSourceControl(ITYPE_IME, null, new Point(), Insets.NONE)
-        };
-        display.insetsControlChanged(new InsetsState(), controls);
-
-        assertThat(display.getImeSourceControl()).isNotNull();
     }
 }

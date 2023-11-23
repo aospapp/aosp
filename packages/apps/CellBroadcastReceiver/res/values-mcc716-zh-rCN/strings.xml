@@ -18,8 +18,9 @@
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="public_safety_message" msgid="7237115648380675159">"有用的消息"</string>
     <string name="enable_public_safety_messages_title" msgid="4037404034274507696">"有用的消息"</string>
+    <string name="cmas_presidential_level_alert" msgid="8876632274257614262">"紧急警报"</string>
     <string name="cmas_required_monthly_test" msgid="9061179556831144678">"紧急警报：测试消息"</string>
     <string name="cmas_exercise_alert" msgid="3061507852301643814">"紧急警报：演习/模拟消息"</string>
-    <string name="pws_other_message_identifiers" msgid="4992476982074198144">"紧急警报：测试消息"</string>
+    <string name="pws_other_message_identifiers" msgid="3831917966117253553">"紧急警报"</string>
     <string name="button_dismiss" msgid="5823921161712171097">"隐藏"</string>
 </resources>

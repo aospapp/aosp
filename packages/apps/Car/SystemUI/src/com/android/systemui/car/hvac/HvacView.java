@@ -31,6 +31,12 @@ public interface HvacView {
     void setHvacPropertySetter(HvacPropertySetter hvacPropertySetter);
 
     /**
+     * Set config information using the CarPropertyConfig for this property. This can be min/max
+     * values, config array values, etc.
+     */
+    void setConfigInfo(CarPropertyConfig<?> carPropertyConfig);
+
+    /**
      * Called when the temperature display unit (Celsius or Fahrenheit) is changed.
      */
     void onHvacTemperatureUnitChanged(boolean usesFahrenheit);

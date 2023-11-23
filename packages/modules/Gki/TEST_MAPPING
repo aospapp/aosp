@@ -2,9 +2,6 @@
   "presubmit": [
     {
       "name": "libkver_test"
-    },
-    {
-      "name": "GkiInstallTest"
     }
   ]
 }

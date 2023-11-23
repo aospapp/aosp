@@ -28,6 +28,12 @@
         android:layout_height="match_parent"
         android:layout_gravity="start|center_vertical" />
 
+    <android.media.tv.interactive.TvInteractiveAppView
+        android:id="@+id/tv_app_view"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="@android:color/transparent" />
+
     <FrameLayout
         android:id="@+id/scene_container"
         android:layout_height="match_parent"

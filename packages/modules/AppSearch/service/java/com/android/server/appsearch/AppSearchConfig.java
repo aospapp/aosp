@@ -16,6 +16,9 @@
 
 package com.android.server.appsearch;
 
+import com.android.server.appsearch.external.localstorage.IcingOptionsConfig;
+import com.android.server.appsearch.external.localstorage.LimitConfig;
+
 /**
  * An interface which exposes config flags to AppSearch.
  *
@@ -26,7 +29,7 @@ package com.android.server.appsearch;
  *
  * @hide
  */
-public interface AppSearchConfig extends AutoCloseable {
+public interface AppSearchConfig extends AutoCloseable, IcingOptionsConfig, LimitConfig {
     /**
      * Default min time interval between samples in millis if there is no value set for
      * {@link #getCachedMinTimeIntervalBetweenSamplesMillis()} in the flag system.
@@ -41,9 +44,36 @@ public interface AppSearchConfig extends AutoCloseable {
 
     int DEFAULT_LIMIT_CONFIG_MAX_DOCUMENT_SIZE_BYTES = 512 * 1024; // 512KiB
     int DEFAULT_LIMIT_CONFIG_MAX_DOCUMENT_COUNT = 20_000;
+    int DEFAULT_LIMIT_CONFIG_MAX_SUGGESTION_COUNT = 20_000;
     int DEFAULT_BYTES_OPTIMIZE_THRESHOLD = 1 * 1024 * 1024; // 1 MiB
     int DEFAULT_TIME_OPTIMIZE_THRESHOLD_MILLIS = Integer.MAX_VALUE;
     int DEFAULT_DOC_COUNT_OPTIMIZE_THRESHOLD = 10_000;
+    int DEFAULT_MIN_TIME_OPTIMIZE_THRESHOLD_MILLIS = 0;
+    // Cached API Call Stats is disabled by default
+    int DEFAULT_API_CALL_STATS_LIMIT = 0;
+    boolean DEFAULT_RATE_LIMIT_ENABLED = false;
+    /**
+     * This defines the task queue's total capacity for rate limiting.
+     */
+    int DEFAULT_RATE_LIMIT_TASK_QUEUE_TOTAL_CAPACITY = Integer.MAX_VALUE;
+    /**
+     * This defines the per-package capacity for rate limiting as a percentage of the total
+     * capacity.
+     */
+    float DEFAULT_RATE_LIMIT_TASK_QUEUE_PER_PACKAGE_CAPACITY_PERCENTAGE = 1;
+    /**
+     * This defines API costs used for AppSearch's task queue rate limit.
+     *
+     * <p>Each entry in the string should follow the format 'api_name:integer_cost', and each entry
+     * should be separated by a semi-colon. API names should follow the string definitions in
+     * {@link com.android.server.appsearch.external.localstorage.stats.CallStats}.
+     *
+     * <p>e.g. A valid string: "localPutDocuments:5;localSearch:1;localSetSchema:10"
+     */
+    String DEFAULT_RATE_LIMIT_API_COSTS_STRING = "";
+
+    boolean DEFAULT_ICING_CONFIG_USE_READ_ONLY_SEARCH = true;
+    boolean DEFAULT_USE_FIXED_EXECUTOR_SERVICE = false;
 
     /** Returns cached value for minTimeIntervalBetweenSamplesMillis. */
     long getCachedMinTimeIntervalBetweenSamplesMillis();
@@ -98,12 +128,6 @@ public interface AppSearchConfig extends AutoCloseable {
      */
     int getCachedSamplingIntervalForOptimizeStats();
 
-    /** Returns the maximum serialized size an indexed document can be, in bytes. */
-    int getCachedLimitConfigMaxDocumentSizeBytes();
-
-    /** Returns the maximum number of active docs allowed per package. */
-    int getCachedLimitConfigMaxDocumentCount();
-
     /**
      * Returns the cached optimize byte size threshold.
      *
@@ -121,12 +145,40 @@ public interface AppSearchConfig extends AutoCloseable {
     int getCachedTimeOptimizeThresholdMs();
 
     /**
-     * Returns the cached optimize document count threshold threshold.
+     * Returns the cached optimize document count threshold.
      *
      * An AppSearch Optimize job will be triggered if the number of document of garbage resource
      * exceeds this threshold.
      */
     int getCachedDocCountOptimizeThreshold();
+
+    /**
+     * Returns the cached minimum optimize time interval threshold.
+     *
+     * An AppSearch Optimize job will only be triggered if the time since last optimize job exceeds
+     * this threshold.
+     */
+    int getCachedMinTimeOptimizeThresholdMs();
+
+    /**
+     * Returns the maximum number of last API calls' statistics that can be included in dumpsys.
+     */
+    int getCachedApiCallStatsLimit();
+
+    /**
+     * Returns the cached denylist.
+     */
+    Denylist getCachedDenylist();
+
+    /**
+     * Returns whether to enable AppSearch rate limiting.
+     */
+    boolean getCachedRateLimitEnabled();
+
+    /**
+     * Returns the cached {@link AppSearchRateLimitConfig}.
+     */
+    AppSearchRateLimitConfig getCachedRateLimitConfig();
 
     /**
      * Closes this {@link AppSearchConfig}.

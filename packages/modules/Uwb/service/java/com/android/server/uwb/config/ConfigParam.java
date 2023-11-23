@@ -17,11 +17,14 @@
 package com.android.server.uwb.config;
 
 import static android.hardware.uwb.fira_android.UwbVendorSessionAppConfigTlvTypes.CCC_HOP_MODE_KEY;
+import static android.hardware.uwb.fira_android.UwbVendorSessionAppConfigTlvTypes.CCC_LAST_INDEX_USED;
 import static android.hardware.uwb.fira_android.UwbVendorSessionAppConfigTlvTypes.CCC_PULSESHAPE_COMBO;
 import static android.hardware.uwb.fira_android.UwbVendorSessionAppConfigTlvTypes.CCC_RANGING_PROTOCOL_VER;
 import static android.hardware.uwb.fira_android.UwbVendorSessionAppConfigTlvTypes.CCC_URSK_TTL;
 import static android.hardware.uwb.fira_android.UwbVendorSessionAppConfigTlvTypes.CCC_UWB_CONFIG_ID;
 import static android.hardware.uwb.fira_android.UwbVendorSessionAppConfigTlvTypes.CCC_UWB_TIME0;
+import static android.hardware.uwb.fira_android.UwbVendorSessionAppConfigTlvTypes.DIAGRAMS_FRAME_REPORTS_FIELDS;
+import static android.hardware.uwb.fira_android.UwbVendorSessionAppConfigTlvTypes.ENABLE_DIAGNOSTICS;
 import static android.hardware.uwb.fira_android.UwbVendorSessionAppConfigTlvTypes.NB_OF_AZIMUTH_MEASUREMENTS;
 import static android.hardware.uwb.fira_android.UwbVendorSessionAppConfigTlvTypes.NB_OF_ELEVATION_MEASUREMENTS;
 import static android.hardware.uwb.fira_android.UwbVendorSessionAppConfigTlvTypes.NB_OF_RANGE_MEASUREMENTS;
@@ -54,16 +57,19 @@ public class ConfigParam {
     public static final int RANGE_DATA_NTF_PROXIMITY_FAR = 0x10;
     public static final int DEVICE_ROLE = 0x11;
     public static final int RFRAME_CONFIG = 0x12;
+    public static final int RSSI_REPORTING = 0x13;
     public static final int PREAMBLE_CODE_INDEX = 0x14;
     public static final int SFD_ID = 0x15;
     public static final int PSDU_DATA_RATE = 0x16;
     public static final int PREAMBLE_DURATION = 0x17;
+    public static final int LINK_LAYER_MODE = 0x18;
     public static final int RANGING_TIME_STRUCT = 0x1A;
     public static final int SLOTS_PER_RR = 0x1B;
     public static final int TX_ADAPTIVE_PAYLOAD_POWER = 0x1C;
-    //public static final int TX_ANTENNA_SELECTION = 0x1D;
-    public static final int RESPONDER_SLOT_INDEX = 0x1E;
+    // TODO: Ensure this value is correct in the final 2.0 specification.
+    public static final int RANGE_DATA_NTF_AOA_BOUND = 0x1D;
     public static final int PRF_MODE = 0x1F;
+    public static final int CAP_SIZE_RANGE = 0x20;
     public static final int SCHEDULED_MODE = 0x22;
     public static final int KEY_ROTATION = 0x23;
     public static final int KEY_ROTATION_RATE = 0x24;
@@ -81,10 +87,24 @@ public class ConfigParam {
     public static final int SUB_SESSION_ID = 0x30;
     public static final int BPRF_PHR_DATA_RATE = 0x31;
     public static final int MAX_NUMBER_OF_MEASUREMENTS = 0x32;
+    public static final int UL_TDOA_TX_INTERVAL = 0x33;
+    public static final int UL_TDOA_RANDOM_WINDOW = 0x34;
     public static final int STS_LENGTH = 0x35;
+    public static final int UL_TDOA_DEVICE_ID = 0x38;
+    public static final int UL_TDOA_TX_TIMESTAMP = 0x39;
+    public static final int MIN_FRAMES_PER_RR = 0x3A;
+    public static final int MTU_SIZE = 0x3B;
+    public static final int INTER_FRAME_INTERVAL = 0x3C;
+    public static final int SESSION_KEY = 0x45;
+    public static final int SUBSESSION_KEY = 0x46;
+
+    // Android specific params.
     public static final int NUM_RANGE_MEASUREMENTS = NB_OF_RANGE_MEASUREMENTS;
     public static final int NUM_AOA_AZIMUTH_MEASUREMENTS = NB_OF_AZIMUTH_MEASUREMENTS;
     public static final int NUM_AOA_ELEVATION_MEASUREMENTS = NB_OF_ELEVATION_MEASUREMENTS;
+
+    public static final int ENABLE_DIAGNOSTICS_RSSI = ENABLE_DIAGNOSTICS;
+    public static final int ENABLE_DIAGRAMS_FRAME_REPORTS_FIELDS = DIAGRAMS_FRAME_REPORTS_FIELDS;
 
     public static final int VENDOR_ID_BYTE_COUNT = 2;
     public static final int STATIC_STS_IV_BYTE_COUNT = 6;
@@ -96,6 +116,7 @@ public class ConfigParam {
     public static final int UWB_CONFIG_ID = CCC_UWB_CONFIG_ID;
     public static final int PULSESHAPE_COMBO = CCC_PULSESHAPE_COMBO;
     public static final int URSK_TTL = CCC_URSK_TTL;
+    public static final int LAST_STS_INDEX_USED = CCC_LAST_INDEX_USED;
     //StartedParams
     public static final int HOP_MODE_KEY = CCC_HOP_MODE_KEY;
     public static final int HOP_MODE_KEY_BYTE = 16;

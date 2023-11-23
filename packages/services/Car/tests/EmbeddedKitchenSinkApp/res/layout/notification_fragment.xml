@@ -24,6 +24,23 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical">
+        <LinearLayout
+            android:layout_height="wrap_content"
+            android:layout_width="match_parent"
+            android:background="#663333">
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Some space added to the top to allow buttons to be touchable
+                while heads up notification(s) are active."
+                android:layout_marginTop="100dp"
+                android:layout_marginBottom="100dp"/>
+        </LinearLayout>
+
+        <View
+            android:id="@+id/fragment_top"
+            android:layout_height="wrap_content"
+            android:layout_width="wrap_content"/>
 
         <TextView
             android:layout_width="wrap_content"
@@ -128,6 +145,15 @@
                 android:textSize="30sp"/>
 
             <Button
+                android:id="@+id/category_message_same_group_button"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_margin="10dp"
+                android:textColor="#ffa9a8"
+                android:text="Message in same group"
+                android:textSize="30sp"/>
+
+            <Button
                 android:id="@+id/category_message_mute_action_button"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
@@ -177,6 +203,14 @@
                 android:layout_height="wrap_content"
                 android:layout_margin="10dp"
                 android:text="Progress (Can't dismiss)"
+                android:textSize="30sp"/>
+
+            <Button
+                android:id="@+id/progress_button_colorized"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_margin="10dp"
+                android:text="Progress Colorized (Can't dismiss)"
                 android:textSize="30sp"/>
 
             <Button

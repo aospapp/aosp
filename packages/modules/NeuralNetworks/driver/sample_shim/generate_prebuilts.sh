@@ -13,7 +13,7 @@ set -e
 cd $ANDROID_BUILD_TOP
 
 source build/envsetup.sh
-ARCHS="x86,arm,arm64,x86_64"
+ARCHS="x86,arm,arm64,x86_64,riscv64"
 SAMPLE_SL_DRIVER="neuralnetworks_sample_sl_driver"
 
 for arch in ${ARCHS//,/ }

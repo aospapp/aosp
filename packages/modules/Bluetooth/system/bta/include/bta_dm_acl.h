@@ -24,7 +24,10 @@
 #include "types/hci_role.h"
 #include "types/raw_address.h"
 
-void BTA_dm_acl_up(const RawAddress bd_addr, tBT_TRANSPORT transport);
+void BTA_dm_acl_up(const RawAddress bd_addr, tBT_TRANSPORT transport,
+                   uint16_t acl_handle);
+void BTA_dm_acl_up_failed(const RawAddress bd_addr, tBT_TRANSPORT transport,
+                          tHCI_STATUS hci_status);
 void BTA_dm_acl_down(const RawAddress bd_addr, tBT_TRANSPORT transport);
 void BTA_dm_report_role_change(const RawAddress bd_addr, tHCI_ROLE new_role,
                                tHCI_STATUS hci_status);

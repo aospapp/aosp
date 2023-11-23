@@ -44,6 +44,7 @@ int log_count = 0;
 int32_t last_group_size;
 int32_t last_group_metric_id;
 int64_t last_connection_duration_nanos;
+int64_t last_broadcast_duration_nanos;
 std::vector<int64_t> last_device_connecting_offset_nanos;
 std::vector<int64_t> last_device_connected_offset_nanos;
 std::vector<int64_t> last_device_connection_duration_nanos;
@@ -84,6 +85,10 @@ void LogLeAudioConnectionSessionReported(
   last_streaming_context_type = streaming_context_type;
 }
 
+void LogLeAudioBroadcastSessionReported(int64_t duration_nanos) {
+  last_broadcast_duration_nanos = duration_nanos;
+}
+
 }  // namespace common
 }  // namespace bluetooth
 
@@ -111,6 +116,7 @@ class MetricsCollectorTest : public Test {
     log_count = 0;
     last_group_size = 0;
     last_group_metric_id = 0;
+    last_broadcast_duration_nanos = 0;
     last_connection_duration_nanos = 0;
     last_device_connecting_offset_nanos = {};
     last_device_connected_offset_nanos = {};
@@ -365,6 +371,17 @@ TEST_F(MetricsCollectorTest, StreamingSessions) {
             static_cast<int32_t>(LeAudioMetricsContextType::MEDIA));
   ASSERT_EQ(last_streaming_context_type[1],
             static_cast<int32_t>(LeAudioMetricsContextType::COMMUNICATION));
+}
+
+TEST_F(MetricsCollectorTest, BroadastSessions) {
+  last_broadcast_duration_nanos = 0;
+  collector->OnBroadcastStateChanged(true);
+  collector->OnBroadcastStateChanged(false);
+  ASSERT_GT(last_broadcast_duration_nanos, 0);
+  last_broadcast_duration_nanos = 0;
+  collector->OnBroadcastStateChanged(true);
+  collector->OnBroadcastStateChanged(false);
+  ASSERT_GT(last_broadcast_duration_nanos, 0);
 }
 
 }  // namespace le_audio

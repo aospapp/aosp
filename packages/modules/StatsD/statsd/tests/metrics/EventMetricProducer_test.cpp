@@ -41,11 +41,15 @@ namespace {
 const ConfigKey kConfigKey(0, 12345);
 const uint64_t protoHash = 0x1234567890;
 
-void makeLogEvent(LogEvent* logEvent, int32_t atomId, int64_t timestampNs, string str) {
+void makeLogEvent(LogEvent* logEvent, int32_t atomId, int64_t timestampNs, string str,
+                  vector<uint8_t>* bytesField = nullptr) {
     AStatsEvent* statsEvent = AStatsEvent_obtain();
     AStatsEvent_setAtomId(statsEvent, atomId);
     AStatsEvent_overwriteTimestamp(statsEvent, timestampNs);
     AStatsEvent_writeString(statsEvent, str.c_str());
+    if (bytesField != nullptr) {
+        AStatsEvent_writeByteArray(statsEvent, bytesField->data(), bytesField->size());
+    }
 
     parseStatsEventToLogEvent(statsEvent, logEvent);
 }
@@ -207,6 +211,58 @@ TEST_F(EventMetricProducerTest, TestOneAtomTagAggregatedEvents) {
 
     LogEvent event4(/*uid=*/0, /*pid=*/0);
     makeLogEvent(&event4, tagId, bucketStartTimeNs + 40, "222");
+
+    sp<MockConditionWizard> wizard = new NaggyMock<MockConditionWizard>();
+    EventMetricProducer eventProducer(kConfigKey, metric, -1 /*-1 meaning no condition*/, {},
+                                      wizard, protoHash, bucketStartTimeNs);
+
+    eventProducer.onMatchedLogEvent(1 /*matcher index*/, event1);
+    eventProducer.onMatchedLogEvent(1 /*matcher index*/, event2);
+    eventProducer.onMatchedLogEvent(1 /*matcher index*/, event3);
+    eventProducer.onMatchedLogEvent(1 /*matcher index*/, event4);
+
+    // Check dump report content.
+    ProtoOutputStream output;
+    std::set<string> strSet;
+    eventProducer.onDumpReport(bucketStartTimeNs + 50, true /*include current partial bucket*/,
+                               true /*erase data*/, FAST, &strSet, &output);
+
+    StatsLogReport report = outputStreamToProto(&output);
+    EXPECT_TRUE(report.has_event_metrics());
+    ASSERT_EQ(2, report.event_metrics().data_size());
+
+    for (EventMetricData metricData : report.event_metrics().data()) {
+        AggregatedAtomInfo atomInfo = metricData.aggregated_atom_info();
+        if (atomInfo.elapsed_timestamp_nanos_size() == 1) {
+            EXPECT_EQ(atomInfo.elapsed_timestamp_nanos(0), bucketStartTimeNs + 40);
+        } else if (atomInfo.elapsed_timestamp_nanos_size() == 3) {
+            EXPECT_EQ(atomInfo.elapsed_timestamp_nanos(0), bucketStartTimeNs + 10);
+            EXPECT_EQ(atomInfo.elapsed_timestamp_nanos(1), bucketStartTimeNs + 20);
+            EXPECT_EQ(atomInfo.elapsed_timestamp_nanos(2), bucketStartTimeNs + 30);
+        } else {
+            FAIL();
+        }
+    }
+}
+
+TEST_F(EventMetricProducerTest, TestBytesFieldAggregatedEvents) {
+    int64_t bucketStartTimeNs = 10000000000;
+    int tagId = 1;
+
+    EventMetric metric;
+    metric.set_id(1);
+
+    vector<uint8_t> bytesField1{10, 20, 30};
+    vector<uint8_t> bytesField2{10, 20, 30, 40};
+    LogEvent event1(/*uid=*/0, /*pid=*/0);
+    makeLogEvent(&event1, tagId, bucketStartTimeNs + 10, "111", &bytesField1);
+    LogEvent event2(/*uid=*/0, /*pid=*/0);
+    makeLogEvent(&event2, tagId, bucketStartTimeNs + 20, "111", &bytesField1);
+    LogEvent event3(/*uid=*/0, /*pid=*/0);
+    makeLogEvent(&event3, tagId, bucketStartTimeNs + 30, "111", &bytesField1);
+
+    LogEvent event4(/*uid=*/0, /*pid=*/0);
+    makeLogEvent(&event4, tagId, bucketStartTimeNs + 40, "111", &bytesField2);
 
     sp<MockConditionWizard> wizard = new NaggyMock<MockConditionWizard>();
     EventMetricProducer eventProducer(kConfigKey, metric, -1 /*-1 meaning no condition*/, {},

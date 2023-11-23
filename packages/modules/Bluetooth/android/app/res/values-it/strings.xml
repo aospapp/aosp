@@ -23,6 +23,7 @@
     <string name="bt_share_picker_label" msgid="7464438494743777696">"Bluetooth"</string>
     <string name="unknown_device" msgid="2317679521750821654">"Dispositivo sconosciuto"</string>
     <string name="unknownNumber" msgid="1245183329830158661">"Sconosciuto"</string>
+    <string name="not_provided" msgid="6938740494380012614">"Non fornito"</string>
     <string name="airplane_error_title" msgid="2570111716678850860">"Modalità aereo"</string>
     <string name="airplane_error_msg" msgid="4853111123699559578">"Non puoi utilizzare Bluetooth in modalità aereo."</string>
     <string name="bt_enable_title" msgid="4484289159118416315"></string>
@@ -128,4 +129,10 @@
     <string name="a2dp_sink_mbs_label" msgid="6035366346569127155">"Audio Bluetooth"</string>
     <string name="bluetooth_opp_file_limit_exceeded" msgid="6612109860149473930">"Impossibile trasferire file con dimensioni superiori a 4 GB"</string>
     <string name="bluetooth_connect_action" msgid="2319449093046720209">"Connettiti a Bluetooth"</string>
+    <string name="bluetooth_enabled_apm_title" msgid="6914461147844949044">"Bluetooth attivo in modalità aereo"</string>
+    <string name="bluetooth_enabled_apm_message" msgid="6168686193308136881">"Se tieni attivo il Bluetooth, il dispositivo memorizza che dovrà tenerlo attivo la prossima volta che sarai in modalità aereo"</string>
+    <string name="bluetooth_stays_on_title" msgid="39720820955212918">"Il Bluetooth rimane attivo"</string>
+    <string name="bluetooth_stays_on_message" msgid="3669663452593157737">"Il dispositivo memorizza che deve tenere attivo il Bluetooth in modalità aereo. Disattiva il Bluetooth se non vuoi tenerlo attivo."</string>
+    <string name="bluetooth_and_wifi_stays_on_title" msgid="5821932798860821244">"Wi-Fi e Bluetooth rimangono attivi"</string>
+    <string name="bluetooth_and_wifi_stays_on_message" msgid="7848565203843882558">"Il dispositivo memorizza che deve tenere attivi il Wi‑Fi e il Bluetooth in modalità aereo. Disattiva il Wi-Fi e il Bluetooth se non vuoi tenerli attivi."</string>
 </resources>

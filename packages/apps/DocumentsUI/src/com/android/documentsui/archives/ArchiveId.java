@@ -54,4 +54,4 @@ public class ArchiveId {
     public String toDocumentId() {
         return mArchiveUri.toString() + DELIMITER + mAccessMode + DELIMITER + mPath;
     }
-};
+}

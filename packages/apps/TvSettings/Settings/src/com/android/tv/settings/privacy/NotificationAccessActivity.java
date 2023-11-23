@@ -16,7 +16,7 @@
 
 package com.android.tv.settings.privacy;
 
-import static com.android.tv.settings.library.overlay.FlavorUtils.ALL_FLAVORS_MASK;
+import static com.android.tv.settings.overlay.FlavorUtils.ALL_FLAVORS_MASK;
 
 import androidx.fragment.app.Fragment;
 

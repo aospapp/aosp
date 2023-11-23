@@ -40,7 +40,7 @@ Result<Metadata> ReadMetadata(const std::string& path) {
     }
     size = be32toh(*reinterpret_cast<uint32_t*>(content.data()));
     if (content.size() < length_prefix_bytes + size) {
-        return Error() << "Invalid metadata: size(" << size << ") mimatches to the content size("
+        return Error() << "Invalid metadata: size(" << size << ") doesn't match content size("
                        << content.size() - length_prefix_bytes << ")";
     }
     content = content.substr(length_prefix_bytes, size);

@@ -103,10 +103,9 @@ class GdBaseTestClass(base_test.BaseTestClass):
         if self.dut.host_only_device:
             new_dut_coverage_info = self.dut.get_coverage_info()
             if self.dut_coverage_info:
-                asserts.assert_true(
-                    self.dut_coverage_info == new_dut_coverage_info,
-                    msg="DUT coverage info must be the same for each test run, old: {}, new: {}".format(
-                        self.dut_coverage_info, new_dut_coverage_info))
+                asserts.assert_true(self.dut_coverage_info == new_dut_coverage_info,
+                                    msg="DUT coverage info must be the same for each test run, old: {}, new: {}".format(
+                                        self.dut_coverage_info, new_dut_coverage_info))
             self.dut_coverage_info = new_dut_coverage_info
         if self.cert.host_only_device:
             new_cert_coverage_info = self.cert.get_coverage_info()
@@ -176,29 +175,27 @@ class GdBaseTestClass(base_test.BaseTestClass):
 
             # Start root canal process
             rootcanal_cmd = [
-                rootcanal,
-                str(rootcanal_test_port),
-                str(rootcanal_hci_port),
+                rootcanal, '-test_port',
+                str(rootcanal_test_port), '-hci_port',
+                str(rootcanal_hci_port), '-link_port',
                 str(rootcanal_link_layer_port), '-controller_properties_file=' + controller_properties_file
             ]
             self.log.debug("Running %s" % " ".join(rootcanal_cmd))
-            self.rootcanal_process = subprocess.Popen(
-                rootcanal_cmd,
-                cwd=get_gd_root(),
-                env=os.environ.copy(),
-                stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,
-                universal_newlines=True)
+            self.rootcanal_process = subprocess.Popen(rootcanal_cmd,
+                                                      cwd=get_gd_root(),
+                                                      env=os.environ.copy(),
+                                                      stdout=subprocess.PIPE,
+                                                      stderr=subprocess.STDOUT,
+                                                      universal_newlines=True)
 
             asserts.assert_true(self.rootcanal_process, msg="Cannot start root-canal at " + str(rootcanal))
-            asserts.assert_true(
-                is_subprocess_alive(self.rootcanal_process), msg="root-canal stopped immediately after running")
+            asserts.assert_true(is_subprocess_alive(self.rootcanal_process),
+                                msg="root-canal stopped immediately after running")
 
-            self.rootcanal_logger = AsyncSubprocessLogger(
-                self.rootcanal_process, [self.rootcanal_logpath],
-                log_to_stdout=self.verbose_mode,
-                tag="rootcanal",
-                color=TerminalColor.MAGENTA)
+            self.rootcanal_logger = AsyncSubprocessLogger(self.rootcanal_process, [self.rootcanal_logpath],
+                                                          log_to_stdout=self.verbose_mode,
+                                                          tag="rootcanal",
+                                                          color=TerminalColor.MAGENTA)
 
             # Modify the device config to include the correct root-canal port
             for gd_device_config in self.controller_configs.get("GdDevice"):
@@ -267,8 +264,8 @@ class GdBaseTestClass(base_test.BaseTestClass):
                 return attr(*args, **kwargs)
             except RpcError as e:
                 exception_info = "".join(traceback.format_exception(e.__class__, e, e.__traceback__))
-                raise signals.TestFailure(
-                    "RpcError during test\n\nRpcError:\n\n%s\n%s" % (exception_info, self.__dump_crashes()))
+                raise signals.TestFailure("RpcError during test\n\nRpcError:\n\n%s\n%s" %
+                                          (exception_info, self.__dump_crashes()))
 
         return __wrapped
 

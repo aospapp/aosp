@@ -16,6 +16,7 @@
 package com.android.launcher3.testing;
 
 import static com.android.launcher3.allapps.AllAppsStore.DEFER_UPDATES_TEST;
+import static com.android.launcher3.config.FeatureFlags.FOLDABLE_SINGLE_PAGE;
 import static com.android.launcher3.util.Executors.MAIN_EXECUTOR;
 
 import android.annotation.TargetApi;
@@ -33,6 +34,7 @@ import androidx.annotation.Nullable;
 
 import com.android.launcher3.CellLayout;
 import com.android.launcher3.DeviceProfile;
+import com.android.launcher3.Hotseat;
 import com.android.launcher3.InvariantDeviceProfile;
 import com.android.launcher3.Launcher;
 import com.android.launcher3.LauncherAppState;
@@ -40,10 +42,15 @@ import com.android.launcher3.LauncherState;
 import com.android.launcher3.R;
 import com.android.launcher3.Workspace;
 import com.android.launcher3.dragndrop.DragLayer;
+import com.android.launcher3.testing.shared.HotseatCellCenterRequest;
+import com.android.launcher3.testing.shared.TestProtocol;
+import com.android.launcher3.testing.shared.WorkspaceCellCenterRequest;
 import com.android.launcher3.util.ResourceBasedOverride;
 import com.android.launcher3.widget.picker.WidgetsFullSheet;
 
+import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
@@ -108,12 +115,12 @@ public class TestInformationHandler implements ResourceBasedOverride {
 
             case TestProtocol.REQUEST_APPS_LIST_SCROLL_Y: {
                 return getLauncherUIProperty(Bundle::putInt,
-                        l -> l.getAppsView().getActiveRecyclerView().getCurrentScrollY());
+                        l -> l.getAppsView().getActiveRecyclerView().computeVerticalScrollOffset());
             }
 
             case TestProtocol.REQUEST_WIDGETS_SCROLL_Y: {
                 return getLauncherUIProperty(Bundle::putInt,
-                        l -> WidgetsFullSheet.getWidgetsView(l).getCurrentScrollY());
+                        l -> WidgetsFullSheet.getWidgetsView(l).computeVerticalScrollOffset());
             }
 
             case TestProtocol.REQUEST_TARGET_INSETS: {
@@ -150,11 +157,7 @@ public class TestInformationHandler implements ResourceBasedOverride {
 
             case TestProtocol.REQUEST_IS_TWO_PANELS:
                 response.putBoolean(TestProtocol.TEST_INFO_RESPONSE_FIELD,
-                        mDeviceProfile.isTwoPanels);
-                return response;
-
-            case TestProtocol.REQUEST_SET_FORCE_PAUSE_TIMEOUT:
-                TestProtocol.sForcePauseTimeout = Long.parseLong(arg);
+                        FOLDABLE_SINGLE_PAGE.get() ? false : mDeviceProfile.isTwoPanels);
                 return response;
 
             case TestProtocol.REQUEST_GET_HAD_NONTEST_EVENTS:
@@ -174,7 +177,7 @@ public class TestInformationHandler implements ResourceBasedOverride {
                 MAIN_EXECUTOR.submit(() ->
                         Launcher.ACTIVITY_TRACKER.getCreatedActivity().getRotationHelper()
                                 .forceAllowRotationForTesting(Boolean.parseBoolean(arg)));
-                return null;
+                return response;
 
             case TestProtocol.REQUEST_WORKSPACE_CELL_LAYOUT_SIZE:
                 return getLauncherUIProperty(Bundle::putIntArray, launcher -> {
@@ -185,7 +188,7 @@ public class TestInformationHandler implements ResourceBasedOverride {
                     return new int[]{cellLayout.getCountX(), cellLayout.getCountY()};
                 });
 
-            case TestProtocol.REQUEST_WORKSPACE_CELL_CENTER:
+            case TestProtocol.REQUEST_WORKSPACE_CELL_CENTER: {
                 final WorkspaceCellCenterRequest request = extra.getParcelable(
                         TestProtocol.TEST_INFO_REQUEST_FIELD);
                 return getLauncherUIProperty(Bundle::putParcelable, launcher -> {
@@ -197,11 +200,49 @@ public class TestInformationHandler implements ResourceBasedOverride {
                             cellLayout, request.cellX, request.cellY, request.spanX, request.spanY);
                     return new Point(cellRect.centerX(), cellRect.centerY());
                 });
+            }
+
+            case TestProtocol.REQUEST_WORKSPACE_COLUMNS_ROWS: {
+                return getLauncherUIProperty(Bundle::putParcelable, launcher -> new Point(
+                        InvariantDeviceProfile.INSTANCE.get(mContext).numColumns,
+                        InvariantDeviceProfile.INSTANCE.get(mContext).numRows)
+                );
+            }
+
+            case TestProtocol.REQUEST_WORKSPACE_CURRENT_PAGE_INDEX: {
+                return getLauncherUIProperty(Bundle::putInt,
+                        launcher -> launcher.getWorkspace().getCurrentPage());
+            }
+
+            case TestProtocol.REQUEST_HOTSEAT_CELL_CENTER: {
+                final HotseatCellCenterRequest request = extra.getParcelable(
+                        TestProtocol.TEST_INFO_REQUEST_FIELD);
+                return getLauncherUIProperty(Bundle::putParcelable, launcher -> {
+                    final Hotseat hotseat = launcher.getHotseat();
+                    final Rect cellRect = getDescendantRectRelativeToDragLayerForCell(launcher,
+                            hotseat, request.cellInd, /* cellY= */ 0,
+                            /* spanX= */ 1, /* spanY= */ 1);
+                    // TODO(b/234322284): return the real center point.
+                    return new Point(cellRect.left + (cellRect.right - cellRect.left) / 3,
+                            cellRect.top + (cellRect.bottom - cellRect.top) / 3);
+                });
+            }
 
             case TestProtocol.REQUEST_HAS_TIS: {
-                response.putBoolean(
-                        TestProtocol.REQUEST_HAS_TIS, false);
+                response.putBoolean(TestProtocol.REQUEST_HAS_TIS, false);
                 return response;
+            }
+
+            case TestProtocol.REQUEST_ALL_APPS_TOP_PADDING: {
+                return getLauncherUIProperty(Bundle::putInt,
+                        l -> l.getAppsView().getActiveRecyclerView().getClipBounds().top);
+            }
+
+            case TestProtocol.REQUEST_ALL_APPS_BOTTOM_PADDING: {
+                return getLauncherUIProperty(Bundle::putInt,
+                        l -> l.getAppsView().getBottom()
+                                - l.getAppsView().getActiveRecyclerView().getBottom()
+                                + l.getAppsView().getActiveRecyclerView().getPaddingBottom());
             }
 
             default:
@@ -246,17 +287,24 @@ public class TestInformationHandler implements ResourceBasedOverride {
      */
     private static <S, T> Bundle getUIProperty(
             BundleSetter<T> bundleSetter, Function<S, T> provider, Supplier<S> targetSupplier) {
+        return getFromExecutorSync(MAIN_EXECUTOR, () -> {
+            S target = targetSupplier.get();
+            if (target == null) {
+                return null;
+            }
+            T value = provider.apply(target);
+            Bundle response = new Bundle();
+            bundleSetter.set(response, TestProtocol.TEST_INFO_RESPONSE_FIELD, value);
+            return response;
+        });
+    }
+
+    /**
+     * Executes the callback on the executor and waits for the result
+     */
+    protected static <T> T getFromExecutorSync(ExecutorService executor, Callable<T> callback) {
         try {
-            return MAIN_EXECUTOR.submit(() -> {
-                S target = targetSupplier.get();
-                if (target == null) {
-                    return null;
-                }
-                T value = provider.apply(target);
-                Bundle response = new Bundle();
-                bundleSetter.set(response, TestProtocol.TEST_INFO_RESPONSE_FIELD, value);
-                return response;
-            }).get();
+            return executor.submit(callback).get();
         } catch (ExecutionException | InterruptedException e) {
             throw new RuntimeException(e);
         }

@@ -166,4 +166,15 @@ public class ProcNetTest extends DeviceTestCase implements IBuildReceiver, IDevi
             assertTrue(interval <= upperBoundSec);
         }
     }
+
+    /**
+     * Verify that cubic is used as the congestion control algorithm.
+     * (This repeats the VTS test, and is here for good performance of the internet as a whole.)
+     * TODO: revisit this once a better CC algorithm like BBR2 is available.
+     */
+    public void testCongestionControl() throws Exception {
+        String path = "/proc/sys/net/ipv4/tcp_congestion_control";
+        String value = mDevice.executeAdbCommand("shell", "cat", path).trim();
+        assertEquals(value, "cubic");
+    }
 }

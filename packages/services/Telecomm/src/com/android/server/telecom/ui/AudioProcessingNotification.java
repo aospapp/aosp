@@ -19,6 +19,7 @@ package com.android.server.telecom.ui;
 import android.app.Notification;
 import android.app.NotificationManager;
 import android.content.Context;
+import android.os.UserHandle;
 import android.telecom.Log;
 
 import com.android.server.telecom.Call;
@@ -52,7 +53,8 @@ public class AudioProcessingNotification extends CallsManagerListenerBase {
             showAudioProcessingNotification(call);
         } else if (oldState == CallState.AUDIO_PROCESSING
                 && newState != CallState.AUDIO_PROCESSING) {
-            cancelAudioProcessingNotification();
+            cancelAudioProcessingNotification(
+                    call.getAssociatedUser());
         }
     }
 
@@ -66,7 +68,8 @@ public class AudioProcessingNotification extends CallsManagerListenerBase {
     @Override
     public void onCallRemoved(Call call) {
         if (call == mCallInAudioProcessing) {
-            cancelAudioProcessingNotification();
+            cancelAudioProcessingNotification(
+                    call.getAssociatedUser());
         }
     }
 
@@ -76,7 +79,8 @@ public class AudioProcessingNotification extends CallsManagerListenerBase {
      * @param call The missed call.
      */
     private void showAudioProcessingNotification(Call call) {
-        Log.i(this, "showAudioProcessingNotification");
+        Log.i(this, "showAudioProcessingNotification for user = %s",
+                call.getAssociatedUser());
         mCallInAudioProcessing = call;
 
         Notification.Builder builder = new Notification.Builder(mContext,
@@ -92,12 +96,14 @@ public class AudioProcessingNotification extends CallsManagerListenerBase {
 
         Notification notification = builder.build();
 
-        mNotificationManager.notify(
-                NOTIFICATION_TAG, AUDIO_PROCESSING_NOTIFICATION_ID, notification);
+        mNotificationManager.notifyAsUser(NOTIFICATION_TAG, AUDIO_PROCESSING_NOTIFICATION_ID,
+                notification, mCallInAudioProcessing.getAssociatedUser());
     }
 
     /** Cancels the audio processing notification. */
-    private void cancelAudioProcessingNotification() {
-        mNotificationManager.cancel(NOTIFICATION_TAG, AUDIO_PROCESSING_NOTIFICATION_ID);
+    private void cancelAudioProcessingNotification(UserHandle userHandle) {
+        Log.i(this, "cancelAudioProcessingNotification for user = %s", userHandle);
+        mNotificationManager.cancelAsUser(NOTIFICATION_TAG,
+                AUDIO_PROCESSING_NOTIFICATION_ID, userHandle);
     }
 }

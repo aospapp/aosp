@@ -20,7 +20,6 @@
     android:id="@+id/RootView"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/launcher_bg_color"
     android:fitsSystemWindows="true" >
 
     <GridView

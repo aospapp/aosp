@@ -17,14 +17,15 @@
 package com.android.settings.network.apn;
 
 import static com.google.common.truth.Truth.assertThat;
-
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
 import android.content.ContentResolver;
@@ -34,22 +35,22 @@ import android.content.Intent;
 import android.content.res.Resources;
 import android.database.Cursor;
 import android.net.Uri;
+import android.os.PersistableBundle;
+import android.os.UserManager;
+import android.telephony.CarrierConfigManager;
 import android.view.KeyEvent;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
-
 import androidx.fragment.app.FragmentActivity;
 import androidx.preference.EditTextPreference;
 import androidx.preference.ListPreference;
 import androidx.preference.MultiSelectListPreference;
 import androidx.preference.SwitchPreference;
-
 import com.android.settings.R;
 import com.android.settings.network.ProxySubscriptionManager;
 import com.android.settings.network.apn.ApnEditor.ApnData;
 import com.android.settings.testutils.shadow.ShadowFragment;
-
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -102,14 +103,18 @@ public class ApnEditorTest {
     @Mock
     private FragmentActivity mActivity;
     @Mock
+    private UserManager mUserManager;
+    @Mock
     private ProxySubscriptionManager mProxySubscriptionMgr;
-
+    @Mock
+    private CarrierConfigManager mCarrierConfigManager;
     @Captor
     private ArgumentCaptor<Uri> mUriCaptor;
 
     private ApnEditor mApnEditorUT;
     private Context mContext;
     private Resources mResources;
+    private PersistableBundle mBundle = new PersistableBundle();
 
     @Before
     public void setUp() {
@@ -126,6 +131,14 @@ public class ApnEditorTest {
         doReturn(mContext).when(mApnEditorUT).getContext();
         doReturn(mContext.getTheme()).when(mActivity).getTheme();
         doReturn(mContext.getContentResolver()).when(mActivity).getContentResolver();
+
+        doReturn(mUserManager).when(mContext).getSystemService(UserManager.class);
+        doReturn(true).when(mUserManager).isAdminUser();
+        doReturn(false).when(mUserManager)
+                .hasUserRestriction(UserManager.DISALLOW_CONFIG_MOBILE_NETWORKS);
+        doReturn(mCarrierConfigManager).when(mContext)
+                .getSystemService(Context.CARRIER_CONFIG_SERVICE);
+        doReturn(mBundle).when(mCarrierConfigManager).getConfigForSubId(anyInt());
 
         setMockPreference(mContext);
         mApnEditorUT.mApnData = new FakeApnData(APN_DATA);
@@ -379,6 +392,20 @@ public class ApnEditorTest {
         verify(mApnEditorUT).finish();
     }
 
+    @Test
+    public void testDeleteApnData_shouldNotPresentMenuWhenNotSupportAdding() {
+        mBundle.putBoolean(CarrierConfigManager.KEY_ALLOW_ADDING_APNS_BOOL, false);
+
+        MenuItem item = Mockito.mock(MenuItem.class);
+        Menu menu = Mockito.mock(Menu.class);
+        doReturn(item).when(menu).add(anyInt(), anyInt(), anyInt(), anyInt());
+
+        mApnEditorUT.getCarrierCustomizedConfig(mContext);
+        mApnEditorUT.onCreateOptionsMenu(menu, null);
+
+        verify(menu, times(0)).add(anyInt(), eq(ApnEditor.MENU_DELETE), anyInt(), anyInt());
+    }
+
     @Test(expected = ClassCastException.class)
     public void testApnData_invalidIntegerType_throwsInvalidTypeException() {
         // GIVEN a ApnData constructed from cursor
@@ -449,6 +476,27 @@ public class ApnEditorTest {
     @Test
     public void formatInteger_shouldIgnoreNonIntegers() {
         assertThat(ApnEditor.formatInteger("not an int")).isEqualTo("not an int");
+    }
+
+    @Test
+    @Config(shadows = ShadowFragment.class)
+    public void onCreate_notAdminUser_shouldFinish() {
+        doReturn(false).when(mUserManager).isAdminUser();
+
+        mApnEditorUT.onCreate(null);
+
+        verify(mApnEditorUT).finish();
+    }
+
+    @Test
+    @Config(shadows = ShadowFragment.class)
+    public void onCreate_hasUserRestriction_shouldFinish() {
+        doReturn(true).when(mUserManager)
+                .hasUserRestriction(UserManager.DISALLOW_CONFIG_MOBILE_NETWORKS);
+
+        mApnEditorUT.onCreate(null);
+
+        verify(mApnEditorUT).finish();
     }
 
     @Test

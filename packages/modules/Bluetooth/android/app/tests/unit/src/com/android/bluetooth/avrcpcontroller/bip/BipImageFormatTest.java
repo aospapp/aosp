@@ -273,4 +273,32 @@ public class BipImageFormatTest {
         BipImageFormat format = BipImageFormat.createNative(new BipEncoding(BipEncoding.JPEG, null),
                 null, -1);
     }
+
+    @Test
+    public void testEquals_withSameInstance() {
+        BipImageFormat format = BipImageFormat.createNative(
+                new BipEncoding(BipEncoding.JPEG, null), BipPixel.createFixed(1280, 1024), -1);
+
+        Assert.assertTrue(format.equals(format));
+    }
+
+    @Test
+    public void testEquals_withDifferentClass() {
+        BipImageFormat format = BipImageFormat.createNative(
+                new BipEncoding(BipEncoding.JPEG, null), BipPixel.createFixed(1280, 1024), -1);
+        String notFormat = "notFormat";
+
+        Assert.assertFalse(format.equals(notFormat));
+    }
+
+    @Test
+    public void testEquals_withSameInfo() {
+        BipEncoding encoding = new BipEncoding(BipEncoding.JPEG, null);
+        BipPixel pixel = BipPixel.createFixed(1280, 1024);
+
+        BipImageFormat format = BipImageFormat.createNative(encoding, pixel, -1);
+        BipImageFormat formatEqual = BipImageFormat.createNative(encoding, pixel, -1);
+
+        Assert.assertTrue(format.equals(formatEqual));
+    }
 }

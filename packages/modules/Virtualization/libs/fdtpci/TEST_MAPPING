@@ -1,0 +1,7 @@
+{
+  "avf-presubmit": [
+    {
+      "name": "vmbase_example.integration_test"
+    }
+  ]
+}

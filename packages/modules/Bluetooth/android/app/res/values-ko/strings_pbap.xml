@@ -13,4 +13,6 @@
     <string name="localPhoneName" msgid="9119254982537191352">"내 이름"</string>
     <string name="defaultnumber" msgid="5348816189286607406">"000000"</string>
     <string name="pbap_notification_group" msgid="4215789331721465381">"블루투스 연락처 공유"</string>
+    <string name="phonebook_advance_feature_support" msgid="8129553051734505128">"연락처 목록 고급 기능 지원됨"</string>
+    <string name="repair_for_adv_phonebook_feature" msgid="3489797973131684927">"고급 연락처 목록 기능을 위해 다시 페어링"</string>
 </resources>

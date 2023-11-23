@@ -29,10 +29,6 @@
 
 #pragma once
 
-#ifdef HAS_BDROID_BUILDCFG
-#include "bdroid_buildcfg.h"
-#endif
-
 #pragma message "This header file bt_hci_bdroid.h is no longer supported"
 #pragma message "Please update to remove these declarations"
 

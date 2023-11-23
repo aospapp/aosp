@@ -120,7 +120,7 @@ class DismissAnimationHelper {
 
         viewHolder.itemView.animate()
                 .translationX(0)
-                .alpha(1)
+                .alpha(viewHolder.getAlpha())
                 .setListener(new AnimatorListenerAdapter() {
                     @Override
                     public void onAnimationEnd(Animator animation) {
@@ -131,7 +131,7 @@ class DismissAnimationHelper {
 
     float calculateAlphaValue(CarNotificationBaseViewHolder viewHolder, float translateX) {
         if (!viewHolder.isDismissible() || translateX == 0) {
-            return 1F;
+            return viewHolder.getAlpha();
         }
 
         int width = viewHolder.itemView.getWidth();

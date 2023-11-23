@@ -16,8 +16,11 @@
 
 package com.android.server.telecom.tests;
 
+import static com.android.server.telecom.tests.ConnectionServiceFixture.STATUS_HINTS_EXTRA;
+
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.nullable;
@@ -38,12 +41,17 @@ import android.content.Context;
 import android.content.IContentProvider;
 import android.content.pm.PackageManager;
 import android.media.AudioDeviceInfo;
+import android.content.Intent;
+import android.graphics.drawable.Icon;
 import android.media.AudioManager;
 import android.net.Uri;
 import android.os.Binder;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.os.Process;
 import android.os.UserHandle;
+import android.os.UserManager;
 import android.provider.BlockedNumberContract;
 import android.telecom.Call;
 import android.telecom.CallAudioState;
@@ -54,12 +62,14 @@ import android.telecom.Log;
 import android.telecom.ParcelableCall;
 import android.telecom.PhoneAccount;
 import android.telecom.PhoneAccountHandle;
+import android.telecom.StatusHints;
 import android.telecom.TelecomManager;
 import android.telecom.VideoProfile;
 import android.test.suitebuilder.annotation.LargeTest;
 import android.test.suitebuilder.annotation.MediumTest;
 
 import androidx.test.filters.FlakyTest;
+import androidx.test.filters.SmallTest;
 
 import com.android.internal.telecom.IInCallAdapter;
 import android.telecom.CallerInfo;
@@ -87,6 +97,7 @@ import java.util.concurrent.TimeUnit;
  */
 @RunWith(JUnit4.class)
 public class BasicCallTests extends TelecomSystemTest {
+    private static final String CALLING_PACKAGE = BasicCallTests.class.getPackageName();
     private static final String TEST_BUNDLE_KEY = "android.telecom.extra.TEST";
     private static final String TEST_EVENT = "android.telecom.event.TEST";
 
@@ -194,7 +205,7 @@ public class BasicCallTests extends TelecomSystemTest {
     @Test
     public void testTelecomManagerAcceptRingingVideoCall() throws Exception {
         IdPair ids = startIncomingPhoneCall("650-555-1212", mPhoneAccountA0.getAccountHandle(),
-                VideoProfile.STATE_BIDIRECTIONAL, mConnectionServiceFixtureA);
+                VideoProfile.STATE_BIDIRECTIONAL, mConnectionServiceFixtureA, null);
 
         assertEquals(Call.STATE_RINGING, mInCallServiceFixtureX.getCall(ids.mCallId).getState());
         assertEquals(Call.STATE_RINGING, mInCallServiceFixtureY.getCall(ids.mCallId).getState());
@@ -223,7 +234,7 @@ public class BasicCallTests extends TelecomSystemTest {
     @Test
     public void testTelecomManagerAcceptRingingVideoCallAsAudio() throws Exception {
         IdPair ids = startIncomingPhoneCall("650-555-1212", mPhoneAccountA0.getAccountHandle(),
-                VideoProfile.STATE_BIDIRECTIONAL, mConnectionServiceFixtureA);
+                VideoProfile.STATE_BIDIRECTIONAL, mConnectionServiceFixtureA, null);
 
         assertEquals(Call.STATE_RINGING, mInCallServiceFixtureX.getCall(ids.mCallId).getState());
         assertEquals(Call.STATE_RINGING, mInCallServiceFixtureY.getCall(ids.mCallId).getState());
@@ -254,7 +265,7 @@ public class BasicCallTests extends TelecomSystemTest {
     @Test
     public void testTelecomManagerAcceptRingingInvalidVideoState() throws Exception {
         IdPair ids = startIncomingPhoneCall("650-555-1212", mPhoneAccountA0.getAccountHandle(),
-                VideoProfile.STATE_BIDIRECTIONAL, mConnectionServiceFixtureA);
+                VideoProfile.STATE_BIDIRECTIONAL, mConnectionServiceFixtureA, null);
 
         assertEquals(Call.STATE_RINGING, mInCallServiceFixtureX.getCall(ids.mCallId).getState());
         assertEquals(Call.STATE_RINGING, mInCallServiceFixtureY.getCall(ids.mCallId).getState());
@@ -327,7 +338,7 @@ public class BasicCallTests extends TelecomSystemTest {
                 TelecomManager.EXTRA_INCOMING_CALL_ADDRESS,
                 Uri.fromParts(PhoneAccount.SCHEME_TEL, phoneNumber, null));
         mTelecomSystem.getTelecomServiceImpl().getBinder()
-                .addNewIncomingCall(mPhoneAccountA0.getAccountHandle(), extras);
+                .addNewIncomingCall(mPhoneAccountA0.getAccountHandle(), extras, CALLING_PACKAGE);
 
         waitForHandlerAction(mConnectionServiceFixtureA.mConnectionServiceDelegate.getHandler(),
                 TEST_TIMEOUT);
@@ -392,7 +403,7 @@ public class BasicCallTests extends TelecomSystemTest {
                 TelecomManager.EXTRA_INCOMING_CALL_ADDRESS,
                 Uri.fromParts(PhoneAccount.SCHEME_TEL, "650-555-1212", null));
         mTelecomSystem.getTelecomServiceImpl().getBinder()
-                .addNewIncomingCall(mPhoneAccountA0.getAccountHandle(), extras);
+                .addNewIncomingCall(mPhoneAccountA0.getAccountHandle(), extras, CALLING_PACKAGE);
 
         waitForHandlerAction(mConnectionServiceFixtureA.mConnectionServiceDelegate.getHandler(),
                 TEST_TIMEOUT);
@@ -442,7 +453,7 @@ public class BasicCallTests extends TelecomSystemTest {
                 TelecomManager.EXTRA_INCOMING_CALL_ADDRESS,
                 Uri.fromParts(PhoneAccount.SCHEME_TEL, "650-555-1212", null));
         mTelecomSystem.getTelecomServiceImpl().getBinder()
-                .addNewIncomingCall(mPhoneAccountA0.getAccountHandle(), extras);
+                .addNewIncomingCall(mPhoneAccountA0.getAccountHandle(), extras, CALLING_PACKAGE);
 
         waitForHandlerAction(mConnectionServiceFixtureA.mConnectionServiceDelegate.getHandler(),
                 TEST_TIMEOUT);
@@ -494,7 +505,7 @@ public class BasicCallTests extends TelecomSystemTest {
                 TelecomManager.EXTRA_INCOMING_CALL_ADDRESS,
                 Uri.fromParts(PhoneAccount.SCHEME_TEL, phoneNumber, null));
         mTelecomSystem.getTelecomServiceImpl().getBinder()
-                .addNewIncomingCall(mPhoneAccountA0.getAccountHandle(), extras);
+                .addNewIncomingCall(mPhoneAccountA0.getAccountHandle(), extras, CALLING_PACKAGE);
 
         waitForHandlerAction(mConnectionServiceFixtureA.mConnectionServiceDelegate.getHandler(),
                 TEST_TIMEOUT);
@@ -692,13 +703,13 @@ public class BasicCallTests extends TelecomSystemTest {
     @MediumTest
     @Test
     public void testBasicConferenceCall() throws Exception {
-        makeConferenceCall();
+        makeConferenceCall(null, null);
     }
 
     @MediumTest
     @Test
     public void testAddCallToConference1() throws Exception {
-        ParcelableCall conferenceCall = makeConferenceCall();
+        ParcelableCall conferenceCall = makeConferenceCall(null, null);
         IdPair callId3 = startAndMakeActiveOutgoingCall("650-555-1214",
                 mPhoneAccountA0.getAccountHandle(), mConnectionServiceFixtureA);
         // testAddCallToConference{1,2} differ in the order of arguments to InCallAdapter#conference
@@ -716,7 +727,7 @@ public class BasicCallTests extends TelecomSystemTest {
     @MediumTest
     @Test
     public void testAddCallToConference2() throws Exception {
-        ParcelableCall conferenceCall = makeConferenceCall();
+        ParcelableCall conferenceCall = makeConferenceCall(null, null);
         IdPair callId3 = startAndMakeActiveOutgoingCall("650-555-1214",
                 mPhoneAccountA0.getAccountHandle(), mConnectionServiceFixtureA);
         mInCallServiceFixtureX.getInCallAdapter()
@@ -974,7 +985,7 @@ public class BasicCallTests extends TelecomSystemTest {
     public void testOutgoingCallSelectPhoneAccountVideo() throws Exception {
         startOutgoingPhoneCallPendingCreateConnection("650-555-1212",
                 null, mConnectionServiceFixtureA,
-                Process.myUserHandle(), VideoProfile.STATE_BIDIRECTIONAL);
+                Process.myUserHandle(), VideoProfile.STATE_BIDIRECTIONAL, null);
         com.android.server.telecom.Call call = mTelecomSystem.getCallsManager().getCalls()
                 .iterator().next();
         assert(call.isVideoCallingSupportedByPhoneAccount());
@@ -997,7 +1008,7 @@ public class BasicCallTests extends TelecomSystemTest {
     public void testOutgoingCallSelectPhoneAccountNoVideo() throws Exception {
         startOutgoingPhoneCallPendingCreateConnection("650-555-1212",
                 null, mConnectionServiceFixtureA,
-                Process.myUserHandle(), VideoProfile.STATE_BIDIRECTIONAL);
+                Process.myUserHandle(), VideoProfile.STATE_BIDIRECTIONAL, null);
         com.android.server.telecom.Call call = mTelecomSystem.getCallsManager().getCalls()
                 .iterator().next();
         assert(call.isVideoCallingSupportedByPhoneAccount());
@@ -1211,5 +1222,146 @@ public class BasicCallTests extends TelecomSystemTest {
         // Check mute status was changed twice with true and false.
         assertTrue(muteValues.get(0));
         assertFalse(muteValues.get(1));
+    }
+
+    /**
+     * Verifies that StatusHints image is validated in ConnectionServiceWrapper#addConferenceCall
+     * when the image doesn't belong to the calling user. Simulates a scenario where an app
+     * could manipulate the contents of the bundle and send it via the binder to upload an image
+     * from another user.
+     *
+     * @throws Exception
+     */
+    @SmallTest
+    @Test
+    public void testValidateStatusHintsImage_addConferenceCall() throws Exception {
+        Intent callIntent1 = new Intent();
+        // Stub intent for call2
+        Intent callIntent2 = new Intent();
+        Bundle callExtras1 = new Bundle();
+        Icon icon = Icon.createWithContentUri("content://10@media/external/images/media/");
+        // Load StatusHints extra into TelecomManager.EXTRA_OUTGOING_CALL_EXTRAS to be processed
+        // as the call extras. This will be leveraged in ConnectionServiceFixture to set the
+        // StatusHints for the given connection.
+        StatusHints statusHints = new StatusHints(icon);
+        assertNotNull(statusHints.getIcon());
+        callExtras1.putParcelable(STATUS_HINTS_EXTRA, statusHints);
+        callIntent1.putExtra(TelecomManager.EXTRA_OUTGOING_CALL_EXTRAS, callExtras1);
+
+        // Start conference call to invoke ConnectionServiceWrapper#addConferenceCall.
+        // Note that the calling user would be User 0.
+        ParcelableCall conferenceCall = makeConferenceCall(callIntent1, callIntent2);
+
+        // Ensure that StatusHints was set.
+        assertNotNull(mInCallServiceFixtureX.getCall(mInCallServiceFixtureX.mLatestCallId)
+                .getStatusHints());
+        // Ensure that the StatusHints image icon was disregarded.
+        assertNull(mInCallServiceFixtureX.getCall(mInCallServiceFixtureX.mLatestCallId)
+                .getStatusHints().getIcon());
+    }
+
+    /**
+     * Verifies that StatusHints image is validated in
+     * ConnectionServiceWrapper#handleCreateConnectionComplete when the image doesn't belong to the
+     * calling user. Simulates a scenario where an app could manipulate the contents of the
+     * bundle and send it via the binder to upload an image from another user.
+     *
+     * @throws Exception
+     */
+    @SmallTest
+    @Test
+    public void testValidateStatusHintsImage_handleCreateConnectionComplete() throws Exception {
+        Bundle extras = new Bundle();
+        Icon icon = Icon.createWithContentUri("content://10@media/external/images/media/");
+        // Load the bundle with the test extra in order to simulate an app directly invoking the
+        // binder on ConnectionServiceWrapper#handleCreateConnectionComplete.
+        StatusHints statusHints = new StatusHints(icon);
+        assertNotNull(statusHints.getIcon());
+        extras.putParcelable(STATUS_HINTS_EXTRA, statusHints);
+
+        // Start incoming call with StatusHints extras
+        // Note that the calling user in ConnectionServiceWrapper#handleCreateConnectionComplete
+        // would be User 0.
+        IdPair ids = startIncomingPhoneCallWithExtras("650-555-1212",
+                mPhoneAccountA0.getAccountHandle(), mConnectionServiceFixtureA, extras);
+
+        // Ensure that StatusHints was set.
+        assertNotNull(mInCallServiceFixtureX.getCall(ids.mCallId).getStatusHints());
+        // Ensure that the StatusHints image icon was disregarded.
+        assertNull(mInCallServiceFixtureX.getCall(ids.mCallId).getStatusHints().getIcon());
+    }
+
+    /**
+     * Verifies that StatusHints image is validated in ConnectionServiceWrapper#setStatusHints
+     * when the image doesn't belong to the calling user. Simulates a scenario where an app
+     * could manipulate the contents of the bundle and send it via the binder to upload an image
+     * from another user.
+     *
+     * @throws Exception
+     */
+    @SmallTest
+    @Test
+    public void testValidateStatusHintsImage_setStatusHints() throws Exception {
+        IdPair outgoing = startAndMakeActiveOutgoingCall("650-555-1214",
+                mPhoneAccountA0.getAccountHandle(), mConnectionServiceFixtureA);
+
+        // Modify existing connection with StatusHints image exploit
+        Icon icon = Icon.createWithContentUri("content://10@media/external/images/media/");
+        StatusHints statusHints = new StatusHints(icon);
+        assertNotNull(statusHints.getIcon());
+        ConnectionServiceFixture.ConnectionInfo connectionInfo = mConnectionServiceFixtureA
+                .mConnectionById.get(outgoing.mConnectionId);
+        connectionInfo.statusHints = statusHints;
+
+        // Invoke ConnectionServiceWrapper#setStatusHints.
+        // Note that the calling user would be User 0.
+        mConnectionServiceFixtureA.sendSetStatusHints(outgoing.mConnectionId);
+        waitForHandlerAction(mConnectionServiceFixtureA.mConnectionServiceDelegate.getHandler(),
+                TEST_TIMEOUT);
+
+        // Ensure that StatusHints was set.
+        assertNotNull(mInCallServiceFixtureX.getCall(outgoing.mCallId).getStatusHints());
+        // Ensure that the StatusHints image icon was disregarded.
+        assertNull(mInCallServiceFixtureX.getCall(outgoing.mCallId)
+                .getStatusHints().getIcon());
+    }
+
+    /**
+     * Verifies that StatusHints image is validated in
+     * ConnectionServiceWrapper#addExistingConnection when the image doesn't belong to the calling
+     * user. Simulates a scenario where an app could manipulate the contents of the bundle and
+     * send it via the binder to upload an image from another user.
+     *
+     * @throws Exception
+     */
+    @SmallTest
+    @Test
+    public void testValidateStatusHintsImage_addExistingConnection() throws Exception {
+        IdPair outgoing = startAndMakeActiveOutgoingCall("650-555-1214",
+                mPhoneAccountA0.getAccountHandle(), mConnectionServiceFixtureA);
+        Connection existingConnection = mConnectionServiceFixtureA.mLatestConnection;
+
+        // Modify existing connection with StatusHints image exploit
+        Icon icon = Icon.createWithContentUri("content://10@media/external/images/media/");
+        StatusHints modifiedStatusHints = new StatusHints(icon);
+        assertNotNull(modifiedStatusHints.getIcon());
+        ConnectionServiceFixture.ConnectionInfo connectionInfo = mConnectionServiceFixtureA
+                .mConnectionById.get(outgoing.mConnectionId);
+        connectionInfo.statusHints = modifiedStatusHints;
+
+        // Invoke ConnectionServiceWrapper#addExistingConnection.
+        // Note that the calling user would be User 0.
+        mConnectionServiceFixtureA.sendAddExistingConnection(outgoing.mConnectionId);
+        waitForHandlerAction(mConnectionServiceFixtureA.mConnectionServiceDelegate.getHandler(),
+                TEST_TIMEOUT);
+
+        // Ensure that StatusHints was set. Due to test setup, the ParcelableConnection object that
+        // is passed into sendAddExistingConnection is instantiated on invocation. The call's
+        // StatusHints are not updated at the time of completion, so instead, we can verify that
+        // the ParcelableConnection object was modified.
+        assertNotNull(mConnectionServiceFixtureA.mLatestParcelableConnection.getStatusHints());
+        // Ensure that the StatusHints image icon was disregarded.
+        assertNull(mConnectionServiceFixtureA.mLatestParcelableConnection
+                .getStatusHints().getIcon());
     }
 }

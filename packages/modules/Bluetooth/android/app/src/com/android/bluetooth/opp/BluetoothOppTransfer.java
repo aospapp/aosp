@@ -52,8 +52,10 @@ import android.os.ParcelUuid;
 import android.os.Process;
 import android.util.Log;
 
+import com.android.bluetooth.BluetoothMethodProxy;
 import com.android.bluetooth.BluetoothObexTransport;
 import com.android.bluetooth.Utils;
+import com.android.internal.annotations.VisibleForTesting;
 import com.android.obex.ObexTransport;
 
 import java.io.IOException;
@@ -69,11 +71,14 @@ public class BluetoothOppTransfer implements BluetoothOppBatch.BluetoothOppBatch
 
     private static final boolean V = Constants.VERBOSE;
 
-    private static final int TRANSPORT_ERROR = 10;
+    @VisibleForTesting
+    static final int TRANSPORT_ERROR = 10;
 
-    private static final int TRANSPORT_CONNECTED = 11;
+    @VisibleForTesting
+    static final int TRANSPORT_CONNECTED = 11;
 
-    private static final int SOCKET_ERROR_RETRY = 13;
+    @VisibleForTesting
+    static final int SOCKET_ERROR_RETRY = 13;
 
     private static final int CONNECT_WAIT_TIMEOUT = 45000;
 
@@ -87,23 +92,27 @@ public class BluetoothOppTransfer implements BluetoothOppBatch.BluetoothOppBatch
 
     private BluetoothAdapter mAdapter;
 
-    private BluetoothDevice mDevice;
+    @VisibleForTesting
+    BluetoothDevice mDevice;
 
     private BluetoothOppBatch mBatch;
 
     private BluetoothOppObexSession mSession;
 
-    private BluetoothOppShareInfo mCurrentShare;
+    @VisibleForTesting
+    BluetoothOppShareInfo mCurrentShare;
 
     private ObexTransport mTransport;
 
     private HandlerThread mHandlerThread;
 
-    private EventHandler mSessionHandler;
+    @VisibleForTesting
+    EventHandler mSessionHandler;
 
     private long mTimestamp;
 
-    private class OppConnectionReceiver extends BroadcastReceiver {
+    @VisibleForTesting
+    class OppConnectionReceiver extends BroadcastReceiver {
         @Override
         public void onReceive(Context context, Intent intent) {
             String action = intent.getAction();
@@ -112,14 +121,17 @@ public class BluetoothOppTransfer implements BluetoothOppBatch.BluetoothOppBatch
             }
             if (action.equals(BluetoothDevice.ACTION_ACL_DISCONNECTED)) {
                 BluetoothDevice device = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
-                if (device == null || mBatch == null || mCurrentShare == null) {
-                    Log.e(TAG, "device : " + device + " mBatch :" + mBatch + " mCurrentShare :"
+                if (device == null) {
+                    Log.e(TAG, "Device is null");
+                    return;
+                } else if (mBatch == null || mCurrentShare == null) {
+                    Log.e(TAG, "device : " + device.getIdentityAddress() + " mBatch :" + mBatch + " mCurrentShare :"
                             + mCurrentShare);
                     return;
                 }
                 try {
                     if (V) {
-                        Log.v(TAG, "Device :" + device + "- OPP device: " + mBatch.mDestination
+                        Log.v(TAG, "Device :" + device.getIdentityAddress() + "- OPP device: " + mBatch.mDestination
                                 + " \n mCurrentShare.mConfirm == " + mCurrentShare.mConfirm);
                     }
                     if ((device.equals(mBatch.mDestination)) && (mCurrentShare.mConfirm
@@ -131,8 +143,8 @@ public class BluetoothOppTransfer implements BluetoothOppBatch.BluetoothOppBatch
                         // Remove the timeout message triggered earlier during Obex Put
                         mSessionHandler.removeMessages(BluetoothOppObexSession.MSG_CONNECT_TIMEOUT);
                         // Now reuse the same message to clean up the session.
-                        mSessionHandler.sendMessage(mSessionHandler.obtainMessage(
-                                BluetoothOppObexSession.MSG_CONNECT_TIMEOUT));
+                        BluetoothMethodProxy.getInstance().handlerSendEmptyMessage(mSessionHandler,
+                                BluetoothOppObexSession.MSG_CONNECT_TIMEOUT);
                     }
                 } catch (Exception e) {
                     e.printStackTrace();
@@ -152,7 +164,11 @@ public class BluetoothOppTransfer implements BluetoothOppBatch.BluetoothOppBatch
                         Log.w(TAG, "OPP SDP search, target device is null, ignoring result");
                         return;
                     }
-                    if (!device.getAddress().equalsIgnoreCase(mDevice.getAddress())) {
+                    String deviceIdentityAddress = device.getIdentityAddress();
+                    String transferDeviceIdentityAddress = mDevice.getIdentityAddress();
+                    if (deviceIdentityAddress == null || transferDeviceIdentityAddress == null
+                            || !deviceIdentityAddress.equalsIgnoreCase(
+                                    transferDeviceIdentityAddress)) {
                         Log.w(TAG, " OPP SDP search for wrong device, ignoring!!");
                         return;
                     }
@@ -183,7 +199,7 @@ public class BluetoothOppTransfer implements BluetoothOppBatch.BluetoothOppBatch
         mBatch = batch;
         mSession = session;
 
-        mBatch.registerListern(this);
+        mBatch.registerListener(this);
         mAdapter = BluetoothAdapter.getDefaultAdapter();
 
     }
@@ -199,7 +215,8 @@ public class BluetoothOppTransfer implements BluetoothOppBatch.BluetoothOppBatch
     /*
      * Receives events from mConnectThread & mSession back in the main thread.
      */
-    private class EventHandler extends Handler {
+    @VisibleForTesting
+    class EventHandler extends Handler {
         EventHandler(Looper looper) {
             super(looper);
         }
@@ -386,7 +403,8 @@ public class BluetoothOppTransfer implements BluetoothOppBatch.BluetoothOppBatch
         ContentValues updateValues = new ContentValues();
         updateValues.put(BluetoothShare.USER_CONFIRMATION,
                 BluetoothShare.USER_CONFIRMATION_TIMEOUT);
-        mContext.getContentResolver().update(contentUri, updateValues, null, null);
+        BluetoothMethodProxy.getInstance().contentResolverUpdate(mContext.getContentResolver(),
+                contentUri, updateValues, null, null);
     }
 
     private void markBatchFailed(int failReason) {
@@ -412,7 +430,8 @@ public class BluetoothOppTransfer implements BluetoothOppBatch.BluetoothOppBatch
             }
             if (mCurrentShare.mDirection == BluetoothShare.DIRECTION_INBOUND
                     && mCurrentShare.mUri != null) {
-                mContext.getContentResolver().delete(mCurrentShare.mUri, null, null);
+                BluetoothMethodProxy.getInstance().contentResolverDelete(
+                        mContext.getContentResolver(), mCurrentShare.mUri, null, null);
             }
         }
 
@@ -439,10 +458,12 @@ public class BluetoothOppTransfer implements BluetoothOppBatch.BluetoothOppBatch
                     }
                 } else {
                     if (info.mStatus < 200 && info.mUri != null) {
-                        mContext.getContentResolver().delete(info.mUri, null, null);
+                        BluetoothMethodProxy.getInstance().contentResolverDelete(
+                                mContext.getContentResolver(), info.mUri, null, null);
                     }
                 }
-                mContext.getContentResolver().update(contentUri, updateValues, null, null);
+                BluetoothMethodProxy.getInstance().contentResolverUpdate(
+                        mContext.getContentResolver(), contentUri, updateValues, null, null);
                 Constants.sendIntentIfCompleted(mContext, contentUri, info.mStatus);
             }
             info = mBatch.getPendingShare();
@@ -477,7 +498,7 @@ public class BluetoothOppTransfer implements BluetoothOppBatch.BluetoothOppBatch
          * normally it's impossible to reach here if BT is disabled. Just check
          * for safety
          */
-        if (!mAdapter.isEnabled()) {
+        if (!BluetoothMethodProxy.getInstance().bluetoothAdapterIsEnabled(mAdapter)) {
             Log.e(TAG, "Can't start transfer when Bluetooth is disabled for " + mBatch.mId);
             markBatchFailed(BluetoothShare.STATUS_UNKNOWN_ERROR);
             mBatch.mStatus = Constants.BATCH_STATUS_FAILED;
@@ -601,6 +622,7 @@ public class BluetoothOppTransfer implements BluetoothOppBatch.BluetoothOppBatch
                 if (mBluetoothReceiver == null) {
                     mBluetoothReceiver = new OppConnectionReceiver();
                     IntentFilter filter = new IntentFilter();
+                    filter.setPriority(IntentFilter.SYSTEM_HIGH_PRIORITY);
                     filter.addAction(BluetoothDevice.ACTION_ACL_DISCONNECTED);
                     filter.addAction(BluetoothDevice.ACTION_SDP_RECORD);
                     mContext.registerReceiver(mBluetoothReceiver, filter);
@@ -660,12 +682,15 @@ public class BluetoothOppTransfer implements BluetoothOppBatch.BluetoothOppBatch
         }
     }
 
-    private SocketConnectThread mConnectThread;
+    @VisibleForTesting
+    SocketConnectThread mConnectThread;
 
-    private class SocketConnectThread extends Thread {
+    @VisibleForTesting
+    class SocketConnectThread extends Thread {
         private final String mHost;
 
-        private final BluetoothDevice mDevice;
+        @VisibleForTesting
+        final BluetoothDevice mDevice;
 
         private final int mChannel;
 
@@ -681,7 +706,8 @@ public class BluetoothOppTransfer implements BluetoothOppBatch.BluetoothOppBatch
 
         private boolean mSdpInitiated = false;
 
-        private boolean mIsInterrupted = false;
+        @VisibleForTesting
+        boolean mIsInterrupted = false;
 
         /* create a Rfcomm/L2CAP Socket */
         SocketConnectThread(BluetoothDevice device, boolean retry) {
@@ -849,7 +875,8 @@ public class BluetoothOppTransfer implements BluetoothOppBatch.BluetoothOppBatch
                 Log.e(TAG, "Error when close socket");
             }
         }
-        mSessionHandler.obtainMessage(TRANSPORT_ERROR).sendToTarget();
+        BluetoothMethodProxy.getInstance().handlerSendEmptyMessage(mSessionHandler,
+                TRANSPORT_ERROR);
         return;
     }
 
@@ -862,7 +889,8 @@ public class BluetoothOppTransfer implements BluetoothOppBatch.BluetoothOppBatch
         Uri contentUri = Uri.parse(BluetoothShare.CONTENT_URI + "/" + share.mId);
         ContentValues updateValues = new ContentValues();
         updateValues.put(BluetoothShare.DIRECTION, share.mDirection);
-        mContext.getContentResolver().update(contentUri, updateValues, null, null);
+        BluetoothMethodProxy.getInstance().contentResolverUpdate(mContext.getContentResolver(),
+                contentUri, updateValues, null, null);
     }
 
     /*

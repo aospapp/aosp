@@ -37,6 +37,8 @@ import static org.mockito.Mockito.when;
 
 import android.app.test.MockAnswerUtil.AnswerWithArguments;
 import android.content.Context;
+import android.content.pm.PackageManager;
+import android.content.pm.ResolveInfo;
 import android.os.BugreportManager;
 import android.os.test.TestLooper;
 
@@ -81,6 +83,8 @@ public class WifiDiagnosticsTest extends WifiBaseTest {
     @Mock ActiveModeWarden mActiveModeWarden;
     @Mock ClientModeManager mClientModeManager;
     @Mock ClientModeManager mClientModeManager2;
+    @Mock PackageManager mPackageManager;
+    @Mock List<ResolveInfo>  mResolveInfoList;
     private long mBootTimeMs = 0L;
     MockResources mResources;
     WifiDiagnostics mWifiDiagnostics;
@@ -155,6 +159,8 @@ public class WifiDiagnosticsTest extends WifiBaseTest {
         when(mActiveModeWarden.getPrimaryClientModeManager()).thenReturn(mClientModeManager);
         when(mActiveModeWarden.getClientModeManagers()).thenReturn(clientModeManagerList);
         when(mDeviceConfigFacade.getBugReportMinWindowMs()).thenReturn(BUG_REPORT_MIN_WINDOW_MS);
+        when(mContext.getPackageManager()).thenReturn(mPackageManager);
+        when(mPackageManager.queryIntentActivities(any(), anyInt())).thenReturn(mResolveInfoList);
         // needed to for the loop in WifiDiagnostics.readLogcatStreamLinesWithTimeout().
         doAnswer(new AnswerWithArguments() {
             public long answer() throws Exception {
@@ -914,7 +920,7 @@ public class WifiDiagnosticsTest extends WifiBaseTest {
     public void takeBugReportCallsActivityManagerOnUserDebug() {
         when(mBuildProperties.isUserBuild()).thenReturn(false);
         mWifiDiagnostics.takeBugReport("", "");
-        verify(mBugreportManager, times(1)).requestBugreport(any(), any(), any());
+        verify(mPackageManager, times(1)).queryIntentActivities(any(), anyInt());
     }
 
     @Test
@@ -923,7 +929,7 @@ public class WifiDiagnosticsTest extends WifiBaseTest {
         doThrow(new RuntimeException()).when(mBugreportManager).requestBugreport(
                 any(), any(), any());
         mWifiDiagnostics.takeBugReport("", "");
-        verify(mBugreportManager, times(1)).requestBugreport(any(), any(), any());
+        verify(mPackageManager, times(1)).queryIntentActivities(any(), anyInt());
     }
 
     @Test
@@ -939,11 +945,11 @@ public class WifiDiagnosticsTest extends WifiBaseTest {
         // 1st attempt should succeed
         when(mClock.getWallClockMillis()).thenReturn(10L);
         mWifiDiagnostics.takeBugReport("", "");
-        verify(mBugreportManager, times(1)).requestBugreport(any(), any(), any());
+        verify(mPackageManager, times(1)).queryIntentActivities(any(), anyInt());
         // 2nd attempt should fail
         when(mClock.getWallClockMillis()).thenReturn(BUG_REPORT_MIN_WINDOW_MS - 20L);
         mWifiDiagnostics.takeBugReport("", "");
-        verify(mBugreportManager, times(1)).requestBugreport(any(), any(), any());
+        verify(mPackageManager, times(1)).queryIntentActivities(any(), anyInt());
     }
 
     @Test

@@ -24,7 +24,7 @@
 
 #include "bta/include/bta_sdp_api.h"
 
-#include <base/bind.h>
+#include <base/functional/bind.h>
 #include <base/location.h>
 
 #include "bt_target.h"  // Must be first to define build configuration

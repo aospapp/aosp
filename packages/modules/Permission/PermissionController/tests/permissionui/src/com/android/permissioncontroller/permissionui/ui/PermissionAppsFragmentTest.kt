@@ -19,11 +19,11 @@ package com.android.permissioncontroller.permissionui.ui
 import android.content.Intent
 import android.permission.cts.PermissionUtils.install
 import android.permission.cts.PermissionUtils.uninstallApp
-import android.support.test.uiautomator.By
+import androidx.test.uiautomator.By
 import com.android.compatibility.common.util.SystemUtil.eventually
 import com.android.compatibility.common.util.SystemUtil.runWithShellPermissionIdentity
-import com.android.compatibility.common.util.UiAutomatorUtils.waitFindObject
-import com.android.compatibility.common.util.UiAutomatorUtils.waitFindObjectOrNull
+import com.android.compatibility.common.util.UiAutomatorUtils2.waitFindObject
+import com.android.compatibility.common.util.UiAutomatorUtils2.waitFindObjectOrNull
 import com.android.permissioncontroller.permissionui.wakeUpScreen
 import org.junit.After
 import org.junit.Assert.assertNull
@@ -83,7 +83,8 @@ abstract class PermissionAppsFragmentTest(
         }
     }
 
-    @Test
+    // TODO(b/280652042) Slow tests aren't good
+    @Test(timeout = 120000)
     fun appDisappearsWhenUninstalled() {
         assertNull(waitFindObjectOrNull(By.text(userPkg)))
 

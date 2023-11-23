@@ -38,6 +38,29 @@ enum UserState {
 
   /**
    * Number of available user states.
+   *
+   * @deprecated Value of enum no longer reflects the true amount of user states.
+   *             Enum should not be used.
    */
   NUM_USER_STATES,
+
+  /**
+   * The user is switching.
+   */
+  USER_STATE_SWITCHING,
+
+  /**
+   * The user is unlocking.
+   */
+  USER_STATE_UNLOCKING,
+
+  /**
+   * The user is unlocked.
+   */
+  USER_STATE_UNLOCKED,
+
+  /**
+   * The user has been unlocked and system is in idle state.
+   */
+  USER_STATE_POST_UNLOCKED,
 }

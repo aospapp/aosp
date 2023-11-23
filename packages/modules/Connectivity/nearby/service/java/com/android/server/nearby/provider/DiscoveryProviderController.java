@@ -23,7 +23,7 @@ import android.nearby.ScanRequest;
 import java.util.List;
 
 /** Interface for controlling discovery providers. */
-interface DiscoveryProviderController {
+public interface DiscoveryProviderController {
 
     /**
      * Sets the listener which can expect to receive all state updates from after this point. May be

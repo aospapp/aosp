@@ -33,10 +33,28 @@ java_sdk_library {
     sdk_version: "system_server_current",
     min_sdk_version: "Tiramisu",
     permitted_packages: ["com.android.server.adservices"],
-    defaults: ["framework-system-server-module-defaults"],
+    libs: [
+        "framework-configinfrastructure",
+        "framework-adservices.impl",
+        // Workaround for b/262282035. Needed to access the SdkSandboxManagerLocal.
+        "service-sdksandbox.impl",
+    ],
+    static_libs: [
+        "modules-utils-preconditions",
+    ],
+    defaults: [
+        "framework-system-server-module-defaults",
+        "framework-system-server-module-optimize-defaults",
+    ],
+    jarjar_rules: "jarjar-rules.txt",
     visibility: [
         "//packages/modules/AdServices/tests:__subpackages__",
     ],
+    impl_library_visibility: [
+            "//packages/modules/AdServices/adservices/tests/unittest:__subpackages__",
+            "//frameworks/base/services/tests/mockingservicestests",
+            "//frameworks/base/services/tests/wmtests",
+        ],
     apex_available: ["com.android.adservices"],
     installable: true,
 }

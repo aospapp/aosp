@@ -17,5 +17,9 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="hvac_panel_header" msgid="1299061170810305529">"கம்ஃபர்ட் கட்டுப்பாடுகள்"</string>
+    <string name="default_sensor_string" msgid="3994996854548513870">"பொருந்தாது"</string>
+    <string name="task_view_not_ready_message" msgid="3019570837236183122">"சிஸ்டம் ஏற்றப்படும் வரை காத்திருக்கவும்"</string>
+    <string name="current_profile_subtitle" msgid="2466874755719023023">"தற்போதைய சுயவிவரம்"</string>
+    <string name="loading_welcome_message" msgid="2351582619179505398">"AAOS"</string>
+    <string name="loading_action_button_text" msgid="1296096984805774507">"தொடர்க"</string>
 </resources>

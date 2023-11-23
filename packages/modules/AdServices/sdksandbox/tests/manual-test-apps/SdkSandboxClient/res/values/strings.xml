@@ -17,6 +17,11 @@
 
 <resources>
     <string name="title_activity_main" description="Launcher title">Sdk Sandbox Test</string>
-    <string name="load_code_provider">Load Code Provider</string>
+    <string name="load_code_provider">Load Code Providers</string>
     <string name="load_surface_package">Load Surface Package</string>
+    <string name="create_file">Create File</string>
+    <string name="play_video">Play Video</string>
+    <string name="sync_keys">Sync Keys</string>
+    <string name="enable_sdk_sdk">Enable SDK SDK comm</string>
+    <string name="start_activity">Start SandboxActivity</string>
 </resources>

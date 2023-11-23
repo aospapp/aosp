@@ -17,6 +17,9 @@
 package android.net.testutils
 
 import android.net.NetworkStats
+import android.net.NetworkStats.DEFAULT_NETWORK_NO
+import android.net.NetworkStats.METERED_NO
+import android.net.NetworkStats.ROAMING_NO
 import android.net.NetworkStats.SET_DEFAULT
 import android.net.NetworkStats.TAG_NONE
 import android.os.Build
@@ -42,8 +45,10 @@ class NetworkStatsUtilsTest {
     @Test
     fun testOrderInsensitiveEquals() {
         val testEntry = arrayOf(
-                NetworkStats.Entry(TEST_IFACE, 100, SET_DEFAULT, TAG_NONE, 128L, 8L, 0L, 2L, 20L),
-                NetworkStats.Entry(TEST_IFACE2, 100, SET_DEFAULT, TAG_NONE, 512L, 32L, 0L, 0L, 0L))
+                NetworkStats.Entry(TEST_IFACE, 100, SET_DEFAULT, TAG_NONE, METERED_NO, ROAMING_NO,
+                        DEFAULT_NETWORK_NO, 128L, 8L, 0L, 2L, 20L),
+                NetworkStats.Entry(TEST_IFACE2, 100, SET_DEFAULT, TAG_NONE, METERED_NO, ROAMING_NO,
+                        DEFAULT_NETWORK_NO, 512L, 32L, 0L, 0L, 0L))
 
         // Verify equals of empty stats regardless of initial capacity.
         val red = NetworkStats(TEST_START, 0)

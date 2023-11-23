@@ -229,6 +229,10 @@ public class AdapterStateListenerTest {
                 AdapterStateCallback.STATE_CHANGED_REASON_SYSTEM_POLICY,
                 AdapterStateCallback.STATE_DISABLED);
 
+        runStateChangeValue(StateChangeReason.SYSTEM_REGULATION, AdapterState.STATE_DISABLED,
+                AdapterStateCallback.STATE_CHANGED_REASON_SYSTEM_REGULATION,
+                AdapterStateCallback.STATE_DISABLED);
+
         runStateChangeValue(StateChangeReason.UNKNOWN, AdapterState.STATE_DISABLED,
                 AdapterStateCallback.STATE_CHANGED_REASON_ERROR_UNKNOWN,
                 AdapterStateCallback.STATE_DISABLED);

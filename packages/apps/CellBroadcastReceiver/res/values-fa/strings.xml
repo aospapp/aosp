@@ -79,7 +79,7 @@
     <string name="enable_alert_message_title" msgid="2939830587633599352">"پیام‌های هشدار"</string>
     <string name="enable_alert_message_summary" msgid="6525664541696985610">"هشدار درباره تهدیدهای ایمنی قریب‌الوقوع"</string>
     <string name="enable_public_safety_messages_title" msgid="5576770949182656524">"پیام‌های امنیت عمومی"</string>
-    <string name="enable_public_safety_messages_summary" msgid="7868069748857851521">"اقدام‌های توصیه‌شده که می‌تواند جان افراد یا اموال آن‌ها را حفظ کند"</string>
+    <string name="enable_public_safety_messages_summary" msgid="7868069748857851521">"اقدامات توصیه‌شده‌ای که می‌تواند جان افراد یا اموال آن‌ها را حفظ کند"</string>
     <string name="enable_full_screen_public_safety_messages_title" msgid="1790574642368284876">"نمایش پیام‌ها به‌صورت تمام‌صفحه"</string>
     <string name="enable_full_screen_public_safety_messages_summary" msgid="194171850169012897">"وقتی خاموش باشد، پیام‌های ایمنی عمومی همچنان به‌صورت اعلان ارسال خواهد شد"</string>
     <string name="enable_state_local_test_alerts_title" msgid="1012930918171302720">"آزمایش‌های ایالتی و محلی"</string>

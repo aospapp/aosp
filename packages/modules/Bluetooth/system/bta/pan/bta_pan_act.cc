@@ -182,7 +182,6 @@ static void bta_pan_data_buf_ind_cback(uint16_t handle, const RawAddress& src,
 
   if (sizeof(BT_HDR) + sizeof(tBTA_PAN_DATA_PARAMS) + p_buf->len >
       PAN_BUF_SIZE) {
-    android_errorWriteLog(0x534e4554, "63146237");
     APPL_TRACE_ERROR("%s: received buffer length too large: %d", __func__,
                      p_buf->len);
     return;

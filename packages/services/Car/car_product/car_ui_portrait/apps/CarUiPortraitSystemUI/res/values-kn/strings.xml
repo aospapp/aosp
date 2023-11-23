@@ -17,5 +17,9 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="hvac_panel_header" msgid="1299061170810305529">"ಆರಾಮದಾಯಕ ನಿಯಂತ್ರಕಗಳು"</string>
+    <string name="default_sensor_string" msgid="3994996854548513870">"ಅನ್ವಯ ಇಲ್ಲ"</string>
+    <string name="task_view_not_ready_message" msgid="3019570837236183122">"ಸಿಸ್ಟಂ ಲೋಡ್ ಆಗುವವರೆಗೂ ನಿರೀಕ್ಷಿಸಿ"</string>
+    <string name="current_profile_subtitle" msgid="2466874755719023023">"ಪ್ರಸ್ತುತ ಪ್ರೊಫೈಲ್"</string>
+    <string name="loading_welcome_message" msgid="2351582619179505398">"AAOS"</string>
+    <string name="loading_action_button_text" msgid="1296096984805774507">"ಮುಂದುವರಿಸಿ"</string>
 </resources>

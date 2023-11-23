@@ -45,7 +45,7 @@ import com.android.settingslib.bluetooth.LocalBluetoothManager.BluetoothManagerC
  * BluetoothUtils provides an interface to the preferences
  * related to Bluetooth.
  */
-final class BluetoothUtils {
+public final class BluetoothUtils {
     private static final Logger LOG = new Logger(BluetoothUtils.class);
     private static final String SHARED_PREFERENCES_NAME = "bluetooth_settings";
 
@@ -68,6 +68,9 @@ final class BluetoothUtils {
     private static final String KEY_LAST_SELECTED_DEVICE_TIME = "last_selected_device_time";
 
     private static final String KEY_DISCOVERABLE_END_TIMESTAMP = "discoverable_end_timestamp";
+
+    public static final String BLUETOOTH_SHOW_DEVICES_WITHOUT_NAMES_PROPERTY =
+            "persist.bluetooth.showdeviceswithoutnames";
 
     private BluetoothUtils() {
     }

@@ -34,23 +34,25 @@ void btm_ble_increment_link_topology_mask(uint8_t link_role);
 
 bool maybe_resolve_address(RawAddress* bda, tBLE_ADDR_TYPE* bda_type);
 
-static bool acl_ble_common_connection(const tBLE_BD_ADDR& address_with_type,
-                                      uint16_t handle, tHCI_ROLE role,
-                                      bool is_in_security_db,
-                                      uint16_t conn_interval,
-                                      uint16_t conn_latency,
-                                      uint16_t conn_timeout) {
+static bool acl_ble_common_connection(
+    const tBLE_BD_ADDR& address_with_type, uint16_t handle, tHCI_ROLE role,
+    bool is_in_security_db, uint16_t conn_interval, uint16_t conn_latency,
+    uint16_t conn_timeout, bool can_read_discoverable_characteristics) {
   if (role == HCI_ROLE_CENTRAL) {
     btm_cb.ble_ctr_cb.set_connection_state_idle();
     btm_ble_clear_topology_mask(BTM_BLE_STATE_INIT_BIT);
   }
 
   // Inform any applications that a connection has completed.
-  connection_manager::on_connection_complete(address_with_type.bda);
+  if (!bluetooth::common::init_flags::
+          use_unified_connection_manager_is_enabled()) {
+    connection_manager::on_connection_complete(address_with_type.bda);
+  }
 
   // Allocate or update the security device record for this device
   btm_ble_connected(address_with_type.bda, handle, HCI_ENCRYPT_MODE_DISABLED,
-                    role, address_with_type.type, is_in_security_db);
+                    role, address_with_type.type, is_in_security_db,
+                    can_read_discoverable_characteristics);
 
   // Update the link topology information for our device
   btm_ble_increment_link_topology_mask(role);
@@ -59,8 +61,7 @@ static bool acl_ble_common_connection(const tBLE_BD_ADDR& address_with_type,
   if (!l2cble_conn_comp(handle, role, address_with_type.bda,
                         address_with_type.type, conn_interval, conn_latency,
                         conn_timeout)) {
-    btm_sec_disconnect(handle, HCI_ERR_NO_CONNECTION,
-                       "stack::acl::ble_acl fail");
+    btm_sec_disconnect(handle, HCI_ERR_PEER_USER, "stack::acl::ble_acl fail");
     LOG_WARN("Unable to complete l2cap connection");
     return false;
   }
@@ -71,35 +72,18 @@ static bool acl_ble_common_connection(const tBLE_BD_ADDR& address_with_type,
   return true;
 }
 
-void acl_ble_connection_complete(const tBLE_BD_ADDR& address_with_type,
-                                 uint16_t handle, tHCI_ROLE role, bool match,
-                                 uint16_t conn_interval, uint16_t conn_latency,
-                                 uint16_t conn_timeout) {
-  if (!acl_ble_common_connection(address_with_type, handle, role, match,
-                                 conn_interval, conn_latency, conn_timeout)) {
-    LOG_WARN("Unable to create non enhanced ble acl connection");
-    return;
-  }
-
-  btm_ble_update_mode_operation(role, &address_with_type.bda, HCI_SUCCESS);
-
-  if (role == HCI_ROLE_PERIPHERAL)
-    btm_ble_advertiser_notify_terminated_legacy(HCI_SUCCESS, handle);
-}
-
 void acl_ble_enhanced_connection_complete(
     const tBLE_BD_ADDR& address_with_type, uint16_t handle, tHCI_ROLE role,
     bool match, uint16_t conn_interval, uint16_t conn_latency,
     uint16_t conn_timeout, const RawAddress& local_rpa,
-    const RawAddress& peer_rpa, tBLE_ADDR_TYPE peer_addr_type) {
+    const RawAddress& peer_rpa, tBLE_ADDR_TYPE peer_addr_type,
+    bool can_read_discoverable_characteristics) {
   if (!acl_ble_common_connection(address_with_type, handle, role, match,
-                                 conn_interval, conn_latency, conn_timeout)) {
+                                 conn_interval, conn_latency, conn_timeout,
+                                 can_read_discoverable_characteristics)) {
     LOG_WARN("Unable to create enhanced ble acl connection");
     return;
   }
-
-  btm_ble_refresh_local_resolvable_private_addr(address_with_type.bda,
-                                                local_rpa);
 
   if (peer_addr_type & BLE_ADDR_TYPE_ID_BIT)
     btm_ble_refresh_peer_resolvable_private_addr(
@@ -124,31 +108,49 @@ void acl_ble_enhanced_connection_complete_from_shim(
     const tBLE_BD_ADDR& address_with_type, uint16_t handle, tHCI_ROLE role,
     uint16_t conn_interval, uint16_t conn_latency, uint16_t conn_timeout,
     const RawAddress& local_rpa, const RawAddress& peer_rpa,
-    tBLE_ADDR_TYPE peer_addr_type) {
-  connection_manager::on_connection_complete(address_with_type.bda);
+    tBLE_ADDR_TYPE peer_addr_type, bool can_read_discoverable_characteristics) {
+  if (!bluetooth::common::init_flags::
+          use_unified_connection_manager_is_enabled()) {
+    connection_manager::on_connection_complete(address_with_type.bda);
+  }
 
   tBLE_BD_ADDR resolved_address_with_type;
   const bool is_in_security_db = maybe_resolve_received_address(
       address_with_type, &resolved_address_with_type);
 
-  acl_ble_enhanced_connection_complete(resolved_address_with_type, handle, role,
-                                       is_in_security_db, conn_interval,
-                                       conn_latency, conn_timeout, local_rpa,
-                                       peer_rpa, peer_addr_type);
+  acl_set_locally_initiated(role == tHCI_ROLE::HCI_ROLE_CENTRAL);
+  acl_ble_enhanced_connection_complete(
+      resolved_address_with_type, handle, role, is_in_security_db,
+      conn_interval, conn_latency, conn_timeout, local_rpa, peer_rpa,
+      peer_addr_type, can_read_discoverable_characteristics);
 
-  // The legacy stack continues the LE connection after the read remote version
-  // complete has been received.
+  // The legacy stack continues the LE connection after the read remote
+  // version complete has been received.
   // maybe_chain_more_commands_after_read_remote_version_complete
 }
 
 void acl_ble_connection_fail(const tBLE_BD_ADDR& address_with_type,
                              uint16_t handle, bool enhanced,
                              tHCI_STATUS status) {
+  acl_set_locally_initiated(
+      true);  // LE connection failures are always locally initiated
+  btm_acl_create_failed(address_with_type.bda, BT_TRANSPORT_LE, status);
+
   if (status != HCI_ERR_ADVERTISING_TIMEOUT) {
     btm_cb.ble_ctr_cb.set_connection_state_idle();
     btm_ble_clear_topology_mask(BTM_BLE_STATE_INIT_BIT);
-    connection_manager::on_connection_timed_out_from_shim(
-        address_with_type.bda);
+    tBLE_BD_ADDR resolved_address_with_type;
+    maybe_resolve_received_address(address_with_type,
+                                   &resolved_address_with_type);
+    if (!bluetooth::common::init_flags::
+            use_unified_connection_manager_is_enabled()) {
+      connection_manager::on_connection_timed_out_from_shim(
+          resolved_address_with_type.bda);
+    }
+    LOG_WARN("LE connection fail peer:%s bd_addr:%s hci_status:%s",
+             ADDRESS_TO_LOGGABLE_CSTR(address_with_type),
+             ADDRESS_TO_LOGGABLE_CSTR(resolved_address_with_type.bda),
+             hci_status_code_text(status).c_str());
   } else {
     btm_cb.ble_ctr_cb.inq_var.adv_mode = BTM_BLE_ADV_DISABLE;
   }

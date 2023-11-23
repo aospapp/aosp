@@ -73,8 +73,8 @@
          that a call be put into the background so that the app can access the audio from the call.
          [CHAR LIMIT=NONE] -->
     <string name="notification_audioProcessing_body">
-        <xliff:g id="audio_processing_app_name">%s</xliff:g> has placed a call into the
-        background. This app may be accessing and playing audio over the call.
+        <xliff:g id="audio_processing_app_name">%s</xliff:g> is processing a call in the background.
+        This app may be accessing and playing audio over the call.
     </string>
 
     <!-- Crashed in call service notification label, used when the in call service has crashed and
@@ -321,6 +321,10 @@
     <string name="notification_channel_disconnected_calls">Disconnected calls</string>
     <!-- Notification channel name for a channel containing crashed phone apps service notifications. -->
     <string name="notification_channel_in_call_service_crash">Crashed phone apps</string>
+    <!-- Notification channel name for a channel containing notifications related to call streaming.
+         Call streaming is a feature where an app can use another device like a tablet to see and
+         control a call taking place on their phone. -->
+    <string name="notification_channel_call_streaming">Call streaming</string>
 
     <!-- Alert dialog content used to inform the user that placing a new outgoing call will end the
          ongoing call in the app "other_app". -->
@@ -381,4 +385,34 @@
     <string name="developer_enhanced_call_blocking" translatable="false">Enhanced Call Blocking</string>
     <!-- Button label for generic cancel action [CHAR LIMIT=20] -->
     <string name="cancel">Cancel</string>
+    <!-- Button label for generic back action [CHAR LIMIT=20] -->
+    <string name="back">Back</string>
+    <!-- The user-visible name of the earpiece type CallEndpoint -->
+    <string name="callendpoint_name_earpiece">Earpiece</string>
+    <!-- The user-visible name of the bluetooth type CallEndpoint -->
+    <string name="callendpoint_name_bluetooth">Bluetooth</string>
+    <!-- The user-visible name of the wired headset type CallEndpoint -->
+    <string name="callendpoint_name_wiredheadset">Wired headset</string>
+    <!-- The user-visible name of the speaker type CallEndpoint -->
+    <string name="callendpoint_name_speaker">Speaker</string>
+    <!-- The user-visible name of the streaming type CallEndpoint -->
+    <string name="callendpoint_name_streaming">External</string>
+    <!-- The user-visible name of the unknown new type CallEndpoint -->
+    <string name="callendpoint_name_unknown">Unknown</string>
+
+    <!-- The content of a notification shown when a call is being streamed to another device.
+         Call streaming is a feature where a user can see and interact with a call from another
+         device like a tablet while the call takes place on their phone. -->
+    <string name="call_streaming_notification_body">Streaming audio to other device</string>
+    <!-- A notification action which is shown when a call is being streamed to another device.
+         Tapping the action will hang up the call.
+         Call streaming is a feature where a user can see and interact with a call from another
+         device like a tablet while the call takes place on their phone. -->
+    <string name="call_streaming_notification_action_hang_up">Hang up</string>
+    <!-- A notification action which is shown when a call is being streamed to another device.
+         Tapping the action will move the call back to the phone from the device it is being
+         streamed to.
+         Call streaming is a feature where a user can see and interact with a call from another
+         device like a tablet while the call takes place on their phone. -->
+    <string name="call_streaming_notification_action_switch_here">Switch here</string>
 </resources>

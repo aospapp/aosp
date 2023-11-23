@@ -20,8 +20,8 @@ import android.content.ContentResolver;
 import android.provider.DeviceConfig;
 import android.provider.Settings;
 import android.telecom.CallDiagnosticService;
-import android.telecom.CallRedirectionService;
 import android.telecom.CallDiagnostics;
+import android.telecom.CallRedirectionService;
 import android.telephony.ims.ImsReasonInfo;
 
 import java.util.concurrent.TimeUnit;
@@ -78,12 +78,134 @@ public final class Timeouts {
         }
 
         public long getCallStartAppOpDebounceIntervalMillis() {
-            return  Timeouts.getCallStartAppOpDebounceIntervalMillis();
+            return Timeouts.getCallStartAppOpDebounceIntervalMillis();
+        }
+
+        public long getVoipCallTransitoryStateTimeoutMillis() {
+            return Timeouts.getVoipCallTransitoryStateTimeoutMillis();
+        }
+
+        public long getVoipEmergencyCallTransitoryStateTimeoutMillis() {
+            return Timeouts.getVoipEmergencyCallTransitoryStateTimeoutMillis();
+        }
+
+        public long getNonVoipCallTransitoryStateTimeoutMillis() {
+            return Timeouts.getNonVoipCallTransitoryStateTimeoutMillis();
+        }
+
+        public long getNonVoipEmergencyCallTransitoryStateTimeoutMillis() {
+            return Timeouts.getNonVoipEmergencyCallTransitoryStateTimeoutMillis();
+        }
+
+        public long getVoipCallIntermediateStateTimeoutMillis() {
+            return Timeouts.getVoipCallIntermediateStateTimeoutMillis();
+        }
+
+        public long getVoipEmergencyCallIntermediateStateTimeoutMillis() {
+            return Timeouts.getVoipEmergencyCallIntermediateStateTimeoutMillis();
+        }
+
+        public long getNonVoipCallIntermediateStateTimeoutMillis() {
+            return Timeouts.getNonVoipCallIntermediateStateTimeoutMillis();
+        }
+
+        public long getNonVoipEmergencyCallIntermediateStateTimeoutMillis() {
+            return Timeouts.getNonVoipEmergencyCallIntermediateStateTimeoutMillis();
+        }
+
+        public long getEmergencyCallTimeBeforeUserDisconnectThresholdMillis(){
+            return Timeouts.getEmergencyCallTimeBeforeUserDisconnectThresholdMillis();
+        }
+
+        public long getEmergencyCallActiveTimeThresholdMillis(){
+            return Timeouts.getEmergencyCallActiveTimeThresholdMillis();
+        }
+
+        public int getDaysBackToSearchEmergencyDiagnosticEntries(){
+            return Timeouts.getDaysBackToSearchEmergencyDiagnosticEntries();
+
         }
     }
 
     /** A prefix to use for all keys so to not clobber the global namespace. */
     private static final String PREFIX = "telecom.";
+
+    /**
+     * threshold used to filter out ecalls that the user may have dialed by mistake
+     * It is used only when the disconnect cause is LOCAL by EmergencyDiagnosticLogger
+     */
+    private static final String EMERGENCY_CALL_TIME_BEFORE_USER_DISCONNECT_THRESHOLD_MILLIS =
+            "emergency_call_time_before_user_disconnect_threshold_millis";
+
+    /**
+     * Returns the threshold used to detect ecalls that transition to active but only for a very
+     * short duration. These short duration active calls can result in Diagnostic data collection.
+     */
+    private static final String EMERGENCY_CALL_ACTIVE_TIME_THRESHOLD_MILLIS =
+            "emergency_call_active_time_threshold_millis";
+
+    /**
+     * Time in Days that is used to filter out old dropbox entries for emergency call diagnostic
+     * data. Entries older than this are ignored
+     */
+    private static final String DAYS_BACK_TO_SEARCH_EMERGENCY_DROP_BOX_ENTRIES =
+            "days_back_to_search_emergency_drop_box_entries";
+
+    /**
+     * A prefix to use for {@link DeviceConfig} for the transitory state timeout of
+     * VoIP Call, in millis.
+     */
+    private static final String TRANSITORY_STATE_VOIP_NORMAL_TIMEOUT_MILLIS =
+            "transitory_state_voip_normal_timeout_millis";
+
+    /**
+     * A prefix to use for {@link DeviceConfig} for the transitory state timeout of
+     * VoIP emergency Call, in millis.
+     */
+    private static final String TRANSITORY_STATE_VOIP_EMERGENCY_TIMEOUT_MILLIS =
+            "transitory_state_voip_emergency_timeout_millis";
+
+    /**
+     * A prefix to use for {@link DeviceConfig} for the transitory state timeout of
+     * non-VoIP call, in millis.
+     */
+    private static final String TRANSITORY_STATE_NON_VOIP_NORMAL_TIMEOUT_MILLIS =
+            "transitory_state_non_voip_normal_timeout_millis";
+
+    /**
+     * A prefix to use for {@link DeviceConfig} for the transitory state timeout of
+     * non-VoIP emergency call, in millis.
+     */
+    private static final String TRANSITORY_STATE_NON_VOIP_EMERGENCY_TIMEOUT_MILLIS =
+            "transitory_state_non_voip_emergency_timeout_millis";
+
+    /**
+     * A prefix to use for {@link DeviceConfig} for the intermediate state timeout of
+     * VoIP call, in millis.
+     */
+    private static final String INTERMEDIATE_STATE_VOIP_NORMAL_TIMEOUT_MILLIS =
+            "intermediate_state_voip_normal_timeout_millis";
+
+    /**
+     * A prefix to use for {@link DeviceConfig} for the intermediate state timeout of
+     * VoIP emergency call, in millis.
+     */
+    private static final String INTERMEDIATE_STATE_VOIP_EMERGENCY_TIMEOUT_MILLIS =
+            "intermediate_state_voip_emergency_timeout_millis";
+
+    /**
+     * A prefix to use for {@link DeviceConfig} for the intermediate state timeout of
+     * non-VoIP call, in millis.
+     */
+    private static final String INTERMEDIATE_STATE_NON_VOIP_NORMAL_TIMEOUT_MILLIS =
+            "intermediate_state_non_voip_normal_timeout_millis";
+
+    /**
+     * A prefix to use for {@link DeviceConfig} for the intermediate state timeout of
+     * non-VoIP emergency call, in millis.
+     */
+    private static final String INTERMEDIATE_STATE_NON_VOIP_EMERGENCY_TIMEOUT_MILLIS =
+            "intermediate_state_non_voip_emergency_timeout_millis";
 
     private Timeouts() {
     }
@@ -235,6 +357,116 @@ public final class Timeouts {
      */
     public static long getCallDiagnosticServiceTimeoutMillis(ContentResolver contentResolver) {
         return get(contentResolver, "call_diagnostic_service_timeout", 2000L /* 2 sec */);
+    }
+
+    /**
+     * Returns the duration of time a VoIP call can be in a transitory state before Telecom will
+     * try to clean up the call.
+     * @return the state timeout in millis.
+     */
+    public static long getVoipCallTransitoryStateTimeoutMillis() {
+        return DeviceConfig.getLong(DeviceConfig.NAMESPACE_TELEPHONY,
+                TRANSITORY_STATE_VOIP_NORMAL_TIMEOUT_MILLIS, 5000L);
+    }
+
+
+    /**
+     * Returns the threshold used to filter out ecalls that the user may have dialed by mistake
+     * It is used only when the disconnect cause is LOCAL by EmergencyDiagnosticLogger
+     * @return the threshold in milliseconds
+     */
+    public static long getEmergencyCallTimeBeforeUserDisconnectThresholdMillis() {
+        return DeviceConfig.getLong(DeviceConfig.NAMESPACE_TELEPHONY,
+                EMERGENCY_CALL_TIME_BEFORE_USER_DISCONNECT_THRESHOLD_MILLIS, 20000L);
+    }
+
+    /**
+     * Returns the threshold used to detect ecalls that transition to active but only for a very
+     * short duration. These short duration active calls can result in Diagnostic data collection.
+     * @return the threshold in milliseconds
+     */
+    public static long getEmergencyCallActiveTimeThresholdMillis() {
+        return DeviceConfig.getLong(DeviceConfig.NAMESPACE_TELEPHONY,
+                EMERGENCY_CALL_ACTIVE_TIME_THRESHOLD_MILLIS, 15000L);
+    }
+
+    /**
+     * Time in Days that is used to filter out old dropbox entries for emergency call diagnostic
+     * data. Entries older than this are ignored
+     */
+    public static int getDaysBackToSearchEmergencyDiagnosticEntries() {
+        return DeviceConfig.getInt(DeviceConfig.NAMESPACE_TELEPHONY,
+                DAYS_BACK_TO_SEARCH_EMERGENCY_DROP_BOX_ENTRIES, 30);
+    }
+
+    /**
+     * Returns the duration of time an emergency VoIP call can be in a transitory state before
+     * Telecom will try to clean up the call.
+     * @return the state timeout in millis.
+     */
+    public static long getVoipEmergencyCallTransitoryStateTimeoutMillis() {
+        return DeviceConfig.getLong(DeviceConfig.NAMESPACE_TELEPHONY,
+                TRANSITORY_STATE_VOIP_EMERGENCY_TIMEOUT_MILLIS, 5000L);
+    }
+
+    /**
+     * Returns the duration of time a non-VoIP call can be in a transitory state before Telecom
+     * will try to clean up the call.
+     * @return the state timeout in millis.
+     */
+    public static long getNonVoipCallTransitoryStateTimeoutMillis() {
+        return DeviceConfig.getLong(DeviceConfig.NAMESPACE_TELEPHONY,
+                TRANSITORY_STATE_NON_VOIP_NORMAL_TIMEOUT_MILLIS, 10000L);
+    }
+
+    /**
+     * Returns the duration of time an emergency non-VoIp call can be in a transitory state before
+     * Telecom will try to clean up the call.
+     * @return the state timeout in millis.
+     */
+    public static long getNonVoipEmergencyCallTransitoryStateTimeoutMillis() {
+        return DeviceConfig.getLong(DeviceConfig.NAMESPACE_TELEPHONY,
+                TRANSITORY_STATE_NON_VOIP_EMERGENCY_TIMEOUT_MILLIS, 10000L);
+    }
+
+    /**
+     * Returns the duration of time a VoIP call can be in an intermediate state before Telecom will
+     * try to clean up the call.
+     * @return the state timeout in millis.
+     */
+    public static long getVoipCallIntermediateStateTimeoutMillis() {
+        return DeviceConfig.getLong(DeviceConfig.NAMESPACE_TELEPHONY,
+                INTERMEDIATE_STATE_VOIP_NORMAL_TIMEOUT_MILLIS, 60000L);
+    }
+
+    /**
+     * Returns the duration of time an emergency VoIP call can be in an intermediate state before
+     * Telecom will try to clean up the call.
+     * @return the state timeout in millis.
+     */
+    public static long getVoipEmergencyCallIntermediateStateTimeoutMillis() {
+        return DeviceConfig.getLong(DeviceConfig.NAMESPACE_TELEPHONY,
+                INTERMEDIATE_STATE_VOIP_EMERGENCY_TIMEOUT_MILLIS, 60000L);
+    }
+
+    /**
+     * Returns the duration of time a non-VoIP call can be in an intermediate state before Telecom
+     * will try to clean up the call.
+     * @return the state timeout in millis.
+     */
+    public static long getNonVoipCallIntermediateStateTimeoutMillis() {
+        return DeviceConfig.getLong(DeviceConfig.NAMESPACE_TELEPHONY,
+                INTERMEDIATE_STATE_NON_VOIP_NORMAL_TIMEOUT_MILLIS, 120000L);
+    }
+
+    /**
+     * Returns the duration of time an emergency non-VoIP call can be in an intermediate state
+     * before Telecom will try to clean up the call.
+     * @return the state timeout in millis.
+     */
+    public static long getNonVoipEmergencyCallIntermediateStateTimeoutMillis() {
+        return DeviceConfig.getLong(DeviceConfig.NAMESPACE_TELEPHONY,
+                INTERMEDIATE_STATE_NON_VOIP_EMERGENCY_TIMEOUT_MILLIS, 60000L);
     }
 
     public static long getCallStartAppOpDebounceIntervalMillis() {

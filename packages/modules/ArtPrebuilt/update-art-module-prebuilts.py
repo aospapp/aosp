@@ -70,6 +70,7 @@ def install_apks_entry(apex_name):
 def install_sdk_entries(apex_name, mainline_sdk_name, sdk_dir):
   return [InstallEntry(
       os.path.join("mainline-sdks",
+                   "for-latest-build",
                    SDK_VERSION,
                    apex_name,
                    sdk_dir,

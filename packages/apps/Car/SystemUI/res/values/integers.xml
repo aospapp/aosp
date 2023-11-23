@@ -46,13 +46,8 @@
     <integer name="hvac_global_area_id">117</integer>
     <!-- The total number of seat heat levels supported by VHAL. -->
     <integer name="hvac_seat_heat_level_count">4</integer>
-
-    <!-- How many times the increment/decrement button should be clicked to change 1 Fahrenheit
-      degree. (e.g. if set to 2, clicking once changes by 0.5 (=1/2) Fahrenheit degree.)   -->
-    <integer name="celsius_increment_fraction">2</integer>
-    <!-- How many times the increment/decrement button should be clicked to change 1 Celsius
-      degree. (e.g. if set to 2, clicking once changes by 0.5 (=1/2) Celsius degree.)   -->
-    <integer name="fahrenheit_increment_fraction">1</integer>
+    <!-- Immersive privacy indicator animation duration. -->
+    <integer name="privacy_indicator_animation_duration">500</integer>
 
     <!-- The upper bounds for background colors used in Adjustable Background Temperature Control
     View. Note that these integers should be in Celsius and will be divided by 10 so that the first

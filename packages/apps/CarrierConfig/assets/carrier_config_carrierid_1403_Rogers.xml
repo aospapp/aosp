@@ -6,6 +6,7 @@
     <boolean name="voicemail_notification_persistent_bool" value="true"/>
     <boolean name="call_forwarding_map_non_number_to_voicemail_bool" value="true"/>
     <boolean name="carrier_name_override_bool" value="true"/>
+    <boolean name="ratchet_nr_advanced_bandwidth_if_rrc_idle_bool" value="false"/>
     <int name="smsToMmsTextThreshold" value="6"/>
     <int name="recipientLimit" value="20"/>
     <int name="maxImageHeight" value="1944"/>

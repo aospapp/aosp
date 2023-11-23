@@ -76,7 +76,7 @@ static int statsdAvailable();
 static int statsdOpen();
 static void statsdClose();
 static int statsdWrite(struct timespec* ts, struct iovec* vec, size_t nr);
-static void statsdNoteDrop();
+static void statsdNoteDrop(int error, int tag);
 static int statsdIsClosed();
 
 struct android_log_transport_write statsdLoggerWrite = {
@@ -107,7 +107,7 @@ static int statsdOpen() {
         if (sock < 0) {
             ret = -errno;
         } else {
-            int sndbuf = 1 * 1024 * 1024;  // set max send buffer size 1MB
+            const int sndbuf = 2 * 1024 * 1024;  // set max send buffer size 2MB
             socklen_t bufLen = sizeof(sndbuf);
             // SO_RCVBUF does not have an effect on unix domain socket, but SO_SNDBUF does.
             // Proceed to connect even setsockopt fails.

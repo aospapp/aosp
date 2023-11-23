@@ -16,5 +16,5 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="app_name" msgid="8151113707592407304">"Link viewer"</string>
+    <string name="app_name" msgid="8151113707592407304">"Link Viewer"</string>
 </resources>

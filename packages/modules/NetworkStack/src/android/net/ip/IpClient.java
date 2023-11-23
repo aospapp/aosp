@@ -21,11 +21,9 @@ import static android.net.dhcp.DhcpResultsParcelableUtil.toStableParcelable;
 import static android.net.ip.IIpClient.PROV_IPV4_DISABLED;
 import static android.net.ip.IIpClient.PROV_IPV6_DISABLED;
 import static android.net.ip.IIpClient.PROV_IPV6_LINKLOCAL;
+import static android.net.ip.IIpClientCallbacks.DTIM_MULTIPLIER_RESET;
 import static android.net.ip.IpReachabilityMonitor.INVALID_REACHABILITY_LOSS_TYPE;
 import static android.net.ip.IpReachabilityMonitor.nudEventTypeToInt;
-import static android.net.util.NetworkStackUtils.IPCLIENT_DISABLE_ACCEPT_RA_VERSION;
-import static android.net.util.NetworkStackUtils.IPCLIENT_GARP_NA_ROAMING_VERSION;
-import static android.net.util.NetworkStackUtils.IPCLIENT_GRATUITOUS_NA_VERSION;
 import static android.net.util.SocketUtils.makePacketSocketAddress;
 import static android.provider.DeviceConfig.NAMESPACE_CONNECTIVITY;
 import static android.system.OsConstants.AF_PACKET;
@@ -38,6 +36,10 @@ import static com.android.net.module.util.NetworkStackConstants.ARP_REPLY;
 import static com.android.net.module.util.NetworkStackConstants.ETHER_BROADCAST;
 import static com.android.net.module.util.NetworkStackConstants.IPV6_ADDR_ALL_ROUTERS_MULTICAST;
 import static com.android.net.module.util.NetworkStackConstants.VENDOR_SPECIFIC_IE_ID;
+import static com.android.networkstack.util.NetworkStackUtils.IPCLIENT_DISABLE_ACCEPT_RA_VERSION;
+import static com.android.networkstack.util.NetworkStackUtils.IPCLIENT_GARP_NA_ROAMING_VERSION;
+import static com.android.networkstack.util.NetworkStackUtils.IPCLIENT_GRATUITOUS_NA_VERSION;
+import static com.android.networkstack.util.NetworkStackUtils.IPCLIENT_MULTICAST_NS_VERSION;
 import static com.android.server.util.PermissionUtil.enforceNetworkStackCallingPermission;
 
 import android.annotation.SuppressLint;
@@ -73,8 +75,6 @@ import android.net.shared.Layer2Information;
 import android.net.shared.ProvisioningConfiguration;
 import android.net.shared.ProvisioningConfiguration.ScanResultInfo;
 import android.net.shared.ProvisioningConfiguration.ScanResultInfo.InformationElement;
-import android.net.util.NetworkStackUtils;
-import android.net.util.SharedLog;
 import android.os.Build;
 import android.os.ConditionVariable;
 import android.os.Handler;
@@ -105,8 +105,12 @@ import com.android.internal.util.MessageUtils;
 import com.android.internal.util.State;
 import com.android.internal.util.StateMachine;
 import com.android.internal.util.WakeupMessage;
+import com.android.net.module.util.CollectionUtils;
 import com.android.net.module.util.DeviceConfigUtils;
 import com.android.net.module.util.InterfaceParams;
+import com.android.net.module.util.SharedLog;
+import com.android.net.module.util.SocketUtils;
+import com.android.net.module.util.ip.InterfaceController;
 import com.android.networkstack.R;
 import com.android.networkstack.apishim.NetworkInformationShimImpl;
 import com.android.networkstack.apishim.SocketUtilsShimImpl;
@@ -116,6 +120,8 @@ import com.android.networkstack.arp.ArpPacket;
 import com.android.networkstack.metrics.IpProvisioningMetrics;
 import com.android.networkstack.metrics.NetworkQuirkMetrics;
 import com.android.networkstack.packets.NeighborAdvertisement;
+import com.android.networkstack.packets.NeighborSolicitation;
+import com.android.networkstack.util.NetworkStackUtils;
 import com.android.server.NetworkObserverRegistry;
 import com.android.server.NetworkStackService.NetworkStackServiceManager;
 
@@ -428,6 +434,18 @@ public class IpClient extends StateMachine {
         }
 
         /**
+         * Set maximum acceptable DTIM multiplier to hardware driver.
+         */
+        public void setMaxDtimMultiplier(int multiplier) {
+            log("setMaxDtimMultiplier(" + multiplier + ")");
+            try {
+                mCallback.setMaxDtimMultiplier(multiplier);
+            } catch (RemoteException e) {
+                log("Failed to call setMaxDtimMultiplier", e);
+            }
+        }
+
+        /**
          * Get the version of the IIpClientCallbacks AIDL interface.
          */
         public int getInterfaceVersion() {
@@ -454,7 +472,7 @@ public class IpClient extends StateMachine {
     private static final int CMD_START                            = 3;
     private static final int CMD_CONFIRM                          = 4;
     private static final int EVENT_PRE_DHCP_ACTION_COMPLETE       = 5;
-    // Triggered by NetlinkTracker to communicate netlink events.
+    // Triggered by IpClientLinkObserver to communicate netlink events.
     private static final int EVENT_NETLINK_LINKPROPERTIES_CHANGED = 6;
     private static final int CMD_UPDATE_TCP_BUFFER_SIZES          = 7;
     private static final int CMD_UPDATE_HTTP_PROXY                = 8;
@@ -467,6 +485,8 @@ public class IpClient extends StateMachine {
     private static final int CMD_UPDATE_L2KEY_CLUSTER = 15;
     private static final int CMD_COMPLETE_PRECONNECTION = 16;
     private static final int CMD_UPDATE_L2INFORMATION = 17;
+    private static final int CMD_SET_DTIM_MULTIPLIER_AFTER_DELAY = 18;
+    private static final int CMD_UPDATE_APF_CAPABILITIES = 19;
 
     private static final int ARG_LINKPROP_CHANGED_LINKSTATE_DOWN = 0;
     private static final int ARG_LINKPROP_CHANGED_LINKSTATE_UP = 1;
@@ -481,6 +501,9 @@ public class IpClient extends StateMachine {
     // IpClient shares a handler with DhcpClient: commands must not overlap
     public static final int DHCPCLIENT_CMD_BASE = 1000;
 
+    // IpClient shares a handler with Dhcp6Client: commands must not overlap
+    public static final int DHCP6CLIENT_CMD_BASE = 2000;
+
     // Settings and default values.
     private static final int MAX_LOG_RECORDS = 500;
     private static final int MAX_PACKET_RECORDS = 100;
@@ -489,6 +512,47 @@ public class IpClient extends StateMachine {
     static final String CONFIG_MIN_RDNSS_LIFETIME = "ipclient_min_rdnss_lifetime";
     private static final int DEFAULT_MIN_RDNSS_LIFETIME =
             ShimUtils.isReleaseOrDevelopmentApiAbove(Build.VERSION_CODES.Q) ? 120 : 0;
+
+    // Used to wait for the provisioning to complete eventually and then decide the target
+    // network type, which gives the accurate hint to set DTIM multiplier. Per current IPv6
+    // provisioning connection latency metrics, the latency of 95% can go up to 16s, so pick
+    // ProvisioningConfiguration.DEFAULT_TIMEOUT_MS value for this delay.
+    @VisibleForTesting
+    static final String CONFIG_INITIAL_PROVISIONING_DTIM_DELAY_MS =
+            "ipclient_initial_provisioning_dtim_delay";
+    private static final int DEFAULT_INITIAL_PROVISIONING_DTIM_DELAY_MS = 18000;
+
+    @VisibleForTesting
+    static final String CONFIG_MULTICAST_LOCK_MAX_DTIM_MULTIPLIER =
+            "ipclient_multicast_lock_max_dtim_multiplier";
+    @VisibleForTesting
+    static final int DEFAULT_MULTICAST_LOCK_MAX_DTIM_MULTIPLIER = 1;
+
+    @VisibleForTesting
+    static final String CONFIG_IPV6_ONLY_NETWORK_MAX_DTIM_MULTIPLIER =
+            "ipclient_ipv6_only_max_dtim_multiplier";
+    @VisibleForTesting
+    static final int DEFAULT_IPV6_ONLY_NETWORK_MAX_DTIM_MULTIPLIER = 2;
+
+    @VisibleForTesting
+    static final String CONFIG_IPV4_ONLY_NETWORK_MAX_DTIM_MULTIPLIER =
+            "ipclient_ipv4_only_max_dtim_multiplier";
+    @VisibleForTesting
+    static final int DEFAULT_IPV4_ONLY_NETWORK_MAX_DTIM_MULTIPLIER = 9;
+
+    @VisibleForTesting
+    static final String CONFIG_DUAL_STACK_MAX_DTIM_MULTIPLIER =
+            "ipclient_dual_stack_max_dtim_multiplier";
+    // The default value for dual-stack networks is the min of maximum DTIM multiplier to use for
+    // IPv4-only and IPv6-only networks.
+    @VisibleForTesting
+    static final int DEFAULT_DUAL_STACK_MAX_DTIM_MULTIPLIER = 2;
+
+    @VisibleForTesting
+    static final String CONFIG_BEFORE_IPV6_PROV_MAX_DTIM_MULTIPLIER =
+            "ipclient_before_ipv6_prov_max_dtim_multiplier";
+    @VisibleForTesting
+    static final int DEFAULT_BEFORE_IPV6_PROV_MAX_DTIM_MULTIPLIER = 1;
 
     private static final boolean NO_CALLBACKS = false;
     private static final boolean SEND_CALLBACKS = true;
@@ -506,20 +570,19 @@ public class IpClient extends StateMachine {
 
     // Specific vendor OUI(3 bytes)/vendor specific type(1 byte) pattern for upstream hotspot
     // device detection. Add new byte array pattern below in turn.
-    private static final List<byte[]> METERED_IE_PATTERN_LIST = Collections.unmodifiableList(
-            Arrays.asList(
-                    new byte[] { (byte) 0x00, (byte) 0x17, (byte) 0xf2, (byte) 0x06 }
-    ));
+    private static final List<byte[]> METERED_IE_PATTERN_LIST = Collections.singletonList(
+            new byte[] { (byte) 0x00, (byte) 0x17, (byte) 0xf2, (byte) 0x06 }
+    );
 
     // Allows Wi-Fi to pass in DHCP options when particular vendor-specific IEs are present.
     // Maps each DHCP option code to a list of IEs, any of which will allow that option.
     private static final Map<Byte, List<byte[]>> DHCP_OPTIONS_ALLOWED = Map.of(
-            (byte) 60, Arrays.asList(
+            (byte) 60, Collections.singletonList(
                     // KT OUI: 00:17:C3, type: 17. See b/170928882.
-                    new byte[]{ (byte) 0x00, (byte) 0x17, (byte) 0xc3, (byte) 0x17 }),
-            (byte) 77, Arrays.asList(
+                    new byte[]{ (byte) 0x00, (byte) 0x17, (byte) 0xc3, (byte) 0x11 }),
+            (byte) 77, Collections.singletonList(
                     // KT OUI: 00:17:C3, type: 17. See b/170928882.
-                    new byte[]{ (byte) 0x00, (byte) 0x17, (byte) 0xc3, (byte) 0x17 })
+                    new byte[]{ (byte) 0x00, (byte) 0x17, (byte) 0xc3, (byte) 0x11 })
     );
 
     // Initialize configurable particular SSID set supporting DHCP Roaming feature. See
@@ -557,6 +620,8 @@ public class IpClient extends StateMachine {
     private final InterfaceController mInterfaceCtrl;
     // Set of IPv6 addresses for which unsolicited gratuitous NA packets have been sent.
     private final Set<Inet6Address> mGratuitousNaTargetAddresses = new HashSet<>();
+    // Set of IPv6 addresses from which multicast NS packets have been sent.
+    private final Set<Inet6Address> mMulticastNsSourceAddresses = new HashSet<>();
 
     // Ignore nonzero RDNSS option lifetimes below this value. 0 = disabled.
     private final int mMinRdnssLifetimeSec;
@@ -578,8 +643,12 @@ public class IpClient extends StateMachine {
     private String mCluster; // The cluster for this network, for writing into the memory store
     private boolean mMulticastFiltering;
     private long mStartTimeMillis;
+    private long mInitialProvisioningEndTimeMillis;
     private MacAddress mCurrentBssid;
     private boolean mHasDisabledIpv6OrAcceptRaOnProvLoss;
+    private Integer mDadTransmits = null;
+    private int mMaxDtimMultiplier = DTIM_MULTIPLIER_RESET;
+    private ApfCapabilities mCurrentApfCapabilities;
 
     /**
      * Reading the snapshot is an asynchronous operation initiated by invoking
@@ -696,7 +765,7 @@ public class IpClient extends StateMachine {
     }
 
     @VisibleForTesting
-    IpClient(Context context, String ifName, IIpClientCallbacks callback,
+    public IpClient(Context context, String ifName, IIpClientCallbacks callback,
             NetworkObserverRegistry observerRegistry, NetworkStackServiceManager nssManager,
             Dependencies deps) {
         super(IpClient.class.getSimpleName() + "." + ifName);
@@ -745,15 +814,19 @@ public class IpClient extends StateMachine {
                     }
 
                     @Override
-                    public void onIpv6AddressRemoved(final Inet6Address targetIp) {
-                        // The update of Gratuitous NA target addresses set should be only accessed
-                        // from the handler thread of IpClient StateMachine, keeping the behaviour
+                    public void onIpv6AddressRemoved(final Inet6Address address) {
+                        // The update of Gratuitous NA target addresses set or unsolicited
+                        // multicast NS source addresses set should be only accessed from the
+                        // handler thread of IpClient StateMachine, keeping the behaviour
                         // consistent with relying on the non-blocking NetworkObserver callbacks,
                         // see {@link registerObserverForNonblockingCallback}. This can be done
                         // by either sending a message to StateMachine or posting a handler.
+                        if (address.isLinkLocalAddress()) return;
                         getHandler().post(() -> {
-                            if (!mGratuitousNaTargetAddresses.contains(targetIp)) return;
-                            updateGratuitousNaTargetSet(targetIp, false /* remove address */);
+                            mLog.log("Remove IPv6 GUA " + address
+                                    + " from both Gratuituous NA and Multicast NS sets");
+                            mGratuitousNaTargetAddresses.remove(address);
+                            mMulticastNsSourceAddresses.remove(address);
                         });
                     }
 
@@ -871,6 +944,11 @@ public class IpClient extends StateMachine {
             enforceNetworkStackCallingPermission();
             IpClient.this.updateLayer2Information(info);
         }
+        @Override
+        public void updateApfCapabilities(ApfCapabilities apfCapabilities) {
+            enforceNetworkStackCallingPermission();
+            IpClient.this.updateApfCapabilities(apfCapabilities);
+        }
 
         @Override
         public int getInterfaceVersion() {
@@ -919,6 +997,11 @@ public class IpClient extends StateMachine {
 
     private boolean isGratuitousArpNaRoamingEnabled() {
         return mDependencies.isFeatureEnabled(mContext, IPCLIENT_GARP_NA_ROAMING_VERSION,
+                false /* defaultEnabled */);
+    }
+
+    private boolean isMulticastNsEnabled() {
+        return mDependencies.isFeatureEnabled(mContext, IPCLIENT_MULTICAST_NS_VERSION,
                 false /* defaultEnabled */);
     }
 
@@ -976,6 +1059,7 @@ public class IpClient extends StateMachine {
 
         mCurrentBssid = getInitialBssid(req.mLayer2Info, req.mScanResultInfo,
                 ShimUtils.isAtLeastS());
+        mCurrentApfCapabilities = req.mApfCapabilities;
         if (req.mLayer2Info != null) {
             mL2Key = req.mLayer2Info.mL2Key;
             mCluster = req.mLayer2Info.mCluster;
@@ -1097,6 +1181,19 @@ public class IpClient extends StateMachine {
      */
     public void updateLayer2Information(@NonNull Layer2InformationParcelable info) {
         sendMessage(CMD_UPDATE_L2INFORMATION, info);
+    }
+
+    /**
+     * Update the APF capabilities.
+     *
+     * This method will update the APF capabilities used in IpClient and decide if a new APF
+     * program should be installed to filter the incoming packets based on that. So far this
+     * method only allows for the APF capabilities to go from null to non-null, and no other
+     * changes are allowed. One use case is when WiFi interface switches from secondary to
+     * primary in STA+STA mode.
+     */
+    public void updateApfCapabilities(@NonNull ApfCapabilities apfCapabilities) {
+        sendMessage(CMD_UPDATE_APF_CAPABILITIES, apfCapabilities);
     }
 
     /**
@@ -1318,6 +1415,25 @@ public class IpClient extends StateMachine {
                     Integer.toString(acceptRa));
         } catch (Exception e) {
             Log.e(mTag, "Failed to set accept_ra to " + acceptRa + ": " + e);
+        }
+    }
+
+    private Integer getIpv6DadTransmits() {
+        try {
+            return Integer.parseUnsignedInt(mNetd.getProcSysNet(INetd.IPV6, INetd.CONF,
+                    mInterfaceName, "dad_transmits"));
+        } catch (RemoteException | ServiceSpecificException e) {
+            logError("Couldn't read dad_transmits on " + mInterfaceName, e);
+            return null;
+        }
+    }
+
+    private void setIpv6DadTransmits(int dadTransmits) {
+        try {
+            mNetd.setProcSysNet(INetd.IPV6, INetd.CONF, mInterfaceParams.name,
+                    "dad_transmits", Integer.toString(dadTransmits));
+        } catch (Exception e) {
+            Log.e(mTag, "Failed to set dad_transmits to " + dadTransmits + ": " + e);
         }
     }
 
@@ -1606,7 +1722,7 @@ public class IpClient extends StateMachine {
         } catch (SocketException | ErrnoException e) {
             logError(msg, e);
         } finally {
-            NetworkStackUtils.closeSocketQuietly(sock);
+            SocketUtils.closeSocketQuietly(sock);
         }
     }
 
@@ -1636,6 +1752,22 @@ public class IpClient extends StateMachine {
         transmitPacket(packet, sockAddress, "Failed to send GARP");
     }
 
+    private void sendMulticastNs(final Inet6Address srcIp, final Inet6Address dstIp,
+            final Inet6Address targetIp) {
+        final MacAddress dstMac = NetworkStackUtils.ipv6MulticastToEthernetMulticast(dstIp);
+        final ByteBuffer packet = NeighborSolicitation.build(mInterfaceParams.macAddr, dstMac,
+                srcIp, dstIp, targetIp);
+        final SocketAddress sockAddress =
+                SocketUtilsShimImpl.newInstance().makePacketSocketAddress(ETH_P_IPV6,
+                        mInterfaceParams.index, dstMac.toByteArray());
+
+        if (DBG) {
+            mLog.log("send multicast NS from " + srcIp.getHostAddress() + " to "
+                    + dstIp.getHostAddress() + " , target IP: " + targetIp.getHostAddress());
+        }
+        transmitPacket(packet, sockAddress, "Failed to send multicast Neighbor Solicitation");
+    }
+
     @Nullable
     private static Inet6Address getIpv6LinkLocalAddress(final LinkProperties newLp) {
         for (LinkAddress la : newLp.getLinkAddresses()) {
@@ -1644,16 +1776,6 @@ public class IpClient extends StateMachine {
             if (ip.isLinkLocalAddress()) return ip;
         }
         return null;
-    }
-
-    private void updateGratuitousNaTargetSet(@NonNull final Inet6Address targetIp, boolean add) {
-        if (add) {
-            mGratuitousNaTargetAddresses.add(targetIp);
-        } else {
-            mGratuitousNaTargetAddresses.remove(targetIp);
-        }
-        mLog.log((add ? "Add" : "Remove") + " global IPv6 address " + targetIp
-                + (add ? " to" : " from") + " the set of gratuitous NA target address.");
     }
 
     private void maybeSendGratuitousNAs(final LinkProperties lp, boolean afterRoaming) {
@@ -1665,7 +1787,7 @@ public class IpClient extends StateMachine {
         // TODO: add experiment with sending only one gratuitous NA packet instead of one
         // packet per address.
         for (LinkAddress la : lp.getLinkAddresses()) {
-            if (!la.isIpv6() || !la.isGlobalPreferred()) continue;
+            if (!NetworkStackUtils.isIPv6GUA(la)) continue;
             final Inet6Address targetIp = (Inet6Address) la.getAddress();
             // Already sent gratuitous NA with this target global IPv6 address. But for
             // the L2 roaming case, device should always (re)transmit Gratuitous NA for
@@ -1676,7 +1798,9 @@ public class IpClient extends StateMachine {
                         + targetIp.getHostAddress() + (afterRoaming ? " after roaming" : ""));
             }
             sendGratuitousNA(srcIp, targetIp);
-            if (!afterRoaming) updateGratuitousNaTargetSet(targetIp, true /* add address */);
+            if (!afterRoaming) {
+                mGratuitousNaTargetAddresses.add(targetIp);
+            }
         }
     }
 
@@ -1690,6 +1814,39 @@ public class IpClient extends StateMachine {
                 }
                 sendGratuitousARP(srcIp);
             }
+        }
+    }
+
+    @Nullable
+    private static Inet6Address getIPv6DefaultGateway(final LinkProperties lp) {
+        for (RouteInfo r : lp.getRoutes()) {
+            // TODO: call {@link RouteInfo#isIPv6Default} directly after core networking modules
+            // are consolidated.
+            if (r.getType() == RTN_UNICAST && r.getDestination().getPrefixLength() == 0
+                    && r.getDestination().getAddress() instanceof Inet6Address) {
+                // Check if it's IPv6 default route, if yes, return the gateway address
+                // (i.e. default router's IPv6 link-local address)
+                return (Inet6Address) r.getGateway();
+            }
+        }
+        return null;
+    }
+
+    private void maybeSendMulticastNSes(final LinkProperties lp) {
+        if (!(lp.hasGlobalIpv6Address() && lp.hasIpv6DefaultRoute())) return;
+
+        // Get the default router's IPv6 link-local address.
+        final Inet6Address targetIp = getIPv6DefaultGateway(lp);
+        if (targetIp == null) return;
+        final Inet6Address dstIp = NetworkStackUtils.ipv6AddressToSolicitedNodeMulticast(targetIp);
+        if (dstIp == null) return;
+
+        for (LinkAddress la : lp.getLinkAddresses()) {
+            if (!NetworkStackUtils.isIPv6GUA(la)) continue;
+            final Inet6Address srcIp = (Inet6Address) la.getAddress();
+            if (mMulticastNsSourceAddresses.contains(srcIp)) continue;
+            sendMulticastNs(srcIp, dstIp, targetIp);
+            mMulticastNsSourceAddresses.add(srcIp);
         }
     }
 
@@ -1707,6 +1864,17 @@ public class IpClient extends StateMachine {
             maybeSendGratuitousNAs(newLp, false /* isGratuitousNaAfterRoaming */);
         }
 
+        // Sending multicast NS from each new assigned IPv6 GUAs to the solicited-node multicast
+        // address based on the default router's IPv6 link-local address should trigger default
+        // router response with NA, and update the neighbor cache entry immediately, that would
+        // help speed up the connection to an IPv6-only network.
+        //
+        // TODO: stop sending this multicast NS after deployment of RFC9131 in the field, leverage
+        // the gratuitous NA to update the first-hop router's neighbor cache entry.
+        if (isMulticastNsEnabled()) {
+            maybeSendMulticastNSes(newLp);
+        }
+
         // Either success IPv4 or IPv6 provisioning triggers new LinkProperties update,
         // wait for the provisioning completion and record the latency.
         mIpProvisioningMetrics.setIPv4ProvisionedLatencyOnFirstTime(newLp.isIpv4Provisioned());
@@ -1719,6 +1887,10 @@ public class IpClient extends StateMachine {
         maybeSaveNetworkToIpMemoryStore();
         if (sendCallbacks) {
             dispatchCallback(delta, newLp);
+            // We cannot do this along with onProvisioningSuccess callback, because the network
+            // can become dual-stack after a success IPv6 provisioning, and the multiplier also
+            // needs to be updated upon the loss of IPv4 and/or IPv6 provisioning.
+            updateMaxDtimMultiplier();
         }
         return (delta != PROV_CHANGE_LOST_PROVISIONING);
     }
@@ -1861,8 +2033,22 @@ public class IpClient extends StateMachine {
         return true;
     }
 
+    private boolean shouldDisableDad() {
+        return mConfiguration.mUniqueEui64AddressesOnly
+                && mConfiguration.mIPv6ProvisioningMode == PROV_IPV6_LINKLOCAL
+                && mConfiguration.mIPv6AddrGenMode
+                        == ProvisioningConfiguration.IPV6_ADDR_GEN_MODE_EUI64;
+    }
+
     private boolean startIPv6(int acceptRa) {
         setIpv6AcceptRa(acceptRa);
+        if (shouldDisableDad()) {
+            final Integer dadTransmits = getIpv6DadTransmits();
+            if (dadTransmits != null) {
+                mDadTransmits = dadTransmits;
+                setIpv6DadTransmits(0 /* dad_transmits */);
+            }
+        }
         return mInterfaceCtrl.setIPv6PrivacyExtensions(true)
                 && mInterfaceCtrl.setIPv6AddrGenModeIfSupported(mConfiguration.mIPv6AddrGenMode)
                 && mInterfaceCtrl.enableIPv6();
@@ -1954,6 +2140,13 @@ public class IpClient extends StateMachine {
         }
     }
 
+    private void maybeRestoreDadTransmits() {
+        if (mDadTransmits == null) return;
+
+        setIpv6DadTransmits(mDadTransmits);
+        mDadTransmits = null;
+    }
+
     private void handleUpdateL2Information(@NonNull Layer2InformationParcelable info) {
         mL2Key = info.l2Key;
         mCluster = info.cluster;
@@ -2001,12 +2194,52 @@ public class IpClient extends StateMachine {
         mCurrentBssid = info.bssid;
     }
 
+    @Nullable
+    private ApfFilter maybeCreateApfFilter(final ApfCapabilities apfCapabilities) {
+        ApfFilter.ApfConfiguration apfConfig = new ApfFilter.ApfConfiguration();
+        apfConfig.apfCapabilities = apfCapabilities;
+        apfConfig.multicastFilter = mMulticastFiltering;
+        // Get the Configuration for ApfFilter from Context
+        // Resource settings were moved from ApfCapabilities APIs to NetworkStack resources in S
+        if (ShimUtils.isReleaseOrDevelopmentApiAbove(Build.VERSION_CODES.R)) {
+            final Resources res = mContext.getResources();
+            apfConfig.ieee802_3Filter = res.getBoolean(R.bool.config_apfDrop802_3Frames);
+            apfConfig.ethTypeBlackList = res.getIntArray(R.array.config_apfEthTypeDenyList);
+        } else {
+            apfConfig.ieee802_3Filter = ApfCapabilities.getApfDrop8023Frames();
+            apfConfig.ethTypeBlackList = ApfCapabilities.getApfEtherTypeBlackList();
+        }
+
+        apfConfig.minRdnssLifetimeSec = mMinRdnssLifetimeSec;
+        return mDependencies.maybeCreateApfFilter(mContext, apfConfig, mInterfaceParams,
+                mCallback);
+    }
+
+    private boolean handleUpdateApfCapabilities(@NonNull final ApfCapabilities apfCapabilities) {
+        // For the use case where the wifi interface switches from secondary to primary, the
+        // secondary interface does not support APF by default see the overlay config about
+        // {@link config_wifiEnableApfOnNonPrimarySta}. so we should see empty ApfCapabilities
+        // in {@link ProvisioningConfiguration} when wifi starts provisioning on the secondary
+        // interface. For other cases, we should not accept the updateApfCapabilities call.
+        if (mCurrentApfCapabilities != null || apfCapabilities == null) {
+            Log.wtf(mTag, "current ApfCapabilities " + mCurrentApfCapabilities
+                    + " is not null or new ApfCapabilities " + apfCapabilities + " is null");
+            return false;
+        }
+        if (mApfFilter != null) {
+            mApfFilter.shutdown();
+        }
+        mCurrentApfCapabilities = apfCapabilities;
+        return apfCapabilities != null;
+    }
+
     class StoppedState extends State {
         @Override
         public void enter() {
             stopAllIP();
             mHasDisabledIpv6OrAcceptRaOnProvLoss = false;
             mGratuitousNaTargetAddresses.clear();
+            mMulticastNsSourceAddresses.clear();
 
             resetLinkProperties();
             if (mStartTimeMillis > 0) {
@@ -2086,6 +2319,14 @@ public class IpClient extends StateMachine {
 
             // Restore the interface MTU to initial value if it has changed.
             maybeRestoreInterfaceMtu();
+            // Reset number of dad_transmits to default value if changed.
+            maybeRestoreDadTransmits();
+            // Reset DTIM multiplier to default value if changed.
+            if (mMaxDtimMultiplier != DTIM_MULTIPLIER_RESET) {
+                mCallback.setMaxDtimMultiplier(DTIM_MULTIPLIER_RESET);
+                mMaxDtimMultiplier = DTIM_MULTIPLIER_RESET;
+                mInitialProvisioningEndTimeMillis = 0;
+            }
         }
 
         @Override
@@ -2264,16 +2505,25 @@ public class IpClient extends StateMachine {
         public void enter() {
             mIpProvisioningMetrics.reset();
             mStartTimeMillis = SystemClock.elapsedRealtime();
+            final int delay = mDependencies.getDeviceConfigPropertyInt(
+                    CONFIG_INITIAL_PROVISIONING_DTIM_DELAY_MS,
+                    DEFAULT_INITIAL_PROVISIONING_DTIM_DELAY_MS);
+            mInitialProvisioningEndTimeMillis = mStartTimeMillis + delay;
+
             if (mConfiguration.mProvisioningTimeoutMs > 0) {
                 final long alarmTime = SystemClock.elapsedRealtime()
                         + mConfiguration.mProvisioningTimeoutMs;
                 mProvisioningTimeoutAlarm.schedule(alarmTime);
             }
+            // Send a delay message to wait for IP provisioning to complete eventually and set the
+            // specific DTIM multiplier by checking the target network type.
+            sendMessageDelayed(CMD_SET_DTIM_MULTIPLIER_AFTER_DELAY, delay);
         }
 
         @Override
         public void exit() {
             mProvisioningTimeoutAlarm.cancel();
+            mCurrentApfCapabilities = null;
 
             // Record metrics information once this provisioning has completed due to certain
             // reason (normal termination, provisioning timeout, lost provisioning and etc).
@@ -2305,6 +2555,13 @@ public class IpClient extends StateMachine {
                     handleUpdateL2Information((Layer2InformationParcelable) msg.obj);
                     break;
 
+                // Only update the current ApfCapabilities but do not create and start APF
+                // filter until transition to RunningState, actually we should always do that
+                // in RunningState.
+                case CMD_UPDATE_APF_CAPABILITIES:
+                    handleUpdateApfCapabilities((ApfCapabilities) msg.obj);
+                    break;
+
                 case EVENT_PROVISIONING_TIMEOUT:
                     handleProvisioningFailure(DisconnectCode.DC_PROVISIONING_TIMEOUT);
                     break;
@@ -2332,23 +2589,7 @@ public class IpClient extends StateMachine {
 
         @Override
         public void enter() {
-            ApfFilter.ApfConfiguration apfConfig = new ApfFilter.ApfConfiguration();
-            apfConfig.apfCapabilities = mConfiguration.mApfCapabilities;
-            apfConfig.multicastFilter = mMulticastFiltering;
-            // Get the Configuration for ApfFilter from Context
-            // Resource settings were moved from ApfCapabilities APIs to NetworkStack resources in S
-            if (ShimUtils.isReleaseOrDevelopmentApiAbove(Build.VERSION_CODES.R)) {
-                final Resources res = mContext.getResources();
-                apfConfig.ieee802_3Filter = res.getBoolean(R.bool.config_apfDrop802_3Frames);
-                apfConfig.ethTypeBlackList = res.getIntArray(R.array.config_apfEthTypeDenyList);
-            } else {
-                apfConfig.ieee802_3Filter = ApfCapabilities.getApfDrop8023Frames();
-                apfConfig.ethTypeBlackList = ApfCapabilities.getApfEtherTypeBlackList();
-            }
-
-            apfConfig.minRdnssLifetimeSec = mMinRdnssLifetimeSec;
-            mApfFilter = mDependencies.maybeCreateApfFilter(mContext, apfConfig, mInterfaceParams,
-                    mCallback);
+            mApfFilter = maybeCreateApfFilter(mCurrentApfCapabilities);
             // TODO: investigate the effects of any multicast filtering racing/interfering with the
             // rest of this IP configuration startup.
             if (mApfFilter == null) {
@@ -2505,6 +2746,7 @@ public class IpClient extends StateMachine {
                     } else {
                         mCallback.setFallbackMulticastFilter(mMulticastFiltering);
                     }
+                    updateMaxDtimMultiplier();
                     break;
                 }
 
@@ -2558,6 +2800,15 @@ public class IpClient extends StateMachine {
                 case DhcpClient.CMD_CONFIGURE_LINKADDRESS: {
                     final LinkAddress ipAddress = (LinkAddress) msg.obj;
                     if (mInterfaceCtrl.setIPv4Address(ipAddress)) {
+                        // Although it's impossible to happen that DHCP client becomes null in
+                        // RunningState and then NPE is thrown when it attempts to send a message
+                        // on an null object, sometimes it's found during stress tests. If this
+                        // issue does happen, log the terrible failure, that would be helpful to
+                        // see how often this case occurs on fields and the log trace would be
+                        // also useful for debugging(see b/203174383).
+                        if (mDhcpClient == null) {
+                            Log.wtf(mTag, "DhcpClient should never be null in RunningState.");
+                        }
                         mDhcpClient.sendMessage(DhcpClient.EVENT_LINKADDRESS_CONFIGURED);
                     } else {
                         logError("Failed to set IPv4 address.");
@@ -2614,6 +2865,17 @@ public class IpClient extends StateMachine {
                     mDhcpClient = null;
                     break;
 
+                case CMD_SET_DTIM_MULTIPLIER_AFTER_DELAY:
+                    updateMaxDtimMultiplier();
+                    break;
+
+                case CMD_UPDATE_APF_CAPABILITIES:
+                    final ApfCapabilities apfCapabilities = (ApfCapabilities) msg.obj;
+                    if (handleUpdateApfCapabilities(apfCapabilities)) {
+                        mApfFilter = maybeCreateApfFilter(apfCapabilities);
+                    }
+                    break;
+
                 default:
                     return NOT_HANDLED;
             }
@@ -2621,6 +2883,71 @@ public class IpClient extends StateMachine {
             mMsgStateLogger.handled(this, getCurrentState());
             return HANDLED;
         }
+    }
+
+    /**
+     * Set the maximum DTIM multiplier to hardware driver per network condition. Any multiplier
+     * larger than the maximum value must not be accepted, it will cause packet loss higher than
+     * what the system can accept, which will cause unexpected behavior for apps, and may interrupt
+     * the network connection.
+     *
+     * When Wifi STA is in the power saving mode and the system is suspended, the wakeup interval
+     * will be set to:
+     *    1) multiplier * AP's DTIM period if multiplier > 0.
+     *    2) the driver default value if multiplier <= 0.
+     * Some implementations may apply an additional cap to wakeup interval in the case of 1).
+     */
+    private void updateMaxDtimMultiplier() {
+        int multiplier = deriveDtimMultiplier();
+        if (mMaxDtimMultiplier == multiplier) return;
+
+        mMaxDtimMultiplier = multiplier;
+        log("set max DTIM multiplier to " + multiplier);
+        mCallback.setMaxDtimMultiplier(multiplier);
+    }
+
+    private int deriveDtimMultiplier() {
+        final boolean hasIpv4Addr = mLinkProperties.hasIpv4Address();
+        // For a host in the network that has only ULA and link-local but no GUA, consider
+        // that it also has IPv6 connectivity. LinkProperties#isIpv6Provisioned only returns
+        // true when it has a GUA, so we cannot use it for IPv6-only network case.
+        final boolean hasIpv6Addr = CollectionUtils.any(mLinkProperties.getLinkAddresses(),
+                la -> {
+                    final InetAddress address = la.getAddress();
+                    return (address instanceof Inet6Address) && !address.isLinkLocalAddress();
+                });
+
+        final int multiplier;
+        if (!mMulticastFiltering) {
+            multiplier = mDependencies.getDeviceConfigPropertyInt(
+                    CONFIG_MULTICAST_LOCK_MAX_DTIM_MULTIPLIER,
+                    DEFAULT_MULTICAST_LOCK_MAX_DTIM_MULTIPLIER);
+        } else if (!hasIpv6Addr
+                && (SystemClock.elapsedRealtime() < mInitialProvisioningEndTimeMillis)) {
+            // IPv6 provisioning may or may not complete soon in the future, we don't know when
+            // it will complete, however, setting multiplier to a high value will cause higher
+            // RA packet loss, that increases the overall IPv6 provisioning latency. So just set
+            // multiplier to 1 before device gains the IPv6 provisioning, make sure device won't
+            // miss any RA packet later.
+            multiplier = mDependencies.getDeviceConfigPropertyInt(
+                    CONFIG_BEFORE_IPV6_PROV_MAX_DTIM_MULTIPLIER,
+                    DEFAULT_BEFORE_IPV6_PROV_MAX_DTIM_MULTIPLIER);
+        } else if (hasIpv6Addr && !hasIpv4Addr) {
+            multiplier = mDependencies.getDeviceConfigPropertyInt(
+                    CONFIG_IPV6_ONLY_NETWORK_MAX_DTIM_MULTIPLIER,
+                    DEFAULT_IPV6_ONLY_NETWORK_MAX_DTIM_MULTIPLIER);
+        } else if (hasIpv4Addr && !hasIpv6Addr) {
+            multiplier = mDependencies.getDeviceConfigPropertyInt(
+                    CONFIG_IPV4_ONLY_NETWORK_MAX_DTIM_MULTIPLIER,
+                    DEFAULT_IPV4_ONLY_NETWORK_MAX_DTIM_MULTIPLIER);
+        } else if (hasIpv6Addr && hasIpv4Addr) {
+            multiplier = mDependencies.getDeviceConfigPropertyInt(
+                    CONFIG_DUAL_STACK_MAX_DTIM_MULTIPLIER,
+                    DEFAULT_DUAL_STACK_MAX_DTIM_MULTIPLIER);
+        } else {
+            multiplier = DTIM_MULTIPLIER_RESET;
+        }
+        return multiplier;
     }
 
     private static class MessageHandlingLogger {

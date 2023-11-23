@@ -17,26 +17,27 @@ package android.car;
 
 import android.annotation.IntDef;
 import android.car.annotation.AddedInOrBefore;
-import android.car.hardware.CarPropertyConfig;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 
 /**
- * Object used to indicate area types for car properties.
- * <p>
- * The constants defined by {@link VehicleAreaType} indicate the area types for properties.  A
- * property only has one area type. Developers can query the area type using
- * {@link CarPropertyConfig#getPropertyType()}.
- * </p><p>
- * Refer to {@link VehicleAreaSeat} and {@link VehicleAreaWheel} for more information about areaId.
- * </p>
+ * List of different supported area types for vehicle properties.
+ *
+ * <p>The constants defined by {@code VehicleAreaType} indicate the different vehicle area types for
+ * properties. A property is mapped to only one {@code VehicleAreaType}. Developers can retrieve the
+ * {@code VehicleAreaType} using {@link android.car.hardware.CarPropertyConfig#getAreaType()}. Refer
+ * to {@link android.car.hardware.CarPropertyConfig#getAreaIds()} for more information about area
+ * IDs.
  */
-
-// This class is only designed to provide constants for VehicleAreaType. The constants should
-// exactly be same as VehicleAreaType in /hardware/interfaces/automotive/vehicle/2.0/types.hal.
 public final class VehicleAreaType {
-    /** Used for global properties */
+    /**
+     * Used for global properties. A global property is a property that applies to the entire
+     * vehicle and is not associated with a specific vehicle area type. For example, {@link
+     * android.car.VehiclePropertyIds#FUEL_LEVEL} and {@link
+     * android.car.VehiclePropertyIds#HVAC_STEERING_WHEEL_HEAT} are global properties. A global
+     * property is always mapped to {@code VEHICLE_AREA_TYPE_GLOBAL}.
+     */
     @AddedInOrBefore(majorVersion = 33)
     public static final int VEHICLE_AREA_TYPE_GLOBAL = 0;
     /** Area type is Window */

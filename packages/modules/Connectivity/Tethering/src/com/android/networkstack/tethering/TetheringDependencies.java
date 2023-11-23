@@ -22,7 +22,7 @@ import android.bluetooth.BluetoothPan;
 import android.content.Context;
 import android.net.INetd;
 import android.net.ip.IpServer;
-import android.net.util.SharedLog;
+import android.os.Build;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
@@ -30,10 +30,14 @@ import android.os.SystemProperties;
 import android.text.TextUtils;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.RequiresApi;
 
 import com.android.internal.util.StateMachine;
+import com.android.net.module.util.SharedLog;
 import com.android.networkstack.apishim.BluetoothPanShimImpl;
 import com.android.networkstack.apishim.common.BluetoothPanShim;
+import com.android.networkstack.tethering.metrics.TetheringMetrics;
+import com.android.networkstack.tethering.wear.WearableConnectionManager;
 
 import java.util.ArrayList;
 
@@ -162,5 +166,20 @@ public abstract class TetheringDependencies {
      */
     public BluetoothPanShim getBluetoothPanShim(BluetoothPan pan) {
         return BluetoothPanShimImpl.newInstance(pan);
+    }
+
+    /**
+     * Get a reference to the TetheringMetrics to be used by tethering.
+     */
+    public TetheringMetrics getTetheringMetrics() {
+        return new TetheringMetrics();
+    }
+
+    /**
+     * Returns the implementation of WearableConnectionManager.
+     */
+    @RequiresApi(Build.VERSION_CODES.TIRAMISU)
+    public WearableConnectionManager getWearableConnectionManager(Context ctx) {
+        return new WearableConnectionManager(ctx);
     }
 }

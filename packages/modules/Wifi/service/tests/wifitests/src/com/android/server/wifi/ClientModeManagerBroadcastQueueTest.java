@@ -65,6 +65,7 @@ public class ClientModeManagerBroadcastQueueTest extends WifiBaseTest {
         when(mSecondaryManager.getRole()).thenReturn(ROLE_CLIENT_SECONDARY_TRANSIENT);
 
         mBroadcastQueue = new ClientModeManagerBroadcastQueue(mActiveModeWarden, mContext);
+        mBroadcastQueue.setVerboseLoggingEnabled(true);
 
         verify(mActiveModeWarden).registerModeChangeCallback(mModeChangeCallbackCaptor.capture());
         verify(mActiveModeWarden)

@@ -17,17 +17,22 @@ package com.android.launcher3.taskbar.allapps;
 
 import android.content.Context;
 import android.util.AttributeSet;
-import android.view.WindowInsets;
+import android.view.View;
 
+import androidx.annotation.Nullable;
+
+import com.android.launcher3.R;
 import com.android.launcher3.allapps.ActivityAllAppsContainerView;
-import com.android.launcher3.allapps.AllAppsGridAdapter;
-import com.android.launcher3.allapps.AlphabeticalAppsList;
-import com.android.launcher3.allapps.BaseAdapterProvider;
-import com.android.launcher3.allapps.BaseAllAppsAdapter;
+import com.android.launcher3.config.FeatureFlags;
+import com.android.launcher3.taskbar.overlay.TaskbarOverlayContext;
+
+import java.util.Optional;
 
 /** All apps container accessible from taskbar. */
 public class TaskbarAllAppsContainerView extends
-        ActivityAllAppsContainerView<TaskbarAllAppsContext> {
+        ActivityAllAppsContainerView<TaskbarOverlayContext> {
+
+    private @Nullable OnInvalidateHeaderListener mOnInvalidateHeaderListener;
 
     public TaskbarAllAppsContainerView(Context context, AttributeSet attrs) {
         this(context, attrs, 0);
@@ -37,17 +42,46 @@ public class TaskbarAllAppsContainerView extends
         super(context, attrs, defStyleAttr);
     }
 
-    @Override
-    public WindowInsets onApplyWindowInsets(WindowInsets insets) {
-        setInsets(insets.getInsets(WindowInsets.Type.systemBars()).toRect());
-        return super.onApplyWindowInsets(insets);
+    void setOnInvalidateHeaderListener(OnInvalidateHeaderListener onInvalidateHeaderListener) {
+        mOnInvalidateHeaderListener = onInvalidateHeaderListener;
     }
 
     @Override
-    protected BaseAllAppsAdapter<TaskbarAllAppsContext> createAdapter(
-            AlphabeticalAppsList<TaskbarAllAppsContext> appsList,
-            BaseAdapterProvider[] adapterProviders) {
-        return new AllAppsGridAdapter<>(mActivityContext, getLayoutInflater(), appsList,
-                adapterProviders);
+    protected View inflateSearchBox() {
+        if (isSearchSupported()) {
+            return super.inflateSearchBox();
+        }
+
+        // Remove top padding of header, since we do not have any search
+        mHeader.setPadding(mHeader.getPaddingLeft(), 0,
+                mHeader.getPaddingRight(), mHeader.getPaddingBottom());
+
+        TaskbarAllAppsFallbackSearchContainer searchView =
+                new TaskbarAllAppsFallbackSearchContainer(getContext(), null);
+        searchView.setId(R.id.search_container_all_apps);
+        searchView.setVisibility(GONE);
+        return searchView;
+    }
+
+    @Override
+    public void invalidateHeader() {
+        super.invalidateHeader();
+        Optional.ofNullable(mOnInvalidateHeaderListener).ifPresent(
+                OnInvalidateHeaderListener::onInvalidateHeader);
+    }
+
+    @Override
+    protected boolean isSearchSupported() {
+        return FeatureFlags.ENABLE_ALL_APPS_SEARCH_IN_TASKBAR.get();
+    }
+
+    @Override
+    public boolean isInAllApps() {
+        // All apps is always open
+        return true;
+    }
+
+    interface OnInvalidateHeaderListener {
+        void onInvalidateHeader();
     }
 }

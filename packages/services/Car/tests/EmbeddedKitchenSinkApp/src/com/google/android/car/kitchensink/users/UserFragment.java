@@ -23,10 +23,12 @@ import static android.car.user.CarUserManager.USER_IDENTIFICATION_ASSOCIATION_VA
 import android.annotation.Nullable;
 import android.app.AlertDialog;
 import android.car.Car;
+import android.car.SyncResultCallback;
 import android.car.user.CarUserManager;
 import android.car.user.UserCreationResult;
 import android.car.user.UserIdentificationAssociationResponse;
 import android.car.user.UserRemovalResult;
+import android.car.user.UserSwitchRequest;
 import android.car.user.UserSwitchResult;
 import android.car.util.concurrent.AsyncFuture;
 import android.content.pm.UserInfo;
@@ -50,6 +52,7 @@ import com.google.android.car.kitchensink.KitchenSinkActivity;
 import com.google.android.car.kitchensink.R;
 
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 /**
  * Shows information (and actions) about the current user.
@@ -68,6 +71,7 @@ public final class UserFragment extends Fragment {
     private static final String TAG = UserFragment.class.getSimpleName();
 
     private static final long TIMEOUT_MS = 5_000;
+    private static final long SWITCH_USER_TIMEOUT_MS = 20_000;
 
     private final int mUserId = UserHandle.myUserId();
     private UserManager mUserManager;
@@ -87,7 +91,6 @@ public final class UserFragment extends Fragment {
     private EditText mNewUserNameText;
     private CheckBox mNewUserIsAdminCheckBox;
     private CheckBox mNewUserIsGuestCheckBox;
-    private CheckBox mNewUserIsPreCreatedCheckBox;
     private EditText mNewUserExtraFlagsText;
     private Button mCreateUserButton;
 
@@ -116,7 +119,6 @@ public final class UserFragment extends Fragment {
         mNewUserNameText = view.findViewById(R.id.new_user_name);
         mNewUserIsAdminCheckBox = view.findViewById(R.id.new_user_is_admin);
         mNewUserIsGuestCheckBox = view.findViewById(R.id.new_user_is_guest);
-        mNewUserIsPreCreatedCheckBox = view.findViewById(R.id.new_user_is_pre_created);
 
         mNewUserExtraFlagsText = view.findViewById(R.id.new_user_flags);
         mCreateUserButton = view.findViewById(R.id.create_user);
@@ -155,35 +157,11 @@ public final class UserFragment extends Fragment {
         }
         int flags = 0;
         boolean isGuest = mNewUserIsGuestCheckBox.isChecked();
-        boolean isPreCreated = mNewUserIsPreCreatedCheckBox.isChecked();
         UserCreationResult result;
         UserInfo userInfo;
         Log.v(TAG, "Create user: name=" + name + ", flags="
-                + UserInfo.flagsToString(flags) + ", is guest=" + isGuest
-                + ", is pre-created=" + isPreCreated);
-        if (isPreCreated) {
-            try {
-                userInfo = mUserManager.preCreateUser(isGuest ? UserManager.USER_TYPE_FULL_GUEST :
-                        UserManager.USER_TYPE_FULL_SECONDARY);
-                if (userInfo != null) {
-                    result = new UserCreationResult(UserCreationResult.STATUS_SUCCESSFUL,
-                            userInfo.getUserHandle());
-                    Log.i(TAG, "userinfo successfully created. User: " + userInfo.toFullString());
-                } else {
-                    result = new UserCreationResult(UserCreationResult.STATUS_ANDROID_FAILURE,
-                            /* androidFailureStatus= */ null, /* user= */ null,
-                            /* errorMessage= */ null,
-                            /* internalErrorMessage= */ "User is not created");
-                    Log.e(TAG, "Failed to create userInfo.");
-                }
-            } catch (UserManager.UserOperationException e) {
-                result = new UserCreationResult(UserCreationResult.STATUS_ANDROID_FAILURE,
-                        /* androidFailureStatus= */ null, /* user= */ null,
-                        /* errorMessage= */ null,
-                        /* internalErrorMessage= */ e.getMessage());
-                Log.e(TAG, "Exception pre-created user: " + e);
-            }
-        } else if (isGuest) {
+                + UserInfo.flagsToString(flags) + ", is guest=" + isGuest);
+        if (isGuest) {
             result = getResult(mCarUserManager.createGuest(name));
         } else {
             if (mNewUserIsAdminCheckBox.isChecked()) {
@@ -238,8 +216,20 @@ public final class UserFragment extends Fragment {
     private void switchUser() {
         int userId = mCurrentUsers.getSelectedUserId();
         Log.i(TAG, "Switch user: " + userId);
-        AsyncFuture<UserSwitchResult> future = mCarUserManager.switchUser(userId);
-        UserSwitchResult result = getResult(future);
+        SyncResultCallback<UserSwitchResult> userSwitchResultCallback =
+                new SyncResultCallback<>();
+        mCarUserManager.switchUser(new UserSwitchRequest.Builder(UserHandle.of(userId)).build(),
+                Runnable::run, userSwitchResultCallback);
+        UserSwitchResult result = new UserSwitchResult(UserSwitchResult.STATUS_ANDROID_FAILURE,
+                null);
+        try {
+            result = userSwitchResultCallback.get(SWITCH_USER_TIMEOUT_MS, TimeUnit.MILLISECONDS);
+        } catch (TimeoutException e) {
+            Log.e(TAG, "switchUser(" + userId + ") : timed out while waiting for result");
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            Log.e(TAG, "switchUser(" + userId + ") : interrupted while waiting for result");
+        }
         updateState();
 
         StringBuilder message = new StringBuilder();
@@ -289,7 +279,6 @@ public final class UserFragment extends Fragment {
 
     private void updateState() {
         // Current user
-        int userId = UserHandle.myUserId();
         boolean isAdmin = mUserManager.isAdminUser();
         boolean isAssociatedKeyFob = isAssociatedKeyFob();
         UserInfo user = mUserManager.getUserInfo(mUserId);

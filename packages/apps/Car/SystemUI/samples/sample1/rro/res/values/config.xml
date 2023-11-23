@@ -57,5 +57,6 @@
         com.android.systemui.car.notification.BottomNotificationPanelViewMediator</string>
 
     <!-- Specifies the component name of the app grid activity -->
-    <string name="config_appGridComponentName" translatable="false">com.android.car.carlauncher/.AppGridActivity</string>
+    <string name="config_appGridComponentName" translatable="false">
+        com.android.car.carlauncher/.AppGridActivity</string>
 </resources>

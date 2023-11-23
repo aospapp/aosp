@@ -34,8 +34,12 @@
 package android.automotive.watchdog.internal;
 @Backing(type="int")
 enum PowerCycle {
-  POWER_CYCLE_SHUTDOWN_PREPARE = 0,
-  POWER_CYCLE_SHUTDOWN_ENTER = 1,
-  POWER_CYCLE_RESUME = 2,
-  NUM_POWER_CYLES = 3,
+  POWER_CYCLE_SHUTDOWN_PREPARE,
+  POWER_CYCLE_SHUTDOWN_ENTER,
+  POWER_CYCLE_RESUME,
+  /**
+   * @deprecated Value of enum no longer reflects the true amount of power cycles. Enum should not be used.
+   */
+  NUM_POWER_CYLES,
+  POWER_CYCLE_SUSPEND_EXIT,
 }

@@ -25,17 +25,15 @@
         android:id="@+id/divider"
         android:layout_width="1dp"
         android:layout_height="24dp"
-        android:layout_marginLeft="16dp"
+        android:layout_marginStart="16dp"
         android:layout_gravity="end|center_vertical"
         android:theme="@style/PreferenceDivider" />
 
     <ImageButton
         android:id="@+id/icon"
-        android:layout_width="40dp"
+        android:layout_width="56dp"
         android:layout_height="56dp"
-        android:paddingLeft="16dp"
-        android:paddingTop="16dp"
-        android:paddingBottom="16dp"
+        android:padding="16dp"
         android:layout_gravity="end|center_vertical"
         android:contentDescription="@string/grant_dialog_button_more_info"
         android:background="@null" />

@@ -18,13 +18,12 @@
 
 #define LOG_TAG "bt_bte_conf"
 
-#include <base/logging.h>
-#include <stdio.h>
-#include <string.h>
+#include <cstdint>
+#include <cstdio>
+#include <memory>
 
-#include "bta_api.h"
-#include "btif_common.h"
-#include "osi/include/compat.h"
+#include "bta/include/bta_api.h"
+#include "osi/include/compat.h"  // strlcpy
 #include "osi/include/config.h"
 #include "osi/include/log.h"
 

@@ -17,7 +17,7 @@ package com.android.car;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import static org.testng.Assert.assertThrows;
+import static org.junit.Assert.assertThrows;
 
 import android.car.Car;
 import android.car.content.pm.CarAppBlockingPolicy;
@@ -78,5 +78,10 @@ public class CarPackageManagerPermissionTest {
     public void testIsActivityBackedBySafeActivity() {
         assertThat(mPm.isActivityBackedBySafeActivity(new ComponentName("blah", "someClass")))
                 .isFalse();
+    }
+
+    @Test
+    public void testGetTargetCarApiVersion() {
+        assertThrows(SecurityException.class, () -> mPm.getTargetCarVersion("Y U NO THROW?"));
     }
 }

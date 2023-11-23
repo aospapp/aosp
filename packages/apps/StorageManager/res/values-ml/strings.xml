@@ -45,7 +45,7 @@
     <string name="deletion_helper_apps_group_title" msgid="2578309121350341258">"അപൂർവ്വമായി ഉപയോഗിക്കുന്ന ആപ്‌സ്"</string>
     <!-- no translation found for deletion_helper_apps_group_summary (360315517252452356) -->
     <skip />
-    <string name="deletion_helper_automatic_title" msgid="4610119358490679299">"സ്വമേധയാ"</string>
+    <string name="deletion_helper_automatic_title" msgid="4610119358490679299">"സ്വയമേവ"</string>
     <string name="deletion_helper_manual_title" msgid="3905192395039688529">"മാനുവൽ"</string>
     <string name="deletion_helper_preference_title" msgid="803484286872745892">"ഇപ്പോൾ ഇടം സൃഷ്ടിക്കുക"</string>
     <string name="automatic_storage_manager_service_label" msgid="648592272375278978">"സ്വയം നിയന്ത്രിത മെമ്മറി മാനേജ്മെൻ്റ് സേവനം"</string>

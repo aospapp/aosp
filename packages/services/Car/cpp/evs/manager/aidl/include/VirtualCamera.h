@@ -27,6 +27,7 @@
 #include <aidl/android/hardware/automotive/evs/IEvsDisplay.h>
 #include <aidl/android/hardware/automotive/evs/ParameterRange.h>
 #include <aidl/android/hardware/automotive/evs/Stream.h>
+#include <android-base/thread_annotations.h>
 
 #include <condition_variable>
 #include <deque>
@@ -78,7 +79,10 @@ public:
     virtual ~VirtualCamera();
 
     unsigned getAllowedBuffers() { return mFramesAllowed; };
-    bool isStreaming() { return mStreamState == RUNNING; }
+    bool isStreaming() {
+        std::lock_guard lock(mMutex);
+        return mStreamState == RUNNING;
+    }
     std::vector<std::shared_ptr<HalCamera>> getHalCameras();
     void setDescriptor(aidlevs::CameraDesc* desc) { mDesc = desc; }
 
@@ -87,7 +91,7 @@ public:
     bool deliverFrame(const aidlevs::BufferDesc& bufDesc);
 
     // Dump current status to a given file descriptor
-    std::string toString(const char* indent = "") const;
+    std::string toString(const char* indent = "") const NO_THREAD_SAFETY_ANALYSIS;
 
 private:
     void shutdown();
@@ -104,7 +108,7 @@ private:
         STOPPED,
         RUNNING,
         STOPPING,
-    } mStreamState = STOPPED;
+    } mStreamState GUARDED_BY(mMutex) = STOPPED;
 
     std::unordered_map<std::string, std::deque<aidlevs::BufferDesc>> mFramesHeld;
     std::thread mCaptureThread;

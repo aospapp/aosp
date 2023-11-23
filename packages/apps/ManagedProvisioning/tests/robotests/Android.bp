@@ -9,7 +9,10 @@ android_robolectric_test {
 
     name: "ManagedProvisioningRoboTests",
 
-    srcs: ["src/**/*.java"],
+    srcs: [
+        "src/**/*.java",
+        "src/**/*.kt"
+    ],
 
     java_resource_dirs: ["config"],
 

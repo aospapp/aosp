@@ -30,8 +30,6 @@ public class Receiver extends BroadcastReceiver {
 
     private static final String ACTION_GET_SDK_VERSION =
             "com.android.sdkext.extensions.apps.GET_SDK_VERSION";
-    private static final String ACTION_IS_AT_LEAST =
-            "com.android.sdkext.extensions.apps.IS_AT_LEAST";
     private static final String ACTION_MAKE_CALLS_DEFAULT =
             "com.android.sdkext.extensions.apps.MAKE_CALLS_DEFAULT";
     private static final String ACTION_MAKE_CALLS_45 =
@@ -41,16 +39,9 @@ public class Receiver extends BroadcastReceiver {
         switch (letter) {
             case 'r': return Build.VERSION_CODES.R;
             case 's': return Build.VERSION_CODES.S;
+            case 't': return Build.VERSION_CODES.TIRAMISU;
         }
         throw new IllegalArgumentException(String.valueOf(letter));
-    }
-
-    private static boolean isAtLeast(char letter) {
-        switch (letter) {
-            case 'r': return true; // our min sdk version is 30
-            case 's': return SdkLevel.isAtLeastS();
-        }
-        return false;
     }
 
     @Override
@@ -61,10 +52,6 @@ public class Receiver extends BroadcastReceiver {
                     int extension = dessertLetterToInt(intent.getStringExtra("extra").charAt(0));
                     int sdkVersion = SdkExtensions.getExtensionVersion(extension);
                     setResultData(String.valueOf(sdkVersion));
-                    break;
-                case ACTION_IS_AT_LEAST:
-                    boolean value = isAtLeast(intent.getStringExtra("extra").charAt(0));
-                    setResultData(String.valueOf(value));
                     break;
                 case ACTION_MAKE_CALLS_DEFAULT:
                     makeCallsDefault();

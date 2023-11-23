@@ -168,6 +168,16 @@ public class ResetActivity extends FragmentActivity {
             final PersistentDataBlockManager pdbManager = (PersistentDataBlockManager)
                     getContext().getSystemService(Context.PERSISTENT_DATA_BLOCK_SERVICE);
 
+            // Disable actions in the fragment as the wipe of the persistent data block
+            // and ACTION_FACTORY_RESET broadcast can take some time on some devices.
+            int position = 0;
+            for (GuidedAction action: getActions()) {
+                action.setFocusable(false);
+                action.setEnabled(false);
+                notifyActionChanged(position);
+                ++position;
+            }
+
             if (shouldWipePersistentDataBlock(pdbManager)) {
                 new AsyncTask<Void, Void, Void>() {
                     @Override

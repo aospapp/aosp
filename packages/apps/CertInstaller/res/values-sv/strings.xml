@@ -51,7 +51,7 @@
     <string name="certificate" msgid="8790577925509962529">"Certifikat"</string>
     <string name="ca_certificate" msgid="7397198551290322945">"CA-certifikat"</string>
     <string name="user_certificate" msgid="514888069820553128">"VPN- och appanvändarcertifikat"</string>
-    <string name="wifi_certificate" msgid="5356595832360140989">"Wi‑Fi-certifikat"</string>
+    <string name="wifi_certificate" msgid="5356595832360140989">"Wifi-certifikat"</string>
     <string name="ca_cert_is_added" msgid="2847081843756291802">"CA-certifikatet har installerats"</string>
     <string name="user_cert_is_added" msgid="3088794616560630823">"Användarcertifikatet har installerats"</string>
     <string name="wifi_cert_is_added" msgid="333220613655140428">"wifi-certifikatet har installerats"</string>

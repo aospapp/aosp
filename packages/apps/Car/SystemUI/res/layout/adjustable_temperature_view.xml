@@ -30,7 +30,8 @@
         android:layout_height="@dimen/hvac_temperature_button_size"
         android:background="@drawable/system_bar_button_background"
         android:scaleType="center"
-        android:src="@drawable/hvac_decrease_button"/>
+        android:src="@drawable/hvac_decrease_button"
+        android:contentDescription="@string/hvac_decrease_button_label"/>
 
     <TextView
         android:id="@+id/hvac_temperature_text"
@@ -48,5 +49,6 @@
         android:layout_height="@dimen/hvac_temperature_button_size"
         android:background="@drawable/system_bar_button_background"
         android:scaleType="center"
-        android:src="@drawable/hvac_increase_button"/>
+        android:src="@drawable/hvac_increase_button"
+        android:contentDescription="@string/hvac_increase_button_label"/>
 </LinearLayout>

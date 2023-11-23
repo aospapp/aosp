@@ -38,6 +38,7 @@ import androidx.test.filters.SmallTest;
 import com.android.modules.utils.build.SdkLevel;
 import com.android.server.wifi.WifiNetworkSuggestionsManager.ExtendedWifiNetworkSuggestion;
 import com.android.server.wifi.WifiNetworkSuggestionsManager.PerAppInfo;
+import com.android.server.wifi.entitlement.PseudonymInfo;
 import com.android.server.wifi.hotspot2.PasspointNetworkNominateHelper;
 
 import org.junit.Before;
@@ -51,6 +52,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 
 /**
@@ -75,6 +77,7 @@ public class NetworkSuggestionNominatorTest extends WifiBaseTest {
     private @Mock PasspointNetworkNominateHelper mPasspointNetworkNominateHelper;
     private @Mock Clock mClock;
     private @Mock WifiCarrierInfoManager mWifiCarrierInfoManager;
+    private @Mock WifiPseudonymManager mWifiPseudonymManager;
     private @Mock WifiMetrics mWifiMetrics;
     private NetworkSuggestionNominator mNetworkSuggestionNominator;
 
@@ -84,7 +87,8 @@ public class NetworkSuggestionNominatorTest extends WifiBaseTest {
         MockitoAnnotations.initMocks(this);
         mNetworkSuggestionNominator = new NetworkSuggestionNominator(
                 mWifiNetworkSuggestionsManager, mWifiConfigManager, mPasspointNetworkNominateHelper,
-                new LocalLog(100), mWifiCarrierInfoManager, mWifiMetrics);
+                new LocalLog(100), mWifiCarrierInfoManager, mWifiPseudonymManager,
+                mWifiMetrics);
         when(mWifiCarrierInfoManager.getBestMatchSubscriptionId(any())).thenReturn(
                 SubscriptionManager.INVALID_SUBSCRIPTION_ID);
         when(mWifiConfigManager.isNetworkTemporarilyDisabledByUser(anyString())).thenReturn(false);
@@ -1012,6 +1016,113 @@ public class NetworkSuggestionNominatorTest extends WifiBaseTest {
                 .incrementNetworkSuggestionMoreThanOneSuggestionForSingleScanResult();
     }
 
+    @Test
+    public void testSelectNetworkSuggestionForOneMatchSimBasedWithOobPseudonymInfoAvailable() {
+        String[] scanSsids = {"test1"};
+        String[] bssids = {"6c:f3:7f:ae:8c:f3"};
+        int[] freqs = {2470};
+        String[] caps = {"[WPA2-EAP/SHA1-CCMP][ESS]"};
+        int[] levels = {-67};
+        String[] suggestionSsids = {"\"" + scanSsids[0] + "\""};
+        int[] securities = {SECURITY_EAP};
+        boolean[] appInteractions = {true};
+        boolean[] meteredness = {true};
+        int[] priorities = {-1};
+        int[] uids = {TEST_UID};
+        String[] packageNames = {TEST_PACKAGE};
+        boolean[] autojoin = {true};
+        boolean[] shareWithUser = {true};
+        int[] priorityGroup = {0};
+
+        ScanDetail[] scanDetails =
+                buildScanDetails(scanSsids, bssids, freqs, caps, levels, mClock);
+        ExtendedWifiNetworkSuggestion[] suggestions = buildNetworkSuggestions(suggestionSsids,
+                securities, appInteractions, meteredness, priorities, uids,
+                packageNames, autojoin, shareWithUser, priorityGroup);
+        WifiConfiguration eapSimConfig = suggestions[0].wns.wifiConfiguration;
+        eapSimConfig.enterpriseConfig.setEapMethod(WifiEnterpriseConfig.Eap.SIM);
+        eapSimConfig.enterpriseConfig.setPhase2Method(WifiEnterpriseConfig.Phase2.NONE);
+        eapSimConfig.carrierId = TEST_CARRIER_ID;
+        eapSimConfig.subscriptionId = TEST_SUB_ID;
+        when(mWifiCarrierInfoManager.getBestMatchSubscriptionId(any())).thenReturn(TEST_SUB_ID);
+        when(mWifiCarrierInfoManager.isSimReady(TEST_SUB_ID)).thenReturn(true);
+        when(mWifiCarrierInfoManager.isCarrierNetworkOffloadEnabled(anyInt(), anyBoolean()))
+                .thenReturn(true);
+        when(mWifiCarrierInfoManager.isOobPseudonymFeatureEnabled(TEST_CARRIER_ID))
+                .thenReturn(true);
+        PseudonymInfo mockPseudonymInfo = mock(PseudonymInfo.class);
+        when(mWifiPseudonymManager.getValidPseudonymInfo(anyInt()))
+                .thenReturn(Optional.of(mockPseudonymInfo));
+        // Link the scan result with suggestions.
+        linkScanDetailsWithNetworkSuggestions(scanDetails, suggestions);
+        // setup config manager interactions.
+        setupAddToWifiConfigManager(suggestions[0]);
+
+        List<Pair<ScanDetail, WifiConfiguration>> connectableNetworks = new ArrayList<>();
+        mNetworkSuggestionNominator.nominateNetworks(
+                Arrays.asList(scanDetails), false, false, false, Collections.emptySet(),
+                (ScanDetail scanDetail, WifiConfiguration configuration) -> {
+                    connectableNetworks.add(Pair.create(scanDetail, configuration));
+                });
+
+        verify(mWifiPseudonymManager).updateWifiConfiguration(any());
+        assertEquals(1, connectableNetworks.size());
+    }
+
+    @Test
+    public void testSelectNetworkSuggestionForOneMatchSimBasedWithOobPseudonymIsNotAvailable() {
+        String[] scanSsids = {"test1"};
+        String[] bssids = {"6c:f3:7f:ae:8c:f3"};
+        int[] freqs = {2470};
+        String[] caps = {"[WPA2-EAP/SHA1-CCMP][ESS]"};
+        int[] levels = {-67};
+        String[] suggestionSsids = {"\"" + scanSsids[0] + "\""};
+        int[] securities = {SECURITY_EAP};
+        boolean[] appInteractions = {true};
+        boolean[] meteredness = {true};
+        int[] priorities = {-1};
+        int[] uids = {TEST_UID};
+        String[] packageNames = {TEST_PACKAGE};
+        boolean[] autojoin = {true};
+        boolean[] shareWithUser = {true};
+        int[] priorityGroup = {0};
+
+        ScanDetail[] scanDetails =
+                buildScanDetails(scanSsids, bssids, freqs, caps, levels, mClock);
+        ExtendedWifiNetworkSuggestion[] suggestions = buildNetworkSuggestions(suggestionSsids,
+                securities, appInteractions, meteredness, priorities, uids,
+                packageNames, autojoin, shareWithUser, priorityGroup);
+        WifiConfiguration eapSimConfig = suggestions[0].wns.wifiConfiguration;
+        eapSimConfig.enterpriseConfig.setEapMethod(WifiEnterpriseConfig.Eap.SIM);
+        eapSimConfig.enterpriseConfig.setPhase2Method(WifiEnterpriseConfig.Phase2.NONE);
+        eapSimConfig.carrierId = TEST_CARRIER_ID;
+        eapSimConfig.subscriptionId = TEST_SUB_ID;
+        when(mWifiCarrierInfoManager.getBestMatchSubscriptionId(any())).thenReturn(TEST_SUB_ID);
+        when(mWifiCarrierInfoManager.isSimReady(TEST_SUB_ID)).thenReturn(true);
+        when(mWifiCarrierInfoManager.isCarrierNetworkOffloadEnabled(anyInt(), anyBoolean()))
+                .thenReturn(true);
+        when(mWifiCarrierInfoManager.isOobPseudonymFeatureEnabled(TEST_CARRIER_ID))
+                .thenReturn(true);
+        when(mWifiPseudonymManager.getValidPseudonymInfo(anyInt())).thenReturn(Optional.empty());
+        // Link the scan result with suggestions.
+        linkScanDetailsWithNetworkSuggestions(scanDetails, suggestions);
+        // setup config manager interactions.
+        setupAddToWifiConfigManager(suggestions[0]);
+
+        List<Pair<ScanDetail, WifiConfiguration>> connectableNetworks = new ArrayList<>();
+        mNetworkSuggestionNominator.nominateNetworks(
+                Arrays.asList(scanDetails), false, false, false, Collections.emptySet(),
+                (ScanDetail scanDetail, WifiConfiguration configuration) -> {
+                    connectableNetworks.add(Pair.create(scanDetail, configuration));
+                });
+
+        // Verify no network is nominated.
+        assertTrue(connectableNetworks.isEmpty());
+        verify(mWifiPseudonymManager).retrievePseudonymOnFailureTimeoutExpired(any());
+        verify(mWifiMetrics, never())
+                .incrementNetworkSuggestionMoreThanOneSuggestionForSingleScanResult();
+    }
+
     /**
      * Ensure that we nominate no matching network suggestion.
      * Because the only matched suggestion is untrusted and untrusted is not allowed
@@ -1792,12 +1903,9 @@ public class NetworkSuggestionNominatorTest extends WifiBaseTest {
         for (int i = 0; i < minLength; i++) {
             ScanDetail scanDetail = scanDetails[i];
             final ExtendedWifiNetworkSuggestion matchingSuggestion = suggestions[i];
-            HashSet<ExtendedWifiNetworkSuggestion> matchingSuggestions =
-                    new HashSet<ExtendedWifiNetworkSuggestion>() {{
-                        add(matchingSuggestion);
-                    }};
+            Set<ExtendedWifiNetworkSuggestion> matchingSuggestions = Set.of(matchingSuggestion);
             when(mWifiNetworkSuggestionsManager.getNetworkSuggestionsForScanDetail(eq(scanDetail)))
-                    .thenReturn((matchingSuggestions));
+                    .thenReturn(matchingSuggestions);
         }
         if (scanDetails.length > suggestions.length) {
             // No match for the remaining scan details.
@@ -1812,7 +1920,7 @@ public class NetworkSuggestionNominatorTest extends WifiBaseTest {
                     Arrays.asList(suggestions).subList(minLength - 1, suggestions.length));
             ScanDetail lastScanDetail = scanDetails[minLength - 1];
             when(mWifiNetworkSuggestionsManager.getNetworkSuggestionsForScanDetail(
-                    eq(lastScanDetail))).thenReturn((matchingSuggestions));
+                    eq(lastScanDetail))).thenReturn(matchingSuggestions);
         }
     }
 

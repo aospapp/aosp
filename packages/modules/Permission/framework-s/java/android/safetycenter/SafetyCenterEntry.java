@@ -265,9 +265,8 @@ public final class SafetyCenterEntry implements Parcelable {
     @Override
     public String toString() {
         return "SafetyCenterEntry{"
-                + "mId='"
+                + "mId="
                 + mId
-                + '\''
                 + ", mTitle="
                 + mTitle
                 + ", mSummary="
@@ -528,7 +527,7 @@ public final class SafetyCenterEntry implements Parcelable {
                 default:
             }
             throw new IllegalArgumentException(
-                    String.format("Unexpected IconActionType for IconAction: %s", value));
+                    "Unexpected IconActionType for IconAction: " + value);
         }
     }
 
@@ -544,7 +543,7 @@ public final class SafetyCenterEntry implements Parcelable {
             default:
         }
         throw new IllegalArgumentException(
-                String.format("Unexpected EntrySeverityLevel for SafetyCenterEntry: %s", value));
+                "Unexpected EntrySeverityLevel for SafetyCenterEntry: " + value);
     }
 
     @SeverityUnspecifiedIconType
@@ -557,7 +556,6 @@ public final class SafetyCenterEntry implements Parcelable {
             default:
         }
         throw new IllegalArgumentException(
-                String.format(
-                        "Unexpected SeverityUnspecifiedIconType for SafetyCenterEntry: %s", value));
+                "Unexpected SeverityUnspecifiedIconType for SafetyCenterEntry: " + value);
     }
 }

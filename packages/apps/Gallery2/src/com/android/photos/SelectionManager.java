@@ -19,13 +19,9 @@ package com.android.photos;
 import android.app.Activity;
 import android.content.Intent;
 import android.net.Uri;
-import android.nfc.NfcAdapter;
-import android.nfc.NfcAdapter.CreateBeamUrisCallback;
-import android.nfc.NfcEvent;
 import android.provider.MediaStore.Files.FileColumns;
 import android.widget.ShareActionProvider;
 
-import com.android.gallery3d.common.ApiHelper;
 import com.android.gallery3d.data.MediaObject;
 import com.android.gallery3d.util.GalleryUtils;
 
@@ -33,7 +29,6 @@ import java.util.ArrayList;
 
 public class SelectionManager {
     private Activity mActivity;
-    private NfcAdapter mNfcAdapter;
     private SelectedUriSource mUriSource;
     private Intent mShareIntent = new Intent();
 
@@ -43,18 +38,6 @@ public class SelectionManager {
 
     public SelectionManager(Activity activity) {
         mActivity = activity;
-        if (ApiHelper.AT_LEAST_16) {
-            mNfcAdapter = NfcAdapter.getDefaultAdapter(mActivity);
-            mNfcAdapter.setBeamPushUrisCallback(new CreateBeamUrisCallback() {
-                @Override
-                public Uri[] createBeamUris(NfcEvent arg0) {
-                 // This will have been preceded by a call to onItemSelectedStateChange
-                    if (mCachedShareableUris == null) return null;
-                    return mCachedShareableUris.toArray(
-                            new Uri[mCachedShareableUris.size()]);
-                }
-            }, mActivity);
-        }
     }
 
     public void setSelectedUriSource(SelectedUriSource source) {

@@ -17,9 +17,9 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <!-- Preference title for enable Romania orange alert messages checkbox. [CHAR LIMIT=100] -->
-    <string name="enable_public_safety_messages_title">Orange Alert</string>
+    <string name="enable_public_safety_messages_title">Missing Child Alert</string>
     <!-- Dialog title for all orange alert for Romania [CHAR LIMIT=50] -->
-    <string name="public_safety_message">RO-Alert: Orange Alert</string>
+    <string name="public_safety_message">RO-Alert: Missing Child Alert</string>
     <!-- CMAS dialog title for Romania presidential level alert. [CHAR LIMIT=60] -->
     <string name="cmas_presidential_level_alert">RO-Alert: Presidential Alert</string>
     <!-- CMAS dialog title for Romania extreme alert. [CHAR LIMIT=50] -->

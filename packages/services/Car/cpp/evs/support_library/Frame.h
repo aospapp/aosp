@@ -16,6 +16,8 @@
 #ifndef CAR_LIB_EVS_SUPPORT_FRAME_H
 #define CAR_LIB_EVS_SUPPORT_FRAME_H
 
+#include <cinttypes>
+
 namespace android {
 namespace automotive {
 namespace evs {

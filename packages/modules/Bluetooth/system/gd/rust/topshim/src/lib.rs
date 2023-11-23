@@ -11,13 +11,6 @@
 //!     * Floss (ChromeOS + Linux Bluetooth stack; uses D-Bus)
 //!     * Topshim facade (used for testing)
 
-#[macro_use]
-extern crate lazy_static;
-#[macro_use]
-extern crate num_derive;
-#[macro_use]
-extern crate bitflags;
-
 /// Bindgen bindings for accessing libbluetooth.
 pub mod bindings;
 
@@ -25,7 +18,9 @@ pub mod btif;
 
 /// Helper module for the topshim facade.
 pub mod controller;
-
+pub mod metrics;
 pub mod profiles;
-
+pub mod sysprop;
 pub mod topstack;
+
+mod utils;

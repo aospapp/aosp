@@ -30,7 +30,7 @@
     <string name="notification_disconnectedCall_body" msgid="600491714584417536">"Der Anruf mit <xliff:g id="CALLER">%s</xliff:g> wurde beendet, weil ein Notruf getätigt wurde."</string>
     <string name="notification_disconnectedCall_generic_body" msgid="5282765206349184853">"Der Anruf wurde beendet, weil ein Notruf getätigt wurde."</string>
     <string name="notification_audioProcessing_title" msgid="1619035039880584575">"Anruf im Hintergrund"</string>
-    <string name="notification_audioProcessing_body" msgid="6397005913770420388">"<xliff:g id="AUDIO_PROCESSING_APP_NAME">%s</xliff:g> hat einen Anruf in den Hintergrund verschoben. Diese App greift möglicherweise auf den Anruf zu und spielt Audio darüber ab."</string>
+    <string name="notification_audioProcessing_body" msgid="8811420157964118913">"<xliff:g id="AUDIO_PROCESSING_APP_NAME">%s</xliff:g> verarbeitet einen Anruf im Hintergrund. Diese App greift möglicherweise auf den Anruf zu und spielt Audio darüber ab."</string>
     <string name="notification_incallservice_not_responding_title" msgid="5347557574288598548">"<xliff:g id="IN_CALL_SERVICE_APP_NAME">%s</xliff:g> reagiert nicht mehr"</string>
     <string name="notification_incallservice_not_responding_body" msgid="9209308270131968623">"Für den Anruf wurde die auf deinem Gerät vorinstallierte App verwendet"</string>
     <string name="accessibility_call_muted" msgid="2968461092554300779">"Anruf stummgeschaltet"</string>
@@ -100,6 +100,7 @@
     <string name="notification_channel_background_calls" msgid="7785659903711350506">"Anrufe im Hintergrund"</string>
     <string name="notification_channel_disconnected_calls" msgid="8228636543997645757">"Beendete Anrufe"</string>
     <string name="notification_channel_in_call_service_crash" msgid="7313237519166984267">"Abgestürzte Telefon-Apps"</string>
+    <string name="notification_channel_call_streaming" msgid="5100510699787538991">"Anrufstreaming"</string>
     <string name="alert_outgoing_call" msgid="5319895109298927431">"Durch diesen Anruf wird der Anruf in <xliff:g id="OTHER_APP">%1$s</xliff:g> beendet."</string>
     <string name="alert_redirect_outgoing_call_or_not" msgid="665409645789521636">"Wie möchtest du anrufen?"</string>
     <string name="alert_place_outgoing_call_with_redirection" msgid="5221065030959024121">"Mit <xliff:g id="OTHER_APP">%1$s</xliff:g> weiterleiten"</string>
@@ -123,4 +124,14 @@
     <string name="developer_title" msgid="9146088855661672353">"Telecom-Entwicklermenü"</string>
     <string name="toast_emergency_can_not_pull_call" msgid="9074229465338410869">"Während eines Notrufs kannst du keine Anrufe annehmen."</string>
     <string name="cancel" msgid="6733466216239934756">"Abbrechen"</string>
+    <string name="back" msgid="6915955601805550206">"Zurück"</string>
+    <string name="callendpoint_name_earpiece" msgid="7047285080319678594">"Kopfhörer"</string>
+    <string name="callendpoint_name_bluetooth" msgid="210210953208913172">"Bluetooth"</string>
+    <string name="callendpoint_name_wiredheadset" msgid="6860787176412079742">"Kabelgebundenes Headset"</string>
+    <string name="callendpoint_name_speaker" msgid="1971760468695323189">"Lautsprecher"</string>
+    <string name="callendpoint_name_streaming" msgid="2337595450408275576">"Extern"</string>
+    <string name="callendpoint_name_unknown" msgid="2199074708477193852">"Unbekannt"</string>
+    <string name="call_streaming_notification_body" msgid="502216105683378263">"Audio auf einem anderen Gerät streamen"</string>
+    <string name="call_streaming_notification_action_hang_up" msgid="7017663335289063827">"Anruf beenden"</string>
+    <string name="call_streaming_notification_action_switch_here" msgid="3524180754186221228">"Auf dieses Gerät wechseln"</string>
 </resources>

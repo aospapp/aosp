@@ -285,6 +285,7 @@ public class ClusterHomeService extends IClusterHomeService.Stub
         enforcePermission(Car.PERMISSION_CAR_INSTRUMENT_CLUSTER_CONTROL);
         if (!mServiceEnabled) throw new IllegalStateException("Service is not enabled");
 
+        mUiType = uiTypeMain;
         mClusterHalService.reportState(mOnOff, mBounds, mInsets,
                 uiTypeMain, uiTypeSub, uiAvailability);
     }

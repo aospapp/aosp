@@ -75,7 +75,7 @@ public class CarStatsServiceTest {
 
     @Test
     public void testEmptyStats() {
-        mCarStatsService.dump(mDumpsysWriter, new String[0]);
+        mCarStatsService.dump(mDumpsysWriter);
         assertEquals(
                 "uid,packageName,attempts,connected,disconnected,terminated,errors\n"
                         + "\nuid,layerType,layerChannel,layerVersion,"
@@ -345,7 +345,7 @@ public class CarStatsServiceTest {
     }
 
     private void validateDumpsys(String vmsConnectionStats, String vmsClientStats) {
-        mCarStatsService.dump(mDumpsysWriter, new String[0]);
+        mCarStatsService.dump(mDumpsysWriter);
         assertEquals(
                 "uid,packageName,attempts,connected,disconnected,terminated,errors\n"
                         + vmsConnectionStats

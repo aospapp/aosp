@@ -47,19 +47,19 @@
     <string name="cmas_extreme_immediate_likely_alert" msgid="1859702950323471778">"Emergency alert: Extreme"</string>
     <string name="cmas_severe_alert" msgid="4135809475315826913">"Emergency alert: Severe"</string>
     <string name="cmas_amber_alert" msgid="6154867710264778887">"Child abduction (Amber alert)"</string>
-    <string name="cmas_required_monthly_test" msgid="1890205712251132193">"Required monthly test"</string>
+    <string name="cmas_required_monthly_test" msgid="1890205712251132193">"Required Monthly Test"</string>
     <string name="cmas_exercise_alert" msgid="2892255514938370321">"Emergency alert (exercise)"</string>
     <string name="cmas_operator_defined_alert" msgid="8755372450810011476">"Emergency alert (operator)"</string>
     <string name="cb_other_message_identifiers" msgid="5790068194529377210">"Broadcast messages"</string>
     <string name="public_safety_message" msgid="9119928798786998252">"Public safety message"</string>
-    <string name="state_local_test_alert" msgid="8003145745857480200">"Regional/local test"</string>
+    <string name="state_local_test_alert" msgid="8003145745857480200">"State/Local test"</string>
     <string name="emergency_alert" msgid="624783871477634263">"Emergency alert"</string>
     <string name="emergency_alerts_title" msgid="6605036374197485429">"Alerts"</string>
     <string name="notification_channel_broadcast_messages" msgid="880704362482824524">"Broadcast messages"</string>
     <string name="notification_channel_emergency_alerts" msgid="5008287980979183617">"Emergency alerts"</string>
-    <string name="notification_channel_emergency_alerts_high_priority" msgid="3937475297436439073">"Unacknowledged emergency alerts"</string>
+    <string name="notification_channel_emergency_alerts_high_priority" msgid="3937475297436439073">"Unacknowledged Emergency alerts"</string>
     <string name="notification_channel_broadcast_messages_in_voicecall" msgid="3291001780110813190">"Emergency alerts in voice call"</string>
-    <string name="notification_channel_settings_updates" msgid="6779759372516475085">"Automatic WEA settings changes based on SIM"</string>
+    <string name="notification_channel_settings_updates" msgid="6779759372516475085">"Automatic WEA Settings changes based on SIM"</string>
     <string name="enable_alerts_master_toggle_title" msgid="1457904343636699446">"Allow alerts"</string>
     <string name="enable_alerts_master_toggle_summary" msgid="5583168548073938617">"Receive wireless emergency alert notifications"</string>
     <string name="alert_reminder_interval_title" msgid="3283595202268218149">"Alert reminder"</string>
@@ -82,25 +82,25 @@
     <string name="enable_public_safety_messages_summary" msgid="7868069748857851521">"Recommended actions that can save lives or property"</string>
     <string name="enable_full_screen_public_safety_messages_title" msgid="1790574642368284876">"Show full-screen messages"</string>
     <string name="enable_full_screen_public_safety_messages_summary" msgid="194171850169012897">"When off, public safety messages are still sent as a notification"</string>
-    <string name="enable_state_local_test_alerts_title" msgid="1012930918171302720">"Regional and local tests"</string>
-    <string name="enable_state_local_test_alerts_summary" msgid="780298327377950187">"Receive test messages from regional and local authorities"</string>
+    <string name="enable_state_local_test_alerts_title" msgid="1012930918171302720">"State and local tests"</string>
+    <string name="enable_state_local_test_alerts_summary" msgid="780298327377950187">"Receive test messages from state and local authorities"</string>
     <string name="enable_emergency_alerts_message_title" msgid="661894007489847468">"Emergency alerts"</string>
     <string name="enable_emergency_alerts_message_summary" msgid="7574617515441602546">"Warn about life-threatening events"</string>
     <string name="enable_cmas_test_alerts_title" msgid="7194966927004755266">"Test alerts"</string>
     <string name="enable_cmas_test_alerts_summary" msgid="2083089933271720217">"Receive carrier tests and monthly tests from the safety alert system"</string>
     <!-- no translation found for enable_exercise_test_alerts_title (6030780598569873865) -->
     <skip />
-    <string name="enable_exercise_test_alerts_summary" msgid="4276766794979567304">"Receive emergency alert: exercise/drill message"</string>
+    <string name="enable_exercise_test_alerts_summary" msgid="4276766794979567304">"Receive emergency alert: Exercise/Drill message"</string>
     <!-- no translation found for enable_operator_defined_test_alerts_title (7459219458579095832) -->
     <skip />
     <string name="enable_operator_defined_test_alerts_summary" msgid="7856514354348843433">"Receive emergency alert: Operator defined"</string>
     <string name="enable_alert_vibrate_title" msgid="5421032189422312508">"Vibration"</string>
     <string name="enable_alert_vibrate_summary" msgid="4733669825477146614"></string>
     <string name="override_dnd_title" msgid="5120805993144214421">"Always alert at full volume"</string>
-    <string name="override_dnd_summary" msgid="9026675822792800258">"Ignore Do Not Disturb and other volume settings"</string>
+    <string name="override_dnd_summary" msgid="9026675822792800258">"Ignore Do Not Disturb &amp; other volume settings"</string>
     <string name="enable_area_update_info_alerts_title" msgid="3442042268424617226">"Area update broadcasts"</string>
     <string name="enable_area_update_info_alerts_summary" msgid="6437816607144264910">"Show update information in SIM status"</string>
-    <string name="cmas_category_heading" msgid="3923503130776640717">"Alert category:"</string>
+    <string name="cmas_category_heading" msgid="3923503130776640717">"Alert Category:"</string>
     <string name="cmas_category_geo" msgid="4979494217069688527">"Geophysical"</string>
     <string name="cmas_category_met" msgid="7563732573851773537">"Meteorological"</string>
     <string name="cmas_category_safety" msgid="2986472639641883453">"Safety"</string>
@@ -113,7 +113,7 @@
     <string name="cmas_category_infra" msgid="3558151044446851398">"Infrastructure"</string>
     <string name="cmas_category_cbrne" msgid="240421557913603971">"Chemical/Biological/Nuclear/Explosive"</string>
     <string name="cmas_category_other" msgid="6158932360790744360">"Other"</string>
-    <string name="cmas_response_heading" msgid="4205379547245540163">"Response type:"</string>
+    <string name="cmas_response_heading" msgid="4205379547245540163">"Response Type:"</string>
     <string name="cmas_response_shelter" msgid="7301175579079615909">"Shelter"</string>
     <string name="cmas_response_evacuate" msgid="5833170084430021095">"Evacuate"</string>
     <string name="cmas_response_prepare" msgid="8428073909753758319">"Prepare"</string>
@@ -134,8 +134,8 @@
     <string name="delivery_time_heading" msgid="5980836543433619329">"Received:"</string>
     <string name="notification_multiple" msgid="5121978148152124860">"<xliff:g id="COUNT">%s</xliff:g> unread alerts."</string>
     <string name="notification_multiple_title" msgid="1523638925739947855">"New alerts"</string>
-    <string name="show_cmas_opt_out_summary" msgid="6926059266585295440">"Show an opt-out dialogue after displaying the first alert"</string>
-    <string name="show_cmas_opt_out_title" msgid="9182104842820171132">"Show opt-out dialogue"</string>
+    <string name="show_cmas_opt_out_summary" msgid="6926059266585295440">"Show an opt-out dialog after displaying the first alert (other than Presidential Alert)."</string>
+    <string name="show_cmas_opt_out_title" msgid="9182104842820171132">"Show opt-out dialog"</string>
     <string name="cmas_opt_out_dialog_text" msgid="4820577535626084938">"You are currently receiving wireless emergency alerts. Would you like to continue receiving wireless emergency alerts?"</string>
     <string name="cmas_opt_out_button_yes" msgid="7248930667195432936">"Yes"</string>
     <string name="cmas_opt_out_button_no" msgid="3110484064328538553">"No"</string>
@@ -155,8 +155,8 @@
     <string name="receive_cmas_in_second_language_title" msgid="1223260365527361964"></string>
     <string name="receive_cmas_in_second_language_summary" msgid="7704105502782770718"></string>
     <string name="alerts_header_summary" msgid="4700985191868591788"></string>
-    <string name="testing_mode_enabled" msgid="8296556666392297467">"Mobile broadcast testing mode is enabled."</string>
-    <string name="testing_mode_disabled" msgid="8381408377958182661">"Mobile broadcast testing mode is disabled."</string>
+    <string name="testing_mode_enabled" msgid="8296556666392297467">"Cell broadcast testing mode is enabled."</string>
+    <string name="testing_mode_disabled" msgid="8381408377958182661">"Cell broadcast testing mode is disabled."</string>
     <string name="show_all_messages" msgid="3780970968167139836">"Show all messages"</string>
     <string name="show_regular_messages" msgid="7376885150513522515">"Show regular messages"</string>
     <string name="message_identifier" msgid="5558338496219327850">"Identifier:"</string>

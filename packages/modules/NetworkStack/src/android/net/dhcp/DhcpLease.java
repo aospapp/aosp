@@ -142,7 +142,8 @@ public class DhcpLease {
 
     @Override
     public int hashCode() {
-        return Objects.hash(mClientId, mHwAddr, mNetAddr, mPrefixLength, mHostname, mExpTime);
+        return Objects.hash(Arrays.hashCode(mClientId), mHwAddr, mNetAddr, mPrefixLength,
+                mHostname, mExpTime);
     }
 
     static String clientIdToString(byte[] bytes) {

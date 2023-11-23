@@ -20,4 +20,14 @@
 <resources>
     <style name="Theme.Notification" parent="Theme.DeviceDefault.NoActionBar.Notification">
     </style>
+    <style name="Theme.UserPicker" parent="@style/Theme.CarUi.NoToolbar">
+        <item name="android:windowSplashScreenAnimatedIcon">@drawable/user_picker_splash_icon</item>
+        <item name="android:windowDisablePreview">true</item>
+        <item name="colorSurface">@color/user_picker_snack_bar_transparent_color</item>
+        <item name="colorOnSurface">@color/user_picker_snack_bar_background_color</item>
+        <item name="colorAccent">@*android:color/car_accent</item>
+        <item name="snackbarStyle">@style/Widget.MaterialComponents.Snackbar</item>
+        <item name="snackbarButtonStyle">@style/Widget.MaterialComponents.Button.TextButton.Snackbar</item>
+        <item name="snackbarTextViewStyle">@style/UserPickerSnackBarText</item>
+    </style>
 </resources>

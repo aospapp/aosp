@@ -27,10 +27,10 @@ import android.media.AudioManager;
 import android.media.HwAudioSource;
 import android.text.TextUtils;
 
-import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 import com.android.car.radio.util.Log;
+import com.android.internal.annotations.GuardedBy;
 
 import java.util.Objects;
 import java.util.stream.Stream;
@@ -40,16 +40,19 @@ import java.util.stream.Stream;
  *
  * They might eventually get pushed to the framework.
  */
-public class RadioTunerExt {
+public final class RadioTunerExt {
     private static final String TAG = "BcRadioApp.tunerext";
 
     private final Object mLock = new Object();
-    private final Object mTuneLock = new Object();
     private final RadioTuner mTuner;
 
+    @GuardedBy("mLock")
     private HwAudioSource mHwAudioSource;
 
+    @GuardedBy("mLock")
     @Nullable private ProgramSelector mOperationSelector;  // null for seek operations
+
+    @GuardedBy("mLock")
     @Nullable private TuneCallback mOperationResultCb;
 
     /**
@@ -66,7 +69,7 @@ public class RadioTunerExt {
         /**
          * Chains other result callbacks.
          */
-        default TuneCallback alsoCall(@NonNull TuneCallback other) {
+        default TuneCallback alsoCall(TuneCallback other) {
             return succeeded -> {
                 onFinished(succeeded);
                 other.onFinished(succeeded);
@@ -74,13 +77,12 @@ public class RadioTunerExt {
         }
     }
 
-    RadioTunerExt(@NonNull Context context, @NonNull RadioTuner tuner,
-            @NonNull TunerCallbackAdapterExt cbExt) {
-        mTuner = Objects.requireNonNull(tuner);
+    RadioTunerExt(Context context, RadioTuner tuner, TunerCallbackAdapterExt cbExt) {
+        mTuner = Objects.requireNonNull(tuner, "Tuner cannot be null");
         cbExt.setTuneFailedCallback(this::onTuneFailed);
         cbExt.setProgramInfoCallback(this::onProgramInfoChanged);
 
-        final AudioDeviceInfo tunerDevice = findTunerDevice(context, null);
+        AudioDeviceInfo tunerDevice = findTunerDevice(context, /* address= */ null);
         if (tunerDevice == null) {
             Log.e(TAG, "No TUNER_DEVICE found on board");
         } else {
@@ -94,11 +96,11 @@ public class RadioTunerExt {
     }
 
     public boolean setMuted(boolean muted) {
-        if (mHwAudioSource == null) {
-            Log.e(TAG, "No TUNER_DEVICE found on board");
-            return false;
-        }
         synchronized (mLock) {
+            if (mHwAudioSource == null) {
+                Log.e(TAG, "No TUNER_DEVICE found on board when setting muted");
+                return false;
+            }
             if (muted) {
                 mHwAudioSource.stop();
             } else {
@@ -112,18 +114,16 @@ public class RadioTunerExt {
      * See {@link RadioTuner#scan}.
      */
     public void seek(boolean forward, @Nullable TuneCallback resultCb) {
-        synchronized (mTuneLock) {
-            synchronized (mLock) {
-                markOperationFinishedLocked(false);
-                mOperationResultCb = resultCb;
-            }
+        synchronized (mLock) {
+            markOperationFinishedLocked(/* succeeded= */ false);
+            mOperationResultCb = resultCb;
+        }
 
-            mTuner.cancel();
-            int res = mTuner.scan(
-                    forward ? RadioTuner.DIRECTION_UP : RadioTuner.DIRECTION_DOWN, false);
-            if (res != RadioManager.STATUS_OK) {
-                throw new RuntimeException("Seek failed with result of " + res);
-            }
+        int res = mTuner.scan(
+                forward ? RadioTuner.DIRECTION_UP : RadioTuner.DIRECTION_DOWN,
+                /* skipSubChannel= */ false);
+        if (res != RadioManager.STATUS_OK) {
+            throw new RuntimeException("Seek failed with result of " + res);
         }
     }
 
@@ -131,13 +131,14 @@ public class RadioTunerExt {
      * See {@link RadioTuner#step}.
      */
     public void step(boolean forward, @Nullable TuneCallback resultCb) {
-        synchronized (mTuneLock) {
-            markOperationFinishedLocked(false);
+        synchronized (mLock) {
+            markOperationFinishedLocked(/* succeeded= */ false);
             mOperationResultCb = resultCb;
         }
-        mTuner.cancel();
+
         int res =
-                mTuner.step(forward ? RadioTuner.DIRECTION_UP : RadioTuner.DIRECTION_DOWN, false);
+                mTuner.step(forward ? RadioTuner.DIRECTION_UP : RadioTuner.DIRECTION_DOWN,
+                        /* skipSubChannel= */ false);
         if (res != RadioManager.STATUS_OK) {
             throw new RuntimeException("Step failed with result of " + res);
         }
@@ -146,17 +147,14 @@ public class RadioTunerExt {
     /**
      * See {@link RadioTuner#tune}.
      */
-    public void tune(@NonNull ProgramSelector selector, @Nullable TuneCallback resultCb) {
-        synchronized (mTuneLock) {
-            synchronized (mLock) {
-                markOperationFinishedLocked(false);
-                mOperationSelector = selector;
-                mOperationResultCb = resultCb;
-            }
-
-            mTuner.cancel();
-            mTuner.tune(selector);
+    public void tune(ProgramSelector selector, @Nullable TuneCallback resultCb) {
+        synchronized (mLock) {
+            markOperationFinishedLocked(/* succeeded= */ false);
+            mOperationSelector = selector;
+            mOperationResultCb = resultCb;
         }
+
+        mTuner.tune(selector);
     }
 
     /**
@@ -176,8 +174,11 @@ public class RadioTunerExt {
         return null;
     }
 
+    @GuardedBy("mLock")
     private void markOperationFinishedLocked(boolean succeeded) {
-        if (mOperationResultCb == null) return;
+        if (mOperationResultCb == null) {
+            return;
+        }
 
         if (Log.isLoggable(TAG, Log.DEBUG)) {
             Log.d(TAG, "Tune operation for " + mOperationSelector
@@ -196,32 +197,41 @@ public class RadioTunerExt {
         }
     }
 
-    private boolean isMatching(@NonNull ProgramSelector currentOperation,
-            @NonNull ProgramSelector event) {
+    private boolean isMatching(ProgramSelector currentOperation, ProgramSelector event) {
         ProgramSelector.Identifier pri = currentOperation.getPrimaryId();
         return Stream.of(event.getAllIds(pri.getType())).anyMatch(id -> pri.equals(id));
     }
 
     private void onProgramInfoChanged(RadioManager.ProgramInfo info) {
         synchronized (mLock) {
-            if (mOperationResultCb == null) return;
+            if (mOperationResultCb == null) {
+                return;
+            }
             // if we're seeking, all program info chanes does match
             if (mOperationSelector != null) {
-                if (!isMatching(mOperationSelector, info.getSelector())) return;
+                if (!isMatching(mOperationSelector, info.getSelector())) {
+                    return;
+                }
             }
-            markOperationFinishedLocked(true);
+            markOperationFinishedLocked(/* succeeded= */ true);
         }
     }
 
     private void onTuneFailed(int result, @Nullable ProgramSelector selector) {
         synchronized (mLock) {
-            if (mOperationResultCb == null) return;
-            // if we're seeking and got a failed tune (or vice versa), that's a mismatch
-            if ((mOperationSelector == null) != (selector == null)) return;
-            if (mOperationSelector != null) {
-                if (!isMatching(mOperationSelector, selector)) return;
+            if (mOperationResultCb == null) {
+                return;
             }
-            markOperationFinishedLocked(false);
+            // if we're seeking and got a failed tune (or vice versa), that's a mismatch
+            if ((mOperationSelector == null) != (selector == null)) {
+                return;
+            }
+            if (mOperationSelector != null) {
+                if (!isMatching(mOperationSelector, selector)) {
+                    return;
+                }
+            }
+            markOperationFinishedLocked(/* succeeded= */ false);
         }
     }
 
@@ -229,34 +239,33 @@ public class RadioTunerExt {
      * See {@link RadioTuner#cancel}.
      */
     public void cancel() {
-        synchronized (mTuneLock) {
-            synchronized (mLock) {
-                markOperationFinishedLocked(false);
-            }
+        synchronized (mLock) {
+            markOperationFinishedLocked(/* succeeded= */ false);
+        }
 
-            int res = mTuner.cancel();
-            if (res != RadioManager.STATUS_OK) {
-                Log.e(TAG, "Cancel failed with result of " + res);
-            }
+        int res = mTuner.cancel();
+        if (res != RadioManager.STATUS_OK) {
+            Log.e(TAG, "Cancel failed with result of " + res);
         }
     }
 
     /**
      * See {@link RadioTuner#getDynamicProgramList}.
      */
-    public @Nullable ProgramList getDynamicProgramList(@Nullable ProgramList.Filter filter) {
+    @Nullable
+    public ProgramList getDynamicProgramList(@Nullable ProgramList.Filter filter) {
         return mTuner.getDynamicProgramList(filter);
     }
 
     public void close() {
         synchronized (mLock) {
-            markOperationFinishedLocked(false);
+            markOperationFinishedLocked(/* succeeded= */ false);
+            if (mHwAudioSource != null) {
+                mHwAudioSource.stop();
+                mHwAudioSource = null;
+            }
         }
 
-        if (mHwAudioSource != null) {
-            mHwAudioSource.stop();
-            mHwAudioSource = null;
-        }
         mTuner.close();
     }
 }

@@ -92,8 +92,8 @@
     <string name="save_error" msgid="8631128801982095782">"Kan document niet opslaan"</string>
     <string name="create_error" msgid="3092144450044861994">"Kan map niet maken"</string>
     <string name="query_error" msgid="6625421453613879336">"Kan content momenteel niet laden"</string>
-    <string name="quiet_mode_error_title" msgid="9126656325282792843">"Werkprofiel is onderbroken"</string>
-    <string name="quiet_mode_button" msgid="6977115032320235420">"Aanzetten"</string>
+    <string name="quiet_mode_error_title" msgid="554319751414657910">"Werk-apps zijn onderbroken"</string>
+    <string name="quiet_mode_button" msgid="8051436551926677305">"Werk-apps aanzetten"</string>
     <string name="cant_select_work_files_error_title" msgid="6688716319549644354">"Kan geen werkbestanden selecteren"</string>
     <string name="cant_select_work_files_error_message" msgid="683480676150690641">"Je IT-beheerder staat niet toe dat je werkbestanden opent met een app die je voor persoonlijke doeleinden gebruikt"</string>
     <string name="cant_select_personal_files_error_title" msgid="3200697170148617742">"Kan geen persoonlijke bestanden selecteren"</string>

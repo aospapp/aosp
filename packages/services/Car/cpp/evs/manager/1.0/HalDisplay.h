@@ -17,13 +17,13 @@
 #ifndef ANDROID_AUTOMOTIVE_EVS_V1_0_DISPLAYPROXY_H
 #define ANDROID_AUTOMOTIVE_EVS_V1_0_DISPLAYPROXY_H
 
-#include <android/hardware/automotive/evs/1.0/types.h>
 #include <android/hardware/automotive/evs/1.0/IEvsDisplay.h>
+#include <android/hardware/automotive/evs/1.0/types.h>
 
 using namespace ::android::hardware::automotive::evs::V1_0;
+using ::android::hardware::hidl_handle;
 using ::android::hardware::Return;
 using ::android::hardware::Void;
-using ::android::hardware::hidl_handle;
 
 namespace android {
 namespace automotive {
@@ -40,24 +40,24 @@ public:
     explicit HalDisplay(sp<IEvsDisplay>& display);
     virtual ~HalDisplay() override;
 
-    inline void         shutdown();
-    sp<IEvsDisplay>     getHwDisplay();
+    inline void shutdown();
+    sp<IEvsDisplay> getHwDisplay();
 
     // Methods from ::android::hardware::automotive::evs::V1_0::IEvsDisplay follow.
-    Return<void> getDisplayInfo(getDisplayInfo_cb _hidl_cb)  override;
-    Return<EvsResult> setDisplayState(DisplayState state)  override;
-    Return<DisplayState> getDisplayState()  override;
-    Return<void> getTargetBuffer(getTargetBuffer_cb _hidl_cb)  override;
-    Return<EvsResult> returnTargetBufferForDisplay(const BufferDesc& buffer)  override;
+    Return<void> getDisplayInfo(getDisplayInfo_cb _hidl_cb) override;
+    Return<EvsResult> setDisplayState(DisplayState state) override;
+    Return<DisplayState> getDisplayState() override;
+    Return<void> getTargetBuffer(getTargetBuffer_cb _hidl_cb) override;
+    Return<EvsResult> returnTargetBufferForDisplay(const BufferDesc& buffer) override;
 
 private:
-    sp<IEvsDisplay>      mHwDisplay;     // The low level display interface that backs this proxy
+    sp<IEvsDisplay> mHwDisplay;  // The low level display interface that backs this proxy
 };
 
-} // namespace implementation
-} // namespace V1_0
-} // namespace evs
-} // namespace automotive
-} // namespace android
+}  // namespace implementation
+}  // namespace V1_0
+}  // namespace evs
+}  // namespace automotive
+}  // namespace android
 
 #endif  // ANDROID_AUTOMOTIVE_EVS_V1_0_DISPLAYPROXY_H

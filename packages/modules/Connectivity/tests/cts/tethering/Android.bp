@@ -46,6 +46,7 @@ java_defaults {
 
     // Change to system current when TetheringManager move to bootclass path.
     platform_apis: true,
+    host_required: ["net-tests-utils-host-common"],
 }
 
 // Tethering CTS tests that target the latest released SDK. These tests can be installed on release
@@ -53,10 +54,12 @@ java_defaults {
 // mainline modules on release devices.
 android_test {
     name: "CtsTetheringTestLatestSdk",
-    defaults: ["CtsTetheringTestDefaults"],
+    defaults: [
+        "ConnectivityTestsLatestSdkDefaults",
+        "CtsTetheringTestDefaults",
+    ],
 
     min_sdk_version: "30",
-    target_sdk_version: "33",
 
     static_libs: [
         "TetheringIntegrationTestsLatestSdkLib",

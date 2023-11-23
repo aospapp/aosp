@@ -18,7 +18,10 @@ package com.android.systemui.car.hvac;
 
 import static android.car.VehiclePropertyIds.HVAC_SEAT_TEMPERATURE;
 
+import android.car.VehiclePropertyIds;
+import android.car.hardware.CarPropertyConfig;
 import android.car.hardware.CarPropertyValue;
+import android.car.hardware.property.AreaIdConfig;
 import android.content.Context;
 import android.content.res.TypedArray;
 import android.graphics.drawable.Drawable;
@@ -49,7 +52,7 @@ public class SeatTemperatureLevelButton extends ImageButton implements HvacView 
     private int mAreaId;
     private HvacPropertySetter mHvacPropertySetter;
     private Drawable mCurrentIcon;
-    private int mCurrentLevel;
+    private int mCurrentLevel = -1;
     private int mTotalLevelCount;
     private int mTemperatureLevelType;
 
@@ -71,18 +74,27 @@ public class SeatTemperatureLevelButton extends ImageButton implements HvacView 
     public void onFinishInflate() {
         super.onFinishInflate();
         setOnClickListener(v -> {
-            if (mHvacPropertySetter != null) {
-                mHvacPropertySetter.setHvacProperty(getHvacPropertyToView(), mAreaId,
-                        mTemperatureLevelType * (mCurrentLevel + 1) % mTotalLevelCount);
+            if (mHvacPropertySetter == null) {
+                return;
             }
+
+            int newLevel = mTemperatureLevelType * (mCurrentLevel + 1) % (mTotalLevelCount + 1);
+            if (DEBUG) {
+                Log.d(TAG, "setOnClickListener: new seat temperature level: " + newLevel);
+            }
+            mHvacPropertySetter.setHvacProperty(getHvacPropertyToView(), mAreaId, newLevel);
         });
         setOnLongClickListener(v -> {
-            if (mHvacPropertySetter != null) {
-                mHvacPropertySetter.setHvacProperty(getHvacPropertyToView(), mAreaId,
-                        mTemperatureLevelType * (mCurrentLevel == 0 ? mTotalLevelCount - 1 : 0));
-                return true;
+            if (mHvacPropertySetter == null) {
+                return false;
             }
-            return false;
+
+            int newLevel = mTemperatureLevelType * (mCurrentLevel == 0 ? mTotalLevelCount : 0);
+            if (DEBUG) {
+                Log.d(TAG, "setOnLongClickListener: new seat temperature level: " + newLevel);
+            }
+            mHvacPropertySetter.setHvacProperty(getHvacPropertyToView(), mAreaId, newLevel);
+            return true;
         });
         updateIcon();
     }
@@ -93,18 +105,28 @@ public class SeatTemperatureLevelButton extends ImageButton implements HvacView 
     }
 
     @Override
+    public void setConfigInfo(CarPropertyConfig<?> carPropertyConfig) {
+        AreaIdConfig<Integer> areaIdConfig = (AreaIdConfig<Integer>)
+                carPropertyConfig.getAreaIdConfig(mAreaId);
+        // The number of seat temperature levels cannot exceed the number of icons that represent
+        // the levels.
+        mTotalLevelCount = Math.min(areaIdConfig.getMaxValue(), mIcons.size());
+    }
+
+    @Override
     public void onPropertyChanged(CarPropertyValue value) {
         if (value == null) {
             if (DEBUG) {
-                Log.w(TAG, "onPropertyChanged: received null value");
+                Log.d(TAG, "onPropertyChanged: received null value");
             }
             return;
         }
 
         if (DEBUG) {
-            Log.w(TAG, "onPropertyChanged: property id: " + value.getPropertyId());
-            Log.w(TAG, "onPropertyChanged: area id: " + value.getAreaId());
-            Log.w(TAG, "onPropertyChanged: value: " + value.getValue());
+            Log.d(TAG, "onPropertyChanged: property ID: "
+                    + VehiclePropertyIds.toString(value.getPropertyId()));
+            Log.d(TAG, "onPropertyChanged: area ID: 0x" + Integer.toHexString(value.getAreaId()));
+            Log.d(TAG, "onPropertyChanged: value: " + value.getValue());
         }
 
         if (value.getPropertyId() == getHvacPropertyToView() && value.getAreaId() == getAreaId()) {

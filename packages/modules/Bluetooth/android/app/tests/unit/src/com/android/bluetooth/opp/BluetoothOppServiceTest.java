@@ -45,14 +45,14 @@ public class BluetoothOppServiceTest {
     private BluetoothOppService mService = null;
     private BluetoothAdapter mAdapter = null;
 
-    @Rule public final ServiceTestRule mServiceRule = new ServiceTestRule();
+    @Rule
+    public final ServiceTestRule mServiceRule = new ServiceTestRule();
 
-    @Mock private AdapterService mAdapterService;
+    @Mock
+    private AdapterService mAdapterService;
 
     @Before
     public void setUp() throws Exception {
-        Assume.assumeTrue("Ignore test when BluetoothOppService is not enabled",
-                BluetoothOppService.isEnabled());
         MockitoAnnotations.initMocks(this);
         TestUtils.setAdapterService(mAdapterService);
         doReturn(true, false).when(mAdapterService).isStartedProfile(anyString());
@@ -66,9 +66,6 @@ public class BluetoothOppServiceTest {
 
     @After
     public void tearDown() throws Exception {
-        if (!BluetoothOppService.isEnabled()) {
-            return;
-        }
         TestUtils.stopService(mServiceRule, BluetoothOppService.class);
         TestUtils.clearAdapterService(mAdapterService);
     }
@@ -78,3 +75,4 @@ public class BluetoothOppServiceTest {
         Assert.assertNotNull(BluetoothOppService.getBluetoothOppService());
     }
 }
+

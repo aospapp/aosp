@@ -11,7 +11,10 @@ android_test {
         "android.test.mock",
     ],
 
-    srcs: ["src/**/*.java"],
+    srcs: [
+        "src/**/*.java",
+        "src/**/*.kt"
+    ],
 
     platform_apis: true,
     certificate: "platform",
@@ -37,7 +40,10 @@ android_test {
 
 android_library {
    name: "ManagedProvisioningTestsLib",
-   srcs: ["src/**/*.java"],
+   srcs: [
+      "src/**/*.java",
+      "src/**/*.kt"
+  ],
    manifest: "AndroidManifest.xml",
    libs: [
         "android.test.runner",

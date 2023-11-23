@@ -30,7 +30,7 @@
     <string name="notification_disconnectedCall_body" msgid="600491714584417536">"긴급 전화 연결로 인해 <xliff:g id="CALLER">%s</xliff:g>님에게 건 통화가 연결 해제되었습니다."</string>
     <string name="notification_disconnectedCall_generic_body" msgid="5282765206349184853">"긴급 전화 연결로 인해 통화가 연결 해제되었습니다."</string>
     <string name="notification_audioProcessing_title" msgid="1619035039880584575">"백그라운드 통화"</string>
-    <string name="notification_audioProcessing_body" msgid="6397005913770420388">"<xliff:g id="AUDIO_PROCESSING_APP_NAME">%s</xliff:g>에서 통화를 백그라운드로 전환했습니다. 앱이 통화에 사용되는 오디오에 액세스하거나 재생 중일 수 있습니다."</string>
+    <string name="notification_audioProcessing_body" msgid="8811420157964118913">"<xliff:g id="AUDIO_PROCESSING_APP_NAME">%s</xliff:g> 앱이 백그라운드에서 통화를 처리하는 중입니다. 앱이 통화에 사용되는 오디오에 액세스하거나 재생 중일 수 있습니다."</string>
     <string name="notification_incallservice_not_responding_title" msgid="5347557574288598548">"<xliff:g id="IN_CALL_SERVICE_APP_NAME">%s</xliff:g>의 응답이 중지됨"</string>
     <string name="notification_incallservice_not_responding_body" msgid="9209308270131968623">"기기의 기본 전화 앱을 사용하여 통화했습니다."</string>
     <string name="accessibility_call_muted" msgid="2968461092554300779">"통화가 음소거되었습니다."</string>
@@ -100,6 +100,7 @@
     <string name="notification_channel_background_calls" msgid="7785659903711350506">"백그라운드 통화"</string>
     <string name="notification_channel_disconnected_calls" msgid="8228636543997645757">"연결 해제된 통화"</string>
     <string name="notification_channel_in_call_service_crash" msgid="7313237519166984267">"다운된 전화 앱"</string>
+    <string name="notification_channel_call_streaming" msgid="5100510699787538991">"통화 스트리밍"</string>
     <string name="alert_outgoing_call" msgid="5319895109298927431">"이 전화를 걸면 현재 <xliff:g id="OTHER_APP">%1$s</xliff:g>에서 진행 중인 통화가 종료됩니다."</string>
     <string name="alert_redirect_outgoing_call_or_not" msgid="665409645789521636">"전화 걸 방법 선택"</string>
     <string name="alert_place_outgoing_call_with_redirection" msgid="5221065030959024121">"<xliff:g id="OTHER_APP">%1$s</xliff:g> 앱으로 전화 리디렉션"</string>
@@ -123,4 +124,14 @@
     <string name="developer_title" msgid="9146088855661672353">"Telecom 개발자 메뉴"</string>
     <string name="toast_emergency_can_not_pull_call" msgid="9074229465338410869">"긴급 전화 중에는 전화를 받을 수 없습니다."</string>
     <string name="cancel" msgid="6733466216239934756">"취소"</string>
+    <string name="back" msgid="6915955601805550206">"뒤로"</string>
+    <string name="callendpoint_name_earpiece" msgid="7047285080319678594">"스피커"</string>
+    <string name="callendpoint_name_bluetooth" msgid="210210953208913172">"블루투스"</string>
+    <string name="callendpoint_name_wiredheadset" msgid="6860787176412079742">"유선 헤드셋"</string>
+    <string name="callendpoint_name_speaker" msgid="1971760468695323189">"스피커"</string>
+    <string name="callendpoint_name_streaming" msgid="2337595450408275576">"외부"</string>
+    <string name="callendpoint_name_unknown" msgid="2199074708477193852">"알 수 없음"</string>
+    <string name="call_streaming_notification_body" msgid="502216105683378263">"다른 기기로 오디오 스트리밍"</string>
+    <string name="call_streaming_notification_action_hang_up" msgid="7017663335289063827">"전화 끊기"</string>
+    <string name="call_streaming_notification_action_switch_here" msgid="3524180754186221228">"현재 기기로 전환"</string>
 </resources>

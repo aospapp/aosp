@@ -1,5 +1,2 @@
 # Owned by Android Automotive OS team.
-
-felipeal@google.com
-gurunagarajan@google.com
-keunyoung@google.com
+include platform/packages/services/Car:/OWNERS

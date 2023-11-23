@@ -52,7 +52,7 @@ public final class ImePreferenceController
     }
 
     @Override
-    protected int getAvailabilityStatus() {
+    protected int getDefaultAvailabilityStatus() {
         return mEnterprisePrivacyFeatureProvider.getImeLabelIfOwnerSet() != null
                 ? AVAILABLE
                 : DISABLED_FOR_PROFILE;

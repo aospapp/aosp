@@ -145,6 +145,16 @@ void set_audio_low_latency_mode_allowed(bool allowed) {
   }
 }
 
+// Check if OPUS codec is supported
+bool is_opus_supported() {
+  // OPUS codec was added after HIDL HAL was frozen
+  if (HalVersionManager::GetHalTransport() ==
+      BluetoothAudioHalTransport::AIDL) {
+    return true;
+  }
+  return false;
+}
+
 }  // namespace a2dp
 }  // namespace audio
 }  // namespace bluetooth

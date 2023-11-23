@@ -15,6 +15,8 @@
  */
 package com.android.car.user;
 
+import static com.android.car.internal.util.VersionUtils.isPlatformVersionAtLeastU;
+
 import android.annotation.NonNull;
 import android.annotation.Nullable;
 import android.annotation.UserIdInt;
@@ -44,24 +46,19 @@ public final class UserHandleHelper {
      */
     @Nullable
     public UserHandle getExistingUserHandle(@UserIdInt int userId) {
-        List<UserHandle> users = UserManagerHelper.getUserHandles(mUserManager,
-                /* excludePartial= */ false, /* excludeDying= */ false,
-                /* excludePreCreated= */ true);
+        List<UserHandle> users;
+        if (isPlatformVersionAtLeastU()) {
+            users = UserManagerHelper.getUserHandles(mUserManager, /* excludeDying= */ false);
+        } else {
+            users = UserManagerHelper.getUserHandles(mUserManager,
+                    /* excludePartial= */ false, /* excludeDying= */ false,
+                    /* excludePreCreated= */ true);
+        }
 
         for (UserHandle user : users) {
             if (user.getIdentifier() == userId) return user;
         }
         return null;
-    }
-
-    /**
-     * Gets user handle if user exists
-     */
-    @NonNull
-    public List<UserHandle> getUserHandles(boolean excludePartial, boolean excludeDying,
-            boolean excludePreCreated) {
-        return UserManagerHelper.getUserHandles(mUserManager, excludePartial,
-                excludeDying, excludePreCreated);
     }
 
     /**
@@ -119,13 +116,6 @@ public final class UserHandleHelper {
      */
     public boolean isInitializedUser(UserHandle user) {
         return UserManagerHelper.isInitializedUser(mUserManager, user);
-    }
-
-    /**
-     * Is user preCreated?
-     */
-    public boolean isPreCreatedUser(UserHandle user) {
-        return UserManagerHelper.isPreCreatedUser(mUserManager, user);
     }
 
     private UserManager getUserContextAwareUserManager(@UserIdInt int userId) {

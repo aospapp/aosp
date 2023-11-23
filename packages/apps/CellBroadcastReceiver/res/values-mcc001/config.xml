@@ -90,7 +90,7 @@
     <bool name="show_override_dnd_settings">false</bool>
 
     <!-- Append date-time to the alert title -->
-    <string name="date_time_format" translatable="false">MMM dd, HH:mm a</string>
+    <string name="date_time_format" translatable="false">MMM dd, hh:mm a</string>
     <!-- Whether to show CMAS messages by in a different order than received by prioritizing them -->
     <bool name="show_cmas_messages_in_priority_order">true</bool>
     <!-- Whether enable LED flash when playing alert tones -->

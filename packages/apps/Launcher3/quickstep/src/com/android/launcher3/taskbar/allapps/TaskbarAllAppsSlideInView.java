@@ -15,30 +15,33 @@
  */
 package com.android.launcher3.taskbar.allapps;
 
-import static com.android.launcher3.LauncherState.ALL_APPS;
-import static com.android.launcher3.anim.Interpolators.AGGRESSIVE_EASE;
-import static com.android.systemui.animation.Interpolators.EMPHASIZED_ACCELERATE;
+import static com.android.launcher3.anim.Interpolators.EMPHASIZED;
 
 import android.animation.PropertyValuesHolder;
 import android.content.Context;
+import android.graphics.Canvas;
 import android.graphics.Rect;
 import android.util.AttributeSet;
 import android.view.MotionEvent;
 import android.view.animation.Interpolator;
+import android.window.OnBackInvokedDispatcher;
 
 import com.android.launcher3.DeviceProfile;
 import com.android.launcher3.Insettable;
 import com.android.launcher3.R;
+import com.android.launcher3.config.FeatureFlags;
+import com.android.launcher3.taskbar.allapps.TaskbarAllAppsViewController.TaskbarAllAppsCallbacks;
+import com.android.launcher3.taskbar.overlay.TaskbarOverlayContext;
 import com.android.launcher3.views.AbstractSlideInView;
 
-import java.util.Optional;
-
 /** Wrapper for taskbar all apps with slide-in behavior. */
-public class TaskbarAllAppsSlideInView extends AbstractSlideInView<TaskbarAllAppsContext>
+public class TaskbarAllAppsSlideInView extends AbstractSlideInView<TaskbarOverlayContext>
         implements Insettable, DeviceProfile.OnDeviceProfileChangeListener {
     private TaskbarAllAppsContainerView mAppsView;
-    private OnCloseListener mOnCloseBeginListener;
     private float mShiftRange;
+
+    // Initialized in init.
+    private TaskbarAllAppsCallbacks mAllAppsCallbacks;
 
     public TaskbarAllAppsSlideInView(Context context, AttributeSet attrs) {
         this(context, attrs, 0);
@@ -47,6 +50,10 @@ public class TaskbarAllAppsSlideInView extends AbstractSlideInView<TaskbarAllApp
     public TaskbarAllAppsSlideInView(Context context, AttributeSet attrs,
             int defStyleAttr) {
         super(context, attrs, defStyleAttr);
+    }
+
+    void init(TaskbarAllAppsCallbacks callbacks) {
+        mAllAppsCallbacks = callbacks;
     }
 
     /** Opens the all apps view. */
@@ -60,9 +67,8 @@ public class TaskbarAllAppsSlideInView extends AbstractSlideInView<TaskbarAllApp
         if (animate) {
             mOpenCloseAnimator.setValues(
                     PropertyValuesHolder.ofFloat(TRANSLATION_SHIFT, TRANSLATION_SHIFT_OPENED));
-            mOpenCloseAnimator.setInterpolator(AGGRESSIVE_EASE);
-            mOpenCloseAnimator.setDuration(
-                    ALL_APPS.getTransitionDuration(mActivityContext, true /* isToState */)).start();
+            mOpenCloseAnimator.setInterpolator(EMPHASIZED);
+            mOpenCloseAnimator.setDuration(mAllAppsCallbacks.getOpenDuration()).start();
         } else {
             mTranslationShift = TRANSLATION_SHIFT_OPENED;
         }
@@ -73,21 +79,14 @@ public class TaskbarAllAppsSlideInView extends AbstractSlideInView<TaskbarAllApp
         return mAppsView;
     }
 
-    /** Callback invoked when the view is beginning to close (e.g. close animation is started). */
-    void setOnCloseBeginListener(OnCloseListener onCloseBeginListener) {
-        mOnCloseBeginListener = onCloseBeginListener;
-    }
-
     @Override
     protected void handleClose(boolean animate) {
-        Optional.ofNullable(mOnCloseBeginListener).ifPresent(OnCloseListener::onSlideInViewClosed);
-        handleClose(animate,
-                ALL_APPS.getTransitionDuration(mActivityContext, false /* isToState */));
+        handleClose(animate, mAllAppsCallbacks.getCloseDuration());
     }
 
     @Override
     protected Interpolator getIdleInterpolator() {
-        return EMPHASIZED_ACCELERATE;
+        return EMPHASIZED;
     }
 
     @Override
@@ -101,10 +100,55 @@ public class TaskbarAllAppsSlideInView extends AbstractSlideInView<TaskbarAllApp
         mAppsView = findViewById(R.id.apps_view);
         mContent = mAppsView;
 
+        // Setup header protection for search bar, if enabled.
+        if (FeatureFlags.ENABLE_ALL_APPS_SEARCH_IN_TASKBAR.get()) {
+            mAppsView.setOnInvalidateHeaderListener(this::invalidate);
+        }
+
         DeviceProfile dp = mActivityContext.getDeviceProfile();
         setShiftRange(dp.allAppsShiftRange);
+    }
 
+    @Override
+    protected void onAttachedToWindow() {
+        super.onAttachedToWindow();
         mActivityContext.addOnDeviceProfileChangeListener(this);
+        if (FeatureFlags.ENABLE_BACK_SWIPE_LAUNCHER_ANIMATION.get()) {
+            mAppsView.getAppsRecyclerViewContainer().setOutlineProvider(mViewOutlineProvider);
+            mAppsView.getAppsRecyclerViewContainer().setClipToOutline(true);
+            OnBackInvokedDispatcher dispatcher = findOnBackInvokedDispatcher();
+            if (dispatcher != null) {
+                dispatcher.registerOnBackInvokedCallback(
+                        OnBackInvokedDispatcher.PRIORITY_DEFAULT, this);
+            }
+        }
+    }
+
+    @Override
+    protected void onDetachedFromWindow() {
+        super.onDetachedFromWindow();
+        mActivityContext.removeOnDeviceProfileChangeListener(this);
+        if (FeatureFlags.ENABLE_BACK_SWIPE_LAUNCHER_ANIMATION.get()) {
+            mAppsView.getAppsRecyclerViewContainer().setOutlineProvider(null);
+            mAppsView.getAppsRecyclerViewContainer().setClipToOutline(false);
+            OnBackInvokedDispatcher dispatcher = findOnBackInvokedDispatcher();
+            if (dispatcher != null) {
+                dispatcher.unregisterOnBackInvokedCallback(this);
+            }
+        }
+    }
+
+    @Override
+    protected void dispatchDraw(Canvas canvas) {
+        mAppsView.drawOnScrimWithScale(canvas, mSlideInViewScale.value);
+        super.dispatchDraw(canvas);
+    }
+
+    @Override
+    protected void onScaleProgressChanged() {
+        super.onScaleProgressChanged();
+        mAppsView.setClipChildren(!mIsBackProgressing);
+        mAppsView.getAppsRecyclerViewContainer().setClipChildren(!mIsBackProgressing);
     }
 
     @Override

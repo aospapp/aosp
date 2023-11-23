@@ -20,16 +20,16 @@ android_app {
     name: "HalfSheetUX",
     defaults: ["platform_app_defaults"],
     srcs: ["src/**/*.java"],
+    resource_dirs: ["res"],
     sdk_version: "module_current",
     // This is included in tethering apex, which uses min SDK 30
     min_sdk_version: "30",
-    target_sdk_version: "current",
     updatable: true,
     certificate: ":com.android.nearby.halfsheetcertificate",
     libs: [
         "framework-bluetooth",
-        "framework-connectivity-t",
-        "nearby-service-string",
+        "framework-connectivity-t.impl",
+        "framework-nearby-static",
     ],
     static_libs: [
         "androidx.annotation_annotation",
@@ -44,7 +44,6 @@ android_app {
         "com.google.android.material_material",
         "fast-pair-lite-protos",
     ],
-    plugins: ["java_api_finder"],
     manifest: "AndroidManifest.xml",
     jarjar_rules: ":nearby-jarjar-rules",
     apex_available: ["com.android.tethering",],

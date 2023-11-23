@@ -27,6 +27,7 @@
     <string name="notification_channel_network_status" msgid="1631786866932924838">"નેટવર્ક સ્થિતિ"</string>
     <string name="notification_channel_network_alerts" msgid="1391603215241200880">"નેટવર્ક ચેતવણીઓ"</string>
     <string name="notification_channel_network_available" msgid="8454366142428864948">"નેટવર્ક ઉપલબ્ધ છે"</string>
+    <string name="notification_channel_apm_alerts" msgid="6775293475896473489">"APM અલર્ટ"</string>
     <string name="wifi_suggestion_title" msgid="2564179935989099139">"સૂચવેલા વાઇ-ફાઇ નેટવર્કને મંજૂરી આપીએ?"</string>
     <string name="wifi_suggestion_content" msgid="6985149577828091835">"<xliff:g id="NAME">%s</xliff:g> સૂચવેલા નેટવર્ક. ડિવાઇસ ઑટોમૅટિક રીતે કનેક્ટ થાય તેમ બની શકે છે."</string>
     <string name="wifi_suggestion_action_allow_app" msgid="7757859972144671588">"મંજૂરી આપો"</string>
@@ -54,6 +55,7 @@
     <string name="ok" msgid="847575529546290102">"ઓકે"</string>
     <string name="wifi_p2p_invitation_sent_title" msgid="6552639940428040869">"આમંત્રણ મોકલ્યું"</string>
     <string name="wifi_p2p_invitation_to_connect_title" msgid="8917157937652519251">"કનેક્ટ થવા માટે આમંત્રણ"</string>
+    <string name="wifi_p2p_invitation_seconds_remaining" msgid="4214101104506918344">"{0,plural, =1{# સેકન્ડમાં સ્વીકારો.}one{# સેકન્ડમાં સ્વીકારો.}other{# સેકન્ડમાં સ્વીકારો.}}"</string>
     <string name="wifi_p2p_from_message" msgid="5921308150192756898">"મોકલનાર:"</string>
     <string name="wifi_p2p_to_message" msgid="3809923305696994787">"પ્રતિ:"</string>
     <string name="wifi_p2p_enter_pin_message" msgid="5200220251738047620">"આવશ્યક પિન લખો:"</string>
@@ -102,19 +104,19 @@
   </string-array>
     <string name="wifi_eap_error_message_code_32767" msgid="7094289719914089006">"<xliff:g id="SSID">%1$s</xliff:g> : EAP પ્રમાણીકરણમાં ભૂલ 32767"</string>
   <string-array name="wifi_eap_error_message_code_32767_carrier_overrides">
-    <item msgid="873264900678243330">"<xliff:g id="CARRIER_ID_PREFIX">:::1839:::</xliff:g><xliff:g id="SSID">%1$s</xliff:g> : તમને Verizon વાઇ-ફાઇ ઍક્સેસ સાથે કનેક્ટ કરવામાં કોઈ સમસ્યા આવે છે. થોડા સમય પછી અથવા કોઈ અલગ સ્થાનેથી પ્રયાસ કરો."</item>
+    <item msgid="3756793972687282940">"<xliff:g id="CARRIER_ID_PREFIX">:::1839:::</xliff:g><xliff:g id="SSID">%1$s</xliff:g> : તમને Verizon વાઇ-ફાઇ ઍક્સેસ સાથે કનેક્ટ કરવામાં કોઈ સમસ્યા આવે છે. થોડા સમય પછી અથવા કોઈ અલગ સ્થાનેથી પ્રયાસ કરો. (ભૂલ = 32767)"</item>
   </string-array>
     <string name="wifi_eap_error_message_code_16384" msgid="575394783233092922">"<xliff:g id="SSID">%1$s</xliff:g> : EAP પ્રમાણીકરણમાં ભૂલ 16384"</string>
   <string-array name="wifi_eap_error_message_code_16384_carrier_overrides">
-    <item msgid="5042774904407799226">"<xliff:g id="CARRIER_ID_PREFIX">:::1839:::</xliff:g><xliff:g id="SSID">%1$s</xliff:g> : ભૂલ 16384ને લીધે તમને Verizon વાઇ-ફાઇ ઍક્સેસ સાથે કનેક્ટ કરવામાં ભૂલ આવી."</item>
+    <item msgid="270219697600808218">"<xliff:g id="CARRIER_ID_PREFIX">:::1839:::</xliff:g><xliff:g id="SSID">%1$s</xliff:g> : તમને Verizon વાઇ-ફાઇ સાથે કનેક્ટ કરવામાં કોઈ સમસ્યા આવે છે. (ભૂલ = 16384)"</item>
   </string-array>
     <string name="wifi_eap_error_message_code_16385" msgid="8392878664662215609">"<xliff:g id="SSID">%1$s</xliff:g> : EAP પ્રમાણીકરણમાં ભૂલ 16385"</string>
   <string-array name="wifi_eap_error_message_code_16385_carrier_overrides">
-    <item msgid="1251122579833932025">"<xliff:g id="CARRIER_ID_PREFIX">:::1839:::</xliff:g><xliff:g id="SSID">%1$s</xliff:g> : ભૂલ 16385ને લીધે તમને Verizon વાઇ-ફાઇ ઍક્સેસ સાથે કનેક્ટ કરવામાં ભૂલ આવી."</item>
+    <item msgid="50575315771146940">"<xliff:g id="CARRIER_ID_PREFIX">:::1839:::</xliff:g><xliff:g id="SSID">%1$s</xliff:g> : તમને Verizon વાઇ-ફાઇ સાથે કનેક્ટ કરવામાં કોઈ સમસ્યા આવે છે. (ભૂલ = 16385)"</item>
   </string-array>
     <string name="wifi_eap_error_message_unknown_error_code" msgid="4480884285384231323">"<xliff:g id="SSID">%1$s</xliff:g> : EAP પ્રમાણીકરણમાં ભૂલ, ભૂલનો અજાણ્યો કોડ"</string>
   <string-array name="wifi_eap_error_message_unknown_error_code_carrier_overrides">
-    <item msgid="6141795443609380009">"<xliff:g id="CARRIER_ID_PREFIX">:::1839:::</xliff:g><xliff:g id="SSID">%1$s</xliff:g> : તમને Verizon વાઇ-ફાઇ ઍક્સેસ સાથે કનેક્ટ કરવામાં કોઈ સમસ્યા આવે છે."</item>
+    <item msgid="2705387186478280792">"<xliff:g id="CARRIER_ID_PREFIX">:::1839:::</xliff:g><xliff:g id="SSID">%1$s</xliff:g> : તમને Verizon વાઇ-ફાઇ સાથે કનેક્ટ કરવામાં કોઈ સમસ્યા આવે છે. (ભૂલ = અજાણી)"</item>
   </string-array>
     <string name="wifi_softap_auto_shutdown_timeout_expired_title" msgid="4896534374569504484">"હૉટસ્પૉટ બંધ કર્યું"</string>
     <string name="wifi_softap_auto_shutdown_timeout_expired_summary" msgid="7975476698140267728">"કોઈ ડિવાઇસ કનેક્ટ કરેલું નથી. ફેરફાર કરવા માટે ટૅપ કરો."</string>
@@ -125,6 +127,11 @@
     <string name="wifi_interface_priority_message_plural" msgid="8178086373318831859">"આનાથી આ ઍપ માટે સમસ્યાઓ ઊભી થઈ શકે છે: <xliff:g id="APPS">%3$s</xliff:g>."</string>
     <string name="wifi_interface_priority_approve" msgid="7877379614986261096">"મંજૂરી આપો"</string>
     <string name="wifi_interface_priority_reject" msgid="1378461018835886777">"મંજૂરી આપશો નહીં"</string>
+    <string name="wifi_interface_priority_interface_name_sta" msgid="5107477901500010776">"STA"</string>
+    <string name="wifi_interface_priority_interface_name_ap" msgid="161777054136866061">"વાઇ-ફાઇ હૉટસ્પૉટ"</string>
+    <string name="wifi_interface_priority_interface_name_ap_bridge" msgid="1270364818879977821">"વાઇ-ફાઇ હૉટસ્પૉટ"</string>
+    <string name="wifi_interface_priority_interface_name_p2p" msgid="1278122698099149708">"Wi-Fi Direct"</string>
+    <string name="wifi_interface_priority_interface_name_nan" msgid="8812888073122966870">"Wi‑Fi Aware"</string>
     <string name="wifi_ca_cert_dialog_title" msgid="3872340345882915806">"શું આ નેટવર્ક વિશ્વસનીય છે?"</string>
     <string name="wifi_ca_cert_dialog_continue_text" msgid="1674156611893471003">"હા, કનેક્ટ કરો"</string>
     <string name="wifi_ca_cert_dialog_abort_text" msgid="1303170595421648059">"ના, કનેક્ટ કરશો નહીં"</string>
@@ -132,14 +139,18 @@
     <string name="wifi_ca_cert_dialog_message_server_name_text" msgid="3707809865604348289">"સર્વરનું નામ:\n<xliff:g id="VALUE">%1$s</xliff:g>\n\n"</string>
     <string name="wifi_ca_cert_dialog_message_issuer_name_text" msgid="1147216922475192304">"રજૂકર્તાનું નામ:\n<xliff:g id="VALUE">%1$s</xliff:g>\n\n"</string>
     <string name="wifi_ca_cert_dialog_message_organization_text" msgid="4936354600863239487">"સંસ્થા:\n<xliff:g id="VALUE">%1$s</xliff:g>\n\n"</string>
+    <string name="wifi_ca_cert_dialog_message_expiration_text" msgid="1612917217606436217">"પ્રમાણપત્રની સમયસમાપ્તિ:\n<xliff:g id="VALUE">%1$s</xliff:g>\n\n"</string>
+    <string name="wifi_ca_cert_dialog_message_signature_name_text" msgid="8455163626514894233">"SHA-256 ફિંગરપ્રિન્ટ:\n<xliff:g id="VALUE">%1$s</xliff:g>\n\n"</string>
     <string name="wifi_ca_cert_dialog_message_contact_text" msgid="5799083318641183815">"સંપર્ક કરો:\n<xliff:g id="VALUE">%1$s</xliff:g>\n\n"</string>
-    <string name="wifi_ca_cert_dialog_message_signature_name_text" msgid="704614002854299776">"સહી:\n<xliff:g id="VALUE">%1$s</xliff:g>\n\n"</string>
     <string name="wifi_ca_cert_notification_title" msgid="537569884930429796">"નેટવર્કની ચકાસણી થવી જરૂરી છે"</string>
     <string name="wifi_ca_cert_notification_message" msgid="6413248690626616961">"કનેક્ટ કરતા પહેલાં <xliff:g id="SSID">%1$s</xliff:g>ના નેટવર્કની વિગતોનો રિવ્યૂ કરો. આગળ વધવા માટે ટૅપ કરો."</string>
     <string name="wifi_ca_cert_failed_to_install_ca_cert" msgid="4864192219789736195">"પ્રમાણપત્ર ઇન્સ્ટૉલ કરવામાં નિષ્ફળ રહ્યાં."</string>
+    <string name="wifi_tofu_invalid_cert_chain_title" msgid="332710627417595752">"<xliff:g id="VALUE">%1$s</xliff:g> સાથે કનેક્ટ થઈ શકતું નથી"</string>
+    <string name="wifi_tofu_invalid_cert_chain_message" msgid="7047987920029432392">"સર્વરના પ્રમાણપત્રની ચેન માન્ય નથી."</string>
+    <string name="wifi_tofu_invalid_cert_chain_ok_text" msgid="9098567577510279854">"ઓકે"</string>
     <string name="wifi_ca_cert_dialog_preT_title" msgid="6916320484037009061">"આ નેટવર્ક ચકાસી શકાતું નથી"</string>
-    <string name="wifi_ca_cert_dialog_preT_continue_text" msgid="3181614240421159530">"કોઈપણ રીતે કનેક્ટ કરો"</string>
-    <string name="wifi_ca_cert_dialog_preT_abort_text" msgid="1195575129023960325">"કનેક્ટ કરશો નહીં"</string>
+    <string name="wifi_ca_cert_dialog_preT_continue_text" msgid="9118713368838029797">"જોડાયેલા રહો"</string>
+    <string name="wifi_ca_cert_dialog_preT_abort_text" msgid="1331309662999405224">"હવે ડિસ્કનેક્ટ કરો"</string>
     <string name="wifi_ca_cert_dialog_preT_message_hint" msgid="5682518783200852031">"<xliff:g id="SSID">%1$s</xliff:g> નેટવર્કમાં પ્રમાણપત્ર ખૂટે છે."</string>
     <string name="wifi_ca_cert_dialog_preT_message_link" msgid="6325483132538546884">"પ્રમાણપત્રો ઉમેરવાની રીત જાણો"</string>
     <string name="wifi_ca_cert_notification_preT_title" msgid="7255129934648316663">"આ નેટવર્ક ચકાસી શકાતું નથી"</string>
@@ -150,4 +161,15 @@
     <string name="wifi_enable_request_dialog_message" msgid="6395169178524938278">"તમે ઝડપી સેટિંગમાં જઈને વાઇ-ફાઇ બંધ કરી શકો છો"</string>
     <string name="wifi_enable_request_dialog_positive_button" msgid="6050832555821470466">"મંજૂરી આપો"</string>
     <string name="wifi_enable_request_dialog_negative_button" msgid="4754219902374918882">"મંજૂરી આપશો નહીં"</string>
+    <string name="wifi_enabled_apm_first_time_title" msgid="4814302384637588804">"એરપ્લેન મોડમાં વાઇ-ફાઇ ચાલુ રહેશે"</string>
+    <string name="wifi_enabled_apm_first_time_message" msgid="6416193199042203037">"જો તમે વાઇ-ફાઇ ચાલુ રાખો, તો તમે જ્યારે આગલી વખતે એરપ્લેન મોડ પર જશો, ત્યારે તમારું ડિવાઇસ તેને ચાલુ રાખવાનું યાદ રાખશે"</string>
+    <string name="apm_enabled_first_time_title" msgid="2534167413190488009">"વાઇ-ફાઇ ચાલુ રહેશે"</string>
+    <string name="apm_enabled_first_time_message" msgid="6093911536874954410">"તમારું ડિવાઇસ વાઇ-ફાઇને એરપ્લેન મોડમાં ચાલુ રાખવાનું યાદ રાખે છે. જો તમે વાઇ-ફાઇ ચાલુ રાખવા માગતા ન હો, તો તેને બંધ કરો."</string>
+    <string name="wifi_network_disabled_by_admin_title" msgid="9057697656855227293">"નેટવર્ક ઉપલબ્ધ નથી"</string>
+    <string name="wifi_network_disabled_by_admin_message" msgid="7830360441333155462">"<xliff:g id="SSID">%1$s</xliff:g>ને તમારા ઍડમિનિસ્ટ્રેટર દ્વારા બંધ કરવામાં આવ્યું છે."</string>
+    <string name="wifi_network_disabled_by_admin_button" msgid="3350310756265122689">"બંધ કરો"</string>
+    <string name="wifi_network_switch_dialog_title_no_internet" msgid="4116969009784041242">"એવું લાગે છે કે <xliff:g id="SSID_0">%1$s</xliff:g> ઇન્ટરનેટ સાથે કનેક્ટેડ નથી. <xliff:g id="SSID_1">%2$s</xliff:g> પર સ્વિચ કરીએ?"</string>
+    <string name="wifi_network_switch_dialog_title_bad_internet" msgid="6013385270249705547">"<xliff:g id="SSID_0">%1$s</xliff:g>ની ક્વૉલિટી ઓછી છે. <xliff:g id="SSID_1">%2$s</xliff:g> પર સ્વિચ કરીએ?"</string>
+    <string name="wifi_network_switch_dialog_positive_button" msgid="7845507995422722454">"સ્વિચ કરો"</string>
+    <string name="wifi_network_switch_dialog_negative_button" msgid="1496665895689498806">"સ્વિચ કરશો નહીં"</string>
 </resources>

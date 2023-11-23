@@ -19,6 +19,7 @@ package com.android.server.wifi.util;
 import static android.app.ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND;
 import static android.app.ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND_SERVICE;
 
+import android.annotation.IntDef;
 import android.annotation.NonNull;
 import android.app.ActivityManager;
 import android.content.pm.ApplicationInfo;
@@ -32,6 +33,8 @@ import android.util.Log;
 
 import com.android.wifi.resources.R;
 
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
 import java.util.Arrays;
 
 /**
@@ -48,6 +51,67 @@ public class WorkSourceHelper {
     private final ActivityManager mActivityManager;
     private final PackageManager mPackageManager;
     private final Resources mResources;
+
+    // Internal opportunistic request.
+    public static final int PRIORITY_INTERNAL = 0;
+
+    // Request from a background app.
+    public static final int PRIORITY_BG = 1;
+
+    // Request from a foreground service.
+    public static final int PRIORITY_FG_SERVICE = 2;
+
+    // Request from a foreground app.
+    public static final int PRIORITY_FG_APP = 3;
+
+    // Request from a system app.
+    public static final int PRIORITY_SYSTEM = 4;
+
+    // Request from an app with NETWORK_SETTINGS, NETWORK_SETUP_WIZARD or NETWORK_STACK permission.
+    public static final int PRIORITY_PRIVILEGED = 5;
+
+    // Keep these in sync with any additions/deletions to above buckets.
+    public static final int PRIORITY_MIN = PRIORITY_INTERNAL;
+    public static final int PRIORITY_MAX = PRIORITY_PRIVILEGED;
+    @IntDef(prefix = { "PRIORITY_" }, value = {
+            PRIORITY_INTERNAL,
+            PRIORITY_BG,
+            PRIORITY_FG_SERVICE,
+            PRIORITY_FG_APP,
+            PRIORITY_SYSTEM,
+            PRIORITY_PRIVILEGED,
+    })
+    @Retention(RetentionPolicy.SOURCE)
+    public @interface RequestorWsPriority {}
+
+    /**
+     * Returns integer priority level for the provided |ws|.
+     */
+    public @RequestorWsPriority int getRequestorWsPriority() {
+        @RequestorWsPriority int totalPriority = PRIORITY_INTERNAL;
+        for (int i = 0; i < mWorkSource.size(); i++) {
+            String packageName = mWorkSource.getPackageName(i);
+            int uid = mWorkSource.getUid(i);
+            final @RequestorWsPriority int priority;
+            if (uid == Process.WIFI_UID) {
+                priority = PRIORITY_INTERNAL;
+            } else if (isPrivileged(uid)) {
+                priority = PRIORITY_PRIVILEGED;
+            } else if (isSystem(packageName, uid)) {
+                priority = PRIORITY_SYSTEM;
+            } else if (isForegroundApp(packageName)) {
+                priority = PRIORITY_FG_APP;
+            } else if (isForegroundService(packageName)) {
+                priority = PRIORITY_FG_SERVICE;
+            } else {
+                priority = PRIORITY_BG;
+            }
+            if (priority > totalPriority) {
+                totalPriority = priority;
+            }
+        }
+        return totalPriority;
+    }
 
     public WorkSourceHelper(
             @NonNull WorkSource workSource,
@@ -71,6 +135,9 @@ public class WorkSourceHelper {
         return mWorkSource.toString();
     }
 
+    /**
+     * Check if the request comes from an app with privileged permissions.
+     */
     private boolean isPrivileged(int uid) {
         return mWifiPermissionsUtil.checkNetworkSettingsPermission(uid)
                 || mWifiPermissionsUtil.checkNetworkSetupWizardPermission(uid)
@@ -79,19 +146,8 @@ public class WorkSourceHelper {
     }
 
     /**
-     * Returns whether any of the one or more worksource objects contains a privileged app
-     * request.
-     *
-     * Privileged = Request from an app with NETWORK_SETTINGS, NETWORK_SETUP_WIZARD or
-     * NETWORK_STACK permissions.
+     * Check if the request comes from a system app.
      */
-    public boolean hasAnyPrivilegedAppRequest() {
-        for (int i = 0; i < mWorkSource.size(); i++) {
-            if (isPrivileged(mWorkSource.getUid(i))) return true;
-        }
-        return false;
-    }
-
     private boolean isSystem(String packageName, int uid) {
         // when checking ActiveModeWarden#INTERNAL_REQUESTOR_WS
         if (packageName == null) {
@@ -112,28 +168,14 @@ public class WorkSourceHelper {
     }
 
     /**
-     * Returns whether any of the one or more worksource objects contains a system app
-     * request.
+     * Check if the request comes from a foreground app.
      */
-    public boolean hasAnySystemAppRequest() {
-        for (int i = 0; i < mWorkSource.size(); i++) {
-            if (isSystem(mWorkSource.getPackageName(i), mWorkSource.getUid(i))) return true;
-        }
-        return false;
-    }
-
-    /**
-     * Check if the request comes from foreground app.
-     */
-    private boolean isForegroundApp(@NonNull String requestorPackageName,
-            boolean allowOverlayBypass) {
-        if (allowOverlayBypass) {
-            String[] exceptionList = mResources.getStringArray(
-                    R.array.config_wifiInterfacePriorityTreatAsForegroundList);
-            if (exceptionList != null && Arrays.stream(exceptionList).anyMatch(
-                    s -> TextUtils.equals(requestorPackageName, s))) {
-                return true;
-            }
+    private boolean isForegroundApp(@NonNull String requestorPackageName) {
+        String[] exceptionList = mResources.getStringArray(
+                R.array.config_wifiInterfacePriorityTreatAsForegroundList);
+        if (exceptionList != null && Arrays.stream(exceptionList).anyMatch(
+                s -> TextUtils.equals(requestorPackageName, s))) {
+            return true;
         }
         try {
             return mActivityManager.getPackageImportance(requestorPackageName)
@@ -145,21 +187,7 @@ public class WorkSourceHelper {
     }
 
     /**
-     * Returns whether any of the one or more worksource objects contains a foreground app
-     * request.
-     *
-     * @param allowOverlayBypass Use the `config_wifiInterfacePriorityTreatAsForegroundList` overlay
-     *                           to consider the specified packages are foreground.
-     */
-    public boolean hasAnyForegroundAppRequest(boolean allowOverlayBypass) {
-        for (int i = 0; i < mWorkSource.size(); i++) {
-            if (isForegroundApp(mWorkSource.getPackageName(i), allowOverlayBypass)) return true;
-        }
-        return false;
-    }
-
-    /**
-     * Check if the request comes from foreground service.
+     * Check if the request comes from a foreground service.
      */
     private boolean isForegroundService(@NonNull String requestorPackageName) {
         try {
@@ -170,27 +198,5 @@ public class WorkSourceHelper {
             Log.e(TAG, "Failed to check the app state", e);
             return false;
         }
-    }
-
-    /**
-     * Returns whether any of the one or more worksource objects contains a foreground service
-     * request.
-     */
-    public boolean hasAnyForegroundServiceRequest() {
-        for (int i = 0; i < mWorkSource.size(); i++) {
-            if (isForegroundService(mWorkSource.getPackageName(i))) return true;
-        }
-        return false;
-    }
-
-    /**
-     * Returns whether any of the one or more worksource objects contains an internal
-     * (i.e uid = Process.WIFI_UID) request.
-     */
-    public boolean hasAnyInternalRequest() {
-        for (int i = 0; i < mWorkSource.size(); i++) {
-            if (mWorkSource.getUid(i) == Process.WIFI_UID) return true;
-        }
-        return false;
     }
 }

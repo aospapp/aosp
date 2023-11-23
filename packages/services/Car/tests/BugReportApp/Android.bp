@@ -27,10 +27,6 @@ android_app {
 
     aaptflags: ["--auto-add-overlay"],
 
-    optimize: {
-        enabled: false,
-    },
-
     certificate: "platform",
 
     privileged: true,

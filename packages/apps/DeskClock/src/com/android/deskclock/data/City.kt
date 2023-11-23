@@ -54,7 +54,7 @@ class City internal constructor(
     val nameUpperCase: String
         get() {
             if (mNameUpperCase == null) {
-                mNameUpperCase = name.toUpperCase()
+                mNameUpperCase = name.uppercase()
             }
             return mNameUpperCase!!
         }

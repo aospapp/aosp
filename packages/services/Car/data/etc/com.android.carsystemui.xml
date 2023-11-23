@@ -18,12 +18,19 @@
     <privapp-permissions package="com.android.systemui">
         <permission name="android.car.permission.ACCESS_CAR_PROJECTION_STATUS"/>
         <permission name="android.car.permission.CAR_CONTROL_AUDIO_VOLUME"/>
+        <permission name="android.car.permission.CAR_CONTROL_AUDIO_SETTINGS"/>
         <permission name="android.car.permission.CAR_ENROLL_TRUST"/>
         <permission name="android.car.permission.CAR_INSTRUMENT_CLUSTER_CONTROL"/>
         <permission name="android.car.permission.CAR_POWER"/>
+        <permission name="android.car.permission.CAR_DRIVING_STATE"/>
         <permission name="android.car.permission.CONTROL_CAR_CLIMATE"/>
         <permission name="android.car.permission.CONTROL_CAR_EVS_ACTIVITY"/>
         <permission name="android.car.permission.MONITOR_CAR_EVS_STATUS"/>
         <permission name="android.car.permission.CONTROL_CAR_APP_LAUNCH"/>
+        <!-- used by ActivityBlockingActivity -->
+        <permission name="android.car.permission.ACCESS_PRIVATE_DISPLAY_ID"/>
+        <!-- used to register the system ui proxy with the car service to provide the necessary
+             system ui interaction needed by other apps. -->
+        <permission name="android.car.permission.REGISTER_CAR_SYSTEM_UI_PROXY"/>
     </privapp-permissions>
 </permissions>

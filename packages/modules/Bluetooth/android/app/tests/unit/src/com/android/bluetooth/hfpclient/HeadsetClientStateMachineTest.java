@@ -1,9 +1,33 @@
+/*
+ * Copyright 2016 The Android Open Source Project
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package com.android.bluetooth.hfpclient;
 
+import static android.bluetooth.BluetoothProfile.STATE_CONNECTED;
+import static android.bluetooth.BluetoothProfile.STATE_CONNECTING;
+import static android.bluetooth.BluetoothProfile.STATE_DISCONNECTED;
+import static android.bluetooth.BluetoothProfile.STATE_DISCONNECTING;
+
 import static com.android.bluetooth.hfpclient.HeadsetClientStateMachine.AT_OK;
+import static com.android.bluetooth.hfpclient.HeadsetClientStateMachine.ENTER_PRIVATE_MODE;
+import static com.android.bluetooth.hfpclient.HeadsetClientStateMachine.EXPLICIT_CALL_TRANSFER;
 import static com.android.bluetooth.hfpclient.HeadsetClientStateMachine.VOICE_RECOGNITION_START;
 import static com.android.bluetooth.hfpclient.HeadsetClientStateMachine.VOICE_RECOGNITION_STOP;
 
+import static com.google.common.truth.Truth.assertThat;
 import static org.mockito.Mockito.*;
 
 import android.app.BroadcastOptions;
@@ -11,6 +35,8 @@ import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothAssignedNumbers;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothHeadsetClient;
+import android.bluetooth.BluetoothSinkAudioPolicy;
+import android.bluetooth.BluetoothStatusCodes;
 import android.bluetooth.BluetoothProfile;
 import android.content.Context;
 import android.content.Intent;
@@ -18,7 +44,9 @@ import android.content.res.Resources;
 import android.media.AudioManager;
 import android.os.Bundle;
 import android.os.HandlerThread;
+import android.os.Looper;
 import android.os.Message;
+import android.util.Pair;
 
 import androidx.test.InstrumentationRegistry;
 import androidx.test.espresso.intent.matcher.IntentMatchers;
@@ -31,6 +59,9 @@ import androidx.test.runner.AndroidJUnit4;
 import com.android.bluetooth.R;
 import com.android.bluetooth.TestUtils;
 import com.android.bluetooth.Utils;
+import com.android.bluetooth.btservice.AdapterService;
+import com.android.bluetooth.hfp.HeadsetService;
+import com.android.bluetooth.hfp.HeadsetStackEvent;
 
 import org.hamcrest.core.AllOf;
 import org.hamcrest.core.IsInstanceOf;
@@ -42,20 +73,31 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
+import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
 import org.mockito.hamcrest.MockitoHamcrest;
 
+import java.util.List;
+import java.util.Set;
+
+/**
+ * Test cases for {@link HeadsetClientStateMachine}.
+ */
 @LargeTest
 @RunWith(AndroidJUnit4.class)
 public class HeadsetClientStateMachineTest {
     private BluetoothAdapter mAdapter;
     private HandlerThread mHandlerThread;
-    private HeadsetClientStateMachine mHeadsetClientStateMachine;
+    private TestHeadsetClientStateMachine mHeadsetClientStateMachine;
     private BluetoothDevice mTestDevice;
     private Context mTargetContext;
 
     @Mock
+    private AdapterService mAdapterService;
+    @Mock
     private Resources mMockHfpResources;
+    @Mock
+    private HeadsetService mHeadsetService;
     @Mock
     private HeadsetClientService mHeadsetClientService;
     @Mock
@@ -67,12 +109,11 @@ public class HeadsetClientStateMachineTest {
     private static final int QUERY_CURRENT_CALLS_WAIT_MILLIS = 2000;
     private static final int QUERY_CURRENT_CALLS_TEST_WAIT_MILLIS = QUERY_CURRENT_CALLS_WAIT_MILLIS
             * 3 / 2;
+    private static final int TIMEOUT_MS = 1000;
 
     @Before
-    public void setUp() {
+    public void setUp() throws Exception {
         mTargetContext = InstrumentationRegistry.getTargetContext();
-        Assume.assumeTrue("Ignore test when HeadsetClientService is not enabled",
-                HeadsetClientService.isEnabled());
         // Setup mocks and test assets
         MockitoAnnotations.initMocks(this);
         // Set a valid volume
@@ -85,7 +126,10 @@ public class HeadsetClientStateMachineTest {
         when(mMockHfpResources.getBoolean(R.bool.hfp_clcc_poll_during_call)).thenReturn(true);
         when(mMockHfpResources.getInteger(R.integer.hfp_clcc_poll_interval_during_call))
                 .thenReturn(2000);
+
+        TestUtils.setAdapterService(mAdapterService);
         mNativeInterface = spy(NativeInterface.getInstance());
+        doReturn(true).when(mNativeInterface).sendAndroidAt(anyObject(), anyString());
 
         // This line must be called to make sure relevant objects are initialized properly
         mAdapter = BluetoothAdapter.getDefaultAdapter();
@@ -96,21 +140,21 @@ public class HeadsetClientStateMachineTest {
         mHandlerThread = new HandlerThread("HeadsetClientStateMachineTestHandlerThread");
         mHandlerThread.start();
         // Manage looper execution in main test thread explicitly to guarantee timing consistency
-        mHeadsetClientStateMachine =
-                new HeadsetClientStateMachine(mHeadsetClientService, mHandlerThread.getLooper(),
-                                              mNativeInterface);
+        mHeadsetClientStateMachine = new TestHeadsetClientStateMachine(mHeadsetClientService,
+                mHeadsetService, mHandlerThread.getLooper(), mNativeInterface);
         mHeadsetClientStateMachine.start();
         TestUtils.waitForLooperToFinishScheduledTask(mHandlerThread.getLooper());
     }
 
     @After
-    public void tearDown() {
-        if (!HeadsetClientService.isEnabled()) {
-            return;
-        }
+    public void tearDown() throws Exception {
         TestUtils.waitForLooperToFinishScheduledTask(mHandlerThread.getLooper());
+        mHeadsetClientStateMachine.allowConnect = null;
         mHeadsetClientStateMachine.doQuit();
+        TestUtils.waitForLooperToFinishScheduledTask(mHandlerThread.getLooper());
         mHandlerThread.quit();
+        TestUtils.clearAdapterService(mAdapterService);
+        verifyNoMoreInteractions(mHeadsetService);
     }
 
     /**
@@ -189,6 +233,9 @@ public class HeadsetClientStateMachineTest {
         slcEvent.valueInt2 = HeadsetClientHalConstants.PEER_FEAT_ECS;
         slcEvent.device = mTestDevice;
         mHeadsetClientStateMachine.sendMessage(StackEvent.STACK_EVENT, slcEvent);
+        TestUtils.waitForLooperToFinishScheduledTask(mHandlerThread.getLooper());
+
+        setUpAndroidAt(false);
 
         // Verify that one connection state broadcast is executed
         ArgumentCaptor<Intent> intentArgument2 = ArgumentCaptor.forClass(Intent.class);
@@ -200,6 +247,7 @@ public class HeadsetClientStateMachineTest {
         // Check we are in connecting state now.
         Assert.assertThat(mHeadsetClientStateMachine.getCurrentState(),
                 IsInstanceOf.instanceOf(HeadsetClientStateMachine.Connected.class));
+        verify(mHeadsetService).updateInbandRinging(eq(mTestDevice), eq(true));
     }
 
     /**
@@ -242,6 +290,62 @@ public class HeadsetClientStateMachineTest {
         // Check we are in connecting state now.
         Assert.assertThat(mHeadsetClientStateMachine.getCurrentState(),
                 IsInstanceOf.instanceOf(HeadsetClientStateMachine.Disconnected.class));
+        verify(mHeadsetService).updateInbandRinging(eq(mTestDevice), eq(false));
+    }
+
+    @Test
+    public void testProcessAndroidSlcCommand() {
+        initToConnectedState();
+
+        // True on correct AT command and BluetothDevice
+        Assert.assertTrue(mHeadsetClientStateMachine.processAndroidSlcCommand(
+                "+ANDROID: (SINKAUDIOPOLICY)", mTestDevice));
+        Assert.assertTrue(mHeadsetClientStateMachine.processAndroidSlcCommand(
+                "+ANDROID: ()", mTestDevice));
+        Assert.assertTrue(mHeadsetClientStateMachine.processAndroidSlcCommand(
+                "+ANDROID: (,,,)", mTestDevice));
+        Assert.assertTrue(mHeadsetClientStateMachine.processAndroidSlcCommand(
+                "+ANDROID: (SINKAUDIOPOLICY),(OTHERFEATURE)",  mTestDevice));
+        Assert.assertTrue(mHeadsetClientStateMachine.processAndroidSlcCommand(
+                "+ANDROID: (SINKAUDIOPOLICY),(OTHERFEATURE,1,2,3),(1,2,3)", mTestDevice));
+        Assert.assertTrue(mHeadsetClientStateMachine.processAndroidSlcCommand(
+                "+ANDROID: 123", mTestDevice));
+        Assert.assertTrue(mHeadsetClientStateMachine.processAndroidSlcCommand(
+                "+ANDROID: ", mTestDevice));
+
+        // False on incorrect AT command format
+        Assert.assertFalse(mHeadsetClientStateMachine.processAndroidSlcCommand(
+                "+ANDROID= (SINKAUDIOPOLICY)", mTestDevice));
+        Assert.assertFalse(mHeadsetClientStateMachine.processAndroidSlcCommand(
+                "RANDOM ^%$# STRING", mTestDevice));
+        Assert.assertFalse(mHeadsetClientStateMachine.processAndroidSlcCommand("", mTestDevice));
+
+        // False on incorrect BluetoothDevice
+        Assert.assertFalse(mHeadsetClientStateMachine.processAndroidSlcCommand(
+                "+ANDROID: (SINKAUDIOPOLICY)", mAdapter.getRemoteDevice("05:04:01:02:03:00")));
+    }
+
+    @Test
+    public void testProcessAndroidSlcCommand_checkSinkAudioPolicy() {
+        initToConnectedState();
+
+        mHeadsetClientStateMachine.setAudioPolicyRemoteSupported(false);
+        Assert.assertFalse(mHeadsetClientStateMachine.processAndroidSlcCommand(
+                "RANDOM ^%$# STRING", mTestDevice));
+        Assert.assertEquals(BluetoothStatusCodes.FEATURE_NOT_SUPPORTED,
+                mHeadsetClientStateMachine.getAudioPolicyRemoteSupported());
+
+        mHeadsetClientStateMachine.setAudioPolicyRemoteSupported(false);
+        Assert.assertFalse(mHeadsetClientStateMachine.processAndroidSlcCommand(
+                "+ANDROID= (SINKAUDIOPOLICY)", mTestDevice));
+        Assert.assertEquals(BluetoothStatusCodes.FEATURE_NOT_SUPPORTED,
+                mHeadsetClientStateMachine.getAudioPolicyRemoteSupported());
+
+        mHeadsetClientStateMachine.setAudioPolicyRemoteSupported(false);
+        Assert.assertTrue(mHeadsetClientStateMachine.processAndroidSlcCommand(
+                "+ANDROID: (SINKAUDIOPOLICY)", mTestDevice));
+        Assert.assertEquals(BluetoothStatusCodes.FEATURE_SUPPORTED,
+                mHeadsetClientStateMachine.getAudioPolicyRemoteSupported());
     }
 
     /**
@@ -281,6 +385,9 @@ public class HeadsetClientStateMachineTest {
         slcEvent.valueInt2 = HeadsetClientHalConstants.PEER_FEAT_ECS;
         slcEvent.device = mTestDevice;
         mHeadsetClientStateMachine.sendMessage(StackEvent.STACK_EVENT, slcEvent);
+        TestUtils.waitForLooperToFinishScheduledTask(mHandlerThread.getLooper());
+
+        setUpAndroidAt(false);
 
         verify(mHeadsetClientService,
                 timeout(STANDARD_WAIT_MILLIS).times(expectedBroadcastMultiplePermissionsIndex++))
@@ -289,6 +396,8 @@ public class HeadsetClientStateMachineTest {
 
         Assert.assertEquals(BluetoothProfile.STATE_CONNECTED,
                 intentArgument.getValue().getIntExtra(BluetoothProfile.EXTRA_STATE, -1));
+
+        verify(mHeadsetService).updateInbandRinging(eq(mTestDevice), eq(true));
 
         StackEvent event = new StackEvent(StackEvent.EVENT_TYPE_IN_BAND_RINGTONE);
         event.valueInt = 0;
@@ -384,6 +493,10 @@ public class HeadsetClientStateMachineTest {
 
     /* Utility function to simulate SLC connection. */
     private int setUpServiceLevelConnection(int startBroadcastIndex) {
+        return setUpServiceLevelConnection(startBroadcastIndex, false);
+    }
+
+    private int setUpServiceLevelConnection(int startBroadcastIndex, boolean androidAtSupported) {
         // Trigger SLC connection
         StackEvent slcEvent = new StackEvent(StackEvent.EVENT_TYPE_CONNECTION_STATE_CHANGED);
         slcEvent.valueInt = HeadsetClientHalConstants.CONNECTION_STATE_SLC_CONNECTED;
@@ -391,14 +504,58 @@ public class HeadsetClientStateMachineTest {
         slcEvent.valueInt2 |= HeadsetClientHalConstants.PEER_FEAT_HF_IND;
         slcEvent.device = mTestDevice;
         mHeadsetClientStateMachine.sendMessage(StackEvent.STACK_EVENT, slcEvent);
+        TestUtils.waitForLooperToFinishScheduledTask(mHandlerThread.getLooper());
+
+        setUpAndroidAt(androidAtSupported);
+
         ArgumentCaptor<Intent> intentArgument = ArgumentCaptor.forClass(Intent.class);
         verify(mHeadsetClientService, timeout(STANDARD_WAIT_MILLIS).times(startBroadcastIndex))
                 .sendBroadcastMultiplePermissions(intentArgument.capture(),
                                                   any(String[].class), any(BroadcastOptions.class));
         Assert.assertEquals(BluetoothProfile.STATE_CONNECTED,
                 intentArgument.getValue().getIntExtra(BluetoothProfile.EXTRA_STATE, -1));
+        Assert.assertThat(mHeadsetClientStateMachine.getCurrentState(),
+                IsInstanceOf.instanceOf(HeadsetClientStateMachine.Connected.class));
+        verify(mHeadsetService).updateInbandRinging(eq(mTestDevice), eq(true));
+
         startBroadcastIndex++;
         return startBroadcastIndex;
+    }
+
+    /**
+     * Set up and verify AT Android related commands and events.
+     * Make sure this method is invoked after SLC is setup.
+     */
+    private void setUpAndroidAt(boolean androidAtSupported) {
+        verify(mNativeInterface).sendAndroidAt(mTestDevice, "+ANDROID=?");
+        if (androidAtSupported) {
+            // inject Android AT features
+            StackEvent unknownEvt = new StackEvent(StackEvent.EVENT_TYPE_UNKNOWN_EVENT);
+            unknownEvt.valueString = "+ANDROID: (SINKAUDIOPOLICY)";
+            unknownEvt.device = mTestDevice;
+            mHeadsetClientStateMachine.sendMessage(StackEvent.STACK_EVENT, unknownEvt);
+            TestUtils.waitForLooperToFinishScheduledTask(mHandlerThread.getLooper());
+
+            // receive CMD_RESULT OK after the Anroid AT command from remote
+            StackEvent cmdResEvt = new StackEvent(StackEvent.EVENT_TYPE_CMD_RESULT);
+            cmdResEvt.valueInt = StackEvent.CMD_RESULT_TYPE_OK;
+            cmdResEvt.device = mTestDevice;
+            mHeadsetClientStateMachine.sendMessage(StackEvent.STACK_EVENT, cmdResEvt);
+            TestUtils.waitForLooperToFinishScheduledTask(mHandlerThread.getLooper());
+
+            Assert.assertEquals(BluetoothStatusCodes.FEATURE_SUPPORTED,
+                    mHeadsetClientStateMachine.getAudioPolicyRemoteSupported());
+        } else {
+            // receive CMD_RESULT CME_ERROR due to remote not supporting Android AT
+            StackEvent cmdResEvt = new StackEvent(StackEvent.EVENT_TYPE_CMD_RESULT);
+            cmdResEvt.valueInt = StackEvent.CMD_RESULT_TYPE_CME_ERROR;
+            cmdResEvt.device = mTestDevice;
+            mHeadsetClientStateMachine.sendMessage(StackEvent.STACK_EVENT, cmdResEvt);
+            TestUtils.waitForLooperToFinishScheduledTask(mHandlerThread.getLooper());
+
+            Assert.assertEquals(BluetoothStatusCodes.FEATURE_NOT_SUPPORTED,
+                    mHeadsetClientStateMachine.getAudioPolicyRemoteSupported());
+        }
     }
 
     /* Utility function: supported AT command should lead to native call */
@@ -699,5 +856,722 @@ public class HeadsetClientStateMachineTest {
 
         verify(mHeadsetClientService, timeout(STANDARD_WAIT_MILLIS).times(1))
                 .updateBatteryLevel();
+    }
+
+    @Test
+    public void testBroadcastAudioState() {
+        mHeadsetClientStateMachine.broadcastAudioState(mTestDevice,
+                BluetoothHeadsetClient.STATE_AUDIO_CONNECTED,
+                BluetoothHeadsetClient.STATE_AUDIO_CONNECTING);
+
+        verify(mHeadsetClientService).sendBroadcast(any(), any(), any());
+    }
+
+    @Test
+    public void testCallsInState() {
+        HfpClientCall call = new HfpClientCall(mTestDevice, 0, HfpClientCall.CALL_STATE_WAITING,
+                "1", false, false, false);
+        mHeadsetClientStateMachine.mCalls.put(0, call);
+
+        Assert.assertEquals(
+                mHeadsetClientStateMachine.callsInState(HfpClientCall.CALL_STATE_WAITING), 1);
+    }
+
+    @Test
+    public void testEnterPrivateMode() {
+        HfpClientCall call = new HfpClientCall(mTestDevice, 0, HfpClientCall.CALL_STATE_ACTIVE,
+                "1", true, false, false);
+        mHeadsetClientStateMachine.mCalls.put(0, call);
+        doReturn(true).when(mNativeInterface).handleCallAction(null,
+                HeadsetClientHalConstants.CALL_ACTION_CHLD_2X, 0);
+
+        mHeadsetClientStateMachine.enterPrivateMode(0);
+
+        Pair expectedPair = new Pair<Integer, Object>(ENTER_PRIVATE_MODE, call);
+        Assert.assertEquals(mHeadsetClientStateMachine.mQueuedActions.peek(), expectedPair);
+    }
+
+    @Test
+    public void testExplicitCallTransfer() {
+        HfpClientCall callOne = new HfpClientCall(mTestDevice, 0, HfpClientCall.CALL_STATE_ACTIVE,
+                "1", true, false, false);
+        HfpClientCall callTwo = new HfpClientCall(mTestDevice, 0, HfpClientCall.CALL_STATE_ACTIVE,
+                "1", true, false, false);
+        mHeadsetClientStateMachine.mCalls.put(0, callOne);
+        mHeadsetClientStateMachine.mCalls.put(1, callTwo);
+        doReturn(true).when(mNativeInterface).handleCallAction(null,
+                HeadsetClientHalConstants.CALL_ACTION_CHLD_4, -1);
+
+        mHeadsetClientStateMachine.explicitCallTransfer();
+
+        Pair expectedPair = new Pair<Integer, Object>(EXPLICIT_CALL_TRANSFER, 0);
+        Assert.assertEquals(mHeadsetClientStateMachine.mQueuedActions.peek(), expectedPair);
+    }
+
+    @Test
+    public void testSetAudioRouteAllowed() {
+        mHeadsetClientStateMachine.setAudioRouteAllowed(true);
+
+        Assert.assertTrue(mHeadsetClientStateMachine.getAudioRouteAllowed());
+
+        // Case 1: if remote is not supported
+        // Expect: Should not send +ANDROID to remote
+        mHeadsetClientStateMachine.mCurrentDevice = mTestDevice;
+        mHeadsetClientStateMachine.setAudioPolicyRemoteSupported(false);
+        verify(mNativeInterface, never()).sendAndroidAt(mTestDevice,
+                "+ANDROID=SINKAUDIOPOLICY,1,0,0");
+
+        // Case 2: if remote is supported and mForceSetAudioPolicyProperty is false
+        // Expect: Should send +ANDROID=SINKAUDIOPOLICY,1,0,0 to remote
+        mHeadsetClientStateMachine.setAudioPolicyRemoteSupported(true);
+        mHeadsetClientStateMachine.setForceSetAudioPolicyProperty(false);
+        mHeadsetClientStateMachine.setAudioRouteAllowed(true);
+        verify(mNativeInterface).sendAndroidAt(mTestDevice, "+ANDROID=SINKAUDIOPOLICY,1,0,0");
+
+        mHeadsetClientStateMachine.setAudioRouteAllowed(false);
+        verify(mNativeInterface).sendAndroidAt(mTestDevice, "+ANDROID=SINKAUDIOPOLICY,2,0,0");
+
+        // Case 3: if remote is supported and mForceSetAudioPolicyProperty is true
+        // Expect: Should send +ANDROID=SINKAUDIOPOLICY,1,2,1 to remote
+        mHeadsetClientStateMachine.setForceSetAudioPolicyProperty(true);
+        mHeadsetClientStateMachine.setAudioRouteAllowed(true);
+        verify(mNativeInterface).sendAndroidAt(mTestDevice, "+ANDROID=SINKAUDIOPOLICY,1,2,1");
+    }
+
+    @Test
+    public void testGetAudioState_withCurrentDeviceNull() {
+        Assert.assertNull(mHeadsetClientStateMachine.mCurrentDevice);
+
+        Assert.assertEquals(mHeadsetClientStateMachine.getAudioState(mTestDevice),
+                BluetoothHeadsetClient.STATE_AUDIO_DISCONNECTED);
+    }
+
+    @Test
+    public void testGetAudioState_withCurrentDeviceNotNull() {
+        int audioState = 1;
+        mHeadsetClientStateMachine.mAudioState = audioState;
+        mHeadsetClientStateMachine.mCurrentDevice = mTestDevice;
+
+        Assert.assertEquals(mHeadsetClientStateMachine.getAudioState(mTestDevice), audioState);
+    }
+
+    @Test
+    public void testGetCall_withMatchingState() {
+        HfpClientCall call = new HfpClientCall(mTestDevice, 0, HfpClientCall.CALL_STATE_ACTIVE,
+                "1", true, false, false);
+        mHeadsetClientStateMachine.mCalls.put(0, call);
+        int[] states = new int[1];
+        states[0] = HfpClientCall.CALL_STATE_ACTIVE;
+
+        Assert.assertEquals(mHeadsetClientStateMachine.getCall(states), call);
+    }
+
+    @Test
+    public void testGetCall_withNoMatchingState() {
+        HfpClientCall call = new HfpClientCall(mTestDevice, 0, HfpClientCall.CALL_STATE_WAITING,
+                "1", true, false, false);
+        mHeadsetClientStateMachine.mCalls.put(0, call);
+        int[] states = new int[1];
+        states[0] = HfpClientCall.CALL_STATE_ACTIVE;
+
+        Assert.assertNull(mHeadsetClientStateMachine.getCall(states));
+    }
+
+    @Test
+    public void testGetConnectionState_withNullDevice() {
+        Assert.assertEquals(mHeadsetClientStateMachine.getConnectionState(null),
+                BluetoothProfile.STATE_DISCONNECTED);
+    }
+
+    @Test
+    public void testGetConnectionState_withNonNullDevice() {
+        mHeadsetClientStateMachine.mCurrentDevice = mTestDevice;
+
+        Assert.assertEquals(mHeadsetClientStateMachine.getConnectionState(mTestDevice),
+                BluetoothProfile.STATE_DISCONNECTED);
+    }
+
+    @Test
+    public void testGetConnectionStateFromAudioState() {
+        Assert.assertEquals(HeadsetClientStateMachine.getConnectionStateFromAudioState(
+                BluetoothHeadsetClient.STATE_AUDIO_CONNECTED), BluetoothAdapter.STATE_CONNECTED);
+        Assert.assertEquals(HeadsetClientStateMachine.getConnectionStateFromAudioState(
+                BluetoothHeadsetClient.STATE_AUDIO_CONNECTING), BluetoothAdapter.STATE_CONNECTING);
+        Assert.assertEquals(HeadsetClientStateMachine.getConnectionStateFromAudioState(
+                        BluetoothHeadsetClient.STATE_AUDIO_DISCONNECTED),
+                BluetoothAdapter.STATE_DISCONNECTED);
+        int invalidAudioState = 3;
+        Assert.assertEquals(
+                HeadsetClientStateMachine.getConnectionStateFromAudioState(invalidAudioState),
+                BluetoothAdapter.STATE_DISCONNECTED);
+    }
+
+    @Test
+    public void testGetCurrentAgEvents() {
+        Bundle bundle = mHeadsetClientStateMachine.getCurrentAgEvents();
+
+        Assert.assertEquals(bundle.getString(BluetoothHeadsetClient.EXTRA_SUBSCRIBER_INFO),
+                mHeadsetClientStateMachine.mSubscriberInfo);
+    }
+
+    @Test
+    public void testGetCurrentAgFeatures() {
+        mHeadsetClientStateMachine.mPeerFeatures = HeadsetClientHalConstants.PEER_FEAT_3WAY;
+        mHeadsetClientStateMachine.mChldFeatures = HeadsetClientHalConstants.CHLD_FEAT_HOLD_ACC;
+        Set<Integer> features = mHeadsetClientStateMachine.getCurrentAgFeatures();
+        Assert.assertTrue(features.contains(HeadsetClientHalConstants.PEER_FEAT_3WAY));
+        Assert.assertTrue(features.contains(HeadsetClientHalConstants.CHLD_FEAT_HOLD_ACC));
+
+        mHeadsetClientStateMachine.mPeerFeatures = HeadsetClientHalConstants.PEER_FEAT_VREC;
+        mHeadsetClientStateMachine.mChldFeatures = HeadsetClientHalConstants.CHLD_FEAT_REL;
+        features = mHeadsetClientStateMachine.getCurrentAgFeatures();
+        Assert.assertTrue(features.contains(HeadsetClientHalConstants.PEER_FEAT_VREC));
+        Assert.assertTrue(features.contains(HeadsetClientHalConstants.CHLD_FEAT_REL));
+
+        mHeadsetClientStateMachine.mPeerFeatures = HeadsetClientHalConstants.PEER_FEAT_REJECT;
+        mHeadsetClientStateMachine.mChldFeatures = HeadsetClientHalConstants.CHLD_FEAT_REL_ACC;
+        features = mHeadsetClientStateMachine.getCurrentAgFeatures();
+        Assert.assertTrue(features.contains(HeadsetClientHalConstants.PEER_FEAT_REJECT));
+        Assert.assertTrue(features.contains(HeadsetClientHalConstants.CHLD_FEAT_REL_ACC));
+
+        mHeadsetClientStateMachine.mPeerFeatures = HeadsetClientHalConstants.PEER_FEAT_ECC;
+        mHeadsetClientStateMachine.mChldFeatures = HeadsetClientHalConstants.CHLD_FEAT_MERGE;
+        features = mHeadsetClientStateMachine.getCurrentAgFeatures();
+        Assert.assertTrue(features.contains(HeadsetClientHalConstants.PEER_FEAT_ECC));
+        Assert.assertTrue(features.contains(HeadsetClientHalConstants.CHLD_FEAT_MERGE));
+
+        mHeadsetClientStateMachine.mChldFeatures = HeadsetClientHalConstants.CHLD_FEAT_MERGE_DETACH;
+        features = mHeadsetClientStateMachine.getCurrentAgFeatures();
+        Assert.assertTrue(features.contains(HeadsetClientHalConstants.CHLD_FEAT_MERGE_DETACH));
+    }
+
+    @Test
+    public void testGetCurrentAgFeaturesBundle() {
+        mHeadsetClientStateMachine.mPeerFeatures = HeadsetClientHalConstants.PEER_FEAT_3WAY;
+        mHeadsetClientStateMachine.mChldFeatures = HeadsetClientHalConstants.CHLD_FEAT_HOLD_ACC;
+        Bundle bundle = mHeadsetClientStateMachine.getCurrentAgFeaturesBundle();
+        Assert.assertTrue(bundle.getBoolean(BluetoothHeadsetClient.EXTRA_AG_FEATURE_3WAY_CALLING));
+        Assert.assertTrue(bundle.getBoolean(
+                BluetoothHeadsetClient.EXTRA_AG_FEATURE_ACCEPT_HELD_OR_WAITING_CALL));
+
+        mHeadsetClientStateMachine.mPeerFeatures = HeadsetClientHalConstants.PEER_FEAT_VREC;
+        mHeadsetClientStateMachine.mChldFeatures = HeadsetClientHalConstants.CHLD_FEAT_REL;
+        bundle = mHeadsetClientStateMachine.getCurrentAgFeaturesBundle();
+        Assert.assertTrue(
+                bundle.getBoolean(BluetoothHeadsetClient.EXTRA_AG_FEATURE_VOICE_RECOGNITION));
+        Assert.assertTrue(bundle.getBoolean(
+                BluetoothHeadsetClient.EXTRA_AG_FEATURE_RELEASE_HELD_OR_WAITING_CALL));
+
+        mHeadsetClientStateMachine.mPeerFeatures = HeadsetClientHalConstants.PEER_FEAT_REJECT;
+        mHeadsetClientStateMachine.mChldFeatures = HeadsetClientHalConstants.CHLD_FEAT_REL_ACC;
+        bundle = mHeadsetClientStateMachine.getCurrentAgFeaturesBundle();
+        Assert.assertTrue(bundle.getBoolean(BluetoothHeadsetClient.EXTRA_AG_FEATURE_REJECT_CALL));
+        Assert.assertTrue(
+                bundle.getBoolean(BluetoothHeadsetClient.EXTRA_AG_FEATURE_RELEASE_AND_ACCEPT));
+
+        mHeadsetClientStateMachine.mPeerFeatures = HeadsetClientHalConstants.PEER_FEAT_ECC;
+        mHeadsetClientStateMachine.mChldFeatures = HeadsetClientHalConstants.CHLD_FEAT_MERGE;
+        bundle = mHeadsetClientStateMachine.getCurrentAgFeaturesBundle();
+        Assert.assertTrue(bundle.getBoolean(BluetoothHeadsetClient.EXTRA_AG_FEATURE_ECC));
+        Assert.assertTrue(bundle.getBoolean(BluetoothHeadsetClient.EXTRA_AG_FEATURE_MERGE));
+
+        mHeadsetClientStateMachine.mChldFeatures = HeadsetClientHalConstants.CHLD_FEAT_MERGE_DETACH;
+        bundle = mHeadsetClientStateMachine.getCurrentAgFeaturesBundle();
+        Assert.assertTrue(
+                bundle.getBoolean(BluetoothHeadsetClient.EXTRA_AG_FEATURE_MERGE_AND_DETACH));
+    }
+
+    @Test
+    public void testGetCurrentCalls() {
+        HfpClientCall call = new HfpClientCall(mTestDevice, 0, HfpClientCall.CALL_STATE_WAITING,
+                "1", true, false, false);
+        mHeadsetClientStateMachine.mCalls.put(0, call);
+
+        List<HfpClientCall> currentCalls = mHeadsetClientStateMachine.getCurrentCalls();
+
+        Assert.assertEquals(currentCalls.get(0), call);
+    }
+
+    @Test
+    public void testGetMessageName() {
+        Assert.assertEquals(HeadsetClientStateMachine.getMessageName(StackEvent.STACK_EVENT),
+                "STACK_EVENT");
+        Assert.assertEquals(
+                HeadsetClientStateMachine.getMessageName(HeadsetClientStateMachine.CONNECT),
+                "CONNECT");
+        Assert.assertEquals(
+                HeadsetClientStateMachine.getMessageName(HeadsetClientStateMachine.DISCONNECT),
+                "DISCONNECT");
+        Assert.assertEquals(
+                HeadsetClientStateMachine.getMessageName(HeadsetClientStateMachine.CONNECT_AUDIO),
+                "CONNECT_AUDIO");
+        Assert.assertEquals(HeadsetClientStateMachine.getMessageName(
+                HeadsetClientStateMachine.DISCONNECT_AUDIO), "DISCONNECT_AUDIO");
+        Assert.assertEquals(HeadsetClientStateMachine.getMessageName(VOICE_RECOGNITION_START),
+                "VOICE_RECOGNITION_START");
+        Assert.assertEquals(HeadsetClientStateMachine.getMessageName(VOICE_RECOGNITION_STOP),
+                "VOICE_RECOGNITION_STOP");
+        Assert.assertEquals(
+                HeadsetClientStateMachine.getMessageName(HeadsetClientStateMachine.SET_MIC_VOLUME),
+                "SET_MIC_VOLUME");
+        Assert.assertEquals(HeadsetClientStateMachine.getMessageName(
+                HeadsetClientStateMachine.SET_SPEAKER_VOLUME), "SET_SPEAKER_VOLUME");
+        Assert.assertEquals(
+                HeadsetClientStateMachine.getMessageName(HeadsetClientStateMachine.DIAL_NUMBER),
+                "DIAL_NUMBER");
+        Assert.assertEquals(
+                HeadsetClientStateMachine.getMessageName(HeadsetClientStateMachine.ACCEPT_CALL),
+                "ACCEPT_CALL");
+        Assert.assertEquals(
+                HeadsetClientStateMachine.getMessageName(HeadsetClientStateMachine.REJECT_CALL),
+                "REJECT_CALL");
+        Assert.assertEquals(
+                HeadsetClientStateMachine.getMessageName(HeadsetClientStateMachine.HOLD_CALL),
+                "HOLD_CALL");
+        Assert.assertEquals(
+                HeadsetClientStateMachine.getMessageName(HeadsetClientStateMachine.TERMINATE_CALL),
+                "TERMINATE_CALL");
+        Assert.assertEquals(HeadsetClientStateMachine.getMessageName(ENTER_PRIVATE_MODE),
+                "ENTER_PRIVATE_MODE");
+        Assert.assertEquals(
+                HeadsetClientStateMachine.getMessageName(HeadsetClientStateMachine.SEND_DTMF),
+                "SEND_DTMF");
+        Assert.assertEquals(HeadsetClientStateMachine.getMessageName(EXPLICIT_CALL_TRANSFER),
+                "EXPLICIT_CALL_TRANSFER");
+        Assert.assertEquals(
+                HeadsetClientStateMachine.getMessageName(HeadsetClientStateMachine.DISABLE_NREC),
+                "DISABLE_NREC");
+        Assert.assertEquals(HeadsetClientStateMachine.getMessageName(
+                HeadsetClientStateMachine.SEND_VENDOR_AT_COMMAND), "SEND_VENDOR_AT_COMMAND");
+        Assert.assertEquals(
+                HeadsetClientStateMachine.getMessageName(HeadsetClientStateMachine.SEND_BIEV),
+                "SEND_BIEV");
+        Assert.assertEquals(HeadsetClientStateMachine.getMessageName(
+                HeadsetClientStateMachine.QUERY_CURRENT_CALLS), "QUERY_CURRENT_CALLS");
+        Assert.assertEquals(HeadsetClientStateMachine.getMessageName(
+                HeadsetClientStateMachine.QUERY_OPERATOR_NAME), "QUERY_OPERATOR_NAME");
+        Assert.assertEquals(
+                HeadsetClientStateMachine.getMessageName(HeadsetClientStateMachine.SUBSCRIBER_INFO),
+                "SUBSCRIBER_INFO");
+        Assert.assertEquals(HeadsetClientStateMachine.getMessageName(
+                HeadsetClientStateMachine.CONNECTING_TIMEOUT), "CONNECTING_TIMEOUT");
+        int unknownMessageInt = 54;
+        Assert.assertEquals(HeadsetClientStateMachine.getMessageName(unknownMessageInt),
+                "UNKNOWN(" + unknownMessageInt + ")");
+    }
+    /**
+     * Tests and verify behavior of the case where remote device doesn't support
+     * At Android but tries to send audio policy.
+     */
+    @Test
+    public void testAndroidAtRemoteNotSupported_StateTransition_setAudioPolicy() {
+        // Setup connection state machine to be in connected state
+        when(mHeadsetClientService.getConnectionPolicy(any(BluetoothDevice.class))).thenReturn(
+                BluetoothProfile.CONNECTION_POLICY_ALLOWED);
+        int expectedBroadcastIndex = 1;
+
+        expectedBroadcastIndex = setUpHfpClientConnection(expectedBroadcastIndex);
+        expectedBroadcastIndex = setUpServiceLevelConnection(expectedBroadcastIndex);
+
+        BluetoothSinkAudioPolicy dummyAudioPolicy = new BluetoothSinkAudioPolicy.Builder().build();
+        mHeadsetClientStateMachine.setAudioPolicy(dummyAudioPolicy);
+        verify(mNativeInterface, never()).sendAndroidAt(mTestDevice,
+                "+ANDROID=SINKAUDIOPOLICY,0,0,0");
+    }
+
+    @SmallTest
+    @Test
+    public void testSetGetCallAudioPolicy() {
+        // Return true for priority.
+        when(mHeadsetClientService.getConnectionPolicy(any(BluetoothDevice.class))).thenReturn(
+                BluetoothProfile.CONNECTION_POLICY_ALLOWED);
+
+        int expectedBroadcastIndex = 1;
+
+        expectedBroadcastIndex = setUpHfpClientConnection(expectedBroadcastIndex);
+        expectedBroadcastIndex = setUpServiceLevelConnection(expectedBroadcastIndex, true);
+
+        BluetoothSinkAudioPolicy dummyAudioPolicy = new BluetoothSinkAudioPolicy.Builder()
+                .setCallEstablishPolicy(BluetoothSinkAudioPolicy.POLICY_ALLOWED)
+                .setActiveDevicePolicyAfterConnection(BluetoothSinkAudioPolicy.POLICY_NOT_ALLOWED)
+                .setInBandRingtonePolicy(BluetoothSinkAudioPolicy.POLICY_ALLOWED)
+                .build();
+
+        // Test if not support audio policy feature
+        mHeadsetClientStateMachine.setAudioPolicyRemoteSupported(false);
+        mHeadsetClientStateMachine.setAudioPolicy(dummyAudioPolicy);
+        verify(mNativeInterface, never()).sendAndroidAt(mTestDevice,
+                "+ANDROID=SINKAUDIOPOLICY,1,2,1");
+        Assert.assertEquals(0, mHeadsetClientStateMachine.mQueuedActions.size());
+
+        // Test setAudioPolicy
+        mHeadsetClientStateMachine.setAudioPolicyRemoteSupported(true);
+        mHeadsetClientStateMachine.setAudioPolicy(dummyAudioPolicy);
+        verify(mNativeInterface).sendAndroidAt(mTestDevice, "+ANDROID=SINKAUDIOPOLICY,1,2,1");
+        Assert.assertEquals(1, mHeadsetClientStateMachine.mQueuedActions.size());
+        mHeadsetClientStateMachine.mQueuedActions.clear();
+
+        // Test if fail to sendAndroidAt
+        doReturn(false).when(mNativeInterface).sendAndroidAt(anyObject(), anyString());
+        mHeadsetClientStateMachine.setAudioPolicy(dummyAudioPolicy);
+        Assert.assertEquals(0, mHeadsetClientStateMachine.mQueuedActions.size());
+    }
+
+    @Test
+    public void testDumpDoesNotCrash() {
+        mHeadsetClientStateMachine.dump(new StringBuilder());
+    }
+
+    @Test
+    public void testProcessDisconnectMessage_onDisconnectedState() {
+        mHeadsetClientStateMachine.sendMessage(HeadsetClientStateMachine.DISCONNECT);
+        TestUtils.waitForLooperToFinishScheduledTask(mHandlerThread.getLooper());
+        Assert.assertEquals(STATE_DISCONNECTED,
+                mHeadsetClientStateMachine.getConnectionState(mTestDevice));
+    }
+
+    @Test
+    public void testProcessConnectMessage_onDisconnectedState() {
+        doReturn(true).when(mNativeInterface).connect(any(BluetoothDevice.class));
+        sendMessageAndVerifyTransition(
+                mHeadsetClientStateMachine
+                        .obtainMessage(HeadsetClientStateMachine.CONNECT, mTestDevice),
+                HeadsetClientStateMachine.Connecting.class);
+    }
+
+    @Test
+    public void testStackEvent_toConnectingState_onDisconnectedState() {
+        allowConnection(true);
+        StackEvent event = new StackEvent(StackEvent.EVENT_TYPE_CONNECTION_STATE_CHANGED);
+        event.valueInt = HeadsetClientHalConstants.CONNECTION_STATE_CONNECTED;
+        event.device = mTestDevice;
+        sendMessageAndVerifyTransition(
+                mHeadsetClientStateMachine.obtainMessage(StackEvent.STACK_EVENT, event),
+                HeadsetClientStateMachine.Connecting.class);
+    }
+
+    @Test
+    public void testStackEvent_toConnectingState_disallowConnection_onDisconnectedState() {
+        allowConnection(false);
+        StackEvent event = new StackEvent(StackEvent.EVENT_TYPE_CONNECTION_STATE_CHANGED);
+        event.valueInt = HeadsetClientHalConstants.CONNECTION_STATE_CONNECTED;
+        event.device = mTestDevice;
+        sendMessageAndVerifyTransition(
+                mHeadsetClientStateMachine.obtainMessage(StackEvent.STACK_EVENT, event),
+                HeadsetClientStateMachine.Disconnected.class);
+    }
+
+    @Test
+    public void testProcessConnectMessage_onConnectingState() {
+        initToConnectingState();
+        mHeadsetClientStateMachine.sendMessage(HeadsetClientStateMachine.CONNECT);
+        assertThat(mHeadsetClientStateMachine.doesSuperHaveDeferredMessages(
+                HeadsetClientStateMachine.CONNECT)).isFalse();
+        TestUtils.waitForLooperToFinishScheduledTask(mHandlerThread.getLooper());
+        Assert.assertTrue(mHeadsetClientStateMachine.doesSuperHaveDeferredMessages(
+                HeadsetClientStateMachine.CONNECT));
+    }
+
+    @Test
+    public void testProcessStackEvent_ConnectionStateChanged_Disconnected_onConnectingState() {
+        initToConnectingState();
+        StackEvent event = new StackEvent(StackEvent.EVENT_TYPE_CONNECTION_STATE_CHANGED);
+        event.valueInt = HeadsetClientHalConstants.CONNECTION_STATE_DISCONNECTED;
+        event.device = mTestDevice;
+        sendMessageAndVerifyTransition(
+                mHeadsetClientStateMachine.obtainMessage(StackEvent.STACK_EVENT, event),
+                HeadsetClientStateMachine.Disconnected.class);
+        verify(mHeadsetService).updateInbandRinging(eq(mTestDevice), eq(false));
+    }
+
+    @Test
+    public void testProcessStackEvent_ConnectionStateChanged_Connected_onConnectingState() {
+        initToConnectingState();
+        StackEvent event = new StackEvent(StackEvent.EVENT_TYPE_CONNECTION_STATE_CHANGED);
+        event.valueInt = HeadsetClientHalConstants.CONNECTION_STATE_CONNECTED;
+        event.device = mTestDevice;
+        mHeadsetClientStateMachine.sendMessage(
+                mHeadsetClientStateMachine.obtainMessage(StackEvent.STACK_EVENT, event));
+        Assert.assertThat(mHeadsetClientStateMachine.getCurrentState(),
+                IsInstanceOf.instanceOf(HeadsetClientStateMachine.Connecting.class));
+    }
+
+    @Test
+    public void testProcessStackEvent_ConnectionStateChanged_Connecting_onConnectingState() {
+        initToConnectingState();
+        StackEvent event = new StackEvent(StackEvent.EVENT_TYPE_CONNECTION_STATE_CHANGED);
+        event.valueInt = HeadsetClientHalConstants.CONNECTION_STATE_CONNECTING;
+        event.device = mTestDevice;
+        mHeadsetClientStateMachine.sendMessage(
+                mHeadsetClientStateMachine.obtainMessage(StackEvent.STACK_EVENT, event));
+        Assert.assertThat(mHeadsetClientStateMachine.getCurrentState(),
+                IsInstanceOf.instanceOf(HeadsetClientStateMachine.Connecting.class));
+    }
+
+    @Test
+    public void testProcessStackEvent_Call_onConnectingState() {
+        initToConnectingState();
+        StackEvent event = new StackEvent(StackEvent.EVENT_TYPE_CALL);
+        event.valueInt = StackEvent.EVENT_TYPE_CALL;
+        event.device = mTestDevice;
+        assertThat(mHeadsetClientStateMachine.doesSuperHaveDeferredMessages(
+                StackEvent.STACK_EVENT)).isFalse();
+        mHeadsetClientStateMachine.sendMessage(
+                mHeadsetClientStateMachine.obtainMessage(StackEvent.STACK_EVENT, event));
+        TestUtils.waitForLooperToFinishScheduledTask(mHandlerThread.getLooper());
+        Assert.assertTrue(mHeadsetClientStateMachine.doesSuperHaveDeferredMessages(
+                StackEvent.STACK_EVENT));
+    }
+
+    @Test
+    public void testProcessStackEvent_CmdResultWithEmptyQueuedActions_onConnectingState() {
+        initToConnectingState();
+        StackEvent event = new StackEvent(StackEvent.EVENT_TYPE_CMD_RESULT);
+        event.valueInt = StackEvent.CMD_RESULT_TYPE_OK;
+        event.device = mTestDevice;
+        mHeadsetClientStateMachine.sendMessage(
+                mHeadsetClientStateMachine.obtainMessage(StackEvent.STACK_EVENT, event));
+        Assert.assertThat(mHeadsetClientStateMachine.getCurrentState(),
+                IsInstanceOf.instanceOf(HeadsetClientStateMachine.Connecting.class));
+    }
+
+    @Test
+    public void testProcessStackEvent_Unknown_onConnectingState() {
+        String atCommand = "+ANDROID: (SINKAUDIOPOLICY)";
+
+        initToConnectingState();
+        StackEvent event = new StackEvent(StackEvent.EVENT_TYPE_UNKNOWN_EVENT);
+        event.valueString = atCommand;
+        event.device = mTestDevice;
+        mHeadsetClientStateMachine.sendMessage(
+                mHeadsetClientStateMachine.obtainMessage(StackEvent.STACK_EVENT, event));
+        TestUtils.waitForLooperToFinishScheduledTask(mHandlerThread.getLooper());
+        Assert.assertThat(mHeadsetClientStateMachine.getCurrentState(),
+                IsInstanceOf.instanceOf(HeadsetClientStateMachine.Connected.class));
+        verify(mHeadsetService).updateInbandRinging(eq(mTestDevice), eq(true));
+    }
+
+    @Test
+    public void testProcessConnectTimeoutMessage_onConnectingState() {
+        initToConnectingState();
+        Message msg = mHeadsetClientStateMachine
+                .obtainMessage(HeadsetClientStateMachine.CONNECTING_TIMEOUT);
+        sendMessageAndVerifyTransition(msg, HeadsetClientStateMachine.Disconnected.class);
+        verify(mHeadsetService).updateInbandRinging(eq(mTestDevice), eq(false));
+    }
+
+    @Test
+    public void testProcessStackEvent_inBandRingTone_onConnectingState() {
+        initToConnectingState();
+        StackEvent event = new StackEvent(StackEvent.EVENT_TYPE_IN_BAND_RINGTONE);
+        event.valueInt = StackEvent.EVENT_TYPE_IN_BAND_RINGTONE;
+        event.device = mTestDevice;
+        assertThat(mHeadsetClientStateMachine.doesSuperHaveDeferredMessages(
+                StackEvent.STACK_EVENT)).isFalse();
+        mHeadsetClientStateMachine.sendMessage(
+                mHeadsetClientStateMachine.obtainMessage(StackEvent.STACK_EVENT, event));
+        TestUtils.waitForLooperToFinishScheduledTask(mHandlerThread.getLooper());
+        assertThat(mHeadsetClientStateMachine.doesSuperHaveDeferredMessages(
+                StackEvent.STACK_EVENT)).isTrue();
+    }
+
+    @Test
+    public void testProcessConnectMessage_onConnectedState() {
+        initToConnectedState();
+        mHeadsetClientStateMachine.sendMessage(HeadsetClientStateMachine.CONNECT);
+        TestUtils.waitForLooperToFinishScheduledTask(mHandlerThread.getLooper());
+        Assert.assertThat(mHeadsetClientStateMachine.getCurrentState(),
+                IsInstanceOf.instanceOf(HeadsetClientStateMachine.Connected.class));
+    }
+
+    @Test
+    public void testProcessDisconnectMessage_onConnectedState() {
+        initToConnectedState();
+        mHeadsetClientStateMachine.sendMessage(HeadsetClientStateMachine.DISCONNECT, mTestDevice);
+        TestUtils.waitForLooperToFinishScheduledTask(mHandlerThread.getLooper());
+        verify(mNativeInterface).disconnect(any(BluetoothDevice.class));
+    }
+
+    @Test
+    public void testProcessConnectAudioMessage_onConnectedState() {
+        initToConnectedState();
+        mHeadsetClientStateMachine.sendMessage(HeadsetClientStateMachine.CONNECT_AUDIO);
+        TestUtils.waitForLooperToFinishScheduledTask(mHandlerThread.getLooper());
+        verify(mNativeInterface).connectAudio(any(BluetoothDevice.class));
+    }
+
+    @Test
+    public void testProcessDisconnectAudioMessage_onConnectedState() {
+        initToConnectedState();
+        mHeadsetClientStateMachine.sendMessage(HeadsetClientStateMachine.DISCONNECT_AUDIO);
+        TestUtils.waitForLooperToFinishScheduledTask(mHandlerThread.getLooper());
+        verify(mNativeInterface).disconnectAudio(any(BluetoothDevice.class));
+    }
+
+    @Test
+    public void testProcessVoiceRecognitionStartMessage_onConnectedState() {
+        initToConnectedState();
+        mHeadsetClientStateMachine.sendMessage(HeadsetClientStateMachine.VOICE_RECOGNITION_START);
+        TestUtils.waitForLooperToFinishScheduledTask(mHandlerThread.getLooper());
+        verify(mNativeInterface).startVoiceRecognition(any(BluetoothDevice.class));
+    }
+
+    @Test
+    public void testProcessDisconnectMessage_onAudioOnState() {
+        initToAudioOnState();
+        assertThat(mHeadsetClientStateMachine.doesSuperHaveDeferredMessages(
+                HeadsetClientStateMachine.DISCONNECT)).isFalse();
+        mHeadsetClientStateMachine.sendMessage(HeadsetClientStateMachine.DISCONNECT, mTestDevice);
+        TestUtils.waitForLooperToFinishScheduledTask(mHandlerThread.getLooper());
+        Assert.assertTrue(mHeadsetClientStateMachine.doesSuperHaveDeferredMessages(
+                HeadsetClientStateMachine.DISCONNECT));
+    }
+
+    @Test
+    public void testProcessDisconnectAudioMessage_onAudioOnState() {
+        initToAudioOnState();
+        mHeadsetClientStateMachine.sendMessage(HeadsetClientStateMachine.DISCONNECT_AUDIO,
+                mTestDevice);
+        TestUtils.waitForLooperToFinishScheduledTask(mHandlerThread.getLooper());
+        verify(mNativeInterface).disconnectAudio(any(BluetoothDevice.class));
+    }
+
+    @Test
+    public void testProcessHoldCall_onAudioOnState() {
+        initToAudioOnState();
+        HfpClientCall call = new HfpClientCall(mTestDevice, 0, HfpClientCall.CALL_STATE_ACTIVE,
+                "1", true, false, false);
+        mHeadsetClientStateMachine.mCalls.put(0, call);
+        int[] states = new int[1];
+        states[0] = HfpClientCall.CALL_STATE_ACTIVE;
+        mHeadsetClientStateMachine.sendMessage(HeadsetClientStateMachine.HOLD_CALL,
+                mTestDevice);
+        TestUtils.waitForLooperToFinishScheduledTask(mHandlerThread.getLooper());
+        verify(mNativeInterface).handleCallAction(any(BluetoothDevice.class), anyInt(), eq(0));
+    }
+
+    @Test
+    public void testProcessStackEvent_ConnectionStateChanged_onAudioOnState() {
+        initToAudioOnState();
+        Assert.assertThat(mHeadsetClientStateMachine.getCurrentState(),
+                IsInstanceOf.instanceOf(HeadsetClientStateMachine.AudioOn.class));
+        StackEvent event = new StackEvent(StackEvent.EVENT_TYPE_CONNECTION_STATE_CHANGED);
+        event.valueInt = HeadsetClientHalConstants.CONNECTION_STATE_DISCONNECTED;
+        event.device = mTestDevice;
+        mHeadsetClientStateMachine.sendMessage(
+                mHeadsetClientStateMachine.obtainMessage(StackEvent.STACK_EVENT, event));
+        TestUtils.waitForLooperToFinishScheduledTask(mHandlerThread.getLooper());
+        Assert.assertThat(mHeadsetClientStateMachine.getCurrentState(),
+                IsInstanceOf.instanceOf(HeadsetClientStateMachine.Disconnected.class));
+        verify(mHeadsetService).updateInbandRinging(eq(mTestDevice), eq(false));
+    }
+
+    @Test
+    public void testProcessStackEvent_AudioStateChanged_onAudioOnState() {
+        initToAudioOnState();
+        Assert.assertThat(mHeadsetClientStateMachine.getCurrentState(),
+                IsInstanceOf.instanceOf(HeadsetClientStateMachine.AudioOn.class));
+        StackEvent event = new StackEvent(StackEvent.EVENT_TYPE_AUDIO_STATE_CHANGED);
+        event.valueInt = HeadsetClientHalConstants.AUDIO_STATE_DISCONNECTED;
+        event.device = mTestDevice;
+        mHeadsetClientStateMachine.sendMessage(
+                mHeadsetClientStateMachine.obtainMessage(StackEvent.STACK_EVENT, event));
+        TestUtils.waitForLooperToFinishScheduledTask(mHandlerThread.getLooper());
+        Assert.assertThat(mHeadsetClientStateMachine.getCurrentState(),
+                IsInstanceOf.instanceOf(HeadsetClientStateMachine.Connected.class));
+    }
+
+    /**
+     * Allow/disallow connection to any device
+     *
+     * @param allow if true, connection is allowed
+     */
+    private void allowConnection(boolean allow) {
+        mHeadsetClientStateMachine.allowConnect = allow;
+    }
+
+    private void initToConnectingState() {
+        doReturn(true).when(mNativeInterface).connect(any(BluetoothDevice.class));
+        sendMessageAndVerifyTransition(
+                mHeadsetClientStateMachine
+                        .obtainMessage(HeadsetClientStateMachine.CONNECT, mTestDevice),
+                HeadsetClientStateMachine.Connecting.class);
+    }
+
+    private void initToConnectedState() {
+        String atCommand = "+ANDROID: (SINKAUDIOPOLICY)";
+        initToConnectingState();
+        StackEvent event = new StackEvent(StackEvent.EVENT_TYPE_UNKNOWN_EVENT);
+        event.valueString = atCommand;
+        event.device = mTestDevice;
+        mHeadsetClientStateMachine.sendMessage(
+                mHeadsetClientStateMachine.obtainMessage(StackEvent.STACK_EVENT, event));
+        TestUtils.waitForLooperToFinishScheduledTask(mHandlerThread.getLooper());
+        Assert.assertThat(mHeadsetClientStateMachine.getCurrentState(),
+                IsInstanceOf.instanceOf(HeadsetClientStateMachine.Connected.class));
+        verify(mHeadsetService).updateInbandRinging(eq(mTestDevice), eq(true));
+    }
+
+    private void initToAudioOnState() {
+        mHeadsetClientStateMachine.setAudioRouteAllowed(true);
+        initToConnectedState();
+        StackEvent event = new StackEvent(StackEvent.EVENT_TYPE_AUDIO_STATE_CHANGED);
+        event.valueInt = HeadsetClientHalConstants.AUDIO_STATE_CONNECTED;
+        event.device = mTestDevice;
+        mHeadsetClientStateMachine.sendMessage(
+                mHeadsetClientStateMachine.obtainMessage(StackEvent.STACK_EVENT, event));
+        TestUtils.waitForLooperToFinishScheduledTask(mHandlerThread.getLooper());
+        Assert.assertThat(mHeadsetClientStateMachine.getCurrentState(),
+                IsInstanceOf.instanceOf(HeadsetClientStateMachine.AudioOn.class));
+    }
+
+    private <T> void sendMessageAndVerifyTransition(Message msg, Class<T> type) {
+        Mockito.clearInvocations(mHeadsetClientService);
+        mHeadsetClientStateMachine.sendMessage(msg);
+        // Verify that one connection state broadcast is executed
+        verify(mHeadsetClientService, timeout(TIMEOUT_MS)).sendBroadcastMultiplePermissions(
+                any(Intent.class), any(String[].class), any(BroadcastOptions.class)
+        );
+        Assert.assertThat(mHeadsetClientStateMachine.getCurrentState(),
+                IsInstanceOf.instanceOf(type));
+    }
+
+    public static class TestHeadsetClientStateMachine extends HeadsetClientStateMachine {
+
+        Boolean allowConnect = null;
+        boolean mForceSetAudioPolicyProperty = false;
+
+        TestHeadsetClientStateMachine(HeadsetClientService context, HeadsetService headsetService,
+                Looper looper, NativeInterface nativeInterface) {
+            super(context, headsetService, looper, nativeInterface);
+        }
+
+        public boolean doesSuperHaveDeferredMessages(int what) {
+            return super.hasDeferredMessages(what);
+        }
+
+        @Override
+        public boolean okToConnect(BluetoothDevice device) {
+            return allowConnect != null ? allowConnect : super.okToConnect(device);
+        }
+
+        @Override
+        public int getConnectingTimePolicyProperty() {
+            return 2;
+        }
+
+        @Override
+        public int getInBandRingtonePolicyProperty() {
+            return 1;
+        }
+
+        void setForceSetAudioPolicyProperty(boolean flag){
+            mForceSetAudioPolicyProperty = flag;
+        }
+
+        @Override
+        boolean getForceSetAudioPolicyProperty() {
+            return mForceSetAudioPolicyProperty;
+        }
     }
 }

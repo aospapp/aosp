@@ -23,8 +23,8 @@ import static com.google.common.truth.Truth.assertThat;
 import android.car.drivingstate.CarUxRestrictions;
 
 import com.android.car.admin.ui.R;
-import com.android.car.settings.common.CarFooterPreference;
 import com.android.car.settings.common.PreferenceControllerTestUtil;
+import com.android.car.ui.preference.CarUiFooterPreference;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -35,13 +35,13 @@ public final class EnterpriseDisclosurePreferenceControllerTest extends
 
     private EnterpriseDisclosurePreferenceController mEnterpriseDisclosurePreferenceController;
     private CarUxRestrictions mCarUxRestrictions;
-    private CarFooterPreference mPreference;
+    private CarUiFooterPreference mPreference;
 
     @Before
     public void setUp() {
         mCarUxRestrictions = new CarUxRestrictions.Builder(/* reqOpt= */ true,
                 CarUxRestrictions.UX_RESTRICTIONS_BASELINE, /* timestamp= */ 0).build();
-        mPreference = new CarFooterPreference(mSpiedContext);
+        mPreference = new CarUiFooterPreference(mSpiedContext);
 
         mockHasDeviceAdminFeature();
         mEnterpriseDisclosurePreferenceController = new EnterpriseDisclosurePreferenceController(
@@ -60,6 +60,42 @@ public final class EnterpriseDisclosurePreferenceControllerTest extends
     }
 
     @Test
+    public void testNoDeviceOwnerComponent_noDisclosure_zoneWrite() {
+        mockNoDeviceOwner();
+
+        mEnterpriseDisclosurePreferenceController.setAvailabilityStatusForZone("write");
+        mEnterpriseDisclosurePreferenceController.updateState(mPreference);
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mEnterpriseDisclosurePreferenceController.getAvailabilityStatus(),
+                DISABLED_FOR_PROFILE);
+    }
+
+    @Test
+    public void testNoDeviceOwnerComponent_noDisclosure_zoneRead() {
+        mockNoDeviceOwner();
+
+        mEnterpriseDisclosurePreferenceController.setAvailabilityStatusForZone("read");
+        mEnterpriseDisclosurePreferenceController.updateState(mPreference);
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mEnterpriseDisclosurePreferenceController.getAvailabilityStatus(),
+                DISABLED_FOR_PROFILE);
+    }
+
+    @Test
+    public void testNoDeviceOwnerComponent_noDisclosure_zoneHidden() {
+        mockNoDeviceOwner();
+
+        mEnterpriseDisclosurePreferenceController.setAvailabilityStatusForZone("hidden");
+        mEnterpriseDisclosurePreferenceController.updateState(mPreference);
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mEnterpriseDisclosurePreferenceController.getAvailabilityStatus(),
+                DISABLED_FOR_PROFILE);
+    }
+
+    @Test
     public void testOrganizationNameAbsent_genericDisclosure() {
         mockDeviceOwner();
         mockOrganizationName(null);
@@ -67,7 +103,7 @@ public final class EnterpriseDisclosurePreferenceControllerTest extends
         mEnterpriseDisclosurePreferenceController.updateState(mPreference);
 
         assertThat(mPreference.isVisible()).isTrue();
-        assertThat(mPreference.getTitle().toString()).isEqualTo(mRealContext.getString(
+        assertThat(mPreference.getSummary().toString()).isEqualTo(mRealContext.getString(
                 R.string.car_admin_ui_managed_device_message_generic));
     }
 
@@ -79,7 +115,7 @@ public final class EnterpriseDisclosurePreferenceControllerTest extends
         mEnterpriseDisclosurePreferenceController.updateState(mPreference);
 
         assertThat(mPreference.isVisible()).isTrue();
-        assertThat(mPreference.getTitle().toString()).isEqualTo(mRealContext.getString(
+        assertThat(mPreference.getSummary().toString()).isEqualTo(mRealContext.getString(
                 R.string.car_admin_ui_managed_device_message_by_org, ORG_NAME));
     }
 }

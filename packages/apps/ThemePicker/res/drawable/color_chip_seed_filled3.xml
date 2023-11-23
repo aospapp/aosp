@@ -19,10 +19,10 @@
     <item>
         <shape android:shape="rectangle">
             <corners
-                android:bottomRightRadius="@dimen/component_color_chip_small_size_default" />
+                android:bottomRightRadius="@dimen/component_color_chip_small_radius_default" />
             <size
-                android:width="@dimen/component_color_chip_small_size_default"
-                android:height="@dimen/component_color_chip_small_size_default" />
+                android:width="@dimen/component_color_chip_small_radius_default"
+                android:height="@dimen/component_color_chip_small_radius_default" />
             <solid android:color="@android:color/black" />
         </shape>
     </item>

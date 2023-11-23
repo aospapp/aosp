@@ -58,6 +58,13 @@ public class EventTest {
                         .setBluetoothDevice(BLUETOOTH_DEVICE)
                         .setProfile(PROFILE)
                         .build();
+        assertThat(event.hasBluetoothDevice()).isTrue();
+        assertThat(event.hasProfile()).isTrue();
+        assertThat(event.isFailure()).isTrue();
+        assertThat(event.toString()).isEqualTo(
+                "Event{eventCode=1120, timestamp=1234, profile=1, "
+                        + "bluetoothDevice=" + BLUETOOTH_DEVICE + ", "
+                        + "exception=java.lang.Exception: Test exception}");
 
         Parcel parcel = Parcel.obtain();
         event.writeToParcel(parcel, event.describeContents());
@@ -70,5 +77,8 @@ public class EventTest {
         assertThat(result.getEventCode()).isEqualTo(event.getEventCode());
         assertThat(result.getBluetoothDevice()).isEqualTo(event.getBluetoothDevice());
         assertThat(result.getProfile()).isEqualTo(event.getProfile());
+        assertThat(result.equals(event)).isTrue();
+
+        assertThat(Event.CREATOR.newArray(10)).isNotEmpty();
     }
 }

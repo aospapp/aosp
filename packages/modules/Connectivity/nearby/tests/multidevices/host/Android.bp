@@ -22,7 +22,10 @@ python_test_host {
     name: "NearbyMultiDevicesTestSuite",
     main: "suite_main.py",
     srcs: ["*.py"],
-    libs: ["NearbyMultiDevicesHostHelper"],
+    libs: [
+        "NearbyMultiDevicesHostHelper",
+        "mobly",
+    ],
     test_suites: [
         "general-tests",
         "mts-tethering",
@@ -38,6 +41,11 @@ python_test_host {
         // Package the JSON metadata with the Mobly test.
         "test_data/**/*",
     ],
+    version: {
+        py3: {
+            embedded_launcher: true,
+        },
+    },
 }
 
 python_library_host {

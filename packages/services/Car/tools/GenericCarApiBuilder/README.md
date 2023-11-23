@@ -16,16 +16,6 @@
 
 # Android Automotive OS API Generator Tool
 
-* Tool will generate a file `complete_api_list.txt`. This file contains
-  all public API including the hidden API. It also contains three type
-  of annotations - `@hide` (for hidden calls), `@SystemAPI` (for System
-  calls), and `@AddedIn`/`@AddedInOrBefore` Annotation. This file can be a
-  better guide for future API changes as it can keep track of hidden
-  APIs too.
-* tool will also generate a file `un_annotated_api_list.txt`. This file
-  contains the API which are not annotated with
-  `@AddedIn`/`@AddedInOrBefore annotation`. This file should be empty before
-  the release.
 * To Build `m -j GenericCarApiBuilder`
 * To Run `GenericCarApiBuilder`
 

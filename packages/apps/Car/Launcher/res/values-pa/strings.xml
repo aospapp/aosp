@@ -18,8 +18,17 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="app_title" msgid="1995858460392177468">"ਕਾਰ ਲਾਂਚਰ"</string>
+    <string name="reset_appgrid_title" msgid="814562055108028366">"ਐਪ ਗਰਿੱਡ ਨੂੰ A-Z ਕ੍ਰਮ ਵਿੱਚ ਰੀਸੈੱਟ ਕਰੋ"</string>
+    <string name="reset_appgrid_dialogue_message" msgid="8275758912490987735">"ਇਸ ਫੰਕਸ਼ਨ ਨਾਲ ਸਾਰਾ ਵਿਉਂਤਿਆ ਕ੍ਰਮ ਹਟ ਜਾਵੇਗਾ। ਕੀ ਤੁਸੀਂ ਜਾਰੀ ਰੱਖਣਾ ਚਾਹੁੰਦੇ ਹੋ?"</string>
     <string name="app_launcher_title_all_apps" msgid="3215107396036838217">"ਸਾਰੀਆਂ ਐਪਾਂ"</string>
     <string name="app_launcher_title_media_only" msgid="4400886555907422816">"ਮੀਡੀਆ ਐਪਾਂ"</string>
+    <string name="app_launcher_stop_app_action" msgid="1081680842410279692">"ਐਪ ਬੰਦ ਕਰੋ"</string>
+    <string name="app_launcher_app_info_action" msgid="6388181061002827660">"ਐਪ ਜਾਣਕਾਰੀ"</string>
+    <string name="app_launcher_stop_app_success_toast_text" msgid="2117271772351005349">"<xliff:g id="APP_NAME">%1$s</xliff:g> ਬੰਦ ਕਰ ਦਿੱਤੀ ਗਈ ਹੈ।"</string>
+    <string name="app_launcher_stop_app_dialog_title" msgid="8276889322638001144">"ਕੀ ਐਪ ਬੰਦ ਕਰਨੀ ਹੈ?"</string>
+    <string name="app_launcher_stop_app_dialog_text" msgid="3264059639436254372">"ਜੇ ਤੁਸੀਂ ਕਿਸੇ ਐਪ ਨੂੰ ਜ਼ਬਰਦਸਤੀ ਬੰਦ ਕਰਦੇ ਹੋ, ਤਾਂ ਹੋ ਸਕਦਾ ਹੈ ਇਹ ਠੀਕ ਤਰ੍ਹਾਂ ਕੰਮ ਨਾ ਕਰੇ।"</string>
+    <string name="app_launcher_stop_app_cant_stop_text" msgid="4766841417948746773">"ਐਪ ਨੂੰ ਬੰਦ ਨਹੀਂ ਕੀਤਾ ਜਾ ਸਕਦਾ।"</string>
+    <string name="default_media_song_title" msgid="2970305231647817808"></string>
     <string name="driving_toast_text" msgid="149483091947120092">"ਗੱਡੀ ਚਲਾਉਣ ਵੇਲੇ <xliff:g id="APP_NAME">%1$s</xliff:g> ਨੂੰ ਵਰਤਿਆ ਨਹੀਂ ਜਾ ਸਕਦਾ।"</string>
     <string name="tap_for_more_info_text" msgid="2043549383814415585">"ਹੋਰ ਜਾਣਕਾਰੀ ਲਈ ਕਾਰਡ \'ਤੇ ਟੈਪ ਕਰੋ"</string>
     <string name="tap_to_launch_text" msgid="6910695705119260847">"ਲਾਂਚ ਕਰਨ ਲਈ ਕਾਰਡ \'ਤੇ ਟੈਪ ਕਰੋ"</string>
@@ -34,4 +43,8 @@
     <string name="fake_weather_footer_text" msgid="4570172025869749926">"ਅੰਮ੍ਰਿਤਸਰ • ਉੱਚ: --° ਨਿਮਨ: --°"</string>
     <string name="hide_debug_apps" msgid="6128313544379622475">"ਡੀਬੱਗ ਐਪਾਂ ਲੁਕਾਓ"</string>
     <string name="show_debug_apps" msgid="4521073121286325786">"ਡੀਬੱਗ ਐਪਾਂ ਦਿਖਾਓ"</string>
+    <string name="times_separator" msgid="6180368193321715816">"/"</string>
+    <string name="recents_empty_state_text" msgid="6703106170272215731">"ਕੋਈ ਹਾਲੀਆ ਆਈਟਮ ਨਹੀਂ"</string>
+    <string name="recents_clear_all_text" msgid="2088678071417053923">"ਸਭ ਕਲੀਅਰ ਕਰੋ"</string>
+    <string name="failure_opening_recent_task_message" msgid="9097595793150874357">"ਐਪ ਉਪਲਬਧ ਨਹੀਂ ਹੈ"</string>
 </resources>

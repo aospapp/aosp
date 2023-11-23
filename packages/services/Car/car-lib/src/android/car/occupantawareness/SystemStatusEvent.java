@@ -135,7 +135,6 @@ public final class SystemStatusEvent implements Parcelable {
     }
 
     @Override
-    @AddedInOrBefore(majorVersion = 33)
     public String toString() {
         return "SystemStatusEvent{"
                 + "systemStatus="

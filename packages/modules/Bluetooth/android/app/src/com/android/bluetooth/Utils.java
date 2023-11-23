@@ -34,15 +34,16 @@ import android.annotation.NonNull;
 import android.annotation.Nullable;
 import android.annotation.RequiresPermission;
 import android.annotation.SuppressLint;
-import android.app.AppOpsManager;
 import android.app.BroadcastOptions;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.companion.AssociationInfo;
 import android.companion.CompanionDeviceManager;
 import android.content.AttributionSource;
+import android.content.BroadcastReceiver;
 import android.content.ContentValues;
 import android.content.Context;
+import android.content.Intent;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.location.LocationManager;
@@ -50,6 +51,7 @@ import android.net.Uri;
 import android.os.Binder;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Handler;
 import android.os.ParcelUuid;
 import android.os.PowerExemptionManager;
 import android.os.Process;
@@ -61,6 +63,8 @@ import android.provider.DeviceConfig;
 import android.provider.Telephony;
 import android.util.Log;
 
+import androidx.annotation.RequiresApi;
+
 import com.android.bluetooth.btservice.AdapterService;
 import com.android.bluetooth.btservice.ProfileService;
 
@@ -70,6 +74,7 @@ import org.xmlpull.v1.XmlPullParserException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.math.BigInteger;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.charset.Charset;
@@ -77,6 +82,7 @@ import java.nio.charset.CharsetDecoder;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
+import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
@@ -88,6 +94,12 @@ public final class Utils {
     private static final String TAG = "BluetoothUtils";
     private static final int MICROS_PER_UNIT = 625;
     private static final String PTS_TEST_MODE_PROPERTY = "persist.bluetooth.pts";
+
+    private static final String ENABLE_DUAL_MODE_AUDIO =
+            "persist.bluetooth.enable_dual_mode_audio";
+    private static boolean sDualModeEnabled =
+            SystemProperties.getBoolean(ENABLE_DUAL_MODE_AUDIO, false);
+
     private static final String KEY_TEMP_ALLOW_LIST_DURATION_MS = "temp_allow_list_duration_ms";
     private static final long DEFAULT_TEMP_ALLOW_LIST_DURATION_MS = 20_000;
 
@@ -104,6 +116,7 @@ public final class Utils {
      */
     public static final char PAUSE = ',';
     public static final char WAIT = ';';
+    public static final String PAIRING_UI_PROPERTY = "bluetooth.pairing_ui_package.name";
 
     private static boolean isPause(char c) {
         return c == 'p' || c == 'P';
@@ -111,6 +124,37 @@ public final class Utils {
 
     private static boolean isToneWait(char c) {
         return c == 'w' || c == 'W';
+    }
+
+    /**
+     * Check if dual mode audio is enabled. This is set via the system property
+     * persist.bluetooth.enable_dual_mode_audio.
+     * <p>
+     * When set to {@code false}, we will not connect A2DP and HFP on a dual mode (BR/EDR + BLE)
+     * device. We will only attempt to use BLE Audio in this scenario.
+     * <p>
+     * When set to {@code true}, we will connect all the supported audio profiles
+     * (A2DP, HFP, and LE Audio) at the same time. In this state, we will respect calls to
+     * profile-specific APIs (e.g. if a SCO API is invoked, we will route audio over HFP). If no
+     * profile-specific API is invoked to route audio (e.g. Telecom routed phone calls, media,
+     * game audio, etc.), then audio will be routed in accordance with the preferred audio profiles
+     * for the remote device. You can get the preferred audio profiles for a remote device by
+     * calling {@link BluetoothAdapter#getPreferredAudioProfiles(BluetoothDevice)}.
+     *
+     * @return true if dual mode audio is enabled, false otherwise
+     */
+    public static boolean isDualModeAudioEnabled() {
+        Log.i(TAG, "Dual mode enable state is: " + sDualModeEnabled);
+        return sDualModeEnabled;
+    }
+
+    /**
+     * Only exposed for testing, do not invoke this method outside of tests.
+     * @param enabled true if the dual mode state is enabled, false otherwise
+     */
+    public static void setDualModeAudioStateForTesting(boolean enabled) {
+        Log.i(TAG, "Updating dual mode audio state for testing to: " + enabled);
+        sDualModeEnabled = enabled;
     }
 
     public static @Nullable String getName(@Nullable BluetoothDevice device) {
@@ -137,6 +181,14 @@ public final class Utils {
 
         return String.format("%02X:%02X:%02X:%02X:%02X:%02X", address[0], address[1], address[2],
                 address[3], address[4], address[5]);
+    }
+
+    public static String getRedactedAddressStringFromByte(byte[] address) {
+        if (address == null || address.length != BD_ADDR_LEN) {
+            return null;
+        }
+
+        return String.format("XX:XX:XX:XX:%02X:%02X", address[4], address[5]);
     }
 
     public static byte[] getByteAddress(BluetoothDevice device) {
@@ -242,7 +294,6 @@ public final class Utils {
     public static ParcelUuid[] byteArrayToUuid(byte[] val) {
         int numUuids = val.length / BD_UUID_LEN;
         ParcelUuid[] puuids = new ParcelUuid[numUuids];
-        UUID uuid;
         int offset = 0;
 
         ByteBuffer converter = ByteBuffer.wrap(val);
@@ -344,6 +395,7 @@ public final class Utils {
      * @throws SecurityException if the package name does not match the uid or the association
      *                           doesn't exist
      */
+    @RequiresPermission("android.permission.MANAGE_COMPANION_DEVICES")
     public static boolean enforceCdmAssociation(CompanionDeviceManager cdm, Context context,
             String callingPackage, int callingUid, BluetoothDevice device) {
         if (!isPackageNameAccurate(context, callingPackage, callingUid)) {
@@ -351,7 +403,7 @@ public final class Utils {
                     + " is inaccurate for calling uid " + callingUid);
         }
 
-        for (AssociationInfo association : cdm.getAllAssociations()) {
+        for (AssociationInfo association : getCdmAssociations(cdm)) {
             if (association.getPackageName().equals(callingPackage)
                     && !association.isSelfManaged() && device.getAddress() != null
                     && association.getDeviceMacAddress() != null
@@ -365,6 +417,22 @@ public final class Utils {
     }
 
     /**
+     * Obtains the complete list of registered CDM associations.
+     *
+     * @param cdm the CompanionDeviceManager object
+     * @return the list of AssociationInfo objects
+     */
+    @RequiresPermission("android.permission.MANAGE_COMPANION_DEVICES")
+    @RequiresApi(Build.VERSION_CODES.TIRAMISU)
+    // TODO(b/193460475): Android Lint handles change from SystemApi to public incorrectly.
+    // CompanionDeviceManager#getAllAssociations() is public in U,
+    // but existed in T as an identical SystemApi.
+    @SuppressLint("NewApi")
+    public static List<AssociationInfo> getCdmAssociations(CompanionDeviceManager cdm) {
+        return cdm.getAllAssociations();
+    }
+
+    /**
      * Verifies whether the calling package name matches the calling app uid
      * @param context the Bluetooth AdapterService context
      * @param callingPackage the calling application package name
@@ -373,9 +441,12 @@ public final class Utils {
      */
     public static boolean isPackageNameAccurate(Context context, String callingPackage,
             int callingUid) {
+        UserHandle callingUser = UserHandle.getUserHandleForUid(callingUid);
+
         // Verifies the integrity of the calling package name
         try {
-            int packageUid = context.getPackageManager().getPackageUid(callingPackage, 0);
+            int packageUid = context.createContextAsUser(callingUser, 0)
+                    .getPackageManager().getPackageUid(callingPackage, 0);
             if (packageUid != callingUid) {
                 Log.e(TAG, "isPackageNameAccurate: App with package name " + callingPackage
                         + " is UID " + packageUid + " but caller is " + callingUid);
@@ -424,8 +495,6 @@ public final class Utils {
                 "Need DUMP permission");
     }
 
-    /**
-     */
     public static AttributionSource getCallingAttributionSource(Context context) {
         int callingUid = Binder.getCallingUid();
         if (callingUid == android.os.Process.ROOT_UID) {
@@ -460,6 +529,9 @@ public final class Utils {
     @SuppressLint("AndroidFrameworkRequiresPermission")
     private static boolean checkPermissionForDataDelivery(Context context, String permission,
             AttributionSource attributionSource, String message) {
+        if (isInstrumentationTestMode()) {
+            return true;
+        }
         // STOPSHIP(b/188391719): enable this security enforcement
         // attributionSource.enforceCallingUid();
         AttributionSource currentAttribution = new AttributionSource
@@ -617,7 +689,12 @@ public final class Utils {
         return false;
     }
 
-    public static boolean checkCallerIsSystemOrActiveUser() {
+    private static boolean checkCallerIsSystem() {
+        int callingUid = Binder.getCallingUid();
+        return UserHandle.getAppId(Process.SYSTEM_UID) == UserHandle.getAppId(callingUid);
+    }
+
+    private static boolean checkCallerIsSystemOrActiveUser() {
         int callingUid = Binder.getCallingUid();
         UserHandle callingUser = UserHandle.getUserHandleForUid(callingUid);
 
@@ -638,7 +715,25 @@ public final class Utils {
         return checkCallerIsSystemOrActiveUser(tag + "." + method + "()");
     }
 
-    public static boolean checkCallerIsSystemOrActiveOrManagedUser(Context context) {
+    /**
+     * Checks if the caller to the method is system server.
+     *
+     * @param tag the log tag to use in case the caller is not system server
+     * @param method the API method name
+     * @return {@code true} if the caller is system server, {@code false} otherwise
+     */
+    public static boolean callerIsSystem(String tag, String method) {
+        if (isInstrumentationTestMode()) {
+            return true;
+        }
+        final boolean res = checkCallerIsSystem();
+        if (!res) {
+            Log.w(TAG, tag + "." + method + "()" + " - Not allowed outside system server");
+        }
+        return res;
+    }
+
+    private static boolean checkCallerIsSystemOrActiveOrManagedUser(Context context) {
         if (context == null) {
             return checkCallerIsSystemOrActiveUser();
         }
@@ -666,6 +761,9 @@ public final class Utils {
     }
 
     public static boolean checkCallerIsSystemOrActiveOrManagedUser(Context context, String tag) {
+        if (isInstrumentationTestMode()) {
+            return true;
+        }
         final boolean res = checkCallerIsSystemOrActiveOrManagedUser(context);
         if (!res) {
             Log.w(TAG, tag + " - Not allowed for"
@@ -874,14 +972,8 @@ public final class Utils {
         return true;
     }
 
-    private static boolean isAppOppAllowed(AppOpsManager appOps, String op, String callingPackage,
-            @NonNull String callingFeatureId) {
-        return appOps.noteOp(op, Binder.getCallingUid(), callingPackage, callingFeatureId, null)
-                == AppOpsManager.MODE_ALLOWED;
-    }
-
     /**
-     * Converts {@code millisecond} to unit. Each unit is 0.625 millisecond.
+     * Converts {@code milliseconds} to unit. Each unit is 0.625 millisecond.
      */
     public static int millsToUnit(int milliseconds) {
         return (int) (TimeUnit.MILLISECONDS.toMicros(milliseconds) / MICROS_PER_UNIT);
@@ -1001,12 +1093,15 @@ public final class Utils {
         }
         values.put(Telephony.Sms.ERROR_CODE, 0);
 
-        return 1 == context.getContentResolver().update(uri, values, null, null);
+        return 1 == BluetoothMethodProxy.getInstance().contentResolverUpdate(
+                context.getContentResolver(), uri, values, null, null);
     }
 
     /**
      * Returns bundled broadcast options.
      */
+    // TODO(b/193460475): Remove when tooling supports SystemApi to public API.
+    @SuppressLint("NewApi")
     public static @NonNull Bundle getTempAllowlistBroadcastOptions() {
         return getTempBroadcastOptions().toBundle();
     }
@@ -1014,10 +1109,12 @@ public final class Utils {
     /**
      * Returns broadcast options.
      */
+    // TODO(b/193460475): Remove when tooling supports SystemApi to public API.
+    @SuppressLint("NewApi")
     public static @NonNull BroadcastOptions getTempBroadcastOptions() {
+        final BroadcastOptions bOptions = BroadcastOptions.makeBasic();
         // Use the Bluetooth process identity to pass permission check when reading DeviceConfig
         final long ident = Binder.clearCallingIdentity();
-        final BroadcastOptions bOptions = BroadcastOptions.makeBasic();
         try {
             final long durationMs = DeviceConfig.getLong(DeviceConfig.NAMESPACE_BLUETOOTH,
                     KEY_TEMP_ALLOW_LIST_DURATION_MS, DEFAULT_TEMP_ALLOW_LIST_DURATION_MS);
@@ -1029,6 +1126,35 @@ public final class Utils {
         }
         return bOptions;
     }
+
+    /**
+     * Sends the {@code intent} as a broadcast in the provided {@code context} to receivers that
+     * have been granted the specified {@code receiverPermission} with the {@link BroadcastOptions}
+     * {@code options}.
+     *
+     * @see Context#sendBroadcast(Intent, String, Bundle)
+     */
+    // TODO(b/193460475): Remove when tooling supports SystemApi to public API.
+    @SuppressLint("NewApi")
+    public static void sendBroadcast(@NonNull Context context, @NonNull Intent intent,
+            @Nullable String receiverPermission, @Nullable Bundle options) {
+        context.sendBroadcast(intent, receiverPermission, options);
+    }
+
+    /**
+     * @see Context#sendOrderedBroadcast(Intent, String, Bundle, BroadcastReceiver, Handler,
+     *          int, String, Bundle)
+     */
+    // TODO(b/193460475): Remove when tooling supports SystemApi to public API.
+    @SuppressLint("NewApi")
+    public static void sendOrderedBroadcast(@NonNull Context context, @NonNull Intent intent,
+            @Nullable String receiverPermission, @Nullable Bundle options,
+            @Nullable BroadcastReceiver resultReceiver, @Nullable Handler scheduler,
+            int initialCode, @Nullable String initialData, @Nullable Bundle initialExtras) {
+        context.sendOrderedBroadcast(intent, receiverPermission, options, resultReceiver, scheduler,
+                initialCode, initialData, initialExtras);
+    }
+
     /**
      * Checks that value is present as at least one of the elements of the array.
      * @param array the array to check in
@@ -1041,5 +1167,65 @@ public final class Utils {
             if (Objects.equals(element, value)) return true;
         }
         return false;
+    }
+
+    /**
+     * CCC descriptor short integer value to string.
+     * @param cccValue the short value of CCC descriptor
+     * @return String value representing CCC state
+     */
+    public static String cccIntToStr(Short cccValue) {
+        String string = "";
+
+        if (cccValue == 0) {
+            return string += "NO SUBSCRIPTION";
+        }
+
+        if (BigInteger.valueOf(cccValue).testBit(0)) {
+            string += "NOTIFICATION";
+        }
+        if (BigInteger.valueOf(cccValue).testBit(1)) {
+            string += string.isEmpty() ? "INDICATION" : "|INDICATION";
+        }
+
+        return string;
+    }
+
+    /**
+     * Check if BLE is supported by this platform
+     * @param context current device context
+     * @return true if BLE is supported, false otherwise
+     */
+    public static boolean isBleSupported(Context context) {
+        return context.getPackageManager().hasSystemFeature(PackageManager.FEATURE_BLUETOOTH_LE);
+    }
+
+    /**
+     * Check if this is an automotive device
+     * @param context current device context
+     * @return true if this Android device is an automotive device, false otherwise
+     */
+    public static boolean isAutomotive(Context context) {
+        return context.getPackageManager().hasSystemFeature(PackageManager.FEATURE_AUTOMOTIVE);
+    }
+
+    /**
+     * Check if this is a watch device
+     * @param context current device context
+     * @return true if this Android device is a watch device, false otherwise
+     */
+    public static boolean isWatch(Context context) {
+        return context.getPackageManager().hasSystemFeature(PackageManager.FEATURE_WATCH);
+    }
+
+    /**
+     * Check if this is a TV device
+     * @param context current device context
+     * @return true if this Android device is a TV device, false otherwise
+     */
+    public static boolean isTv(Context context) {
+        PackageManager pm = context.getPackageManager();
+        return pm.hasSystemFeature(PackageManager.FEATURE_TELEVISION)
+                || pm.hasSystemFeature(PackageManager.FEATURE_LEANBACK);
     }
 }

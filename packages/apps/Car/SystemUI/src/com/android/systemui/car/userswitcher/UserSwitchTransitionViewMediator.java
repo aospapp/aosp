@@ -22,11 +22,13 @@ import static android.car.user.CarUserManager.USER_LIFECYCLE_EVENT_TYPE_SWITCHIN
 import android.car.Car;
 import android.car.user.CarUserManager;
 import android.car.user.UserLifecycleEventFilter;
+import android.content.Context;
 import android.util.Log;
 
 import com.android.internal.annotations.VisibleForTesting;
 import com.android.systemui.car.CarDeviceProvisionedController;
 import com.android.systemui.car.CarServiceProvider;
+import com.android.systemui.car.users.CarSystemUIUserUtil;
 import com.android.systemui.car.window.OverlayViewMediator;
 
 import javax.inject.Inject;
@@ -39,15 +41,18 @@ public class UserSwitchTransitionViewMediator implements OverlayViewMediator,
         CarUserManager.UserSwitchUiCallback {
     private static final String TAG = "UserSwitchTransitionViewMediator";
 
+    private final Context mContext;
     private final CarServiceProvider mCarServiceProvider;
     private final CarDeviceProvisionedController mCarDeviceProvisionedController;
     private final UserSwitchTransitionViewController mUserSwitchTransitionViewController;
 
     @Inject
     public UserSwitchTransitionViewMediator(
+            Context context,
             CarServiceProvider carServiceProvider,
             CarDeviceProvisionedController carDeviceProvisionedController,
             UserSwitchTransitionViewController userSwitchTransitionViewController) {
+        mContext = context;
         mCarServiceProvider = carServiceProvider;
         mCarDeviceProvisionedController = carDeviceProvisionedController;
         mUserSwitchTransitionViewController = userSwitchTransitionViewController;
@@ -60,7 +65,10 @@ public class UserSwitchTransitionViewMediator implements OverlayViewMediator,
                     (CarUserManager) car.getCarManager(Car.CAR_USER_SERVICE);
 
             if (carUserManager != null) {
-                carUserManager.setUserSwitchUiCallback(this);
+                if (!CarSystemUIUserUtil.isSecondaryMUMDSystemUI()) {
+                    // TODO_MD: allow for callback from non-system user (and per user).
+                    carUserManager.setUserSwitchUiCallback(this);
+                }
                 // Register the listener with a filter to only listen to user STARTING or SWITCHING
                 // events.
                 UserLifecycleEventFilter filter = new UserLifecycleEventFilter.Builder()

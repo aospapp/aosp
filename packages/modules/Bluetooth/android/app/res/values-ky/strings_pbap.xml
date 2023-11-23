@@ -12,5 +12,7 @@
     <string name="unknownName" msgid="6755061296103155293">"Белгисиз ат"</string>
     <string name="localPhoneName" msgid="9119254982537191352">"Менин атым"</string>
     <string name="defaultnumber" msgid="5348816189286607406">"000000"</string>
-    <string name="pbap_notification_group" msgid="4215789331721465381">"Bluetooth аркылуу байланыш менен бөлүшүү"</string>
+    <string name="pbap_notification_group" msgid="4215789331721465381">"Байланыштарды Bluetooth аркылуу бөлүшүү"</string>
+    <string name="phonebook_advance_feature_support" msgid="8129553051734505128">"Телефон китепчесинин өркүндөтүлгөн функциясы колдоого алынат"</string>
+    <string name="repair_for_adv_phonebook_feature" msgid="3489797973131684927">"Телефон китепчесинин өркүндөтүлгөн функциясы үчүн кайра жупташтыруу"</string>
 </resources>

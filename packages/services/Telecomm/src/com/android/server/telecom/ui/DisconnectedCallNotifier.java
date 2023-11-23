@@ -143,8 +143,7 @@ public class DisconnectedCallNotifier extends CallsManagerListenerBase {
                 DisconnectCause.REASON_EMERGENCY_CALL_PLACED.equals(cause.getReason())) {
             // Clear any existing notification.
             clearNotification(mCallsManager.getCurrentUserHandle());
-            UserHandle userHandle = call.getTargetPhoneAccount() != null ?
-                    call.getTargetPhoneAccount().getUserHandle() : call.getInitiatingUser();
+            UserHandle userHandle = call.getAssociatedUser();
             // As a last resort, use the current user to display the notification.
             if (userHandle == null) userHandle = mCallsManager.getCurrentUserHandle();
             mPendingCallNotification = new CallInfo(userHandle, call.getHandle(),

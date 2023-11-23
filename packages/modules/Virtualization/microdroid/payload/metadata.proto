@@ -18,6 +18,9 @@ syntax = "proto3";
 
 package android.microdroid;
 
+option java_package = "com.android.virt";
+option java_outer_classname = "PayloadMetadataProtos";
+
 // Metadata is the body of the "metadata" partition
 message Metadata {
   uint32 version = 1;
@@ -26,7 +29,11 @@ message Metadata {
 
   ApkPayload apk = 3;
 
-  string payload_config_path = 4;
+  oneof payload {
+    // Path to JSON config file inside the APK.
+    string config_path = 4;
+    PayloadConfig config = 5;
+  }
 }
 
 message ApexPayload {
@@ -57,4 +64,10 @@ message ApkPayload {
   string payload_partition_name = 2;
 
   string idsig_partition_name = 3;
+}
+
+message PayloadConfig {
+  // Required.
+  // Name of the payload binary file inside the APK.
+  string payload_binary_name = 1;
 }

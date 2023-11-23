@@ -28,5 +28,6 @@ source_set("BluetoothPacketSources") {
 
   include_dirs = [ "//bt/system/gd" ]
 
+  deps = [ "//bt/system/gd/rust/shim:init_flags_bridge_header" ]
   configs += [ "//bt/system:target_defaults" ]
 }

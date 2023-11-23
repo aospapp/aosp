@@ -17,21 +17,26 @@
 
 #pragma once
 
+#include <list>
 #include <map>
 #include <memory>
+#include <mutex>
 #include <set>
 
-#include "base/bind.h"
-#include "base/callback.h"
+#include "base/functional/bind.h"
+#include "base/functional/callback.h"
 #include "base/logging.h"
 #include "bind_helpers.h"
+#include "btm_dev.h"
 #include "btm_iso_api.h"
 #include "common/time_util.h"
 #include "device/include/controller.h"
 #include "hci/include/hci_layer.h"
+#include "internal_include/stack_config.h"
 #include "osi/include/allocator.h"
 #include "osi/include/log.h"
 #include "stack/include/bt_hdr.h"
+#include "stack/include/btm_log_history.h"
 #include "stack/include/hci_error_code.h"
 #include "stack/include/hcidefs.h"
 
@@ -47,6 +52,8 @@ static constexpr uint8_t kStateFlagIsConnecting = 0x01;
 static constexpr uint8_t kStateFlagIsConnected = 0x02;
 static constexpr uint8_t kStateFlagHasDataPathSet = 0x04;
 static constexpr uint8_t kStateFlagIsBroadcast = 0x10;
+
+constexpr char kBtmLogTag[] = "ISO";
 
 struct iso_sync_info {
   uint32_t first_sync_ts;
@@ -101,6 +108,13 @@ struct iso_impl {
     big_callbacks_ = callbacks;
   }
 
+  void handle_register_on_iso_traffic_active_callback(void callback(bool)) {
+    LOG_ASSERT(callback != nullptr) << "Invalid OnIsoTrafficActive callback";
+    const std::lock_guard<std::mutex> lock(
+        on_iso_traffic_active_callbacks_list_mutex_);
+    on_iso_traffic_active_callbacks_list_.push_back(callback);
+  }
+
   void on_set_cig_params(uint8_t cig_id, uint32_t sdu_itv_mtos, uint8_t* stream,
                          uint16_t len) {
     uint8_t cis_cnt;
@@ -116,6 +130,12 @@ struct iso_impl {
 
     uint8_t evt_code = IsCigKnown(cig_id) ? kIsoEventCigOnReconfigureCmpl
                                           : kIsoEventCigOnCreateCmpl;
+
+    BTM_LogHistory(
+        kBtmLogTag, RawAddress::kEmpty, "CIG Create complete",
+        base::StringPrintf(
+            "cig_id:0x%02x, status: %s", evt.cig_id,
+            hci_status_code_text((tHCI_STATUS)(evt.status)).c_str()));
 
     if (evt.status == HCI_SUCCESS) {
       LOG_ASSERT(len >= (3) + (cis_cnt * sizeof(uint16_t)))
@@ -149,6 +169,14 @@ struct iso_impl {
     }
 
     cig_callbacks_->OnCigEvent(evt_code, &evt);
+
+    if (evt_code == kIsoEventCigOnCreateCmpl) {
+      const std::lock_guard<std::mutex> lock(
+          on_iso_traffic_active_callbacks_list_mutex_);
+      for (auto callback : on_iso_traffic_active_callbacks_list_) {
+        callback(true);
+      }
+    }
   }
 
   void create_cig(uint8_t cig_id,
@@ -163,6 +191,11 @@ struct iso_impl {
         cig_params.cis_cfgs.size(), cig_params.cis_cfgs.data(),
         base::BindOnce(&iso_impl::on_set_cig_params, base::Unretained(this),
                        cig_id, cig_params.sdu_itv_mtos));
+
+    BTM_LogHistory(
+        kBtmLogTag, RawAddress::kEmpty, "CIG Create",
+        base::StringPrintf("cig_id:0x%02x, size: %d", cig_id,
+                           static_cast<int>(cig_params.cis_cfgs.size())));
   }
 
   void reconfigure_cig(uint8_t cig_id,
@@ -187,6 +220,12 @@ struct iso_impl {
     STREAM_TO_UINT8(evt.status, stream);
     STREAM_TO_UINT8(evt.cig_id, stream);
 
+    BTM_LogHistory(
+        kBtmLogTag, RawAddress::kEmpty, "CIG Remove complete",
+        base::StringPrintf(
+            "cig_id:0x%02x, status: %s", evt.cig_id,
+            hci_status_code_text((tHCI_STATUS)(evt.status)).c_str()));
+
     if (evt.status == HCI_SUCCESS) {
       auto cis_it = conn_hdl_to_cis_map_.cbegin();
       while (cis_it != conn_hdl_to_cis_map_.cend()) {
@@ -198,13 +237,27 @@ struct iso_impl {
     }
 
     cig_callbacks_->OnCigEvent(kIsoEventCigOnRemoveCmpl, &evt);
+
+    {
+      const std::lock_guard<std::mutex> lock(
+          on_iso_traffic_active_callbacks_list_mutex_);
+      for (auto callback : on_iso_traffic_active_callbacks_list_) {
+        callback(false);
+      }
+    }
   }
 
-  void remove_cig(uint8_t cig_id) {
-    LOG_ASSERT(IsCigKnown(cig_id)) << "No such cig: " << +cig_id;
+  void remove_cig(uint8_t cig_id, bool force) {
+    if (!force) {
+      LOG_ASSERT(IsCigKnown(cig_id)) << "No such cig: " << +cig_id;
+    } else {
+      LOG_WARN("Forcing to remove CIG %d", cig_id);
+    }
 
     btsnd_hcic_remove_cig(cig_id, base::BindOnce(&iso_impl::on_remove_cig,
                                                  base::Unretained(this)));
+    BTM_LogHistory(kBtmLogTag, RawAddress::kEmpty, "CIG Remove",
+                   base::StringPrintf("cig_id:0x%02x (f:%d)", cig_id, force));
   }
 
   void on_status_establish_cis(
@@ -229,6 +282,14 @@ struct iso_impl {
         evt.cig_id = 0xFF;
         cis->state_flags &= ~kStateFlagIsConnecting;
         cig_callbacks_->OnCisEvent(kIsoEventCisEstablishCmpl, &evt);
+
+        BTM_LogHistory(
+            kBtmLogTag, cis_hdl_to_addr[evt.cis_conn_hdl],
+            "Establish CIS failed ",
+            base::StringPrintf(
+                "handle:0x%04x, status: %s", evt.cis_conn_hdl,
+                hci_status_code_text((tHCI_STATUS)(status)).c_str()));
+        cis_hdl_to_addr.erase(evt.cis_conn_hdl);
       }
     }
   }
@@ -241,6 +302,13 @@ struct iso_impl {
                    (kStateFlagIsConnected | kStateFlagIsConnecting)))
           << "Already connected or connecting";
       cis->state_flags |= kStateFlagIsConnecting;
+
+      tBTM_SEC_DEV_REC* p_rec = btm_find_dev_by_handle(el.acl_conn_handle);
+      if (p_rec) {
+        cis_hdl_to_addr[el.cis_conn_handle] = p_rec->ble.pseudo_addr;
+        BTM_LogHistory(kBtmLogTag, p_rec->ble.pseudo_addr, "Establish CIS",
+                       base::StringPrintf("handle:0x%04x", el.acl_conn_handle));
+      }
     }
     btsnd_hcic_create_cis(conn_params.conn_pairs.size(),
                           conn_params.conn_pairs.data(),
@@ -256,6 +324,11 @@ struct iso_impl {
         << "Not connected";
     bluetooth::legacy::hci::GetInterface().Disconnect(
         cis_handle, static_cast<tHCI_STATUS>(reason));
+
+    BTM_LogHistory(kBtmLogTag, cis_hdl_to_addr[cis_handle], "Disconnect CIS ",
+                   base::StringPrintf(
+                       "handle:0x%04x, reason:%s", cis_handle,
+                       hci_reason_code_text((tHCI_REASON)(reason)).c_str()));
   }
 
   void on_setup_iso_data_path(uint8_t* stream, uint16_t len) {
@@ -272,6 +345,12 @@ struct iso_impl {
       LOG(WARNING) << __func__ << "Invalid connection handle: " << +conn_handle;
       return;
     }
+
+    BTM_LogHistory(kBtmLogTag, cis_hdl_to_addr[conn_handle],
+                   "Setup data path complete",
+                   base::StringPrintf(
+                       "handle:0x%04x, status:%s", conn_handle,
+                       hci_status_code_text((tHCI_STATUS)(status)).c_str()));
 
     if (status == HCI_SUCCESS) iso->state_flags |= kStateFlagHasDataPathSet;
     if (iso->state_flags & kStateFlagIsBroadcast) {
@@ -301,12 +380,22 @@ struct iso_impl {
         std::move(path_params.codec_conf),
         base::BindOnce(&iso_impl::on_setup_iso_data_path,
                        base::Unretained(this)));
+    BTM_LogHistory(
+        kBtmLogTag, cis_hdl_to_addr[conn_handle], "Setup data path",
+        base::StringPrintf(
+            "handle:0x%04x, dir:0x%02x, path_id:0x%02x, codec_id:0x%02x",
+            conn_handle, path_params.data_path_dir, path_params.data_path_id,
+            path_params.codec_id_format));
   }
 
   void on_remove_iso_data_path(uint8_t* stream, uint16_t len) {
     uint8_t status;
     uint16_t conn_handle;
 
+    if (len < 3) {
+      LOG(WARNING) << __func__ << "Malformatted packet received";
+      return;
+    }
     STREAM_TO_UINT8(status, stream);
     STREAM_TO_UINT16(conn_handle, stream);
 
@@ -317,6 +406,12 @@ struct iso_impl {
       LOG(WARNING) << __func__ << "Invalid connection handle: " << +conn_handle;
       return;
     }
+
+    BTM_LogHistory(kBtmLogTag, cis_hdl_to_addr[conn_handle],
+                   "Remove data path complete",
+                   base::StringPrintf(
+                       "handle:0x%04x, status:%s", conn_handle,
+                       hci_status_code_text((tHCI_STATUS)(status)).c_str()));
 
     if (status == HCI_SUCCESS) iso->state_flags &= ~kStateFlagHasDataPathSet;
 
@@ -340,6 +435,9 @@ struct iso_impl {
         iso_handle, data_path_dir,
         base::BindOnce(&iso_impl::on_remove_iso_data_path,
                        base::Unretained(this)));
+    BTM_LogHistory(kBtmLogTag, cis_hdl_to_addr[iso_handle], "Remove data path",
+                   base::StringPrintf("handle:0x%04x, dir:0x%02x", iso_handle,
+                                      data_path_dir));
   }
 
   void on_iso_link_quality_read(uint8_t* stream, uint16_t len) {
@@ -352,6 +450,13 @@ struct iso_impl {
     uint32_t crcErrorPackets;
     uint32_t rxUnreceivedPackets;
     uint32_t duplicatePackets;
+
+    // 1 + 2 + 4 * 7
+#define ISO_LINK_QUALITY_SIZE 31
+    if (len < ISO_LINK_QUALITY_SIZE) {
+      LOG(ERROR) << "Malformated link quality format, len=" << len;
+      return;
+    }
 
     STREAM_TO_UINT8(status, stream);
     if (status != HCI_SUCCESS) {
@@ -486,6 +591,12 @@ struct iso_impl {
     auto cis = GetCisIfKnown(evt.cis_conn_hdl);
     LOG_ASSERT(cis != nullptr) << "No such cis: " << +evt.cis_conn_hdl;
 
+    BTM_LogHistory(kBtmLogTag, cis_hdl_to_addr[evt.cis_conn_hdl],
+                   "CIS established event",
+                   base::StringPrintf(
+                       "cis_handle:0x%04x status:%s", evt.cis_conn_hdl,
+                       hci_error_code_text((tHCI_STATUS)(evt.status)).c_str()));
+
     cis->sync_info.first_sync_ts = bluetooth::common::time_get_os_boottime_us();
 
     STREAM_TO_UINT24(evt.cig_sync_delay, data);
@@ -503,7 +614,11 @@ struct iso_impl {
     STREAM_TO_UINT16(evt.max_pdu_stom, data);
     STREAM_TO_UINT16(evt.iso_itv, data);
 
-    if (evt.status == HCI_SUCCESS) cis->state_flags |= kStateFlagIsConnected;
+    if (evt.status == HCI_SUCCESS) {
+      cis->state_flags |= kStateFlagIsConnected;
+    } else {
+      cis_hdl_to_addr.erase(evt.cis_conn_hdl);
+    }
 
     cis->state_flags &= ~kStateFlagIsConnecting;
 
@@ -519,6 +634,13 @@ struct iso_impl {
     LOG_ASSERT(cig_callbacks_ != nullptr) << "Invalid CIG callbacks";
 
     LOG_INFO("%s flags: %d", __func__, +cis->state_flags);
+
+    BTM_LogHistory(
+        kBtmLogTag, cis_hdl_to_addr[handle], "CIS disconnected",
+        base::StringPrintf("cis_handle:0x%04x, reason:%s", handle,
+                           hci_error_code_text((tHCI_REASON)(reason)).c_str()));
+    cis_hdl_to_addr.erase(handle);
+
     if (cis->state_flags & kStateFlagIsConnected) {
       cis_disconnected_evt evt = {
           .reason = reason,
@@ -627,6 +749,14 @@ struct iso_impl {
     }
 
     big_callbacks_->OnBigEvent(kIsoEventBigOnCreateCmpl, &evt);
+
+    {
+      const std::lock_guard<std::mutex> lock(
+          on_iso_traffic_active_callbacks_list_mutex_);
+      for (auto callbacks : on_iso_traffic_active_callbacks_list_) {
+        callbacks(true);
+      }
+    }
   }
 
   void process_terminate_big_cmpl_pkt(uint8_t len, uint8_t* data) {
@@ -651,11 +781,25 @@ struct iso_impl {
 
     LOG_ASSERT(is_known_handle) << "No such big: " << +evt.big_id;
     big_callbacks_->OnBigEvent(kIsoEventBigOnTerminateCmpl, &evt);
+
+    {
+      const std::lock_guard<std::mutex> lock(
+          on_iso_traffic_active_callbacks_list_mutex_);
+      for (auto callbacks : on_iso_traffic_active_callbacks_list_) {
+        callbacks(false);
+      }
+    }
   }
 
   void create_big(uint8_t big_id, struct big_create_params big_params) {
     LOG_ASSERT(!IsBigKnown(big_id))
         << "Invalid big - already exists: " << +big_id;
+
+    if (stack_config_get_interface()->get_pts_unencrypt_broadcast()) {
+      LOG_INFO("Force create broadcst without encryption for PTS test");
+      big_params.enc = 0;
+      big_params.enc_code = {0};
+    }
 
     last_big_create_req_sdu_itv_ = big_params.sdu_itv;
     btsnd_hcic_create_big(
@@ -830,6 +974,9 @@ struct iso_impl {
     dprintf(fd, "  ISO Manager:\n");
     dprintf(fd, "    Available credits: %d\n", iso_credits_.load());
     dprintf(fd, "    Controller buffer size: %d\n", iso_buffer_size_);
+    dprintf(fd, "    Num of ISO traffic callbacks: %lu\n",
+            static_cast<unsigned long>(
+                on_iso_traffic_active_callbacks_list_.size()));
     dprintf(fd, "    CISes:\n");
     for (auto const& cis_pair : conn_hdl_to_cis_map_) {
       dprintf(fd, "      CIS Connection handle: %d\n", cis_pair.first);
@@ -859,6 +1006,7 @@ struct iso_impl {
 
   std::map<uint16_t, std::unique_ptr<iso_cis>> conn_hdl_to_cis_map_;
   std::map<uint16_t, std::unique_ptr<iso_bis>> conn_hdl_to_bis_map_;
+  std::map<uint16_t, RawAddress> cis_hdl_to_addr;
 
   std::atomic_uint16_t iso_credits_;
   uint16_t iso_buffer_size_;
@@ -866,6 +1014,8 @@ struct iso_impl {
 
   CigCallbacks* cig_callbacks_ = nullptr;
   BigCallbacks* big_callbacks_ = nullptr;
+  std::mutex on_iso_traffic_active_callbacks_list_mutex_;
+  std::list<void (*)(bool)> on_iso_traffic_active_callbacks_list_;
 };
 
 }  // namespace iso_manager

@@ -15,7 +15,8 @@
  */
 package android.system.virtualizationservice;
 
-import android.system.virtualizationservice.DeathReason;
+import android.system.virtualizationcommon.DeathReason;
+import android.system.virtualizationcommon.ErrorCode;
 
 /**
  * An object which a client may register with the VirtualizationService to get callbacks about the
@@ -23,13 +24,9 @@ import android.system.virtualizationservice.DeathReason;
  */
 oneway interface IVirtualMachineCallback {
     /**
-     * Called when the payload starts in the VM. `stream` is the input/output port of the payload.
-     *
-     * <p>Note: when the virtual machine object is shared to multiple processes and they register
-     * this callback to the same virtual machine object, the processes will compete to access the
-     * same payload stream. Keep only one process to access the stream.
+     * Called when the payload starts in the VM.
      */
-    void onPayloadStarted(int cid, in @nullable ParcelFileDescriptor stream);
+    void onPayloadStarted(int cid);
 
     /**
      * Called when the payload in the VM is ready to serve.
@@ -44,7 +41,7 @@ oneway interface IVirtualMachineCallback {
     /**
      * Called when an error occurs in the VM.
      */
-    void onError(int cid, int errorCode, in String message);
+    void onError(int cid, ErrorCode errorCode, in String message);
 
     /**
      * Called when the VM dies.

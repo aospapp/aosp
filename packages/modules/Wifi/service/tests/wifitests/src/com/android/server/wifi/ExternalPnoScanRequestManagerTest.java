@@ -29,6 +29,7 @@ import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.when;
 
 import android.content.Context;
 import android.content.Intent;
@@ -92,6 +93,7 @@ public class ExternalPnoScanRequestManagerTest extends WifiBaseTest {
         mLooper = new TestLooper();
         mExternalPnoScanRequestManager = new ExternalPnoScanRequestManager(
                 new Handler(mLooper.getLooper()), mContext);
+        mExternalPnoScanRequestManager.enableVerboseLogging(true);
     }
 
     @Test
@@ -189,12 +191,21 @@ public class ExternalPnoScanRequestManagerTest extends WifiBaseTest {
         scanResult2.setWifiSsid(WifiSsid.fromString(TEST_SSID_1));
         ScanResult scanResult3 = new ScanResult();
         scanResult3.setWifiSsid(WifiSsid.fromString(TEST_SSID_2));
-        ScanResult[] scanResults = new ScanResult[] {scanResult1, scanResult2, scanResult3};
+        List<ScanDetail> scanDetails = new ArrayList<>();
+        ScanDetail scanDetail1 = mock(ScanDetail.class);
+        ScanDetail scanDetail2 = mock(ScanDetail.class);
+        ScanDetail scanDetail3 = mock(ScanDetail.class);
+        when(scanDetail1.getScanResult()).thenReturn(scanResult1);
+        when(scanDetail2.getScanResult()).thenReturn(scanResult2);
+        when(scanDetail3.getScanResult()).thenReturn(scanResult3);
+        scanDetails.add(scanDetail1);
+        scanDetails.add(scanDetail2);
+        scanDetails.add(scanDetail3);
 
         List<ScanResult> expectedResults = new ArrayList<>();
         expectedResults.add(scanResult2);
         expectedResults.add(scanResult3);
-        mExternalPnoScanRequestManager.onPnoNetworkFound(scanResults);
+        mExternalPnoScanRequestManager.onScanResultsAvailable(scanDetails);
         inOrder.verify(mContext).sendBroadcastAsUser(intentArgumentCaptor.capture(), any());
         assertEquals(TEST_PACKAGE, intentArgumentCaptor.getValue().getPackage());
         inOrder.verify(mCallback).onScanResultsAvailable(expectedResults);
@@ -223,10 +234,13 @@ public class ExternalPnoScanRequestManagerTest extends WifiBaseTest {
         // Mock a scan result that's not being requested
         ScanResult scanResult1 = new ScanResult();
         scanResult1.setWifiSsid(WifiSsid.fromString("\"RANDOM_SSID_123\""));
-        ScanResult[] scanResults = new ScanResult[] {scanResult1};
+        List<ScanDetail> scanDetails = new ArrayList<>();
+        ScanDetail scanDetail1 = mock(ScanDetail.class);
+        when(scanDetail1.getScanResult()).thenReturn(scanResult1);
+        scanDetails.add(scanDetail1);
 
         // Results should not be delivered, and the request should still be registered.
-        mExternalPnoScanRequestManager.onPnoNetworkFound(scanResults);
+        mExternalPnoScanRequestManager.onScanResultsAvailable(scanDetails);
         inOrder.verify(mContext, never()).sendBroadcastAsUser(any(), any());
         inOrder.verify(mCallback, never()).onScanResultsAvailable(any());
         inOrder.verify(mCallback, never()).onRemoved(anyInt());

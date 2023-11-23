@@ -20,10 +20,13 @@ import static com.android.car.CarServiceUtils.toByteArray;
 import static com.android.car.CarServiceUtils.toFloatArray;
 import static com.android.car.CarServiceUtils.toIntArray;
 import static com.android.car.CarServiceUtils.toLongArray;
+import static com.android.car.internal.ExcludeFromCodeCoverageGeneratedReport.DUMP_INFO;
 
 import android.car.hardware.CarPropertyValue;
 import android.hardware.automotive.vehicle.RawPropValues;
 import android.hardware.automotive.vehicle.VehiclePropertyStatus;
+
+import com.android.car.internal.ExcludeFromCodeCoverageGeneratedReport;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -474,6 +477,7 @@ public final class HalPropValueBuilder {
         }
 
         @Override
+        @ExcludeFromCodeCoverageGeneratedReport(reason = DUMP_INFO)
         public String toString() {
             return mVehiclePropValue.toString();
         }
@@ -651,6 +655,15 @@ public final class HalPropValueBuilder {
                 Arrays.hashCode(mVehiclePropValue.value.int64Values),
                 mVehiclePropValue.value.stringValue.hashCode(),
                 Arrays.hashCode(mVehiclePropValue.value.byteValues));
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (!(o instanceof AidlHalPropValue)) return false;
+            if (!super.equals(o)) return false;
+            AidlHalPropValue that = (AidlHalPropValue) o;
+            return mVehiclePropValue.equals(that.mVehiclePropValue);
         }
 
         protected Float[] getFloatContainerArray() {
@@ -865,6 +878,7 @@ public final class HalPropValueBuilder {
         }
 
         @Override
+        @ExcludeFromCodeCoverageGeneratedReport(reason = DUMP_INFO)
         public String toString() {
             return mVehiclePropValue.toString();
         }
@@ -1044,6 +1058,15 @@ public final class HalPropValueBuilder {
                 mVehiclePropValue.value.bytes.hashCode());
         }
 
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (!(o instanceof HidlHalPropValue)) return false;
+            if (!super.equals(o)) return false;
+            HidlHalPropValue that = (HidlHalPropValue) o;
+            return mVehiclePropValue.equals(that.mVehiclePropValue);
+        }
+
         protected Float[] getFloatContainerArray() {
             return mVehiclePropValue.value.floatValues.toArray(new Float[getFloatValuesSize()]);
         }
@@ -1170,14 +1193,15 @@ public final class HalPropValueBuilder {
         return byteValues;
     }
 
-    private static void setMixedTypeValues(int indexOfValues, Object[]values, int[] configArray,
-            ArrayList<Integer> int32Values, ArrayList<Float> floatValues,
+    private static void setMixedTypeValues(int indexOfValues, Object[]values,
+            int[] configArray, ArrayList<Integer> int32Values, ArrayList<Float> floatValues,
             ArrayList<Long> int64Values, ArrayList<Byte> byteValues) {
 
+        int index = indexOfValues;
         if (configArray[CONFIG_ARRAY_INDEX_BOOLEAN] != 0) {
             // Add a boolean value
-            int32Values.add((Boolean) values[indexOfValues] ? 1 : 0); // in HAL, 1 indicates true
-            indexOfValues++;
+            int32Values.add((Boolean) values[index] ? 1 : 0); // in HAL, 1 indicates true
+            index++;
         }
 
         /*
@@ -1187,8 +1211,8 @@ public final class HalPropValueBuilder {
         int integerSize =
                 configArray[CONFIG_ARRAY_INDEX_INT] + configArray[CONFIG_ARRAY_INDEX_INT_ARRAY];
         while (integerSize != 0) {
-            int32Values.add((Integer) values[indexOfValues]);
-            indexOfValues++;
+            int32Values.add((Integer) values[index]);
+            index++;
             integerSize--;
         }
         /* configArray[4], 1 indicates the property has a Long value .
@@ -1197,8 +1221,8 @@ public final class HalPropValueBuilder {
         int longSize =
                 configArray[CONFIG_ARRAY_INDEX_LONG] + configArray[CONFIG_ARRAY_INDEX_LONG_ARRAY];
         while (longSize != 0) {
-            int64Values.add((Long) values[indexOfValues]);
-            indexOfValues++;
+            int64Values.add((Long) values[index]);
+            index++;
             longSize--;
         }
         /* configArray[6], 1 indicates the property has a Float value .
@@ -1207,16 +1231,16 @@ public final class HalPropValueBuilder {
         int floatSize =
                 configArray[CONFIG_ARRAY_INDEX_FLOAT] + configArray[CONFIG_ARRAY_INDEX_FLOAT_ARRAY];
         while (floatSize != 0) {
-            floatValues.add((Float) values[indexOfValues]);
-            indexOfValues++;
+            floatValues.add((Float) values[index]);
+            index++;
             floatSize--;
         }
 
         /* configArray[8], the number indicates the size of byte[] in the property. */
         int byteSize = configArray[CONFIG_ARRAY_INDEX_BYTES];
         while (byteSize != 0) {
-            byteValues.add((Byte) values[indexOfValues]);
-            indexOfValues++;
+            byteValues.add((Byte) values[index]);
+            index++;
             byteSize--;
         }
     }

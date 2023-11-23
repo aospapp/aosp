@@ -50,11 +50,20 @@
     <uses-permission android:name="android.permission.NETWORK_STATS_PROVIDER" />
     <uses-permission android:name="android.permission.CONTROL_OEM_PAID_NETWORK_PREFERENCE" />
 
+    <!-- Declare the intent that the test intends to query. This is necessary for
+         UiDevice.getLauncherPackageName which is used in NetworkNotificationManagerTest
+    -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.HOME"/>
+        </intent>
+    </queries>
     <application android:testOnly="true">
         <uses-library android:name="android.test.runner" />
         <uses-library android:name="android.net.ipsec.ike" />
         <activity
-            android:name="com.android.server.connectivity.NetworkNotificationManagerTest$TestDialogActivity"/>
+            android:name="android.net.connectivity.com.android.server.connectivity.NetworkNotificationManagerTest$TestDialogActivity"/>
     </application>
 
     <instrumentation

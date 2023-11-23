@@ -30,6 +30,8 @@ import android.widget.PopupMenu;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import java.util.Objects;
+
 /**
  * Handles the menu for the theme playground app
  */
@@ -109,7 +111,7 @@ public abstract class AbstractSampleActivity extends Activity implements
      */
     private void bindMenuButton() {
         Button buttonMenu = findViewById(R.id.button_menu);
-        if (Utils.sThemeName.equals("Theme.DeviceDefault.NoActionBar")) {
+        if (Objects.equals(Utils.sThemeName, "Theme.DeviceDefault.NoActionBar")) {
             buttonMenu.setVisibility(View.VISIBLE);
         } else {
             buttonMenu.setVisibility(View.GONE);

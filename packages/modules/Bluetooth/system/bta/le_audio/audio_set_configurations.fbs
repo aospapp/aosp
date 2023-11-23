@@ -56,7 +56,6 @@ enum AudioSetConfigurationTargetLatency : byte {
     HIGH_RELIABILITY = 0x03,
 }
 table AudioSetSubConfiguration {
-    target_latency: AudioSetConfigurationTargetLatency = BALANCED_RELIABILITY;
     device_cnt: ubyte;
     ase_cnt: ubyte;
     direction: AudioSetConfigurationDirection = SINK;
@@ -70,6 +69,7 @@ table CodecConfiguration {
 }
 table QosConfiguration {
     name: string (key, required);
+    target_latency: AudioSetConfigurationTargetLatency = BALANCED_RELIABILITY;
     retransmission_number: ubyte;
     max_transport_latency : ushort;
 }

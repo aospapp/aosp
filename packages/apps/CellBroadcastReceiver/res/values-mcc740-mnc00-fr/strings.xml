@@ -16,6 +16,7 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="pws_other_message_identifiers" msgid="8976420402484419445">"Message de test"</string>
-    <string name="enable_emergency_alerts_message_title" msgid="825742239541920431">"Message local de test"</string>
+    <string name="pws_other_message_identifiers" msgid="2214940831691477786">"Avertissements de l\'opérateur"</string>
+    <string name="enable_emergency_alerts_message_title" msgid="1644330907171600428">"Avertissements de l\'opérateur"</string>
+    <string name="enable_emergency_alerts_message_summary" msgid="8067182348745388399">"Canal pour les avertissements de l\'opérateur"</string>
 </resources>

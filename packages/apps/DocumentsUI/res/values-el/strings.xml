@@ -92,8 +92,8 @@
     <string name="save_error" msgid="8631128801982095782">"Αποτυχία αποθήκευσης εγγράφου"</string>
     <string name="create_error" msgid="3092144450044861994">"Αποτυχία δημιουργίας φακέλου"</string>
     <string name="query_error" msgid="6625421453613879336">"Δεν είναι δυνατή η φόρτωση περιεχομένου τώρα"</string>
-    <string name="quiet_mode_error_title" msgid="9126656325282792843">"Το προφίλ εργασίας σας έχει τεθεί σε παύση."</string>
-    <string name="quiet_mode_button" msgid="6977115032320235420">"Ενεργοποίηση"</string>
+    <string name="quiet_mode_error_title" msgid="554319751414657910">"Οι εφαρμογές εργασίας τέθηκαν σε παύση"</string>
+    <string name="quiet_mode_button" msgid="8051436551926677305">"Ενεργοποίηση εφαρμογών εργασιών"</string>
     <string name="cant_select_work_files_error_title" msgid="6688716319549644354">"Δεν είναι δυνατή η επιλογή αρχείων εργασίας."</string>
     <string name="cant_select_work_files_error_message" msgid="683480676150690641">"Ο διαχειριστής δεν επιτρέπει την πρόσβαση σε αρχεία εργασίας από μια προσωπική εφαρμογή."</string>
     <string name="cant_select_personal_files_error_title" msgid="3200697170148617742">"Δεν είναι δυνατή η επιλογή προσωπικών αρχείων."</string>
@@ -103,7 +103,7 @@
     <string name="cant_save_to_personal_error_title" msgid="858327493694069780">"Δεν είναι δυνατή η αποθήκευση στο προσωπικό σας προφίλ."</string>
     <string name="cant_save_to_personal_error_message" msgid="6991758723736381751">"Ο διαχειριστής ΙΤ δεν επιτρέπει την αποθήκευση αρχείων εργασίας στο προσωπικό σας προφίλ."</string>
     <string name="cross_profile_action_not_allowed_title" msgid="6611281348716476478">"Η συγκεκριμένη ενέργεια δεν επιτρέπεται."</string>
-    <string name="cross_profile_action_not_allowed_message" msgid="7331275433061690947">"Για να μάθετε περισσότερα, επικοινωνήστε με τον διαχειριστή IT σας."</string>
+    <string name="cross_profile_action_not_allowed_message" msgid="7331275433061690947">"Για να μάθετε περισσότερα, επικοινωνήστε με τον διαχειριστή IT."</string>
     <string name="root_recent" msgid="1080156975424341623">"Πρόσφατα"</string>
     <string name="root_available_bytes" msgid="8269870862691408864">"<xliff:g id="SIZE">%1$s</xliff:g> ελεύθερα"</string>
     <string name="root_type_service" msgid="6521366147466512289">"Υπηρεσίες αποθήκευσης"</string>

@@ -23,6 +23,7 @@
     <string name="bt_share_picker_label" msgid="7464438494743777696">"Bluetooth"</string>
     <string name="unknown_device" msgid="2317679521750821654">"Неизвестное устройство"</string>
     <string name="unknownNumber" msgid="1245183329830158661">"Неизвестно"</string>
+    <string name="not_provided" msgid="6938740494380012614">"Отсутствуют"</string>
     <string name="airplane_error_title" msgid="2570111716678850860">"Режим полета"</string>
     <string name="airplane_error_msg" msgid="4853111123699559578">"В режиме полета нельзя использовать Bluetooth."</string>
     <string name="bt_enable_title" msgid="4484289159118416315"></string>
@@ -128,4 +129,10 @@
     <string name="a2dp_sink_mbs_label" msgid="6035366346569127155">"Звук через Bluetooth"</string>
     <string name="bluetooth_opp_file_limit_exceeded" msgid="6612109860149473930">"Можно перенести только файлы размером до 4 ГБ."</string>
     <string name="bluetooth_connect_action" msgid="2319449093046720209">"Подключиться по Bluetooth"</string>
+    <string name="bluetooth_enabled_apm_title" msgid="6914461147844949044">"Функция Bluetooth будет включена в режиме полета"</string>
+    <string name="bluetooth_enabled_apm_message" msgid="6168686193308136881">"Если не отключить функцию Bluetooth, в следующий раз она останется включенной в режиме полета."</string>
+    <string name="bluetooth_stays_on_title" msgid="39720820955212918">"Функция Bluetooth остается включенной"</string>
+    <string name="bluetooth_stays_on_message" msgid="3669663452593157737">"Функция Bluetooth останется включенной в режиме полета. Вы можете отключить ее, если хотите."</string>
+    <string name="bluetooth_and_wifi_stays_on_title" msgid="5821932798860821244">"Функции Wi‑Fi и Bluetooth остаются включенными"</string>
+    <string name="bluetooth_and_wifi_stays_on_message" msgid="7848565203843882558">"Wi‑Fi и Bluetooth останутся включенными в режиме полета. Вы можете отключить их, если хотите."</string>
 </resources>

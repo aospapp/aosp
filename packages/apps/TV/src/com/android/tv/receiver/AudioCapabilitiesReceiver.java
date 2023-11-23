@@ -67,7 +67,8 @@ public final class AudioCapabilitiesReceiver {
     }
 
     public void register() {
-        mContext.registerReceiver(mReceiver, new IntentFilter(AudioManager.ACTION_HDMI_AUDIO_PLUG));
+        mContext.registerReceiver(mReceiver, new IntentFilter(AudioManager.ACTION_HDMI_AUDIO_PLUG),
+                                  Context.RECEIVER_EXPORTED);
     }
 
     public void unregister() {

@@ -307,7 +307,7 @@ public class CarDrivingRestrictionsTest extends MockedCarTestBase {
             synchronized (mDrivingStateLock) {
                 // We're going to hold a reference to this object
                 mLastEvent = event;
-                mDrivingStateLock.notify();
+                mDrivingStateLock.notifyAll();
             }
         }
 
@@ -328,7 +328,7 @@ public class CarDrivingRestrictionsTest extends MockedCarTestBase {
                     + restrictions.getActiveRestrictions());
             synchronized (mUxRLock) {
                 mLastRestrictions = restrictions;
-                mUxRLock.notify();
+                mUxRLock.notifyAll();
             }
         }
     }

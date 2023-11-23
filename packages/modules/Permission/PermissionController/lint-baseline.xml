@@ -1,0 +1,565 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<issues format="6" by="lint 8.0.0-dev" type="baseline" dependencies="true" variant="all" version="8.0.0-dev">
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 31 (current min is 30): `android.app.AppOpsManager.HistoricalOp#getDiscreteAccessAt`"
+        errorLine1="                    val attributedOpEntry: AttributedOpEntry = it.getDiscreteAccessAt(i)"
+        errorLine2="                                                                  ~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="packages/modules/Permission/PermissionController/src/com/android/permissioncontroller/permission/model/livedatatypes/v31/LightHistoricalPackageOps.kt"
+            line="191"
+            column="67"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 31 (current min is 30): `android.app.AppOpsManager.HistoricalOp#getDiscreteAccessAt`"
+        errorLine1="                    val opEntry: AttributedOpEntry = it.getDiscreteAccessAt(i)"
+        errorLine2="                                                        ~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="packages/modules/Permission/PermissionController/src/com/android/permissioncontroller/permission/model/livedatatypes/v31/LightHistoricalPackageOps.kt"
+            line="156"
+            column="57"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 31 (current min is 30): `android.app.AppOpsManager.HistoricalOp#getDiscreteAccessCount`"
+        errorLine1="                for (i in 0 until it.discreteAccessCount) {"
+        errorLine2="                                     ~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="packages/modules/Permission/PermissionController/src/com/android/permissioncontroller/permission/model/livedatatypes/v31/LightHistoricalPackageOps.kt"
+            line="155"
+            column="38"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 31 (current min is 30): `android.app.AppOpsManager.HistoricalOp#getDiscreteAccessCount`"
+        errorLine1="                for (i in 0 until it.discreteAccessCount) {"
+        errorLine2="                                     ~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="packages/modules/Permission/PermissionController/src/com/android/permissioncontroller/permission/model/livedatatypes/v31/LightHistoricalPackageOps.kt"
+            line="190"
+            column="38"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 31 (current min is 30): `android.app.AppOpsManager.HistoricalOpsRequest.Builder#setHistoryFlags`"
+        errorLine1="                .setHistoryFlags(HISTORY_FLAG_DISCRETE or HISTORY_FLAG_GET_ATTRIBUTION_CHAINS)"
+        errorLine2="                 ~~~~~~~~~~~~~~~">
+        <location
+            file="packages/modules/Permission/PermissionController/src/com/android/permissioncontroller/permission/data/v31/AllLightHistoricalPackageOpsLiveData.kt"
+            line="101"
+            column="18"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 31 (current min is 30): `android.apphibernation.AppHibernationManager#isHibernatingForUser`"
+        errorLine1="                    if (hibernationManager.isHibernatingForUser(pkg.packageName)) {"
+        errorLine2="                                           ~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="packages/modules/Permission/PermissionController/src/com/android/permissioncontroller/permission/data/HibernatedPackagesLiveData.kt"
+            line="56"
+            column="44"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 31 (current min is 30): `android.content.pm.Attribution#getLabel`"
+        errorLine1="            attributions?.forEach { attributionTagToLabel[it.tag] = it.label }"
+        errorLine2="                                                                       ~~~~~">
+        <location
+            file="packages/modules/Permission/PermissionController/src/com/android/permissioncontroller/permission/model/livedatatypes/LightPackageInfo.kt"
+            line="125"
+            column="72"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 31 (current min is 30): `android.content.pm.Attribution#getTag`"
+        errorLine1="            attributions?.forEach { attributionTagToLabel[it.tag] = it.label }"
+        errorLine2="                                                             ~~~">
+        <location
+            file="packages/modules/Permission/PermissionController/src/com/android/permissioncontroller/permission/model/livedatatypes/LightPackageInfo.kt"
+            line="125"
+            column="62"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 31 (current min is 30): `android.permission.AdminPermissionControlParams#canAdminGrantSensorsPermissions`"
+        errorLine1="                params.getGrantState(), params.canAdminGrantSensorsPermissions())));"
+        errorLine2="                                               ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="packages/modules/Permission/PermissionController/src/com/android/permissioncontroller/permission/service/PermissionControllerServiceImpl.java"
+            line="517"
+            column="48"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 31 (current min is 30): `android.permission.AdminPermissionControlParams#getGrantState`"
+        errorLine1="                params.getGrantState(), params.canAdminGrantSensorsPermissions())));"
+        errorLine2="                       ~~~~~~~~~~~~~">
+        <location
+            file="packages/modules/Permission/PermissionController/src/com/android/permissioncontroller/permission/service/PermissionControllerServiceImpl.java"
+            line="517"
+            column="24"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 31 (current min is 30): `android.permission.AdminPermissionControlParams#getGranteePackageName`"
+        errorLine1="                callerPackageName, params.getGranteePackageName(), params.getPermission(),"
+        errorLine2="                                          ~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="packages/modules/Permission/PermissionController/src/com/android/permissioncontroller/permission/service/PermissionControllerServiceImpl.java"
+            line="516"
+            column="43"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 31 (current min is 30): `android.permission.AdminPermissionControlParams#getPermission`"
+        errorLine1="                callerPackageName, params.getGranteePackageName(), params.getPermission(),"
+        errorLine2="                                                                          ~~~~~~~~~~~~~">
+        <location
+            file="packages/modules/Permission/PermissionController/src/com/android/permissioncontroller/permission/service/PermissionControllerServiceImpl.java"
+            line="516"
+            column="75"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 33 (current min is 30): `android.hardware.SensorPrivacyManager#addSensorPrivacyListener`"
+        errorLine1="            mSensorPrivacyManager.addSensorPrivacyListener(mPrivacyChangedListener);"
+        errorLine2="                                  ~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="packages/modules/Permission/PermissionController/src/com/android/permissioncontroller/permission/ui/television/AppPermissionsFragment.java"
+            line="159"
+            column="35"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 33 (current min is 30): `android.hardware.SensorPrivacyManager#addSensorPrivacyListener`"
+        errorLine1="            mSensorPrivacyManager.addSensorPrivacyListener(mPrivacyChangedListener);"
+        errorLine2="                                  ~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="packages/modules/Permission/PermissionController/src/com/android/permissioncontroller/permission/ui/television/PermissionAppsFragment.java"
+            line="114"
+            column="35"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 33 (current min is 30): `android.hardware.SensorPrivacyManager#removeSensorPrivacyListener`"
+        errorLine1="            mSensorPrivacyManager.removeSensorPrivacyListener(mPrivacyChangedListener);"
+        errorLine2="                                  ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="packages/modules/Permission/PermissionController/src/com/android/permissioncontroller/permission/ui/television/AppPermissionsFragment.java"
+            line="367"
+            column="35"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 33 (current min is 30): `android.hardware.SensorPrivacyManager#removeSensorPrivacyListener`"
+        errorLine1="            mSensorPrivacyManager.removeSensorPrivacyListener(mPrivacyChangedListener);"
+        errorLine2="                                  ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="packages/modules/Permission/PermissionController/src/com/android/permissioncontroller/permission/ui/television/PermissionAppsFragment.java"
+            line="365"
+            column="35"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 33 (current min is 30): `android.safetycenter.SafetyCenterData#getIssues`"
+        errorLine1="    ) : this(safetyCenterData.status, hasIssues = safetyCenterData.issues.size &gt; 0)"
+        errorLine2="                                                                   ~~~~~~">
+        <location
+            file="packages/modules/Permission/PermissionController/src/com/android/permissioncontroller/safetycenter/ui/model/StatusUiData.kt"
+            line="18"
+            column="68"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 33 (current min is 30): `android.safetycenter.SafetyCenterData#getIssues`"
+        errorLine1="    issues"
+        errorLine2="    ~~~~~~">
+        <location
+            file="packages/modules/Permission/PermissionController/src/com/android/permissioncontroller/safetycenter/ui/model/LiveSafetyCenterViewModel.kt"
+            line="309"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 33 (current min is 30): `android.safetycenter.SafetyCenterData#getIssues`"
+        errorLine1="private fun SafetyCenterData.buildIssueIdSet(): Set&lt;IssueId&gt; = issues.map { it.id }.toSet()"
+        errorLine2="                                                               ~~~~~~">
+        <location
+            file="packages/modules/Permission/PermissionController/src/com/android/permissioncontroller/safetycenter/ui/model/LiveSafetyCenterViewModel.kt"
+            line="323"
+            column="64"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 33 (current min is 30): `android.safetycenter.SafetyCenterData#getStatus`"
+        errorLine1="    ) : this(safetyCenterData.status, hasIssues = safetyCenterData.issues.size &gt; 0)"
+        errorLine2="                              ~~~~~~">
+        <location
+            file="packages/modules/Permission/PermissionController/src/com/android/permissioncontroller/safetycenter/ui/model/StatusUiData.kt"
+            line="18"
+            column="31"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 33 (current min is 30): `android.safetycenter.SafetyCenterData#getStatus`"
+        errorLine1="    status.refreshStatus == SafetyCenterStatus.REFRESH_STATUS_FULL_RESCAN_IN_PROGRESS"
+        errorLine2="    ~~~~~~">
+        <location
+            file="packages/modules/Permission/PermissionController/src/com/android/permissioncontroller/safetycenter/ui/model/LiveSafetyCenterViewModel.kt"
+            line="321"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 33 (current min is 30): `android.safetycenter.SafetyCenterIssue#getActions`"
+        errorLine1="            issue.actions"
+        errorLine2="                  ~~~~~~~">
+        <location
+            file="packages/modules/Permission/PermissionController/src/com/android/permissioncontroller/safetycenter/ui/model/LiveSafetyCenterViewModel.kt"
+            line="311"
+            column="19"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 33 (current min is 30): `android.safetycenter.SafetyCenterIssue#getId`"
+        errorLine1="                .map { issue.id to it.id }"
+        errorLine2="                             ~~">
+        <location
+            file="packages/modules/Permission/PermissionController/src/com/android/permissioncontroller/safetycenter/ui/model/LiveSafetyCenterViewModel.kt"
+            line="315"
+            column="30"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 33 (current min is 30): `android.safetycenter.SafetyCenterIssue#getId`"
+        errorLine1="private fun SafetyCenterData.buildIssueIdSet(): Set&lt;IssueId&gt; = issues.map { it.id }.toSet()"
+        errorLine2="                                                                               ~~">
+        <location
+            file="packages/modules/Permission/PermissionController/src/com/android/permissioncontroller/safetycenter/ui/model/LiveSafetyCenterViewModel.kt"
+            line="323"
+            column="80"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 33 (current min is 30): `android.safetycenter.SafetyCenterIssue.Action#getId`"
+        errorLine1="                .map { issue.id to it.id }"
+        errorLine2="                                      ~~">
+        <location
+            file="packages/modules/Permission/PermissionController/src/com/android/permissioncontroller/safetycenter/ui/model/LiveSafetyCenterViewModel.kt"
+            line="315"
+            column="39"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 33 (current min is 30): `android.safetycenter.SafetyCenterIssue.Action#getSuccessMessage`"
+        errorLine1="                .filter { it.isInFlight &amp;&amp; !it.successMessage.isNullOrEmpty() }"
+        errorLine2="                                               ~~~~~~~~~~~~~~">
+        <location
+            file="packages/modules/Permission/PermissionController/src/com/android/permissioncontroller/safetycenter/ui/model/LiveSafetyCenterViewModel.kt"
+            line="314"
+            column="48"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 33 (current min is 30): `android.safetycenter.SafetyCenterIssue.Action#getSuccessMessage`"
+        errorLine1="        var successMessage = action.successMessage"
+        errorLine2="                                    ~~~~~~~~~~~~~~">
+        <location
+            file="packages/modules/Permission/PermissionController/src/com/android/permissioncontroller/safetycenter/ui/IssueCardAnimator.kt"
+            line="47"
+            column="37"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 33 (current min is 30): `android.safetycenter.SafetyCenterIssue.Action#isInFlight`"
+        errorLine1="                .filter { it.isInFlight &amp;&amp; !it.successMessage.isNullOrEmpty() }"
+        errorLine2="                             ~~~~~~~~~~">
+        <location
+            file="packages/modules/Permission/PermissionController/src/com/android/permissioncontroller/safetycenter/ui/model/LiveSafetyCenterViewModel.kt"
+            line="314"
+            column="30"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 33 (current min is 30): `android.safetycenter.SafetyCenterManager#isSafetyCenterEnabled`"
+        errorLine1="        if (!safetyCenterManager.isSafetyCenterEnabled()) {"
+        errorLine2="                                 ~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="packages/modules/Permission/PermissionController/src/com/android/permissioncontroller/safetycenter/service/SafetyCenterBackgroundRefreshJobService.java"
+            line="96"
+            column="34"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 33 (current min is 30): `android.safetycenter.SafetyCenterManager#isSafetyCenterEnabled`"
+        errorLine1="        if (!safetyCenterManager.isSafetyCenterEnabled()) {"
+        errorLine2="                                 ~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="packages/modules/Permission/PermissionController/src/com/android/permissioncontroller/safetycenter/service/SafetyCenterBackgroundRefreshJobService.java"
+            line="149"
+            column="34"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 33 (current min is 30): `android.safetycenter.SafetyCenterManager#isSafetyCenterEnabled`"
+        errorLine1="        if (!scManager.isSafetyCenterEnabled) {"
+        errorLine2="                       ~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="packages/modules/Permission/PermissionController/src/com/android/permissioncontroller/permission/service/v33/SafetyCenterQsTileService.kt"
+            line="48"
+            column="24"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 33 (current min is 30): `android.safetycenter.SafetyCenterManager#refreshSafetySources`"
+        errorLine1="        safetyCenterManager.refreshSafetySources(getRefreshReason());"
+        errorLine2="                            ~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="packages/modules/Permission/PermissionController/src/com/android/permissioncontroller/safetycenter/service/SafetyCenterBackgroundRefreshJobService.java"
+            line="155"
+            column="29"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 33 (current min is 30): `android.safetycenter.SafetyCenterStatus#getRefreshStatus`"
+        errorLine1="            when (status.refreshStatus) {"
+        errorLine2="                         ~~~~~~~~~~~~~">
+        <location
+            file="packages/modules/Permission/PermissionController/src/com/android/permissioncontroller/safetycenter/ui/model/StatusUiData.kt"
+            line="65"
+            column="26"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 33 (current min is 30): `android.safetycenter.SafetyCenterStatus#getRefreshStatus`"
+        errorLine1="    status.refreshStatus == SafetyCenterStatus.REFRESH_STATUS_FULL_RESCAN_IN_PROGRESS"
+        errorLine2="           ~~~~~~~~~~~~~">
+        <location
+            file="packages/modules/Permission/PermissionController/src/com/android/permissioncontroller/safetycenter/ui/model/LiveSafetyCenterViewModel.kt"
+            line="321"
+            column="12"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 33 (current min is 30): `recordPermissionDecision`"
+        errorLine1="        PermissionDecisionStorageImpl.recordPermissionDecision(app.applicationContext,"
+        errorLine2="                                      ~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="packages/modules/Permission/PermissionController/src/com/android/permissioncontroller/permission/ui/model/GrantPermissionsViewModel.kt"
+            line="1147"
+            column="39"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 34 (current min is 30): `android.content.pm.PackageManager#getAppMetadata`"
+        errorLine1="            app.packageManager.getAppMetadata(packageName)"
+        errorLine2="                               ~~~~~~~~~~~~~~">
+        <location
+            file="packages/modules/Permission/PermissionController/src/com/android/permissioncontroller/permission/data/SafetyLabelInfoLiveData.kt"
+            line="116"
+            column="32"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 34 (current min is 30): `android.health.connect.HealthConnectManager#getHealthPermissions`"
+        errorLine1="        val permissions = HealthConnectManager.getHealthPermissions(context)"
+        errorLine2="                                               ~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="packages/modules/Permission/PermissionController/src/com/android/permissioncontroller/permission/utils/KotlinUtils.kt"
+            line="1465"
+            column="48"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 34 (current min is 30): `android.health.connect.HealthConnectManager#isHealthPermission`"
+        errorLine1="                isHealthPermission(activity, permission)"
+        errorLine2="                ~~~~~~~~~~~~~~~~~~">
+        <location
+            file="packages/modules/Permission/PermissionController/src/com/android/permissioncontroller/permission/ui/model/GrantPermissionsViewModel.kt"
+            line="1268"
+            column="17"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 34 (current min is 33): `getParentGroupId`"
+        errorLine1="            String groupId = getParentGroupId(preferenceKey);"
+        errorLine2="                             ~~~~~~~~~~~~~~~~">
+        <location
+            file="packages/modules/Permission/PermissionController/src/com/android/permissioncontroller/safetycenter/ui/SafetyCenterActivity.java"
+            line="89"
+            column="30"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 34 (current min is 33): `openRelevantSubpage`"
+        errorLine1="            frag = openRelevantSubpage(groupId);"
+        errorLine2="                   ~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="packages/modules/Permission/PermissionController/src/com/android/permissioncontroller/safetycenter/ui/SafetyCenterActivity.java"
+            line="86"
+            column="20"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 34 (current min is 33): `openRelevantSubpage`"
+        errorLine1="            frag = openRelevantSubpage(groupId);"
+        errorLine2="                   ~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="packages/modules/Permission/PermissionController/src/com/android/permissioncontroller/safetycenter/ui/SafetyCenterActivity.java"
+            line="90"
+            column="20"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Class requires API level 31 (current min is 30): `android.apphibernation.AppHibernationManager`"
+        errorLine1="                userContext.getSystemService(APP_HIBERNATION_SERVICE) as AppHibernationManager"
+        errorLine2="                                                                         ~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="packages/modules/Permission/PermissionController/src/com/android/permissioncontroller/permission/data/HibernatedPackagesLiveData.kt"
+            line="53"
+            column="74"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Class requires API level 33 (current min is 30): `android.safetycenter.SafetyCenterManager`"
+        errorLine1="                context.getSystemService(SafetyCenterManager.class);"
+        errorLine2="                                         ~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="packages/modules/Permission/PermissionController/src/com/android/permissioncontroller/safetycenter/service/SafetyCenterBackgroundRefreshJobService.java"
+            line="84"
+            column="42"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Class requires API level 33 (current min is 30): `android.safetycenter.SafetyCenterManager`"
+        errorLine1="        SafetyCenterManager safetyCenterManager = this.getSystemService(SafetyCenterManager.class);"
+        errorLine2="                                                                        ~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="packages/modules/Permission/PermissionController/src/com/android/permissioncontroller/safetycenter/service/SafetyCenterBackgroundRefreshJobService.java"
+            line="144"
+            column="73"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Class requires API level 33 (current min is 30): `android.safetycenter.SafetyCenterManager`"
+        errorLine1="        val scManager = getSystemService(SafetyCenterManager::class.java)!!"
+        errorLine2="                                         ~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="packages/modules/Permission/PermissionController/src/com/android/permissioncontroller/permission/service/v33/SafetyCenterQsTileService.kt"
+            line="41"
+            column="42"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Class requires API level 34 (current min is 30): `android.app.AppOpsManager.OnOpNotedListener`"
+        errorLine1="    AppOpsManager.OnOpNotedListener,"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="packages/modules/Permission/PermissionController/src/com/android/permissioncontroller/permission/data/v31/AllLightHistoricalPackageOpsLiveData.kt"
+            line="45"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Class requires API level 34 (current min is 30): `android.app.AppOpsManager.OnOpNotedListener`"
+        errorLine1="    AppOpsManager.OnOpNotedListener,"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="packages/modules/Permission/PermissionController/src/com/android/permissioncontroller/permission/data/v31/AllLightPackageOpsLiveData.kt"
+            line="38"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Field requires API level 33 (current min is 30): `getTAG`"
+        errorLine1="                    MoreIssuesCardPreference.TAG,"
+        errorLine2="                                             ~~~">
+        <location
+            file="packages/modules/Permission/PermissionController/src/com/android/permissioncontroller/safetycenter/ui/MoreIssuesCardAnimator.kt"
+            line="107"
+            column="46"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Method reference requires API level 33 (current min is 30): `android.safetycenter.SafetyCenterStatus::severityLevel`"
+        errorLine1="    val severityLevel: Int by status::severityLevel"
+        errorLine2="                              ~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="packages/modules/Permission/PermissionController/src/com/android/permissioncontroller/safetycenter/ui/model/StatusUiData.kt"
+            line="30"
+            column="31"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Method reference requires API level 33 (current min is 30): `android.safetycenter.SafetyCenterStatus::summary`"
+        errorLine1="    val originalSummary: CharSequence by status::summary"
+        errorLine2="                                         ~~~~~~~~~~~~~~~">
+        <location
+            file="packages/modules/Permission/PermissionController/src/com/android/permissioncontroller/safetycenter/ui/model/StatusUiData.kt"
+            line="29"
+            column="42"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Method reference requires API level 33 (current min is 30): `android.safetycenter.SafetyCenterStatus::title`"
+        errorLine1="    val title: CharSequence by status::title"
+        errorLine2="                               ~~~~~~~~~~~~~">
+        <location
+            file="packages/modules/Permission/PermissionController/src/com/android/permissioncontroller/safetycenter/ui/model/StatusUiData.kt"
+            line="28"
+            column="32"/>
+    </issue>
+
+</issues>

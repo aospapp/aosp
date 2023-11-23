@@ -25,7 +25,7 @@ LOCAL_PACKAGE_NAME := CarSystemUITests
 LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0
 LOCAL_LICENSE_CONDITIONS := notice
 LOCAL_PRIVATE_PLATFORM_APIS := true
-LOCAL_COMPATIBILITY_SUITE := device-tests
+LOCAL_COMPATIBILITY_SUITE := device-tests automotive-tests
 
 LOCAL_STATIC_ANDROID_LIBRARIES := \
     CarSystemUI-tests
@@ -34,7 +34,8 @@ LOCAL_MULTILIB := both
 
 LOCAL_JNI_SHARED_LIBRARIES := \
     libdexmakerjvmtiagent \
-    libmultiplejvmtiagentsinterferenceagent
+    libmultiplejvmtiagentsinterferenceagent \
+    libstaticjvmtiagent
 
 LOCAL_JAVA_LIBRARIES := \
     android.test.runner \

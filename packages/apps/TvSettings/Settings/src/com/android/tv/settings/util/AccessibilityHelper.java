@@ -17,7 +17,9 @@
 package com.android.tv.settings.util;
 
 import android.content.Context;
+import android.view.View;
 import android.view.accessibility.AccessibilityManager;
+import android.view.inputmethod.InputMethodManager;
 
 /**
  * Static utility class for common accessibility functions.
@@ -31,5 +33,10 @@ public class AccessibilityHelper {
         AccessibilityManager accessMan = (AccessibilityManager) context.
                 getSystemService(Context.ACCESSIBILITY_SERVICE);
         return accessMan.isEnabled();
+    }
+
+    public static void dismissKeyboard(Context context, View view) {
+        InputMethodManager imm = context.getSystemService(InputMethodManager.class);
+        imm.hideSoftInputFromWindow(view.getApplicationWindowToken(), 0);
     }
 }

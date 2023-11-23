@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+#include <functional>
+
 #include "osi/include/log.h"
 #include "stack/btm/btm_ble_int.h"
 #include "stack/btm/security_device_record.h"
@@ -111,14 +113,40 @@ tBTM_SEC_DEV_REC* btm_find_dev(const RawAddress& bd_addr);
 
 /*******************************************************************************
  *
+ * Function         btm_find_dev_with_lenc
+ *
+ * Description      Look for the record in the device database with LTK and
+ *                  specified BD address
+ *
+ * Returns          Pointer to the record or NULL
+ *
+ ******************************************************************************/
+tBTM_SEC_DEV_REC* btm_find_dev_with_lenc(const RawAddress& bd_addr);
+
+/*******************************************************************************
+ *
  * Function         btm_consolidate_dev
-5**
+ *
  * Description      combine security records if identified as same peer
  *
  * Returns          none
  *
  ******************************************************************************/
 void btm_consolidate_dev(tBTM_SEC_DEV_REC* p_target_rec);
+
+/*******************************************************************************
+ *
+ * Function         btm_consolidate_dev
+ *
+ * Description      When pairing is finished (i.e. on BR/EDR), this function
+ *                  checks if there are existing LE connections to same device
+ *                  that can now be encrypted and used for profiles requiring
+ *                  encryption.
+ *
+ * Returns          none
+ *
+ ******************************************************************************/
+void btm_dev_consolidate_existing_connections(const RawAddress& bd_addr);
 
 /*******************************************************************************
  *
@@ -171,3 +199,14 @@ tBTM_SEC_DEV_REC::tBTM_BOND_TYPE btm_get_bond_type_dev(
  ******************************************************************************/
 bool btm_set_bond_type_dev(const RawAddress& bd_addr,
                            tBTM_SEC_DEV_REC::tBTM_BOND_TYPE bond_type);
+
+/*******************************************************************************
+ *
+ * Function         btm_get_sec_dev_rec
+ *
+ * Description      Get security device records satisfying given filter
+ *
+ * Returns          A vector containing pointers of security device records
+ *
+ ******************************************************************************/
+std::vector<tBTM_SEC_DEV_REC*> btm_get_sec_dev_rec();

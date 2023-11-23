@@ -26,11 +26,6 @@
 
 static uint16_t gVersion;
 
-// Define appl_trace_level even though LogMsg is trivial.  This is required when
-// coverage is enabled because the compiler is unable to eliminate the `if`
-// checks against appl_trace_level in APPL_TRACE_* macros.
-uint8_t appl_trace_level = 0;
-void LogMsg(uint32_t trace_set_mask, const char* fmt_str, ...) {}
 bool SDP_AddProtocolList(uint32_t handle, uint16_t num_elem,
                          tSDP_PROTOCOL_ELEM* p_elem_list) {
   return false;
@@ -63,11 +58,11 @@ class BtaHfClientAddRecordTest : public ::testing::Test {
 };
 
 TEST_F(BtaHfClientAddRecordTest, test_hf_client_add_record) {
-  tBTA_HF_CLIENT_FEAT features = BTIF_HF_CLIENT_FEATURES;
+  tBTA_HF_CLIENT_FEAT features = get_default_hf_client_features();
   uint32_t sdp_handle = 0;
   uint8_t scn = 0;
 
   bta_hf_client_add_record("Handsfree", scn, features, sdp_handle);
-  ASSERT_EQ(gVersion, BTA_HFP_VERSION);
+  ASSERT_EQ(gVersion, get_default_hfp_version());
 }
 

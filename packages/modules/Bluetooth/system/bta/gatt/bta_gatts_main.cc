@@ -105,6 +105,10 @@ bool bta_gatts_hdl_event(BT_HDR_RIGID* p_msg) {
       break;
     }
 
+    case BTA_GATTS_API_INIT_BONDED_EVT:
+      gatt_load_bonded();
+      break;
+
     default:
       break;
   }

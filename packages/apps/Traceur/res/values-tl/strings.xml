@@ -4,6 +4,9 @@
     <string name="system_tracing" msgid="4719188511746319848">"Pag-trace ng System"</string>
     <string name="record_system_activity" msgid="4339462312915377825">"Itala ang aktibidad ng system at suriin ito sa ibang pagkakataon para mapahusay ang performance"</string>
     <string name="record_trace" msgid="6416875085186661845">"Mag-record ng trace"</string>
+    <string name="record_trace_summary" msgid="6705357754827849292">"Nagka-capture ng pag-trace ng system gamit ang configuration na nakatakda sa \"Mga setting ng trace\""</string>
+    <string name="record_stack_samples" msgid="3498368637185702335">"I-record ang profile ng CPU"</string>
+    <string name="record_stack_samples_summary" msgid="7827953921526410478">"Puwede ring i-enable ang pag-sample ng callstack sa mga trace sa pamamagitan ng pagtingin sa kategoryang \"cpu\""</string>
     <string name="start_new_trace" msgid="8177130420802170353">"Magsimula ng bagong trace"</string>
     <string name="trace_debuggable_applications" msgid="7957069895298887899">"Mag-trace ng mga nade-debug na application"</string>
     <string name="categories" msgid="2280163673538611008">"Mga Kategorya"</string>
@@ -17,7 +20,9 @@
     <string name="show_quick_settings_tile" msgid="4971147332635291585">"Ipakita ang tile ng Mga Mabilisang Setting"</string>
     <string name="saving_trace" msgid="1468692734770800541">"Sine-save ang trace"</string>
     <string name="trace_saved" msgid="5869970594780992309">"Na-save ang trace"</string>
-    <string name="tap_to_share" msgid="6766732404489536899">"I-tap para ibahagi ang iyong trace"</string>
+    <string name="saving_stack_samples" msgid="8174915522390525221">"Sine-save ang mga sample ng stack"</string>
+    <string name="stack_samples_saved" msgid="8863295751647724616">"Na-save ang mga sample ng stack"</string>
+    <string name="tap_to_share" msgid="4440713575852187545">"I-tap para ibahagi ang iyong recording"</string>
     <string name="attaching_to_report" msgid="2629202947947275886">"Nag-a-attach ng trace sa ulat ng bug"</string>
     <string name="attached_to_report" msgid="5806905349184608870">"Nag-attach ng trace sa ulat ng bug"</string>
     <string name="attached_to_report_summary" msgid="7665675771190391355">"I-tap para buksan ang BetterBug"</string>
@@ -25,18 +30,19 @@
     <string name="tracing_categories_unavailable" msgid="5609076391417077752">"Hindi available ang ilang kategorya ng pag-trace:"</string>
     <string name="trace_is_being_recorded" msgid="5947378146009337469">"Nire-record ang trace"</string>
     <string name="tap_to_stop_tracing" msgid="6533282719573871806">"I-tap upang ihinto ang pag-trace"</string>
-    <string name="clear_saved_traces" msgid="4809195654452260944">"I-clear ang mga naka-save na trace"</string>
-    <string name="clear_saved_traces_summary" msgid="6035923138201219577">"Maki-clear ang mga trace pagkatapos ng isang buwan"</string>
-    <string name="clear_saved_traces_question" msgid="2184026613055303818">"I-clear ang mga naka-save na trace?"</string>
-    <string name="all_traces_will_be_deleted" msgid="6646545462206955920">"Made-delete ang lahat ng trace sa /data/local/traces"</string>
+    <string name="stack_samples_are_being_recorded" msgid="8669254939248349583">"Nire-record ang mga sample ng stack"</string>
+    <string name="tap_to_stop_stack_sampling" msgid="5911317684139059415">"I-tap para ihinto ang pag-sample ng stack"</string>
+    <string name="clear_saved_files" msgid="9156079311231446825">"I-clear ang mga na-save na file"</string>
+    <string name="clear_saved_files_summary" msgid="109751867417553670">"Maki-clear ang mga recording pagkalipas ng isang buwan"</string>
+    <string name="clear_saved_files_question" msgid="8586686617760838834">"I-clear ang mga na-save na file?"</string>
+    <string name="all_recordings_will_be_deleted" msgid="7731693738485947891">"Made-delete ang lahat ng recording sa /data/local/traces"</string>
     <string name="clear" msgid="5484761795406948056">"I-clear"</string>
     <string name="system_traces_storage_title" msgid="8294090839883366871">"Mga trace ng system"</string>
     <string name="keywords" msgid="736547007949049535">"systrace, trace, performance"</string>
-    <string name="share_trace" msgid="4528525067822044385">"Ibahagi ang trace?"</string>
+    <string name="share_file" msgid="1982029143280382271">"Ibahagi ang file?"</string>
     <string name="system_trace_sensitive_data" msgid="3069389866696009549">"Ang mga file ng Pag-trace ng System ay maaaring may sensitibong data ng system at app (gaya ng paggamit ng app). Ibahagi lang ang mga trace ng system sa mga tao at app na pinakakatiwalaan mo."</string>
     <string name="share" msgid="8443979083706282338">"Ibahagi"</string>
     <string name="dont_show_again" msgid="6662492041164390600">"Huwag ipakitang muli"</string>
-    <string name="use_perfetto_beta" msgid="2725630143916520160">"Gamitin ang Perfetto (beta)"</string>
     <string name="long_traces" msgid="5110949471775966329">"Mga long trace"</string>
     <string name="long_traces_summary" msgid="419034282946761469">"Tuloy-tuloy na sine-save sa storage ng device"</string>
     <string name="long_traces_summary_betterbug" msgid="445546400875135624">"Naka-save nang tuloy-tuloy sa storage ng device (hindi awtomatikong maa-attach sa mga ulat ng bug)"</string>
@@ -58,9 +64,12 @@
     <string name="sixteen_thousand_kb" msgid="7342517169232459259">"16384 KB"</string>
     <string name="thirtytwo_thousand_kb" msgid="654328198799196150">"32768 KB"</string>
     <string name="sixtyfive_thousand_kb" msgid="8168144138598305306">"65536 KB"</string>
-    <string name="stop_on_bugreport" msgid="2045328149107284734">"Ihinto ang pag-trace para sa mga ulat ng bug"</string>
-    <string name="stop_on_bugreport_summary" msgid="7844074306038850040">"Wawakasan ang mga aktibong pag-record ng trace kapag nagsimula ng ulat ng bug"</string>
-    <string name="attach_to_bug_report" msgid="2953745117960948415">"Mag-attach ng mga trace sa mga ulat ng bug"</string>
-    <string name="attach_to_bug_report_summary" msgid="2225208904634565377">"Awtomatikong magpadala ng mga kasalukuyang isinasagawang trace sa BetterBug kapag nangolekta ng ulat ng bug"</string>
-    <string name="link_to_traces" msgid="6569969595898995517">"Tingnan ang mga trace file"</string>
+    <string name="stop_on_bugreport" msgid="4591832600597126422">"Ihinto ang pag-record para sa mga ulat ng bug"</string>
+    <string name="stop_on_bugreport_summary" msgid="1601834864982891381">"Wawakasan ang mga aktibong pag-record kapag nagsimula ng ulat ng bug"</string>
+    <string name="attach_to_bug_report" msgid="5388986830016247490">"I-attach ang mga recording sa mga ulat ng bug"</string>
+    <string name="attach_to_bug_report_summary" msgid="4213730623971240002">"Awtomatikong magpadala ng mga kasalukuyang isinasagawang recording sa BetterBug kapag nangolekta ng ulat ng bug"</string>
+    <string name="link_to_traces" msgid="1404687523304348490">"Tingnan ang mga naka-save na file"</string>
+    <string name="pref_category_trace_settings" msgid="6507535407023329628">"Mga setting ng pag-trace"</string>
+    <string name="pref_category_saved_files" msgid="1477491400970413291">"Mga naka-save na file"</string>
+    <string name="pref_category_misc" msgid="6217624054980014683">"Miscellaneous"</string>
 </resources>

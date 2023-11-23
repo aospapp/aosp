@@ -42,7 +42,6 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
@@ -117,9 +116,8 @@ public class NetworkRequestStoreDataTest extends WifiBaseTest {
         AccessPoint accessPoint = new AccessPoint(
                 WifiConfigurationTestUtil.createPskNetwork().SSID,
                 MacAddressUtils.createRandomUnicastAddress(), WifiConfiguration.SECURITY_TYPE_PSK);
-        Set<AccessPoint> accessPoints = new HashSet<AccessPoint>() {{
-                        add(accessPoint);
-                }};
+        Set<AccessPoint> accessPoints = Set.of(accessPoint);
+
         approvedAccessPointsMap.put(TEST_PACKAGE_NAME_1, accessPoints);
 
         assertSerializeDeserialize(approvedAccessPointsMap);
@@ -135,17 +133,15 @@ public class NetworkRequestStoreDataTest extends WifiBaseTest {
         AccessPoint accessPoint1 = new AccessPoint(
                 WifiConfigurationTestUtil.createPskNetwork().SSID,
                 MacAddressUtils.createRandomUnicastAddress(), WifiConfiguration.SECURITY_TYPE_PSK);
-        Set<AccessPoint> accessPoints1 = new HashSet<AccessPoint>() {{
-                        add(accessPoint1);
-                }};
+        Set<AccessPoint> accessPoints1 = Set.of(accessPoint1);
+
         approvedAccessPointsMap.put(TEST_PACKAGE_NAME_1, accessPoints1);
 
         AccessPoint accessPoint2 = new AccessPoint(
                 WifiConfigurationTestUtil.createPskNetwork().SSID,
                 MacAddressUtils.createRandomUnicastAddress(), WifiConfiguration.SECURITY_TYPE_PSK);
-        Set<AccessPoint> accessPoints2 = new HashSet<AccessPoint>() {{
-                        add(accessPoint2);
-                }};
+        Set<AccessPoint> accessPoints2 = Set.of(accessPoint2);
+
         approvedAccessPointsMap.put(TEST_PACKAGE_NAME_2, accessPoints2);
 
         assertSerializeDeserialize(approvedAccessPointsMap);
@@ -164,10 +160,10 @@ public class NetworkRequestStoreDataTest extends WifiBaseTest {
         AccessPoint accessPoint2 = new AccessPoint(
                 WifiConfigurationTestUtil.createOpenNetwork().SSID,
                 MacAddressUtils.createRandomUnicastAddress(), WifiConfiguration.SECURITY_TYPE_OPEN);
-        Set<AccessPoint> accessPoints1 = new HashSet<AccessPoint>() {{
-                        add(accessPoint1);
-                        add(accessPoint2);
-                }};
+        Set<AccessPoint> accessPoints1 = Set.of(
+                accessPoint1,
+                accessPoint2);
+
         approvedAccessPointsMap.put(TEST_PACKAGE_NAME_1, accessPoints1);
 
         AccessPoint accessPoint3 = new AccessPoint(
@@ -176,10 +172,10 @@ public class NetworkRequestStoreDataTest extends WifiBaseTest {
         AccessPoint accessPoint4 = new AccessPoint(
                 WifiConfigurationTestUtil.createOpenNetwork().SSID,
                 MacAddressUtils.createRandomUnicastAddress(), WifiConfiguration.SECURITY_TYPE_OPEN);
-        Set<AccessPoint> accessPoints2 = new HashSet<AccessPoint>() {{
-                        add(accessPoint3);
-                        add(accessPoint4);
-                }};
+        Set<AccessPoint> accessPoints2 = Set.of(
+                accessPoint3,
+                accessPoint4);
+
         approvedAccessPointsMap.put(TEST_PACKAGE_NAME_2, accessPoints2);
 
         assertSerializeDeserialize(approvedAccessPointsMap);

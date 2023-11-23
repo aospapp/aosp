@@ -19,7 +19,7 @@ import logging
 
 from google.protobuf import empty_pb2 as empty_proto
 
-from bluetooth_packets_python3 import hci_packets
+import hci_packets as hci
 
 from blueberry.tests.gd_sl4a.lib import gd_sl4a_base_test
 from blueberry.tests.gd_sl4a.lib.bt_constants import ble_scan_settings_phys
@@ -135,10 +135,9 @@ class OobPairingSl4aTest(gd_sl4a_base_test.GdSl4aBaseTestClass):
         logging.info("Done %s" % ADDRESS)
 
         # Setup cert side to advertise
-        gap_name = hci_packets.GapData()
-        gap_name.data_type = hci_packets.GapDataType.COMPLETE_LOCAL_NAME
-        gap_name.data = list(bytes(DEVICE_NAME, encoding='utf8'))
-        gap_data = le_advertising_facade.GapDataMsg(data=bytes(gap_name.Serialize()))
+        gap_name = hci.GapData(data_type=hci.GapDataType.COMPLETE_LOCAL_NAME,
+                               data=list(bytes(DEVICE_NAME, encoding='utf8')))
+        gap_data = le_advertising_facade.GapDataMsg(data=gap_name.serialize())
         config = le_advertising_facade.AdvertisingConfig(
             advertisement=[gap_data],
             interval_min=512,
@@ -252,8 +251,10 @@ class OobPairingSl4aTest(gd_sl4a_base_test.GdSl4aBaseTestClass):
 
         address_with_type = self._wait_for_yes_no_dialog()
         self.cert.security.SendUiCallback(
-            UiCallbackMsg(
-                message_type=UiCallbackType.PAIRING_PROMPT, boolean=True, unique_id=1, address=address_with_type))
+            UiCallbackMsg(message_type=UiCallbackType.PAIRING_PROMPT,
+                          boolean=True,
+                          unique_id=1,
+                          address=address_with_type))
 
         assertThat(self.cert_security.get_bond_stream()).emits(SecurityMatchers.BondMsg(BondMsgType.DEVICE_BONDED))
 

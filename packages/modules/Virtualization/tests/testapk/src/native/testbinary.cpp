@@ -13,38 +13,51 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include <aidl/android/security/dice/IDiceNode.h>
-#include <aidl/android/system/virtualmachineservice/IVirtualMachineService.h>
+
 #include <aidl/com/android/microdroid/testservice/BnTestService.h>
+#include <aidl/com/android/microdroid/testservice/BnVmCallback.h>
+#include <aidl/com/android/microdroid/testservice/IAppCallback.h>
 #include <android-base/file.h>
 #include <android-base/properties.h>
 #include <android-base/result.h>
-#include <android/binder_auto_utils.h>
-#include <android/binder_manager.h>
+#include <android-base/scopeguard.h>
+#include <android/log.h>
 #include <fcntl.h>
+#include <fstab/fstab.h>
 #include <fsverity_digests.pb.h>
 #include <linux/vm_sockets.h>
 #include <stdint.h>
 #include <stdio.h>
-#include <sys/ioctl.h>
+#include <sys/capability.h>
 #include <sys/system_properties.h>
 #include <unistd.h>
+#include <vm_main.h>
+#include <vm_payload_restricted.h>
 
-#include <binder_rpc_unstable.hpp>
 #include <string>
+#include <thread>
 
-using aidl::android::hardware::security::dice::BccHandover;
-using aidl::android::security::dice::IDiceNode;
-
-using aidl::android::system::virtualmachineservice::IVirtualMachineService;
-
+using android::base::borrowed_fd;
 using android::base::ErrnoError;
 using android::base::Error;
+using android::base::make_scope_guard;
 using android::base::Result;
+using android::base::unique_fd;
+using android::fs_mgr::Fstab;
+using android::fs_mgr::FstabEntry;
+using android::fs_mgr::GetEntryForMountPoint;
+using android::fs_mgr::ReadFstabFromFile;
+
+using aidl::com::android::microdroid::testservice::BnTestService;
+using aidl::com::android::microdroid::testservice::BnVmCallback;
+using aidl::com::android::microdroid::testservice::IAppCallback;
+using ndk::ScopedAStatus;
 
 extern void testlib_sub();
 
 namespace {
+
+constexpr char TAG[] = "testbinary";
 
 template <typename T>
 Result<T> report_test(std::string name, Result<T> result) {
@@ -54,103 +67,259 @@ Result<T> report_test(std::string name, Result<T> result) {
         outcome << "PASS";
     } else {
         outcome << "FAIL: " << result.error();
-        // Pollute stderr with the error in case the property is truncated.
-        std::cerr << "[" << name << "] test failed: " << result.error() << "\n";
+        // Log the error in case the property is truncated.
+        std::string message = name + ": " + outcome.str();
+        __android_log_write(ANDROID_LOG_WARN, TAG, message.c_str());
     }
     __system_property_set(property.c_str(), outcome.str().c_str());
     return result;
 }
 
-Result<void> start_test_service() {
-    class TestService : public aidl::com::android::microdroid::testservice::BnTestService {
-        ndk::ScopedAStatus addInteger(int32_t a, int32_t b, int32_t* out) override {
-            *out = a + b;
-            return ndk::ScopedAStatus::ok();
+Result<void> run_echo_reverse_server(borrowed_fd listening_fd) {
+    struct sockaddr_vm client_sa = {};
+    socklen_t client_sa_len = sizeof(client_sa);
+    unique_fd connect_fd{accept4(listening_fd.get(), (struct sockaddr*)&client_sa, &client_sa_len,
+                                 SOCK_CLOEXEC)};
+    if (!connect_fd.ok()) {
+        return ErrnoError() << "Failed to accept vsock connection";
+    }
+
+    unique_fd input_fd{fcntl(connect_fd, F_DUPFD_CLOEXEC, 0)};
+    if (!input_fd.ok()) {
+        return ErrnoError() << "Failed to dup";
+    }
+    FILE* input = fdopen(input_fd.release(), "r");
+    if (!input) {
+        return ErrnoError() << "Failed to fdopen";
+    }
+
+    // Run forever, reverse one line at a time.
+    while (true) {
+        char* line = nullptr;
+        size_t size = 0;
+        if (getline(&line, &size, input) < 0) {
+            return ErrnoError() << "Failed to read";
         }
 
-        ndk::ScopedAStatus readProperty(const std::string& prop, std::string* out) override {
+        std::string_view original = line;
+        if (!original.empty() && original.back() == '\n') {
+            original = original.substr(0, original.size() - 1);
+        }
+
+        std::string reversed(original.rbegin(), original.rend());
+        reversed += "\n";
+
+        if (write(connect_fd, reversed.data(), reversed.size()) < 0) {
+            return ErrnoError() << "Failed to write";
+        }
+    }
+}
+
+Result<void> start_echo_reverse_server() {
+    unique_fd server_fd{TEMP_FAILURE_RETRY(socket(AF_VSOCK, SOCK_STREAM | SOCK_CLOEXEC, 0))};
+    if (!server_fd.ok()) {
+        return ErrnoError() << "Failed to create vsock socket";
+    }
+    struct sockaddr_vm server_sa = (struct sockaddr_vm){
+            .svm_family = AF_VSOCK,
+            .svm_port = static_cast<uint32_t>(BnTestService::ECHO_REVERSE_PORT),
+            .svm_cid = VMADDR_CID_ANY,
+    };
+    int ret = TEMP_FAILURE_RETRY(bind(server_fd, (struct sockaddr*)&server_sa, sizeof(server_sa)));
+    if (ret < 0) {
+        return ErrnoError() << "Failed to bind vsock socket";
+    }
+    ret = TEMP_FAILURE_RETRY(listen(server_fd, /*backlog=*/1));
+    if (ret < 0) {
+        return ErrnoError() << "Failed to listen";
+    }
+
+    std::thread accept_thread{[listening_fd = std::move(server_fd)] {
+        auto result = run_echo_reverse_server(listening_fd);
+        if (!result.ok()) {
+            __android_log_write(ANDROID_LOG_ERROR, TAG, result.error().message().c_str());
+            // Make sure the VM exits so the test will fail solidly
+            exit(1);
+        }
+    }};
+    accept_thread.detach();
+
+    return {};
+}
+
+Result<void> start_test_service() {
+    class VmCallbackImpl : public BnVmCallback {
+    private:
+        std::shared_ptr<IAppCallback> mAppCallback;
+
+    public:
+        explicit VmCallbackImpl(const std::shared_ptr<IAppCallback>& appCallback)
+              : mAppCallback(appCallback) {}
+
+        ScopedAStatus echoMessage(const std::string& message) override {
+            std::thread callback_thread{[=, appCallback = mAppCallback] {
+                appCallback->onEchoRequestReceived("Received: " + message);
+            }};
+            callback_thread.detach();
+            return ScopedAStatus::ok();
+        }
+    };
+
+    class TestService : public BnTestService {
+    public:
+        ScopedAStatus addInteger(int32_t a, int32_t b, int32_t* out) override {
+            *out = a + b;
+            return ScopedAStatus::ok();
+        }
+
+        ScopedAStatus readProperty(const std::string& prop, std::string* out) override {
             *out = android::base::GetProperty(prop, "");
             if (out->empty()) {
                 std::string msg = "cannot find property " + prop;
-                return ndk::ScopedAStatus::fromExceptionCodeWithMessage(EX_SERVICE_SPECIFIC,
-                                                                        msg.c_str());
+                return ScopedAStatus::fromExceptionCodeWithMessage(EX_SERVICE_SPECIFIC,
+                                                                   msg.c_str());
             }
 
-            return ndk::ScopedAStatus::ok();
+            return ScopedAStatus::ok();
         }
 
-        ndk::ScopedAStatus insecurelyExposeSealingCdi(std::vector<uint8_t>* out) override {
-            ndk::SpAIBinder binder(AServiceManager_getService("android.security.dice.IDiceNode"));
-            auto service = IDiceNode::fromBinder(binder);
-            if (service == nullptr) {
-                return ndk::ScopedAStatus::
-                        fromServiceSpecificErrorWithMessage(0, "Failed to find diced");
-            }
-            BccHandover handover;
-            auto deriveStatus = service->derive({}, &handover);
-            if (!deriveStatus.isOk()) {
-                return ndk::ScopedAStatus::fromServiceSpecificErrorWithMessage(0,
-                                                                               "Failed call diced");
-            }
-            *out = {handover.cdiSeal.begin(), handover.cdiSeal.end()};
-            return ndk::ScopedAStatus::ok();
+        ScopedAStatus insecurelyExposeVmInstanceSecret(std::vector<uint8_t>* out) override {
+            const uint8_t identifier[] = {1, 2, 3, 4};
+            out->resize(32);
+            AVmPayload_getVmInstanceSecret(identifier, sizeof(identifier), out->data(),
+                                           out->size());
+            return ScopedAStatus::ok();
         }
 
-        ndk::ScopedAStatus insecurelyExposeAttestationCdi(std::vector<uint8_t>* out) override {
-            ndk::SpAIBinder binder(AServiceManager_getService("android.security.dice.IDiceNode"));
-            auto service = IDiceNode::fromBinder(binder);
-            if (service == nullptr) {
-                return ndk::ScopedAStatus::
-                        fromServiceSpecificErrorWithMessage(0, "Failed to find diced");
-            }
-            BccHandover handover;
-            auto deriveStatus = service->derive({}, &handover);
-            if (!deriveStatus.isOk()) {
-                return ndk::ScopedAStatus::fromServiceSpecificErrorWithMessage(0,
-                                                                               "Failed call diced");
-            }
-            *out = {handover.cdiAttest.begin(), handover.cdiAttest.end()};
-            return ndk::ScopedAStatus::ok();
+        ScopedAStatus insecurelyExposeAttestationCdi(std::vector<uint8_t>* out) override {
+            size_t cdi_size = AVmPayload_getDiceAttestationCdi(nullptr, 0);
+            out->resize(cdi_size);
+            AVmPayload_getDiceAttestationCdi(out->data(), out->size());
+            return ScopedAStatus::ok();
         }
 
-        ndk::ScopedAStatus getBcc(std::vector<uint8_t>* out) override {
-            ndk::SpAIBinder binder(AServiceManager_getService("android.security.dice.IDiceNode"));
-            auto service = IDiceNode::fromBinder(binder);
-            if (service == nullptr) {
-                return ndk::ScopedAStatus::
-                        fromServiceSpecificErrorWithMessage(0, "Failed to find diced");
-            }
-            BccHandover handover;
-            auto deriveStatus = service->derive({}, &handover);
-            if (!deriveStatus.isOk()) {
-                return ndk::ScopedAStatus::fromServiceSpecificErrorWithMessage(0,
-                                                                               "Failed call diced");
-            }
-            *out = {handover.bcc.data.begin(), handover.bcc.data.end()};
-            return ndk::ScopedAStatus::ok();
+        ScopedAStatus getBcc(std::vector<uint8_t>* out) override {
+            size_t bcc_size = AVmPayload_getDiceAttestationChain(nullptr, 0);
+            out->resize(bcc_size);
+            AVmPayload_getDiceAttestationChain(out->data(), out->size());
+            return ScopedAStatus::ok();
         }
+
+        ScopedAStatus getApkContentsPath(std::string* out) override {
+            const char* path_c = AVmPayload_getApkContentsPath();
+            if (path_c == nullptr) {
+                return ScopedAStatus::
+                        fromServiceSpecificErrorWithMessage(0, "Failed to get APK contents path");
+            }
+            *out = path_c;
+            return ScopedAStatus::ok();
+        }
+
+        ScopedAStatus getEncryptedStoragePath(std::string* out) override {
+            const char* path_c = AVmPayload_getEncryptedStoragePath();
+            if (path_c == nullptr) {
+                out->clear();
+            } else {
+                *out = path_c;
+            }
+            return ScopedAStatus::ok();
+        }
+
+        ScopedAStatus getEffectiveCapabilities(std::vector<std::string>* out) override {
+            if (out == nullptr) {
+                return ScopedAStatus::ok();
+            }
+            cap_t cap = cap_get_proc();
+            auto guard = make_scope_guard([&cap]() { cap_free(cap); });
+            for (cap_value_t cap_id = 0; cap_id < CAP_LAST_CAP + 1; cap_id++) {
+                cap_flag_value_t value;
+                if (cap_get_flag(cap, cap_id, CAP_EFFECTIVE, &value) != 0) {
+                    return ScopedAStatus::
+                            fromServiceSpecificErrorWithMessage(0, "cap_get_flag failed");
+                }
+                if (value == CAP_SET) {
+                    // Ideally we would just send back the cap_ids, but I wasn't able to find java
+                    // APIs for linux capabilities, hence we transform to the human readable name
+                    // here.
+                    char* name = cap_to_name(cap_id);
+                    out->push_back(std::string(name) + "(" + std::to_string(cap_id) + ")");
+                }
+            }
+            return ScopedAStatus::ok();
+        }
+
+        ScopedAStatus runEchoReverseServer() override {
+            auto result = start_echo_reverse_server();
+            if (result.ok()) {
+                return ScopedAStatus::ok();
+            } else {
+                std::string message = result.error().message();
+                return ScopedAStatus::fromServiceSpecificErrorWithMessage(-1, message.c_str());
+            }
+        }
+
+        ScopedAStatus writeToFile(const std::string& content, const std::string& path) override {
+            if (!android::base::WriteStringToFile(content, path)) {
+                std::string msg = "Failed to write " + content + " to file " + path +
+                        ". Errono: " + std::to_string(errno);
+                return ScopedAStatus::fromExceptionCodeWithMessage(EX_SERVICE_SPECIFIC,
+                                                                   msg.c_str());
+            }
+            return ScopedAStatus::ok();
+        }
+
+        ScopedAStatus readFromFile(const std::string& path, std::string* out) override {
+            if (!android::base::ReadFileToString(path, out)) {
+                std::string msg =
+                        "Failed to read " + path + " to string. Errono: " + std::to_string(errno);
+                return ScopedAStatus::fromExceptionCodeWithMessage(EX_SERVICE_SPECIFIC,
+                                                                   msg.c_str());
+            }
+            return ScopedAStatus::ok();
+        }
+
+        ScopedAStatus getFilePermissions(const std::string& path, int32_t* out) override {
+            struct stat sb;
+            if (stat(path.c_str(), &sb) != -1) {
+                *out = sb.st_mode;
+            } else {
+                std::string msg = "stat " + path + " failed :  " + std::strerror(errno);
+                return ScopedAStatus::fromExceptionCodeWithMessage(EX_SERVICE_SPECIFIC,
+                                                                   msg.c_str());
+            }
+            return ScopedAStatus::ok();
+        }
+
+        ScopedAStatus getMountFlags(const std::string& mount_point, int32_t* out) override {
+            Fstab fstab;
+            if (!ReadFstabFromFile("/proc/mounts", &fstab)) {
+                return ScopedAStatus::fromExceptionCodeWithMessage(EX_SERVICE_SPECIFIC,
+                                                                   "Failed to read /proc/mounts");
+            }
+            FstabEntry* entry = GetEntryForMountPoint(&fstab, mount_point);
+            if (entry == nullptr) {
+                std::string msg = mount_point + " not found in /proc/mounts";
+                return ScopedAStatus::fromExceptionCodeWithMessage(EX_SERVICE_SPECIFIC,
+                                                                   msg.c_str());
+            }
+            *out = entry->flags;
+            return ScopedAStatus::ok();
+        }
+
+        ScopedAStatus requestCallback(const std::shared_ptr<IAppCallback>& appCallback) {
+            auto vmCallback = ndk::SharedRefBase::make<VmCallbackImpl>(appCallback);
+            std::thread callback_thread{[=] { appCallback->setVmCallback(vmCallback); }};
+            callback_thread.detach();
+            return ScopedAStatus::ok();
+        }
+
+        ScopedAStatus quit() override { exit(0); }
     };
     auto testService = ndk::SharedRefBase::make<TestService>();
 
-    auto callback = []([[maybe_unused]] void* param) {
-        // Tell microdroid_manager that we're ready.
-        // Failing to notify is not a fatal error; the payload can continue.
-        ndk::SpAIBinder binder(
-                RpcClient(VMADDR_CID_HOST, IVirtualMachineService::VM_BINDER_SERVICE_PORT));
-        auto virtualMachineService = IVirtualMachineService::fromBinder(binder);
-        if (virtualMachineService == nullptr) {
-            std::cerr << "failed to connect VirtualMachineService";
-            return;
-        }
-        if (!virtualMachineService->notifyPayloadReady().isOk()) {
-            std::cerr << "failed to notify payload ready to virtualizationservice";
-        }
-    };
-
-    if (!RunRpcServerCallback(testService->asBinder().get(), testService->SERVICE_PORT, callback,
-                              nullptr)) {
-        return Error() << "RPC Server failed to run";
-    }
+    auto callback = []([[maybe_unused]] void* param) { AVmPayload_notifyPayloadReady(); };
+    AVmPayload_runVsockRpcServer(testService->asBinder().get(), testService->SERVICE_PORT, callback,
+                                 nullptr);
 
     return {};
 }
@@ -172,22 +341,11 @@ Result<void> verify_apk() {
 
 } // Anonymous namespace
 
-extern "C" int android_native_main(int argc, char* argv[]) {
-    // disable buffering to communicate seamlessly
-    setvbuf(stdin, nullptr, _IONBF, 0);
-    setvbuf(stdout, nullptr, _IONBF, 0);
-    setvbuf(stderr, nullptr, _IONBF, 0);
+extern "C" int AVmPayload_main() {
+    __android_log_write(ANDROID_LOG_INFO, TAG, "Hello Microdroid");
 
-    printf("Hello Microdroid ");
-    for (int i = 0; i < argc; i++) {
-        printf("%s", argv[i]);
-        bool last = i == (argc - 1);
-        if (!last) {
-            printf(" ");
-        }
-    }
+    // Make sure we can call into other shared libraries.
     testlib_sub();
-    printf("\n");
 
     // Extra apks may be missing; this is not a fatal error
     report_test("extra_apk", verify_apk());
@@ -197,7 +355,7 @@ extern "C" int android_native_main(int argc, char* argv[]) {
     if (auto res = start_test_service(); res.ok()) {
         return 0;
     } else {
-        std::cerr << "starting service failed: " << res.error();
+        __android_log_write(ANDROID_LOG_ERROR, TAG, res.error().message().c_str());
         return 1;
     }
 }

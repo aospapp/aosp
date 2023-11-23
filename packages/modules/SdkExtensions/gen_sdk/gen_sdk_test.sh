@@ -107,6 +107,23 @@ function test_validate() {
 }
 test_validate
 
+function test_dependent_modules() {
+  db=${tmp_dir}/extensions_db.textpb
+  rm -f ${db} && touch ${db}
+
+  set +e
+  for m in AD_SERVICES EXT_SERVICES; do
+    if gen_sdk --action new_sdk --sdk 6 --modules $m --database ${db}; then
+      echo "FAILED: expected new sdk with module $m to be invalid"
+      exit 1
+    fi
+  done
+  set -e
+
+  gen_sdk --action new_sdk --sdk 6 --modules AD_SERVICES,EXT_SERVICES --database ${db}
+}
+test_dependent_modules
+
 function test_checked_in_db() {
   gen_sdk --action validate --database extensions_db.textpb
 }

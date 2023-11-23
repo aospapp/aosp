@@ -38,6 +38,7 @@ import androidx.annotation.VisibleForTesting;
 
 import com.android.car.settings.R;
 import com.android.car.settings.common.Logger;
+import com.android.car.setupwizardlib.InitialLockSetupConstants.LockTypes;
 import com.android.internal.widget.LockPatternUtils;
 import com.android.internal.widget.LockscreenCredential;
 import com.android.internal.widget.PasswordValidationError;
@@ -54,6 +55,10 @@ import java.util.List;
 public class PasswordHelper {
     public static final String EXTRA_CURRENT_SCREEN_LOCK = "extra_current_screen_lock";
     public static final String EXTRA_CURRENT_PASSWORD_QUALITY = "extra_current_password_quality";
+
+    // String to be returned to when there is no password complexity validation error.
+    @VisibleForTesting
+    static final String NO_ERROR_MESSAGE = "";
 
     // Error code returned from validateSetupWizard(byte[] password).
     static final int NO_ERROR = 0;
@@ -97,16 +102,66 @@ public class PasswordHelper {
     }
 
     /**
-     * Validates PIN/Password and returns the validation result and updates mValidationErrors.
+     * Validates PIN/Password, updates mValidationErrors, and then returns the validation result.
      *
-     * @param password password the user typed in.
-     * @return The error code where 0 is no error.
+     * @param password password or PIN entered by the user in bytes.
+     * @return The ERROR_CODE if there is any validation error, or NO_ERROR otherwise.
      */
     public int validateSetupWizard(byte[] password) {
-        mValidationErrors =
-                PasswordMetrics.validatePassword(mMinMetrics, mMinComplexity, mIsPin, password);
-
+        mValidationErrors = PasswordMetrics.validatePassword(/* adminMetrics */ mMinMetrics,
+                /* minComplexity */ mMinComplexity, /* isPin */ mIsPin, /* password */ password);
         return mValidationErrors.isEmpty() ? NO_ERROR : ERROR_CODE;
+    }
+
+    /**
+     * Validates the PIN/Password/Pattern and return the combined error message associated with the
+     * user input if exists, or return {@code NO_ERROR_MESSAGE} otherwise.
+     *
+     * If the lock type is PASSWORD or PIN, update mValidationErrors.
+     *
+     * @param credentialBytes password/PIN/pattern entered by the user in bytes.
+     * @return The error message to display to users describing all credential validation errors,
+     * where an empty String NO_ERROR_MSG when there is no error.
+     */
+    public String validateSetupWizardAndReturnError(@LockTypes int lockType,
+            byte[] credentialBytes) {
+        if (lockType == LockTypes.PATTERN) {
+            return validatePatternAndReturnError(credentialBytes);
+        } else if (lockType == LockTypes.PASSWORD || lockType == LockTypes.PIN) {
+            mValidationErrors = PasswordMetrics.validatePassword(/* adminMetrics */ mMinMetrics,
+                    /* minComplexity */ mMinComplexity, /* isPin */ lockType == LockTypes.PIN,
+                    /* password */ credentialBytes);
+            if (!mValidationErrors.isEmpty()) {
+                List<String> messages = convertErrorCodeToMessages();
+                if (!messages.isEmpty()) {
+                    return getCombinedErrorMessage(messages);
+                }
+                LOG.wtf("A validation error was returned, but no matching error message was found");
+                return mContext.getString(R.string.lockpassword_invalid_password);
+            }
+            return NO_ERROR_MESSAGE;
+        } else {
+            // the only accepted lock types are PATTERN, PASSWORD, and PIN for validation.
+            LOG.wtf("An unknown lock type was pass in");
+            return mContext.getString(R.string.locktype_unavailable);
+        }
+    }
+
+    private String validatePatternAndReturnError(byte[] pattern) {
+        if (pattern.length < LockPatternUtils.MIN_LOCK_PATTERN_SIZE) {
+            return mContext.getString(R.string.lockpattern_recording_incorrect_too_short);
+        }
+        return NO_ERROR_MESSAGE;
+    }
+
+    /**
+     * Combines all error messages into a String displayable to the user.
+     *
+     * @param messages the return value of convertErrorCodeToMessages
+     * @return new line separated String with each new line describing the error
+     */
+    String getCombinedErrorMessage(List<String> messages) {
+        return String.join("\n", messages);
     }
 
     /**
@@ -138,7 +193,7 @@ public class PasswordHelper {
     private byte[] getPasswordHistoryHashFactor(LockscreenCredential credential) {
         if (mPasswordHistoryHashFactor == null) {
             mPasswordHistoryHashFactor = mLockPatternUtils.getPasswordHistoryHashFactor(
-                    credential, mUserId);
+                    credential != null ? credential : LockscreenCredential.createNone(), mUserId);
         }
         return mPasswordHistoryHashFactor;
     }

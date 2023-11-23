@@ -18,6 +18,7 @@ package com.android.car.settings.wifi;
 
 import static com.android.car.settings.common.PreferenceController.AVAILABLE;
 import static com.android.car.settings.common.PreferenceController.AVAILABLE_FOR_VIEWING;
+import static com.android.car.settings.common.PreferenceController.CONDITIONALLY_UNAVAILABLE;
 import static com.android.car.settings.common.PreferenceController.UNSUPPORTED_ON_DEVICE;
 
 import static com.google.common.truth.Truth.assertThat;
@@ -97,6 +98,36 @@ public class WifiTetherPreferenceControllerTest {
     }
 
     @Test
+    public void onStart_isAvailableForViewing_zoneWrite() {
+        mController.onCreate(mLifecycleOwner);
+        mController.onStart(mLifecycleOwner);
+        mController.setAvailabilityStatusForZone("write");
+
+        PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
+                AVAILABLE_FOR_VIEWING);
+    }
+
+    @Test
+    public void onStart_isAvailableForViewing_zoneRead() {
+        mController.onCreate(mLifecycleOwner);
+        mController.onStart(mLifecycleOwner);
+        mController.setAvailabilityStatusForZone("read");
+
+        PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
+                AVAILABLE_FOR_VIEWING);
+    }
+
+    @Test
+    public void onStart_isAvailableForViewing_zoneHidden() {
+        mController.onCreate(mLifecycleOwner);
+        mController.onStart(mLifecycleOwner);
+        mController.setAvailabilityStatusForZone("hidden");
+
+        PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
+                CONDITIONALLY_UNAVAILABLE);
+    }
+
+    @Test
     public void onStart_registersTetheringEventCallback() {
         mController.onCreate(mLifecycleOwner);
         mController.onStart(mLifecycleOwner);
@@ -127,6 +158,42 @@ public class WifiTetherPreferenceControllerTest {
     }
 
     @Test
+    public void onTetheringSupported_false_isUnsupportedOnDevice_zoneWrite() {
+        mController.onCreate(mLifecycleOwner);
+        mController.onStart(mLifecycleOwner);
+        mController.setAvailabilityStatusForZone("write");
+
+        setTetheringSupported(false);
+
+        PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
+                UNSUPPORTED_ON_DEVICE);
+    }
+
+    @Test
+    public void onTetheringSupported_false_isUnsupportedOnDevice_zoneRead() {
+        mController.onCreate(mLifecycleOwner);
+        mController.onStart(mLifecycleOwner);
+        mController.setAvailabilityStatusForZone("read");
+
+        setTetheringSupported(false);
+
+        PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
+                UNSUPPORTED_ON_DEVICE);
+    }
+
+    @Test
+    public void onTetheringSupported_false_isUnsupportedOnDevice_zoneHidden() {
+        mController.onCreate(mLifecycleOwner);
+        mController.onStart(mLifecycleOwner);
+        mController.setAvailabilityStatusForZone("hidden");
+
+        setTetheringSupported(false);
+
+        PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
+                UNSUPPORTED_ON_DEVICE);
+    }
+
+    @Test
     public void onTetheringSupported_true_isAvailable() {
         mController.onCreate(mLifecycleOwner);
         mController.onStart(mLifecycleOwner);
@@ -134,6 +201,42 @@ public class WifiTetherPreferenceControllerTest {
         setTetheringSupported(true);
 
         assertThat(mController.getAvailabilityStatus()).isEqualTo(AVAILABLE);
+    }
+
+    @Test
+    public void onTetheringSupported_true_isAvailable_zoneWrite() {
+        mController.onCreate(mLifecycleOwner);
+        mController.onStart(mLifecycleOwner);
+        mController.setAvailabilityStatusForZone("write");
+
+        setTetheringSupported(true);
+
+        PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
+                AVAILABLE);
+    }
+
+    @Test
+    public void onTetheringSupported_true_isAvailable_zoneRead() {
+        mController.onCreate(mLifecycleOwner);
+        mController.onStart(mLifecycleOwner);
+        mController.setAvailabilityStatusForZone("read");
+
+        setTetheringSupported(true);
+
+        PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
+                AVAILABLE_FOR_VIEWING);
+    }
+
+    @Test
+    public void onTetheringSupported_true_isAvailable_zoneHidden() {
+        mController.onCreate(mLifecycleOwner);
+        mController.onStart(mLifecycleOwner);
+        mController.setAvailabilityStatusForZone("hidden");
+
+        setTetheringSupported(true);
+
+        PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
+                CONDITIONALLY_UNAVAILABLE);
     }
 
     @Test

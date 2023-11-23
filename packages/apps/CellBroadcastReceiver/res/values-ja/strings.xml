@@ -87,7 +87,7 @@
     <string name="enable_emergency_alerts_message_title" msgid="661894007489847468">"緊急速報メール"</string>
     <string name="enable_emergency_alerts_message_summary" msgid="7574617515441602546">"生死にかかわる出来事に関する警告"</string>
     <string name="enable_cmas_test_alerts_title" msgid="7194966927004755266">"テストアラート"</string>
-    <string name="enable_cmas_test_alerts_summary" msgid="2083089933271720217">"安全警告システムの携帯通信会社テストと毎月のテストを受信する"</string>
+    <string name="enable_cmas_test_alerts_summary" msgid="2083089933271720217">"携帯通信会社のテストや、安全警告システムの毎月のテストを受信する"</string>
     <!-- no translation found for enable_exercise_test_alerts_title (6030780598569873865) -->
     <skip />
     <string name="enable_exercise_test_alerts_summary" msgid="4276766794979567304">"緊急速報メール: 訓練用メッセージを受け取る"</string>

@@ -59,17 +59,19 @@ abstract class AMFMProgramType extends ProgramType {
          */
         Random rnd = new Random();
         BandDescriptor band = bands.get(rnd.nextInt(bands.size()));
-        int freq = rnd.nextInt(band.getUpperLimit() - band.getLowerLimit()) + band.getLowerLimit();
-        freq /= band.getSpacing();
-        freq *= band.getSpacing();
+        int freq = rnd.nextInt(band.getUpperLimit() - band.getLowerLimit()) / band.getSpacing()
+                * band.getSpacing() + band.getLowerLimit();
+        Log.i(TAG, "Tuning to default frequency: " + freq);
 
         // tune to that frequency and seek forward, to find any station
         tuner.tune(ProgramSelectorExt.createAmFmSelector(freq), succeeded -> {
             if (!succeeded) {
                 result.onFinished(false);
+                Log.w(TAG, "Cannot tune to default frequency" + freq);
                 return;
             }
             tuner.seek(true, result);
+            Log.i(TAG, "Tuned to default frequency " + freq + " successfully");
         });
     }
 

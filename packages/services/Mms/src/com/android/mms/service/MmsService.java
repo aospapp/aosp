@@ -41,6 +41,7 @@ import android.provider.Settings;
 import android.provider.Telephony;
 import android.security.NetworkSecurityPolicy;
 import android.service.carrier.CarrierMessagingService;
+import android.telephony.AnomalyReporter;
 import android.telephony.SmsManager;
 import android.telephony.SubscriptionInfo;
 import android.telephony.SubscriptionManager;
@@ -51,6 +52,8 @@ import android.util.EventLog;
 import android.util.SparseArray;
 
 import com.android.internal.telephony.IMms;
+import com.android.mms.service.metrics.MmsMetricsCollector;
+import com.android.mms.service.metrics.MmsStats;
 
 import com.google.android.mms.MmsException;
 import com.google.android.mms.pdu.DeliveryInd;
@@ -138,6 +141,8 @@ public class MmsService extends Service implements MmsRequest.RequestManager {
     // 1: download queue
     private final ExecutorService[] mRunningRequestExecutors = new ExecutorService[2];
 
+    private static MmsMetricsCollector mMmsMetricsCollector;
+
     private MmsNetworkManager getNetworkManager(int subId) {
         synchronized (mNetworkManagerCache) {
             MmsNetworkManager manager = mNetworkManagerCache.get(subId);
@@ -179,6 +184,8 @@ public class MmsService extends Service implements MmsRequest.RequestManager {
         List<String> carrierPackages = telephonyManager.getCarrierPackageNamesForIntent(intent);
 
         if (carrierPackages == null || carrierPackages.size() != 1) {
+            LogUtil.d("getCarrierMessagingServicePackageIfExists - multiple ("
+                    + carrierPackages.size() + ") carrier apps installed, not using any.");
             return null;
         } else {
             return carrierPackages.get(0);
@@ -211,19 +218,24 @@ public class MmsService extends Service implements MmsRequest.RequestManager {
             LogUtil.d("sendMessage " + formatCrossStackMessageId(messageId));
             enforceSystemUid();
 
+            MmsStats mmsStats = new MmsStats(MmsService.this,
+                    mMmsMetricsCollector.getAtomsStorage(), subId, getTelephonyManager(subId),
+                    callingPkg, false);
+
             // Make sure the subId is correct
             if (!SubscriptionManager.isValidSubscriptionId(subId)) {
                 LogUtil.e("Invalid subId " + subId);
-                sendErrorInPendingIntent(sentIntent, SmsManager.MMS_ERROR_INVALID_SUBSCRIPTION_ID);
+                handleError(sentIntent, SmsManager.MMS_ERROR_INVALID_SUBSCRIPTION_ID, mmsStats);
                 return;
             }
             if (subId == SubscriptionManager.DEFAULT_SUBSCRIPTION_ID) {
                 subId = SubscriptionManager.getDefaultSmsSubscriptionId();
+                mmsStats.updateSubId(subId, getTelephonyManager(subId));
             }
 
             // Make sure the subId is active
             if (!isActiveSubId(subId)) {
-                sendErrorInPendingIntent(sentIntent, SmsManager.MMS_ERROR_INACTIVE_SUBSCRIPTION);
+                handleError(sentIntent, SmsManager.MMS_ERROR_INACTIVE_SUBSCRIPTION, mmsStats);
                 return;
             }
 
@@ -231,7 +243,7 @@ public class MmsService extends Service implements MmsRequest.RequestManager {
             Bundle mmsConfig = loadMmsConfig(subId);
             if (mmsConfig == null) {
                 LogUtil.e("MMS config is not loaded yet for subId " + subId);
-                sendErrorInPendingIntent(sentIntent, SmsManager.MMS_ERROR_CONFIGURATION_ERROR);
+                handleError(sentIntent, SmsManager.MMS_ERROR_CONFIGURATION_ERROR, mmsStats);
                 return;
             }
 
@@ -243,19 +255,21 @@ public class MmsService extends Service implements MmsRequest.RequestManager {
             // Make sure MMS is enabled
             if (!mmsConfig.getBoolean(SmsManager.MMS_CONFIG_MMS_ENABLED)) {
                 LogUtil.e("MMS is not enabled for subId " + subId);
-                sendErrorInPendingIntent(sentIntent, SmsManager.MMS_ERROR_CONFIGURATION_ERROR);
+                handleError(sentIntent, SmsManager.MMS_ERROR_CONFIGURATION_ERROR, mmsStats);
                 return;
             }
 
             final SendRequest request = new SendRequest(MmsService.this, subId, contentUri,
-                    locationUrl, sentIntent, callingPkg, mmsConfig, MmsService.this, messageId);
+                    locationUrl, sentIntent, callingPkg, mmsConfig, MmsService.this,
+                    messageId, mmsStats);
 
             final String carrierMessagingServicePackage =
                     getCarrierMessagingServicePackageIfExists(subId);
 
             if (carrierMessagingServicePackage != null) {
-                LogUtil.d(request.toString(), "sending message by carrier app "
-                        + formatCrossStackMessageId(messageId));
+                LogUtil.d(request.toString(), "sending message by carrier app: "
+                        + carrierMessagingServicePackage
+                        + " " + formatCrossStackMessageId(messageId));
                 request.trySendingByCarrierApp(MmsService.this, carrierMessagingServicePackage);
                 return;
             }
@@ -269,7 +283,7 @@ public class MmsService extends Service implements MmsRequest.RequestManager {
                 // AcknowledgeInd and NotifyRespInd are parts of downloading sequence.
                 // TODO: Should consider ReadRecInd(Read Report)?
                 sendSettingsIntentForFailedMms(!isRawPduSendReq(contentUri), subId);
-                sendErrorInPendingIntent(sentIntent, SmsManager.MMS_ERROR_NO_DATA_NETWORK);
+                handleError(sentIntent, SmsManager.MMS_ERROR_NO_DATA_NETWORK, mmsStats);
                 return;
             }
 
@@ -288,22 +302,27 @@ public class MmsService extends Service implements MmsRequest.RequestManager {
 
             enforceSystemUid();
 
+            MmsStats mmsStats = new MmsStats(MmsService.this,
+                    mMmsMetricsCollector.getAtomsStorage(), subId, getTelephonyManager(subId),
+                    callingPkg, true);
+
             // Make sure the subId is correct
             if (!SubscriptionManager.isValidSubscriptionId(subId)) {
                 LogUtil.e("Invalid subId " + subId);
-                sendErrorInPendingIntent(downloadedIntent,
-                        SmsManager.MMS_ERROR_INVALID_SUBSCRIPTION_ID);
+                handleError(downloadedIntent, SmsManager.MMS_ERROR_INVALID_SUBSCRIPTION_ID,
+                        mmsStats);
                 return;
             }
             if (subId == SubscriptionManager.DEFAULT_SUBSCRIPTION_ID) {
                 subId = SubscriptionManager.getDefaultSmsSubscriptionId();
+                mmsStats.updateSubId(subId, getTelephonyManager(subId));
             }
 
             if (!isActiveSubId(subId)) {
                 List<SubscriptionInfo> activeSubList = getActiveSubscriptionsInGroup(subId);
                 if (activeSubList.isEmpty()) {
-                    sendErrorInPendingIntent(downloadedIntent,
-                            SmsManager.MMS_ERROR_INACTIVE_SUBSCRIPTION);
+                    handleError(downloadedIntent, SmsManager.MMS_ERROR_INACTIVE_SUBSCRIPTION,
+                            mmsStats);
                     return;
                 }
 
@@ -317,13 +336,13 @@ public class MmsService extends Service implements MmsRequest.RequestManager {
                     }
                 }
             }
+            mmsStats.updateSubId(subId, getTelephonyManager(subId));
 
             // Load MMS config
             Bundle mmsConfig = loadMmsConfig(subId);
             if (mmsConfig == null) {
                 LogUtil.e("MMS config is not loaded yet for subId " + subId);
-                sendErrorInPendingIntent(
-                        downloadedIntent, SmsManager.MMS_ERROR_CONFIGURATION_ERROR);
+                handleError(downloadedIntent, SmsManager.MMS_ERROR_CONFIGURATION_ERROR, mmsStats);
                 return;
             }
 
@@ -335,21 +354,21 @@ public class MmsService extends Service implements MmsRequest.RequestManager {
             // Make sure MMS is enabled
             if (!mmsConfig.getBoolean(SmsManager.MMS_CONFIG_MMS_ENABLED)) {
                 LogUtil.e("MMS is not enabled for subId " + subId);
-                sendErrorInPendingIntent(
-                        downloadedIntent, SmsManager.MMS_ERROR_CONFIGURATION_ERROR);
+                handleError(downloadedIntent, SmsManager.MMS_ERROR_CONFIGURATION_ERROR, mmsStats);
                 return;
             }
 
             final DownloadRequest request = new DownloadRequest(MmsService.this, subId, locationUrl,
                     contentUri, downloadedIntent, callingPkg, mmsConfig, MmsService.this,
-                    messageId);
+                    messageId, mmsStats);
 
             final String carrierMessagingServicePackage =
                     getCarrierMessagingServicePackageIfExists(subId);
 
             if (carrierMessagingServicePackage != null) {
-                LogUtil.d(request.toString(), "downloading message by carrier app "
-                        + formatCrossStackMessageId(messageId));
+                LogUtil.d(request.toString(), "downloading message by carrier app: "
+                        + carrierMessagingServicePackage
+                        + " " + formatCrossStackMessageId(messageId));
                 request.tryDownloadingByCarrierApp(MmsService.this, carrierMessagingServicePackage);
                 return;
             }
@@ -357,7 +376,7 @@ public class MmsService extends Service implements MmsRequest.RequestManager {
             // Make sure subId has MMS data
             if (!getTelephonyManager(subId).isDataEnabledForApn(ApnSetting.TYPE_MMS)) {
                 sendSettingsIntentForFailedMms(/*isIncoming=*/ true, subId);
-                sendErrorInPendingIntent(downloadedIntent, SmsManager.MMS_ERROR_DATA_DISABLED);
+                handleError(downloadedIntent, SmsManager.MMS_ERROR_DATA_DISABLED, mmsStats);
                 return;
             }
 
@@ -577,6 +596,14 @@ public class MmsService extends Service implements MmsRequest.RequestManager {
             }
             return false;
         }
+
+        private void handleError(@Nullable PendingIntent pendingIntent, int resultCode,
+                MmsStats mmsStats) {
+            sendErrorInPendingIntent(pendingIntent, resultCode);
+            mmsStats.addAtomToStorage(resultCode);
+            String message = "MMS failed" + " with error " + resultCode;
+            AnomalyReporter.reportAnomaly(MmsConstants.MMS_ANOMALY_UUID, message);
+        }
     };
 
     @Override
@@ -702,6 +729,9 @@ public class MmsService extends Service implements MmsRequest.RequestManager {
         MmsConfigManager.getInstance().init(this);
 
         NetworkSecurityPolicy.getInstance().setCleartextTrafficPermitted(true);
+
+        // Registers statsd pullers
+        mMmsMetricsCollector = new MmsMetricsCollector(this);
 
         // Initialize running request state
         for (int i = 0; i < mRunningRequestExecutors.length; i++) {

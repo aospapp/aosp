@@ -70,7 +70,7 @@ public class ProfileDetailsEndSessionPreferenceController
     }
 
     @Override
-    protected int getAvailabilityStatus() {
+    protected int getDefaultAvailabilityStatus() {
         if (mDpm == null) {
             LOG.d("getAvailabilityStatus(): no dpm");
             return UNSUPPORTED_ON_DEVICE;

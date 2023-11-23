@@ -25,4 +25,5 @@
     <string name="set_wallpaper" msgid="3650915172749345197">"Establecer fondo de pantalla"</string>
     <string name="new_instance" msgid="1924479866055190730">"Solicitar lanzamiento en nueva instancia"</string>
     <string name="wallpaper_description" msgid="5885164573334720996">"Ejemplo de fondo para varias pantallas"</string>
+    <string name="exit" msgid="3648703694102318310">"Salir"</string>
 </resources>

@@ -32,7 +32,7 @@ namespace runner {
 namespace stream_manager {
 namespace {
 
-InputFrame convertToInputFrame(const fuzz::proto::Frame frame) {
+InputFrame convertToInputFrame(const fuzz::proto::Frame &frame) {
     uint32_t height = frame.height();
     uint32_t width = frame.width();
     uint32_t stride = frame.stride();

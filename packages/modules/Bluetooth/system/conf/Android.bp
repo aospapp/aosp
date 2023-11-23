@@ -20,3 +20,10 @@ prebuilt_etc {
     src: "bt_did.conf",
     sub_dir: "bluetooth",
 }
+
+// Bluetooth interop_database.conf config file
+prebuilt_etc {
+    name: "interop_database.conf",
+    src: "interop_database.conf",
+    sub_dir: "bluetooth",
+}

@@ -16,6 +16,8 @@
 package com.android.networkstack.tethering;
 
 import static android.net.NetworkCapabilities.TRANSPORT_VPN;
+import static android.net.TetheringManager.CONNECTIVITY_SCOPE_GLOBAL;
+import static android.net.TetheringManager.CONNECTIVITY_SCOPE_LOCAL;
 import static android.net.TetheringManager.TETHERING_BLUETOOTH;
 import static android.net.TetheringManager.TETHERING_WIFI_P2P;
 
@@ -34,7 +36,6 @@ import android.net.Network;
 import android.net.ip.IpServer;
 import android.util.ArrayMap;
 import android.util.ArraySet;
-import android.util.SparseArray;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -77,7 +78,7 @@ public class PrivateAddressCoordinator {
     private final ConnectivityManager mConnectivityMgr;
     private final TetheringConfiguration mConfig;
     // keyed by downstream type(TetheringManager.TETHERING_*).
-    private final SparseArray<LinkAddress> mCachedAddresses;
+    private final ArrayMap<AddressKey, LinkAddress> mCachedAddresses;
 
     public PrivateAddressCoordinator(Context context, TetheringConfiguration config) {
         mDownstreams = new ArraySet<>();
@@ -85,10 +86,12 @@ public class PrivateAddressCoordinator {
         mConnectivityMgr = (ConnectivityManager) context.getSystemService(
                 Context.CONNECTIVITY_SERVICE);
         mConfig = config;
-        mCachedAddresses = new SparseArray<>();
+        mCachedAddresses = new ArrayMap<AddressKey, LinkAddress>();
         // Reserved static addresses for bluetooth and wifi p2p.
-        mCachedAddresses.put(TETHERING_BLUETOOTH, new LinkAddress(LEGACY_BLUETOOTH_IFACE_ADDRESS));
-        mCachedAddresses.put(TETHERING_WIFI_P2P, new LinkAddress(LEGACY_WIFI_P2P_IFACE_ADDRESS));
+        mCachedAddresses.put(new AddressKey(TETHERING_BLUETOOTH, CONNECTIVITY_SCOPE_GLOBAL),
+                new LinkAddress(LEGACY_BLUETOOTH_IFACE_ADDRESS));
+        mCachedAddresses.put(new AddressKey(TETHERING_WIFI_P2P, CONNECTIVITY_SCOPE_LOCAL),
+                new LinkAddress(LEGACY_WIFI_P2P_IFACE_ADDRESS));
 
         mTetheringPrefixes = new ArrayList<>(Arrays.asList(new IpPrefix("192.168.0.0/16"),
             new IpPrefix("172.16.0.0/12"), new IpPrefix("10.0.0.0/8")));
@@ -166,13 +169,18 @@ public class PrivateAddressCoordinator {
      * returns null if there is no available address.
      */
     @Nullable
-    public LinkAddress requestDownstreamAddress(final IpServer ipServer, boolean useLastAddress) {
+    public LinkAddress requestDownstreamAddress(final IpServer ipServer, final int scope,
+            boolean useLastAddress) {
         if (mConfig.shouldEnableWifiP2pDedicatedIp()
                 && ipServer.interfaceType() == TETHERING_WIFI_P2P) {
             return new LinkAddress(LEGACY_WIFI_P2P_IFACE_ADDRESS);
         }
 
-        final LinkAddress cachedAddress = mCachedAddresses.get(ipServer.interfaceType());
+        final AddressKey addrKey = new AddressKey(ipServer.interfaceType(), scope);
+        // This ensures that tethering isn't started on 2 different interfaces with the same type.
+        // Once tethering could support multiple interface with the same type,
+        // TetheringSoftApCallback would need to handle it among others.
+        final LinkAddress cachedAddress = mCachedAddresses.get(addrKey);
         if (useLastAddress && cachedAddress != null
                 && !isConflictWithUpstream(asIpPrefix(cachedAddress))) {
             mDownstreams.add(ipServer);
@@ -183,7 +191,7 @@ public class PrivateAddressCoordinator {
             final LinkAddress newAddress = chooseDownstreamAddress(prefixRange);
             if (newAddress != null) {
                 mDownstreams.add(ipServer);
-                mCachedAddresses.put(ipServer.interfaceType(), newAddress);
+                mCachedAddresses.put(addrKey, newAddress);
                 return newAddress;
             }
         }
@@ -379,6 +387,34 @@ public class PrivateAddressCoordinator {
         final LinkAddress address = downstream.getAddress();
 
         return asIpPrefix(address);
+    }
+
+    private static class AddressKey {
+        private final int mTetheringType;
+        private final int mScope;
+
+        private AddressKey(int type, int scope) {
+            mTetheringType = type;
+            mScope = scope;
+        }
+
+        @Override
+        public int hashCode() {
+            return (mTetheringType << 16) + mScope;
+        }
+
+        @Override
+        public boolean equals(@Nullable Object obj) {
+            if (!(obj instanceof AddressKey)) return false;
+            final AddressKey other = (AddressKey) obj;
+
+            return mTetheringType == other.mTetheringType && mScope == other.mScope;
+        }
+
+        @Override
+        public String toString() {
+            return "AddressKey(" + mTetheringType + ", " + mScope + ")";
+        }
     }
 
     void dump(final IndentingPrintWriter pw) {

@@ -16,9 +16,13 @@
 
 package android.net.wifi.aware;
 
+import static android.Manifest.permission.MANAGE_WIFI_NETWORK_SELECTION;
+
 import android.annotation.IntDef;
 import android.annotation.NonNull;
 import android.annotation.Nullable;
+import android.annotation.RequiresPermission;
+import android.annotation.SystemApi;
 import android.net.wifi.WifiScanner;
 import android.net.wifi.util.HexEncoding;
 import android.os.Build;
@@ -37,7 +41,7 @@ import java.util.List;
 import java.util.Objects;
 
 /**
- * Defines the configuration of a Aware subscribe session. Built using
+ * Defines the configuration of an Aware subscribe session. Built using
  * {@link SubscribeConfig.Builder}. Subscribe is done using
  * {@link WifiAwareSession#subscribe(SubscribeConfig, DiscoverySessionCallback,
  * android.os.Handler)} or
@@ -100,11 +104,16 @@ public final class SubscribeConfig implements Parcelable {
 
     private final int mBand;
 
+    private final AwarePairingConfig mPairingConfig;
+
+    private final boolean mIsSuspendable;
+
     /** @hide */
     public SubscribeConfig(byte[] serviceName, byte[] serviceSpecificInfo, byte[] matchFilter,
             int subscribeType, int ttlSec, boolean enableTerminateNotification,
             boolean minDistanceMmSet, int minDistanceMm, boolean maxDistanceMmSet,
-            int maxDistanceMm, boolean enableInstantMode, @WifiScanner.WifiBand int band) {
+            int maxDistanceMm, boolean enableInstantMode, @WifiScanner.WifiBand int band,
+            AwarePairingConfig pairingConfig, boolean isSuspendable) {
         mServiceName = serviceName;
         mServiceSpecificInfo = serviceSpecificInfo;
         mMatchFilter = matchFilter;
@@ -117,6 +126,8 @@ public final class SubscribeConfig implements Parcelable {
         mMaxDistanceMmSet = maxDistanceMmSet;
         mEnableInstantMode = enableInstantMode;
         mBand = band;
+        mPairingConfig = pairingConfig;
+        mIsSuspendable = isSuspendable;
     }
 
     @Override
@@ -137,7 +148,9 @@ public final class SubscribeConfig implements Parcelable {
                 + ", mMaxDistanceMm=" + mMaxDistanceMm
                 + ", mMaxDistanceMmSet=" + mMaxDistanceMmSet + "]"
                 + ", mEnableInstantMode=" + mEnableInstantMode
-                + ", mBand=" + mBand;
+                + ", mBand=" + mBand
+                + ", mPairingConfig" + mPairingConfig
+                + ", mIsSuspendable=" + mIsSuspendable;
     }
 
     @Override
@@ -159,9 +172,12 @@ public final class SubscribeConfig implements Parcelable {
         dest.writeInt(mMaxDistanceMmSet ? 1 : 0);
         dest.writeBoolean(mEnableInstantMode);
         dest.writeInt(mBand);
+        dest.writeParcelable(mPairingConfig, flags);
+        dest.writeBoolean(mIsSuspendable);
     }
 
-    public static final @android.annotation.NonNull Creator<SubscribeConfig> CREATOR = new Creator<SubscribeConfig>() {
+    @NonNull
+    public static final Creator<SubscribeConfig> CREATOR = new Creator<>() {
         @Override
         public SubscribeConfig[] newArray(int size) {
             return new SubscribeConfig[size];
@@ -181,10 +197,13 @@ public final class SubscribeConfig implements Parcelable {
             boolean maxDistanceMmSet = in.readInt() != 0;
             boolean enableInstantMode = in.readBoolean();
             int band = in.readInt();
+            AwarePairingConfig pairingConfig = in.readParcelable(
+                    AwarePairingConfig.class.getClassLoader());
+            boolean isSuspendable = in.readBoolean();
 
             return new SubscribeConfig(serviceName, ssi, matchFilter, subscribeType, ttlSec,
                     enableTerminateNotification, minDistanceMmSet, minDistanceMm, maxDistanceMmSet,
-                    maxDistanceMm, enableInstantMode, band);
+                    maxDistanceMm, enableInstantMode, band, pairingConfig, isSuspendable);
         }
     };
 
@@ -207,7 +226,8 @@ public final class SubscribeConfig implements Parcelable {
                 && mMinDistanceMmSet == lhs.mMinDistanceMmSet
                 && mMaxDistanceMmSet == lhs.mMaxDistanceMmSet
                 && mEnableInstantMode == lhs.mEnableInstantMode
-                && mBand == lhs.mBand)) {
+                && mBand == lhs.mBand
+                && mIsSuspendable == lhs.mIsSuspendable)) {
             return false;
         }
 
@@ -227,7 +247,7 @@ public final class SubscribeConfig implements Parcelable {
         int result = Objects.hash(Arrays.hashCode(mServiceName),
                 Arrays.hashCode(mServiceSpecificInfo), Arrays.hashCode(mMatchFilter),
                 mSubscribeType, mTtlSec, mEnableTerminateNotification, mMinDistanceMmSet,
-                mMaxDistanceMmSet, mEnableInstantMode, mBand);
+                mMaxDistanceMmSet, mEnableInstantMode, mBand, mIsSuspendable);
 
         if (mMinDistanceMmSet) {
             result = Objects.hash(result, mMinDistanceMm);
@@ -286,6 +306,12 @@ public final class SubscribeConfig implements Parcelable {
                     throw new IllegalArgumentException("instant mode is not supported");
                 }
             }
+            if (mIsSuspendable && !characteristics.isSuspensionSupported()) {
+                throw new IllegalArgumentException("Aware Suspension is not supported");
+            }
+            if (mPairingConfig != null && !characteristics.isAwarePairingSupported()) {
+                throw new IllegalArgumentException("Aware Pairing is not supported");
+            }
         }
 
         if (mMinDistanceMmSet && mMinDistanceMm < 0) {
@@ -320,8 +346,34 @@ public final class SubscribeConfig implements Parcelable {
      * or {@link WifiScanner#WIFI_BAND_5_GHZ}. If instant communication mode is not enabled will
      * return {@link WifiScanner#WIFI_BAND_24_GHZ} as default.
      */
-    public @WifiScanner.WifiBand int getInstantCommunicationBand() {
+    @WifiScanner.WifiBand
+    public int getInstantCommunicationBand() {
         return mBand;
+    }
+
+    /**
+     * Get the Aware Pairing config for this subscribe session
+     * @see Builder#setPairingConfig(AwarePairingConfig)
+     * @return A {@link AwarePairingConfig} specified in this config.
+     */
+    @Nullable
+    public AwarePairingConfig getPairingConfig() {
+        return mPairingConfig;
+    }
+
+    /**
+     * Check if suspension is supported for this subscribe session.
+     * @see Builder#setSuspendable(boolean)
+     * @return true for supported, false otherwise.
+     * @hide
+     */
+    @RequiresApi(Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
+    @SystemApi
+    public boolean isSuspendable() {
+        if (!SdkLevel.isAtLeastU()) {
+            throw new UnsupportedOperationException();
+        }
+        return mIsSuspendable;
     }
 
     /**
@@ -340,6 +392,8 @@ public final class SubscribeConfig implements Parcelable {
         private int mMaxDistanceMm;
         private boolean mEnableInstantMode;
         private int mBand = WifiScanner.WIFI_BAND_24_GHZ;
+        private AwarePairingConfig mPairingConfig;
+        private boolean mIsSuspendable = false;
 
         /**
          * Specify the service name of the subscribe session. The actual on-air
@@ -552,7 +606,8 @@ public final class SubscribeConfig implements Parcelable {
          * @return the current {@link Builder} builder, enabling chaining of builder methods.
          */
         @RequiresApi(Build.VERSION_CODES.TIRAMISU)
-        public @NonNull Builder setInstantCommunicationModeEnabled(boolean enabled,
+        @NonNull
+        public Builder setInstantCommunicationModeEnabled(boolean enabled,
                 @WifiScanner.WifiBand int band) {
             if (!SdkLevel.isAtLeastT()) {
                 throw new UnsupportedOperationException();
@@ -566,6 +621,55 @@ public final class SubscribeConfig implements Parcelable {
         }
 
         /**
+         * Set the {@link AwarePairingConfig} for this subscribe session, the peer can use this info
+         * to determine the config of the following bootstrapping, pairing setup/verification
+         * request.
+         * @see AwarePairingConfig
+         * @param config The pairing config set to the peer. Only valid when
+         * {@link Characteristics#isAwarePairingSupported()} is true.
+         * @return the current {@link Builder} builder, enabling chaining of builder methods.
+         */
+        @RequiresApi(Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
+        @NonNull public Builder setPairingConfig(@Nullable AwarePairingConfig config) {
+            if (!SdkLevel.isAtLeastU()) {
+                throw new UnsupportedOperationException();
+            }
+            mPairingConfig = config;
+            return this;
+        }
+
+        /**
+         * Specify whether to configure the subscribe discovery session to be suspendable. This API
+         * doesn't suspend the session, it allows it to be suspended and resumed in the future using
+         * {@link DiscoverySession#suspend()} and {@link DiscoverySession#resume()} respectively.
+         * <p>
+         * Optional. Not suspendable by default.
+         * <p>
+         * The device must support Wi-Fi Aware suspension for a subscribe session to be
+         * suspendable. Feature support check is determined by
+         * {@link Characteristics#isSuspensionSupported()}.
+         *
+         * @param isSuspendable If true, then this subscribe session can be suspended.
+         *
+         * @return the current {@link Builder} builder, enabling chaining of builder methods.
+         *
+         * @see DiscoverySession#suspend()
+         * @see DiscoverySession#resume()
+         * @hide
+         */
+        @RequiresApi(Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
+        @RequiresPermission(value = MANAGE_WIFI_NETWORK_SELECTION)
+        @SystemApi
+        @NonNull
+        public Builder setSuspendable(boolean isSuspendable) {
+            if (!SdkLevel.isAtLeastU()) {
+                throw new UnsupportedOperationException();
+            }
+            mIsSuspendable = isSuspendable;
+            return this;
+        }
+
+        /**
          * Build {@link SubscribeConfig} given the current requests made on the
          * builder.
          */
@@ -573,7 +677,7 @@ public final class SubscribeConfig implements Parcelable {
             return new SubscribeConfig(mServiceName, mServiceSpecificInfo, mMatchFilter,
                     mSubscribeType, mTtlSec, mEnableTerminateNotification,
                     mMinDistanceMmSet, mMinDistanceMm, mMaxDistanceMmSet, mMaxDistanceMm,
-                    mEnableInstantMode, mBand);
+                    mEnableInstantMode, mBand, mPairingConfig, mIsSuspendable);
         }
     }
 }

@@ -867,6 +867,49 @@ public class HostapdHalHidlImpTest extends WifiBaseTest {
     }
 
     /**
+     * Verifies the service initialization success but setDebugParams failed.
+     */
+    @Test
+    public void testServiceInitializationSetDebugParamFailed() throws Exception {
+        mInOrder = inOrder(mServiceManagerMock, mIHostapdMock);
+        when(mServiceManagerMock.getTransport(eq(
+                android.hardware.wifi.hostapd.V1_0.IHostapd.kInterfaceName), anyString()))
+                .thenReturn(IServiceManager.Transport.HWBINDER);
+        when(mServiceManagerMock.getTransport(eq(
+                android.hardware.wifi.hostapd.V1_1.IHostapd.kInterfaceName), anyString()))
+                .thenReturn(IServiceManager.Transport.HWBINDER);
+        when(mServiceManagerMock.getTransport(eq(
+                android.hardware.wifi.hostapd.V1_2.IHostapd.kInterfaceName), anyString()))
+                .thenReturn(IServiceManager.Transport.HWBINDER);
+        when(mServiceManagerMock.getTransport(eq(
+                android.hardware.wifi.hostapd.V1_3.IHostapd.kInterfaceName), anyString()))
+                .thenReturn(IServiceManager.Transport.HWBINDER);
+        mIHostapdMockV11 = mock(android.hardware.wifi.hostapd.V1_1.IHostapd.class);
+        mIHostapdMockV12 = mock(android.hardware.wifi.hostapd.V1_2.IHostapd.class);
+        mIHostapdMockV13 = mock(android.hardware.wifi.hostapd.V1_3.IHostapd.class);
+        when(mIHostapdMockV13.registerCallback_1_3(
+                any(android.hardware.wifi.hostapd.V1_3.IHostapdCallback.class))).thenReturn(
+                mStatusSuccess12);
+        // Throw an exception when calling setDebugParams
+        when(mIHostapdMockV12.setDebugParams(anyInt())).thenThrow(new RemoteException()).thenReturn(
+                mStatusSuccess12);
+
+        // Initialize HostapdHal, should call serviceManager.registerForNotifications
+        assertTrue(mHostapdHal.initialize());
+        // verify: service manager initialization sequence
+        mInOrder.verify(mServiceManagerMock).linkToDeath(mServiceManagerDeathCaptor.capture(),
+                anyLong());
+        mInOrder.verify(mServiceManagerMock).registerForNotifications(
+                eq(IHostapd.kInterfaceName), eq(""), mServiceNotificationCaptor.capture());
+        // act: cause the onRegistration(...) callback to execute
+        mServiceNotificationCaptor.getValue().onRegistration(IHostapd.kInterfaceName, "", true);
+        mInOrder.verify(mIHostapdMock).linkToDeath(mHostapdDeathCaptor.capture(), anyLong());
+        verify(mIHostapdMockV13).registerCallback_1_3(
+                any(android.hardware.wifi.hostapd.V1_3.IHostapdCallback.class));
+        assertFalse(mHostapdHal.isInitializationComplete());
+    }
+
+    /**
      * Calls.initialize() on last HIDL, mocking various callback answers and verifying flow,
      * asserting for the expected result. Verifies if IHostapd manager is initialized or reset.
      */

@@ -23,9 +23,8 @@
 #include <functional>   // for __base, function
 #include <type_traits>  // for remove_extent_t
 
+#include "log.h"                           // for LOG_INFO, LOG_ERROR
 #include "net/posix/posix_async_socket.h"  // for PosixAsyncSocket, AsyncMan...
-#include "os/log.h"                        // for LOG_INFO, LOG_ERROR
-#include "osi/include/osi.h"               // for OSI_NO_INTR
 
 namespace android {
 namespace net {
@@ -37,7 +36,10 @@ PosixAsyncSocketServer::PosixAsyncSocketServer(int port, AsyncManager* am)
   struct sockaddr_in listen_address {};
   socklen_t sockaddr_in_size = sizeof(struct sockaddr_in);
 
-  OSI_NO_INTR(listen_fd = socket(AF_INET, SOCK_STREAM, 0));
+  do {
+    listen_fd = socket(AF_INET, SOCK_STREAM, 0);
+  } while (listen_fd == -1 && errno == EAGAIN);
+
   if (listen_fd < 0) {
     LOG_INFO("Error creating socket for test channel.");
     return;
@@ -69,11 +71,11 @@ PosixAsyncSocketServer::PosixAsyncSocketServer(int port, AsyncManager* am)
 
   struct sockaddr_in sin;
   socklen_t slen = sizeof(sin);
-  if (getsockname(listen_fd, (struct sockaddr*)&sin, &slen) == -1)
+  if (getsockname(listen_fd, (struct sockaddr*)&sin, &slen) == -1) {
     LOG_INFO("Error retrieving actual port: %s", strerror(errno));
-  else
+  } else {
     port_ = ntohs(sin.sin_port);
-
+  }
   LOG_INFO("Listening on: %d (%d)", port_, listen_fd);
   server_socket_ = std::make_shared<PosixAsyncSocket>(listen_fd, am_);
 }
@@ -100,7 +102,7 @@ bool PosixAsyncSocketServer::Connected() {
 
 void PosixAsyncSocketServer::AcceptSocket() {
   int accept_fd = 0;
-  OSI_NO_INTR(accept_fd = accept(server_socket_->fd(), NULL, NULL));
+  REPEAT_UNTIL_NO_INTR(accept_fd = accept(server_socket_->fd(), NULL, NULL));
 
   if (accept_fd < 0) {
     LOG_INFO("Error accepting test channel connection errno=%d (%s).", errno,

@@ -15,8 +15,11 @@
  */
 #pragma once
 
+#include <gtest/gtest_prod.h>
 #include <sysutils/SocketListener.h>
 #include <utils/RefBase.h>
+
+#include "LogEventFilter.h"
 #include "logd/LogEventQueue.h"
 
 // DEFAULT_OVERFLOWUID is defined in linux/highuid.h, which is not part of
@@ -35,20 +38,53 @@ namespace statsd {
 
 class StatsSocketListener : public SocketListener, public virtual RefBase {
 public:
-    explicit StatsSocketListener(std::shared_ptr<LogEventQueue> queue);
+    explicit StatsSocketListener(std::shared_ptr<LogEventQueue> queue,
+                                 const std::shared_ptr<LogEventFilter>& logEventFilter);
 
-    virtual ~StatsSocketListener();
+    virtual ~StatsSocketListener() = default;
 
 protected:
-    virtual bool onDataAvailable(SocketClient* cli);
+    bool onDataAvailable(SocketClient* cli) override;
 
 private:
     static int getLogSocket();
+
+    /**
+     * @brief Helper API to parse buffer, make the LogEvent & submit it into the queue
+     * Created as a separate API to be easily tested without StatsSocketListener instance
+     *
+     * @param msg buffer to parse
+     * @param len size of buffer in bytes
+     * @param uid arguments for LogEvent constructor
+     * @param pid arguments for LogEvent constructor
+     * @param queue queue to submit the event
+     * @param filter to be used for event evaluation
+     */
+    static void processMessage(const uint8_t* msg, uint32_t len, uint32_t uid, uint32_t pid,
+                               const std::shared_ptr<LogEventQueue>& queue,
+                               const std::shared_ptr<LogEventFilter>& filter);
+
     /**
      * Who is going to get the events when they're read.
      */
     std::shared_ptr<LogEventQueue> mQueue;
+
+    std::shared_ptr<LogEventFilter> mLogEventFilter;
+
+    friend class SocketParseMessageTest;
+    friend void generateAtomLogging(const std::shared_ptr<LogEventQueue>& queue,
+                                    const std::shared_ptr<LogEventFilter>& filter, int eventCount,
+                                    int startAtomId);
+
+    FRIEND_TEST(SocketParseMessageTestNoFiltering, TestProcessMessageNoFiltering);
+    FRIEND_TEST(SocketParseMessageTestNoFiltering,
+                TestProcessMessageNoFilteringWithEmptySetExplicitSet);
+    FRIEND_TEST(SocketParseMessageTest, TestProcessMessageFilterEmptySet);
+    FRIEND_TEST(SocketParseMessageTest, TestProcessMessageFilterCompleteSet);
+    FRIEND_TEST(SocketParseMessageTest, TestProcessMessageFilterPartialSet);
+    FRIEND_TEST(SocketParseMessageTest, TestProcessMessageFilterToggle);
 };
+
 }  // namespace statsd
 }  // namespace os
 }  // namespace android

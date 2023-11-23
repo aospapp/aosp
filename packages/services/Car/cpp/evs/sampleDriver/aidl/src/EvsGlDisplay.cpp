@@ -20,12 +20,15 @@
 #include <aidl/android/hardware/graphics/common/BufferUsage.h>
 #include <aidl/android/hardware/graphics/common/PixelFormat.h>
 #include <aidlcommonsupport/NativeHandle.h>
+#include <android-base/thread_annotations.h>
 #include <linux/time.h>
 #include <ui/DisplayMode.h>
 #include <ui/DisplayState.h>
 #include <ui/GraphicBufferAllocator.h>
 #include <ui/GraphicBufferMapper.h>
 #include <utils/SystemClock.h>
+
+#include <chrono>
 
 namespace {
 
@@ -36,9 +39,10 @@ using ::aidl::android::hardware::automotive::evs::DisplayState;
 using ::aidl::android::hardware::automotive::evs::EvsResult;
 using ::aidl::android::hardware::graphics::common::BufferUsage;
 using ::aidl::android::hardware::graphics::common::PixelFormat;
+using ::android::base::ScopedLockAssertion;
 using ::ndk::ScopedAStatus;
 
-constexpr unsigned int kTimeoutInSeconds = 1;
+constexpr auto kTimeout = std::chrono::seconds(1);
 
 bool debugFirstFrameDisplayed = false;
 
@@ -60,21 +64,17 @@ EvsGlDisplay::EvsGlDisplay(const std::shared_ptr<ICarDisplayProxy>& pDisplayProx
     mInfo.id = std::to_string(displayId);
     mInfo.vendorFlags = 3870;
 
-    sem_init(&mBufferReadyToUse, 0, 0);
-    sem_init(&mBufferReadyToRender, 0, 0);
-    sem_init(&mBufferDone, 0, 0);
-
     // Start a thread to render images on this display
+    {
+        std::lock_guard lock(mLock);
+        mState = RUN;
+    }
     mRenderThread = std::thread([this]() { renderFrames(); });
 }
 
 EvsGlDisplay::~EvsGlDisplay() {
     LOG(DEBUG) << "EvsGlDisplay being destroyed";
     forceShutdown();
-
-    sem_destroy(&mBufferReadyToUse);
-    sem_destroy(&mBufferReadyToRender);
-    sem_destroy(&mBufferDone);
 }
 
 /**
@@ -90,23 +90,27 @@ void EvsGlDisplay::forceShutdown() {
         // get called.
         if (mBuffer.handle != nullptr) {
             // Report if we're going away while a buffer is outstanding
-            if (mBufferBusy || mState == RenderThreadStates::kRunning) {
+            if (mBufferBusy || mState == RUN) {
                 LOG(ERROR) << "EvsGlDisplay going down while client is holding a buffer";
             }
-            mState = RenderThreadStates::kStopping;
-            sem_post(&mBufferReadyToRender);
+            mState = STOPPING;
         }
 
         // Put this object into an unrecoverable error state since somebody else
         // is going to own the display now.
         mRequestedState = DisplayState::DEAD;
     }
+    mBufferReadyToRender.notify_all();
 
     if (mRenderThread.joinable()) {
         mRenderThread.join();
     }
 }
 
+/**
+ * Initialize GL in the context of a caller's thread and prepare a graphic
+ * buffer to use.
+ */
 bool EvsGlDisplay::initializeGlContextLocked() {
     // Initialize our display window
     // NOTE:  This will cause the display to become "VISIBLE" before a frame is actually
@@ -165,9 +169,10 @@ bool EvsGlDisplay::initializeGlContextLocked() {
     return true;
 }
 
+/**
+ * This method runs in a separate thread and renders the contents of the buffer.
+ */
 void EvsGlDisplay::renderFrames() {
-    // This method runs in a separate thread and renders the contents of the
-    // buffer.
     {
         std::lock_guard lock(mLock);
 
@@ -178,23 +183,21 @@ void EvsGlDisplay::renderFrames() {
 
         // Display buffer is ready.
         mBufferBusy = false;
-        sem_post(&mBufferReadyToUse);
     }
+    mBufferReadyToUse.notify_all();
 
-    while (mState == RenderThreadStates::kRunning) {
-        int err = 0;
-        do {
-            err = sem_wait(&mBufferReadyToRender);
-        } while ((err == -1 && errno == EINTR) && !mBufferReady &&
-                 mState == RenderThreadStates::kRunning);
-        if (err != 0) {
-            LOG(ERROR) << "A rendering thread timed out; exiting";
-            break;
-        }
-
-        if (mState != RenderThreadStates::kRunning) {
-            LOG(DEBUG) << "A rendering thread is stopping";
-            break;
+    while (true) {
+        {
+            std::unique_lock lock(mLock);
+            ScopedLockAssertion lock_assertion(mLock);
+            mBufferReadyToRender.wait(lock, [this]() REQUIRES(mLock) {
+                return mBufferReady || mState != RUN;
+            });
+            if (mState != RUN) {
+                LOG(DEBUG) << "A rendering thread is stopping";
+                break;
+            }
+            mBufferReady = false;
         }
 
         // Update the texture contents with the provided data
@@ -212,9 +215,11 @@ void EvsGlDisplay::renderFrames() {
         }
 
         // Mark current frame is consumed.
-        mBufferBusy = false;
-        mBufferReady = false;
-        sem_post(&mBufferDone);
+        {
+            std::lock_guard lock(mLock);
+            mBufferBusy = false;
+        }
+        mBufferDone.notify_all();
     }
 
     LOG(DEBUG) << "A rendering thread is stopped.";
@@ -227,7 +232,8 @@ void EvsGlDisplay::renderFrames() {
     mGlWrapper.hideWindow(mDisplayProxy, mDisplayId);
     mGlWrapper.shutdown();
 
-    mState = RenderThreadStates::kStopped;
+    std::lock_guard lock(mLock);
+    mState = STOPPED;
 }
 
 /**
@@ -319,7 +325,8 @@ ScopedAStatus EvsGlDisplay::getDisplayState(DisplayState* _aidl_return) {
  */
 ScopedAStatus EvsGlDisplay::getTargetBuffer(BufferDesc* _aidl_return) {
     LOG(DEBUG) << __FUNCTION__;
-    std::lock_guard lock(mLock);
+    std::unique_lock lock(mLock);
+    ScopedLockAssertion lock_assertion(mLock);
     if (mRequestedState == DisplayState::DEAD) {
         LOG(ERROR) << "Rejecting buffer request from object that lost ownership of the display.";
         return ScopedAStatus::fromServiceSpecificError(static_cast<int>(EvsResult::OWNERSHIP_LOST));
@@ -328,11 +335,9 @@ ScopedAStatus EvsGlDisplay::getTargetBuffer(BufferDesc* _aidl_return) {
     // If we don't already have a buffer, allocate one now
     // mBuffer.memHandle is a type of buffer_handle_t, which is equal to
     // native_handle_t*.
-    if (mBuffer.handle == nullptr && sem_wait(&mBufferReadyToUse) != 0) {
-        LOG(ERROR) << "Failed to wait for a buffer";
-        return ScopedAStatus::fromServiceSpecificError(
-                static_cast<int>(EvsResult::BUFFER_NOT_AVAILABLE));
-    }
+    mBufferReadyToUse.wait(lock, [this]() REQUIRES(mLock) {
+        return !mBufferBusy;
+    });
 
     // Do we have a frame available?
     if (mBufferBusy) {
@@ -371,7 +376,8 @@ ScopedAStatus EvsGlDisplay::getTargetBuffer(BufferDesc* _aidl_return) {
  */
 ScopedAStatus EvsGlDisplay::returnTargetBufferForDisplay(const BufferDesc& buffer) {
     LOG(VERBOSE) << __FUNCTION__;
-    std::lock_guard lock(mLock);
+    std::unique_lock lock(mLock);
+    ScopedLockAssertion lock_assertion(mLock);
 
     // Nobody should call us with a null handle
     if (buffer.buffer.handle.fds.size() < 1) {
@@ -404,38 +410,14 @@ ScopedAStatus EvsGlDisplay::returnTargetBufferForDisplay(const BufferDesc& buffe
         LOG(WARNING) << "Got a frame returned while not visible - ignoring.";
         return ScopedAStatus::ok();
     }
+    mBufferReady = true;
+    mBufferReadyToRender.notify_all();
 
-    if (sem_post(&mBufferReadyToRender) != 0) {
-        LOG(ERROR) << "Failed to signal a rendering thread, " << strerror(errno);
+    if (!mBufferDone.wait_for(lock, kTimeout, [this]() REQUIRES(mLock) {
+            return !mBufferBusy;
+        })) {
         return ScopedAStatus::fromServiceSpecificError(
                 static_cast<int>(EvsResult::UNDERLYING_SERVICE_ERROR));
-    }
-
-    timespec frameDoneTimeout;
-    if (clock_gettime(CLOCK_REALTIME, &frameDoneTimeout) == -1) {
-        LOG(WARNING) << "clock_gettime() fails; we will poll the result";
-
-        int maxRetry = 3;
-        while (sem_trywait(&mBufferDone) == -1 && --maxRetry > 0) {
-            // try again at every 0.5 seconds
-            usleep(500000);
-        }
-
-        if (maxRetry < 1) {
-            return ScopedAStatus::fromServiceSpecificError(
-                    static_cast<int>(EvsResult::UNDERLYING_SERVICE_ERROR));
-        }
-    } else {
-        frameDoneTimeout.tv_sec += kTimeoutInSeconds;
-        int err = 0;
-        do {
-            err = sem_timedwait(&mBufferDone, &frameDoneTimeout);
-        } while (err == -1 && errno == EINTR);
-        if (err != 0) {
-            LOG(ERROR) << "Failed to wait for current frame to be done, " << strerror(errno);
-            return ScopedAStatus::fromServiceSpecificError(
-                    static_cast<int>(EvsResult::UNDERLYING_SERVICE_ERROR));
-        }
     }
 
     return ScopedAStatus::ok();

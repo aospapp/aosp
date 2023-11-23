@@ -24,7 +24,9 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import android.content.ComponentName;
 import android.os.Looper;
+import android.telecom.PhoneAccountHandle;
 import android.test.suitebuilder.annotation.SmallTest;
 
 import org.junit.Before;
@@ -46,6 +48,14 @@ public class ImsConferenceControllerTest {
     @Mock
     private TelecomAccountRegistry mMockTelecomAccountRegistry;
 
+    private static final ComponentName TEST_COMPONENT_NAME = new ComponentName(
+            "com.android.phone.tests", ImsConferenceControllerTest.class.getName());
+    private static final String TEST_ACCOUNT_ID1 = "id1";
+    private static final String TEST_ACCOUNT_ID2 = "id2";
+    private static final PhoneAccountHandle PHONE_ACCOUNT_HANDLE_1 = new PhoneAccountHandle(
+            TEST_COMPONENT_NAME, TEST_ACCOUNT_ID1);
+    private static final PhoneAccountHandle PHONE_ACCOUNT_HANDLE_2 = new PhoneAccountHandle(
+            TEST_COMPONENT_NAME, TEST_ACCOUNT_ID2);
     private TestTelephonyConnection mTestTelephonyConnectionA;
     private TestTelephonyConnection mTestTelephonyConnectionB;
 
@@ -60,6 +70,9 @@ public class ImsConferenceControllerTest {
         mTelecomAccountRegistry = TelecomAccountRegistry.getInstance(null);
         mTestTelephonyConnectionA = new TestTelephonyConnection();
         mTestTelephonyConnectionB = new TestTelephonyConnection();
+
+        mTestTelephonyConnectionA.setPhoneAccountHandle(PHONE_ACCOUNT_HANDLE_1);
+        mTestTelephonyConnectionB.setPhoneAccountHandle(PHONE_ACCOUNT_HANDLE_1);
 
         mControllerTest = new ImsConferenceController(mTelecomAccountRegistry,
                 mMockTelephonyConnectionServiceProxy, () -> false);
@@ -94,6 +107,27 @@ public class ImsConferenceControllerTest {
 
         // call A removed
         mControllerTest.remove(mTestTelephonyConnectionA);
+        assertFalse(mTestTelephonyConnectionB.getConferenceables()
+                .contains(mTestTelephonyConnectionA));
+    }
+
+    /**
+     * Behavior: add telephony connections A and B to conference controller;
+     * Assumption: Connection A and B have different PhoneAccountHandles, belong to different subs;
+     * Expected: Connection A and Connection B are not conferenceable with each other;
+     */
+    @Test
+    @SmallTest
+    public void testCallsOnDifferentSubsNotConferenceable() {
+        mTestTelephonyConnectionB.setPhoneAccountHandle(PHONE_ACCOUNT_HANDLE_2);
+        mControllerTest.add(mTestTelephonyConnectionA);
+        mControllerTest.add(mTestTelephonyConnectionB);
+
+        mTestTelephonyConnectionA.setActive();
+        mTestTelephonyConnectionB.setTelephonyConnectionOnHold();
+
+        assertFalse(mTestTelephonyConnectionA.getConferenceables()
+                .contains(mTestTelephonyConnectionB));
         assertFalse(mTestTelephonyConnectionB.getConferenceables()
                 .contains(mTestTelephonyConnectionA));
     }

@@ -28,8 +28,8 @@ from blueberry.tests.gd.cert.behavior import ReplyStage
 from blueberry.tests.gd.cert.event_stream import EventStream, FilteringEventStream
 from blueberry.tests.gd.cert.metadata import metadata
 from blueberry.tests.gd.cert.truth import assertThat
-from bluetooth_packets_python3 import hci_packets
 from bluetooth_packets_python3 import l2cap_packets
+import hci_packets as hci
 
 from mobly import asserts
 from mobly import signals
@@ -142,8 +142,9 @@ class CertSelfTest(base_test.BaseTestClass):
 
     def test_assert_occurs_at_least_passes(self):
         with EventStream(FetchEvents(events=[1, 2, 3, 1, 2, 3], delay_ms=40)) as event_stream:
-            event_stream.assert_event_occurs(
-                lambda data: data.value_ == 1, timeout=timedelta(milliseconds=300), at_least_times=2)
+            event_stream.assert_event_occurs(lambda data: data.value_ == 1,
+                                             timeout=timedelta(milliseconds=300),
+                                             at_least_times=2)
 
     def test_assert_occurs_passes(self):
         with EventStream(FetchEvents(events=[1, 2, 3], delay_ms=50)) as event_stream:
@@ -160,14 +161,16 @@ class CertSelfTest(base_test.BaseTestClass):
 
     def test_assert_occurs_at_most_passes(self):
         with EventStream(FetchEvents(events=[1, 2, 3, 4], delay_ms=50)) as event_stream:
-            event_stream.assert_event_occurs_at_most(
-                lambda data: data.value_ < 4, timeout=timedelta(seconds=1), at_most_times=3)
+            event_stream.assert_event_occurs_at_most(lambda data: data.value_ < 4,
+                                                     timeout=timedelta(seconds=1),
+                                                     at_most_times=3)
 
     def test_assert_occurs_at_most_fails(self):
         try:
             with EventStream(FetchEvents(events=[1, 2, 3, 4], delay_ms=50)) as event_stream:
-                event_stream.assert_event_occurs_at_most(
-                    lambda data: data.value_ > 1, timeout=timedelta(seconds=1), at_most_times=2)
+                event_stream.assert_event_occurs_at_most(lambda data: data.value_ > 1,
+                                                         timeout=timedelta(seconds=1),
+                                                         at_most_times=2)
         except Exception as e:
             logging.debug(e)
             return True  # Failed as expected
@@ -179,12 +182,14 @@ class CertSelfTest(base_test.BaseTestClass):
 
     def test_nested_packets(self):
         handle = 123
-        inside = hci_packets.ReadScanEnableBuilder()
-        logging.debug(inside.Serialize())
+        inside = hci.ReadScanEnable()
+        logging.debug(inside.serialize())
         logging.debug("building outside")
-        outside = hci_packets.AclBuilder(handle, hci_packets.PacketBoundaryFlag.FIRST_NON_AUTOMATICALLY_FLUSHABLE,
-                                         hci_packets.BroadcastFlag.POINT_TO_POINT, inside)
-        logging.debug(outside.Serialize())
+        outside = hci.Acl(handle=handle,
+                          packet_boundary_flag=hci.PacketBoundaryFlag.FIRST_NON_AUTOMATICALLY_FLUSHABLE,
+                          broadcast_flag=hci.BroadcastFlag.POINT_TO_POINT,
+                          payload=inside.serialize())
+        logging.debug(outside.serialize())
         logging.debug("Done!")
 
     def test_l2cap_config_options(self):
@@ -199,10 +204,12 @@ class CertSelfTest(base_test.BaseTestClass):
             [mtu_opt, fcs_opt])
         request_b_frame = l2cap_packets.BasicFrameBuilder(0x01, request)
         handle = 123
-        wrapped = hci_packets.AclBuilder(handle, hci_packets.PacketBoundaryFlag.FIRST_NON_AUTOMATICALLY_FLUSHABLE,
-                                         hci_packets.BroadcastFlag.POINT_TO_POINT, request_b_frame)
+        wrapped = hci.Acl(handle=handle,
+                          packet_boundary_flag=hci.PacketBoundaryFlag.FIRST_NON_AUTOMATICALLY_FLUSHABLE,
+                          broadcast_flag=hci.BroadcastFlag.POINT_TO_POINT,
+                          payload=bytes(request_b_frame.Serialize()))
         # Size is ACL (4) + L2CAP (4) + Configure (8) + MTU (4) + FCS (3)
-        asserts.assert_true(len(wrapped.Serialize()) == 23, "Packet serialized incorrectly")
+        asserts.assert_true(len(wrapped.serialize()) == 23, "Packet serialized incorrectly")
 
     def test_assertThat_boolean_success(self):
         assertThat(True).isTrue()
@@ -313,9 +320,8 @@ class CertSelfTest(base_test.BaseTestClass):
 
     def test_assertThat_emitsNone_passes(self):
         with EventStream(FetchEvents(events=[1, 2, 3], delay_ms=50)) as event_stream:
-            assertThat(event_stream).emitsNone(
-                lambda data: data.value_ == 4, timeout=timedelta(seconds=0.15)).thenNone(
-                    lambda data: data.value_ == 5, timeout=timedelta(seconds=0.15))
+            assertThat(event_stream).emitsNone(lambda data: data.value_ == 4, timeout=timedelta(seconds=0.15)).thenNone(
+                lambda data: data.value_ == 5, timeout=timedelta(seconds=0.15))
 
     def test_assertThat_emitsNone_passes_after_1_second(self):
         with EventStream(FetchEvents(events=[1, 2, 3, 4], delay_ms=400)) as event_stream:
@@ -332,8 +338,8 @@ class CertSelfTest(base_test.BaseTestClass):
 
     def test_assertThat_emitsNone_zero_passes(self):
         with EventStream(FetchEvents(events=[], delay_ms=50)) as event_stream:
-            assertThat(event_stream).emitsNone(timeout=timedelta(milliseconds=10)).thenNone(
-                timeout=timedelta(milliseconds=10))
+            assertThat(event_stream).emitsNone(timeout=timedelta(milliseconds=10)).thenNone(timeout=timedelta(
+                milliseconds=10))
 
     def test_assertThat_emitsNone_zero_passes_after_one_second(self):
         with EventStream(FetchEvents([1], delay_ms=1500)) as event_stream:
@@ -449,9 +455,8 @@ class CertSelfTest(base_test.BaseTestClass):
             asserts.assert_true("pts_test_name" in e.extras, msg=("pts_test_name not in extra: %s" % str(e.extras)))
             asserts.assert_equal(e.extras["pts_test_name"], "Hello world")
             trace_str = traceback.format_exc()
-            asserts.assert_true(
-                "raise ValueError(failure_argument)" in trace_str,
-                msg="Failed test method not in error stack trace: %s" % trace_str)
+            asserts.assert_true("raise ValueError(failure_argument)" in trace_str,
+                                msg="Failed test method not in error stack trace: %s" % trace_str)
         else:
             asserts.fail("Must throw an exception using @metadata decorator")
 

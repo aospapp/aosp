@@ -18,6 +18,6 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="car_pref_category_title" msgid="5776370242269122076">"Car"</string>
-    <string name="car_ui_plugin_enabled_pref_title" msgid="606705126746748119">"Enable car UI library plug-in"</string>
-    <string name="car_ui_plugin_not_found_text" msgid="7654699744630868262">"Car UI plug-in not found"</string>
+    <string name="car_ui_plugin_enabled_pref_title" msgid="606705126746748119">"Enable Car UI library plugin"</string>
+    <string name="car_ui_plugin_not_found_text" msgid="7654699744630868262">"Car UI plugin not found"</string>
 </resources>

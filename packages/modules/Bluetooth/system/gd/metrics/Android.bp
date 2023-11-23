@@ -11,6 +11,8 @@ filegroup {
     name: "BluetoothMetricsSources",
     srcs: [
         "counter_metrics.cc",
+        "metrics_state.cc",
+        "utils.cc",
     ],
 }
 
@@ -18,5 +20,6 @@ filegroup {
     name: "BluetoothMetricsTestSources",
     srcs: [
         "counter_metrics_unittest.cc",
+        "metrics_state_unittest.cc",
     ],
 }

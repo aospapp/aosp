@@ -19,6 +19,7 @@ package com.android.car.cluster;
 import static android.car.settings.CarSettings.Global.DISABLE_INSTRUMENTATION_SERVICE;
 
 import static com.android.dx.mockito.inline.extended.ExtendedMockito.doAnswer;
+import static com.android.dx.mockito.inline.extended.ExtendedMockito.doNothing;
 import static com.android.dx.mockito.inline.extended.ExtendedMockito.doReturn;
 
 import static com.google.common.truth.Truth.assertThat;
@@ -29,6 +30,7 @@ import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
+import android.annotation.Nullable;
 import android.car.CarAppFocusManager;
 import android.car.cluster.navigation.NavigationState.Maneuver;
 import android.car.cluster.navigation.NavigationState.Maneuver.TypeV2;
@@ -38,11 +40,15 @@ import android.car.cluster.renderer.IInstrumentCluster;
 import android.car.cluster.renderer.IInstrumentClusterNavigation;
 import android.car.navigation.CarNavigationInstrumentCluster;
 import android.car.test.mocks.AbstractExtendedMockitoTestCase;
+import android.car.test.mocks.AbstractExtendedMockitoTestCase.CustomMockitoSessionBuilder;
+import android.car.test.mocks.MockSettings;
 import android.content.ContentResolver;
 import android.content.Context;
+import android.graphics.BitmapFactory;
 import android.os.Bundle;
 import android.os.Looper;
 import android.os.Process;
+import android.os.RemoteException;
 import android.view.KeyEvent;
 
 import androidx.test.InstrumentationRegistry;
@@ -78,13 +84,26 @@ public final class InstrumentClusterServiceTest extends AbstractExtendedMockitoT
     @Mock
     private CarUserService mCarUserService;
 
+    private MockSettings mMockSettings;
+
     private final IInstrumentClusterNavigationImpl mInstrumentClusterNavigation =
             new IInstrumentClusterNavigationImpl();
+    private final TestClusterRenderer mInstrumentClusterRenderer = new TestClusterRenderer();
 
-    private final IInstrumentCluster mInstrumentClusterRenderer = new IInstrumentCluster.Stub() {
+
+    private class TestClusterRenderer extends IInstrumentCluster.Stub {
+        @Nullable public KeyEvent mLastReceivedOnKeyEvent;
+
+        public int mMaxFailuresToReturnNavigationService = 0;
+        public boolean mThrowErrorInOnKeyEvent;
+        private int mGetNavigationServiceCount = 0;
 
         @Override
         public IInstrumentClusterNavigation getNavigationService() {
+            mGetNavigationServiceCount++;
+            if (mGetNavigationServiceCount <= mMaxFailuresToReturnNavigationService) {
+                return null;
+            }
             return mInstrumentClusterNavigation;
         }
 
@@ -93,12 +112,22 @@ public final class InstrumentClusterServiceTest extends AbstractExtendedMockitoT
         }
 
         @Override
-        public void onKeyEvent(KeyEvent keyEvent) {
+        public void onKeyEvent(KeyEvent keyEvent) throws RemoteException {
+            mLastReceivedOnKeyEvent = keyEvent;
+            if (mThrowErrorInOnKeyEvent) {
+                throw new RemoteException();
+            }
         }
-    };
+    }
 
     public InstrumentClusterServiceTest() {
         super(InstrumentClusterService.TAG, ClusterNavigationService.TAG);
+    }
+
+    @Override
+    protected void onSessionBuilder(CustomMockitoSessionBuilder builder) {
+        mMockSettings = new MockSettings(builder);
+        builder.spyStatic(BitmapFactory.class);
     }
 
     @Before
@@ -106,9 +135,10 @@ public final class InstrumentClusterServiceTest extends AbstractExtendedMockitoT
         doReturn(DEFAULT_RENDERER_SERVICE).when(mContext).getString(
                 R.string.instrumentClusterRendererService);
         doReturn(true).when(mContext).bindServiceAsUser(any(), any(), anyInt(), any());
+        doNothing().when(mContext).unbindService(any());
         ContentResolver cr = InstrumentationRegistry.getTargetContext().getContentResolver();
         doReturn(cr).when(mContext).getContentResolver();
-        putSettingsString(DISABLE_INSTRUMENTATION_SERVICE, "false");
+        mMockSettings.putString(DISABLE_INSTRUMENTATION_SERVICE, "false");
         doAnswer((Answer<Void>) invocationOnMock -> {
                     Runnable r = invocationOnMock.getArgument(0);
                     r.run();
@@ -128,7 +158,8 @@ public final class InstrumentClusterServiceTest extends AbstractExtendedMockitoT
             Looper.prepare();
         }
         mNavigationService = new ClusterNavigationService(mContext, mAppFocusService);
-        mService = new InstrumentClusterService(mContext, mNavigationService, mCarInputService);
+        mService = new InstrumentClusterService(mContext, mNavigationService, mCarInputService,
+                /* rendererServiceWaitTimeoutMs= */ 1000);
     }
 
     @After
@@ -151,6 +182,59 @@ public final class InstrumentClusterServiceTest extends AbstractExtendedMockitoT
                 mInstrumentClusterRenderer.asBinder());
     }
 
+    private void notifyRendererServiceDisconnected() {
+        mService.mRendererServiceConnection.onServiceDisconnected(null);
+    }
+
+    @Test
+    public void testOnServiceDisconnected() {
+        initService(/* connect= */ true);
+
+        notifyRendererServiceDisconnected();
+
+        verify(mContext).unbindService(any());
+    }
+
+    @Test
+    public void testGetInstrumentClusterInfo_navigationRendererInitialFailures() {
+        initService(/* connect= */ true);
+
+        mInstrumentClusterRenderer.mMaxFailuresToReturnNavigationService = 1;
+        CarNavigationInstrumentCluster clusterInfo = mService.getInstrumentClusterInfo();
+
+        assertThat(clusterInfo).isEqualTo(mInstrumentClusterNavigation.mClusterInfo);
+    }
+
+    @Test
+    public void testGetInstrumentClusterInfo_navigationBinderError() {
+        initService(/* connect= */ true);
+        mInstrumentClusterNavigation.mThrowExceptionInGetInstrumentClusterInfo = true;
+
+        assertThrows(IllegalStateException.class, () -> {
+            mService.getInstrumentClusterInfo();
+        });
+    }
+
+    @Test
+    public void testOnKeyEvent() {
+        initService(/* connect= */ true);
+        KeyEvent event = new KeyEvent(1, 1);
+
+        mService.onKeyEvent(event);
+
+        assertThat(mInstrumentClusterRenderer.mLastReceivedOnKeyEvent).isEqualTo(event);
+    }
+
+    @Test
+    public void testOnKeyEvent_rendererThrowsError() {
+        initService(/* connect= */ true);
+        KeyEvent event = new KeyEvent(1, 1);
+        mInstrumentClusterRenderer.mThrowErrorInOnKeyEvent = true;
+
+        mService.onKeyEvent(event);
+        // Expect no exception to be thrown
+    }
+
     @Test
     public void testNonNullManager() throws Exception {
         initService(/* connect= */ true);
@@ -171,6 +255,14 @@ public final class InstrumentClusterServiceTest extends AbstractExtendedMockitoT
         });
         checkValidClusterNavigation();
         verify(mContext).bindServiceAsUser(any(), any(), anyInt(), any());
+    }
+
+    @Test
+    public void testNoConnection_throwsIllegalStateException() throws Exception {
+        initService(/* connect= */ false);
+        assertThrows(IllegalStateException.class, () -> {
+            mService.getInstrumentClusterInfo();
+        });
     }
 
     @Test
@@ -244,6 +336,7 @@ public final class InstrumentClusterServiceTest extends AbstractExtendedMockitoT
                         /* imageColorDepthBits= */ 32);
 
         private Bundle mLastBundle;
+        public boolean mThrowExceptionInGetInstrumentClusterInfo;
 
         @Override
         public void onNavigationStateChanged(Bundle bundle) {
@@ -251,7 +344,10 @@ public final class InstrumentClusterServiceTest extends AbstractExtendedMockitoT
         }
 
         @Override
-        public CarNavigationInstrumentCluster getInstrumentClusterInfo() {
+        public CarNavigationInstrumentCluster getInstrumentClusterInfo() throws RemoteException {
+            if (mThrowExceptionInGetInstrumentClusterInfo) {
+                throw new RemoteException();
+            }
             return mClusterInfo;
         }
     }

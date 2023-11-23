@@ -22,6 +22,7 @@ import android.safetycenter.SafetyEvent;
 import android.safetycenter.SafetySourceData;
 import android.safetycenter.SafetySourceErrorDetails;
 import android.safetycenter.config.SafetyCenterConfig;
+import java.util.List;
 
 /**
  * AIDL Interface for communicating with the Safety Center, which consolidates UI for security and
@@ -72,16 +73,23 @@ interface ISafetyCenterManager {
     /** Requests safety sources to set their latest SafetySourceData for Safety Center. */
     void refreshSafetySources(int refreshReason, int userId);
 
+    /**
+    * Requests a specific subset of safety sources to set their latest SafetySourceData for
+    * Safety Center.
+    */
+    void refreshSpecificSafetySources(int refreshReason, int userId, in List<String> safetySourceIds);
+
     /** Returns the current SafetyCenterConfig, if available. */
     SafetyCenterConfig getSafetyCenterConfig();
 
     /**
      * Returns the current SafetyCenterData, assembled from the SafetySourceData from all sources.
      */
-    SafetyCenterData getSafetyCenterData(int userId);
+    SafetyCenterData getSafetyCenterData(String packageName, int userId);
 
     void addOnSafetyCenterDataChangedListener(
             IOnSafetyCenterDataChangedListener listener,
+            String packageName,
             int userId);
 
     void removeOnSafetyCenterDataChangedListener(
@@ -89,8 +97,7 @@ interface ISafetyCenterManager {
             int userId);
 
     /**
-     * Dismiss a Safety Center issue and prevent it from appearing in the Safety Center or affecting
-     * the overall safety status.
+     * Dismiss a Safety Center issue and prevent it affecting the overall safety status.
      */
     void dismissSafetyCenterIssue(String issueId, int userId);
 

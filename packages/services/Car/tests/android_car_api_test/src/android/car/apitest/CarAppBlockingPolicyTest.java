@@ -17,25 +17,23 @@ package android.car.apitest;
 
 import android.car.content.pm.AppBlockingPackageInfo;
 import android.car.content.pm.CarAppBlockingPolicy;
-import android.content.Context;
 import android.os.Parcel;
 import android.test.suitebuilder.annotation.SmallTest;
 import android.util.Log;
 
-import androidx.test.platform.app.InstrumentationRegistry;
-
 import static com.google.common.truth.Truth.assertThat;
+
+import com.android.compatibility.common.util.ApiTest;
 
 import org.junit.Test;
 
 @SmallTest
-public class CarAppBlockingPolicyTest {
+public final class CarAppBlockingPolicyTest extends CarLessApiTestBase {
     private static final String TAG = AppBlockingPackageInfoTest.class.getSimpleName();
 
-    private final Context mContext = InstrumentationRegistry.getInstrumentation()
-            .getTargetContext();
-
     @Test
+    @ApiTest(apis = {"android.car.content.pm.AppBlockingPackageInfo#CREATOR",
+            "android.car.content.pm.CarAppBlockingPolicy#CREATOR"})
     public void testParcelling() throws Exception {
         AppBlockingPackageInfo carServiceInfo =
                 AppBlockingPackageInfoTest.createInfoCarService(mContext);

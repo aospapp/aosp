@@ -315,7 +315,7 @@ object Utils {
     }
 
     @TargetApi(Build.VERSION_CODES.LOLLIPOP)
-    fun updateNextAlarm(am: AlarmManager, info: AlarmClockInfo?, op: PendingIntent?) {
+    fun updateNextAlarm(am: AlarmManager, info: AlarmClockInfo, op: PendingIntent) {
         am.setAlarmClock(info, op)
     }
 

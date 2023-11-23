@@ -21,7 +21,7 @@ import android.hardware.automotive.vehicle.V2_0.VehiclePropValue;
 import android.os.SystemClock;
 
 /** A builder class for {@link android.hardware.automotive.vehicle.V2_0.VehiclePropValue} */
-public class HidlVehiclePropValueBuilder {
+public final class HidlVehiclePropValueBuilder {
     private final VehiclePropValue mPropValue;
 
     public static HidlVehiclePropValueBuilder newBuilder(int propId) {

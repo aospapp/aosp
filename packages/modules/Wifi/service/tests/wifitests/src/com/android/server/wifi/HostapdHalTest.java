@@ -24,6 +24,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.anyInt;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -92,6 +93,11 @@ public class HostapdHalTest extends WifiBaseTest {
         assertEquals(mHostapdHal.initialize(), shouldSucceed);
         verify(mIHostapdHidlMock).initialize();
         verify(mIHostapdAidlMock, never()).initialize();
+    }
+
+    private void resetHostapdHal() {
+        mHostapdHal = new HostapdHalSpy();
+        reset(mIHostapdAidlMock, mIHostapdHidlMock);
     }
 
     /**
@@ -285,5 +291,23 @@ public class HostapdHalTest extends WifiBaseTest {
         initializeWithAidlImp(true);
         mHostapdHal.startDaemon();
         verify(mIHostapdAidlMock).startDaemon();
+    }
+
+    /**
+     * Check that isSoftApInstanceDiedHandlerSupported() only returns true if the
+     * AIDL implementation is being used.
+     */
+    @Test
+    public void testIsSoftApInstanceDiedHandlerSupported() {
+        setIHostapdImp(null);
+        assertFalse(mHostapdHal.isSoftApInstanceDiedHandlerSupported());
+
+        resetHostapdHal();
+        initializeWithHidlImp(true);
+        assertFalse(mHostapdHal.isSoftApInstanceDiedHandlerSupported());
+
+        resetHostapdHal();
+        initializeWithAidlImp(true);
+        assertTrue(mHostapdHal.isSoftApInstanceDiedHandlerSupported());
     }
 }

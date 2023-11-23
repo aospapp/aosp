@@ -29,11 +29,14 @@ import com.android.modules.utils.BasicShellCommandHandler;
 import com.android.permission.compat.UserHandleCompat;
 
 import java.io.PrintWriter;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
 @RequiresApi(Build.VERSION_CODES.S)
 class RoleShellCommand extends BasicShellCommandHandler {
+    private static final String ROLE_HOLDER_SEPARATOR = ";";
+
     @NonNull
     private final IRoleManager mRoleManager;
 
@@ -74,6 +77,8 @@ class RoleShellCommand extends BasicShellCommandHandler {
         PrintWriter pw = getOutPrintWriter();
         try {
             switch (cmd) {
+                case "get-role-holders":
+                    return runGetRoleHolders();
                 case "add-role-holder":
                     return runAddRoleHolder();
                 case "remove-role-holder":
@@ -106,6 +111,15 @@ class RoleShellCommand extends BasicShellCommandHandler {
             return 0;
         }
         return Integer.parseInt(flags);
+    }
+
+    private int runGetRoleHolders() throws RemoteException {
+        int userId = getUserIdMaybe();
+        String roleName = getNextArgRequired();
+
+        List<String> roleHolders = mRoleManager.getRoleHoldersAsUser(roleName, userId);
+        getOutPrintWriter().println(String.join(ROLE_HOLDER_SEPARATOR, roleHolders));
+        return 0;
     }
 
     private int runAddRoleHolder() throws RemoteException {
@@ -155,6 +169,7 @@ class RoleShellCommand extends BasicShellCommandHandler {
         pw.println("  help or -h");
         pw.println("    Print this help text.");
         pw.println();
+        pw.println("  get-role-holders [--user USER_ID] ROLE");
         pw.println("  add-role-holder [--user USER_ID] ROLE PACKAGE [FLAGS]");
         pw.println("  remove-role-holder [--user USER_ID] ROLE PACKAGE [FLAGS]");
         pw.println("  clear-role-holders [--user USER_ID] ROLE [FLAGS]");

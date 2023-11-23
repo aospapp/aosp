@@ -31,6 +31,8 @@
     <string name="enabled" msgid="5127188665060746381">"இயக்கப்பட்டுள்ளது"</string>
     <string name="disabled" msgid="4589065923272201387">"முடக்கப்பட்டுள்ளது"</string>
     <string name="unavailable" msgid="1610732303812180196">"கிடைக்கவில்லை"</string>
+    <string name="allow" msgid="6982558814345894019">"அனுமதி"</string>
+    <string name="deny" msgid="8291577308813053917">"வேண்டாம்"</string>
     <string name="header_category_suggestions" msgid="106077820663753645">"பரிந்துரைகள்"</string>
     <string name="header_category_quick_settings" msgid="3785334008768367890">"விரைவு அமைப்புகள்"</string>
     <string name="header_category_general_settings" msgid="3897615781153506434">"பொது அமைப்புகள்"</string>
@@ -51,6 +53,7 @@
     <string name="sound_category_title" msgid="7899816751041939518">"ஒலி"</string>
     <string name="applications_category_title" msgid="7112019490898586223">"ஆப்ஸ்"</string>
     <string name="device_pref_category_title" msgid="8292572846154873762">"சாதன விருப்பத்தேர்வுகள்"</string>
+    <string name="accessibility_category_title" msgid="1552664829936369592">"அணுகல்தன்மை"</string>
     <string name="remotes_and_accessories_category_title" msgid="4795119810430255047">"ரிமோட்கள் &amp; துணைக்கருவிகள்"</string>
     <string name="display_and_sound_category_title" msgid="9203309625380755860">"டிஸ்ப்ளேவும் சத்தமும்"</string>
     <string name="help_and_feedback_category_title" msgid="7036505833991003031">"உதவி &amp; கருத்து"</string>
@@ -109,7 +112,8 @@
     <string name="device_backup_restore" msgid="3634531946308269398">"காப்புப்பிரதி &amp; மீட்டெடுத்தல்"</string>
     <string name="device_factory_reset" msgid="1110189450013225971">"தரவின் ஆரம்பநிலை மீட்டமைப்பு"</string>
     <string name="device_calibration" msgid="2907914144048739705">"அளவுக்குறியீடு"</string>
-    <string name="device_energy_saver" msgid="1105023232841036991">"எனர்ஜி சேமிப்பான்"</string>
+    <string name="device_energy_saver" msgid="6611757996220443028">"ஆஃப் செய்வதற்கான டைமர்"</string>
+    <string name="device_energy_saver_summary" msgid="5306058475316008429">"டிவியை ஆஃப் செய்வதற்கான டைமர்களை அமைத்து மின்சாரத்தைச் சேமிக்கலாம்"</string>
     <string name="overlay_internal_slice_title" msgid="6427352417573831625"></string>
     <string name="device_fastpair" msgid="1235240814051277047">"சாதனங்கள்"</string>
     <string name="surround_sound_select_formats" msgid="6070283650131226239">"வடிவங்களைத் தேர்ந்தெடுக்கவும்"</string>
@@ -118,7 +122,7 @@
     <string name="surround_sound_format_e_ac3" msgid="6923129088903887242">"Dolby Digital Plus"</string>
     <string name="surround_sound_format_dts" msgid="8331816247117135587">"DTS"</string>
     <string name="surround_sound_format_dts_hd" msgid="4268947520371740146">"DTS-HD"</string>
-    <string name="surround_sound_format_dts_uhd" msgid="2844983210044263719">"DTS-UHD"</string>
+    <string name="surround_sound_format_dts_uhd" msgid="4340749818133578788">"DTS:X"</string>
     <string name="surround_sound_format_dolby_mat" msgid="3029804841912462928">"Dolby TrueHDயுடன் கூடிய Dolby Atmos"</string>
     <string name="surround_sound_format_dolby_truehd" msgid="5113046743572967088">"Dolby TrueHD"</string>
     <string name="surround_sound_format_e_ac3_joc" msgid="3360344066462262996">"Dolby Digital Plusஸுடன் கூடிய Dolby Atmos"</string>
@@ -147,10 +151,38 @@
     <string name="hdmi_cec_settings_title" msgid="7120729705063868627">"HDMI-CEC"</string>
     <string name="advanced_sound_settings_title" msgid="319921303039469139">"மேம்பட்ட ஒலி அமைப்புகள்"</string>
     <string name="game_mode_title" msgid="7280816243531315755">"கேம் பயன்முறையை அனுமதி"</string>
-    <string name="match_content_frame_rate_title" msgid="153291168560947689">"வீடியோவின் ஃபிரேம் வீதத்தைப் பொருத்து"</string>
-    <string name="match_content_frame_rate_seamless" msgid="5900012519258795448">"தடையற்ற ஒளிபரப்பு"</string>
+    <string name="match_content_dynamic_range_title" msgid="2794980556561655838">"உள்ளடக்கத்திற்குப் பொருந்தும் டைனமிக் வரம்பு"</string>
+    <string name="match_content_dynamic_range_summary" msgid="2255683926227355398">"இந்த விருப்பத்தை இயக்கும்போது, உள்ளடக்கத்துடன் பொருந்துவதற்காகப் பல்வேறு டைனமிக் வரம்பு வடிவங்களுக்கிடையே இந்த அமைப்பு மாறும். வடிவங்களுக்கிடையே மாறும்போது திரை கருப்பாக மாறக்கூடும்.\n\nகூடுதல் டைனமிக் வரம்பு விருப்பங்கள் காட்டப்பட, மேம்பட்ட காட்சி அமைப்புகளைக் கிளிக் செய்யவும்."</string>
+    <string name="preferred_dynamic_range_title" msgid="5064883672337010588">"விருப்பமான டைனமிக் வரம்பு"</string>
+    <string name="preferred_dynamic_range_selection_system_title" msgid="4505030483876080996">"சிஸ்டம் பரிந்துரைக்கும் வடிவமைப்பு மாற்றம்"</string>
+    <string name="preferred_dynamic_range_selection_system_desc" msgid="5712920601553613576">"வடிவமைப்பு மாற்றத்தை நிர்வகிக்க சிஸ்டத்தை அனுமதிக்கும்"</string>
+    <string name="preferred_dynamic_range_selection_system_summary" msgid="4509062596428781094">"இந்த விருப்பம் தேர்ந்தெடுக்கப்பட்டிருக்கும்போது, உங்கள் டிஸ்ப்ளேக்கு அனுப்ப வேண்டிய பொருத்தமான டைனமிக் ரேஞ்சை சிஸ்டம் தீர்மானிக்கும். அதன் பிறகு, தேவைக்கேற்ப இந்த டைனமிக் ரேஞ்சிற்கு உள்ளடக்கத்தை மாற்றும்."</string>
+    <string name="preferred_dynamic_range_selection_passthrough_desc" msgid="4831260397179583737">"எப்போதும் உள்ளடக்கத்தின் வடிவமைப்போடு பொருந்தும்"</string>
+    <string name="preferred_dynamic_range_selection_force_title" msgid="4448836594133973103">"வடிவமைப்பை மாற்றுதல்"</string>
+    <string name="preferred_dynamic_range_selection_force_desc" msgid="1418542349290684513">"விருப்பமான வடிவமைப்பிற்கு மாற்றும்"</string>
+    <string name="preferred_dynamic_range_selection_force_summary" msgid="8381058061765216239">"விருப்பமான வடிவமைப்பிற்கு மாற்றும். வடிவமைப்பை மாற்றுவது காட்சிப் பயன்முறையிலோ HDR வடிவத்திலோ உள்ள மற்ற அமைப்புகளில் மாற்றத்தை ஏற்படுத்தக்கூடும்."</string>
+    <string name="preferred_dynamic_range_selection_force_sdr_title" msgid="3135104063034317252">"எப்போதும் SDR வடிவமைப்பிற்கு மாற்றுதல்"</string>
+    <string name="preferred_dynamic_range_selection_force_hdr_title" msgid="1032587815433139859">"எப்போதும் <xliff:g id="HDR_TYPE">%s</xliff:g> வடிவமைப்பிற்கு மாற்றுதல்"</string>
+    <string name="preferred_dynamic_range_force_dialog_title" msgid="6865110024863661702">"HDR அவுட்புட்டை மாற்ற வேண்டுமா?"</string>
+    <string name="preferred_dynamic_range_force_dialog_desc" msgid="7758323258282201656">"இயல்பாக, <xliff:g id="HDR_TYPE">%s</xliff:g> வடிவமைப்பிற்கு மாற்றப்படும்."</string>
+    <string name="preferred_dynamic_range_force_dialog_desc_4k30_issue" msgid="4938418395391206131">"உங்கள் டிஸ்ப்ளே 1080பி. 60Hz தெளிவுத்திறனில் இயங்கும். 4k 60Hz தெளிவுத்திறனில் இயங்கும்போது உங்கள் டிஸ்பிளேயுடன் இந்த விருப்பம் இணக்கமாக இருக்காது."</string>
+    <string name="selection_dolby_vision_not_supported_sidebar" msgid="8994591316574824115">"தற்போதுள்ள தெளிவுத்திறனில் Dolby Vision ஆதரிக்கப்படவில்லை. நீங்களே நேரடியாக Dolby Visionனை இயக்கினால், உங்கள் திரையின் தெளிவுத்திறன் 1080p 60Hz என்பதற்கு மாற்றப்படும்"</string>
+    <string name="manual_dolby_vision_format_on_4k60_title" msgid="4172263676512376500">"1080p 60Hz தெளிவுத்திறனுக்கு மாற்றவா?"</string>
+    <string name="dynamic_range_selection_force_dv_title" msgid="8070148109262327094">"எப்போதும் Dolby Vision வடிவத்திற்கு மாற்று"</string>
+    <string name="dynamic_range_selection_force_dv_summary" msgid="1052851029985095562">"மேம்பட்ட காட்சி அமைப்புகளில் \'HDR வடிவங்கள்\' என்பதில் Dolby Vision முடக்கப்பட்டிருந்தால், வடிவத்தை Dolby Visionனுக்கு மாற்றும்பட்சத்தில் அது மீண்டும் இயக்கப்படும்."</string>
+    <string name="dynamic_range_selection_force_hdr10_title" msgid="1221688206945051384">"எப்போதும் HDR10 வடிவத்திற்கு மாற்று"</string>
+    <string name="dynamic_range_selection_force_hdr10_summary" msgid="7784573527636502784">"மேம்பட்ட காட்சி அமைப்புகளில் \'HDR வடிவங்கள்\' என்பதில் HDR10 முடக்கப்பட்டிருந்தால், வடிவத்தை HDR10க்கு மாற்றும்பட்சத்தில் அது மீண்டும் இயக்கப்படும்."</string>
+    <string name="dynamic_range_selection_force_hlg_title" msgid="3976190987768712696">"எப்போதும் HLG வடிவத்திற்கு மாற்று"</string>
+    <string name="dynamic_range_selection_force_hlg_summary" msgid="5371949016689544001">"மேம்பட்ட காட்சி அமைப்புகளில் \'HDR வடிவங்கள்\' என்பதில் HLG முடக்கப்பட்டிருந்தால், வடிவத்தை HLGக்கு மாற்றும்பட்சத்தில் அது மீண்டும் இயக்கப்படும்."</string>
+    <string name="dynamic_range_selection_force_hdr10plus_title" msgid="1305556000063625735">"எப்போதும் HDR10+ வடிவத்திற்கு மாற்று"</string>
+    <string name="dynamic_range_selection_force_hdr10plus_summary" msgid="918038386222537401">"மேம்பட்ட காட்சி அமைப்புகளில் \'HDR வடிவங்கள்\' என்பதில் HDR10+ முடக்கப்பட்டிருந்தால், வடிவத்தை HDR10+க்கு மாற்றும்பட்சத்தில் அது மீண்டும் இயக்கப்படும்."</string>
+    <string name="dynamic_range_selection_force_sdr_title" msgid="1063579223517652945">"எப்போதும் SDR வடிவத்திற்கு மாற்று"</string>
+    <string name="dynamic_range_selection_force_sdr_summary" msgid="2874771365465898941">"வடிவத்தை SDRருக்கு மாற்றினால், மேம்பட்ட காட்சி அமைப்புகளில் \'HDR வடிவங்கள்\' என்பதில் இருக்கும் அனைத்து வடிவங்களும் முடக்கப்படும்."</string>
+    <string name="match_content_frame_rate_title" msgid="153291168560947689">"வீடியோவின் ஃபிரேம் வீதத்துடன் பொருத்துதல்"</string>
+    <string name="match_content_frame_rate_seamless" msgid="5577846750811067585">"தடையற்றவை மட்டும்"</string>
     <string name="match_content_frame_rate_seamless_summary" msgid="2737466163964133210">"ஆப்ஸ் கோரினால், டிவியில் தடையற்ற ஒளிபரப்புக்கான வசதி இருந்தால் மட்டுமே நீங்கள் பார்த்துக் கொண்டிருக்கும் வீடியோவின் அசல் ஃபிரேம் வீதத்துடன் திரையின் ஃபிரேமை உங்கள் சாதனம் பொருத்தும்."</string>
-    <string name="match_content_frame_rate_non_seamless" msgid="1534300397118594640">"எப்போதும் தடையற்ற ஒளிபரப்பு"</string>
+    <string name="match_content_frame_rate_seamless_not_supported_summary" msgid="98559950465123792">"இணைக்கப்பட்ட உங்கள் டிஸ்பிளேயில் \'புதுப்பிக்கும் விகிதத்தைத்\' தடையின்றி மாற்றுவதற்கான வசதியில்லை. இந்த வசதியுள்ள டிஸ்பிளேயுடன் இணைக்காதபட்சத்தில் இந்த விருப்பத்தைப் பயன்படுத்த முடியாது."</string>
+    <string name="match_content_frame_rate_non_seamless" msgid="2702658727234710031">"எப்போதும்"</string>
     <string name="match_content_frame_rate_non_seamless_summary" msgid="6831699459487130055">"ஆப்ஸ் கோரினால், நீங்கள் பார்த்துக் கொண்டிருக்கும் வீடியோவின் அசல் ஃபிரேம் வீதத்துடன் திரையின் ஃபிரேமை உங்கள் சாதனம் பொருத்தும். இதனால், வீடியோவின் இயக்கத்திலிருந்து வெளியேறும்போதோ உள்நுழையும்போதோ திரை ஒரு நொடி மறைந்து தெரியக்கூடும்."</string>
     <string name="match_content_frame_rate_never" msgid="1678354793095148423">"ஒருபோதும் வேண்டாம்"</string>
     <string name="match_content_frame_rate_never_summary" msgid="742977618080396095">"நீங்கள் பார்த்துக் கொண்டிருக்கும் வீடியோவின் அசல் ஃபிரேம் வீதத்துடன் திரையின் ஃபிரேமைப் பொருத்துவதற்கு ஆப்ஸே கோரினாலும் அதை உங்கள் சாதனம் ஒருபோதும் முயற்சிக்காது."</string>
@@ -167,6 +199,7 @@
     <string name="hdr_format_selection_manual_desc" msgid="8865649615882146772">"கிடைக்கக்கூடிய வடிவங்களிலிருந்து நேரடியாகத் தேர்வுசெய்யலாம்"</string>
     <string name="hdr_format_supported_title" msgid="1458594819224612431">"ஆதரிக்கப்படும் வடிவங்கள்"</string>
     <string name="hdr_format_unsupported_title" msgid="715318408107924941">"ஆதரிக்கப்படாத வடிவங்கள்"</string>
+    <string name="hdr_format_sdr" msgid="7211377112392255102">"SDR"</string>
     <string name="hdr_format_hdr10" msgid="8063543267227491062">"HDR10"</string>
     <string name="hdr_format_hlg" msgid="454510079939620321">"HLG"</string>
     <string name="hdr_format_hdr10plus" msgid="4371652089162162876">"HDR10+"</string>
@@ -182,10 +215,14 @@
     <string name="resolution_selection_title" msgid="2873993320284587853">"தெளிவுத்திறன்"</string>
     <string name="resolution_selection_auto_title" msgid="4738671207331027385">"தானியங்கு"</string>
     <string name="resolution_selection_dialog_title" msgid="4029798035133645272">"தெளிவுத்திறன் மாற்றப்பட்டது"</string>
+    <string name="resolution_selection_with_mode_dialog_title" msgid="5011192408613100514">"தெளிவுத்திறனை %1$sக்கு மாற்றவா?"</string>
     <string name="resolution_selection_dialog_desc" msgid="3667357611495669701">"இப்போதிலிருந்து %1$s தெளிவுத்திறனைப் பயன்படுத்த \"சரி\" என்பதைத் தேர்ந்தெடுக்கவும்."</string>
+    <string name="resolution_selection_disabled_dolby_vision_dialog_desc" msgid="7952404018654828187">"%1$s பயன்முறையில் Dolby Vision ஆதரிக்கப்படவில்லை, எனவே \"மேம்பட்ட காட்சி அமைப்புகளில்\" இது முடக்கப்படும்"</string>
+    <string name="resolution_hdr_description_info" msgid="2408761621976850238">"இந்தப் பயன்முறையை இதில் பயன்படுத்தலாம்: %1$s\nசில டிவிகளில், கூடுதல் HDR வடிவமைப்புகளை இயக்க மேம்படுத்தப்பட்ட HDMIயை இயக்க வேண்டியிருக்கலாம். இதைப் பயன்படுத்த முடிகிறதா என்பதைத் தெரிந்துகொள்ள உங்கள் TV அமைப்புகளைப் பார்க்கவும்."</string>
     <string name="resolution_selection_dialog_cancel" msgid="3683616572317946129">"ரத்துசெய்"</string>
     <string name="resolution_selection_dialog_ok" msgid="3123351228545013492">"சரி"</string>
     <string name="resolution_selection_hz" msgid="4425902505388495637">"Hz"</string>
+    <string name="resolution_display_mode" msgid="6633857172598855480">"<xliff:g id="RESOLUTION">%1$s</xliff:g> (<xliff:g id="REFRESH_RATE">%2$s</xliff:g> Hz)"</string>
     <string name="device_storage_clear_cache_title" msgid="14370154552302965">"தற்காலிகச் சேமிப்பு தரவை அழிக்கவா?"</string>
     <string name="device_storage_clear_cache_message" msgid="4352802738505831032">"இது, எல்லா ஆப்ஸின் தற்காலிகச் சேமிப்பு தரவை அழிக்கும்."</string>
     <string name="default_audio_output_settings_title" msgid="5441937324539531999"></string>
@@ -257,7 +294,6 @@
     <string name="system_inputs" msgid="5552840337357572096">"உள்ளீடுகள்"</string>
     <string name="system_inputs_devices" msgid="2158421111699829399">"உள்ளீடுகள் &amp; சாதனங்கள்"</string>
     <string name="system_home_theater_control" msgid="6228949628173590310">"ஹோம் தியேட்டர் கட்டுப்பாடு"</string>
-    <string name="system_accessibility" msgid="3081009195560501010">"அணுகல்தன்மை"</string>
     <string name="system_developer_options" msgid="8480844257066475479">"டெவெலப்பர் விருப்பங்கள்"</string>
     <string name="accessibility_none" msgid="6355646833528306702">"ஏதுமில்லை"</string>
     <string name="system_diagnostic" msgid="1654842813331919958">"உபயோகம் &amp; பிழை அறிக்கைகள்"</string>
@@ -307,6 +343,7 @@
     <string name="do_disclosure_generic" msgid="8390478119591845948">"இந்தச் சாதனத்தை உங்கள் நிறுவனம் நிர்வகிக்கிறது."</string>
     <string name="do_disclosure_with_name" msgid="4755509039938948975">"இந்தச் சாதனத்தை நிர்வகிப்பது: <xliff:g id="ORGANIZATION_NAME">%s</xliff:g>."</string>
     <string name="do_disclosure_learn_more_separator" msgid="4226390963162716446">" "</string>
+    <string name="hdr_capability" msgid="3331021013422460270">"- %1$s"</string>
     <string name="learn_more" msgid="820336467414665686">"மேலும் அறிக"</string>
     <string name="default_camera_app_title" msgid="4573905807226306484">"{count,plural, =1{கேமரா ஆப்ஸ்}other{கேமரா ஆப்ஸ்}}"</string>
     <string name="default_calendar_app_title" msgid="1533912443930743532">"கேலெண்டர் ஆப்ஸ்"</string>
@@ -590,6 +627,7 @@
     <string name="recently_accessed_show_all" msgid="5234849189704717855">"அனைத்தையும் காட்டு"</string>
     <string name="microphone" msgid="7893752847683941214">"மைக்ரோஃபோன்"</string>
     <string name="mic_toggle_title" msgid="7193417007060235665">"மைக்ரோஃபோன் அணுகல்"</string>
+    <string name="mic_remote_toggle_title" msgid="7153283895012570080">"உங்கள் ரிமோட்டில் மைக்ரோஃபோன் அணுகல்"</string>
     <string name="open_mic_permissions" msgid="8121871594807641073">"மைக்ரோஃபோனுக்கான ஆப்ஸ் அணுகல்"</string>
     <string name="microphone_physical_privacy_enabled_title" msgid="6135130916399886772">"மைக்ரோஃபோனுக்கான அணுகல் தடுக்கப்பட்டுள்ளது"</string>
     <string name="microphone_physical_privacy_enabled_text" msgid="401238365312924088">"தடுப்பை நீக்குவதற்கு, உங்கள் சாதனத்தில் தனியுரிமை ஸ்விட்சை மைக்ரோஃபோனின் இயக்கநிலைக்கு நகர்த்தி மைக்ரோஃபோனுக்கான அணுகலை அனுமதிக்கவும்."</string>
@@ -599,7 +637,11 @@
     <string name="camera_physical_privacy_enabled_title" msgid="1944155695921165511">"கேமராவுக்கான அணுகல் தடுக்கப்பட்டுள்ளது"</string>
     <string name="camera_physical_privacy_enabled_text" msgid="6692088634676282779">"தடுப்பை நீக்குவதற்கு, உங்கள் சாதனத்தில் தனியுரிமை ஸ்விட்சைக் கேமராவின் இயக்கநிலைக்கு நகர்த்தி கேமராவுக்கான அணுகலை அனுமதிக்கவும்."</string>
     <string name="mic_toggle_info_title" msgid="1086545614315873599">"மைக்ரோஃபோன் அணுகல்: <xliff:g id="SENSOR_STATE">%s</xliff:g>"</string>
-    <string name="mic_toggle_info_content" msgid="4699624900513326055">"இயக்கப்பட்டிருக்கும்போது, இந்தச் சாதனத்திலுள்ள எந்த மைக்ரோஃபோனையும் அனுமதியுள்ள அனைத்து ஆப்ஸும் சேவைகளும் அணுகலாம்.\n\nபிரத்தியேக நெறிமுறையைக் கொண்டுள்ள ஆடியோ சாதனங்கள் இந்த அமைப்பினால் பாதிக்கப்படாது."</string>
+    <string name="mic_toggle_info_content" msgid="3187791167208947239">"இயக்கப்படும்போது, மைக்ரோஃபோனைப் பயன்படுத்த அனுமதிக்கப்பட்ட அனைத்து ஆப்ஸும் சேவைகளும் அதை அணுக முடியும்.\n\nமுடக்கப்படும்போது, எந்த ஆப்ஸும் சேவைகளும் மைக்ரோஃபோனை அணுக முடியாது. ஆனாலும் உங்கள் ரிமோட்டில் உள்ள Assistant பட்டனை அழுத்துவதன் மூலம் உங்களால் Google Assistantடுடன் பேச முடியும்.\n\nTVயுடன் தொடர்புகொள்வதற்கான பிரத்தியேகமான நெறிமுறைகளைப் பயன்படுத்தும் ஆடியோ சாதனங்கள் இந்த அமைப்பால் பாதிக்கப்படாது."</string>
+    <string name="mic_remote_toggle_on_info_title" msgid="8503441878870972046">"ரிமோட்டில் மைக்ரோஃபோன் இயக்கப்பட்டது"</string>
+    <string name="mic_remote_toggle_on_info_content" msgid="2715872916376493679">"உங்கள் ரிமோட்டில் உள்ள மைக்ரோஃபோனை Google Assistant அணுக முடியும். உங்கள் ரிமோட்டில் உள்ள Google Assistant பட்டனை அழுத்துவதன் மூலம் உங்கள் Assistantடுடன் பேச முடியும்."</string>
+    <string name="mic_remote_toggle_off_info_title" msgid="4902909833546393713">"ரிமோட்டில் மைக்ரோஃபோன் முடக்கப்பட்டுள்ளது"</string>
+    <string name="mic_remote_toggle_off_info_content" msgid="8062526350553191004">"உங்கள் ரிமோட்டைப் பயன்படுத்தி Google Assistantடுடன் பேசமுடியாது. Google Assistant பட்டனைப் பயன்படுத்துவதற்கு மைக்ரோஃபோன் அணுகலை இயக்கவும்."</string>
     <string name="camera_toggle_info_title" msgid="3871317082313736088">"கேமரா அணுகல்: <xliff:g id="SENSOR_STATE">%s</xliff:g>"</string>
     <string name="camera_toggle_info_content" msgid="2999965953853204003">"இயக்கப்பட்டிருக்கும்போது, இந்தச் சாதனத்திலுள்ள எந்தக் கேமராவையும் அனுமதியுள்ள அனைத்து ஆப்ஸும் சேவைகளும் அணுகலாம்.\n\nபிரத்தியேக நெறிமுறையைக் கொண்டுள்ள கேமரா சாதனங்கள் இந்த அமைப்பினால் பாதிக்கப்படாது."</string>
     <string name="sensor_toggle_info_on" msgid="4568111889147132257">"இயக்கப்பட்டுள்ளது"</string>
@@ -625,9 +667,34 @@
     <string name="location_history_desc" msgid="926674012916014270">"இந்தக் கணக்கிற்கு \'இதுவரை சென்ற இடங்கள்\' அம்சம் இயக்கப்படும் போது, உங்கள் ஆப்ஸ் பயன்படுத்துவதற்குச் சாதன இருப்பிடத் தரவை Google சேமிக்கலாம்.\n\nஎடுத்துக்காட்டாக, Google Maps வழிகளை வழங்கலாம், Google Now வழக்கமான பயணத்தில் உள்ள ட்ராஃபிக் பற்றி அறிவிக்கலாம்.\n\nஎந்த நேரத்திலும் இருப்பிட வரலாற்றை நீங்கள் முடக்கலாம், ஆனால் அவ்வாறு செய்வது சேமித்தத் தரவை நீக்காது. இதுவரை சென்ற இடங்களைக் கண்டு நிர்வகிக்க maps.google.com/locationhistoryஐப் பார்வையிடவும்."</string>
     <string name="delete_location_history_title" msgid="707559064715633152">"இட வரலாற்றை நீக்கு"</string>
     <string name="delete_location_history_desc" msgid="4035229731487113147">"Google கணக்கிற்காகச் சாதனத்தில் சேமிக்கப்பட்ட எல்லா இட வரலாற்றையும் இது நீக்கும். இதைத் திரும்பப்பெற முடியாது. Google Now உட்பட சில செயல்பாடுகள் செயல்படுவது நிறுத்தப்படும்."</string>
-    <string name="system_services" msgid="5754310941186053151">"சேவைகள்"</string>
+    <string name="accessibility_screen_readers_category_title" msgid="7742526514873922018">"ஸ்கிரீன் ரீடர்கள்"</string>
+    <string name="accessibility_display_category_title" msgid="593444602101558017">"டிஸ்ப்ளே"</string>
+    <string name="accessibility_interaction_controls_category_title" msgid="5290687835178852745">"ஊடாடல் கட்டுப்பாடுகள்"</string>
+    <string name="accessibility_audio_and_onscreen_text_category_title" msgid="113841605896486212">"ஆடியோ &amp; திரையில் காட்டப்படும் வார்த்தைகள்"</string>
+    <string name="accessibility_experimental_category_title" msgid="3401773834179170206">"பரிசோதனை"</string>
+    <string name="accessibility_services_category_title" msgid="8813843874978910442">"சேவைகள்"</string>
     <string name="accessibility_service_settings" msgid="3251334786870932423">"சேவை அமைப்புகள்"</string>
+    <string name="accessibility_screen_reader_flattened_component_name" msgid="6834614827111101213">"com.google.android.marvin.talkback/com.google.android.marvin.talkback.TalkBackService"</string>
     <string name="accessibility_toggle_high_text_contrast_preference_title" msgid="9200419191468995574">"அதிக ஒளி மாறுபாடுடைய உரை"</string>
+    <string name="accessibility_toggle_bold_text_preference_title" msgid="3328992531170432669">"தடிமன் எழுத்துகள்"</string>
+    <string name="accessibility_color_correction" msgid="6765093204922184119">"கலர் கரெக்‌ஷன்"</string>
+    <string name="color_correction_usage" msgid="4160611639548748657">"கலர் கரெக்‌ஷனைப் பயன்படுத்துதல்"</string>
+    <string name="color_correction_color_mode" msgid="5081377780734779169">"வண்ணப் பயன்முறை"</string>
+    <string name="color_correction_mode_deuteranomaly" msgid="1513793544554228224">"டியூட்டரனாமலி"</string>
+    <string name="color_correction_mode_deuteranomaly_summary" msgid="5991561481464520986">"சிவப்பு-பச்சை"</string>
+    <string name="color_correction_mode_protanomaly" msgid="8105793166015115037">"புரோடனாமலி"</string>
+    <string name="color_correction_mode_protanomaly_summary" msgid="3247619910784115563">"சிவப்பு-பச்சை"</string>
+    <string name="color_correction_mode_tritanomaly" msgid="757769418392736089">"டிரைடனாமலி"</string>
+    <string name="color_correction_mode_tritanomaly_summary" msgid="137712354510881252">"நீலம்-மஞ்சள்"</string>
+    <string name="color_correction_mode_grayscale" msgid="2592973844160514484">"கிரேஸ்கேல்"</string>
+    <string name="palette_color_red" msgid="507196433434979086">"சிவப்பு"</string>
+    <string name="palette_color_orange" msgid="6209196069366109835">"ஆரஞ்சு"</string>
+    <string name="palette_color_yellow" msgid="298466132578870590">"மஞ்சள்"</string>
+    <string name="palette_color_green" msgid="4904783063036825668">"பச்சை"</string>
+    <string name="palette_color_cyan" msgid="3212217287628948203">"சியான்"</string>
+    <string name="palette_color_blue" msgid="8836682634988540630">"நீலம்"</string>
+    <string name="palette_color_purple" msgid="2123828754639683555">"பர்ப்பிள்"</string>
+    <string name="palette_color_gray" msgid="4014534773994261194">"சாம்பல்"</string>
     <string name="accessibility_shortcut" msgid="5856158637840030531">"அணுகல்தன்மை ஷார்ட்கட்"</string>
     <string name="accessibility_shortcut_enable" msgid="6603542432267329986">"அணுகல்தன்மை ஷார்ட்கட்டை இயக்கு"</string>
     <string name="accessibility_shortcut_service" msgid="2053250146891420311">"ஷார்ட்கட் சேவை"</string>
@@ -885,12 +952,24 @@
     <string name="device_daydreams_sleep_description" msgid="6237610484915504587">"செயல்படாத நேரத்திற்குப் பின், ஸ்கிரீன் சேவர் இயங்கும். ஸ்கிரீன் சேவர் எதுவும் தேர்ந்தெடுக்கப்படவில்லை எனில், திரை அணைந்துவிடும்."</string>
     <string name="device_daydreams_sleep_summary" msgid="3081688734381995693">"செயல்படாத <xliff:g id="SLEEP_DESCRIPTION">%1$s</xliff:g>க்குப் பின்"</string>
     <string name="device_energy_saver_screen_off" msgid="6908468996426629480">"திரையை ஆஃப் செய்"</string>
-    <string name="device_energy_saver_screen_off_description" msgid="4469679706899396071">"<xliff:g id="SLEEP_DESCRIPTION">%1$s</xliff:g>க்குப் பின்"</string>
-    <string name="device_energy_saver_screen_off_dialog_title" msgid="4092476553760123309">"இதன்பின் டிஸ்ப்ளேவை ஆஃப் செய்:"</string>
-    <string name="device_energy_saver_allow_turning_screen_off" msgid="3832490233158066073">"திரையை ஆஃப் செய்ய அனுமதி"</string>
-    <string name="device_energy_saver_allow_turning_screen_off_description" msgid="6369746832941270786">"மீடியா பிளேபேக்கின்போது"</string>
-    <string name="device_energy_saver_confirmation_title" msgid="3888708298070409591">"எனர்ஜி சேமிப்பான் அமைப்பை உறுதிசெய்தல்"</string>
-    <string name="device_energy_saver_confirmation_text" msgid="3157546670441493125">"மின்சாரப் பயன்பாடு அதிகரிக்க வாய்ப்புள்ளதால் <xliff:g id="SLEEP_TIME">%1$s</xliff:g>க்கான புதிய அமைப்பை உறுதிசெய்க."</string>
+    <!-- no translation found for device_energy_saver_timeout_description (3206609135199137514) -->
+    <skip />
+    <string name="device_energy_saver_confirmation_title" msgid="7614859812773584773">"பவர் &amp; எனர்ஜி அமைப்பை உறுதிசெய்யுங்கள்"</string>
+    <string name="device_energy_saver_confirmation_message" msgid="7789453187001013951">"நீண்ட நேரம் டிவியை இயக்கத்தில் வைத்திருப்பது எனர்ஜி உபயோகத்தை அதிகரிக்கக்கூடும்"</string>
+    <string name="device_energy_saver_disable_allow_turning_screen_off_title" msgid="1468097048101593731">"எனர்ஜி சேமிப்பான் அமைப்பை முடக்குதல்"</string>
+    <string name="device_energy_saver_disable_allow_turning_screen_off_text" msgid="6334963903866002164">"எனர்ஜியின் பயன்பாடு அதிகரிக்கக்கூடும் என்பதால் பார்த்துக்கொண்டிருக்கும்போது திரை முடக்கப்படுவதைத் தடுக்க வேண்டுமா என்பதை உறுதிசெய்யுங்கள்."</string>
+    <string name="device_energy_saver_sleep_timeout" msgid="1841900768718452039">"செயல்பாட்டில் இல்லாதபோது"</string>
+    <string name="device_energy_saver_attentive_timeout" msgid="3649486668821348087">"பார்க்கும்போது"</string>
+    <string name="device_energy_saver_category_title" msgid="170076161677525986">"தானாக ஆஃப் ஆகும்"</string>
+    <string name="device_energy_saver_sleep_timeout_dialog_title" msgid="6588352532253294558">"செயலற்ற நிலையில் இருக்கும்போது தானாக ஆஃப் ஆகும்"</string>
+    <string name="device_energy_saver_attentive_timeout_dialog_title" msgid="3273988875711109352">"பார்த்துக் கொண்டிருக்கும்போது தானாக ஆஃப் ஆகும்"</string>
+    <string name="device_energy_saver_validation_sleep" msgid="7490897287741107840">"\"செயலில் இல்லை\" எனும் டைமர் \"பார்க்கும்போது\" எனும் டைமரை விட குறைவான நேரம் இருக்க வேண்டும்"</string>
+    <string name="device_energy_saver_validation_attentive" msgid="1461105528087097435">"\"பார்க்கும்போது\" எனும் டைமர் \"செயலில் இல்லை\" எனும் டைமரை விட நீண்ட நேரம் இருக்க வேண்டும்"</string>
+    <string name="limit_network_in_standby_toggle_title" msgid="6587185599397355336">"காத்திருப்பில் நெட்வொர்க் இணைப்பு வரம்பு"</string>
+    <string name="limit_network_in_standby_toggle_summary" msgid="9127792748675581174">"காத்திருப்புப் பயன்முறையில் மின் உபயோகம் குறைவாக இருக்கும்"</string>
+    <string name="limit_network_in_standby_toggle_info" msgid="566947772381093991">"காத்திருப்புப் பயன்முறையில் இருக்கும்போது தானியங்குப் புதுப்பிப்புகளைப் பெறுவதற்கு மட்டும் நெட்வொர்க்குடன் உங்கள் டிவி இணைக்கப்படும். இது உங்கள் டிவி பயன்படுத்தும் மின்சாரத்தின் அளவை குறைக்கக்கூடும். ஆனால் காத்திருப்புப் பயன்முறையின்போது அலைபரப்பு, Google Assistant போன்ற செயல்பாடுகளை உங்களால் பயன்படுத்த முடியாமலும் போகக்கூடும்."</string>
+    <string name="limit_network_in_standby_confirm_title" msgid="789232987058850322">"காத்திருப்புப் பயன்முறையில் நெட்வொர்க் இணைப்பை அனுமதித்தல்"</string>
+    <string name="limit_network_in_standby_confirm_message" msgid="7176699480768019689">"காத்திருப்புப் பயன்முறையில் நெட்வொர்க் இணைப்பை அனுமதிப்பது காத்திருப்பின்போது பயன்படுத்தப்படும் மின்சாரத்தின் அளவை அதிகரிக்கும்."</string>
     <string name="backup_configure_account_default_summary" msgid="2170733614341544296">"தற்போது எந்தக் கணக்கிலும் காப்புப்பிரதி எடுத்த தரவு சேமிக்கப்படவில்லை"</string>
     <string name="backup_erase_dialog_title" msgid="6008454053276987100"></string>
     <string name="backup_erase_dialog_message" msgid="222169533402624861">"உங்கள் வைஃபை கடவுச்சொற்கள், புத்தகக்குறிகள், பிற அமைப்புகள் மற்றும் பயன்பாட்டுத் தரவைக் காப்புப்பிரதியெடுப்பதை நிறுத்தி Google சேவையகங்களில் உள்ள எல்லா நகல்களையும் அழிக்கவா?"</string>
@@ -978,12 +1057,17 @@
     <string name="time_to_start_read_title" msgid="6565449163802837806">"வாசிப்பு தொடங்குவதற்கு முன்பான கால அளவு"</string>
     <string name="time_to_valid_audio_title" msgid="7246101824813414348">"ஆடியோவின் சரியான கால அளவு"</string>
     <string name="empty_audio_duration_title" msgid="9024377320171450683">"காலியாக உள்ள ஆடியோவின் கால அளவு"</string>
+    <string name="record_audio_source_title" msgid="9087784503276397929">"ரெக்கார்டு செய்யப்பட்ட ஆடியோ"</string>
+    <string name="record_audio_source_dialog_title" msgid="6556408220589197097">"ரெக்கார்டு செய்யப்பட்ட ஆடியோவைத் தேர்ந்தெடுத்தல்"</string>
+    <string name="recorded_microphones_title" msgid="5466988146086215426">"மைக்ரோஃபோன்களில் ரெக்கார்டு செய்யப்பட்டவை"</string>
     <string name="show_audio_recording_start_failed" msgid="9131762831381326605">"ஆடியோ ரெக்கார்டிங்கைத் தொடங்க முடியவில்லை."</string>
     <string name="show_audio_recording_failed" msgid="8128216664039868681">"ஆடியோவை ரெக்கார்டு செய்ய முடியவில்லை."</string>
     <string name="title_data_saver" msgid="7500278996154002792">"டேட்டா சேமிப்பு"</string>
     <string name="summary_data_saver" msgid="6793558728898207405">"மொபைல் டேட்டாவைப் பயன்படுத்த வீடியோ தரத்தைத் தானாகவே சரிசெய்யுசெய்யும்"</string>
     <string name="title_data_alert" msgid="8262081890052682475">"டேட்டா உபயோகமும் விழிப்பூட்டல்களும்"</string>
     <string name="data_saver_header_info" msgid="2706725187498535785">"வைஃபை, ஈதர்நெட், மொபைலின் ஹாட்ஸ்பாட் ஆகியவை மூலம் இணையத்துடன் இணையலாம்."</string>
+    <string name="bluetooth_ask_discovery_title" msgid="4955540555242269694">"பிற புளூடூத் சாதனங்களுக்குக் காட்டவா?"</string>
+    <string name="bluetooth_ask_discovery_message" msgid="8609666862877703398">"<xliff:g id="TIMEOUT">%1$d</xliff:g> வினாடிகளுக்கு உங்கள் TV பிற புளூடூத் சாதனங்களுக்குத் தெரியும்படி வைத்திருக்க ஆப்ஸ் விரும்புகிறது."</string>
     <string name="help_center_title" msgid="6109822142761302433"></string>
     <string name="disabled_by_policy_title" msgid="2220484346213756472">"செயல் அனுமதிக்கப்படவில்லை"</string>
     <string name="disabled_by_policy_title_adjust_volume" msgid="4229779946666263271">"ஒலியளவை மாற்ற முடியாது"</string>
@@ -1034,4 +1118,9 @@
     <string name="power_on_behavior" msgid="927607372303160716">"பவர் ஆனில் இருக்கும்போது செயல்பாடு"</string>
     <string name="reset_options_title" msgid="7632580482285108955">"மீட்டமைத்தல்"</string>
     <string name="adb_pairing_device_dialog_ethernet_pairing_code_label" msgid="7551782499828944838">"ஈதர்நெட் இணைத்தல் குறியீடு"</string>
+    <string name="energy_modes" msgid="1331693860386361744">"மின்சாரப் பயன்முறைகள்"</string>
+    <string name="energy_modes_summary" msgid="7196407759836930799">"டிவி உபயோகத்தில் இல்லாதபோது மின்சாரச் சேமிப்பை அதிகரிக்கும்"</string>
+    <string name="energy_mode_enables" msgid="357960364751477627">"இவற்றை இயக்கும்:"</string>
+    <string name="energy_mode_eco_hint" msgid="1461517905015359947">"இந்தப் பயன்முறை சாதனத்தின் மின்சார உபயோகத்தை அதிகரிக்கக்கூடும் என்பதை நினைவில் கொள்ளுங்கள்."</string>
+    <string name="energy_modes_confirmation_title" msgid="4520280098781914825">"\"<xliff:g id="ENERGYMODENAME">%s</xliff:g>\" பயன்முறையை இயக்குதல்"</string>
 </resources>

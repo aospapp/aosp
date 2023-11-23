@@ -40,9 +40,8 @@ enum RangingChangeReason {
   MAX_SESSIONS_REACHED,
 
   /**
-   * The system state has changed resulting in the session changing (e.g. the
-   * user disables UWB, or the user's locale changes and an active channel is no
-   * longer permitted to be used).
+   * The system state has changed by user or system action resulting in the
+   * session changing (e.g. the user disables UWB).
    */
   SYSTEM_POLICY,
 
@@ -65,5 +64,16 @@ enum RangingChangeReason {
    * Max ranging round retries reached.
    */
   MAX_RR_RETRY_REACHED,
-}
 
+  /**
+   * Insufficient slot per rr.
+   */
+  INSUFFICIENT_SLOTS_PER_RR,
+
+  /**
+   * The system state has changed resulting in the session changing (eg: the
+   * user's locale changes and an active channel is no longer permitted to be
+   * used).
+   */
+  SYSTEM_REGULATION,
+}

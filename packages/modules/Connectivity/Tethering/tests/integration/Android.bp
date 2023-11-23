@@ -21,17 +21,18 @@ java_defaults {
     name: "TetheringIntegrationTestsDefaults",
     defaults: ["framework-connectivity-test-defaults"],
     srcs: [
-        "src/**/*.java",
-        "src/**/*.kt",
+        "base/**/*.java",
     ],
     min_sdk_version: "30",
     static_libs: [
         "NetworkStackApiStableLib",
         "androidx.test.rules",
+        "cts-net-utils",
         "mockito-target-extended-minus-junit4",
         "net-tests-utils",
         "net-utils-device-common-bpf",
         "testables",
+        "connectivity-net-module-utils-bpf",
     ],
     libs: [
         "android.test.runner",
@@ -45,6 +46,16 @@ java_defaults {
     ],
 }
 
+android_library {
+    name: "TetheringIntegrationTestsBaseLib",
+    target_sdk_version: "current",
+    platform_apis: true,
+    defaults: ["TetheringIntegrationTestsDefaults"],
+    visibility: [
+        "//packages/modules/Connectivity/Tethering/tests/mts",
+    ]
+}
+
 // Library including tethering integration tests targeting the latest stable SDK.
 // Use with NetworkStackJarJarRules.
 android_library {
@@ -52,6 +63,9 @@ android_library {
     target_sdk_version: "33",
     platform_apis: true,
     defaults: ["TetheringIntegrationTestsDefaults"],
+    srcs: [
+        "src/**/*.java",
+    ],
     visibility: [
         "//packages/modules/Connectivity/tests/cts/tethering",
         "//packages/modules/Connectivity/tests:__subpackages__",
@@ -66,19 +80,25 @@ android_library {
     target_sdk_version: "current",
     platform_apis: true,
     defaults: ["TetheringIntegrationTestsDefaults"],
+    srcs: [
+        "src/**/*.java",
+    ],
     visibility: [
         "//packages/modules/Connectivity/tests/cts/tethering",
         "//packages/modules/Connectivity/Tethering/tests/mts",
     ]
 }
 
+// TODO: remove because TetheringIntegrationTests has been covered by ConnectivityCoverageTests.
 android_test {
     name: "TetheringIntegrationTests",
     platform_apis: true,
     defaults: ["TetheringIntegrationTestsDefaults"],
     test_suites: [
         "device-tests",
-        "mts-tethering",
+    ],
+    srcs: [
+        "src/**/*.java",
     ],
     compile_multilib: "both",
     jarjar_rules: ":NetworkStackJarJarRules",

@@ -17,9 +17,13 @@ package {
 android_app {
     name: "CarUiPortraitSettingsRRO",
     resource_dirs: ["res"],
-    platform_apis: true,
+    sdk_version: "current",
     aaptflags: [
         "--no-resource-deduping",
         "--no-resource-removal"
+    ],
+    static_libs: [
+        "car-portrait-ui-common",
+        "car-ui-lib",
     ],
 }

@@ -15,10 +15,16 @@
  */
 package com.google.android.car.kitchensink.volume;
 
+import static android.car.media.CarAudioManager.AUDIO_FEATURE_DYNAMIC_ROUTING;
+import static android.car.media.CarAudioManager.AUDIO_FEATURE_VOLUME_GROUP_EVENTS;
+
 import android.car.Car;
 import android.car.Car.CarServiceLifecycleListener;
 import android.car.media.CarAudioManager;
 import android.car.media.CarAudioManager.CarVolumeCallback;
+import android.car.media.CarVolumeGroupEvent;
+import android.car.media.CarVolumeGroupEventCallback;
+import android.car.media.CarVolumeGroupInfo;
 import android.content.Context;
 import android.media.AudioManager;
 import android.os.Bundle;
@@ -30,6 +36,7 @@ import android.view.ViewGroup;
 import android.widget.SeekBar;
 
 import androidx.annotation.Nullable;
+import androidx.core.content.ContextCompat;
 import androidx.fragment.app.Fragment;
 import androidx.viewpager.widget.ViewPager;
 
@@ -57,7 +64,7 @@ public final class VolumeTestFragment extends Fragment {
     private SeekBar mBalance;
 
     private TabLayout mZonesTabLayout;
-    private Object mLock = new Object();
+    private final Object mLock = new Object();
 
     public static final class CarAudioZoneVolumeInfo {
         public int groupId;
@@ -67,6 +74,9 @@ public final class VolumeTestFragment extends Fragment {
         public String currentGain;
         public boolean hasAudioFocus;
         public boolean isMuted;
+        public boolean isBlocked;
+        public boolean isAttenuated;
+        public boolean isHalMuted;
     }
 
     private final class CarVolumeChangeListener extends CarVolumeCallback {
@@ -108,6 +118,13 @@ public final class VolumeTestFragment extends Fragment {
         }
     }
 
+    private  CarVolumeGroupEventCallback mEventCallback = (volumeGroupEvents) -> {
+        if (DEBUG) {
+            Log.d(TAG, "onVolumeGroupEvent received events: " + volumeGroupEvents);
+        }
+        sendFragmentChangedMessageForEvents(volumeGroupEvents);
+    };
+
     private final CarVolumeCallback mCarVolumeCallback = new CarVolumeChangeListener();
 
     private CarServiceLifecycleListener mCarServiceLifecycleListener = (car, ready) -> {
@@ -122,6 +139,12 @@ public final class VolumeTestFragment extends Fragment {
         }
         mCarAudioManager = (CarAudioManager) car.getCarManager(Car.AUDIO_SERVICE);
         initVolumeInfo();
+        if (mCarAudioManager.isAudioFeatureEnabled(AUDIO_FEATURE_VOLUME_GROUP_EVENTS)
+                && mCarAudioManager.isAudioFeatureEnabled(AUDIO_FEATURE_DYNAMIC_ROUTING)) {
+            mCarAudioManager.registerCarVolumeGroupEventCallback(
+                    ContextCompat.getMainExecutor(getActivity().getApplicationContext()),
+                    mEventCallback);
+        }
         mCarAudioManager.registerCarVolumeCallback(mCarVolumeCallback);
     };
 
@@ -188,6 +211,22 @@ public final class VolumeTestFragment extends Fragment {
                     Log.d(TAG, "Adding audio volume for zone " + zoneId);
                 }
                 mZoneVolumeFragments.put(zoneId, fragment);
+            }
+        }
+    }
+
+    private void sendFragmentChangedMessageForEvents(List<CarVolumeGroupEvent> volumeGroupEvents) {
+        CarAudioZoneVolumeFragment fragment;
+        for (int index = 0; index < volumeGroupEvents.size(); index++) {
+            CarVolumeGroupEvent event = volumeGroupEvents.get(index);
+            List<CarVolumeGroupInfo> groupInfos = event.getCarVolumeGroupInfos();
+
+            synchronized (mLock) {
+                fragment = mZoneVolumeFragments.get(groupInfos.get(0).getZoneId());
+            }
+
+            if (fragment != null) {
+                fragment.sendEventReceivedMessage(event);
             }
         }
     }

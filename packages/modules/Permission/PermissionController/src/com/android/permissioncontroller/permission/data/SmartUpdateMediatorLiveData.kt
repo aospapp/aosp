@@ -36,8 +36,8 @@ import kotlinx.coroutines.launch
  *
  * @param isStaticVal Whether or not this LiveData value is expected to change
  */
-abstract class SmartUpdateMediatorLiveData<T>(private val isStaticVal: Boolean = false)
-    : MediatorLiveData<T>(), DataRepository.InactiveTimekeeper {
+abstract class SmartUpdateMediatorLiveData<T>(private val isStaticVal: Boolean = false) :
+    MediatorLiveData<T>(), DataRepository.InactiveTimekeeper {
 
     companion object {
         const val DEBUG_UPDATES = false
@@ -60,8 +60,6 @@ abstract class SmartUpdateMediatorLiveData<T>(private val isStaticVal: Boolean =
         private set
 
     private val sources = mutableListOf<SmartUpdateMediatorLiveData<*>>()
-
-    private val stacktraceExceptionMessage = "Caller of coroutine"
 
     @MainThread
     override fun setValue(newValue: T?) {
@@ -126,17 +124,15 @@ abstract class SmartUpdateMediatorLiveData<T>(private val isStaticVal: Boolean =
     }
 
     override fun <S : Any?> addSource(source: LiveData<S>, onChanged: Observer<in S>) {
-        addSourceWithError(source, onChanged)
+        addSourceWithStackTraceAttribution(source, onChanged,
+            IllegalStateException().getStackTrace())
     }
 
-    private fun <S : Any?> addSourceWithError(
+    private fun <S : Any?> addSourceWithStackTraceAttribution(
         source: LiveData<S>,
         onChanged: Observer<in S>,
-        e: IllegalStateException? = null
+        stackTrace: Array<StackTraceElement>
     ) {
-        // Get the stacktrace of the call to addSource, so it isn't lost in any errors
-        val exception = e ?: IllegalStateException(stacktraceExceptionMessage)
-
         GlobalScope.launch(Main.immediate) {
             if (source is SmartUpdateMediatorLiveData) {
                 if (source in sources) {
@@ -146,8 +142,9 @@ abstract class SmartUpdateMediatorLiveData<T>(private val isStaticVal: Boolean =
             }
             try {
                 super.addSource(source, onChanged)
-            } catch (other: IllegalStateException) {
-                throw other.apply { initCause(exception) }
+            } catch (ex: IllegalStateException) {
+                ex.setStackTrace(stackTrace)
+                throw ex
             }
         }
     }
@@ -179,7 +176,7 @@ abstract class SmartUpdateMediatorLiveData<T>(private val isStaticVal: Boolean =
         have: MutableMap<K, V>,
         getLiveDataFun: (K) -> V,
         onUpdateFun: ((K) -> Unit)? = null
-    ) : Pair<Set<K>, Set<K>>{
+    ): Pair<Set<K>, Set<K>>{
         // Ensure the map is correct when method returns
         val (toAdd, toRemove) = KotlinUtils.getMapAndListDifferences(desired, have)
         for (key in toAdd) {
@@ -188,7 +185,7 @@ abstract class SmartUpdateMediatorLiveData<T>(private val isStaticVal: Boolean =
 
         val removed = toRemove.map { have.remove(it) }.toMutableList()
 
-        val stackTraceException = java.lang.IllegalStateException(stacktraceExceptionMessage)
+        val stackTrace = IllegalStateException().getStackTrace()
 
         GlobalScope.launch(Main.immediate) {
             // If any state got out of sorts before this coroutine ran, correct it
@@ -204,14 +201,14 @@ abstract class SmartUpdateMediatorLiveData<T>(private val isStaticVal: Boolean =
                 val liveData = getLiveDataFun(key)
                 // Should be a no op, but there is a slight possibility it isn't
                 have[key] = liveData
-                val observer = Observer<Any> {
+                val observer = Observer<Any?> {
                     if (onUpdateFun != null) {
                         onUpdateFun(key)
                     } else {
                         update()
                     }
                 }
-                addSourceWithError(liveData, observer, stackTraceException)
+                addSourceWithStackTraceAttribution(liveData, observer, stackTrace)
             }
         }
         return toAdd to toRemove

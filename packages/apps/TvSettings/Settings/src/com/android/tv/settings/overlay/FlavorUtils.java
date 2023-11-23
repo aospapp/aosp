@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2020 The Android Open Source Project
+ * Copyright (C) 2022 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,7 +22,8 @@ import android.util.Log;
 
 import androidx.annotation.Nullable;
 
-import com.android.tv.settings.R;
+import com.android.tv.settings.util.ResourcesUtil;
+
 
 /** An Util class that manages logic related to build flavor and feature. */
 public final class FlavorUtils {
@@ -40,6 +41,8 @@ public final class FlavorUtils {
             FLAVOR_CLASSIC | FLAVOR_TWO_PANEL | FLAVOR_X | FLAVOR_VENDOR;
     public static final int TWO_PANEL_FLAVORS_MASK = FLAVOR_TWO_PANEL | FLAVOR_X | FLAVOR_VENDOR;
     public static final int X_EXPERIENCE_FLAVORS_MASK = FLAVOR_X | FLAVOR_VENDOR;
+    public static final int NON_X_EXPERIENCE_FLAVORS_MASK =
+            FLAVOR_UNDEFINED | FLAVOR_CLASSIC | FLAVOR_TWO_PANEL;
 
     private static FeatureFactory sFeatureFactory;
 
@@ -49,7 +52,7 @@ public final class FlavorUtils {
             Log.w(TAG, "Trying to get flavor from null context. Returning undefined flavor.");
             return FLAVOR_UNDEFINED;
         }
-        String flavor = context.getString(R.string.config_tvSettingsFlavor);
+        String flavor = ResourcesUtil.getString(context, "config_tvSettingsFlavor");
         if (TextUtils.isEmpty(flavor)) {
             return FLAVOR_CLASSIC;
         }

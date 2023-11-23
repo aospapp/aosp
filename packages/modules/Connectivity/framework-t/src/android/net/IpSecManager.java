@@ -37,6 +37,7 @@ import android.util.AndroidException;
 import android.util.Log;
 
 import com.android.internal.annotations.VisibleForTesting;
+import com.android.modules.utils.build.SdkLevel;
 
 import dalvik.system.CloseGuard;
 
@@ -63,6 +64,24 @@ import java.util.Objects;
 @SystemService(Context.IPSEC_SERVICE)
 public class IpSecManager {
     private static final String TAG = "IpSecManager";
+
+    /**
+     * Feature flag to declare the kernel support of updating IPsec SAs.
+     *
+     * <p>Feature for {@link #getSystemAvailableFeatures} and {@link #hasSystemFeature}: The device
+     * has the requisite kernel support for migrating IPsec tunnels to new source/destination
+     * addresses.
+     *
+     * <p>This feature implies that the device supports XFRM Migration (CONFIG_XFRM_MIGRATE) and has
+     * the kernel fixes to allow XFRM Migration correctly
+     *
+     * @see android.content.pm.PackageManager#FEATURE_IPSEC_TUNNEL_MIGRATION
+     * @hide
+     */
+    // Redefine this flag here so that IPsec code shipped in a mainline module can build on old
+    // platforms before FEATURE_IPSEC_TUNNEL_MIGRATION API is released.
+    public static final String FEATURE_IPSEC_TUNNEL_MIGRATION =
+            "android.software.ipsec_tunnel_migration";
 
     /**
      * Used when applying a transform to direct traffic through an {@link IpSecTransform}
@@ -254,7 +273,7 @@ public class IpSecManager {
             } catch (RemoteException e) {
                 throw e.rethrowFromSystemServer();
             }
-            mCloseGuard.open("open");
+            mCloseGuard.open("close");
         }
 
         /** @hide */
@@ -591,7 +610,7 @@ public class IpSecManager {
             } catch (RemoteException e) {
                 throw e.rethrowFromSystemServer();
             }
-            mCloseGuard.open("constructor");
+            mCloseGuard.open("close");
         }
 
         /** Get the encapsulation socket's file descriptor. */
@@ -804,25 +823,26 @@ public class IpSecManager {
          * Update the underlying network for this IpSecTunnelInterface.
          *
          * <p>This new underlying network will be used for all transforms applied AFTER this call is
-         * complete. Before new {@link IpSecTransform}(s) with matching addresses are applied to
-         * this tunnel interface, traffic will still use the old SA, and be routed on the old
+         * complete. Before {@link IpSecTransform}(s) with matching addresses are applied to this
+         * tunnel interface, traffic will still use the old transform, and be routed on the old
          * underlying network.
          *
          * <p>To migrate IPsec tunnel mode traffic, a caller should:
          *
          * <ol>
          *   <li>Update the IpSecTunnelInterface’s underlying network.
-         *   <li>Apply {@link IpSecTransform}(s) with matching addresses to this
-         *       IpSecTunnelInterface.
+         *   <li>Apply the new {@link IpSecTransform}(s) to this IpSecTunnelInterface. These can be
+         *       new {@link IpSecTransform}(s) with matching addresses, or {@link IpSecTransform}(s)
+         *       that have started migration (see {@link
+         *       IpSecManager#startTunnelModeTransformMigration}).
          * </ol>
          *
          * @param underlyingNetwork the new {@link Network} that will carry traffic for this tunnel.
-         *     This network MUST never be the network exposing this IpSecTunnelInterface, otherwise
-         *     this method will throw an {@link IllegalArgumentException}. If the
-         *     IpSecTunnelInterface is later added to this network, all outbound traffic will be
-         *     blackholed.
+         *     This network MUST be a functional {@link Network} with valid {@link LinkProperties},
+         *     and MUST never be the network exposing this IpSecTunnelInterface, otherwise this
+         *     method will throw an {@link IllegalArgumentException}. If the IpSecTunnelInterface is
+         *     later added to this network, all outbound traffic will be blackholed.
          */
-        // TODO: b/169171001 Update the documentation when transform migration is supported.
         // The purpose of making updating network and applying transforms separate is to leave open
         // the possibility to support lossless migration procedures. To do that, Android platform
         // will need to support multiple inbound tunnel mode transforms, just like it can support
@@ -871,7 +891,7 @@ public class IpSecManager {
             } catch (RemoteException e) {
                 throw e.rethrowFromSystemServer();
             }
-            mCloseGuard.open("constructor");
+            mCloseGuard.open("close");
         }
 
         /**
@@ -962,7 +982,6 @@ public class IpSecManager {
      * IP header and IPsec Header on all inbound traffic).
      * <p>Applications should probably not use this API directly.
      *
-     *
      * @param tunnel The {@link IpSecManager#IpSecTunnelInterface} that will use the supplied
      *        transform.
      * @param direction the direction, {@link DIRECTION_OUT} or {@link #DIRECTION_IN} in which
@@ -983,6 +1002,60 @@ public class IpSecManager {
                     transform.getResourceId(), mContext.getOpPackageName());
         } catch (ServiceSpecificException e) {
             throw rethrowCheckedExceptionFromServiceSpecificException(e);
+        } catch (RemoteException e) {
+            throw e.rethrowFromSystemServer();
+        }
+    }
+
+    /**
+     * Migrate an active Tunnel Mode IPsec Transform to new source/destination addresses.
+     *
+     * <p>Begins the process of migrating a transform and cache the new addresses. To complete the
+     * migration once started, callers MUST apply the same transform to the appropriate tunnel using
+     * {@link IpSecManager#applyTunnelModeTransform}. Otherwise, the address update will not be
+     * committed and the transform will still only process traffic between the current source and
+     * destination address. One common use case is that the control plane will start the migration
+     * process and then hand off the transform to the IPsec caller to perform the actual migration
+     * when the tunnel is ready.
+     *
+     * <p>If this method is called multiple times before {@link
+     * IpSecManager#applyTunnelModeTransform} is called, when the transform is applied, it will be
+     * migrated to the addresses from the last call.
+     *
+     * <p>The provided source and destination addresses MUST share the same address family, but they
+     * can have a different family from the current addresses.
+     *
+     * <p>Transform migration is only supported for tunnel mode transforms. Calling this method on
+     * other types of transforms will throw an {@code UnsupportedOperationException}.
+     *
+     * @see IpSecTunnelInterface#setUnderlyingNetwork
+     * @param transform a tunnel mode {@link IpSecTransform}
+     * @param newSourceAddress the new source address
+     * @param newDestinationAddress the new destination address
+     * @hide
+     */
+    @SystemApi
+    @RequiresFeature(FEATURE_IPSEC_TUNNEL_MIGRATION)
+    @RequiresPermission(android.Manifest.permission.MANAGE_IPSEC_TUNNELS)
+    public void startTunnelModeTransformMigration(
+            @NonNull IpSecTransform transform,
+            @NonNull InetAddress newSourceAddress,
+            @NonNull InetAddress newDestinationAddress) {
+        if (!SdkLevel.isAtLeastU()) {
+            throw new UnsupportedOperationException(
+                    "Transform migration only supported for Android 14+");
+        }
+
+        Objects.requireNonNull(transform, "transform was null");
+        Objects.requireNonNull(newSourceAddress, "newSourceAddress was null");
+        Objects.requireNonNull(newDestinationAddress, "newDestinationAddress was null");
+
+        try {
+            mService.migrateTransform(
+                    transform.getResourceId(),
+                    newSourceAddress.getHostAddress(),
+                    newDestinationAddress.getHostAddress(),
+                    mContext.getOpPackageName());
         } catch (RemoteException e) {
             throw e.rethrowFromSystemServer();
         }

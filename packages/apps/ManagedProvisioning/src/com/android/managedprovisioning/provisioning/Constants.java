@@ -86,7 +86,7 @@ public final class Constants {
     /**
      * A boolean flag to indicate whether to enable custom activity start gestures.
      */
-    public static boolean ENABLE_CUSTOM_TRANSITIONS = false;
+    public static boolean ENABLE_CUSTOM_TRANSITIONS = true;
 
     public static final Intent PROVISIONING_SERVICE_INTENT = new Intent().setComponent(
             new ComponentName(

@@ -17,7 +17,6 @@ package com.android.managedprovisioning.preprovisioning.consent;
 
 import static java.util.Objects.requireNonNull;
 
-import android.annotation.DrawableRes;
 import android.app.Activity;
 import android.view.View;
 import android.widget.TextView;
@@ -29,12 +28,15 @@ import com.android.managedprovisioning.common.ProvisionLogger;
 import com.android.managedprovisioning.common.ThemeHelper;
 import com.android.managedprovisioning.common.TouchTargetEnforcer;
 import com.android.managedprovisioning.common.Utils;
-import com.android.managedprovisioning.model.CustomizationParams;
 import com.android.managedprovisioning.preprovisioning.PreProvisioningActivityBridgeCallbacks;
 import com.android.managedprovisioning.preprovisioning.PreProvisioningActivityController.UiParams;
 
 import com.airbnb.lottie.LottieAnimationView;
+import com.google.android.setupcompat.logging.ScreenKey;
+import com.google.android.setupcompat.logging.SetupMetric;
+import com.google.android.setupcompat.logging.SetupMetricsLogger;
 import com.google.android.setupdesign.GlifLayout;
+import com.google.android.setupdesign.util.DeviceHelper;
 
 
 /**
@@ -47,10 +49,12 @@ class ConsentUiHelperImpl implements ConsentUiHelper {
     private final Utils mUtils;
     private final PreProvisioningActivityBridgeCallbacks mBridgeCallbacks;
     private final ThemeHelper mThemeHelper;
+    private final ScreenKey mScreenKey;
+    private final String setupMetricScreenName;
 
     ConsentUiHelperImpl(Activity activity, ConsentUiHelperCallback callback, Utils utils,
             PreProvisioningActivityBridgeCallbacks bridgeCallbacks,
-            ThemeHelper themeHelper) {
+            ThemeHelper themeHelper, String setupMetricScreenName) {
         mActivity = requireNonNull(activity);
         mCallback = requireNonNull(callback);
         mTouchTargetEnforcer =
@@ -58,32 +62,34 @@ class ConsentUiHelperImpl implements ConsentUiHelper {
         mUtils = requireNonNull(utils);
         mBridgeCallbacks = requireNonNull(bridgeCallbacks);
         mThemeHelper = requireNonNull(themeHelper);
+        mScreenKey = ScreenKey.of(setupMetricScreenName, mActivity);
+        this.setupMetricScreenName = setupMetricScreenName;
     }
 
     @Override
     public void initiateUi(UiParams uiParams) {
-        int titleResId = 0;
+        String title = "";
         int headerResId = 0;
         int animationResId = 0;
+        var context = mActivity.getApplicationContext();
         if (mUtils.isProfileOwnerAction(uiParams.provisioningAction)) {
-            titleResId = R.string.setup_profile;
+            title = mActivity.getString(R.string.setup_profile);
             headerResId = R.string.work_profile_provisioning_accept_header_post_suw;
             animationResId = R.raw.consent_animation_po;
         } else if (mUtils.isDeviceOwnerAction(uiParams.provisioningAction)) {
-            titleResId = R.string.setup_device;
+            CharSequence deviceName = DeviceHelper.getDeviceName(context);
+            title = context.getString(R.string.setup_device, deviceName);
             headerResId = R.string.fully_managed_device_provisioning_accept_header;
             animationResId = R.raw.consent_animation_do;
         }
 
-        mCallback.onInitiateUi(
-                R.layout.intro,
-                headerResId);
+        mCallback.onInitiateUi(R.layout.intro, headerResId);
 
         setupAnimation(animationResId);
         setupAcceptAndContinueButton();
 
         // set the activity title
-        mActivity.setTitle(titleResId);
+        mActivity.setTitle(title);
 
         // set up terms headers
         setupViewTermsButton();
@@ -110,6 +116,9 @@ class ConsentUiHelperImpl implements ConsentUiHelper {
 
     private void onNextButtonClicked() {
         ProvisionLogger.logi("Next button (next_button) is clicked.");
+        SetupMetricsLogger.logMetrics(
+                mActivity, mScreenKey, SetupMetric.ofOptIn(setupMetricScreenName, true));
+
         mBridgeCallbacks.onTermsAccepted();
     }
 

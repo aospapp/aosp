@@ -1,0 +1,304 @@
+// Copyright (C) 2022 The Android Open Source Project
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
+android_test {
+    name: "AdServicesServiceCoreUnitTests",
+    srcs: [
+        "src/**/*.java",
+    ],
+    exclude_srcs: [
+        // The tests below are interacting with the JsSandbox singleton and should
+        // be run in a separate process
+        "src/com/android/adservices/service/js/JSScriptEngineTest.java",
+        "src/com/android/adservices/service/js/JavaScriptSandboxProviderTest.java",
+        // Exclude Mobile Data Download Test. This test need network connection and download files.
+        // This will run in a separate test suite.
+        "src/com/android/adservices/download/MobileDataDownloadTest.java",
+    ],
+    defaults: ["adservices-extended-mockito-defaults"],
+    sdk_version: "module_current",
+    // Currently this test module is failing, which results in low test coverage
+    // The reason is the target test coverage system runs on is different as what this test
+    // configures. Add below line to address the issue.
+    // See b/233124651 for details.
+    compile_multilib: "both",
+    min_sdk_version: "Tiramisu",
+    static_libs: [
+        "androidx.concurrent_concurrent-futures",
+        "androidx.test.rules",
+        "compatibility-device-util-axt",
+        "truth-prebuilt",
+        "adservices-assets",
+        "adservices-service-core-schema",
+        "androidx.room_room-runtime",
+        "androidx.room_room-testing",
+        "adservices-test-fixtures",
+        "mobile_data_downloader_lib",
+        "tflite_support_classifiers_java",
+        "opencensus-java-api",
+        "opencensus-java-contrib-grpc-metrics",
+    ],
+    libs: [
+        "android.test.base",
+        "android.test.mock.stubs",
+        "framework-adservices.impl",
+        "framework-annotations-lib",
+        "framework-configinfrastructure",
+        "framework-sdksandbox.impl",
+    ],
+    test_suites: [
+        "general-tests",
+        "mts-adservices"
+    ],
+    test_mainline_modules: ["com.google.android.adservices.apex"],
+    instrumentation_for: "AdServicesApk",
+    jni_libs: [
+        "libhpke_jni",
+        "libtflite_support_classifiers_native",
+    ],
+    aaptflags: [
+        // avoid compression on lite and tflite files as the Interpreter
+        // can not load compressed flat buffer formats. (*appt compresses all
+        // assets into the apk by default)
+        // See https://elinux.org/Android_aapt for more detail.
+        "-0 .lite",
+        "-0 .tflite",
+    ],
+}
+
+android_test {
+    name: "AdServicesJsEngineUnitTests",
+    srcs: [
+        "src/com/android/adservices/service/js/JSScriptEngineTest.java",
+        "src/com/android/adservices/service/js/JavaScriptSandboxProviderTest.java",
+    ],
+    defaults: ["modules-utils-testable-device-config-defaults"],
+    sdk_version: "module_current",
+    compile_multilib: "both",
+    min_sdk_version: "Tiramisu",
+    static_libs: [
+        "androidx.concurrent_concurrent-futures",
+        "androidx.test.rules",
+        "compatibility-device-util-axt",
+        "mockito-target-extended-minus-junit4",
+        "truth-prebuilt",
+        "adservices-assets",
+        "adservices-test-fixtures",
+    ],
+    libs: [
+        "android.test.base",
+        "android.test.mock.stubs",
+        "framework-adservices.impl",
+        "framework-annotations-lib",
+        "framework-statsd.stubs.module_lib",
+    ],
+    test_suites: [
+        "general-tests",
+        "mts-adservices"
+    ],
+    test_config: "AndroidTest.JsScriptEngine.xml",
+    test_mainline_modules: ["com.google.android.adservices.apex"],
+    instrumentation_for: "AdServicesApk",
+}
+
+android_test {
+    // This test need network connection and download files so it could be more flaky and run longer.
+    name: "AdServicesMddIntegrationTests",
+    srcs: [
+        "src/com/android/adservices/download/MobileDataDownloadTest.java",
+        // Contains DB Util methods which used in MobileDataDownloadTest.java
+        "src/com/android/adservices/data/DbTestUtil.java",
+    ],
+    defaults: ["modules-utils-testable-device-config-defaults"],
+    sdk_version: "module_current",
+    compile_multilib: "both",
+    min_sdk_version: "Tiramisu",
+    static_libs: [
+        "androidx.concurrent_concurrent-futures",
+        "androidx.test.rules",
+        "compatibility-device-util-axt",
+        "mockito-target-extended-minus-junit4",
+        "truth-prebuilt",
+        "adservices-assets",
+        "adservices-test-fixtures",
+        "mobile_data_downloader_lib",
+    ],
+    libs: [
+        "android.test.base",
+        "android.test.mock.stubs",
+        "framework-adservices.impl",
+        "framework-annotations-lib",
+    ],
+    test_suites: [
+        "general-tests",
+        "mts-adservices"
+    ],
+    test_config: "AndroidTestMDD.xml",
+    test_mainline_modules: ["com.google.android.adservices.apex"],
+    instrumentation_for: "AdServicesApk",
+}
+
+android_test {
+    name: "AdExtServicesServiceCoreUnitTests",
+    srcs: [
+        "src/**/*.java",
+    ],
+    exclude_srcs: [
+        // The tests below are interacting with the JsSandbox singleton and should
+        // be run in a separate process
+        "src/com/android/adservices/service/js/JSScriptEngineTest.java",
+        "src/com/android/adservices/service/js/JavaScriptSandboxProviderTest.java",
+        // Exclude Mobile Data Download Test. This test need network connection and download files.
+        // This will run in a separate test suite.
+        "src/com/android/adservices/download/MobileDataDownloadTest.java",
+    ],
+    defaults: ["adservices-extended-mockito-defaults"],
+    sdk_version: "module_current",
+    // Currently this test module is failing, which results in low test coverage
+    // The reason is the target test coverage system runs on is different as what this test
+    // configures. Add below line to address the issue.
+    // See b/233124651 for details.
+    compile_multilib: "both",
+    min_sdk_version: "31",
+    max_sdk_version: "32",
+    static_libs: [
+        "adservices-assets",
+        "adservices-service-core-schema",
+        "adservices-test-fixtures",
+        "androidx.concurrent_concurrent-futures",
+        "androidx.room_room-runtime",
+        "androidx.room_room-testing",
+        "androidx.test.rules",
+        "compatibility-device-util-axt",
+        "mobile_data_downloader_lib",
+        "opencensus-java-api",
+        "opencensus-java-contrib-grpc-metrics",
+        "tflite_support_classifiers_java",
+        "truth-prebuilt",
+    ],
+    libs: [
+        "android.ext.adservices",
+        "android.test.base",
+        "android.test.mock.stubs",
+        "framework-annotations-lib",
+        "framework-configinfrastructure",
+        "framework-sdksandbox.impl",
+    ],
+    test_suites: [
+        "general-tests",
+        "mts-extservices"
+    ],
+    test_config: "AndroidTest.ExtServices.xml",
+    test_mainline_modules: ["com.google.android.extservices.apex"],
+    instrumentation_for: "AdExtServicesApk",
+    jni_libs: [
+        "libhpke_jni",
+        "libtflite_support_classifiers_native",
+    ],
+    aaptflags: [
+        // avoid compression on lite and tflite files as the Interpreter
+        // can not load compressed flat buffer formats. (*appt compresses all
+        // assets into the apk by default)
+        // See https://elinux.org/Android_aapt for more detail.
+        "-0 .lite",
+        "-0 .tflite",
+    ],
+}
+
+android_test {
+    name: "AdExtServicesJsEngineUnitTests",
+    srcs: [
+        "src/com/android/adservices/service/js/JSScriptEngineTest.java",
+        "src/com/android/adservices/service/js/JavaScriptSandboxProviderTest.java",
+    ],
+    defaults: ["modules-utils-testable-device-config-defaults"],
+    sdk_version: "module_current",
+    compile_multilib: "both",
+    min_sdk_version: "31",
+    max_sdk_version: "32",
+    static_libs: [
+        "adservices-assets",
+        "adservices-test-fixtures",
+        "androidx.concurrent_concurrent-futures",
+        "androidx.test.rules",
+        "compatibility-device-util-axt",
+        "mockito-target-extended-minus-junit4",
+        "truth-prebuilt",
+    ],
+    libs: [
+        "android.ext.adservices",
+        "android.test.base",
+        "android.test.mock.stubs",
+        "framework-annotations-lib",
+        "framework-statsd.stubs.module_lib",
+    ],
+    test_suites: [
+        "general-tests",
+        "mts-extservices"
+    ],
+    test_config: "AndroidTest.JsScriptEngine.ExtServices.xml",
+    instrumentation_for: "AdExtServicesApk",
+}
+
+android_test {
+    // This test need network connection and download files so it could be more flaky and run longer.
+    name: "AdExtServicesMddIntegrationTests",
+    srcs: [
+        "src/com/android/adservices/download/MobileDataDownloadTest.java",
+        // Contains DB Util methods which used in MobileDataDownloadTest.java
+        "src/com/android/adservices/data/DbTestUtil.java",
+    ],
+    defaults: ["modules-utils-testable-device-config-defaults"],
+    sdk_version: "module_current",
+    compile_multilib: "both",
+    min_sdk_version: "31",
+    max_sdk_version: "32",
+    static_libs: [
+        "adservices-assets",
+        "adservices-test-fixtures",
+        "androidx.concurrent_concurrent-futures",
+        "androidx.test.rules",
+        "compatibility-device-util-axt",
+        "mobile_data_downloader_lib",
+        "mockito-target-extended-minus-junit4",
+        "truth-prebuilt",
+    ],
+    libs: [
+        "android.ext.adservices",
+        "android.test.base",
+        "android.test.mock.stubs",
+        "framework-adservices.impl",
+        "framework-annotations-lib",
+    ],
+    test_suites: [
+        "general-tests",
+        "mts-extservices"
+    ],
+    test_config: "AndroidTestMDD.ExtServices.xml",
+    test_mainline_modules: ["com.google.android.extservices.apex"],
+    instrumentation_for: "AdExtServicesApk",
+}
+
+java_library {
+    name: "adservices-measurement-web-util-lib",
+    sdk_version: "module_current",
+    srcs: [
+      "src/com/android/adservices/service/measurement/WebUtil.java"
+    ],
+    visibility: ["//packages/modules/AdServices/adservices/tests/unittest/fixtures"]
+
+}

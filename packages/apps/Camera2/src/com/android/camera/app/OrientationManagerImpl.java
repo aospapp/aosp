@@ -175,7 +175,7 @@ public class OrientationManagerImpl implements OrientationManager {
     }
 
     private int calculateCurrentScreenOrientation() {
-        int displayRotation = getDisplayRotation(mActivity);
+        int displayRotation = CameraUtil.getDisplayRotation(mActivity);
         // Display rotation >= 180 means we need to use the REVERSE landscape/portrait
         boolean standard = displayRotation < 180;
         if (mActivity.getResources().getConfiguration().orientation
@@ -249,18 +249,6 @@ public class OrientationManagerImpl implements OrientationManager {
             }
         }
         return oldDeviceOrientation;
-    }
-
-    private static int getDisplayRotation(Activity activity) {
-        int rotation = activity.getWindowManager().getDefaultDisplay()
-                .getRotation();
-        switch (rotation) {
-            case Surface.ROTATION_0: return 0;
-            case Surface.ROTATION_90: return 90;
-            case Surface.ROTATION_180: return 180;
-            case Surface.ROTATION_270: return 270;
-        }
-        return 0;
     }
 
     /**

@@ -19,4 +19,9 @@
           package="com.android.car.settings"
           android:sharedUserId="android.uid.system"
           coreApp="true">
+
+    <uses-sdk
+        android:minSdkVersion="24"
+        android:targetSdkVersion="32"/>
+
 </manifest>

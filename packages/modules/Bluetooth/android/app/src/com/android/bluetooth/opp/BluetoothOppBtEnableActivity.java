@@ -41,13 +41,16 @@ import android.view.View;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.annotation.VisibleForTesting;
+
 import com.android.bluetooth.R;
 
 /**
  * This class is designed to show BT enable confirmation dialog;
  */
 public class BluetoothOppBtEnableActivity extends AlertActivity {
-    private BluetoothOppManager mOppManager;
+    @VisibleForTesting
+    BluetoothOppManager mOppManager;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {

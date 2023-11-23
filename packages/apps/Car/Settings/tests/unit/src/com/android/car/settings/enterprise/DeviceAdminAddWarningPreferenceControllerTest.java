@@ -45,7 +45,7 @@ public final class DeviceAdminAddWarningPreferenceControllerTest extends
         mController.updateState(mPreference);
 
         verifyPreferenceTitleSet(mPreference,
-                mRealContext.getString(R.string.device_admin_warning, mPackageName));
+                mRealContext.getString(R.string.device_admin_warning, mAppName));
     }
 
     @Test
@@ -55,7 +55,7 @@ public final class DeviceAdminAddWarningPreferenceControllerTest extends
         mController.updateState(mPreference);
 
         verifyPreferenceTitleSet(mPreference,
-                mRealContext.getString(R.string.device_admin_status, mPackageName));
+                mRealContext.getString(R.string.device_admin_status, mAppName));
     }
 
     @Test

@@ -18,7 +18,7 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="brand_screen_header" msgid="4382251935798018352">"Ce véhicule appartient à l\'organisation"</string>
-    <string name="contact_device_provider" msgid="338577979231875837">"Pour en savoir plus, communiquez avec le <xliff:g id="IT_ADMIN">%1$s</xliff:g>."</string>
+    <string name="contact_device_provider" msgid="338577979231875837">"Pour en savoir plus, communiquez avec l\'<xliff:g id="IT_ADMIN">%1$s</xliff:g>."</string>
     <string name="organization_admin" msgid="6551608903069550652">"gestionnaire de l\'organisation"</string>
     <string name="if_questions_contact_admin" msgid="4645510019575736238">"Si vous avez des questions, communiquez avec le gestionnaire de l\'organisation"</string>
     <string name="admin_has_ability_to_monitor_device" msgid="3132155961508293345">"Le gestionnaire de l\'organisation peut surveiller et gérer les paramètres, l\'accès aux contenus de l\'entreprise, les applications, les autorisations ainsi que les données associées à ce véhicule y compris votre activité réseau de même que les données de localisation de ce véhicule.<xliff:g id="LINE_BREAK">

@@ -25,6 +25,7 @@ import android.os.AsyncTask;
 import androidx.lifecycle.LiveData;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 class AppListLiveData extends LiveData<List<AppEntry>> {
@@ -56,6 +57,7 @@ class AppListLiveData extends LiveData<List<AppEntry>> {
                         entries.add(entry);
                     }
                 }
+                Collections.sort(entries, AppEntry.LABEL_COMPARATOR);
                 return entries;
             }
 

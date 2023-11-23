@@ -23,6 +23,7 @@
 
 #include <android-base/format.h>
 #include <android-base/logging.h>
+#include <android-base/result.h>
 
 #include <aidl/android/net/IDnsResolver.h>
 #include <aidl/android/net/INetd.h>
@@ -35,15 +36,8 @@ using aidl::android::net::NativeNetworkConfig;
 using aidl::android::net::NativeNetworkType;
 using aidl::android::net::NativeVpnType;
 
-inline const std::vector<std::string> kDefaultServers = {"127.0.0.3"};
-inline const std::vector<std::string> kDefaultSearchDomains = {"example.com"};
-inline const std::vector<int> kDefaultParams = {
-        300,      // sample validity in seconds
-        25,       // success threshod in percent
-        8,    8,  // {MIN,MAX}_SAMPLES
-        1000,     // BASE_TIMEOUT_MSEC
-        2,        // retry count
-};
+inline constexpr char kDefaultServer[] = "127.0.0.3";
+inline constexpr char kDefaultSearchDomain[] = "example.com";
 
 #define SKIP_IF_REMOTE_VERSION_LESS_THAN(service, version)                                         \
     do {                                                                                           \
@@ -53,6 +47,56 @@ inline const std::vector<int> kDefaultParams = {
             return;                                                                                \
         }                                                                                          \
     } while (0)
+
+// A thin wrapper to store the outputs of DnsResolver::getResolverInfo().
+struct ResolverInfo {
+    std::vector<std::string> dnsServers;
+    std::vector<std::string> domains;
+    std::vector<std::string> dotServers;
+    res_params params;
+    std::vector<android::net::ResolverStats> stats;
+    int waitForPendingReqTimeoutCount;
+};
+
+class ResolverParams {
+  public:
+    class Builder {
+      public:
+        Builder();
+        constexpr Builder& setDnsServers(const std::vector<std::string>& servers) {
+            mParcel.servers = servers;
+            return *this;
+        }
+        constexpr Builder& setDotServers(const std::vector<std::string>& servers) {
+            mParcel.tlsServers = servers;
+            return *this;
+        }
+        constexpr Builder& setDomains(const std::vector<std::string>& domains) {
+            mParcel.domains = domains;
+            return *this;
+        }
+        constexpr Builder& setPrivateDnsProvider(const std::string& provider) {
+            mParcel.tlsName = provider;
+            return *this;
+        }
+        constexpr Builder& setParams(
+                const std::array<int, aidl::android::net::IDnsResolver::RESOLVER_PARAMS_COUNT>&
+                        params) {
+            using aidl::android::net::IDnsResolver;
+            mParcel.sampleValiditySeconds = params[IDnsResolver::RESOLVER_PARAMS_SAMPLE_VALIDITY];
+            mParcel.successThreshold = params[IDnsResolver::RESOLVER_PARAMS_SUCCESS_THRESHOLD];
+            mParcel.minSamples = params[IDnsResolver::RESOLVER_PARAMS_MIN_SAMPLES];
+            mParcel.maxSamples = params[IDnsResolver::RESOLVER_PARAMS_MAX_SAMPLES];
+            mParcel.baseTimeoutMsec = params[IDnsResolver::RESOLVER_PARAMS_BASE_TIMEOUT_MSEC];
+            mParcel.retryCount = params[IDnsResolver::RESOLVER_PARAMS_RETRY_COUNT];
+            return *this;
+        }
+        aidl::android::net::ResolverParamsParcel build() { return mParcel; }
+
+      private:
+        aidl::android::net::ResolverParamsParcel mParcel;
+    };
+};
 
 // TODO: Remove dns_responder_client_ndk.{h,cpp} after replacing the binder usage of
 // dns_responder_client.*
@@ -70,26 +114,16 @@ class DnsResponderClient {
     static void SetupMappings(unsigned num_hosts, const std::vector<std::string>& domains,
                               std::vector<Mapping>* mappings);
 
-    // This function is deprecated. Please use SetResolversFromParcel() instead.
-    bool SetResolversForNetwork(const std::vector<std::string>& servers = kDefaultServers,
-                                const std::vector<std::string>& domains = kDefaultSearchDomains,
-                                const std::vector<int>& params = kDefaultParams);
+    // For dns_benchmark built from tm-mainline-prod.
+    // TODO: Remove it when possible.
+    bool SetResolversForNetwork(const std::vector<std::string>& servers,
+                                const std::vector<std::string>& domains, std::vector<int> params);
 
-    // This function is deprecated. Please use SetResolversFromParcel() instead.
-    bool SetResolversWithTls(const std::vector<std::string>& servers,
-                             const std::vector<std::string>& searchDomains,
-                             const std::vector<int>& params, const std::string& name) {
-        // Pass servers as both network-assigned and TLS servers.  Tests can
-        // determine on which server and by which protocol queries arrived.
-        return SetResolversWithTls(servers, searchDomains, params, servers, name);
-    }
+    // Sets up DnsResolver with given DNS servers. This is used to set up for private DNS off mode.
+    bool SetResolversForNetwork(const std::vector<std::string>& servers = {kDefaultServer},
+                                const std::vector<std::string>& domains = {kDefaultSearchDomain});
 
-    // This function is deprecated. Please use SetResolversFromParcel() instead.
-    bool SetResolversWithTls(const std::vector<std::string>& servers,
-                             const std::vector<std::string>& searchDomains,
-                             const std::vector<int>& params,
-                             const std::vector<std::string>& tlsServers, const std::string& name);
-
+    // Sets up DnsResolver from a given parcel.
     bool SetResolversFromParcel(const aidl::android::net::ResolverParamsParcel& resolverParams);
 
     template <class T>
@@ -109,12 +143,7 @@ class DnsResponderClient {
     static NativeNetworkConfig makeNativeNetworkConfig(int netId, NativeNetworkType networkType,
                                                        int permission, bool secure);
 
-    static bool GetResolverInfo(aidl::android::net::IDnsResolver* dnsResolverService,
-                                unsigned netId, std::vector<std::string>* servers,
-                                std::vector<std::string>* domains,
-                                std::vector<std::string>* tlsServers, res_params* params,
-                                std::vector<android::net::ResolverStats>* stats,
-                                int* waitForPendingReqTimeoutCount);
+    android::base::Result<ResolverInfo> getResolverInfo();
 
     // Return a default resolver configuration for opportunistic mode.
     static aidl::android::net::ResolverParamsParcel GetDefaultResolverParamsParcel();
@@ -122,11 +151,6 @@ class DnsResponderClient {
     static void SetupDNSServers(unsigned numServers, const std::vector<Mapping>& mappings,
                                 std::vector<std::unique_ptr<test::DNSResponder>>* dns,
                                 std::vector<std::string>* servers);
-
-    static aidl::android::net::ResolverParamsParcel makeResolverParamsParcel(
-            int netId, const std::vector<int>& params, const std::vector<std::string>& servers,
-            const std::vector<std::string>& domains, const std::string& tlsHostname,
-            const std::vector<std::string>& tlsServers, const std::string& caCert = "");
 
     // Returns 0 on success and a negative value on failure.
     int SetupOemNetwork(int oemNetId);

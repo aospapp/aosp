@@ -24,6 +24,7 @@ import com.android.managedprovisioning.task.AbstractProvisioningTask;
 import com.android.managedprovisioning.task.DeviceOwnerInitializeProvisioningTask;
 import com.android.managedprovisioning.task.DisallowAddUserTask;
 import com.android.managedprovisioning.task.SetDeviceOwnerPolicyTask;
+import com.google.android.setupdesign.util.DeviceHelper;
 
 /**
  * Controller for financed device provisioning.
@@ -73,8 +74,9 @@ public final class FinancedDeviceProvisioningController extends AbstractProvisio
     }
 
     @Override
-    protected int getErrorMsgId(AbstractProvisioningTask task, int errorCode) {
-        return R.string.reset_device;
+    protected String getErrorMsgId(AbstractProvisioningTask task, int errorCode) {
+        CharSequence deviceName = DeviceHelper.getDeviceName(mContext);
+        return mContext.getString(R.string.reset_device, deviceName);
     }
 
     @Override

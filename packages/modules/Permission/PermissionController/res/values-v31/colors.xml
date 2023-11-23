@@ -17,4 +17,7 @@
 <resources>
     <color name="warning_surface">#F0E3A8</color>
     <color name="warning_onsurface">#895900</color>
+
+    <!-- overviewBackground is not visible from mainline, so UX provided this alternative -->
+    <color name="permission_rationale_overview_background">@android:color/system_neutral2_200</color>
 </resources>

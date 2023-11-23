@@ -96,7 +96,7 @@ public class LocationServicesPreferenceControllerTest {
         ArgumentCaptor<BroadcastReceiver> captor = ArgumentCaptor.forClass(
                 BroadcastReceiver.class);
         verify(mContext).registerReceiver(captor.capture(), any(),
-                eq(Context.RECEIVER_EXPORTED_UNAUDITED));
+                eq(Context.RECEIVER_EXPORTED));
 
         captor.getValue().onReceive(mContext, new Intent());
         verify(mSettingsInjector).reloadStatusMessages();
@@ -109,7 +109,7 @@ public class LocationServicesPreferenceControllerTest {
         ArgumentCaptor<BroadcastReceiver> captor = ArgumentCaptor.forClass(
                 BroadcastReceiver.class);
         verify(mContext).registerReceiver(captor.capture(), any(),
-                eq(Context.RECEIVER_EXPORTED_UNAUDITED));
+                eq(Context.RECEIVER_EXPORTED));
 
         mPreferenceController.onStop(mLifecycleOwner);
         verify(mContext).unregisterReceiver(captor.getValue());

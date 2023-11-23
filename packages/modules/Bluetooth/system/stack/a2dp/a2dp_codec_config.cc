@@ -33,18 +33,20 @@
 #include "a2dp_vendor_aptx.h"
 #include "a2dp_vendor_aptx_hd.h"
 #include "a2dp_vendor_ldac.h"
+#include "a2dp_vendor_opus.h"
 #endif
 
+#if !defined(UNIT_TESTS)
+#include "audio_hal_interface/a2dp_encoding.h"
+#endif
 #include "bta/av/bta_av_int.h"
+#include "device/include/device_iot_config.h"
 #include "osi/include/log.h"
 #include "osi/include/properties.h"
 #include "stack/include/bt_hdr.h"
 
 /* The Media Type offset within the codec info byte array */
 #define A2DP_MEDIA_TYPE_OFFSET 1
-
-/* A2DP Offload enabled in stack */
-static bool a2dp_offload_status;
 
 // Initializes the codec config.
 // |codec_config| is the codec config to initialize.
@@ -111,7 +113,7 @@ void A2dpCodecConfig::setDefaultCodecPriority() {
 A2dpCodecConfig* A2dpCodecConfig::createCodec(
     btav_a2dp_codec_index_t codec_index,
     btav_a2dp_codec_priority_t codec_priority) {
-  LOG_INFO("%s: codec %s", __func__, A2DP_CodecIndexStr(codec_index));
+  LOG_INFO("%s", A2DP_CodecIndexStr(codec_index));
 
   A2dpCodecConfig* codec_config = nullptr;
   switch (codec_index) {
@@ -139,6 +141,12 @@ A2dpCodecConfig* A2dpCodecConfig::createCodec(
       break;
     case BTAV_A2DP_CODEC_INDEX_SINK_LDAC:
       codec_config = new A2dpCodecConfigLdacSink(codec_priority);
+      break;
+    case BTAV_A2DP_CODEC_INDEX_SOURCE_OPUS:
+      codec_config = new A2dpCodecConfigOpusSource(codec_priority);
+      break;
+    case BTAV_A2DP_CODEC_INDEX_SINK_OPUS:
+      codec_config = new A2dpCodecConfigOpusSink(codec_priority);
       break;
 #endif
     case BTAV_A2DP_CODEC_INDEX_MAX:
@@ -518,6 +526,44 @@ void A2dpCodecConfig::debug_codec_dump(int fd) {
   dprintf(fd, "  Local capability: %s\n", result.c_str());
 }
 
+int A2DP_IotGetPeerSinkCodecType(const uint8_t* p_codec_info) {
+  int peer_codec_type = 0;
+  tA2DP_CODEC_TYPE codec_type = A2DP_GetCodecType(p_codec_info);
+  LOG_VERBOSE("%s: codec_type = 0x%x", __func__, codec_type);
+  switch (codec_type) {
+    case A2DP_MEDIA_CT_SBC:
+      peer_codec_type = IOT_CONF_VAL_A2DP_CODECTYPE_SBC;
+      break;
+#if !defined(EXCLUDE_NONSTANDARD_CODECS)
+    case A2DP_MEDIA_CT_NON_A2DP: {
+      uint16_t codec_id = A2DP_VendorCodecGetCodecId(p_codec_info);
+      uint32_t vendor_id = A2DP_VendorCodecGetVendorId(p_codec_info);
+
+      LOG_VERBOSE("%s codec_id = %d", __func__, codec_id);
+      LOG_VERBOSE("%s vendor_id = %x", __func__, vendor_id);
+
+      if (codec_id == A2DP_APTX_CODEC_ID_BLUETOOTH &&
+          vendor_id == A2DP_APTX_VENDOR_ID) {
+        peer_codec_type = IOT_CONF_VAL_A2DP_CODECTYPE_APTX;
+      } else if (codec_id == A2DP_APTX_HD_CODEC_ID_BLUETOOTH &&
+                 vendor_id == A2DP_APTX_HD_VENDOR_ID) {
+        peer_codec_type = IOT_CONF_VAL_A2DP_CODECTYPE_APTXHD;
+      } else if (codec_id == A2DP_LDAC_CODEC_ID &&
+                 vendor_id == A2DP_LDAC_VENDOR_ID) {
+        peer_codec_type = IOT_CONF_VAL_A2DP_CODECTYPE_LDAC;
+      }
+      break;
+    }
+    case A2DP_MEDIA_CT_AAC:
+      peer_codec_type = IOT_CONF_VAL_A2DP_CODECTYPE_AAC;
+      break;
+#endif
+    default:
+      break;
+  }
+  return peer_codec_type;
+}
+
 //
 // Compares two codecs |lhs| and |rhs| based on their priority.
 // Returns true if |lhs| has higher priority (larger priority value).
@@ -554,43 +600,9 @@ A2dpCodecs::~A2dpCodecs() {
 bool A2dpCodecs::init() {
   LOG_INFO("%s", __func__);
   std::lock_guard<std::recursive_mutex> lock(codec_mutex_);
-  char* tok = NULL;
-  char* tmp_token = NULL;
-  bool offload_codec_support[BTAV_A2DP_CODEC_INDEX_MAX] = {false};
-  char value_sup[PROPERTY_VALUE_MAX], value_dis[PROPERTY_VALUE_MAX];
 
-  osi_property_get("ro.bluetooth.a2dp_offload.supported", value_sup, "false");
-  osi_property_get("persist.bluetooth.a2dp_offload.disabled", value_dis,
-                   "false");
-  a2dp_offload_status =
-      (strcmp(value_sup, "true") == 0) && (strcmp(value_dis, "false") == 0);
-
-  if (a2dp_offload_status) {
-    char value_cap[PROPERTY_VALUE_MAX];
-    osi_property_get("persist.bluetooth.a2dp_offload.cap", value_cap, "");
-    tok = strtok_r((char*)value_cap, "-", &tmp_token);
-    while (tok != NULL) {
-      if (strcmp(tok, "sbc") == 0) {
-        LOG_INFO("%s: SBC offload supported", __func__);
-        offload_codec_support[BTAV_A2DP_CODEC_INDEX_SOURCE_SBC] = true;
-#if !defined(EXCLUDE_NONSTANDARD_CODECS)
-      } else if (strcmp(tok, "aac") == 0) {
-        LOG_INFO("%s: AAC offload supported", __func__);
-        offload_codec_support[BTAV_A2DP_CODEC_INDEX_SOURCE_AAC] = true;
-      } else if (strcmp(tok, "aptx") == 0) {
-        LOG_INFO("%s: APTX offload supported", __func__);
-        offload_codec_support[BTAV_A2DP_CODEC_INDEX_SOURCE_APTX] = true;
-      } else if (strcmp(tok, "aptxhd") == 0) {
-        LOG_INFO("%s: APTXHD offload supported", __func__);
-        offload_codec_support[BTAV_A2DP_CODEC_INDEX_SOURCE_APTX_HD] = true;
-      } else if (strcmp(tok, "ldac") == 0) {
-        LOG_INFO("%s: LDAC offload supported", __func__);
-        offload_codec_support[BTAV_A2DP_CODEC_INDEX_SOURCE_LDAC] = true;
-#endif
-      }
-      tok = strtok_r(NULL, "-", &tmp_token);
-    };
-  }
+  bool opus_enabled =
+      osi_property_get_bool("persist.bluetooth.opus.enabled", false);
 
   for (int i = BTAV_A2DP_CODEC_INDEX_MIN; i < BTAV_A2DP_CODEC_INDEX_MAX; i++) {
     btav_a2dp_codec_index_t codec_index =
@@ -604,10 +616,21 @@ bool A2dpCodecs::init() {
       codec_priority = cp_iter->second;
     }
 
-    // In offload mode, disable the codecs based on the property
-    if ((codec_index < BTAV_A2DP_CODEC_INDEX_SOURCE_MAX) &&
-        a2dp_offload_status && (offload_codec_support[i] != true)) {
+#if !defined(UNIT_TESTS)
+    if (codec_index == BTAV_A2DP_CODEC_INDEX_SOURCE_OPUS) {
+      if (!bluetooth::audio::a2dp::is_opus_supported()) {
+        // We are using HIDL HAL which does not support OPUS codec
+        // Mark OPUS as disabled
+        opus_enabled = false;
+      }
+    }
+#endif
+
+    // If OPUS is not supported it is disabled
+    if (codec_index == BTAV_A2DP_CODEC_INDEX_SOURCE_OPUS && !opus_enabled) {
       codec_priority = BTAV_A2DP_CODEC_PRIORITY_DISABLED;
+      LOG_INFO("%s: OPUS codec disabled, updated priority to %d", __func__,
+               codec_priority);
     }
 
     A2dpCodecConfig* codec_config =

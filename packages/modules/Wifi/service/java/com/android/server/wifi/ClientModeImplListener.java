@@ -39,6 +39,15 @@ public interface ClientModeImplListener {
     default void onInternetValidated(@NonNull ConcreteClientModeManager clientModeManager) {}
 
     /**
+     * Called when a ClientModeImpl's internet connection validation failed.
+     * @param clientModeManager the ClientModeManager associated with the ClientModeImpl
+     * @param currentConnectionDetectedCaptivePortal whether current connection has detected
+     *                                               captive portal.
+     */
+    default void onInternetValidationFailed(@NonNull ConcreteClientModeManager clientModeManager,
+            boolean currentConnectionDetectedCaptivePortal) {}
+
+    /**
      * Called when a ClientModeImpl starts a new connection attempt.
      * @param clientModeManager the ClientModeManager associated with the ClientModeImpl
      */

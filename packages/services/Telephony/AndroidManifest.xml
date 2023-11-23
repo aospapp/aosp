@@ -19,8 +19,11 @@
         package="com.android.phone"
         coreApp="true"
         android:sharedUserId="android.uid.phone"
-        android:sharedUserLabel="@string/phoneAppLabel"
->
+        android:sharedUserLabel="@string/phoneAppLabel">
+
+    <!-- Allows broadcasting for SlicePurchaseController events. -->
+    <protected-broadcast android:name="com.android.phone.slice.action.START_SLICE_PURCHASE_APP" />
+    <protected-broadcast android:name="com.android.phone.slice.action.SLICE_PURCHASE_APP_RESPONSE_TIMEOUT" />
 
     <original-package android:name="com.android.phone" />
     <!-- Allows granting runtime permissions to telephony related components. -->
@@ -132,6 +135,8 @@
     <uses-permission android:name="android.permission.MANAGE_NETWORK_POLICY" />
     <uses-permission android:name="android.permission.READ_NETWORK_USAGE_HISTORY" />
     <uses-permission android:name="android.permission.BIND_TELEPHONY_DATA_SERVICE" />
+    <uses-permission android:name="android.permission.BIND_SATELLITE_GATEWAY_SERVICE" />
+    <uses-permission android:name="android.permission.BIND_SATELLITE_SERVICE" />
     <uses-permission android:name="android.permission.PACKAGE_USAGE_STATS" />
     <uses-permission android:name="android.permission.READ_PRECISE_PHONE_STATE" />
     <uses-permission android:name="android.permission.MANAGE_ROLE_HOLDERS" />
@@ -152,6 +157,15 @@
     <!-- Needed to access TelephonyProvider SIMINFO table. -->
     <uses-permission android:name="android.permission.ACCESS_TELEPHONY_SIMINFO_DB"/>
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+    <!-- Needed to block unwanted malicious pop up overlays -->
+    <uses-permission android:name="android.permission.HIDE_NON_SYSTEM_OVERLAY_WINDOWS"/>
+
+    <!-- Needed to set user association to a certain sim -->
+    <uses-permission android:name="android.permission.MANAGE_SUBSCRIPTION_USER_ASSOCIATION"/>
+
+    <!-- Needed to register for UWB state changes for satellite communication -->
+    <uses-permission android:name="android.permission.UWB_PRIVILEGED"/>
 
     <permission android:name="com.android.phone.permission.ACCESS_LAST_KNOWN_CELL_ID"
                 android:label="Access last known cell identity."
@@ -190,6 +204,7 @@
             android:label="@string/emergencyDialerIconLabel"
             android:theme="@style/EmergencyDialerTheme"
             android:screenOrientation="portrait"
+            android:showWhenLocked="true"
             android:exported="true"
             android:resizeableActivity="false">
             <intent-filter>
@@ -414,6 +429,10 @@
                             "android.telephony.euicc.action.MANAGE_EMBEDDED_SUBSCRIPTIONS" />
                 <action android:name=
                             "android.telephony.euicc.action.PROVISION_EMBEDDED_SUBSCRIPTION" />
+                <action android:name=
+                    "android.telephony.euicc.action.TRANSFER_EMBEDDED_SUBSCRIPTIONS" />
+                <action android:name=
+                    "android.telephony.euicc.action.CONVERT_TO_EMBEDDED_SUBSCRIPTION" />
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>
@@ -506,7 +525,6 @@
         <activity android:name="com.android.phone.settings.VoicemailSettingsActivity"
             android:label="@string/voicemail"
             android:configChanges="orientation|screenSize|keyboardHidden|screenLayout"
-            android:screenOrientation="portrait"
             android:exported="true"
             android:theme="@style/CallSettingsWithoutDividerTheme">
             <intent-filter >
@@ -563,6 +581,14 @@
             android:launchMode="singleTop"
             android:configChanges="orientation|screenSize|keyboardHidden"
             android:theme="@style/Theme.Transparent"/>
+
+        <activity
+            android:name="com.android.phone.ErrorDialogActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:launchMode="singleTop"
+            android:configChanges="orientation|screenSize|keyboardHidden"
+            android:theme="@style/Theme.Telephony.Transparent"/>
 
         <service
             android:name="com.android.phone.vvm.RemoteVvmTaskManager"

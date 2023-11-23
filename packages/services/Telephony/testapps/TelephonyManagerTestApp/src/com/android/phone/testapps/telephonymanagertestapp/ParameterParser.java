@@ -25,7 +25,6 @@ import android.widget.Toast;
 
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Executor;
@@ -44,15 +43,13 @@ class ParameterParser {
     }
 
     private final Context mContext;
-    private final Map<Class, Function<String, Object>> mParsers =
-            new HashMap<Class, Function<String, Object>>() {{
-                put(PhoneNumberRange.class, ParameterParser::parsePhoneNumberRange);
-                put(Executor.class, s -> parseExecutor(s));
-                put(NumberVerificationCallback.class, s -> parseNumberVerificationCallback(s));
-                put(Consumer.class, s -> parseConsumer(s));
-                put(List.class, s -> parseList(s));
-                put(RadioAccessSpecifier.class, s -> parseRadioAccessSpecifier(s));
-            }};
+    private final Map<Class, Function<String, Object>> mParsers = Map.of(
+            PhoneNumberRange.class, ParameterParser::parsePhoneNumberRange,
+            Executor.class, s -> parseExecutor(s),
+            NumberVerificationCallback.class, s -> parseNumberVerificationCallback(s),
+            Consumer.class, s -> parseConsumer(s),
+            List.class, s -> parseList(s),
+            RadioAccessSpecifier.class, s -> parseRadioAccessSpecifier(s));
 
     private ParameterParser(Context context) {
         mContext = context;

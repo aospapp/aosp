@@ -68,8 +68,8 @@ public class UserRestrictionAdapter extends BaseAdapter {
         int padding = resources.getDimensionPixelSize(R.dimen.users_checkbox_padding);
         checkBox.setPadding(padding, padding, padding, padding);
         checkBox.setText(item.getKey());
-        checkBox.setOnCheckedChangeListener((v, isChecked) -> item.setIsChecked(isChecked));
-        checkBox.setChecked(item.getIsChecked());
+        checkBox.setOnCheckedChangeListener((v, isChecked) -> item.setChecked(isChecked));
+        checkBox.setChecked(item.isChecked());
         return checkBox;
     }
 }

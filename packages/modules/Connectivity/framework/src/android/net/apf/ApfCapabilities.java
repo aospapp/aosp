@@ -19,9 +19,6 @@ package android.net.apf;
 import android.annotation.NonNull;
 import android.annotation.Nullable;
 import android.annotation.SystemApi;
-import android.content.Context;
-import android.content.res.Resources;
-import android.net.ConnectivityResources;
 import android.os.Parcel;
 import android.os.Parcelable;
 
@@ -36,8 +33,6 @@ import android.os.Parcelable;
  */
 @SystemApi
 public final class ApfCapabilities implements Parcelable {
-    private static ConnectivityResources sResources;
-
     /**
      * Version of APF instruction set supported for packet filtering. 0 indicates no support for
      * packet filtering using APF programs.
@@ -66,15 +61,6 @@ public final class ApfCapabilities implements Parcelable {
         maximumApfProgramSize = in.readInt();
         apfPacketFormat = in.readInt();
     }
-
-    @NonNull
-    private static synchronized ConnectivityResources getResources(@NonNull Context ctx) {
-        if (sResources == null)  {
-            sResources = new ConnectivityResources(ctx);
-        }
-        return sResources;
-    }
-
 
     @Override
     public int describeContents() {
@@ -133,9 +119,7 @@ public final class ApfCapabilities implements Parcelable {
     public static boolean getApfDrop8023Frames() {
         // TODO: deprecate/remove this method (now unused in the platform), as the resource was
         // moved to NetworkStack.
-        final Resources systemRes = Resources.getSystem();
-        final int id = systemRes.getIdentifier("config_apfDrop802_3Frames", "bool", "android");
-        return systemRes.getBoolean(id);
+        return true;
     }
 
     /**
@@ -144,8 +128,6 @@ public final class ApfCapabilities implements Parcelable {
     public static @NonNull int[] getApfEtherTypeBlackList() {
         // TODO: deprecate/remove this method (now unused in the platform), as the resource was
         // moved to NetworkStack.
-        final Resources systemRes = Resources.getSystem();
-        final int id = systemRes.getIdentifier("config_apfEthTypeBlackList", "array", "android");
-        return systemRes.getIntArray(id);
+        return new int[] { 0x88a2, 0x88a4, 0x88b8, 0x88cd, 0x88e3 };
     }
 }

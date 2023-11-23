@@ -17,6 +17,8 @@
 package com.android.car.settings.system.legal;
 
 import static com.android.car.settings.common.PreferenceController.AVAILABLE;
+import static com.android.car.settings.common.PreferenceController.AVAILABLE_FOR_VIEWING;
+import static com.android.car.settings.common.PreferenceController.CONDITIONALLY_UNAVAILABLE;
 import static com.android.car.settings.common.PreferenceController.UNSUPPORTED_ON_DEVICE;
 
 import static com.google.common.truth.Truth.assertThat;
@@ -107,6 +109,42 @@ public abstract class LegalPreferenceControllerTestCase {
     }
 
     @Test
+    public void getAvailabilityStatus_systemApp_shouldReturnAvailable_zoneWrite() {
+        mPreferenceController.setAvailabilityStatusForZone("write");
+        List<ResolveInfo> list = new ArrayList<>();
+        list.add(getTestResolveInfo(/* isSystemApp= */ true));
+        when(mMockPm.queryIntentActivities(any(Intent.class), anyInt()))
+                .thenReturn(list);
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), AVAILABLE);
+    }
+
+    @Test
+    public void getAvailabilityStatus_systemApp_shouldReturnAvailable_zoneRead() {
+        mPreferenceController.setAvailabilityStatusForZone("read");
+        List<ResolveInfo> list = new ArrayList<>();
+        list.add(getTestResolveInfo(/* isSystemApp= */ true));
+        when(mMockPm.queryIntentActivities(any(Intent.class), anyInt()))
+                .thenReturn(list);
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), AVAILABLE_FOR_VIEWING);
+    }
+
+    @Test
+    public void getAvailabilityStatus_systemApp_shouldReturnAvailable_zoneHidden() {
+        mPreferenceController.setAvailabilityStatusForZone("hidden");
+        List<ResolveInfo> list = new ArrayList<>();
+        list.add(getTestResolveInfo(/* isSystemApp= */ true));
+        when(mMockPm.queryIntentActivities(any(Intent.class), anyInt()))
+                .thenReturn(list);
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), CONDITIONALLY_UNAVAILABLE);
+    }
+
+    @Test
     public void getAvailabilityStatus_notSystemApp_shouldReturnUnsupported() {
         List<ResolveInfo> list = new ArrayList<>();
         list.add(getTestResolveInfo(/* isSystemApp= */ false));
@@ -121,12 +159,87 @@ public abstract class LegalPreferenceControllerTestCase {
     }
 
     @Test
+    public void getAvailabilityStatus_notSystemApp_shouldReturnUnsupported_zoneWrite() {
+        mPreferenceController.setAvailabilityStatusForZone("write");
+        List<ResolveInfo> list = new ArrayList<>();
+        list.add(getTestResolveInfo(/* isSystemApp= */ false));
+        when(mMockPm.queryIntentActivities(any(Intent.class), anyInt()))
+                .thenReturn(list);
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), UNSUPPORTED_ON_DEVICE);
+
+        when(mMockPm.queryIntentActivities(any(Intent.class), anyInt())).thenReturn(null);
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), UNSUPPORTED_ON_DEVICE);
+    }
+
+    @Test
+    public void getAvailabilityStatus_notSystemApp_shouldReturnUnsupported_zoneRead() {
+        mPreferenceController.setAvailabilityStatusForZone("read");
+        List<ResolveInfo> list = new ArrayList<>();
+        list.add(getTestResolveInfo(/* isSystemApp= */ false));
+        when(mMockPm.queryIntentActivities(any(Intent.class), anyInt()))
+                .thenReturn(list);
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), UNSUPPORTED_ON_DEVICE);
+
+        when(mMockPm.queryIntentActivities(any(Intent.class), anyInt())).thenReturn(null);
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), UNSUPPORTED_ON_DEVICE);
+    }
+
+    @Test
+    public void getAvailabilityStatus_notSystemApp_shouldReturnUnsupported_zoneHidden() {
+        mPreferenceController.setAvailabilityStatusForZone("hidden");
+        List<ResolveInfo> list = new ArrayList<>();
+        list.add(getTestResolveInfo(/* isSystemApp= */ false));
+        when(mMockPm.queryIntentActivities(any(Intent.class), anyInt()))
+                .thenReturn(list);
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), UNSUPPORTED_ON_DEVICE);
+
+        when(mMockPm.queryIntentActivities(any(Intent.class), anyInt())).thenReturn(null);
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), UNSUPPORTED_ON_DEVICE);
+    }
+
+    @Test
     public void getAvailabilityStatus_intentResolvesToNull_shouldReturnUnsupported() {
         when(mMockPm.queryIntentActivities(eq(mPreferenceController.getIntent()), anyInt()))
                 .thenReturn(Collections.emptyList());
 
         assertThat(mPreferenceController.getAvailabilityStatus())
                 .isEqualTo(UNSUPPORTED_ON_DEVICE);
+    }
+
+    @Test
+    public void getAvailabilityStatus_intentResolvesToNull_shouldReturnUnsupported_zoneWrite() {
+        mPreferenceController.setAvailabilityStatusForZone("write");
+        when(mMockPm.queryIntentActivities(eq(mPreferenceController.getIntent()), anyInt()))
+                .thenReturn(Collections.emptyList());
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), UNSUPPORTED_ON_DEVICE);
+    }
+
+    @Test
+    public void getAvailabilityStatus_intentResolvesToNull_shouldReturnUnsupported_zoneRead() {
+        mPreferenceController.setAvailabilityStatusForZone("read");
+        when(mMockPm.queryIntentActivities(eq(mPreferenceController.getIntent()), anyInt()))
+                .thenReturn(Collections.emptyList());
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), UNSUPPORTED_ON_DEVICE);
+    }
+
+    @Test
+    public void getAvailabilityStatus_intentResolvesToNull_shouldReturnUnsupported_zoneHidden() {
+        mPreferenceController.setAvailabilityStatusForZone("hidden");
+        when(mMockPm.queryIntentActivities(eq(mPreferenceController.getIntent()), anyInt()))
+                .thenReturn(Collections.emptyList());
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), UNSUPPORTED_ON_DEVICE);
     }
 
     @Test

@@ -28,7 +28,7 @@ import java.util.stream.Stream;
 /**
  * Helper class that provides Stream abstractions for android.util.SparseArray
  */
-public class SparseArrayStream {
+public final class SparseArrayStream {
     /** TODO: add javadoc */
     public static <E> IntStream keyStream(SparseArray<E> array) {
         return IntStream.range(0, array.size()).map(array::keyAt);

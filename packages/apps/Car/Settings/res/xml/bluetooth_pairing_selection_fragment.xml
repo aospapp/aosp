@@ -31,7 +31,7 @@
         android:title="@string/bluetooth_available_devices"
         settings:controller="com.android.car.settings.bluetooth.BluetoothUnbondedDevicesPreferenceController"
         settings:showChevron="false"/>
-    <com.android.car.ui.preference.CarUiPreference
+    <com.android.car.ui.preference.CarUiFooterPreference
         android:icon="@drawable/ic_settings_about"
         android:key="@string/pk_bluetooth_address"
         android:selectable="false"

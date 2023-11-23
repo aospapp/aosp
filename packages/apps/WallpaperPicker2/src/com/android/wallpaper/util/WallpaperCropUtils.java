@@ -190,7 +190,8 @@ public final class WallpaperCropUtils {
      * @return a Rect representing the area of the wallpaper to crop.
      */
     public static Rect calculateCropRect(Context context, float wallpaperZoom, Point wallpaperSize,
-            Point defaultCropSurfaceSize, Point targetHostSize, int scrollX, int scrollY) {
+            Point defaultCropSurfaceSize, Point targetHostSize, int scrollX, int scrollY,
+            boolean cropExtraWidth) {
         // Calculate Rect of wallpaper in physical pixel terms (i.e., scaled to current zoom).
         int scaledWallpaperWidth = Math.round(wallpaperSize.x * wallpaperZoom);
         int scaledWallpaperHeight = Math.round(wallpaperSize.y * wallpaperZoom);
@@ -205,12 +206,14 @@ public final class WallpaperCropUtils {
         int extraWidth = defaultCropSurfaceSize.x - targetHostSize.x;
         int extraHeightTopAndBottom = (int) ((defaultCropSurfaceSize.y - targetHostSize.y) / 2f);
 
-        // Try to increase size of screenRect to include extra width depending on the layout
-        // direction.
-        if (isRtl(context)) {
-            cropRect.left = Math.max(cropRect.left - extraWidth, rect.left);
-        } else {
-            cropRect.right = Math.min(cropRect.right + extraWidth, rect.right);
+        if (cropExtraWidth) {
+            // Try to increase size of screenRect to include extra width depending on the layout
+            // direction.
+            if (isRtl(context)) {
+                cropRect.left = Math.max(cropRect.left - extraWidth, rect.left);
+            } else {
+                cropRect.right = Math.min(cropRect.right + extraWidth, rect.right);
+            }
         }
 
         // Try to increase the size of the cropRect to to include extra height.
@@ -301,14 +304,32 @@ public final class WallpaperCropUtils {
      * @param rawWallpaperSize        the size of the raw wallpaper as a Point (x,y).
      * @param visibleRawWallpaperRect the area of the raw wallpaper which is expected to see.
      * @param wallpaperZoom           the factor which is used to scale the raw wallpaper.
+     * @param cropExtraWidth          true to crop extra wallpaper width for panel sliding.
      */
     public static Rect calculateCropRect(Context context, Point hostViewSize, Point cropSize,
-            Point rawWallpaperSize, Rect visibleRawWallpaperRect, float wallpaperZoom) {
+            Point rawWallpaperSize, Rect visibleRawWallpaperRect, float wallpaperZoom,
+            boolean cropExtraWidth) {
         int scrollX = (int) (visibleRawWallpaperRect.left * wallpaperZoom);
         int scrollY = (int) (visibleRawWallpaperRect.top * wallpaperZoom);
 
         return calculateCropRect(context, wallpaperZoom, rawWallpaperSize, cropSize, hostViewSize,
-                scrollX, scrollY);
+                scrollX, scrollY, cropExtraWidth);
+    }
+
+    /**
+     * Calculates {@link Rect} of the wallpaper which we want to crop to in physical pixel terms
+     * (i.e., scaled to current zoom).
+     *
+     * @param hostViewSize            the size of the view hosting the wallpaper as a Point (x,y).
+     * @param cropSize                the default size of the crop as a Point (x,y).
+     * @param rawWallpaperSize        the size of the raw wallpaper as a Point (x,y).
+     * @param visibleRawWallpaperRect the area of the raw wallpaper which is expected to see.
+     * @param wallpaperZoom           the factor which is used to scale the raw wallpaper.
+     */
+    public static Rect calculateCropRect(Context context, Point hostViewSize, Point cropSize,
+            Point rawWallpaperSize, Rect visibleRawWallpaperRect, float wallpaperZoom) {
+        return calculateCropRect(context, hostViewSize, cropSize, rawWallpaperSize,
+                visibleRawWallpaperRect, wallpaperZoom, /* cropExtraWidth= */ true);
     }
 
     /**

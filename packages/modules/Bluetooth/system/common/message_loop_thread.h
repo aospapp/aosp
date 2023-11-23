@@ -16,17 +16,16 @@
 
 #pragma once
 
+#include <base/functional/bind.h>
+#include <base/location.h>
+#include <base/run_loop.h>
+#include <base/threading/platform_thread.h>
 #include <unistd.h>
+
 #include <future>
 #include <memory>
 #include <string>
 #include <thread>
-
-#include <base/bind.h>
-#include <base/location.h>
-#include <base/run_loop.h>
-#include <base/threading/platform_thread.h>
-#include "src/message_loop_thread.rs.h"
 
 #include "abstract_message_loop.h"
 
@@ -201,7 +200,6 @@ class MessageLoopThread final {
   base::WeakPtrFactory<MessageLoopThread> weak_ptr_factory_;
   bool shutting_down_;
   bool is_main_;
-  ::rust::Box<shim::rust::MessageLoopThread>* rust_thread_ = nullptr;
 };
 
 inline std::ostream& operator<<(std::ostream& os,

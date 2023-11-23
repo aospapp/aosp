@@ -49,4 +49,5 @@ parcelable ProvisioningConfigurationParcelable {
     @nullable List<DhcpOption> options;
     int ipv4ProvisioningMode;
     int ipv6ProvisioningMode;
+    boolean uniqueEui64AddressesOnly;
 }

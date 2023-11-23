@@ -15,7 +15,7 @@
  *  limitations under the License.
  *
  ******************************************************************************/
-#include <base/bind.h>
+#include <base/functional/bind.h>
 #include <stddef.h>
 #include <stdio.h>
 #include <string.h>
@@ -26,7 +26,6 @@
 #include "btu.h"
 #include "device/include/controller.h"
 #include "stack/btm/btm_int_types.h"
-#include "utils/include/bt_utils.h"
 
 extern tBTM_CB btm_cb;
 
@@ -60,12 +59,15 @@ bool can_do_batch_scan() {
 /* VSE callback for batch scan, filter, and tracking events */
 void btm_ble_batchscan_filter_track_adv_vse_cback(uint8_t len,
                                                   const uint8_t* p) {
-  tBTM_BLE_TRACK_ADV_DATA adv_data;
-
+  tBTM_BLE_TRACK_ADV_DATA adv_data{};
   uint8_t sub_event = 0;
   tBTM_BLE_VSC_CB cmn_ble_vsc_cb;
-  if (len == 0) return;
+
+  if (len < 1)
+    goto err_out;
+
   STREAM_TO_UINT8(sub_event, p);
+  len -= 1;
 
   BTM_TRACE_EVENT(
       "btm_ble_batchscan_filter_track_adv_vse_cback called with event:%x",
@@ -78,30 +80,45 @@ void btm_ble_batchscan_filter_track_adv_vse_cback(uint8_t len,
 
   if (HCI_VSE_SUBCODE_BLE_TRACKING_SUB_EVT == sub_event &&
       NULL != ble_advtrack_cb.p_track_cback) {
-    if (len < 10) return;
 
-    memset(&adv_data, 0, sizeof(tBTM_BLE_TRACK_ADV_DATA));
     BTM_BleGetVendorCapabilities(&cmn_ble_vsc_cb);
     adv_data.client_if = (uint8_t)ble_advtrack_cb.ref_value;
     if (cmn_ble_vsc_cb.version_supported > BTM_VSC_CHIP_CAPABILITY_L_VERSION) {
+      if (len < 10) {
+        goto err_out;
+      }
+
       STREAM_TO_UINT8(adv_data.filt_index, p);
       STREAM_TO_UINT8(adv_data.advertiser_state, p);
       STREAM_TO_UINT8(adv_data.advertiser_info_present, p);
       STREAM_TO_BDADDR(adv_data.bd_addr, p);
       STREAM_TO_UINT8(adv_data.addr_type, p);
 
+      len -= 10;
+
       /* Extract the adv info details */
       if (ADV_INFO_PRESENT == adv_data.advertiser_info_present) {
-        if (len < 15) return;
+
+        if (len < 5) {
+          goto err_out;
+        }
+
         STREAM_TO_UINT8(adv_data.tx_power, p);
         STREAM_TO_UINT8(adv_data.rssi_value, p);
         STREAM_TO_UINT16(adv_data.time_stamp, p);
-
         STREAM_TO_UINT8(adv_data.adv_pkt_len, p);
+
+        len -= 5;
+
         if (adv_data.adv_pkt_len > 0) {
           adv_data.p_adv_pkt_data =
               static_cast<uint8_t*>(osi_malloc(adv_data.adv_pkt_len));
+          if (adv_data.p_adv_pkt_data == nullptr || \
+            len < adv_data.adv_pkt_len) {
+            goto err_out;
+          }
           memcpy(adv_data.p_adv_pkt_data, p, adv_data.adv_pkt_len);
+          len -= adv_data.adv_pkt_len;
           p += adv_data.adv_pkt_len;
         }
 
@@ -109,11 +126,19 @@ void btm_ble_batchscan_filter_track_adv_vse_cback(uint8_t len,
         if (adv_data.scan_rsp_len > 0) {
           adv_data.p_scan_rsp_data =
               static_cast<uint8_t*>(osi_malloc(adv_data.scan_rsp_len));
+
+          if (adv_data.p_scan_rsp_data == nullptr || len < adv_data.scan_rsp_len) {
+            goto err_out;
+          }
           memcpy(adv_data.p_scan_rsp_data, p, adv_data.scan_rsp_len);
         }
       }
     } else {
       /* Based on L-release version */
+      if (len < 9) {
+        goto err_out;
+      }
+
       STREAM_TO_UINT8(adv_data.filt_index, p);
       STREAM_TO_UINT8(adv_data.addr_type, p);
       STREAM_TO_BDADDR(adv_data.bd_addr, p);
@@ -129,8 +154,15 @@ void btm_ble_batchscan_filter_track_adv_vse_cback(uint8_t len,
                         to_ble_addr_type(adv_data.addr_type));
 
     ble_advtrack_cb.p_track_cback(&adv_data);
-    return;
   }
+
+  return;
+
+err_out:
+  BTM_TRACE_ERROR("malformatted packet detected");
+
+  osi_free_and_reset((void **) &adv_data.p_adv_pkt_data);
+  osi_free_and_reset((void **) &adv_data.p_scan_rsp_data);
 }
 
 void feat_enable_cb(uint8_t* p, uint16_t len) {

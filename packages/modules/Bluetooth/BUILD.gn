@@ -25,7 +25,7 @@ group("all") {
 }
 
 # Tools should be built for the host target.
-if (host_cpu == target_cpu && host_os == target_os) {
+if (target_os == "linux") {
   group("tools") {
     deps = [ "//bt/system:tools" ]
   }

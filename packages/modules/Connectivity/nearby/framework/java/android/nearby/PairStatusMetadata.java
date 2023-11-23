@@ -106,11 +106,6 @@ public final class PairStatusMetadata implements Parcelable {
     }
 
     @Override
-    public int getStability() {
-        return 0;
-    }
-
-    @Override
     public void writeToParcel(@NonNull Parcel dest, int flags) {
         dest.writeInt(mStatus);
     }

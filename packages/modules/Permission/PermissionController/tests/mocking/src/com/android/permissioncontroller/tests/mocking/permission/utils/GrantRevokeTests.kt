@@ -40,6 +40,7 @@ import android.content.pm.PermissionInfo.PROTECTION_FLAG_RUNTIME_ONLY
 import android.os.Build
 import android.os.UserHandle
 import android.permission.PermissionManager
+import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.android.permissioncontroller.permission.model.livedatatypes.LightAppPermGroup
 import com.android.permissioncontroller.permission.model.livedatatypes.LightPackageInfo
 import com.android.permissioncontroller.permission.model.livedatatypes.LightPermGroupInfo
@@ -58,12 +59,10 @@ import org.mockito.ArgumentMatchers.anyString
 import org.mockito.ArgumentMatchers.eq
 import org.mockito.ArgumentMatchers.nullable
 import org.mockito.Mock
-import org.mockito.Mockito.`when`
 import org.mockito.Mockito.mock
 import org.mockito.Mockito.never
 import org.mockito.Mockito.verify
-
-import androidx.test.ext.junit.runners.AndroidJUnit4
+import org.mockito.Mockito.`when`
 
 private const val PERMISSION_CONTROLLER_CHANGED_FLAG_MASK = FLAG_PERMISSION_USER_SET or
         FLAG_PERMISSION_USER_FIXED or
@@ -155,7 +154,7 @@ class GrantRevokeTests {
                     Build.VERSION_CODES.LOLLIPOP
                 } else {
                     Build.VERSION_CODES.R
-                }, isInstantApp, isInstantApp, 0, 0L)
+                }, isInstantApp, isInstantApp, 0, 0L, 0L, false, emptyMap())
     }
 
     /**

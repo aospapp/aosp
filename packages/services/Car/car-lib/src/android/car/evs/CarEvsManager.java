@@ -16,6 +16,8 @@
 
 package android.car.evs;
 
+import static com.android.car.internal.ExcludeFromCodeCoverageGeneratedReport.BOILERPLATE_CODE;
+
 import android.annotation.CallbackExecutor;
 import android.annotation.IntDef;
 import android.annotation.NonNull;
@@ -26,6 +28,7 @@ import android.annotation.SystemApi;
 import android.car.Car;
 import android.car.CarManagerBase;
 import android.car.annotation.AddedInOrBefore;
+import android.car.annotation.ApiRequirements;
 import android.car.annotation.RequiredFeature;
 import android.car.builtin.util.Slogf;
 import android.os.Binder;
@@ -33,6 +36,7 @@ import android.os.IBinder;
 import android.os.RemoteException;
 import android.util.Log;
 
+import com.android.car.internal.ExcludeFromCodeCoverageGeneratedReport;
 import com.android.internal.annotations.GuardedBy;
 
 import java.lang.annotation.Retention;
@@ -90,10 +94,86 @@ public final class CarEvsManager extends CarManagerBase {
     @AddedInOrBefore(majorVersion = 33)
     public static final int SERVICE_TYPE_SURROUNDVIEW = 1;
 
+    /**
+     * Service type to represent the front exterior view camera service.
+     */
+    @ApiRequirements(minCarVersion =
+                     ApiRequirements.CarVersion.UPSIDE_DOWN_CAKE_0,
+                     minPlatformVersion =
+                     ApiRequirements.PlatformVersion.UPSIDE_DOWN_CAKE_0)
+    public static final int SERVICE_TYPE_FRONTVIEW = 2;
+
+    /**
+     * Service type to represent the left exterior view camera service such as
+     * the virtual side mirror.
+     */
+    @ApiRequirements(minCarVersion =
+                     ApiRequirements.CarVersion.UPSIDE_DOWN_CAKE_0,
+                     minPlatformVersion =
+                     ApiRequirements.PlatformVersion.UPSIDE_DOWN_CAKE_0)
+    public static final int SERVICE_TYPE_LEFTVIEW = 3;
+
+    /**
+     * Service type to represent the right exterior view camera service such as
+     * the virtual side mirror.
+     */
+    @ApiRequirements(minCarVersion =
+                     ApiRequirements.CarVersion.UPSIDE_DOWN_CAKE_0,
+                     minPlatformVersion =
+                     ApiRequirements.PlatformVersion.UPSIDE_DOWN_CAKE_0)
+    public static final int SERVICE_TYPE_RIGHTVIEW = 4;
+
+    /**
+     * Service type to represent the camera service that captures the scene
+     * with the driver.
+     */
+    @ApiRequirements(minCarVersion =
+                     ApiRequirements.CarVersion.UPSIDE_DOWN_CAKE_0,
+                     minPlatformVersion =
+                     ApiRequirements.PlatformVersion.UPSIDE_DOWN_CAKE_0)
+    public static final int SERVICE_TYPE_DRIVERVIEW = 5;
+
+    /**
+     * Service type to represent the camera service that captures the scene
+     * with the front-seat passengers.
+     */
+    @ApiRequirements(minCarVersion =
+                     ApiRequirements.CarVersion.UPSIDE_DOWN_CAKE_0,
+                     minPlatformVersion =
+                     ApiRequirements.PlatformVersion.UPSIDE_DOWN_CAKE_0)
+    public static final int SERVICE_TYPE_FRONT_PASSENGERSVIEW = 6;
+
+    /**
+     * Service type to represent the camera service that captures the scene
+     * with the rear-seat passengers.
+     */
+    @ApiRequirements(minCarVersion =
+                     ApiRequirements.CarVersion.UPSIDE_DOWN_CAKE_0,
+                     minPlatformVersion =
+                     ApiRequirements.PlatformVersion.UPSIDE_DOWN_CAKE_0)
+    public static final int SERVICE_TYPE_REAR_PASSENGERSVIEW = 7;
+
+  /**
+     * Service type to represent the camera service that captures the scene
+     * the user defines.
+     */
+    @ApiRequirements(minCarVersion =
+                     ApiRequirements.CarVersion.UPSIDE_DOWN_CAKE_0,
+                     minPlatformVersion =
+                     ApiRequirements.PlatformVersion.UPSIDE_DOWN_CAKE_0)
+    public static final int SERVICE_TYPE_USER_DEFINED = 1000;
+
     /** @hide */
     @IntDef (prefix = {"SERVICE_TYPE_"}, value = {
             SERVICE_TYPE_REARVIEW,
             SERVICE_TYPE_SURROUNDVIEW,
+            SERVICE_TYPE_FRONTVIEW,
+            SERVICE_TYPE_LEFTVIEW,
+            SERVICE_TYPE_RIGHTVIEW,
+            SERVICE_TYPE_DRIVERVIEW,
+            SERVICE_TYPE_FRONT_PASSENGERSVIEW,
+            SERVICE_TYPE_REAR_PASSENGERSVIEW,
+            SERVICE_TYPE_USER_DEFINED,
     })
     @Retention(RetentionPolicy.SOURCE)
     public @interface CarEvsServiceType {}
@@ -393,6 +473,7 @@ public final class CarEvsManager extends CarManagerBase {
          * @param event {@link #CarEvsStreamEvent}; e.g. a stream started
          */
         @AddedInOrBefore(majorVersion = 33)
+        @ExcludeFromCodeCoverageGeneratedReport(reason = BOILERPLATE_CODE)
         default void onStreamEvent(@CarEvsStreamEvent int event) {}
 
         /**
@@ -401,6 +482,7 @@ public final class CarEvsManager extends CarManagerBase {
          * @param buffer {@link android.car.evs.CarEvsBufferDescriptor} contains a EVS frame
          */
         @AddedInOrBefore(majorVersion = 33)
+        @ExcludeFromCodeCoverageGeneratedReport(reason = BOILERPLATE_CODE)
         default void onNewFrame(@NonNull CarEvsBufferDescriptor buffer) {}
     }
 
@@ -500,9 +582,12 @@ public final class CarEvsManager extends CarManagerBase {
     public void returnFrameBuffer(@NonNull CarEvsBufferDescriptor buffer) {
         Objects.requireNonNull(buffer);
         try {
-            mService.returnFrameBuffer(buffer.getId());
+            mService.returnFrameBuffer(buffer);
         } catch (RemoteException err) {
             handleRemoteExceptionFromCarService(err);
+        } finally {
+            // We are done with this HardwareBuffer object.
+            buffer.getHardwareBuffer().close();
         }
     }
 

@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+@file:Suppress("DEPRECATION")
 
 package com.android.permissioncontroller.permission.data
 
@@ -167,7 +168,7 @@ class ServiceLiveData(
                     if (resolveInfo?.serviceInfo?.permission != permission) {
                         return@mapNotNull null
                     }
-                    val packageName = resolveInfo?.serviceInfo?.packageName
+                    val packageName = resolveInfo.serviceInfo?.packageName
                     if (!isServiceEnabled(packageName)) {
                         if (DEBUG_HIBERNATION_POLICY) {
                             DumpableLog.i(LOG_TAG,
@@ -192,13 +193,13 @@ class ServiceLiveData(
         }
         return when (intentAction) {
             AccessibilityService.SERVICE_INTERFACE -> {
-                pkg in enabledAccessibilityServicesLiveData.value!!
+                pkg in (enabledAccessibilityServicesLiveData.value ?: emptyList<String>())
             }
             InputMethod.SERVICE_INTERFACE -> {
-                pkg in enabledInputMethodsLiveData.value!!
+                pkg in (enabledInputMethodsLiveData.value ?: emptyList<String>())
             }
             NotificationListenerService.SERVICE_INTERFACE -> {
-                pkg in enabledNotificationListenersLiveData.value!!
+                pkg in (enabledNotificationListenersLiveData.value ?: emptyList<String>())
             }
             WallpaperService.SERVICE_INTERFACE -> {
                 pkg == selectedWallpaperServiceLiveData.value
@@ -210,13 +211,13 @@ class ServiceLiveData(
                 pkg == selectedAutofillServiceLiveData.value
             }
             DreamService.SERVICE_INTERFACE -> {
-                pkg in enabledDreamServicesLiveData.value!!
+                pkg in (enabledDreamServicesLiveData.value ?: emptyList<String>())
             }
             PrintService.SERVICE_INTERFACE -> {
-                pkg !in disabledPrintServicesLiveData.value!!
+                pkg !in (disabledPrintServicesLiveData.value ?: emptyList<String>())
             }
             DevicePolicyManager.ACTION_DEVICE_ADMIN_SERVICE -> {
-                pkg in enabledDeviceAdminsLiveDataLiveData.value!!
+                pkg in (enabledDeviceAdminsLiveDataLiveData.value ?: emptyList<String>())
             }
             else -> true
         }

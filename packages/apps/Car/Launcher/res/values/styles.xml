@@ -30,9 +30,79 @@
         <item name="android:textAlignment">viewStart</item>
     </style>
 
+    <style name="AppDisplayNameStyle">
+        <item name="android:textSize">@*android:dimen/car_body2_size</item>
+        <item name="android:textColor">@color/app_name_color</item>
+        <item name="android:fontFamily">sans-serif</item>
+        <item name="android:ellipsize">end</item>
+        <item name="android:maxLines">1</item>
+    </style>
+
     <style name="HorizontalLineDivider">
         <item name="android:layout_width">match_parent</item>
         <item name="android:layout_height">@*android:dimen/car_list_divider_height</item>
         <item name="android:background">@*android:color/car_list_divider</item>
+    </style>
+
+    <style name="RecentTasksListFocusArea">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">0dp</item>
+    </style>
+
+    <style name="RecentTasksList">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">match_parent</item>
+        <item name="android:paddingTop">37dp</item>
+        <item name="android:paddingBottom">32dp</item>
+        <item name="android:scrollbars">none</item>
+        <item name="android:clipToPadding">false</item>
+    </style>
+
+    <style name="ClearAllRecentTasksButtonFocusArea">
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_height">wrap_content</item>
+    </style>
+
+    <style name="ClearAllRecentTasksButton">
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:layout_marginBottom">25dp</item>
+        <item name="android:paddingVertical">20dp</item>
+        <item name="android:paddingHorizontal">48dp</item>
+        <item name="android:textSize">24sp</item>
+        <item name="android:letterSpacing">0.03</item>
+        <item name="android:textColor">@color/clear_all_recents_text_color</item>
+        <item name="android:background">@drawable/recent_clear_all_button_background</item>
+    </style>
+
+    <style name="RecentTaskIcon">
+        <item name="android:layout_width">@dimen/recent_task_icon_size</item>
+        <item name="android:layout_height">@dimen/recent_task_icon_size</item>
+        <item name="android:layout_marginTop">14dp</item>
+        <item name="android:layout_marginBottom">14dp</item>
+    </style>
+
+    <style name="RecentTaskThumbnail">
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_height">0dp</item>
+        <item name="android:clipToOutline">true</item>
+        <item name="android:scaleType">centerCrop</item>
+        <item name="android:adjustViewBounds">false</item>
+        <item name="shapeAppearanceOverlay">@style/RecentTaskThumbnail.RoundedBorder</item>
+    </style>
+
+    <style name="HiddenRecentTaskThumbnail" parent="RecentTaskThumbnail">
+    </style>
+
+    <style name="RecentTaskDismissButton">
+        <item name="android:layout_width">@dimen/recent_task_dismiss_button_size</item>
+        <item name="android:layout_height">@dimen/recent_task_dismiss_button_size</item>
+        <item name="android:scaleType">fitCenter</item>
+        <item name="android:background">@drawable/recent_dismiss_button_background</item>
+    </style>
+
+    <style name="RecentTaskThumbnail.RoundedBorder">
+        <item name="cornerFamily">rounded</item>
+        <item name="cornerSize">8dp</item>
     </style>
 </resources>

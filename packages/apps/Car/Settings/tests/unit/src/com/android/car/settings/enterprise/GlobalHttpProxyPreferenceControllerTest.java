@@ -18,6 +18,8 @@ package com.android.car.settings.enterprise;
 
 
 import static com.android.car.settings.common.PreferenceController.AVAILABLE;
+import static com.android.car.settings.common.PreferenceController.AVAILABLE_FOR_VIEWING;
+import static com.android.car.settings.common.PreferenceController.CONDITIONALLY_UNAVAILABLE;
 import static com.android.car.settings.common.PreferenceController.DISABLED_FOR_PROFILE;
 
 import static org.mockito.Mockito.when;
@@ -56,7 +58,66 @@ public final class GlobalHttpProxyPreferenceControllerTest extends
     }
 
     @Test
+    public void testGlobalProxyNotSet_disablesPreference_zoneWrite() {
+        mGlobalHttpProxyPreferenceController.setAvailabilityStatusForZone("write");
+        when(mConnectivityManager.getGlobalProxy()).thenReturn(
+                ProxyInfo.buildDirectProxy("test.com", 43));
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mGlobalHttpProxyPreferenceController.getAvailabilityStatus(), AVAILABLE);
+    }
+
+    @Test
+    public void testGlobalProxyNotSet_disablesPreference_zoneRead() {
+        mGlobalHttpProxyPreferenceController.setAvailabilityStatusForZone("read");
+        when(mConnectivityManager.getGlobalProxy()).thenReturn(
+                ProxyInfo.buildDirectProxy("test.com", 43));
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mGlobalHttpProxyPreferenceController.getAvailabilityStatus(),
+                AVAILABLE_FOR_VIEWING);
+    }
+
+    @Test
+    public void testGlobalProxyNotSet_disablesPreference_zoneHidden() {
+        mGlobalHttpProxyPreferenceController.setAvailabilityStatusForZone("hidden");
+        when(mConnectivityManager.getGlobalProxy()).thenReturn(
+                ProxyInfo.buildDirectProxy("test.com", 43));
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mGlobalHttpProxyPreferenceController.getAvailabilityStatus(),
+                CONDITIONALLY_UNAVAILABLE);
+    }
+
+    @Test
     public void testGlobalProxySet_enablesPreference() {
+        when(mConnectivityManager.getGlobalProxy()).thenReturn(null);
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mGlobalHttpProxyPreferenceController.getAvailabilityStatus(), DISABLED_FOR_PROFILE);
+    }
+
+    @Test
+    public void testGlobalProxySet_enablesPreference_zoneWrite() {
+        mGlobalHttpProxyPreferenceController.setAvailabilityStatusForZone("write");
+        when(mConnectivityManager.getGlobalProxy()).thenReturn(null);
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mGlobalHttpProxyPreferenceController.getAvailabilityStatus(), DISABLED_FOR_PROFILE);
+    }
+
+    @Test
+    public void testGlobalProxySet_enablesPreference_zoneRead() {
+        mGlobalHttpProxyPreferenceController.setAvailabilityStatusForZone("read");
+        when(mConnectivityManager.getGlobalProxy()).thenReturn(null);
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mGlobalHttpProxyPreferenceController.getAvailabilityStatus(), DISABLED_FOR_PROFILE);
+    }
+
+    @Test
+    public void testGlobalProxySet_enablesPreference_zoneHidden() {
+        mGlobalHttpProxyPreferenceController.setAvailabilityStatusForZone("hidden");
         when(mConnectivityManager.getGlobalProxy()).thenReturn(null);
 
         PreferenceControllerTestUtil.assertAvailability(

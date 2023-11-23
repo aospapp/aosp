@@ -24,14 +24,13 @@
     <string name="auto_brightness_title" msgid="9124647862844666581">"მორგებადი სიკაშკაშე"</string>
     <string name="auto_brightness_summary" msgid="2002570577219479702">"ეკრანის სიკაშკაშის გარემოზე მორგება"</string>
     <string name="condition_night_display_title" msgid="3777509730126972675">"ღამის განათება ჩართულია"</string>
-    <string name="night_mode_tile_label" msgid="6603597795502131664">"ღამის რეჟიმი"</string>
     <string name="network_and_internet" msgid="4229023630498537530">"ქსელი და ინტერნეტი"</string>
     <string name="mobile_network_settings" msgid="1708621113321368597">"მობილური ქსელი"</string>
     <string name="mobile_network_summary_count" msgid="760865625847664029">"{count,plural, =1{# SIM-ბარათი}other{# SIM-ბარათი}}"</string>
     <string name="mobile_network_active_sim" msgid="1901674954229832811">"აქტიური / SIM ბარათი"</string>
     <string name="mobile_network_inactive_sim" msgid="3644984830926224318">"არააქტიური / SIM ბარათი"</string>
-    <string name="mobile_network_active_esim" msgid="5864100786496761032">"აქტიური / ჩამოტვირთული SIM ბარათი"</string>
-    <string name="mobile_network_inactive_esim" msgid="1397332352238119032">"არააქტიური / ჩამოტვირთული SIM ბარათი"</string>
+    <string name="mobile_network_active_esim" msgid="5175362818078597096">"აქტიური / eSIM"</string>
+    <string name="mobile_network_inactive_esim" msgid="7273712403773327964">"არააქტიური / eSIM"</string>
     <string name="mobile_network_list_add_more" msgid="6174294462747070655">"დამატება"</string>
     <string name="mobile_network_toggle_title" msgid="3515647310810280063">"მობილური ინტერნეტი"</string>
     <string name="mobile_network_toggle_summary" msgid="8698267487987697148">"მონაცემებზე წვდომა მობილური ქსელით"</string>
@@ -177,6 +176,7 @@
     <string name="network_connection_request_dialog_showall" msgid="776613149566461487">"ყველას ჩვენება"</string>
     <string name="progress_scanning" msgid="7191583064717479795">"მიმდინარეობს ძიება"</string>
     <string name="bluetooth_settings_title" msgid="3794688574569688649">"Bluetooth"</string>
+    <string name="bluetooth_toggle_title" msgid="1431803611346881088">"Bluetooth-ის გამოყენება"</string>
     <string name="bluetooth_device" msgid="3178478829314083240">"უსახელო მოწყობილობა"</string>
     <string name="bluetooth_paired_devices" msgid="6463199569164652410">"დაწყვილებული მოწყობილობები"</string>
     <string name="bluetooth_pair_new_device" msgid="6948753485443263095">"ახალი მოწყობილობის დაწყვილება"</string>
@@ -221,6 +221,9 @@
     <string name="bluetooth_notif_title" msgid="8374602799367803335">"დაწყვილების თხოვნა"</string>
     <string name="bluetooth_notif_message" msgid="1060821000510108726">"შეეხეთ <xliff:g id="DEVICE_NAME">%1$s</xliff:g>-თან დასაწყვილებლად."</string>
     <string name="bluetooth_device_picker" msgid="673238198452345475">"აირჩიეთ Bluetooth მოწყობილობა"</string>
+    <string name="bluetooth_bonded_bluetooth_toggle_content_description" msgid="6800772154405846597">"Bluetooth"</string>
+    <string name="bluetooth_bonded_phone_toggle_content_description" msgid="8152794643249938377">"ტელეფონი"</string>
+    <string name="bluetooth_bonded_media_toggle_content_description" msgid="7803420585378155404">"მედია"</string>
     <string name="language_settings" msgid="2079258598337245546">"ენები"</string>
     <string name="languages_and_input_settings" msgid="3672322610529408248">"ენები და შეყვანა"</string>
     <string name="language_picker_list_suggested_header" msgid="7593893806003415948">"შემოთავაზებული"</string>
@@ -300,14 +303,16 @@
     <string name="apps_and_notifications_settings" msgid="8704585874333781975">"აპები და შეტყობინებები"</string>
     <string name="all_applications" msgid="7798210477486822168">"ყველა აპის ჩვენება"</string>
     <string name="default_applications" msgid="1558183275638697087">"ნაგულისხმევი აპები"</string>
+    <string name="performance_impacting_apps" msgid="3439260699394720569">"შესრულება-ზემოქმედების აპები"</string>
     <string name="app_permissions" msgid="32799922508313948">"აპის ნებართვები"</string>
     <string name="app_permissions_summary" msgid="5402214755935368418">"მართეთ აპების წვდომა თქვენს მონაცემებზე"</string>
     <string name="applications_settings" msgid="794261395191035632">"აპის ინფო"</string>
-    <string name="force_stop" msgid="2153183697014720520">"ძალით შეჩერება"</string>
-    <string name="force_stop_dialog_title" msgid="3342850939200388694">"გსურთ ძალით შეჩერება?"</string>
+    <string name="force_stop" msgid="1616958676171167028">"აპის შეჩერება"</string>
+    <string name="force_stop_dialog_title" msgid="4481858344628934971">"გსურთ აპის შეჩერება?"</string>
     <string name="force_stop_dialog_text" msgid="4354954014318432599">"აპისთვის მუშაობის ძალით შეჩერების შემთხვევაში, მან შეიძლება არასათანადოდ იმუშაოს."</string>
-    <string name="prioritize_app_performance_dialog_title" msgid="2561577032540073080">"გსურთ აპის ეფექტურობის პრიორიტ. ჩართვა?"</string>
-    <string name="prioritize_app_performance_dialog_text" msgid="572525689800110355">"ამ პარამეტრის ჩართვას შეუძლია გამოიწვიოს სისტემის არასტაბილურობა ან დიდი ხნით იმოქმედოს აპარატურაზე. გსურთ გაგრძელება?"</string>
+    <string name="force_stop_success_toast_text" msgid="2986272849275894254">"<xliff:g id="APP_NAME">%1$s</xliff:g> შეჩერებულია."</string>
+    <string name="prioritize_app_performance_dialog_title" msgid="3205297520523665568">"გსურთ აპის პრიორიტეტის შესრულება?"</string>
+    <string name="prioritize_app_performance_dialog_text" msgid="4321564728229192878">"ამან შეიძლება გამოიწვიოს სისტემის პოტენციური არასტაბილურობა ან დიდი ხნით იმოქმედოს აპარატურაზე. გსურთ გაგრძელება?"</string>
     <string name="prioritize_app_performance_dialog_action_on" msgid="3556735049873419163">"დიახ"</string>
     <string name="prioritize_app_performance_dialog_action_off" msgid="2813324718753199319">"არა, გმადლობთ"</string>
     <string name="disable_text" msgid="4358165448648990820">"გათიშვა"</string>
@@ -378,6 +383,7 @@
     <string name="apps_permission_manager_title" msgid="8776335943862484131">"ნებართვების მმართველი"</string>
     <string name="apps_permission_manager_summary" msgid="4180424218228141274">"მართეთ აპების წვდომა თქვენს მონაცემებზე"</string>
     <string name="apps_default_apps_summary" msgid="2017792579839972926">"ასისტენტისა და სხვებისთვის"</string>
+    <string name="performance_impacting_apps_summary" msgid="7762122057244111162">"{count,plural, =1{# აპი გავლენას ახდენს შესრულებაზე}other{# აპი გავლენას ახდენს შესრულებაზე}}"</string>
     <string name="apps_special_app_access_summary" msgid="6464767436309742163">"სისტემაზე და სხვა პარამეტრებზე"</string>
     <string name="special_access" msgid="5730278220917123811">"აპების სპეციალური წვდომა"</string>
     <string name="show_system" msgid="4401355756969485287">"სისტემის ჩვენება"</string>
@@ -391,6 +397,8 @@
     <string name="notification_listener_revoke_warning_summary" msgid="4904973394539125407">"შეტყობინებებზე წვდომის გამორთვის შემთხვევაში <xliff:g id="NOTIFICATION_LISTENER_NAME">%1$s</xliff:g> სავარაუდოდ, „არ შემაწუხოთ“ რეჟიმზე წვდომასაც დაკარგავს."</string>
     <string name="notification_listener_revoke_warning_confirm" msgid="2759583507454984812">"გამორთვა"</string>
     <string name="notification_listener_revoke_warning_cancel" msgid="4399941651358241154">"გაუქმება"</string>
+    <string name="performance_impacting_apps_description" msgid="7361464904617808444">"ეს აპები უარყოფითად აისახება სისტემის მუშაობაზე და აკრძალულია ფონში გაშვება.\nმიანიჭეთ აპს პრიორიტეტი, რათა დაუშვათ ფონური გამოყენება და ამოშალოთ იგი ამ სიიდან."</string>
+    <string name="performance_impacting_apps_button_label" msgid="8277507326717608783">"აპის პრიორიტეტიზაცია"</string>
     <string name="premium_sms_access_title" msgid="1409118461646148686">"პრემიუმ SMS შეტყობინებების გაგზავნაზე წვდომა"</string>
     <string name="premium_sms_access_description" msgid="7119026067677052169">"პრემიუმ SMS შეტყობინებებისთვის შეიძლება დამატებითი საფასურის გადახდა მოგიწიოთ. აპისთვის ამ ნებართვის მიცემის შემთხვევაში, თქვენ მისი მეშვეობით პრემიუმ SMS შეტყობინებების გაგზავნას შეძლებთ."</string>
     <string name="usage_access_title" msgid="7153427122072303254">"გამოყენებაზე წვდომა"</string>
@@ -401,22 +409,27 @@
     <string name="location_settings_title" msgid="901334356682423679">"მდებარეობა"</string>
     <string name="location_toggle_title" msgid="836779750812064601">"მდებარეობის გამოყენება"</string>
     <string name="location_toggle_summary" msgid="7977868708102299495">"დაუშვით აპები მდებარეობაზე წვდომისთვის"</string>
-    <string name="location_toggle_off_warning" msgid="8396854289251143748">"თუ ამას გამორთავთ, მდებარეობის წვდომა ყველა აპისთვის ამოიშლება. მძღოლის დახმარების აპები კვლავ შეძლებს წვდომას."</string>
-    <string name="location_driver_assistance_toggle_title" msgid="9201622805420459957">"მდებ. გამოიყენება მძღოლის დახმარებისთვის"</string>
+    <string name="location_toggle_off_warning" msgid="5959449346865136081">"თუ ამას გამორთავთ, ის მოუხსნის მდებარეობაზე წვდომას ყველა აპისთვის, გარდა მძღოლის დახმარებისთვის"</string>
+    <string name="location_driver_assistance_toggle_title" msgid="3780157378527924932">"მდებარეობის გამოიყენება მძღოლის დახმარებისთვის"</string>
     <string name="location_driver_assistance_toggle_off_title" msgid="2218532550578204718">"მანქანის მდებარეობა გამორთულია"</string>
-    <string name="location_driver_assistance_toggle_off_summary" msgid="1516786816178866919">"მძღოლის დახმარების აპებს არ აქვს წვდომა თქვენს მდებარეობაზე"</string>
+    <string name="location_driver_assistance_toggle_off_summary" msgid="6040822988891113026">"მძღოლის დახმარების აპებს არ აქვს წვდომა თქვენს მდებარეობაზე"</string>
     <string name="location_driver_assistance_action_text" msgid="1887309495010247883">"შეცვლა"</string>
     <string name="location_driver_assistance_toggle_summary" msgid="2732591196508054649">"დაუშვით მდებ. წვდომაში დამხმარე აპები"</string>
-    <string name="location_driver_assistance_toggle_off_warning" msgid="8097738968253492982">"თუ ამას გამორთავთ, მძღოლის დახმარების აპები, რომლებიც მდებარეობის ინფორმაციას ეყრდნობა, გაითიშება."</string>
+    <string name="location_driver_assistance_toggle_off_warning" msgid="2733124752598498356">"თუ ამას გამორთავთ, მძღოლის დახმარების აპები, რომლებიც მდებარეობის ინფორმაციას ეყრდნობა, გაითიშება."</string>
     <string name="driver_assistance_warning_confirm_label" msgid="2873799611160864931">"მაინც გამორთვა"</string>
-    <string name="location_settings_recent_requests_title" msgid="6345634382240930628">"მდებარეობის ბოლოდროინდელი მოთხოვნები"</string>
-    <string name="location_settings_recent_requests_empty_message" msgid="7789667070033674910">"მდებარეობის ბოლოდროინდელი მოთხოვნები არ არის"</string>
+    <string name="location_recently_accessed" msgid="522888989582110975">"ბოლოდროინდელი წვდომა"</string>
+    <string name="location_settings_recently_accessed_title" msgid="6016264778609426382">"ბოლოდროინდელი წვდომა"</string>
+    <string name="location_settings_recently_accessed_view_all_title" msgid="6344830628885781448">"ყველას ნახვა"</string>
+    <string name="location_no_recent_access" msgid="2859914321242257931">"ბოლოს გამოყენებული აპების სია ცარიელია"</string>
+    <string name="driver_assistance_label" msgid="9217315205754658940">"<xliff:g id="TIME">%1$s</xliff:g> • მძღოლის დახმარება"</string>
+    <string name="location_driver_assistance_privacy_policy_header_content" msgid="8118086439003674350">"აპები ამ მანქანის მდებარეობაზე წვდომის ნებართვით მძღოლის დახმარების ფუნქციებისთვის"</string>
+    <string name="location_driver_assistance_privacy_policy_button_text" msgid="669921557502414704">"კონფიდენციალურობის დებულება"</string>
     <string name="location_settings_app_permissions_title" msgid="6446735313354321564">"ნებართვები აპის დონეზე"</string>
     <string name="location_settings_services_title" msgid="1186133632690970468">"მდებარეობის სერვისები"</string>
     <string name="location_use_location_title" msgid="117735895374606680">"მდებარეობის გამოყენება"</string>
     <string name="location_settings_footer" msgid="296892848338100051">"მდებარეობის სერვისმა შესაძლოა გამოიყენოს ისეთი წყაროები, როგორიცაა GPS, Wi-Fi, მობილური ქსელები და სენსორები, რათა ხელი შეუწყოს თქვენი მოწყობილობის მდებარეობის დადგენას."</string>
     <string name="driver_assistance_settings_title" msgid="4915804073177128915">"მძღოლის დახმარება"</string>
-    <string name="adas_settings_footer" msgid="5128483877858058534">"ინფორმაცია მდებარეობის შესახებ, რომელიც მძღოლის დახმარების აპებთან ზიარდება, არ შეიცავს ინფორმაციას, რომლითაც შესაძლებელი იქნება თქვენი ამოცნობა. ის წაშლამდე მაქსიმუმ 2 დღე ინახება."</string>
+    <string name="adas_settings_footer" msgid="6697021691244459156">"ინფორმაცია მდებარეობის შესახებ, რომელიც მძღოლის დახმარების აპებთან ზიარდება, არ შეიცავს ინფორმაციას, რომლითაც შესაძლებელი იქნება თქვენი ამოცნობა. ის წაშლამდე მაქსიმუმ 2 დღე ინახება."</string>
     <string name="microphone_settings_title" msgid="7125554350537136922">"მიკროფონი"</string>
     <string name="microphone_toggle_title" msgid="911586035332827275">"მიკროფონის გამოყენება"</string>
     <string name="microphone_toggle_summary" msgid="2682653449849128626">"თქვენს მიკროფონზე წვდომის დაშვება ყველა აპისთვის"</string>
@@ -432,6 +445,9 @@
     <string name="system_update_settings_title" msgid="8448588267784138855">"სისტემის განახლებები"</string>
     <string name="system_advanced_title" msgid="6303355131691523362">"გაფართოებული"</string>
     <string name="system_advanced_summary" msgid="5833643795981791953">"ინფორმაცია, სამართლებრივი ინფორმაცია, გადაყენება და სხვა"</string>
+    <string name="restart_infotainment_system_title" msgid="5174129167446756511">"გართობის/საინფორმაციო სისტემის გადატვირთვა"</string>
+    <string name="restart_infotainment_system_dialog_text" msgid="6395281407323116808">"თქვენი მანქანის საინფორმაციო გასართობი სისტემის გადატვირთვას შეიძლება რამდენიმე წუთი დასჭირდეს. გსურთ გაგრძელება?"</string>
+    <string name="continue_confirmation" msgid="1598892163951467191">"გაგრძელება"</string>
     <string name="firmware_version" msgid="8491753744549309333">"Android-ის ვერსია"</string>
     <string name="security_patch" msgid="4794276590178386903">"Android-ის უსაფრთხოების ნაწილაკის დონე"</string>
     <string name="hardware_info" msgid="3973165746261507658">"მოდელი და აპარატურა"</string>
@@ -472,11 +488,11 @@
     <string name="developer_options_settings" msgid="1530739225109118480">"დეველოპერთა პარამეტრები"</string>
     <string name="reset_options_title" msgid="4388902952861833420">"გადაყენების ვარიანტები"</string>
     <string name="reset_options_summary" msgid="5508201367420359293">"ქსელის, აპების ან მოწყობილობის გადაყენება"</string>
-    <string name="reset_network_title" msgid="1284233059990797263">"ქსელის გადაყენება"</string>
-    <string name="reset_network_desc" msgid="602381374544634925">"ამ ქმედებით გადაყენებული იქნება ქსელის ყველა პარამეტრი, მათ შორის:"</string>
-    <string name="reset_network_item_wifi" msgid="7569481589699982698"><li>"Wi‑Fi"</li></string>
+    <string name="reset_network_title" msgid="3077846909739832734">"Wi‑Fi-სა და Bluetooth-ის გადაყენება"</string>
+    <string name="reset_network_desc" msgid="3332203703135823033">"ეს გადააყენებს Wi‑Fi-სა და Bluetooth-ის პარამეტრებს და ამოშლის ადრე დაკავშირებულის მეხსიერებას:"</string>
+    <string name="reset_network_item_wifi" msgid="2876370861806060314"><li>"Wi‑Fi ქსელები და პაროლები"</li></string>
     <string name="reset_network_item_mobile" msgid="5747282716664480997"><li>"მობილური ინტერნეტი"</li></string>
-    <string name="reset_network_item_bluetooth" msgid="6035019931106921284"><li>"Bluetooth"</li></string>
+    <string name="reset_network_item_bluetooth" msgid="7475279871421815601"><li>"ტელეფონები და სხვა Bluetooth მოწყობილობები"</li></string>
     <string name="reset_esim_title" msgid="8132107637911831211">"სატრანსპორტო საშუალების ყველა eSIM-ის ამოშლა"</string>
     <string name="reset_esim_desc" msgid="1437276625485586740">"ეს ქმედება არ გააუქმებს თქვენს სატარიფო გეგმას."</string>
     <string name="reset_esim_error_title" msgid="7245109418130525492">"eSIM-ების გადაყენება ვერ ხერხდება"</string>
@@ -574,7 +590,7 @@
     <string name="storage_clear_user_data_text" msgid="8787615136779130680">"მონაცემთა საცავის გასუფთავება"</string>
     <string name="storage_clear_cache_btn_text" msgid="8449547925966775612">"ქეშის წაშლა"</string>
     <string name="storage_clear_data_dlg_title" msgid="5863775997588969879">"წაიშალოს აპის მონაცემები?"</string>
-    <string name="storage_clear_data_dlg_text" msgid="795055288575727801">"აპის მთელი მონაცემები, მათ შორის, ყველა ფაილი, პარამეტრი, ანგარიში, მონაცემთა ბაზა და ა.შ. სამუდამოდ წაიშლება."</string>
+    <string name="storage_clear_data_dlg_text" msgid="3255314337644212283">"ამ აპის მონაცემები სამუდამოდ წაიშლება. ეს ეხება ფაილებს, პარამეტრებს, მონაცემთა ბაზებსა და აპის სხვა მონაცემებს."</string>
     <string name="storage_clear_failed_dlg_text" msgid="6710485971686866306">"აპის მეხსიერების გასუფთავება ვერ მოხერხდა."</string>
     <string name="storage_unmount_success" msgid="1553591517580407021">"<xliff:g id="NAME">%1$s</xliff:g> ამოღებულია უსაფრთხოდ"</string>
     <string name="storage_unmount_failure" msgid="4591934911541762883">"<xliff:g id="NAME">%1$s</xliff:g>-ის უსაფრთხოდ ამოღება ვერ მოხერხდა"</string>
@@ -675,6 +691,7 @@
     <string name="lockpassword_cancel_label" msgid="5791237697404166450">"გაუქმება"</string>
     <string name="lockpassword_confirm_label" msgid="5918463281546146953">"დადასტურება"</string>
     <string name="choose_lock_password_hints" msgid="3903696950202491593">"უნდა შეიცავდეს მინიმუმ 4 სიმბოლოს"</string>
+    <string name="locktype_unavailable" msgid="2678317466336249126">"ამ ჩაკეტვის ტიპი მიუწვდომელია."</string>
     <string name="lockpassword_pin_contains_non_digits" msgid="3044526271686839923">"უნდა შეიცავდეს მხოლოდ ციფრებს 0-დან 9-მდე."</string>
     <string name="lockpassword_pin_recently_used" msgid="7901918311213276207">"ბოლოდროინდელი PIN-კოდის ხელახლა გამოყენება მოწყობილობის ადმინისტრატორის მიერ ნებადართული არ არის"</string>
     <string name="lockpassword_pin_denylisted_by_admin" msgid="3752574009492336468">"ხშირად გამოყენებული PIN-კოდები თქვენი IT ადმინისტრატორის მიერ დაბლოკილია. ცადეთ სხვა PIN-კოდი."</string>
@@ -699,7 +716,6 @@
     <string name="lockpassword_pin_too_long" msgid="8315542764465856288">"{count,plural, =1{უნდა შეიცავდეს #-ზე ნაკლებ ციფრს}other{უნდა შეიცავდეს #-ზე ნაკლებ ციფრს}}"</string>
     <string name="lockpassword_pin_no_sequential_digits" msgid="6511579896796310956">"ციფრების ზრდადი, კლებადი ან გამეორებადი მიმდევრობის გამოყენება ნებადართული არ არის"</string>
     <string name="setup_lock_settings_options_button_label" msgid="3337845811029780896">"ეკრანის დაბლოკვის ვარიანტები"</string>
-    <string name="build_info_fmt" msgid="5592554123908086426">"<xliff:g id="FINGERPRINT">%1$s</xliff:g>\n<xliff:g id="DATE">%2$s</xliff:g> : <xliff:g id="NUM_DAYS">%3$s</xliff:g> დღის წინ"</string>
     <string name="credentials_reset" msgid="873900550885788639">"ავტორიზაციის მონაცემების გასუფთავება"</string>
     <string name="credentials_reset_summary" msgid="6067911547500459637">"ყველა სერტიფიკატის ამოშლა"</string>
     <string name="credentials_reset_hint" msgid="3459271621754137661">"გსურთ სრული კონტენტის წაშლა?"</string>
@@ -722,6 +738,8 @@
     <string name="exit_retail_mode_dialog_confirmation_button_text" msgid="3147249675355968649">"დემოს დატოვება"</string>
     <string name="suggestion_dismiss_button" msgid="4539412646977050641">"დახურვა"</string>
     <string name="restricted_while_driving" msgid="6587569249519274524">"ფუნქცია მიუწვდომელია მანქანის მართვისას"</string>
+    <string name="restricted_for_passenger" msgid="7240117443887727753">"სთხოვეთ დრაივერს პარამეტრების შეცვლა"</string>
+    <string name="restricted_for_driver" msgid="3364388937671526800">"თქვენ არ შეგიძლიათ ამ მოქმედების შესრულება"</string>
     <string name="add_user_restricted_while_driving" msgid="1037301074725362944">"მანქანის მართვისას პროფილს ვერ დაამატებთ"</string>
     <string name="default_search_query" msgid="3137420627428857068">"ძიება"</string>
     <string name="assistant_and_voice_setting_title" msgid="737733881661819853">"ასისტენტი და Voice"</string>
@@ -737,6 +755,7 @@
     <string name="add_a_profile_button_text" msgid="8027395095117925114">"პროფილის დამატება"</string>
     <string name="delete_this_profile_text" msgid="6035404714526922665">"ამ პროფილის წაშლა"</string>
     <string name="add_profile_text" msgid="9118410102199116969">"პროფილის დამატება"</string>
+    <string name="cannot_remove_driver_profile" msgid="4109363161608717969">"ეს პროფილი ამჟამად გამოიყენება მძღოლის რეჟიმში. ცადეთ ხელახლა, როცა პროფილი არ გამოიყენება მძღოლის როლში."</string>
     <string name="qc_display_brightness" msgid="2939655289816201170">"ეკრანის სიკაშკაშე"</string>
     <string name="qc_bluetooth_off_devices_info" msgid="8420985279976892700">"თქვენი მოწყობილობების სანახავად ჩართეთ Bluetooth"</string>
     <string name="qc_bluetooth_on_no_devices_info" msgid="7573736950041887300">"მოწყობილობის დასაწყვილებლად გახსენით Bluetooth პარამეტრები"</string>
@@ -769,6 +788,7 @@
     <string name="number_of_device_admins" msgid="7508826094096451485">"{count,plural, =1{# აქტიური აპი}other{# აქტიური აპი}}"</string>
     <string name="number_of_device_admins_none" msgid="5547493703413973954">"აქტიური აპები არ არის"</string>
     <string name="work_policy_privacy_settings" msgid="5263835989260149968">"<xliff:g id="ORGANIZATION_NAME">%1$s</xliff:g>-ის სატრანსპორტო საშუალებების წესები"</string>
+    <string name="work_policy_privacy_settings_no_org_name" msgid="8011687012493940230">"სატრანსპორტო საშუალებების წესები"</string>
     <string name="work_policy_privacy_settings_summary" msgid="5321618399949880194">"ორგანიზაციის მენეჯერის მიერ მართული პარამეტრები"</string>
     <string name="footer_learn_more_content_description" msgid="7749452309729272078">"შეიტყვეთ მეტი <xliff:g id="SERVICE">%1$s</xliff:g>-ის შესახებ"</string>
     <string name="enterprise_privacy_settings" msgid="6496900796150572727">"ინფორმაცია მართული სატრანსპორტო საშუალების შესახებ"</string>

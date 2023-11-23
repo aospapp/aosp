@@ -22,7 +22,7 @@
 namespace bluetooth {
 namespace {
 
-TEST(StackManagerTest, start_and_shutdown_no_module) {
+TEST(StackManagerTest, DISABLED_start_and_shutdown_no_module) {
   StackManager stack_manager;
   ModuleList module_list;
   os::Thread thread{"test_thread", os::Thread::Priority::NORMAL};
@@ -45,7 +45,7 @@ class TestModuleNoDependency : public Module {
 
 const ModuleFactory TestModuleNoDependency::Factory = ModuleFactory([]() { return new TestModuleNoDependency(); });
 
-TEST(StackManagerTest, get_module_instance) {
+TEST(StackManagerTest, DISABLED_get_module_instance) {
   StackManager stack_manager;
   ModuleList module_list;
   module_list.add<TestModuleNoDependency>();

@@ -16,108 +16,100 @@
 
 #include "EvsEmulatedCamera.h"
 
-#include <filesystem>
-
-#include <android/hardware_buffer.h>
 #include <android-base/logging.h>
+#include <android/hardware_buffer.h>
 #include <ui/GraphicBufferAllocator.h>
 #include <ui/GraphicBufferMapper.h>
 #include <utils/SystemClock.h>
 
+#include <filesystem>
+
+namespace {
+
+using ::android::hardware::automotive::evs::V1_1::EvsEventDesc;
+using ::android::hardware::automotive::evs::V1_1::EvsEventType;
+
 using BufferDesc_1_0 = ::android::hardware::automotive::evs::V1_0::BufferDesc;
 using BufferDesc_1_1 = ::android::hardware::automotive::evs::V1_1::BufferDesc;
 
-namespace {
-    // Arbitrary limit on number of graphics buffers allowed to be allocated
-    // Safeguards against unreasonable resource consumption and provides a testable limit
-    const unsigned MAX_BUFFERS_IN_FLIGHT = 100;
+// Arbitrary limit on number of graphics buffers allowed to be allocated
+// Safeguards against unreasonable resource consumption and provides a testable limit
+const unsigned MAX_BUFFERS_IN_FLIGHT = 100;
 
-    uint32_t yuvToRgbx(const unsigned char Y, const unsigned char Uin, const unsigned char Vin) {
-        const float U = Uin - 128.0f;
-        const float V = Vin - 128.0f;
+uint32_t yuvToRgbx(const unsigned char Y, const unsigned char Uin, const unsigned char Vin) {
+    const float U = Uin - 128.0f;
+    const float V = Vin - 128.0f;
 
-        const float Rf = Y + 1.140f*V;
-        const float Gf = Y - 0.395f*U - 0.581f*V;
-        const float Bf = Y + 2.032f*U;
-        const unsigned char R = static_cast<unsigned char>(std::clamp(Rf, 0.0f, 255.0f));
-        const unsigned char G = static_cast<unsigned char>(std::clamp(Gf, 0.0f, 255.0f));
-        const unsigned char B = static_cast<unsigned char>(std::clamp(Bf, 0.0f, 255.0f));
+    const float Rf = Y + 1.140f * V;
+    const float Gf = Y - 0.395f * U - 0.581f * V;
+    const float Bf = Y + 2.032f * U;
+    const unsigned char R = static_cast<unsigned char>(std::clamp(Rf, 0.0f, 255.0f));
+    const unsigned char G = static_cast<unsigned char>(std::clamp(Gf, 0.0f, 255.0f));
+    const unsigned char B = static_cast<unsigned char>(std::clamp(Bf, 0.0f, 255.0f));
 
-        return ((R & 0xFF))       |
-               ((G & 0xFF) << 8)  |
-               ((B & 0xFF) << 16) |
-               0xFF000000;  // Fill the alpha channel with ones
-    }
+    return ((R & 0xFF)) | ((G & 0xFF) << 8) | ((B & 0xFF) << 16) |
+            0xFF000000;  // Fill the alpha channel with ones
+}
 
-
-    void fillRGBAFromYUYV(const BufferDesc& dstBuff,
-                                 uint8_t* dstData,
-                                 void* srcData,
-                                 unsigned srcStride,
-                                 unsigned srcHeight) {
-        const AHardwareBuffer_Desc* pDesc =
+void fillRGBAFromYUYV(const BufferDesc_1_1& dstBuff, uint8_t* dstData, void* srcData,
+                      unsigned srcStride, unsigned srcHeight) {
+    const AHardwareBuffer_Desc* pDesc =
             reinterpret_cast<const AHardwareBuffer_Desc*>(&dstBuff.buffer.description);
-        unsigned width = pDesc->width;
-        uint32_t* src = reinterpret_cast<uint32_t*>(srcData);
-        uint32_t* dst = reinterpret_cast<uint32_t*>(dstData);
-        unsigned srcStridePixels = srcStride / 2;
-        unsigned dstStridePixels = pDesc->stride;
+    unsigned width = pDesc->width;
+    uint32_t* src = reinterpret_cast<uint32_t*>(srcData);
+    uint32_t* dst = reinterpret_cast<uint32_t*>(dstData);
+    unsigned srcStridePixels = srcStride / 2;
+    unsigned dstStridePixels = pDesc->stride;
 
-        const int srcRowPadding32 =
-            srcStridePixels / 2 - width / 2;  // 2 bytes per pixel, 4 bytes per word
-        const int dstRowPadding32 =
-            dstStridePixels - width;    // 4 bytes per pixel, 4 bytes per word
+    const int srcRowPadding32 =
+            srcStridePixels / 2 - width / 2;              // 2 bytes per pixel, 4 bytes per word
+    const int dstRowPadding32 = dstStridePixels - width;  // 4 bytes per pixel, 4 bytes per word
 
-        const unsigned numRows = std::min(srcHeight, pDesc->height);
-        for (unsigned r = 0; r < numRows; ++r) {
-            for (unsigned c = 0; c < width/2; c++) {
-                // Note:  we're walking two pixels at a time here (even/odd)
-                uint32_t srcPixel = *src++;
+    const unsigned numRows = std::min(srcHeight, pDesc->height);
+    for (unsigned r = 0; r < numRows; ++r) {
+        for (unsigned c = 0; c < width / 2; c++) {
+            // Note:  we're walking two pixels at a time here (even/odd)
+            uint32_t srcPixel = *src++;
 
-                uint8_t Y1 = (srcPixel)       & 0xFF;
-                uint8_t U  = (srcPixel >> 8)  & 0xFF;
-                uint8_t Y2 = (srcPixel >> 16) & 0xFF;
-                uint8_t V  = (srcPixel >> 24) & 0xFF;
+            uint8_t Y1 = (srcPixel)&0xFF;
+            uint8_t U = (srcPixel >> 8) & 0xFF;
+            uint8_t Y2 = (srcPixel >> 16) & 0xFF;
+            uint8_t V = (srcPixel >> 24) & 0xFF;
 
-                // On the RGB output, we're writing one pixel at a time
-                *(dst+0) = yuvToRgbx(Y1, U, V);
-                *(dst+1) = yuvToRgbx(Y2, U, V);
-                dst += 2;
-            }
-
-            // Skip over any extra data or end of row alignment padding
-            src += srcRowPadding32;
-            dst += dstRowPadding32;
+            // On the RGB output, we're writing one pixel at a time
+            *(dst + 0) = yuvToRgbx(Y1, U, V);
+            *(dst + 1) = yuvToRgbx(Y2, U, V);
+            dst += 2;
         }
+
+        // Skip over any extra data or end of row alignment padding
+        src += srcRowPadding32;
+        dst += dstRowPadding32;
     }
+}
 
-
-    void fillBufferCopy(const BufferDesc& dstBuff,
-                               uint8_t* dst,
-                               void* srcData,
-                               unsigned srcStride,
-                               unsigned srcHeight) {
-        const AHardwareBuffer_Desc* pDesc =
+void fillBufferCopy(const BufferDesc_1_1& dstBuff, uint8_t* dst, void* srcData, unsigned srcStride,
+                    unsigned srcHeight) {
+    const AHardwareBuffer_Desc* pDesc =
             reinterpret_cast<const AHardwareBuffer_Desc*>(&dstBuff.buffer.description);
 
-        // HAL_PIXEL_FORMAT_RGBA_8888 default output format
-        const unsigned bytesPerPixel = 4;
-        const unsigned dstStride = pDesc->stride * bytesPerPixel;
+    // HAL_PIXEL_FORMAT_RGBA_8888 default output format
+    const unsigned bytesPerPixel = 4;
+    const unsigned dstStride = pDesc->stride * bytesPerPixel;
 
-        // Simply copy the data, row by row, without the scaling.
-        const unsigned copyStride = std::min(srcStride, dstStride);
-        const unsigned numRows = std::min(srcHeight, pDesc->height);
-        uint8_t* src = reinterpret_cast<uint8_t*>(srcData);
-        for (auto r = 0; r < numRows; ++r) {
-            memcpy(dst, src, copyStride);
+    // Simply copy the data, row by row, without the scaling.
+    const unsigned copyStride = std::min(srcStride, dstStride);
+    const unsigned numRows = std::min(srcHeight, pDesc->height);
+    uint8_t* src = reinterpret_cast<uint8_t*>(srcData);
+    for (auto r = 0; r < numRows; ++r) {
+        memcpy(dst, src, copyStride);
 
-            // Moves to the next row
-            src += srcStride;
-            dst += dstStride;
-        }
+        // Moves to the next row
+        src += srcStride;
+        dst += dstStride;
     }
-} // namespace
-
+}
+}  // namespace
 
 namespace android {
 namespace automotive {
@@ -125,11 +117,8 @@ namespace evs {
 namespace V1_1 {
 namespace implementation {
 
-EvsEmulatedCamera::EvsEmulatedCamera(const char *deviceName,
-                                     const EmulatedCameraDesc& desc) :
-        mFramesAllowed(0),
-        mFramesInUse(0),
-        mCaptureDeviceDesc(desc) {
+EvsEmulatedCamera::EvsEmulatedCamera(const char* deviceName, const EmulatedCameraDesc& desc) :
+      mFramesAllowed(0), mFramesInUse(0), mCaptureDeviceDesc(desc) {
     LOG(INFO) << "EvsEmulatedCamera instantiated";
     mDescription.v1.cameraId = deviceName;
 
@@ -139,33 +128,26 @@ EvsEmulatedCamera::EvsEmulatedCamera(const char *deviceName,
     mFormat = HAL_PIXEL_FORMAT_RGBA_8888;
 
     // How we expect to use the gralloc buffers we'll exchange with our client
-    mUsage  = GRALLOC_USAGE_HW_TEXTURE     |
-              GRALLOC_USAGE_SW_READ_RARELY |
-              GRALLOC_USAGE_SW_WRITE_OFTEN;
+    mUsage = GRALLOC_USAGE_HW_TEXTURE | GRALLOC_USAGE_SW_READ_RARELY | GRALLOC_USAGE_SW_WRITE_OFTEN;
 
     mDescription.v1.cameraId = deviceName;
 }
-
 
 EvsEmulatedCamera::~EvsEmulatedCamera() {
     LOG(INFO) << "EvsEmulatedCamera being destroyed";
     shutdown();
 }
 
-
 bool EvsEmulatedCamera::openDevice() {
     bool opened = false;
     if (mVideo) {
-        opened = mVideo->open(mCaptureDeviceDesc.path,
-                              mCaptureDeviceDesc.interval);
+        opened = mVideo->open(mCaptureDeviceDesc.path, mCaptureDeviceDesc.interval);
     }
 
     return opened;
 }
 
-
-void EvsEmulatedCamera::shutdown()
-{
+void EvsEmulatedCamera::shutdown() {
     LOG(INFO) << "EvsEmulatedCamera shutdown";
 
     // Make sure our output stream is cleaned up
@@ -191,7 +173,6 @@ void EvsEmulatedCamera::shutdown()
     }
 }
 
-
 // Methods from ::android::hardware::automotive::evs::V1_0::IEvsCamera follow.
 Return<void> EvsEmulatedCamera::getCameraInfo(getCameraInfo_cb _hidl_cb) {
     LOG(DEBUG) << __FUNCTION__;
@@ -200,7 +181,6 @@ Return<void> EvsEmulatedCamera::getCameraInfo(getCameraInfo_cb _hidl_cb) {
     _hidl_cb(mDescription.v1);
     return {};
 }
-
 
 Return<EvsResult> EvsEmulatedCamera::setMaxFramesInFlight(uint32_t bufferCount) {
     LOG(DEBUG) << __FUNCTION__;
@@ -226,8 +206,7 @@ Return<EvsResult> EvsEmulatedCamera::setMaxFramesInFlight(uint32_t bufferCount) 
     }
 }
 
-
-Return<EvsResult> EvsEmulatedCamera::startVideoStream(const sp<IEvsCameraStream_1_0>& stream)  {
+Return<EvsResult> EvsEmulatedCamera::startVideoStream(const sp<IEvsCameraStream_1_0>& stream) {
     LOG(DEBUG) << __FUNCTION__;
     std::scoped_lock<std::mutex> lock(mAccessLock);
 
@@ -257,9 +236,8 @@ Return<EvsResult> EvsEmulatedCamera::startVideoStream(const sp<IEvsCameraStream_
     }
 
     if (!mVideo->startStream([this](VideoCapture*, imageBufferDesc* tgt, void* data) {
-                                this->forwardFrame(tgt, data);
-                            })
-    ) {
+            this->forwardFrame(tgt, data);
+        })) {
         // No need to hold onto this if we failed to start
         mStream = nullptr;
         LOG(ERROR) << "Underlying camera start stream failed";
@@ -269,16 +247,14 @@ Return<EvsResult> EvsEmulatedCamera::startVideoStream(const sp<IEvsCameraStream_
     return EvsResult::OK;
 }
 
-
-Return<void> EvsEmulatedCamera::doneWithFrame(const BufferDesc_1_0& buffer)  {
+Return<void> EvsEmulatedCamera::doneWithFrame(const BufferDesc_1_0& buffer) {
     LOG(DEBUG) << __FUNCTION__;
     doneWithFrame_impl(buffer.bufferId, buffer.memHandle);
 
     return {};
 }
 
-
-Return<void> EvsEmulatedCamera::stopVideoStream()  {
+Return<void> EvsEmulatedCamera::stopVideoStream() {
     LOG(DEBUG) << __FUNCTION__;
 
     // Tells the capture device to stop (and block until it does)
@@ -302,16 +278,14 @@ Return<void> EvsEmulatedCamera::stopVideoStream()  {
     return {};
 }
 
-
-Return<int32_t> EvsEmulatedCamera::getExtendedInfo(uint32_t /*opaqueIdentifier*/)  {
+Return<int32_t> EvsEmulatedCamera::getExtendedInfo(uint32_t /*opaqueIdentifier*/) {
     LOG(DEBUG) << __FUNCTION__;
     // Return zero by default as required by the spec
     return 0;
 }
 
-
 Return<EvsResult> EvsEmulatedCamera::setExtendedInfo(uint32_t /*opaqueIdentifier*/,
-                                                     int32_t  /*opaqueValue*/)  {
+                                                     int32_t /*opaqueValue*/) {
     LOG(DEBUG) << __FUNCTION__;
     std::scoped_lock<std::mutex> lock(mAccessLock);
 
@@ -325,7 +299,6 @@ Return<EvsResult> EvsEmulatedCamera::setExtendedInfo(uint32_t /*opaqueIdentifier
     return EvsResult::INVALID_ARG;
 }
 
-
 // Methods from ::android::hardware::automotive::evs::V1_1::IEvsCamera follow.
 Return<void> EvsEmulatedCamera::getCameraInfo_1_1(getCameraInfo_1_1_cb _hidl_cb) {
     LOG(DEBUG) << __FUNCTION__;
@@ -334,7 +307,6 @@ Return<void> EvsEmulatedCamera::getCameraInfo_1_1(getCameraInfo_1_1_cb _hidl_cb)
     _hidl_cb(mDescription);
     return {};
 }
-
 
 Return<void> EvsEmulatedCamera::getPhysicalCameraInfo(const hidl_string& /*id*/,
                                                       getPhysicalCameraInfo_cb _hidl_cb) {
@@ -345,8 +317,7 @@ Return<void> EvsEmulatedCamera::getPhysicalCameraInfo(const hidl_string& /*id*/,
     return {};
 }
 
-
-Return<EvsResult> EvsEmulatedCamera::doneWithFrame_1_1(const hidl_vec<BufferDesc_1_1>& buffers)  {
+Return<EvsResult> EvsEmulatedCamera::doneWithFrame_1_1(const hidl_vec<BufferDesc_1_1>& buffers) {
     LOG(DEBUG) << __FUNCTION__;
 
     for (auto&& buffer : buffers) {
@@ -356,34 +327,28 @@ Return<EvsResult> EvsEmulatedCamera::doneWithFrame_1_1(const hidl_vec<BufferDesc
     return EvsResult::OK;
 }
 
-
 Return<EvsResult> EvsEmulatedCamera::pauseVideoStream() {
     return EvsResult::UNDERLYING_SERVICE_ERROR;
 }
 
-
 Return<EvsResult> EvsEmulatedCamera::resumeVideoStream() {
     return EvsResult::UNDERLYING_SERVICE_ERROR;
 }
-
 
 Return<EvsResult> EvsEmulatedCamera::setMaster() {
     // TODO(b/162946784): Implement this operation
     return EvsResult::OK;
 }
 
-
 Return<EvsResult> EvsEmulatedCamera::forceMaster(const sp<IEvsDisplay_1_0>&) {
     // TODO(b/162946784): Implement this operation
     return EvsResult::OK;
 }
 
-
 Return<EvsResult> EvsEmulatedCamera::unsetMaster() {
     // TODO(b/162946784): Implement this operation
     return EvsResult::OK;
 }
-
 
 Return<void> EvsEmulatedCamera::getParameterList(getParameterList_cb _hidl_cb) {
     // TODO(b/162946784): reads emulated controls from the configuration and
@@ -393,18 +358,15 @@ Return<void> EvsEmulatedCamera::getParameterList(getParameterList_cb _hidl_cb) {
     return {};
 }
 
-
 Return<void> EvsEmulatedCamera::getIntParameterRange(CameraParam /*id*/,
-                                                getIntParameterRange_cb _hidl_cb) {
+                                                     getIntParameterRange_cb _hidl_cb) {
     // TODO(b/162946784): reads emulated controls from the configuration and
     //                    returns.
     _hidl_cb(0, 0, 0);
     return {};
 }
 
-
-Return<void> EvsEmulatedCamera::setIntParameter(CameraParam /*id*/,
-                                                int32_t /*value*/,
+Return<void> EvsEmulatedCamera::setIntParameter(CameraParam /*id*/, int32_t /*value*/,
                                                 setIntParameter_cb _hidl_cb) {
     // TODO(b/162946784): Implement this operation
     hidl_vec<int32_t> values;
@@ -413,9 +375,7 @@ Return<void> EvsEmulatedCamera::setIntParameter(CameraParam /*id*/,
     return {};
 }
 
-
-Return<void> EvsEmulatedCamera::getIntParameter(CameraParam /*id*/,
-                                                getIntParameter_cb _hidl_cb) {
+Return<void> EvsEmulatedCamera::getIntParameter(CameraParam /*id*/, getIntParameter_cb _hidl_cb) {
     // TODO(b/162946784): Implement this operation
     hidl_vec<int32_t> values;
     values.resize(1);
@@ -423,13 +383,11 @@ Return<void> EvsEmulatedCamera::getIntParameter(CameraParam /*id*/,
     return {};
 }
 
-
 Return<EvsResult> EvsEmulatedCamera::setExtendedInfo_1_1(uint32_t opaqueIdentifier,
                                                          const hidl_vec<uint8_t>& opaqueValue) {
     mExtInfo.insert_or_assign(opaqueIdentifier, opaqueValue);
     return EvsResult::OK;
 }
-
 
 Return<void> EvsEmulatedCamera::getExtendedInfo_1_1(uint32_t opaqueIdentifier,
                                                     getExtendedInfo_1_1_cb _hidl_cb) {
@@ -445,7 +403,6 @@ Return<void> EvsEmulatedCamera::getExtendedInfo_1_1(uint32_t opaqueIdentifier,
     _hidl_cb(status, value);
     return {};
 }
-
 
 Return<void> EvsEmulatedCamera::importExternalBuffers(const hidl_vec<BufferDesc_1_1>& buffers,
                                                       importExternalBuffers_cb _hidl_cb) {
@@ -471,8 +428,8 @@ Return<void> EvsEmulatedCamera::importExternalBuffers(const hidl_vec<BufferDesc_
 
         if (numBuffersToAdd > (MAX_BUFFERS_IN_FLIGHT - mFramesAllowed)) {
             numBuffersToAdd -= (MAX_BUFFERS_IN_FLIGHT - mFramesAllowed);
-            LOG(WARNING) << "Exceed the limit on number of buffers.  "
-                         << numBuffersToAdd << " buffers will be added only.";
+            LOG(WARNING) << "Exceed the limit on number of buffers.  " << numBuffersToAdd
+                         << " buffers will be added only.";
         }
 
         GraphicBufferMapper& mapper = GraphicBufferMapper::get();
@@ -480,18 +437,13 @@ Return<void> EvsEmulatedCamera::importExternalBuffers(const hidl_vec<BufferDesc_
         for (auto i = 0; i < numBuffersToAdd; ++i) {
             auto& b = buffers[i];
             const AHardwareBuffer_Desc* pDesc =
-                reinterpret_cast<const AHardwareBuffer_Desc *>(&b.buffer.description);
+                    reinterpret_cast<const AHardwareBuffer_Desc*>(&b.buffer.description);
 
             // Import a buffer to add
             buffer_handle_t memHandle = nullptr;
-            status_t result = mapper.importBuffer(b.buffer.nativeHandle,
-                                                  pDesc->width,
-                                                  pDesc->height,
-                                                  pDesc->layers,
-                                                  pDesc->format,
-                                                  pDesc->usage,
-                                                  pDesc->stride,
-                                                  &memHandle);
+            status_t result = mapper.importBuffer(b.buffer.nativeHandle, pDesc->width,
+                                                  pDesc->height, pDesc->layers, pDesc->format,
+                                                  pDesc->usage, pDesc->stride, &memHandle);
             if (result != android::NO_ERROR || !memHandle) {
                 LOG(WARNING) << "Failed to import a buffer " << b.bufferId;
                 continue;
@@ -522,10 +474,9 @@ Return<void> EvsEmulatedCamera::importExternalBuffers(const hidl_vec<BufferDesc_
     }
 }
 
-
 EvsResult EvsEmulatedCamera::doneWithFrame_impl(const uint32_t bufferId,
                                                 const buffer_handle_t memHandle) {
-    std::scoped_lock <std::mutex> lock(mAccessLock);
+    std::scoped_lock<std::mutex> lock(mAccessLock);
 
     // If we've been displaced by another owner of the camera, then we can't do anything else
     if (!mVideo->isOpen()) {
@@ -561,7 +512,6 @@ EvsResult EvsEmulatedCamera::doneWithFrame_impl(const uint32_t bufferId,
 
     return EvsResult::OK;
 }
-
 
 bool EvsEmulatedCamera::setAvailableFrames_Locked(unsigned bufferCount) {
     if (bufferCount < 1) {
@@ -604,10 +554,9 @@ bool EvsEmulatedCamera::setAvailableFrames_Locked(unsigned bufferCount) {
     return true;
 }
 
-
 unsigned EvsEmulatedCamera::increaseAvailableFrames_Locked(unsigned numToAdd) {
     // Acquire the graphics buffer allocator
-    GraphicBufferAllocator &alloc(GraphicBufferAllocator::get());
+    GraphicBufferAllocator& alloc(GraphicBufferAllocator::get());
 
     unsigned added = 0;
 
@@ -615,12 +564,11 @@ unsigned EvsEmulatedCamera::increaseAvailableFrames_Locked(unsigned numToAdd) {
         unsigned pixelsPerLine;
         buffer_handle_t memHandle = nullptr;
         status_t result = alloc.allocate(mCaptureDeviceDesc.width, mCaptureDeviceDesc.height,
-                                         mFormat, 1 /* layers */, mUsage,
-                                         &memHandle, &pixelsPerLine, 0, "EvsEmulatedCamera");
+                                         mFormat, 1 /* layers */, mUsage, &memHandle,
+                                         &pixelsPerLine, 0, "EvsEmulatedCamera");
         if (result != NO_ERROR) {
-            LOG(ERROR) << "Error " << result << " allocating "
-                       << mCaptureDeviceDesc.width << " x " << mCaptureDeviceDesc.height
-                       << " graphics buffer";
+            LOG(ERROR) << "Error " << result << " allocating " << mCaptureDeviceDesc.width << " x "
+                       << mCaptureDeviceDesc.height << " graphics buffer";
             break;
         }
 
@@ -662,10 +610,9 @@ unsigned EvsEmulatedCamera::increaseAvailableFrames_Locked(unsigned numToAdd) {
     return added;
 }
 
-
 unsigned EvsEmulatedCamera::decreaseAvailableFrames_Locked(unsigned numToRemove) {
     // Acquire the graphics buffer allocator
-    GraphicBufferAllocator &alloc(GraphicBufferAllocator::get());
+    GraphicBufferAllocator& alloc(GraphicBufferAllocator::get());
 
     unsigned removed = 0;
 
@@ -687,7 +634,6 @@ unsigned EvsEmulatedCamera::decreaseAvailableFrames_Locked(unsigned numToRemove)
 
     return removed;
 }
-
 
 // This is the async callback from the video camera that tells us a frame is ready
 void EvsEmulatedCamera::forwardFrame(imageBufferDesc* pBufferInfo, void* pData) {
@@ -732,13 +678,13 @@ void EvsEmulatedCamera::forwardFrame(imageBufferDesc* pBufferInfo, void* pData) 
         // Assemble the buffer description we'll transmit below
         BufferDesc_1_1 bufDesc_1_1 = {};
         AHardwareBuffer_Desc* pDesc =
-            reinterpret_cast<AHardwareBuffer_Desc *>(&bufDesc_1_1.buffer.description);
+                reinterpret_cast<AHardwareBuffer_Desc*>(&bufDesc_1_1.buffer.description);
 
-        pDesc->width  = mCaptureDeviceDesc.width;
+        pDesc->width = mCaptureDeviceDesc.width;
         pDesc->height = mCaptureDeviceDesc.height;
         pDesc->layers = 1;
         pDesc->format = mFormat;
-        pDesc->usage  = mUsage;
+        pDesc->usage = mUsage;
         pDesc->stride = mStride;
         bufDesc_1_1.buffer.nativeHandle = mBuffers[idx].handle;
         bufDesc_1_1.bufferId = idx;
@@ -747,40 +693,32 @@ void EvsEmulatedCamera::forwardFrame(imageBufferDesc* pBufferInfo, void* pData) 
         bufDesc_1_1.timestamp = systemTime(SYSTEM_TIME_MONOTONIC);
 
         // Lock our output buffer for writing
-        void *targetPixels = nullptr;
-        GraphicBufferMapper &mapper = GraphicBufferMapper::get();
+        void* targetPixels = nullptr;
+        GraphicBufferMapper& mapper = GraphicBufferMapper::get();
         status_t result =
-            mapper.lock(bufDesc_1_1.buffer.nativeHandle,
-                        GRALLOC_USAGE_SW_WRITE_OFTEN | GRALLOC_USAGE_SW_READ_NEVER,
-                        android::Rect(pDesc->width, pDesc->height),
-                        (void **)&targetPixels);
+                mapper.lock(bufDesc_1_1.buffer.nativeHandle,
+                            GRALLOC_USAGE_SW_WRITE_OFTEN | GRALLOC_USAGE_SW_READ_NEVER,
+                            android::Rect(pDesc->width, pDesc->height), (void**)&targetPixels);
 
         // If we failed to lock the pixel buffer, we're about to crash, but log it first
         if (!targetPixels) {
             LOG(ERROR) << "Camera failed to gain access to image buffer for writing - "
-                       << " status: " << statusToString(result)
-                       << " , error: " << strerror(errno);
+                       << " status: " << statusToString(result) << " , error: " << strerror(errno);
         }
 
         // Transfer the video image into the output buffer, making any needed
         // format conversion along the way
         switch (pBufferInfo->info.format) {
             case V4L2_PIX_FMT_YUYV:
-                fillRGBAFromYUYV(bufDesc_1_1,
-                                 reinterpret_cast<uint8_t*>(targetPixels),
-                                 pData,
-                                 mVideo->getStride(),
-                                 mVideo->getHeight());
+                fillRGBAFromYUYV(bufDesc_1_1, reinterpret_cast<uint8_t*>(targetPixels), pData,
+                                 mVideo->getStride(), mVideo->getHeight());
                 break;
 
             case V4L2_PIX_FMT_XBGR32:
                 [[fallthrough]];
             case V4L2_PIX_FMT_ABGR32:
-                fillBufferCopy(bufDesc_1_1,
-                               reinterpret_cast<uint8_t*>(targetPixels),
-                               pData,
-                               mVideo->getStride(),
-                               mVideo->getHeight());
+                fillBufferCopy(bufDesc_1_1, reinterpret_cast<uint8_t*>(targetPixels), pData,
+                               mVideo->getStride(), mVideo->getHeight());
                 break;
 
             default:
@@ -826,8 +764,7 @@ void EvsEmulatedCamera::forwardFrame(imageBufferDesc* pBufferInfo, void* pData) 
     }
 }
 
-
-sp<EvsEmulatedCamera> EvsEmulatedCamera::Create(const char *deviceName,
+sp<EvsEmulatedCamera> EvsEmulatedCamera::Create(const char* deviceName,
                                                 const EmulatedCameraDesc& desc) {
     LOG(INFO) << "Create " << deviceName;
     sp<EvsEmulatedCamera> pCamera = new EvsEmulatedCamera(deviceName, desc);
@@ -839,9 +776,8 @@ sp<EvsEmulatedCamera> EvsEmulatedCamera::Create(const char *deviceName,
     }
 }
 
-
-} // namespace implementation
-} // namespace V1_1
-} // namespace evs
-} // namespace automotive
-} // namespace android
+}  // namespace implementation
+}  // namespace V1_1
+}  // namespace evs
+}  // namespace automotive
+}  // namespace android

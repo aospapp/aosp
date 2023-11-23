@@ -19,35 +19,29 @@ import static android.net.util.DataStallUtils.CONFIG_MIN_PACKETS_THRESHOLD;
 import static android.net.util.DataStallUtils.CONFIG_TCP_PACKETS_FAIL_PERCENTAGE;
 import static android.net.util.DataStallUtils.DEFAULT_DATA_STALL_MIN_PACKETS_THRESHOLD;
 import static android.net.util.DataStallUtils.DEFAULT_TCP_PACKETS_FAIL_PERCENTAGE;
-import static android.net.util.DataStallUtils.TCP_MONITOR_STATE_FILTER;
 import static android.provider.DeviceConfig.NAMESPACE_CONNECTIVITY;
 import static android.system.OsConstants.AF_INET;
 import static android.system.OsConstants.AF_INET6;
-import static android.system.OsConstants.AF_NETLINK;
-import static android.system.OsConstants.IPPROTO_TCP;
-import static android.system.OsConstants.NETLINK_INET_DIAG;
-import static android.system.OsConstants.SOCK_CLOEXEC;
-import static android.system.OsConstants.SOCK_DGRAM;
 import static android.system.OsConstants.SOL_SOCKET;
 import static android.system.OsConstants.SO_SNDTIMEO;
 
-import static com.android.net.module.util.netlink.InetDiagMessage.inetDiagReqV2;
-import static com.android.net.module.util.netlink.NetlinkConstants.INET_DIAG_MEMINFO;
 import static com.android.net.module.util.netlink.NetlinkConstants.NLMSG_DONE;
 import static com.android.net.module.util.netlink.NetlinkConstants.SOCKDIAG_MSG_HEADER_SIZE;
 import static com.android.net.module.util.netlink.NetlinkConstants.SOCK_DIAG_BY_FAMILY;
-import static com.android.net.module.util.netlink.StructNlMsgHdr.NLM_F_DUMP;
-import static com.android.net.module.util.netlink.StructNlMsgHdr.NLM_F_REQUEST;
+import static com.android.net.module.util.netlink.NetlinkUtils.DEFAULT_RECV_BUFSIZE;
+import static com.android.net.module.util.netlink.NetlinkUtils.IO_TIMEOUT_MS;
 
+import android.content.BroadcastReceiver;
 import android.content.Context;
+import android.content.Intent;
+import android.content.IntentFilter;
 import android.net.INetd;
 import android.net.MarkMaskParcel;
 import android.net.Network;
-import android.net.util.NetworkStackUtils;
-import android.net.util.SocketUtils;
 import android.os.AsyncTask;
 import android.os.Build;
 import android.os.IBinder;
+import android.os.PowerManager;
 import android.os.RemoteException;
 import android.os.SystemClock;
 import android.provider.DeviceConfig;
@@ -61,10 +55,13 @@ import android.util.SparseArray;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
+import com.android.internal.annotations.GuardedBy;
 import com.android.internal.annotations.VisibleForTesting;
 import com.android.net.module.util.DeviceConfigUtils;
+import com.android.net.module.util.SocketUtils;
+import com.android.net.module.util.netlink.InetDiagMessage;
 import com.android.net.module.util.netlink.NetlinkConstants;
-import com.android.net.module.util.netlink.NetlinkSocket;
+import com.android.net.module.util.netlink.NetlinkUtils;
 import com.android.net.module.util.netlink.StructInetDiagMsg;
 import com.android.net.module.util.netlink.StructNlMsgHdr;
 import com.android.networkstack.apishim.NetworkShimImpl;
@@ -89,14 +86,10 @@ public class TcpSocketTracker {
     private static final String TAG = TcpSocketTracker.class.getSimpleName();
     private static final boolean DBG = Log.isLoggable(TAG, Log.DEBUG);
     private static final int[] ADDRESS_FAMILIES = new int[] {AF_INET6, AF_INET};
-    // Enough for parsing v1 tcp_info for more than 200 sockets per time.
-    private static final int DEFAULT_RECV_BUFSIZE = 60_000;
-    // Default I/O timeout time in ms of the socket request.
-    private static final long IO_TIMEOUT = 3_000L;
+
     /** Cookie offset of an InetMagMessage header. */
     private static final int IDIAG_COOKIE_OFFSET = 44;
-    private static final int UNKNOWN_MARK = 0xffffffff;
-    private static final int NULL_MASK = 0;
+    private static final int END_OF_PARSING = -1;
     /**
      *  Gather the socket info.
      *
@@ -127,6 +120,10 @@ public class TcpSocketTracker {
     private final int mNetworkMask;
     private int mMinPacketsThreshold = DEFAULT_DATA_STALL_MIN_PACKETS_THRESHOLD;
     private int mTcpPacketsFailRateThreshold = DEFAULT_TCP_PACKETS_FAIL_PERCENTAGE;
+
+    private final Object mDozeModeLock = new Object();
+    @GuardedBy("mDozeModeLock")
+    private boolean mInDozeMode = false;
     @VisibleForTesting
     protected final DeviceConfig.OnPropertiesChangedListener mConfigListener =
             new DeviceConfig.OnPropertiesChangedListener() {
@@ -143,16 +140,29 @@ public class TcpSocketTracker {
                 }
             };
 
+    final BroadcastReceiver mDeviceIdleReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            if (intent == null) return;
+
+            if (PowerManager.ACTION_DEVICE_IDLE_MODE_CHANGED.equals(intent.getAction())) {
+                final PowerManager powerManager = context.getSystemService(PowerManager.class);
+                final boolean deviceIdle = powerManager.isDeviceIdleMode();
+                setDozeMode(deviceIdle);
+            }
+        }
+    };
+
     public TcpSocketTracker(@NonNull final Dependencies dps, @NonNull final Network network) {
         mDependencies = dps;
         mNetwork = network;
         mNetd = mDependencies.getNetd();
 
         // If the parcel is null, nothing should be matched which is achieved by the combination of
-        // {@code NULL_MASK} and {@code UNKNOWN_MARK}.
+        // {@code NetlinkUtils#NULL_MASK} and {@code NetlinkUtils#UNKNOWN_MARK}.
         final MarkMaskParcel parcel = getNetworkMarkMask();
-        mNetworkMark = (parcel != null) ? parcel.mark : UNKNOWN_MARK;
-        mNetworkMask = (parcel != null) ? parcel.mask : NULL_MASK;
+        mNetworkMark = (parcel != null) ? parcel.mark : NetlinkUtils.UNKNOWN_MARK;
+        mNetworkMask = (parcel != null) ? parcel.mask : NetlinkUtils.NULL_MASK;
 
         // Request tcp info from NetworkStack directly needs extra SELinux permission added after Q
         // release.
@@ -160,17 +170,10 @@ public class TcpSocketTracker {
         // Build SocketDiag messages.
         for (final int family : ADDRESS_FAMILIES) {
             mSockDiagMsg.put(
-                    family,
-                    inetDiagReqV2(IPPROTO_TCP,
-                            null /* local addr */,
-                            null /* remote addr */,
-                            family,
-                            (short) (NLM_F_REQUEST | NLM_F_DUMP) /* flag */,
-                            0 /* pad */,
-                            1 << INET_DIAG_MEMINFO /* idiagExt */,
-                            TCP_MONITOR_STATE_FILTER));
+                    family, InetDiagMessage.buildInetDiagReqForAliveTcpSockets(family));
         }
         mDependencies.addDeviceConfigChangedListener(mConfigListener);
+        mDependencies.addDeviceIdleReceiver(mDeviceIdleReceiver);
     }
 
     @Nullable
@@ -190,11 +193,19 @@ public class TcpSocketTracker {
      * Request to send a SockDiag Netlink request. Receive and parse the returned message. This
      * function is not thread-safe and should only be called from only one thread.
      *
-     * @Return if this polling request executes successfully or not.
+     * @Return if this polling request is sent to kernel and executes successfully or not.
      */
     public boolean pollSocketsInfo() {
         if (!mDependencies.isTcpInfoParsingSupported()) return false;
+        // Traffic will be restricted in doze mode. TCP info may not reflect the correct network
+        // behavior.
+        // TODO: Traffic may be restricted by other reason. Get the restriction info from bpf in T+.
+        synchronized (mDozeModeLock) {
+            if (mInDozeMode) return false;
+        }
+
         FileDescriptor fd = null;
+
         try {
             final long time = SystemClock.elapsedRealtime();
             fd = mDependencies.connectToKernel();
@@ -202,61 +213,12 @@ public class TcpSocketTracker {
             final TcpStat stat = new TcpStat();
             for (final int family : ADDRESS_FAMILIES) {
                 mDependencies.sendPollingRequest(fd, mSockDiagMsg.get(family));
-                // Messages are composed with the following format. Stop parsing when receiving
-                // message with nlmsg_type NLMSG_DONE.
-                // +------------------+---------------+--------------+--------+
-                // | Netlink Header   | Family Header | Attributes   | rtattr |
-                // | struct nlmsghdr  | struct rtmsg  | struct rtattr|  data  |
-                // +------------------+---------------+--------------+--------+
-                //               :           :               :
-                // +------------------+---------------+--------------+--------+
-                // | Netlink Header   | Family Header | Attributes   | rtattr |
-                // | struct nlmsghdr  | struct rtmsg  | struct rtattr|  data  |
-                // +------------------+---------------+--------------+--------+
-                final ByteBuffer bytes = mDependencies.recvMessage(fd);
-                try {
-                    while (enoughBytesRemainForValidNlMsg(bytes)) {
-                        final StructNlMsgHdr nlmsghdr = StructNlMsgHdr.parse(bytes);
-                        if (nlmsghdr == null) {
-                            Log.e(TAG, "Badly formatted data.");
-                            break;
-                        }
-                        final int nlmsgLen = nlmsghdr.nlmsg_len;
-                        log("pollSocketsInfo: nlmsghdr=" + nlmsghdr + ", limit=" + bytes.limit());
-                        // End of the message. Stop parsing.
-                        if (nlmsghdr.nlmsg_type == NLMSG_DONE) break;
 
-                        if (nlmsghdr.nlmsg_type != SOCK_DIAG_BY_FAMILY) {
-                            Log.e(TAG, "Expect to get family " + family
-                                    + " SOCK_DIAG_BY_FAMILY message but get "
-                                    + nlmsghdr.nlmsg_type);
-                            break;
-                        }
-
-                        if (isValidInetDiagMsgSize(nlmsgLen)) {
-                            // Get the socket cookie value. Composed by two Integers value.
-                            // Corresponds to inet_diag_sockid in
-                            // &lt;linux_src&gt;/include/uapi/linux/inet_diag.h
-                            bytes.position(bytes.position() + IDIAG_COOKIE_OFFSET);
-                            // It's stored in native with 2 int. Parse it as long for convenience.
-                            final long cookie = bytes.getLong();
-                            // Skip the rest part of StructInetDiagMsg.
-                            bytes.position(bytes.position()
-                                    + StructInetDiagMsg.STRUCT_SIZE - IDIAG_COOKIE_OFFSET
-                                    - Long.BYTES);
-                            final SocketInfo info = parseSockInfo(bytes, family, nlmsgLen, time);
-                            // Update TcpStats based on previous and current socket info.
-                            stat.accumulate(
-                                    calculateLatestPacketsStat(info, mSocketInfos.get(cookie)));
-                            mSocketInfos.put(cookie, info);
-                        }
-                    }
-                } catch (IllegalArgumentException | BufferUnderflowException e) {
-                    Log.wtf(TAG, "Unexpected socket info parsing, family " + family
-                            + " buffer:" + bytes + " "
-                            + Base64.getEncoder().encodeToString(bytes.array()), e);
+                while (parseMessage(mDependencies.recvMessage(fd), family, stat, time)) {
+                    log("Pending info exist. Attempt to read more");
                 }
             }
+
             // Calculate mLatestReceiveCount, mSentSinceLastRecv and mLatestPacketFailPercentage.
             mSentSinceLastRecv = (stat.receivedCount == 0)
                     ? (mSentSinceLastRecv + stat.sentCount) : 0;
@@ -270,10 +232,89 @@ public class TcpSocketTracker {
         } catch (ErrnoException | SocketException | InterruptedIOException e) {
             Log.e(TAG, "Fail to get TCP info via netlink.", e);
         } finally {
-            NetworkStackUtils.closeSocketQuietly(fd);
+            SocketUtils.closeSocketQuietly(fd);
         }
 
         return false;
+    }
+
+    // Return true if there are more pending messages to read
+    private boolean parseMessage(ByteBuffer bytes, int family, TcpStat stat, long time) {
+        if (!NetlinkUtils.enoughBytesRemainForValidNlMsg(bytes)) {
+            // This is unlikely to happen in real cases. Check this first for testing.
+            Log.e(TAG, "Size is less than header size. Ignored.");
+            return false;
+        }
+
+        // Messages are composed with the following format. Stop parsing when receiving
+        // message with nlmsg_type NLMSG_DONE.
+        // +------------------+---------------+--------------+--------+
+        // | Netlink Header   | Family Header | Attributes   | rtattr |
+        // | struct nlmsghdr  | struct rtmsg  | struct rtattr|  data  |
+        // +------------------+---------------+--------------+--------+
+        //               :           :               :
+        // +------------------+---------------+--------------+--------+
+        // | Netlink Header   | Family Header | Attributes   | rtattr |
+        // | struct nlmsghdr  | struct rtmsg  | struct rtattr|  data  |
+        // +------------------+---------------+--------------+--------+
+        try {
+            do {
+                final int nlmsgLen = getLengthAndVerifyMsgHeader(bytes, family);
+                if (nlmsgLen == END_OF_PARSING) return false;
+
+                if (isValidInetDiagMsgSize(nlmsgLen)) {
+                    // Get the socket cookie value. Composed by two Integers value.
+                    // Corresponds to inet_diag_sockid in
+                    // &lt;linux_src&gt;/include/uapi/linux/inet_diag.h
+                    bytes.position(bytes.position() + IDIAG_COOKIE_OFFSET);
+
+                    // It's stored in native with 2 int. Parse it as long for
+                    // convenience.
+                    final long cookie = bytes.getLong();
+                    log("cookie=" + cookie);
+                    // Skip the rest part of StructInetDiagMsg.
+                    bytes.position(bytes.position()
+                            + StructInetDiagMsg.STRUCT_SIZE - IDIAG_COOKIE_OFFSET
+                            - Long.BYTES);
+                    final SocketInfo info = parseSockInfo(bytes, family, nlmsgLen,
+                            time);
+                    // Update TcpStats based on previous and current socket info.
+                    stat.accumulate(
+                            calculateLatestPacketsStat(info, mSocketInfos.get(cookie)));
+                    mSocketInfos.put(cookie, info);
+                }
+            } while (NetlinkUtils.enoughBytesRemainForValidNlMsg(bytes));
+        } catch (IllegalArgumentException | BufferUnderflowException e) {
+            Log.wtf(TAG, "Unexpected socket info parsing, family " + family
+                    + " buffer:" + bytes + " "
+                    + Base64.getEncoder().encodeToString(bytes.array()), e);
+            return false;
+        }
+
+        return true;
+    }
+
+    private int getLengthAndVerifyMsgHeader(@NonNull ByteBuffer bytes, int family) {
+        final StructNlMsgHdr nlmsghdr = StructNlMsgHdr.parse(bytes);
+        if (nlmsghdr == null) {
+            Log.e(TAG, "Badly formatted data.");
+            return END_OF_PARSING;
+        }
+
+        log("pollSocketsInfo: nlmsghdr=" + nlmsghdr + ", limit=" + bytes.limit());
+        // End of the message. Stop parsing.
+        if (nlmsghdr.nlmsg_type == NLMSG_DONE) {
+            return END_OF_PARSING;
+        }
+
+        if (nlmsghdr.nlmsg_type != SOCK_DIAG_BY_FAMILY) {
+            Log.e(TAG, "Expect to get family " + family
+                    + " SOCK_DIAG_BY_FAMILY message but get "
+                    + nlmsghdr.nlmsg_type);
+            return END_OF_PARSING;
+        }
+
+        return nlmsghdr.nlmsg_len;
     }
 
     private void cleanupSocketInfo(final long time) {
@@ -297,15 +338,15 @@ public class TcpSocketTracker {
             final int nlmsgLen, final long time) {
         final int remainingDataSize = bytes.position() + nlmsgLen - SOCKDIAG_MSG_HEADER_SIZE;
         TcpInfo tcpInfo = null;
-        int mark = SocketInfo.INIT_MARK_VALUE;
+        int mark = NetlinkUtils.INIT_MARK_VALUE;
         // Get a tcp_info.
         while (bytes.position() < remainingDataSize) {
             final RoutingAttribute rtattr =
                     new RoutingAttribute(bytes.getShort(), bytes.getShort());
             final short dataLen = rtattr.getDataLength();
-            if (rtattr.rtaType == RoutingAttribute.INET_DIAG_INFO) {
+            if (rtattr.rtaType == NetlinkUtils.INET_DIAG_INFO) {
                 tcpInfo = TcpInfo.parse(bytes, dataLen);
-            } else if (rtattr.rtaType == RoutingAttribute.INET_DIAG_MARK) {
+            } else if (rtattr.rtaType == NetlinkUtils.INET_DIAG_MARK) {
                 mark = bytes.getInt();
             } else {
                 // Data provided by kernel will include both valid data and padding data. The data
@@ -326,6 +367,14 @@ public class TcpSocketTracker {
      */
     public boolean isDataStallSuspected() {
         if (!mDependencies.isTcpInfoParsingSupported()) return false;
+
+        // Skip checking data stall since the traffic will be restricted and it will not be real
+        // network stall.
+        // TODO: Traffic may be restricted by other reason. Get the restriction info from bpf in T+.
+        synchronized (mDozeModeLock) {
+            if (mInDozeMode) return false;
+        }
+
         return (getLatestPacketFailPercentage() >= getTcpPacketsFailRateThreshold());
     }
 
@@ -386,12 +435,6 @@ public class TcpSocketTracker {
         return mLatestReceivedCount;
     }
 
-    /** Check if the length and position of the given ByteBuffer is valid for a nlmsghdr message. */
-    @VisibleForTesting
-    static boolean enoughBytesRemainForValidNlMsg(@NonNull final ByteBuffer bytes) {
-        return bytes.remaining() >= StructNlMsgHdr.STRUCT_SIZE;
-    }
-
     private static boolean isValidInetDiagMsgSize(final int nlMsgLen) {
         return nlMsgLen >= SOCKDIAG_MSG_HEADER_SIZE;
     }
@@ -433,6 +476,16 @@ public class TcpSocketTracker {
         if (DBG) Log.d(TAG, str);
     }
 
+    /** Stops monitoring and releases resources. */
+    public void quit() {
+        // Do not need to unregister receiver and listener since registration is skipped
+        // in the constructor.
+        if (!mDependencies.isTcpInfoParsingSupported()) return;
+
+        mDependencies.removeDeviceConfigChangedListener(mConfigListener);
+        mDependencies.removeBroadcastReceiver(mDeviceIdleReceiver);
+    }
+
     /**
      * Corresponds to {@code struct rtattr} from bionic/libc/kernel/uapi/linux/rtnetlink.h
      *
@@ -444,9 +497,6 @@ public class TcpSocketTracker {
      */
     class RoutingAttribute {
         public static final int HEADER_LENGTH = 4;
-        // Corresponds to enum definition in bionic/libc/kernel/uapi/linux/inet_diag.h
-        public static final int INET_DIAG_INFO = 2;
-        public static final int INET_DIAG_MARK = 15;
 
         public final short rtaLen;  // The whole valid size of the struct.
         public final short rtaType;
@@ -465,8 +515,6 @@ public class TcpSocketTracker {
      */
     @VisibleForTesting
     class SocketInfo {
-        // Initial mark value corresponds to the initValue in system/netd/include/Fwmark.h.
-        public static final int INIT_MARK_VALUE = 0;
         @Nullable
         public final TcpInfo tcpInfo;
         // One of {@code AF_INET6, AF_INET}.
@@ -527,6 +575,14 @@ public class TcpSocketTracker {
         }
     }
 
+    private void setDozeMode(boolean isEnabled) {
+        synchronized (mDozeModeLock) {
+            if (mInDozeMode == isEnabled) return;
+            mInDozeMode = isEnabled;
+            log("Doze mode enabled=" + mInDozeMode);
+        }
+    }
+
     /**
      * Dependencies class for testing.
      */
@@ -545,11 +601,10 @@ public class TcpSocketTracker {
          * Throw ErrnoException, SocketException if the exception is thrown.
          */
         public FileDescriptor connectToKernel() throws ErrnoException, SocketException {
-            final FileDescriptor fd =
-                    Os.socket(AF_NETLINK, SOCK_DGRAM | SOCK_CLOEXEC, NETLINK_INET_DIAG);
-            Os.connect(
-                    fd, SocketUtils.makeNetlinkSocketAddress(0 /* portId */, 0 /* groupMask */));
-
+            final FileDescriptor fd = NetlinkUtils.createNetLinkInetDiagSocket();
+            NetlinkUtils.connectSocketToNetlink(fd);
+            Os.setsockoptTimeval(fd, SOL_SOCKET, SO_SNDTIMEO,
+                    StructTimeval.fromMillis(IO_TIMEOUT_MS));
             return fd;
         }
 
@@ -562,8 +617,6 @@ public class TcpSocketTracker {
          */
         public void sendPollingRequest(@NonNull final FileDescriptor fd, @NonNull final byte[] msg)
                 throws ErrnoException, InterruptedIOException {
-            Os.setsockoptTimeval(fd, SOL_SOCKET, SO_SNDTIMEO,
-                    StructTimeval.fromMillis(IO_TIMEOUT));
             Os.write(fd, msg, 0 /* byteOffset */, msg.length);
         }
 
@@ -594,7 +647,7 @@ public class TcpSocketTracker {
          */
         public ByteBuffer recvMessage(@NonNull final FileDescriptor fd)
                 throws ErrnoException, InterruptedIOException {
-            return NetlinkSocket.recvMessage(fd, DEFAULT_RECV_BUFSIZE, IO_TIMEOUT);
+            return NetlinkUtils.recvMessage(fd, DEFAULT_RECV_BUFSIZE, IO_TIMEOUT_MS);
         }
 
         public Context getContext() {
@@ -614,6 +667,23 @@ public class TcpSocketTracker {
                 @NonNull final DeviceConfig.OnPropertiesChangedListener listener) {
             DeviceConfig.addOnPropertiesChangedListener(NAMESPACE_CONNECTIVITY,
                     AsyncTask.THREAD_POOL_EXECUTOR, listener);
+        }
+
+        /** Remove device config change listener */
+        public void removeDeviceConfigChangedListener(
+                @NonNull final DeviceConfig.OnPropertiesChangedListener listener) {
+            DeviceConfig.removeOnPropertiesChangedListener(listener);
+        }
+
+        /** Add receiver for detecting doze mode change to control TCP detection. */
+        public void addDeviceIdleReceiver(@NonNull final BroadcastReceiver receiver) {
+            mContext.registerReceiver(receiver,
+                    new IntentFilter(PowerManager.ACTION_DEVICE_IDLE_MODE_CHANGED));
+        }
+
+        /** Remove broadcast receiver. */
+        public void removeBroadcastReceiver(@NonNull final BroadcastReceiver receiver) {
+            mContext.unregisterReceiver(receiver);
         }
     }
 }

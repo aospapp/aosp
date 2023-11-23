@@ -21,7 +21,7 @@ import android.annotation.IntRange;
 import android.annotation.NonNull;
 import android.annotation.Nullable;
 import android.annotation.SystemApi;
-import android.compat.Compatibility;
+import android.app.compat.CompatChanges;
 import android.compat.annotation.ChangeId;
 import android.compat.annotation.EnabledAfter;
 import android.net.MacAddress;
@@ -34,6 +34,7 @@ import android.util.Log;
 import android.util.SparseIntArray;
 
 import androidx.annotation.RequiresApi;
+import androidx.annotation.VisibleForTesting;
 
 import com.android.internal.util.Preconditions;
 import com.android.modules.utils.build.SdkLevel;
@@ -69,6 +70,12 @@ import java.util.stream.IntStream;
 public final class SoftApConfiguration implements Parcelable {
 
     private static final String TAG = "SoftApConfiguration";
+
+    @VisibleForTesting
+    static final int PSK_MIN_LEN = 8;
+
+    @VisibleForTesting
+    static final int PSK_MAX_LEN = 63;
 
     /**
      * 2GHz band.
@@ -894,7 +901,7 @@ public final class SoftApConfiguration implements Parcelable {
      */
     @SystemApi
     public long getShutdownTimeoutMillis() {
-        if (!Compatibility.isChangeEnabled(
+        if (!CompatChanges.isChangeEnabled(
                 REMOVE_ZERO_FOR_TIMEOUT_SETTING) && mShutdownTimeoutMillis == DEFAULT_TIMEOUT) {
             // For legacy application, return 0 when setting is DEFAULT_TIMEOUT.
             return 0;
@@ -1281,7 +1288,10 @@ public final class SoftApConfiguration implements Parcelable {
          * Constructs a Builder initialized from an existing {@link SoftApConfiguration} instance.
          */
         public Builder(@NonNull SoftApConfiguration other) {
-            Objects.requireNonNull(other);
+            if (other == null) {
+                Log.e(TAG, "Cannot provide a null SoftApConfiguration");
+                return;
+            }
 
             mWifiSsid = other.mWifiSsid;
             mBssid = other.mBssid;
@@ -1331,14 +1341,14 @@ public final class SoftApConfiguration implements Parcelable {
             }
 
             // mMacRandomizationSetting supported from S.
-            if (SdkLevel.isAtLeastS() && Compatibility.isChangeEnabled(
+            if (SdkLevel.isAtLeastS() && CompatChanges.isChangeEnabled(
                     FORCE_MUTUAL_EXCLUSIVE_BSSID_MAC_RAMDONIZATION_SETTING)
                     && mBssid != null && mMacRandomizationSetting != RANDOMIZATION_NONE) {
                 throw new IllegalArgumentException("A BSSID had configured but MAC randomization"
                         + " setting is not NONE");
             }
 
-            if (!Compatibility.isChangeEnabled(
+            if (!CompatChanges.isChangeEnabled(
                     REMOVE_ZERO_FOR_TIMEOUT_SETTING) && mShutdownTimeoutMillis == DEFAULT_TIMEOUT) {
                 mShutdownTimeoutMillis = 0; // Use 0 for legacy app.
             }
@@ -1497,13 +1507,18 @@ public final class SoftApConfiguration implements Parcelable {
          * and {@link #SECURITY_TYPE_WPA3_OWE}.
          *
          * @return Builder for chaining.
-         * @throws IllegalArgumentException when the passphrase length is empty and
-         *         {@code securityType} is any of the following:
-         *         {@link #SECURITY_TYPE_WPA2_PSK} or {@link #SECURITY_TYPE_WPA3_SAE_TRANSITION}
-         *         or {@link #SECURITY_TYPE_WPA3_SAE},
-         *         or non-null passphrase and {@code securityType} is
-         *         {@link #SECURITY_TYPE_OPEN} or {@link #SECURITY_TYPE_WPA3_OWE_TRANSITION} or
-         *         {@link #SECURITY_TYPE_WPA3_OWE}.
+         * @throws IllegalArgumentException when the passphrase is non-null for
+         *             - {@link #SECURITY_TYPE_OPEN}
+         *             - {@link #SECURITY_TYPE_WPA3_OWE_TRANSITION}
+         *             - {@link #SECURITY_TYPE_WPA3_OWE}
+         * @throws IllegalArgumentException when the passphrase is empty for
+         *             - {@link #SECURITY_TYPE_WPA2_PSK},
+         *             - {@link #SECURITY_TYPE_WPA3_SAE_TRANSITION},
+         *             - {@link #SECURITY_TYPE_WPA3_SAE},
+         * @throws IllegalArgumentException before {@link android.os.Build.VERSION_CODES#TIRAMISU})
+         *         when the passphrase is not between 8 and 63 bytes (inclusive) for
+         *             - {@link #SECURITY_TYPE_WPA2_PSK}
+         *             - {@link #SECURITY_TYPE_WPA3_SAE_TRANSITION}
          */
         @NonNull
         public Builder setPassphrase(@Nullable String passphrase, @SecurityType int securityType) {
@@ -1521,6 +1536,19 @@ public final class SoftApConfiguration implements Parcelable {
                 }
             } else {
                 Preconditions.checkStringNotEmpty(passphrase);
+                if (!SdkLevel.isAtLeastT() && (securityType == SECURITY_TYPE_WPA2_PSK
+                        || securityType == SECURITY_TYPE_WPA3_SAE_TRANSITION)) {
+                    int passphraseByteLength = 0;
+                    if (!TextUtils.isEmpty(passphrase)) {
+                        passphraseByteLength = passphrase.getBytes(StandardCharsets.UTF_8).length;
+                    }
+                    if (passphraseByteLength < PSK_MIN_LEN || passphraseByteLength > PSK_MAX_LEN) {
+                        throw new IllegalArgumentException(
+                                "Passphrase length must be at least " + PSK_MIN_LEN
+                                        + " and no more than " + PSK_MAX_LEN
+                                        + " for WPA2_PSK and WPA3_SAE_TRANSITION Mode");
+                    }
+                }
             }
             mSecurityType = securityType;
             mPassphrase = passphrase;
@@ -1799,7 +1827,7 @@ public final class SoftApConfiguration implements Parcelable {
          */
         @NonNull
         public Builder setShutdownTimeoutMillis(@IntRange(from = -1) long timeoutMillis) {
-            if (Compatibility.isChangeEnabled(
+            if (CompatChanges.isChangeEnabled(
                     REMOVE_ZERO_FOR_TIMEOUT_SETTING) && timeoutMillis < 1) {
                 if (timeoutMillis != DEFAULT_TIMEOUT) {
                     throw new IllegalArgumentException("Invalid timeout value: " + timeoutMillis);

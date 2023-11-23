@@ -94,6 +94,12 @@ Status DnsTlsSocket::tcpConnect() {
         return Status(err);
     }
 
+    // Set TCP MSS to a suitably low value to be more reliable.
+    const int v = 1220;
+    if (setsockopt(mSslFd.get(), SOL_TCP, TCP_MAXSEG, &v, sizeof(v)) == -1) {
+        LOG(WARNING) << "Failed to set TCP_MAXSEG: " << errno;
+    }
+
     const Status tfo = enableSockopt(mSslFd.get(), SOL_TCP, TCP_FASTOPEN_CONNECT);
     if (!isOk(tfo) && tfo.code() != ENOPROTOOPT) {
         LOG(WARNING) << "Failed to enable TFO: " << tfo.msg();

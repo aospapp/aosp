@@ -40,6 +40,14 @@
             settings:controller="com.android.car.settings.applications.RecentAppsViewAllPreferenceController"/>
         <com.android.car.settings.common.DividerPreference/>
     </com.android.car.settings.common.LogicalPreferenceGroup>
+    <com.android.car.settings.common.LogicalPreferenceGroup
+        android:key="@string/pk_personal_extra_settings"
+        settings:controller="com.android.car.settings.common.ExtraSettingsPreferenceController">
+        <intent>
+            <extra android:name="com.android.settings.category"
+                   android:value="com.android.settings.category.ia.apps"/>
+        </intent>
+    </com.android.car.settings.common.LogicalPreferenceGroup>
     <Preference
         android:key="@string/pk_app_permissions_entry"
         android:title="@string/apps_permission_manager_title"
@@ -61,6 +69,11 @@
             "com.android.car.settings.applications.HibernatedAppsPreferenceController">
         <intent android:action="android.intent.action.MANAGE_UNUSED_APPS"/>
     </Preference>
+    <Preference
+        android:fragment="com.android.car.settings.applications.performance.PerformanceImpactingAppSettingsFragment"
+        android:key="@string/pk_performance_impacting_apps_entry"
+        android:title="@string/performance_impacting_apps"
+        settings:controller="com.android.car.settings.applications.PerfImpactingAppsEntryPreferenceController"/>
     <Preference
         android:fragment="com.android.car.settings.applications.specialaccess.SpecialAccessSettingsFragment"
         android:key="@string/pk_special_access_entry"

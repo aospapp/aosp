@@ -96,14 +96,39 @@ void LogMetricSdpAttribute(
     const char* attribute_value) {}
 
 void LogMetricSmpPairingEvent(
-    const Address& address, uint8_t smp_cmd, android::bluetooth::DirectionEnum direction, uint8_t smp_fail_reason) {}
+    const Address& address, uint16_t smp_cmd, android::bluetooth::DirectionEnum direction, uint16_t smp_fail_reason) {}
 
 void LogMetricA2dpPlaybackEvent(const Address& address, int playback_state, int audio_coding_mode) {}
+
+void LogMetricHfpPacketLossStats(
+    const Address& address, int num_decoded_frames, double packet_loss_ratio) {}
 
 void LogMetricBluetoothHalCrashReason(
     const Address& address, uint32_t error_code, uint32_t vendor_error_code) {}
 
+void LogMetricBluetoothLocalSupportedFeatures(uint32_t page_num, uint64_t features) {}
+
+void LogMetricBluetoothLocalVersions(
+    uint32_t lmp_manufacturer_name,
+    uint8_t lmp_version,
+    uint32_t lmp_subversion,
+    uint8_t hci_version,
+    uint32_t hci_revision) {}
+
+void LogMetricBluetoothDisconnectionReasonReported(
+    uint32_t reason, const Address& address, uint32_t connection_handle) {}
+
+void LogMetricBluetoothRemoteSupportedFeatures(
+    const Address& address, uint32_t page, uint64_t features, uint32_t connection_handle) {}
+
 void LogMetricBluetoothCodePathCounterMetrics(int32_t key, int64_t count) {}
+
+void LogMetricBluetoothLEConnectionMetricEvent(
+    const Address& address,
+    android::bluetooth::le::LeConnectionOriginType origin_type,
+    android::bluetooth::le::LeConnectionType connection_type,
+    android::bluetooth::le::LeConnectionState transaction_state,
+    std::vector<std::pair<os::ArgumentType, int>>& argument_list) {}
 
 }  // namespace os
 }  // namespace bluetooth

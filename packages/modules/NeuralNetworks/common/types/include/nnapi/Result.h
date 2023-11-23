@@ -135,8 +135,8 @@ std::nullopt_t nnTryGetError(std::optional<T> /*o*/) {
  * following functions for the type:
  * * `::android::nn::nnTryHasValue` returns `true` if the `expr` holds a successful value, false if
  *    the `expr` value holds an error
- * * `::android::nn::nnTryGetError` returns the successful value of `expr` or crashes
- * * `::android::nn::nnTryGetValue` returns the error value of `expr` or crashes
+ * * `::android::nn::nnTryGetError` returns the error value of `expr` or crashes
+ * * `::android::nn::nnTryGetValue` returns the successful value of `expr` or crashes
  *
  * Usage at call site:
  *     const auto [a, b, c] = NN_TRY(failableFunction(args));

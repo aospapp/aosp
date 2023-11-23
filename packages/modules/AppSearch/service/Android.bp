@@ -54,15 +54,16 @@ java_defaults {
     ],
     libs: [
         "framework-appsearch.impl",
+        "framework-configinfrastructure",
         "framework-statsd.stubs.module_lib",
     ],
     optimize: {
-      enabled: true,
-      optimize: true,
-      shrink: true,
       proguard_flags_files: ["proguard.flags"],
     },
-    defaults: ["framework-system-server-module-defaults"],
+    defaults: [
+        "framework-system-server-module-defaults",
+        "framework-system-server-module-optimize-defaults",
+    ],
     permitted_packages: [
         "com.android.server.appsearch",
         "com.google.android.icing",

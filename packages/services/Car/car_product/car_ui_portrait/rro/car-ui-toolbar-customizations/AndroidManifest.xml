@@ -19,11 +19,11 @@
           package="will.be.replaced">
     <application android:hasCode="false"/>
     <!--  priority should be greater than car-ui-customization  -->
-    <overlay android:priority="11"
+    <overlay android:priority="12"
              android:targetName="car-ui-lib"
              android:targetPackage="will.be.replaced.too"
              android:resourcesMap="@xml/overlays"
-             android:isStatic="true"
+             android:isStatic="false"
              android:requiredSystemPropertyName="ro.build.car_ui_rros_enabled"
              android:requiredSystemPropertyValue="true"/>
 </manifest>

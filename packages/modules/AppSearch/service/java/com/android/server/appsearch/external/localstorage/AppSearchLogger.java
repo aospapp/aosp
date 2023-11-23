@@ -17,6 +17,7 @@
 package com.android.server.appsearch.external.localstorage;
 
 import android.annotation.NonNull;
+import android.app.appsearch.stats.SchemaMigrationStats;
 
 import com.android.server.appsearch.external.localstorage.stats.CallStats;
 import com.android.server.appsearch.external.localstorage.stats.InitializeStats;
@@ -57,6 +58,9 @@ public interface AppSearchLogger {
 
     /** Logs {@link SetSchemaStats} */
     void logStats(@NonNull SetSchemaStats stats);
+
+    /** Logs {@link SchemaMigrationStats} */
+    void logStats(@NonNull SchemaMigrationStats stats);
 
     // TODO(b/173532925) Add remaining logStats once we add all the stats.
 }

@@ -62,20 +62,19 @@ void DynamicChannelImpl::Close() {
 }
 
 void DynamicChannelImpl::OnClosed(hci::ErrorCode status) {
-  ASSERT_LOG(!closed_, "Device %s Cid 0x%x closed twice, old status 0x%x, new status 0x%x", device_.ToString().c_str(),
-             cid_, static_cast<int>(close_reason_), static_cast<int>(status));
+  ASSERT_LOG(
+      !closed_,
+      "Device %s Cid 0x%x closed twice, old status 0x%x, new status 0x%x",
+      ADDRESS_TO_LOGGABLE_CSTR(device_),
+      cid_,
+      static_cast<int>(close_reason_),
+      static_cast<int>(status));
   closed_ = true;
   close_reason_ = status;
   link_ = nullptr;
   l2cap_handler_ = nullptr;
   on_close_callback_.InvokeIfNotEmpty(close_reason_);
   on_close_callback_ = {};
-}
-
-std::string DynamicChannelImpl::ToString() {
-  std::ostringstream ss;
-  ss << "Device " << device_ << "Psm 0x" << std::hex << psm_ << " Cid 0x" << std::hex << cid_;
-  return ss.str();
 }
 
 }  // namespace internal

@@ -17,14 +17,27 @@
 <resources>
     <!-- Emergency alerts toggle default value -->
     <bool name="emergency_alerts_enabled_default">false</bool>
+
+    <!-- Channel 4370, 919 -->
+    <string-array name="cmas_presidential_alerts_channels_range_strings" translatable="false">
+        <item>0x1112:rat=gsm, emergency=true, alert_duration=86400000, always_on=true, override_dnd=true</item>
+        <item>0x397:rat=gsm, emergency=true, alert_duration=86400000, always_on=true, override_dnd=true</item>
+    </string-array>
+
     <!-- 50 -->
     <string-array name="emergency_alerts_channels_range_strings" translatable="false">
         <item>0x0032:rat=gsm, emergency=true, dialog_with_notification=true</item>
     </string-array>
-    <!-- Channel 919 -->
+
+    <!-- additional_cbs_channels_strings empty -->
     <string-array name="additional_cbs_channels_strings" translatable="false">
-        <item>0x397:rat=gsm, emergency=true, alert_duration=86400000</item>
     </string-array>
+
+    <!-- Play alert sound in full volume regardless Do Not Disturb is on -->
+    <bool name="override_dnd">false</bool>
+
+    <!-- Append date-time to the alert title -->
+    <string name="date_time_format" translatable="false">dd/MM/yyyy hh:mm a</string>
 
     <!-- Show area update info settings in CellBroadcastReceiver and information in SIM status in Settings app -->
     <bool name="config_showAreaUpdateInfoSettings">false</bool>

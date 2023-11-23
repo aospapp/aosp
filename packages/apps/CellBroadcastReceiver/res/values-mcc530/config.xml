@@ -21,7 +21,7 @@
     </string-array>
 
     <!-- Append date-time to the alert title -->
-    <string name="date_time_format" translatable="false">E, MMM dd, HH:mm a</string>
+    <string name="date_time_format" translatable="false">E, MMM dd, hh:mm a</string>
     <!-- Disable Amber alert-->
     <string-array name="cmas_amber_alerts_channels_range_strings" translatable="false"></string-array>
 

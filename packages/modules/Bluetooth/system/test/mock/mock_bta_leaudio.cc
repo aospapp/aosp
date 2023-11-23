@@ -19,17 +19,16 @@
  *   Functions generated:7
  */
 
+#include <base/bind_helpers.h>
+#include <base/functional/bind.h>
+#include <hardware/bt_le_audio.h>
+
 #include <map>
 #include <memory>
 #include <string>
 
-extern std::map<std::string, int> mock_function_count_map;
-
-#include <base/bind.h>
-#include <base/bind_helpers.h>
-#include <hardware/bt_le_audio.h>
-
 #include "bta/include/bta_le_audio_api.h"
+#include "test/common/mock_functions.h"
 #include "types/raw_address.h"
 
 #ifndef UNUSED_ATTR
@@ -48,21 +47,50 @@ class HalVersionManager {
 }  // namespace audio
 }  // namespace bluetooth
 
-void LeAudioClient::AddFromStorage(const RawAddress& address,
-                                   bool auto_connect) {
-  mock_function_count_map[__func__]++;
+void LeAudioClient::AddFromStorage(
+    const RawAddress& addr, bool autoconnect, int sink_audio_location,
+    int source_audio_location, int sink_supported_context_types,
+    int source_supported_context_types, const std::vector<uint8_t>& handles,
+    const std::vector<uint8_t>& sink_pacs,
+    const std::vector<uint8_t>& source_pacs, const std::vector<uint8_t>& ases) {
+  inc_func_call_count(__func__);
 }
+
+bool LeAudioClient::GetHandlesForStorage(const RawAddress& addr,
+                                         std::vector<uint8_t>& out) {
+  inc_func_call_count(__func__);
+  return false;
+}
+
+bool LeAudioClient::GetSinkPacsForStorage(const RawAddress& addr,
+                                          std::vector<uint8_t>& out) {
+  inc_func_call_count(__func__);
+  return false;
+}
+
+bool LeAudioClient::GetSourcePacsForStorage(const RawAddress& addr,
+                                            std::vector<uint8_t>& out) {
+  inc_func_call_count(__func__);
+  return false;
+}
+
+bool LeAudioClient::GetAsesForStorage(const RawAddress& addr,
+                                      std::vector<uint8_t>& out) {
+  inc_func_call_count(__func__);
+  return false;
+}
+
 void LeAudioClient::Cleanup(base::Callback<void()> cleanupCb) {
   std::move(cleanupCb).Run();
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
 }
 
 LeAudioClient* LeAudioClient::Get(void) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return nullptr;
 }
 bool LeAudioClient::IsLeAudioClientRunning(void) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return false;
 }
 void LeAudioClient::Initialize(
@@ -70,12 +98,12 @@ void LeAudioClient::Initialize(
     base::Closure initCb, base::Callback<bool()> hal_2_1_verifier,
     const std::vector<bluetooth::le_audio::btle_audio_codec_config_t>&
         offloading_preference) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
 }
-void LeAudioClient::DebugDump(int fd) { mock_function_count_map[__func__]++; }
+void LeAudioClient::DebugDump(int fd) { inc_func_call_count(__func__); }
 void LeAudioClient::InitializeAudioSetConfigurationProvider() {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
 }
 void LeAudioClient::CleanupAudioSetConfigurationProvider() {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
 }

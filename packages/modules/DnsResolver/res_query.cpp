@@ -134,15 +134,15 @@ again:
         if ((statp->netcontext_flags &
              (NET_CONTEXT_FLAG_USE_DNS_OVER_TLS | NET_CONTEXT_FLAG_USE_EDNS)) &&
             (statp->flags & RES_F_EDNS0ERR) && !retried) {
-            LOG(DEBUG) << __func__ << ": retry without EDNS0";
+            LOG(INFO) << __func__ << ": retry without EDNS0";
             retried = true;
             goto again;
         }
-        LOG(DEBUG) << __func__ << ": send error";
+        LOG(INFO) << __func__ << ": send error";
 
         // Note that rcodes SERVFAIL, NOTIMP, REFUSED may cause res_nquery() to return a general
-        // error code EAI_AGAIN, but mapping the error code from rcode as res_queryN() does for
-        // getaddrinfo(). Different rcodes trigger different behaviors:
+        // error code EAI_AGAIN, but mapping the error code from rcode as res_queryN_parallel()
+        // does for getaddrinfo(). Different rcodes trigger different behaviors:
         //
         // - SERVFAIL, NOTIMP, REFUSED
         //   These result in send_dg() returning 0, causing res_nsend() to try the next
@@ -166,9 +166,9 @@ again:
     }
 
     if (hp->rcode != NOERROR || ntohs(hp->ancount) == 0) {
-        LOG(DEBUG) << __func__ << ": rcode = (" << p_rcode(hp->rcode)
-                   << "), counts = an:" << ntohs(hp->ancount) << " ns:" << ntohs(hp->nscount)
-                   << " ar:" << ntohs(hp->arcount);
+        LOG(INFO) << __func__ << ": rcode = (" << p_rcode(hp->rcode)
+                  << "), counts = an:" << ntohs(hp->ancount) << " ns:" << ntohs(hp->nscount)
+                  << " ar:" << ntohs(hp->arcount);
 
         switch (hp->rcode) {
             case NXDOMAIN:
@@ -237,8 +237,6 @@ int res_nsearch(ResState* statp, const char* name, /* domain name */
      *	- there is at least one dot and there is no trailing dot.
      */
     if ((!dots || (dots && !trailing_dot)) && !isMdnsResolution(statp->flags)) {
-        int done = 0;
-
         /* Unfortunately we need to load network-specific info
          * (dns servers, search domains) before
          * the domain stuff is tried.  Will have a better
@@ -283,12 +281,8 @@ int res_nsearch(ResState* statp, const char* name, /* domain name */
                     if (hp->rcode == SERVFAIL) {
                         /* try next search element, if any */
                         got_servfail++;
-                        break;
                     }
-                    [[fallthrough]];
-                default:
-                    /* anything else implies that we're done */
-                    done++;
+                    break;
             }
         }
     }

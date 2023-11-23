@@ -41,7 +41,7 @@ public final class BluetoothCodecConfig implements Parcelable {
     @IntDef(prefix = "SOURCE_CODEC_TYPE_",
         value = {SOURCE_CODEC_TYPE_SBC, SOURCE_CODEC_TYPE_AAC, SOURCE_CODEC_TYPE_APTX,
             SOURCE_CODEC_TYPE_APTX_HD, SOURCE_CODEC_TYPE_LDAC, SOURCE_CODEC_TYPE_LC3,
-            SOURCE_CODEC_TYPE_INVALID})
+            SOURCE_CODEC_TYPE_OPUS, SOURCE_CODEC_TYPE_INVALID})
     @Retention(RetentionPolicy.SOURCE)
     public @interface SourceCodecType {}
 
@@ -77,6 +77,11 @@ public final class BluetoothCodecConfig implements Parcelable {
     public static final int SOURCE_CODEC_TYPE_LC3 = 5;
 
     /**
+     * Source codec type Opus.
+     */
+    public static final int SOURCE_CODEC_TYPE_OPUS = 6;
+
+    /**
      * Source codec type invalid. This is the default value used for codec
      * type.
      */
@@ -85,7 +90,7 @@ public final class BluetoothCodecConfig implements Parcelable {
     /**
      * Represents the count of valid source codec types.
      */
-    private static final int SOURCE_CODEC_TYPE_MAX = 6;
+    private static final int SOURCE_CODEC_TYPE_MAX = 7;
 
     /** @hide */
     @IntDef(prefix = "CODEC_PRIORITY_", value = {
@@ -413,16 +418,15 @@ public final class BluetoothCodecConfig implements Parcelable {
         return 0;
     }
 
-    public static final @android.annotation.NonNull Parcelable.Creator<BluetoothCodecConfig> CREATOR =
-            new Parcelable.Creator<BluetoothCodecConfig>() {
-                public BluetoothCodecConfig createFromParcel(Parcel in) {
-                    return new BluetoothCodecConfig(in);
-                }
+    public static final @NonNull Creator<BluetoothCodecConfig> CREATOR = new Creator<>() {
+        public BluetoothCodecConfig createFromParcel(Parcel in) {
+            return new BluetoothCodecConfig(in);
+        }
 
-                public BluetoothCodecConfig[] newArray(int size) {
-                    return new BluetoothCodecConfig[size];
-                }
-            };
+        public BluetoothCodecConfig[] newArray(int size) {
+            return new BluetoothCodecConfig[size];
+        }
+    };
 
     /**
      * Flattens the object to a parcel
@@ -462,7 +466,9 @@ public final class BluetoothCodecConfig implements Parcelable {
             case SOURCE_CODEC_TYPE_LDAC:
                 return "LDAC";
             case SOURCE_CODEC_TYPE_LC3:
-              return "LC3";
+                return "LC3";
+            case SOURCE_CODEC_TYPE_OPUS:
+                return "Opus";
             case SOURCE_CODEC_TYPE_INVALID:
                 return "INVALID CODEC";
             default:
@@ -712,9 +718,11 @@ public final class BluetoothCodecConfig implements Parcelable {
             case SOURCE_CODEC_TYPE_AAC:
             case SOURCE_CODEC_TYPE_LDAC:
             case SOURCE_CODEC_TYPE_LC3:
-              if (mCodecSpecific1 != other.mCodecSpecific1) {
-                return false;
-              }
+            case SOURCE_CODEC_TYPE_OPUS:
+                if (mCodecSpecific1 != other.mCodecSpecific1) {
+                    return false;
+                }
+            // fall through
             default:
                 return true;
         }

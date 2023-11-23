@@ -22,13 +22,11 @@ import android.annotation.CallbackExecutor;
 import android.annotation.IntDef;
 import android.annotation.NonNull;
 import android.annotation.Nullable;
-import android.annotation.RequiresFeature;
 import android.annotation.RequiresPermission;
 import android.annotation.SystemApi;
 import android.annotation.SystemService;
 import android.compat.annotation.UnsupportedAppUsage;
 import android.content.Context;
-import android.content.pm.PackageManager;
 import android.os.Build;
 import android.os.OutcomeReceiver;
 import android.os.RemoteException;
@@ -573,7 +571,6 @@ public class EthernetManager {
             NetworkStack.PERMISSION_MAINLINE_NETWORK_STACK,
             android.Manifest.permission.NETWORK_STACK,
             android.Manifest.permission.MANAGE_ETHERNET_NETWORKS})
-    @RequiresFeature(PackageManager.FEATURE_AUTOMOTIVE)
     public void enableInterface(
             @NonNull String iface,
             @Nullable @CallbackExecutor Executor executor,
@@ -582,7 +579,7 @@ public class EthernetManager {
         final NetworkInterfaceOutcomeReceiver proxy = makeNetworkInterfaceOutcomeReceiver(
                 executor, callback);
         try {
-            mService.connectNetwork(iface, proxy);
+            mService.enableInterface(iface, proxy);
         } catch (RemoteException e) {
             throw e.rethrowFromSystemServer();
         }
@@ -610,7 +607,6 @@ public class EthernetManager {
             NetworkStack.PERMISSION_MAINLINE_NETWORK_STACK,
             android.Manifest.permission.NETWORK_STACK,
             android.Manifest.permission.MANAGE_ETHERNET_NETWORKS})
-    @RequiresFeature(PackageManager.FEATURE_AUTOMOTIVE)
     public void disableInterface(
             @NonNull String iface,
             @Nullable @CallbackExecutor Executor executor,
@@ -619,7 +615,7 @@ public class EthernetManager {
         final NetworkInterfaceOutcomeReceiver proxy = makeNetworkInterfaceOutcomeReceiver(
                 executor, callback);
         try {
-            mService.disconnectNetwork(iface, proxy);
+            mService.disableInterface(iface, proxy);
         } catch (RemoteException e) {
             throw e.rethrowFromSystemServer();
         }

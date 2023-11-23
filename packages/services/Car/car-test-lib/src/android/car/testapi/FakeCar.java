@@ -72,7 +72,7 @@ import java.util.List;
  *     propertyController.setProperties(listOfSupportedProperties)
  * </code>
  */
-public class FakeCar {
+public final class FakeCar {
     private static final String TAG = FakeCar.class.getSimpleName();
 
     private final Car mCar;

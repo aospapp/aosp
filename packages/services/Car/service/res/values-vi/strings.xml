@@ -42,8 +42,6 @@
     <string name="car_permission_desc_projection" msgid="2352178999656292944">"Cho phép ứng dụng chiếu giao diện của một điện thoại lên màn hình trên ô tô."</string>
     <string name="car_permission_label_access_projection_status" msgid="4231618890836627402">"truy cập vào trạng thái chiếu"</string>
     <string name="car_permission_desc_access_projection_status" msgid="8497351979100616278">"Cho phép ứng dụng nhận biết trạng thái của các ứng dụng khác đang chiếu lên màn hình trên ô tô."</string>
-    <string name="car_permission_label_bind_projection_service" msgid="5362076216606651526">"liên kết với dịch vụ chiếu"</string>
-    <string name="car_permission_desc_bind_projection_service" msgid="2282657787853408639">"Cho phép khung liên kết với giao diện cấp cao nhất của dịch vụ chiếu. Điều này không cần thiết đối với các ứng dụng thông thường."</string>
     <string name="car_permission_label_audio_volume" msgid="310587969373137690">"kiểm soát âm lượng trên ô tô"</string>
     <string name="car_permission_label_audio_settings" msgid="6524703796944023977">"quản lý tùy chọn cài đặt âm thanh của ô tô"</string>
     <string name="car_permission_label_mock_vehicle_hal" msgid="7198852512207405935">"mô phỏng HAL của phương tiện"</string>
@@ -62,8 +60,6 @@
     <string name="car_permission_desc_car_cluster_control" msgid="9222776665281176031">"Khởi chạy ứng dụng trong nhóm dụng cụ"</string>
     <string name="car_permission_car_monitor_cluster_navigation_state" msgid="7025307242306902441">"Trạng thái điều hướng nhóm công cụ"</string>
     <string name="car_permission_desc_car_monitor_cluster_navigation_state" msgid="8745047153878713339">"Nghe thông tin về việc thay đổi trạng thái điều hướng nhóm công cụ"</string>
-    <string name="car_permission_label_bind_instrument_cluster_rendering" msgid="8627480897198377418">"Hiển thị nhóm dụng cụ"</string>
-    <string name="car_permission_desc_bind_instrument_cluster_rendering" msgid="5073596870485006783">"Nhận dữ liệu nhóm dụng cụ"</string>
     <string name="car_permission_label_car_ux_restrictions_configuration" msgid="6801393970411049725">"Cấu hình hạn chế trải nghiệm người dùng"</string>
     <string name="car_permission_desc_car_ux_restrictions_configuration" msgid="5711926927484813777">"Định cấu hình các hạn chế trải nghiệm người dùng"</string>
     <string name="car_permission_label_access_private_display_id" msgid="6712116114341634316">"Quyền đọc mã màn hình riêng tư"</string>
@@ -74,8 +70,12 @@
     <string name="car_permission_desc_read_car_occupant_awareness_state" msgid="188865882598414986">"Cho phép đọc trạng thái và dữ liệu phát hiện của Occupant Awareness System"</string>
     <string name="car_permission_label_control_car_occupant_awareness_system" msgid="7163330266691094542">"Biểu đồ kiểm soát Occupant Awareness System"</string>
     <string name="car_permission_desc_control_car_occupant_awareness_system" msgid="7123482622084531911">"Cho phép kiểm soát việc bắt đầu và dừng biểu đồ phát hiện Occupant Awareness System"</string>
-    <string name="car_permission_label_bind_input_service" msgid="6698489034024273750">"Dịch vụ nhập dành cho ô tô"</string>
-    <string name="car_permission_desc_bind_input_service" msgid="1670323419931890170">"Xử lý sự kiện nhập"</string>
+    <string name="car_permission_label_read_driver_monitoring_settings" msgid="5208935577581001710">"Xem thông tin cài đặt hệ thống giám sát người lái của ô tô"</string>
+    <string name="car_permission_desc_read_driver_monitoring_settings" msgid="3721117607024237175">"Xem thông tin cài đặt hệ thống giám sát người lái của ô tô."</string>
+    <string name="car_permission_label_control_driver_monitoring_settings" msgid="239453247872865455">"Kiểm soát thông tin cài đặt hệ thống giám sát người lái của ô tô."</string>
+    <string name="car_permission_desc_control_driver_monitoring_settings" msgid="7244804817277236221">"Kiểm soát thông tin cài đặt hệ thống giám sát người lái của ô tô"</string>
+    <string name="car_permission_label_read_driver_monitoring_states" msgid="1555412806741155523">"Xem thông tin trạng thái hệ thống giám sát người lái của ô tô"</string>
+    <string name="car_permission_desc_read_driver_monitoring_states" msgid="3124328827934661489">"Xem thông tin trạng thái hệ thống giám sát người lái của ô tô."</string>
     <string name="car_permission_label_diag_read" msgid="7248894224877702604">"đọc dữ liệu chẩn đoán"</string>
     <string name="car_permission_desc_diag_read" msgid="1121426363040966178">"Đọc dữ liệu chẩn đoán từ ô tô."</string>
     <string name="car_permission_label_diag_clear" msgid="4783070510879698157">"xóa dữ liệu chẩn đoán"</string>
@@ -84,8 +84,6 @@
     <string name="car_permission_desc_vms_publisher" msgid="5589489298597386828">"Gửi tin nhắn VMS"</string>
     <string name="car_permission_label_vms_subscriber" msgid="5648841182059222299">"Công cụ đăng ký nhận dữ liệu VMS"</string>
     <string name="car_permission_desc_vms_subscriber" msgid="7551009457847673620">"Đăng ký nhận tin nhắn VMS"</string>
-    <string name="car_permission_label_bind_vms_client" msgid="4889732900973280313">"Dịch vụ ứng dụng VMS"</string>
-    <string name="car_permission_desc_bind_vms_client" msgid="4062835325264330564">"Liên kết với ứng dụng VMS"</string>
     <string name="car_permission_label_storage_monitoring" msgid="2327639346522530549">"Giám sát bộ nhớ flash"</string>
     <string name="car_permission_desc_storage_monitoring" msgid="2075712271139671318">"Giám sát mức sử dụng bộ nhớ flash"</string>
     <string name="car_permission_label_driving_state" msgid="7754624599537393650">"nghe trạng thái lái xe"</string>
@@ -118,6 +116,8 @@
     <string name="car_permission_desc_control_car_mirrors" msgid="1224135684068855032">"Kiểm soát gương ô tô."</string>
     <string name="car_permission_label_control_car_seats" msgid="1826934820585497135">"kiểm soát ghế ngồi trên ô tô"</string>
     <string name="car_permission_desc_control_car_seats" msgid="2407536601226470563">"Kiểm soát ghế ngồi trên ô tô."</string>
+    <string name="car_permission_label_control_car_airbags" msgid="6823727183218389617">"kiểm soát túi khí ô tô"</string>
+    <string name="car_permission_desc_control_car_airbags" msgid="6181671903761622348">"Kiểm soát túi khí ô tô."</string>
     <string name="car_permission_label_car_info" msgid="4707513570676492315">"truy cập vào thông tin cơ bản của ô tô"</string>
     <string name="car_permission_desc_car_info" msgid="2118081474543537653">"Truy cập vào thông tin cơ bản của ô tô."</string>
     <string name="car_permission_label_privileged_car_info" msgid="1304018073760220785">"truy cập thông tin đặc quyền của ô tô"</string>
@@ -126,10 +126,10 @@
     <string name="car_permission_desc_vendor_permission_info" msgid="8152113853528488398">"Truy cập vào thông tin về quyền của nhà sản xuất ô tô."</string>
     <string name="car_permission_label_car_exterior_lights" msgid="541304469604902110">"đọc trạng thái đèn bên ngoài ô tô"</string>
     <string name="car_permission_desc_car_exterior_lights" msgid="4038037584100849318">"Truy cập vào trạng thái đèn bên ngoài ô tô."</string>
+    <string name="car_permission_label_control_glove_box" msgid="992118647212706782">"truy cập dữ liệu trạng thái của hộc trước ô tô"</string>
+    <string name="car_permission_desc_control_glove_box" msgid="2888062136750123261">"Truy cập vào trạng thái của hộc trước ô tô."</string>
     <string name="car_permission_label_car_epoch_time" msgid="6303397910662625112">"truy cập vào thời gian bắt đầu của hệ thống trên ô tô"</string>
     <string name="car_permission_desc_car_epoch_time" msgid="398907082895238558">"Truy cập vào thời gian bắt đầu của hệ thống trên ô tô"</string>
-    <string name="car_permission_label_encryption_binding_seed" msgid="4652180636501144684">"truy cập vào số liên kết mã hóa của ô tô"</string>
-    <string name="car_permission_desc_encryption_binding_seed" msgid="6290944678417286024">"Truy cập vào số liên kết mã hóa của ô tô."</string>
     <string name="car_permission_label_control_car_exterior_lights" msgid="101357531386232141">"đọc đèn bên ngoài ô tô"</string>
     <string name="car_permission_desc_control_car_exterior_lights" msgid="6332252612685264180">"Kiểm soát đèn bên ngoài ô tô."</string>
     <string name="car_permission_label_car_interior_lights" msgid="8506302199784427680">"đọc trạng thái đèn bên trong ô tô"</string>
@@ -146,6 +146,8 @@
     <string name="car_permission_desc_read_car_display_units" msgid="6891898275208542385">"Đọc thiết bị hiển thị."</string>
     <string name="car_permission_label_control_car_display_units" msgid="4975303668183173076">"kiểm soát các thiết bị hiển thị trên ô tô"</string>
     <string name="car_permission_desc_control_car_display_units" msgid="8744397195158556945">"Kiểm soát thiết bị hiển thị."</string>
+    <string name="car_permission_label_control_car_powertrain" msgid="234831541490237603">"kiểm soát thông tin hệ truyền động của ô tô"</string>
+    <string name="car_permission_desc_control_car_powertrain" msgid="8205110385130069179">"Kiểm soát thông tin hệ truyền động của ô tô."</string>
     <string name="car_permission_label_car_powertrain" msgid="4586122326622134886">"đọc thông tin về hệ thống truyền động trên ô tô"</string>
     <string name="car_permission_desc_car_powertrain" msgid="1116007372551797796">"Truy cập vào thông tin về hệ thống truyền động của ô tô."</string>
     <string name="car_permission_label_car_power" msgid="8111448088314368268">"đọc trạng thái nguồn của ô tô"</string>
@@ -172,6 +174,40 @@
     <string name="car_permission_desc_template_renderer" msgid="6047233999260920122">"Mẫu kết xuất hình ảnh."</string>
     <string name="car_permission_label_control_car_app_launch" msgid="214632389637409226">"kiểm soát việc mở ứng dụng"</string>
     <string name="car_permission_desc_control_car_app_launch" msgid="4245527461733374198">"Kiểm soát việc mở ứng dụng."</string>
+    <string name="car_permission_label_manage_thread_priority" msgid="6775846409863509575">"quản lý mức độ ưu tiên của chuỗi"</string>
+    <string name="car_permission_desc_manage_thread_priority" msgid="3833845502119615929">"Quản lý mức độ ưu tiên của chuỗi."</string>
+    <string name="car_permission_label_manage_occupant_zone" msgid="1390420387640478679">"quản lý khu vực có người"</string>
+    <string name="car_permission_desc_manage_occupant_zone" msgid="1641484205694436465">"Quản lý khu vực có người."</string>
+    <string name="car_permission_label_use_remote_access" msgid="4192095854784769805">"sử dụng quyền truy cập từ xa"</string>
+    <string name="car_permission_desc_use_remote_access" msgid="7287637348044911791">"Sử dụng quyền truy cập từ xa."</string>
+    <string name="car_permission_label_control_remote_access" msgid="4247590162299914718">"kiểm soát quyền truy cập từ xa"</string>
+    <string name="car_permission_desc_control_remote_access" msgid="127215188256669260">"Kiểm soát quyền truy cập từ xa."</string>
+    <string name="car_permission_label_control_steering_wheel" msgid="6244908950907824488">"điều khiển vô lăng ô tô"</string>
+    <string name="car_permission_desc_control_steering_wheel" msgid="8408970211196600423">"Điều khiển vô lăng ô tô."</string>
+    <string name="car_permission_label_read_adas_settings" msgid="151296373212801328">"xem thông tin cài đặt Hệ thống hỗ trợ người lái nâng cao (ADAS) của ô tô"</string>
+    <string name="car_permission_desc_read_adas_settings" msgid="8490545343454791279">"Xem thông tin cài đặt Hệ thống hỗ trợ người lái nâng cao (ADAS) của ô tô."</string>
+    <string name="car_permission_label_control_adas_settings" msgid="2535088218472880855">"quản lý thông tin cài đặt Hệ thống hỗ trợ người lái nâng cao (ADAS) của ô tô"</string>
+    <string name="car_permission_desc_control_adas_settings" msgid="8781131640392345285">"Quản lý thông tin cài đặt Hệ thống hỗ trợ người lái nâng cao (ADAS) của ô tô."</string>
+    <string name="car_permission_label_read_adas_states" msgid="8968657466958098106">"xem thông tin trạng thái Hệ thống hỗ trợ người lái nâng cao (ADAS) của ô tô"</string>
+    <string name="car_permission_desc_read_adas_states" msgid="5042430899788416991">"Xem thông tin trạng thái Hệ thống hỗ trợ người lái nâng cao (ADAS) của ô tô."</string>
+    <string name="car_permission_label_control_adas_states" msgid="758803765406463138">"quản lý thông tin trạng thái Hệ thống hỗ trợ người lái nâng cao (ADAS) của ô tô"</string>
+    <string name="car_permission_desc_control_adas_states" msgid="1893171217779342348">"Quản lý thông tin trạng thái Hệ thống hỗ trợ người lái nâng cao (ADAS) của ô tô."</string>
+    <string name="car_permission_label_read_windshield_wipers" msgid="896867772546890348">"đọc dữ liệu của cần gạt nước ô tô"</string>
+    <string name="car_permission_desc_read_windshield_wipers" msgid="597300271560195986">"Đọc dữ liệu của cần gạt nước ô tô."</string>
+    <string name="car_permission_label_control_windshield_wipers" msgid="7971852482734087493">"kiểm soát cần gạt nước của ô tô"</string>
+    <string name="car_permission_desc_control_windshield_wipers" msgid="3803429825323199728">"Kiểm soát cần gạt nước của ô tô."</string>
+    <string name="car_permission_label_manage_remote_device" msgid="1144368625081074994">"theo dõi trạng thái và quản lý điện năng ở khu vực của những người khác trong xe cũng như các ứng dụng ngang hàng (ứng dụng có cùng tên gói với ứng dụng gọi) được cài đặt trong những khu vực đó."</string>
+    <string name="car_permission_desc_manage_remote_device" msgid="4802785901453919948">"Theo dõi trạng thái và quản lý điện năng ở khu vực của những người khác trong xe cũng như các ứng dụng ngang hàng (ứng dụng có cùng tên gói với ứng dụng gọi) được cài đặt trong những khu vực đó."</string>
+    <string name="car_permission_label_manage_occupant_connection" msgid="6007579379849984187">"thiết lập kết nối và giao tiếp với các ứng dụng ngang hàng (ứng dụng có cùng tên gói với ứng dụng gọi) được cài đặt ở khu vực của những người khác trong xe."</string>
+    <string name="car_permission_desc_manage_occupant_connection" msgid="6525045077082552965">"Thiết lập kết nối và giao tiếp với các ứng dụng ngang hàng (ứng dụng có cùng tên gói với ứng dụng gọi) được cài đặt ở khu vực của những người khác trong xe."</string>
+    <string name="car_permission_label_access_mirrored_surface" msgid="6235459468766618021">"phản chiếu màn hình của ứng dụng khác"</string>
+    <string name="car_permission_desc_access_mirrored_surface" msgid="7701151689600074639">"Phản chiếu màn hình của ứng dụng khác."</string>
+    <string name="car_permission_label_mirror_display" msgid="7591958768912962529">"phản chiếu màn hình của người dùng khác"</string>
+    <string name="car_permission_desc_mirror_display" msgid="2403249980834394896">"Phản chiếu màn hình của người dùng khác."</string>
+    <string name="car_permission_label_register_car_system_ui_proxy" msgid="4211405049007842422">"Cung cấp proxy giao diện người dùng hệ thống cho các ứng dụng khác sử dụng để quản lý giao diện người dùng hệ thống và tạo các chế độ xem tác vụ."</string>
+    <string name="car_permission_desc_register_car_system_ui_proxy" msgid="8863676956785764681">"Cung cấp proxy giao diện người dùng hệ thống cho các ứng dụng khác sử dụng để quản lý giao diện người dùng hệ thống và tạo các chế độ xem tác vụ."</string>
+    <string name="car_permission_label_manage_car_system_ui" msgid="1361615518679353414">"Giao tiếp với giao diện người dùng hệ thống ô tô để tạo các chế độ xem tác vụ hoặc nhận thông báo về các thay đổi đối với giao diện người dùng hệ thống."</string>
+    <string name="car_permission_desc_manage_car_system_ui" msgid="6201733970421818637">"Giao tiếp với giao diện người dùng hệ thống ô tô để tạo các chế độ xem tác vụ hoặc nhận thông báo về các thay đổi đối với giao diện người dùng hệ thống."</string>
     <string name="car_can_bus_failure" msgid="2334035748788283914">"Đường dẫn chính CAN không hoạt động"</string>
     <string name="car_can_bus_failure_desc" msgid="4125516222786484733">"Đường dẫn chính CAN không phản hồi. Rút rồi cắm lại hộp bộ đầu và khởi động lại ô tô"</string>
     <string name="trust_device_default_name" msgid="4213625926070261253">"Thiết bị của tôi"</string>

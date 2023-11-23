@@ -15,6 +15,7 @@
  */
 package android.bluetooth;
 
+import android.annotation.NonNull;
 import android.annotation.SystemApi;
 import android.os.Parcel;
 import android.os.Parcelable;
@@ -112,7 +113,7 @@ public final class UidTraffic implements Cloneable, Parcelable {
                 + mTxBytes + '}';
     }
 
-    public static final @android.annotation.NonNull Creator<UidTraffic> CREATOR = new Creator<UidTraffic>() {
+    public static final @NonNull Creator<UidTraffic> CREATOR = new Creator<UidTraffic>() {
         @Override
         public UidTraffic createFromParcel(Parcel source) {
             return new UidTraffic(source);

@@ -68,6 +68,11 @@ public interface HomeCardInterface {
         void updateContentView(CardContent content);
 
         /**
+         * Called by the Presenter to update the seekbar and times
+         */
+        default void updateContentView(CardContent content, boolean showTimes) {}
+
+        /**
          * Returns the {@link Fragment} with which the View is associated.
          */
         Fragment getFragment();
@@ -106,13 +111,19 @@ public interface HomeCardInterface {
         /**
          * Called by the View when it is clicked
          */
-        default void onViewClicked(android.view.View v) {};
+        default void onViewClicked(android.view.View v) {}
 
         /**
          * Called by one of the Presenter's models when it has updated information to display on
          * the card.
          */
         void onModelUpdated(Model model);
+
+        /**
+         * Called by one of the Presenter's models when it has updated progress related information
+         * to display on the card.
+         */
+        default void onModelUpdated(Model model, boolean updateProgress) {}
     }
 
     /**
@@ -145,16 +156,16 @@ public interface HomeCardInterface {
          * Called by the Presenter to create the Model when the View is created.
          * Should be called after the Model's Presenter has been set with setPresenter
          */
-        default void onCreate(Context context) {};
+        default void onCreate(Context context) {}
 
         /**
          * Called by the Presenter to destroy the Model when the View is destroyed
          */
-        default void onDestroy(Context context) {};
+        default void onDestroy(Context context) {}
 
         /**
          * Called by the Presenter to handle when the View is clicked
          */
-        default void onClick(android.view.View view) {};
+        default void onClick(android.view.View view) {}
     }
 }

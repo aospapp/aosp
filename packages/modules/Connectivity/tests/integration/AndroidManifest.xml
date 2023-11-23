@@ -60,7 +60,7 @@
                 <action android:name=".INetworkStackInstrumentation"/>
             </intent-filter>
         </service>
-        <service android:name="com.android.server.connectivity.ipmemorystore.RegularMaintenanceJobService"
+        <service android:name="com.android.networkstack.ipmemorystore.RegularMaintenanceJobService"
              android:process="com.android.server.net.integrationtests.testnetworkstack"
              android:permission="android.permission.BIND_JOB_SERVICE"/>
 

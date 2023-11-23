@@ -36,12 +36,12 @@ import androidx.fragment.app.FragmentActivity;
 
 import com.android.permissioncontroller.DeviceUtils;
 import com.android.permissioncontroller.R;
-import com.android.permissioncontroller.permission.ui.GrantPermissionsViewHandler;
 import com.android.permissioncontroller.permission.ui.LocationProviderInterceptDialog;
 import com.android.permissioncontroller.permission.ui.ManagePermissionsActivity;
 import com.android.permissioncontroller.permission.ui.auto.AutoAppPermissionFragment;
 import com.android.permissioncontroller.permission.ui.television.AppPermissionFragment;
 import com.android.permissioncontroller.permission.utils.LocationUtils;
+import com.android.permissioncontroller.permission.utils.PermissionMapping;
 import com.android.permissioncontroller.permission.utils.Utils;
 
 import java.util.List;
@@ -104,7 +104,7 @@ public final class AppPermissionActivity extends FragmentActivity {
             return;
         }
         if (groupName == null) {
-            groupName = Utils.getGroupOfPlatformPermission(permissionName);
+            groupName = PermissionMapping.getGroupOfPlatformPermission(permissionName);
             PermissionInfo permission;
             try {
                 permission = getPackageManager().getPermissionInfo(permissionName, 0);

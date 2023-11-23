@@ -16,10 +16,10 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="cmas_presidential_level_alert" msgid="8832531644152117875">"Lokal nødalarm"</string>
+    <string name="cmas_presidential_level_alert" msgid="8832531644152117875">"Lokal varsling"</string>
     <string name="button_dismiss" msgid="5975841666550833732">"FOR AT LUKKE"</string>
     <string name="cmas_required_monthly_test" msgid="2287926047457291638">"Testmeddelelse"</string>
-    <string name="cmas_exercise_alert" msgid="998005154407142100">"Nødalarm – Øvelsesmeddelelse"</string>
+    <string name="cmas_exercise_alert" msgid="998005154407142100">"Varsling – øvelsesmeddelelse"</string>
     <string name="public_safety_message" msgid="6263179411117570932">"Informationsmeddelelse"</string>
     <!-- no translation found for enable_public_safety_messages_title (132836010129431792) -->
     <skip />

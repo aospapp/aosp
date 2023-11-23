@@ -90,6 +90,17 @@ typedef struct {
    */
   void (*request_max_tx_data_length)(const RawAddress& bd_addr);
 
+  /**
+   * Send control parameters to the peer. So far only for qualification use.
+   * RFCOMM layer starts the control request only when it is the client.
+   * This API allows the host to start the control request while it works as an
+   * RFCOMM server.
+   */
+  bt_status_t (*control_req)(uint8_t dlci, const RawAddress& bd_addr,
+                             uint8_t modem_signal, uint8_t break_signal,
+                             uint8_t discard_buffers, uint8_t break_signal_seq,
+                             bool fc);
+
 } btsock_interface_t;
 
 __END_DECLS

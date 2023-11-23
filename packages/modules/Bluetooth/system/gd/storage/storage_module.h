@@ -25,7 +25,6 @@
 
 #include "hci/address.h"
 #include "module.h"
-#include "storage/adapter_config.h"
 #include "storage/config_cache.h"
 #include "storage/device.h"
 #include "storage/mutation.h"
@@ -34,6 +33,14 @@ namespace bluetooth {
 
 namespace shim {
 class BtifConfigInterface;
+}
+
+namespace security::internal {
+class SecurityManagerImpl;
+}
+
+namespace hci {
+class AclManager;
 }
 
 namespace storage {
@@ -98,9 +105,6 @@ class StorageModule : public bluetooth::Module {
   // different. Hence, please don't make such assumption and don't use GetDeviceByBrEdrMacAddress() interchangeably
   Device GetDeviceByLeIdentityAddress(hci::Address le_identity_address);
 
-  // A think copyable, movable, comparable object that is used to access adapter level information
-  AdapterConfig GetAdapterConfig();
-
   // Get a list of bonded devices from config
   std::vector<Device> GetBondedDevices();
 
@@ -115,8 +119,8 @@ class StorageModule : public bluetooth::Module {
   std::string ToString() const override;
 
   friend shim::BtifConfigInterface;
-  // For shim layer only
-  ConfigCache* GetConfigCache();
+  friend hci::AclManager;
+  friend security::internal::SecurityManagerImpl;
   // For unit test only
   ConfigCache* GetMemoryOnlyConfigCache();
   // Normally, underlying config will be saved at most 3 seconds after the first config change in a series of changes
@@ -125,6 +129,8 @@ class StorageModule : public bluetooth::Module {
   // In some cases, one may want to save the config immediately to disk. Call this method with caution as it runs
   // immediately on the calling thread
   void SaveImmediately();
+  // remove all content in this config cache, restore it to the state after the explicit constructor
+  void Clear();
 
   // Create the storage module where:
   // - config_file_path is the path to the config file on disk, a .bak file will be created with the original
@@ -137,6 +143,36 @@ class StorageModule : public bluetooth::Module {
       size_t temp_devices_capacity,
       bool is_restricted_mode,
       bool is_single_user_mode);
+
+  bool HasSection(const std::string& section) const;
+  bool HasProperty(const std::string& section, const std::string& property) const;
+
+  std::optional<std::string> GetProperty(
+      const std::string& section, const std::string& property) const;
+  void SetProperty(std::string section, std::string property, std::string value);
+
+  std::vector<std::string> GetPersistentSections() const;
+
+  void RemoveSection(const std::string& section);
+  bool RemoveProperty(const std::string& section, const std::string& property);
+  void ConvertEncryptOrDecryptKeyIfNeeded();
+  // Remove sections with |property| set
+  void RemoveSectionWithProperty(const std::string& property);
+
+  void SetBool(const std::string& section, const std::string& property, bool value);
+  std::optional<bool> GetBool(const std::string& section, const std::string& property) const;
+  void SetUint64(const std::string& section, const std::string& property, uint64_t value);
+  std::optional<uint64_t> GetUint64(const std::string& section, const std::string& property) const;
+  void SetUint32(const std::string& section, const std::string& property, uint32_t value);
+  std::optional<uint32_t> GetUint32(const std::string& section, const std::string& property) const;
+  void SetInt64(const std::string& section, const std::string& property, int64_t value);
+  std::optional<int64_t> GetInt64(const std::string& section, const std::string& property) const;
+  void SetInt(const std::string& section, const std::string& property, int value);
+  std::optional<int> GetInt(const std::string& section, const std::string& property) const;
+  void SetBin(
+      const std::string& section, const std::string& property, const std::vector<uint8_t>& value);
+  std::optional<std::vector<uint8_t>> GetBin(
+      const std::string& section, const std::string& property) const;
 
  private:
   struct impl;

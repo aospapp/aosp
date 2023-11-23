@@ -92,8 +92,8 @@
     <string name="save_error" msgid="8631128801982095782">"Dokumentet kunne ikke gemmes"</string>
     <string name="create_error" msgid="3092144450044861994">"Mappen kunne ikke oprettes"</string>
     <string name="query_error" msgid="6625421453613879336">"Der kan ikke indlæses indhold i øjeblikket"</string>
-    <string name="quiet_mode_error_title" msgid="9126656325282792843">"Arbejdsprofilen er sat på pause"</string>
-    <string name="quiet_mode_button" msgid="6977115032320235420">"Aktivér"</string>
+    <string name="quiet_mode_error_title" msgid="554319751414657910">"Dine arbejdsapps er sat på pause"</string>
+    <string name="quiet_mode_button" msgid="8051436551926677305">"Aktivér arbejdsapps"</string>
     <string name="cant_select_work_files_error_title" msgid="6688716319549644354">"Arbejdsfiler kan ikke vælges"</string>
     <string name="cant_select_work_files_error_message" msgid="683480676150690641">"Din it-administrator har ikke givet dig tilladelse til at åbne arbejdsfiler fra en personlig app"</string>
     <string name="cant_select_personal_files_error_title" msgid="3200697170148617742">"Personlige filer kan ikke vælges"</string>
@@ -272,7 +272,7 @@
     <string name="open_tree_dialog_title" msgid="6339509533852318569">"Vil du give <xliff:g id="APPNAME">%1$s</xliff:g> adgang til filerne i <xliff:g id="DIRECTORY">%2$s</xliff:g>?"</string>
     <string name="open_tree_dialog_message" msgid="4120695398430659628">"Dette giver <xliff:g id="APPNAME">%1$s</xliff:g> adgang til aktuelt og fremtidigt indhold, som gemmes i <xliff:g id="DIRECTORY">%2$s</xliff:g>."</string>
     <string name="directory_blocked_header_title" msgid="1164584889578740066">"Denne mappe kan ikke bruges"</string>
-    <string name="directory_blocked_header_subtitle" msgid="2829150911849033408">"For at beskytte dine personlige oplysninger skal du vælge en anden mappe"</string>
+    <string name="directory_blocked_header_subtitle" msgid="2829150911849033408">"For at beskytte dit privatliv skal du vælge en anden mappe"</string>
     <string name="create_new_folder_button" msgid="8859613309559794890">"Opret ny mappe"</string>
     <string name="search_bar_hint" msgid="4517366509897977321">"Søg på denne telefon"</string>
     <string name="delete_search_history" msgid="2202015025607694515">"Slet søgehistorikken <xliff:g id="TEXT">%1$s</xliff:g>"</string>

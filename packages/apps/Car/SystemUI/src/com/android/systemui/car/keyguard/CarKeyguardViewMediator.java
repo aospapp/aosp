@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2020 The Android Open Source Project
+ * Copyright (C) 2022 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,39 +16,170 @@
 
 package com.android.systemui.car.keyguard;
 
-import com.android.systemui.car.userswitcher.FullScreenUserSwitcherViewController;
-import com.android.systemui.car.window.OverlayViewMediator;
-import com.android.systemui.dagger.SysUISingleton;
+import android.app.trust.TrustManager;
+import android.content.Context;
+import android.os.PowerManager;
+import android.os.RemoteException;
+import android.util.Log;
+import android.view.IRemoteAnimationFinishedCallback;
+import android.view.IRemoteAnimationRunner;
+import android.view.RemoteAnimationTarget;
 
-import javax.inject.Inject;
+import com.android.internal.jank.InteractionJankMonitor;
+import com.android.internal.logging.UiEventLogger;
+import com.android.internal.widget.LockPatternUtils;
+import com.android.keyguard.KeyguardDisplayManager;
+import com.android.keyguard.KeyguardUpdateMonitor;
+import com.android.keyguard.KeyguardViewController;
+import com.android.keyguard.mediator.ScreenOnCoordinator;
+import com.android.systemui.animation.ActivityLaunchAnimator;
+import com.android.systemui.broadcast.BroadcastDispatcher;
+import com.android.systemui.car.users.CarSystemUIUserUtil;
+import com.android.systemui.classifier.FalsingCollector;
+import com.android.systemui.dagger.qualifiers.Main;
+import com.android.systemui.dreams.DreamOverlayStateController;
+import com.android.systemui.dump.DumpManager;
+import com.android.systemui.flags.FeatureFlags;
+import com.android.systemui.flags.SystemPropertiesHelper;
+import com.android.systemui.keyguard.DismissCallbackRegistry;
+import com.android.systemui.keyguard.KeyguardUnlockAnimationController;
+import com.android.systemui.keyguard.KeyguardViewMediator;
+import com.android.systemui.keyguard.ui.viewmodel.DreamingToLockscreenTransitionViewModel;
+import com.android.systemui.log.SessionTracker;
+import com.android.systemui.navigationbar.NavigationModeController;
+import com.android.systemui.settings.UserTracker;
+import com.android.systemui.shade.ShadeController;
+import com.android.systemui.statusbar.NotificationShadeDepthController;
+import com.android.systemui.statusbar.NotificationShadeWindowController;
+import com.android.systemui.statusbar.SysuiStatusBarStateController;
+import com.android.systemui.statusbar.phone.DozeParameters;
+import com.android.systemui.statusbar.phone.ScreenOffAnimationController;
+import com.android.systemui.statusbar.phone.ScrimController;
+import com.android.systemui.statusbar.policy.KeyguardStateController;
+import com.android.systemui.statusbar.policy.UserSwitcherController;
+import com.android.systemui.util.DeviceConfigProxy;
+import com.android.wm.shell.keyguard.KeyguardTransitions;
+
+import dagger.Lazy;
+
+import java.util.concurrent.Executor;
+
+import kotlinx.coroutines.CoroutineDispatcher;
 
 /**
- * Manages events originating from the Keyguard service that cause Keyguard or other OverlayWindow
- * Components to appear or disappear.
+ * Car customizations on top of {@link KeyguardViewMediator}. Please refer to that class for
+ * more details on specific functionalities.
  */
-@SysUISingleton
-public class CarKeyguardViewMediator implements OverlayViewMediator {
+public class CarKeyguardViewMediator extends KeyguardViewMediator {
+    private static final String TAG = "CarKeyguardViewMediator";
+    private final Context mContext;
+    private final Object mOcclusionLock = new Object();
+    private final IRemoteAnimationRunner mOccludeAnimationRunner =
+            new CarOcclusionAnimationRunner(/* occlude= */ true);
+    private final IRemoteAnimationRunner mUnoccludeAnimationRunner =
+            new CarOcclusionAnimationRunner(/* occlude= */ false);
 
-    private final CarKeyguardViewController mCarKeyguardViewController;
-    private final FullScreenUserSwitcherViewController mFullScreenUserSwitcherViewController;
-
-    @Inject
-    public CarKeyguardViewMediator(
-            CarKeyguardViewController carKeyguardViewController,
-            FullScreenUserSwitcherViewController fullScreenUserSwitcherViewController
-    ) {
-        mCarKeyguardViewController = carKeyguardViewController;
-        mFullScreenUserSwitcherViewController = fullScreenUserSwitcherViewController;
+    /**
+     * Injected constructor. See {@link CarKeyguardModule}.
+     */
+    public CarKeyguardViewMediator(Context context,
+            UiEventLogger uiEventLogger,
+            SessionTracker sessionTracker,
+            UserTracker userTracker,
+            FalsingCollector falsingCollector,
+            LockPatternUtils lockPatternUtils,
+            BroadcastDispatcher broadcastDispatcher,
+            Lazy<KeyguardViewController> statusBarKeyguardViewManagerLazy,
+            DismissCallbackRegistry dismissCallbackRegistry,
+            KeyguardUpdateMonitor keyguardUpdateMonitor,
+            DumpManager dumpManager,
+            Executor uiBgExecutor, PowerManager powerManager,
+            TrustManager trustManager,
+            UserSwitcherController userSwitcherController,
+            DeviceConfigProxy deviceConfig,
+            NavigationModeController navigationModeController,
+            KeyguardDisplayManager keyguardDisplayManager,
+            DozeParameters dozeParameters,
+            SysuiStatusBarStateController statusBarStateController,
+            KeyguardStateController keyguardStateController,
+            Lazy<KeyguardUnlockAnimationController> keyguardUnlockAnimationControllerLazy,
+            ScreenOffAnimationController screenOffAnimationController,
+            Lazy<NotificationShadeDepthController> notificationShadeDepthController,
+            ScreenOnCoordinator screenOnCoordinator,
+            KeyguardTransitions keyguardTransitions,
+            InteractionJankMonitor interactionJankMonitor,
+            DreamOverlayStateController dreamOverlayStateController,
+            Lazy<ShadeController> mShadeControllerLazy,
+            Lazy<NotificationShadeWindowController> notificationShadeWindowControllerLazy,
+            Lazy<ActivityLaunchAnimator> activityLaunchAnimator,
+            Lazy<ScrimController> scrimControllerLazy,
+            FeatureFlags featureFlags,
+            @Main CoroutineDispatcher mainDispatcher,
+            Lazy<DreamingToLockscreenTransitionViewModel> dreamingToLockscreenTransitionViewModel,
+            SystemPropertiesHelper systemPropertiesHelper) {
+        super(context, uiEventLogger, sessionTracker,
+                userTracker, falsingCollector, lockPatternUtils, broadcastDispatcher,
+                statusBarKeyguardViewManagerLazy, dismissCallbackRegistry, keyguardUpdateMonitor,
+                dumpManager, uiBgExecutor, powerManager, trustManager, userSwitcherController,
+                deviceConfig, navigationModeController, keyguardDisplayManager, dozeParameters,
+                statusBarStateController, keyguardStateController,
+                keyguardUnlockAnimationControllerLazy, screenOffAnimationController,
+                notificationShadeDepthController, screenOnCoordinator, keyguardTransitions,
+                interactionJankMonitor, dreamOverlayStateController,
+                mShadeControllerLazy,
+                notificationShadeWindowControllerLazy,
+                activityLaunchAnimator,
+                scrimControllerLazy, featureFlags,
+                mainDispatcher,
+                dreamingToLockscreenTransitionViewModel,
+                systemPropertiesHelper);
+        mContext = context;
     }
 
     @Override
-    public void registerListeners() {
-        mCarKeyguardViewController.registerOnKeyguardCancelClickedListener(
-                mFullScreenUserSwitcherViewController::start);
+    public void start() {
+        if (CarSystemUIUserUtil.isSecondaryMUMDSystemUI()) {
+            // Currently keyguard is not functional for the secondary users in a MUMD configuration
+            // TODO_MD: make keyguard functional for secondary users
+            return;
+        }
+        super.start();
     }
 
     @Override
-    public void setUpOverlayContentViewControllers() {
-        // no-op
+    public IRemoteAnimationRunner getOccludeAnimationRunner() {
+        return mOccludeAnimationRunner;
+    }
+
+    @Override
+    public IRemoteAnimationRunner getUnoccludeAnimationRunner() {
+        return mUnoccludeAnimationRunner;
+    }
+
+    private class CarOcclusionAnimationRunner extends IRemoteAnimationRunner.Stub {
+        private final boolean mOcclude;
+        private final String mAnimatorType;
+
+        CarOcclusionAnimationRunner(boolean occlude) {
+            mOcclude = occlude;
+            mAnimatorType = mOcclude ? "OccludeAnimator" : "UnoccludeAnimator";
+        }
+
+        @Override
+        public void onAnimationStart(int transit, RemoteAnimationTarget[] apps,
+                RemoteAnimationTarget[] wallpapers, RemoteAnimationTarget[] nonApps,
+                IRemoteAnimationFinishedCallback finishedCallback) throws RemoteException {
+            synchronized (mOcclusionLock) {
+                Log.d(TAG, String.format("%s#onAnimationStart. Set occluded = %b.",
+                        mAnimatorType, mOcclude));
+                setOccluded(mOcclude, /* animate= */ false);
+                finishedCallback.onAnimationFinished();
+            }
+        }
+
+        @Override
+        public void onAnimationCancelled() throws RemoteException {
+            Log.d(TAG, String.format("%s cancelled by WM.", mAnimatorType));
+        }
     }
 }

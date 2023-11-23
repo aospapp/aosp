@@ -77,6 +77,8 @@ public final class RotaryFragment extends Fragment {
                 case Intent.ACTION_PACKAGE_REMOVED:
                     refreshUi();
                     break;
+                default:
+                    throw new IllegalArgumentException("Invalid action: " + action);
             }
         }
     };

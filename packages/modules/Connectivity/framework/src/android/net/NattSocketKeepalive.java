@@ -33,7 +33,7 @@ public final class NattSocketKeepalive extends SocketKeepalive {
     @NonNull private final InetAddress mDestination;
     private final int mResourceId;
 
-    NattSocketKeepalive(@NonNull IConnectivityManager service,
+    public NattSocketKeepalive(@NonNull IConnectivityManager service,
             @NonNull Network network,
             @NonNull ParcelFileDescriptor pfd,
             int resourceId,
@@ -47,13 +47,42 @@ public final class NattSocketKeepalive extends SocketKeepalive {
         mResourceId = resourceId;
     }
 
+    /**
+     * Request that keepalive be started with the given {@code intervalSec}.
+     *
+     * When a VPN is running with the network for this keepalive as its underlying network, the
+     * system can monitor the TCP connections on that VPN to determine whether this keepalive is
+     * necessary. To enable this behavior, pass {@link SocketKeepalive#FLAG_AUTOMATIC_ON_OFF} into
+     * the flags. When this is enabled, the system will disable sending keepalive packets when
+     * there are no TCP connections over the VPN(s) running over this network to save battery, and
+     * restart sending them as soon as any TCP connection is opened over one of the VPN networks.
+     * When no VPN is running on top of this network, this flag has no effect, i.e. the keepalives
+     * are always sent with the specified interval.
+     *
+     * Also {@see SocketKeepalive}.
+     *
+     * @param intervalSec The target interval in seconds between keepalive packet transmissions.
+     *                    The interval should be between 10 seconds and 3600 seconds. Otherwise,
+     *                    the supplied {@link Callback} will see a call to
+     *                    {@link Callback#onError(int)} with {@link #ERROR_INVALID_INTERVAL}.
+     * @param flags Flags to enable/disable available options on this keepalive.
+     * @param underpinnedNetwork The underpinned network of this keepalive.
+     *
+     * @hide
+     */
     @Override
-    void startImpl(int intervalSec) {
+    protected void startImpl(int intervalSec, int flags, Network underpinnedNetwork) {
+        if (0 != (flags & ~FLAG_AUTOMATIC_ON_OFF)) {
+            throw new IllegalArgumentException("Illegal flag value for "
+                    + this.getClass().getSimpleName() + " : " + flags);
+        }
+        final boolean automaticOnOffKeepalives = 0 != (flags & FLAG_AUTOMATIC_ON_OFF);
         mExecutor.execute(() -> {
             try {
                 mService.startNattKeepaliveWithFd(mNetwork, mPfd, mResourceId,
-                        intervalSec, mCallback,
-                        mSource.getHostAddress(), mDestination.getHostAddress());
+                        intervalSec, mCallback, mSource.getHostAddress(),
+                        mDestination.getHostAddress(), automaticOnOffKeepalives,
+                        underpinnedNetwork);
             } catch (RemoteException e) {
                 Log.e(TAG, "Error starting socket keepalive: ", e);
                 throw e.rethrowFromSystemServer();
@@ -62,12 +91,10 @@ public final class NattSocketKeepalive extends SocketKeepalive {
     }
 
     @Override
-    void stopImpl() {
+    protected void stopImpl() {
         mExecutor.execute(() -> {
             try {
-                if (mSlot != null) {
-                    mService.stopKeepalive(mNetwork, mSlot);
-                }
+                mService.stopKeepalive(mCallback);
             } catch (RemoteException e) {
                 Log.e(TAG, "Error stopping socket keepalive: ", e);
                 throw e.rethrowFromSystemServer();

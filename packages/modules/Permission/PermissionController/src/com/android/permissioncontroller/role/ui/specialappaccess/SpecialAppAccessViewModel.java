@@ -32,11 +32,11 @@ import androidx.lifecycle.Transformations;
 import androidx.lifecycle.ViewModel;
 import androidx.lifecycle.ViewModelProvider;
 
-import com.android.permissioncontroller.role.model.Role;
 import com.android.permissioncontroller.role.ui.ManageRoleHolderStateLiveData;
 import com.android.permissioncontroller.role.ui.RoleLiveData;
 import com.android.permissioncontroller.role.ui.RoleSortFunction;
 import com.android.permissioncontroller.role.utils.UserUtils;
+import com.android.role.controller.model.Role;
 
 import java.util.List;
 

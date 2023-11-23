@@ -31,6 +31,7 @@ import android.util.SparseArray;
 import android.util.SparseIntArray;
 
 import com.android.server.wifi.Clock;
+import com.android.server.wifi.hal.WifiRttController;
 import com.android.server.wifi.proto.nano.WifiMetricsProto;
 import com.android.server.wifi.util.MetricsUtils;
 
@@ -46,7 +47,7 @@ import java.util.Map;
 public class RttMetrics {
     private static final String TAG = "RttMetrics";
     private static final boolean VDBG = false;
-    /* package */ boolean mDbg = false;
+    private boolean mVerboseLoggingEnabled = false;
 
     private final Object mLock = new Object();
     private final Clock mClock;
@@ -129,6 +130,13 @@ public class RttMetrics {
         }
     }
 
+    /**
+     * Enable/Disable verbose logging.
+     */
+    public void enableVerboseLogging(boolean verboseEnabled) {
+        mVerboseLoggingEnabled = verboseEnabled;
+    }
+
     // metric recording API
 
     /**
@@ -148,7 +156,10 @@ public class RttMetrics {
             } else if (request.responderType == ResponderConfig.RESPONDER_AP) {
                 numApRequests++;
             } else {
-                if (mDbg) Log.d(TAG, "Unexpected Responder type: " + request.responderType);
+                if (mVerboseLoggingEnabled) {
+                    Log.d(TAG,
+                            "Unexpected Responder type: " + request.responderType);
+                }
             }
         }
 
@@ -409,37 +420,37 @@ public class RttMetrics {
      */
     public static int convertRttStatusTypeToProtoEnum(int rttStatusType) {
         switch (rttStatusType) {
-            case RttNative.FRAMEWORK_RTT_STATUS_SUCCESS:
+            case WifiRttController.FRAMEWORK_RTT_STATUS_SUCCESS:
                 return WifiMetricsProto.WifiRttLog.SUCCESS;
-            case RttNative.FRAMEWORK_RTT_STATUS_FAILURE:
+            case WifiRttController.FRAMEWORK_RTT_STATUS_FAILURE:
                 return WifiMetricsProto.WifiRttLog.FAILURE;
-            case RttNative.FRAMEWORK_RTT_STATUS_FAIL_NO_RSP:
+            case WifiRttController.FRAMEWORK_RTT_STATUS_FAIL_NO_RSP:
                 return WifiMetricsProto.WifiRttLog.FAIL_NO_RSP;
-            case RttNative.FRAMEWORK_RTT_STATUS_FAIL_REJECTED:
+            case WifiRttController.FRAMEWORK_RTT_STATUS_FAIL_REJECTED:
                 return WifiMetricsProto.WifiRttLog.FAIL_REJECTED;
-            case RttNative.FRAMEWORK_RTT_STATUS_FAIL_NOT_SCHEDULED_YET:
+            case WifiRttController.FRAMEWORK_RTT_STATUS_FAIL_NOT_SCHEDULED_YET:
                 return WifiMetricsProto.WifiRttLog.FAIL_NOT_SCHEDULED_YET;
-            case RttNative.FRAMEWORK_RTT_STATUS_FAIL_TM_TIMEOUT:
+            case WifiRttController.FRAMEWORK_RTT_STATUS_FAIL_TM_TIMEOUT:
                 return WifiMetricsProto.WifiRttLog.FAIL_TM_TIMEOUT;
-            case RttNative.FRAMEWORK_RTT_STATUS_FAIL_AP_ON_DIFF_CHANNEL:
+            case WifiRttController.FRAMEWORK_RTT_STATUS_FAIL_AP_ON_DIFF_CHANNEL:
                 return WifiMetricsProto.WifiRttLog.FAIL_AP_ON_DIFF_CHANNEL;
-            case RttNative.FRAMEWORK_RTT_STATUS_FAIL_NO_CAPABILITY:
+            case WifiRttController.FRAMEWORK_RTT_STATUS_FAIL_NO_CAPABILITY:
                 return WifiMetricsProto.WifiRttLog.FAIL_NO_CAPABILITY;
-            case RttNative.FRAMEWORK_RTT_STATUS_ABORTED:
+            case WifiRttController.FRAMEWORK_RTT_STATUS_ABORTED:
                 return WifiMetricsProto.WifiRttLog.ABORTED;
-            case RttNative.FRAMEWORK_RTT_STATUS_FAIL_INVALID_TS:
+            case WifiRttController.FRAMEWORK_RTT_STATUS_FAIL_INVALID_TS:
                 return WifiMetricsProto.WifiRttLog.FAIL_INVALID_TS;
-            case RttNative.FRAMEWORK_RTT_STATUS_FAIL_PROTOCOL:
+            case WifiRttController.FRAMEWORK_RTT_STATUS_FAIL_PROTOCOL:
                 return WifiMetricsProto.WifiRttLog.FAIL_PROTOCOL;
-            case RttNative.FRAMEWORK_RTT_STATUS_FAIL_SCHEDULE:
+            case WifiRttController.FRAMEWORK_RTT_STATUS_FAIL_SCHEDULE:
                 return WifiMetricsProto.WifiRttLog.FAIL_SCHEDULE;
-            case RttNative.FRAMEWORK_RTT_STATUS_FAIL_BUSY_TRY_LATER:
+            case WifiRttController.FRAMEWORK_RTT_STATUS_FAIL_BUSY_TRY_LATER:
                 return WifiMetricsProto.WifiRttLog.FAIL_BUSY_TRY_LATER;
-            case RttNative.FRAMEWORK_RTT_STATUS_INVALID_REQ:
+            case WifiRttController.FRAMEWORK_RTT_STATUS_INVALID_REQ:
                 return WifiMetricsProto.WifiRttLog.INVALID_REQ;
-            case RttNative.FRAMEWORK_RTT_STATUS_NO_WIFI:
+            case WifiRttController.FRAMEWORK_RTT_STATUS_NO_WIFI:
                 return WifiMetricsProto.WifiRttLog.NO_WIFI;
-            case RttNative.FRAMEWORK_RTT_STATUS_FAIL_FTM_PARAM_OVERRIDE:
+            case WifiRttController.FRAMEWORK_RTT_STATUS_FAIL_FTM_PARAM_OVERRIDE:
                 return WifiMetricsProto.WifiRttLog.FAIL_FTM_PARAM_OVERRIDE;
             default:
                 Log.e(TAG, "Unrecognized RttStatus: " + rttStatusType);

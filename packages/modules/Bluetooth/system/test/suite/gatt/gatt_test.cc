@@ -24,9 +24,80 @@
 
 namespace bttest {
 
+static GattTest* instance = nullptr;
+
+void RegisterClientCallback(int status, int clientIf,
+                            const bluetooth::Uuid& app_uuid) {
+  instance->status_ = status;
+  instance->client_interface_id_ = clientIf;
+  semaphore_post(instance->register_client_callback_sem_);
+}
+
+void ScanResultCallback(uint16_t ble_evt_type, uint8_t addr_type,
+                        RawAddress* bda, uint8_t ble_primary_phy,
+                        uint8_t ble_secondary_phy, uint8_t ble_advertising_sid,
+                        int8_t ble_tx_power, int8_t rssi,
+                        uint16_t ble_periodic_adv_int,
+                        std::vector<uint8_t> adv_data,
+                        RawAddress* original_bda) {
+  semaphore_post(instance->scan_result_callback_sem_);
+}
+
+// GATT server callbacks
+void RegisterServerCallback(int status, int server_if,
+                            const bluetooth::Uuid& uuid) {
+  instance->status_ = status;
+  instance->server_interface_id_ = server_if;
+  semaphore_post(instance->register_server_callback_sem_);
+}
+
+void ServiceAddedCallback(int status, int server_if,
+                          const btgatt_db_element_t* service,
+                          size_t service_count) {
+  instance->status_ = status;
+  instance->server_interface_id_ = server_if;
+  instance->service_handle_ = service[0].attribute_handle;
+  semaphore_post(instance->service_added_callback_sem_);
+}
+
+void ServiceStoppedCallback(int status, int server_if, int srvc_handle) {
+  instance->status_ = status;
+  instance->server_interface_id_ = server_if;
+  instance->service_handle_ = srvc_handle;
+  semaphore_post(instance->service_stopped_callback_sem_);
+}
+
+void ServiceDeletedCallback(int status, int server_if, int srvc_handle) {
+  instance->status_ = status;
+  instance->server_interface_id_ = server_if;
+  instance->service_handle_ = srvc_handle;
+  semaphore_post(instance->service_deleted_callback_sem_);
+}
+
+static const btgatt_scanner_callbacks_t scanner_callbacks = {
+    .scan_result_cb = ScanResultCallback,
+};
+
+static const btgatt_client_callbacks_t client_callbacks = {
+    .register_client_cb = RegisterClientCallback,
+};
+
+static const btgatt_server_callbacks_t server_callbacks = {
+    .register_server_cb = RegisterServerCallback,
+    .service_added_cb = ServiceAddedCallback,
+    .service_stopped_cb = ServiceStoppedCallback,
+    .service_deleted_cb = ServiceDeletedCallback,
+};
+
+static const btgatt_callbacks_t callbacks = {
+    sizeof(btgatt_callbacks_t),
+    &client_callbacks,
+    &server_callbacks,
+    &scanner_callbacks,
+};
+
 void GattTest::SetUp() {
-  gatt_client_interface_ = nullptr;
-  gatt_server_interface_ = nullptr;
+  gatt_interface_ = nullptr;
 
   client_interface_id_ = 0;
   server_interface_id_ = 0;
@@ -40,40 +111,17 @@ void GattTest::SetUp() {
   semaphore_wait(adapter_state_changed_callback_sem_);
   EXPECT_TRUE(GetState() == BT_STATE_ON);
 
-  register_client_callback_sem_ = semaphore_new(0);
-  scan_result_callback_sem_ = semaphore_new(0);
-
-  register_server_callback_sem_ = semaphore_new(0);
-  service_added_callback_sem_ = semaphore_new(0);
-  service_stopped_callback_sem_ = semaphore_new(0);
-  service_deleted_callback_sem_ = semaphore_new(0);
-
-  bluetooth::hal::BluetoothGattInterface::Initialize();
-  ASSERT_TRUE(bluetooth::hal::BluetoothGattInterface::IsInitialized());
-  auto gatt_interface = bluetooth::hal::BluetoothGattInterface::Get();
-  gatt_interface->AddClientObserver(this);
-  gatt_interface->AddServerObserver(this);
-
-  gatt_client_interface_ = gatt_interface->GetClientHALInterface();
-  gatt_server_interface_ = gatt_interface->GetServerHALInterface();
-
-  ASSERT_NE(nullptr, gatt_client_interface_);
-  ASSERT_NE(nullptr, gatt_server_interface_);
+  gatt_interface_ = reinterpret_cast<const btgatt_interface_t*>(
+      bt_interface()->get_profile_interface(BT_PROFILE_GATT_ID));
+  ASSERT_NE(nullptr, gatt_interface_);
+  instance = this;
+  auto status = gatt_interface_->init(&callbacks);
+  ASSERT_EQ(status, BT_STATUS_SUCCESS);
 }
 
 void GattTest::TearDown() {
-  gatt_client_interface_ = nullptr;
-  gatt_server_interface_ = nullptr;
-
-  semaphore_free(register_client_callback_sem_);
-  semaphore_free(scan_result_callback_sem_);
-
-  semaphore_free(register_server_callback_sem_);
-  semaphore_free(service_added_callback_sem_);
-  semaphore_free(service_stopped_callback_sem_);
-  semaphore_free(service_deleted_callback_sem_);
-
-  bluetooth::hal::BluetoothGattInterface::CleanUp();
+  instance = nullptr;
+  gatt_interface_ = nullptr;
 
   ASSERT_EQ(bt_interface()->disable(), BT_STATUS_SUCCESS);
   semaphore_wait(adapter_state_changed_callback_sem_);
@@ -81,65 +129,15 @@ void GattTest::TearDown() {
 }
 
 const BleScannerInterface* GattTest::gatt_scanner_interface() {
-  return gatt_scanner_interface_;
+  return gatt_interface_->scanner;
 }
 
 const btgatt_client_interface_t* GattTest::gatt_client_interface() {
-  return gatt_client_interface_;
+  return gatt_interface_->client;
 }
 
 const btgatt_server_interface_t* GattTest::gatt_server_interface() {
-  return gatt_server_interface_;
-}
-
-void GattTest::RegisterClientCallback(
-    bluetooth::hal::BluetoothGattInterface* /* unused */, int status,
-    int clientIf, const bluetooth::Uuid& app_uuid) {
-  status_ = status;
-  client_interface_id_ = clientIf;
-  semaphore_post(register_client_callback_sem_);
-}
-
-void GattTest::ScanResultCallback(
-    bluetooth::hal::BluetoothGattInterface* /* unused */, const RawAddress& bda,
-    int rssi, std::vector<uint8_t> adv_data) {
-  semaphore_post(scan_result_callback_sem_);
-}
-
-// GATT server callbacks
-void GattTest::RegisterServerCallback(
-    bluetooth::hal::BluetoothGattInterface* /* unused */, int status,
-    int server_if, const bluetooth::Uuid& uuid) {
-  status_ = status;
-  server_interface_id_ = server_if;
-  semaphore_post(register_server_callback_sem_);
-}
-
-void GattTest::ServiceAddedCallback(
-    bluetooth::hal::BluetoothGattInterface* /* unused */, int status,
-    int server_if, std::vector<btgatt_db_element_t> service) {
-  status_ = status;
-  server_interface_id_ = server_if;
-  service_handle_ = service[0].attribute_handle;
-  semaphore_post(service_added_callback_sem_);
-}
-
-void GattTest::ServiceStoppedCallback(
-    bluetooth::hal::BluetoothGattInterface* /* unused */, int status,
-    int server_if, int srvc_handle) {
-  status_ = status;
-  server_interface_id_ = server_if;
-  service_handle_ = srvc_handle;
-  semaphore_post(service_stopped_callback_sem_);
-}
-
-void GattTest::ServiceDeletedCallback(
-    bluetooth::hal::BluetoothGattInterface* /* unused */, int status,
-    int server_if, int srvc_handle) {
-  status_ = status;
-  server_interface_id_ = server_if;
-  service_handle_ = srvc_handle;
-  semaphore_post(service_deleted_callback_sem_);
+  return gatt_interface_->server;
 }
 
 }  // bttest

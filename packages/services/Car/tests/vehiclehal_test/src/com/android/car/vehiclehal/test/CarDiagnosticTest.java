@@ -15,7 +15,7 @@
  */
 package com.android.car.vehiclehal.test;
 
-import static junit.framework.Assert.assertTrue;
+import static com.google.common.truth.Truth.assertWithMessage;
 
 import android.car.Car;
 import android.car.diagnostic.CarDiagnosticEvent;
@@ -24,21 +24,20 @@ import android.car.diagnostic.FloatSensorIndex;
 import android.car.diagnostic.IntegerSensorIndex;
 import android.car.hardware.CarPropertyValue;
 import android.car.hardware.CarSensorManager;
-import android.hardware.automotive.vehicle.V2_0.VehiclePropValue;
-import android.hardware.automotive.vehicle.V2_0.VehicleProperty;
+import android.hardware.automotive.vehicle.VehicleProperty;
 import android.util.Log;
 import android.util.SparseIntArray;
 
 import androidx.test.filters.LargeTest;
 import androidx.test.runner.AndroidJUnit4;
 
-import com.android.car.vehiclehal.VehiclePropValueBuilder;
-
+import org.junit.After;
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
-import java.io.File;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.List;
 
 @RunWith(AndroidJUnit4.class)
@@ -47,7 +46,7 @@ public class CarDiagnosticTest extends E2eCarTestBase {
 
     private static final String TAG = Utils.concatTag(CarDiagnosticTest.class);
 
-    private static final Duration TEST_TIME_OUT = Duration.ofMinutes(5);
+    private static final Duration TEST_TIME_OUT = Duration.ofSeconds(10);
 
     private static final String CAR_DIAGNOSTIC_TEST_JSON = "car_diagnostic_test.json";
 
@@ -61,11 +60,14 @@ public class CarDiagnosticTest extends E2eCarTestBase {
                 CarDiagnosticManager.FRAME_TYPE_FREEZE, VehicleProperty.OBD2_FREEZE_FRAME);
     }
 
-    private class CarDiagnosticListner implements CarDiagnosticManager.OnDiagnosticEventListener {
+    private boolean mPropertySaved;
+
+    private static class CarDiagnosticListener implements
+            CarDiagnosticManager.OnDiagnosticEventListener {
 
         private VhalEventVerifier mVerifier;
 
-        CarDiagnosticListner(VhalEventVerifier verifier) {
+        CarDiagnosticListener(VhalEventVerifier verifier) {
             mVerifier = verifier;
         }
 
@@ -75,20 +77,33 @@ public class CarDiagnosticTest extends E2eCarTestBase {
         }
     }
 
-    private static CarPropertyValue<VehiclePropValue.RawValue> fromCarDiagnosticEvent(
+    private static CarPropertyValue<Object[]> fromCarDiagnosticEvent(
             final CarDiagnosticEvent event) {
         int prop = DIAGNOSTIC_PROPERTY_MAP.get(event.frameType);
-        VehiclePropValueBuilder builder = VehiclePropValueBuilder.newBuilder(prop);
+        List<Object> valuesList = new ArrayList<>();
 
         for (int i = 0; i <= IntegerSensorIndex.LAST_SYSTEM; i++) {
-            builder.addIntValue(event.getSystemIntegerSensor(i, 0));
+            valuesList.add(event.getSystemIntegerSensor(i, 0));
         }
         for (int i = 0; i <= FloatSensorIndex.LAST_SYSTEM; i++) {
-            builder.addFloatValue(event.getSystemFloatSensor(i, 0));
+            valuesList.add(event.getSystemFloatSensor(i, 0));
         }
+        valuesList.add(event.dtc);
+        return new CarPropertyValue<>(prop, 0, valuesList.toArray());
+    }
 
-        builder.setStringValue(event.dtc);
-        return new CarPropertyValue<>(prop, 0, builder.build().value);
+    @Before
+    public void setUp() throws Exception {
+        checkRefAidlVHal();
+        saveProperty(VehicleProperty.OBD2_LIVE_FRAME, 0);
+        mPropertySaved = true;
+    }
+
+    @After
+    public void tearDown() throws Exception {
+        if (mPropertySaved) {
+            restoreProperty(VehicleProperty.OBD2_LIVE_FRAME, 0);
+        }
     }
 
     @Test
@@ -100,31 +115,31 @@ public class CarDiagnosticTest extends E2eCarTestBase {
         CarDiagnosticManager diagnosticManager = (CarDiagnosticManager) mCar.getCarManager(
                 Car.DIAGNOSTIC_SERVICE);
 
-        CarDiagnosticListner listner = new CarDiagnosticListner(verifier);
+        CarDiagnosticListener listener = new CarDiagnosticListener(verifier);
 
-        assertTrue("Failed to register for OBD2 diagnostic live frame.",
-                   diagnosticManager.registerListener(listner,
-                                                      CarDiagnosticManager.FRAME_TYPE_LIVE,
-                                                      CarSensorManager.SENSOR_RATE_NORMAL));
-        assertTrue("Failed to register for OBD2 diagnostic freeze frame.",
-                   diagnosticManager.registerListener(listner,
-                                                      CarDiagnosticManager.FRAME_TYPE_FREEZE,
-                                                      CarSensorManager.SENSOR_RATE_NORMAL));
+        assertWithMessage("Failed to register for OBD2 diagnostic live frame.").that(
+                diagnosticManager.registerListener(listener,
+                        CarDiagnosticManager.FRAME_TYPE_LIVE,
+                        CarSensorManager.SENSOR_RATE_NORMAL)).isTrue();
+        assertWithMessage("Failed to register for OBD2 diagnostic freeze frame.").that(
+                diagnosticManager.registerListener(listener,
+                        CarDiagnosticManager.FRAME_TYPE_FREEZE,
+                        CarSensorManager.SENSOR_RATE_NORMAL)).isTrue();
 
-        File sharedJson = makeShareable(CAR_DIAGNOSTIC_TEST_JSON);
         Log.d(TAG, "Send command to VHAL to start generation");
-        VhalEventGenerator diagnosticGenerator =
-                new JsonVhalEventGenerator(mVehicle).setJsonFile(sharedJson);
+
+        VhalEventGenerator diagnosticGenerator = new JsonVhalEventGenerator(mCarTestManager,
+                VHAL_DUMP_TIMEOUT_MS).setJson(getTestFileContent(CAR_DIAGNOSTIC_TEST_JSON));
         diagnosticGenerator.start();
 
         Log.d(TAG, "Receiving and verifying VHAL events");
-        verifier.waitForEnd(TEST_TIME_OUT.toMillis());
+        boolean result = verifier.waitForEnd(TEST_TIME_OUT.toMillis());
 
         Log.d(TAG, "Send command to VHAL to stop generation");
         diagnosticGenerator.stop();
-        diagnosticManager.unregisterListener(listner);
+        diagnosticManager.unregisterListener(listener);
 
-        assertTrue("Detected mismatched events: " + verifier.getResultString(),
-                    verifier.getMismatchedEvents().isEmpty());
+        assertWithMessage("Detected mismatched events (ignore timestamp and status): "
+                + verifier.getResultString()).that(result).isTrue();
     }
 }

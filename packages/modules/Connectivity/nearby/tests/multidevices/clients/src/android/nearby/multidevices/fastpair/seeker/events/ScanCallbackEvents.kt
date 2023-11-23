@@ -40,4 +40,10 @@ class ScanCallbackEvents(private val callbackId: String) : ScanCallback {
             putString("device", device.toString())
         }
     }
+
+    override fun onError(errorCode: Int) {
+        postSnippetEvent(callbackId, "onError") {
+            putString("error", errorCode.toString())
+        }
+    }
 }

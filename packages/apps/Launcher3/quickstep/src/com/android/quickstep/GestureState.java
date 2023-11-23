@@ -15,29 +15,40 @@
  */
 package com.android.quickstep;
 
+import static com.android.launcher3.MotionEventsUtils.isTrackpadFourFingerSwipe;
+import static com.android.launcher3.MotionEventsUtils.isTrackpadMultiFingerSwipe;
+import static com.android.launcher3.MotionEventsUtils.isTrackpadThreeFingerSwipe;
+import static com.android.launcher3.logging.StatsLogManager.LAUNCHER_STATE_ALLAPPS;
 import static com.android.launcher3.logging.StatsLogManager.LAUNCHER_STATE_BACKGROUND;
 import static com.android.launcher3.logging.StatsLogManager.LAUNCHER_STATE_HOME;
 import static com.android.launcher3.logging.StatsLogManager.LAUNCHER_STATE_OVERVIEW;
 import static com.android.quickstep.MultiStateCallback.DEBUG_STATES;
+import static com.android.quickstep.util.ActiveGestureErrorDetector.GestureEvent.SET_END_TARGET;
+import static com.android.quickstep.util.ActiveGestureErrorDetector.GestureEvent.SET_END_TARGET_ALL_APPS;
+import static com.android.quickstep.util.ActiveGestureErrorDetector.GestureEvent.SET_END_TARGET_HOME;
+import static com.android.quickstep.util.ActiveGestureErrorDetector.GestureEvent.SET_END_TARGET_NEW_TASK;
 
 import android.annotation.Nullable;
 import android.annotation.TargetApi;
 import android.content.Intent;
 import android.os.Build;
+import android.view.MotionEvent;
+import android.view.RemoteAnimationTarget;
 
 import com.android.launcher3.statemanager.BaseState;
 import com.android.launcher3.statemanager.StatefulActivity;
 import com.android.launcher3.tracing.GestureStateProto;
 import com.android.launcher3.tracing.SwipeHandlerProto;
 import com.android.quickstep.TopTaskTracker.CachedTaskInfo;
+import com.android.quickstep.util.ActiveGestureErrorDetector;
 import com.android.quickstep.util.ActiveGestureLog;
 import com.android.systemui.shared.recents.model.ThumbnailData;
-import com.android.systemui.shared.system.RemoteAnimationTargetCompat;
 
 import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 /**
@@ -59,7 +70,9 @@ public class GestureState implements RecentsAnimationCallbacks.RecentsAnimationL
                 GestureStateProto.GestureEndTarget.NEW_TASK),
 
         LAST_TASK(false, LAUNCHER_STATE_BACKGROUND, true,
-                GestureStateProto.GestureEndTarget.LAST_TASK);
+                GestureStateProto.GestureEndTarget.LAST_TASK),
+
+        ALL_APPS(true, LAUNCHER_STATE_ALLAPPS, false, GestureStateProto.GestureEndTarget.ALL_APPS);
 
         GestureEndTarget(boolean isLauncher, int containerType, boolean recentsAttachedToAppWindow,
                 GestureStateProto.GestureEndTarget protoEndTarget) {
@@ -82,11 +95,11 @@ public class GestureState implements RecentsAnimationCallbacks.RecentsAnimationL
 
     private static final String TAG = "GestureState";
 
-    private static final ArrayList<String> STATE_NAMES = new ArrayList<>();
+    private static final List<String> STATE_NAMES = new ArrayList<>();
     public static final GestureState DEFAULT_STATE = new GestureState();
 
     private static int FLAG_COUNT = 0;
-    private static int getFlagForIndex(String name) {
+    private static int getNextStateFlag(String name) {
         if (DEBUG_STATES) {
             STATE_NAMES.add(name);
         }
@@ -97,36 +110,36 @@ public class GestureState implements RecentsAnimationCallbacks.RecentsAnimationL
 
     // Called when the end target as been set
     public static final int STATE_END_TARGET_SET =
-            getFlagForIndex("STATE_END_TARGET_SET");
+            getNextStateFlag("STATE_END_TARGET_SET");
 
     // Called when the end target animation has finished
     public static final int STATE_END_TARGET_ANIMATION_FINISHED =
-            getFlagForIndex("STATE_END_TARGET_ANIMATION_FINISHED");
+            getNextStateFlag("STATE_END_TARGET_ANIMATION_FINISHED");
 
     // Called when the recents animation has been requested to start
     public static final int STATE_RECENTS_ANIMATION_INITIALIZED =
-            getFlagForIndex("STATE_RECENTS_ANIMATION_INITIALIZED");
+            getNextStateFlag("STATE_RECENTS_ANIMATION_INITIALIZED");
 
     // Called when the recents animation is started and the TaskAnimationManager has been updated
     // with the controller and targets
     public static final int STATE_RECENTS_ANIMATION_STARTED =
-            getFlagForIndex("STATE_RECENTS_ANIMATION_STARTED");
+            getNextStateFlag("STATE_RECENTS_ANIMATION_STARTED");
 
     // Called when the recents animation is canceled
     public static final int STATE_RECENTS_ANIMATION_CANCELED =
-            getFlagForIndex("STATE_RECENTS_ANIMATION_CANCELED");
+            getNextStateFlag("STATE_RECENTS_ANIMATION_CANCELED");
 
     // Called when the recents animation finishes
     public static final int STATE_RECENTS_ANIMATION_FINISHED =
-            getFlagForIndex("STATE_RECENTS_ANIMATION_FINISHED");
+            getNextStateFlag("STATE_RECENTS_ANIMATION_FINISHED");
 
     // Always called when the recents animation ends (regardless of cancel or finish)
     public static final int STATE_RECENTS_ANIMATION_ENDED =
-            getFlagForIndex("STATE_RECENTS_ANIMATION_ENDED");
+            getNextStateFlag("STATE_RECENTS_ANIMATION_ENDED");
 
     // Called when RecentsView stops scrolling and settles on a TaskView.
     public static final int STATE_RECENTS_SCROLLING_FINISHED =
-            getFlagForIndex("STATE_RECENTS_SCROLLING_FINISHED");
+            getNextStateFlag("STATE_RECENTS_SCROLLING_FINISHED");
 
     // Needed to interact with the current activity
     private final Intent mHomeIntent;
@@ -135,9 +148,32 @@ public class GestureState implements RecentsAnimationCallbacks.RecentsAnimationL
     private final MultiStateCallback mStateCallback;
     private final int mGestureId;
 
+    public enum TrackpadGestureType {
+        NONE,
+        // Assigned before we know whether it's a 3-finger or 4-finger gesture.
+        MULTI_FINGER,
+        THREE_FINGER,
+        FOUR_FINGER;
+
+        public static TrackpadGestureType getTrackpadGestureType(MotionEvent event) {
+            if (!isTrackpadMultiFingerSwipe(event)) {
+                return TrackpadGestureType.NONE;
+            }
+            if (isTrackpadThreeFingerSwipe(event)) {
+                return TrackpadGestureType.THREE_FINGER;
+            }
+            if (isTrackpadFourFingerSwipe(event)) {
+                return TrackpadGestureType.FOUR_FINGER;
+            }
+
+            return TrackpadGestureType.MULTI_FINGER;
+        }
+    }
+
+    private TrackpadGestureType mTrackpadGestureType = TrackpadGestureType.NONE;
     private CachedTaskInfo mRunningTask;
     private GestureEndTarget mEndTarget;
-    private RemoteAnimationTargetCompat mLastAppearedTaskTarget;
+    private RemoteAnimationTarget mLastAppearedTaskTarget;
     private Set<Integer> mPreviouslyAppearedTaskIds = new HashSet<>();
     private int mLastStartedTaskId = -1;
     private RecentsAnimationController mRecentsAnimationController;
@@ -152,7 +188,8 @@ public class GestureState implements RecentsAnimationCallbacks.RecentsAnimationL
         mHomeIntent = componentObserver.getHomeIntent();
         mOverviewIntent = componentObserver.getOverviewIntent();
         mActivityInterface = componentObserver.getActivityInterface();
-        mStateCallback = new MultiStateCallback(STATE_NAMES.toArray(new String[0]));
+        mStateCallback = new MultiStateCallback(
+                STATE_NAMES.toArray(new String[0]), GestureState::getTrackedEventForState);
         mGestureId = gestureId;
     }
 
@@ -174,8 +211,21 @@ public class GestureState implements RecentsAnimationCallbacks.RecentsAnimationL
         mHomeIntent = new Intent();
         mOverviewIntent = new Intent();
         mActivityInterface = null;
-        mStateCallback = new MultiStateCallback(STATE_NAMES.toArray(new String[0]));
+        mStateCallback = new MultiStateCallback(
+                STATE_NAMES.toArray(new String[0]), GestureState::getTrackedEventForState);
         mGestureId = -1;
+    }
+
+    @Nullable
+    private static ActiveGestureErrorDetector.GestureEvent getTrackedEventForState(int stateFlag) {
+        if (stateFlag == STATE_END_TARGET_ANIMATION_FINISHED) {
+            return ActiveGestureErrorDetector.GestureEvent.STATE_END_TARGET_ANIMATION_FINISHED;
+        } else if (stateFlag == STATE_RECENTS_SCROLLING_FINISHED) {
+            return ActiveGestureErrorDetector.GestureEvent.STATE_RECENTS_SCROLLING_FINISHED;
+        } else if (stateFlag == STATE_RECENTS_ANIMATION_CANCELED) {
+            return ActiveGestureErrorDetector.GestureEvent.STATE_RECENTS_ANIMATION_CANCELED;
+        }
+        return null;
     }
 
     /**
@@ -229,6 +279,25 @@ public class GestureState implements RecentsAnimationCallbacks.RecentsAnimationL
     }
 
     /**
+     * Sets if the gesture is is from the trackpad, if so, whether 3-finger, or 4-finger
+     */
+    public void setTrackpadGestureType(TrackpadGestureType trackpadGestureType) {
+        mTrackpadGestureType = trackpadGestureType;
+    }
+
+    public boolean isTrackpadGesture() {
+        return mTrackpadGestureType != TrackpadGestureType.NONE;
+    }
+
+    public boolean isThreeFingerTrackpadGesture() {
+        return mTrackpadGestureType == TrackpadGestureType.THREE_FINGER;
+    }
+
+    public boolean isFourFingerTrackpadGesture() {
+        return mTrackpadGestureType == TrackpadGestureType.FOUR_FINGER;
+    }
+
+    /**
      * @return the running task for this gesture.
      */
     public CachedTaskInfo getRunningTask() {
@@ -252,7 +321,7 @@ public class GestureState implements RecentsAnimationCallbacks.RecentsAnimationL
     /**
      * Updates the last task that appeared during this gesture.
      */
-    public void updateLastAppearedTaskTarget(RemoteAnimationTargetCompat lastAppearedTaskTarget) {
+    public void updateLastAppearedTaskTarget(RemoteAnimationTarget lastAppearedTaskTarget) {
         mLastAppearedTaskTarget = lastAppearedTaskTarget;
         if (lastAppearedTaskTarget != null) {
             mPreviouslyAppearedTaskIds.add(lastAppearedTaskTarget.taskId);
@@ -310,7 +379,24 @@ public class GestureState implements RecentsAnimationCallbacks.RecentsAnimationL
     public void setEndTarget(GestureEndTarget target, boolean isAtomic) {
         mEndTarget = target;
         mStateCallback.setState(STATE_END_TARGET_SET);
-        ActiveGestureLog.INSTANCE.addLog("setEndTarget " + mEndTarget);
+        ActiveGestureLog.INSTANCE.addLog(
+                /* event= */ "setEndTarget " + mEndTarget,
+                /* gestureEvent= */ SET_END_TARGET);
+        switch (mEndTarget) {
+            case HOME:
+                ActiveGestureLog.INSTANCE.trackEvent(SET_END_TARGET_HOME);
+                break;
+            case NEW_TASK:
+                ActiveGestureLog.INSTANCE.trackEvent(SET_END_TARGET_NEW_TASK);
+                break;
+            case ALL_APPS:
+                ActiveGestureLog.INSTANCE.trackEvent(SET_END_TARGET_ALL_APPS);
+                break;
+            case LAST_TASK:
+            case RECENTS:
+            default:
+                // No-Op
+        }
         if (isAtomic) {
             mStateCallback.setState(STATE_END_TARGET_ANIMATION_FINISHED);
         }

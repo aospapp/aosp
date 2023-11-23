@@ -20,19 +20,22 @@
               android:layout_width="match_parent"
               android:layout_height="match_parent">
 
-    <LinearLayout
-        style="?android:attr/buttonBarButtonStyle"
-        android:orientation="horizontal"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content">
 
-        <Button
-            android:id="@+id/bind_service_button"
-            android:layout_height="wrap_content"
-            android:layout_width="wrap_content"
-            style="?android:attr/buttonBarButtonStyle"
-            android:text="@string/bind_service" />
-    </LinearLayout>
+    <EditText
+        android:id="@+id/text_box"
+        android:inputType="text"
+        android:maxLines="1"
+        android:lines="1"
+        android:layout_height="wrap_content"
+        android:layout_width="match_parent"
+        android:hint="Keyword" />
+
+    <Button
+        android:id="@+id/get_ad_button"
+        android:layout_height="wrap_content"
+        android:layout_width="wrap_content"
+        style="?android:attr/buttonBarButtonStyle"
+        android:text="@string/get_ad" />
 
     <SurfaceView
         android:id="@+id/rendered_view"

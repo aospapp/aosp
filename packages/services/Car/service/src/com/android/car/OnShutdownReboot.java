@@ -52,6 +52,12 @@ public class OnShutdownReboot {
 
     public OnShutdownReboot(Context context) {
         mContext = context;
+    }
+
+    /**
+     * Initializes all resources and registers the broadcast receiver
+     */
+    public void init() {
         IntentFilter filter = new IntentFilter();
         filter.addAction(Intent.ACTION_SHUTDOWN);
         filter.addAction(Intent.ACTION_REBOOT);

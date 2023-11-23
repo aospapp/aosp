@@ -42,4 +42,17 @@
         <item>Set up your newly installed channel sources to customize your channel list.
 \nChoose the Channel sources within the Settings menu to get started.</item>
     </string-array>
+
+    <!-- An array of input setup component names in the form of
+         <code>input_id + '#' + flattened_component_name</code>.
+         If one input's setup component is defined by this runtime resource overlay (RRO),
+         the LiveTv will use the defined component to set up the input,
+         instead of the setup Activity defined in the TvInputService apk.-->
+    <string-array translatable="false" name="setup_ComponentNames">
+        <!-- Example:
+        <item>"input_1#com.example.setup1/.SetupActivity1"</item>
+        <item>"input_2#com.example.setup1/com.example.setup1.SetupActivity2"</item>
+        <item>"input_3#com.example.setup2/com.example2.SetupActivity"</item>
+        -->
+    </string-array>
 </resources>

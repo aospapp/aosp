@@ -18,18 +18,30 @@ package com.android.car.hal;
 
 import android.car.VehicleAreaType;
 import android.car.hardware.CarPropertyConfig;
+import android.car.hardware.property.AreaIdConfig;
 import android.hardware.automotive.vehicle.VehicleArea;
+import android.hardware.automotive.vehicle.VehicleProperty;
+import android.hardware.automotive.vehicle.VehiclePropertyChangeMode;
 import android.hardware.automotive.vehicle.VehiclePropertyType;
 
 import java.util.ArrayList;
+import java.util.List;
+import java.util.Set;
 
 /**
  * HalPropConfig represents a vehicle property config.
  */
 public abstract class HalPropConfig {
-
-    private static final int[] DEFAULT_AREA_IDS = {VehicleAreaType.VEHICLE_AREA_TYPE_GLOBAL};
-
+    private static final Set<Integer> CONFIG_ARRAY_DEFINES_SUPPORTED_ENUM_VALUES =
+            Set.of(
+                    VehicleProperty.GEAR_SELECTION,
+                    VehicleProperty.CURRENT_GEAR,
+                    VehicleProperty.DISTANCE_DISPLAY_UNITS,
+                    VehicleProperty.EV_BATTERY_DISPLAY_UNITS,
+                    VehicleProperty.TIRE_PRESSURE_DISPLAY_UNITS,
+                    VehicleProperty.FUEL_VOLUME_DISPLAY_UNITS,
+                    VehicleProperty.HVAC_TEMPERATURE_DISPLAY_UNITS,
+                    VehicleProperty.VEHICLE_SPEED_DISPLAY_UNITS);
     /**
      * Get the property ID.
      */
@@ -79,70 +91,91 @@ public abstract class HalPropConfig {
      * Converts {@link HalPropConfig} to {@link CarPropertyConfig}.
      *
      * @param mgrPropertyId The Property ID used by Car Property Manager, different from the
-     *      property ID used by VHAL.
+     *                      property ID used by VHAL.
      */
     public CarPropertyConfig<?> toCarPropertyConfig(int mgrPropertyId) {
         int propId = getPropId();
         int areaType = getVehicleAreaType(propId & VehicleArea.MASK);
-
         Class<?> clazz = CarPropertyUtils.getJavaClass(propId & VehiclePropertyType.MASK);
+        CarPropertyConfig.Builder carPropertyConfigBuilder = CarPropertyConfig.newBuilder(clazz,
+                mgrPropertyId, areaType).setAccess(getAccess()).setChangeMode(
+                getChangeMode()).setConfigString(getConfigString());
+
         float maxSampleRate = 0f;
         float minSampleRate = 0f;
-        if (getChangeMode() != CarPropertyConfig.VEHICLE_PROPERTY_CHANGE_MODE_STATIC) {
+        if (getChangeMode() == CarPropertyConfig.VEHICLE_PROPERTY_CHANGE_MODE_CONTINUOUS) {
             maxSampleRate = getMaxSampleRate();
             minSampleRate = getMinSampleRate();
         }
+        carPropertyConfigBuilder.setMinSampleRate(minSampleRate).setMaxSampleRate(maxSampleRate);
 
         int[] configIntArray = getConfigArray();
         ArrayList<Integer> configArray = new ArrayList<>(configIntArray.length);
+        long[] supportedEnumValues = null;
+        boolean shouldConfigArrayDefineSupportedEnumValues =
+                CONFIG_ARRAY_DEFINES_SUPPORTED_ENUM_VALUES.contains(propId);
+        if (shouldConfigArrayDefineSupportedEnumValues) {
+            supportedEnumValues = new long[configIntArray.length];
+        }
         for (int i = 0; i < configIntArray.length; i++) {
             configArray.add(configIntArray[i]);
+            if (shouldConfigArrayDefineSupportedEnumValues) {
+                supportedEnumValues[i] = (long) configIntArray[i];
+            }
         }
-        HalAreaConfig[] areaConfigs = getAreaConfigs();
-        if (areaConfigs.length == 0) {
-            return CarPropertyConfig
-                    .newBuilder(clazz, mgrPropertyId, areaType, /* capacity= */ 1)
-                    .addAreas(DEFAULT_AREA_IDS)
-                    .setAccess(getAccess())
-                    .setChangeMode(getChangeMode())
-                    .setConfigArray(configArray)
-                    .setConfigString(getConfigString())
-                    .setMaxSampleRate(maxSampleRate)
-                    .setMinSampleRate(minSampleRate)
-                    .build();
-        } else {
-            CarPropertyConfig.Builder builder = CarPropertyConfig
-                    .newBuilder(clazz, mgrPropertyId, areaType, /* capacity= */ areaConfigs.length)
-                    .setAccess(getAccess())
-                    .setChangeMode(getChangeMode())
-                    .setConfigArray(configArray)
-                    .setConfigString(getConfigString())
-                    .setMaxSampleRate(maxSampleRate)
-                    .setMinSampleRate(minSampleRate);
+        carPropertyConfigBuilder.setConfigArray(configArray);
 
-            for (HalAreaConfig area : areaConfigs) {
-                int areaId = area.getAreaId();
-                if (classMatched(Integer.class, clazz)) {
-                    builder.addAreaConfig(areaId, area.getMinInt32Value(), area.getMaxInt32Value());
-                } else if (classMatched(Float.class, clazz)) {
-                    builder.addAreaConfig(areaId, area.getMinFloatValue(), area.getMaxFloatValue());
-                } else if (classMatched(Long.class, clazz)) {
-                    builder.addAreaConfig(areaId, area.getMinInt64Value(), area.getMaxInt64Value());
-                } else if (classMatched(Boolean.class, clazz)
-                        || classMatched(Float[].class, clazz)
-                        || classMatched(Integer[].class, clazz)
-                        || classMatched(Long[].class, clazz)
-                        || classMatched(String.class, clazz)
-                        || classMatched(byte[].class, clazz)
-                        || classMatched(Object[].class, clazz)) {
-                    // These property types do not have min/max values
-                    builder.addArea(areaId);
-                } else {
-                    throw new IllegalArgumentException("Unexpected type: " + clazz);
+        HalAreaConfig[] halAreaConfigs = getAreaConfigs();
+        if (halAreaConfigs.length == 0) {
+            carPropertyConfigBuilder.addAreaIdConfig(generateAreaIdConfig(clazz, /*areaId=*/0,
+                    /*minInt32Value=*/0, /*maxInt32Value=*/0,
+                    /*minFloatValue=*/0, /*maxFloatValue=*/0,
+                    /*minInt64Value=*/0, /*maxInt64Value=*/0,
+                    supportedEnumValues));
+        } else {
+            for (HalAreaConfig halAreaConfig : halAreaConfigs) {
+                if (!shouldConfigArrayDefineSupportedEnumValues) {
+                    supportedEnumValues = halAreaConfig.getSupportedEnumValues();
+                }
+                carPropertyConfigBuilder.addAreaIdConfig(
+                        generateAreaIdConfig(clazz, halAreaConfig.getAreaId(),
+                                halAreaConfig.getMinInt32Value(), halAreaConfig.getMaxInt32Value(),
+                                halAreaConfig.getMinFloatValue(), halAreaConfig.getMaxFloatValue(),
+                                halAreaConfig.getMinInt64Value(), halAreaConfig.getMaxInt64Value(),
+                                supportedEnumValues));
+            }
+        }
+        return carPropertyConfigBuilder.build();
+    }
+
+    private AreaIdConfig generateAreaIdConfig(Class<?> clazz, int areaId, int minInt32Value,
+            int maxInt32Value, float minFloatValue, float maxFloatValue, long minInt64Value,
+            long maxInt64Value, long[] supportedEnumValues) {
+        AreaIdConfig.Builder areaIdConfigBuilder = new AreaIdConfig.Builder(areaId);
+        if (classMatched(Integer.class, clazz)) {
+            if ((minInt32Value != 0 || maxInt32Value != 0)) {
+                areaIdConfigBuilder.setMinValue(minInt32Value).setMaxValue(maxInt32Value);
+            }
+            if (getChangeMode() == VehiclePropertyChangeMode.ON_CHANGE) {
+                if (supportedEnumValues != null && supportedEnumValues.length > 0) {
+                    List<Integer> managerSupportedEnumValues = new ArrayList<>(
+                            supportedEnumValues.length);
+                    for (int i = 0; i < supportedEnumValues.length; i++) {
+                        managerSupportedEnumValues.add((int) supportedEnumValues[i]);
+                    }
+                    areaIdConfigBuilder.setSupportedEnumValues(managerSupportedEnumValues);
+                } else if (PropertyHalServiceIds.getAllPossibleSupportedEnumValues(getPropId())
+                        != null) {
+                    areaIdConfigBuilder.setSupportedEnumValues(new ArrayList(
+                            PropertyHalServiceIds.getAllPossibleSupportedEnumValues(getPropId())));
                 }
             }
-            return builder.build();
+        } else if (classMatched(Float.class, clazz) && (minFloatValue != 0 || maxFloatValue != 0)) {
+            areaIdConfigBuilder.setMinValue(minFloatValue).setMaxValue(maxFloatValue);
+        } else if (classMatched(Long.class, clazz) && (minInt64Value != 0 || maxInt64Value != 0)) {
+            areaIdConfigBuilder.setMinValue(minInt64Value).setMaxValue(maxInt64Value);
         }
+        return areaIdConfigBuilder.build();
     }
 
     private static @VehicleAreaType.VehicleAreaTypeValue int getVehicleAreaType(int halArea) {
@@ -167,5 +200,4 @@ public abstract class HalPropConfig {
     private static boolean classMatched(Class<?> class1, Class<?> class2) {
         return class1 == class2 || class1.getComponentType() == class2;
     }
-
 }

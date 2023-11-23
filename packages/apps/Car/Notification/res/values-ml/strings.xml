@@ -49,4 +49,11 @@
     <string name="see_more_message" msgid="6343183827924395955">"കൂടുതൽ കാണുക"</string>
     <string name="restricted_hun_message_content" msgid="631111937988857716">"പുതിയ സന്ദേശം"</string>
     <string name="manage_text" msgid="4225197445283791757">"മാനേജ് ചെയ്യുക"</string>
+    <string name="category_navigation" msgid="4406139232918521087">"നാവിഗേഷൻ"</string>
+    <string name="category_call" msgid="2249490790700877973">"കോൾ ചെയ്യുക"</string>
+    <string name="category_message" msgid="451360226248504859">"സന്ദേശം"</string>
+    <string name="hun_suppression_channel_name" msgid="8298850157350352525">"മുന്നറിയിപ്പ് പ്രവർത്തനരഹിതമാക്കൽ"</string>
+    <string name="hun_suppression_notification_title_park" msgid="2790860076784227523">"ഏറ്റവും പുതിയ വിവരങ്ങൾ അപ്പപ്പോൾ അറിയൂ"</string>
+    <string name="hun_suppression_notification_title_drive" msgid="4403363470548899844">"ഡ്രൈവിംഗിൽ ശ്രദ്ധിക്കുക"</string>
+    <string name="hun_suppression_notification_description" msgid="5269238832987802104">"അറിയിപ്പ് കേന്ദ്രത്തിൽ ചില പുതിയ അറിയിപ്പുകൾ സംരക്ഷിച്ചിരിക്കുന്നു"</string>
 </resources>

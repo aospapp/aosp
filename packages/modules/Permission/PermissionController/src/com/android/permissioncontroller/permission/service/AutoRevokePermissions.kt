@@ -31,13 +31,14 @@ import com.android.permissioncontroller.DumpableLog
 import com.android.permissioncontroller.PermissionControllerStatsLog
 import com.android.permissioncontroller.PermissionControllerStatsLog.PERMISSION_GRANT_REQUEST_RESULT_REPORTED
 import com.android.permissioncontroller.PermissionControllerStatsLog.PERMISSION_GRANT_REQUEST_RESULT_REPORTED__RESULT__AUTO_UNUSED_APP_PERMISSION_REVOKED
+import com.android.permissioncontroller.hibernation.getUnusedThresholdMs
+import com.android.permissioncontroller.permission.utils.PermissionMapping
 import com.android.permissioncontroller.permission.data.LightAppPermGroupLiveData
 import com.android.permissioncontroller.permission.data.PackagePermissionsLiveData
 import com.android.permissioncontroller.permission.data.get
 import com.android.permissioncontroller.permission.model.livedatatypes.LightAppPermGroup
 import com.android.permissioncontroller.permission.model.livedatatypes.LightPackageInfo
 import com.android.permissioncontroller.permission.utils.KotlinUtils
-import com.android.permissioncontroller.permission.utils.Utils
 import com.android.permissioncontroller.permission.utils.application
 import com.android.permissioncontroller.permission.utils.forEachInParallel
 import com.android.permissioncontroller.permission.utils.updatePermissionFlags
@@ -77,16 +78,27 @@ suspend fun revokeAppPermissions(
             continue
         }
 
+        val pkgPermChanges = PermissionChangeStorageImpl.getInstance().loadEvents()
+            .associateBy { it.packageName }
         // For each autorevoke-eligible app...
-        userApps.forEachInParallel(Main) { pkg: LightPackageInfo ->
+        userApps.forEachInParallel(Main) forEachInParallelOuter@ { pkg: LightPackageInfo ->
             if (pkg.grantedPermissions.isEmpty()) {
-                return@forEachInParallel
+                return@forEachInParallelOuter
             }
             val packageName = pkg.packageName
+            val pkgPermChange = pkgPermChanges[packageName]
+            val now = System.currentTimeMillis()
+            if (pkgPermChange != null && now - pkgPermChange.eventTime < getUnusedThresholdMs()) {
+                if (DEBUG_AUTO_REVOKE) {
+                    DumpableLog.i(LOG_TAG, "Not revoking because permissions were changed " +
+                        "recently for package $packageName")
+                }
+                return@forEachInParallelOuter
+            }
             val targetSdk = pkg.targetSdkVersion
             val pkgPermGroups: Map<String, List<String>> =
                 PackagePermissionsLiveData[packageName, user]
-                    .getInitializedValue() ?: return@forEachInParallel
+                    .getInitializedValue() ?: return@forEachInParallelOuter
 
             // Determine which permGroups are revocable
             val revocableGroups = mutableSetOf<String>()
@@ -94,7 +106,7 @@ suspend fun revokeAppPermissions(
                 if (groupName == PackagePermissionsLiveData.NON_RUNTIME_NORMAL_PERMS) {
                     continue
                 }
-                if (groupName !in Utils.getPlatformPermissionGroups()) {
+                if (groupName !in PermissionMapping.getPlatformPermissionGroups()) {
                     continue
                 }
                 val group: LightAppPermGroup =
@@ -140,8 +152,7 @@ suspend fun revokeAppPermissions(
             val anyPermsRevoked = AtomicBoolean(false)
             pkgPermGroups.entries
                 .filter { revocableGroups.contains(it.key) }
-                .forEachInParallel(Main) { (groupName, _) ->
-
+                .forEachInParallel(Main) forEachInParallelInner@ { (groupName, _) ->
                 val group: LightAppPermGroup =
                     LightAppPermGroupLiveData[packageName, groupName, user]
                         .getInitializedValue()!!
@@ -149,7 +160,7 @@ suspend fun revokeAppPermissions(
                 val revocablePermissions = group.permissions.keys.toList()
 
                 if (revocablePermissions.isEmpty()) {
-                    return@forEachInParallel
+                    return@forEachInParallelInner
                 }
 
                 if (DEBUG_AUTO_REVOKE) {
@@ -161,7 +172,8 @@ suspend fun revokeAppPermissions(
                 for (permName in revocablePermissions) {
                     PermissionControllerStatsLog.write(
                         PERMISSION_GRANT_REQUEST_RESULT_REPORTED,
-                        sessionId, uid, packageName, permName, false, SERVER_LOG_ID)
+                        sessionId, uid, packageName, permName, false, SERVER_LOG_ID,
+                        /* permission_rationale_shown = */ false)
                 }
 
                 if (DEBUG_AUTO_REVOKE) {

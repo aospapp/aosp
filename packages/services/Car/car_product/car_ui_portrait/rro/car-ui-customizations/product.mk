@@ -18,8 +18,6 @@
 # Include generated RROs
 PRODUCT_PACKAGES += \
     generated_caruiportrait_customization-com-android-car-ui-paintbooth \
-    generated_caruiportrait_customization-com-google-android-car-ui-paintbooth \
-    generated_caruiportrait_customization-com-google-android-carui-ats \
     generated_caruiportrait_customization-com-android-car-rotaryplayground \
     generated_caruiportrait_customization-com-android-car-themeplayground \
     generated_caruiportrait_customization-com-android-car-carlauncher \
@@ -37,19 +35,10 @@ PRODUCT_PACKAGES += \
     generated_caruiportrait_customization-com-android-car-developeroptions \
     generated_caruiportrait_customization-com-android-managedprovisioning \
     generated_caruiportrait_customization-com-android-settings-intelligence \
-    generated_caruiportrait_customization-com-google-android-apps-automotive-inputmethod \
-    generated_caruiportrait_customization-com-google-android-apps-automotive-inputmethod-dev \
-    generated_caruiportrait_customization-com-google-android-apps-automotive-templates-host \
-    generated_caruiportrait_customization-com-google-android-companiondevicesupport \
-    generated_caruiportrait_customization-com-google-android-embedded-projection \
-    generated_caruiportrait_customization-com-google-android-gms \
-    generated_caruiportrait_customization-com-google-android-gsf \
-    generated_caruiportrait_customization-com-google-android-packageinstaller \
-    generated_caruiportrait_customization-com-google-android-permissioncontroller \
-    generated_caruiportrait_customization-com-google-android-carassistant \
-    generated_caruiportrait_customization-com-google-android-tts \
     generated_caruiportrait_customization-com-android-htmlviewer \
-    generated_caruiportrait_customization-com-android-vending
+    generated_caruiportrait_customization-com-android-permissioncontroller \
+    generated_caruiportrait_customization-com-google-android-car-portraitlauncher \
+    generated_caruiportrait_customization-com-google-car-ui-lib-sharedlibrary \
 
 # This system property is used to enable the RROs on startup via
 # the requiredSystemPropertyName/Value attributes in the manifest

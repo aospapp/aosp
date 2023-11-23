@@ -31,13 +31,12 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.media.AudioManager;
-import android.media.session.MediaSessionLegacyHelper;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.Message;
 import android.os.ParcelUuid;
-import android.os.SystemProperties;
 import android.provider.Settings;
+import android.sysprop.NfcProperties;
 import android.util.Log;
 import android.view.KeyEvent;
 import android.widget.Toast;
@@ -56,7 +55,7 @@ import com.android.nfc.R;
  */
 public class BluetoothPeripheralHandover implements BluetoothProfile.ServiceListener {
     static final String TAG = "BluetoothPeripheralHandover";
-    static final boolean DBG = SystemProperties.getBoolean("persist.nfc.debug_enabled", false);
+    static final boolean DBG = NfcProperties.debug_enabled().orElse(false);
 
     static final String ACTION_ALLOW_CONNECT = "com.android.nfc.handover.action.ALLOW_CONNECT";
     static final String ACTION_DENY_CONNECT = "com.android.nfc.handover.action.DENY_CONNECT";
@@ -147,7 +146,7 @@ public class BluetoothPeripheralHandover implements BluetoothProfile.ServiceList
             mIsA2dpAvailable = true;
         }
 
-        mAudioManager = (AudioManager)mContext.getSystemService(Context.AUDIO_SERVICE);
+        mAudioManager = mContext.getSystemService(AudioManager.class);
 
         mState = STATE_INIT;
     }
@@ -571,15 +570,10 @@ public class BluetoothPeripheralHandover implements BluetoothProfile.ServiceList
             return;
         }
 
-        MediaSessionLegacyHelper helper = MediaSessionLegacyHelper.getHelper(mContext);
-        if (helper != null) {
-            KeyEvent keyEvent = new KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_MEDIA_PLAY);
-            helper.sendMediaButtonEvent(keyEvent, false);
-            keyEvent = new KeyEvent(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_MEDIA_PLAY);
-            helper.sendMediaButtonEvent(keyEvent, false);
-        } else {
-            Log.w(TAG, "Unable to send media key event");
-        }
+        KeyEvent keyEvent = new KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_MEDIA_PLAY);
+        mAudioManager.dispatchMediaKeyEvent(keyEvent);
+        keyEvent = new KeyEvent(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_MEDIA_PLAY);
+        mAudioManager.dispatchMediaKeyEvent(keyEvent);
     }
 
     void requestPairConfirmation() {

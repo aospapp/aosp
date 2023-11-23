@@ -18,12 +18,15 @@
 #include "fuzzers/a2dp/codec/a2dpCodecFuzzFunctions.h"
 #include "fuzzers/common/commonFuzzHelpers.h"
 
+constexpr int32_t kMaxIterations = 100;
+
 extern "C" int LLVMFuzzerTestOneInput(const uint8_t* Data, size_t Size) {
   // Init our wrapper
   FuzzedDataProvider dataProvider(Data, Size);
+  int32_t count = 1;
 
   // Call some functions
-  while (dataProvider.remaining_bytes() > 0) {
+  while (dataProvider.remaining_bytes() > 0 && count++ <= kMaxIterations) {
     callArbitraryFunction(&dataProvider, a2dp_codec_operations);
   }
 

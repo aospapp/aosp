@@ -27,6 +27,9 @@ import android.os.Bundle;
 import android.view.ViewGroup;
 import android.view.Window;
 import android.view.accessibility.AccessibilityEvent;
+import android.widget.Button;
+
+import com.android.internal.annotations.VisibleForTesting;
 
 /**
  * An activity that follows the visual style of an AlertDialog.
@@ -117,6 +120,11 @@ public abstract class AlertActivity extends Activity implements DialogInterface.
     protected void changeButtonEnabled(int identifier, boolean enable) {
         if (mAlert == null) return;
         mAlert.getButton(identifier).setEnabled(enable);
+    }
+
+    @VisibleForTesting
+    public Button getButton(int identifier) {
+        return mAlert.getButton(identifier);
     }
 
     @Override

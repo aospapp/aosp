@@ -17,10 +17,8 @@
 #ifndef CPP_WATCHDOG_SERVER_TESTS_MOCKRESOURCEOVERUSELISTENER_H_
 #define CPP_WATCHDOG_SERVER_TESTS_MOCKRESOURCEOVERUSELISTENER_H_
 
-#include "MockBinder.h"
-
-#include <android/automotive/watchdog/BnResourceOveruseListener.h>
-#include <android/automotive/watchdog/ResourceOveruseStats.h>
+#include <aidl/android/automotive/watchdog/IResourceOveruseListener.h>
+#include <aidl/android/automotive/watchdog/ResourceOveruseStats.h>
 #include <binder/Status.h>
 #include <gmock/gmock.h>
 #include <utils/StrongPointer.h>
@@ -29,27 +27,14 @@ namespace android {
 namespace automotive {
 namespace watchdog {
 
-class MockResourceOveruseListener : public IResourceOveruseListenerDefault {
+class MockResourceOveruseListener :
+      public aidl::android::automotive::watchdog::IResourceOveruseListenerDefault {
 public:
-    MockResourceOveruseListener() : mMockBinder(android::sp<MockBinder>::make()) {
-        ON_CALL(*this, onAsBinder()).WillByDefault(::testing::Return(mMockBinder.get()));
-    }
-    ~MockResourceOveruseListener() { mMockBinder.clear(); }
+    MockResourceOveruseListener() {}
+    ~MockResourceOveruseListener() {}
 
-    MOCK_METHOD(android::IBinder*, onAsBinder, (), (override));
-    MOCK_METHOD(android::binder::Status, onOveruse, (const ResourceOveruseStats&), (override));
-
-    void injectLinkToDeathFailure() {
-        EXPECT_CALL(*mMockBinder, linkToDeath(::testing::_, nullptr, 0))
-                .WillOnce(::testing::Return(android::binder::Status::EX_ILLEGAL_STATE));
-    }
-    void injectUnlinkToDeathFailure() {
-        EXPECT_CALL(*mMockBinder, unlinkToDeath(::testing::_, nullptr, 0, nullptr))
-                .WillOnce(::testing::Return(android::binder::Status::EX_ILLEGAL_STATE));
-    }
-
-private:
-    android::sp<MockBinder> mMockBinder;
+    MOCK_METHOD(ndk::ScopedAStatus, onOveruse,
+                (const aidl::android::automotive::watchdog::ResourceOveruseStats&), (override));
 };
 
 }  // namespace watchdog

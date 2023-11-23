@@ -19,22 +19,22 @@
                   xmlns:custom="http://schemas.android.com/apk/res-auto"
                   android:title="@string/device_pref_category_title">
     <Preference
-        android:fragment="com.android.tv.settings.accessibility.AccessibilityFragment"
-        android:icon="@drawable/ic_accessibility_new"
-        android:key="accessibility"
-        android:title="@string/system_accessibility"/>
-    <Preference
         android:fragment="com.android.tv.settings.about.AboutFragment"
         android:icon="@drawable/ic_info_outline"
         android:key="about_device"
         android:title="@string/about_preference"/>
+    <Preference
+        android:fragment="com.android.tv.settings.device.eco.PowerAndEnergyFragment"
+        android:icon="@drawable/ic_settings_power_and_energy"
+        android:key="power_and_energy"
+        android:title="@string/power_and_energy"/>
     <Preference
         android:fragment="com.android.tv.settings.system.DateTimeFragment"
         android:icon="@drawable/ic_access_time"
         android:key="date_time"
         android:title="@string/system_date_time"/>
     <Preference
-        android:fragment="com.android.tv.settings.system.LanguageFragment"
+        android:fragment="com.android.tv.settings.system.locale.LanguagePickerFragment"
         android:icon="@drawable/ic_language"
         android:key="language"
         android:title="@string/system_language"/>
@@ -59,12 +59,8 @@
         android:icon="@drawable/ic_settings_system_daydream"
         android:key="ambient_settings"
         android:title="@string/device_daydream"
+        custom:isPreferenceVisible="false"
         custom:uri="@string/ambient_slice_uri"/>
-    <Preference
-        android:fragment="com.android.tv.settings.vendor.PowerAndEnergyFragment"
-        android:icon="@drawable/ic_settings_energy_saver"
-        android:key="energysaver"
-        android:title="@string/power_and_energy"/>
     <Preference
         android:fragment="com.android.tv.settings.system.development.DevelopmentFragment"
         android:icon="@drawable/ic_developer_mode"

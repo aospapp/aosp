@@ -38,14 +38,13 @@ import androidx.preference.Preference;
 import androidx.preference.PreferenceCategory;
 import androidx.preference.PreferenceScreen;
 
+import com.android.settingslib.applications.DefaultAppInfo;
 import com.android.tv.settings.R;
 import com.android.tv.settings.SettingsPreferenceFragment;
-import com.android.tv.settings.library.overlay.FlavorUtils;
-import com.android.tv.settings.library.settingslib.AutofillHelper;
-import com.android.tv.settings.library.settingslib.DefaultAppInfo;
-import com.android.tv.settings.library.settingslib.InputMethodHelper;
-import com.android.tv.settings.library.util.SliceUtils;
+import com.android.tv.settings.autofill.AutofillHelper;
 import com.android.tv.settings.library.util.ThreadUtils;
+import com.android.tv.settings.overlay.FlavorUtils;
+import com.android.tv.settings.util.SliceUtils;
 import com.android.tv.twopanelsettings.slices.SlicePreference;
 
 import java.util.ArrayList;

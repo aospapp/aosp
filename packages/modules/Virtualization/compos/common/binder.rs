@@ -16,9 +16,7 @@
 
 //! Helper for converting Error types to what Binder expects
 
-use anyhow::Result;
-use binder::{ExceptionCode, Result as BinderResult};
-use binder_common::new_binder_exception;
+use binder::{Result as BinderResult, Status};
 use log::warn;
 use std::fmt::Debug;
 
@@ -29,6 +27,6 @@ pub fn to_binder_result<T, E: Debug>(result: Result<T, E>) -> BinderResult<T> {
     result.map_err(|e| {
         let message = format!("{:?}", e);
         warn!("Returning binder error: {}", &message);
-        new_binder_exception(ExceptionCode::SERVICE_SPECIFIC, message)
+        Status::new_service_specific_error_str(-1, Some(message))
     })
 }

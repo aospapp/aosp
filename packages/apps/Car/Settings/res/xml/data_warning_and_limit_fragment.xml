@@ -47,7 +47,7 @@
             android:title="@string/data_limit"/>
     </com.android.car.settings.common.LogicalPreferenceGroup>
     <com.android.car.settings.common.DividerPreference/>
-    <Preference
+    <com.android.car.ui.preference.CarUiFooterPreference
         android:key="@string/pk_data_usage_footer"
         android:summary="@string/data_usage_settings_footer"
         android:icon="@drawable/ic_settings_about"

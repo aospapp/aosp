@@ -19,9 +19,8 @@ import static com.android.car.internal.ExcludeFromCodeCoverageGeneratedReport.DU
 
 import android.app.ActivityManager;
 import android.bluetooth.BluetoothDevice;
-import android.bluetooth.BluetoothProfile;
 import android.car.ICarBluetoothUserService;
-import android.car.IPerUserCarService;
+import android.car.ICarPerUserService;
 import android.car.builtin.os.UserManagerHelper;
 import android.car.builtin.util.Slogf;
 import android.content.Context;
@@ -31,15 +30,14 @@ import android.os.RemoteException;
 import android.util.Log;
 
 import com.android.car.CarLog;
+import com.android.car.CarPerUserServiceHelper;
 import com.android.car.CarServiceBase;
-import com.android.car.PerUserCarServiceHelper;
 import com.android.car.R;
 import com.android.car.internal.ExcludeFromCodeCoverageGeneratedReport;
 import com.android.car.internal.util.IndentingPrintWriter;
 import com.android.internal.annotations.GuardedBy;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 
 /**
@@ -63,16 +61,7 @@ public class CarBluetoothService implements CarServiceBase {
     static final String THREAD_NAME = "CarBluetoothService";
     private final Context mContext;
 
-    // The list of profiles we wish to manage
-    private static final List<Integer> sManagedProfiles = Arrays.asList(
-            BluetoothProfile.HEADSET_CLIENT,
-            BluetoothProfile.PBAP_CLIENT,
-            BluetoothProfile.A2DP_SINK,
-            BluetoothProfile.MAP_CLIENT,
-            BluetoothProfile.PAN
-    );
-
-    // Each time PerUserCarService connects we need to get new Bluetooth profile proxies and refresh
+    // Each time CarPerUserService connects we need to get new Bluetooth profile proxies and refresh
     // all our internal objects to use them. When it disconnects we're to assume our proxies are
     // invalid. This lock protects all our internal objects.
     private final Object mPerUserLock = new Object();
@@ -99,27 +88,27 @@ public class CarBluetoothService implements CarServiceBase {
     @GuardedBy("mPerUserLock")
     private BluetoothConnectionRetryManager mConnectionRetryManager;
 
-    // Listen for user switch events from the PerUserCarService
+    // Listen for user switch events from the CarPerUserService
     @GuardedBy("mPerUserLock")
     private int mUserId;
     @GuardedBy("mPerUserLock")
-    private IPerUserCarService mPerUserCarService;
+    private ICarPerUserService mCarPerUserService;
     @GuardedBy("mPerUserLock")
     private ICarBluetoothUserService mCarBluetoothUserService;
-    private final PerUserCarServiceHelper mUserServiceHelper;
-    private final PerUserCarServiceHelper.ServiceCallback mUserServiceCallback =
-            new PerUserCarServiceHelper.ServiceCallback() {
+    private final CarPerUserServiceHelper mUserServiceHelper;
+    private final CarPerUserServiceHelper.ServiceCallback mUserServiceCallback =
+            new CarPerUserServiceHelper.ServiceCallback() {
         @Override
-        public void onServiceConnected(IPerUserCarService perUserCarService) {
+        public void onServiceConnected(ICarPerUserService carPerUserService) {
             if (DBG) {
-                Slogf.d(TAG, "Connected to PerUserCarService");
+                Slogf.d(TAG, "Connected to CarPerUserService");
             }
             synchronized (mPerUserLock) {
                 // Explicitly clear out existing per-user objects since we can't rely on the
                 // onServiceDisconnected and onPreUnbind calls to always be called before this
                 destroyUserLocked();
 
-                mPerUserCarService = perUserCarService;
+                mCarPerUserService = carPerUserService;
 
                 // Create new objects with our new set of profile proxies
                 initializeUserLocked();
@@ -129,7 +118,7 @@ public class CarBluetoothService implements CarServiceBase {
         @Override
         public void onPreUnbind() {
             if (DBG) {
-                Slogf.d(TAG, "Before Unbinding from PerUserCarService");
+                Slogf.d(TAG, "Before Unbinding from CarPerUserService");
             }
             synchronized (mPerUserLock) {
                 destroyUserLocked();
@@ -139,7 +128,7 @@ public class CarBluetoothService implements CarServiceBase {
         @Override
         public void onServiceDisconnected() {
             if (DBG) {
-                Slogf.d(TAG, "Disconnected from PerUserCarService");
+                Slogf.d(TAG, "Disconnected from CarPerUserService");
             }
             synchronized (mPerUserLock) {
                 destroyUserLocked();
@@ -151,10 +140,10 @@ public class CarBluetoothService implements CarServiceBase {
      * Create an instance of CarBluetoothService
      *
      * @param context - A Context object representing the context you want this service to run
-     * @param userSwitchService - An instance of PerUserCarServiceHelper that we can bind a listener
+     * @param userSwitchService - An instance of CarPerUserServiceHelper that we can bind a listener
      *                            to in order to receive user switch events
      */
-    public CarBluetoothService(Context context, PerUserCarServiceHelper userSwitchService) {
+    public CarBluetoothService(Context context, CarPerUserServiceHelper userSwitchService) {
         mUserId = UserManagerHelper.USER_NULL;
         mContext = context;
         mUserServiceHelper = userSwitchService;
@@ -239,21 +228,21 @@ public class CarBluetoothService implements CarServiceBase {
         destroyBluetoothProfileInhibitManagerLocked();
         destroyBluetoothDeviceManagerLocked();
         destroyBluetoothUserServiceLocked();
-        mPerUserCarService = null;
+        mCarPerUserService = null;
         mUserId = UserManagerHelper.USER_NULL;
     }
 
     /**
-     * Sets the Per User Car Bluetooth Service (ICarBluetoothService) from the PerUserCarService
+     * Sets the Per User Car Bluetooth Service (ICarBluetoothService) from the CarPerUserService
      * which acts as a top level Service running in the current user context.
      * Also sets up the connection proxy objects required to communicate with the Bluetooth
      * Profile Services.
      */
     @GuardedBy("mPerUserLock")
     private void createBluetoothUserServiceLocked() {
-        if (mPerUserCarService != null) {
+        if (mCarPerUserService != null) {
             try {
-                mCarBluetoothUserService = mPerUserCarService.getBluetoothUserService();
+                mCarBluetoothUserService = mCarPerUserService.getBluetoothUserService();
                 mCarBluetoothUserService.setupBluetoothConnectionProxies();
             } catch (RemoteException e) {
                 Slogf.e(TAG, "Remote Service Exception on ServiceConnection Callback: %s", e);
@@ -263,7 +252,7 @@ public class CarBluetoothService implements CarServiceBase {
         } else {
             if (DBG) {
                 Slogf.d(TAG,
-                        "PerUserCarService not connected. Cannot get bluetooth user proxy objects");
+                        "CarPerUserService not connected. Cannot get bluetooth user proxy objects");
             }
         }
     }

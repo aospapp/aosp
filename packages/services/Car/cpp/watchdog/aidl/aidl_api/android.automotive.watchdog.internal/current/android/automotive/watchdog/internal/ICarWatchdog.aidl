@@ -37,10 +37,14 @@ interface ICarWatchdog {
   void unregisterCarWatchdogService(in android.automotive.watchdog.internal.ICarWatchdogServiceForSystem service);
   void registerMonitor(in android.automotive.watchdog.internal.ICarWatchdogMonitor monitor);
   void unregisterMonitor(in android.automotive.watchdog.internal.ICarWatchdogMonitor monitor);
-  void tellCarWatchdogServiceAlive(in android.automotive.watchdog.internal.ICarWatchdogServiceForSystem service, in List<android.automotive.watchdog.internal.ProcessIdentifier> processIdentifiers, in int sessionId);
+  void tellCarWatchdogServiceAlive(in android.automotive.watchdog.internal.ICarWatchdogServiceForSystem service, in List<android.automotive.watchdog.internal.ProcessIdentifier> processIdentifiers, int sessionId);
   void tellDumpFinished(in android.automotive.watchdog.internal.ICarWatchdogMonitor monitor, in android.automotive.watchdog.internal.ProcessIdentifier processIdentifier);
-  void notifySystemStateChange(in android.automotive.watchdog.internal.StateType type, in int arg1, in int arg2);
+  void notifySystemStateChange(in android.automotive.watchdog.internal.StateType type, int arg1, int arg2);
   void updateResourceOveruseConfigurations(in List<android.automotive.watchdog.internal.ResourceOveruseConfiguration> configs);
   List<android.automotive.watchdog.internal.ResourceOveruseConfiguration> getResourceOveruseConfigurations();
-  void controlProcessHealthCheck(in boolean enable);
+  void controlProcessHealthCheck(boolean enable);
+  void setThreadPriority(int pid, int tid, int uid, int policy, int priority);
+  android.automotive.watchdog.internal.ThreadPolicyWithPriority getThreadPriority(int pid, int tid, int uid);
+  void onAidlVhalPidFetched(int pid);
+  void onTodayIoUsageStatsFetched(in List<android.automotive.watchdog.internal.UserPackageIoUsageStats> userPackageIoUsageStats);
 }

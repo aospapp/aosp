@@ -20,9 +20,6 @@
      xmlns:tools="http://schemas.android.com/tools"
      package="com.android.tv">
 
-    <uses-sdk android:minSdkVersion="23"
-         android:targetSdkVersion="29"/>
-
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
     <uses-permission android:name="android.permission.CHANGE_HDMI_CEC_ACTIVE_SOURCE"/>
@@ -30,6 +27,7 @@
     <uses-permission android:name="android.permission.HDMI_CEC"/>
     <uses-permission android:name="android.permission.INTERNET"/>
     <uses-permission android:name="android.permission.MODIFY_PARENTAL_CONTROLS"/>
+    <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES"/>
     <uses-permission android:name="android.permission.READ_CONTENT_RATING_SYSTEMS"/>
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"/>
     <uses-permission android:name="android.permission.READ_TV_LISTINGS"/>
@@ -153,6 +151,7 @@
                  android:resource="@xml/searchable"/>
         </activity>
         <activity android:name="com.android.tv.LauncherActivity"
+             android:exported="false"
              android:configChanges="keyboard|keyboardHidden"
              android:theme="@android:style/Theme.Translucent.NoTitleBar"/>
         <activity android:name="com.android.tv.SetupPassthroughActivity"
@@ -166,6 +165,7 @@
             </intent-filter>
         </activity>
         <activity android:name="com.android.tv.SelectInputActivity"
+             android:exported="true"
              android:configChanges="keyboard|keyboardHidden"
              android:launchMode="singleTask"
              android:theme="@style/Theme.SelectInputActivity">
@@ -175,6 +175,7 @@
             </intent-filter>
         </activity>
         <activity android:name="com.android.tv.onboarding.OnboardingActivity"
+             android:exported="false"
              android:configChanges="keyboard|keyboardHidden"
              android:launchMode="singleTop"
              android:theme="@style/Theme.Setup.GuidedStep"/>
@@ -219,14 +220,18 @@
              android:theme="@style/Theme.TV.Dvr.Series.Settings.GuidedStep"/>
         <activity android:name="com.android.tv.dvr.ui.DvrSeriesSettingsActivity"
              android:configChanges="keyboard|keyboardHidden"
+             android:exported="false"
              android:theme="@style/Theme.TV.Dvr.Series.Settings.GuidedStep"/>
         <activity android:name="com.android.tv.dvr.ui.DvrSeriesDeletionActivity"
              android:configChanges="keyboard|keyboardHidden"
+             android:exported="false"
              android:theme="@style/Theme.TV.Dvr.Series.Deletion.GuidedStep"/>
         <activity android:name="com.android.tv.dvr.ui.DvrSeriesScheduledDialogActivity"
+             android:exported="false"
              android:theme="@style/Theme.TV.dialog.HalfSizedDialog"/>
         <activity android:name="com.android.tv.dvr.ui.list.DvrSchedulesActivity"
              android:configChanges="keyboard|keyboardHidden"
+             android:exported="false"
              android:theme="@style/Theme.Leanback.Details"/>
         <activity android:name="com.android.tv.dvr.ui.list.DvrHistoryActivity"
              android:configChanges="keyboard|keyboardHidden"
@@ -236,6 +241,7 @@
         <service android:name="com.android.tv.recommendation.NotificationService"
              android:exported="false"/>
         <service android:name="com.android.tv.recommendation.ChannelPreviewUpdater$ChannelPreviewUpdateService"
+             android:exported="false"
              android:permission="android.permission.BIND_JOB_SERVICE"/>
 
         <receiver android:name="com.android.tv.receiver.BootCompletedReceiver"
@@ -272,12 +278,14 @@
             </intent-filter>
         </activity> <!-- DVR -->
         <service android:name="com.android.tv.dvr.recorder.DvrRecordingService"
+             android:exported="false"
              android:label="@string/dvr_service_name"/>
 
         <receiver android:name="com.android.tv.dvr.recorder.DvrStartRecordingReceiver"
              android:exported="false"/>
 
         <service android:name="com.android.tv.data.epg.EpgFetchService"
+             android:exported="false"
              android:permission="android.permission.BIND_JOB_SERVICE"/>
     </application>
 

@@ -23,6 +23,8 @@
     <string name="back" msgid="6249950659061523680">"Pas"</string>
     <string name="available" msgid="6007778121920339498">"Ofrohet"</string>
     <string name="blocked" msgid="9195547604866033708">"Bllokuar"</string>
+    <string name="on" msgid="280241003226755921">"Aktiv"</string>
+    <string name="off" msgid="1438489226422866263">"Joaktiv"</string>
     <string name="uninstall_or_disable" msgid="4496612999740858933">"Çinstalo ose çaktivizo"</string>
     <string name="app_not_found_dlg_title" msgid="6029482906093859756">"Aplikacioni nuk u gjet"</string>
     <string name="grant_dialog_button_deny" msgid="88262611492697192">"Mos lejo"</string>
@@ -30,6 +32,11 @@
     <string name="grant_dialog_button_no_upgrade" msgid="8344732743633736625">"Mbaje \"Kur aplikacioni është në përdorim\""</string>
     <string name="grant_dialog_button_no_upgrade_one_time" msgid="5125892775684968694">"Mbaje “Vetëm këtë herë”"</string>
     <string name="grant_dialog_button_more_info" msgid="213350268561945193">"Më shumë info."</string>
+    <string name="grant_dialog_button_allow_all" msgid="5939066403732409516">"Lejoji të gjitha"</string>
+    <string name="grant_dialog_button_always_allow_all" msgid="1719900027660252167">"Lejoji gjithmonë të gjitha"</string>
+    <string name="grant_dialog_button_allow_selected_photos" msgid="5497042471576153842">"Zgjidh fotografi dhe video"</string>
+    <string name="grant_dialog_button_allow_more_selected_photos" msgid="5145657877588697709">"Zgjidh më shumë"</string>
+    <string name="grant_dialog_button_dont_select_more" msgid="6643552729129461268">"Mos zgjidh të tjera"</string>
     <string name="grant_dialog_button_deny_anyway" msgid="7225905870668915151">"Mos lejo gjithsesi"</string>
     <string name="grant_dialog_button_dismiss" msgid="1930399742250226393">"Hiqe"</string>
     <string name="current_permission_template" msgid="7452035392573329375">"<xliff:g id="CURRENT_PERMISSION_INDEX">%1$s</xliff:g> nga <xliff:g id="PERMISSION_COUNT">%2$s</xliff:g>"</string>
@@ -59,8 +66,8 @@
     <string name="review_permission_decisions_view_all" msgid="90391040431566130">"Shiko të gjitha vendimet e fundit për lejet"</string>
     <string name="review_permission_decisions_empty" msgid="8120775336417279806">"Nuk ka vendime të fundit për lejet"</string>
     <string name="auto_permission_manager_summary" msgid="9157438376234301354">"Menaxho qasjen te të dhënat e kalendarit, evidencave të telefonatave etj."</string>
-    <string name="granted_permission_decision" msgid="7824827491551861365">"I dhe <xliff:g id="APP_NAME">%1$s</xliff:g> qasje në <xliff:g id="PERMISSION_NAME">%2$s</xliff:g>"</string>
-    <string name="denied_permission_decision" msgid="5308961501779563781">"I refuzove <xliff:g id="APP_NAME">%1$s</xliff:g> qasje në <xliff:g id="PERMISSION_NAME">%2$s</xliff:g>"</string>
+    <string name="granted_permission_decision" msgid="7824827491551861365">"I dhe \"<xliff:g id="APP_NAME">%1$s</xliff:g>\" qasje te <xliff:g id="PERMISSION_NAME">%2$s</xliff:g>"</string>
+    <string name="denied_permission_decision" msgid="5308961501779563781">"I refuzove \"<xliff:g id="APP_NAME">%1$s</xliff:g>\" qasje te <xliff:g id="PERMISSION_NAME">%2$s</xliff:g>"</string>
     <string name="days_ago" msgid="6650359081551335629">"{count,plural, =0{Sot}=1{1 ditë më parë}other{# ditë më parë}}"</string>
     <string name="app_disable_dlg_positive" msgid="7418444149981904940">"Çaktivizo aplikacionin"</string>
     <string name="app_disable_dlg_text" msgid="3126943217146120240">"Nëse e çaktivizon këtë aplikacion, Android dhe aplikacionet e tjera mund të mos funksionojnë më siç pritet. Ki parasysh se nuk mund ta fshish këtë aplikacion pasi ai ka ardhur i instaluar paraprakisht në pajisjen tënde. Duke e çaktivizuar, mund ta kalosh këtë aplikacion në joaktiv dhe ta fshehësh në pajisjen tënde."</string>
@@ -107,9 +114,6 @@
     <string name="all_permissions" msgid="6911125611996872522">"Të gjitha lejet"</string>
     <string name="other_permissions" msgid="2901186127193849594">"Kapacitete të tjera të aplikacionit"</string>
     <string name="permission_request_title" msgid="8790310151025020126">"Kërkesa e lejes"</string>
-    <string name="screen_overlay_title" msgid="6977038513913222078">"Mbivendosja e ekranit u zbulua"</string>
-    <string name="screen_overlay_message" msgid="5622563069757142102">"Për të ndryshuar këtë cilësim të lejes, në fillim duhet të çaktivizosh mbivendosjen e ekranit nga Cilësimet &gt; Aplikacionet"</string>
-    <string name="screen_overlay_button" msgid="4655005928054025250">"Hap \"Cilësimet\""</string>
     <string name="wear_not_allowed_dlg_title" msgid="1429467891296932713">"Android Wear"</string>
     <string name="wear_not_allowed_dlg_text" msgid="512340555334769098">"Instalo/çinstalo veprimet që nuk mbështeten në Wear."</string>
     <string name="permission_review_title_template_install" msgid="1284337937156289081">"Zgjidh se ku do të lejohet të ketë qasje &lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt;"</string>
@@ -130,21 +134,20 @@
     <string name="permission_group_usage_subtitle_7d" msgid="1465828402260324654">"Kronologjia se kur është përdorur \"<xliff:g id="PERMGROUP">%1$s</xliff:g>\" nga aplikacionet në 7 ditët e fundit"</string>
     <string name="permission_usage_access_dialog_subtitle" msgid="4171772805196955753">"Kur ky aplikacion ka përdorur lejen për: <xliff:g id="PERMGROUP">%1$s</xliff:g>"</string>
     <string name="permission_usage_access_dialog_learn_more" msgid="7121468469493184613">"Mëso më shumë"</string>
+    <string name="learn_more_content_description" msgid="8673699744544502539">"Mëso më shumë për: <xliff:g id="PERMGROUP">%1$s</xliff:g>"</string>
     <string name="manage_permission_summary" msgid="4117555482684114317">"Kontrollo qasjen e aplikacionit në <xliff:g id="PERMGROUP">%1$s</xliff:g>"</string>
     <string name="auto_permission_usage_timeline_summary" msgid="2713135806453218703">"<xliff:g id="ACCESS_TIME">%1$s</xliff:g> • <xliff:g id="SUMMARY_TEXT">%2$s</xliff:g>"</string>
     <string name="history_preference_subtext_2" msgid="1521763591164293683">"<xliff:g id="APP_NAME">%1$s</xliff:g> • <xliff:g id="TRUNCATED_TIME">%2$s</xliff:g>"</string>
     <string name="history_preference_subtext_3" msgid="758761785983094351">"<xliff:g id="ATTRIBUTION_NAME">%1$s</xliff:g> • <xliff:g id="APP_NAME">%2$s</xliff:g> • <xliff:g id="TRUNCATED_TIME">%3$s</xliff:g>"</string>
-    <string name="duration_used_days" msgid="8293010131040301793">"{count,plural, =1{1 ditë}other{# ditë}}"</string>
-    <string name="duration_used_hours" msgid="1128716208752263576">"{count,plural, =1{1 orë}other{# orë}}"</string>
-    <string name="duration_used_minutes" msgid="5335824115042576567">"{count,plural, =1{1 min.}other{# min.}}"</string>
-    <string name="duration_used_seconds" msgid="6543746449171675028">"{count,plural, =1{1 sek.}other{# sek.}}"</string>
+    <string name="duration_used_days" msgid="8238355545812998877">"{count,plural, =1{# ditë}other{# ditë}}"</string>
+    <string name="duration_used_hours" msgid="4983814806123370332">"{count,plural, =1{# orë}other{# orë}}"</string>
+    <string name="duration_used_minutes" msgid="1701379522897227819">"{count,plural, =1{# min.}other{# min.}}"</string>
+    <string name="duration_used_seconds" msgid="4067390990568727715">"{count,plural, =1{# sek.}other{# sek.}}"</string>
     <string name="permission_usage_any_permission" msgid="6358023078298106997">"Çdo autorizim"</string>
     <string name="permission_usage_any_time" msgid="3802087027301631827">"Në çdo kohë"</string>
-    <string name="permission_usage_last_7_days" msgid="7386221251886130065">"7 ditët e fundit"</string>
-    <string name="permission_usage_last_day" msgid="1512880889737305115">"24 orët e fundit"</string>
-    <string name="permission_usage_last_hour" msgid="3866005205535400264">"1 orën e fundit"</string>
-    <string name="permission_usage_last_15_minutes" msgid="9077554653436200702">"15 minutat e fundit"</string>
-    <string name="permission_usage_last_minute" msgid="7297055967335176238">"Minuta e fundit"</string>
+    <string name="permission_usage_last_n_days" msgid="7882626467375714145">"{count,plural, =1{Dita e fundit}other{# ditët e fundit}}"</string>
+    <string name="permission_usage_last_n_hours" msgid="8490466053680267858">"{count,plural, =1{Ora e fundit}other{# orët e fundit}}"</string>
+    <string name="permission_usage_last_n_minutes" msgid="7817864229878281983">"{count,plural, =1{Minuta e fundit}other{# minutat e fundit}}"</string>
     <string name="no_permission_usages" msgid="9119517454177289331">"Nuk ka përdorime të lejeve"</string>
     <string name="permission_usage_list_title_any_time" msgid="8718257027381592407">"Qasja më e fundit në çdo kohë"</string>
     <string name="permission_usage_list_title_last_7_days" msgid="9048542342670890615">"Qasja më e fundit në 7 ditët e fundit"</string>
@@ -158,8 +161,8 @@
     <string name="permission_usage_bar_chart_title_last_hour" msgid="6571647509660009185">"Përdorimi i autorizimeve në 1 orën e fundit"</string>
     <string name="permission_usage_bar_chart_title_last_15_minutes" msgid="2743143675412824819">"Përdorimi i autorizimeve në 15 minutat e fundit"</string>
     <string name="permission_usage_bar_chart_title_last_minute" msgid="820450867183487607">"Përdorimi i autorizimeve në 1 minutën e fundit"</string>
-    <string name="permission_usage_preference_summary_not_used_24h" msgid="3087783232178611025">"Asnjë përdorim gjatë 24 orëve të fundit"</string>
-    <string name="permission_usage_preference_summary_not_used_7d" msgid="4592301300810120096">"Nuk është përdorur gjatë 7 ditëve të fundit"</string>
+    <string name="permission_usage_preference_summary_not_used_in_past_n_days" msgid="4771868094611359651">"{count,plural, =1{Nuk është përdorur gjatë ditës së fundit}other{Nuk është përdorur gjatë # ditëve të fundit}}"</string>
+    <string name="permission_usage_preference_summary_not_used_in_past_n_hours" msgid="3828973177433435742">"{count,plural, =1{Nuk është përdorur gjatë orës së fundit}other{Nuk është përdorur gjatë # orëve të fundit}}"</string>
     <string name="permission_usage_preference_label" msgid="8343167938128676378">"{count,plural, =1{Përdorur nga 1 aplikacion}other{Përdorur nga # aplikacione}}"</string>
     <string name="permission_usage_view_details" msgid="6675335735468752787">"Shikoji të gjitha te \"Paneli\""</string>
     <string name="app_permission_usage_filter_label" msgid="7182861154638631550">"Filtruar sipas: <xliff:g id="PERM">%1$s</xliff:g>"</string>
@@ -185,6 +188,7 @@
     <string name="app_permission_button_allow_media_only" msgid="2834282724426046154">"Lejo qasjen vetëm në media"</string>
     <string name="app_permission_button_allow_always" msgid="4573292371734011171">"Lejo gjithmonë"</string>
     <string name="app_permission_button_allow_foreground" msgid="1991570451498943207">"Lejo vetëm kur përdor aplikacionin"</string>
+    <string name="app_permission_button_always_allow_all" msgid="4905699259378428855">"Lejoji gjithmonë të gjitha"</string>
     <string name="app_permission_button_ask" msgid="3342950658789427">"Pyet çdo herë"</string>
     <string name="app_permission_button_deny" msgid="6016454069832050300">"Mos lejo"</string>
     <string name="precise_image_description" msgid="6349638632303619872">"Vendndodhja e saktë"</string>
@@ -211,14 +215,13 @@
     <string name="auto_revocable_permissions_two" msgid="4874067408752041716">"Lejet <xliff:g id="PERM_0">%1$s</xliff:g> dhe <xliff:g id="PERM_1">%2$s</xliff:g> do të hiqen."</string>
     <string name="auto_revocable_permissions_many" msgid="1521807896206032992">"Lejet që do të hiqen: <xliff:g id="PERMS">%1$s</xliff:g>."</string>
     <string name="auto_manage_title" msgid="7693181026874842935">"Menaxho automatikisht lejet"</string>
-    <string name="off" msgid="1438489226422866263">"Joaktiv"</string>
     <string name="auto_revoked_app_summary_one" msgid="7093213590301252970">"Leja për \"<xliff:g id="PERMISSION_NAME">%s</xliff:g>\" është hequr"</string>
     <string name="auto_revoked_app_summary_two" msgid="1910545340763709389">"<xliff:g id="PERMISSION_NAME_0">%1$s</xliff:g> dhe <xliff:g id="PERMISSION_NAME_1">%2$s</xliff:g> leje janë hequr"</string>
     <string name="auto_revoked_app_summary_many" msgid="5930976230827378798">"<xliff:g id="PERMISSION_NAME">%1$s</xliff:g> dhe <xliff:g id="NUMBER">%2$s</xliff:g> leje të tjera janë hequr"</string>
     <string name="unused_apps_page_title" msgid="6986983535677572559">"Aplikacionet e papërdorura"</string>
     <string name="unused_apps_page_summary" msgid="1867593913217272155">"Nëse një aplikacion nuk përdoret për disa muaj:\n\n• Lejet hiqen për të mbrojtur të dhënat e tua\n• Njoftimet ndalohen për të kursyer baterinë\n• Skedarët e përkohshëm hiqen për të liruar hapësirën\n\nPër të lejuar përsëri lejet dhe njoftimet, hap aplikacionin."</string>
-    <string name="unused_apps_page_tv_summary" msgid="3685907153054355671">"Nëse një aplikacion nuk përdoret për disa muaj:\n\n• Lejet hiqen për të mbrojtur të dhënat e tua\n• Skedarët e përkohshëm hiqen për të liruar hapësirën\n\nPër të lejuar përsëri lejet, hap aplikacionin."</string>
-    <string name="last_opened_category_title" msgid="7871347400611202595">"Hapur për herë të fundit më shumë se <xliff:g id="NUMBER">%s</xliff:g> muaj më parë"</string>
+    <string name="unused_apps_page_tv_summary" msgid="2624911608663778308">"Nëse një aplikacion nuk përdoret për një muaj:\n\n• Lejet hiqen për të mbrojtur të dhënat e tua\n• Skedarët e përkohshëm hiqen për të liruar hapësirën\n\nPër të lejuar përsëri lejet, hap aplikacionin."</string>
+    <string name="last_opened_category_title" msgid="8796557894614236128">"{count,plural, =1{Hapur për herë të fundit më shumë se # muaj më parë}other{Hapur për herë të fundit më shumë se # muaj më parë}}"</string>
     <string name="last_opened_summary" msgid="5248984030024968808">"Aplikacioni është hapur së fundi më <xliff:g id="DATE">%s</xliff:g>"</string>
     <string name="last_opened_summary_short" msgid="1646067226191176825">"Hapur së fundi më <xliff:g id="DATE">%s</xliff:g>"</string>
     <string name="app_permission_footer_special_file_access" msgid="1884202176147657788">"Nëse lejon menaxhimin e të gjithë skedarëve, ky aplikacion mund të ketë qasje, modifikojë dhe fshijë çdo skedar në hapësirën ruajtëse të përbashkët në këtë pajisje ose pajisjet me hapësirë ruajtëse të lidhur. Aplikacioni mund të ketë qasje te skedarët pa të pyetur."</string>
@@ -251,9 +254,9 @@
     <string name="denied_header" msgid="903209608358177654">"Nuk lejohet"</string>
     <string name="storage_footer_hyperlink_text" msgid="8873343987957834810">"Shiko më shumë aplikacione me qasje tek të gjithë skedarët"</string>
     <string name="days" msgid="609563020985571393">"{count,plural, =1{1 ditë}other{# ditë}}"</string>
-    <string name="hours" msgid="3447767892295843282">"{count,plural, =1{1 orë}other{# orë}}"</string>
-    <string name="minutes" msgid="4408293038068503157">"{count,plural, =1{1 minutë}other{# minuta}}"</string>
-    <string name="seconds" msgid="5397771912131132690">"{count,plural, =1{1 sekondë}other{# sekonda}}"</string>
+    <string name="hours" msgid="7302866489666950038">"{count,plural, =1{# orë}other{# orë}}"</string>
+    <string name="minutes" msgid="4868414855445375753">"{count,plural, =1{# minutë}other{# minuta}}"</string>
+    <string name="seconds" msgid="5893958182059842734">"{count,plural, =1{# sekondë}other{# sekonda}}"</string>
     <string name="permission_reminders" msgid="6528257957664832636">"Alarmet rikujtuese për lejet"</string>
     <string name="auto_revoke_permission_reminder_notification_title_one" msgid="6690347469376854137">"1 aplikacion i papërdorur"</string>
     <string name="auto_revoke_permission_reminder_notification_title_many" msgid="6062217713645069960">"<xliff:g id="NUMBER_OF_APPS">%s</xliff:g> aplikacione të papërdorura"</string>
@@ -262,9 +265,12 @@
     <string name="auto_revoke_permission_notification_content" msgid="5125990886047799375">"Disa aplikacione nuk janë përdorur për disa muaj. Trokit për t\'i rishikuar."</string>
     <string name="unused_apps_notification_title" msgid="4314832015894238019">"{count,plural, =1{# aplikacion i papërdorur}other{# aplikacione të papërdorura}}"</string>
     <string name="unused_apps_notification_content" msgid="9195026773244581246">"Lejet dhe skedarët e përkohshëm janë hequr dhe njoftimet janë ndaluar. Trokit për t\'i rishikuar."</string>
+    <string name="unused_apps_safety_center_card_title" msgid="5638409355530099149">"Shqyrto aplikacionet me leje të hequra"</string>
+    <string name="unused_apps_safety_center_card_content" msgid="1088557243627427820">"Lejet dhe skedarët e përkohshëm u hoqën dhe njoftimet u ndaluan për aplikacionet që nuk ke përdorur prej kohësh."</string>
+    <string name="unused_apps_safety_center_action_title" msgid="8865914432518993194">"Shqyrto aplikacionet"</string>
     <string name="post_drive_permission_decision_reminder_title" msgid="1290697371418139976">"Kontrollo lejet e fundit"</string>
-    <string name="post_drive_permission_decision_reminder_summary_1_app_1_permission" msgid="670521503734140711">"Gjatë drejtimit të makinës, i ke dhënë <xliff:g id="APP">%1$s</xliff:g> qasje në <xliff:g id="PERMISSION">%2$s</xliff:g>"</string>
-    <string name="post_drive_permission_decision_reminder_summary_1_app_2_permissions" msgid="671791184670801301">"Gjatë drejtimit të makinës, i ke dhënë <xliff:g id="APP">%1$s</xliff:g> qasje në <xliff:g id="PERMISSION_1">%2$s</xliff:g> dhe <xliff:g id="PERMISSION_2">%3$s</xliff:g>"</string>
+    <string name="post_drive_permission_decision_reminder_summary_1_app_1_permission" msgid="670521503734140711">"Gjatë drejtimit të makinës, i ke dhënë \"<xliff:g id="APP">%1$s</xliff:g>\" qasje te <xliff:g id="PERMISSION">%2$s</xliff:g>"</string>
+    <string name="post_drive_permission_decision_reminder_summary_1_app_2_permissions" msgid="671791184670801301">"Gjatë drejtimit të makinës, i ke dhënë \"<xliff:g id="APP">%1$s</xliff:g>\" qasje te <xliff:g id="PERMISSION_1">%2$s</xliff:g> dhe <xliff:g id="PERMISSION_2">%3$s</xliff:g>"</string>
     <string name="post_drive_permission_decision_reminder_summary_1_app_multi_permission" msgid="4080701771111456927">"Gjatë drejtimit të makinës, i ke dhënë <xliff:g id="COUNT">%1$d</xliff:g> leje <xliff:g id="APP">%2$s</xliff:g>"</string>
     <string name="post_drive_permission_decision_reminder_summary_multi_apps" msgid="5253882771252863902">"{count,plural, =1{Gjatë drejtimit të makinës, i ke dhënë qasje <xliff:g id="APP_0">%1$s</xliff:g> dhe # aplikacioni tjetër}other{Gjatë drejtimit të makinës, i ke dhënë qasje <xliff:g id="APP_1">%1$s</xliff:g> dhe # aplikacioneve të tjera}}"</string>
     <string name="go_to_settings" msgid="1053735612211228335">"Shko te \"Cilësimet\""</string>
@@ -276,6 +282,19 @@
     <string name="auto_revoke_preference_summary" msgid="5517958331781391481">"Lejet u hoqën për të mbrojtur privatësinë tënde"</string>
     <string name="background_location_access_reminder_notification_title" msgid="1140797924301941262">"<xliff:g id="APP_NAME">%s</xliff:g> ka marrë vendndodhjen tënde në sfond"</string>
     <string name="background_location_access_reminder_notification_content" msgid="7787084707336546245">"Ky aplikacion mund të qaset gjithmonë te vendndodhja jote. Trokit për ta ndryshuar."</string>
+    <string name="notification_listener_reminder_notification_title" msgid="3747210460187479091">"Shqyrto aplikacionin me qasje në njoftimet e tua"</string>
+    <string name="notification_listener_reminder_notification_content" msgid="831476101108863427">"<xliff:g id="APP_NAME">%s</xliff:g> mund të heqë njoftimet, të kryejë veprime për njoftimet dhe të qaset te përmbajtjet brenda njoftimeve të tua"</string>
+    <string name="notification_listener_warning_card_content" msgid="7840973324284115893">"Ky aplikacion mund të heqë njoftimet, të kryejë veprime për njoftimet dhe të qaset te përmbajtjet brenda njoftimeve të tua. Disa aplikacione e kërkojnë këtë qasje për të funksionuar siç duhet."</string>
+    <string name="notification_listener_remove_access_button_label" msgid="7101898782417817097">"Hiq qasjen"</string>
+    <string name="notification_listener_review_app_button_label" msgid="3433073281029143924">"Shiko opsione të tjera"</string>
+    <string name="notification_listener_remove_access_success_label" msgid="2477611529875633107">"Qasja u hoq"</string>
+    <string name="accessibility_access_reminder_notification_title" msgid="2971317234668807566">"Shqyrto aplikacionin me qasje të plotë te pajisja"</string>
+    <string name="accessibility_access_reminder_notification_content" msgid="7389454158175306720">"<xliff:g id="APP_NAME">%s</xliff:g> mund të shikojë ekranin tënd dhe të kryejë veprime në pajisjen tënde. Aplikacioneve të qasshmërisë u nevojitet kjo lloj qasje për të funksionuar siç duhet."</string>
+    <string name="accessibility_access_warning_card_content" msgid="4370327190293217358">"Ky aplikacion mund të shikojë ekranin tënd dhe të kryejë veprime në pajisjen tënde. Aplikacioneve të qasshmërisë u nevojitet kjo lloj qasje për të funksionuar siç duhet por kontrollo aplikacionin dhe sigurohu që i beson."</string>
+    <string name="accessibility_remove_access_button_label" msgid="44145801526711640">"Hiq qasjen"</string>
+    <string name="accessibility_show_all_apps_button_label" msgid="960067249326392280">"Shiko aplikacionet me qasje të plotë"</string>
+    <string name="accessibility_remove_access_success_label" msgid="4380995302917014670">"Qasja u hoq"</string>
+    <string name="safety_center_notification_app_label" msgid="2457720616141926534">"Sistemi Android"</string>
     <string name="auto_revoke_after_notification_title" msgid="5417761027669887431">"Lejet e aplikacionit u hoqën për të mbrojtur privatësinë"</string>
     <string name="auto_revoke_after_notification_content_one" msgid="6804038707453662753">"<xliff:g id="APP_NAME">%s</xliff:g> nuk është përdorur për disa muaj. Trokit për ta rishikuar."</string>
     <string name="auto_revoke_after_notification_content_two" msgid="9108709764831425172">"<xliff:g id="APP_NAME">%s</xliff:g> dhe 1 aplikacion tjetër nuk janë përdorur për disa muaj. Trokit për ta rishikuar."</string>
@@ -378,6 +397,10 @@
     <string name="role_watch_description" msgid="267003778693177779">"<xliff:g id="APP_NAME">%1$s</xliff:g> do të lejohet të ndërveprojë me njoftimet e tua dhe të ketë qasje te lejet e \"Telefonit\", \"SMS-ve\", \"Kontakteve\" dhe \"Kalendarit\"."</string>
     <string name="role_app_streaming_description" msgid="7341638576226183992">"<xliff:g id="APP_NAME">%1$s</xliff:g> do të lejohet të ndërveprojë me njoftimet e tua dhe të transmetojë aplikacionet në pajisjen e lidhur."</string>
     <string name="role_companion_device_computer_description" msgid="416099879217066377">"Ky shërbim ndan fotografitë, median dhe njoftimet nga telefoni yt me pajisje të tjera."</string>
+    <string name="role_notes_label" msgid="7451627001058089536">"Shënimet; apl. i parazgjedhur"</string>
+    <string name="role_notes_short_label" msgid="8796604147546125285">"Aplikacioni për shënime"</string>
+    <string name="role_notes_description" msgid="8496852798616883551">"Aplikacione që të lejojnë të mbash shënime në pajisjen tënde"</string>
+    <string name="role_notes_search_keywords" msgid="7710756695666744631">"shënime"</string>
     <string name="request_role_current_default" msgid="738722892438247184">"Parazgjedhja aktuale"</string>
     <string name="request_role_dont_ask_again" msgid="3556017886029520306">"Mos pyet më"</string>
     <string name="request_role_set_as_default" msgid="4253949643984172880">"Cakto si parazgjedhje"</string>
@@ -439,8 +462,8 @@
     <string name="permgroupbackgroundrequestdetail_location" msgid="8021219324989662957">"Ky aplikacion mund të dëshirojë të ketë qasje në vendndodhjen tënde gjatë gjithë kohës, edhe kur nuk po e përdor aplikacionin. "<annotation id="link">"Lejoje te cilësimet"</annotation>"."</string>
     <string name="permgroupupgraderequest_location" msgid="8328408946822691636">"Do ta ndryshosh qasjen për vendndodhjen për &lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt;?"</string>
     <string name="permgroupupgraderequestdetail_location" msgid="1550899076845189165">"Ky aplikacion dëshiron të ketë qasje në vendndodhjen tënde gjatë gjithë kohës, edhe kur nuk po e përdor aplikacionin. "<annotation id="link">"Lejoje te cilësimet"</annotation>"."</string>
-    <string name="permgrouprequest_nearby_devices" msgid="2272829282660436700">"Të lejohet &lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; të gjejë, lidhet dhe përcaktojë pozicionin relativ të pajisjeve në afërsi?"</string>
-    <string name="permgroupupgraderequestdetail_nearby_devices" msgid="6877531270654738614">"Të lejohet &lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; të gjejë, lidhet dhe përcaktojë pozicionin relativ të pajisjeve në afërsi? "<annotation id="link">"Lejoje te cilësimet."</annotation></string>
+    <string name="permgrouprequest_nearby_devices" msgid="2272829282660436700">"Të lejohet &lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; të gjejë, të lidhet dhe të përcaktojë pozicionin relativ të pajisjeve në afërsi?"</string>
+    <string name="permgroupupgraderequestdetail_nearby_devices" msgid="6877531270654738614">"Të lejohet &lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; të gjejë, të lidhet dhe të përcaktojë pozicionin relativ të pajisjeve në afërsi? "<annotation id="link">"Lejoje te cilësimet."</annotation></string>
     <string name="permgrouprequest_fineupgrade" msgid="2334242928821697672">"Të ndryshohet qasja që ka <xliff:g id="APP_NAME">&lt;b&gt;%1$s&lt;/b&gt;</xliff:g> te vendndodhja nga \"e përafërt\" në \"e saktë\"?"</string>
     <string name="permgrouprequest_coarselocation" msgid="7244605063736425232">"Të lejohet që &lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; të ketë qasje te vendndodhja e përafërt e kësaj pajisjeje?"</string>
     <string name="permgrouprequest_finelocation_imagetext" msgid="1313062433398914334">"E saktë"</string>
@@ -452,6 +475,7 @@
     <string name="permgrouprequest_storage_pre_q" msgid="168130651144569428">"Të lejohet që &lt;b&amp;gt<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; të ketë qasje te &lt;b&gt;fotografitë, videot, muzika, audioja e të tjera&lt;/b&gt; në pajisje?"</string>
     <string name="permgrouprequest_read_media_aural" msgid="2593365397347577812">"Të lejohet që &lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; të ketë qasje te muzika dhe te audioja në këtë pajisje?"</string>
     <string name="permgrouprequest_read_media_visual" msgid="5548780620779729975">"Të lejohet që &lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; të ketë qasje te fotografitë dhe videot në këtë pajisje?"</string>
+    <string name="permgrouprequest_more_photos" msgid="128933814654231321">"Të lejohet që &lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; të qaset te më shumë fotografi dhe video në pajisje?"</string>
     <string name="permgrouprequest_microphone" msgid="2825208549114811299">"Të lejohet që &lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; të regjistrojë audio?"</string>
     <string name="permgrouprequestdetail_microphone" msgid="8510456971528228861">"Aplikacioni do të mund të regjistrojë audion vetëm kur ti po e përdor aplikacionin"</string>
     <string name="permgroupbackgroundrequest_microphone" msgid="8874462606796368183">"Të lejohet që &lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; të regjistrojë audio?"</string>
@@ -474,8 +498,8 @@
     <string name="permgroupupgraderequest_sensors" msgid="7576527638411370468">"Të lejohet akoma që &lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; të ketë qasje te të dhënat e sensorit të trupit kur aplikacioni përdoret?"</string>
     <string name="permgrouprequest_notifications" msgid="6396739062335106181">"Të lejohet që &lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; të të dërgojë njoftime?"</string>
     <string name="auto_granted_permissions" msgid="6009452264824455892">"Lejet e kontrolluara"</string>
-    <string name="auto_granted_location_permission_notification_title" msgid="1438871159268985993">"Lejohet qasja te vendndodhja"</string>
-    <string name="auto_granted_permission_notification_body" msgid="6919835973190443695">"Administratori yt i TI-së e lejon aplikacionin \"<xliff:g id="APP_NAME">%s</xliff:g>\" të ketë qasje te vendndodhja jote"</string>
+    <string name="auto_granted_location_permission_notification_title" msgid="7570818224669050377">"<xliff:g id="APP_NAME">%1$s</xliff:g> ka qasje te vendndodhja"</string>
+    <string name="auto_granted_permission_notification_body" msgid="5040234389205471318">"Organizata jote lejon që <xliff:g id="APP_NAME">%1$s</xliff:g> të ketë qasje te vendndodhja jote"</string>
     <string name="other_permissions_label" msgid="8986184335503271992">"Leje të tjera"</string>
     <string name="not_used_permissions_label" msgid="3939839426115141264">"Lejet e përdorura nga sistemi"</string>
     <string name="not_used_permissions_description" msgid="7595514824169388718">"Lejet e përdorura vetëm nga aplikacionet e sistemit."</string>
@@ -496,17 +520,28 @@
     <string name="blocked_sensor_summary" msgid="4443707628305027375">"Për aplikacionet dhe shërbimet"</string>
     <string name="blocked_mic_summary" msgid="8960466941528458347">"Të dhënat e mikrofonit mund të vazhdojnë të ndahen kur telefonon një numër urgjence."</string>
     <string name="blocked_sensor_button_label" msgid="6742092634984289658">"Ndrysho"</string>
-    <string name="safety_center_dashboard_page_title" msgid="7514620345152008005">"Siguria dhe privatësia"</string>
-    <string name="safety_center_rescan_button" msgid="8047036829052958144">"Skano"</string>
+    <string name="safety_center_dashboard_page_title" msgid="2810774008694315854">"Siguria dhe privatësia"</string>
+    <string name="safety_center_rescan_button" msgid="4517514567809409596">"Skano pajisjen"</string>
     <string name="safety_center_issue_card_dismiss_button" msgid="5113965506144222402">"Hiq"</string>
+    <string name="safety_center_issue_card_dismiss_confirmation_title" msgid="2734809473425036382">"Të hiqet ky sinjalizim?"</string>
+    <string name="safety_center_issue_card_dismiss_confirmation_message" msgid="3775418736671093563">"Shqyrto cilësimet e sigurisë dhe privatësisë në çdo kohë për të shtuar më shumë mbrojtje"</string>
+    <string name="safety_center_issue_card_confirm_dismiss_button" msgid="5884137843083634556">"Hiq"</string>
+    <string name="safety_center_issue_card_cancel_dismiss_button" msgid="2874578798877712346">"Anulo"</string>
+    <string name="safety_center_entries_category_title" msgid="34356964062813115">"Cilësimet"</string>
+    <string name="safety_status_preference_title_and_summary_content_description" msgid="3511373256505058464">"Statusi i sigurisë dhe i privatësisë. <xliff:g id="OVERALL_SAFETY_STATUS">%1$s</xliff:g>. <xliff:g id="SUMMARY_OF_DEVICE_STATUS">%2$s</xliff:g>"</string>
     <string name="security_settings" msgid="3808106921175271317">"Cilësimet e sigurisë"</string>
-    <string name="sensor_permissions_qs" msgid="4365989229426201877">"Lejet e sensorëve"</string>
-    <string name="privacy_controls_qs" msgid="471793881466080745">"Kontrollet e privatësisë"</string>
+    <string name="sensor_permissions_qs" msgid="1022267900031317472">"Lejet"</string>
+    <string name="safety_privacy_qs_tile_title" msgid="727301867710374052">"Siguria dhe privatësia"</string>
+    <string name="safety_privacy_qs_tile_subtitle" msgid="3621544532041936749">"Kontrollo statusin"</string>
+    <string name="privacy_controls_qs" msgid="5780144882040591169">"Kontrollet e privatësisë"</string>
+    <string name="security_settings_button_label_qs" msgid="8280343822465962330">"Cilësime të tjera"</string>
+    <string name="camera_toggle_label_qs" msgid="3880261453066157285">"Qasja te kamera"</string>
+    <string name="microphone_toggle_label_qs" msgid="8132912469813396552">"Qasja te mikrofoni"</string>
     <string name="permissions_removed_qs" msgid="8957319130625294572">"Leja është hequr"</string>
-    <string name="camera_usage_qs" msgid="7943349178368641820">"Shiko më shumë përdorime të kamerës"</string>
-    <string name="microphone_usage_qs" msgid="2393193350541830472">"Shiko më shumë përdorime të mikrofonit"</string>
-    <string name="remove_camera_qs" msgid="8209716677879809162">"Hiq lejen e kamerës"</string>
-    <string name="remove_microphone_qs" msgid="2893536836641560183">"Hiq lejen e mikrofonit"</string>
+    <string name="camera_usage_qs" msgid="4394233566086665994">"Shiko përdorimin e fundit të kamerës"</string>
+    <string name="microphone_usage_qs" msgid="8527666682168170417">"Shiko përdorimin e fundit të mikrofonit"</string>
+    <string name="remove_camera_qs" msgid="3649996161066883350">"Hiq lejen për këtë aplikacion"</string>
+    <string name="remove_microphone_qs" msgid="1276551965129953198">"Hiq lejen për këtë aplikacion"</string>
     <string name="manage_service_qs" msgid="7862555549364153805">"Menaxho shërbimin"</string>
     <string name="manage_permissions_qs" msgid="3780541819763475434">"Menaxho lejet"</string>
     <string name="active_call_usage_qs" msgid="8559974395932523391">"Po përdoret nga telefonata"</string>
@@ -517,8 +552,6 @@
     <string name="recent_app_usage_1_qs" msgid="261450184773310741">"Përdorur së fundi nga <xliff:g id="APP_NAME">%1$s</xliff:g> (<xliff:g id="ATTRIBUTION_LABEL">%2$s</xliff:g>)"</string>
     <string name="active_app_usage_2_qs" msgid="6107866785243565283">"Po përdoret nga <xliff:g id="APP_NAME">%1$s</xliff:g> (<xliff:g id="ATTRIBUTION_LABEL">%2$s</xliff:g> • <xliff:g id="PROXY_LABEL">%3$s</xliff:g>)"</string>
     <string name="recent_app_usage_2_qs" msgid="3591205954235694403">"Përdorur së fundi nga <xliff:g id="APP_NAME">%1$s</xliff:g> (<xliff:g id="ATTRIBUTION_LABEL">%2$s</xliff:g> • <xliff:g id="PROXY_LABEL">%3$s</xliff:g>)"</string>
-    <string name="safety_privacy_qs_tile_title" msgid="5431148204168066203">"Siguria dhe privatësia"</string>
-    <string name="safety_privacy_qs_tile_subtitle" msgid="3621544532041936749">"Kontrollo statusin"</string>
     <string name="media_confirm_dialog_positive_button" msgid="9020793594051526399">"Konfirmo"</string>
     <string name="media_confirm_dialog_negative_button" msgid="226987376924861785">"Pas"</string>
     <string name="media_confirm_dialog_title_a_to_p_aural_allow" msgid="8560601114044699903">"Gjithashtu, do të lejohet qasja te skedarët e tjerë"</string>
@@ -537,4 +570,53 @@
     <string name="media_confirm_dialog_message_q_to_s_aural_deny" msgid="6832087393653561911">"Ky aplikacion nuk mbështet versionin më të fundit të Android. Nëse ky aplikacion nuk mund të ketë qasje te muzika dhe te skedarët audio, atij nuk do t\'i lejohet gjithashtu të ketë qasje te fotografitë dhe te videot."</string>
     <string name="media_confirm_dialog_message_q_to_s_visual_allow" msgid="3504335060843147760">"Ky aplikacion nuk mbështet versionin më të fundit të Android. Nëse ky aplikacion mund të ketë qasje te fotografitë dhe te videot, atij do t\'i lejohet gjithashtu të ketë qasje te muzika dhe te skedarët audio."</string>
     <string name="media_confirm_dialog_message_q_to_s_visual_deny" msgid="2145973462806481992">"Ky aplikacion nuk mbështet versionin më të fundit të Android. Nëse ky aplikacion nuk mund të ketë qasje te muzika dhe te skedarët audio, atij nuk do t\'i lejohet gjithashtu të ketë qasje te fotografitë dhe te videot."</string>
+    <string name="safety_center_background_location_access_notification_title" msgid="8933610618810588237">"Shqyrto aplikacionin me qasje te vendndodhja në sfond"</string>
+    <string name="safety_center_background_location_access_reminder_notification_content" msgid="4066560182507301022">"<xliff:g id="APP_NAME">%s</xliff:g> mund të ketë qasje në vendndodhjen tënde edhe kur aplikacioni është i mbyllur"</string>
+    <string name="safety_center_background_location_access_reminder_title" msgid="5477847038103863843">"Shqyrto aplikacionin me qasje te vendndodhja në sfond"</string>
+    <string name="safety_center_background_location_access_reminder_summary" msgid="7431657777510537658">"Ky aplikacion mund të ketë qasje te vendndodhja jote edhe kur është i mbyllur.\n\nDisa aplikacione sigurie dhe urgjence kërkojnë qasje te vendndodhja jote në sfond për të funksionuar siç duhet."</string>
+    <string name="safety_center_background_location_access_revoked" msgid="6972274943343442213">"Qasja u ndryshua"</string>
+    <string name="safety_center_view_recent_location_access" msgid="3524391299490678243">"Shiko përdorimin e fundit të vendndodhjes"</string>
+    <string name="privacy_controls_title" msgid="7605929972256835199">"Kontrollet e privatësisë"</string>
+    <string name="camera_toggle_title" msgid="1251201397431837666">"Qasja te kamera"</string>
+    <string name="mic_toggle_title" msgid="2649991093496110162">"Qasja te mikrofoni"</string>
+    <string name="perm_toggle_description" msgid="7801326363741451379">"Për aplikacionet dhe shërbimet"</string>
+    <string name="mic_toggle_description" msgid="9163104307990677157">"Për aplikacionet dhe shërbimet. Nëse ky cilësim është joaktiv, të dhënat e mikrofonit mund të vazhdojnë të ndahen kur telefonon një numër urgjence."</string>
+    <string name="location_settings_subtitle" msgid="2328360561197430695">"Shiko aplikacione dhe shërbime dhe qasu te vendndodhja"</string>
+    <string name="show_clip_access_notification_title" msgid="5168467637351109096">"Shfaq qasjen te kujtesa e fragmenteve"</string>
+    <string name="show_clip_access_notification_summary" msgid="3532020182782112687">"Shfaq një mesazh kur aplikacionet qasen te tekstet, imazhet ose përmbajtje të tjera që ke kopjuar"</string>
+    <string name="show_password_title" msgid="2877269286984684659">"Shfaq fjalëkalimet"</string>
+    <string name="show_password_summary" msgid="1110166488865981610">"Shfaq karakteret shkurtimisht kur shkruan"</string>
+    <string name="permission_rationale_message_location" msgid="2153841534298068414">"Ky aplikacion deklaroi se mund të ndajë të dhënat e vendndodhjes me palë të treta"</string>
+    <string name="permission_rationale_location_title" msgid="2404797182678793506">"Ndarja e të dhënave dhe vendndodhja"</string>
+    <string name="permission_rationale_data_sharing_source_title" msgid="6874604543125814316">"Nga vijnë informacionet rreth ndarjes së të dhënave"</string>
+    <string name="permission_rationale_data_sharing_device_manufacturer_message" msgid="7569261218145653185">"Zhvilluesi i ka dhënë informacione prodhuesit të kësaj pajisjeje rreth mënyrës se si ky aplikacion ndan të dhënat Zhvilluesi mund t\'i përditësojë këto informacione me kalimin e kohës."</string>
+    <string name="permission_rationale_data_sharing_source_message" msgid="8330794595417986883">"Zhvilluesi i ofroi informacione "<annotation id="link"><annotation id="install_source" example="App Store">"%1$s"</annotation></annotation>" rreth mënyrës se si ky aplikacion ndan të dhënat. Zhvilluesi mund t\'i përditësojë këto informacione me kalimin e kohës."</string>
+    <string name="permission_rationale_location_purpose_title" msgid="5115877143670012618">"Apl. mund të ndajë të dhënat e vendndodhjes për:"</string>
+    <string name="permission_rationale_permission_data_sharing_varies_title" msgid="9103718980919908316">"Ndarja e të dhënave ndryshon"</string>
+    <string name="permission_rationale_data_sharing_varies_message" msgid="4224469559084489222">"Veprimet me të dhënat mund të ndryshojnë bazuar në versionin e aplikacionit, përdorimin, rajonin dhe moshën tënde. "<annotation id="link">"Më shumë rreth ndarjes së të dhënave"</annotation></string>
+    <string name="permission_rationale_data_sharing_varies_message_without_link" msgid="4912763761399025094">"Veprimet me të dhënat mund të ndryshojnë bazuar në versionin e aplikacionit, përdorimin, rajonin dhe moshën tënde."</string>
+    <string name="permission_rationale_location_settings_title" msgid="7204145004850190953">"Të dhënat e vendndodhjes sate"</string>
+    <string name="permission_rationale_permission_settings_message" msgid="631286040979660267">"Ndrysho qasjen e këtij aplikacioni te "<annotation id="link">"cilësimet e privatësisë"</annotation></string>
+    <string name="permission_rationale_purpose_app_functionality" msgid="8397736681065841405">"Funksionaliteti i aplikacionit"</string>
+    <string name="permission_rationale_purpose_analytics" msgid="2070800501189620712">"Analiza"</string>
+    <string name="permission_rationale_purpose_developer_communications" msgid="6453047018892062374">"Komunikimet e zhvilluesit"</string>
+    <string name="permission_rationale_purpose_advertising" msgid="7156966429245180236">"Reklamimin ose marketingun"</string>
+    <string name="permission_rationale_purpose_fraud_prevention_security" msgid="4262104770357031902">"Parandalimi i mashtrimeve, siguria dhe respektimi i rregullave"</string>
+    <string name="permission_rationale_purpose_personalization" msgid="1589973273682238708">"Personalizimi"</string>
+    <string name="permission_rationale_purpose_account_management" msgid="2985772421946688879">"Menaxhimi i llogarisë"</string>
+    <string name="app_permission_rationale_message" msgid="8511466916077100713">"Siguria e të dhënave"</string>
+    <string name="app_location_permission_rationale_title" msgid="925420340572401350">"Të dhënat e vendndodhjes mund të ndahen"</string>
+    <string name="app_location_permission_rationale_subtitle" msgid="6986985722752868692">"Ky aplikacion deklaroi se mund të ndajë të dhënat e vendndodhjes sate me palë të treta"</string>
+    <string name="data_sharing_updates_title" msgid="7996933386875213859">"Përditësime për ndarjen e të dhënave për vendndodhjen"</string>
+    <string name="data_sharing_updates_summary" msgid="764113985772233889">"Shqyrto aplikacionet që ndryshuan mënyrën se si mund të ndajnë të dhënat e vendndodhjes sate"</string>
+    <string name="data_sharing_updates_subtitle" msgid="6311537708950632329">"Këto aplikacione kanë ndryshuar mënyrën se si mund të ndajnë të dhënat e vendndodhjes sate. Ato mund të mos i kenë ndarë më parë ose mund t\'i ndajnë tani për qëllime reklamimi dhe marketingu."</string>
+    <string name="data_sharing_updates_footer_message" msgid="1582711655172892107">"Zhvilluesit e këtyre aplikacioneve i ofruan informacione rreth praktikave të tyre për ndarjen e të dhënave një dyqani aplikacionesh. Informacionet mund të përditësohen me kalimin e kohës.\n\nPraktikat për ndarjen e të dhënave mund të ndryshojnë bazuar në versionin e aplikacionit, përdorimin, rajonin dhe moshën tënde."</string>
+    <string name="learn_about_data_sharing" msgid="4200480587079488045">"Mëso rreth ndarjes së të dhënave"</string>
+    <string name="shares_location_with_third_parties" msgid="2278051743742057767">"Të dhënat e vendndodhjes sate tani ndahen me palë të treta"</string>
+    <string name="shares_location_with_third_parties_for_advertising" msgid="1918588064014480513">"Të dhënat e vendndodhjes sate tani ndahen me palë të treta për reklamim ose marketing"</string>
+    <string name="updated_in_last_days" msgid="8371811947153042322">"{count,plural, =0{Të përditësuara brenda ditës së fundit}=1{Të përditësuara brenda ditës së fundit}other{Të përditësuara brenda # ditëve}}"</string>
+    <string name="no_updates_at_this_time" msgid="9031085635689982935">"Nuk ka përditësime tani"</string>
+    <string name="safety_label_changes_notification_title" msgid="4479955083472203839">"Përditësimet për ndarjen e të dhënave"</string>
+    <string name="safety_label_changes_notification_desc" msgid="7808764283266234675">"Disa aplikacione ndryshuan mënyrën se si mund të ndajnë të dhënat e vendndodhjes sate"</string>
+    <string name="safety_label_changes_gear_description" msgid="2655887555599138509">"Cilësimet"</string>
 </resources>

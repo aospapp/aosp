@@ -20,6 +20,7 @@ import static com.android.car.telemetry.AtomsProto.ANROccurred.ERROR_SOURCE_FIEL
 import static com.android.car.telemetry.AtomsProto.ANROccurred.PACKAGE_NAME_FIELD_NUMBER;
 import static com.android.car.telemetry.AtomsProto.ANROccurred.REASON_FIELD_NUMBER;
 import static com.android.car.telemetry.AtomsProto.ANROccurred.UID_FIELD_NUMBER;
+import static com.android.car.telemetry.publisher.Constants.STATS_BUNDLE_KEY_PREFIX;
 
 import static com.google.common.truth.Truth.assertThat;
 
@@ -78,14 +79,19 @@ public class AnrOccurredConverterTest {
         PersistableBundle bundle = mConverter.convert(atomsList, null, null, null);
 
         assertThat(bundle.size()).isEqualTo(4);
-        assertThat(bundle.getIntArray(accessorMap.get(UID_FIELD_NUMBER).getFieldName()))
+        assertThat(bundle.getIntArray(
+                    STATS_BUNDLE_KEY_PREFIX + accessorMap.get(UID_FIELD_NUMBER).getFieldName()))
                 .asList().containsExactly(1000, 2000).inOrder();
-        assertThat(Arrays.asList(
-                bundle.getStringArray(accessorMap.get(PACKAGE_NAME_FIELD_NUMBER).getFieldName())))
+        assertThat(Arrays.asList(bundle.getStringArray(
+                    STATS_BUNDLE_KEY_PREFIX + accessorMap.get(
+                            PACKAGE_NAME_FIELD_NUMBER).getFieldName())))
                 .containsExactly(PACKAGE_NAME_1, PACKAGE_NAME_2).inOrder();
-        assertThat(bundle.getStringArray(accessorMap.get(REASON_FIELD_NUMBER).getFieldName()))
+        assertThat(bundle.getStringArray(
+                    STATS_BUNDLE_KEY_PREFIX + accessorMap.get(REASON_FIELD_NUMBER).getFieldName()))
                 .asList().containsExactly("test1", "test2").inOrder();
-        assertThat(bundle.getIntArray(accessorMap.get(ERROR_SOURCE_FIELD_NUMBER).getFieldName()))
+        assertThat(bundle.getIntArray(
+                    STATS_BUNDLE_KEY_PREFIX + accessorMap.get(ERROR_SOURCE_FIELD_NUMBER)
+                            .getFieldName()))
                 .asList().containsExactly(1, 2).inOrder();  // DATA_APP=1, SYSTEM_APP=2
     }
 

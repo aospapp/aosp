@@ -44,4 +44,6 @@ oneway interface IBluetoothGattServerCallback {
     void onPhyRead(in String address, in int txPhy, in int rxPhy, in int status);
     void onConnectionUpdated(in String address, in int interval, in int latency,
                              in int timeout, in int status);
+    void onSubrateChange(in String address, in int subrateFactor, in int latency,
+                         in int contNum, in int timeout, in int status);
 }

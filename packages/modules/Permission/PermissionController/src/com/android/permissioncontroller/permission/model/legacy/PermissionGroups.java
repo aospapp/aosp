@@ -39,6 +39,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 import com.android.permissioncontroller.R;
+import com.android.permissioncontroller.permission.utils.PermissionMapping;
 import com.android.permissioncontroller.permission.utils.Utils;
 
 import java.util.ArrayList;
@@ -186,7 +187,8 @@ public final class PermissionGroups implements LoaderCallbacks<List<PermissionGr
             }
 
             // Ignore non-platform permissions and the UNDEFINED group.
-            if (!getNonPlatformPermissions && !Utils.isModernPermissionGroup(groupInfo.name)) {
+            if (!getNonPlatformPermissions
+                    && !PermissionMapping.isPlatformPermissionGroup(groupInfo.name)) {
                 continue;
             }
 
@@ -264,7 +266,7 @@ public final class PermissionGroups implements LoaderCallbacks<List<PermissionGr
                 }
 
                 // Ignore non-platform permissions and the UNDEFINED group.
-                if (!getNonPlatformPermissions && !Utils.isModernPermissionGroup(
+                if (!getNonPlatformPermissions && !PermissionMapping.isPlatformPermissionGroup(
                         permissionInfo.name)) {
                     continue;
                 }

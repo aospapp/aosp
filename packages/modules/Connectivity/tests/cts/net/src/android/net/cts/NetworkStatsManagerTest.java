@@ -56,6 +56,7 @@ import android.net.NetworkStatsCollection;
 import android.net.NetworkStatsHistory;
 import android.net.TrafficStats;
 import android.net.netstats.NetworkStatsDataMigrationUtils;
+import android.os.Build;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.Process;
@@ -99,7 +100,7 @@ import java.util.concurrent.TimeUnit;
 @RunWith(AndroidJUnit4.class)
 public class NetworkStatsManagerTest {
     @Rule
-    public final DevSdkIgnoreRule ignoreRule = new DevSdkIgnoreRule(SC_V2 /* ignoreClassUpTo */);
+    public final DevSdkIgnoreRule ignoreRule = new DevSdkIgnoreRule(Build.VERSION_CODES.Q);
 
     private static final String LOG_TAG = "NetworkStatsManagerTest";
     private static final String APPOPS_SET_SHELL_COMMAND = "appops set {0} {1} {2}";
@@ -870,10 +871,9 @@ public class NetworkStatsManagerTest {
         }
     }
 
+    @DevSdkIgnoreRule.IgnoreUpTo(SC_V2)
     @Test
     public void testDataMigrationUtils() throws Exception {
-        if (!SdkLevel.isAtLeastT()) return;
-
         final List<String> prefixes = List.of(PREFIX_UID, PREFIX_XT, PREFIX_UID_TAG);
         for (final String prefix : prefixes) {
             final long duration = TextUtils.equals(PREFIX_XT, prefix) ? TimeUnit.HOURS.toMillis(1)

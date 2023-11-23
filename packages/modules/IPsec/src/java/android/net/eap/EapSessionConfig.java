@@ -1097,7 +1097,7 @@ public final class EapSessionConfig {
         /** @hide */
         @Override
         public int hashCode() {
-            return Objects.hash(super.hashCode(), mReauthId);
+            return Objects.hash(super.hashCode(), Arrays.hashCode(mReauthId));
         }
 
         /** @hide */

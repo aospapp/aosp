@@ -66,7 +66,6 @@ public class SSLCertificateSocketFactoryTest {
         InetAddress[] addresses;
         try {
             addresses = InetAddress.getAllByName(TEST_HOST);
-            mTestHostAddress = addresses[0];
         } catch (UnknownHostException uhe) {
             throw new AssertionError(
                 "Unable to test SSLCertificateSocketFactory: cannot resolve " + TEST_HOST, uhe);
@@ -76,10 +75,11 @@ public class SSLCertificateSocketFactoryTest {
             .map(addr -> new InetSocketAddress(addr, HTTPS_PORT))
             .collect(Collectors.toList());
 
-        // Find the local IP address which will be used to connect to TEST_HOST.
+        // Find the local and remote IP addresses which will be used to connect to TEST_HOST.
         try {
             Socket testSocket = new Socket(TEST_HOST, HTTPS_PORT);
             mLocalAddress = testSocket.getLocalAddress();
+            mTestHostAddress = testSocket.getInetAddress();
             testSocket.close();
         } catch (IOException ioe) {
             throw new AssertionError(""

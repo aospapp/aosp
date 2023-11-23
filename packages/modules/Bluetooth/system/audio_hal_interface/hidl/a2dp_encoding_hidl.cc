@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#define LOG_TAG "BTAudioClientA2DP_HIDL"
+#define LOG_TAG "BTAudioA2dpHIDL"
 
 #include "a2dp_encoding_hidl.h"
 

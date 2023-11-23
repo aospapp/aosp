@@ -47,9 +47,12 @@ java_library {
     ],
     libs: [
         "framework-annotations-lib",
+        "framework-configinfrastructure",
         "framework-connectivity-pre-jarjar",
         "framework-connectivity-t-pre-jarjar",
-        "framework-tethering.stubs.module_lib",
+        // TODO: use framework-tethering-pre-jarjar when it is separated from framework-tethering
+        "framework-tethering.impl",
+        "framework-wifi",
         "service-connectivity-pre-jarjar",
         "service-nearby-pre-jarjar",
         "ServiceConnectivityResources",
@@ -70,5 +73,49 @@ java_library {
         "//packages/modules/Connectivity/service",
         "//packages/modules/Connectivity/tests:__subpackages__",
         "//packages/modules/IPsec/tests/iketests",
+    ],
+}
+
+// Test building mDNS as a standalone, so that it can be imported into other repositories as-is.
+// The mDNS code is platform code so it should use framework-annotations-lib, contrary to apps that
+// should use sdk_version: "system_current" and only androidx.annotation_annotation. But this build
+// rule verifies that the mDNS code can be built into apps, if code transformations are applied to
+// the annotations.
+// When using "system_current", framework annotations are not available; they would appear as
+// package-private as they are marked as such in the system_current stubs. So build against
+// core_platform and add the stubs manually in "libs". See http://b/147773144#comment7.
+java_library {
+    name: "service-connectivity-mdns-standalone-build-test",
+    sdk_version: "core_platform",
+    srcs: [
+        ":service-mdns-droidstubs",
+        "src/com/android/server/connectivity/mdns/**/*.java",
+    ],
+    exclude_srcs: [
+        "src/com/android/server/connectivity/mdns/internal/SocketNetlinkMonitor.java",
+        "src/com/android/server/connectivity/mdns/SocketNetLinkMonitorFactory.java"
+    ],
+    static_libs: [
+        "net-utils-device-common-mdns-standalone-build-test",
+    ],
+    libs: [
+        "framework-annotations-lib",
+        "android_system_stubs_current",
+        "androidx.annotation_annotation",
+    ],
+    visibility: [
+        "//visibility:private",
+    ],
+}
+
+droidstubs {
+    name: "service-mdns-droidstubs",
+    srcs: ["src/com/android/server/connectivity/mdns/SocketNetLinkMonitorFactory.java"],
+    libs: [
+        "net-utils-device-common-mdns-standalone-build-test",
+        "service-connectivity-tiramisu-pre-jarjar"
+    ],
+    visibility: [
+        "//visibility:private",
     ],
 }

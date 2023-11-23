@@ -16,7 +16,9 @@
 
 package com.android.cellbroadcastservice;
 
-import static com.android.cellbroadcastservice.CellBroadcastStatsLog.CELL_BROADCAST_MESSAGE_ERROR__TYPE__CDMA_DECODING_ERROR;
+import static com.android.cellbroadcastservice.CellBroadcastMetrics.ERR_CDMA_DECODING;
+import static com.android.cellbroadcastservice.CellBroadcastMetrics.RPT_CDMA;
+import static com.android.cellbroadcastservice.CellBroadcastMetrics.SRC_CBS;
 
 import android.annotation.NonNull;
 import android.content.Context;
@@ -74,33 +76,26 @@ public class DefaultCellBroadcastService extends CellBroadcastService {
     @Override
     public void onGsmCellBroadcastSms(int slotIndex, byte[] message) {
         Log.d(TAG, "onGsmCellBroadcastSms received message on slotId=" + slotIndex);
-        CellBroadcastStatsLog.write(CellBroadcastStatsLog.CB_MESSAGE_REPORTED,
-                CellBroadcastStatsLog.CELL_BROADCAST_MESSAGE_REPORTED__TYPE__GSM,
-                CellBroadcastStatsLog.CELL_BROADCAST_MESSAGE_REPORTED__SOURCE__CB_SERVICE);
         mGsmCellBroadcastHandler.onGsmCellBroadcastSms(slotIndex, message);
     }
 
     @Override
     public void onCdmaCellBroadcastSms(int slotIndex, byte[] bearerData, int serviceCategory) {
         Log.d(TAG, "onCdmaCellBroadcastSms received message on slotId=" + slotIndex);
-        CellBroadcastStatsLog.write(CellBroadcastStatsLog.CB_MESSAGE_REPORTED,
-                CellBroadcastStatsLog.CELL_BROADCAST_MESSAGE_REPORTED__TYPE__CDMA,
-                CellBroadcastStatsLog.CELL_BROADCAST_MESSAGE_REPORTED__SOURCE__CB_SERVICE);
-        int[] subIds =
-                ((SubscriptionManager) getSystemService(
-                        Context.TELEPHONY_SUBSCRIPTION_SERVICE)).getSubscriptionIds(slotIndex);
-        String plmn;
-        if (subIds != null && subIds.length > 0) {
-            int subId = subIds[0];
-            plmn = ((TelephonyManager) getSystemService(
-                    Context.TELEPHONY_SERVICE)).createForSubscriptionId(
-                    subId).getNetworkOperator();
-        } else {
-            plmn = "";
+
+        int subId = CellBroadcastHandler.getSubIdForPhone(getApplicationContext(), slotIndex);
+
+        String plmn = "";
+        if (SubscriptionManager.isValidSubscriptionId(subId)) {
+            plmn = getSystemService(TelephonyManager.class)
+                    .createForSubscriptionId(subId).getNetworkOperator();
         }
+
         SmsCbMessage message = parseCdmaBroadcastSms(getApplicationContext(), slotIndex, plmn,
                 bearerData, serviceCategory);
         if (message != null) {
+            CellBroadcastServiceMetrics.getInstance().logMessageReported(getApplicationContext(),
+                    RPT_CDMA, SRC_CBS, message.getSerialNumber(), message.getServiceCategory());
             mCdmaCellBroadcastHandler.onCdmaCellBroadcastSms(message);
         }
     }
@@ -109,9 +104,6 @@ public class DefaultCellBroadcastService extends CellBroadcastService {
     public void onCdmaScpMessage(int slotIndex, List<CdmaSmsCbProgramData> programData,
             String originatingAddress, Consumer<Bundle> callback) {
         Log.d(TAG, "onCdmaScpMessage received message on slotId=" + slotIndex);
-        CellBroadcastStatsLog.write(CellBroadcastStatsLog.CB_MESSAGE_REPORTED,
-                CellBroadcastStatsLog.CELL_BROADCAST_MESSAGE_REPORTED__TYPE__CDMA_SPC,
-                CellBroadcastStatsLog.CELL_BROADCAST_MESSAGE_REPORTED__SOURCE__CB_SERVICE);
         mCdmaScpHandler.onCdmaScpMessage(slotIndex, new ArrayList<>(programData),
                 originatingAddress, callback);
     }
@@ -140,19 +132,16 @@ public class DefaultCellBroadcastService extends CellBroadcastService {
         } catch (Exception e) {
             final String errorMessage = "Error decoding bearer data e=" + e.toString();
             Log.e(TAG, errorMessage);
-            CellBroadcastStatsLog.write(CellBroadcastStatsLog.CB_MESSAGE_ERROR,
-                    CELL_BROADCAST_MESSAGE_ERROR__TYPE__CDMA_DECODING_ERROR, errorMessage);
+            CellBroadcastServiceMetrics.getInstance()
+                    .logMessageError(ERR_CDMA_DECODING, errorMessage);
             return null;
         }
         Log.d(TAG, "MT raw BearerData = " + toHexString(bearerData, 0, bearerData.length));
         SmsCbLocation location = new SmsCbLocation(plmn, -1, -1);
 
-        SubscriptionManager sm = (SubscriptionManager) context.getSystemService(
-                Context.TELEPHONY_SUBSCRIPTION_SERVICE);
-        int subId = SubscriptionManager.DEFAULT_SUBSCRIPTION_ID;
-        int[] subIds = sm.getSubscriptionIds(slotIndex);
-        if (subIds != null && subIds.length > 0) {
-            subId = subIds[0];
+        int subId = CellBroadcastHandler.getSubIdForPhone(context, slotIndex);
+        if (!SubscriptionManager.isValidSubscriptionId(subId)) {
+            subId = SubscriptionManager.DEFAULT_SUBSCRIPTION_ID;
         }
 
         return new SmsCbMessage(SmsCbMessage.MESSAGE_FORMAT_3GPP2,

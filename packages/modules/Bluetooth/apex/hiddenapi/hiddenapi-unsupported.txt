@@ -1,4 +1,3 @@
-Landroid/bluetooth/IBluetooth$Stub$Proxy;->getAddress()Ljava/lang/String;
 Landroid/bluetooth/IBluetooth$Stub;->asInterface(Landroid/os/IBinder;)Landroid/bluetooth/IBluetooth;
 Landroid/bluetooth/IBluetoothA2dp$Stub;->asInterface(Landroid/os/IBinder;)Landroid/bluetooth/IBluetoothA2dp;
 Landroid/bluetooth/IBluetoothCallback$Stub;-><init>()V

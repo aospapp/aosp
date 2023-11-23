@@ -159,4 +159,14 @@
         <attr name="intent" format="string"/>
         <attr name="disableWhileDriving" format="boolean"/>
     </declare-styleable>
+
+    <declare-styleable name="QCFooterButtonView">
+        <attr name="intent" format="string"/>
+        <attr name="disableWhileDriving" format="boolean"/>
+    </declare-styleable>
+
+    <declare-styleable name="QuickControlsEntryPointContainer">
+        <attr name="showAsDropDown" format="boolean"/>
+        <attr name="panelGravity" format="integer"/>
+    </declare-styleable>
 </resources>

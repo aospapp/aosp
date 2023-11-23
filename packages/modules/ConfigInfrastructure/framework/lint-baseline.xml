@@ -1,0 +1,147 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<issues format="6" by="lint 8.0.0-dev" type="baseline" dependencies="true" variant="all" version="8.0.0-dev">
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 34 (current min is 33): `android.provider.DeviceConfigInitializer#getDeviceConfigServiceManager`"
+        errorLine1="                .getDeviceConfigServiceManager()"
+        errorLine2="                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="packages/modules/ConfigInfrastructure/framework/java/android/provider/DeviceConfigShellCommandHandler.java"
+            line="59"
+            column="18"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 34 (current min is 33): `android.provider.DeviceConfigServiceManager#getDeviceConfigUpdatableServiceRegisterer`"
+        errorLine1="                .getDeviceConfigUpdatableServiceRegisterer()"
+        errorLine2="                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="packages/modules/ConfigInfrastructure/framework/java/android/provider/DeviceConfigShellCommandHandler.java"
+            line="60"
+            column="18"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 34 (current min is 33): `android.provider.DeviceConfigServiceManager.ServiceRegisterer#get`"
+        errorLine1="                .get();"
+        errorLine2="                 ~~~">
+        <location
+            file="packages/modules/ConfigInfrastructure/framework/java/android/provider/DeviceConfigShellCommandHandler.java"
+            line="61"
+            column="18"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 34 (current min is 33): `android.provider.Settings.Config#clearMonitorCallback`"
+        errorLine1="        Settings.Config.clearMonitorCallback(resolver);"
+        errorLine2="                        ~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="packages/modules/ConfigInfrastructure/framework/java/android/provider/DeviceConfig.java"
+            line="1335"
+            column="25"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 34 (current min is 33): `android.provider.Settings.Config#deleteString`"
+        errorLine1="        return Settings.Config.deleteString(namespace, name);"
+        errorLine2="                               ~~~~~~~~~~~~">
+        <location
+            file="packages/modules/ConfigInfrastructure/framework/java/android/provider/DeviceConfig.java"
+            line="1188"
+            column="32"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 34 (current min is 33): `android.provider.Settings.Config#getStrings`"
+        errorLine1="                Settings.Config.getStrings(namespace, Arrays.asList(names)));"
+        errorLine2="                                ~~~~~~~~~~">
+        <location
+            file="packages/modules/ConfigInfrastructure/framework/java/android/provider/DeviceConfig.java"
+            line="1011"
+            column="33"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 34 (current min is 33): `android.provider.Settings.Config#getSyncDisabledMode`"
+        errorLine1="        return Settings.Config.getSyncDisabledMode();"
+        errorLine2="                               ~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="packages/modules/ConfigInfrastructure/framework/java/android/provider/DeviceConfig.java"
+            line="1249"
+            column="32"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 34 (current min is 33): `android.provider.Settings.Config#putString`"
+        errorLine1="        return Settings.Config.putString(namespace, name, value, makeDefault);"
+        errorLine2="                               ~~~~~~~~~">
+        <location
+            file="packages/modules/ConfigInfrastructure/framework/java/android/provider/DeviceConfig.java"
+            line="1151"
+            column="32"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 34 (current min is 33): `android.provider.Settings.Config#registerContentObserver`"
+        errorLine1="                    .registerContentObserver(namespace, true, contentObserver);"
+        errorLine2="                     ~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="packages/modules/ConfigInfrastructure/framework/java/android/provider/DeviceConfig.java"
+            line="1362"
+            column="22"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 34 (current min is 33): `android.provider.Settings.Config#resetToDefaults`"
+        errorLine1="        Settings.Config.resetToDefaults(resetMode, namespace);"
+        errorLine2="                        ~~~~~~~~~~~~~~~">
+        <location
+            file="packages/modules/ConfigInfrastructure/framework/java/android/provider/DeviceConfig.java"
+            line="1219"
+            column="25"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 34 (current min is 33): `android.provider.Settings.Config#setStrings`"
+        errorLine1="        return Settings.Config.setStrings(properties.getNamespace(),"
+        errorLine2="                               ~~~~~~~~~~">
+        <location
+            file="packages/modules/ConfigInfrastructure/framework/java/android/provider/DeviceConfig.java"
+            line="1172"
+            column="32"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 34 (current min is 33): `android.provider.Settings.Config#setSyncDisabledMode`"
+        errorLine1="        Settings.Config.setSyncDisabledMode(syncDisabledMode);"
+        errorLine2="                        ~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="packages/modules/ConfigInfrastructure/framework/java/android/provider/DeviceConfig.java"
+            line="1237"
+            column="25"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 34 (current min is 33): `android.provider.Settings.Config#unregisterContentObserver`"
+        errorLine1="            Settings.Config.unregisterContentObserver(namespaceCount.first);"
+        errorLine2="                            ~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="packages/modules/ConfigInfrastructure/framework/java/android/provider/DeviceConfig.java"
+            line="1385"
+            column="29"/>
+    </issue>
+
+</issues>

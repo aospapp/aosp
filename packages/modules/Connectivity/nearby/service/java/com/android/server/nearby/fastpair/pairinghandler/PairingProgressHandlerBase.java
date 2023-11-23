@@ -24,6 +24,7 @@ import android.bluetooth.BluetoothDevice;
 import android.content.Context;
 import android.util.Log;
 
+import com.android.internal.annotations.VisibleForTesting;
 import com.android.server.nearby.common.bluetooth.fastpair.FastPairConnection;
 import com.android.server.nearby.common.bluetooth.fastpair.Preferences;
 import com.android.server.nearby.fastpair.cache.DiscoveryItem;
@@ -34,6 +35,7 @@ import com.android.server.nearby.intdefs.FastPairEventIntDefs;
 
 /** Base class for pairing progress handler. */
 public abstract class PairingProgressHandlerBase {
+    protected static final String TAG = "FPPairingHandler";
     protected final Context mContext;
     protected final DiscoveryItem mItem;
     @Nullable
@@ -47,7 +49,6 @@ public abstract class PairingProgressHandlerBase {
         this.mContext = context;
         this.mItem = item;
     }
-
 
     /**
      * Pairing progress init function.
@@ -74,59 +75,55 @@ public abstract class PairingProgressHandlerBase {
                     new HalfSheetPairingProgressHandler(context, item, companionApp, accountKey);
         }
 
-
-        Log.v("PairingHandler",
-                "PairingProgressHandler:Create "
-                        + item.getMacAddress() + " for pairing");
+        Log.v(TAG, "PairingProgressHandler:Create " + item.getMacAddress() + " for pairing");
         return pairingProgressHandlerBase;
     }
-
 
     /**
      * Function calls when pairing start.
      */
     public void onPairingStarted() {
-        Log.v("PairingHandler", "PairingProgressHandler:onPairingStarted");
+        Log.v(TAG, "PairingProgressHandler:onPairingStarted");
     }
 
     /**
      * Waits for screen to unlock.
      */
     public void onWaitForScreenUnlock() {
-        Log.v("PairingHandler", "PairingProgressHandler:onWaitForScreenUnlock");
+        Log.v(TAG, "PairingProgressHandler:onWaitForScreenUnlock");
     }
 
     /**
      * Function calls when screen unlock.
      */
     public void onScreenUnlocked() {
-        Log.v("PairingHandler", "PairingProgressHandler:onScreenUnlocked");
+        Log.v(TAG, "PairingProgressHandler:onScreenUnlocked");
     }
 
     /**
      * Calls when the handler is ready to pair.
      */
     public void onReadyToPair() {
-        Log.v("PairingHandler", "PairingProgressHandler:onReadyToPair");
+        Log.v(TAG, "PairingProgressHandler:onReadyToPair");
     }
 
     /**
      * Helps to set up pairing preference.
      */
     public void onSetupPreferencesBuilder(Preferences.Builder builder) {
-        Log.v("PairingHandler", "PairingProgressHandler:onSetupPreferencesBuilder");
+        Log.v(TAG, "PairingProgressHandler:onSetupPreferencesBuilder");
     }
 
     /**
      * Calls when pairing setup complete.
      */
     public void onPairingSetupCompleted() {
-        Log.v("PairingHandler", "PairingProgressHandler:onPairingSetupCompleted");
+        Log.v(TAG, "PairingProgressHandler:onPairingSetupCompleted");
     }
 
     /** Called while pairing if needs to handle the passkey confirmation by Ui. */
     public void onHandlePasskeyConfirmation(BluetoothDevice device, int passkey) {
-        Log.v("PairingHandler", "PairingProgressHandler:onHandlePasskeyConfirmation");
+        Log.v(TAG, "PairingProgressHandler:onHandlePasskeyConfirmation");
     }
 
     /**
@@ -148,7 +145,7 @@ public abstract class PairingProgressHandlerBase {
             byte[] accountKey,
             FootprintsDeviceManager footprints,
             String address) {
-        Log.v("PairingHandler",
+        Log.v(TAG,
                 "PairingProgressHandler:onPairedCallbackCalled with address: "
                         + address);
 
@@ -165,7 +162,7 @@ public abstract class PairingProgressHandlerBase {
     public byte[] getKeyForLocalCache(
             byte[] accountKey, FastPairConnection connection,
             FastPairConnection.SharedSecret sharedSecret) {
-        Log.v("PairingHandler", "PairingProgressHandler:getKeyForLocalCache");
+        Log.v(TAG, "PairingProgressHandler:getKeyForLocalCache");
         return accountKey != null ? accountKey : connection.getExistingAccountKey();
     }
 
@@ -173,25 +170,26 @@ public abstract class PairingProgressHandlerBase {
      * Function handles pairing fail.
      */
     public void onPairingFailed(Throwable throwable) {
-        Log.w("PairingHandler", "PairingProgressHandler:onPairingFailed");
+        Log.w(TAG, "PairingProgressHandler:onPairingFailed");
     }
 
     /**
      * Function handles pairing success.
      */
     public void onPairingSuccess(String address) {
-        Log.v("PairingHandler", "PairingProgressHandler:onPairingSuccess with address: "
+        Log.v(TAG, "PairingProgressHandler:onPairingSuccess with address: "
                 + maskBluetoothAddress(address));
     }
 
-    private static void optInFootprintsForInitialPairing(
+    @VisibleForTesting
+    static void optInFootprintsForInitialPairing(
             FootprintsDeviceManager footprints,
             DiscoveryItem item,
             byte[] accountKey,
             @Nullable byte[] existingAccountKey) {
         if (isThroughFastPair2InitialPairing(item, accountKey) && existingAccountKey == null) {
             // enable the save to footprint
-            Log.v("PairingHandler", "footprint should call opt in here");
+            Log.v(TAG, "footprint should call opt in here");
         }
     }
 

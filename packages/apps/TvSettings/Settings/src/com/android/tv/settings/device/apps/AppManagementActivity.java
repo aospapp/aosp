@@ -22,8 +22,8 @@ import android.util.Log;
 
 import androidx.fragment.app.Fragment;
 
-import com.android.tv.settings.BaseSettingsFragment;
 import com.android.tv.settings.TvSettingsActivity;
+import com.android.tv.settings.overlay.FlavorUtils;
 
 /**
  * Activity that manages an app.
@@ -40,28 +40,12 @@ public class AppManagementActivity extends TvSettingsActivity {
             finish();
             return null;
         }
+
         final String packageName = uri.getSchemeSpecificPart();
-        return SettingsFragment.newInstance(packageName);
-    }
+        final Bundle args = new Bundle(1);
+        AppManagementFragment.prepareArgs(args, packageName);
 
-    public static class SettingsFragment extends BaseSettingsFragment {
-        private static final String ARG_PACKAGE_NAME = "packageName";
-
-        public static SettingsFragment newInstance(String packageName) {
-            final Bundle b = new Bundle(1);
-            b.putString(ARG_PACKAGE_NAME, packageName);
-            final SettingsFragment f = new SettingsFragment();
-            f.setArguments(b);
-            return f;
-        }
-
-        @Override
-        public void onPreferenceStartInitialScreen() {
-            final Bundle b = new Bundle();
-            AppManagementFragment.prepareArgs(b, getArguments().getString(ARG_PACKAGE_NAME));
-            final Fragment f = new AppManagementFragment();
-            f.setArguments(b);
-            startPreferenceFragment(f);
-        }
+        return FlavorUtils.getFeatureFactory(this).getSettingsFragmentProvider()
+                .newSettingsFragment(AppManagementFragment.class.getName(), args);
     }
 }

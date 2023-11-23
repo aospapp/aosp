@@ -19,7 +19,6 @@ package {
 java_defaults {
     name: "wifi-module-sdk-version-defaults",
     min_sdk_version: "30",
-    target_sdk_version: "33",
 }
 
 filegroup {
@@ -104,6 +103,7 @@ java_defaults {
         "app-compat-annotations",
     ],
     aidl: {
+        generate_get_transaction_name: true,
         include_dirs: [
             "packages/modules/Connectivity/framework/aidl-export",
         ],
@@ -121,8 +121,6 @@ java_library {
     defaults: ["framework-wifi-defaults"],
     sdk_version: "module_current",
     libs: ["framework-annotations-lib"],
-    // java_api_finder must accompany `srcs` (`srcs` defined in `framework-wifi-defaults`)
-    plugins: ["java_api_finder"],
     installable: false,
     visibility: [
         "//frameworks/opt/net/wifi/service",
@@ -197,4 +195,31 @@ platform_compat_config
 {
     name: "wifi-compat-config",
     src: ":framework-wifi-pre-jarjar",
+}
+
+java_api_contribution {
+    name: "framework-wifi-public-stubs",
+    api_surface: "public",
+    api_file: "api/current.txt",
+    visibility: [
+        "//build/orchestrator/apis",
+    ],
+}
+
+java_api_contribution {
+    name: "framework-wifi-system-stubs",
+    api_surface: "system",
+    api_file: "api/system-current.txt",
+    visibility: [
+        "//build/orchestrator/apis",
+    ],
+}
+
+java_api_contribution {
+    name: "framework-wifi-module-lib-stubs",
+    api_surface: "module-lib",
+    api_file: "api/module-lib-current.txt",
+    visibility: [
+        "//build/orchestrator/apis",
+    ],
 }

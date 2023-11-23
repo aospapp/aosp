@@ -89,6 +89,12 @@ typedef enum {
   BTHH_FEATURE_REPORT
 } bthh_report_type_t;
 
+/* Info for which profiles to enable */
+typedef struct {
+  bool hidp_enabled;
+  bool hogp_enabled;
+} bthh_profile_enable_t;
+
 typedef struct {
   int attr_mask;
   uint8_t sub_class;
@@ -199,6 +205,10 @@ typedef struct {
   bt_status_t (*get_report)(RawAddress* bd_addr, bthh_report_type_t reportType,
                             uint8_t reportId, int bufferSize);
 
+  /** Send a GET_REPORT_REPLY to HID driver. */
+  bt_status_t (*get_report_reply)(RawAddress* bd_addr, bthh_status_t status,
+                                  char* report, uint16_t size);
+
   /** Send a SET_REPORT to HID device. */
   bt_status_t (*set_report)(RawAddress* bd_addr, bthh_report_type_t reportType,
                             char* report);
@@ -208,6 +218,9 @@ typedef struct {
 
   /** Closes the interface. */
   void (*cleanup)(void);
+
+  /** Configure which profiles can be enabled. Affected after re-init */
+  void (*configure_enabled_profiles)(bool enable_hidp, bool enable_hogp);
 
 } bthh_interface_t;
 __END_DECLS

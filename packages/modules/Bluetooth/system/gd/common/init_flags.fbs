@@ -4,14 +4,12 @@ attribute "privacy";
 
 table InitFlagsData {
     title:string (privacy:"Any");
-    gd_advertising_enabled:bool (privacy:"Any");
-    gd_scanning_enabled:bool (privacy:"Any");
-    gd_security_enabled:bool (privacy:"Any");
-    gd_acl_enabled:bool (privacy:"Any");
-    gd_hci_enabled:bool (privacy:"Any");
-    gd_controller_enabled:bool (privacy:"Any");
-    gd_core_enabled:bool (privacy:"Any");
-    btaa_hci_log_enabled:bool (privacy:"Any");
+    values:[InitFlagValue] (privacy:"Any");
+}
+
+table InitFlagValue {
+    flag:string (privacy:"Any");
+    value:string (privacy:"Any");
 }
 
 root_type InitFlagsData;

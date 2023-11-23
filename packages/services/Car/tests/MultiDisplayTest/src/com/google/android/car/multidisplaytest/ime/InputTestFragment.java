@@ -23,7 +23,6 @@ import android.view.LayoutInflater;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
-import android.view.inputmethod.InputConnection;
 import android.view.inputmethod.InputMethodManager;
 import android.widget.Button;
 import android.widget.EditText;
@@ -43,7 +42,6 @@ public class InputTestFragment extends Fragment {
     private Button mClearButton;
     private EditText mTestEditText;
     private InputMethodManager mInputManager;
-    private InputConnection mInputConnection;
     private TextView mWatchdogTextView;
     private ViewGroup mInputViewGroup;
     private Watchdog mWatchdog;

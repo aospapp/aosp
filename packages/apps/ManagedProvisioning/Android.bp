@@ -41,14 +41,17 @@ android_library {
         "managedprovisioning_protoslite",
         "androidx.webkit_webkit-nodeps",
         "setupdesign-lottie-loading-layout",
-        "lottie"
+        "lottie",
+        "guava"
     ],
 
     plugins: ["auto_value_plugin"],
 
     srcs: [
         "src/**/*.java",
-        "src/**/I*.aidl"],
+        "src/**/*.kt",
+        "src/**/I*.aidl"
+    ],
 
     resource_dirs: ["res"],
 
@@ -72,13 +75,15 @@ android_app {
         "managedprovisioning_protoslite",
         "androidx.webkit_webkit-nodeps",
         "setupdesign-lottie-loading-layout",
-        "lottie"
+        "lottie",
+        "guava"
     ],
 
     plugins: ["auto_value_plugin"],
 
     srcs: [
         "src/**/*.java",
+        "src/**/*.kt",
         "src/**/I*.aidl",
     ],
 
@@ -88,6 +93,7 @@ android_app {
     certificate: "platform",
     privileged: true,
     optimize: {
+        shrink_resources: true,
         proguard_flags_files: ["proguard.flags"],
     },
 

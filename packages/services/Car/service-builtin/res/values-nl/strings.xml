@@ -16,6 +16,14 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+    <string name="car_permission_label_bind_projection_service" msgid="6976251734714662552">"verbinding maken met een projectieservice"</string>
+    <string name="car_permission_desc_bind_projection_service" msgid="4610418233070289810">"Hiermee kan de houder verbinding maken met de hoofdinterface van een projectieservice. Nooit vereist voor normale apps."</string>
+    <string name="car_permission_label_bind_vms_client" msgid="1298928874094319701">"VMS-clientservice"</string>
+    <string name="car_permission_desc_bind_vms_client" msgid="7758142590449847602">"Verbinding maken met VMS-clients"</string>
+    <string name="car_permission_label_bind_instrument_cluster_rendering" msgid="6723392540805279625">"Weergave instrumentcluster"</string>
+    <string name="car_permission_desc_bind_instrument_cluster_rendering" msgid="2583711303360788080">"Gegevens van instrumentcluster ontvangen"</string>
+    <string name="car_permission_label_bind_input_service" msgid="6647238478703096557">"Invoerservice van auto"</string>
+    <string name="car_permission_desc_bind_input_service" msgid="8460218104132496613">"Invoergebeurtenissen verwerken"</string>
     <string name="activity_blocked_text" msgid="5991043857905412794">"Je kunt deze functie niet gebruiken tijdens het rijden"</string>
     <string name="exit_button_message" msgid="5375678491245394542">"Selecteer <xliff:g id="EXIT_BUTTON">%s</xliff:g> om opnieuw te beginnen met de veilige app-functies."</string>
     <string name="exit_button" msgid="3491899413031549265">"Vorige"</string>
@@ -30,11 +38,7 @@
     <string name="factory_reset_warning" msgid="8463356329619149262">"Je apparaat wordt gewist"</string>
     <string name="factory_reset_message" msgid="1972536809866779972">"De beheer-app kan niet worden gebruikt. Je apparaat wordt nu gewist.\n\nNeem contact op met de beheerder van je organisatie als je vragen hebt."</string>
     <string name="resource_overuse_notification_title" msgid="1622015333965744463">"<xliff:g id="ID_1">^1</xliff:g> is van invloed op je systeemprestaties"</string>
-    <string name="resource_overuse_notification_text_disable_app" msgid="6230392052741662158">"Zet de app uit om de systeemprestaties te verbeteren. Je kunt de app weer aanzetten via Instellingen."</string>
-    <string name="resource_overuse_notification_text_prioritize_app" msgid="5712958688473220136">"Prioriteer de app als je deze wilt blijven gebruiken."</string>
-    <string name="resource_overuse_notification_text_uninstall_app" msgid="7571808726595158942">"Verwijder de app om de systeemprestaties te verbeteren."</string>
-    <string name="resource_overuse_notification_button_disable_app" msgid="7366883746281232189">"App uitzetten"</string>
+    <string name="resource_overuse_notification_text_disabled_app" msgid="9058683477901746549">"Uitvoering op de achtergrond is geblokkeerd voor deze app. Prioriteer de app om door te gaan met gebruik op de achtergrond."</string>
+    <string name="resource_overuse_notification_button_close_app" msgid="131355952730826999">"Sluiten"</string>
     <string name="resource_overuse_notification_button_prioritize_app" msgid="1093325910457794796">"App prioriteren"</string>
-    <string name="resource_overuse_notification_button_uninstall_app" msgid="5259756814713178196">"App verwijderen"</string>
-    <string name="resource_overuse_toast_disable_app_now" msgid="5020071090614971772">"<xliff:g id="ID_1">^1</xliff:g> is uitgezet. Je kunt de app weer aanzetten via Instellingen."</string>
 </resources>

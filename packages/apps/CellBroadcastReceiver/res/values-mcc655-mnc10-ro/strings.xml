@@ -19,5 +19,5 @@
     <!-- no translation found for pws_other_message_identifiers (8386631538547583365) -->
     <skip />
     <string name="enable_area_update_info_alerts_title" msgid="359971597213074452">"Alerte pentru Channel 50"</string>
-    <string name="enable_area_update_info_alerts_summary" msgid="4769414683505720325">"Vedeți transmisiunile Channel 50 din Africa de Sud"</string>
+    <string name="enable_area_update_info_alerts_summary" msgid="4769414683505720325">"Vezi transmisiunile Channel 50 din Africa de Sud"</string>
 </resources>

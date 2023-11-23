@@ -76,7 +76,7 @@ mod tests {
         });
 
         let test_file = test_dir.path().join("test.txt");
-        let mut file = wait_for_file(&test_file, Duration::from_secs(5))?;
+        let mut file = wait_for_file(test_file, Duration::from_secs(5))?;
         let mut buffer = String::new();
         file.read_to_string(&mut buffer)?;
         assert_eq!("test", buffer);
@@ -87,7 +87,7 @@ mod tests {
     fn test_wait_for_file_fails() {
         let test_dir = tempfile::TempDir::new().unwrap();
         let test_file = test_dir.path().join("test.txt");
-        let file = wait_for_file(&test_file, Duration::from_secs(1));
+        let file = wait_for_file(test_file, Duration::from_secs(1));
         assert!(file.is_err());
         assert_eq!(
             io::ErrorKind::NotFound,

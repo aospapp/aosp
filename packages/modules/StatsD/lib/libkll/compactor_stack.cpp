@@ -15,6 +15,10 @@
  */
 #include "compactor_stack.h"
 
+#define LOG_TAG "libkll"
+
+#include <log/log.h>
+
 #include <vector>
 
 #include "random_generator.h"
@@ -114,6 +118,7 @@ void CompactorStack::AddLevel() {
 }
 
 void CompactorStack::CompactStack() {
+    int initial_num_items_in_compactors = num_items_in_compactors_;
     while (num_items_in_compactors_ >= overall_capacity_) {
         for (size_t i = 0; i < compactors_.size(); i++) {
             if (!compactors_[i].empty() &&
@@ -124,6 +129,20 @@ void CompactorStack::CompactStack() {
                 }
             }
         }
+        // TODO(b/237694338): Remove the temporary infinite loop detection code
+        if (num_items_in_compactors_ >= initial_num_items_in_compactors) {
+            // The loop above didn't do anything in terms of reducing the number of items.
+            // To prevent an infinite loop, crash now.
+            ALOGI("num_items_in_compactors_=%d, compactors_.size()=%zu, overall_capacity_=%d",
+                  num_items_in_compactors_, compactors_.size(), overall_capacity_);
+            for (size_t i = 0; i < compactors_.size(); i++) {
+                const std::vector<int64_t>& compactor = compactors_[i];
+                ALOGI("compactors_[%zu].size()=%zu, TargetCapacityAtLevel(i)=%d", i,
+                      compactor.size(), TargetCapacityAtLevel(i));
+            }
+            LOG_ALWAYS_FATAL("Detected infinite loop in %s ", __func__);
+        }
+        initial_num_items_in_compactors = num_items_in_compactors_;
     }
 }
 

@@ -39,9 +39,10 @@
         <item>7200000</item>
     </string-array>
 
-    <!-- Display settings.  The delay after the daydream starts when the screen goes off. -->
-    <string-array name="screen_off_timeout_entries">
+    <!-- Display settings.  The delay before device goes to full sleep. -->
+    <string-array name="device_energy_saver_sleep_timeout_entries">
         <item>15 minutes</item>
+        <item>20 minutes</item>
         <item>30 minutes</item>
         <item>1 hour</item>
         <item>4 hours</item>
@@ -52,9 +53,11 @@
     </string-array>
 
     <!-- Do not translate. -->
-    <string-array name="screen_off_timeout_values" translatable="false">
+    <string-array name="device_energy_saver_sleep_timeout_values" translatable="false">
         <!-- Do not translate. -->
         <item>900000</item>
+        <!-- Do not translate. -->
+        <item>1200000</item>
         <!-- Do not translate. -->
         <item>1800000</item>
         <!-- Do not translate. -->
@@ -67,6 +70,28 @@
         <item>43200000</item>
         <!-- Do not translate. -->
         <item>86400000</item>
+        <!-- Do not translate. -->
+        <item>-1</item>
+    </string-array>
+
+    <!-- The delay before device goes to full sleep due to user inattentiveness even if wakelock is
+         held.
+    -->
+    <string-array name="device_energy_saver_attentive_timeout_entries">
+        <item>4 hours</item>
+        <item>6 hours</item>
+        <item>8 hours</item>
+        <item>Never</item>
+    </string-array>
+
+    <!-- Do not translate. -->
+    <string-array name="device_energy_saver_attentive_timeout_values" translatable="false">
+        <!-- Do not translate. -->
+        <item>14400000</item>
+        <!-- Do not translate. -->
+        <item>21600000</item>
+        <!-- Do not translate. -->
+        <item>28800000</item>
         <!-- Do not translate. -->
         <item>-1</item>
     </string-array>
@@ -246,6 +271,30 @@
         <item>1.30</item>
     </string-array>
 
+    <!-- Array of titles palette list for accessibility. -->
+    <array name="color_correction_palette_item_ids" translatable="false" >
+        <item>@id/color_correction_palette_textview_red</item>
+        <item>@id/color_correction_palette_textview_orange</item>
+        <item>@id/color_correction_palette_textview_yellow</item>
+        <item>@id/color_correction_palette_textview_green</item>
+        <item>@id/color_correction_palette_textview_cyan</item>
+        <item>@id/color_correction_palette_textview_blue</item>
+        <item>@id/color_correction_palette_textview_purple</item>
+        <item>@id/color_correction_palette_textview_gray</item>
+    </array>
+
+    <!-- Values for palette list view preference. -->
+    <array name="color_correction_palette_colors" translatable="false" >
+        <item>@color/color_correction_palette_color_red</item>
+        <item>@color/color_correction_palette_color_orange</item>
+        <item>@color/color_correction_palette_color_yellow</item>
+        <item>@color/color_correction_palette_color_green</item>
+        <item>@color/color_correction_palette_color_cyan</item>
+        <item>@color/color_correction_palette_color_blue</item>
+        <item>@color/color_correction_palette_color_purple</item>
+        <item>@color/color_correction_palette_color_gray</item>
+    </array>
+
     <!-- Blacklist packages which should be seen as system apps in "All apps" page -->
     <string-array name="system_app_packages" translatable="false">
     </string-array>
@@ -287,5 +336,54 @@
     <!-- customized ignored packages for system alert window-->
     <string-array name="customized_ignored_system_alert_window_packages" translatable="false">
     </string-array>
+
+    <!-- titles for available MediaRecorder.AudioSource's -->
+    <string-array name="record_audio_source_entries" translatable="false">
+        <!-- Do not translate. -->
+        <item>DEFAULT</item>
+        <!-- Do not translate. -->
+        <item>MIC</item>
+        <!-- Do not translate. -->
+        <item>VOICE_UPLINK</item>
+        <!-- Do not translate. -->
+        <item>VOICE_DOWNLINK</item>
+        <!-- Do not translate. -->
+        <item>VOICE_CALL</item>
+        <!-- Do not translate. -->
+        <item>CAMCORDER</item>
+        <!-- Do not translate. -->
+        <item>VOICE_RECOGNITION</item>
+        <!-- Do not translate. -->
+        <item>VOICE_COMMUNICATION</item>
+        <!-- Do not translate. -->
+        <item>UNPROCESSED</item>
+        <!-- Do not translate. -->
+        <item>VOICE_PERFORMANCE</item>
+    </string-array>
+
+    <!-- values for available MediaRecorder.AudioSource's -->
+    <string-array name="record_audio_source_values" translatable="false">
+        <!-- Do not translate. -->
+        <item>0</item>
+        <!-- Do not translate. -->
+        <item>1</item>
+        <!-- Do not translate. -->
+        <item>2</item>
+        <!-- Do not translate. -->
+        <item>3</item>
+        <!-- Do not translate. -->
+        <item>4</item>
+        <!-- Do not translate. -->
+        <item>5</item>
+        <!-- Do not translate. -->
+        <item>6</item>
+        <!-- Do not translate. -->
+        <item>7</item>
+        <!-- Do not translate. --><!-- Value 8 is REMOTE_SUBMIX, which is internal -->
+        <item>9</item>
+        <!-- Do not translate. -->
+        <item>10</item>
+    </string-array>
+
 
 </resources>

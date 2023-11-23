@@ -47,6 +47,13 @@ TEST(IOVector, empty) {
     CHECK_EQ(0ULL, bc.coalesce().size());
 }
 
+TEST(IOVector, move_constructor) {
+    IOVector x;
+    size_t xsize = x.coalesce().size();
+    IOVector y(std::move(x));
+    CHECK_EQ(xsize, y.coalesce().size());
+}
+
 TEST(IOVector, single_block) {
     // A single block.
     auto block = create_block('x', 100);
@@ -179,7 +186,7 @@ TEST_F(weak_ptr_test, smoke) {
     bool destroyed = false;
     std::optional<weak_ptr<Destructor>> p;
 
-    fdevent_run_on_main_thread([&p, &destructor, &destroyed]() {
+    fdevent_run_on_looper([&p, &destructor, &destroyed]() {
         destructor = new Destructor(&destroyed);
         p = destructor->weak();
         ASSERT_TRUE(p->get());
@@ -198,7 +205,7 @@ TEST_F(weak_ptr_test, smoke) {
     WaitForFdeventLoop();
 
     ASSERT_TRUE(destroyed);
-    fdevent_run_on_main_thread([&p]() {
+    fdevent_run_on_looper([&p]() {
         ASSERT_FALSE(p->get());
         p.reset();
     });

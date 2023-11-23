@@ -21,6 +21,7 @@ import android.content.res.Resources;
 import android.os.Build;
 import android.os.Parcel;
 import android.os.Parcelable;
+import android.os.SystemProperties;
 
 import com.android.internal.annotations.VisibleForTesting;
 
@@ -351,8 +352,11 @@ public final class IpSecAlgorithm implements Parcelable {
             }
         }
 
+        // T introduced calculated property 'ro.vendor.api_level',
+        // which is the API level of the VSR that the device must conform to.
+        int vendorApiLevel = SystemProperties.getInt("ro.vendor.api_level", 10000);
         for (Entry<String, Integer> entry : ALGO_TO_REQUIRED_FIRST_SDK.entrySet()) {
-            if (Build.VERSION.DEVICE_INITIAL_SDK_INT >= entry.getValue()) {
+            if (vendorApiLevel >= entry.getValue()) {
                 enabledAlgos.add(entry.getKey());
             }
         }
@@ -488,4 +492,4 @@ public final class IpSecAlgorithm implements Parcelable {
                 && Arrays.equals(lhs.mKey, rhs.mKey)
                 && lhs.mTruncLenBits == rhs.mTruncLenBits);
     }
-};
+}

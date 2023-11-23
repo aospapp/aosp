@@ -65,7 +65,6 @@ public final class Point3D implements Parcelable {
     }
 
     @Override
-    @AddedInOrBefore(majorVersion = 33)
     public String toString() {
         return String.format("%f, %f, %f", x, y, z);
     }

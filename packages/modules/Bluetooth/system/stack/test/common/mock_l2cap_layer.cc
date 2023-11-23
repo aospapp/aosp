@@ -18,6 +18,7 @@
 #include "mock_l2cap_layer.h"
 
 #include "stack/include/bt_hdr.h"
+#include "stack/l2cap/l2c_int.h"
 #include "types/raw_address.h"
 
 static bluetooth::l2cap::MockL2capInterface* l2cap_interface = nullptr;
@@ -25,6 +26,10 @@ static bluetooth::l2cap::MockL2capInterface* l2cap_interface = nullptr;
 void bluetooth::l2cap::SetMockInterface(
     MockL2capInterface* mock_l2cap_interface) {
   l2cap_interface = mock_l2cap_interface;
+}
+
+tL2C_CCB* l2cu_find_ccb_by_cid(tL2C_LCB* p_lcb, uint16_t local_cid) {
+  return nullptr;
 }
 
 uint16_t L2CA_Register(uint16_t psm, const tL2CAP_APPL_INFO& p_cb_info,
@@ -93,4 +98,9 @@ bool L2CA_ConnectCreditBasedRsp(const RawAddress& bd_addr, uint8_t id,
 bool L2CA_ReconfigCreditBasedConnsReq(const RawAddress& bd_addr, std::vector<uint16_t> &lcids,
                                       tL2CAP_LE_CFG_INFO* peer_cfg) {
   return l2cap_interface->ReconfigCreditBasedConnsReq(bd_addr, lcids, peer_cfg);
+}
+uint16_t L2CA_LeCreditDefault() { return l2cap_interface->LeCreditDefault(); }
+
+uint16_t L2CA_LeCreditThreshold() {
+  return l2cap_interface->LeCreditThreshold();
 }

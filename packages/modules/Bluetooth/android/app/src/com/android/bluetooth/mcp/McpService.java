@@ -18,6 +18,7 @@
 package com.android.bluetooth.mcp;
 
 import android.bluetooth.BluetoothDevice;
+import android.bluetooth.BluetoothProfile;
 import android.bluetooth.IBluetoothMcpServiceManager;
 import android.content.AttributionSource;
 import android.os.Handler;
@@ -27,6 +28,7 @@ import android.util.Log;
 
 import com.android.bluetooth.Utils;
 import com.android.bluetooth.btservice.ProfileService;
+import com.android.bluetooth.le_audio.LeAudioService;
 import com.android.internal.annotations.GuardedBy;
 import com.android.internal.annotations.VisibleForTesting;
 
@@ -173,14 +175,33 @@ public class McpService extends ProfileService {
                 gmcs.dump(sb);
             }
         }
+
+        for (Map.Entry<BluetoothDevice, Integer> entry : mDeviceAuthorizations.entrySet()) {
+            String accessString;
+            if (entry.getValue() == BluetoothDevice.ACCESS_REJECTED) {
+                accessString = "ACCESS_REJECTED";
+            } else if (entry.getValue() == BluetoothDevice.ACCESS_ALLOWED) {
+                accessString = "ACCESS_ALLOWED";
+            } else {
+                accessString = "ACCESS_UNKNOWN";
+            }
+            sb.append("\n\t\tDevice: " + entry.getKey() + ", access: " + accessString);
+        }
     }
 
     public void onDeviceUnauthorized(BluetoothDevice device) {
+        if (Utils.isPtsTestMode()) {
+            Log.d(TAG, "PTS test: setDeviceAuthorized");
+            setDeviceAuthorized(device, true);
+            return;
+        }
         Log.w(TAG, "onDeviceUnauthorized - authorization notification not implemented yet ");
+        setDeviceAuthorized(device, false);
     }
 
     public void setDeviceAuthorized(BluetoothDevice device, boolean isAuthorized) {
-        Log.i(TAG, "setDeviceAuthorized(): device: " + device + ", isAuthorized: " + isAuthorized);
+        Log.i(TAG, "\tsetDeviceAuthorized(): device: " + device + ", isAuthorized: "
+                + isAuthorized);
         int authorization = isAuthorized ? BluetoothDevice.ACCESS_ALLOWED
                 : BluetoothDevice.ACCESS_REJECTED;
         mDeviceAuthorizations.put(device, authorization);
@@ -194,9 +215,34 @@ public class McpService extends ProfileService {
     }
 
     public int getDeviceAuthorization(BluetoothDevice device) {
-        // TODO: For now just reject authorization for other than LeAudio device already authorized.
-        //       Consider intent based authorization mechanism for non-LeAudio devices.
-        return mDeviceAuthorizations.getOrDefault(device, BluetoothDevice.ACCESS_UNKNOWN);
+        /* Media control is allowed for
+         * 1. in PTS mode
+         * 2. authorized devices
+         * 3. Any LeAudio devices which are allowed to connect
+         */
+        int authorization = mDeviceAuthorizations.getOrDefault(device, Utils.isPtsTestMode()
+                ? BluetoothDevice.ACCESS_ALLOWED : BluetoothDevice.ACCESS_UNKNOWN);
+        if (authorization != BluetoothDevice.ACCESS_UNKNOWN) {
+            return authorization;
+        }
+
+        LeAudioService leAudioService = LeAudioService.getLeAudioService();
+        if (leAudioService == null) {
+            Log.e(TAG, "MCS access not permited. LeAudioService not available");
+            return BluetoothDevice.ACCESS_UNKNOWN;
+        }
+
+        if (leAudioService.getConnectionPolicy(device)
+                > BluetoothProfile.CONNECTION_POLICY_FORBIDDEN) {
+            if (DBG) {
+                Log.d(TAG, "MCS authorization allowed based on supported LeAudio service");
+            }
+            setDeviceAuthorized(device, true);
+            return BluetoothDevice.ACCESS_ALLOWED;
+        }
+
+        Log.e(TAG, "MCS access not permited");
+        return BluetoothDevice.ACCESS_UNKNOWN;
     }
 
     @GuardedBy("mLock")

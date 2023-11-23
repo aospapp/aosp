@@ -19,6 +19,8 @@
 PRODUCT_PACKAGES += \
     generated_caruiportrait_toolbar-com-android-car-media \
     generated_caruiportrait_toolbar-com-android-car-dialer \
+    generated_caruiportrait_toolbar-com-android-car-radio \
+    generated_caruiportrait_toolbar-com-android-car-messenger \
 
 # This system property is used to enable the RROs on startup via
 # the requiredSystemPropertyName/Value attributes in the manifest

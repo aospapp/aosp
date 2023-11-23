@@ -57,7 +57,10 @@ public class IndexData {
     public final String key;
     public final int payloadType;
     public final byte[] payload;
+    public final String highlightableMenuKey; // the key of top level settings row
+    public final String topLevelMenuKey; // the key for highlighting the menu entry
 
+    private final Builder mBuilder;
     private static final String NON_BREAKING_HYPHEN = "\u2011";
     private static final String EMPTY = "";
     private static final String HYPHEN = "-";
@@ -96,6 +99,14 @@ public class IndexData {
         payloadType = builder.mPayloadType;
         payload = builder.mPayload != null ? ResultPayloadUtils.marshall(builder.mPayload)
                 : null;
+        highlightableMenuKey = builder.mHighlightableMenuKey;
+        topLevelMenuKey = builder.mTopLevelMenuKey;
+        mBuilder = builder;
+    }
+
+    /** Returns the builder of the IndexData. */
+    public Builder mutate() {
+        return mBuilder;
     }
 
     @Override
@@ -168,6 +179,8 @@ public class IndexData {
         @ResultPayload.PayloadType
         private int mPayloadType;
         private ResultPayload mPayload;
+        private String mHighlightableMenuKey;
+        private String mTopLevelMenuKey;
 
         @Override
         public String toString() {
@@ -277,6 +290,17 @@ public class IndexData {
             return this;
         }
 
+        public Builder setHighlightableMenuKey(String highlightableMenuKey) {
+            mHighlightableMenuKey = highlightableMenuKey;
+            return this;
+        }
+
+        Builder setTopLevelMenuKey(String topLevelMenuKey) {
+            mTopLevelMenuKey = topLevelMenuKey;
+            mPayload = null; // clear the payload to rebuild intent
+            return this;
+        }
+
         /**
          * Payload type is added when a Payload is added to the Builder in {setPayload}
          *
@@ -292,11 +316,11 @@ public class IndexData {
          * Adds intent to inline payloads, or creates an Intent Payload as a fallback if the
          * payload is null.
          */
-        private void setIntent(Context context) {
+        private void setIntent() {
             if (mPayload != null) {
                 return;
             }
-            final Intent intent = buildIntent(context);
+            final Intent intent = buildIntent();
             mPayload = new ResultPayload(intent);
             mPayloadType = ResultPayload.PayloadType.INTENT;
         }
@@ -305,24 +329,34 @@ public class IndexData {
          * Builds Intent payload for the builder.
          * This protected method that can be overridden in a subclass for custom intents.
          */
-        protected Intent buildIntent(Context context) {
+        protected Intent buildIntent() {
             final Intent intent;
 
             // TODO REFACTOR (b/62807132) With inline results re-add proper intent support
             boolean isEmptyIntentAction = TextUtils.isEmpty(mIntentAction);
             if (isEmptyIntentAction) {
                 // No intent action is set, or the intent action is for a sub-setting.
-                intent = DatabaseIndexingUtils.buildSearchTrampolineIntent(context, mClassName,
-                        mKey, mScreenTitle);
+                intent = DatabaseIndexingUtils.buildSearchTrampolineIntent(mClassName, mKey,
+                        mScreenTitle, mTopLevelMenuKey);
             } else {
-                intent = DatabaseIndexingUtils.buildDirectSearchResultIntent(mIntentAction,
-                        mIntentTargetPackage, mIntentTargetClass, mKey);
+                if (!TextUtils.isEmpty(mTopLevelMenuKey)) {
+                    intent = DatabaseIndexingUtils.buildSearchTrampolineIntent(mIntentAction,
+                            mIntentTargetPackage, mIntentTargetClass, mKey, mTopLevelMenuKey);
+                } else {
+                    intent = DatabaseIndexingUtils.buildDirectSearchResultIntent(mIntentAction,
+                            mIntentTargetPackage, mIntentTargetClass, mKey);
+                }
             }
             return intent;
         }
 
-        public IndexData build(Context context) {
-            setIntent(context);
+        @Deprecated
+        protected Intent buildIntent(Context context) {
+            return buildIntent();
+        }
+
+        public IndexData build() {
+            setIntent();
             return new IndexData(this);
         }
     }

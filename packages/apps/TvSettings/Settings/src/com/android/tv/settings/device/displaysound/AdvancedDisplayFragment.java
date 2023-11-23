@@ -21,11 +21,13 @@ import static android.provider.Settings.Secure.MINIMAL_POST_PROCESSING_ALLOWED;
 import static com.android.tv.settings.util.InstrumentationUtils.logToggleInteracted;
 
 import android.app.tvsettings.TvSettingsEnums;
+import android.hardware.display.DisplayManager;
 import android.os.Bundle;
 import android.provider.Settings;
 import android.text.TextUtils;
 
 import androidx.annotation.Keep;
+import androidx.annotation.VisibleForTesting;
 import androidx.preference.Preference;
 import androidx.preference.SwitchPreference;
 
@@ -39,11 +41,18 @@ import com.android.tv.settings.SettingsPreferenceFragment;
 public class AdvancedDisplayFragment extends SettingsPreferenceFragment {
     private static final String KEY_GAME_MODE = "game_mode";
 
+    private static final String KEY_DYNAMIC_RANGE = "preferred_dynamic_range_selection";
+
     @Override
     public void onCreatePreferences(Bundle bundle, String s) {
         setPreferencesFromResource(R.xml.advanced_display, null);
         SwitchPreference gameModePreference = findPreference(KEY_GAME_MODE);
         gameModePreference.setChecked(getGameModeStatus() == 1);
+
+        Preference dynamicRangePreference = findPreference(KEY_DYNAMIC_RANGE);
+        if (getDisplayManager().getSupportedHdrOutputTypes().length == 0) {
+            removePreference(dynamicRangePreference);
+        }
     }
 
     @Override
@@ -71,5 +80,16 @@ public class AdvancedDisplayFragment extends SettingsPreferenceFragment {
     @Override
     protected int getPageId() {
         return TvSettingsEnums.DISPLAY_SOUND_ADVANCED_DISPLAY;
+    }
+
+    @VisibleForTesting
+    DisplayManager getDisplayManager() {
+        return getContext().getSystemService(DisplayManager.class);
+    }
+
+    private void removePreference(Preference preference) {
+        if (preference != null) {
+            getPreferenceScreen().removePreference(preference);
+        }
     }
 }

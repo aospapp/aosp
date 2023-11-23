@@ -14,12 +14,19 @@
  * limitations under the License.
  */
 
-use super::common::{build_fsverity_digest, merkle_tree_height, FsverityError};
+use super::common::{
+    build_fsverity_digest, merkle_tree_height, FsverityError, Sha256Hash, SHA256_HASH_SIZE,
+};
 use crate::common::{divide_roundup, CHUNK_SIZE};
-use crate::crypto::{CryptoError, Sha256Hash, Sha256Hasher};
+use openssl::sha::Sha256;
 
-const HASH_SIZE: usize = Sha256Hasher::HASH_SIZE;
+const HASH_SIZE: usize = SHA256_HASH_SIZE;
 const HASH_PER_PAGE: usize = CHUNK_SIZE as usize / HASH_SIZE;
+
+const HASH_OF_4096_ZEROS: Sha256Hash = [
+    0xad, 0x7f, 0xac, 0xb2, 0x58, 0x6f, 0xc6, 0xe9, 0x66, 0xc0, 0x04, 0xd7, 0xd1, 0xd1, 0x6b, 0x02,
+    0x4f, 0x58, 0x05, 0xff, 0x7c, 0xb4, 0x7c, 0x7a, 0x85, 0xda, 0xbd, 0x8b, 0x48, 0x89, 0x2c, 0xa7,
+];
 
 /// MerkleLeaves can be used by the class' customer for bookkeeping integrity data for their bytes.
 /// It can also be used to generate the standard fs-verity digest for the source data.
@@ -34,12 +41,17 @@ pub struct MerkleLeaves {
     file_size: u64,
 }
 
-fn hash_all_pages(source: &[Sha256Hash]) -> Result<Vec<Sha256Hash>, CryptoError> {
+fn hash_all_pages(source: &[Sha256Hash]) -> Vec<Sha256Hash> {
     source
         .chunks(HASH_PER_PAGE)
         .map(|chunk| {
             let padding_bytes = (HASH_PER_PAGE - chunk.len()) * HASH_SIZE;
-            Sha256Hasher::new()?.update_from(chunk)?.update(&vec![0u8; padding_bytes])?.finalize()
+            let mut ctx = Sha256::new();
+            for data in chunk {
+                ctx.update(data.as_ref());
+            }
+            ctx.update(&vec![0u8; padding_bytes]);
+            ctx.finish()
         })
         .collect()
 }
@@ -64,7 +76,7 @@ impl MerkleLeaves {
     pub fn resize(&mut self, new_file_size: usize) {
         let new_file_size = new_file_size as u64;
         let leaves_size = divide_roundup(new_file_size, CHUNK_SIZE);
-        self.leaves.resize(leaves_size as usize, Sha256Hasher::HASH_OF_4096_ZEROS);
+        self.leaves.resize(leaves_size as usize, HASH_OF_4096_ZEROS);
         self.file_size = new_file_size;
     }
 
@@ -75,7 +87,7 @@ impl MerkleLeaves {
         if self.leaves.len() < index + 1 {
             // When resizing, fill in hash of zeros by default. This makes it easy to handle holes
             // in a file.
-            self.leaves.resize(index + 1, Sha256Hasher::HASH_OF_4096_ZEROS);
+            self.leaves.resize(index + 1, HASH_OF_4096_ZEROS);
         }
         self.leaves[index].clone_from_slice(hash);
 
@@ -116,9 +128,8 @@ impl MerkleLeaves {
 
                 // `leaves` is owned and can't be the initial state below. Here we manually hash it
                 // first to avoid a copy and to get the type right.
-                let second_level = hash_all_pages(&self.leaves)?;
-                let hashes =
-                    (1..=level).try_fold(second_level, |source, _| hash_all_pages(&source))?;
+                let second_level = hash_all_pages(&self.leaves);
+                let hashes = (1..=level).fold(second_level, |source, _| hash_all_pages(&source));
                 if hashes.len() != 1 {
                     Err(FsverityError::InvalidState)
                 } else {
@@ -131,7 +142,7 @@ impl MerkleLeaves {
     /// Returns the fs-verity digest based on the current tree and file size.
     pub fn calculate_fsverity_digest(&self) -> Result<Sha256Hash, FsverityError> {
         let root_hash = self.calculate_root_hash()?;
-        Ok(build_fsverity_digest(&root_hash, self.file_size)?)
+        Ok(build_fsverity_digest(&root_hash, self.file_size))
     }
 }
 
@@ -143,6 +154,7 @@ mod tests {
     //  $ fsverity digest foo
     use super::*;
     use anyhow::Result;
+    use openssl::sha::sha256;
 
     #[test]
     fn merkle_tree_empty_file() -> Result<()> {
@@ -194,7 +206,7 @@ mod tests {
     #[test]
     fn merkle_tree_non_sequential() -> Result<()> {
         let mut tree = MerkleLeaves::new();
-        let hash = Sha256Hasher::new()?.update(&vec![1u8; CHUNK_SIZE as usize])?.finalize()?;
+        let hash = sha256(&vec![1u8; CHUNK_SIZE as usize]);
 
         // Update hashes of 4 1-blocks.
         tree.update_hash(1, &hash, CHUNK_SIZE * 2);
@@ -221,8 +233,8 @@ mod tests {
         assert!(tree.is_index_valid(1));
         assert!(tree.is_index_valid(2));
         assert!(!tree.is_index_valid(3));
-        assert!(tree.is_consistent(1, &Sha256Hasher::HASH_OF_4096_ZEROS));
-        assert!(tree.is_consistent(2, &Sha256Hasher::HASH_OF_4096_ZEROS));
+        assert!(tree.is_consistent(1, &HASH_OF_4096_ZEROS));
+        assert!(tree.is_consistent(2, &HASH_OF_4096_ZEROS));
         Ok(())
     }
 
@@ -240,17 +252,17 @@ mod tests {
         assert!(!tree.is_index_valid(2));
         // The second chunk is a hole and full of zero. When shrunk, with zero padding, the hash
         // happens to be consistent to a full-zero chunk.
-        assert!(tree.is_consistent(1, &Sha256Hasher::HASH_OF_4096_ZEROS));
+        assert!(tree.is_consistent(1, &HASH_OF_4096_ZEROS));
         Ok(())
     }
 
     fn generate_fsverity_digest_sequentially(test_data: &[u8]) -> Result<Sha256Hash> {
         let mut tree = MerkleLeaves::new();
         for (index, chunk) in test_data.chunks(CHUNK_SIZE as usize).enumerate() {
-            let hash = Sha256Hasher::new()?
-                .update(chunk)?
-                .update(&vec![0u8; CHUNK_SIZE as usize - chunk.len()])?
-                .finalize()?;
+            let mut ctx = Sha256::new();
+            ctx.update(chunk);
+            ctx.update(&vec![0u8; CHUNK_SIZE as usize - chunk.len()]);
+            let hash = ctx.finish();
 
             tree.update_hash(index, &hash, CHUNK_SIZE * index as u64 + chunk.len() as u64);
         }

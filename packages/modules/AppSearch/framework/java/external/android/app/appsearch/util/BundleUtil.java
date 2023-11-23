@@ -222,8 +222,10 @@ public final class BundleUtil {
                     }
                 }
                 hashCodes[hashCodeIdx++] = Arrays.hashCode(innerHashCodes);
-            } else {
+            } else if (value != null) {
                 hashCodes[hashCodeIdx++] = value.hashCode();
+            } else {
+                hashCodes[hashCodeIdx++] = 0;
             }
         }
         return Arrays.hashCode(hashCodes);

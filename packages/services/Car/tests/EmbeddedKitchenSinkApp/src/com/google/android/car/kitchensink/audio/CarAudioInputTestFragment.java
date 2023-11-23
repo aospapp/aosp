@@ -41,6 +41,7 @@ import java.util.List;
 
 public class CarAudioInputTestFragment extends Fragment {
 
+    public static final String FRAGMENT_NAME = "audio bus input";
     private static final String TAG = "CAR.AUDIO.INPUT.KS";
     private static final boolean DEBUG = true;
     private static final String PROPERTY_RO_ENABLE_AUDIO_PATCH =

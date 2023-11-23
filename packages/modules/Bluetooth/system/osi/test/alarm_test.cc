@@ -25,7 +25,7 @@
 #include "osi/include/alarm.h"
 #include "osi/include/fixed_queue.h"
 #include "osi/include/osi.h"
-#include "osi/include/semaphore.h"
+#include "osi/semaphore.h"
 
 using base::Closure;
 using base::TimeDelta;

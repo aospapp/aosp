@@ -27,7 +27,6 @@ import android.content.Context;
 import android.content.pm.PackageManager;
 
 import com.android.internal.annotations.VisibleForTesting;
-import com.android.managedprovisioning.R;
 import com.android.managedprovisioning.analytics.MetricsWriterFactory;
 import com.android.managedprovisioning.analytics.ProvisioningAnalyticsTracker;
 import com.android.managedprovisioning.common.ManagedProvisioningSharedPreferences;
@@ -80,9 +79,7 @@ public class SetDeviceOwnerPolicyTask extends AbstractProvisioningTask {
 
             enableDevicePolicyApp(adminPackage);
             setActiveAdmin(adminComponent, userId);
-            success = setDeviceOwner(adminComponent,
-                    mContext.getResources().getString(R.string.default_owned_device_username),
-                    userId);
+            success = setDeviceOwner(adminComponent, userId);
 
             if (success && mUtils.isFinancedDeviceAction(mProvisioningParams.provisioningAction)) {
                 mDevicePolicyManager.setDeviceOwnerType(adminComponent, DEVICE_OWNER_TYPE_FINANCED);
@@ -118,10 +115,10 @@ public class SetDeviceOwnerPolicyTask extends AbstractProvisioningTask {
         mDevicePolicyManager.setActiveAdmin(component, true, userId);
     }
 
-    private boolean setDeviceOwner(ComponentName component, String owner, int userId) {
+    private boolean setDeviceOwner(ComponentName component, int userId) {
         ProvisionLogger.logd("Setting " + component + " as device owner of user " + userId);
         if (!component.equals(mUtils.getCurrentDeviceOwnerComponentName(mDevicePolicyManager))) {
-            return mDevicePolicyManager.setDeviceOwner(component, owner, userId);
+            return mDevicePolicyManager.setDeviceOwner(component, userId);
         }
         return true;
     }

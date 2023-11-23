@@ -27,7 +27,7 @@
 #ifndef BTU_H
 #define BTU_H
 
-#include <base/callback.h>
+#include <base/functional/callback.h>
 #include <base/location.h>
 #include <base/threading/thread.h>
 

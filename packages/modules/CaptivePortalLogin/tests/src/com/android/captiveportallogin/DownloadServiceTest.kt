@@ -21,13 +21,13 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.ServiceConnection
+import android.content.res.Configuration
 import android.net.Network
 import android.net.Uri
 import android.os.Bundle
 import android.os.IBinder
 import android.os.Parcel
 import android.os.Parcelable
-import android.webkit.MimeTypeMap
 import android.widget.TextView
 import androidx.core.content.FileProvider
 import androidx.test.core.app.ActivityScenario
@@ -44,8 +44,6 @@ import androidx.test.uiautomator.Until
 import com.android.captiveportallogin.DownloadService.DOWNLOAD_ABORTED_REASON_FILE_TOO_LARGE
 import com.android.captiveportallogin.DownloadService.DownloadServiceBinder
 import com.android.captiveportallogin.DownloadService.ProgressCallback
-import com.android.dx.mockito.inline.extended.ExtendedMockito.doReturn
-import com.android.dx.mockito.inline.extended.ExtendedMockito.spyOn
 import java.io.ByteArrayInputStream
 import java.io.File
 import java.io.FileInputStream
@@ -65,11 +63,12 @@ import kotlin.test.assertNotEquals
 import kotlin.test.assertTrue
 import kotlin.test.fail
 import org.junit.Assert.assertNotNull
+import org.junit.Assume.assumeFalse
 import org.junit.Before
-import org.junit.BeforeClass
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.mockito.Mockito.doReturn
 import org.mockito.Mockito.mock
 import org.mockito.Mockito.timeout
 import org.mockito.Mockito.verify
@@ -106,22 +105,6 @@ val mServiceRule = ServiceTestRule()
 @RunWith(AndroidJUnit4::class)
 @SmallTest
 class DownloadServiceTest {
-    companion object {
-        @BeforeClass @JvmStatic
-        fun setUpClass() {
-            // Turn the MimeTypeMap for the process into a spy so test mimetypes can be added
-            val mimetypeMap = MimeTypeMap.getSingleton()
-            spyOn(mimetypeMap)
-            // Use a custom mimetype for the test to avoid cases where the device already has
-            // an app installed that can handle the detected mimetype (would be
-            // application/octet-stream by default for unusual extensions), which would cause the
-            // device to show a dialog to choose the app to use, and make it difficult to test.
-            doReturn(true).`when`(mimetypeMap).hasExtension(TEST_TEXT_FILE_EXTENSION)
-            doReturn(TEST_TEXT_FILE_TYPE).`when`(mimetypeMap).getMimeTypeFromExtension(
-                    TEST_TEXT_FILE_EXTENSION)
-        }
-    }
-
     private val connection = mock(HttpURLConnection::class.java)
 
     private val context by lazy { getInstrumentation().context }
@@ -235,13 +218,20 @@ class DownloadServiceTest {
         ActivityScenario.launch(RequestDismissKeyguardActivity::class.java)
     }
 
+    private fun assumeCanDisplayNotifications() {
+        val isTvUi = (resources.configuration.uiMode and Configuration.UI_MODE_TYPE_TELEVISION) != 0
+        // See https://tv.withgoogle.com/patterns/notifications.html
+        assumeFalse("TVs don't display notifications", isTvUi)
+    }
+
     /**
      * Create a temporary, empty file that can be used to read/write data for testing.
      */
     private fun createTestFile(extension: String = ".png"): File {
-        // temp/ is as exported in file_paths.xml, so that the file can be shared externally
-        // (in the download success notification)
-        val testFilePath = File(context.getCacheDir(), "temp")
+        // The test file provider uses the files dir (not cache dir or external files dir or...), as
+        // declared in its file_paths XML referenced from the manifest.
+        val testFilePath = File(context.getFilesDir(),
+                CaptivePortalLoginActivity.FILE_PROVIDER_DOWNLOAD_PATH)
         testFilePath.mkdir()
         // Do not use File.createTempFile, as it generates very long filenames that may not
         // fit in notifications, making it difficult to find the right notification.
@@ -270,6 +260,8 @@ class DownloadServiceTest {
 
     @Test
     fun testDownloadFile() {
+        assumeCanDisplayNotifications()
+
         val inputStream1 = TestInputStream()
         doReturn(inputStream1).`when`(connection).inputStream
 
@@ -438,6 +430,8 @@ class DownloadServiceTest {
 
     @Test
     fun testTapDoneNotification() {
+        assumeCanDisplayNotifications()
+
         val fileContents = "Test file contents"
         val bis = ByteArrayInputStream(fileContents.toByteArray(StandardCharsets.UTF_8))
         doReturn(bis).`when`(connection).inputStream

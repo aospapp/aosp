@@ -1,3 +1,0 @@
-service vendor.dice-microdroid /vendor/bin/hw/android.hardware.security.dice-service.microdroid
-    user diced
-    group diced

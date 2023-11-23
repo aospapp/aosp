@@ -22,6 +22,7 @@
    <option name="test-suite-tag" value="mts" />
    <option name="config-descriptor:metadata" key="mainline-param" value="CaptivePortalLoginGoogle.apk+NetworkStackGoogle.apk+com.google.android.resolv.apex+com.google.android.tethering.apex" />
    <target_preparer class="com.android.tradefed.targetprep.RootTargetPreparer"/>
+   <target_preparer class="com.android.testutils.DisableConfigSyncTargetPreparer" />
    <target_preparer class="com.android.compatibility.common.tradefed.targetprep.FilePusher">
        <option name="cleanup" value="true" />
        <option name="push" value="{MODULE}->/data/local/tmp/{MODULE}" />

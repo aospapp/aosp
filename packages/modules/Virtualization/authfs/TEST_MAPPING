@@ -1,10 +1,21 @@
 {
-  "presubmit": [
+  "avf-presubmit": [
     {
       "name": "authfs_device_test_src_lib"
     },
     {
+      "name": "fd_server.test"
+    },
+    {
+      "name": "open_then_run.test"
+    },
+    {
       "name": "AuthFsHostTest"
+    }
+  ],
+  "avf-postsubmit": [
+    {
+      "name": "AuthFsBenchmarks"
     }
   ]
 }

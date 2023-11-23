@@ -46,9 +46,9 @@
     <string name="callFailed_dialVideoToDial" msgid="160029277192677751">"ಸಾಮಾನ್ಯ ಕರೆಗೆ ಬದಲಾಯಿಸಲಾಗಿದೆ"</string>
     <string name="callFailed_dialVideoToDialVideo" msgid="3976695729414283836">"ಬೇರೆ ಸಂಖ್ಯೆಗೆ ಬದಲಾಯಿಸಲಾಗಿದೆ"</string>
     <string name="callFailed_cb_enabled" msgid="3555984829657638323">"ಕಾಲ್ ಬಾರಿಂಗ್ ಆನ್ ಇರುವಾಗ ಹೊರಹೋಗುವ ಕರೆಗಳನ್ನು ಮಾಡಲು ಸಾಧ್ಯವಿಲ್ಲ."</string>
-    <string name="callFailed_dsac_restricted" msgid="4073547013432506074">"ಪ್ರವೇಶ ನಿಯಂತ್ರಣದಿಂದ ಕರೆಗಳನ್ನು ನಿರ್ಬಂಧಿಸಲಾಗಿದೆ."</string>
-    <string name="callFailed_dsac_restricted_emergency" msgid="3271861683273124458">"ಪ್ರವೇಶ ನಿಯಂತ್ರಣದಿಂದ ತುರ್ತು ಕರೆಗಳನ್ನು ನಿರ್ಬಂಧಿಸಲಾಗಿದೆ."</string>
-    <string name="callFailed_dsac_restricted_normal" msgid="2812267231481193715">"ಪ್ರವೇಶ ನಿಯಂತ್ರಣದಿಂದ ಸಾಧಾರಣ ಕರೆಗಳನ್ನು ನಿರ್ಬಂಧಿಸಲಾಗಿದೆ."</string>
+    <string name="callFailed_dsac_restricted" msgid="4073547013432506074">"ಆ್ಯಕ್ಸೆಸ್ ನಿಯಂತ್ರಣದಿಂದ ಕರೆಗಳನ್ನು ನಿರ್ಬಂಧಿಸಲಾಗಿದೆ."</string>
+    <string name="callFailed_dsac_restricted_emergency" msgid="3271861683273124458">"ಆ್ಯಕ್ಸೆಸ್ ನಿಯಂತ್ರಣದಿಂದ ತುರ್ತು ಕರೆಗಳನ್ನು ನಿರ್ಬಂಧಿಸಲಾಗಿದೆ."</string>
+    <string name="callFailed_dsac_restricted_normal" msgid="2812267231481193715">"ಆ್ಯಕ್ಸೆಸ್ ನಿಯಂತ್ರಣದಿಂದ ಸಾಧಾರಣ ಕರೆಗಳನ್ನು ನಿರ್ಬಂಧಿಸಲಾಗಿದೆ."</string>
     <string name="callFailed_unobtainable_number" msgid="2048455732432022283">"ಅಮಾನ್ಯ ಸಂಖ್ಯೆ"</string>
     <string name="incall_error_missing_voicemail_number" msgid="4519524908114719666">"ಅಪರಿಚಿತ ಧ್ವನಿಮೇಲ್ ಸಂಖ್ಯೆ."</string>
     <string name="callFailed_video_call_tty_enabled" msgid="5419496275850000361">"TTY ಸಕ್ರಿಯಗೊಂಡಿರುವಾಗ ವೀಡಿಯೊ ಕರೆಗಳನ್ನು ಮಾಡಲಾಗುವುದಿಲ್ಲ."</string>

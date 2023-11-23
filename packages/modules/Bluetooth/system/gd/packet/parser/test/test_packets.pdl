@@ -89,9 +89,21 @@ packet ChildWithNestedSum : ParentWithSum {
   nested_checksum : SimpleSum,
 }
 
+packet SizedWithSum {
+  two_bytes : 16,
+  _size_(_payload_) : 8,
+  _checksum_start_(example_checksum),
+  _payload_,
+  example_checksum : SimpleSum,
+}
+
+test SizedWithSum {
+  "\x01\x02\x03\x01\x02\x03\x06\x00",
+}
+
 packet ParentSizeModifier {
   _size_(_payload_) : 8,
-  _payload_ : [+2*8], // Include two_bytes in the size
+  _payload_ : [+2], // Include two_bytes in the size
   two_bytes : 16,
 }
 
@@ -131,7 +143,7 @@ packet CountArrayEnum {
 packet SizedArrayCustom {
   _size_(six_bytes_array) : 8,
   an_extra_byte : 8,
-  six_bytes_array : SixBytes[+1*8],
+  six_bytes_array : SixBytes[+1],
 }
 
 packet FixedArrayCustom {
@@ -334,11 +346,11 @@ struct OnlyFourByteStruct : AtLeastFourByteStruct (struct_type = ZERO_BYTE) {
 }
 
 struct SixByteStruct : AtLeastFourByteStruct (struct_type = TWO_BYTE) {
-  two_bytes : 16,
+  two_more_bytes : 16,
 }
 
 struct EightByteStruct : AtLeastFourByteStruct (struct_type = FOUR_BYTE) {
-  four_bytes : 32,
+  four_more_bytes : 32,
 }
 
 packet OneFourByteStruct {
@@ -378,7 +390,7 @@ enum DataType : 8 {
 struct LengthTypeValueStruct {
   _size_(value) : 16,
   type : DataType,
-  value : 8[+1*8],
+  value : 8[+1],
 }
 
 packet OneLengthTypeValueStruct {
@@ -436,7 +448,7 @@ struct AtLeastFourByteStructNoZero : UnusedParentStructNoZero (struct_type = AT_
 }
 
 struct EightByteStructNoZero : AtLeastFourByteStructNoZero (struct_type = FOUR_BYTE, length = 9) {
-  four_bytes : 32,
+  four_more_bytes : 32,
 }
 
 packet OneGenericStructArrayNoZero {
@@ -457,4 +469,51 @@ test OneBigValue {
   "\x00\x00\x00\x00\x00\x00\x00\x00",
   "\xff\xff\xff\xff\xff\xff\xff\xff",
   "\x00\x01\x02\x03\x04\x05\x06\x07",
+}
+
+packet ArrayOfBytes {
+  _fixed_ = 8 : 8,
+  bytes : 8[],
+}
+
+test ArrayOfBytes {
+  "\x08\x01\x02\x03",
+  "\x08\x05\x04\x03\x02\x01\x00",
+  "\x08\x06\x05\x04\x03\x02\x01\x00",
+}
+
+packet ArrayOfSixteens {
+  _fixed_ = 16 : 8,
+  sixteens : 16[],
+}
+
+test ArrayOfSixteens {
+  "\x10\x01\x11\x02\x12\x03\x13",
+  "\x10\x05\x15\x04\x14\x03\x13\x02\x12\x01\x11\x00\x10",
+  "\x10\x06\x16\x05\x15\x04\x14\x03\x13\x02\x12\x01\x11\x00\x10",
+}
+
+packet ArrayOfThirtyTwo {
+  _fixed_ = 32 : 8,
+  thirtytwos : 32[],
+}
+
+test ArrayOfThirtyTwo {
+  "\x20\x01\x11\x21\x31\x02\x12\x22\x32\x03\x13\x23\x33",
+  "\x20\x05\x15\x25\x35\x04\x14\x24\x34\x03\x13\x23\x33\x02\x12\x22\x32\x01\x11\x21\x31\x00\x10\x20\x30",
+  "\x20\x06\x16\x26\x36\x05\x15\x25\x35\x04\x14\x24\x34\x03\x13\x23\x33\x02\x12\x22\x32\x01\x11\x21\x31\x00\x10\x20\x30",
+}
+
+packet Arrays {
+  _size_(bytes) : 8,
+  bytes : 8[],
+  _size_(sixteens) : 8,
+  sixteens : 16[],
+  _size_(thirtytwos) : 8,
+  thirtytwos : 32[]
+}
+
+test Arrays {
+  "\x03\x01\x02\x03\x06\x01\x11\x02\x12\x03\x13\x0C\x01\x11\x21\x31\x02\x12\x22\x32\x03\x13\x23\x33",
+  "\x06\x05\x04\x03\x02\x01\x00\x0C\x05\x15\x04\x14\x03\x13\x02\x12\x01\x11\x00\x10\x18\x05\x15\x25\x35\x04\x14\x24\x34\x03\x13\x23\x33\x02\x12\x22\x32\x01\x11\x21\x31\x00\x10\x20\x30",
 }

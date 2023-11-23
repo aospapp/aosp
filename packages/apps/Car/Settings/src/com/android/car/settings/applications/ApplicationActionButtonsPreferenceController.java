@@ -16,12 +16,14 @@
 
 package com.android.car.settings.applications;
 
+import static android.app.Activity.RESULT_FIRST_USER;
 import static android.app.Activity.RESULT_OK;
 
 import static com.android.car.settings.applications.ApplicationsUtils.isKeepEnabledPackage;
 import static com.android.car.settings.applications.ApplicationsUtils.isProfileOrDeviceOwner;
 import static com.android.car.settings.common.ActionButtonsPreference.ActionButtons;
 import static com.android.car.settings.enterprise.ActionDisabledByAdminDialogFragment.DISABLED_BY_ADMIN_CONFIRM_DIALOG_TAG;
+import static com.android.car.settings.enterprise.EnterpriseUtils.BLOCKED_UNINSTALL_APP;
 
 import android.app.Activity;
 import android.app.ActivityManager;
@@ -41,6 +43,7 @@ import android.os.UserHandle;
 import android.os.UserManager;
 import android.util.ArraySet;
 import android.view.View;
+import android.widget.Toast;
 
 import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
@@ -55,6 +58,7 @@ import com.android.car.settings.common.Logger;
 import com.android.car.settings.common.PreferenceController;
 import com.android.car.settings.enterprise.ActionDisabledByAdminDialogFragment;
 import com.android.car.settings.enterprise.DeviceAdminAddActivity;
+import com.android.car.settings.enterprise.EnterpriseUtils;
 import com.android.car.settings.profiles.ProfileHelper;
 import com.android.settingslib.Utils;
 import com.android.settingslib.applications.ApplicationsState;
@@ -130,6 +134,9 @@ public class ApplicationActionButtonsPreferenceController extends
                             .forceStopPackage(mPackageName);
                     int userId = UserHandle.getUserId(mAppEntry.info.uid);
                     mApplicationsState.invalidatePackage(mPackageName, userId);
+                    Toast.makeText(getContext(), getContext().getResources()
+                            .getString(R.string.force_stop_success_toast_text,
+                                    mAppEntry.info.loadLabel(mPm)), Toast.LENGTH_LONG).show();
                 }
             };
 
@@ -356,7 +363,7 @@ public class ApplicationActionButtonsPreferenceController extends
             LOG.d("Sending broadcast to query restart status for " + mPackageName);
             getContext().sendOrderedBroadcastAsUser(intent,
                     UserHandle.CURRENT,
-                    /* receiverPermission= */ null,
+                    android.Manifest.permission.HANDLE_QUERY_PACKAGE_RESTART,
                     mCheckKillProcessesReceiver,
                     /* scheduler= */ null,
                     Activity.RESULT_CANCELED,
@@ -548,10 +555,18 @@ public class ApplicationActionButtonsPreferenceController extends
                 || requestCode == UNINSTALL_DEVICE_ADMIN_REQUEST_CODE) {
             if (resultCode == RESULT_OK) {
                 getFragmentController().goBack();
-            } else {
-                LOG.e("Uninstall failed with result " + resultCode);
+            } else if (resultCode == RESULT_FIRST_USER) {
+                showUninstallBlockedByAdminDialog();
+                LOG.e("Uninstall failed");
             }
         }
+    }
+
+    private void showUninstallBlockedByAdminDialog() {
+        getFragmentController().showDialog(
+                EnterpriseUtils.getActionDisabledByAdminDialog(getContext(),
+                        BLOCKED_UNINSTALL_APP, mPackageName),
+                DISABLED_BY_ADMIN_CONFIRM_DIALOG_TAG);
     }
 
     private boolean ignoreActionBecauseItsDisabledByAdmin(List<String> restrictions) {

@@ -22,5 +22,6 @@
              android:targetName="CarNotification"
              android:targetPackage="com.android.car.notification"
              android:resourcesMap="@xml/overlays"
-             android:isStatic="true" />
+             android:category="caruiportrait.notifications"
+             android:isStatic="false" />
 </manifest>

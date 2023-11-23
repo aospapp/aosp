@@ -2,7 +2,7 @@
 
 <!-- Sample power policy XML configuration
 
-     Power policy XML configuration should be copied to /vendor/etc/power_policy.xml.
+     Power policy XML configuration should be copied to /vendor/etc/automotive/power_policy.xml.
      Use power_policy_configuration.dtd with xmllint tool, to validate XML configuration file
 -->
 

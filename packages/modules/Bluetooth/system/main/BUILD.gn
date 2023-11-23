@@ -23,8 +23,6 @@ static_library("bluetooth-static") {
   complete_static_lib = true
 
   sources = [
-    "//bt/system/service/hal/bluetooth_interface.cc",
-    "//bt/system/service/logging_helpers.cc",
   ]
 
   configs += [
@@ -76,7 +74,6 @@ target(lib_type, "bluetooth") {
     "//bt/system/brcm/include",
     "//bt/system/embdrv/sbc/encoder/include",
     "//bt/system/embdrv/sbc/decoder/include",
-    "//bt/system/utils/include",
     "//bt/system/test/suite",
   ]
 
@@ -93,9 +90,9 @@ target(lib_type, "bluetooth") {
     "//bt/system/main/shim:LibBluetoothShimSources",
     "//bt/system/osi",
     "//bt/system/packet",
+    "//bt/system/rust:core_rs",
     "//bt/system/stack",
     "//bt/system/udrv",
-    "//bt/system/utils",
   ]
 
   configs += [
@@ -115,7 +112,6 @@ target(lib_type, "bluetooth") {
     "resolv",
     "rt",
     "z",
-    "bt_shim_ffi",
   ]
 
   lib_dirs = [ "${root_out_dir}/rust" ]

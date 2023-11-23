@@ -329,4 +329,15 @@ public final class AvrcpCoverArtStorageTest {
         Assert.assertFalse(mAvrcpCoverArtStorage.doesImageExist(mDevice2, mHandle1));
         Assert.assertFalse(mAvrcpCoverArtStorage.doesImageExist(mDevice2, mHandle2));
     }
+
+    @Test
+    public void toString_returnsDeviceInfo() {
+        String expectedString =
+                "CoverArtStorage:\n" + "  " + mDevice1 + " (" + 1 + "):" + "\n    "
+                        + mHandle1 + "\n";
+
+        mAvrcpCoverArtStorage.addImage(mDevice1, mHandle1, mImage1);
+
+        Assert.assertEquals(expectedString, mAvrcpCoverArtStorage.toString());
+    }
 }

@@ -19,16 +19,12 @@
  *   Functions generated:7
  */
 
-#include <map>
-#include <string>
-
-extern std::map<std::string, int> mock_function_count_map;
-
-#include <base/bind.h>
+#include <base/functional/bind.h>
 #include <base/logging.h>
 #include <base/strings/string_number_conversions.h>
 #include <hardware/bt_vc.h>
 
+#include <map>
 #include <string>
 #include <vector>
 
@@ -37,6 +33,7 @@ extern std::map<std::string, int> mock_function_count_map;
 #include "bta/include/bta_gatt_queue.h"
 #include "bta/include/bta_vc_api.h"
 #include "btif/include/btif_storage.h"
+#include "test/common/mock_functions.h"
 #include "types/raw_address.h"
 
 #ifndef UNUSED_ATTR
@@ -45,19 +42,19 @@ extern std::map<std::string, int> mock_function_count_map;
 
 void VolumeControl::AddFromStorage(const RawAddress& address,
                                    bool auto_connect) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
 }
-void VolumeControl::CleanUp() { mock_function_count_map[__func__]++; }
-void VolumeControl::DebugDump(int fd) { mock_function_count_map[__func__]++; }
+void VolumeControl::CleanUp() { inc_func_call_count(__func__); }
+void VolumeControl::DebugDump(int fd) { inc_func_call_count(__func__); }
 VolumeControl* VolumeControl::Get(void) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return nullptr;
 }
 bool VolumeControl::IsVolumeControlRunning() {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return false;
 }
 void VolumeControl::Initialize(
     bluetooth::vc::VolumeControlCallbacks* callbacks) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
 }

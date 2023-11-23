@@ -22,6 +22,10 @@ import static android.net.eap.test.EapSessionConfig.EapMethodConfig.EAP_TYPE_SIM
 import static com.android.internal.net.TestUtils.hexStringToByteArray;
 import static com.android.internal.net.eap.test.message.EapMessage.EAP_CODE_REQUEST;
 import static com.android.internal.net.eap.test.message.EapTestMessageDefinitions.COMPUTED_MAC;
+import static com.android.internal.net.eap.test.message.EapTestMessageDefinitions.EAP_AKA_CLIENT_ERROR_UNABLE_TO_PROCESS;
+import static com.android.internal.net.eap.test.message.EapTestMessageDefinitions.EAP_AKA_NOTIFICATION_REQUEST_REAUTH_WITH_EMPTY_MAC;
+import static com.android.internal.net.eap.test.message.EapTestMessageDefinitions.EAP_AKA_NOTIFICATION_RESPONSE_REAUTH_WITH_EMPTY_MAC;
+import static com.android.internal.net.eap.test.message.EapTestMessageDefinitions.EAP_AKA_NOTIFICATION_RESPONSE_REAUTH_WITH_MAC;
 import static com.android.internal.net.eap.test.message.EapTestMessageDefinitions.EAP_SIM_CHALLENGE_RESPONSE_MAC_INPUT;
 import static com.android.internal.net.eap.test.message.EapTestMessageDefinitions.EAP_SIM_CHALLENGE_RESPONSE_WITH_MAC;
 import static com.android.internal.net.eap.test.message.EapTestMessageDefinitions.EAP_SIM_CLIENT_ERROR_RESPONSE;
@@ -50,6 +54,7 @@ import static com.android.internal.net.eap.test.message.EapTestMessageDefinition
 import static com.android.internal.net.eap.test.message.EapTestMessageDefinitions.SRES_BYTES;
 import static com.android.internal.net.eap.test.message.simaka.EapAkaTypeData.EAP_AKA_CHALLENGE;
 import static com.android.internal.net.eap.test.message.simaka.EapAkaTypeData.EAP_AKA_CLIENT_ERROR;
+import static com.android.internal.net.eap.test.message.simaka.EapAkaTypeData.EAP_AKA_NOTIFICATION;
 import static com.android.internal.net.eap.test.message.simaka.EapSimAkaAttribute.AtNotification.GENERAL_FAILURE_POST_CHALLENGE;
 import static com.android.internal.net.eap.test.message.simaka.EapSimAkaAttribute.AtNotification.GENERAL_FAILURE_PRE_CHALLENGE;
 import static com.android.internal.net.eap.test.message.simaka.EapSimAkaAttribute.EAP_AT_CHECKCODE;
@@ -63,6 +68,7 @@ import static com.android.internal.net.eap.test.message.simaka.EapSimTypeData.EA
 import static com.android.internal.net.eap.test.message.simaka.EapSimTypeData.EAP_SIM_NOTIFICATION;
 import static com.android.internal.net.eap.test.message.simaka.EapSimTypeData.EAP_SIM_START;
 import static com.android.internal.net.eap.test.message.simaka.attributes.EapTestAttributeDefinitions.AT_IDENTITY;
+import static com.android.internal.net.eap.test.message.simaka.attributes.EapTestAttributeDefinitions.COUNTER;
 import static com.android.internal.net.eap.test.message.simaka.attributes.EapTestAttributeDefinitions.COUNTER_INT;
 import static com.android.internal.net.eap.test.message.simaka.attributes.EapTestAttributeDefinitions.IDENTITY;
 import static com.android.internal.net.eap.test.message.simaka.attributes.EapTestAttributeDefinitions.IV_BYTES;
@@ -177,7 +183,10 @@ public class EapSimAkaMethodStateMachineTest {
     private static final byte[] ENCR_DATA_REAUTH_RESPONSE =
             hexStringToByteArray("AF82D73A5A75AF1D3871244CA0B19338");
     private static final byte[] DECRYPTED_DATA_REAUTH_RESPONSE =
-            hexStringToByteArray("1301000A060300000000000000000000");
+            hexStringToByteArray(
+                    "1301"
+                            + COUNTER // AT_NOTIFICATION
+                            + "060300000000000000000000"); // AT_PADDING
     private static final String AT_COUNTER = "1301000a";
     private static final String AT_COUNTER_TOO_SMALL = "14010000";
     private static final byte[] MK_REAUTH =
@@ -439,7 +448,14 @@ public class EapSimAkaMethodStateMachineTest {
 
         EapResponse eapResponse =
                 (EapResponse)
-                        mStateMachine.handleEapSimAkaNotification(TAG, true, ID_INT, typeData);
+                        mStateMachine.handleEapSimAkaNotification(
+                                TAG,
+                                true,
+                                false,
+                                false,
+                                ID_INT,
+                                0 /* counterForReauth */,
+                                typeData);
         assertArrayEquals(EAP_SIM_NOTIFICATION_RESPONSE, eapResponse.packet);
         assertTrue(mStateMachine.mHasReceivedSimAkaNotification);
         verify(mStateMachine, never()).transitionTo(any(EapMethodState.class));
@@ -454,7 +470,14 @@ public class EapSimAkaMethodStateMachineTest {
 
         EapResponse eapResponse =
                 (EapResponse)
-                        mStateMachine.handleEapSimAkaNotification(TAG, true, ID_INT, typeData);
+                        mStateMachine.handleEapSimAkaNotification(
+                                TAG,
+                                true,
+                                false,
+                                false,
+                                ID_INT,
+                                0 /* counterForReauth */,
+                                typeData);
         assertArrayEquals(EAP_SIM_CLIENT_ERROR_UNABLE_TO_PROCESS, eapResponse.packet);
         verify(mStateMachine, never())
                 .transitionTo(any(EapMethodStateMachine.EapMethodState.class));
@@ -467,10 +490,19 @@ public class EapSimAkaMethodStateMachineTest {
                         EAP_SIM_NOTIFICATION,
                         Arrays.asList(new AtNotification(GENERAL_FAILURE_PRE_CHALLENGE)));
 
-        mStateMachine.handleEapSimAkaNotification(TAG, true, ID_INT, typeData);
+        mStateMachine.handleEapSimAkaNotification(
+                TAG, true, false, false, ID_INT, 0 /* counterForReauth */, typeData);
 
         EapError eapError =
-                (EapError) mStateMachine.handleEapSimAkaNotification(TAG, true, ID_INT, typeData);
+                (EapError)
+                        mStateMachine.handleEapSimAkaNotification(
+                                TAG,
+                                true,
+                                false,
+                                false,
+                                ID_INT,
+                                0 /* counterForReauth */,
+                                typeData);
         assertTrue(eapError.cause instanceof EapInvalidRequestException);
         assertTrue(mStateMachine.mHasReceivedSimAkaNotification);
         verify(mStateMachine, never())
@@ -487,7 +519,14 @@ public class EapSimAkaMethodStateMachineTest {
 
         EapResponse eapResponse =
                 (EapResponse)
-                        mStateMachine.handleEapSimAkaNotification(TAG, true, ID_INT, typeData);
+                        mStateMachine.handleEapSimAkaNotification(
+                                TAG,
+                                true,
+                                false,
+                                false,
+                                ID_INT,
+                                0 /* counterForReauth */,
+                                typeData);
         assertArrayEquals(EAP_SIM_CLIENT_ERROR_UNABLE_TO_PROCESS, eapResponse.packet);
         verify(mStateMachine, never())
                 .transitionTo(any(EapMethodStateMachine.EapMethodState.class));
@@ -513,7 +552,14 @@ public class EapSimAkaMethodStateMachineTest {
 
         EapResponse eapResponse =
                 (EapResponse)
-                        mStateMachine.handleEapSimAkaNotification(TAG, false, ID_INT, typeData);
+                        mStateMachine.handleEapSimAkaNotification(
+                                TAG,
+                                false,
+                                false,
+                                true,
+                                ID_INT,
+                                0 /* counterForReauth */,
+                                typeData);
         assertArrayEquals(EAP_SIM_NOTIFICATION_RESPONSE_WITH_MAC, eapResponse.packet);
         assertTrue(mStateMachine.mHasReceivedSimAkaNotification);
         verify(mStateMachine, never()).transitionTo(any(EapMethodState.class));
@@ -532,9 +578,76 @@ public class EapSimAkaMethodStateMachineTest {
 
         EapResponse eapResponse =
                 (EapResponse)
-                        mStateMachine.handleEapSimAkaNotification(TAG, false, ID_INT, typeData);
+                        mStateMachine.handleEapSimAkaNotification(
+                                TAG,
+                                false,
+                                false,
+                                true,
+                                ID_INT,
+                                0 /* counterForReauth */,
+                                typeData);
         assertArrayEquals(EAP_SIM_CLIENT_ERROR_UNABLE_TO_PROCESS, eapResponse.packet);
         verify(mStateMachine, never()).transitionTo(any(EapMethodState.class));
+    }
+
+    @Test
+    public void testHandleEapAkaNotificationPostReauth() throws Exception {
+        testHandleEapAkaNotificationPostReauth(
+                COUNTER_INT, EAP_AKA_NOTIFICATION_RESPONSE_REAUTH_WITH_MAC, true);
+    }
+
+    @Test
+    public void testHandleEapAkaNotificationPostReauthCountMismatch() throws Exception {
+        testHandleEapAkaNotificationPostReauth(
+                COUNTER_INT + 1, EAP_AKA_CLIENT_ERROR_UNABLE_TO_PROCESS, false);
+    }
+
+    private void testHandleEapAkaNotificationPostReauth(
+            int expectedCounter, byte[] expectedResponse, boolean expectingMacWithResp)
+            throws Exception {
+        mStateMachine = buildEapAkaStateMachineWithKAut(K_AUT);
+        System.arraycopy(K_ENCR_REAUTH, 0, mStateMachine.mKEncr, 0, 16);
+        doAnswer(
+                invocation -> {
+                    byte[] dst = invocation.getArgument(0);
+                    System.arraycopy(IV_BYTES, 0, dst, 0, IV_BYTES.length);
+                    return null;
+                })
+                .when(mMockSecureRandom)
+                .nextBytes(eq(new byte[IV_BYTES.length]));
+        AtIv atIv = new AtIv(mMockSecureRandom);
+        EapAkaTypeData typeData =
+                new EapAkaTypeData(
+                        EAP_AKA_NOTIFICATION,
+                        Arrays.asList(
+                                new AtNotification(GENERAL_FAILURE_POST_CHALLENGE),
+                                atIv,
+                                new AtEncrData(
+                                        DECRYPTED_DATA_REAUTH_RESPONSE, K_ENCR_REAUTH, atIv.iv),
+                                new AtMac(ORIGINAL_MAC)));
+
+        Mac mockMac = mock(Mac.class);
+        doReturn(ORIGINAL_MAC)
+                .when(mockMac)
+                .doFinal(eq(EAP_AKA_NOTIFICATION_REQUEST_REAUTH_WITH_EMPTY_MAC));
+        doReturn(COMPUTED_MAC)
+                .when(mockMac)
+                .doFinal(eq(EAP_AKA_NOTIFICATION_RESPONSE_REAUTH_WITH_EMPTY_MAC));
+        mStateMachine.mMacAlgorithm = mockMac;
+        mStateMachine.mSecureRandom = mMockSecureRandom;
+
+        EapResponse eapResponse =
+                (EapResponse)
+                        mStateMachine.handleEapSimAkaNotification(
+                                TAG, false, true, true, ID_INT, expectedCounter, typeData);
+        assertArrayEquals(expectedResponse, eapResponse.packet);
+        assertTrue(mStateMachine.mHasReceivedSimAkaNotification);
+
+        verify(mockMac).doFinal(eq(EAP_AKA_NOTIFICATION_REQUEST_REAUTH_WITH_EMPTY_MAC));
+        if (expectingMacWithResp) {
+            verify(mockMac).doFinal(eq(EAP_AKA_NOTIFICATION_RESPONSE_REAUTH_WITH_EMPTY_MAC));
+        }
+        verifyNoMoreInteractions(mockMac);
     }
 
     @Test

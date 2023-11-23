@@ -128,14 +128,16 @@ public class HearingAidNativeInterface {
         return mAdapter.getRemoteDevice(address);
     }
 
-    private byte[] getByteAddress(BluetoothDevice device) {
+    @VisibleForTesting
+    byte[] getByteAddress(BluetoothDevice device) {
         if (device == null) {
             return Utils.getBytesFromAddress("00:00:00:00:00:00");
         }
         return Utils.getBytesFromAddress(device.getAddress());
     }
 
-    private void sendMessageToService(HearingAidStackEvent event) {
+    @VisibleForTesting
+    void sendMessageToService(HearingAidStackEvent event) {
         HearingAidService service = HearingAidService.getHearingAidService();
         if (service != null) {
             service.messageFromNative(event);
@@ -148,7 +150,8 @@ public class HearingAidNativeInterface {
     // All callbacks are routed via the Service which will disambiguate which
     // state machine the message should be routed to.
 
-    private void onConnectionStateChanged(int state, byte[] address) {
+    @VisibleForTesting
+    void onConnectionStateChanged(int state, byte[] address) {
         HearingAidStackEvent event =
                 new HearingAidStackEvent(HearingAidStackEvent.EVENT_TYPE_CONNECTION_STATE_CHANGED);
         event.device = getDevice(address);
@@ -160,7 +163,8 @@ public class HearingAidNativeInterface {
         sendMessageToService(event);
     }
 
-    private void onDeviceAvailable(byte capabilities, long hiSyncId, byte[] address) {
+    @VisibleForTesting
+    void onDeviceAvailable(byte capabilities, long hiSyncId, byte[] address) {
         HearingAidStackEvent event = new HearingAidStackEvent(
                 HearingAidStackEvent.EVENT_TYPE_DEVICE_AVAILABLE);
         event.device = getDevice(address);

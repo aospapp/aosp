@@ -31,6 +31,8 @@
 #include <utils/Thread.h>
 
 #include <atomic>
+#include <mutex>
+#include <optional>
 #include <thread>
 #include <unordered_map>
 
@@ -54,6 +56,8 @@ public:
     ::ndk::ScopedAStatus closeDisplay(const std::shared_ptr<aidlevs::IEvsDisplay>& obj) override;
     ::ndk::ScopedAStatus getDisplayIdList(std::vector<uint8_t>* list) override;
     ::ndk::ScopedAStatus getDisplayState(aidlevs::DisplayState* state) override;
+    ::ndk::ScopedAStatus getDisplayStateById(int32_t displayId,
+                                             aidlevs::DisplayState* state) override;
     ::ndk::ScopedAStatus registerStatusCallback(
             const std::shared_ptr<aidlevs::IEvsEnumeratorStatusCallback>& callback) override;
     ::ndk::ScopedAStatus openUltrasonicsArray(
@@ -86,9 +90,33 @@ private:
         CameraRecord(const char* cameraId) : desc() { desc.id = cameraId; }
     };
 
+    class ActiveDisplays {
+    public:
+        struct DisplayInfo {
+            int32_t id{-1};
+            std::weak_ptr<EvsGlDisplay> displayWeak;
+            uintptr_t internalDisplayRawAddr;
+        };
+
+        std::optional<DisplayInfo> popDisplay(int32_t id);
+
+        std::optional<DisplayInfo> popDisplay(std::shared_ptr<IEvsDisplay> display);
+
+        std::unordered_map<int32_t, DisplayInfo> getAllDisplays();
+
+        bool tryInsert(int32_t id, std::shared_ptr<EvsGlDisplay> display);
+
+    private:
+        std::mutex mMutex;
+        std::unordered_map<int32_t, DisplayInfo> mIdToDisplay GUARDED_BY(mMutex);
+        std::unordered_map<uintptr_t, int32_t> mDisplayToId GUARDED_BY(mMutex);
+    };
+
     bool checkPermission();
     void closeCamera_impl(const std::shared_ptr<aidlevs::IEvsCamera>& pCamera,
                           const std::string& cameraId);
+    ::ndk::ScopedAStatus getDisplayStateImpl(std::optional<int32_t> displayId,
+                                             aidlevs::DisplayState* state);
 
     static bool qualifyCaptureDevice(const char* deviceName);
     static CameraRecord* findCameraById(const std::string& cameraId);
@@ -98,6 +126,8 @@ private:
     // Enumerate available displays and return an id of the internal display
     static uint64_t enumerateDisplays();
 
+    static ActiveDisplays& mutableActiveDisplays();
+
     // NOTE:  All members values are static so that all clients operate on the same state
     //        That is to say, this is effectively a singleton despite the fact that HIDL
     //        constructs a new instance for each client.
@@ -105,7 +135,6 @@ private:
     //        never accessed concurrently despite potentially having multiple instance objects
     //        using them.
     static std::unordered_map<std::string, CameraRecord> sCameraList;
-    static std::weak_ptr<EvsGlDisplay> sActiveDisplay;     // Weak pointer.
                                                            // Object destructs if client dies.
     static std::mutex sLock;                               // Mutex on shared camera device list.
     static std::condition_variable sCameraSignal;          // Signal on camera device addition.

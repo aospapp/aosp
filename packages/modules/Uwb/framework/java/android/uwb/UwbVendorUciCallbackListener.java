@@ -50,6 +50,7 @@ public final class UwbVendorUciCallbackListener extends IUwbVendorUciCallback.St
                     mIsRegistered = true;
                 } catch (RemoteException e) {
                     Log.w(TAG, "Failed to register adapter state callback");
+                    mCallbackMap.remove(callback);
                     throw e.rethrowFromSystemServer();
                 }
             }
@@ -57,18 +58,20 @@ public final class UwbVendorUciCallbackListener extends IUwbVendorUciCallback.St
     }
     public void unregister(@NonNull UwbVendorUciCallback callback) {
         synchronized (this) {
-            if (!mCallbackMap.containsKey(callback)) {
+            if (!mCallbackMap.containsKey(callback) || !mIsRegistered) {
                 return;
             }
-            mCallbackMap.remove(callback);
-            if (mCallbackMap.isEmpty() && mIsRegistered) {
+            if (mCallbackMap.size() == 1) {
                 try {
                     mAdapter.unregisterVendorExtensionCallback(this);
+                    mIsRegistered = false;
+                    mCallbackMap.remove(callback);
                 } catch (RemoteException e) {
                     Log.w(TAG, "Failed to unregister AdapterStateCallback with service");
                     throw e.rethrowFromSystemServer();
                 }
-                mIsRegistered = false;
+            } else {
+                mCallbackMap.remove(callback);
             }
         }
     }

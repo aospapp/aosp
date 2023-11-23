@@ -346,7 +346,7 @@ static void setVolumeNative(JNIEnv* env, jobject object, jbyteArray address,
   env->ReleaseByteArrayElements(address, addr, 0);
 }
 
-static void setVolumeGroupNative(JNIEnv* env, jobject object, jint group_id,
+static void setGroupVolumeNative(JNIEnv* env, jobject object, jint group_id,
                                  jint volume) {
   if (!sVolumeControlInterface) {
     LOG(ERROR) << __func__
@@ -547,7 +547,7 @@ static JNINativeMethod sMethods[] = {
     {"disconnectVolumeControlNative", "([B)Z",
      (void*)disconnectVolumeControlNative},
     {"setVolumeNative", "([BI)V", (void*)setVolumeNative},
-    {"setVolumeGroupNative", "(II)V", (void*)setVolumeGroupNative},
+    {"setGroupVolumeNative", "(II)V", (void*)setGroupVolumeNative},
     {"muteNative", "([B)V", (void*)muteNative},
     {"muteGroupNative", "(I)V", (void*)muteGroupNative},
     {"unmuteNative", "([B)V", (void*)unmuteNative},

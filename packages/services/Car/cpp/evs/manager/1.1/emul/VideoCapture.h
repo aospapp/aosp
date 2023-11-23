@@ -16,48 +16,46 @@
 #ifndef ANDROID_HARDWARE_AUTOMOTIVE_EVS_V1_1_EMULVIDEOCAPTURE_H
 #define ANDROID_HARDWARE_AUTOMOTIVE_EVS_V1_1_EMULVIDEOCAPTURE_H
 
-#include <atomic>
-#include <filesystem>
-#include <functional>
-#include <thread>
-
 #include <android-base/chrono_utils.h>
 #include <linux/videodev2.h>
 #include <utils/Looper.h>
 #include <utils/Mutex.h>
 #include <utils/Timers.h>
 
+#include <atomic>
+#include <filesystem>
+#include <functional>
+#include <thread>
+
 namespace {
 
-    // Careful changing these -- we're using bit-wise ops to manipulate these
-    enum RunModes {
-        STOPPED     = 0,
-        RUN         = 1,
-        STOPPING    = 2,
-    };
+// Careful changing these -- we're using bit-wise ops to manipulate these
+enum RunModes {
+    STOPPED = 0,
+    RUN = 1,
+    STOPPING = 2,
+};
 
-    enum StreamEvent {
-        INIT = 0,
-        PERIODIC,
-        STOP,
-        TERMINATED,
-    };
+enum StreamEvent {
+    INIT = 0,
+    PERIODIC,
+    STOP,
+    TERMINATED,
+};
 
-    struct imageMetadata {
-        uint32_t width;     // Image width in pixels
-        uint32_t height;    // Image height in pixels
-        uint32_t stride;    // Number of bytes from one row in memory
-        uint32_t format;    // Image format
-    };
-}
-
+struct imageMetadata {
+    uint32_t width;   // Image width in pixels
+    uint32_t height;  // Image height in pixels
+    uint32_t stride;  // Number of bytes from one row in memory
+    uint32_t format;  // Image format
+};
+}  // namespace
 
 typedef struct {
-        struct imageMetadata info;
-        uint32_t sequence;        // Counting frames in sequence
-        struct timeval timestamp; // Tells when this frame is generated
+    struct imageMetadata info;
+    uint32_t sequence;         // Counting frames in sequence
+    struct timeval timestamp;  // Tells when this frame is generated
 } imageBufferDesc;
-
 
 namespace android {
 namespace automotive {
@@ -67,10 +65,9 @@ namespace implementation {
 
 class VideoCapture : public MessageHandler {
 public:
-    explicit VideoCapture() {};
+    explicit VideoCapture(){};
     virtual ~VideoCapture();
-    bool open(const std::string& path,
-              const std::chrono::nanoseconds interval);
+    bool open(const std::string& path, const std::chrono::nanoseconds interval);
     void close();
 
     bool startStream(
@@ -78,16 +75,16 @@ public:
     void stopStream();
 
     // Valid only after open()
-    __u32   getWidth()          { return mBufferInfo.info.width; }
-    __u32   getHeight()         { return mBufferInfo.info.height; }
-    __u32   getStride()         { return mBufferInfo.info.stride; }
-    __u32   getV4LFormat()      { return mBufferInfo.info.format; }
+    __u32 getWidth() { return mBufferInfo.info.width; }
+    __u32 getHeight() { return mBufferInfo.info.height; }
+    __u32 getStride() { return mBufferInfo.info.stride; }
+    __u32 getV4LFormat() { return mBufferInfo.info.format; }
 
     // NULL until stream is started
-    void* getLatestData()       { return mPixelBuffer; }
-    bool isFrameReady()         { return mFrameReady; }
-    void markFrameConsumed()    { returnFrame(); }
-    bool isOpen()               { return mVideoReady; }
+    void* getLatestData() { return mPixelBuffer; }
+    bool isFrameReady() { return mFrameReady; }
+    void markFrameConsumed() { returnFrame(); }
+    bool isOpen() { return mVideoReady; }
 
     int setParameter(struct v4l2_control& control);
     int getParameter(struct v4l2_control& control);
@@ -141,10 +138,10 @@ private:
     bool mVideoReady = false;
 };
 
-} // namespace implementation
-} // namespace V1_1
-} // namespace evs
-} // namespace automotive
-} // namespace android
+}  // namespace implementation
+}  // namespace V1_1
+}  // namespace evs
+}  // namespace automotive
+}  // namespace android
 
-#endif // ANDROID_HARDWARE_AUTOMOTIVE_EVS_V1_1_EMULVIDEOCAPTURE_
+#endif  // ANDROID_HARDWARE_AUTOMOTIVE_EVS_V1_1_EMULVIDEOCAPTURE_

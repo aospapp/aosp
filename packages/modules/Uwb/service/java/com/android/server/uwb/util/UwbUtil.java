@@ -40,12 +40,33 @@ public final class UwbUtil {
         return sb.toString();
     }
 
+    /** Convert the given int to a 4-byte hex-string */
     public static String toHexString(int var) {
         byte[] byteArray = new byte[4];
         byteArray[0] = (byte) (var & 0xff);
         byteArray[1] = (byte) ((var >> 8) & 0xff);
         byteArray[2] = (byte) ((var >> 16) & 0xff);
         byteArray[3] = (byte) ((var >> 24) & 0xff);
+        StringBuilder sb = new StringBuilder();
+        for (byte b : byteArray) {
+            sb.append(HEXCHARS[(b >> 4) & 0xF]);
+            sb.append(HEXCHARS[b & 0xF]);
+        }
+        return sb.toString();
+    }
+
+    /** Convert the given long to an 8-byte hex-string */
+    public static String toHexString(long var) {
+        byte[] byteArray = new byte[8];
+        byteArray[0] = (byte) (var & 0xff);
+        byteArray[1] = (byte) ((var >> 8) & 0xff);
+        byteArray[2] = (byte) ((var >> 16) & 0xff);
+        byteArray[3] = (byte) ((var >> 24) & 0xff);
+        byteArray[4] = (byte) ((var >> 32) & 0xff);
+        byteArray[5] = (byte) ((var >> 40) & 0xff);
+        byteArray[6] = (byte) ((var >> 48) & 0xff);
+        byteArray[7] = (byte) ((var >> 56) & 0xff);
+
         StringBuilder sb = new StringBuilder();
         for (byte b : byteArray) {
             sb.append(HEXCHARS[(b >> 4) & 0xF]);
@@ -66,6 +87,10 @@ public final class UwbUtil {
 
     public static float degreeToRadian(float angleInDegrees) {
         return (float) ((angleInDegrees) * Math.PI / 180.0);
+    }
+
+    public static float radianTodegree(double angleInRadians) {
+        return (float) ((angleInRadians) * 180 / Math.PI);
     }
 
     /**
@@ -99,7 +124,7 @@ public final class UwbUtil {
      * Get Two's complement of a number for signed conversion
      *
      * @param nInput Integer
-     * @param nBits  number of bits in number
+     * @param nBits  number of bits an number
      * @return two complement of given number value
      */
     public static int twos_compliment(int nInput, int nBits) {

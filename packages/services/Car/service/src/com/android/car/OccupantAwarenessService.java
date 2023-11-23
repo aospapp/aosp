@@ -115,7 +115,7 @@ public class OccupantAwarenessService
     @Override
     public void init() {
         logd("Initializing service");
-        connectToHalServiceIfNotConnected();
+        connectToHalServiceIfNotConnected(true);
     }
 
     @Override
@@ -140,25 +140,27 @@ public class OccupantAwarenessService
     }
 
     /** Attempts to connect to the HAL service if it is not already connected. */
-    private void connectToHalServiceIfNotConnected() {
+    private void connectToHalServiceIfNotConnected(boolean forceConnect) {
         logd("connectToHalServiceIfNotConnected()");
 
         synchronized (mLock) {
             // If already connected, nothing more needs to be done.
-            if (mOasHal != null) {
+            if (mOasHal != null && !forceConnect) {
                 logd("Client is already connected, nothing more to do");
                 return;
             }
 
             // Attempt to find the HAL service.
-            logd("Attempting to connect to client at: " + OAS_SERVICE_ID);
-            mOasHal =
-                    android.hardware.automotive.occupant_awareness.IOccupantAwareness.Stub
-                            .asInterface(ServiceManagerHelper.getService(OAS_SERVICE_ID));
-
             if (mOasHal == null) {
-                Slogf.e(TAG, "Failed to find OAS hal_service at: [" + OAS_SERVICE_ID + "]");
-                return;
+                logd("Attempting to connect to client at: " + OAS_SERVICE_ID);
+                mOasHal =
+                        android.hardware.automotive.occupant_awareness.IOccupantAwareness.Stub
+                                .asInterface(ServiceManagerHelper.getService(OAS_SERVICE_ID));
+
+                if (mOasHal == null) {
+                    Slogf.e(TAG, "Failed to find OAS hal_service at: [" + OAS_SERVICE_ID + "]");
+                    return;
+                }
             }
 
             // Register for callbacks.
@@ -241,7 +243,7 @@ public class OccupantAwarenessService
         CarServiceUtils.assertPermission(mContext,
                 Car.PERMISSION_READ_CAR_OCCUPANT_AWARENESS_STATE);
 
-        connectToHalServiceIfNotConnected();
+        connectToHalServiceIfNotConnected(false);
 
         // Grab a copy of 'mOasHal' to avoid sitting on the lock longer than is necessary.
         IOccupantAwareness hal;
@@ -283,7 +285,7 @@ public class OccupantAwarenessService
         CarServiceUtils.assertPermission(mContext,
                 Car.PERMISSION_READ_CAR_OCCUPANT_AWARENESS_STATE);
 
-        connectToHalServiceIfNotConnected();
+        connectToHalServiceIfNotConnected(false);
 
         synchronized (mLock) {
             if (mOasHal == null) {
@@ -314,7 +316,7 @@ public class OccupantAwarenessService
         CarServiceUtils.assertPermission(mContext,
                 Car.PERMISSION_READ_CAR_OCCUPANT_AWARENESS_STATE);
 
-        connectToHalServiceIfNotConnected();
+        connectToHalServiceIfNotConnected(false);
 
         synchronized (mLock) {
             mListeners.unregister(listener);

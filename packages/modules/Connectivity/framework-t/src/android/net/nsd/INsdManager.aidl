@@ -26,5 +26,5 @@ import android.os.Messenger;
  * {@hide}
  */
 interface INsdManager {
-    INsdServiceConnector connect(INsdManagerCallback cb);
+    INsdServiceConnector connect(INsdManagerCallback cb, boolean useJavaBackend);
 }

@@ -33,7 +33,6 @@ import android.net.wifi.WifiManager;
 import android.net.wifi.WifiManager.DeviceMobilityState;
 import android.net.wifi.WifiScanner;
 import android.os.Build;
-import android.os.Handler;
 import android.util.Log;
 
 import com.android.internal.annotations.VisibleForTesting;
@@ -45,6 +44,7 @@ import com.android.server.wifi.proto.WifiScoreCardProto.SystemInfoStats;
 import com.android.server.wifi.proto.WifiStatsLog;
 import com.android.server.wifi.proto.nano.WifiMetricsProto.HealthMonitorFailureStats;
 import com.android.server.wifi.proto.nano.WifiMetricsProto.HealthMonitorMetrics;
+import com.android.server.wifi.scanner.WifiScannerInternal;
 
 import com.google.protobuf.InvalidProtocolBufferException;
 
@@ -106,12 +106,12 @@ public class WifiHealthMonitor {
     private final WifiScoreCard mWifiScoreCard;
     private final Clock mClock;
     private final AlarmManager mAlarmManager;
-    private final Handler mHandler;
+    private final RunnerHandler mHandler;
     private final WifiNative mWifiNative;
     private final WifiInjector mWifiInjector;
     private final DeviceConfigFacade mDeviceConfigFacade;
     private final ActiveModeWarden mActiveModeWarden;
-    private WifiScanner mScanner;
+    private WifiScannerInternal mScanner;
     private MemoryStore mMemoryStore;
     private boolean mWifiEnabled;
     private WifiSystemInfoStats mWifiSystemInfoStats;
@@ -149,7 +149,7 @@ public class WifiHealthMonitor {
     }
 
     WifiHealthMonitor(Context context, WifiInjector wifiInjector, Clock clock,
-            WifiConfigManager wifiConfigManager, WifiScoreCard wifiScoreCard, Handler handler,
+            WifiConfigManager wifiConfigManager, WifiScoreCard wifiScoreCard, RunnerHandler handler,
             WifiNative wifiNative, String l2KeySeed, DeviceConfigFacade deviceConfigFacade,
             ActiveModeWarden activeModeWarden) {
         mContext = context;
@@ -164,7 +164,7 @@ public class WifiHealthMonitor {
         mActiveModeWarden = activeModeWarden;
         mWifiSystemInfoStats = new WifiSystemInfoStats(l2KeySeed);
         mActiveModeWarden.registerModeChangeCallback(new ModeChangeCallback());
-        mHandler.postAtFrontOfQueue(() -> mWifiConfigManager
+        mHandler.postToFront(() -> mWifiConfigManager
                 .addOnNetworkUpdateListener(new OnNetworkUpdateListener()));
     }
 
@@ -267,10 +267,11 @@ public class WifiHealthMonitor {
      */
     private void retrieveWifiScanner() {
         if (mScanner != null) return;
-        mScanner = mWifiInjector.getWifiScanner();
+        mScanner = WifiLocalServices.getService(WifiScannerInternal.class);
         if (mScanner == null) return;
         // Register for all single scan results
-        mScanner.registerScanListener(new ScanListener());
+        mScanner.registerScanListener(
+                new WifiScannerInternal.ScanListener(new ScanListener(), mHandler));
     }
 
     /**

@@ -24,9 +24,23 @@ namespace bluetooth {
 // Forward declare Packet class
 class Packet;
 
+// std::iterator is deprecated in C++17 onwards. Instead, you must declare all
+// 5 aliases that the iterator needs for the std library.
+#if __cplusplus >= 201703L
+struct IteratorTraits {
+  using iterator_category = std::random_access_iterator_tag;
+  using value_type = uint8_t;
+  using difference_type = std::ptrdiff_t;
+  using pointer = uint8_t*;
+  using reference = uint8_t&;
+};
+#else
+struct IteratorTraits
+    : public std::iterator<std::random_access_iterator_tag, uint8_t> {};
+#endif
+
 // Iterator is a custom iterator class for Packets.
-class Iterator
-    : public std::iterator<std::random_access_iterator_tag, uint8_t> {
+class Iterator : public IteratorTraits {
  public:
   Iterator(std::shared_ptr<const Packet> packet, size_t i);
   Iterator(const Iterator& itr);

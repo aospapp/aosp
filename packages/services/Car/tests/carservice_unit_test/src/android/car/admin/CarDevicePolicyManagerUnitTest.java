@@ -19,11 +19,11 @@ import static android.car.testapi.CarMockitoHelper.mockHandleRemoteExceptionFrom
 
 import static com.google.common.truth.Truth.assertThat;
 
+import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.notNull;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
-import static org.testng.Assert.assertThrows;
 
 import android.annotation.NonNull;
 import android.annotation.UserIdInt;
@@ -38,6 +38,8 @@ import android.car.util.concurrent.AndroidFuture;
 import android.content.pm.UserInfo;
 import android.os.RemoteException;
 import android.os.UserHandle;
+
+import com.android.car.internal.ResultCallbackImpl;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -187,9 +189,10 @@ public final class CarDevicePolicyManagerUnitTest extends AbstractExtendedMockit
     private void mockRemoveUser(@UserIdInt int userId, int status) throws Exception {
         doAnswer((invocation) -> {
             @SuppressWarnings("unchecked")
-            AndroidFuture<UserRemovalResult> future =
-                    (AndroidFuture<UserRemovalResult>) invocation.getArguments()[1];
-            future.complete(new UserRemovalResult(status));
+            ResultCallbackImpl<UserRemovalResult> resultResultCallbackImpl =
+                    (ResultCallbackImpl<UserRemovalResult>) invocation.getArguments()[1];
+            resultResultCallbackImpl.complete(
+                    new UserRemovalResult(UserRemovalResult.STATUS_SUCCESSFUL));
             return null;
         }).when(mService).removeUser(eq(userId), notNull());
     }
@@ -197,9 +200,9 @@ public final class CarDevicePolicyManagerUnitTest extends AbstractExtendedMockit
     private void mockCreateUser(String name, @NonNull UserInfo user, int status) throws Exception {
         doAnswer((invocation) -> {
             @SuppressWarnings("unchecked")
-            AndroidFuture<UserCreationResult> future =
-                    (AndroidFuture<UserCreationResult>) invocation.getArguments()[2];
-            future.complete(new UserCreationResult(status, user.getUserHandle()));
+            ResultCallbackImpl<UserCreationResult> resultCallbackImpl =
+                    (ResultCallbackImpl<UserCreationResult>) invocation.getArguments()[2];
+            resultCallbackImpl.complete(new UserCreationResult(status, user.getUserHandle()));
             return null;
         }).when(mService).createUser(eq(name), eq(user.id), notNull());
     }

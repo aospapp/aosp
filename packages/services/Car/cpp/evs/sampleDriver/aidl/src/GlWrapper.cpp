@@ -19,6 +19,7 @@
 #include <aidl/android/frameworks/automotive/display/DisplayDesc.h>
 #include <aidl/android/hardware/graphics/common/HardwareBufferDescription.h>
 #include <aidlcommonsupport/NativeHandle.h>
+#include <gui/view/Surface.h>
 #include <ui/DisplayMode.h>
 #include <ui/DisplayState.h>
 #include <ui/GraphicBuffer.h>
@@ -39,26 +40,22 @@ using ::aidl::android::hardware::graphics::common::HardwareBufferDescription;
 using ::android::GraphicBuffer;
 using ::android::sp;
 
-constexpr const char vertexShaderSource[] = "#version 300 es                    \n"
-                                            "layout(location = 0) in vec4 pos;  \n"
-                                            "layout(location = 1) in vec2 tex;  \n"
-                                            "out vec2 uv;                       \n"
-                                            "void main()                        \n"
-                                            "{                                  \n"
-                                            "   gl_Position = pos;              \n"
-                                            "   uv = tex;                       \n"
-                                            "}                                  \n";
+constexpr const char vertexShaderSource[] = "attribute vec4 pos;                  \n"
+                                            "attribute vec2 tex;                  \n"
+                                            "varying vec2 uv;                     \n"
+                                            "void main()                          \n"
+                                            "{                                    \n"
+                                            "   gl_Position = pos;                \n"
+                                            "   uv = tex;                         \n"
+                                            "}                                    \n";
 
-constexpr const char pixelShaderSource[] = "#version 300 es                    \n"
-                                           "precision mediump float;           \n"
-                                           "uniform sampler2D tex;             \n"
-                                           "in vec2 uv;                        \n"
-                                           "out vec4 color;                    \n"
-                                           "void main()                        \n"
-                                           "{                                  \n"
-                                           "    vec4 texel = texture(tex, uv); \n"
-                                           "    color = texel;                 \n"
-                                           "}                                  \n";
+constexpr const char pixelShaderSource[] = "precision mediump float;              \n"
+                                           "uniform sampler2D tex;                \n"
+                                           "varying vec2 uv;                      \n"
+                                           "void main()                           \n"
+                                           "{                                     \n"
+                                           "    gl_FragColor = texture2D(tex, uv);\n"
+                                           "}                                     \n";
 
 const char* getEGLError(void) {
     switch (eglGetError()) {
@@ -157,6 +154,9 @@ GLuint buildShaderProgram(const char* vtxSrc, const char* pxlSrc) {
     glAttachShader(program, vertexShader);
     glAttachShader(program, pixelShader);
 
+    glBindAttribLocation(program, 0, "pos");
+    glBindAttribLocation(program, 1, "tex");
+
     // Link the program
     glLinkProgram(program);
     GLint linked = 0;
@@ -180,20 +180,6 @@ GLuint buildShaderProgram(const char* vtxSrc, const char* pxlSrc) {
     }
 
     return program;
-}
-
-::android::sp<HGraphicBufferProducer> convertNativeHandleToHGBP(const NativeHandle& aidlHandle) {
-    native_handle_t* handle = ::android::dupFromAidl(aidlHandle);
-    if (handle->numFds != 0 || handle->numInts < std::ceil(sizeof(size_t) / sizeof(int))) {
-        LOG(ERROR) << "Invalid native handle";
-        return nullptr;
-    }
-    ::android::hardware::hidl_vec<uint8_t> halToken;
-    halToken.setToExternal(reinterpret_cast<uint8_t*>(const_cast<int*>(&(handle->data[1]))),
-                           handle->data[0]);
-    ::android::sp<HGraphicBufferProducer> hgbp =
-            HGraphicBufferProducer::castFrom(::android::retrieveHalInterface(halToken));
-    return std::move(hgbp);
 }
 
 }  // namespace
@@ -225,30 +211,19 @@ bool GlWrapper::initialize(const std::shared_ptr<ICarDisplayProxy>& pWindowProxy
     }
     LOG(INFO) << "Display resolution is " << mWidth << "x" << mHeight;
 
-    NativeHandle aidlHandle;
-    status = pWindowProxy->getHGraphicBufferProducer(displayId, &aidlHandle);
+    aidl::android::view::Surface shimSurface;
+    status = pWindowProxy->getSurface(displayId, &shimSurface);
     if (!status.isOk()) {
-        LOG(ERROR) << "Failed to get IGraphicBufferProducer from ICarDisplayProxy.";
+        LOG(ERROR) << "Failed to obtain the surface.";
         return false;
     }
 
-    mGfxBufferProducer = convertNativeHandleToHGBP(aidlHandle);
-    if (!mGfxBufferProducer) {
-        LOG(ERROR) << "Failed to convert a NativeHandle to HGBP.";
-        return false;
-    }
-
-    mSurfaceHolder = getSurfaceFromHGBP(mGfxBufferProducer);
-    if (mSurfaceHolder == nullptr) {
-        LOG(ERROR) << "Failed to get a Surface from HGBP.";
-        return false;
-    }
-
-    mWindow = getNativeWindow(mSurfaceHolder.get());
+    mWindow = shimSurface.get();
     if (mWindow == nullptr) {
         LOG(ERROR) << "Failed to get a native window from Surface.";
         return false;
     }
+    ANativeWindow_acquire(mWindow);
 
     // Set up our OpenGL ES context associated with the default display
     mDisplay = eglGetDisplay(EGL_DEFAULT_DISPLAY);
@@ -257,7 +232,7 @@ bool GlWrapper::initialize(const std::shared_ptr<ICarDisplayProxy>& pWindowProxy
         return false;
     }
 
-    EGLint major = 3;
+    EGLint major = 2;
     EGLint minor = 0;
     if (!eglInitialize(mDisplay, &major, &minor)) {
         LOG(ERROR) << "Failed to initialize EGL: " << getEGLError();
@@ -349,7 +324,12 @@ void GlWrapper::shutdown() {
     mDisplay = EGL_NO_DISPLAY;
 
     // Release the window
-    mSurfaceHolder = nullptr;
+    if (mWindow == nullptr) {
+        return;
+    }
+
+    ANativeWindow_release(mWindow);
+    mWindow = nullptr;
 }
 
 void GlWrapper::showWindow(const std::shared_ptr<ICarDisplayProxy>& pWindowProxy, uint64_t id) {

@@ -110,16 +110,16 @@ static void bta_hf_client_sco_conn_rsp(tBTA_HF_CLIENT_CB* client_cb,
   if (client_cb->sco_state == BTA_HF_CLIENT_SCO_LISTEN_ST) {
     if (p_data->link_type == BTM_LINK_TYPE_SCO) {
       // SCO
-      resp = esco_parameters_for_codec(SCO_CODEC_CVSD_D1);
+      resp = esco_parameters_for_codec(SCO_CODEC_CVSD_D1, true);
     } else if (client_cb->negotiated_codec == BTM_SCO_CODEC_MSBC) {
       // eSCO mSBC
-      resp = esco_parameters_for_codec(ESCO_CODEC_MSBC_T2);
+      resp = esco_parameters_for_codec(ESCO_CODEC_MSBC_T2, true);
     } else if (bta_hf_client_cb_arr.features & BTA_HF_CLIENT_FEAT_ESCO_S4) {
       // eSCO CVSD, HFP 1.7 requires S4
-      resp = esco_parameters_for_codec(ESCO_CODEC_CVSD_S4);
+      resp = esco_parameters_for_codec(ESCO_CODEC_CVSD_S4, true);
     } else {
       // eSCO CVSD, S3 is preferred by default(before HFP 1.7)
-      resp = esco_parameters_for_codec(ESCO_CODEC_CVSD_S3);
+      resp = esco_parameters_for_codec(ESCO_CODEC_CVSD_S3, true);
     }
 
     /* tell sys to stop av if any */
@@ -244,10 +244,10 @@ static void bta_hf_client_sco_create(tBTA_HF_CLIENT_CB* client_cb,
   if ((bta_hf_client_cb_arr.features & BTA_HF_CLIENT_FEAT_ESCO_S4) &&
       (client_cb->peer_features & BTA_HF_CLIENT_PEER_ESCO_S4)) {
     // eSCO CVSD, HFP 1.7 requires S4
-    params = esco_parameters_for_codec(ESCO_CODEC_CVSD_S4);
+    params = esco_parameters_for_codec(ESCO_CODEC_CVSD_S4, true);
   } else {
     // eSCO CVSD, S3 is preferred by default(before HFP 1.7)
-    params = esco_parameters_for_codec(ESCO_CODEC_CVSD_S3);
+    params = esco_parameters_for_codec(ESCO_CODEC_CVSD_S3, true);
   }
 
   /* if initiating set current scb and peer bd addr */

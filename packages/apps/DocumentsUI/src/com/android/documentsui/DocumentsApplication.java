@@ -16,6 +16,7 @@
 
 package com.android.documentsui;
 
+import android.annotation.SuppressLint;
 import android.app.ActivityManager;
 import android.app.Application;
 import android.content.BroadcastReceiver;
@@ -115,6 +116,7 @@ public class DocumentsApplication extends Application {
         Log.d(TAG, "OverlayManager.setEnabled() result: " + result);
     }
 
+    @SuppressLint("NewApi") // OverlayManager.class is @hide
     @Override
     public void onCreate() {
         super.onCreate();

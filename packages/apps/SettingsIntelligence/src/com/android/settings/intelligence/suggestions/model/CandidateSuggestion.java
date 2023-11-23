@@ -230,8 +230,8 @@ public class CandidateSuggestion {
                 .setSummary(summary)
                 .setFlags(flags)
                 .setIcon(icon)
-                .setPendingIntent(PendingIntent
-                        .getActivity(mContext, 0 /* requestCode */, mIntent, 0 /* flags */));
+                .setPendingIntent(PendingIntent.getActivity(
+                        mContext, 0 /* requestCode */, mIntent, PendingIntent.FLAG_IMMUTABLE));
     }
 
     /**

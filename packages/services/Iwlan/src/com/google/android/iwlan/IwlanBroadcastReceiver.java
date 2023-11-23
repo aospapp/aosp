@@ -29,6 +29,8 @@ import android.util.Log;
 
 import com.google.android.iwlan.epdg.EpdgSelector;
 
+import java.util.Arrays;
+
 public class IwlanBroadcastReceiver extends BroadcastReceiver {
     private static final String TAG = "IwlanBroadcastReceiver";
 
@@ -96,7 +98,12 @@ public class IwlanBroadcastReceiver extends BroadcastReceiver {
                 int pcoId = intent.getIntExtra(TelephonyManager.EXTRA_PCO_ID, 0);
                 byte[] pcoData = intent.getByteArrayExtra(TelephonyManager.EXTRA_PCO_VALUE);
 
-                Log.d(TAG, "PcoID:" + String.format("0x%04x", pcoId) + " PcoData:" + pcoData);
+                Log.d(
+                        TAG,
+                        "PcoID:"
+                                + String.format("0x%04x", pcoId)
+                                + " PcoData:"
+                                + Arrays.toString(pcoData));
 
                 Context mContext = IwlanDataService.getContext();
 

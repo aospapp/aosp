@@ -185,9 +185,9 @@
     <string name="query_error">Can\u2019t load content at the moment</string>
 
     <!-- Title of an error message. This screen is shown when the user's work profile is paused. [CHAR LIMIT=72] -->
-    <string name="quiet_mode_error_title">Work profile is paused</string>
+    <string name="quiet_mode_error_title">Work apps are paused</string>
     <!-- Button text shown on a button when work profile is paused. Tapping the button will switch on the work profile [CHAR LIMIT=48] -->
-    <string name="quiet_mode_button">Turn on</string>
+    <string name="quiet_mode_button">Turn on work apps</string>
 
     <!-- Error message title shown when a user's IT admin does not allow the user to select work files from a personal app. [CHAR LIMIT=72] -->
     <string name="cant_select_work_files_error_title">Can\u2019t select work files</string>

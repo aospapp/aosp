@@ -66,7 +66,7 @@ abstract class BaseEnterprisePreferenceController<P extends Preference>
     }
 
     @Override
-    protected int getAvailabilityStatus() {
+    protected int getDefaultAvailabilityStatus() {
         return mHasFeature ? AVAILABLE : UNSUPPORTED_ON_DEVICE;
     }
 

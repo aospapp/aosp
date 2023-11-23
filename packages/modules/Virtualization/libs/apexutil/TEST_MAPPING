@@ -1,0 +1,7 @@
+{
+  "avf-presubmit" : [
+    {
+      "name" : "libapexutil_rust.test"
+    }
+  ]
+}

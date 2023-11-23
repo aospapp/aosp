@@ -103,7 +103,9 @@ std::optional<PairingResultOrFailure> pairing_result_peripheral;
 void OnPairingFinishedCentral(PairingResultOrFailure r) {
   pairing_result_central = r;
   if (std::holds_alternative<PairingResult>(r)) {
-    LOG_INFO("pairing finished successfully with %s", std::get<PairingResult>(r).connection_address.ToString().c_str());
+    LOG_INFO(
+        "pairing finished successfully with %s",
+        ADDRESS_TO_LOGGABLE_CSTR(std::get<PairingResult>(r).connection_address));
   } else {
     LOG_INFO("pairing with ... failed: %s", std::get<PairingFailure>(r).message.c_str());
   }
@@ -112,7 +114,9 @@ void OnPairingFinishedCentral(PairingResultOrFailure r) {
 void OnPairingFinishedPeripheral(PairingResultOrFailure r) {
   pairing_result_peripheral = r;
   if (std::holds_alternative<PairingResult>(r)) {
-    LOG_INFO("pairing finished successfully with %s", std::get<PairingResult>(r).connection_address.ToString().c_str());
+    LOG_INFO(
+        "pairing finished successfully with %s",
+        ADDRESS_TO_LOGGABLE_CSTR(std::get<PairingResult>(r).connection_address));
   } else {
     LOG_INFO("pairing with ... failed: %s", std::get<PairingFailure>(r).message.c_str());
   }

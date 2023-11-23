@@ -50,6 +50,7 @@ final class TtyManager implements WiredHeadsetManager.Listener {
 
         IntentFilter intentFilter = new IntentFilter(
                 TelecomManager.ACTION_TTY_PREFERRED_MODE_CHANGED);
+        intentFilter.setPriority(IntentFilter.SYSTEM_HIGH_PRIORITY);
         mContext.registerReceiver(mReceiver, intentFilter,
                 android.Manifest.permission.MODIFY_PHONE_STATE,
                 null, Context.RECEIVER_EXPORTED);

@@ -144,6 +144,7 @@ public class SessionTest extends TelecomTestCase {
      * Ensure creating two sessions that are parent/child of each other does not lead to a crash
      * or infinite recursion when using Session#toString.
      */
+    @SuppressWarnings("ReturnValueIgnored")
     @SmallTest
     @Test
     public void testRecursion_toString() {
@@ -159,7 +160,6 @@ public class SessionTest extends TelecomTestCase {
 
         // Make sure calling these methods does not result in a crash
         try {
-
             parentSession.toString();
             childSession.toString();
         } catch (Exception e) {
@@ -176,6 +176,7 @@ public class SessionTest extends TelecomTestCase {
      * Ensure creating two sessions and setting the child as the parent to itself doesn't cause a
      * crash due to infinite recursion.
      */
+    @SuppressWarnings("ReturnValueIgnored")
     @SmallTest
     @Test
     public void testRecursion_toString_childCircDep() {
@@ -237,6 +238,7 @@ public class SessionTest extends TelecomTestCase {
      * Ensure creating two sessions that are parent/child of each other does not lead to a crash
      * or infinite recursion in the general case.
      */
+    @SuppressWarnings("ReturnValueIgnored")
     @SmallTest
     @Test
     public void testRecursion() {

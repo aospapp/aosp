@@ -15,8 +15,6 @@
  */
 package com.android.car.audio;
 
-import static android.car.builtin.media.AudioManagerHelper.usageToString;
-
 import static com.android.car.internal.ExcludeFromCodeCoverageGeneratedReport.DUMP_INFO;
 
 import android.annotation.NonNull;
@@ -110,13 +108,37 @@ final class FocusEntry {
 
     @ExcludeFromCodeCoverageGeneratedReport(reason = DUMP_INFO)
     public void dump(IndentingPrintWriter writer) {
-        writer.printf("%s - %s\n", getClientId(),
-                usageToString(mAudioFocusInfo.getAttributes().getUsage()));
+        writer.printf("%s - %s\n", getClientId(), mAudioFocusInfo.getAttributes());
         writer.increaseIndent();
         // Prints in single line
         writer.printf("Receives Duck Events: %b, ", receivesDuckEvents());
         writer.printf("Wants Pause Instead of Ducking: %b, ", wantsPauseInsteadOfDucking());
         writer.printf("Is Ducked: %b\n", isDucked());
+        writer.printf("Is Unblocked: %b\n", isUnblocked());
+        writer.increaseIndent();
+        for (int index = 0; index < mBlockers.size(); index++) {
+            writer.printf("Blocker[%d]: %s\n", index, mBlockers.get(index));
+        }
         writer.decreaseIndent();
+        writer.decreaseIndent();
+    }
+
+    @Override
+    @ExcludeFromCodeCoverageGeneratedReport(reason = DUMP_INFO)
+    public String toString() {
+        StringBuilder stringBuilder = new StringBuilder();
+        stringBuilder.append("Focus Entry: client id ");
+        stringBuilder.append(getClientId());
+        stringBuilder.append(", attributes ");
+        stringBuilder.append(mAudioFocusInfo.getAttributes());
+        stringBuilder.append(", can duck ");
+        stringBuilder.append(receivesDuckEvents());
+        stringBuilder.append(", wants pause ");
+        stringBuilder.append(wantsPauseInsteadOfDucking());
+        stringBuilder.append(", is ducked ");
+        stringBuilder.append(isDucked());
+        stringBuilder.append(", is unblocked ");
+        stringBuilder.append(isUnblocked());
+        return stringBuilder.toString();
     }
 }

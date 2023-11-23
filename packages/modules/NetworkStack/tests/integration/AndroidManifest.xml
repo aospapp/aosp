@@ -23,7 +23,10 @@
 
          05-14 00:41:02.723 18330 18330 E AndroidRuntime: java.lang.IllegalStateException: Signature|privileged permissions not in privapp-permissions whitelist: {com.android.server.networkstack.integrationtests: android.permission.CONNECTIVITY_INTERNAL}
     -->
-
+    <!-- Used by creating test network -->
+    <uses-permission android:name="android.permission.MANAGE_TEST_NETWORKS" />
+    <uses-permission android:name="android.permission.CHANGE_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.WRITE_SETTINGS" />
     <application android:debuggable="true">
         <uses-library android:name="android.test.runner" />
     </application>

@@ -45,8 +45,8 @@ public class FiraProtocolVersion extends ProtocolVersion {
     }
 
     public static FiraProtocolVersion fromBytes(byte[] data, int startIndex) {
-        int major = data[startIndex];
-        int minor = data[startIndex + 1];
+        int major = data[startIndex] & 0xFF;
+        int minor = data[startIndex + 1] & 0xFF;
         return new FiraProtocolVersion(major, minor);
     }
 

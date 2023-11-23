@@ -1,7 +1,7 @@
 {
-  "presubmit": [
+  "imports": [
     {
-      "name": "CtsSafetyCenterTestCases"
+      "path": "packages/modules/Permission/SafetyCenter"
     }
   ]
 }

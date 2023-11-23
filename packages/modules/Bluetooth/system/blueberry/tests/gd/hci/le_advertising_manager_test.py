@@ -16,7 +16,6 @@
 
 import logging
 
-from bluetooth_packets_python3 import hci_packets
 from blueberry.tests.gd.cert.event_stream import EventStream
 from blueberry.tests.gd.cert.closable import safeClose
 from blueberry.tests.gd.cert.matchers import AdvertisingMatchers
@@ -25,13 +24,17 @@ from blueberry.tests.gd.cert.truth import assertThat
 from blueberry.tests.gd.cert import gd_base_test
 from blueberry.facade import common_pb2 as common
 from google.protobuf import empty_pb2 as empty_proto
+from blueberry.facade.hci import controller_facade_pb2 as controller_facade
 from blueberry.facade.hci import \
     le_advertising_manager_facade_pb2 as le_advertising_facade
 from blueberry.facade.hci import le_initiator_address_facade_pb2 as le_initiator_address_facade
 from blueberry.facade.hci.le_advertising_manager_facade_pb2 import AdvertisingCallbackMsgType
 from blueberry.facade.hci.le_advertising_manager_facade_pb2 import AdvertisingStatus
 
-from mobly import test_runner
+from mobly import asserts, test_runner
+
+from blueberry.utils import bluetooth
+import hci_packets as hci
 
 
 class LeAdvertisingManagerTest(gd_base_test.GdBaseTestClass):
@@ -71,10 +74,8 @@ class LeAdvertisingManagerTest(gd_base_test.GdBaseTestClass):
         self.dut.hci_le_initiator_address.SetPrivacyPolicyForInitiatorAddress(privacy_policy)
 
     def create_advertiser(self):
-        gap_name = hci_packets.GapData()
-        gap_name.data_type = hci_packets.GapDataType.COMPLETE_LOCAL_NAME
-        gap_name.data = list(bytes(b'Im_The_DUT'))
-        gap_data = le_advertising_facade.GapDataMsg(data=bytes(gap_name.Serialize()))
+        gap_name = hci.GapData(data_type=hci.GapDataType.COMPLETE_LOCAL_NAME, data=list(bytes(b'Im_The_DUT')))
+        gap_data = le_advertising_facade.GapDataMsg(data=gap_name.serialize())
         config = le_advertising_facade.AdvertisingConfig(
             advertisement=[gap_data],
             interval_min=512,
@@ -89,22 +90,27 @@ class LeAdvertisingManagerTest(gd_base_test.GdBaseTestClass):
 
     def test_le_ad_scan_dut_advertises(self):
         self.set_address_policy_with_static_address()
-        self.cert_hci.register_for_le_events(hci_packets.SubeventCode.ADVERTISING_REPORT,
-                                             hci_packets.SubeventCode.EXTENDED_ADVERTISING_REPORT)
+        self.cert_hci.register_for_le_events(hci.SubeventCode.ADVERTISING_REPORT,
+                                             hci.SubeventCode.EXTENDED_ADVERTISING_REPORT)
 
         # CERT Scans
-        self.cert_hci.send_command(hci_packets.LeSetRandomAddressBuilder('0C:05:04:03:02:01'))
-        scan_parameters = hci_packets.PhyScanParameters()
-        scan_parameters.le_scan_type = hci_packets.LeScanType.ACTIVE
-        scan_parameters.le_scan_interval = 40
-        scan_parameters.le_scan_window = 20
+        self.cert_hci.send_command(hci.LeSetRandomAddress(random_address=bluetooth.Address('0C:05:04:03:02:01')))
+
         self.cert_hci.send_command(
-            hci_packets.LeSetExtendedScanParametersBuilder(hci_packets.OwnAddressType.RANDOM_DEVICE_ADDRESS,
-                                                           hci_packets.LeScanningFilterPolicy.ACCEPT_ALL, 1,
-                                                           [scan_parameters]))
+            hci.LeSetExtendedScanParameters(own_address_type=hci.OwnAddressType.RANDOM_DEVICE_ADDRESS,
+                                            scanning_filter_policy=hci.LeScanningFilterPolicy.ACCEPT_ALL,
+                                            scanning_phys=1,
+                                            parameters=[
+                                                hci.PhyScanParameters(le_scan_type=hci.LeScanType.ACTIVE,
+                                                                      le_scan_interval=40,
+                                                                      le_scan_window=20)
+                                            ]))
+
         self.cert_hci.send_command(
-            hci_packets.LeSetExtendedScanEnableBuilder(hci_packets.Enable.ENABLED,
-                                                       hci_packets.FilterDuplicates.DISABLED, 0, 0))
+            hci.LeSetExtendedScanEnable(enable=hci.Enable.ENABLED,
+                                        filter_duplicates=hci.FilterDuplicates.DISABLED,
+                                        duration=0,
+                                        period=0))
 
         create_response = self.create_advertiser()
 
@@ -113,31 +119,34 @@ class LeAdvertisingManagerTest(gd_base_test.GdBaseTestClass):
         remove_request = le_advertising_facade.RemoveAdvertiserRequest(advertiser_id=create_response.advertiser_id)
         self.dut.hci_le_advertising_manager.RemoveAdvertiser(remove_request)
         self.cert_hci.send_command(
-            hci_packets.LeSetScanEnableBuilder(hci_packets.Enable.DISABLED, hci_packets.Enable.DISABLED))
+            hci.LeSetScanEnable(le_scan_enable=hci.Enable.DISABLED, filter_duplicates=hci.Enable.DISABLED))
 
     def test_extended_create_advertises(self):
         self.set_address_policy_with_static_address()
-        self.cert_hci.register_for_le_events(hci_packets.SubeventCode.ADVERTISING_REPORT,
-                                             hci_packets.SubeventCode.EXTENDED_ADVERTISING_REPORT)
+        self.cert_hci.register_for_le_events(hci.SubeventCode.ADVERTISING_REPORT,
+                                             hci.SubeventCode.EXTENDED_ADVERTISING_REPORT)
 
         # CERT Scans
-        self.cert_hci.send_command(hci_packets.LeSetRandomAddressBuilder('0C:05:04:03:02:01'))
-        scan_parameters = hci_packets.PhyScanParameters()
-        scan_parameters.le_scan_type = hci_packets.LeScanType.ACTIVE
-        scan_parameters.le_scan_interval = 40
-        scan_parameters.le_scan_window = 20
-        self.cert_hci.send_command(
-            hci_packets.LeSetExtendedScanParametersBuilder(hci_packets.OwnAddressType.RANDOM_DEVICE_ADDRESS,
-                                                           hci_packets.LeScanningFilterPolicy.ACCEPT_ALL, 1,
-                                                           [scan_parameters]))
-        self.cert_hci.send_command(
-            hci_packets.LeSetExtendedScanEnableBuilder(hci_packets.Enable.ENABLED,
-                                                       hci_packets.FilterDuplicates.DISABLED, 0, 0))
+        self.cert_hci.send_command(hci.LeSetRandomAddress(random_address=bluetooth.Address('0C:05:04:03:02:01')))
 
-        gap_name = hci_packets.GapData()
-        gap_name.data_type = hci_packets.GapDataType.COMPLETE_LOCAL_NAME
-        gap_name.data = list(bytes(b'Im_The_DUT'))
-        gap_data = le_advertising_facade.GapDataMsg(data=bytes(gap_name.Serialize()))
+        self.cert_hci.send_command(
+            hci.LeSetExtendedScanParameters(own_address_type=hci.OwnAddressType.RANDOM_DEVICE_ADDRESS,
+                                            scanning_filter_policy=hci.LeScanningFilterPolicy.ACCEPT_ALL,
+                                            scanning_phys=1,
+                                            parameters=[
+                                                hci.PhyScanParameters(le_scan_type=hci.LeScanType.ACTIVE,
+                                                                      le_scan_interval=40,
+                                                                      le_scan_window=20)
+                                            ]))
+
+        self.cert_hci.send_command(
+            hci.LeSetExtendedScanEnable(enable=hci.Enable.ENABLED,
+                                        filter_duplicates=hci.FilterDuplicates.DISABLED,
+                                        duration=0,
+                                        period=0))
+
+        gap_name = hci.GapData(data_type=hci.GapDataType.COMPLETE_LOCAL_NAME, data=list(bytes(b'Im_The_DUT')))
+        gap_data = le_advertising_facade.GapDataMsg(data=gap_name.serialize())
         config = le_advertising_facade.AdvertisingConfig(
             advertisement=[gap_data],
             interval_min=512,
@@ -146,20 +155,19 @@ class LeAdvertisingManagerTest(gd_base_test.GdBaseTestClass):
             own_address_type=common.USE_RANDOM_DEVICE_ADDRESS,
             channel_map=7,
             filter_policy=le_advertising_facade.AdvertisingFilterPolicy.ALL_DEVICES)
-        extended_config = le_advertising_facade.ExtendedAdvertisingConfig(
-            advertising_config=config,
-            connectable=True,
-            scannable=False,
-            directed=False,
-            high_duty_directed_connectable=False,
-            legacy_pdus=True,
-            anonymous=False,
-            include_tx_power=True,
-            use_le_coded_phy=False,
-            secondary_max_skip=0x00,
-            secondary_advertising_phy=0x01,
-            sid=0x00,
-            enable_scan_request_notifications=0x00)
+        extended_config = le_advertising_facade.ExtendedAdvertisingConfig(advertising_config=config,
+                                                                          connectable=True,
+                                                                          scannable=False,
+                                                                          directed=False,
+                                                                          high_duty_directed_connectable=False,
+                                                                          legacy_pdus=True,
+                                                                          anonymous=False,
+                                                                          include_tx_power=True,
+                                                                          use_le_coded_phy=False,
+                                                                          secondary_max_skip=0x00,
+                                                                          secondary_advertising_phy=0x01,
+                                                                          sid=0x00,
+                                                                          enable_scan_request_notifications=0x00)
         request = le_advertising_facade.ExtendedCreateAdvertiserRequest(config=extended_config)
         create_response = self.dut.hci_le_advertising_manager.ExtendedCreateAdvertiser(request)
 
@@ -168,7 +176,7 @@ class LeAdvertisingManagerTest(gd_base_test.GdBaseTestClass):
         remove_request = le_advertising_facade.RemoveAdvertiserRequest(advertiser_id=create_response.advertiser_id)
         self.dut.hci_le_advertising_manager.RemoveAdvertiser(remove_request)
         self.cert_hci.send_command(
-            hci_packets.LeSetScanEnableBuilder(hci_packets.Enable.DISABLED, hci_packets.Enable.DISABLED))
+            hci.LeSetScanEnable(le_scan_enable=hci.Enable.DISABLED, filter_duplicates=hci.Enable.DISABLED))
 
     def test_advertising_set_started_callback(self):
         self.set_address_policy_with_static_address()
@@ -205,13 +213,12 @@ class LeAdvertisingManagerTest(gd_base_test.GdBaseTestClass):
     def test_set_advertising_data_callback(self):
         self.set_address_policy_with_static_address()
         create_response = self.create_advertiser()
-        gap_name = hci_packets.GapData()
-        gap_name.data_type = hci_packets.GapDataType.COMPLETE_LOCAL_NAME
-        gap_name.data = list(bytes(b'Im_The_DUT2'))
-        gap_data = le_advertising_facade.GapDataMsg(data=bytes(gap_name.Serialize()))
+        gap_name = hci.GapData(data_type=hci.GapDataType.COMPLETE_LOCAL_NAME, data=list(bytes(b'Im_The_DUT2')))
+        gap_data = le_advertising_facade.GapDataMsg(data=gap_name.serialize())
 
-        set_data_request = le_advertising_facade.SetDataRequest(
-            advertiser_id=create_response.advertiser_id, set_scan_rsp=False, data=[gap_data])
+        set_data_request = le_advertising_facade.SetDataRequest(advertiser_id=create_response.advertiser_id,
+                                                                set_scan_rsp=False,
+                                                                data=[gap_data])
         self.dut.hci_le_advertising_manager.SetData(set_data_request)
 
         assertThat(self.dut.callback_event_stream).emits(
@@ -221,13 +228,12 @@ class LeAdvertisingManagerTest(gd_base_test.GdBaseTestClass):
     def test_set_scan_response_data_callback(self):
         self.set_address_policy_with_static_address()
         create_response = self.create_advertiser()
-        gap_name = hci_packets.GapData()
-        gap_name.data_type = hci_packets.GapDataType.COMPLETE_LOCAL_NAME
-        gap_name.data = list(bytes(b'Im_The_DUT2'))
-        gap_data = le_advertising_facade.GapDataMsg(data=bytes(gap_name.Serialize()))
+        gap_name = hci.GapData(data_type=hci.GapDataType.COMPLETE_LOCAL_NAME, data=list(bytes(b'Im_The_DUT')))
+        gap_data = le_advertising_facade.GapDataMsg(data=gap_name.serialize())
 
-        set_data_request = le_advertising_facade.SetDataRequest(
-            advertiser_id=create_response.advertiser_id, set_scan_rsp=True, data=[gap_data])
+        set_data_request = le_advertising_facade.SetDataRequest(advertiser_id=create_response.advertiser_id,
+                                                                set_scan_rsp=True,
+                                                                data=[gap_data])
         self.dut.hci_le_advertising_manager.SetData(set_data_request)
 
         assertThat(self.dut.callback_event_stream).emits(
@@ -251,8 +257,8 @@ class LeAdvertisingManagerTest(gd_base_test.GdBaseTestClass):
             channel_map=7,
             filter_policy=le_advertising_facade.AdvertisingFilterPolicy.ALL_DEVICES)
 
-        set_parameters_request = le_advertising_facade.SetParametersRequest(
-            advertiser_id=create_response.advertiser_id, config=config)
+        set_parameters_request = le_advertising_facade.SetParametersRequest(advertiser_id=create_response.advertiser_id,
+                                                                            config=config)
         self.dut.hci_le_advertising_manager.SetParameters(set_parameters_request)
 
         assertThat(self.dut.callback_event_stream).emits(
@@ -279,10 +285,8 @@ class LeAdvertisingManagerTest(gd_base_test.GdBaseTestClass):
     def test_set_periodic_data_callback(self):
         self.set_address_policy_with_static_address()
         create_response = self.create_advertiser()
-        gap_name = hci_packets.GapData()
-        gap_name.data_type = hci_packets.GapDataType.COMPLETE_LOCAL_NAME
-        gap_name.data = list(bytes(b'Im_The_DUT2'))
-        gap_data = le_advertising_facade.GapDataMsg(data=bytes(gap_name.Serialize()))
+        gap_name = hci.GapData(data_type=hci.GapDataType.COMPLETE_LOCAL_NAME, data=list(bytes(b'Im_The_DUT2')))
+        gap_data = le_advertising_facade.GapDataMsg(data=gap_name.serialize())
 
         set_periodic_data_request = le_advertising_facade.SetPeriodicDataRequest(
             advertiser_id=create_response.advertiser_id, data=[gap_data])
@@ -293,10 +297,14 @@ class LeAdvertisingManagerTest(gd_base_test.GdBaseTestClass):
                                                        create_response.advertiser_id))
 
     def test_enable_periodic_advertising_callback(self):
+        check_feature = self.dut.hci_controller.SupportsBlePeriodicAdvertising(empty_proto.Empty())
+        if not check_feature.supported:
+            asserts.skip("Periodic advertising not supported.")
+
         self.set_address_policy_with_static_address()
         create_response = self.create_advertiser()
         enable_periodic_advertising_request = le_advertising_facade.EnablePeriodicAdvertisingRequest(
-            advertiser_id=create_response.advertiser_id, enable=True)
+            advertiser_id=create_response.advertiser_id, enable=True, include_adi=False)
         self.dut.hci_le_advertising_manager.EnablePeriodicAdvertising(enable_periodic_advertising_request)
 
         assertThat(self.dut.callback_event_stream).emits(

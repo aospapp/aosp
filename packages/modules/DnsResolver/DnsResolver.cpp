@@ -31,8 +31,9 @@
 bool resolv_init(const ResolverNetdCallbacks* callbacks) {
     android::base::InitLogging(/*argv=*/nullptr);
     LOG(INFO) << __func__ << ": Initializing resolver";
-    resolv_set_log_severity(android::base::WARNING);
-    doh_init_logger(DOH_LOG_LEVEL_WARN);
+    const bool isDebug = isDebuggable();
+    resolv_set_log_severity(isDebug ? android::base::INFO : android::base::WARNING);
+    doh_init_logger(isDebug ? DOH_LOG_LEVEL_INFO : DOH_LOG_LEVEL_WARN);
     using android::net::gApiLevel;
     gApiLevel = getApiLevel();
     using android::net::gResNetdCallbacks;

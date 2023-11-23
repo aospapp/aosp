@@ -59,6 +59,10 @@ int main() {
     CHECK_EQ(devices.size(), aidlDevices.size());
     for (size_t i = 0; i < aidlDevices.size(); ++i) {
         const std::string name = devices[i]->getName();
+        if (name != "nnapi-sample_quant") {
+            continue;
+        }
+
         const std::string fqName = std::string(AidlIDevice::descriptor) + "/" + name;
         const binder_status_t status =
                 AServiceManager_addService(aidlDevices[i]->asBinder().get(), fqName.c_str());

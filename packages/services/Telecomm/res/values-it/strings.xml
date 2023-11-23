@@ -30,7 +30,7 @@
     <string name="notification_disconnectedCall_body" msgid="600491714584417536">"La chiamata a <xliff:g id="CALLER">%s</xliff:g> è stata disconnessa per dare priorità a una chiamata di emergenza."</string>
     <string name="notification_disconnectedCall_generic_body" msgid="5282765206349184853">"La tua chiamata è stata disconnessa per dare priorità a una chiamata di emergenza."</string>
     <string name="notification_audioProcessing_title" msgid="1619035039880584575">"In sottofondo"</string>
-    <string name="notification_audioProcessing_body" msgid="6397005913770420388">"<xliff:g id="AUDIO_PROCESSING_APP_NAME">%s</xliff:g> ha spostato una chiamata in sottofondo. L\'app potrà accedere all\'audio e riprodurlo in sovrapposizione alla chiamata."</string>
+    <string name="notification_audioProcessing_body" msgid="8811420157964118913">"<xliff:g id="AUDIO_PROCESSING_APP_NAME">%s</xliff:g> sta elaborando una chiamata in background. L\'app potrà accedere all\'audio e riprodurlo in sovrapposizione alla chiamata."</string>
     <string name="notification_incallservice_not_responding_title" msgid="5347557574288598548">"<xliff:g id="IN_CALL_SERVICE_APP_NAME">%s</xliff:g> non risponde più"</string>
     <string name="notification_incallservice_not_responding_body" msgid="9209308270131968623">"Per la tua chiamata è stata utilizzata l\'app per telefono integrata nel tuo dispositivo"</string>
     <string name="accessibility_call_muted" msgid="2968461092554300779">"Chiamata disattivata."</string>
@@ -100,6 +100,7 @@
     <string name="notification_channel_background_calls" msgid="7785659903711350506">"Chiamate in sottofondo"</string>
     <string name="notification_channel_disconnected_calls" msgid="8228636543997645757">"Chiamate disconnesse"</string>
     <string name="notification_channel_in_call_service_crash" msgid="7313237519166984267">"App per telefono arrestate in modo anomalo"</string>
+    <string name="notification_channel_call_streaming" msgid="5100510699787538991">"Streaming chiamata"</string>
     <string name="alert_outgoing_call" msgid="5319895109298927431">"Se effettui questa chiamata, la chiamata di <xliff:g id="OTHER_APP">%1$s</xliff:g> verrà terminata."</string>
     <string name="alert_redirect_outgoing_call_or_not" msgid="665409645789521636">"Scegli come effettuare questa chiamata"</string>
     <string name="alert_place_outgoing_call_with_redirection" msgid="5221065030959024121">"Reindirizza la chiamata utilizzando <xliff:g id="OTHER_APP">%1$s</xliff:g>"</string>
@@ -123,4 +124,14 @@
     <string name="developer_title" msgid="9146088855661672353">"Menu sviluppatore telecomunicazioni"</string>
     <string name="toast_emergency_can_not_pull_call" msgid="9074229465338410869">"Impossibile accettare una chiamata durante una chiamata di emergenza."</string>
     <string name="cancel" msgid="6733466216239934756">"Annulla"</string>
+    <string name="back" msgid="6915955601805550206">"Indietro"</string>
+    <string name="callendpoint_name_earpiece" msgid="7047285080319678594">"Auricolare"</string>
+    <string name="callendpoint_name_bluetooth" msgid="210210953208913172">"Bluetooth"</string>
+    <string name="callendpoint_name_wiredheadset" msgid="6860787176412079742">"Cuffie con cavo"</string>
+    <string name="callendpoint_name_speaker" msgid="1971760468695323189">"Vivavoce"</string>
+    <string name="callendpoint_name_streaming" msgid="2337595450408275576">"Esterno"</string>
+    <string name="callendpoint_name_unknown" msgid="2199074708477193852">"Sconosciuto"</string>
+    <string name="call_streaming_notification_body" msgid="502216105683378263">"Streaming audio all\'altro dispositivo"</string>
+    <string name="call_streaming_notification_action_hang_up" msgid="7017663335289063827">"Riaggancia"</string>
+    <string name="call_streaming_notification_action_switch_here" msgid="3524180754186221228">"Passa qui"</string>
 </resources>

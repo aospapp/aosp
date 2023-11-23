@@ -47,10 +47,18 @@ HidlCamera::~HidlCamera() {
 }
 
 Return<void> HidlCamera::getCameraInfo(getCameraInfo_cb _hidl_cb) {
+    if (!mAidlCamera) {
+        LOG(ERROR) << "A reference to AIDL IEvsCamera object is invalid.";
+        _hidl_cb({});
+        return {};
+    }
+
     CameraDesc aidlDesc;
     if (auto status = mAidlCamera->getCameraInfo(&aidlDesc); !status.isOk()) {
-        LOG(WARNING) << "Failed to get a camera information, status = "
-                     << status.getServiceSpecificError();
+        LOG(ERROR) << "Failed to get a camera information, status = "
+                   << toString(static_cast<EvsResult>(status.getServiceSpecificError()));
+        _hidl_cb({});
+        return {};
     }
 
     _hidl_cb(std::move(Utils::makeToHidlV1_0(aidlDesc)));
@@ -58,9 +66,14 @@ Return<void> HidlCamera::getCameraInfo(getCameraInfo_cb _hidl_cb) {
 }
 
 Return<hidlevs::V1_0::EvsResult> HidlCamera::setMaxFramesInFlight(uint32_t bufferCount) {
+    if (!mAidlCamera) {
+        LOG(ERROR) << "A reference to AIDL IEvsCamera object is invalid.";
+        return hidlevs::V1_0::EvsResult::UNDERLYING_SERVICE_ERROR;
+    }
+
     auto status = mAidlCamera->setMaxFramesInFlight(static_cast<int32_t>(bufferCount));
     if (!status.isOk()) {
-        return Utils::makeToHidl(static_cast<EvsResult>(status.getServiceSpecificError()));
+        return hidlevs::V1_0::EvsResult::BUFFER_NOT_AVAILABLE;
     }
 
     return hidlevs::V1_0::EvsResult::OK;
@@ -68,9 +81,14 @@ Return<hidlevs::V1_0::EvsResult> HidlCamera::setMaxFramesInFlight(uint32_t buffe
 
 Return<hidlevs::V1_0::EvsResult> HidlCamera::startVideoStream(
         const ::android::sp<hidlevs::V1_0::IEvsCameraStream>& stream) {
-    if (!stream) {
-        return hidlevs::V1_0::EvsResult::INVALID_ARG;
+    if (!mAidlCamera) {
+        LOG(ERROR) << "A reference to AIDL IEvsCamera object is invalid.";
+        return hidlevs::V1_0::EvsResult::UNDERLYING_SERVICE_ERROR;
+    } else if (!stream) {
+        LOG(ERROR) << "A given HIDL IEvsCameraStream object is invalid.";
+        return hidlevs::V1_0::EvsResult::UNDERLYING_SERVICE_ERROR;
     } else if (mAidlStream) {
+        LOG(WARNING) << "A video stream is already running.";
         return hidlevs::V1_0::EvsResult::STREAM_ALREADY_RUNNING;
     }
 
@@ -84,24 +102,32 @@ Return<hidlevs::V1_0::EvsResult> HidlCamera::startVideoStream(
 }
 
 Return<void> HidlCamera::doneWithFrame(const hidlevs::V1_0::BufferDesc& buffer) {
+    if (!mAidlStream) {
+        LOG(ERROR) << "A reference to AIDL IEvsCameraStream object is invalid.";
+        return {};
+    }
+
     BufferDesc aidlBuffer;
     if (!mAidlStream->getBuffer(buffer.bufferId, &aidlBuffer)) {
-        LOG(WARNING) << "Ignores an unknown buffer " << buffer.bufferId;
+        LOG(ERROR) << "Ignores an unknown buffer " << buffer.bufferId;
         return {};
     }
 
     std::vector<BufferDesc> buffersToReturn(1);
+    int bufferId = aidlBuffer.bufferId;  // save pre move() for log message.
     buffersToReturn[0] = std::move(aidlBuffer);
     if (auto status = mAidlCamera->doneWithFrame(std::move(buffersToReturn)); !status.isOk()) {
-        LOG(WARNING) << "Failed to return a buffer " << aidlBuffer.bufferId
-                     << ", status = " << status.getServiceSpecificError();
+        LOG(WARNING) << "Failed to return a buffer " << bufferId << ", status = "
+                     << toString(static_cast<EvsResult>(status.getServiceSpecificError()));
+        return {};
     }
 
     return {};
 }
 
 Return<void> HidlCamera::stopVideoStream() {
-    if (!mAidlStream) {
+    if (!mAidlCamera) {
+        LOG(ERROR) << "A reference to AIDL IEvsCamera object is invalid.";
         return {};
     }
 
@@ -110,8 +136,14 @@ Return<void> HidlCamera::stopVideoStream() {
 }
 
 Return<int32_t> HidlCamera::getExtendedInfo(uint32_t opaqueIdentifier) {
+    if (!mAidlCamera) {
+        LOG(ERROR) << "A reference to AIDL IEvsCamera object is invalid.";
+        return 0;
+    }
+
     std::vector<uint8_t> value;
-    if (!mAidlCamera->getExtendedInfo(static_cast<int32_t>(opaqueIdentifier), &value).isOk()) {
+    if (!mAidlCamera->getExtendedInfo(static_cast<int32_t>(opaqueIdentifier), &value).isOk() ||
+        value.size() < sizeof(int32_t)) {
         return 0;
     }
 
@@ -120,7 +152,12 @@ Return<int32_t> HidlCamera::getExtendedInfo(uint32_t opaqueIdentifier) {
 
 Return<hidlevs::V1_0::EvsResult> HidlCamera::setExtendedInfo(uint32_t opaqueIdentifier,
                                                              int32_t opaqueValue) {
-    std::vector<uint8_t> value;
+    if (!mAidlCamera) {
+        LOG(ERROR) << "A reference to AIDL IEvsCamera object is invalid.";
+        return hidlevs::V1_0::EvsResult::UNDERLYING_SERVICE_ERROR;
+    }
+
+    std::vector<uint8_t> value(sizeof(int32_t));
     *reinterpret_cast<int32_t*>(value.data()) = opaqueValue;
     auto status = mAidlCamera->setExtendedInfo(static_cast<int32_t>(opaqueIdentifier), value);
     if (!status.isOk()) {
@@ -131,10 +168,17 @@ Return<hidlevs::V1_0::EvsResult> HidlCamera::setExtendedInfo(uint32_t opaqueIden
 
 // Methods from ::android::hardware::automotive::evs::V1_1::IEvsCamera follow.
 Return<void> HidlCamera::getCameraInfo_1_1(getCameraInfo_1_1_cb _hidl_cb) {
+    if (!mAidlCamera) {
+        LOG(ERROR) << "A reference to AIDL IEvsCamera object is invalid.";
+        _hidl_cb({});
+        return {};
+    }
+
     CameraDesc aidlDesc;
     if (auto status = mAidlCamera->getCameraInfo(&aidlDesc); !status.isOk()) {
-        LOG(WARNING) << "Failed to get a camera information, status = "
-                     << status.getServiceSpecificError();
+        LOG(ERROR) << "Failed to get a camera information, status = "
+                   << toString(static_cast<EvsResult>(status.getServiceSpecificError()));
+        _hidl_cb({});
         return {};
     }
 
@@ -144,20 +188,31 @@ Return<void> HidlCamera::getCameraInfo_1_1(getCameraInfo_1_1_cb _hidl_cb) {
 
 Return<void> HidlCamera::getPhysicalCameraInfo(const hidl_string& deviceId,
                                                getPhysicalCameraInfo_cb _hidl_cb) {
-    CameraDesc aidlDesc;
-    if (auto status = mAidlCamera->getPhysicalCameraInfo(deviceId, &aidlDesc); !status.isOk()) {
-        LOG(WARNING) << "Failed to read information of a camera " << deviceId
-                     << ", status = " << status.getServiceSpecificError();
+    if (!mAidlCamera) {
+        LOG(ERROR) << "A reference to AIDL IEvsCamera object is invalid.";
         _hidl_cb({});
-    } else {
-        _hidl_cb(Utils::makeToHidlV1_1(aidlDesc));
+        return {};
     }
 
+    CameraDesc aidlDesc;
+    if (auto status = mAidlCamera->getPhysicalCameraInfo(deviceId, &aidlDesc); !status.isOk()) {
+        LOG(ERROR) << "Failed to read information of a camera " << deviceId << ", status = "
+                   << toString(static_cast<EvsResult>(status.getServiceSpecificError()));
+        _hidl_cb({});
+        return {};
+    }
+
+    _hidl_cb(Utils::makeToHidlV1_1(aidlDesc));
     return {};
 }
 
 Return<hidlevs::V1_0::EvsResult> HidlCamera::doneWithFrame_1_1(
         const hidl_vec<hidlevs::V1_1::BufferDesc>& buffers) {
+    if (!mAidlStream) {
+        LOG(WARNING) << "A reference to AIDL IEvsCameraStream object is invalid.";
+        return hidlevs::V1_0::EvsResult::UNDERLYING_SERVICE_ERROR;
+    }
+
     std::vector<BufferDesc> buffersToReturn(buffers.size());
     for (auto i = 0; i < buffers.size(); ++i) {
         BufferDesc aidlBuffer;
@@ -178,6 +233,11 @@ Return<hidlevs::V1_0::EvsResult> HidlCamera::doneWithFrame_1_1(
 }
 
 Return<hidlevs::V1_0::EvsResult> HidlCamera::setMaster() {
+    if (!mAidlCamera) {
+        LOG(ERROR) << "A reference to AIDL IEvsCamera object is invalid.";
+        return hidlevs::V1_0::EvsResult::UNDERLYING_SERVICE_ERROR;
+    }
+
     if (auto status = mAidlCamera->setPrimaryClient(); !status.isOk()) {
         EvsResult err = static_cast<EvsResult>(status.getServiceSpecificError());
         if (err == EvsResult::PERMISSION_DENIED) {
@@ -193,6 +253,11 @@ Return<hidlevs::V1_0::EvsResult> HidlCamera::setMaster() {
 
 Return<hidlevs::V1_0::EvsResult> HidlCamera::forceMaster(
         const ::android::sp<hidlevs::V1_0::IEvsDisplay>& display) {
+    if (!mAidlCamera) {
+        LOG(ERROR) << "A reference to AIDL IEvsCamera object is invalid.";
+        return hidlevs::V1_0::EvsResult::UNDERLYING_SERVICE_ERROR;
+    }
+
     auto status = mAidlCamera->forcePrimaryClient(::ndk::SharedRefBase::make<AidlDisplay>(display));
     if (!status.isOk()) {
         return Utils::makeToHidl(static_cast<EvsResult>(status.getServiceSpecificError()));
@@ -202,6 +267,11 @@ Return<hidlevs::V1_0::EvsResult> HidlCamera::forceMaster(
 }
 
 Return<hidlevs::V1_0::EvsResult> HidlCamera::unsetMaster() {
+    if (!mAidlCamera) {
+        LOG(ERROR) << "A reference to AIDL IEvsCamera object is invalid.";
+        return hidlevs::V1_0::EvsResult::UNDERLYING_SERVICE_ERROR;
+    }
+
     if (auto status = mAidlCamera->unsetPrimaryClient(); !status.isOk()) {
         return Utils::makeToHidl(static_cast<EvsResult>(status.getServiceSpecificError()));
     }
@@ -210,10 +280,16 @@ Return<hidlevs::V1_0::EvsResult> HidlCamera::unsetMaster() {
 }
 
 Return<void> HidlCamera::getParameterList(getParameterList_cb _hidl_cb) {
+    if (!mAidlCamera) {
+        LOG(ERROR) << "A reference to AIDL IEvsCamera object is invalid.";
+        _hidl_cb({});
+        return {};
+    }
+
     std::vector<CameraParam> aidlList;
     if (auto status = mAidlCamera->getParameterList(&aidlList); !status.isOk()) {
-        LOG(WARNING) << "Failed to get a parameter list, status = "
-                     << status.getServiceSpecificError();
+        LOG(ERROR) << "Failed to get a parameter list, status = "
+                   << toString(static_cast<EvsResult>(status.getServiceSpecificError()));
         _hidl_cb({});
         return {};
     }
@@ -229,9 +305,17 @@ Return<void> HidlCamera::getParameterList(getParameterList_cb _hidl_cb) {
 
 Return<void> HidlCamera::getIntParameterRange(hidlevs::V1_1::CameraParam id,
                                               getIntParameterRange_cb _hidl_cb) {
+    if (!mAidlCamera) {
+        LOG(ERROR) << "A reference to AIDL IEvsCamera object is invalid.";
+        _hidl_cb(0, 0, 0);
+        return {};
+    }
+
     ParameterRange aidlRange;
     if (auto status = mAidlCamera->getIntParameterRange(Utils::makeFromHidl(id), &aidlRange);
         !status.isOk()) {
+        LOG(ERROR) << "Failed to get a parameter range, status = "
+                   << toString(static_cast<EvsResult>(status.getServiceSpecificError()));
         _hidl_cb(0, 0, 0);
         return {};
     }
@@ -242,6 +326,12 @@ Return<void> HidlCamera::getIntParameterRange(hidlevs::V1_1::CameraParam id,
 
 Return<void> HidlCamera::setIntParameter(hidlevs::V1_1::CameraParam id, int32_t value,
                                          setIntParameter_cb _hidl_cb) {
+    if (!mAidlCamera) {
+        LOG(ERROR) << "A reference to AIDL IEvsCamera object is invalid.";
+        _hidl_cb(hidlevs::V1_0::EvsResult::UNDERLYING_SERVICE_ERROR, {});
+        return {};
+    }
+
     std::vector<int32_t> aidlValues;
     auto status = mAidlCamera->setIntParameter(Utils::makeFromHidl(id), value, &aidlValues);
     if (!status.isOk()) {
@@ -261,6 +351,12 @@ Return<void> HidlCamera::setIntParameter(hidlevs::V1_1::CameraParam id, int32_t 
 
 Return<void> HidlCamera::getIntParameter(hidlevs::V1_1::CameraParam id,
                                          getIntParameter_cb _hidl_cb) {
+    if (!mAidlCamera) {
+        LOG(ERROR) << "A reference to AIDL IEvsCamera object is invalid.";
+        _hidl_cb(hidlevs::V1_0::EvsResult::UNDERLYING_SERVICE_ERROR, {});
+        return {};
+    }
+
     std::vector<int32_t> aidlValues;
     auto status = mAidlCamera->getIntParameter(Utils::makeFromHidl(id), &aidlValues);
     if (!status.isOk()) {
@@ -274,6 +370,11 @@ Return<void> HidlCamera::getIntParameter(hidlevs::V1_1::CameraParam id,
 
 Return<hidlevs::V1_0::EvsResult> HidlCamera::setExtendedInfo_1_1(
         uint32_t opaqueIdentifier, const hidl_vec<uint8_t>& opaqueValue) {
+    if (!mAidlCamera) {
+        LOG(ERROR) << "A reference to AIDL IEvsCamera object is invalid.";
+        return hidlevs::V1_0::EvsResult::UNDERLYING_SERVICE_ERROR;
+    }
+
     std::vector<uint8_t> value(opaqueValue);
     auto status = mAidlCamera->setExtendedInfo(static_cast<int32_t>(opaqueIdentifier), value);
     if (!status.isOk()) {
@@ -285,19 +386,31 @@ Return<hidlevs::V1_0::EvsResult> HidlCamera::setExtendedInfo_1_1(
 
 Return<void> HidlCamera::getExtendedInfo_1_1(uint32_t opaqueIdentifier,
                                              getExtendedInfo_1_1_cb _hidl_cb) {
+    if (!mAidlCamera) {
+        LOG(ERROR) << "A reference to AIDL IEvsCamera object is invalid.";
+        _hidl_cb(hidlevs::V1_0::EvsResult::UNDERLYING_SERVICE_ERROR, {});
+        return {};
+    }
+
     std::vector<uint8_t> value;
     auto status = mAidlCamera->getExtendedInfo(static_cast<int32_t>(opaqueIdentifier), &value);
     if (!status.isOk()) {
         _hidl_cb(Utils::makeToHidl(static_cast<EvsResult>(status.getServiceSpecificError())), {});
-    } else {
-        _hidl_cb(hidlevs::V1_0::EvsResult::OK, value);
+        return {};
     }
 
+    _hidl_cb(hidlevs::V1_0::EvsResult::OK, value);
     return {};
 }
 
 Return<void> HidlCamera::importExternalBuffers(const hidl_vec<hidlevs::V1_1::BufferDesc>& buffers,
                                                importExternalBuffers_cb _hidl_cb) {
+    if (!mAidlCamera) {
+        LOG(ERROR) << "A reference to AIDL IEvsCamera object is invalid.";
+        _hidl_cb(hidlevs::V1_0::EvsResult::UNDERLYING_SERVICE_ERROR, 0);
+        return {};
+    }
+
     std::vector<BufferDesc> aidlBuffers(buffers.size());
     for (auto i = 0; i < buffers.size(); ++i) {
         aidlBuffers[i] = std::move(Utils::makeFromHidl(buffers[i]));
@@ -307,10 +420,10 @@ Return<void> HidlCamera::importExternalBuffers(const hidl_vec<hidlevs::V1_1::Buf
     if (auto status = mAidlCamera->importExternalBuffers(aidlBuffers, &delta); !status.isOk()) {
         _hidl_cb(Utils::makeToHidl(static_cast<EvsResult>(status.getServiceSpecificError())),
                  delta);
-    } else {
-        _hidl_cb(hidlevs::V1_0::EvsResult::OK, delta);
+        return {};
     }
 
+    _hidl_cb(hidlevs::V1_0::EvsResult::OK, delta);
     return {};
 }
 

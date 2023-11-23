@@ -16,9 +16,15 @@
 
 <resources>
 
-    <!-- Name of a font family. If empty, falls back to platform default -->
+    <!-- Name of the body font family. If empty, falls back to platform default -->
     <string name="config_fontFamily" translatable="false">sans-serif</string>
-    <!-- Name of the font family medium. -->
+    <!-- Name of the body font family medium. -->
     <string name="config_fontFamilyMedium" translatable="false">sans-serif-medium</string>
+    <!-- Name of the header font family. If empty, falls back to platform default -->
+    <string name="config_headerFontFamily" translatable="false">@string/config_fontFamily</string>
+    <!-- Name of the header font family medium. -->
+    <string name="config_headerFontFamilyMedium" translatable="false">
+        @string/config_fontFamilyMedium
+    </string>
 
 </resources>

@@ -73,7 +73,7 @@ public class WifiDetailsActionButtonsPreferenceController
     }
 
     @Override
-    protected int getAvailabilityStatus() {
+    protected int getDefaultAvailabilityStatus() {
         if (!WifiUtil.isWifiAvailable(getContext())) {
             return UNSUPPORTED_ON_DEVICE;
         }

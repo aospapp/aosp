@@ -88,7 +88,7 @@ public final class UserRestrictionsFragment extends Fragment {
             for (int i = 0; i < count; i++) {
                 UserRestrictionListItem item = (UserRestrictionListItem) adapter.getItem(i);
                 String restriction = item.getKey();
-                boolean added = item.getIsChecked();
+                boolean added = item.isChecked();
                 userManager.setUserRestriction(restriction, added);
                 if (added) {
                     restrictions.add(restriction);

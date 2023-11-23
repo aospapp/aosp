@@ -45,7 +45,9 @@ public final class JavaMockitoHelper {
      */
     public static void await(@NonNull CountDownLatch latch, long timeoutMs)
             throws InterruptedException {
+        Log.v(TAG, "waiting " + timeoutMs + "ms for latch " + latch);
         if (!latch.await(timeoutMs, TimeUnit.MILLISECONDS)) {
+            Log.e(TAG, "latch timed out");
             throw new IllegalStateException(latch + " not called in " + timeoutMs + " ms");
         }
     }
@@ -59,7 +61,9 @@ public final class JavaMockitoHelper {
      */
     public static void await(@NonNull Semaphore semaphore, long timeoutMs)
             throws InterruptedException {
+        Log.v(TAG, "waiting " + timeoutMs + "ms for semaphore " + semaphore);
         if (!semaphore.tryAcquire(timeoutMs, TimeUnit.MILLISECONDS)) {
+            Log.e(TAG, "semaphore timed out");
             throw new IllegalStateException(semaphore + " not released in " + timeoutMs + " ms");
         }
     }
@@ -74,6 +78,7 @@ public final class JavaMockitoHelper {
     public static boolean silentAwait(@NonNull CountDownLatch latch, long timeoutMs) {
         boolean called;
         try {
+            Log.v(TAG, "waiting " + timeoutMs + "ms for semaphore " + latch);
             called = latch.await(timeoutMs, TimeUnit.MILLISECONDS);
             if (!called) {
                 Log.w(TAG, latch + " not called in " + timeoutMs + " ms");

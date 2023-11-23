@@ -288,7 +288,7 @@ class AlarmStateManager : BroadcastReceiver() {
                         PendingIntent.FLAG_UPDATE_CURRENT)
 
                 val info = AlarmClockInfo(alarmTime, viewIntent)
-                Utils.updateNextAlarm(alarmManager, info, operation)
+                Utils.updateNextAlarm(alarmManager, info, operation!!)
             } else if (operation != null) {
                 LogUtils.i("Canceling upcoming AlarmClockInfo")
                 alarmManager.cancel(operation)

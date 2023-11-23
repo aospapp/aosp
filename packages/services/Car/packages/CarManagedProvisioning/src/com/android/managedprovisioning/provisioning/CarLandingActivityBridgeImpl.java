@@ -20,7 +20,6 @@ import android.app.Activity;
 import android.content.Context;
 import android.widget.TextView;
 
-import com.android.car.setupwizardlib.CarSetupWizardCompatLayout;
 import com.android.managedprovisioning.R;
 import com.android.managedprovisioning.common.AccessibilityContextMenuMaker;
 import com.android.managedprovisioning.common.CarSetupWizardLayoutHelper;
@@ -55,8 +54,7 @@ abstract class CarLandingActivityBridgeImpl implements LandingActivityBridge {
                 .initializeLayoutParams(mainLayoutId, headerResId);
 
         CarSetupWizardLayoutHelper layoutHelper = getLayoutHelper();
-        CarSetupWizardCompatLayout layout = layoutHelper.setBaseLayout(
-                subLayoutId, /* isDoubleColumnAllowed= */ false);
+        layoutHelper.setBaseLayout(subLayoutId, /* isDoubleColumnAllowed= */ false);
 
         layoutHelper.setupPrimaryToolbarButton(R.string.next,
                 v -> getBridgeCallbacks().onNextButtonClicked());

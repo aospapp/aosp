@@ -93,4 +93,9 @@ public final class BroadcastPermissionsTest {
         assertThat(BroadcastPermissions.getPermissionLevel(mMockContext, UID, PID))
                 .isEqualTo(PERMISSION_BLUETOOTH_ADVERTISE);
     }
+
+    @Test
+    public void test_enforceBroadcastPermission() {
+        BroadcastPermissions.enforceBroadcastPermission(mMockContext, mCallerIdentity);
+    }
 }

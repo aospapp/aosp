@@ -14,6 +14,7 @@
 
 package {
     default_applicable_licenses: ["Android-Apache-2.0"],
+    default_visibility: [":__subpackages__"],
 }
 
 apex {
@@ -53,15 +54,13 @@ android_app_certificate {
     certificate: "com.android.permission",
 }
 
-filegroup {
-    name: "permission-jarjar-rules",
-    srcs: ["jarjar-rules.txt"],
-}
-
 sdk {
     name: "permission-module-sdk",
-    bootclasspath_fragments: ["com.android.permission-bootclasspath-fragment"],
-    systemserverclasspath_fragments: ["com.android.permission-systemserverclasspath-fragment"],
+    apexes: [
+        // Adds exportable dependencies of the APEX to the sdk,
+        // e.g. *classpath_fragments.
+        "com.android.permission",
+    ],
 }
 
 // Encapsulate the contributions made by the com.android.permission to the bootclasspath.
@@ -106,8 +105,9 @@ bootclasspath_fragment {
         // result in a build failure due to inconsistent flags.
         package_prefixes: [
             "android.app.role",
+            "android.permission.jarjar",
             "android.safetycenter",
-            "com.android.permission",
+            "android.safetylabel",
         ],
     },
 }

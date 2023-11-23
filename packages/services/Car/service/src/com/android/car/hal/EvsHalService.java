@@ -60,8 +60,6 @@ public class EvsHalService extends HalServiceBase {
     @GuardedBy("mLock")
     private EvsHalEventListener mListener;
 
-    private @CarEvsServiceType int mLastServiceTypeRequested;
-
     private boolean mIsEvsServiceRequestSupported;
 
     public EvsHalService(VehicleHal hal) {

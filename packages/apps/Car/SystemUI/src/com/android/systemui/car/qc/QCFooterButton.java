@@ -16,17 +16,21 @@
 
 package com.android.systemui.car.qc;
 
+import static com.android.systemui.car.users.CarSystemUIUserUtil.getCurrentUserHandle;
+
 import android.app.ActivityOptions;
 import android.content.Context;
 import android.content.Intent;
 import android.content.res.TypedArray;
-import android.os.UserHandle;
 import android.util.AttributeSet;
 import android.util.Log;
 import android.widget.Button;
 
+import androidx.annotation.Nullable;
+
 import com.android.car.ui.utils.CarUxRestrictionsUtil;
 import com.android.systemui.R;
+import com.android.systemui.settings.UserTracker;
 
 import java.net.URISyntaxException;
 
@@ -42,6 +46,8 @@ public class QCFooterButton extends Button {
     private final boolean mDisableWhileDriving;
     private final CarUxRestrictionsUtil.OnUxRestrictionsChangedListener mListener =
             carUxRestrictions -> setEnabled(!carUxRestrictions.isRequiresDistractionOptimization());
+    @Nullable
+    private UserTracker mUserTracker;
 
     public QCFooterButton(Context context) {
         this(context, /* attrs= */ null);
@@ -75,12 +81,12 @@ public class QCFooterButton extends Button {
             Intent finalIntent = intent;
             setOnClickListener(v -> {
                 mContext.sendBroadcastAsUser(new Intent(Intent.ACTION_CLOSE_SYSTEM_DIALOGS),
-                        UserHandle.CURRENT);
+                        getCurrentUserHandle(mContext, mUserTracker));
                 try {
                     ActivityOptions options = ActivityOptions.makeBasic();
                     options.setLaunchDisplayId(mContext.getDisplayId());
                     mContext.startActivityAsUser(finalIntent, options.toBundle(),
-                            UserHandle.CURRENT);
+                            getCurrentUserHandle(mContext, mUserTracker));
                 } catch (Exception e) {
                     Log.e(TAG, "Failed to launch intent", e);
                 }
@@ -89,6 +95,10 @@ public class QCFooterButton extends Button {
 
         mDisableWhileDriving = typedArray.getBoolean(
                 R.styleable.QCFooterButton_disableWhileDriving, /* defValue= */ false);
+    }
+
+    public void setUserTracker(UserTracker userTracker) {
+        mUserTracker = userTracker;
     }
 
     @Override

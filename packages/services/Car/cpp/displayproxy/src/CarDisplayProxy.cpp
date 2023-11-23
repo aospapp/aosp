@@ -20,9 +20,9 @@
 #include <android-base/logging.h>
 #include <android-base/scopeguard.h>
 #include <gui/ISurfaceComposer.h>
-#include <gui/Surface.h>
 #include <gui/SurfaceComposerClient.h>
 #include <gui/bufferqueue/2.0/B2HGraphicBufferProducer.h>
+#include <gui/view/Surface.h>
 #include <ui/Rotation.h>
 
 #include <cinttypes>
@@ -141,45 +141,8 @@ ScopedAStatus CarDisplayProxy::getHGraphicBufferProducer(int64_t id, NativeHandl
     ::android::sp<::android::IBinder> displayToken;
     ::android::sp<::android::SurfaceControl> surfaceControl;
 
-    auto it = mDisplays.find(id);
-    if (it == mDisplays.end()) {
-        ::android::ui::DisplayMode displayMode;
-        ::android::ui::DisplayState displayState;
-        displayToken = getDisplayInfoFromSurfaceComposerClient(id, &displayMode, &displayState);
-        if (!displayToken) {
-            return ScopedAStatus::fromStatus(STATUS_FAILED_TRANSACTION);
-        }
-
-        auto displayWidth = displayMode.resolution.getWidth();
-        auto displayHeight = displayMode.resolution.getHeight();
-        if ((displayState.orientation != ::android::ui::ROTATION_0) &&
-            (displayState.orientation != ::android::ui::ROTATION_180)) {
-            std::swap(displayWidth, displayHeight);
-        }
-
-        ::android::sp<SurfaceComposerClient> client = new SurfaceComposerClient();
-        ::android::status_t status = client->initCheck();
-        if (status != ::android::NO_ERROR) {
-            LOG(ERROR) << "SurfaceComposerClient::initCheck() fails, error = "
-                       << ::android::statusToString(status);
-            return ScopedAStatus::fromStatus(status);
-        }
-
-        surfaceControl =
-                client->createSurface(::android::String8::format("CarDisplayProxy::%" PRIx64, id),
-                                      displayWidth, displayHeight,
-                                      ::android::PIXEL_FORMAT_RGBX_8888,
-                                      ::android::ISurfaceComposerClient::eOpaque);
-        if (!surfaceControl || !surfaceControl->isValid()) {
-            LOG(ERROR) << "Failed to create a SurfaceControl";
-            return ScopedAStatus::fromStatus(STATUS_FAILED_TRANSACTION);
-        }
-
-        DisplayRecord rec = {displayToken, surfaceControl};
-        mDisplays.insert_or_assign(id, std::move(rec));
-    } else {
-        displayToken = it->second.token;
-        surfaceControl = it->second.surfaceControl;
+    if (auto status = getDisplayRecord(id, &displayToken, &surfaceControl); !status.isOk()) {
+        return status;
     }
 
     // SurfaceControl::getSurface() is guaranteed to be non-null.
@@ -206,6 +169,41 @@ ScopedAStatus CarDisplayProxy::getHGraphicBufferProducer(int64_t id, NativeHandl
     }
 
     *_aidl_return = std::move(::android::dupToAidl(handle));
+    return ScopedAStatus::ok();
+}
+
+ScopedAStatus CarDisplayProxy::getSurface(int64_t id, android::view::Surface* _aidl_return) {
+    if (_aidl_return == nullptr) {
+        LOG(ERROR) << __FUNCTION__
+                   << " is called with an invalid aidl::android::view::Surface object.";
+        return ScopedAStatus::fromStatus(STATUS_BAD_VALUE);
+    }
+
+    auto it = mSurfaceList.find(id);
+    if (it != mSurfaceList.end() && ::android::Surface::isValid(mSurfaceList[id])) {
+        LOG(DEBUG) << __FUNCTION__ << " reuses an existing surface for a display " << id;
+        _aidl_return->reset(mSurfaceList[id].get());
+        return ScopedAStatus::ok();
+    }
+
+    ::android::sp<::android::IBinder> displayToken;
+    ::android::sp<::android::SurfaceControl> surfaceControl;
+    if (auto status = getDisplayRecord(id, &displayToken, &surfaceControl); !status.isOk()) {
+        return status;
+    }
+
+    // Retrieve a Surface associated with a target display.
+    ::android::sp<::android::Surface> targetSurface = surfaceControl->getSurface();
+    if (!targetSurface || !::android::Surface::isValid(targetSurface)) {
+        LOG(ERROR) << "Created Surface is invalid, " << targetSurface.get();
+        return ScopedAStatus::fromStatus(STATUS_FAILED_TRANSACTION);
+    }
+
+    // Bookkeep a retrieved Surface object and pass it to the client as a format
+    // of ::aidl::android::view::Surface, which is alias to
+    // ::aidl::android::hardware::NativeWindow.
+    mSurfaceList.insert_or_assign(id, targetSurface);
+    _aidl_return->reset(targetSurface.get());
     return ScopedAStatus::ok();
 }
 
@@ -252,6 +250,59 @@ ScopedAStatus CarDisplayProxy::showWindow(int64_t id) {
         LOG(ERROR) << "Failed to set a layer";
         return ScopedAStatus::fromStatus(status);
     }
+
+    return ScopedAStatus::ok();
+}
+
+ScopedAStatus CarDisplayProxy::getDisplayRecord(
+        int64_t id, ::android::sp<::android::IBinder>* outDisplayToken,
+        ::android::sp<::android::SurfaceControl>* outSurfaceControl) {
+    auto it = mDisplays.find(id);
+    if (it != mDisplays.end()) {
+        *outDisplayToken = mDisplays[id].token;
+        *outSurfaceControl = mDisplays[id].surfaceControl;
+        return ScopedAStatus::ok();
+    }
+
+    ::android::sp<::android::IBinder> displayToken;
+    ::android::sp<::android::SurfaceControl> surfaceControl;
+    ::android::ui::DisplayMode displayMode;
+    ::android::ui::DisplayState displayState;
+    displayToken = getDisplayInfoFromSurfaceComposerClient(id, &displayMode, &displayState);
+    if (!displayToken) {
+        LOG(ERROR) << "Failed to read display information from SurfaceComposerClient.";
+        return ScopedAStatus::fromStatus(STATUS_FAILED_TRANSACTION);
+    }
+
+    auto displayWidth = displayMode.resolution.getWidth();
+    auto displayHeight = displayMode.resolution.getHeight();
+    if ((displayState.orientation != ::android::ui::ROTATION_0) &&
+        (displayState.orientation != ::android::ui::ROTATION_180)) {
+        std::swap(displayWidth, displayHeight);
+    }
+
+    ::android::sp<SurfaceComposerClient> client = new SurfaceComposerClient();
+    ::android::status_t status = client->initCheck();
+    if (status != ::android::NO_ERROR) {
+        LOG(ERROR) << "SurfaceComposerClient::initCheck() fails, error = "
+                   << ::android::statusToString(status);
+        return ScopedAStatus::fromStatus(status);
+    }
+
+    surfaceControl =
+            client->createSurface(::android::String8::format("CarDisplayProxy::%" PRIx64, id),
+                                  displayWidth, displayHeight, ::android::PIXEL_FORMAT_RGBX_8888,
+                                  ::android::ISurfaceComposerClient::eOpaque);
+    if (!surfaceControl || !surfaceControl->isValid()) {
+        LOG(ERROR) << "Failed to create a SurfaceControl";
+        return ScopedAStatus::fromStatus(STATUS_FAILED_TRANSACTION);
+    }
+
+    *outDisplayToken = displayToken;
+    *outSurfaceControl = surfaceControl;
+
+    DisplayRecord rec = {displayToken, surfaceControl};
+    mDisplays.insert_or_assign(id, std::move(rec));
 
     return ScopedAStatus::ok();
 }

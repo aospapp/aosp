@@ -20,6 +20,7 @@
 #include "utils/include/Utils.h"
 
 #include <android-base/logging.h>
+#include <utils/SystemClock.h>
 
 namespace aidl::android::automotive::evs::implementation {
 
@@ -32,14 +33,23 @@ using ::android::hardware::Status;
 using ::ndk::ScopedAStatus;
 
 Return<void> HidlCameraStream::deliverFrame(const hidlevs::V1_0::BufferDesc& buffer) {
+    if (!mAidlStream) {
+        LOG(ERROR) << "A reference to AIDL IEvsCameraStream is invalid.";
+        return {};
+    }
+
     std::vector<BufferDesc> aidlBuffers(1);
     aidlBuffers[0] = std::move(Utils::makeFromHidl(buffer, /* doDup= */ true));
+
+    // android::hardware::automotive::evs::V1_0::BufferDesc does not contain a
+    // timestamp so we need to fill it here.
+    aidlBuffers[0].timestamp = static_cast<int64_t>(::android::elapsedRealtimeNano() * 1e+3);
+    aidlBuffers[0].deviceId = mSourceDeviceId;
 
     mHidlV0Buffers.push_back(buffer);
     auto aidlStatus = mAidlStream->deliverFrame(std::move(aidlBuffers));
     if (!aidlStatus.isOk()) {
         LOG(ERROR) << "Failed to forward frames to AIDL client";
-        return Status::fromExceptionCode(Status::EX_TRANSACTION_FAILED);
     }
 
     return {};
@@ -47,6 +57,11 @@ Return<void> HidlCameraStream::deliverFrame(const hidlevs::V1_0::BufferDesc& buf
 
 Return<void> HidlCameraStream::deliverFrame_1_1(
         const hidl_vec<hidlevs::V1_1::BufferDesc>& buffers) {
+    if (!mAidlStream) {
+        LOG(ERROR) << "A reference to AIDL IEvsCameraStream is invalid.";
+        return {};
+    }
+
     std::vector<BufferDesc> aidlBuffers(buffers.size());
     for (auto i = 0; i < buffers.size(); ++i) {
         hidlevs::V1_1::BufferDesc buffer = std::move(buffers[i]);
@@ -56,16 +71,19 @@ Return<void> HidlCameraStream::deliverFrame_1_1(
 
     if (!mAidlStream->deliverFrame(std::move(aidlBuffers)).isOk()) {
         LOG(ERROR) << "Failed to forward frames to AIDL client";
-        return Status::fromExceptionCode(Status::EX_TRANSACTION_FAILED);
     }
 
     return {};
 }
 
 Return<void> HidlCameraStream::notify(const hidlevs::V1_1::EvsEventDesc& event) {
+    if (!mAidlStream) {
+        LOG(ERROR) << "A reference to AIDL IEvsCameraStream is invalid.";
+        return {};
+    }
+
     if (!mAidlStream->notify(std::move(Utils::makeFromHidl(event))).isOk()) {
         LOG(ERROR) << "Failed to forward events to AIDL client";
-        return Status::fromExceptionCode(Status::EX_TRANSACTION_FAILED);
     }
 
     return {};

@@ -23,11 +23,6 @@
 #include "gd/common/init_flags.h"
 #include "gd/os/log.h"
 
-future_t* IdleModuleStartUp() {
-  bluetooth::shim::Stack::GetInstance()->StartIdleMode();
-  return kReturnImmediate;
-}
-
 future_t* ShimModuleStartUp() {
   bluetooth::shim::Stack::GetInstance()->StartEverything();
   return kReturnImmediate;
@@ -38,14 +33,6 @@ future_t* GeneralShutDown() {
   return kReturnImmediate;
 }
 
-EXPORT_SYMBOL extern const module_t gd_idle_module = {
-    .name = GD_IDLE_MODULE,
-    .init = kUnusedModuleApi,
-    .start_up = IdleModuleStartUp,
-    .shut_down = GeneralShutDown,
-    .clean_up = kUnusedModuleApi,
-    .dependencies = {kUnusedModuleDependencies}};
-
 EXPORT_SYMBOL extern const module_t gd_shim_module = {
     .name = GD_SHIM_MODULE,
     .init = kUnusedModuleApi,
@@ -53,10 +40,6 @@ EXPORT_SYMBOL extern const module_t gd_shim_module = {
     .shut_down = GeneralShutDown,
     .clean_up = kUnusedModuleApi,
     .dependencies = {kUnusedModuleDependencies}};
-
-bool bluetooth::shim::is_gd_security_enabled() {
-  return bluetooth::common::init_flags::gd_security_is_enabled();
-}
 
 bool bluetooth::shim::is_gd_link_policy_enabled() {
   return bluetooth::common::init_flags::gd_link_policy_is_enabled();
@@ -80,4 +63,8 @@ bool bluetooth::shim::is_gd_dumpsys_module_started() {
 
 bool bluetooth::shim::is_gd_btaa_enabled() {
   return bluetooth::common::init_flags::btaa_hci_is_enabled();
+}
+
+bool bluetooth::shim::is_classic_discovery_only_enabled() {
+  return bluetooth::common::init_flags::classic_discovery_only_is_enabled();
 }

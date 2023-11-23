@@ -138,6 +138,7 @@ class TimerItem @JvmOverloads constructor(
                     mTimerText.isActivated = true
                     mTimerText.importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
                 }
+                null -> { }
             }
         }
     }

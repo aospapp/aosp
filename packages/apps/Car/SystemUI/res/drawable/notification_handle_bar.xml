@@ -20,7 +20,7 @@
     <item>
         <shape android:shape="rectangle">
             <corners android:radius="@dimen/clear_all_button_radius"/>
-            <solid android:color="@android:color/white"/>
+            <solid android:color="@color/notification_handle_bar_color"/>
         </shape>
     </item>
 </ripple>

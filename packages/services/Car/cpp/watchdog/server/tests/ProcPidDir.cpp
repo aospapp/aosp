@@ -47,7 +47,8 @@ Result<void> populateProcPidDir(const std::string& procDirPath,
                                 const std::unordered_map<pid_t, std::vector<pid_t>>& pidToTids,
                                 const std::unordered_map<pid_t, std::string>& processStat,
                                 const std::unordered_map<pid_t, std::string>& processStatus,
-                                const std::unordered_map<pid_t, std::string>& threadStat) {
+                                const std::unordered_map<pid_t, std::string>& threadStat,
+                                const std::unordered_map<pid_t, std::string>& threadTimeInState) {
     for (const auto& it : pidToTids) {
         // 1. Create /proc/PID dir.
         const auto& pidDirRes = makeDir(StringPrintf("%s/%" PRIu32, procDirPath.c_str(), it.first));
@@ -79,7 +80,8 @@ Result<void> populateProcPidDir(const std::string& procDirPath,
             return Error() << "Failed to create task directory: " << taskDirRes.error();
         }
 
-        // 5. Create /proc/PID/task/TID dirs and /proc/PID/task/TID/stat files.
+        // 5. Create /proc/PID/task/TID dirs, /proc/PID/task/TID/stat and
+        //    /proc/PID/task/TID/time_in_state files.
         for (const auto& tid : it.second) {
             const auto& tidDirRes = makeDir(
                     StringPrintf((procDirPath + kTaskDirFormat + "/%" PRIu32).c_str(), pid, tid));
@@ -92,6 +94,14 @@ Result<void> populateProcPidDir(const std::string& procDirPath,
                                      tid);
                 if (!WriteStringToFile(threadStat.at(tid), path)) {
                     return Error() << "Failed to write thread stat file " << path;
+                }
+            }
+            if (threadTimeInState.find(tid) != threadTimeInState.end()) {
+                std::string path =
+                        StringPrintf((procDirPath + kTaskDirFormat + kTimeInStateFormat).c_str(),
+                                     pid, tid);
+                if (!WriteStringToFile(threadTimeInState.at(tid), path)) {
+                    return Error() << "Failed to write thread time_in_state file " << path;
                 }
             }
         }

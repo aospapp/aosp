@@ -20,15 +20,15 @@
     <string name="enable_cmas_severe_threat_alerts_title" msgid="2271741871998936543">"Severe alerts"</string>
     <string name="enable_cmas_test_alerts_title" msgid="6022925848643811044">"Test alerts"</string>
     <string name="enable_exercise_test_alerts_title" msgid="411880452689537935">"Exercise alerts"</string>
-    <string name="cmas_presidential_level_alert" msgid="3429191761649839884">"Government alert"</string>
-    <string name="cmas_extreme_alert" msgid="3474352706075109113">"Extreme alert"</string>
+    <string name="cmas_presidential_level_alert" msgid="3429191761649839884">"Government Alert"</string>
+    <string name="cmas_extreme_alert" msgid="3474352706075109113">"Extreme Alert"</string>
     <!-- no translation found for cmas_extreme_immediate_observed_alert (4385654808873824465) -->
     <skip />
     <!-- no translation found for cmas_extreme_immediate_likely_alert (1667218798350595295) -->
     <skip />
-    <string name="cmas_severe_alert" msgid="6989950459525380066">"Severe alert"</string>
-    <string name="cmas_required_monthly_test" msgid="1226904101913162471">"Test alert"</string>
-    <string name="cmas_exercise_alert" msgid="4540370572086918020">"Exercise alert"</string>
+    <string name="cmas_severe_alert" msgid="6989950459525380066">"Severe Alert"</string>
+    <string name="cmas_required_monthly_test" msgid="1226904101913162471">"Test Alert"</string>
+    <string name="cmas_exercise_alert" msgid="4540370572086918020">"Exercise Alert"</string>
     <string name="app_label" msgid="3863159788297913185">"Emergency alerts"</string>
     <string name="sms_cb_settings" msgid="4187131985831792308">"Emergency alerts"</string>
     <string name="enable_alerts_master_toggle_summary" msgid="805446672915814777">"Receive emergency alert notifications"</string>

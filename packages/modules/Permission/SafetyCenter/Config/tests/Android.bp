@@ -21,17 +21,17 @@ android_test {
     defaults: ["mts-target-sdk-version-current"],
     sdk_version: "test_current",
     min_sdk_version: "30",
-    target_sdk_version: "32",
     srcs: [
         "java/**/*.kt",
     ],
-    required: [
-        "SafetyCenterConfigTestsOverlay",
+    data: [
+        ":SafetyCenterConfigTestsOverlay",
     ],
+    per_testcase_directory: true,
     static_libs: [
         "compatibility-device-util-axt",
-        "kotlinx-coroutines-android",
         "safety-center-config",
+        "safety-center-test-util-lib",
     ],
     test_suites: [
         "general-tests",

@@ -136,7 +136,7 @@ async fn provide_controller(mut hci: CommandSender) -> Arc<ControllerExports> {
             1
         };
     let le_periodic_advertiser_list_size =
-        if commands.is_supported(OpCode::LeReadPeriodicAdvertisingListSize) {
+        if commands.is_supported(OpCode::LeReadPeriodicAdvertiserListSize) {
             assert_success!(hci.send(LeReadPeriodicAdvertiserListSizeBuilder {}))
                 .get_periodic_advertiser_list_size()
         } else {
@@ -252,6 +252,7 @@ macro_rules! supported_features {
 
         impl SupportedFeatures {
             fn new(supported: Vec<u64>) -> Self {
+                #[allow(clippy::get_first)]
                 Self {
                     $($id: *supported.get($page).unwrap_or(&0) & (1 << $bit) != 0,)*
                 }
@@ -293,7 +294,7 @@ supported_features! {
 }
 
 macro_rules! supported_le_features {
-    ($($id:ident => $bit:literal),*) => {
+    ($($id:ident => $bit:literal,)*) => {
         /// Convenience struct for checking what features are supported
         #[derive(Clone)]
         #[allow(missing_docs)]
@@ -326,7 +327,10 @@ supported_le_features! {
     connected_iso_stream_central => 28,
     connected_iso_stream_peripheral => 29,
     iso_broadcaster => 30,
-    synchronized_receiver => 31
+    synchronized_receiver => 31,
+    ble_periodic_advertising_adi => 36,
+    ble_connection_subrating => 37,
+    ble_connection_subrating_host => 38,
 }
 
 /// Convert a null terminated C string into a Rust String

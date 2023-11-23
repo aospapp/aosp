@@ -20,6 +20,7 @@ import static com.android.launcher3.util.PackageManagerHelper.hasShortcutsPermis
 import android.content.Context;
 import android.content.pm.ShortcutInfo;
 
+import androidx.annotation.NonNull;
 import androidx.annotation.WorkerThread;
 
 import com.android.launcher3.LauncherAppState;
@@ -68,9 +69,7 @@ public class ModelDelegate implements ResourceBasedOverride {
         this.mContext = context;
     }
 
-    /**
-     * Called periodically to validate and update any data
-     */
+    /** Called periodically to validate and update any data */
     @WorkerThread
     public void validateData() {
         if (hasShortcutsPermission(mApp.getContext())
@@ -79,17 +78,32 @@ public class ModelDelegate implements ResourceBasedOverride {
         }
     }
 
-    /**
-     * Load delegate items if any in the data model
-     */
+    /** Load workspace items (for example, those in the hot seat) if any in the data model */
     @WorkerThread
-    public void loadItems(UserManagerState ums, Map<ShortcutKey, ShortcutInfo> pinnedShortcuts) { }
+    public void loadAndBindWorkspaceItems(@NonNull UserManagerState ums,
+            @NonNull BgDataModel.Callbacks[] callbacks,
+            @NonNull Map<ShortcutKey, ShortcutInfo> pinnedShortcuts) { }
 
-    /**
-     * Load String cache
-     */
+    /** Load all apps items if any in the data model */
     @WorkerThread
-    public void loadStringCache(StringCache cache) {
+    public void loadAndBindAllAppsItems(@NonNull UserManagerState ums,
+            @NonNull BgDataModel.Callbacks[] callbacks,
+            @NonNull Map<ShortcutKey, ShortcutInfo> pinnedShortcuts) { }
+
+    /** Load other items like widget recommendations if any in the data model */
+    @WorkerThread
+    public void loadAndBindOtherItems(@NonNull BgDataModel.Callbacks[] callbacks) { }
+
+    /** binds everything not bound by launcherBinder */
+    @WorkerThread
+    public void bindAllModelExtras(@NonNull BgDataModel.Callbacks[] callbacks) { }
+
+    /** Marks the ModelDelegate as active */
+    public void markActive() { }
+
+    /** Load String cache */
+    @WorkerThread
+    public void loadStringCache(@NonNull StringCache cache) {
         cache.loadStrings(mContext);
     }
 

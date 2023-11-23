@@ -27,6 +27,7 @@
     <string name="notification_channel_network_status" msgid="1631786866932924838">"Verkon tila"</string>
     <string name="notification_channel_network_alerts" msgid="1391603215241200880">"Verkkoilmoitukset"</string>
     <string name="notification_channel_network_available" msgid="8454366142428864948">"Verkko käytettävissä"</string>
+    <string name="notification_channel_apm_alerts" msgid="6775293475896473489">"APM-ilmoitukset"</string>
     <string name="wifi_suggestion_title" msgid="2564179935989099139">"Sallitaanko ehdotetut Wi-Fi-verkot?"</string>
     <string name="wifi_suggestion_content" msgid="6985149577828091835">"<xliff:g id="NAME">%s</xliff:g> ehdotti verkkoja. Laite voi muodostaa yhteyden automaattisesti."</string>
     <string name="wifi_suggestion_action_allow_app" msgid="7757859972144671588">"Salli"</string>
@@ -54,6 +55,7 @@
     <string name="ok" msgid="847575529546290102">"OK"</string>
     <string name="wifi_p2p_invitation_sent_title" msgid="6552639940428040869">"Kutsu lähetetty."</string>
     <string name="wifi_p2p_invitation_to_connect_title" msgid="8917157937652519251">"Yhdistämiskutsu"</string>
+    <string name="wifi_p2p_invitation_seconds_remaining" msgid="4214101104506918344">"{0,plural, =1{Hyväksy # sekunnissa.}other{Hyväksy # sekunnissa.}}"</string>
     <string name="wifi_p2p_from_message" msgid="5921308150192756898">"Lähde:"</string>
     <string name="wifi_p2p_to_message" msgid="3809923305696994787">"Kohde:"</string>
     <string name="wifi_p2p_enter_pin_message" msgid="5200220251738047620">"Kirjoita pyydetty PIN-koodi:"</string>
@@ -102,19 +104,19 @@
   </string-array>
     <string name="wifi_eap_error_message_code_32767" msgid="7094289719914089006">"<xliff:g id="SSID">%1$s</xliff:g> : EAP-todennusvirhe 32767"</string>
   <string-array name="wifi_eap_error_message_code_32767_carrier_overrides">
-    <item msgid="873264900678243330">"<xliff:g id="CARRIER_ID_PREFIX">:::1839:::</xliff:g><xliff:g id="SSID">%1$s</xliff:g>: Ongelma yhdistettäessä Verizonin Wi-Fiin. Yritä uudelleen tai toisesta sijainnista."</item>
+    <item msgid="3756793972687282940">"<xliff:g id="CARRIER_ID_PREFIX">:::1839:::</xliff:g><xliff:g id="SSID">%1$s</xliff:g>: Ongelma yhdistettäessä Verizonin Wi-Fiin. Yritä uudelleen tai toisesta paikasta. (Virhe = 32767)"</item>
   </string-array>
     <string name="wifi_eap_error_message_code_16384" msgid="575394783233092922">"<xliff:g id="SSID">%1$s</xliff:g> : EAP-todennusvirhe 16384"</string>
   <string-array name="wifi_eap_error_message_code_16384_carrier_overrides">
-    <item msgid="5042774904407799226">"<xliff:g id="CARRIER_ID_PREFIX">:::1839:::</xliff:g><xliff:g id="SSID">%1$s</xliff:g>: Verizon Wi-Fiin yhdistämisessä on ongelma virheen 16384 takia."</item>
+    <item msgid="270219697600808218">"<xliff:g id="CARRIER_ID_PREFIX">:::1839:::</xliff:g><xliff:g id="SSID">%1$s</xliff:g>: Ongelma yhdistettäessä Verizonin Wi-Fiin. (Virhe = 16384)"</item>
   </string-array>
     <string name="wifi_eap_error_message_code_16385" msgid="8392878664662215609">"<xliff:g id="SSID">%1$s</xliff:g> : EAP-todennusvirhe 16385"</string>
   <string-array name="wifi_eap_error_message_code_16385_carrier_overrides">
-    <item msgid="1251122579833932025">"<xliff:g id="CARRIER_ID_PREFIX">:::1839:::</xliff:g><xliff:g id="SSID">%1$s</xliff:g>: Verizon Wi-Fiin yhdistämisessä on ongelma virheen 16385 takia."</item>
+    <item msgid="50575315771146940">"<xliff:g id="CARRIER_ID_PREFIX">:::1839:::</xliff:g><xliff:g id="SSID">%1$s</xliff:g>: Ongelma yhdistettäessä Verizonin Wi-Fiin. (Virhe = 16385)"</item>
   </string-array>
     <string name="wifi_eap_error_message_unknown_error_code" msgid="4480884285384231323">"<xliff:g id="SSID">%1$s</xliff:g> : EAP-todennusvirhe, tuntematon virhekoodi"</string>
   <string-array name="wifi_eap_error_message_unknown_error_code_carrier_overrides">
-    <item msgid="6141795443609380009">"<xliff:g id="CARRIER_ID_PREFIX">:::1839:::</xliff:g><xliff:g id="SSID">%1$s</xliff:g>: Ongelma yhdistettäessä Verizonin Wi-Fiin."</item>
+    <item msgid="2705387186478280792">"<xliff:g id="CARRIER_ID_PREFIX">:::1839:::</xliff:g><xliff:g id="SSID">%1$s</xliff:g>: Ongelma yhdistettäessä Verizonin Wi-Fiin. (Virhe = tuntematon)"</item>
   </string-array>
     <string name="wifi_softap_auto_shutdown_timeout_expired_title" msgid="4896534374569504484">"Hotspot pois päältä"</string>
     <string name="wifi_softap_auto_shutdown_timeout_expired_summary" msgid="7975476698140267728">"Ei liitettyjä laitteita. Muokkaa napauttamalla."</string>
@@ -125,6 +127,11 @@
     <string name="wifi_interface_priority_message_plural" msgid="8178086373318831859">"Tämä voi aiheuttaa ongelmia näissä sovelluksissa: <xliff:g id="APPS">%3$s</xliff:g>."</string>
     <string name="wifi_interface_priority_approve" msgid="7877379614986261096">"Salli"</string>
     <string name="wifi_interface_priority_reject" msgid="1378461018835886777">"Älä salli"</string>
+    <string name="wifi_interface_priority_interface_name_sta" msgid="5107477901500010776">"STA"</string>
+    <string name="wifi_interface_priority_interface_name_ap" msgid="161777054136866061">"Wi‑Fi-hotspot"</string>
+    <string name="wifi_interface_priority_interface_name_ap_bridge" msgid="1270364818879977821">"Wi‑Fi-hotspot"</string>
+    <string name="wifi_interface_priority_interface_name_p2p" msgid="1278122698099149708">"Wi-Fi Direct"</string>
+    <string name="wifi_interface_priority_interface_name_nan" msgid="8812888073122966870">"Wi‑Fi Aware"</string>
     <string name="wifi_ca_cert_dialog_title" msgid="3872340345882915806">"Onko verkko luotettu?"</string>
     <string name="wifi_ca_cert_dialog_continue_text" msgid="1674156611893471003">"Kyllä, yhdistä"</string>
     <string name="wifi_ca_cert_dialog_abort_text" msgid="1303170595421648059">"Ei, älä yhdistä"</string>
@@ -132,14 +139,18 @@
     <string name="wifi_ca_cert_dialog_message_server_name_text" msgid="3707809865604348289">"Palvelimen nimi:\n<xliff:g id="VALUE">%1$s</xliff:g>\n\n"</string>
     <string name="wifi_ca_cert_dialog_message_issuer_name_text" msgid="1147216922475192304">"Myöntäjän nimi:\n<xliff:g id="VALUE">%1$s</xliff:g>\n\n"</string>
     <string name="wifi_ca_cert_dialog_message_organization_text" msgid="4936354600863239487">"Organisaatio:\n<xliff:g id="VALUE">%1$s</xliff:g>\n\n"</string>
+    <string name="wifi_ca_cert_dialog_message_expiration_text" msgid="1612917217606436217">"Varmenne vanhenee:\n<xliff:g id="VALUE">%1$s</xliff:g>\n\n"</string>
+    <string name="wifi_ca_cert_dialog_message_signature_name_text" msgid="8455163626514894233">"SHA-256-tunnistetiedosto:\n<xliff:g id="VALUE">%1$s</xliff:g>\n\n"</string>
     <string name="wifi_ca_cert_dialog_message_contact_text" msgid="5799083318641183815">"Kontakti:\n<xliff:g id="VALUE">%1$s</xliff:g>\n\n"</string>
-    <string name="wifi_ca_cert_dialog_message_signature_name_text" msgid="704614002854299776">"Allekirjoitus:\n<xliff:g id="VALUE">%1$s</xliff:g>\n\n"</string>
     <string name="wifi_ca_cert_notification_title" msgid="537569884930429796">"Verkko täytyy todentaa"</string>
     <string name="wifi_ca_cert_notification_message" msgid="6413248690626616961">"Tarkista verkon (<xliff:g id="SSID">%1$s</xliff:g>) tiedot ennen yhteyden muodostamista. Jatka napauttamalla."</string>
     <string name="wifi_ca_cert_failed_to_install_ca_cert" msgid="4864192219789736195">"Varmenteen asennus epäonnistui."</string>
+    <string name="wifi_tofu_invalid_cert_chain_title" msgid="332710627417595752">"Ei saada yhteyttä: <xliff:g id="VALUE">%1$s</xliff:g>"</string>
+    <string name="wifi_tofu_invalid_cert_chain_message" msgid="7047987920029432392">"Palvelimen varmenneketju on virheellinen."</string>
+    <string name="wifi_tofu_invalid_cert_chain_ok_text" msgid="9098567577510279854">"OK"</string>
     <string name="wifi_ca_cert_dialog_preT_title" msgid="6916320484037009061">"Verkkoa ei voi todentaa"</string>
-    <string name="wifi_ca_cert_dialog_preT_continue_text" msgid="3181614240421159530">"Yhdistä silti"</string>
-    <string name="wifi_ca_cert_dialog_preT_abort_text" msgid="1195575129023960325">"Älä yhdistä"</string>
+    <string name="wifi_ca_cert_dialog_preT_continue_text" msgid="9118713368838029797">"Pysy yhteydessä"</string>
+    <string name="wifi_ca_cert_dialog_preT_abort_text" msgid="1331309662999405224">"Katkaise yhteys nyt"</string>
     <string name="wifi_ca_cert_dialog_preT_message_hint" msgid="5682518783200852031">"Verkolta (<xliff:g id="SSID">%1$s</xliff:g>) puuttuu varmenne."</string>
     <string name="wifi_ca_cert_dialog_preT_message_link" msgid="6325483132538546884">"Katso, miten voit lisätä varmenteita"</string>
     <string name="wifi_ca_cert_notification_preT_title" msgid="7255129934648316663">"Verkkoa ei voi todentaa"</string>
@@ -150,4 +161,15 @@
     <string name="wifi_enable_request_dialog_message" msgid="6395169178524938278">"Voit laittaa Wi-Fi-yhteyden pois päältä pika-asetuksista"</string>
     <string name="wifi_enable_request_dialog_positive_button" msgid="6050832555821470466">"Salli"</string>
     <string name="wifi_enable_request_dialog_negative_button" msgid="4754219902374918882">"Älä salli"</string>
+    <string name="wifi_enabled_apm_first_time_title" msgid="4814302384637588804">"Wi‑Fi päällä lentokonetilassa"</string>
+    <string name="wifi_enabled_apm_first_time_message" msgid="6416193199042203037">"Jos pidät Wi-Fi-yhteyden päällä, laite pitää sen päällä, kun seuraavan kerran olet lentokonetilassa"</string>
+    <string name="apm_enabled_first_time_title" msgid="2534167413190488009">"Wi‑Fi pysyy päällä"</string>
+    <string name="apm_enabled_first_time_message" msgid="6093911536874954410">"Laitteen Wi-Fi-yhteys pysyy päällä lentokonetilassa. Voit halutessasi laittaa Wi-Fi-yhteyden pois päältä."</string>
+    <string name="wifi_network_disabled_by_admin_title" msgid="9057697656855227293">"Verkko ei ole käytettävissä"</string>
+    <string name="wifi_network_disabled_by_admin_message" msgid="7830360441333155462">"<xliff:g id="SSID">%1$s</xliff:g> on järjestelmänvalvojan käytöstä poistama."</string>
+    <string name="wifi_network_disabled_by_admin_button" msgid="3350310756265122689">"Sulje"</string>
+    <string name="wifi_network_switch_dialog_title_no_internet" msgid="4116969009784041242">"<xliff:g id="SSID_0">%1$s</xliff:g> ei näytä olevan yhteydessä internetiin. Otetaanko <xliff:g id="SSID_1">%2$s</xliff:g> käyttöön?"</string>
+    <string name="wifi_network_switch_dialog_title_bad_internet" msgid="6013385270249705547">"<xliff:g id="SSID_0">%1$s</xliff:g> on heikkolaatuinen. Otetaanko <xliff:g id="SSID_1">%2$s</xliff:g> käyttöön?"</string>
+    <string name="wifi_network_switch_dialog_positive_button" msgid="7845507995422722454">"Vaihda"</string>
+    <string name="wifi_network_switch_dialog_negative_button" msgid="1496665895689498806">"Älä vaihda"</string>
 </resources>

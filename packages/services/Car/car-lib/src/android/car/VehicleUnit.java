@@ -18,6 +18,7 @@ package android.car;
 import android.annotation.IntDef;
 import android.annotation.SystemApi;
 import android.car.annotation.AddedInOrBefore;
+import android.car.annotation.ApiRequirements;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -60,6 +61,14 @@ public final class VehicleUnit {
     @SystemApi
     @AddedInOrBefore(majorVersion = 33)
     public static final int NANO_SECS = 0x50;
+
+    /**
+     * @hide
+     */
+    @SystemApi
+    @ApiRequirements(minCarVersion = ApiRequirements.CarVersion.UPSIDE_DOWN_CAKE_0,
+            minPlatformVersion = ApiRequirements.PlatformVersion.TIRAMISU_0)
+    public static final int MILLI_SECS = 0x51;
 
     /**
      * @hide
@@ -191,6 +200,7 @@ public final class VehicleUnit {
             US_GALLON,
             IMPERIAL_GALLON,
             NANO_SECS,
+            MILLI_SECS,
             SECS,
             YEAR,
             KILOPASCAL,

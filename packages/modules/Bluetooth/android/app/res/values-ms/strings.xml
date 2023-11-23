@@ -23,6 +23,7 @@
     <string name="bt_share_picker_label" msgid="7464438494743777696">"Bluetooth"</string>
     <string name="unknown_device" msgid="2317679521750821654">"Peranti tidak diketahui"</string>
     <string name="unknownNumber" msgid="1245183329830158661">"Tidak diketahui"</string>
+    <string name="not_provided" msgid="6938740494380012614">"Tidak Diberikan"</string>
     <string name="airplane_error_title" msgid="2570111716678850860">"Mod pesawat"</string>
     <string name="airplane_error_msg" msgid="4853111123699559578">"Anda tidak boleh menggunakan Bluetooth dalam mod Pesawat."</string>
     <string name="bt_enable_title" msgid="4484289159118416315"></string>
@@ -42,7 +43,7 @@
     <string name="notification_received" msgid="2330252358543000567">"Perkongsian Bluetooth: Diterima <xliff:g id="FILE">%1$s</xliff:g>"</string>
     <string name="notification_received_fail" msgid="9059153354809379374">"Perkongsian Bluetooth: Fail <xliff:g id="FILE">%1$s</xliff:g> tidak diterima"</string>
     <string name="notification_sending" msgid="8269912843286868700">"Perkongsian Bluetooth: Menghantar <xliff:g id="FILE">%1$s</xliff:g>"</string>
-    <string name="notification_sent" msgid="2685202778935769332">"Perkongsian Bluetooth: Dihantar <xliff:g id="FILE">%1$s</xliff:g>"</string>
+    <string name="notification_sent" msgid="2685202778935769332">"Perkongsian Bluetooth: <xliff:g id="FILE">%1$s</xliff:g> dihantar"</string>
     <string name="notification_sent_complete" msgid="6293391081175517098">"Selesai 100%"</string>
     <string name="notification_sent_fail" msgid="7449832660578001579">"Perkongsian Bluetooth: Fail <xliff:g id="FILE">%1$s</xliff:g> tidak dihantar"</string>
     <string name="download_title" msgid="6449408649671518102">"Pemindahan fail"</string>
@@ -107,7 +108,7 @@
     <string name="outbound_history_title" msgid="7614166584551065036">"Pemindahan keluar"</string>
     <string name="no_transfers" msgid="740521199933899821">"Sejarah pemindahan kosong."</string>
     <string name="transfer_clear_dlg_msg" msgid="586117930961007311">"Semua item akan dipadam bersih daripada senarai."</string>
-    <string name="outbound_noti_title" msgid="2045560896819618979">"Perkongsian Bluetooth: Fail diterima"</string>
+    <string name="outbound_noti_title" msgid="2045560896819618979">"Perkongsian Bluetooth: Fail dihantar"</string>
     <string name="inbound_noti_title" msgid="3730993443609581977">"Perkongsian Bluetooth: Fail diterima"</string>
     <string name="noti_caption_unsuccessful" msgid="6679288016450410835">"{count,plural, =1{# tidak berjaya.}other{# tidak berjaya.}}"</string>
     <string name="noti_caption_success" msgid="7652777514009569713">"{count,plural, =1{# berjaya, %1$s}other{# berjaya, %1$s}}"</string>
@@ -128,4 +129,10 @@
     <string name="a2dp_sink_mbs_label" msgid="6035366346569127155">"Audio Bluetooth"</string>
     <string name="bluetooth_opp_file_limit_exceeded" msgid="6612109860149473930">"Fail lebih besar daripada 4GB tidak boleh dipindahkan"</string>
     <string name="bluetooth_connect_action" msgid="2319449093046720209">"Sambung ke Bluetooth"</string>
+    <string name="bluetooth_enabled_apm_title" msgid="6914461147844949044">"Bluetooth dihidupkan dalam mod pesawat"</string>
+    <string name="bluetooth_enabled_apm_message" msgid="6168686193308136881">"Jika anda terus menghidupkan Bluetooth, peranti anda akan kekal menghidupkan Bluetooth pada kali seterusnya peranti anda dalam mod pesawat"</string>
+    <string name="bluetooth_stays_on_title" msgid="39720820955212918">"Bluetooth kekal dihidupkan"</string>
+    <string name="bluetooth_stays_on_message" msgid="3669663452593157737">"Peranti anda diingatkan untuk terus menghidupkan Bluetooth dalam mod pesawat. Matikan Bluetooth jika anda tidak mahu Bluetooth sentiasa hidup."</string>
+    <string name="bluetooth_and_wifi_stays_on_title" msgid="5821932798860821244">"Wi-Fi dan Bluetooth kekal dihidupkan"</string>
+    <string name="bluetooth_and_wifi_stays_on_message" msgid="7848565203843882558">"Peranti anda diingatkan untuk terus menghidupkan Wi-Fi dan Bluetooth dalam mod pesawat. Matikan Wi-Fi dan Bluetooth jika anda tidak mahu Wi-Fi dan Bluetooth sentiasa hidup."</string>
 </resources>

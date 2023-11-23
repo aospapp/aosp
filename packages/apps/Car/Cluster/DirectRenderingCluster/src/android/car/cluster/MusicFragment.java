@@ -85,6 +85,7 @@ public class MusicFragment extends Fragment {
         new MetadataController(
             getViewLifecycleOwner(),
             playbackViewModel,
+            null,
             title,
             subtitle,
             null,
@@ -95,7 +96,8 @@ public class MusicFragment extends Fragment {
             seekBar,
             albumIcon,
             null,
-            new Size(artSize, artSize)
+            new Size(artSize, artSize),
+            null
         );
 
         return view;

@@ -15,11 +15,16 @@
  */
 
 package com.android.services.telephony;
-
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.fail;
+import static org.junit.Assume.assumeFalse;
+import static org.junit.Assume.assumeTrue;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Matchers.anyString;
 import static org.mockito.Matchers.eq;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -28,6 +33,8 @@ import static org.mockito.Mockito.when;
 import android.app.PropertyInvalidatedCache;
 import android.content.ComponentName;
 import android.content.Context;
+import android.content.pm.PackageManager;
+import android.os.RemoteException;
 import android.telecom.PhoneAccountHandle;
 import android.telephony.SubscriptionManager;
 import android.telephony.TelephonyManager;
@@ -37,6 +44,8 @@ import android.test.mock.MockContext;
 import androidx.test.runner.AndroidJUnit4;
 
 import com.android.internal.telephony.ITelephony;
+import com.android.internal.telephony.IPhoneSubInfo;
+import com.android.internal.telephony.PhoneConstants;
 
 import org.junit.After;
 import org.junit.Before;
@@ -47,6 +56,10 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.TimeUnit;
 
 /** Unit tests for {@link TelephonyManager}. */
 @RunWith(AndroidJUnit4.class)
@@ -61,8 +74,10 @@ public class TelephonyManagerTest {
     private static final int TEST_SUBID_2 = 2;
 
     private ITelephony mMockITelephony;
+    private IPhoneSubInfo mMockIPhoneSubInfo;
     private SubscriptionManager mMockSubscriptionManager;
     private Context mMockContext;
+    private final PackageManager mPackageManager = mock(PackageManager.class);
 
     private TelephonyManager mTelephonyManager;
 
@@ -89,18 +104,23 @@ public class TelephonyManagerTest {
                     }
                     return null;
                 }
+                @Override
+                public PackageManager getPackageManager() {
+                    return mPackageManager;
+                }
             };
 
     @Before
     public void setUp() throws Exception {
         mMockITelephony = mock(ITelephony.class);
+        mMockIPhoneSubInfo = mock(IPhoneSubInfo.class);
         mMockSubscriptionManager = mock(SubscriptionManager.class);
         mMockContext = mock(Context.class);
         when(mMockContext.getSystemService(eq(Context.TELEPHONY_SUBSCRIPTION_SERVICE)))
                 .thenReturn(mMockSubscriptionManager);
-
         mTelephonyManager = new TelephonyManager(mContext);
         TelephonyManager.setupITelephonyForTest(mMockITelephony);
+        TelephonyManager.setupIPhoneSubInfoForTest(mMockIPhoneSubInfo);
         TelephonyManager.enableServiceHandleCaching();
     }
 
@@ -217,5 +237,62 @@ public class TelephonyManagerTest {
                 anyString(), anyString());
         verify(mMockITelephony, times(1)).getSubIdForPhoneAccountHandle(eq(TEST_HANDLE2),
                 anyString(), anyString());
+    }
+
+    @Test
+    public void testGetSimServiceTable_USIM() throws RemoteException {
+        assumeTrue(hasFeature(PackageManager.FEATURE_TELEPHONY_SUBSCRIPTION, true));
+        when(mMockIPhoneSubInfo.getSimServiceTable(anyInt(), anyInt())).thenReturn("12345");
+        assertEquals("12345", mTelephonyManager.getSimServiceTable(PhoneConstants.APPTYPE_USIM));
+        verify(mMockIPhoneSubInfo, times(1)).getSimServiceTable(anyInt(), anyInt());
+    }
+
+    @Test
+    public void testGetSimServiceTable_ISIM() throws RemoteException {
+        when(mMockIPhoneSubInfo.getIsimIst(anyInt())).thenReturn("12345");
+        assertEquals("12345", mTelephonyManager.getSimServiceTable(PhoneConstants.APPTYPE_ISIM));
+        verify(mMockIPhoneSubInfo, times(1)).getIsimIst(anyInt());
+    }
+
+    @Test
+    public void testGetSimServiceTable_RUSIM() throws RemoteException {
+        assumeFalse(hasFeature(PackageManager.FEATURE_TELEPHONY_SUBSCRIPTION, false));
+        assertEquals(null, mTelephonyManager.getSimServiceTable(PhoneConstants.APPTYPE_RUIM));
+    }
+
+    private boolean hasFeature(String feature, boolean status) {
+        doReturn(status)
+                .when(mPackageManager).hasSystemFeature(
+                        PackageManager.FEATURE_TELEPHONY_SUBSCRIPTION);
+        return mContext.getPackageManager().hasSystemFeature(feature);
+    }
+
+    @Test
+    public void getPrimaryImei() throws RemoteException {
+        assumeTrue(hasFeature(PackageManager.FEATURE_TELEPHONY_SUBSCRIPTION, true));
+        when(mMockITelephony.getPrimaryImei(anyString(), anyString())).thenReturn(
+                "12345");
+        assertEquals("12345", mTelephonyManager.getPrimaryImei());
+        verify(mMockITelephony, times(1)).getPrimaryImei(anyString(), anyString());
+    }
+
+    /**
+     * Verify calling getCarrierRestrictionStatus() with out exception
+     */
+    @Test
+    public void getCarrierRestrictionStatus() {
+        int TIMEOUT = 2 * 60; // 2 minutes
+        LinkedBlockingQueue<Integer> carrierRestrictionStatusResult = new LinkedBlockingQueue<>(1);
+        Executor executor = Executors.newSingleThreadExecutor();
+        mTelephonyManager.getCarrierRestrictionStatus(executor,
+                carrierRestrictionStatusResult::offer);
+        executor.execute(() -> {
+            try {
+                carrierRestrictionStatusResult.poll(TIMEOUT, TimeUnit.SECONDS);
+            } catch (InterruptedException e) {
+                fail();
+            }
+        });
+
     }
 }

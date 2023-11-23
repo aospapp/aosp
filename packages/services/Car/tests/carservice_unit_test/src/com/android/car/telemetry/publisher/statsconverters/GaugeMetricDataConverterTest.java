@@ -21,6 +21,8 @@ import static com.android.car.telemetry.AtomsProto.ProcessMemoryState.PROCESS_NA
 import static com.android.car.telemetry.AtomsProto.ProcessMemoryState.RSS_IN_BYTES_FIELD_NUMBER;
 import static com.android.car.telemetry.AtomsProto.ProcessMemoryState.SWAP_IN_BYTES_FIELD_NUMBER;
 import static com.android.car.telemetry.AtomsProto.ProcessMemoryState.UID_FIELD_NUMBER;
+import static com.android.car.telemetry.publisher.Constants.STATS_BUNDLE_KEY_ELAPSED_TIMESTAMP;
+import static com.android.car.telemetry.publisher.Constants.STATS_BUNDLE_KEY_PREFIX;
 
 import static com.google.common.truth.Truth.assertThat;
 
@@ -105,19 +107,26 @@ public class GaugeMetricDataConverterTest {
         // For each atom 2 fields were set, additionally 3 fields were encoded in dimension values,
         // and 1 elapsed time array, so 6 arrays are expected in the bundle.
         assertThat(bundle.size()).isEqualTo(6);
-        assertThat(bundle.getIntArray(accessorMap.get(UID_FIELD_NUMBER).getFieldName()))
+        assertThat(bundle.getIntArray(
+                STATS_BUNDLE_KEY_PREFIX + accessorMap.get(UID_FIELD_NUMBER).getFieldName()))
             .asList().containsExactly(123, 123, 123, 234).inOrder();
         assertThat(Arrays.asList(bundle.getStringArray(
-                accessorMap.get(PROCESS_NAME_FIELD_NUMBER).getFieldName())))
+                STATS_BUNDLE_KEY_PREFIX + accessorMap.get(
+                        PROCESS_NAME_FIELD_NUMBER).getFieldName())))
             .containsExactly("process.name.1", "process.name.1",
                         "process.name.1", "process.name.2").inOrder();
-        assertThat(bundle.getLongArray(accessorMap.get(PAGE_FAULT_FIELD_NUMBER).getFieldName()))
+        assertThat(bundle.getLongArray(
+                STATS_BUNDLE_KEY_PREFIX + accessorMap.get(PAGE_FAULT_FIELD_NUMBER).getFieldName()))
             .asList().containsExactly(1000L, 1100L, 1200L, 1300L).inOrder();
-        assertThat(bundle.getLongArray(accessorMap.get(RSS_IN_BYTES_FIELD_NUMBER).getFieldName()))
+        assertThat(bundle.getLongArray(
+                STATS_BUNDLE_KEY_PREFIX + accessorMap.get(
+                        RSS_IN_BYTES_FIELD_NUMBER).getFieldName()))
             .asList().containsExactly(1234L, 2345L, 3456L, 4567L).inOrder();
-        assertThat(bundle.getLongArray(accessorMap.get(SWAP_IN_BYTES_FIELD_NUMBER).getFieldName()))
+        assertThat(bundle.getLongArray(
+                STATS_BUNDLE_KEY_PREFIX + accessorMap.get(
+                        SWAP_IN_BYTES_FIELD_NUMBER).getFieldName()))
             .asList().containsExactly(11111111L, 11111111L, 11111111L, 22222222L).inOrder();
-        assertThat(bundle.getLongArray(GaugeMetricDataConverter.ELAPSED_TIME_NANOS))
+        assertThat(bundle.getLongArray(STATS_BUNDLE_KEY_ELAPSED_TIMESTAMP))
             .asList().containsExactly(12345678L, 23456789L, 34567890L, 445678901L).inOrder();
     }
 
@@ -190,20 +199,27 @@ public class GaugeMetricDataConverterTest {
         // For each atom 2 fields were set, additionally 3 fields were encoded in dimension values,
         // and 1 elapsed time array, so 6 arrays are expected in the bundle.
         assertThat(bundle.size()).isEqualTo(6);
-        assertThat(bundle.getIntArray(accessorMap.get(UID_FIELD_NUMBER).getFieldName()))
+        assertThat(bundle.getIntArray(
+                STATS_BUNDLE_KEY_PREFIX + accessorMap.get(UID_FIELD_NUMBER).getFieldName()))
             .asList().containsExactly(123, 123, 123, 123, 123, 234).inOrder();
         assertThat(Arrays.asList(bundle.getStringArray(
-                accessorMap.get(PROCESS_NAME_FIELD_NUMBER).getFieldName())))
+                STATS_BUNDLE_KEY_PREFIX + accessorMap.get(
+                        PROCESS_NAME_FIELD_NUMBER).getFieldName())))
             .containsExactly("process.name.1", "process.name.1", "process.name.1",
                     "process.name.1", "process.name.1", "process.name.2").inOrder();
-        assertThat(bundle.getLongArray(accessorMap.get(PAGE_FAULT_FIELD_NUMBER).getFieldName()))
+        assertThat(bundle.getLongArray(
+                STATS_BUNDLE_KEY_PREFIX + accessorMap.get(PAGE_FAULT_FIELD_NUMBER).getFieldName()))
             .asList().containsExactly(1000L, 1000L, 1100L, 1200L, 1200L, 1300L).inOrder();
-        assertThat(bundle.getLongArray(accessorMap.get(RSS_IN_BYTES_FIELD_NUMBER).getFieldName()))
+        assertThat(bundle.getLongArray(
+                STATS_BUNDLE_KEY_PREFIX + accessorMap.get(
+                        RSS_IN_BYTES_FIELD_NUMBER).getFieldName()))
             .asList().containsExactly(1234L, 1234L, 2345L, 3456L, 3456L, 4567L).inOrder();
-        assertThat(bundle.getLongArray(accessorMap.get(SWAP_IN_BYTES_FIELD_NUMBER).getFieldName()))
+        assertThat(bundle.getLongArray(
+                STATS_BUNDLE_KEY_PREFIX + accessorMap.get(
+                        SWAP_IN_BYTES_FIELD_NUMBER).getFieldName()))
             .asList().containsExactly(
                     11111111L, 11111111L, 11111111L, 11111111L, 11111111L, 22222222L).inOrder();
-        assertThat(bundle.getLongArray(GaugeMetricDataConverter.ELAPSED_TIME_NANOS))
+        assertThat(bundle.getLongArray(STATS_BUNDLE_KEY_ELAPSED_TIMESTAMP))
             .asList().containsExactly(
                     12345678L, 12345679L, 23456789L, 34567890L, 34567899L, 445678901L).inOrder();
     }

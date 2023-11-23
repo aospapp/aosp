@@ -32,6 +32,7 @@ import com.android.bluetooth.Utils;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 
 class VendorCommandResponseProcessor {
 
@@ -69,6 +70,9 @@ class VendorCommandResponseProcessor {
         SUPPORTED_VENDOR_EVENTS.put(
                 "+XAPL=",
                 BluetoothAssignedNumbers.APPLE);
+        SUPPORTED_VENDOR_EVENTS.put(
+                "+ANDROID:",
+                BluetoothAssignedNumbers.GOOGLE);
     }
 
     VendorCommandResponseProcessor(HeadsetClientService context, NativeInterface nativeInterface) {
@@ -106,7 +110,7 @@ class VendorCommandResponseProcessor {
         // replace all white spaces
         commandWord = commandWord.replaceAll("\\s+", "");
 
-        if (SUPPORTED_VENDOR_AT_COMMANDS.get(commandWord) != (Integer) (vendorId)) {
+        if (!Objects.equals(SUPPORTED_VENDOR_AT_COMMANDS.get(commandWord), vendorId)) {
             Log.e(TAG, "Invalid command " + atCommand + ", " + vendorId + ". Cand="
                     + commandWord);
             return false;
@@ -123,12 +127,7 @@ class VendorCommandResponseProcessor {
         return true;
     }
 
-    public boolean processEvent(String atString, BluetoothDevice device) {
-        if (device == null) {
-            Log.w(TAG, "processVendorEvent device is null");
-            return false;
-        }
-
+    private String getVendorIdFromAtCommand(String atString) {
         // Get event code
         int indexOfEqual = atString.indexOf('=');
         int indexOfColon = atString.indexOf(':');
@@ -144,14 +143,34 @@ class VendorCommandResponseProcessor {
         // replace all white spaces
         eventCode = eventCode.replaceAll("\\s+", "");
 
+        return eventCode;
+    }
+
+    public boolean isAndroidAtCommand(String atString) {
+        String eventCode = getVendorIdFromAtCommand(atString);
+        Integer vendorId = SUPPORTED_VENDOR_EVENTS.get(eventCode);
+        if (vendorId == null) {
+            return false;
+        }
+        return vendorId == BluetoothAssignedNumbers.GOOGLE;
+    }
+
+    public boolean processEvent(String atString, BluetoothDevice device) {
+        if (device == null) {
+            Log.w(TAG, "processVendorEvent device is null");
+            return false;
+        }
+
+        String eventCode = getVendorIdFromAtCommand(atString);
         Integer vendorId = SUPPORTED_VENDOR_EVENTS.get(eventCode);
         if (vendorId == null) {
             Log.e(TAG, "Invalid response: " + atString + ". " + eventCode);
             return false;
+        } else {
+            broadcastVendorSpecificEventIntent(vendorId, eventCode, atString, device);
+            logD("process vendor event " + vendorId + ", " + eventCode + ", "
+                    + atString + " for device" + device);
         }
-        broadcastVendorSpecificEventIntent(vendorId, eventCode, atString, device);
-        logD("process vendor event " + vendorId + ", " + eventCode + ", "
-                + atString + " for device" + device);
         return true;
     }
 
@@ -164,7 +183,8 @@ class VendorCommandResponseProcessor {
         intent.putExtra(BluetoothHeadsetClient.EXTRA_VENDOR_EVENT_CODE, vendorEventCode);
         intent.putExtra(BluetoothHeadsetClient.EXTRA_VENDOR_EVENT_FULL_ARGS, vendorResponse);
         intent.putExtra(BluetoothDevice.EXTRA_DEVICE, device);
-        mService.sendBroadcast(intent, BLUETOOTH_CONNECT, Utils.getTempAllowlistBroadcastOptions());
+        Utils.sendBroadcast(mService, intent, BLUETOOTH_CONNECT,
+                Utils.getTempAllowlistBroadcastOptions());
     }
 
     private void logD(String msg) {

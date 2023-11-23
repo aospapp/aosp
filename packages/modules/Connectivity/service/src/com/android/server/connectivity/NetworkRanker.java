@@ -16,6 +16,7 @@
 
 package com.android.server.connectivity;
 
+import static android.net.NetworkCapabilities.NET_CAPABILITY_CAPTIVE_PORTAL;
 import static android.net.NetworkCapabilities.TRANSPORT_BLUETOOTH;
 import static android.net.NetworkCapabilities.TRANSPORT_CELLULAR;
 import static android.net.NetworkCapabilities.TRANSPORT_ETHERNET;
@@ -26,8 +27,10 @@ import static android.net.NetworkScore.POLICY_YIELD_TO_BAD_WIFI;
 
 import static com.android.net.module.util.CollectionUtils.filter;
 import static com.android.server.connectivity.FullScore.POLICY_ACCEPT_UNVALIDATED;
+import static com.android.server.connectivity.FullScore.POLICY_AVOIDED_WHEN_UNVALIDATED;
+import static com.android.server.connectivity.FullScore.POLICY_EVER_EVALUATED;
 import static com.android.server.connectivity.FullScore.POLICY_EVER_USER_SELECTED;
-import static com.android.server.connectivity.FullScore.POLICY_EVER_VALIDATED_NOT_AVOIDED_WHEN_BAD;
+import static com.android.server.connectivity.FullScore.POLICY_EVER_VALIDATED;
 import static com.android.server.connectivity.FullScore.POLICY_IS_DESTROYED;
 import static com.android.server.connectivity.FullScore.POLICY_IS_INVINCIBLE;
 import static com.android.server.connectivity.FullScore.POLICY_IS_VALIDATED;
@@ -38,18 +41,39 @@ import android.annotation.Nullable;
 import android.net.NetworkCapabilities;
 import android.net.NetworkRequest;
 
+import com.android.internal.annotations.VisibleForTesting;
 import com.android.net.module.util.CollectionUtils;
 
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
+import java.util.Objects;
 import java.util.function.Predicate;
 
 /**
  * A class that knows how to find the best network matching a request out of a list of networks.
  */
 public class NetworkRanker {
+    /**
+     * Home for all configurations of NetworkRanker
+     */
+    public static final class Configuration {
+        private final boolean mActivelyPreferBadWifi;
+
+        public Configuration(final boolean activelyPreferBadWifi) {
+            this.mActivelyPreferBadWifi = activelyPreferBadWifi;
+        }
+
+        /**
+         * @see MultinetworkPolicyTracker#getActivelyPreferBadWifi()
+         */
+        public boolean activelyPreferBadWifi() {
+            return mActivelyPreferBadWifi;
+        }
+    }
+    @NonNull private volatile Configuration mConf;
+
     // Historically the legacy ints have been 0~100 in principle (though the highest score in
     // AOSP has always been 90). This is relied on by VPNs that send a legacy score of 101.
     public static final int LEGACY_INT_MAX = 100;
@@ -64,7 +88,22 @@ public class NetworkRanker {
         NetworkCapabilities getCapsNoCopy();
     }
 
-    public NetworkRanker() { }
+    public NetworkRanker(@NonNull final Configuration conf) {
+        // Because mConf is volatile, the only way it could be seen null would be an access to it
+        // on some other thread during this constructor. But this is not possible because mConf is
+        // private and `this` doesn't escape this constructor.
+        setConfiguration(conf);
+    }
+
+    public void setConfiguration(@NonNull final Configuration conf) {
+        mConf = Objects.requireNonNull(conf);
+    }
+
+    // There shouldn't be a use case outside of testing
+    @VisibleForTesting
+    public Configuration getConfiguration() {
+        return mConf;
+    }
 
     /**
      * Find the best network satisfying this request among the list of passed networks.
@@ -103,9 +142,42 @@ public class NetworkRanker {
         }
     }
 
-    private <T extends Scoreable> boolean isBadWiFi(@NonNull final T candidate) {
-        return candidate.getScore().hasPolicy(POLICY_EVER_VALIDATED_NOT_AVOIDED_WHEN_BAD)
-                && candidate.getCapsNoCopy().hasTransport(TRANSPORT_WIFI);
+    /**
+     * Returns whether the wifi passed as an argument is a preferred network to yielding cell.
+     *
+     * When comparing bad wifi to cell with POLICY_YIELD_TO_BAD_WIFI, it may be necessary to
+     * know if a particular bad wifi is preferred to such a cell network. This method computes
+     * and returns this.
+     *
+     * @param candidate a bad wifi to evaluate
+     * @return whether this candidate is preferred to cell with POLICY_YIELD_TO_BAD_WIFI
+     */
+    private <T extends Scoreable> boolean isPreferredBadWiFi(@NonNull final T candidate) {
+        final FullScore score = candidate.getScore();
+        final NetworkCapabilities caps = candidate.getCapsNoCopy();
+
+        // Whatever the policy, only WiFis can be preferred bad WiFis.
+        if (!caps.hasTransport(TRANSPORT_WIFI)) return false;
+        // Validated networks aren't bad networks, so a fortiori can't be preferred bad WiFis.
+        if (score.hasPolicy(POLICY_IS_VALIDATED)) return false;
+        // A WiFi that the user explicitly wanted to avoid in UI is never a preferred bad WiFi.
+        if (score.hasPolicy(POLICY_AVOIDED_WHEN_UNVALIDATED)) return false;
+
+        if (mConf.activelyPreferBadWifi()) {
+            // If a network is still evaluating, don't prefer it.
+            if (!score.hasPolicy(POLICY_EVER_EVALUATED)) return false;
+
+            // If a network is not a captive portal, then prefer it.
+            if (!caps.hasCapability(NET_CAPABILITY_CAPTIVE_PORTAL)) return true;
+
+            // If it's a captive portal, prefer it if it previously validated but is no longer
+            // validated (i.e., the user logged in in the past, but later the portal closed).
+            return score.hasPolicy(POLICY_EVER_VALIDATED);
+        } else {
+            // Under the original "prefer bad WiFi" policy, only networks that have ever validated
+            // are preferred.
+            return score.hasPolicy(POLICY_EVER_VALIDATED);
+        }
     }
 
     /**
@@ -128,7 +200,7 @@ public class NetworkRanker {
             // No network with the policy : do nothing.
             return;
         }
-        if (!CollectionUtils.any(rejected, n -> isBadWiFi(n))) {
+        if (!CollectionUtils.any(rejected, n -> isPreferredBadWiFi(n))) {
             // No bad WiFi : do nothing.
             return;
         }
@@ -138,7 +210,7 @@ public class NetworkRanker {
             // wifis by the following policies (e.g. exiting).
             final ArrayList<T> acceptedYielders = new ArrayList<>(accepted);
             final ArrayList<T> rejectedWithBadWiFis = new ArrayList<>(rejected);
-            partitionInto(rejectedWithBadWiFis, n -> isBadWiFi(n), accepted, rejected);
+            partitionInto(rejectedWithBadWiFis, n -> isPreferredBadWiFi(n), accepted, rejected);
             accepted.addAll(acceptedYielders);
             return;
         }

@@ -18,6 +18,7 @@ package com.android.car.settings.system;
 
 import static com.android.car.settings.common.PreferenceController.AVAILABLE;
 import static com.android.car.settings.common.PreferenceController.AVAILABLE_FOR_VIEWING;
+import static com.android.car.settings.common.PreferenceController.CONDITIONALLY_UNAVAILABLE;
 import static com.android.car.settings.common.PreferenceController.DISABLED_FOR_PROFILE;
 import static com.android.car.settings.enterprise.ActionDisabledByAdminDialogFragment.DISABLED_BY_ADMIN_CONFIRM_DIALOG_TAG;
 
@@ -90,6 +91,39 @@ public class ResetNetworkEntryPreferenceControllerTest {
     }
 
     @Test
+    public void getAvailabilityStatus_nonAdminUser_disabledForUser_zoneWrite() {
+        mockUserIsAdmin(false);
+
+        mPreferenceController.setAvailabilityStatusForZone("write");
+        mPreferenceController.onCreate(mLifecycleOwner);
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), DISABLED_FOR_PROFILE);
+    }
+
+    @Test
+    public void getAvailabilityStatus_nonAdminUser_disabledForUser_zoneRead() {
+        mockUserIsAdmin(false);
+
+        mPreferenceController.setAvailabilityStatusForZone("read");
+        mPreferenceController.onCreate(mLifecycleOwner);
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), DISABLED_FOR_PROFILE);
+    }
+
+    @Test
+    public void getAvailabilityStatus_nonAdminUser_disabledForUser_zoneHidden() {
+        mockUserIsAdmin(false);
+
+        mPreferenceController.setAvailabilityStatusForZone("hidden");
+        mPreferenceController.onCreate(mLifecycleOwner);
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), DISABLED_FOR_PROFILE);
+    }
+
+    @Test
     public void getAvailabilityStatus_adminUser_restrictedByUm_disabledForUser() {
         mockUserIsAdmin(true);
         mockUserRestrictionSetByUm(true);
@@ -97,6 +131,42 @@ public class ResetNetworkEntryPreferenceControllerTest {
         mPreferenceController.onCreate(mLifecycleOwner);
 
         assertThat(mPreferenceController.getAvailabilityStatus()).isEqualTo(DISABLED_FOR_PROFILE);
+    }
+
+    @Test
+    public void getAvailabilityStatus_adminUser_restrictedByUm_disabledForUser_zoneWrite() {
+        mockUserIsAdmin(true);
+        mockUserRestrictionSetByUm(true);
+
+        mPreferenceController.setAvailabilityStatusForZone("write");
+        mPreferenceController.onCreate(mLifecycleOwner);
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), DISABLED_FOR_PROFILE);
+    }
+
+    @Test
+    public void getAvailabilityStatus_adminUser_restrictedByUm_disabledForUser_zoneRead() {
+        mockUserIsAdmin(true);
+        mockUserRestrictionSetByUm(true);
+
+        mPreferenceController.setAvailabilityStatusForZone("read");
+        mPreferenceController.onCreate(mLifecycleOwner);
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), DISABLED_FOR_PROFILE);
+    }
+
+    @Test
+    public void getAvailabilityStatus_adminUser_restrictedByUm_disabledForUser_zoneHidden() {
+        mockUserIsAdmin(true);
+        mockUserRestrictionSetByUm(true);
+
+        mPreferenceController.setAvailabilityStatusForZone("hidden");
+        mPreferenceController.onCreate(mLifecycleOwner);
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), DISABLED_FOR_PROFILE);
     }
 
     @Test
@@ -111,6 +181,44 @@ public class ResetNetworkEntryPreferenceControllerTest {
     }
 
     @Test
+    public void getAvailabilityStatus_adminUser_restrictedByDpm_disabledForUser_zoneWrite() {
+        mockUserIsAdmin(true);
+        mockUserRestrictionSetByDpm(true);
+
+        mPreferenceController.setAvailabilityStatusForZone("write");
+        mPreferenceController.onCreate(mLifecycleOwner);
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), AVAILABLE_FOR_VIEWING);
+        assertThat(mPreference.isEnabled()).isFalse();
+    }
+
+    @Test
+    public void getAvailabilityStatus_adminUser_restrictedByDpm_disabledForUser_zoneRead() {
+        mockUserIsAdmin(true);
+        mockUserRestrictionSetByDpm(true);
+
+        mPreferenceController.setAvailabilityStatusForZone("read");
+        mPreferenceController.onCreate(mLifecycleOwner);
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), AVAILABLE_FOR_VIEWING);
+        assertThat(mPreference.isEnabled()).isFalse();
+    }
+
+    @Test
+    public void getAvailabilityStatus_adminUser_restrictedByDpm_disabledForUser_zoneHidden() {
+        mockUserIsAdmin(true);
+        mockUserRestrictionSetByDpm(true);
+
+        mPreferenceController.setAvailabilityStatusForZone("hidden");
+        mPreferenceController.onCreate(mLifecycleOwner);
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), CONDITIONALLY_UNAVAILABLE);
+    }
+
+    @Test
     public void getAvailabilityStatus_adminUser_notRestricted_available() {
         mockUserIsAdmin(true);
         mockUserRestrictionSetByDpm(false);
@@ -119,6 +227,44 @@ public class ResetNetworkEntryPreferenceControllerTest {
 
         assertThat(mPreferenceController.getAvailabilityStatus()).isEqualTo(AVAILABLE);
         assertThat(mPreference.isEnabled()).isTrue();
+    }
+
+    @Test
+    public void getAvailabilityStatus_adminUser_notRestricted_available_zoneWrite() {
+        mockUserIsAdmin(true);
+        mockUserRestrictionSetByDpm(false);
+
+        mPreferenceController.setAvailabilityStatusForZone("write");
+        mPreferenceController.onCreate(mLifecycleOwner);
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), AVAILABLE);
+        assertThat(mPreference.isEnabled()).isTrue();
+    }
+
+    @Test
+    public void getAvailabilityStatus_adminUser_notRestricted_available_zoneRead() {
+        mockUserIsAdmin(true);
+        mockUserRestrictionSetByDpm(false);
+
+        mPreferenceController.setAvailabilityStatusForZone("read");
+        mPreferenceController.onCreate(mLifecycleOwner);
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), AVAILABLE_FOR_VIEWING);
+        assertThat(mPreference.isEnabled()).isFalse();
+    }
+
+    @Test
+    public void getAvailabilityStatus_adminUser_notRestricted_available_zoneHidden() {
+        mockUserIsAdmin(true);
+        mockUserRestrictionSetByDpm(false);
+
+        mPreferenceController.setAvailabilityStatusForZone("hidden");
+        mPreferenceController.onCreate(mLifecycleOwner);
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), CONDITIONALLY_UNAVAILABLE);
     }
 
     @Test

@@ -31,7 +31,7 @@ import android.database.MatrixCursor;
 import android.util.Log;
 
 import com.android.permissioncontroller.R;
-import com.android.permissioncontroller.permission.utils.Utils;
+import com.android.permissioncontroller.permission.utils.PermissionMapping;
 
 import java.util.List;
 
@@ -49,7 +49,7 @@ public class PermissionSearchIndexablesProvider extends BaseSearchIndexablesProv
         Context context = getContext();
         PackageManager pm = context.getPackageManager();
 
-        List<String> permissionGroupNames = Utils.getPlatformPermissionGroups();
+        List<String> permissionGroupNames = PermissionMapping.getPlatformPermissionGroups();
         MatrixCursor cursor = new MatrixCursor(INDEXABLES_RAW_COLUMNS);
 
         int numPermissionGroups = permissionGroupNames.size();

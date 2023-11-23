@@ -26,11 +26,14 @@ aidl_interface {
     name: "statsd-aidl",
     unstable: true,
     srcs: [
+        "android/os/StatsSubscriptionCallbackReason.aidl",
+        "android/os/IStatsSubscriptionCallback.aidl",
         "android/os/IPendingIntentRef.aidl",
         "android/os/IPullAtomCallback.aidl",
         "android/os/IPullAtomResultReceiver.aidl",
         "android/os/IStatsCompanionService.aidl",
         "android/os/IStatsd.aidl",
+        "android/os/IStatsQueryCallback.aidl",
         "android/os/StatsDimensionsValueParcel.aidl",
         "android/util/PropertyParcel.aidl",
         "android/util/StatsEventParcel.aidl",
@@ -46,9 +49,6 @@ aidl_interface {
         ndk: {
             enabled: true,
             apex_available: [
-                // TODO(b/145923087): Remove this once statsd binary is in apex
-                "//apex_available:platform",
-
                 "com.android.os.statsd",
                 "test_com.android.os.statsd",
             ],

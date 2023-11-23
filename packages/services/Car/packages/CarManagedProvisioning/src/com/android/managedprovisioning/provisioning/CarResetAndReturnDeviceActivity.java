@@ -30,7 +30,6 @@ import com.android.managedprovisioning.model.ProvisioningParams;
  */
 public class CarResetAndReturnDeviceActivity extends ResetAndReturnDeviceActivity {
     private ProvisioningParams mParams;
-    private ResetAndReturnDeviceActivityBridge mBridge;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {

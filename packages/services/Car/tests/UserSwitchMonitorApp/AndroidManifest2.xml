@@ -22,10 +22,14 @@
 
     <uses-permission android:name="android.permission.INTERACT_ACROSS_USERS"/>
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE"/>
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
 
     <application android:icon="@drawable/ic_launcher" android:label="User Switch Monitor">
-        <service android:name="com.google.android.car.userswitchmonitor.UserSwitchMonitorService"/>
+      <service android:name="com.google.android.car.userswitchmonitor.UserSwitchMonitorService"
+               android:foregroundServiceType="specialUse">
+            <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE" android:value="com.google.android.car.userswitchmonitor2" />
+      </service>
         <receiver android:name="com.google.android.car.userswitchmonitor.BootCompletedReceiver"
                   android:exported="true">
             <intent-filter>

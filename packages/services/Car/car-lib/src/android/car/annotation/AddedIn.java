@@ -31,10 +31,13 @@ import java.lang.annotation.Target;
  * {@link android.car.Car#API_VERSION_MAJOR_INT} for major version and
  * {@link android.car.Car#API_VERSION_MINOR_INT} for minor version.
  *
+ * @deprecated use {@link ApiRequirements} instead.
+ *
  * @hide
  */
 @Retention(RUNTIME)
 @Target({ANNOTATION_TYPE, FIELD, TYPE, METHOD})
+@Deprecated
 public @interface AddedIn {
     int majorVersion();
     int minorVersion() default 0;

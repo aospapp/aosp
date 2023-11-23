@@ -42,8 +42,6 @@
     <string name="car_permission_desc_projection" msgid="2352178999656292944">"Membenarkan apl mengunjurkan antara muka pada paparan kereta daripada telefon."</string>
     <string name="car_permission_label_access_projection_status" msgid="4231618890836627402">"akses status unjuran"</string>
     <string name="car_permission_desc_access_projection_status" msgid="8497351979100616278">"Membenarkan apl mendapatkan status apl lain yang mengunjurkan sesuatu pada paparan kereta."</string>
-    <string name="car_permission_label_bind_projection_service" msgid="5362076216606651526">"ikat pada perkhidmatan unjuran"</string>
-    <string name="car_permission_desc_bind_projection_service" msgid="2282657787853408639">"Membenarkan pemegang terikat dengan antara muka peringkat tertinggi bagi perkhidmatan unjuran. Tidak sekali-kali diperlukan untuk apl biasa."</string>
     <string name="car_permission_label_audio_volume" msgid="310587969373137690">"kawal kelantangan audio kereta"</string>
     <string name="car_permission_label_audio_settings" msgid="6524703796944023977">"urus tetapan audio kereta"</string>
     <string name="car_permission_label_mock_vehicle_hal" msgid="7198852512207405935">"tiru HAL kenderaan"</string>
@@ -62,8 +60,6 @@
     <string name="car_permission_desc_car_cluster_control" msgid="9222776665281176031">"Lancarkan apl dalam kluster alatan"</string>
     <string name="car_permission_car_monitor_cluster_navigation_state" msgid="7025307242306902441">"Keadaan navigasi kluster instrumen"</string>
     <string name="car_permission_desc_car_monitor_cluster_navigation_state" msgid="8745047153878713339">"Perhatikan perubahan keadaan navigasi kluster instrumen"</string>
-    <string name="car_permission_label_bind_instrument_cluster_rendering" msgid="8627480897198377418">"Pemaparan Kluster Alatan"</string>
-    <string name="car_permission_desc_bind_instrument_cluster_rendering" msgid="5073596870485006783">"Terima data kluster alatan"</string>
     <string name="car_permission_label_car_ux_restrictions_configuration" msgid="6801393970411049725">"Konfigurasi Sekatan UX"</string>
     <string name="car_permission_desc_car_ux_restrictions_configuration" msgid="5711926927484813777">"Konfigurasikan Sekatan UX"</string>
     <string name="car_permission_label_access_private_display_id" msgid="6712116114341634316">"Akses baca ke id paparan peribadi"</string>
@@ -74,8 +70,12 @@
     <string name="car_permission_desc_read_car_occupant_awareness_state" msgid="188865882598414986">"Membenarkan pembacaan status dan data pengesanan untuk Sistem Kesedaran Penumpang"</string>
     <string name="car_permission_label_control_car_occupant_awareness_system" msgid="7163330266691094542">"Kawal Graf Sistem Kesedaran Penumpang"</string>
     <string name="car_permission_desc_control_car_occupant_awareness_system" msgid="7123482622084531911">"Membenarkan pengawalan permulaan dan penamatan graf pengesanan Sistem Kesedaran Penumpang"</string>
-    <string name="car_permission_label_bind_input_service" msgid="6698489034024273750">"Perkhidmatan Input Kereta"</string>
-    <string name="car_permission_desc_bind_input_service" msgid="1670323419931890170">"Kendalikan peristiwa input"</string>
+    <string name="car_permission_label_read_driver_monitoring_settings" msgid="5208935577581001710">"Baca maklumat tetapan pemantauan pemandu kereta"</string>
+    <string name="car_permission_desc_read_driver_monitoring_settings" msgid="3721117607024237175">"Baca maklumat tetapan pemantauan pemandu kereta."</string>
+    <string name="car_permission_label_control_driver_monitoring_settings" msgid="239453247872865455">"Kawal maklumat tetapan pemantauan pemandu kereta"</string>
+    <string name="car_permission_desc_control_driver_monitoring_settings" msgid="7244804817277236221">"Kawal maklumat tetapan pemantauan pemandu kereta."</string>
+    <string name="car_permission_label_read_driver_monitoring_states" msgid="1555412806741155523">"Baca maklumat keadaan pemantauan pemandu kereta"</string>
+    <string name="car_permission_desc_read_driver_monitoring_states" msgid="3124328827934661489">"Baca maklumat keadaan pemantauan pemandu kereta."</string>
     <string name="car_permission_label_diag_read" msgid="7248894224877702604">"baca data diagnostik"</string>
     <string name="car_permission_desc_diag_read" msgid="1121426363040966178">"Baca data diagnostik daripada kereta."</string>
     <string name="car_permission_label_diag_clear" msgid="4783070510879698157">"kosongkan data diagnostik"</string>
@@ -84,8 +84,6 @@
     <string name="car_permission_desc_vms_publisher" msgid="5589489298597386828">"Terbitkan mesej VMS"</string>
     <string name="car_permission_label_vms_subscriber" msgid="5648841182059222299">"Pelanggan VMS"</string>
     <string name="car_permission_desc_vms_subscriber" msgid="7551009457847673620">"Langgan mesej VMS"</string>
-    <string name="car_permission_label_bind_vms_client" msgid="4889732900973280313">"Perkhidmatan Pelanggan VMS"</string>
-    <string name="car_permission_desc_bind_vms_client" msgid="4062835325264330564">"Terikat pada pelanggan VMS"</string>
     <string name="car_permission_label_storage_monitoring" msgid="2327639346522530549">"Pemantauan storan pemacu kilat"</string>
     <string name="car_permission_desc_storage_monitoring" msgid="2075712271139671318">"Pantau penggunaan storan pemacu kilat"</string>
     <string name="car_permission_label_driving_state" msgid="7754624599537393650">"dengar keadaan pemanduan"</string>
@@ -118,6 +116,8 @@
     <string name="car_permission_desc_control_car_mirrors" msgid="1224135684068855032">"Kawal cermin kereta."</string>
     <string name="car_permission_label_control_car_seats" msgid="1826934820585497135">"kawal tempat duduk kereta"</string>
     <string name="car_permission_desc_control_car_seats" msgid="2407536601226470563">"Kawal tempat duduk kereta."</string>
+    <string name="car_permission_label_control_car_airbags" msgid="6823727183218389617">"kawal beg udara kereta"</string>
+    <string name="car_permission_desc_control_car_airbags" msgid="6181671903761622348">"Kawal beg udara kereta."</string>
     <string name="car_permission_label_car_info" msgid="4707513570676492315">"akses maklumat asas kereta"</string>
     <string name="car_permission_desc_car_info" msgid="2118081474543537653">"Akses maklumat asas kereta."</string>
     <string name="car_permission_label_privileged_car_info" msgid="1304018073760220785">"akses maklumat terlindung kereta"</string>
@@ -126,10 +126,10 @@
     <string name="car_permission_desc_vendor_permission_info" msgid="8152113853528488398">"Akses maklumat kebenaran vendor kereta"</string>
     <string name="car_permission_label_car_exterior_lights" msgid="541304469604902110">"baca keadaan lampu luar kereta"</string>
     <string name="car_permission_desc_car_exterior_lights" msgid="4038037584100849318">"Akses keadaan lampu luar kereta."</string>
+    <string name="car_permission_label_control_glove_box" msgid="992118647212706782">"akses keadaan kotak simpanan kereta"</string>
+    <string name="car_permission_desc_control_glove_box" msgid="2888062136750123261">"Akses keadaan kotak simpanan kereta."</string>
     <string name="car_permission_label_car_epoch_time" msgid="6303397910662625112">"akses masa epok kereta"</string>
     <string name="car_permission_desc_car_epoch_time" msgid="398907082895238558">"Akses masa epok kereta."</string>
-    <string name="car_permission_label_encryption_binding_seed" msgid="4652180636501144684">"akses benih pengikat penyulitan kereta"</string>
-    <string name="car_permission_desc_encryption_binding_seed" msgid="6290944678417286024">"Akses benih pengikat penyulitan kereta."</string>
     <string name="car_permission_label_control_car_exterior_lights" msgid="101357531386232141">"baca lampu luar kereta"</string>
     <string name="car_permission_desc_control_car_exterior_lights" msgid="6332252612685264180">"Kawal lampu luar kereta."</string>
     <string name="car_permission_label_car_interior_lights" msgid="8506302199784427680">"baca lampu dalaman kereta"</string>
@@ -146,6 +146,8 @@
     <string name="car_permission_desc_read_car_display_units" msgid="6891898275208542385">"Baca unit paparan."</string>
     <string name="car_permission_label_control_car_display_units" msgid="4975303668183173076">"kawal unit paparan kereta"</string>
     <string name="car_permission_desc_control_car_display_units" msgid="8744397195158556945">"Kawal unit paparan"</string>
+    <string name="car_permission_label_control_car_powertrain" msgid="234831541490237603">"maklumat rangkaian kuasa kereta kawalan"</string>
+    <string name="car_permission_desc_control_car_powertrain" msgid="8205110385130069179">"Maklumat rangkaian kuasa kereta kawalan."</string>
     <string name="car_permission_label_car_powertrain" msgid="4586122326622134886">"baca maklumat rangkaian kuasa kereta"</string>
     <string name="car_permission_desc_car_powertrain" msgid="1116007372551797796">"Akses maklumat rangkaian kuasa kereta."</string>
     <string name="car_permission_label_car_power" msgid="8111448088314368268">"baca keadaan kuasa kereta"</string>
@@ -172,6 +174,40 @@
     <string name="car_permission_desc_template_renderer" msgid="6047233999260920122">"Paparkan templat."</string>
     <string name="car_permission_label_control_car_app_launch" msgid="214632389637409226">"mengawal pelancaran aplikasi"</string>
     <string name="car_permission_desc_control_car_app_launch" msgid="4245527461733374198">"Mengawal pelancaran aplikasi."</string>
+    <string name="car_permission_label_manage_thread_priority" msgid="6775846409863509575">"urus keutamaan urutan"</string>
+    <string name="car_permission_desc_manage_thread_priority" msgid="3833845502119615929">"Urus keutamaan urutan."</string>
+    <string name="car_permission_label_manage_occupant_zone" msgid="1390420387640478679">"urus zon penumpang"</string>
+    <string name="car_permission_desc_manage_occupant_zone" msgid="1641484205694436465">"Urus zon penumpang."</string>
+    <string name="car_permission_label_use_remote_access" msgid="4192095854784769805">"gunakan akses jauh"</string>
+    <string name="car_permission_desc_use_remote_access" msgid="7287637348044911791">"Gunakan akses jauh."</string>
+    <string name="car_permission_label_control_remote_access" msgid="4247590162299914718">"kawal akses jauh"</string>
+    <string name="car_permission_desc_control_remote_access" msgid="127215188256669260">"Kawal akses jauh."</string>
+    <string name="car_permission_label_control_steering_wheel" msgid="6244908950907824488">"kawal stereng kereta"</string>
+    <string name="car_permission_desc_control_steering_wheel" msgid="8408970211196600423">"Kawal stereng kereta."</string>
+    <string name="car_permission_label_read_adas_settings" msgid="151296373212801328">"baca maklumat tetapan ADAS kereta"</string>
+    <string name="car_permission_desc_read_adas_settings" msgid="8490545343454791279">"Baca maklumat tetapan ADAS kereta."</string>
+    <string name="car_permission_label_control_adas_settings" msgid="2535088218472880855">"kawal maklumat tetapan ADAS kereta"</string>
+    <string name="car_permission_desc_control_adas_settings" msgid="8781131640392345285">"Kawal maklumat tetapan ADAS kereta."</string>
+    <string name="car_permission_label_read_adas_states" msgid="8968657466958098106">"baca maklumat keadaan ADAS kereta"</string>
+    <string name="car_permission_desc_read_adas_states" msgid="5042430899788416991">"Baca maklumat keadaan ADAS kereta."</string>
+    <string name="car_permission_label_control_adas_states" msgid="758803765406463138">"kawal maklumat keadaan ADAS kereta"</string>
+    <string name="car_permission_desc_control_adas_states" msgid="1893171217779342348">"Kawal maklumat keadaan ADAS kereta."</string>
+    <string name="car_permission_label_read_windshield_wipers" msgid="896867772546890348">"baca pengelap cermin depan kereta"</string>
+    <string name="car_permission_desc_read_windshield_wipers" msgid="597300271560195986">"Baca pengelap cermin depan kereta."</string>
+    <string name="car_permission_label_control_windshield_wipers" msgid="7971852482734087493">"kawal pengelap cermin depan kereta"</string>
+    <string name="car_permission_desc_control_windshield_wipers" msgid="3803429825323199728">"Kawal pengelap cermin depan kereta."</string>
+    <string name="car_permission_label_manage_remote_device" msgid="1144368625081074994">"pantau keadaan zon penumpang lain di dalam kereta dan apl setara (apl yang mempunyai nama pakej yang sama dengan pemanggil) yang dipasang dalam zon tersebut, serta urus kuasa zon tersebut."</string>
+    <string name="car_permission_desc_manage_remote_device" msgid="4802785901453919948">"Pantau keadaan zon penumpang lain di dalam kereta dan apl setara (apl yang mempunyai nama pakej yang sama dengan pemanggil) yang dipasang dalam zon tersebut, serta urus kuasa zon tersebut."</string>
+    <string name="car_permission_label_manage_occupant_connection" msgid="6007579379849984187">"wujudkan sambungan dan berkomunikasi dengan apl setara (apl yang mempunyai nama pakej yang sama dengan pemanggil) yang dipasang dalam zon penumpang lain di dalam kereta"</string>
+    <string name="car_permission_desc_manage_occupant_connection" msgid="6525045077082552965">"Wujudkan sambungan dan berkomunikasi dengan apl setara (apl yang mempunyai nama pakej yang sama dengan pemanggil) yang dipasang dalam zon penumpang lain di dalam kereta."</string>
+    <string name="car_permission_label_access_mirrored_surface" msgid="6235459468766618021">"cerminkan skrin Apl lain"</string>
+    <string name="car_permission_desc_access_mirrored_surface" msgid="7701151689600074639">"Cerminkan skrin Apl lain."</string>
+    <string name="car_permission_label_mirror_display" msgid="7591958768912962529">"cerminkan paparan pengguna lain"</string>
+    <string name="car_permission_desc_mirror_display" msgid="2403249980834394896">"Cerminkan paparan pengguna lain."</string>
+    <string name="car_permission_label_register_car_system_ui_proxy" msgid="4211405049007842422">"Sediakan proksi UI sistem yang boleh digunakan oleh apl lain untuk mengurus UI sistem dan membuat paparan tugas."</string>
+    <string name="car_permission_desc_register_car_system_ui_proxy" msgid="8863676956785764681">"Sediakan proksi UI sistem yang boleh digunakan oleh apl lain untuk mengurus UI sistem dan membuat paparan tugas."</string>
+    <string name="car_permission_label_manage_car_system_ui" msgid="1361615518679353414">"Komunikasi dengan UI sistem kereta untuk membuat paparan tugas atau mendapatkan makluman tentang perubahan UI sistem."</string>
+    <string name="car_permission_desc_manage_car_system_ui" msgid="6201733970421818637">"Komunikasi dengan UI sistem kereta untuk membuat paparan tugas atau mendapatkan makluman tentang perubahan UI sistem."</string>
     <string name="car_can_bus_failure" msgid="2334035748788283914">"Bas CAN gagal"</string>
     <string name="car_can_bus_failure_desc" msgid="4125516222786484733">"Bas CAN tidak bertindak balas. Cabut dan palamkan kembali kotak unit stereo dan mulakan semula kereta"</string>
     <string name="trust_device_default_name" msgid="4213625926070261253">"Peranti Saya"</string>

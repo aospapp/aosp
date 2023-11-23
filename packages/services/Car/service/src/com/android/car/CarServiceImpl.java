@@ -32,11 +32,13 @@ import com.android.car.internal.ExcludeFromCodeCoverageGeneratedReport;
 import com.android.car.internal.ProxiedService;
 import com.android.car.systeminterface.SystemInterface;
 import com.android.car.util.LimitedTimingsTraceLog;
+import com.android.internal.annotations.Keep;
 
 import java.io.FileDescriptor;
 import java.io.PrintWriter;
 
 /** Implementation of CarService */
+@Keep
 public class CarServiceImpl extends ProxiedService {
     public static final String CAR_SERVICE_INIT_TIMING_TAG = "CAR.InitTiming";
     public static final int CAR_SERVICE_INIT_TIMING_MIN_DURATION_MS = 5;

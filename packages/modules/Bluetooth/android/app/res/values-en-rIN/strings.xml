@@ -23,6 +23,7 @@
     <string name="bt_share_picker_label" msgid="7464438494743777696">"Bluetooth"</string>
     <string name="unknown_device" msgid="2317679521750821654">"Unknown device"</string>
     <string name="unknownNumber" msgid="1245183329830158661">"Unknown"</string>
+    <string name="not_provided" msgid="6938740494380012614">"Not provided"</string>
     <string name="airplane_error_title" msgid="2570111716678850860">"Aeroplane mode"</string>
     <string name="airplane_error_msg" msgid="4853111123699559578">"You can\'t use Bluetooth in Aeroplane mode."</string>
     <string name="bt_enable_title" msgid="4484289159118416315"></string>
@@ -128,4 +129,10 @@
     <string name="a2dp_sink_mbs_label" msgid="6035366346569127155">"Bluetooth audio"</string>
     <string name="bluetooth_opp_file_limit_exceeded" msgid="6612109860149473930">"Files bigger than 4 GB cannot be transferred"</string>
     <string name="bluetooth_connect_action" msgid="2319449093046720209">"Connect to Bluetooth"</string>
+    <string name="bluetooth_enabled_apm_title" msgid="6914461147844949044">"Bluetooth on in aeroplane mode"</string>
+    <string name="bluetooth_enabled_apm_message" msgid="6168686193308136881">"If you keep Bluetooth on, your device will remember to keep it on the next time that you\'re in aeroplane mode"</string>
+    <string name="bluetooth_stays_on_title" msgid="39720820955212918">"Bluetooth stays on"</string>
+    <string name="bluetooth_stays_on_message" msgid="3669663452593157737">"Your device remembers to keep Bluetooth on in aeroplane mode. Turn off Bluetooth if you don\'t want it to stay on."</string>
+    <string name="bluetooth_and_wifi_stays_on_title" msgid="5821932798860821244">"Wi-Fi and Bluetooth stay on"</string>
+    <string name="bluetooth_and_wifi_stays_on_message" msgid="7848565203843882558">"Your device remembers to keep Wi-Fi and Bluetooth on in aeroplane mode. Turn off Wi-Fi and Bluetooth if you don\'t want them to stay on."</string>
 </resources>

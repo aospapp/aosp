@@ -29,6 +29,7 @@ import android.telephony.ims.FeatureTagState;
 import android.telephony.ims.ImsException;
 import android.telephony.ims.ImsService;
 import android.telephony.ims.SipDelegateManager;
+import android.telephony.ims.SipDialogState;
 import android.telephony.ims.aidl.IImsRegistration;
 import android.telephony.ims.aidl.ISipDelegate;
 import android.telephony.ims.aidl.ISipDelegateConnectionStateCallback;
@@ -46,6 +47,8 @@ import androidx.annotation.NonNull;
 
 import com.android.ims.RcsFeatureManager;
 import com.android.internal.annotations.VisibleForTesting;
+import com.android.internal.telephony.ISipDialogStateCallback;
+import com.android.internal.telephony.util.RemoteCallbackListExt;
 import com.android.internal.util.IndentingPrintWriter;
 import com.android.phone.RcsProvisioningMonitor;
 
@@ -54,8 +57,11 @@ import com.google.common.base.Objects;
 import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
@@ -238,6 +244,65 @@ public class SipTransportController implements RcsFeatureController.Feature,
     }
 
     /**
+     * This is to handle with dialogs of all available delegates that have dialogs.
+     */
+    private final class SipDialogsStateHandle implements SipDialogsStateListener {
+
+        private Executor mExecutor = Runnable::run;
+        Map<String, List<SipDialogState>> mMapDialogState = new HashMap<>();
+
+        /**
+         * This will be called using the {@link SipDialogsStateListener}
+         * @param key This is the ID of the SipSessionTracker for handling the dialogs of
+         *               each created delegates.
+         * @param dialogStates This is a list of dialog states tracked in SipSessionTracker.
+         */
+        @Override
+        public void reMappingSipDelegateState(String key,
+                List<SipDialogState> dialogStates) {
+            mExecutor.execute(()->processReMappingSipDelegateState(key, dialogStates));
+        }
+
+        /**
+         * Notify SipDialogState information with
+         * {@link com.android.internal.telephony.ISipDialogStateCallback}
+         */
+        @Override
+        public void notifySipDialogState() {
+            mExecutor.execute(()->processNotifySipDialogState());
+        }
+
+        private void processReMappingSipDelegateState(String key,
+                List<SipDialogState> dialogStates) {
+            if (dialogStates.isEmpty()) {
+                mMapDialogState.remove(key);
+            } else {
+                mMapDialogState.put(key, dialogStates);
+            }
+            notifySipDialogState();
+        }
+
+        private void processNotifySipDialogState() {
+            List<SipDialogState> finalDialogStates = new ArrayList<>();
+            for (List<SipDialogState> d : mMapDialogState.values()) {
+                finalDialogStates.addAll(d);
+            }
+
+            if (mSipDialogStateCallbacks.getRegisteredCallbackCount() == 0) {
+                return;
+            }
+            mSipDialogStateCallbacks.broadcastAction((c) -> {
+                try {
+                    c.onActiveSipDialogsChanged(finalDialogStates);
+                } catch (RemoteException e) {
+                    Log.e(LOG_TAG,
+                            "onActiveSipDialogsChanged() - Skipping callback." + e);
+                }
+            });
+        }
+    }
+
+    /**
      * Allow the ability for tests to easily mock out the SipDelegateController for testing.
      */
     @VisibleForTesting
@@ -265,6 +330,12 @@ public class SipTransportController implements RcsFeatureController.Feature,
     private final List<SipDelegateController> mDelegatePendingCreate = new ArrayList<>();
     // SipDelegateControllers that are pending to be destroyed.
     private final List<DestroyRequest> mDelegatePendingDestroy = new ArrayList<>();
+    // SipDialogStateCallback that are adding to use callback.
+    private final RemoteCallbackListExt<ISipDialogStateCallback> mSipDialogStateCallbacks =
+            new RemoteCallbackListExt<>();
+    // To listen the state information if the dialog status is changed from the SipSessionTracker.
+    private final SipDialogsStateListener mSipDialogsListener = new SipDialogsStateHandle();
+
     // Cache of Binders to remote IMS applications for tracking their potential death
     private final TrackedAppBinders mActiveAppBinders = new TrackedAppBinders();
 
@@ -457,6 +528,10 @@ public class SipTransportController implements RcsFeatureController.Feature,
         logi("createSipDelegateInternal: request= " + request + ", packageName= " + packageName
                 + ", controller created: " + c);
         addPendingCreateAndEvaluate(c);
+        // If SipDialogStateCallback is registered, listener will be set.
+        if (mSipDialogStateCallbacks.getRegisteredCallbackCount() > 0) {
+            c.setSipDialogsListener(mSipDialogsListener, false);
+        }
     }
 
     private void destroySipDelegateInternal(int subId, ISipDelegate connection, int reason) {
@@ -917,7 +992,7 @@ public class SipTransportController implements RcsFeatureController.Feature,
                     it.remove();
                     deniedTags.add(new FeatureTagState(tag,
                             SipDelegateManager.DENIED_REASON_IN_USE_BY_ANOTHER_DELEGATE));
-                } else if (!mFeatureTagsAllowed.contains(tag.trim().toLowerCase())) {
+                } else if (!mFeatureTagsAllowed.contains(tag.trim().toLowerCase(Locale.ROOT))) {
                     logi(tag + " is not allowed per config.");
                     it.remove();
                     deniedTags.add(new FeatureTagState(tag,
@@ -1032,7 +1107,7 @@ public class SipTransportController implements RcsFeatureController.Feature,
                 CarrierConfigManager.Ims.KEY_RCS_FEATURE_TAG_ALLOWED_STRING_ARRAY);
         if (tagConfigs != null && tagConfigs.length > 0) {
             for (String tag : tagConfigs) {
-                mFeatureTagsAllowed.add(tag.trim().toLowerCase());
+                mFeatureTagsAllowed.add(tag.trim().toLowerCase(Locale.ROOT));
             }
         }
     }
@@ -1053,6 +1128,56 @@ public class SipTransportController implements RcsFeatureController.Feature,
             return pendingDestroy;
         } else {
             return CompletableFuture.completedFuture(null);
+        }
+    }
+
+    /**
+     * Adds a callback that gets called when SipDialog status has changed.
+     * @param subId The subId associated with the request.
+     * @param cb A {@link android.telephony.ims.SipDialogStateCallback} that will notify the caller
+     *          when Dialog status has changed.
+     */
+    public void addCallbackForSipDialogState(int subId, ISipDialogStateCallback cb) {
+        if (subId != mSubId) {
+            logw("addCallbackForSipDialogState the subId is not supported");
+            return;
+        }
+        // callback register and no delegate : register this callback / notify (empty state)
+        // callback register and delegates : register this callback / release listener / notify
+        mSipDialogStateCallbacks.register(cb);
+        if (!mDelegatePriorityQueue.isEmpty()) {
+            for (SipDelegateController dc : mDelegatePriorityQueue) {
+                dc.setSipDialogsListener(mSipDialogsListener, true);
+            }
+        } else {
+            mSipDialogsListener.notifySipDialogState();
+        }
+    }
+
+    /**
+     * Unregister previously registered callback
+     * @param subId The subId associated with the request.
+     * @param cb A {@link android.telephony.ims.SipDialogStateCallback} that will be unregistering.
+     */
+    public void removeCallbackForSipDialogState(int subId, ISipDialogStateCallback cb) {
+        if (subId != mSubId) {
+            logw("addCallbackForSipDialogState the subId is not supported");
+            return;
+        }
+        if (cb == null) {
+            throw new IllegalArgumentException("callback is null");
+        }
+
+        // remove callback register and no delegate : only unregister this callback
+        // remove callback register and delegates :
+        // unregister this callback and setListener(null)
+        mSipDialogStateCallbacks.unregister(cb);
+        if (mSipDialogStateCallbacks.getRegisteredCallbackCount() == 0) {
+            if (!mDelegatePriorityQueue.isEmpty()) {
+                for (SipDelegateController dc : mDelegatePriorityQueue) {
+                    dc.setSipDialogsListener(null, false);
+                }
+            }
         }
     }
 

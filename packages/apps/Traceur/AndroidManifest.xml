@@ -47,6 +47,9 @@
     <!-- Used to post file-sending notification. -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
+    <!-- Used to check that the current user is an admin user. -->
+    <uses-permission android:name="android.permission.QUERY_USERS" />
+
     <!-- Declare Android TV support. -->
     <uses-feature android:name="android.software.leanback"
          android:required="false"/>
@@ -113,6 +116,7 @@
              android:exported="true">
             <intent-filter android:priority="2147483647">
                 <action android:name="android.intent.action.BOOT_COMPLETED"/>
+                <action android:name="android.intent.action.USER_FOREGROUND"/>
                 <action android:name="com.android.internal.intent.action.BUGREPORT_STARTED"/>
             </intent-filter>
           </receiver>

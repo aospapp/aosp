@@ -23,61 +23,10 @@ from blueberry.tests.gd.cert.py_hci import PyHci
 from blueberry.tests.gd.cert.truth import assertThat
 from blueberry.tests.gd.cert import gd_base_test
 from blueberry.facade import common_pb2 as common
-from bluetooth_packets_python3.hci_packets import EventCode
-from bluetooth_packets_python3.hci_packets import LoopbackMode
-from bluetooth_packets_python3.hci_packets import WriteLoopbackModeBuilder
-from bluetooth_packets_python3.hci_packets import ReadLocalNameBuilder
-from bluetooth_packets_python3.hci_packets import WriteScanEnableBuilder
-from bluetooth_packets_python3.hci_packets import ScanEnable
-from bluetooth_packets_python3.hci_packets import InquiryBuilder
-from bluetooth_packets_python3.hci_packets import SubeventCode
-from bluetooth_packets_python3.hci_packets import LeSetRandomAddressBuilder
-from bluetooth_packets_python3.hci_packets import PhyScanParameters
-from bluetooth_packets_python3.hci_packets import LeScanType
-from bluetooth_packets_python3.hci_packets import LeSetExtendedScanParametersBuilder
-from bluetooth_packets_python3.hci_packets import OwnAddressType
-from bluetooth_packets_python3.hci_packets import LeScanningFilterPolicy
-from bluetooth_packets_python3.hci_packets import Enable
-from bluetooth_packets_python3.hci_packets import FilterDuplicates
-from bluetooth_packets_python3.hci_packets import LeSetExtendedAdvertisingLegacyParametersBuilder
-from bluetooth_packets_python3.hci_packets import LegacyAdvertisingProperties
-from bluetooth_packets_python3.hci_packets import PeerAddressType
-from bluetooth_packets_python3.hci_packets import AdvertisingFilterPolicy
-from bluetooth_packets_python3.hci_packets import LeSetExtendedAdvertisingRandomAddressBuilder
-from bluetooth_packets_python3.hci_packets import GapData
-from bluetooth_packets_python3.hci_packets import GapDataType
-from bluetooth_packets_python3.hci_packets import LeSetExtendedAdvertisingDataBuilder
-from bluetooth_packets_python3.hci_packets import Operation
-from bluetooth_packets_python3.hci_packets import FragmentPreference
-from bluetooth_packets_python3.hci_packets import LeSetExtendedAdvertisingScanResponseBuilder
-from bluetooth_packets_python3.hci_packets import LeSetExtendedAdvertisingEnableBuilder
-from bluetooth_packets_python3.hci_packets import LeSetExtendedScanEnableBuilder
-from bluetooth_packets_python3.hci_packets import EnabledSet
-from bluetooth_packets_python3.hci_packets import LeCreateConnPhyScanParameters
-from bluetooth_packets_python3.hci_packets import LeExtendedCreateConnectionBuilder
-from bluetooth_packets_python3.hci_packets import InitiatorFilterPolicy
-from bluetooth_packets_python3.hci_packets import AddressType
-from bluetooth_packets_python3.hci_packets import BroadcastFlag
-from bluetooth_packets_python3.hci_packets import FilterAcceptListAddressType
-from bluetooth_packets_python3.hci_packets import LeAddDeviceToFilterAcceptListBuilder
-from bluetooth_packets_python3.hci_packets import LeSetRandomAddressBuilder
-from bluetooth_packets_python3.hci_packets import LeReadRemoteFeaturesBuilder
-from bluetooth_packets_python3.hci_packets import WritePageTimeoutBuilder
-from bluetooth_packets_python3.hci_packets import ReadBdAddrBuilder
-from bluetooth_packets_python3.hci_packets import CreateConnectionBuilder
-from bluetooth_packets_python3.hci_packets import PageScanRepetitionMode
-from bluetooth_packets_python3.hci_packets import ClockOffsetValid
-from bluetooth_packets_python3.hci_packets import CreateConnectionRoleSwitch
-from bluetooth_packets_python3.hci_packets import AcceptConnectionRequestBuilder
-from bluetooth_packets_python3.hci_packets import AcceptConnectionRequestRole
-from bluetooth_packets_python3.hci_packets import PacketBoundaryFlag
-from bluetooth_packets_python3.hci_packets import ResetBuilder
-from bluetooth_packets_python3.hci_packets import Lap
-from bluetooth_packets_python3.hci_packets import OpCode
-from bluetooth_packets_python3.hci_packets import AclBuilder
-from bluetooth_packets_python3 import RawBuilder
-
 from mobly import test_runner
+
+import hci_packets as hci
+from blueberry.utils import bluetooth
 
 
 class DirectHciTest(gd_base_test.GdBaseTestClass):
@@ -89,7 +38,7 @@ class DirectHciTest(gd_base_test.GdBaseTestClass):
         gd_base_test.GdBaseTestClass.setup_test(self)
         self.dut_hci = PyHci(self.dut, acl_streaming=True)
         self.cert_hal = PyHal(self.cert)
-        self.cert_hal.send_hci_command(ResetBuilder())
+        self.cert_hal.send_hci_command(hci.Reset())
 
     def teardown_test(self):
         self.dut_hci.close()
@@ -97,123 +46,138 @@ class DirectHciTest(gd_base_test.GdBaseTestClass):
         gd_base_test.GdBaseTestClass.teardown_test(self)
 
     def enqueue_acl_data(self, handle, pb_flag, b_flag, data):
-        acl = AclBuilder(handle, pb_flag, b_flag, RawBuilder(data))
-        self.dut.hci.SendAcl(common.Data(payload=bytes(acl.Serialize())))
+        acl = hci.Acl(handle=handle, packet_boundary_flag=pb_flag, broadcast_flag=b_flag, payload=data)
+        self.dut.hci.SendAcl(common.Data(payload=acl.serialize()))
 
     def test_local_hci_cmd_and_event(self):
         # Loopback mode responds with ACL and SCO connection complete
-        self.dut_hci.register_for_events(EventCode.LOOPBACK_COMMAND)
-        self.dut_hci.send_command(WriteLoopbackModeBuilder(LoopbackMode.ENABLE_LOCAL))
+        self.dut_hci.register_for_events(hci.EventCode.LOOPBACK_COMMAND)
+        self.dut_hci.send_command(hci.WriteLoopbackMode(loopback_mode=hci.LoopbackMode.ENABLE_LOCAL))
 
-        self.dut_hci.send_command(ReadLocalNameBuilder())
-        assertThat(self.dut_hci.get_event_stream()).emits(HciMatchers.LoopbackOf(ReadLocalNameBuilder()))
+        self.dut_hci.send_command(hci.ReadLocalName())
+        assertThat(self.dut_hci.get_event_stream()).emits(HciMatchers.LoopbackOf(hci.ReadLocalName().serialize()))
 
     def test_inquiry_from_dut(self):
-        self.dut_hci.register_for_events(EventCode.INQUIRY_RESULT)
+        self.dut_hci.register_for_events(hci.EventCode.INQUIRY_RESULT)
 
         self.cert_hal.enable_inquiry_and_page_scan()
-        lap = Lap()
-        lap.lap = 0x33
-        self.dut_hci.send_command(InquiryBuilder(lap, 0x30, 0xff))
-        assertThat(self.dut_hci.get_event_stream()).emits(HciMatchers.EventWithCode(EventCode.INQUIRY_RESULT))
+        self.dut_hci.send_command(hci.Inquiry(lap=hci.Lap(lap=0x33), inquiry_length=0x30, num_responses=0xff))
+        assertThat(self.dut_hci.get_event_stream()).emits(HciMatchers.EventWithCode(hci.EventCode.INQUIRY_RESULT))
 
     def test_le_ad_scan_cert_advertises(self):
-        self.dut_hci.register_for_le_events(SubeventCode.EXTENDED_ADVERTISING_REPORT, SubeventCode.ADVERTISING_REPORT)
+        self.dut_hci.register_for_le_events(hci.SubeventCode.EXTENDED_ADVERTISING_REPORT,
+                                            hci.SubeventCode.ADVERTISING_REPORT)
 
         # DUT Scans
-        self.dut_hci.send_command(LeSetRandomAddressBuilder('0D:05:04:03:02:01'))
-        phy_scan_params = PhyScanParameters()
-        phy_scan_params.le_scan_interval = 6553
-        phy_scan_params.le_scan_window = 6553
-        phy_scan_params.le_scan_type = LeScanType.ACTIVE
+        self.dut_hci.send_command(hci.LeSetRandomAddress(random_address=bluetooth.Address('0D:05:04:03:02:01')))
 
         self.dut_hci.send_command(
-            LeSetExtendedScanParametersBuilder(OwnAddressType.RANDOM_DEVICE_ADDRESS, LeScanningFilterPolicy.ACCEPT_ALL,
-                                               1, [phy_scan_params]))
-        self.dut_hci.send_command(LeSetExtendedScanEnableBuilder(Enable.ENABLED, FilterDuplicates.DISABLED, 0, 0))
+            hci.LeSetExtendedScanParameters(own_address_type=hci.OwnAddressType.RANDOM_DEVICE_ADDRESS,
+                                            scanning_filter_policy=hci.LeScanningFilterPolicy.ACCEPT_ALL,
+                                            scanning_phys=1,
+                                            parameters=[
+                                                hci.PhyScanParameters(le_scan_type=hci.LeScanType.ACTIVE,
+                                                                      le_scan_interval=6553,
+                                                                      le_scan_window=6553)
+                                            ]))
+
+        self.dut_hci.send_command(
+            hci.LeSetExtendedScanEnable(enable=hci.Enable.ENABLED,
+                                        filter_duplicates=hci.FilterDuplicates.DISABLED,
+                                        duration=0,
+                                        period=0))
 
         # CERT Advertises
         advertising_handle = 0
         self.cert_hal.send_hci_command(
-            LeSetExtendedAdvertisingLegacyParametersBuilder(
-                advertising_handle,
-                LegacyAdvertisingProperties.ADV_IND,
-                512,
-                768,
-                7,
-                OwnAddressType.RANDOM_DEVICE_ADDRESS,
-                PeerAddressType.PUBLIC_DEVICE_OR_IDENTITY_ADDRESS,
-                'A6:A5:A4:A3:A2:A1',
-                AdvertisingFilterPolicy.ALL_DEVICES,
-                0xF7,
-                1,  # SID
-                Enable.DISABLED  # Scan request notification
-            ))
+            hci.LeSetExtendedAdvertisingParametersLegacy(
+                advertising_handle=advertising_handle,
+                legacy_advertising_event_properties=hci.LegacyAdvertisingEventProperties.ADV_IND,
+                primary_advertising_interval_min=512,
+                primary_advertising_interval_max=768,
+                primary_advertising_channel_map=7,
+                own_address_type=hci.OwnAddressType.RANDOM_DEVICE_ADDRESS,
+                peer_address_type=hci.PeerAddressType.PUBLIC_DEVICE_OR_IDENTITY_ADDRESS,
+                peer_address=bluetooth.Address('A6:A5:A4:A3:A2:A1'),
+                advertising_filter_policy=hci.AdvertisingFilterPolicy.ALL_DEVICES,
+                advertising_tx_power=0xF7,
+                advertising_sid=1,
+                scan_request_notification_enable=hci.Enable.DISABLED))
 
         self.cert_hal.send_hci_command(
-            LeSetExtendedAdvertisingRandomAddressBuilder(advertising_handle, '0C:05:04:03:02:01'))
-        gap_name = GapData()
-        gap_name.data_type = GapDataType.COMPLETE_LOCAL_NAME
-        gap_name.data = list(bytes(b'Im_A_Cert'))
+            hci.LeSetAdvertisingSetRandomAddress(advertising_handle=advertising_handle,
+                                                 random_address=bluetooth.Address('0C:05:04:03:02:01')))
 
         self.cert_hal.send_hci_command(
-            LeSetExtendedAdvertisingDataBuilder(advertising_handle, Operation.COMPLETE_ADVERTISEMENT,
-                                                FragmentPreference.CONTROLLER_SHOULD_NOT, [gap_name]))
-
-        gap_short_name = GapData()
-        gap_short_name.data_type = GapDataType.SHORTENED_LOCAL_NAME
-        gap_short_name.data = list(bytes(b'Im_A_C'))
+            hci.LeSetExtendedAdvertisingData(
+                advertising_handle=advertising_handle,
+                operation=hci.Operation.COMPLETE_ADVERTISEMENT,
+                fragment_preference=hci.FragmentPreference.CONTROLLER_SHOULD_NOT,
+                advertising_data=[hci.GapData(data_type=hci.GapDataType.COMPLETE_LOCAL_NAME, data=list(b'Im_A_Cert'))]))
 
         self.cert_hal.send_hci_command(
-            LeSetExtendedAdvertisingScanResponseBuilder(advertising_handle, Operation.COMPLETE_ADVERTISEMENT,
-                                                        FragmentPreference.CONTROLLER_SHOULD_NOT, [gap_short_name]))
+            hci.LeSetExtendedScanResponseData(
+                advertising_handle=advertising_handle,
+                operation=hci.Operation.COMPLETE_ADVERTISEMENT,
+                fragment_preference=hci.FragmentPreference.CONTROLLER_SHOULD_NOT,
+                scan_response_data=[hci.GapData(data_type=hci.GapDataType.SHORTENED_LOCAL_NAME, data=list(b'Im_A_C'))]))
 
-        enabled_set = EnabledSet()
-        enabled_set.advertising_handle = 0
-        enabled_set.duration = 0
-        enabled_set.max_extended_advertising_events = 0
-        self.cert_hal.send_hci_command(LeSetExtendedAdvertisingEnableBuilder(Enable.ENABLED, [enabled_set]))
+        self.cert_hal.send_hci_command(
+            hci.LeSetExtendedAdvertisingEnable(enable=hci.Enable.ENABLED,
+                                               enabled_sets=[
+                                                   hci.EnabledSet(advertising_handle=advertising_handle,
+                                                                  duration=0,
+                                                                  max_extended_advertising_events=0)
+                                               ]))
 
         assertThat(self.dut_hci.get_le_event_stream()).emits(lambda packet: b'Im_A_Cert' in packet.payload)
 
-        self.cert_hal.send_hci_command(LeSetExtendedAdvertisingEnableBuilder(Enable.DISABLED, [enabled_set]))
-        self.dut_hci.send_command(LeSetExtendedScanEnableBuilder(Enable.DISABLED, FilterDuplicates.DISABLED, 0, 0))
+        self.cert_hal.send_hci_command(
+            hci.LeSetExtendedAdvertisingEnable(enable=hci.Enable.DISABLED,
+                                               enabled_sets=[
+                                                   hci.EnabledSet(advertising_handle=advertising_handle,
+                                                                  duration=0,
+                                                                  max_extended_advertising_events=0)
+                                               ]))
+
+        self.dut_hci.send_command(hci.LeSetExtendedScanEnable(enable=hci.Enable.DISABLED))
 
     def _verify_le_connection_complete(self):
         cert_conn_complete_capture = HalCaptures.LeConnectionCompleteCapture()
         assertThat(self.cert_hal.get_hci_event_stream()).emits(cert_conn_complete_capture)
-        cert_handle = cert_conn_complete_capture.get().GetConnectionHandle()
+        cert_handle = cert_conn_complete_capture.get().connection_handle
 
         dut_conn_complete_capture = HciCaptures.LeConnectionCompleteCapture()
         assertThat(self.dut_hci.get_le_event_stream()).emits(dut_conn_complete_capture)
-        dut_handle = dut_conn_complete_capture.get().GetConnectionHandle()
+        dut_handle = dut_conn_complete_capture.get().connection_handle
 
         return (dut_handle, cert_handle)
 
     @staticmethod
     def _create_phy_scan_params():
-        phy_scan_params = LeCreateConnPhyScanParameters()
-        phy_scan_params.scan_interval = 0x60
-        phy_scan_params.scan_window = 0x30
-        phy_scan_params.conn_interval_min = 0x18
-        phy_scan_params.conn_interval_max = 0x28
-        phy_scan_params.conn_latency = 0
-        phy_scan_params.supervision_timeout = 0x1f4
-        phy_scan_params.min_ce_length = 0
-        phy_scan_params.max_ce_length = 0
-        return phy_scan_params
+        return hci.LeCreateConnPhyScanParameters(scan_interval=0x60,
+                                                 scan_window=0x30,
+                                                 conn_interval_min=0x18,
+                                                 conn_interval_max=0x28,
+                                                 conn_latency=0,
+                                                 supervision_timeout=0x1f4,
+                                                 min_ce_length=0,
+                                                 max_ce_length=0)
 
     def test_le_connection_dut_advertises(self):
-        self.dut_hci.register_for_le_events(SubeventCode.CONNECTION_COMPLETE, SubeventCode.ADVERTISING_SET_TERMINATED,
-                                            SubeventCode.READ_REMOTE_FEATURES_COMPLETE)
+        self.dut_hci.register_for_le_events(hci.SubeventCode.CONNECTION_COMPLETE,
+                                            hci.SubeventCode.ADVERTISING_SET_TERMINATED,
+                                            hci.SubeventCode.READ_REMOTE_FEATURES_COMPLETE)
         # Cert Connects
-        self.cert_hal.unmask_event(EventCode.LE_META_EVENT)
-        self.cert_hal.send_hci_command(LeSetRandomAddressBuilder('0C:05:04:03:02:01'))
-        phy_scan_params = self._create_phy_scan_params()
+        self.cert_hal.unmask_event(hci.EventCode.LE_META_EVENT)
+        self.cert_hal.send_hci_command(hci.LeSetRandomAddress(random_address=bluetooth.Address('0C:05:04:03:02:01')))
         self.cert_hal.send_hci_command(
-            LeExtendedCreateConnectionBuilder(InitiatorFilterPolicy.USE_PEER_ADDRESS,
-                                              OwnAddressType.RANDOM_DEVICE_ADDRESS, AddressType.RANDOM_DEVICE_ADDRESS,
-                                              '0D:05:04:03:02:01', 1, [phy_scan_params]))
+            hci.LeExtendedCreateConnection(initiator_filter_policy=hci.InitiatorFilterPolicy.USE_PEER_ADDRESS,
+                                           own_address_type=hci.OwnAddressType.RANDOM_DEVICE_ADDRESS,
+                                           peer_address_type=hci.AddressType.RANDOM_DEVICE_ADDRESS,
+                                           peer_address=bluetooth.Address('0D:05:04:03:02:01'),
+                                           initiating_phys=1,
+                                           phy_scan_parameters=[self._create_phy_scan_params()]))
 
         advertisement = self.dut_hci.create_advertisement(0, '0D:05:04:03:02:01')
         advertisement.set_data(b'Im_The_DUT')
@@ -222,14 +186,13 @@ class DirectHciTest(gd_base_test.GdBaseTestClass):
 
         (dut_handle, cert_handle) = self._verify_le_connection_complete()
 
-        self.dut_hci.send_command(LeReadRemoteFeaturesBuilder(dut_handle))
-        assertThat(self.dut_hci.get_le_event_stream()).emits(
-            lambda packet: packet.payload[0] == int(EventCode.LE_META_EVENT) and packet.payload[2] == int(SubeventCode.READ_REMOTE_FEATURES_COMPLETE)
-        )
+        self.dut_hci.send_command(hci.LeReadRemoteFeatures(connection_handle=dut_handle))
+        assertThat(self.dut_hci.get_le_event_stream()).emits(lambda packet: packet.payload[0] == int(
+            hci.EventCode.LE_META_EVENT) and packet.payload[2] == int(hci.SubeventCode.READ_REMOTE_FEATURES_COMPLETE))
 
         # Send ACL Data
-        self.enqueue_acl_data(dut_handle, PacketBoundaryFlag.FIRST_NON_AUTOMATICALLY_FLUSHABLE,
-                              BroadcastFlag.POINT_TO_POINT, bytes(b'Just SomeAclData'))
+        self.enqueue_acl_data(dut_handle, hci.PacketBoundaryFlag.FIRST_NON_AUTOMATICALLY_FLUSHABLE,
+                              hci.BroadcastFlag.POINT_TO_POINT, bytes(b'Just SomeAclData'))
         self.cert_hal.send_acl_first(cert_handle, bytes(b'Just SomeMoreAclData'))
 
         assertThat(self.cert_hal.get_acl_stream()).emits(
@@ -239,32 +202,91 @@ class DirectHciTest(gd_base_test.GdBaseTestClass):
 
     def test_le_filter_accept_list_connection_cert_advertises(self):
         # DUT Connects
-        self.dut_hci.send_command(LeSetRandomAddressBuilder('0D:05:04:03:02:01'))
+        self.dut_hci.send_command(hci.LeSetRandomAddress(random_address=bluetooth.Address('0D:05:04:03:02:01')))
         self.dut_hci.send_command(
-            LeAddDeviceToFilterAcceptListBuilder(FilterAcceptListAddressType.RANDOM, '0C:05:04:03:02:01'))
-        phy_scan_params = self._create_phy_scan_params()
+            hci.LeAddDeviceToFilterAcceptList(address_type=hci.FilterAcceptListAddressType.RANDOM,
+                                              address=bluetooth.Address('0C:05:04:03:02:01')))
         self.dut_hci.send_command(
-            LeExtendedCreateConnectionBuilder(InitiatorFilterPolicy.USE_FILTER_ACCEPT_LIST,
-                                              OwnAddressType.RANDOM_DEVICE_ADDRESS, AddressType.RANDOM_DEVICE_ADDRESS,
-                                              'BA:D5:A4:A3:A2:A1', 1, [phy_scan_params]))
+            hci.LeExtendedCreateConnection(initiator_filter_policy=hci.InitiatorFilterPolicy.USE_FILTER_ACCEPT_LIST,
+                                           own_address_type=hci.OwnAddressType.RANDOM_DEVICE_ADDRESS,
+                                           initiating_phys=1,
+                                           phy_scan_parameters=[self._create_phy_scan_params()]))
 
-        self.cert_hal.unmask_event(EventCode.LE_META_EVENT)
-        advertisement = self.cert_hal.create_advertisement(
-            1,
-            '0C:05:04:03:02:01',
-            min_interval=512,
-            max_interval=768,
-            peer_address='A6:A5:A4:A3:A2:A1',
-            tx_power=0x7f,
-            sid=0)
+        self.cert_hal.unmask_event(hci.EventCode.LE_META_EVENT)
+        advertisement = self.cert_hal.create_advertisement(1,
+                                                           '0C:05:04:03:02:01',
+                                                           min_interval=512,
+                                                           max_interval=768,
+                                                           peer_address='A6:A5:A4:A3:A2:A1',
+                                                           tx_power=0x7f,
+                                                           sid=0)
         advertisement.set_data(b'Im_A_Cert')
         advertisement.start()
 
         # LeConnectionComplete
         self._verify_le_connection_complete()
 
+    def test_le_filter_accept_list_connection_cert_advertises_legacy(self):
+        # DUT Connects
+        self.dut_hci.send_command(hci.LeSetRandomAddress(random_address=bluetooth.Address('0D:05:04:03:02:01')))
+        self.dut_hci.send_command(
+            hci.LeAddDeviceToFilterAcceptList(address_type=hci.FilterAcceptListAddressType.RANDOM,
+                                              address=bluetooth.Address('0C:05:04:03:02:01')))
+        self.dut_hci.send_command(
+            hci.LeExtendedCreateConnection(initiator_filter_policy=hci.InitiatorFilterPolicy.USE_FILTER_ACCEPT_LIST,
+                                           own_address_type=hci.OwnAddressType.RANDOM_DEVICE_ADDRESS,
+                                           initiating_phys=1,
+                                           phy_scan_parameters=[self._create_phy_scan_params()]))
+
+        self.cert_hal.unmask_event(hci.EventCode.LE_META_EVENT)
+        self.cert_hal.send_hci_command(hci.LeSetRandomAddress(random_address=bluetooth.Address('0C:05:04:03:02:01')))
+
+        advertisement = self.cert_hal.create_legacy_advertisement(min_interval=512,
+                                                                  max_interval=768,
+                                                                  peer_address='A6:A5:A4:A3:A2:A1')
+        advertisement.set_data(b'Im_A_Cert')
+        advertisement.start()
+
+        # LeConnectionComplete
+        self._verify_le_connection_complete()
+
+    def test_le_ad_scan_cert_advertises_legacy(self):
+        self.dut_hci.register_for_le_events(hci.SubeventCode.EXTENDED_ADVERTISING_REPORT,
+                                            hci.SubeventCode.ADVERTISING_REPORT)
+
+        # DUT Scans
+        self.dut_hci.send_command(hci.LeSetRandomAddress(random_address=bluetooth.Address('0D:05:04:03:02:01')))
+
+        self.dut_hci.send_command(
+            hci.LeSetExtendedScanParameters(own_address_type=hci.OwnAddressType.RANDOM_DEVICE_ADDRESS,
+                                            scanning_filter_policy=hci.LeScanningFilterPolicy.ACCEPT_ALL,
+                                            scanning_phys=1,
+                                            parameters=[
+                                                hci.PhyScanParameters(le_scan_type=hci.LeScanType.ACTIVE,
+                                                                      le_scan_interval=6553,
+                                                                      le_scan_window=6553)
+                                            ]))
+
+        self.dut_hci.send_command(
+            hci.LeSetExtendedScanEnable(enable=hci.Enable.ENABLED,
+                                        filter_duplicates=hci.FilterDuplicates.DISABLED,
+                                        duration=0,
+                                        period=0))
+
+        self.cert_hal.unmask_event(hci.EventCode.LE_META_EVENT)
+        self.cert_hal.send_hci_command(hci.LeSetRandomAddress(random_address=bluetooth.Address('0C:05:04:03:02:01')))
+
+        advertisement = self.cert_hal.create_legacy_advertisement(min_interval=512,
+                                                                  max_interval=768,
+                                                                  peer_address='A6:A5:A4:A3:A2:A1')
+        advertisement.set_data(b'Im_A_Cert')
+        advertisement.start()
+
+        assertThat(self.dut_hci.get_le_event_stream()).emits(
+            HciMatchers.LeAdvertisement(address='0C:05:04:03:02:01', data=b'Im_A_Cert'))
+
     def test_connection_dut_connects(self):
-        self.dut_hci.send_command(WritePageTimeoutBuilder(0x4000))
+        self.dut_hci.send_command(hci.WritePageTimeout(page_timeout=0x4000))
 
         self.cert_hal.enable_inquiry_and_page_scan()
         address = self.cert_hal.read_own_address()
@@ -281,7 +303,7 @@ class DirectHciTest(gd_base_test.GdBaseTestClass):
         assertThat(self.dut_hci.get_raw_acl_stream()).emits(lambda packet: b'SomeMoreAclData' in packet.payload)
 
     def test_connection_cert_connects(self):
-        self.cert_hal.send_hci_command(WritePageTimeoutBuilder(0x4000))
+        self.cert_hal.send_hci_command(hci.WritePageTimeout(page_timeout=0x4000))
 
         self.dut_hci.enable_inquiry_and_page_scan()
         address = self.dut_hci.read_own_address()

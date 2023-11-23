@@ -58,7 +58,8 @@ public final class WifiAwareDataPathSecurityConfig implements Parcelable {
      *              the data-path. See {@link Builder#setPmkId(byte[])}
      * @hide
      */
-    public WifiAwareDataPathSecurityConfig(@Characteristics.WifiAwareCipherSuites int cipherSuite,
+    public WifiAwareDataPathSecurityConfig(
+            @Characteristics.WifiAwareDataPathCipherSuites int cipherSuite,
             @Nullable byte[] pmk, @Nullable byte[] pmkId, @Nullable String passphrase) {
         mCipherSuite = cipherSuite;
         mPassphrase = passphrase;
@@ -171,7 +172,7 @@ public final class WifiAwareDataPathSecurityConfig implements Parcelable {
      * Get the cipher suite specified in this config
      * @return one of {@code Characteristics#WIFI_AWARE_CIPHER_SUITE_*"}
      */
-    @Characteristics.WifiAwareCipherSuites
+    @Characteristics.WifiAwareDataPathCipherSuites
     public int getCipherSuite() {
         return mCipherSuite;
     }
@@ -233,7 +234,7 @@ public final class WifiAwareDataPathSecurityConfig implements Parcelable {
          *                    {@link Characteristics#WIFI_AWARE_CIPHER_SUITE_NCS_PK_128} and
          *                    {@link Characteristics#WIFI_AWARE_CIPHER_SUITE_NCS_PK_256}.
          */
-        public Builder(@Characteristics.WifiAwareCipherSuites int cipherSuite) {
+        public Builder(@Characteristics.WifiAwareDataPathCipherSuites int cipherSuite) {
             if (cipherSuite != WIFI_AWARE_CIPHER_SUITE_NCS_SK_128
                     && cipherSuite != WIFI_AWARE_CIPHER_SUITE_NCS_SK_256
                     && cipherSuite != WIFI_AWARE_CIPHER_SUITE_NCS_PK_128

@@ -23,16 +23,16 @@
     <string name="provisioning_error_title" msgid="6320515739861578118">"ውይ!"</string>
     <string name="setup_work_profile" msgid="1468934631731845267">"የሥራ መገለጫን ያዋቅሩ"</string>
     <string name="company_controls_workspace" msgid="2808025277267917221">"ድርጅትዎ ይህን መገለጫ ይቆጣጠራል፣ እና ደህንነቱን ይጠብቃል። መሣሪያዎ ላይ ያለውን የተቀረው ነገር እርስዎ ነዎት የሚቆጣጠሩት።"</string>
-    <string name="company_controls_device" msgid="8230957518758871390">"የእርስዎ ድርጅት ይህንን መሳሪያ ይቆጣጠረዋል፣ እና እንደተጠበቀ ያስቀምጠዋል።"</string>
+    <string name="company_controls_device" msgid="8230957518758871390">"የእርስዎ ድርጅት ይህንን መሣሪያ ይቆጣጠረዋል፣ እና እንደተጠበቀ ያስቀምጠዋል።"</string>
     <string name="the_following_is_your_mdm" msgid="6613658218262376404">"የሚከተለው መተግበሪያ ይህን መገለጫ መድረስ ያስፈልገዋል።"</string>
     <string name="the_following_is_your_mdm_for_device" msgid="6717973404364414816">"የሚከተለው መተግበሪያ መሣሪያዎን ያስተዳድረዋል፦"</string>
     <string name="next" msgid="1004321437324424398">"ቀጣይ"</string>
     <string name="setting_up_workspace" msgid="7862472373642601041">"የሥራ መገለጫን በማቀናበር ላይ…"</string>
     <string name="admin_has_ability_to_monitor_profile" msgid="1018585795537086728">"የእርስዎ የአይቲ አስተዳዳሪ ከዚህ መገለጫ ጋር የተያያዙ ቅንብሮችን፣ የድርጅት መዳረሻን፣ መተግበሪያዎችን፣ ፈቃዶችን፣ ውሂብን እና የአውታረ መረብ እንቅስቃሴንና እንዲሁም የጥሪ ታሪክዎን እና የእውቂያ ፍለጋ ታሪክዎን መከታተል እና ማቀናበር ይችላሉ። ተጨማሪ መረጃ ለማግኘት እና ስለድርጅትዎ የግላዊነት መመሪያዎች የበለጠ ለመረዳት አይቲ አስተዳዳሪዎን ያነግጋሩ።"</string>
-    <string name="admin_has_ability_to_monitor_device" msgid="6303112630697870695">"የእርስዎ አስተዳዳሪ የአውታረ መረብ እንቅስቃሴዎንና እንዲሁም የመሣሪያዎን አካባቢ፣ የጥሪ ታሪክና የእውቂያ ፍለጋ ታሪክ ጨምሮ ከዚህ መሣሪያ ጋር የተጎዳኙ ቅንብሮችን፣ የኮርፖሬት መዳረሻ፣ መተግበሪያዎችን፣ ፈቃዶችን እና ውሂብን የመከታተል እና የማቀናበር ችሎታ አላቸው።<xliff:g id="LINE_BREAK">
+    <string name="admin_has_ability_to_monitor_device" msgid="7786186939607332934">"የእርስዎ አይቲ አስተዳዳሪ የአውታረ መረብ እንቅስቃሴዎን እንዲሁም የመሣሪያዎን አካባቢ፣ የጥሪ ታሪክ እና የዕውቂያ ፍለጋ ታሪክ ጨምሮ ከዚህ <xliff:g id="DEVICE_NAME">%1$s</xliff:g> ጋር የተጎዳኙ ቅንብሮችን፣ የኮርፖሬት መዳረሻን፣ መተግበሪያዎችን፣ ፈቃዶችን እና ውሂብን የመከታተል እና የማቀናበር ችሎታ አላቸው።<xliff:g id="LINE_BREAK">
 
-</xliff:g>ስለድርጅትዎ ግላዊነት መመሪያዎች ጨምሮ ተጨማሪ መረጃ ለማግኘት የእርስዎን አይቲ አስተዳዳሪ ያነጋግሩ።"</string>
-    <string name="theft_protection_disabled_warning" msgid="3708092473574738478">"የስርቆት መከላከያ ባህሪዎችን ለመጠቀም ለእርስዎ መሣሪያ በይለፍ ቃል የተጠበቀ የማያ ገጽ መቆለፊያ ሊኖርዎት ይገባል።"</string>
+</xliff:g>ስለድርጅትዎ የግላዊነት መመሪያዎች ጨምሮ ተጨማሪ መረጃ ለማግኘት የእርስዎን አይቲ አስተዳዳሪ ያነጋግሩ።"</string>
+    <string name="theft_protection_disabled_warning" msgid="3708092473574738478">"የስርቆት መከላከያ ባህሪዎችን ለመጠቀም ለእርስዎ መሣሪያ በይለፍ ቃል የተጠበቀ የማያ ገፅ መቆለፊያ ሊኖርዎት ይገባል።"</string>
     <string name="contact_your_admin_for_more_info" msgid="9209568156969966347">"የድርጅትዎ ግላዊነት መመሪያዎችን ጨምሮ ተጨማሪ መረጃ ለማግኘት የእርስዎን አይቲ አስተዳዳሪ ያነጋግሩ።"</string>
     <string name="learn_more_link" msgid="3012495805919550043">"ተጨማሪ ለመረዳት"</string>
     <string name="cancel_setup" msgid="2949928239276274745">"ይቅር"</string>
@@ -50,8 +50,8 @@
     <string name="sure_you_want_to_delete_profile" msgid="6927697984573575564">"ከቀጠሉ በዚህ መገለጫ ውስጥ ያሉ ሁሉም መተግበሪያዎች እና ውሂብ ይሰረዛሉ።"</string>
     <string name="delete_profile" msgid="2299218578684663459">"ሰርዝ"</string>
     <string name="cancel_delete_profile" msgid="5155447537894046036">"ይቅር"</string>
-    <string name="encrypt_device_text_for_profile_owner_setup" msgid="7828515754696057140">"የእርስዎን የሥራ መገለጫ ለማዋቀር የእርስዎ መሣሪያ መመሣጠር አለበት። ይህ የተወሰነ ጊዜን ሊወስድ ይችል ይሆናል።"</string>
-    <string name="encrypt_device_text_for_device_owner_setup" msgid="5194673142404735676">"ይህን መሣሪያ ለማዋቀር በመጀመሪያ መመሣጠር አለበት። ይህ የተወሰነ ጊዜን ሊወስድ ይችል ይሆናል።"</string>
+    <string name="encrypt_device_text_for_profile_owner_setup" msgid="6865483664167134470">"የእርስዎን የሥራ መገለጫ ለማዋቀር የእርስዎ <xliff:g id="DEVICE_NAME">%1$s</xliff:g> መመስጠር አለበት። ይህ የተወሰነ ጊዜ ሊወስድ ይችላል።"</string>
+    <string name="encrypt_device_text_for_device_owner_setup" msgid="230099563510460941">"ይህን <xliff:g id="DEVICE_NAME">%1$s</xliff:g> ለማዋቀር በመጀመሪያ መመስጠር አለበት። ይህ የተወሰነ ጊዜን ሊወስድ ይችላል።"</string>
     <string name="encrypt_this_device_question" msgid="8719916619866892601">"ይህ መሣሪያ ይመሣጠር?"</string>
     <string name="encrypt" msgid="1749320161747489212">"አመሣጥር"</string>
     <string name="continue_provisioning_notify_title" msgid="5191449100153186648">"ማመስጠር ተጠናቅቋል"</string>
@@ -59,7 +59,7 @@
     <string name="managed_provisioning_error_text" msgid="7063621174570680890">"የስራ መገለጫዎን ማዋቀር አልተቻለም። የአይቲ መምሪያዎን ያነጋግሩ ወይም ቆይተው እንደገና ይሞክሩ።"</string>
     <string name="cant_add_work_profile" msgid="9217268909964154934">"የሥራ መገለጫ ማከል አይቻልም"</string>
     <string name="cant_replace_or_remove_work_profile" msgid="7861054306792698290">"የሥራ መገለጫን መተካት ወይም ማስወገድ አይቻልም"</string>
-    <string name="work_profile_cant_be_added_contact_admin" msgid="5393019630297157418">"የሥራ መገለጫ ወደዚህ መሣሪያ ሊታከል አይችልም። ጥያቄዎች ካሉዎት የአይቲ አስተዳዳሪዎን ያነጋግሩ።"</string>
+    <string name="work_profile_cant_be_added_contact_admin" msgid="4866281518235832928">"የሥራ መገለጫ ወደዚህ <xliff:g id="DEVICE_NAME">%1$s</xliff:g> ሊታከል አይችልም። ጥያቄዎች ካሉዎት የአይቲ አስተዳዳሪዎን ያነጋግሩ።"</string>
     <string name="change_device_launcher" msgid="4523563368433637980">"የመሣሪያ አስጀማሪን ለውጥ"</string>
     <string name="launcher_app_cant_be_used_by_work_profile" msgid="3524366082000739743">"ይህ አስጀማሪ መተግበሪያ በእርስዎ የሥራ መገለጫ ጥቅም ላይ ሊውል አይችልም"</string>
     <string name="cancel_provisioning" msgid="3408069559452653724">"ይቅር"</string>
@@ -67,9 +67,9 @@
     <string name="user_setup_incomplete" msgid="6494920045526591079">"የተጠቃሚ ውቅር አልተጠናቀቀም"</string>
     <string name="default_owned_device_username" msgid="3915120202811807955">"የስራ መሣሪያ ተጠቃሚ"</string>
     <string name="setup_work_device" msgid="6003988351437862369">"የሥራ መሣሪያ በማቀናበር ላይ…"</string>
-    <string name="device_doesnt_allow_encryption_contact_admin" msgid="5124643338424539794">"ይህ መሣሪያ ለማዋቀር የሚያስፈልገውን ምሥጠራን አይፈቅድም። እገዛ ለማግኘት የእርስዎን አይቲ አስተዳዳሪ ያነጋግሩ።"</string>
-    <string name="stop_setup_reset_device_question" msgid="7547191251522623210">"ማዋቀር ይቁም እና መሣሪያው ዳግም ይጀምር?"</string>
-    <string name="this_will_reset_take_back_first_screen" msgid="4623290347188404725">"ይህ የእርስዎን መሣሪያ ዳግም ያስጀምረውና ወደ መጀመሪያው ማያ ገጽ መልሶ ይወስደዎታል።"</string>
+    <string name="device_doesnt_allow_encryption_contact_admin" msgid="410347019947997299">"ይህ <xliff:g id="DEVICE_NAME">%1$s</xliff:g> ለማዋቀር የሚያስፈልገውን ምስጠራን አይፈቅድም። እገዛ ለማግኘት የእርስዎን አይቲ አስተዳዳሪ ያነጋግሩ።"</string>
+    <string name="stop_setup_reset_device_question" msgid="2323844935990001069">"ውቅረት ይቁም እና <xliff:g id="DEVICE_NAME">%1$s</xliff:g> ዳግም ይጀምር?"</string>
+    <string name="this_will_reset_take_back_first_screen" msgid="5881727570968119259">"ይህ የእርስዎን <xliff:g id="DEVICE_NAME">%1$s</xliff:g> ዳግም ያስጀምረዋል እና ወደ መጀመሪያው ማያ ገፅ መልሶ ይወስድዎታል"</string>
     <string name="device_owner_cancel_message" msgid="2529288571742712065">"ማዋቀር ይቁምና የመሣሪያዎ ውሂብ ይደምሰስ?"</string>
     <string name="device_owner_cancel_cancel" msgid="1052951540909389275">"ይቅር"</string>
     <string name="device_owner_error_ok" msgid="2002250763093787051">"እሺ"</string>
@@ -79,10 +79,10 @@
     <string name="something_went_wrong" msgid="3593223774041784329">"የሆነ ችግር ተፈጥሯል"</string>
     <string name="couldnt_set_up_device" msgid="5137950404283642302">"መሣሪያን ማዋቀር አልተቻለም። እገዛ ለማግኘት የእርስዎን አይቲ አስተዳዳሪ ያነጋግሩ።"</string>
     <string name="contact_your_admin_for_help" msgid="2009904021552323731">"እገዛ ለማግኘት የአይቲ አስተዳዳሪዎን ያነጋግሩ"</string>
-    <string name="reset_device" msgid="5483853913241939262">"ይህን መሣሪያ ዳግም ያስጀምሩትና እንደገና ለማዋቀር ይሞክሩ"</string>
-    <string name="device_already_set_up" msgid="507881934487140294">"መሣሪያ ቀደም ብሎ ተዋቅሯል"</string>
+    <string name="reset_device" msgid="265029891515486543">"ይህን <xliff:g id="DEVICE_NAME">%1$s</xliff:g> ዳግም ያስጀምሩት እና እንደገና ለማዋቀር ይሞክሩ"</string>
+    <string name="device_already_set_up" msgid="2916285974248611835">"<xliff:g id="DEVICE_NAME">%1$s</xliff:g> አስቀድሞ ተዋቅሯል"</string>
     <string name="error_wifi" msgid="1850288843966836571">"ከWi-Fi ጋር መገናኘት አልተቻለም"</string>
-    <string name="device_has_reset_protection_contact_admin" msgid="2662050020376475656">"የእርስዎን መሣሪያ የበራ የዳግም ማዋቀር መጠበቂያ አለው። እገዛ ለማግኘት የእርስዎን አይቲ አስተዳዳሪ ያነጋግሩ።"</string>
+    <string name="device_has_reset_protection_contact_admin" msgid="5922267426079555686">"የእርስዎ <xliff:g id="DEVICE_NAME">%1$s</xliff:g> የዳግም ማስጀመር ጥበቃ በርቷል። እገዛ ለማግኘት የእርስዎን አይቲ አስተዳዳሪ ያነጋግሩ።"</string>
     <string name="frp_clear_progress_title" msgid="8628074089458234965">"በማጥፋት ላይ"</string>
     <string name="frp_clear_progress_text" msgid="1740164332830598827">"እባክዎ ይጠብቁ..."</string>
     <string name="error_hash_mismatch" msgid="1145488923243178454">"በማረጋገጫ ድምር ስህተት ምክንያት የአስተዳዳሪ መተግበሪያውን መጠቀም አልተቻለም። እገዛ ለማግኘት የእርስዎን አይቲ አስተዳዳሪ ያነጋግሩ።"</string>
@@ -128,9 +128,9 @@
     <string name="comp_profile_benefits_description" msgid="379837075456998273">"የሥራ መገለጫን በመጠቀም የእርስዎን የሥራ መተግበሪያዎች በአንድ ቦታ ላይ እንዲሆኑ ማድረግ ይችላሉ"</string>
     <string name="setup_profile_encryption" msgid="5241291404536277038">"መገለጫዎን ያዘጋጁ። ምስጠራ"</string>
     <string name="setup_profile_progress" msgid="7742718527853325656">"የእርስዎን መገለጫ ያዘጋጁት። ሂደት በማሳየት ላይ"</string>
-    <string name="setup_device" msgid="6725265673245816366">"መሣሪያዎን ያዋቅሩ"</string>
-    <string name="setup_device_encryption" msgid="7852944465414197103">"መሳሪያዎን ያዘጋጁ። ምስጠራ"</string>
-    <string name="setup_device_progress" msgid="7035335208571175393">"መሳሪያዎን ያዘጋጁ። ሂደትን በማሳየት ላይ"</string>
+    <string name="setup_device" msgid="1679201701102889156">"የእርስዎን <xliff:g id="DEVICE_NAME">%1$s</xliff:g> ያዋቅሩ"</string>
+    <string name="setup_device_encryption" msgid="2628196093806001835">"የእርስዎን <xliff:g id="DEVICE_NAME">%1$s</xliff:g> ያዋቅሩ። ምስጠራ"</string>
+    <string name="setup_device_progress" msgid="8792474713196537598">"የእርስዎን <xliff:g id="DEVICE_NAME">%1$s</xliff:g> ያዋቅሩ። ሂደት በማሳየት ላይ"</string>
     <string name="learn_more_label" msgid="2723716758654655009">"የተጨማሪ ይወቁ አዝራር"</string>
     <string name="mdm_icon_label" msgid="3399134595549660561">"<xliff:g id="ICON_LABEL">%1$s</xliff:g> አዶ"</string>
     <string name="section_heading" msgid="3924666803774291908">"የ<xliff:g id="SECTION_HEADING">%1$s</xliff:g> ክፍል ርዕስ፦"</string>
@@ -143,7 +143,7 @@
     <string name="read_terms" msgid="1745011123626640728">"ውሎችን ያንብቡ"</string>
     <string name="close_list" msgid="9053538299788717597">"ዝርዝር ዝጋ"</string>
     <string name="cancel_setup_and_factory_reset_dialog_title" msgid="5416045931532004811">"ማዋቀር ቆሞ የፋብሪካ ዳግም ይጀምር?"</string>
-    <string name="cancel_setup_and_factory_reset_dialog_msg" msgid="808442439937994485">"ይህን ቅንብር መጨረስ መሣሪያውን የፋብሪካ ዳግም ያስጀምረውና ወደ መጀመሪያው ማያ ገጽ መልሶ ይወስደዎታል።"</string>
+    <string name="cancel_setup_and_factory_reset_dialog_msg" msgid="808442439937994485">"ይህን ቅንብር መጨረስ መሣሪያውን የፋብሪካ ዳግም ያስጀምረውና ወደ መጀመሪያው ማያ ገፅ መልሶ ይወስደዎታል።"</string>
     <string name="cancel_setup_and_factory_reset_dialog_cancel" msgid="2810966091829264727">"ተወው"</string>
     <string name="cancel_setup_and_factory_reset_dialog_ok" msgid="7168008267496150529">"መሣሪያ ዳግም አስጀምር"</string>
     <string name="join_two_items" msgid="6110273439759895837">"<xliff:g id="FIRST_ITEM">%1$s</xliff:g> እና <xliff:g id="SECOND_ITEM">%2$s</xliff:g>"</string>
@@ -158,42 +158,45 @@
     <string name="brand_screen_header" msgid="8865808542690116648">"ይህ መሣሪያ የድርጅትዎ ነው"</string>
     <string name="brand_screen_subheader" msgid="7664792208784456436">"የሚከተለው መተግበሪያ ይህን ስልክ ለማቀናበር እና ለመከታተል ስራ ላይ ይውላል"</string>
     <string name="account_management_disclaimer_header" msgid="8013083414694316564">"የእርስዎ መለያ የሚተዳደር ነው"</string>
-    <string name="account_management_disclaimer_subheader" msgid="5146471918840236988">"የእርስዎ የአይቲ አስተዳዳሪ የደህንነት መመሪያዎችን ለማስፈፀም የሞባይል መሳሪያ አስተዳደርን ይጠቀማል"</string>
+    <string name="account_management_disclaimer_subheader" msgid="8991450067243733878">"የእርስዎ የአይቲ አስተዳዳሪ የደህንነት መመሪያዎችን ለማስፈፀም የሞባይል አስተዳደርን ይጠቀማሉ"</string>
     <string name="downloading_administrator_header" msgid="8660294318893902915">"ለሥራ ቅንብር በመዘጋጀት ላይ…"</string>
     <string name="work_profile_provisioning_accept_header_post_suw" msgid="1353127953275291089">"መጀመሪያ የስራ መገለጫዎን እናቀናብረው"</string>
     <string name="work_profile_provisioning_step_1_header" msgid="7914961694921466366">"የሥራ መተግበሪያዎች በእርስዎ የሥራ መገለጫ ውስጥ ይቀመጣሉ"</string>
-    <string name="work_profile_provisioning_step_2_header" msgid="6001172190404670248">"ለቀኑ የሚበቃዎትን ያክል ከሠሩ በኋላ የሥራ መተግበሪያዎችን ላፍታ ያስቁሙ"</string>
+    <string name="work_profile_provisioning_step_2_header" msgid="6001172190404670248">"ለቀኑ የሚበቃዎትን ያህል ከሠሩ በኋላ የሥራ መተግበሪያዎችን ላፍታ ያስቁሙ"</string>
     <string name="work_profile_provisioning_step_3_header" msgid="4316106639726774330">"በእርስዎ የሥራ መገለጫ ውስጥ ያለ ውሂብ ለእርስዎ አይቲ አስተዳዳሪ የሚታይ ነው"</string>
     <string name="work_profile_provisioning_progress_label" msgid="2627905308998389193">"የሥራ መገለጫዎን በማዘጋጀት ላይ…"</string>
     <string name="work_profile_provisioning_summary" msgid="3436190271657388747">"የሥራ መተግበሪያዎች በእርስዎ የሥራ መገለጫ ውስጥ ይቀመጣሉ። ለቀኑ የሚበቃዎት ያህል ከሠሩ በኋላ የእርስዎን የሥራ መተግበሪያዎች ባለበት ማስቆም ይችላሉ። በእርስዎ የሥራ መገለጫ ውስጥ ያለ ውሂብ ለእርስዎ የአይቲ አስተዳዳሪ የሚታይ ነው።"</string>
     <string name="fully_managed_device_provisioning_accept_header" msgid="2944032660440403130">"የሥራ ስልክዎን እናቀናብረው"</string>
     <string name="fully_managed_device_provisioning_step_1_header" msgid="6396274703116708592">"የእርስዎን የሥራ መተግበሪያዎች የእርስዎ ጣት ጫፎች ላይ ያቆዩዋቸው"</string>
-    <string name="fully_managed_device_provisioning_step_2_header" msgid="7165472083121590030">"ይህ መሣሪያ የግል አይደለም"</string>
-    <string name="fully_managed_device_provisioning_step_2_subheader" msgid="2848998570491578119">"የእርስዎ አይቲ አስተዳዳሪ የእርስዎን ውሂብ እና እንቅስቃሴ በዚህ መሣሪያ ላይ ሊመለከት ይችላል።"</string>
+    <string name="fully_managed_device_provisioning_step_2_header" msgid="142633978260399682">"ይህ <xliff:g id="DEVICE_NAME">%1$s</xliff:g> የግል አይደለም"</string>
+    <string name="fully_managed_device_provisioning_step_2_subheader" msgid="3981784440341141618">"የእርስዎ አይቲ አስተዳዳሪ የእርስዎን ውሂብ እና እንቅስቃሴ በዚህ <xliff:g id="DEVICE_NAME">%1$s</xliff:g> ላይ ሊመለከት ይችላል።"</string>
     <string name="fully_managed_device_provisioning_permissions_header" msgid="2852101532084770993">"የእርስዎ እንቅስቃሴ እና ውሂብ"</string>
     <string name="fully_managed_device_provisioning_permissions_secondary_header" msgid="4419374850927705136">"የመተግበሪያ ፈቃዶች"</string>
-    <string name="fully_managed_device_provisioning_permissions_secondary_subheader" msgid="8328298923037335068">"የእርስዎ አይቲ አስተዳዳሪ በዚህ መሣሪያ ላይ እንደ ማይክሮፎን፣ ካሜራ እና የአካባቢ ፈቃዶች ላሉ መተግበሪያዎች ፈቃዶችን ማቀናበር ይችላል።"</string>
+    <string name="fully_managed_device_provisioning_permissions_secondary_subheader" msgid="1973320148595109400">"የእርስዎ አይቲ አስተዳዳሪ በዚህ <xliff:g id="DEVICE_NAME">%1$s</xliff:g> ላይ እንደ የማይክሮፎን፣ ካሜራ እና አካባቢ ፈቃዶች ያሉ ፈቃዶችን ለመተግበሪያዎች ማቀናበር ይችላል።"</string>
     <string name="fully_managed_device_provisioning_progress_label" msgid="3925516135130021966">"የእርስዎን መሣሪያ በማዋቀር ላይ…"</string>
-    <string name="fully_managed_device_provisioning_summary" msgid="1090645190066781456">"የእርስዎን የሥራ መተግበሪያዎች በቀላሉ ለመድረስ ይህን መሣሪያ ይጠቀሙ። ይህ መሣሪያ የግል አይደለም ስለዚህ የእርስዎ አይቲ አስተዳዳሪ የእርስዎን ውሂብ እና እንቅስቃሴ ሊመለከት ይችላል።"</string>
-    <string name="fully_managed_device_with_permission_control_provisioning_summary" msgid="6634797147105465856">"የእርስዎን የሥራ መተግበሪያዎች በቀላሉ ለመድረስ ይህን መሣሪያ ይጠቀሙ። ይህ መሣሪያ የግል አይደለም ስለዚህ የእርስዎ የአይቲ አስተዳዳሪ የእርስዎን እንቅስቃሴ እና ውሂብ ሊመለከት ይችላል። የእርስዎ አይቲ አስተዳዳሪ እንዲሁ በዚህ መሣሪያ ላይ እንደ ማይክሮፎን፣ ካሜራ እና የአካባቢ ፈቃዶች ላሉ መተግበሪያዎች ፈቃዶችን ማቀናበር ይችላል።"</string>
+    <string name="fully_managed_device_provisioning_summary" msgid="2532673962822596806">"የእርስዎን የሥራ መተግበሪያዎች በቀላሉ ለመድረስ ይህን <xliff:g id="DEVICE_NAME_0">%1$s</xliff:g> ይጠቀሙ። ይህ <xliff:g id="DEVICE_NAME_1">%1$s</xliff:g> የግል አይደለም፣ ስለዚህ የእርስዎ አይቲ አስተዳዳሪ የእርስዎን ውሂብ እና እንቅስቃሴ ሊመለከት ይችላል።"</string>
+    <string name="fully_managed_device_with_permission_control_provisioning_summary" msgid="3487964472228264628">"የእርስዎን የሥራ መተግበሪያዎች በቀላሉ ለመድረስ ይህን <xliff:g id="DEVICE_NAME_0">%1$s</xliff:g> ይጠቀሙ። ይህ <xliff:g id="DEVICE_NAME_1">%1$s</xliff:g> የግል አይደለም፣ ስለዚህ የእርስዎ አይቲ አስተዳዳሪ የእርስዎን እንቅስቃሴ እና ውሂብ ሊመለከት ይችላል። እንዲሁም የእርስዎ አይቲ አስተዳዳሪ በዚህ መሣሪያ ላይ እንደ የማይክሮፎን፣ ካሜራ እና አካባቢ ፈቃዶች ያሉ ፈቃዶችን ለመተግበሪያዎች ማቀናበር ይችላል።"</string>
     <string name="fully_managed_device_provisioning_return_device_title" msgid="8500829014794276683">"ይህንን መሣሪያ ወደ የእርስዎ የአይቲ አስተዳዳሪ ይመልሱ"</string>
-    <string name="fully_managed_device_provisioning_return_device_subheader" msgid="6194410367910957686">"ወደ ቀዳሚው ማያ ገጽ ይመለሱ፣ ወይም ይህን መሣሪያ ዳግም ያስጀምሩት እና ወደ የእርስዎ የአይቲ አስተዳዳሪ ይመልሱ።"</string>
+    <string name="fully_managed_device_provisioning_return_device_subheader" msgid="6194410367910957686">"ወደ ቀዳሚው ማያ ገፅ ይመለሱ፣ ወይም ይህን መሣሪያ ዳግም ያስጀምሩት እና ወደ የእርስዎ የአይቲ አስተዳዳሪ ይመልሱ።"</string>
     <string name="fully_managed_device_cancel_setup_button" msgid="4910041382610777599">"ማዋቀር ይቅር"</string>
-    <string name="fully_managed_device_reset_and_return_button" msgid="6451125722998550681">"ዳግም ያስጀምሩ እና መሳሪያ አውጣ"</string>
+    <string name="fully_managed_device_reset_and_return_button" msgid="6451125722998550681">"ዳግም ያስጀምሩ እና መሣሪያ አውጣ"</string>
+    <string name="fully_managed_device_unsupported_DPC_in_headless_mode_header" msgid="7938653381656306039">"መሣሪያ ሊዋቀር አይችልም"</string>
+    <string name="fully_managed_device_unsupported_DPC_in_headless_mode_subheader" msgid="5158035482490079567">"ይህ መሣሪያ ሙሉ በሙሉ ወደሚተዳደር ሁነታ መመዝገብ አይችልም። መሣሪያዎን ወደ ፋብሪካ ዳግም ያስጀምሩት እና የአይቲ አስተዳዳሪዎን ያግኙ።"</string>
+    <string name="fully_managed_device_reset_button" msgid="5957116315144904542">"ወደ ፋብሪካ ዳግም አስጀምር"</string>
     <string name="cope_provisioning_step_1_header" msgid="1945759718804756423">"የሥራ መተግበሪያዎች በየሥራ መገለጫዎ ውስጥ ይቀመጣሉ እና በአይቲ አስተዳዳሪዎ የሚተዳደሩ ናቸው"</string>
     <string name="cope_provisioning_step_2_header" msgid="2388399739294883042">"የግል መተግበሪያዎች የተለዩ እና ከሥራ መተግበሪያዎች የተደበቁ ናቸው"</string>
     <string name="cope_provisioning_step_3_header" msgid="7161795433847296201">"የእርስዎ አይቲ አስተዳዳሪ ይህን መሣሪያ ሊቆጣጠር እና የተወሰኑ መተግበሪያዎችን ሊያግድ ይችላል"</string>
-    <string name="cope_provisioning_summary" msgid="993014104601034878">"የሥራ መተግበሪያዎች በእርስዎ የሥራ መገለጫ ውስጥ ይቀመጣሉ እና በእርስዎ አይቲ አስተዳዳሪ የሚተዳደሩ ናቸው። የግል መተግበሪያዎች የተለዩ እና ከሥራ መተግበሪያዎች የተደበቁ ናቸው። የእርስዎ አይቲ አስተዳዳሪ ይህ መሣሪያ መቆጣጠር እና የተወሰኑ መተግበሪያዎችን ማገድ ይችላሉ።"</string>
+    <string name="cope_provisioning_summary" msgid="4993405755138454918">"የሥራ መተግበሪያዎች በእርስዎ የሥራ መገለጫ ውስጥ ይቀመጣሉ እና በእርስዎ አይቲ አስተዳዳሪ ይተዳደራሉ። የግል መተግበሪያዎች ከሥራ መተግበሪያዎች የተለዩ እና የተደበቁ ናቸው። የእርስዎ አይቲ አስተዳዳሪ ይህን <xliff:g id="DEVICE_NAME">%1$s</xliff:g> መቆጣጠር እና የተወሰኑ መተግበሪያዎችን ማገድ ይችላሉ።"</string>
     <string name="just_a_sec" msgid="6244676028626237220">"አንዴ ይጠብቁ…"</string>
     <string name="fully_managed_device_provisioning_privacy_title" msgid="4017627906103556021">"የግላዊነት አስታዋሽ"</string>
-    <string name="fully_managed_device_provisioning_privacy_body" msgid="2219074604343348608">"የእርስዎ አይቲ አስተዳዳሪ የእርስዎን ውሂብ እና እንቅስቃሴ በዚህ መሣሪያ ላይ ሊመለከት ይችላል"</string>
-    <string name="financed_device_screen_header" msgid="6875169548352717124">"ይህ መሣሪያ በ<xliff:g id="CREDITOR_NAME">%s</xliff:g> የሚቀርብ ነው"</string>
-    <string name="financed_make_payments_subheader_title" msgid="7880606710044254210">"ለዚህ መሣሪያ ክፍያዎችን ይፈጽሙ"</string>
-    <string name="financed_make_payments_subheader_description" msgid="1222254084091306375">"<xliff:g id="CREDITOR_NAME_0">%1$s</xliff:g> ለዚህ መሣሪያ ግዢዎችን መፈጸም እንዲችሉ የ<xliff:g id="CREDITOR_NAME_1">%2$s</xliff:g> መተግበሪያውን ይጫኑት።"</string>
-    <string name="financed_restrict_device_subheader_title" msgid="2138828664816418195">"ይህ መሣሪያ ሊገደብ ይችላል"</string>
-    <string name="financed_restrict_device_subheader_description" msgid="5683975693718163300">"ክፍያዎችን የማይፈጽሙ ከሆነ <xliff:g id="CREDITOR_NAME">%1$s</xliff:g> የዚህ መሣሪያ መዳረሻን ሊገድብ ይችላል።"</string>
-    <string name="error_role_holder_hash_mismatch" msgid="6201584198247885437">"መሣሪያን ማዋቀር አይቻልም። የእርስዎን የአይቲ አስተዳዳሪ ያነጋግሩ እና «ልክ ያልሆነ የፍተሻ ክፍያ»ን ያጣቅሱ።"</string>
+    <string name="fully_managed_device_provisioning_privacy_body" msgid="2107315052054483060">"የእርስዎ አይቲ አስተዳዳሪ የእርስዎን ውሂብ እና እንቅስቃሴ በዚህ <xliff:g id="DEVICE_NAME">%1$s</xliff:g> ላይ ሊመለከት ይችላል"</string>
+    <string name="financed_device_screen_header" msgid="5934940812896302344">"ይህ <xliff:g id="DEVICE_NAME">%1$s</xliff:g> የቀረበው በ<xliff:g id="CREDITOR_NAME">%2$s</xliff:g> ነው"</string>
+    <string name="financed_make_payments_subheader_title" msgid="743966229235451097">"ለዚህ <xliff:g id="DEVICE_NAME">%1$s</xliff:g> ክፍያዎችን ይፈጽሙ"</string>
+    <string name="financed_make_payments_subheader_description" msgid="7391276584735956742">"<xliff:g id="CREDITOR_NAME_0">%1$s</xliff:g> እርስዎ ለዚህ <xliff:g id="DEVICE_NAME">%3$s</xliff:g> ክፍያዎችን መፈጸም እንዲችሉ የ<xliff:g id="CREDITOR_NAME_1">%2$s</xliff:g> መተግበሪያውን መጫን ይችላሉ።"</string>
+    <string name="financed_restrict_device_subheader_title" msgid="4248650736543742083">"ይህ <xliff:g id="DEVICE_NAME">%1$s</xliff:g> መገደብ ይችላል"</string>
+    <string name="financed_restrict_device_subheader_description" msgid="1539908048861880628">"ክፍያዎችን ካልፈጸሙ <xliff:g id="CREDITOR_NAME">%1$s</xliff:g> የዚህ <xliff:g id="DEVICE_NAME">%2$s</xliff:g> መዳረሻን መገደብ ይችላል።"</string>
+    <string name="error_role_holder_hash_mismatch" msgid="5098975629103567172">"<xliff:g id="DEVICE_NAME">%1$s</xliff:g>ን ማዋቀር አይቻልም። የእርስዎን አይቲ አስተዳዳሪ ያነጋግሩ እና «ልክ ያልሆነ የፍተሻ ክፍያ»ን ያጣቅሱ።"</string>
     <string name="error_role_holder_download_install_failed" msgid="8151968372180693228">"ቆይተው እንደገና ይሞክሩ ወይም የአይቲ አስተዳዳሪዎን ለእገዛ ይጠይቁ"</string>
-    <string name="error_role_holder_package_invalid" msgid="2631207759497988833">"መሣሪያን ማዋቀር አይቻልም። የእርስዎን የአይቲ አስተዳዳሪ ያነጋግሩ እና «የጎደሉ ወይም የተበላሹ ክፍለ-አካላት»ን ያጣቅሱ።"</string>
+    <string name="error_role_holder_package_invalid" msgid="8159929740916126242">"<xliff:g id="DEVICE_NAME">%1$s</xliff:g>ን ማዋቀር አይቻልም። የእርስዎን አይቲ አስተዳዳሪ ያነጋግሩ እና «የጎደሉ ወይም የተበላሹ ክፍለ-አካላት»ን ያጣቅሱ።"</string>
     <string name="setting_up" msgid="1478847967385506664">"በማዋቀር ላይ…"</string>
 </resources>

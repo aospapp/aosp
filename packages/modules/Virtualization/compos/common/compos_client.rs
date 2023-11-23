@@ -16,189 +16,188 @@
 
 //! Support for starting CompOS in a VM and connecting to the service
 
-use crate::timeouts::timeouts;
-use crate::{COMPOS_APEX_ROOT, COMPOS_DATA_ROOT, COMPOS_VSOCK_PORT, DEFAULT_VM_CONFIG_PATH};
+use crate::timeouts::TIMEOUTS;
+use crate::{
+    get_vm_config_path, BUILD_MANIFEST_APK_PATH, BUILD_MANIFEST_SYSTEM_EXT_APK_PATH,
+    COMPOS_APEX_ROOT, COMPOS_VSOCK_PORT,
+};
 use android_system_virtualizationservice::aidl::android::system::virtualizationservice::{
-    DeathReason::DeathReason,
-    IVirtualMachine::IVirtualMachine,
-    IVirtualMachineCallback::{BnVirtualMachineCallback, IVirtualMachineCallback},
+    CpuTopology::CpuTopology,
     IVirtualizationService::IVirtualizationService,
-    VirtualMachineAppConfig::{DebugLevel::DebugLevel, VirtualMachineAppConfig},
+    VirtualMachineAppConfig::{DebugLevel::DebugLevel, Payload::Payload, VirtualMachineAppConfig},
     VirtualMachineConfig::VirtualMachineConfig,
 };
-use android_system_virtualizationservice::binder::{
-    wait_for_interface, BinderFeatures, DeathRecipient, IBinder, Interface, ParcelFileDescriptor,
-    Result as BinderResult, Strong,
-};
 use anyhow::{anyhow, bail, Context, Result};
-use binder::{
-    unstable_api::{new_spibinder, AIBinder},
-    FromIBinder,
-};
+use binder::{ParcelFileDescriptor, Strong};
 use compos_aidl_interface::aidl::com::android::compos::ICompOsService::ICompOsService;
+use glob::glob;
 use log::{info, warn};
 use rustutils::system_properties;
-use std::fs::{self, File};
-use std::io::{BufRead, BufReader};
-use std::num::NonZeroU32;
-use std::os::raw;
-use std::os::unix::io::IntoRawFd;
+use std::fs::File;
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, Condvar, Mutex};
-use std::thread;
+use vmclient::{DeathReason, ErrorCode, VmInstance, VmWaitError};
 
 /// This owns an instance of the CompOS VM.
-pub struct VmInstance {
-    #[allow(dead_code)] // Keeps the VM alive even if we don`t touch it
-    vm: Strong<dyn IVirtualMachine>,
-    cid: i32,
+pub struct ComposClient(VmInstance);
+
+/// CPU topology configuration for a virtual machine.
+#[derive(Default, Debug, Clone)]
+pub enum VmCpuTopology {
+    /// Run VM with 1 vCPU only.
+    #[default]
+    OneCpu,
+    /// Run VM vCPU topology matching that of the host.
+    MatchHost,
 }
 
 /// Parameters to be used when creating a virtual machine instance.
 #[derive(Default, Debug, Clone)]
 pub struct VmParameters {
+    /// The name of VM for identifying.
+    pub name: String,
     /// Whether the VM should be debuggable.
     pub debug_mode: bool,
-    /// Number of vCPUs to have in the VM. If None, defaults to 1.
-    pub cpus: Option<NonZeroU32>,
-    /// Comma separated list of host CPUs where vCPUs are assigned to. If None, any host CPU can be
-    /// used to run any vCPU.
-    pub cpu_set: Option<String>,
+    /// CPU topology of the VM. Defaults to 1 vCPU.
+    pub cpu_topology: VmCpuTopology,
     /// List of task profiles to apply to the VM
     pub task_profiles: Vec<String>,
-    /// If present, overrides the path to the VM config JSON file
-    pub config_path: Option<String>,
     /// If present, overrides the amount of RAM to give the VM
     pub memory_mib: Option<i32>,
-    /// Never save VM logs to files.
-    pub never_log: bool,
+    /// Whether the VM prefers staged APEXes or activated ones (false; default)
+    pub prefer_staged: bool,
 }
 
-impl VmInstance {
-    /// Return a new connection to the Virtualization Service binder interface. This will start the
-    /// service if necessary.
-    pub fn connect_to_virtualization_service() -> Result<Strong<dyn IVirtualizationService>> {
-        wait_for_interface::<dyn IVirtualizationService>("android.system.virtualizationservice")
-            .context("Failed to find VirtualizationService")
-    }
-
+impl ComposClient {
     /// Start a new CompOS VM instance using the specified instance image file and parameters.
     pub fn start(
         service: &dyn IVirtualizationService,
         instance_image: File,
         idsig: &Path,
         idsig_manifest_apk: &Path,
+        idsig_manifest_ext_apk: &Path,
         parameters: &VmParameters,
-    ) -> Result<VmInstance> {
+    ) -> Result<Self> {
         let protected_vm = want_protected_vm()?;
 
         let instance_fd = ParcelFileDescriptor::new(instance_image);
 
         let apex_dir = Path::new(COMPOS_APEX_ROOT);
-        let data_dir = Path::new(COMPOS_DATA_ROOT);
 
-        let config_apk = Self::locate_config_apk(apex_dir)?;
+        let config_apk = locate_config_apk(apex_dir)?;
         let apk_fd = File::open(config_apk).context("Failed to open config APK file")?;
         let apk_fd = ParcelFileDescriptor::new(apk_fd);
         let idsig_fd = prepare_idsig(service, &apk_fd, idsig)?;
 
-        let manifest_apk_fd = File::open("/system/etc/security/fsverity/BuildManifest.apk")
+        let manifest_apk_fd = File::open(BUILD_MANIFEST_APK_PATH)
             .context("Failed to open build manifest APK file")?;
         let manifest_apk_fd = ParcelFileDescriptor::new(manifest_apk_fd);
         let idsig_manifest_apk_fd = prepare_idsig(service, &manifest_apk_fd, idsig_manifest_apk)?;
 
-        let debug_level = match (protected_vm, parameters.debug_mode) {
-            (_, true) => DebugLevel::FULL,
-            (false, false) => DebugLevel::APP_ONLY,
-            (true, false) => DebugLevel::NONE,
+        // Prepare a few things based on whether /system_ext exists, including:
+        // 1. generate the additional idsig FD for the APK from /system_ext, then pass to VS
+        // 2. select the correct VM config json
+        let (extra_idsigs, has_system_ext) =
+            if let Ok(manifest_ext_apk_fd) = File::open(BUILD_MANIFEST_SYSTEM_EXT_APK_PATH) {
+                // Optional idsig in /system_ext is found, so prepare additionally.
+                let manifest_ext_apk_fd = ParcelFileDescriptor::new(manifest_ext_apk_fd);
+                let idsig_manifest_ext_apk_fd =
+                    prepare_idsig(service, &manifest_ext_apk_fd, idsig_manifest_ext_apk)?;
+
+                (vec![idsig_manifest_apk_fd, idsig_manifest_ext_apk_fd], true)
+            } else {
+                (vec![idsig_manifest_apk_fd], false)
+            };
+        let config_path = get_vm_config_path(has_system_ext, parameters.prefer_staged);
+
+        let debug_level = if parameters.debug_mode { DebugLevel::FULL } else { DebugLevel::NONE };
+
+        let cpu_topology = match parameters.cpu_topology {
+            VmCpuTopology::OneCpu => CpuTopology::ONE_CPU,
+            VmCpuTopology::MatchHost => CpuTopology::MATCH_HOST,
         };
 
-        let (console_fd, log_fd) = if parameters.never_log || debug_level == DebugLevel::NONE {
-            (None, None)
-        } else {
-            // Console output and the system log output from the VM are redirected to file.
-            let console_fd = File::create(data_dir.join("vm_console.log"))
-                .context("Failed to create console log file")?;
-            let log_fd = File::create(data_dir.join("vm.log"))
-                .context("Failed to create system log file")?;
-            let console_fd = ParcelFileDescriptor::new(console_fd);
-            let log_fd = ParcelFileDescriptor::new(log_fd);
-            info!("Running in debug level {:?}", debug_level);
-            (Some(console_fd), Some(log_fd))
-        };
-
-        let config_path = parameters.config_path.as_deref().unwrap_or(DEFAULT_VM_CONFIG_PATH);
         let config = VirtualMachineConfig::AppConfig(VirtualMachineAppConfig {
+            name: parameters.name.clone(),
             apk: Some(apk_fd),
             idsig: Some(idsig_fd),
             instanceImage: Some(instance_fd),
-            configPath: config_path.to_owned(),
+            encryptedStorageImage: None,
+            payload: Payload::ConfigPath(config_path),
             debugLevel: debug_level,
-            extraIdsigs: vec![idsig_manifest_apk_fd],
+            extraIdsigs: extra_idsigs,
             protectedVm: protected_vm,
             memoryMib: parameters.memory_mib.unwrap_or(0), // 0 means use the default
-            numCpus: parameters.cpus.map_or(1, NonZeroU32::get) as i32,
-            cpuAffinity: parameters.cpu_set.clone(),
+            cpuTopology: cpu_topology,
             taskProfiles: parameters.task_profiles.clone(),
+            gdbPort: 0, // Don't start gdb-server
         });
 
-        let vm = service
-            .createVm(&config, console_fd.as_ref(), log_fd.as_ref())
+        // Let logs go to logcat.
+        let (console_fd, log_fd) = (None, None);
+        let callback = Box::new(Callback {});
+        let instance = VmInstance::create(service, &config, console_fd, log_fd, Some(callback))
             .context("Failed to create VM")?;
-        let vm_state = Arc::new(VmStateMonitor::default());
 
-        let vm_state_clone = Arc::clone(&vm_state);
-        let mut death_recipient = DeathRecipient::new(move || {
-            vm_state_clone.set_died();
-            log::error!("VirtualizationService died");
-        });
-        // Note that dropping death_recipient cancels this, so we can't use a temporary here.
-        vm.as_binder().link_to_death(&mut death_recipient)?;
+        instance.start()?;
 
-        let vm_state_clone = Arc::clone(&vm_state);
-        let callback = BnVirtualMachineCallback::new_binder(
-            VmCallback(vm_state_clone),
-            BinderFeatures::default(),
-        );
-        vm.registerCallback(&callback)?;
-
-        vm.start()?;
-
-        let cid = vm_state.wait_until_ready()?;
-
-        Ok(VmInstance { vm, cid })
-    }
-
-    fn locate_config_apk(apex_dir: &Path) -> Result<PathBuf> {
-        // Our config APK will be in a directory under app, but the name of the directory is at the
-        // discretion of the build system. So just look in each sub-directory until we find it.
-        // (In practice there will be exactly one directory, so this shouldn't take long.)
-        let app_dir = apex_dir.join("app");
-        for dir in fs::read_dir(app_dir).context("Reading app dir")? {
-            let apk_file = dir?.path().join("CompOSPayloadApp.apk");
-            if apk_file.is_file() {
-                return Ok(apk_file);
+        let ready = instance.wait_until_ready(TIMEOUTS.vm_max_time_to_ready);
+        if ready == Err(VmWaitError::Finished) && debug_level != DebugLevel::NONE {
+            // The payload has (unexpectedly) finished, but the VM is still running. Give it
+            // some time to shutdown to maximize our chances of getting useful logs.
+            if let Some(death_reason) =
+                instance.wait_for_death_with_timeout(TIMEOUTS.vm_max_time_to_exit)
+            {
+                bail!("VM died during startup - reason {:?}", death_reason);
             }
         }
+        ready?;
 
-        bail!("Failed to locate CompOSPayloadApp.apk")
+        Ok(Self(instance))
     }
 
     /// Create and return an RPC Binder connection to the Comp OS service in the VM.
-    pub fn get_service(&self) -> Result<Strong<dyn ICompOsService>> {
-        let mut vsock_factory = VsockFactory::new(&*self.vm);
-
-        let ibinder = vsock_factory
-            .connect_rpc_client()
-            .ok_or_else(|| anyhow!("Failed to connect to CompOS service"))?;
-
-        FromIBinder::try_from(ibinder).context("Connecting to CompOS service")
+    pub fn connect_service(&self) -> Result<Strong<dyn ICompOsService>> {
+        self.0.connect_service(COMPOS_VSOCK_PORT).context("Connecting to CompOS service")
     }
 
-    /// Return the CID of the VM.
-    pub fn cid(&self) -> i32 {
-        // TODO: Do we actually need/use this?
-        self.cid
+    /// Shut down the VM cleanly, by sending a quit request to the service, giving time for any
+    /// relevant logs to be written.
+    pub fn shutdown(self, service: Strong<dyn ICompOsService>) {
+        info!("Requesting CompOS VM to shutdown");
+        let _ = service.quit(); // If this fails, the VM is probably dying anyway
+        self.wait_for_shutdown();
+    }
+
+    /// Wait for the instance to shut down. If it fails to shutdown within a reasonable time the
+    /// instance is dropped, which forcibly terminates it.
+    /// This should only be called when the instance has been requested to quit, or we believe that
+    /// it is already in the process of exiting due to some failure.
+    fn wait_for_shutdown(self) {
+        let death_reason = self.0.wait_for_death_with_timeout(TIMEOUTS.vm_max_time_to_exit);
+        match death_reason {
+            Some(DeathReason::Shutdown) => info!("VM has exited normally"),
+            Some(reason) => warn!("VM died with reason {:?}", reason),
+            None => warn!("VM failed to exit, dropping"),
+        }
+    }
+}
+
+fn locate_config_apk(apex_dir: &Path) -> Result<PathBuf> {
+    // Our config APK will be in a directory under app, but the name of the directory is at the
+    // discretion of the build system. So just look in each sub-directory until we find it.
+    // (In practice there will be exactly one directory, so this shouldn't take long.)
+    let app_glob = apex_dir.join("app").join("**").join("CompOSPayloadApp*.apk");
+    let mut entries: Vec<PathBuf> =
+        glob(app_glob.to_str().ok_or_else(|| anyhow!("Invalid path: {}", app_glob.display()))?)
+            .context("failed to glob")?
+            .filter_map(|e| e.ok())
+            .collect();
+    if entries.len() > 1 {
+        bail!("Found more than one apk matching {}", app_glob.display());
+    }
+    match entries.pop() {
+        Some(path) => Ok(path),
+        None => Err(anyhow!("No apks match {}", app_glob.display())),
     }
 }
 
@@ -235,178 +234,35 @@ fn want_protected_vm() -> Result<bool> {
         bail!("Protected VM not supported, unable to start VM");
     }
 
-    let have_unprotected_vm =
+    let have_non_protected_vm =
         system_properties::read_bool("ro.boot.hypervisor.vm.supported", false)?;
-    if have_unprotected_vm {
-        warn!("Protected VM not supported, falling back to unprotected on debuggable build");
+    if have_non_protected_vm {
+        warn!("Protected VM not supported, falling back to non-protected on debuggable build");
         return Ok(false);
     }
 
     bail!("No VM support available")
 }
 
-struct VsockFactory<'a> {
-    vm: &'a dyn IVirtualMachine,
-}
-
-impl<'a> VsockFactory<'a> {
-    fn new(vm: &'a dyn IVirtualMachine) -> Self {
-        Self { vm }
-    }
-
-    fn connect_rpc_client(&mut self) -> Option<binder::SpIBinder> {
-        let param = self.as_void_ptr();
-
-        unsafe {
-            // SAFETY: AIBinder returned by RpcPreconnectedClient has correct reference count, and
-            // the ownership can be safely taken by new_spibinder.
-            // RpcPreconnectedClient does not take ownership of param, only passing it to
-            // request_fd.
-            let binder =
-                binder_rpc_unstable_bindgen::RpcPreconnectedClient(Some(Self::request_fd), param)
-                    as *mut AIBinder;
-            new_spibinder(binder)
-        }
-    }
-
-    fn as_void_ptr(&mut self) -> *mut raw::c_void {
-        self as *mut _ as *mut raw::c_void
-    }
-
-    fn try_new_vsock_fd(&self) -> Result<i32> {
-        let vsock = self.vm.connectVsock(COMPOS_VSOCK_PORT as i32)?;
-        // Ownership of the fd is transferred to binder
-        Ok(vsock.into_raw_fd())
-    }
-
-    fn new_vsock_fd(&self) -> i32 {
-        self.try_new_vsock_fd().unwrap_or_else(|e| {
-            warn!("Connecting vsock failed: {}", e);
-            -1_i32
-        })
-    }
-
-    unsafe extern "C" fn request_fd(param: *mut raw::c_void) -> raw::c_int {
-        // SAFETY: This is only ever called by RpcPreconnectedClient, within the lifetime of the
-        // VsockFactory, with param taking the value returned by as_void_ptr (so a properly aligned
-        // non-null pointer to an initialized instance).
-        let vsock_factory = param as *mut Self;
-        vsock_factory.as_ref().unwrap().new_vsock_fd()
-    }
-}
-
-#[derive(Debug, Default)]
-struct VmState {
-    has_died: bool,
-    cid: Option<i32>,
-}
-
-#[derive(Debug)]
-struct VmStateMonitor {
-    mutex: Mutex<VmState>,
-    state_ready: Condvar,
-}
-
-impl Default for VmStateMonitor {
-    fn default() -> Self {
-        Self { mutex: Mutex::new(Default::default()), state_ready: Condvar::new() }
-    }
-}
-
-impl VmStateMonitor {
-    fn set_died(&self) {
-        let mut state = self.mutex.lock().unwrap();
-        state.has_died = true;
-        state.cid = None;
-        drop(state); // Unlock the mutex prior to notifying
-        self.state_ready.notify_all();
-    }
-
-    fn set_ready(&self, cid: i32) {
-        let mut state = self.mutex.lock().unwrap();
-        if state.has_died {
-            return;
-        }
-        state.cid = Some(cid);
-        drop(state); // Unlock the mutex prior to notifying
-        self.state_ready.notify_all();
-    }
-
-    fn wait_until_ready(&self) -> Result<i32> {
-        let (state, result) = self
-            .state_ready
-            .wait_timeout_while(
-                self.mutex.lock().unwrap(),
-                timeouts()?.vm_max_time_to_ready,
-                |state| state.cid.is_none() && !state.has_died,
-            )
-            .unwrap();
-        if result.timed_out() {
-            bail!("Timed out waiting for VM")
-        }
-        state.cid.ok_or_else(|| anyhow!("VM died"))
-    }
-}
-
-#[derive(Debug)]
-struct VmCallback(Arc<VmStateMonitor>);
-
-impl Interface for VmCallback {}
-
-impl IVirtualMachineCallback for VmCallback {
-    fn onDied(&self, cid: i32, reason: DeathReason) -> BinderResult<()> {
-        self.0.set_died();
-        log::warn!("VM died, cid = {}, reason = {:?}", cid, reason);
-        Ok(())
-    }
-
-    fn onPayloadStarted(
-        &self,
-        cid: i32,
-        stream: Option<&ParcelFileDescriptor>,
-    ) -> BinderResult<()> {
-        if let Some(pfd) = stream {
-            if let Err(e) = start_logging(pfd) {
-                warn!("Can't log vm output: {}", e);
-            };
-        }
+struct Callback {}
+impl vmclient::VmCallback for Callback {
+    fn on_payload_started(&self, cid: i32) {
         log::info!("VM payload started, cid = {}", cid);
-        Ok(())
     }
 
-    fn onPayloadReady(&self, cid: i32) -> BinderResult<()> {
-        self.0.set_ready(cid);
+    fn on_payload_ready(&self, cid: i32) {
         log::info!("VM payload ready, cid = {}", cid);
-        Ok(())
     }
 
-    fn onPayloadFinished(&self, cid: i32, exit_code: i32) -> BinderResult<()> {
-        // This should probably never happen in our case, but if it does we means our VM is no
-        // longer running
-        self.0.set_died();
+    fn on_payload_finished(&self, cid: i32, exit_code: i32) {
         log::warn!("VM payload finished, cid = {}, exit code = {}", cid, exit_code);
-        Ok(())
     }
 
-    fn onError(&self, cid: i32, error_code: i32, message: &str) -> BinderResult<()> {
-        self.0.set_died();
-        log::warn!("VM error, cid = {}, error code = {}, message = {}", cid, error_code, message,);
-        Ok(())
+    fn on_error(&self, cid: i32, error_code: ErrorCode, message: &str) {
+        log::warn!("VM error, cid = {}, error code = {:?}, message = {}", cid, error_code, message);
     }
-}
 
-fn start_logging(pfd: &ParcelFileDescriptor) -> Result<()> {
-    let reader = BufReader::new(pfd.as_ref().try_clone().context("Cloning fd failed")?);
-    thread::spawn(move || {
-        for line in reader.lines() {
-            match line {
-                Ok(line) => info!("VM: {}", line),
-                Err(e) => {
-                    warn!("Reading VM output failed: {}", e);
-                    break;
-                }
-            }
-        }
-    });
-    Ok(())
+    fn on_died(&self, cid: i32, death_reason: DeathReason) {
+        log::warn!("VM died, cid = {}, reason = {:?}", cid, death_reason);
+    }
 }

@@ -32,6 +32,8 @@
 #include "stack/include/bt_types.h"
 #include "types/raw_address.h"
 
+using LeRandCallback = base::Callback<void(uint64_t)>;
+
 namespace bluetooth {
 namespace shim {
 namespace legacy {
@@ -52,7 +54,9 @@ class Acl : public hci::acl_manager::ConnectionCallbacks,
   // hci::acl_manager::ConnectionCallbacks
   void OnConnectSuccess(
       std::unique_ptr<hci::acl_manager::ClassicAclConnection>) override;
-  void OnConnectFail(hci::Address, hci::ErrorCode reason) override;
+  void OnConnectRequest(hci::Address, hci::ClassOfDevice) override;
+  void OnConnectFail(hci::Address, hci::ErrorCode reason,
+                     bool locally_initiated) override;
 
   void HACK_OnEscoConnectRequest(hci::Address, hci::ClassOfDevice) override;
   void HACK_OnScoConnectRequest(hci::Address, hci::ClassOfDevice) override;
@@ -66,6 +70,8 @@ class Acl : public hci::acl_manager::ConnectionCallbacks,
   void OnLeConnectFail(hci::AddressWithType, hci::ErrorCode reason) override;
   void OnLeLinkDisconnected(uint16_t handle, hci::ErrorCode reason);
   bluetooth::hci::AddressWithType GetConnectionLocalAddress(
+      const RawAddress& remote_bda);
+  std::optional<uint8_t> GetAdvertisingSetConnectedTo(
       const RawAddress& remote_bda);
 
   // LinkConnectionInterface
@@ -99,6 +105,12 @@ class Acl : public hci::acl_manager::ConnectionCallbacks,
   bool SniffSubrating(uint16_t hci_handle, uint16_t maximum_latency,
                       uint16_t minimum_remote_timeout,
                       uint16_t minimum_local_timeout) override;
+  void LeSetDefaultSubrate(uint16_t subrate_min, uint16_t subrate_max,
+                           uint16_t max_latency, uint16_t cont_num,
+                           uint16_t sup_tout);
+  void LeSubrateRequest(uint16_t hci_handle, uint16_t subrate_min,
+                        uint16_t subrate_max, uint16_t max_latency,
+                        uint16_t cont_num, uint16_t sup_tout);
 
   void WriteData(uint16_t hci_handle,
                  std::unique_ptr<packet::RawBuilder> packet);
@@ -109,7 +121,10 @@ class Acl : public hci::acl_manager::ConnectionCallbacks,
   void Shutdown();
   void FinalShutdown();
 
-  void ClearAcceptList();
+  void ClearFilterAcceptList();
+  void DisconnectAllForSuspend();
+  void LeRand(LeRandCallback cb);
+  void SetSystemSuspendState(bool suspended);
 
  protected:
   void on_incoming_acl_credits(uint16_t handle, uint16_t credits);

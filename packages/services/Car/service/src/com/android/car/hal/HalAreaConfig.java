@@ -54,4 +54,9 @@ public abstract class HalAreaConfig {
      * Get the max float value.
      */
     public abstract float getMaxFloatValue();
+
+    /**
+     * Get list of supported enum values.
+     */
+    public abstract long[] getSupportedEnumValues();
 }

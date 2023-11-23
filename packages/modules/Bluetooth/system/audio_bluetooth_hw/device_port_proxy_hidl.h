@@ -69,6 +69,17 @@ class BluetoothAudioPortHidl : public BluetoothAudioPort {
                SessionType_2_1::A2DP_HARDWARE_OFFLOAD_DATAPATH;
   }
 
+  bool IsLeAudio() const override {
+    return session_type_hidl_ ==
+               SessionType_2_1::LE_AUDIO_SOFTWARE_ENCODING_DATAPATH ||
+           session_type_hidl_ ==
+               SessionType_2_1::LE_AUDIO_SOFTWARE_DECODED_DATAPATH ||
+           session_type_hidl_ ==
+               SessionType_2_1::LE_AUDIO_HARDWARE_OFFLOAD_ENCODING_DATAPATH ||
+           session_type_hidl_ ==
+               SessionType_2_1::LE_AUDIO_HARDWARE_OFFLOAD_DECODING_DATAPATH;
+  }
+
   bool GetPreferredDataIntervalUs(size_t* interval_us) const override;
 
  protected:

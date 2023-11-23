@@ -86,14 +86,22 @@ public final class UserInfoView extends LinearLayout {
         int currentUserId = ActivityManager.getCurrentUser();
         boolean current = user.id == currentUserId;
         boolean running = am.isUserRunning(user.id);
+        boolean visible = isUserVisible(user.id);
         String s = new StringBuilder()
-                .append(user.preCreated ? " (pre-created)" : "")
-                .append(user.convertedFromPreCreated ? " (converted)" : "")
                 .append(user.partial ? " (partial)" : "")
                 .append(running ? " (running)" : "")
                 .append(current ? " (current)" : "")
+                .append(visible ? " (visible)" : "")
                 .toString();
         return s;
+    }
+
+    private boolean isUserVisible(@UserIdInt int userId) {
+        UserHandle user = UserHandle.of(userId);
+        Context context = mContext.createContextAsUser(user, /* flags= */ 0);
+        boolean visible = context.getSystemService(UserManager.class).isUserVisible();
+        Log.v(TAG, "isUserVisible(" + userId + "): " + visible);
+        return visible;
     }
 
     private void setUserIcon(@UserIdInt int userId) {

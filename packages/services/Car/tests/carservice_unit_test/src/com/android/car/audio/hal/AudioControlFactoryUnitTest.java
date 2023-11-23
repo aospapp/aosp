@@ -20,7 +20,7 @@ import static com.android.dx.mockito.inline.extended.ExtendedMockito.doReturn;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import static org.testng.Assert.assertThrows;
+import static org.junit.Assert.assertThrows;
 
 import android.car.test.mocks.AbstractExtendedMockitoTestCase;
 import android.os.IBinder;
@@ -32,17 +32,17 @@ import org.junit.runner.RunWith;
 import org.mockito.Mock;
 
 @RunWith(AndroidJUnit4.class)
-public class AudioControlFactoryUnitTest extends AbstractExtendedMockitoTestCase {
+public final class AudioControlFactoryUnitTest extends AbstractExtendedMockitoTestCase {
     private static final String TAG = AudioControlFactoryUnitTest.class.getSimpleName();
 
     @Mock
-    IBinder mBinder;
+    private IBinder mBinder;
 
     @Mock
-    android.hardware.automotive.audiocontrol.V2_0.IAudioControl mIAudioControlV2;
+    private android.hardware.automotive.audiocontrol.V2_0.IAudioControl mIAudioControlV2;
 
     @Mock
-    android.hardware.automotive.audiocontrol.V1_0.IAudioControl mIAudioControlV1;
+    private android.hardware.automotive.audiocontrol.V1_0.IAudioControl mIAudioControlV1;
 
     public AudioControlFactoryUnitTest() {
         super(AudioControlFactory.TAG);

@@ -92,8 +92,8 @@
     <string name="save_error" msgid="8631128801982095782">"ドキュメントを保存できませんでした"</string>
     <string name="create_error" msgid="3092144450044861994">"フォルダを作成できませんでした"</string>
     <string name="query_error" msgid="6625421453613879336">"現在、コンテンツを読み込むことができません"</string>
-    <string name="quiet_mode_error_title" msgid="9126656325282792843">"仕事用プロファイルが一時停止しています"</string>
-    <string name="quiet_mode_button" msgid="6977115032320235420">"ON にする"</string>
+    <string name="quiet_mode_error_title" msgid="554319751414657910">"仕事用アプリ一時停止中"</string>
+    <string name="quiet_mode_button" msgid="8051436551926677305">"仕事用アプリをオンにする"</string>
     <string name="cant_select_work_files_error_title" msgid="6688716319549644354">"仕事用ファイルは選択できません"</string>
     <string name="cant_select_work_files_error_message" msgid="683480676150690641">"IT 管理者は、個人用アプリから仕事用ファイルにアクセスすることを許可していません"</string>
     <string name="cant_select_personal_files_error_title" msgid="3200697170148617742">"個人用ファイルは選択できません"</string>

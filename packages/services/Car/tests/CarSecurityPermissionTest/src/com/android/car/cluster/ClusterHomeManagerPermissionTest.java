@@ -18,10 +18,10 @@ package com.android.car.cluster;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import static org.junit.Assert.assertThrows;
 import static org.junit.Assume.assumeNotNull;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
-import static org.testng.Assert.expectThrows;
 
 import android.car.Car;
 import android.car.cluster.ClusterHomeManager;
@@ -81,7 +81,7 @@ public final class ClusterHomeManagerPermissionTest {
 
     @Test
     public void testRegisterClusterStateListener_requiresPermission() {
-        SecurityException thrown = expectThrows(SecurityException.class,
+        SecurityException thrown = assertThrows(SecurityException.class,
                 () -> mClusterHomeManager.registerClusterStateListener(mMockExecutor,
                         mMockClusterStateListener));
         assertThat(thrown.getMessage()).isEqualTo(EXPECTED_ERROR_MESSAGE);
@@ -89,7 +89,7 @@ public final class ClusterHomeManagerPermissionTest {
 
     @Test
     public void testRegisterClusterNavigationStateListener_requiresPermission() {
-        SecurityException thrown = expectThrows(SecurityException.class,
+        SecurityException thrown = assertThrows(SecurityException.class,
                 () -> mClusterHomeManager.registerClusterNavigationStateListener(mMockExecutor,
                         mMockClusterNavigationStateListener));
         assertThat(thrown.getMessage())
@@ -98,28 +98,28 @@ public final class ClusterHomeManagerPermissionTest {
 
     @Test
     public void testGetClusterState_requiresPermission() {
-        SecurityException thrown = expectThrows(SecurityException.class,
+        SecurityException thrown = assertThrows(SecurityException.class,
                 () -> mClusterHomeManager.getClusterState());
         assertThat(thrown.getMessage()).isEqualTo(EXPECTED_ERROR_MESSAGE);
     }
 
     @Test
     public void testUnReportState_requiresPermission() {
-        SecurityException thrown = expectThrows(SecurityException.class,
+        SecurityException thrown = assertThrows(SecurityException.class,
                 () -> mClusterHomeManager.reportState(anyInt(), anyInt(), any(byte[].class)));
         assertThat(thrown.getMessage()).isEqualTo(EXPECTED_ERROR_MESSAGE);
     }
 
     @Test
     public void testRequestDisplay_requiresPermission() {
-        SecurityException thrown = expectThrows(SecurityException.class,
+        SecurityException thrown = assertThrows(SecurityException.class,
                 () -> mClusterHomeManager.requestDisplay(anyInt()));
         assertThat(thrown.getMessage()).isEqualTo(EXPECTED_ERROR_MESSAGE);
     }
 
     @Test
     public void testStartFixedActivityModeAsUser_requiresPermission() {
-        SecurityException thrown = expectThrows(SecurityException.class,
+        SecurityException thrown = assertThrows(SecurityException.class,
                 () -> mClusterHomeManager.startFixedActivityModeAsUser(any(Intent.class), any(
                         Bundle.class), anyInt()));
         assertThat(thrown.getMessage()).isEqualTo(EXPECTED_ERROR_MESSAGE);
@@ -127,7 +127,7 @@ public final class ClusterHomeManagerPermissionTest {
 
     @Test
     public void testStopFixedActivityMode_requiresPermission() {
-        SecurityException thrown = expectThrows(SecurityException.class,
+        SecurityException thrown = assertThrows(SecurityException.class,
                 () -> mClusterHomeManager.stopFixedActivityMode());
         assertThat(thrown.getMessage()).isEqualTo(EXPECTED_ERROR_MESSAGE);
     }

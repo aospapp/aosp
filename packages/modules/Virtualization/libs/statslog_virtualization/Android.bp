@@ -27,21 +27,28 @@ genrule {
     ],
 }
 
+rust_defaults {
+    name: "libstatslog_virtualization_rust_defaults",
+    edition: "2021",
+    rustlibs: [
+        "libstatspull_bindgen",
+    ],
+    apex_available: [
+        "com.android.virt",
+    ],
+}
+
 rust_library {
     name: "libstatslog_virtualization_rust_header",
+    defaults: ["libstatslog_virtualization_rust_defaults"],
     crate_name: "statslog_virtualization_rust_header",
     srcs: [
         "statslog_header_wrapper.rs",
         ":statslog_virtualization_header.rs",
     ],
     rustlibs: [
-        "libstatspull_bindgen",
         "libthiserror",
     ],
-    apex_available: [
-        "com.android.virt",
-    ],
-
 }
 
 genrule {
@@ -55,6 +62,7 @@ genrule {
 
 rust_library {
     name: "libstatslog_virtualization_rust",
+    defaults: ["libstatslog_virtualization_rust_defaults"],
     crate_name: "statslog_virtualization_rust",
     srcs: [
         "statslog_wrapper.rs",
@@ -62,10 +70,5 @@ rust_library {
     ],
     rustlibs: [
         "libstatslog_virtualization_rust_header",
-        "libstatspull_bindgen",
     ],
-    apex_available: [
-        "com.android.virt",
-    ],
-
 }

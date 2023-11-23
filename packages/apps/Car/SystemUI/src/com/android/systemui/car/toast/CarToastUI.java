@@ -16,7 +16,6 @@
 
 package com.android.systemui.car.toast;
 
-import android.app.ActivityManager;
 import android.app.ITransientNotificationCallback;
 import android.content.Context;
 import android.content.pm.ApplicationInfo;
@@ -30,6 +29,7 @@ import androidx.annotation.Nullable;
 import com.android.systemui.R;
 import com.android.systemui.dagger.SysUISingleton;
 import com.android.systemui.dagger.qualifiers.Main;
+import com.android.systemui.settings.UserTracker;
 import com.android.systemui.statusbar.CommandQueue;
 import com.android.systemui.toast.ToastFactory;
 import com.android.systemui.toast.ToastLogger;
@@ -49,13 +49,16 @@ public class CarToastUI extends ToastUI {
     private static final boolean DEBUG = false;
     private static final String TAG = "CarToastUI";
 
+    private final UserTracker mUserTracker;
     private final PackageManager mPackageManager;
     private final Set<String> mPackageNameAllowList;
 
     @Inject
     public CarToastUI(Context context, @Main Resources resources, CommandQueue commandQueue,
-            ToastFactory toastFactory, ToastLogger toastLogger, PackageManager packageManager) {
+            ToastFactory toastFactory, ToastLogger toastLogger, UserTracker userTracker,
+            PackageManager packageManager) {
         super(context, commandQueue, toastFactory, toastLogger);
+        mUserTracker = userTracker;
         mPackageManager = packageManager;
 
         String[] allowList = resources.getStringArray(
@@ -101,7 +104,7 @@ public class CarToastUI extends ToastUI {
         ApplicationInfo applicationInfo = null;
         try {
             applicationInfo = mPackageManager.getApplicationInfoAsUser(packageName, /* flags= */ 0,
-                    ActivityManager.getCurrentUser());
+                    mUserTracker.getUserId());
         } catch (PackageManager.NameNotFoundException ex) {
             Log.e(TAG, "package not found: " + packageName);
         }

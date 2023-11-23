@@ -33,13 +33,16 @@
 #include "bta/include/bta_hh_api.h"
 #include "bta/include/bta_hh_co.h"
 #include "bta/sys/bta_sys.h"
+#include "btif/include/btif_storage.h"
 #include "main/shim/dumpsys.h"
 #include "osi/include/allocator.h"
 #include "osi/include/log.h"
 #include "osi/include/osi.h"  // UNUSED_ATTR
+#include "stack/include/acl_api.h"
 #include "stack/include/bt_hdr.h"
 #include "stack/include/hiddefs.h"
 #include "stack/include/hidh_api.h"
+#include "types/bluetooth/uuid.h"
 #include "types/raw_address.h"
 
 /*****************************************************************************
@@ -75,8 +78,8 @@ static const char* bta_hh_hid_event_name(uint16_t event);
  * Returns          void
  *
  ******************************************************************************/
-void bta_hh_api_enable(const tBTA_HH_DATA* p_data) {
-  tBTA_HH_STATUS status = BTA_HH_ERR;
+void bta_hh_api_enable(tBTA_HH_CBACK* p_cback, bool enable_hid, bool enable_hogp) {
+  tBTA_HH_STATUS status = BTA_HH_OK;
   uint8_t xx;
 
   /* initialize BTE HID */
@@ -84,32 +87,39 @@ void bta_hh_api_enable(const tBTA_HH_DATA* p_data) {
 
   memset(&bta_hh_cb, 0, sizeof(tBTA_HH_CB));
 
-  /* Register with L2CAP */
-  if (HID_HostRegister(bta_hh_cback) == HID_SUCCESS) {
-    /* store parameters */
-    bta_hh_cb.p_cback = p_data->api_enable.p_cback;
-
-    status = BTA_HH_OK;
-    /* initialize device CB */
-    for (xx = 0; xx < BTA_HH_MAX_DEVICE; xx++) {
-      bta_hh_cb.kdev[xx].state = BTA_HH_IDLE_ST;
-      bta_hh_cb.kdev[xx].hid_handle = BTA_HH_INVALID_HANDLE;
-      bta_hh_cb.kdev[xx].index = xx;
-    }
-
-    /* initialize control block map */
-    for (xx = 0; xx < BTA_HH_MAX_KNOWN; xx++)
-      bta_hh_cb.cb_index[xx] = BTA_HH_IDX_INVALID;
+  /* store parameters */
+  bta_hh_cb.p_cback = p_cback;
+  /* initialize device CB */
+  for (xx = 0; xx < BTA_HH_MAX_DEVICE; xx++) {
+    bta_hh_cb.kdev[xx].state = BTA_HH_IDLE_ST;
+    bta_hh_cb.kdev[xx].hid_handle = BTA_HH_INVALID_HANDLE;
+    bta_hh_cb.kdev[xx].index = xx;
   }
 
-  if (status == BTA_HH_OK) {
+  /* initialize control block map */
+  for (xx = 0; xx < BTA_HH_MAX_KNOWN; xx++) {
+    bta_hh_cb.cb_index[xx] = BTA_HH_IDX_INVALID;
+  }
+
+  if (enable_hid) {
+    /* Register with L2CAP */
+    if (HID_HostRegister(bta_hh_cback) != HID_SUCCESS) {
+      status = BTA_HH_ERR;
+    }
+  }
+
+  if (status == BTA_HH_OK && enable_hogp) {
     bta_hh_le_enable();
-  } else
-  {
+  } else {
     /* signal BTA call back event */
     tBTA_HH bta_hh;
     bta_hh.status = status;
-    (*bta_hh_cb.p_cback)(BTA_HH_ENABLE_EVT, &bta_hh);
+    if (status != BTA_HH_OK) {
+      LOG_ERROR("Failed to register, status: %d", status);
+    }
+    if (bta_hh_cb.p_cback) {
+      (*bta_hh_cb.p_cback)(BTA_HH_ENABLE_EVT, &bta_hh);
+    }
   }
 }
 /*******************************************************************************
@@ -159,15 +169,17 @@ void bta_hh_api_disable(void) {
  ******************************************************************************/
 void bta_hh_disc_cmpl(void) {
   LOG_DEBUG("Disconnect complete");
-
-  HID_HostDeregister();
-  bta_hh_le_deregister();
   tBTA_HH_STATUS status = BTA_HH_OK;
 
   /* Deregister with lower layer */
   if (HID_HostDeregister() != HID_SUCCESS) status = BTA_HH_ERR;
 
-  bta_hh_cleanup_disable(status);
+  if (bta_hh_cb.gatt_if != BTA_GATTS_INVALID_IF) {
+    LOG_DEBUG("Deregister HOGP host before cleanup");
+    bta_hh_le_deregister();
+  } else {
+    bta_hh_cleanup_disable(status);
+  }
 }
 
 /*******************************************************************************
@@ -266,12 +278,12 @@ static void bta_hh_di_sdp_cback(tSDP_RESULT result) {
       /* always update information with primary DI record */
       if (SDP_GetDiRecord(1, &di_rec, bta_hh_cb.p_disc_db) == SDP_SUCCESS) {
         bta_hh_update_di_info(p_cb, di_rec.rec.vendor, di_rec.rec.product,
-                              di_rec.rec.version, 0);
+                              di_rec.rec.version, 0, 0);
       }
 
     } else /* no DI recrod available */
     {
-      bta_hh_update_di_info(p_cb, BTA_HH_VENDOR_ID_INVALID, 0, 0, 0);
+      bta_hh_update_di_info(p_cb, BTA_HH_VENDOR_ID_INVALID, 0, 0, 0, 0);
     }
 
     ret = HID_HostGetSDPRecord(p_cb->addr, bta_hh_cb.p_disc_db,
@@ -306,77 +318,38 @@ static void bta_hh_di_sdp_cback(tSDP_RESULT result) {
  * Returns          void
  *
  ******************************************************************************/
-void bta_hh_start_sdp(tBTA_HH_DEV_CB* p_cb, const tBTA_HH_DATA* p_data) {
-  tBTA_HH_STATUS status = BTA_HH_ERR_SDP;
-  uint8_t hdl;
-
-  p_cb->mode = p_data->api_conn.mode;
-  bta_hh_cb.p_cur = p_cb;
-
-  if (BTM_UseLeLink(p_data->api_conn.bd_addr)) {
-    p_cb->is_le_device = true;
-    bta_hh_le_open_conn(p_cb, p_data->api_conn.bd_addr);
-    return;
-  }
-
-  /* if previously virtually cabled device, skip SDP */
-  if (p_cb->app_id) {
-    status = BTA_HH_OK;
-    APPL_TRACE_DEBUG("%s: skip SDP for known devices", __func__);
-    if (p_cb->hid_handle == BTA_HH_INVALID_HANDLE) {
-      if (HID_HostAddDev(p_cb->addr, p_cb->attr_mask, &hdl) == HID_SUCCESS) {
-        /* update device CB with newly register device handle */
-        bta_hh_add_device_to_list(p_cb, hdl, p_cb->attr_mask, NULL,
-                                  p_cb->sub_class,
-                                  p_cb->dscp_info.ssr_max_latency,
-                                  p_cb->dscp_info.ssr_min_tout, p_cb->app_id);
-        /* update cb_index[] map */
-        bta_hh_cb.cb_index[hdl] = p_cb->index;
-      } else
-        status = BTA_HH_ERR_NO_RES;
-    }
-    tBTA_HH_DATA bta_hh_data;
-    bta_hh_data.status = status;
-    bta_hh_sm_execute(p_cb, BTA_HH_SDP_CMPL_EVT, &bta_hh_data);
-
-    return;
-  }
-  /* GetSDPRecord. at one time only one SDP precedure can be active */
-  else if (!bta_hh_cb.p_disc_db) {
+static void bta_hh_start_sdp(tBTA_HH_DEV_CB* p_cb, const tBTA_HH_DATA* p_data) {
+  if (!bta_hh_cb.p_disc_db) {
     bta_hh_cb.p_disc_db =
         (tSDP_DISCOVERY_DB*)osi_malloc(p_bta_hh_cfg->sdp_db_size);
-    bta_hh_cb.p_cur = p_cb;
-    /* do DI discovery first */
+
+    /* Do DI discovery first */
     if (SDP_DiDiscover(p_data->api_conn.bd_addr, bta_hh_cb.p_disc_db,
                        p_bta_hh_cfg->sdp_db_size,
-                       bta_hh_di_sdp_cback) != SDP_SUCCESS) {
-      APPL_TRACE_DEBUG("%s:  SDP_DiDiscover failed: Status 0x%2X", __func__,
-                       status);
-      status = BTA_HH_ERR_SDP;
-      osi_free_and_reset((void**)&bta_hh_cb.p_disc_db);
+                       bta_hh_di_sdp_cback) == SDP_SUCCESS) {
+      /* SDP search started successfully
+       * Connection will be triggered at the end of successful SDP search
+       */
     } else {
-      status = BTA_HH_OK;
+      LOG_ERROR("SDP_DiDiscover failed");
+
+      osi_free_and_reset((void**)&bta_hh_cb.p_disc_db);
+
+      tBTA_HH_DATA bta_hh_data;
+      bta_hh_data.status = BTA_HH_ERR_SDP;
+      bta_hh_sm_execute(p_cb, BTA_HH_SDP_CMPL_EVT, &bta_hh_data);
     }
   } else if (bta_hh_cb.p_disc_db) {
-    /* It is possible that there is incoming/outgoing collision case. DUT
-     * initiated
-     * HID connection at same time remote has connected L2CAP for HID control,
-     * so SDP would be in progress, when this flow reaches here. Just do nothing
-     * when the code reaches here, and ongoing SDP completion or failure will
-     * handle this case.
+    /* Incoming/outgoing collision case. DUT initiated HID connection at the
+     * same time as the remote connected HID control channel.
+     * When flow reaches here due to remote initiated connection, DUT may be
+     * doing SDP. In such case, just do nothing and the ongoing SDP completion
+     * or failure will handle this case.
      */
-    APPL_TRACE_DEBUG("%s: ignoring as SDP already in progress", __func__);
-    return;
+    LOG_WARN("Ignoring as SDP already in progress");
   }
-
-  if (status != BTA_HH_OK) {
-    tBTA_HH_DATA bta_hh_data;
-    bta_hh_data.status = status;
-    bta_hh_sm_execute(p_cb, BTA_HH_SDP_CMPL_EVT, &bta_hh_data);
-  }
-
-  return;
 }
+
 /*******************************************************************************
  *
  * Function         bta_hh_sdp_cmpl
@@ -463,6 +436,126 @@ void bta_hh_sdp_cmpl(tBTA_HH_DEV_CB* p_cb, const tBTA_HH_DATA* p_data) {
 
 /*******************************************************************************
  *
+ * Function         bta_hh_bredr_conn
+ *
+ * Description      Initiate BR/EDR HID connection. This may be triggered by
+ *                  the local application or as a result of remote initiated
+ *                  HID connection.
+ *
+ * Returns          void
+ *
+ ******************************************************************************/
+static void bta_hh_bredr_conn(tBTA_HH_DEV_CB* p_cb, const tBTA_HH_DATA* p_data) {
+  bta_hh_cb.p_cur = p_cb;
+
+  /* If previously virtually cabled device */
+  if (p_cb->app_id) {
+    tBTA_HH_DATA bta_hh_data;
+    bta_hh_data.status = BTA_HH_OK;
+
+    APPL_TRACE_DEBUG("%s: skip SDP for known devices", __func__);
+
+    if (p_cb->hid_handle == BTA_HH_INVALID_HANDLE) {
+      uint8_t hdl;
+      if (HID_HostAddDev(p_cb->addr, p_cb->attr_mask, &hdl) == HID_SUCCESS) {
+        /* update device CB with newly register device handle */
+        bta_hh_add_device_to_list(p_cb, hdl, p_cb->attr_mask, NULL,
+                                  p_cb->sub_class,
+                                  p_cb->dscp_info.ssr_max_latency,
+                                  p_cb->dscp_info.ssr_min_tout, p_cb->app_id);
+        /* update cb_index[] map */
+        bta_hh_cb.cb_index[hdl] = p_cb->index;
+      } else {
+        bta_hh_data.status = BTA_HH_ERR_NO_RES;
+      }
+    }
+
+    bta_hh_sm_execute(p_cb, BTA_HH_SDP_CMPL_EVT, &bta_hh_data);
+  }
+  else { /* First time connection, start SDP */
+    bta_hh_start_sdp(p_cb, p_data);
+  }
+}
+
+/*******************************************************************************
+ *
+ * Function         bta_hh_connect
+ *
+ * Description      Start HID host connection.
+ *
+ * Returns          void
+ *
+ ******************************************************************************/
+void bta_hh_connect(tBTA_HH_DEV_CB* p_cb, const tBTA_HH_DATA* p_data) {
+  bool hid_available = false;
+  bool hogp_available = false;
+  bluetooth::Uuid remote_uuids[BT_MAX_NUM_UUIDS] = {};
+  bt_property_t remote_properties = {BT_PROPERTY_UUIDS, sizeof(remote_uuids),
+                                     &remote_uuids};
+  const RawAddress& bd_addr = p_data->api_conn.bd_addr;
+
+  // Find the device type
+  tBT_DEVICE_TYPE dev_type;
+  tBLE_ADDR_TYPE addr_type;
+  BTM_ReadDevInfo(bd_addr, &dev_type, &addr_type);
+
+  // Find which transports are already connected
+  bool bredr = BTM_IsAclConnectionUp(bd_addr, BT_TRANSPORT_BR_EDR);
+  bool le_acl = BTM_IsAclConnectionUp(bd_addr, BT_TRANSPORT_LE);
+
+  // Find which services known to be available
+  if (btif_storage_get_remote_device_property(&bd_addr,
+                                              &remote_properties) == BT_STATUS_SUCCESS) {
+    int count = remote_properties.len / sizeof(remote_uuids[0]);
+    for (int i = 0; i < count; i++) {
+      if (remote_uuids[i].Is16Bit()) {
+        if (remote_uuids[i].As16Bit() == UUID_SERVCLASS_HUMAN_INTERFACE) {
+          hid_available = true;
+        } else if (remote_uuids[i].As16Bit() == UUID_SERVCLASS_LE_HID) {
+          hogp_available = true;
+        }
+      }
+
+      if (hid_available && hogp_available) {
+        break;
+      }
+    }
+  }
+
+  /* Decide whether to connect HID or HOGP */
+  if (bredr && hid_available) {
+    p_cb->is_le_device = false;
+  } else if (le_acl && hogp_available) {
+    p_cb->is_le_device = true;
+  } else if (hid_available) {
+    p_cb->is_le_device = false;
+  } else if (hogp_available) {
+    p_cb->is_le_device = true;
+  } else if (bredr) {
+    p_cb->is_le_device = false;
+  } else if (le_acl || dev_type == BT_DEVICE_TYPE_BLE) {
+    p_cb->is_le_device = true;
+  } else {
+    p_cb->is_le_device = false;
+  }
+
+  LOG_DEBUG("bd_addr:%s, bredr:%d, hid_available:%d, le_acl:%d, hogp_available:%d, "
+            "dev_type:%d, is_le_device:%d", ADDRESS_TO_LOGGABLE_CSTR(bd_addr), bredr,
+            hid_available, le_acl, hogp_available, dev_type, p_cb->is_le_device);
+
+  p_cb->mode = p_data->api_conn.mode;
+  bta_hh_cb.p_cur = p_cb;
+
+  // Initiate HID host connection
+  if (p_cb->is_le_device) {
+    bta_hh_le_open_conn(p_cb, bd_addr);
+  } else {
+    bta_hh_bredr_conn(p_cb, p_data);
+  }
+}
+
+/*******************************************************************************
+ *
  * Function         bta_hh_api_disc_act
  *
  * Description      HID Host initiate a disconnection.
@@ -471,13 +564,13 @@ void bta_hh_sdp_cmpl(tBTA_HH_DEV_CB* p_cb, const tBTA_HH_DATA* p_data) {
  * Returns          void
  *
  ******************************************************************************/
-extern void btif_hh_remove_device(RawAddress bd_addr);
+void btif_hh_remove_device(RawAddress bd_addr);
 void bta_hh_api_disc_act(tBTA_HH_DEV_CB* p_cb, const tBTA_HH_DATA* p_data) {
   CHECK(p_cb != nullptr);
 
   if (p_cb->is_le_device) {
     LOG_DEBUG("Host initiating close to le device:%s",
-              PRIVATE_ADDRESS(p_cb->addr));
+              ADDRESS_TO_LOGGABLE_CSTR(p_cb->addr));
 
     bta_hh_le_api_disc_act(p_cb);
 
@@ -488,10 +581,10 @@ void bta_hh_api_disc_act(tBTA_HH_DEV_CB* p_cb, const tBTA_HH_DATA* p_data) {
     tHID_STATUS status = HID_HostCloseDev(hid_handle);
     if (status != HID_SUCCESS) {
       LOG_WARN("Failed closing classic device:%s status:%s",
-               PRIVATE_ADDRESS(p_cb->addr), hid_status_text(status).c_str());
+               ADDRESS_TO_LOGGABLE_CSTR(p_cb->addr), hid_status_text(status).c_str());
     } else {
       LOG_DEBUG("Host initiated close to classic device:%s",
-                PRIVATE_ADDRESS(p_cb->addr));
+                ADDRESS_TO_LOGGABLE_CSTR(p_cb->addr));
     }
     tBTA_HH bta_hh = {
         .dev_status = {.status =
@@ -524,13 +617,12 @@ void bta_hh_open_cmpl_act(tBTA_HH_DEV_CB* p_cb, const tBTA_HH_DATA* p_data) {
   /* increase connection number */
   bta_hh_cb.cnt_num++;
 
-  /* initialize device driver */
-  bta_hh_co_open(p_cb->hid_handle, p_cb->sub_class, p_cb->attr_mask,
-                 p_cb->app_id);
-
   conn.status = p_cb->status;
   conn.le_hid = p_cb->is_le_device;
   conn.scps_supported = p_cb->scps_supported;
+  conn.sub_class = p_cb->sub_class;
+  conn.attr_mask = p_cb->attr_mask;
+  conn.app_id = p_cb->app_id;
 
   BTM_LogHistory(kBtmLogTag, p_cb->addr, "Opened",
                  base::StringPrintf(
@@ -541,26 +633,25 @@ void bta_hh_open_cmpl_act(tBTA_HH_DEV_CB* p_cb, const tBTA_HH_DATA* p_data) {
   {
     /* inform role manager */
     bta_sys_conn_open(BTA_ID_HH, p_cb->app_id, p_cb->addr);
-  }
-  /* set protocol mode when not default report mode */
-  if (p_cb->mode != BTA_HH_PROTO_RPT_MODE
-      && !p_cb->is_le_device
-      ) {
-    if ((HID_HostWriteDev(dev_handle, HID_TRANS_SET_PROTOCOL,
-                          HID_PAR_PROTOCOL_BOOT_MODE, 0, 0, NULL)) !=
-        HID_SUCCESS) {
-      /* HID connection is up, while SET_PROTO fail */
-      conn.status = BTA_HH_ERR_PROTO;
-      (*bta_hh_cb.p_cback)(BTA_HH_OPEN_EVT, (tBTA_HH*)&conn);
-    } else {
-      conn.status = BTA_HH_OK;
-      p_cb->w4_evt = BTA_HH_OPEN_EVT;
-    }
-  } else
-    (*bta_hh_cb.p_cback)(BTA_HH_OPEN_EVT, (tBTA_HH*)&conn);
 
+    /* set protocol mode when not default report mode */
+    if (p_cb->mode != BTA_HH_PROTO_RPT_MODE) {
+      tHID_STATUS status =
+          HID_HostWriteDev(dev_handle, HID_TRANS_SET_PROTOCOL,
+                           HID_PAR_PROTOCOL_BOOT_MODE, 0, 0, NULL);
+
+      if (status == HID_SUCCESS) {
+        p_cb->w4_evt = BTA_HH_SET_PROTO_EVT;
+      } else {
+        /* HID connection is up, while SET_PROTO fail */
+        conn.status = BTA_HH_ERR_PROTO;
+      }
+    }
+  }
   p_cb->incoming_conn = false;
   p_cb->incoming_hid_handle = BTA_HH_INVALID_HANDLE;
+
+  (*bta_hh_cb.p_cback)(BTA_HH_OPEN_EVT, (tBTA_HH*)&conn);
 }
 /*******************************************************************************
  *
@@ -594,7 +685,8 @@ void bta_hh_open_act(tBTA_HH_DEV_CB* p_cb, const tBTA_HH_DATA* p_data) {
 
     memset(&conn_data, 0, sizeof(tBTA_HH_API_CONN));
     conn_data.bd_addr = p_cb->addr;
-    bta_hh_start_sdp(p_cb, (tBTA_HH_DATA*)&conn_data);
+    bta_hh_cb.p_cur = p_cb;
+    bta_hh_bredr_conn(p_cb, (tBTA_HH_DATA*)&conn_data);
   }
 
   return;
@@ -650,9 +742,6 @@ void bta_hh_handsk_act(tBTA_HH_DEV_CB* p_cb, const tBTA_HH_DATA* p_data) {
       bta_hh.hs_data.status = bta_hh_get_trans_status(p_data->hid_cback.data);
       if (bta_hh.hs_data.status == BTA_HH_OK)
         bta_hh.hs_data.status = BTA_HH_HS_TRANS_NOT_SPT;
-      if (p_cb->w4_evt == BTA_HH_GET_RPT_EVT)
-        bta_hh_co_get_rpt_rsp(bta_hh.dev_status.handle, bta_hh.hs_data.status,
-                              NULL, 0);
       (*bta_hh_cb.p_cback)(p_cb->w4_evt, &bta_hh);
       p_cb->w4_evt = 0;
       break;
@@ -664,9 +753,6 @@ void bta_hh_handsk_act(tBTA_HH_DEV_CB* p_cb, const tBTA_HH_DATA* p_data) {
       bta_hh.dev_status.handle = p_cb->hid_handle;
       bta_hh.dev_status.status =
           bta_hh_get_trans_status(p_data->hid_cback.data);
-      if (p_cb->w4_evt == BTA_HH_SET_RPT_EVT)
-        bta_hh_co_set_rpt_rsp(bta_hh.dev_status.handle,
-                              bta_hh.dev_status.status);
       (*bta_hh_cb.p_cback)(p_cb->w4_evt, &bta_hh);
       p_cb->w4_evt = 0;
       break;
@@ -710,7 +796,6 @@ void bta_hh_ctrl_dat_act(tBTA_HH_DEV_CB* p_cb, const tBTA_HH_DATA* p_data) {
   APPL_TRACE_DEBUG("Ctrl DATA received w4: event[%s]",
                    bta_hh_get_w4_event(p_cb->w4_evt));
   if (pdata->len == 0) {
-    android_errorWriteLog(0x534e4554, "116108738");
     p_cb->w4_evt = 0;
     osi_free_and_reset((void**)&pdata);
     return;
@@ -724,8 +809,6 @@ void bta_hh_ctrl_dat_act(tBTA_HH_DEV_CB* p_cb, const tBTA_HH_DATA* p_data) {
       break;
     case BTA_HH_GET_RPT_EVT:
       hs_data.rsp_data.p_rpt_data = pdata;
-      bta_hh_co_get_rpt_rsp(hs_data.handle, hs_data.status, pdata->data,
-                            pdata->len);
       break;
     case BTA_HH_GET_PROTO_EVT:
       /* match up BTE/BTA report/boot mode def*/
@@ -859,8 +942,6 @@ void bta_hh_close_act(tBTA_HH_DEV_CB* p_cb, const tBTA_HH_DATA* p_data) {
   }
   /* otherwise report CLOSE/VC_UNPLUG event */
   else {
-    /* finaliza device driver */
-    bta_hh_co_close(p_cb->hid_handle, p_cb->app_id);
     /* inform role manager */
     bta_sys_conn_close(BTA_ID_HH, p_cb->app_id, p_cb->addr);
     /* update total conn number */
@@ -904,7 +985,7 @@ void bta_hh_close_act(tBTA_HH_DEV_CB* p_cb, const tBTA_HH_DATA* p_data) {
 void bta_hh_get_dscp_act(tBTA_HH_DEV_CB* p_cb,
                          UNUSED_ATTR const tBTA_HH_DATA* p_data) {
   if (p_cb->is_le_device) {
-    if (p_cb->hid_srvc.in_use) {
+    if (p_cb->hid_srvc.state >= BTA_HH_SERVICE_DISCOVERED) {
       p_cb->dscp_info.hid_handle = p_cb->hid_handle;
     }
     bta_hh_le_get_dscp_act(p_cb);
@@ -950,10 +1031,11 @@ void bta_hh_maint_dev_act(tBTA_HH_DEV_CB* p_cb, const tBTA_HH_DATA* p_data) {
           dev_info.status = BTA_HH_OK;
 
           /* update DI information */
-          bta_hh_update_di_info(p_cb, p_dev_info->dscp_info.vendor_id,
-                                p_dev_info->dscp_info.product_id,
-                                p_dev_info->dscp_info.version,
-                                p_dev_info->dscp_info.flag);
+          bta_hh_update_di_info(
+              p_cb, p_dev_info->dscp_info.vendor_id,
+              p_dev_info->dscp_info.product_id, p_dev_info->dscp_info.version,
+              p_dev_info->dscp_info.flag, p_dev_info->dscp_info.ctry_code);
+
           /* add to BTA device list */
           bta_hh_add_device_to_list(
               p_cb, dev_handle, p_dev_info->attr_mask,

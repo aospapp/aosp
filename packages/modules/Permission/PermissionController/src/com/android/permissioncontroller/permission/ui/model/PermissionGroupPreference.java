@@ -44,8 +44,12 @@ class PermissionGroupPreference extends Preference {
         setTitle(label);
         setIcon(tintedIcon);
         setIntent(managePgIntent);
-        updateSummary(permissionGroupInfo.getNonSystemGranted(),
-                permissionGroupInfo.getNonSystemUserSetOrPreGranted());
+        updateSummary(permissionGroupInfo);
+    }
+
+    void updateSummary(PermGroupPackagesUiInfo info) {
+        updateSummary(info.getNonSystemGranted(),
+                info.getNonSystemTotal());
     }
 
     void updateSummary(int granted, int used) {

@@ -248,6 +248,32 @@ public class LibStatsPullTests {
         }
     }
 
+    /**
+     * Tests puller registration/unregistration is processed in order
+     */
+    @Test
+    public void testPullAtomCallbacksProcessedInOrder() throws Exception {
+        StatsManager statsManager = mContext.getSystemService(StatsManager.class);
+        // Upload a config that captures that pulled atom.
+        createAndAddConfigToStatsd(statsManager);
+        for(int i = 0; i < 20; i++) {
+            // Adding & removing the puller back to back to detect any potentional
+            // threads scheduling dependencies
+            setStatsPuller(PULL_ATOM_TAG, sPullTimeoutMillis, sCoolDownMillis, sPullReturnValue,
+                    sPullLatencyMillis, sAtomsPerPull);
+            clearStatsPuller(PULL_ATOM_TAG);
+        }
+        // with out-of-order registration - there is a chance that the puller callback is still
+        // registered - this is wrong and we would like to test it
+        Thread.sleep(SHORT_SLEEP_MILLIS);
+        StatsLog.logStart(APP_BREADCRUMB_LABEL);
+
+        // Let the current bucket finish.
+        Thread.sleep(LONG_SLEEP_MILLIS);
+        List<Atom> data = StatsConfigUtils.getGaugeMetricDataList(statsManager, sConfigId);
+        assertThat(data.size()).isEqualTo(0);
+    }
+
     private void createAndAddConfigToStatsd(StatsManager statsManager) throws Exception {
         sConfigId = System.currentTimeMillis();
         long triggerMatcherId = sConfigId + 10;

@@ -4,9 +4,9 @@ LOCAL_PATH := $(call my-dir)
 LOCAL_bluetooth_project_dir := $(LOCAL_PATH)
 
 LOCAL_cert_test_sources := \
-    $(call all-named-files-under,*.py,blueberry) \
-    $(call all-named-files-under,*.yaml,blueberry) \
-  	setup.py
+	$(call all-named-files-under,*.py,blueberry) \
+	$(call all-named-files-under,*.yaml,blueberry) \
+	setup.py
 LOCAL_cert_test_sources := \
 	$(filter-out gd_cert_venv% venv%, $(LOCAL_cert_test_sources))
 LOCAL_cert_test_sources := \
@@ -17,6 +17,9 @@ LOCAL_host_executables := \
 	$(HOST_OUT_EXECUTABLES)/bluetooth_with_facades \
 	$(HOST_OUT_EXECUTABLES)/bt_topshim_facade \
 	$(HOST_OUT_EXECUTABLES)/root-canal
+
+LOCAL_host_python_hci_packets_library := \
+	$(SOONG_OUT_DIR)/.intermediates/packages/modules/Bluetooth/system/gd/gd_hci_packets_python3_gen/gen/hci_packets.py
 
 LOCAL_host_python_extension_libraries := \
 	$(HOST_OUT_SHARED_LIBRARIES)/bluetooth_packets_python3.so
@@ -39,8 +42,7 @@ LOCAL_host_libraries := \
 	$(HOST_OUT_SHARED_LIBRARIES)/libz-host.so \
 	$(HOST_OUT_SHARED_LIBRARIES)/libprotobuf-cpp-full.so \
 	$(HOST_OUT_SHARED_LIBRARIES)/libunwindstack.so \
-	$(HOST_OUT_SHARED_LIBRARIES)/liblzma.so \
-	$(HOST_OUT_SHARED_LIBRARIES)/libbacktrace.so
+	$(HOST_OUT_SHARED_LIBRARIES)/liblzma.so
 
 LOCAL_target_executables := \
 	$(TARGET_OUT_EXECUTABLES)/bluetooth_stack_with_facade
@@ -49,7 +51,6 @@ LOCAL_target_libraries := \
 	$(TARGET_OUT_SHARED_LIBRARIES)/android.hardware.bluetooth@1.0.so \
 	$(TARGET_OUT_SHARED_LIBRARIES)/android.hardware.bluetooth@1.1.so \
 	$(TARGET_OUT_SHARED_LIBRARIES)/libandroid_runtime_lazy.so \
-	$(TARGET_OUT_SHARED_LIBRARIES)/libbacktrace.so \
 	$(TARGET_OUT_SHARED_LIBRARIES)/libbase.so \
 	$(TARGET_OUT_SHARED_LIBRARIES)/libbinder_ndk.so \
 	$(TARGET_OUT_SHARED_LIBRARIES)/libbinder.so \
@@ -90,15 +91,19 @@ bluetooth_cert_src_and_bin_zip := \
 $(bluetooth_cert_src_and_bin_zip): PRIVATE_bluetooth_project_dir := $(LOCAL_bluetooth_project_dir)
 $(bluetooth_cert_src_and_bin_zip): PRIVATE_cert_test_sources := $(LOCAL_cert_test_sources)
 $(bluetooth_cert_src_and_bin_zip): PRIVATE_host_executables := $(LOCAL_host_executables)
-$(bluetooth_cert_src_and_bin_zip): PRIVATE_host_python_extension_libraries := $(LOCAL_host_python_extension_libraries)
 $(bluetooth_cert_src_and_bin_zip): PRIVATE_host_libraries := $(LOCAL_host_libraries)
+$(bluetooth_cert_src_and_bin_zip): PRIVATE_host_python_extension_libraries := $(LOCAL_host_python_extension_libraries)
+$(bluetooth_cert_src_and_bin_zip): PRIVATE_host_python_hci_packets_library := $(LOCAL_host_python_hci_packets_library)
 $(bluetooth_cert_src_and_bin_zip): PRIVATE_target_executables := $(LOCAL_target_executables)
 $(bluetooth_cert_src_and_bin_zip): PRIVATE_target_libraries := $(LOCAL_target_libraries)
 $(bluetooth_cert_src_and_bin_zip): $(SOONG_ZIP) $(LOCAL_cert_test_sources) \
-		$(LOCAL_host_executables) $(LOCAL_host_libraries) $(LOCAL_host_python_extension_libraries) \
+		$(LOCAL_host_executables) $(LOCAL_host_libraries) $(LOCAL_host_python_libraries) \
+		$(LOCAL_host_python_extension_libraries) \
+		$(LOCAL_host_python_hci_packets_library) \
 		$(LOCAL_target_executables) $(LOCAL_target_libraries)
 	$(hide) $(SOONG_ZIP) -d -o $@ \
 		-C $(PRIVATE_bluetooth_project_dir) $(addprefix -f ,$(PRIVATE_cert_test_sources)) \
+		-C $(dir $(PRIVATE_host_python_hci_packets_library)) -f $(PRIVATE_host_python_hci_packets_library) \
 		-C $(HOST_OUT_EXECUTABLES) $(addprefix -f ,$(PRIVATE_host_executables)) \
 		-C $(HOST_OUT_SHARED_LIBRARIES) $(addprefix -f ,$(PRIVATE_host_python_extension_libraries)) \
 		-P lib64 \
@@ -140,7 +145,7 @@ $(bluetooth_cert_tests_py_package_zip): $(SOONG_ZIP) \
 		-f $(LLVM_PREBUILTS_BASE)/linux-x86/$(LLVM_PREBUILTS_VERSION)/bin/llvm-cov \
 		-f $(LLVM_PREBUILTS_BASE)/linux-x86/$(LLVM_PREBUILTS_VERSION)/bin/llvm-profdata \
 		-f $(LLVM_PREBUILTS_BASE)/linux-x86/$(LLVM_PREBUILTS_VERSION)/bin/llvm-symbolizer \
-		-f $(LLVM_PREBUILTS_BASE)/linux-x86/$(LLVM_PREBUILTS_VERSION)/lib64/libc++.so.1
+		-f $(LLVM_PREBUILTS_BASE)/linux-x86/$(LLVM_PREBUILTS_VERSION)/lib/x86_64-unknown-linux-gnu/libc++.so.1
 
 $(call declare-container-license-metadata,$(bluetooth_cert_tests_py_package_zip),\
     SPDX-license-identifier-Apache-2.0 SPDX-license-identifier-BSD SPDX-license-identifier-MIT legacy_unencumbered,\

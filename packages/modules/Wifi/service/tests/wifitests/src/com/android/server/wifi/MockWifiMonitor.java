@@ -55,6 +55,13 @@ public class MockWifiMonitor extends WifiMonitor {
         sendMessage(iface, Message.obtain(null, what));
     }
 
+    /**
+     * Send a message and assert that it was dispatched to a handler
+     */
+    public void sendMessage(String iface, int what, int arg1) {
+        sendMessage(iface, Message.obtain(null, what, arg1, 0));
+    }
+
     public void sendMessage(String iface, Message message) {
         SparseArray<Handler> ifaceHandlers = mHandlerMap.get(iface);
         if (ifaceHandlers != null) {

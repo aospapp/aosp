@@ -30,6 +30,8 @@ using ::bluetooth::audio::hidl::BluetoothAudioCtrlAck;
 using ::le_audio::set_configurations::AudioSetConfiguration;
 using ::le_audio::set_configurations::CodecCapabilitySetting;
 
+using ::bluetooth::audio::le_audio::StartRequestState;
+
 constexpr uint8_t kChannelNumberMono = 1;
 constexpr uint8_t kChannelNumberStereo = 2;
 
@@ -81,8 +83,9 @@ class LeAudioTransport {
                                       uint8_t channels_count,
                                       uint32_t data_interval);
 
-  bool IsPendingStartStream(void);
-  void ClearPendingStartStream(void);
+  StartRequestState GetStartRequestState(void);
+  void ClearStartRequestState(void);
+  void SetStartRequestState(StartRequestState state);
 
  private:
   void (*flush_)(void);
@@ -91,7 +94,7 @@ class LeAudioTransport {
   uint64_t total_bytes_processed_;
   timespec data_position_;
   PcmParameters pcm_config_;
-  bool is_pending_start_request_;
+  std::atomic<StartRequestState> start_request_state_;
 };
 
 // Sink transport implementation for Le Audio
@@ -126,8 +129,9 @@ class LeAudioSinkTransport
                                       uint8_t channels_count,
                                       uint32_t data_interval);
 
-  bool IsPendingStartStream(void);
-  void ClearPendingStartStream(void);
+  StartRequestState GetStartRequestState(void);
+  void ClearStartRequestState(void);
+  void SetStartRequestState(StartRequestState state);
 
   static inline LeAudioSinkTransport* instance = nullptr;
   static inline BluetoothAudioSinkClientInterface* interface = nullptr;
@@ -168,8 +172,9 @@ class LeAudioSourceTransport
                                       uint8_t channels_count,
                                       uint32_t data_interval);
 
-  bool IsPendingStartStream(void);
-  void ClearPendingStartStream(void);
+  StartRequestState GetStartRequestState(void);
+  void ClearStartRequestState(void);
+  void SetStartRequestState(StartRequestState state);
 
   static inline LeAudioSourceTransport* instance = nullptr;
   static inline BluetoothAudioSourceClientInterface* interface = nullptr;

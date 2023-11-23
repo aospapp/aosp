@@ -98,6 +98,12 @@ public class RegulatoryInfo {
 
         byte sourceOfInfoByte = (byte) ((firstByte & SOURCE_OF_INFO_FIELD_MASK) >> 4);
         SourceOfInfo sourceOfInfo = parseSourceOfInfo(sourceOfInfoByte);
+        if (sourceOfInfo == null) {
+            logw(
+                    "Failed to convert bytes into UWB Regulatory Info due to invalid"
+                            + " source Of info.");
+            return null;
+        }
 
         if ((firstByte & UWB_REGULATORY_INFO_RESERVED_FIELD_MASK)
                 != UWB_REGULATORY_INFO_RESERVED_FIELD_DATA) {

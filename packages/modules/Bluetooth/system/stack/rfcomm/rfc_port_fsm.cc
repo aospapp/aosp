@@ -23,21 +23,24 @@
  *
  ******************************************************************************/
 
+#include <base/logging.h>
+
 #include <cstdint>
 #include <cstring>
 #include <set>
 
 #include "bt_target.h"
+#include "gd/hal/snoop_logger.h"
+#include "main/shim/shim.h"
 #include "osi/include/allocator.h"
 #include "osi/include/log.h"
 #include "osi/include/osi.h"  // UNUSED_ATTR
 #include "stack/btm/btm_sec.h"
 #include "stack/include/bt_hdr.h"
 #include "stack/include/sdpdefs.h"
+#include "stack/l2cap/l2c_int.h"
 #include "stack/rfcomm/port_int.h"
 #include "stack/rfcomm/rfc_int.h"
-
-#include <base/logging.h>
 
 static const std::set<uint16_t> uuid_logging_acceptlist = {
     UUID_SERVCLASS_HEADSET_AUDIO_GATEWAY,
@@ -122,18 +125,12 @@ void rfc_port_sm_execute(tPORT* p_port, tRFC_PORT_EVENT event, void* p_data) {
  ******************************************************************************/
 void rfc_port_sm_state_closed(tPORT* p_port, tRFC_PORT_EVENT event,
                               void* p_data) {
-  uint32_t scn = (uint32_t)(p_port->dlci / 2);
   switch (event) {
     case RFC_PORT_EVENT_OPEN:
       p_port->rfc.state = RFC_STATE_ORIG_WAIT_SEC_CHECK;
-      if (rfcomm_security_records.count(scn) == 0) {
-        rfc_sec_check_complete(nullptr, BT_TRANSPORT_BR_EDR, p_port,
-                               BTM_NO_RESOURCES);
-        return;
-      }
       btm_sec_mx_access_request(p_port->rfc.p_mcb->bd_addr, true,
-                                rfcomm_security_records[scn],
-                                &rfc_sec_check_complete, p_port);
+                                p_port->sec_mask, &rfc_sec_check_complete,
+                                p_port);
       return;
 
     case RFC_PORT_EVENT_CLOSE:
@@ -153,14 +150,9 @@ void rfc_port_sm_state_closed(tPORT* p_port, tRFC_PORT_EVENT event,
 
       /* Open will be continued after security checks are passed */
       p_port->rfc.state = RFC_STATE_TERM_WAIT_SEC_CHECK;
-      if (rfcomm_security_records.count(scn) == 0) {
-        rfc_sec_check_complete(nullptr, BT_TRANSPORT_BR_EDR, p_port,
-                               BTM_NO_RESOURCES);
-        return;
-      }
-      btm_sec_mx_access_request(p_port->rfc.p_mcb->bd_addr, true,
-                                rfcomm_security_records[scn],
-                                &rfc_sec_check_complete, p_port);
+      btm_sec_mx_access_request(p_port->rfc.p_mcb->bd_addr, false,
+                                p_port->sec_mask, &rfc_sec_check_complete,
+                                p_port);
       return;
 
     case RFC_PORT_EVENT_UA:
@@ -234,6 +226,30 @@ void rfc_port_sm_sabme_wait_ua(tPORT* p_port, tRFC_PORT_EVENT event,
     case RFC_PORT_EVENT_UA:
       rfc_port_timer_stop(p_port);
       p_port->rfc.state = RFC_STATE_OPENED;
+
+      if (uuid_logging_acceptlist.find(p_port->uuid) !=
+          uuid_logging_acceptlist.end()) {
+        // Find Channel Control Block by Channel ID
+        tL2C_CCB* p_ccb =
+            l2cu_find_ccb_by_cid(nullptr, p_port->rfc.p_mcb->lcid);
+        if (p_ccb) {
+          bluetooth::shim::GetSnoopLogger()->AcceptlistRfcommDlci(
+              p_ccb->p_lcb->Handle(), p_port->rfc.p_mcb->lcid, p_port->dlci);
+        }
+      }
+      if (p_port->rfc.p_mcb) {
+        uint16_t lcid;
+        tL2C_CCB* ccb;
+
+        lcid = p_port->rfc.p_mcb->lcid;
+        ccb = l2cu_find_ccb_by_cid(nullptr, lcid);
+
+        if (ccb) {
+          bluetooth::shim::GetSnoopLogger()->SetRfcommPortOpen(
+              ccb->p_lcb->Handle(), lcid, p_port->dlci, p_port->uuid,
+              p_port->rfc.p_mcb->flow == PORT_FC_CREDIT);
+        }
+      }
 
       PORT_DlcEstablishCnf(p_port->rfc.p_mcb, p_port->dlci,
                            p_port->rfc.p_mcb->peer_l2cap_mtu, RFCOMM_SUCCESS);
@@ -349,6 +365,30 @@ void rfc_port_sm_term_wait_sec_check(tPORT* p_port, tRFC_PORT_EVENT event,
       } else {
         rfc_send_ua(p_port->rfc.p_mcb, p_port->dlci);
         p_port->rfc.state = RFC_STATE_OPENED;
+
+        if (uuid_logging_acceptlist.find(p_port->uuid) !=
+            uuid_logging_acceptlist.end()) {
+          // Find Channel Control Block by Channel ID
+          tL2C_CCB* p_ccb =
+              l2cu_find_ccb_by_cid(nullptr, p_port->rfc.p_mcb->lcid);
+          if (p_ccb) {
+            bluetooth::shim::GetSnoopLogger()->AcceptlistRfcommDlci(
+                p_ccb->p_lcb->Handle(), p_port->rfc.p_mcb->lcid, p_port->dlci);
+          }
+        }
+        if (p_port->rfc.p_mcb) {
+          uint16_t lcid;
+          tL2C_CCB* ccb;
+
+          lcid = p_port->rfc.p_mcb->lcid;
+          ccb = l2cu_find_ccb_by_cid(nullptr, lcid);
+
+          if (ccb) {
+            bluetooth::shim::GetSnoopLogger()->SetRfcommPortOpen(
+                ccb->p_lcb->Handle(), lcid, p_port->dlci, p_port->uuid,
+                p_port->rfc.p_mcb->flow == PORT_FC_CREDIT);
+          }
+        }
       }
       return;
     default:
@@ -596,7 +636,7 @@ void rfc_port_uplink_data(tPORT* p_port, BT_HDR* p_buf) {
 void rfc_process_pn(tRFC_MCB* p_mcb, bool is_command, MX_FRAME* p_frame) {
   RFCOMM_TRACE_DEBUG("%s: is_initiator=%d, is_cmd=%d, state=%d, bd_addr=%s",
                      __func__, p_mcb->is_initiator, is_command, p_mcb->state,
-                     p_mcb->bd_addr.ToString().c_str());
+                     ADDRESS_TO_LOGGABLE_CSTR(p_mcb->bd_addr));
   uint8_t dlci = p_frame->dlci;
 
   if (is_command) {

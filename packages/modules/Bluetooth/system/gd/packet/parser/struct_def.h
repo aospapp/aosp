@@ -46,6 +46,7 @@ class StructDef : public ParentDef {
 
   void GenDefinitionPybind11(std::ostream& s) const;
 
+  void GenDefaultConstructor(std::ostream& s) const;
   void GenConstructor(std::ostream& s) const;
 
   Size GetStructOffsetForField(std::string field_name) const;

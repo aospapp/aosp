@@ -13,6 +13,7 @@ rust_library_host_rlib {
     crate_name: "bt_topshim",
     srcs: [
         "src/lib.rs",
+
         ":libbt_topshim_wrapper_bindgen",
     ],
     rustlibs: [
@@ -20,16 +21,16 @@ rust_library_host_rlib {
         "libbluetooth_rs",
         "libbt_common",
         "libbt_facade_helpers",
-        "libclap",
+        "libbt_packets",
         "libcxx",
+        "libfutures",
         "libgrpcio",
+        "liblazy_static",
+        "liblog_rust",
+        "libnix",
+        "libnum_traits",
         "libtokio",
         "libtokio_stream",
-        "libbt_packets",
-        "libfutures",
-        "libnum_traits",
-        "libnix",
-        "liblog_rust",
     ],
     proc_macros: [
         "libnum_derive",
@@ -40,29 +41,26 @@ rust_library_host_rlib {
     clippy_lints: "none",
 }
 
-
 cc_library_static {
     name: "libbt_topshim_cxx",
     defaults: [
         "gd_ffi_defaults",
         "libchrome_support_defaults",
     ],
-    header_libs: ["libbt_callbacks_cxx_headers"],
     srcs: [
         "btav/btav_shim.cc",
         "btav_sink/btav_sink_shim.cc",
         "btif/btif_shim.cc",
-        "gatt/gatt_shim.cc",
-        "gatt/gatt_ble_scanner_shim.cc",
-        "gatt/gatt_ble_advertiser_shim.cc",
-        "hfp/hfp_shim.cc",
         "controller/controller_shim.cc",
-        "common/utils.cc",
+        "gatt/gatt_ble_advertiser_shim.cc",
+        "gatt/gatt_ble_scanner_shim.cc",
+        "gatt/gatt_shim.cc",
+        "hfp/hfp_shim.cc",
     ],
     generated_headers: [
+        "cxx-bridge-header",
         "libbt_init_flags_bridge_header",
         "libbt_topshim_bridge_header",
-        "cxx-bridge-header"
     ],
     generated_sources: ["libbt_topshim_bridge_code"],
     include_dirs: [
@@ -81,11 +79,11 @@ gensrcs {
     cmd: "$(location cxxbridge) $(in) --header > $(out)",
     srcs: [
         "src/btif.rs",
+        "src/controller.rs",
         "src/profiles/a2dp.rs",
         "src/profiles/avrcp.rs",
-        "src/profiles/hfp.rs",
         "src/profiles/gatt.rs",
-        "src/controller.rs",
+        "src/profiles/hfp.rs",
     ],
     output_extension: "rs.h",
     export_include_dirs: ["."],
@@ -97,11 +95,11 @@ gensrcs {
     cmd: "$(location cxxbridge) $(in) > $(out)",
     srcs: [
         "src/btif.rs",
+        "src/controller.rs",
         "src/profiles/a2dp.rs",
         "src/profiles/avrcp.rs",
-        "src/profiles/hfp.rs",
         "src/profiles/gatt.rs",
-        "src/controller.rs",
+        "src/profiles/hfp.rs",
     ],
     output_extension: "cc",
     export_include_dirs: ["."],
@@ -115,28 +113,36 @@ rust_bindgen {
     cpp_std: "c++17",
     host_supported: true,
     bindgen_flags: [
-        "--size_t-is-usize",
         "--allowlist-function=bt_.*",
-        "--allowlist-function=bthh_.*",
         "--allowlist-function=btgatt_.*",
+        "--allowlist-function=bthh_.*",
         "--allowlist-function=btsdp.*",
         "--allowlist-function=hal_util_.*",
-        "--allowlist-type=bt_.*",
-        "--allowlist-type=bthh_.*",
-        "--allowlist-type=btgatt_.*",
+        "--allowlist-function=osi_property_get.*",
         "--allowlist-type=bluetooth_sdp.*",
+        "--allowlist-type=bt_.*",
+        "--allowlist-type=btgatt_.*",
+        "--allowlist-type=bthf_.*",
+        "--allowlist-type=bthh_.*",
+        "--allowlist-type=btrc_.*",
         "--allowlist-type=btsdp.*",
+        "--allowlist-type=btsock_.*",
+        "--allowlist-type=sock_connect_signal_t",
         "--enable-cxx-namespaces",
         "--opaque-type=std::.*",
+        "--size_t-is-usize",
         "--with-derive-default",
-        "--with-derive-partialeq",
         "--with-derive-eq",
+        "--with-derive-partialeq",
     ],
     shared_libs: [
         "libc++",
     ],
+    // The bindgen rule can only include headers via header_libs and does not
+    // support include_dirs. Make sure newly added headers have the correct
+    // header export target listed here.
     header_libs: [
         "libbluetooth_headers",
+        "libbluetooth_system_headers",
     ],
-    include_dirs: ["packages/modules/Bluetooth/system"],
 }

@@ -13,4 +13,6 @@
     <string name="localPhoneName" msgid="9119254982537191352">"名前"</string>
     <string name="defaultnumber" msgid="5348816189286607406">"000000"</string>
     <string name="pbap_notification_group" msgid="4215789331721465381">"Bluetooth での連絡先の共有"</string>
+    <string name="phonebook_advance_feature_support" msgid="8129553051734505128">"高度な電話帳機能に対応"</string>
+    <string name="repair_for_adv_phonebook_feature" msgid="3489797973131684927">"高度な電話帳機能に合わせて再度ペア設定"</string>
 </resources>

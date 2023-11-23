@@ -25,6 +25,7 @@ filegroup {
 
 java_library {
     name: "service-statsd",
+    defaults: ["standalone-system-server-module-optimize-defaults"],
     srcs: [ ":service-statsd-sources" ],
     sdk_version: "system_server_current",
     libs: [
@@ -32,11 +33,11 @@ java_library {
         // Use the implementation library directly.
         // TODO(b/204183608): Remove when no longer necessary.
         "framework-statsd.impl",
+        "framework-configinfrastructure",
     ],
     static_libs: [
         "modules-utils-build",
     ],
-    plugins: ["java_api_finder"],
     lint: {
         strict_updatability_linting: true
     },

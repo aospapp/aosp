@@ -32,6 +32,11 @@ class BtmApiInterface {
                                 uint32_t mx_chan_id) = 0;
   virtual uint8_t acl_link_role(const RawAddress& remote_bd_addr,
                                 tBT_TRANSPORT transport) = 0;
+  virtual bool IsEncrypted(const RawAddress& remote_bd_addr,
+                           tBT_TRANSPORT transport) = 0;
+  virtual bool IsLinkKeyKnown(const RawAddress& remote_bd_addr,
+                              tBT_TRANSPORT transport) = 0;
+  virtual uint8_t ReadSecKeySize(const RawAddress& remote_bd_addr) = 0;
   virtual ~BtmApiInterface() = default;
 };
 
@@ -43,6 +48,11 @@ class MockBtmApiInterface : public BtmApiInterface {
                     uint32_t mx_chan_id));
   MOCK_METHOD2(acl_link_role, uint8_t(const RawAddress& remote_bd_addr,
                                       tBT_TRANSPORT transport));
+  MOCK_METHOD2(IsEncrypted,
+               bool(const RawAddress& remote_bd_addr, tBT_TRANSPORT transport));
+  MOCK_METHOD2(IsLinkKeyKnown,
+               bool(const RawAddress& remote_bd_addr, tBT_TRANSPORT transport));
+  MOCK_METHOD1(ReadSecKeySize, uint8_t(const RawAddress& remote_bd_addr));
 };
 
 /**

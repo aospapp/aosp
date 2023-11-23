@@ -25,6 +25,8 @@ import java.util.Arrays;
  * ObjectIdentifier for ADF OID.
  */
 public class ObjectIdentifier {
+    public static final ObjectIdentifier INVALID_OID =
+            ObjectIdentifier.fromBytes(new byte[] {(byte) 0});
     public final byte[] value;
 
     private ObjectIdentifier(@NonNull byte[] value) {
@@ -34,7 +36,11 @@ public class ObjectIdentifier {
     /**
      * Convert the byte array to ObjectIdentifier.
      */
+    @Nullable
     public static ObjectIdentifier fromBytes(@NonNull byte[] bytes) {
+        if (bytes.length == 0) {
+            return null;
+        }
         return new ObjectIdentifier(bytes);
     }
 

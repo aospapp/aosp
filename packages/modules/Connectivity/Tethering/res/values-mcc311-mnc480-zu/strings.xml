@@ -16,9 +16,9 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="no_upstream_notification_title" msgid="611650570559011140">"Ukusebenzisa ifoni njengemodemu akunayo i-inthanethi"</string>
-    <string name="no_upstream_notification_message" msgid="6508394877641864863">"Amadivayisi awakwazi ukuxhumeka"</string>
-    <string name="no_upstream_notification_disable_button" msgid="7609346639290990508">"Vala ukusebenzisa ifoni njengemodemu"</string>
-    <string name="upstream_roaming_notification_title" msgid="6032901176124830787">"I-hotspot noma ukusebenzisa ifoni njengemodemu kuvuliwe"</string>
-    <string name="upstream_roaming_notification_message" msgid="7599056263326217523">"Kungaba nezinkokhelo ezengeziwe uma uzula"</string>
+    <string name="no_upstream_notification_title" msgid="5897815458155858594">"Ukusebenzisa ifoni njengemodemu akunayo i-inthanethi"</string>
+    <string name="no_upstream_notification_message" msgid="9037716118606459874">"Amadivayisi awakwazi ukuxhuma"</string>
+    <string name="no_upstream_notification_disable_button" msgid="5284024068281565456">"Vala ukusebenzisa ifoni njengemodemu"</string>
+    <string name="upstream_roaming_notification_title" msgid="186331286017243006">"I-hotspot noma ukusebenzisa ifoni njengemodemu kuvuliwe"</string>
+    <string name="upstream_roaming_notification_message" msgid="7692641323940316538">"Kungaba nezinkokhelo ezengeziwe uma uzula"</string>
 </resources>

@@ -222,7 +222,6 @@ public class ProjectionOptions {
 
     /** @hide */
     @Override
-    @AddedInOrBefore(majorVersion = 33)
     public String toString() {
         return toBundle().toString();
     }

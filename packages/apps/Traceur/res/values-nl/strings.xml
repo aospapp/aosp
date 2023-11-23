@@ -4,6 +4,9 @@
     <string name="system_tracing" msgid="4719188511746319848">"System Tracing"</string>
     <string name="record_system_activity" msgid="4339462312915377825">"Registreer systeemactiviteit en analyseer deze later om de prestaties te verbeteren"</string>
     <string name="record_trace" msgid="6416875085186661845">"Spoor opnemen"</string>
+    <string name="record_trace_summary" msgid="6705357754827849292">"Legt een systeemtracering vast met de configuratie die is ingesteld in Traceringsinstelingen"</string>
+    <string name="record_stack_samples" msgid="3498368637185702335">"CPU-profiel opnemen"</string>
+    <string name="record_stack_samples_summary" msgid="7827953921526410478">"Callstack-sampling kan ook worden aangezet in traceringen door de categorie \'cpu\' aan te vinken"</string>
     <string name="start_new_trace" msgid="8177130420802170353">"Nieuwe tracering starten"</string>
     <string name="trace_debuggable_applications" msgid="7957069895298887899">"Beschikbare apps voor foutopsporing traceren"</string>
     <string name="categories" msgid="2280163673538611008">"Categorieën"</string>
@@ -17,7 +20,9 @@
     <string name="show_quick_settings_tile" msgid="4971147332635291585">"Tegel tonen voor Snelle instellingen"</string>
     <string name="saving_trace" msgid="1468692734770800541">"Spoor opslaan…"</string>
     <string name="trace_saved" msgid="5869970594780992309">"Spoor opgeslagen"</string>
-    <string name="tap_to_share" msgid="6766732404489536899">"Tik om je spoor te delen"</string>
+    <string name="saving_stack_samples" msgid="8174915522390525221">"Stack-samples opslaan"</string>
+    <string name="stack_samples_saved" msgid="8863295751647724616">"Stack-samples opgeslagen"</string>
+    <string name="tap_to_share" msgid="4440713575852187545">"Tik om je opname te delen"</string>
     <string name="attaching_to_report" msgid="2629202947947275886">"Tracering bijvoegen bij bugrapport"</string>
     <string name="attached_to_report" msgid="5806905349184608870">"Tracering bijgevoegd bij bugrapport"</string>
     <string name="attached_to_report_summary" msgid="7665675771190391355">"Tik om BetterBug te openen"</string>
@@ -25,18 +30,19 @@
     <string name="tracing_categories_unavailable" msgid="5609076391417077752">"Sommige spoorcategorieën zijn niet beschikbaar:"</string>
     <string name="trace_is_being_recorded" msgid="5947378146009337469">"Tracering wordt opgenomen"</string>
     <string name="tap_to_stop_tracing" msgid="6533282719573871806">"Tik om te stoppen met traceren"</string>
-    <string name="clear_saved_traces" msgid="4809195654452260944">"Opgeslagen traceringen wissen"</string>
-    <string name="clear_saved_traces_summary" msgid="6035923138201219577">"Traces worden na één maand gewist"</string>
-    <string name="clear_saved_traces_question" msgid="2184026613055303818">"Opgeslagen traceringen wissen?"</string>
-    <string name="all_traces_will_be_deleted" msgid="6646545462206955920">"Alle traceringen worden verwijderd uit /data/local/traces"</string>
+    <string name="stack_samples_are_being_recorded" msgid="8669254939248349583">"Stack-samples worden opgenomen"</string>
+    <string name="tap_to_stop_stack_sampling" msgid="5911317684139059415">"Tik om stack-sampling te stoppen"</string>
+    <string name="clear_saved_files" msgid="9156079311231446825">"Opgeslagen bestanden wissen"</string>
+    <string name="clear_saved_files_summary" msgid="109751867417553670">"Opnamen worden na één maand gewist"</string>
+    <string name="clear_saved_files_question" msgid="8586686617760838834">"Opgeslagen bestanden wissen?"</string>
+    <string name="all_recordings_will_be_deleted" msgid="7731693738485947891">"Alle opnamen worden verwijderd uit /data/local/traces"</string>
     <string name="clear" msgid="5484761795406948056">"Wissen"</string>
     <string name="system_traces_storage_title" msgid="8294090839883366871">"Systeemsporen"</string>
     <string name="keywords" msgid="736547007949049535">"systrace, trace, prestaties"</string>
-    <string name="share_trace" msgid="4528525067822044385">"Trace delen?"</string>
+    <string name="share_file" msgid="1982029143280382271">"Bestand delen?"</string>
     <string name="system_trace_sensitive_data" msgid="3069389866696009549">"Bestanden voor systeemtracering kunnen gevoelige systeem- en app-gegevens bevatten (bijvoorbeeld over app-gebruik). Deel alleen systeemtraceringen met mensen en apps die je vertrouwt."</string>
     <string name="share" msgid="8443979083706282338">"Delen"</string>
     <string name="dont_show_again" msgid="6662492041164390600">"Niet meer tonen"</string>
-    <string name="use_perfetto_beta" msgid="2725630143916520160">"Perfetto (bèta) gebruiken"</string>
     <string name="long_traces" msgid="5110949471775966329">"Lange traces"</string>
     <string name="long_traces_summary" msgid="419034282946761469">"Wordt continu opgeslagen in de opslagruimte van het apparaat"</string>
     <string name="long_traces_summary_betterbug" msgid="445546400875135624">"Doorlopend opgeslagen in apparaatopslag (niet automatisch bijgevoegd bij bugrapporten)"</string>
@@ -58,9 +64,12 @@
     <string name="sixteen_thousand_kb" msgid="7342517169232459259">"16.384 KB"</string>
     <string name="thirtytwo_thousand_kb" msgid="654328198799196150">"32.768 KB"</string>
     <string name="sixtyfive_thousand_kb" msgid="8168144138598305306">"65.536 KB"</string>
-    <string name="stop_on_bugreport" msgid="2045328149107284734">"Niet meer traceren voor bugrapporten"</string>
-    <string name="stop_on_bugreport_summary" msgid="7844074306038850040">"Beëindigt actieve traceeropnamen wanneer een bugrapport wordt gestart"</string>
-    <string name="attach_to_bug_report" msgid="2953745117960948415">"Traceringen bijvoegen bij bugrapporten"</string>
-    <string name="attach_to_bug_report_summary" msgid="2225208904634565377">"Lopende traceringen automatisch naar BetterBug sturen wanneer een bugrapport wordt verzameld"</string>
-    <string name="link_to_traces" msgid="6569969595898995517">"Trace-bestanden bekijken"</string>
+    <string name="stop_on_bugreport" msgid="4591832600597126422">"Opnamen voor bugrapporten stoppen"</string>
+    <string name="stop_on_bugreport_summary" msgid="1601834864982891381">"Beëindigt actieve opnamen als een bugrapport is gestart"</string>
+    <string name="attach_to_bug_report" msgid="5388986830016247490">"Opnamen toevoegen aan bugrapporten"</string>
+    <string name="attach_to_bug_report_summary" msgid="4213730623971240002">"Lopende opnamen automatisch naar BetterBug sturen als een bugrapport wordt verzameld"</string>
+    <string name="link_to_traces" msgid="1404687523304348490">"Opgeslagen bestanden bekijken"</string>
+    <string name="pref_category_trace_settings" msgid="6507535407023329628">"Traceringsinstellingen"</string>
+    <string name="pref_category_saved_files" msgid="1477491400970413291">"Opgeslagen bestanden"</string>
+    <string name="pref_category_misc" msgid="6217624054980014683">"Overig"</string>
 </resources>

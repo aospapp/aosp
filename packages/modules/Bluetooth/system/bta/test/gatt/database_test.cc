@@ -119,12 +119,15 @@ TEST(GattCacheTest, stored_attribute_to_binary_service_test) {
       /* type*/ 0x00, 0x00, 0x28, 0x00, 0x00, 0x00, 0x10, 0x00, 0x80, 0x00, 0x00, 0x80, 0x5F, 0x9B, 0x34, 0xFB,
       /* service uuid */ 0x00, 0x00, 0x18, 0x00, 0x00, 0x00, 0x10, 0x00, 0x80, 0x00, 0x00, 0x80, 0x5F, 0x9B, 0x34, 0xFB,
       /* end handle */ 0x1C, 0x00,
-      /* cleared padding at end of union*/ 0x00, 0x00};
+      /* padding at end of union*/ 0x00, 0x00};
   // clang-format on
 
   // useful for debugging:
   // LOG(ERROR) << " " << base::HexEncode(&attr, len);
-  EXPECT_EQ(memcmp(binary_form, &attr, len), 0);
+
+  // Do not compare last 2 bytes which are padding as
+  // x86 can use non-zero padding causing the test to fail
+  EXPECT_EQ(memcmp(binary_form, &attr, len - 2), 0);
 }
 
 /* This test makes sure that Service represented in StoredAttribute have proper
@@ -202,7 +205,9 @@ TEST(GattCacheTest, stored_attribute_to_binary_descriptor_test) {
   /* make sure padding at end of union is cleared */
   memset(&attr, 0, sizeof(attr));
 
-  attr = {.handle = 0x0003, .type = Uuid::FromString("2902"), .value = {}};
+  attr = {.handle = 0x0003,
+          .type = Uuid::FromString("2902"),
+          .value = {.characteristic_extended_properties = 0x00}};
 
   constexpr size_t len = sizeof(StoredAttribute);
   // clang-format off

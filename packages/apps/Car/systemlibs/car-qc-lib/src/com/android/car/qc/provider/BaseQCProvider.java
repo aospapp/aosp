@@ -172,7 +172,11 @@ public abstract class BaseQCProvider extends ContentProvider {
         try {
             StrictMode.setThreadPolicy(new StrictMode.ThreadPolicy.Builder()
                     .detectAll()
-                    .penaltyDeath()
+
+                    // TODO(268275789): Revert back to penaltyDeath and ensure it works in
+                    //                  presubmit
+                    .penaltyLog()
+
                     .build());
             return onBind(uri);
         } finally {

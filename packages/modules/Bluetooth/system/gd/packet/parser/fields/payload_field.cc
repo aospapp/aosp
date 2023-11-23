@@ -44,7 +44,7 @@ Size PayloadField::GetSize() const {
 
   std::string dynamic_size = "(Get" + util::UnderscoreToCamelCase(size_field_->GetName()) + "() * 8)";
   if (!size_modifier_.empty()) {
-    dynamic_size += "- (" + size_modifier_ + ")";
+    dynamic_size += "- (" + size_modifier_.substr(1) + " * 8)";
   }
 
   return dynamic_size;
@@ -70,14 +70,6 @@ void PayloadField::GenGetter(std::ostream& s, Size start_offset, Size end_offset
   GenBounds(s, start_offset, end_offset, GetSize());
   s << "return GetLittleEndianSubview(field_begin, field_end);";
   s << "}\n\n";
-
-  s << "PacketView<!kLittleEndian> " << GetGetterFunctionName() << "BigEndian() const {";
-  s << "ASSERT(was_validated_);";
-  s << "size_t end_index = size();";
-  s << "auto to_bound = begin();";
-  GenBounds(s, start_offset, end_offset, GetSize());
-  s << "return GetBigEndianSubview(field_begin, field_end);";
-  s << "}\n";
 }
 
 std::string PayloadField::GetBuilderParameterType() const {
@@ -121,7 +113,7 @@ void PayloadField::GenBoundsCheck(std::ostream& s, Size start_offset, Size, std:
   if (size_field_ != nullptr) {
     s << "let want_ = " << start_offset.bytes() << " + (" << size_field_->GetName() << " as usize)";
     if (!size_modifier_.empty()) {
-      s << " - ((" << size_modifier_.substr(1) << ") / 8)";
+      s << " - " << size_modifier_.substr(1);
     }
     s << ";";
     s << "if bytes.len() < want_ {";
@@ -132,7 +124,7 @@ void PayloadField::GenBoundsCheck(std::ostream& s, Size start_offset, Size, std:
     s << "    got: bytes.len()});";
     s << "}";
     if (!size_modifier_.empty()) {
-      s << "if ((" << size_field_->GetName() << " as usize) < ((" << size_modifier_.substr(1) << ") / 8)) {";
+      s << "if (" << size_field_->GetName() << " as usize) < " << size_modifier_.substr(1) << " {";
       s << " return Err(Error::ImpossibleStructError);";
       s << "}";
     }

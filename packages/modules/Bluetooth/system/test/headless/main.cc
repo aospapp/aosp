@@ -16,26 +16,58 @@
 
 #define LOG_TAG "bt_headless"
 
-#include <iostream>
-#include <unordered_map>
-
+#include <fcntl.h>
+#include <stdio.h>
+#include <sys/socket.h>
 #include <sys/wait.h>
 #include <unistd.h>
+
+#include <iostream>
+#include <unordered_map>
 
 #include "base/logging.h"     // LOG() stdout and android log
 #include "osi/include/log.h"  // android log only
 #include "test/headless/connect/connect.h"
+#include "test/headless/discovery/discovery.h"
 #include "test/headless/dumpsys/dumpsys.h"
 #include "test/headless/get_options.h"
 #include "test/headless/headless.h"
+#include "test/headless/log.h"
 #include "test/headless/nop/nop.h"
 #include "test/headless/pairing/pairing.h"
 #include "test/headless/read/read.h"
+#include "test/headless/scan/scan.h"
 #include "test/headless/sdp/sdp.h"
+#include "test/headless/util.h"
 
 using namespace bluetooth::test::headless;
 
+int console_fd = -1;
+
 namespace {
+
+constexpr char kRedirectedStderrFilename[] = "/dev/null";
+FILE* redirected_stderr_{nullptr};
+
+// Ok...so if `stderr` stream is closed, the Android logging system will find
+// another stream to write `LOG(<LogLevel>)` messages...any...stream.
+// Unfortunately the next stream/fd is the bluetooth snooplog output
+// file, so then a btsnoop_hci.log will interleave both raw hci packet
+// data and Android LOG files preventing proper capture of hci traffic.
+// To mitigate this, the `stderr` stream is redirected to another user
+// provided stream, may be `/dev/null`, may be any file if so desired.
+// This keeps everybody happy.
+void start_trick_the_android_logging_subsystem() {
+  redirected_stderr_ = freopen(kRedirectedStderrFilename, "w", stderr);
+  ASSERT_LOG(redirected_stderr_ != nullptr,
+             "Unable to open redirected stderr file");
+}
+
+void stop_trick_the_android_logging_subsystem() {
+  ASSERT(redirected_stderr_ != nullptr);
+  fclose(redirected_stderr_);
+  redirected_stderr_ = nullptr;
+}
 
 void clear_logcat() {
   int pid;
@@ -73,10 +105,17 @@ class Main : public HeadlessTest<int> {
     test_nodes_.emplace(
         "read", std::make_unique<bluetooth::test::headless::Read>(options));
     test_nodes_.emplace(
+        "scan", std::make_unique<bluetooth::test::headless::Scan>(options));
+    test_nodes_.emplace(
         "sdp", std::make_unique<bluetooth::test::headless::Sdp>(options));
+    test_nodes_.emplace(
+        "discovery",
+        std::make_unique<bluetooth::test::headless::Discovery>(options));
   }
 
   int Run() override {
+    console_fd = fcntl(STDERR_FILENO, F_DUPFD_CLOEXEC, STDERR_FILENO);
+    ASSERT(console_fd != -1);
     if (options_.close_stderr_) {
       fclose(stderr);
     }
@@ -85,7 +124,16 @@ class Main : public HeadlessTest<int> {
       clear_logcat();
     }
 
-    return HeadlessTest<int>::Run();
+    start_trick_the_android_logging_subsystem();
+    if (is_android_running()) {
+      LOG_CONSOLE("Android must be shutdown for binary to run");
+      LOG_CONSOLE("     /system/bin/stop");
+      return -1;
+    }
+    LOG_CONSOLE("bt_headless version:\'%s\'", build_id().c_str());
+    int rc = HeadlessTest<int>::Run();
+    stop_trick_the_android_logging_subsystem();
+    return rc;
   }
 };
 

@@ -17,8 +17,8 @@ package com.android.server.uwb.discovery.ble;
 
 import android.annotation.NonNull;
 import android.annotation.Nullable;
-import android.os.ParcelUuid;
 import android.util.Log;
+import android.util.SparseArray;
 
 import com.android.server.uwb.discovery.info.FiraProfileSupportInfo;
 import com.android.server.uwb.discovery.info.RegulatoryInfo;
@@ -26,7 +26,6 @@ import com.android.server.uwb.discovery.info.UwbIndicationData;
 import com.android.server.uwb.discovery.info.VendorSpecificData;
 import com.android.server.uwb.util.ArrayUtils;
 import com.android.server.uwb.util.DataTypeConversionUtil;
-import com.android.server.uwb.util.Hex;
 
 import com.google.common.primitives.Bytes;
 
@@ -34,46 +33,13 @@ import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
 
 /**
  * Holds data of the BLE discovery advertisement according to FiRa BLE OOB v1.0 specification.
  */
 public class DiscoveryAdvertisement {
     private static final String LOG_TAG = DiscoveryAdvertisement.class.getSimpleName();
-
-    // The FiRa service UUID for connector primary and connector secondary as defined in Bluetooth
-    // Specification Supplement v10.
-    public static final String FIRA_CP_SERVICE_UUID = "FFF3";
-    public static final String FIRA_CS_SERVICE_UUID = "FFF4";
-
-    /**
-     * Generate a Parcelable wrapper around UUID.
-     *
-     * @param uuid 16-bit ID (4 characters hex) assigned by Bluetooth specification for a particular
-     *     service.
-     * @return full 128-bit {@link ParcelUuid}, else null if invalid.
-     */
-    public static ParcelUuid getParcelUuid(String uuid) {
-        if (uuid.length() != 4) {
-            throw new IllegalStateException(
-                    String.format(
-                            "Failed to getParcelUuid from UUID string %s. UUID is expected to be 4"
-                                    + " characters",
-                            uuid));
-        }
-        return ParcelUuid.fromString("0000" + uuid + "-0000-1000-8000-00805F9B34FB");
-    }
-
-    // Size of the fields inside the advertisement.
-    private static final int LENGTH_SIZE = 1;
-    private static final int DATA_TYPE_SIZE = 1;
-    private static final int SERVICE_UUID_SIZE = 2;
-
-    private static final int MIN_ADVETISEMENT_SIZE =
-            LENGTH_SIZE + DATA_TYPE_SIZE + SERVICE_UUID_SIZE;
-
-    // Data type field value assigned by the Bluetooth GAP.
-    private static final byte DATA_TYPE = 0x16;
 
     // Mask and value of the FiRa specific field type field within each AD field.
     private static final byte FIRA_SPECIFIC_FIELD_TYPE_MASK = (byte) 0xF0;
@@ -85,7 +51,6 @@ public class DiscoveryAdvertisement {
     // FiRa specific field length field within each AD field.
     private static final byte FIRA_SPECIFIC_FIELD_LENGTH_MASK = 0x0F;
 
-    public final String serviceUuid;
     public final UwbIndicationData uwbIndicationData;
     public final RegulatoryInfo regulatoryInfo;
     public final FiraProfileSupportInfo firaProfileSupportInfo;
@@ -96,53 +61,18 @@ public class DiscoveryAdvertisement {
      *
      * @param serviceData byte array containing the UWB BLE Advertiser Service Data encoding based
      *     on the FiRa specification.
-     * @param manufacturerSpecificData byte array containing the UWB BLE Advertiser Manufacturer
-     *     Specific Data encoding based on the FiRa specification.
+     * @param vendorSpecificDataArray maps UWB vendor ID to vendor specific encoded data.
      * @return decode bytes into {@link DiscoveryAdvertisement}, else null if invalid.
      */
     @Nullable
     public static DiscoveryAdvertisement fromBytes(
-            @Nullable byte[] serviceData, @Nullable byte[] manufacturerSpecificData) {
+            @Nullable byte[] serviceData, @Nullable SparseArray<byte[]> vendorSpecificDataArray) {
         if (ArrayUtils.isEmpty(serviceData)) {
             logw("Failed to convert empty into BLE Discovery advertisement.");
             return null;
         }
 
-        if (serviceData.length < MIN_ADVETISEMENT_SIZE) {
-            logw(
-                    "Failed to convert bytes into BLE Discovery advertisement due to invalid"
-                            + " advertisement size.");
-            return null;
-        }
-
         ByteBuffer byteBuffer = ByteBuffer.wrap(serviceData);
-        int length = Byte.toUnsignedInt(byteBuffer.get());
-        if (length != serviceData.length - LENGTH_SIZE) {
-            logw(
-                    "Failed to convert bytes into BLE Discovery advertisement due to unmatched"
-                            + " advertisement size.");
-            return null;
-        }
-
-        byte dataType = byteBuffer.get();
-        if (dataType != DATA_TYPE) {
-            logw(
-                    "Failed to convert bytes into BLE Discovery advertisement due to unmatched"
-                            + " advertisement data type.");
-            return null;
-        }
-        // In little endian encoding
-        byte[] serviceUuidBytes = new byte[SERVICE_UUID_SIZE];
-        byteBuffer.get(serviceUuidBytes);
-        String serviceUuid = Hex.encodeUpper(new byte[] {serviceUuidBytes[1], serviceUuidBytes[0]});
-        if (!serviceUuid.equals(FIRA_CP_SERVICE_UUID)
-                && !serviceUuid.equals(FIRA_CS_SERVICE_UUID)) {
-            logw(
-                    "Failed to convert bytes into BLE Discovery advertisement due to invalid FiRa"
-                            + " advertisement service uuid="
-                            + serviceUuid);
-            return null;
-        }
 
         UwbIndicationData uwbIndicationData = null;
         RegulatoryInfo regulatoryInfo = null;
@@ -189,7 +119,8 @@ public class DiscoveryAdvertisement {
                 firaProfileSupportInfo = FiraProfileSupportInfo.fromBytes(fieldBytes);
             } else if (fieldType == FIRA_SPECIFIC_FIELD_TYPE_VENDOR_SPECIFIC_DATA) {
                 // There can be multiple Vendor specific data fields.
-                VendorSpecificData data = VendorSpecificData.fromBytes(fieldBytes);
+                VendorSpecificData data =
+                        VendorSpecificData.fromBytes(fieldBytes, Optional.empty());
                 if (data != null) {
                     vendorSpecificData.add(data);
                 }
@@ -205,34 +136,23 @@ public class DiscoveryAdvertisement {
         // product/implementation specific data inside “Service Data” AD type object with CS UUID.
         // It should be used only if the GAP Advertiser role doesn’t support exposing “Manufacturer
         // Specific Data” AD type object.
-        if (!ArrayUtils.isEmpty(manufacturerSpecificData)) {
-            ByteBuffer vendorByteBuffer = ByteBuffer.wrap(manufacturerSpecificData);
-            byte firstByte = vendorByteBuffer.get();
-            byte fieldType = (byte) ((firstByte & FIRA_SPECIFIC_FIELD_TYPE_MASK) >> 4);
-            byte fieldLength = (byte) (firstByte & FIRA_SPECIFIC_FIELD_LENGTH_MASK);
-            if (fieldType == FIRA_SPECIFIC_FIELD_TYPE_VENDOR_SPECIFIC_DATA) {
-                if (vendorByteBuffer.remaining() < fieldLength) {
-                    logw(
-                            "Failed to convert bytes into BLE Discovery advertisement due to"
-                                    + " manufacturer specific data ended unexpectedly.");
-                    return null;
-                }
-                byte[] fieldBytes = new byte[fieldLength];
-                vendorByteBuffer.get(fieldBytes);
-                VendorSpecificData data = VendorSpecificData.fromBytes(fieldBytes);
-                if (!vendorSpecificData.isEmpty()) {
-                    logw(
-                            "Failed to convert bytes into BLE Discovery advertisement due to Vendor"
+        if (vendorSpecificDataArray != null && vendorSpecificDataArray.size() != 0) {
+            if (!vendorSpecificData.isEmpty()) {
+                logw(
+                        "Failed to convert bytes into BLE Discovery advertisement due to Vendor"
                                 + " Specific Data exist in both Service Data AD and Manufacturer"
                                 + " Specific Data AD.");
-                    return null;
-                }
-                vendorSpecificData.add(data);
+                return null;
+            }
+            for (int i = 0; i < vendorSpecificDataArray.size(); i++) {
+                vendorSpecificData.add(
+                        VendorSpecificData.fromBytes(
+                                vendorSpecificDataArray.valueAt(i),
+                                Optional.of(vendorSpecificDataArray.keyAt(i))));
             }
         }
 
         return new DiscoveryAdvertisement(
-                serviceUuid,
                 uwbIndicationData,
                 regulatoryInfo,
                 firaProfileSupportInfo,
@@ -249,7 +169,7 @@ public class DiscoveryAdvertisement {
      */
     public static byte[] toBytes(
             @NonNull DiscoveryAdvertisement adv, boolean includeVendorSpecificData) {
-        byte[] data = convertMetadata(adv.serviceUuid);
+        byte[] data = new byte[] {};
 
         if (adv.uwbIndicationData != null) {
             data = Bytes.concat(data, convertUwbIndicationData(adv.uwbIndicationData));
@@ -266,7 +186,7 @@ public class DiscoveryAdvertisement {
             }
         }
 
-        return Bytes.concat(new byte[] {convertByteLength(data.length)}, data);
+        return data;
     }
 
     /**
@@ -280,11 +200,6 @@ public class DiscoveryAdvertisement {
             return convertVendorSpecificData(adv.vendorSpecificData[0]);
         }
         return null;
-    }
-
-    private static byte[] convertMetadata(String serviceUuid) {
-        byte[] uuidBytes = Hex.decode(serviceUuid);
-        return new byte[] {DATA_TYPE, uuidBytes[1], uuidBytes[0]};
     }
 
     private static byte convertByteLength(int size) {
@@ -345,12 +260,10 @@ public class DiscoveryAdvertisement {
     }
 
     public DiscoveryAdvertisement(
-            String serviceUuid,
             @Nullable UwbIndicationData uwbIndicationData,
             @Nullable RegulatoryInfo regulatoryInfo,
             @Nullable FiraProfileSupportInfo firaProfileSupportInfo,
             @Nullable VendorSpecificData[] vendorSpecificData) {
-        this.serviceUuid = serviceUuid;
         this.uwbIndicationData = uwbIndicationData;
         this.regulatoryInfo = regulatoryInfo;
         this.firaProfileSupportInfo = firaProfileSupportInfo;
@@ -360,9 +273,7 @@ public class DiscoveryAdvertisement {
     @Override
     public String toString() {
         StringBuilder sb = new StringBuilder();
-        sb.append("DiscoveryAdvertisement: serviceUuid=")
-                .append(serviceUuid)
-                .append(" uwbIndicationData={")
+        sb.append("DiscoveryAdvertisement: uwbIndicationData={")
                 .append(uwbIndicationData)
                 .append("} regulatoryInfo={")
                 .append(regulatoryInfo)

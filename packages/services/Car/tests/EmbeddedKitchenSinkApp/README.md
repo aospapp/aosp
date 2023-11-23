@@ -7,7 +7,7 @@ This is a privileged app for testing AAOS functionalities.
 **Build and Install**
 
 ```
-m -j EmbeddedKitchenSinkApp && db install -r -d $ANDROID_PRODUCT_OUT/system/priv-app/EmbeddedKitchenSinkApp/EmbeddedKitchenSinkApp.apk
+m -j EmbeddedKitchenSinkApp && adb install -r -d $ANDROID_PRODUCT_OUT/system/priv-app/EmbeddedKitchenSinkApp/EmbeddedKitchenSinkApp.apk
 ```
 
 **Start the app**

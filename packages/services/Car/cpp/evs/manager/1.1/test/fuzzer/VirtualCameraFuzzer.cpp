@@ -26,6 +26,9 @@
 namespace android::automotive::evs::V1_1::implementation {
 namespace {
 
+using ::android::hardware::automotive::evs::V1_1::BufferDesc;
+using ::android::hardware::automotive::evs::V1_1::EvsEventDesc;
+using ::android::hardware::automotive::evs::V1_1::EvsEventType;
 using CameraDesc_1_0 = ::android::hardware::automotive::evs::V1_0::CameraDesc;
 
 enum EvsFuzzFuncs {

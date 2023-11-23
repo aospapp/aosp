@@ -331,9 +331,8 @@ int adb_auth_pubkey(const char* filename) {
     if (!pubkey_from_privkey(&pubkey, filename)) {
         return 1;
     }
-    pubkey.push_back('\n');
-
-    return WriteFdExactly(STDOUT_FILENO, pubkey.data(), pubkey.size()) ? 0 : 1;
+    fprintf(stdout, "%s\n", pubkey.data());
+    return 0;
 }
 
 #if defined(__linux__)

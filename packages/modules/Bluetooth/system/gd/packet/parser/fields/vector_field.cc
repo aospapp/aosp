@@ -53,7 +53,7 @@ Size VectorField::GetSize() const {
   // size_field_ is of type SIZE
   if (size_field_->GetFieldType() == SizeField::kFieldType) {
     std::string ret = "(static_cast<size_t>(Get" + util::UnderscoreToCamelCase(size_field_->GetName()) + "()) * 8)";
-    if (!size_modifier_.empty()) ret += size_modifier_;
+    if (!size_modifier_.empty()) ret += "+ (" + size_modifier_.substr(1) + " * 8)";
     return ret;
   }
 
@@ -90,7 +90,7 @@ Size VectorField::GetStructSize() const {
   // size_field_ is of type SIZE
   if (size_field_->GetFieldType() == SizeField::kFieldType) {
     std::string ret = "(static_cast<size_t>(to_fill->" + size_field_->GetName() + "_extracted_) * 8)";
-    if (!size_modifier_.empty()) ret += "-" + size_modifier_;
+    if (!size_modifier_.empty()) ret += "- (" + size_modifier_.substr(1) + " * 8)";
     return ret;
   }
 
@@ -262,7 +262,7 @@ void VectorField::GenBoundsCheck(std::ostream& s, Size start_offset, Size, std::
   if (size_field_ != nullptr && size_field_->GetFieldType() == SizeField::kFieldType) {
     s << "let want_ = " << start_offset.bytes() << " + (" << size_field_->GetName() << " as usize)";
     if (GetSizeModifier() != "") {
-      s << " - ((" << GetSizeModifier().substr(1) << ") / 8)";
+      s << " - " << GetSizeModifier().substr(1);
     }
     s << ";";
     s << "if bytes.len() < want_ {";
@@ -273,7 +273,7 @@ void VectorField::GenBoundsCheck(std::ostream& s, Size start_offset, Size, std::
     s << "    got: bytes.len()});";
     s << "}";
     if (GetSizeModifier() != "") {
-      s << "if ((" << size_field_->GetName() << " as usize) < ((" << GetSizeModifier().substr(1) << ") / 8)) {";
+      s << "if (" << size_field_->GetName() << " as usize) < " << GetSizeModifier().substr(1) << " {";
       s << " return Err(Error::ImpossibleStructError);";
       s << "}";
     }
@@ -318,7 +318,7 @@ void VectorField::GenRustGetter(std::ostream& s, Size start_offset, Size, std::s
       s << start_offset.bytes() << " + " << size_field_->GetName();
       s << " as usize)";
       if (GetSizeModifier() != "") {
-        s << " - ((" << GetSizeModifier().substr(1) << ") / 8)";
+        s << " - " << GetSizeModifier().substr(1);
       }
       s << "]";
     }
@@ -346,7 +346,7 @@ void VectorField::GenRustGetter(std::ostream& s, Size start_offset, Size, std::s
       s << "let mut parsable_ = &bytes[" << start_offset.bytes() << ".." << start_offset.bytes() << " + ("
         << size_field_->GetName() << " as usize)";
       if (GetSizeModifier() != "") {
-        s << " - ((" << GetSizeModifier().substr(1) << ") / 8)";
+        s << " - " << GetSizeModifier().substr(1);
       }
       s << "];";
       s << "while parsable_.len() > 0 {";

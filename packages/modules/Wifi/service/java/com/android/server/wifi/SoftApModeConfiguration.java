@@ -34,6 +34,7 @@ class SoftApModeConfiguration {
      */
     private final int mTargetMode;
     private final SoftApCapability mCapability;
+    private final String mCountryCode;
 
     /**
      * SoftApConfiguration for internal use, or null if it hasn't been generated yet.
@@ -41,7 +42,7 @@ class SoftApModeConfiguration {
     private final @Nullable SoftApConfiguration mSoftApConfig;
 
     SoftApModeConfiguration(int targetMode, @Nullable SoftApConfiguration config,
-            SoftApCapability capability) {
+            SoftApCapability capability, @Nullable String countryCode) {
         Preconditions.checkArgument(
                 targetMode == WifiManager.IFACE_IP_MODE_TETHERED
                         || targetMode == WifiManager.IFACE_IP_MODE_LOCAL_ONLY);
@@ -49,6 +50,7 @@ class SoftApModeConfiguration {
         mTargetMode = targetMode;
         mSoftApConfig = config;
         mCapability = capability;
+        mCountryCode = countryCode;
     }
 
     public int getTargetMode() {
@@ -61,5 +63,9 @@ class SoftApModeConfiguration {
 
     public SoftApCapability getCapability() {
         return mCapability;
+    }
+
+    public String getCountryCode() {
+        return mCountryCode;
     }
 }

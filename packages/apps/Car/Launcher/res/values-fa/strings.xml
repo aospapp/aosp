@@ -18,8 +18,17 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="app_title" msgid="1995858460392177468">"راه‌انداز خودرو"</string>
+    <string name="reset_appgrid_title" msgid="814562055108028366">"بازنشانی جدول برنامه به ترتیب الف تا ی"</string>
+    <string name="reset_appgrid_dialogue_message" msgid="8275758912490987735">"این عملکرد همه ترتیب‌های سفارشی را حذف خواهد کرد. می‌خواهید ادامه دهید؟"</string>
     <string name="app_launcher_title_all_apps" msgid="3215107396036838217">"همه برنامه‌ها"</string>
     <string name="app_launcher_title_media_only" msgid="4400886555907422816">"برنامه‌های رسانه"</string>
+    <string name="app_launcher_stop_app_action" msgid="1081680842410279692">"متوقف کردن برنامه"</string>
+    <string name="app_launcher_app_info_action" msgid="6388181061002827660">"اطلاعات برنامه"</string>
+    <string name="app_launcher_stop_app_success_toast_text" msgid="2117271772351005349">"<xliff:g id="APP_NAME">%1$s</xliff:g> متوقف شده است."</string>
+    <string name="app_launcher_stop_app_dialog_title" msgid="8276889322638001144">"برنامه متوقف شود؟"</string>
+    <string name="app_launcher_stop_app_dialog_text" msgid="3264059639436254372">"توقف اجباری برنامه ممکن است باعث عملکرد نادرست آن شود."</string>
+    <string name="app_launcher_stop_app_cant_stop_text" msgid="4766841417948746773">"برنامه متوقف نمی‌شود."</string>
+    <string name="default_media_song_title" msgid="2970305231647817808"></string>
     <string name="driving_toast_text" msgid="149483091947120092">"هنگام رانندگی نمی‌توان از <xliff:g id="APP_NAME">%1$s</xliff:g> استفاده کرد."</string>
     <string name="tap_for_more_info_text" msgid="2043549383814415585">"برای اطلاعات بیشتر، روی کارت ضربه بزنید"</string>
     <string name="tap_to_launch_text" msgid="6910695705119260847">"برای راه‌اندازی، روی کارت ضربه بزنید"</string>
@@ -34,4 +43,8 @@
     <string name="fake_weather_footer_text" msgid="4570172025869749926">"مانتین ویو • بیشینه: --° کمینه: --°"</string>
     <string name="hide_debug_apps" msgid="6128313544379622475">"پنهان کردن برنامه‌های اشکال‌زدایی"</string>
     <string name="show_debug_apps" msgid="4521073121286325786">"نمایش برنامه‌های اشکال‌زدایی"</string>
+    <string name="times_separator" msgid="6180368193321715816">"/"</string>
+    <string name="recents_empty_state_text" msgid="6703106170272215731">"مورد اخیری وجود ندارد"</string>
+    <string name="recents_clear_all_text" msgid="2088678071417053923">"پاک کردن همه"</string>
+    <string name="failure_opening_recent_task_message" msgid="9097595793150874357">"برنامه دردسترس نیست"</string>
 </resources>

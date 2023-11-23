@@ -20,22 +20,28 @@ import static android.view.Display.DEFAULT_DISPLAY;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
-import static org.testng.Assert.assertThrows;
 
 import android.car.Car;
 import android.car.app.CarActivityManager;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.pm.PackageManager;
+import android.os.Binder;
+import android.os.IBinder;
 import android.os.RemoteException;
 import android.os.UserHandle;
 
+import com.android.car.CarLocalServices;
+import com.android.car.CarServiceHelperWrapper;
+import com.android.car.CarServiceHelperWrapperUnitTest;
 import com.android.car.internal.ICarServiceHelper;
 
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -44,6 +50,8 @@ import org.junit.runner.RunWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnitRunner;
+
+import java.util.List;
 
 @RunWith(MockitoJUnitRunner.class)
 public class CarActivityServiceUnitTest {
@@ -70,10 +78,21 @@ public class CarActivityServiceUnitTest {
         boolean isNonCurrentUserTest = mTestName.getMethodName().contains("NonCurrentUser");
         int callerId = isNonCurrentUserTest ? nonCurrentUserId : UserHandle.USER_SYSTEM;
         when(mCarActivityService.getCaller()).thenReturn(callerId);
+
+        CarServiceHelperWrapper wrapper = CarServiceHelperWrapper.create();
+        wrapper.setCarServiceHelper(mICarServiceHelper);
+    }
+
+    @After
+    public void tearDown() {
+        CarLocalServices.removeServiceForTest(CarServiceHelperWrapper.class);
     }
 
     @Test
     public void setPersistentActivityThrowsException_ifICarServiceHelperIsNotSet() {
+        // Remove already create one and reset to not set state.
+        CarServiceHelperWrapperUnitTest.createWithImmediateTimeout();
+
         assertThrows(IllegalStateException.class,
                 () -> mCarActivityService.setPersistentActivity(
                         mTestActivity, DEFAULT_DISPLAY, FEATURE_DEFAULT_TASK_CONTAINER));
@@ -81,7 +100,6 @@ public class CarActivityServiceUnitTest {
 
     @Test
     public void setPersistentActivityThrowsException_withoutPermission() {
-        mCarActivityService.setICarServiceHelper(mICarServiceHelper);
         when(mContext.checkCallingOrSelfPermission(eq(Car.PERMISSION_CONTROL_CAR_APP_LAUNCH)))
                 .thenReturn(PackageManager.PERMISSION_DENIED);
 
@@ -93,9 +111,6 @@ public class CarActivityServiceUnitTest {
     @Test
     public void setPersistentActivityInvokesICarServiceHelper() throws RemoteException {
         int displayId = 9;
-
-        mCarActivityService.setICarServiceHelper(mICarServiceHelper);
-
         int ret = mCarActivityService.setPersistentActivity(
                 mTestActivity, displayId, FEATURE_DEFAULT_TASK_CONTAINER);
         assertThat(ret).isEqualTo(CarActivityManager.RESULT_SUCCESS);
@@ -112,9 +127,30 @@ public class CarActivityServiceUnitTest {
     }
 
     @Test
-    public void setPersistentActivityReturnsErrorForNonCurrentUser() throws RemoteException {
-        mCarActivityService.setICarServiceHelper(mICarServiceHelper);
+    public void setPersistentActivitiesOnRootTaskThrowsException_withoutPermission() {
+        when(mContext.checkCallingOrSelfPermission(eq(Car.PERMISSION_CONTROL_CAR_APP_LAUNCH)))
+                .thenReturn(PackageManager.PERMISSION_DENIED);
 
+        assertThrows(SecurityException.class,
+                () -> mCarActivityService.setPersistentActivitiesOnRootTask(
+                        List.of(mTestActivity), new Binder()));
+    }
+
+    @Test
+    public void setPersistentActivitiesOnRootTaskInvokesICarServiceHelper() throws RemoteException {
+        IBinder tempToken = new Binder();
+        mCarActivityService.setPersistentActivitiesOnRootTask(List.of(mTestActivity), tempToken);
+
+        ArgumentCaptor<List<ComponentName>> activityCaptor = ArgumentCaptor.forClass(List.class);
+        ArgumentCaptor<Binder> rootTaskTokenCaptor = ArgumentCaptor.forClass(Binder.class);
+        verify(mICarServiceHelper).setPersistentActivitiesOnRootTask(
+                activityCaptor.capture(), rootTaskTokenCaptor.capture());
+        assertThat(activityCaptor.getValue()).isEqualTo(List.of(mTestActivity));
+        assertThat(rootTaskTokenCaptor.getValue()).isEqualTo(tempToken);
+    }
+
+    @Test
+    public void setPersistentActivityReturnsErrorForNonCurrentUser() throws RemoteException {
         int ret = mCarActivityService.setPersistentActivity(
                 mTestActivity, DEFAULT_DISPLAY, FEATURE_DEFAULT_TASK_CONTAINER);
         assertThat(ret).isEqualTo(CarActivityManager.RESULT_INVALID_USER);

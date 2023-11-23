@@ -19,7 +19,9 @@ package com.android.car.settings.qc;
 import static com.android.car.qc.QCItem.QC_ACTION_TOGGLE_STATE;
 import static com.android.car.qc.QCItem.QC_TYPE_ACTION_SWITCH;
 import static com.android.car.settings.qc.QCUtils.getActionDisabledDialogIntent;
+import static com.android.car.settings.qc.QCUtils.getAvailabilityStatusForZoneFromXml;
 
+import android.app.PendingIntent;
 import android.bluetooth.BluetoothAdapter;
 import android.content.Context;
 import android.content.Intent;
@@ -40,23 +42,32 @@ public class BluetoothSwitch extends SettingsQCItem {
 
     public BluetoothSwitch(Context context) {
         super(context);
+        setAvailabilityStatusForZone(getAvailabilityStatusForZoneFromXml(context,
+                R.xml.bluetooth_settings_fragment, R.string.pk_bluetooth_state_switch));
     }
 
     @Override
     QCItem getQCItem() {
+        if (isHiddenForZone()) {
+            return null;
+        }
         String userRestriction = UserManager.DISALLOW_CONFIG_BLUETOOTH;
         boolean hasDpmRestrictions = EnterpriseUtils.hasUserRestrictionByDpm(getContext(),
                 userRestriction);
         boolean hasUmRestrictions = EnterpriseUtils.hasUserRestrictionByUm(getContext(),
                 userRestriction);
 
+        boolean isReadOnlyForZone = isReadOnlyForZone();
+        PendingIntent disabledPendingIntent = isReadOnlyForZone
+                ? QCUtils.getDisabledToastBroadcastIntent(getContext())
+                : getActionDisabledDialogIntent(getContext(), userRestriction);
+
         QCActionItem actionItem = new QCActionItem.Builder(QC_TYPE_ACTION_SWITCH)
                 .setChecked(isBluetoothOn())
                 .setAction(getBroadcastIntent())
-                .setEnabled(!hasUmRestrictions && !hasDpmRestrictions)
-                .setClickableWhileDisabled(hasDpmRestrictions)
-                .setDisabledClickAction(getActionDisabledDialogIntent(getContext(),
-                        userRestriction))
+                .setEnabled(!hasUmRestrictions && !hasDpmRestrictions && isWritableForZone())
+                .setClickableWhileDisabled(hasDpmRestrictions || isReadOnlyForZone)
+                .setDisabledClickAction(disabledPendingIntent)
                 .build();
 
         QCList.Builder listBuilder = new QCList.Builder()

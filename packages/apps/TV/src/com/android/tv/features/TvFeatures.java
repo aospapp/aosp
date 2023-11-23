@@ -101,5 +101,8 @@ public final class TvFeatures extends CommonFeatures {
     /** Use input blocklist to disable partner's tuner input. */
     public static final Feature USE_PARTNER_INPUT_BLOCKLIST = ON;
 
+    /** Support for interactive applications using the TIAF **/
+    public static final Feature HAS_TIAF = Sdk.AT_LEAST_T;
+
     private TvFeatures() {}
 }

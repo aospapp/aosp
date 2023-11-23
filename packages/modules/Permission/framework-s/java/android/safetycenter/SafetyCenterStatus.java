@@ -296,7 +296,7 @@ public final class SafetyCenterStatus implements Parcelable {
             default:
         }
         throw new IllegalArgumentException(
-                String.format("Unexpected OverallSeverityLevel for SafetyCenterStatus: %s", value));
+                "Unexpected OverallSeverityLevel for SafetyCenterStatus: " + value);
     }
 
     @RefreshStatus
@@ -309,6 +309,6 @@ public final class SafetyCenterStatus implements Parcelable {
             default:
         }
         throw new IllegalArgumentException(
-                String.format("Unexpected RefreshStatus for SafetyCenterStatus: %s", value));
+                "Unexpected RefreshStatus for SafetyCenterStatus: " + value);
     }
 }

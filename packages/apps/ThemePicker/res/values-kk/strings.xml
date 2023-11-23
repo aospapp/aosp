@@ -19,17 +19,38 @@
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="app_name" msgid="1647136562008520313">"Тұсқағаз және стиль"</string>
     <string name="theme_title" msgid="2144932106319405101">"Стиль"</string>
-    <string name="clock_title" msgid="2126046720254613991">"Cағат"</string>
+    <string name="clock_title" msgid="1974314575211361352">"Арнаулы сағат"</string>
+    <string name="clock_description" msgid="3563839327378948">"Арнаулы сағатты таңдау"</string>
+    <string name="clock_picker_entry_content_description" msgid="8377139273468595734">"Арнаулы сағатты өзгерту"</string>
+    <string name="select_clock_action_description" msgid="5025888763471843648">"Циферблат опциясы: <xliff:g id="ID_1">%1$s</xliff:g>"</string>
+    <string name="clock_settings_title" msgid="2050906379377120431">"Сағат түсі, көлемі"</string>
+    <string name="clock_color_and_size_title" msgid="7146791234905111351">"Сағаттың түсі, өлшемі"</string>
+    <string name="clock_color_and_size_description" msgid="6578061553012886817">"<xliff:g id="ID_1">%1$s</xliff:g>, <xliff:g id="ID_2">%2$s</xliff:g>"</string>
+    <string name="clock_color" msgid="8081608867289156163">"Түс"</string>
+    <string name="clock_color_red" msgid="3843504214807597810">"Қызыл"</string>
+    <string name="clock_color_orange" msgid="4175805201144275804">"Қызғылт сары"</string>
+    <string name="clock_color_yellow" msgid="7391699163247349977">"Сары"</string>
+    <string name="clock_color_green" msgid="1991157556500156596">"Жасыл"</string>
+    <string name="clock_color_blue" msgid="4037792003465759149">"Көк"</string>
+    <string name="clock_color_indigo" msgid="8910855386698452917">"Индиго"</string>
+    <string name="clock_color_violet" msgid="3454503847169375826">"Күлгін"</string>
+    <string name="clock_color_gray" msgid="9221530636948859231">"Сұр"</string>
+    <string name="clock_color_teal" msgid="7499223425741344251">"Көкшіл жасыл"</string>
+    <string name="clock_size" msgid="5028923902364418263">"Өлшем"</string>
+    <string name="clock_size_dynamic" msgid="1023930312455061642">"Динамикалық"</string>
+    <string name="clock_size_dynamic_description" msgid="2776620745774561662">"Сағаттың өлшемі құлып экранындағы контентке сай өзгереді."</string>
+    <string name="clock_size_large" msgid="3143248715744138979">"Үлкен"</string>
+    <string name="clock_size_small" msgid="2280449912094164133">"Кішi"</string>
     <string name="grid_title" msgid="1688173478777254123">"Қолданба торы"</string>
     <string name="apply_theme_btn" msgid="6293081192321303991">"Қолдану"</string>
     <string name="edit_custom_theme_lbl" msgid="5211377705710775224">"Өзгерту үшін түртіңіз"</string>
     <string name="keep_my_wallpaper" msgid="8012385376769568517">"Қазіргі тұсқағазды қалдыру"</string>
-    <string name="theme_preview_card_content_description" msgid="5989222908619535533">"Стильді алдын ала қарау"</string>
-    <string name="grid_preview_card_content_description" msgid="8449383777584714842">"Торды алдын ала қарау"</string>
-    <string name="font_preview_content_description" msgid="128230439293337891">"Қаріпті алдын ала қарау"</string>
-    <string name="icon_preview_content_description" msgid="7761101284351952890">"Белгішені алдын ала қарау"</string>
-    <string name="color_preview_content_description" msgid="4879120462082058124">"Түсті алдын ала қарау"</string>
-    <string name="shape_preview_content_description" msgid="6479487796176550432">"Пішінді алдын ала қарау"</string>
+    <string name="theme_preview_card_content_description" msgid="5989222908619535533">"Стильді алдын ала көру"</string>
+    <string name="grid_preview_card_content_description" msgid="8449383777584714842">"Торды алдын ала көру"</string>
+    <string name="font_preview_content_description" msgid="128230439293337891">"Қаріпті алдын ала көру"</string>
+    <string name="icon_preview_content_description" msgid="7761101284351952890">"Белгішені алдын ала көру"</string>
+    <string name="color_preview_content_description" msgid="4879120462082058124">"Түсті алдын ала көру"</string>
+    <string name="shape_preview_content_description" msgid="6479487796176550432">"Пішінді алдын ала көру"</string>
     <string name="option_applied_description" msgid="5022305212078053534">"<xliff:g id="ID_1">%1$s</xliff:g>, қазір қосулы"</string>
     <string name="option_applied_previewed_description" msgid="5269654286638446858">"<xliff:g id="ID_1">%1$s</xliff:g>, қазір қолданылды және алдын ала қаралды"</string>
     <string name="option_previewed_description" msgid="3467217598865047661">"<xliff:g id="ID_1">%1$s</xliff:g>, қазір алдын ала қаралды"</string>
@@ -69,10 +90,10 @@
     <string name="use_style_instead_body" msgid="3051937045807471496">"Таңдаған компоненттеріңіз <xliff:g id="ID_1">%1$s</xliff:g> стиліне сәйкес келеді. Орнына <xliff:g id="ID_2">%1$s</xliff:g> стилін пайдаланғыңыз келе ме?"</string>
     <string name="use_style_button" msgid="1754493078383627019">"<xliff:g id="ID_1">%1$s</xliff:g> таңдалсын"</string>
     <string name="no_thanks" msgid="7286616980115687627">"Жоқ, рақмет"</string>
-    <string name="clock_preview_content_description" msgid="5460561185905717460">"<xliff:g id="ID_1">%1$s</xliff:g> сағатын алдын ала қарау"</string>
+    <string name="clock_preview_content_description" msgid="5460561185905717460">"<xliff:g id="ID_1">%1$s</xliff:g> сағатын алдын ала көру"</string>
     <string name="something_went_wrong" msgid="529840112449799117">"Қап! Бірдеңе дұрыс болмады."</string>
     <string name="theme_preview_icons_section_title" msgid="7064768910744000643">"Түс/Белгішелер"</string>
-    <string name="style_info_description" msgid="2612473574431003251">"Қаріпті, белгішелерді, қолданба пішінін алдын ала қарау"</string>
+    <string name="style_info_description" msgid="2612473574431003251">"Қаріпті, белгішелерді, қолданба пішінін алдын ала көру"</string>
     <string name="accessibility_custom_font_title" msgid="966867359157303705">"Арнаулы қаріп"</string>
     <string name="accessibility_custom_icon_title" msgid="5753297905849062296">"Арнаулы белгіше"</string>
     <string name="accessibility_custom_color_title" msgid="4124246598886320663">"Арнаулы түс"</string>
@@ -85,8 +106,34 @@
     <string name="beta_title" msgid="8703819523760746458">"Бета"</string>
     <string name="gird_picker_entry_content_description" msgid="9087651470212293439">"Қолданбалар торын өзгерту"</string>
     <string name="wallpaper_color_tab" msgid="1447926591721403840">"Тұсқағаз түстері"</string>
+    <string name="wallpaper_color_subheader" msgid="4044464573669965670">"Белгіше, мәтін және тұсқағаздағы басқа да сәйкес түстер"</string>
     <string name="wallpaper_color_title" msgid="5687965239180986458">"Тұсқағаз түсі"</string>
     <string name="preset_color_tab" msgid="3133391839341329314">"Негізгі түстер"</string>
+    <string name="preset_color_tab_2" msgid="1444107326712562538">"Басқа түстер"</string>
+    <string name="preset_color_subheader" msgid="8230588536141279371">"Белгішелер, сағат, т.б. үшін қалаған түсті таңдаңыз."</string>
     <string name="color_changed" msgid="7029571720331641235">"Түс өзгертілді."</string>
     <string name="adaptive_color_title" msgid="1336508599235896205">"Динамикалық"</string>
+    <string name="color_picker_title" msgid="6666830057938082864">"Жүйе түстері"</string>
+    <string name="keyguard_slot_name_bottom_start" msgid="8747677880200629719">"Сол жақ жылдам пәрмен"</string>
+    <string name="keyguard_slot_name_bottom_end" msgid="2525487375680217083">"Оң жақ жылдам пәрмен"</string>
+    <string name="keyguard_affordance_none" msgid="1751643933430782312">"Жоқ"</string>
+    <string name="keyguard_affordance_enablement_dialog_headline" msgid="365379085932610314">"Таңбаша қосу мүмкін емес"</string>
+    <string name="keyguard_affordance_enablement_dialog_action_template" msgid="8117011931337357438">"<xliff:g id="APPNAME">%1$s</xliff:g> қолданбасын ашу"</string>
+    <string name="keyguard_affordance_enablement_dialog_message" msgid="6136286758939253570">"<xliff:g id="APPNAME">%1$s</xliff:g> қолданбасын таңбаша ретінде қосу үшін келесі әрекеттерді орындауды ұмытпаңыз:"</string>
+    <string name="keyguard_affordance_enablement_dialog_dismiss_button" msgid="629754625264422508">"Дайын"</string>
+    <string name="keyguard_quick_affordance_title" msgid="4242813186995735584">"Жылдам пәрмендер"</string>
+    <string name="keyguard_quick_affordance_section_title" msgid="2806304242671717309">"Жылдам пәрмендер"</string>
+    <string name="keyguard_quick_affordance_two_selected_template" msgid="1757099194522296363">"<xliff:g id="FIRST">%1$s</xliff:g>, <xliff:g id="SECOND">%2$s</xliff:g>"</string>
+    <string name="keyguard_quick_affordance_none_selected" msgid="8494127020144112003">"Ешқандай"</string>
+    <string name="show_notifications_on_lock_screen" msgid="4157744243084646720">"Құлып экранында хабарландыруларды көрсету"</string>
+    <string name="hide_notifications_on_lock_screen" msgid="7413548956484779174">"Құлып экранында хабарландыруларды жасыру"</string>
+    <string name="more_settings_section_title" msgid="1331425454775815958">"Құлып экранының басқа опциялары"</string>
+    <string name="more_settings_section_description" msgid="1860115709122398325">"Құпиялық, Now Playing және басқа функциялар"</string>
+    <string name="more_colors" msgid="3191071655353004591">"Қосымша түстер"</string>
+    <string name="content_description_dynamic_color_option" msgid="2191721655642529886">"Негізгі динамикалық тақырып"</string>
+    <string name="content_description_neutral_color_option" msgid="3385443834001275301">"Негізгі бейтарап тақырып"</string>
+    <string name="content_description_vibrant_color_option" msgid="2230249305878632821">"Негізгі қанық тақырып"</string>
+    <string name="content_description_expressive_color_option" msgid="6081295313456341282">"Негізгі бейнелі тақырып"</string>
+    <string name="content_description_default_color_option" msgid="7011899327541080695">"Әдепкі түс опциясы"</string>
+    <string name="content_description_color_option" msgid="4169813692012119578">"<xliff:g id="ID_1">%1$d</xliff:g> түс опциясы"</string>
 </resources>

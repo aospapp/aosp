@@ -25,6 +25,7 @@ public class RingerAttributes {
         private String mInaudibleReason;
         private boolean mShouldRingForContact;
         private boolean mSilentRingingRequested;
+        private boolean mWorkProfileQuietMode;
 
         public RingerAttributes.Builder setEndEarly(boolean endEarly) {
             mEndEarly = endEarly;
@@ -61,10 +62,15 @@ public class RingerAttributes {
             return this;
         }
 
+        public RingerAttributes.Builder setWorkProfileQuietMode(boolean workProfileQuietMode) {
+            mWorkProfileQuietMode = workProfileQuietMode;
+            return this;
+        }
+
         public RingerAttributes build() {
             return new RingerAttributes(mEndEarly, mLetDialerHandleRinging, mAcquireAudioFocus,
                     mRingerAudible, mInaudibleReason, mShouldRingForContact,
-                    mSilentRingingRequested);
+                    mSilentRingingRequested, mWorkProfileQuietMode);
         }
     }
 
@@ -75,10 +81,12 @@ public class RingerAttributes {
     private String mInaudibleReason;
     private boolean mShouldRingForContact;
     private boolean mSilentRingingRequested;
+    private boolean mWorkProfileQuietMode;
 
     private RingerAttributes(boolean endEarly, boolean letDialerHandleRinging,
             boolean acquireAudioFocus, boolean ringerAudible, String inaudibleReason,
-            boolean shouldRingForContact, boolean silentRingingRequested) {
+            boolean shouldRingForContact, boolean silentRingingRequested,
+            boolean workProfileQuietMode) {
         mEndEarly = endEarly;
         mLetDialerHandleRinging = letDialerHandleRinging;
         mAcquireAudioFocus = acquireAudioFocus;
@@ -86,6 +94,7 @@ public class RingerAttributes {
         mInaudibleReason = inaudibleReason;
         mShouldRingForContact = shouldRingForContact;
         mSilentRingingRequested = silentRingingRequested;
+        mWorkProfileQuietMode = workProfileQuietMode;
     }
 
     public boolean isEndEarly() {
@@ -114,5 +123,9 @@ public class RingerAttributes {
 
     public boolean isSilentRingingRequested() {
         return mSilentRingingRequested;
+    }
+
+    public boolean isWorkProfileInQuietMode() {
+        return mWorkProfileQuietMode;
     }
 }

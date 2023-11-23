@@ -13,4 +13,6 @@
     <string name="localPhoneName" msgid="9119254982537191352">"எனது பெயர்"</string>
     <string name="defaultnumber" msgid="5348816189286607406">"000000"</string>
     <string name="pbap_notification_group" msgid="4215789331721465381">"புளூடூத் தொடர்புப் பகிர்தல்"</string>
+    <string name="phonebook_advance_feature_support" msgid="8129553051734505128">"ஃபோன்புக் தொடர்பான மேம்பட்ட அம்சம் ஆதரிக்கப்படுகிறது"</string>
+    <string name="repair_for_adv_phonebook_feature" msgid="3489797973131684927">"மேம்பட்ட ஃபோன்புக் அம்சத்திற்காக மீண்டும் இணைத்தல்"</string>
 </resources>

@@ -32,4 +32,5 @@ interface IWifiRttManager
             in WorkSource workSource, in RangingRequest request, in IRttCallback callback,
             in Bundle extras);
     void cancelRanging(in WorkSource workSource);
+    Bundle getRttCharacteristics();
 }

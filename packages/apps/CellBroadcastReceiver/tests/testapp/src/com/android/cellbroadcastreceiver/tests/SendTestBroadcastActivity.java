@@ -84,6 +84,24 @@ public class SendTestBroadcastActivity extends Activity {
     }
 
     /**
+     * Return the value of the message body.
+     * @return the current string of the message body text field
+     */
+    private String getMessageBody() {
+        EditText bodyField = (EditText) findViewById(R.id.message_body);
+        return bodyField.getText().toString();
+    }
+
+    /**
+     * Return the value of the language code.
+     * @return the current string of the language code text field
+     */
+    private String getLanguageCode() {
+        EditText languageCodeField = (EditText) findViewById(R.id.language_code);
+        return languageCodeField.getText().toString();
+    }
+
+    /**
      * Initialization of the Activity after it is first created.  Must at least
      * call {@link android.app.Activity#setContentView(int)} to
      * describe what is to be displayed in the screen.
@@ -203,7 +221,7 @@ public class SendTestBroadcastActivity extends Activity {
                 } else {
                     SendCdmaCmasMessages.testSendCmasPresAlert(
                             SendTestBroadcastActivity.this.getApplicationContext(),
-                            getSerialNumber());
+                            getSerialNumber(), getMessageBody(), getLanguageCode());
                 }
             }
         });
@@ -218,7 +236,7 @@ public class SendTestBroadcastActivity extends Activity {
                 } else {
                     SendCdmaCmasMessages.testSendCmasExtremeAlert(
                             SendTestBroadcastActivity.this.getApplicationContext(),
-                            getSerialNumber());
+                            getSerialNumber(), getMessageBody(), getLanguageCode());
                 }
             }
         });
@@ -233,7 +251,7 @@ public class SendTestBroadcastActivity extends Activity {
                 } else {
                     SendCdmaCmasMessages.testSendCmasSevereAlert(
                             SendTestBroadcastActivity.this.getApplicationContext(),
-                            getSerialNumber());
+                            getSerialNumber(), getMessageBody(), getLanguageCode());
                 }
             }
         });
@@ -248,7 +266,7 @@ public class SendTestBroadcastActivity extends Activity {
                 } else {
                     SendCdmaCmasMessages.testSendCmasAmberAlert(
                             SendTestBroadcastActivity.this.getApplicationContext(),
-                            getSerialNumber());
+                            getSerialNumber(), getMessageBody(), getLanguageCode());
                 }
             }
         });
@@ -263,10 +281,30 @@ public class SendTestBroadcastActivity extends Activity {
                 } else {
                     SendCdmaCmasMessages.testSendCmasMonthlyTest(
                             SendTestBroadcastActivity.this.getApplicationContext(),
-                            getSerialNumber());
+                            getSerialNumber(), getMessageBody(), getLanguageCode());
                 }
             }
         });
+
+        /* Send a GSM CMAS alert to app. */
+        Button GsmCmasAlertButton = findViewById(R.id.button_gsm_cmas_alert);
+        GsmCmasAlertButton.setOnClickListener(
+                new OnClickListener() {
+                    public void onClick(View v) {
+                        if (mDelayBeforeSending && v != null) {
+                            Message msg = mDelayHandler.obtainMessage(0, this);
+                            mDelayHandler.sendMessageDelayed(msg, DELAY_BEFORE_SENDING_MSEC);
+                        } else {
+                            SendGsmCmasMessages.testSendCmasAlertWithServiceCategory(
+                                    SendTestBroadcastActivity.this.getApplicationContext(),
+                                    getCategory(),
+                                    getSerialNumber(),
+                                    getMessageBody(),
+                                    getLanguageCode(),
+                                    mIsAdditionalLangAlert);
+                        }
+                    }
+                });
 
         /* Send a GSM CMAS presidential alert to app. */
         Button GsmCmasPresAlertButton = findViewById(R.id.button_gsm_cmas_pres_alert);
@@ -280,6 +318,8 @@ public class SendTestBroadcastActivity extends Activity {
                             SendGsmCmasMessages.testSendCmasPresAlert(
                                     SendTestBroadcastActivity.this.getApplicationContext(),
                                     getSerialNumber(),
+                                    getMessageBody(),
+                                    getLanguageCode(),
                                     mIsAdditionalLangAlert);
                         }
                     }
@@ -297,6 +337,8 @@ public class SendTestBroadcastActivity extends Activity {
                             SendGsmCmasMessages.testSendCmasExtremeAlert(
                                     SendTestBroadcastActivity.this.getApplicationContext(),
                                     getSerialNumber(),
+                                    getMessageBody(),
+                                    getLanguageCode(),
                                     mIsAdditionalLangAlert);
                         }
                     }
@@ -314,6 +356,8 @@ public class SendTestBroadcastActivity extends Activity {
                             SendGsmCmasMessages.testSendCmasSevereAlert(
                                     SendTestBroadcastActivity.this.getApplicationContext(),
                                     getSerialNumber(),
+                                    getMessageBody(),
+                                    getLanguageCode(),
                                     mIsAdditionalLangAlert);
                         }
                     }
@@ -331,6 +375,8 @@ public class SendTestBroadcastActivity extends Activity {
                             SendGsmCmasMessages.testSendCmasAmberAlert(
                                     SendTestBroadcastActivity.this.getApplicationContext(),
                                     getSerialNumber(),
+                                    getMessageBody(),
+                                    getLanguageCode(),
                                     mIsAdditionalLangAlert);
                         }
                     }
@@ -348,6 +394,8 @@ public class SendTestBroadcastActivity extends Activity {
                             SendGsmCmasMessages.testSendCmasMonthlyTest(
                                     SendTestBroadcastActivity.this.getApplicationContext(),
                                     getSerialNumber(),
+                                    getMessageBody(),
+                                    getLanguageCode(),
                                     mIsAdditionalLangAlert);
                         }
                     }
@@ -365,6 +413,8 @@ public class SendTestBroadcastActivity extends Activity {
                             SendGsmCmasMessages.testSendCmasExerciseTest(
                                     SendTestBroadcastActivity.this.getApplicationContext(),
                                     getSerialNumber(),
+                                    getMessageBody(),
+                                    getLanguageCode(),
                                     mIsAdditionalLangAlert);
                         }
                     }
@@ -383,6 +433,8 @@ public class SendTestBroadcastActivity extends Activity {
                             SendGsmCmasMessages.testSendPublicSafetyMessagesAlert(
                                     SendTestBroadcastActivity.this.getApplicationContext(),
                                     getSerialNumber(),
+                                    getMessageBody(),
+                                    getLanguageCode(),
                                     mIsAdditionalLangAlert);
                         }
                     }
@@ -401,6 +453,8 @@ public class SendTestBroadcastActivity extends Activity {
                             SendGsmCmasMessages.testSendStateLocalTestAlert(
                                     SendTestBroadcastActivity.this.getApplicationContext(),
                                     getSerialNumber(),
+                                    getMessageBody(),
+                                    getLanguageCode(),
                                     mIsAdditionalLangAlert);
                         }
                     }

@@ -64,10 +64,7 @@ int main(void) {
             ndk::SharedRefBase::make<CarTelemetryInternalImpl>(&server);
 
     // Wait for the service manager before starting ICarTelemetry service.
-    while (android::base::GetProperty("init.svc.servicemanager", "") != "running") {
-        // Poll frequent enough so the writer clients can connect to the service during boot.
-        std::this_thread::sleep_for(250ms);
-    }
+    android::base::WaitForProperty("init.svc.servicemanager", "running");
 
     LOG(VERBOSE) << "Registering " << kCarTelemetryServiceName;
     binder_exception_t exception =

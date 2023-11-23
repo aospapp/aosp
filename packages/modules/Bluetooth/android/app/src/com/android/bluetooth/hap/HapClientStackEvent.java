@@ -108,7 +108,7 @@ public class HapClientStackEvent {
     private String eventTypeValueListToString(int type, List value) {
         switch (type) {
             case EVENT_TYPE_ON_PRESET_INFO:
-                return "{presets count: " + value.size() + "}";
+                return "{presets count: " + (value == null ? 0 : value.size()) + "}";
             default:
                 return "{list: empty}";
         }
@@ -243,18 +243,6 @@ public class HapClientStackEvent {
         }
 
         return features_str;
-    }
-
-    private String availablePresetsToString(byte[] value) {
-        if (value.length == 0) return "NONE";
-
-        String presets_str = "[";
-        for (int i = 0; i < value.length; i++) {
-            presets_str += (value[i] + ", ");
-        }
-
-        presets_str += "]";
-        return presets_str;
     }
 
     private static String eventTypeToString(int type) {

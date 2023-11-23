@@ -34,7 +34,7 @@
         android:layout_height="match_parent"
         android:focusable="true"
         android:gravity="center_vertical"
-        android:imeOptions="actionNext|flagNoExtractUi"
+        android:imeOptions="actionDone|flagNoExtractUi"
         android:inputType="text">
     </EditText>
 </FrameLayout>

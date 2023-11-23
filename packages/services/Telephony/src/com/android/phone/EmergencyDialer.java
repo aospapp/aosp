@@ -259,8 +259,6 @@ public class EmergencyDialer extends Activity implements View.OnClickListener,
         mEntryType = getIntent().getIntExtra(EXTRA_ENTRY_TYPE, ENTRY_TYPE_UNKNOWN);
         Log.d(LOG_TAG, "Launched from " + entryTypeToString(mEntryType));
 
-        // Allow this activity to be displayed in front of the keyguard / lockscreen.
-        setShowWhenLocked(true);
         // Allow turning screen on
         setTurnScreenOn(true);
 

@@ -30,7 +30,7 @@
     <string name="notification_disconnectedCall_body" msgid="600491714584417536">"Nadiskonekta ang tawag kay <xliff:g id="CALLER">%s</xliff:g> dahil sa ginagawang pang-emergency na tawag."</string>
     <string name="notification_disconnectedCall_generic_body" msgid="5282765206349184853">"Nadiskonekta ang iyong tawag dahil sa ginagawang pang-emergency na tawag."</string>
     <string name="notification_audioProcessing_title" msgid="1619035039880584575">"Tawag sa background"</string>
-    <string name="notification_audioProcessing_body" msgid="6397005913770420388">"Naglagay ng tawag ang <xliff:g id="AUDIO_PROCESSING_APP_NAME">%s</xliff:g> sa background. Posibleng ina-access at pine-play ng app na ito ang audio sa tawag."</string>
+    <string name="notification_audioProcessing_body" msgid="8811420157964118913">"Pinoproseso ng <xliff:g id="AUDIO_PROCESSING_APP_NAME">%s</xliff:g> ang isang tawag sa background. Posibleng ina-access at pine-play ng app na ito ang audio sa tawag."</string>
     <string name="notification_incallservice_not_responding_title" msgid="5347557574288598548">"Huminto ang <xliff:g id="IN_CALL_SERVICE_APP_NAME">%s</xliff:g> sa pagtugon"</string>
     <string name="notification_incallservice_not_responding_body" msgid="9209308270131968623">"Ginamit ng tawag mo ang app na telepono na kasama sa iyong device"</string>
     <string name="accessibility_call_muted" msgid="2968461092554300779">"Naka-mute ang tawag."</string>
@@ -100,6 +100,7 @@
     <string name="notification_channel_background_calls" msgid="7785659903711350506">"Mga tawag sa background"</string>
     <string name="notification_channel_disconnected_calls" msgid="8228636543997645757">"Nadiskonektang mga tawag"</string>
     <string name="notification_channel_in_call_service_crash" msgid="7313237519166984267">"Nag-crash na mga phone app"</string>
+    <string name="notification_channel_call_streaming" msgid="5100510699787538991">"Pag-stream ng tawag"</string>
     <string name="alert_outgoing_call" msgid="5319895109298927431">"Tatapusin ng pagtawag na ito ang iyong tawag sa <xliff:g id="OTHER_APP">%1$s</xliff:g>."</string>
     <string name="alert_redirect_outgoing_call_or_not" msgid="665409645789521636">"Piliin kung paano gagawin ang tawag na ito"</string>
     <string name="alert_place_outgoing_call_with_redirection" msgid="5221065030959024121">"I-redirect ang tawag gamit ang <xliff:g id="OTHER_APP">%1$s</xliff:g>"</string>
@@ -123,4 +124,14 @@
     <string name="developer_title" msgid="9146088855661672353">"Menu ng Telecom Developer"</string>
     <string name="toast_emergency_can_not_pull_call" msgid="9074229465338410869">"Hindi puwedeng sumagot ng mga tawag habang nasa emergency na tawag."</string>
     <string name="cancel" msgid="6733466216239934756">"Kanselahin"</string>
+    <string name="back" msgid="6915955601805550206">"Bumalik"</string>
+    <string name="callendpoint_name_earpiece" msgid="7047285080319678594">"Earpiece"</string>
+    <string name="callendpoint_name_bluetooth" msgid="210210953208913172">"Bluetooth"</string>
+    <string name="callendpoint_name_wiredheadset" msgid="6860787176412079742">"Wired na headset"</string>
+    <string name="callendpoint_name_speaker" msgid="1971760468695323189">"Speaker"</string>
+    <string name="callendpoint_name_streaming" msgid="2337595450408275576">"External"</string>
+    <string name="callendpoint_name_unknown" msgid="2199074708477193852">"Hindi Alam"</string>
+    <string name="call_streaming_notification_body" msgid="502216105683378263">"Naka-stream ang audio sa ibang device"</string>
+    <string name="call_streaming_notification_action_hang_up" msgid="7017663335289063827">"Mag-hang up"</string>
+    <string name="call_streaming_notification_action_switch_here" msgid="3524180754186221228">"Lumipat dito"</string>
 </resources>

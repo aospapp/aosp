@@ -16,6 +16,7 @@
 
 package com.android.server.wifi;
 
+import android.net.MacAddress;
 import android.net.wifi.WifiAnnotations;
 import android.util.ArrayMap;
 
@@ -29,13 +30,13 @@ public final class ConcreteCandidate implements WifiCandidates.Candidate {
     private int mNetworkConfigId = -1;
     private boolean mIsOpenNetwork;
     private boolean mIsCurrentNetwork;
+    private boolean mIsUserSelected;
     private boolean mIsCurrentBssid;
     private boolean mIsPasspoint;
     private boolean mIsEphemeral;
     private boolean mIsTrusted = true;
     private boolean mIsOemPaid;
     private boolean mIsOemPrivate;
-    private boolean mSecondaryInternet;
     private boolean mCarrierOrPrivileged;
     private boolean mIsMetered;
     private boolean mHasNoInternetAccess;
@@ -47,6 +48,8 @@ public final class ConcreteCandidate implements WifiCandidates.Candidate {
     private int mChannelWidth;
     private int mPredictedThroughputMbps = 0;
     private int mEstimatedPercentInternetAvailability = 50;
+    private int mPredictedMultiLinkThroughputMbps = 0;
+    private MacAddress mApMldMacAddress;
 
     private final Map<WifiScoreCardProto.Event, WifiScoreCardProto.Signal>
             mEventStatisticsMap = new ArrayMap<>();
@@ -59,13 +62,13 @@ public final class ConcreteCandidate implements WifiCandidates.Candidate {
         mNetworkConfigId = candidate.getNetworkConfigId();
         mIsOpenNetwork = candidate.isOpenNetwork();
         mIsCurrentNetwork = candidate.isCurrentNetwork();
+        mIsUserSelected = candidate.isUserSelected();
         mIsCurrentBssid = candidate.isCurrentBssid();
         mIsPasspoint = candidate.isPasspoint();
         mIsEphemeral = candidate.isEphemeral();
         mIsTrusted = candidate.isTrusted();
         mRestricted = candidate.isRestricted();
         mIsOemPaid = candidate.isOemPaid();
-        mSecondaryInternet = candidate.isSecondaryInternet();
         mCarrierOrPrivileged = candidate.isCarrierOrPrivileged();
         mIsMetered = candidate.isMetered();
         mHasNoInternetAccess = candidate.hasNoInternetAccess();
@@ -84,6 +87,8 @@ public final class ConcreteCandidate implements WifiCandidates.Candidate {
                 mEventStatisticsMap.put(event, signal);
             }
         }
+        mPredictedMultiLinkThroughputMbps = candidate.getPredictedMultiLinkThroughputMbps();
+        mApMldMacAddress = candidate.getApMldMacAddress();
     }
 
     public ConcreteCandidate setKey(WifiCandidates.Key key) {
@@ -166,11 +171,6 @@ public final class ConcreteCandidate implements WifiCandidates.Candidate {
         return mIsOemPrivate;
     }
 
-    @Override
-    public boolean isSecondaryInternet() {
-        return mSecondaryInternet;
-    }
-
     public ConcreteCandidate setCarrierOrPrivileged(boolean carrierOrPrivileged) {
         mCarrierOrPrivileged = carrierOrPrivileged;
         return this;
@@ -241,6 +241,11 @@ public final class ConcreteCandidate implements WifiCandidates.Candidate {
         return mIsCurrentNetwork;
     }
 
+    @Override
+    public boolean isUserSelected() {
+        return mIsUserSelected;
+    }
+
     public ConcreteCandidate setCurrentBssid(boolean isCurrentBssid) {
         mIsCurrentBssid = isCurrentBssid;
         return this;
@@ -291,6 +296,16 @@ public final class ConcreteCandidate implements WifiCandidates.Candidate {
         return mPredictedThroughputMbps;
     }
 
+    @Override
+    public int getPredictedMultiLinkThroughputMbps() {
+        return mPredictedMultiLinkThroughputMbps;
+    }
+
+    @Override
+    public void setPredictedMultiLinkThroughputMbps(int throughput) {
+        mPredictedMultiLinkThroughputMbps = throughput;
+    }
+
     public ConcreteCandidate setEstimatedPercentInternetAvailability(int percent) {
         mEstimatedPercentInternetAvailability = percent;
         return this;
@@ -299,6 +314,11 @@ public final class ConcreteCandidate implements WifiCandidates.Candidate {
     @Override
     public int getEstimatedPercentInternetAvailability() {
         return mEstimatedPercentInternetAvailability;
+    }
+
+    @Override
+    public MacAddress getApMldMacAddress() {
+        return mApMldMacAddress;
     }
 
     public ConcreteCandidate setEventStatistics(
@@ -318,4 +338,8 @@ public final class ConcreteCandidate implements WifiCandidates.Candidate {
         return mRestricted;
     }
 
+    @Override
+    public boolean isMultiLinkCapable() {
+        return (mApMldMacAddress != null);
+    }
 }

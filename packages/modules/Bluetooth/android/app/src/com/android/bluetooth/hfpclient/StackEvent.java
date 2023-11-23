@@ -21,6 +21,8 @@ package com.android.bluetooth.hfpclient;
 
 import android.bluetooth.BluetoothDevice;
 
+import com.android.internal.annotations.VisibleForTesting;
+
 public class StackEvent {
     // Type of event that signifies a native event and consumed by state machine
     public static final int STACK_EVENT = 100;
@@ -49,6 +51,9 @@ public class StackEvent {
     public static final int EVENT_TYPE_RING_INDICATION = 21;
     public static final int EVENT_TYPE_UNKNOWN_EVENT = 22;
 
+    public static final int CMD_RESULT_TYPE_OK = 0;
+    public static final int CMD_RESULT_TYPE_CME_ERROR = 7;
+
     public int type = EVENT_TYPE_NONE;
     public int valueInt = 0;
     public int valueInt2 = 0;
@@ -76,7 +81,8 @@ public class StackEvent {
     }
 
     // for debugging only
-    private static String eventTypeToString(int type) {
+    @VisibleForTesting
+    static String eventTypeToString(int type) {
         switch (type) {
             case EVENT_TYPE_NONE:
                 return "EVENT_TYPE_NONE";
@@ -84,6 +90,8 @@ public class StackEvent {
                 return "EVENT_TYPE_CONNECTION_STATE_CHANGED";
             case EVENT_TYPE_AUDIO_STATE_CHANGED:
                 return "EVENT_TYPE_AUDIO_STATE_CHANGED";
+            case EVENT_TYPE_VR_STATE_CHANGED:
+                return "EVENT_TYPE_VR_STATE_CHANGED";
             case EVENT_TYPE_NETWORK_STATE:
                 return "EVENT_TYPE_NETWORK_STATE";
             case EVENT_TYPE_ROAMING_STATE:
@@ -116,6 +124,8 @@ public class StackEvent {
                 return "EVENT_TYPE_RESP_AND_HOLD";
             case EVENT_TYPE_RING_INDICATION:
                 return "EVENT_TYPE_RING_INDICATION";
+            case EVENT_TYPE_IN_BAND_RINGTONE:
+                return "EVENT_TYPE_IN_BAND_RINGTONE";
             default:
                 return "EVENT_TYPE_UNKNOWN:" + type;
         }

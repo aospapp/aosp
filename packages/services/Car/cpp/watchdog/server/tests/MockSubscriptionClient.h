@@ -55,14 +55,14 @@ public:
     }
 
     MOCK_METHOD(
-            android::hardware::automotive::vehicle::VhalResult<void>, subscribe,
+            android::frameworks::automotive::vhal::VhalClientResult<void>, subscribe,
             (const std::vector<aidl::android::hardware::automotive::vehicle::SubscribeOptions>&),
             (override));
 
-    android::hardware::automotive::vehicle::VhalResult<void> unsubscribe(
+    android::frameworks::automotive::vhal::VhalClientResult<void> unsubscribe(
             const std::vector<int32_t>& propIds) override {
         if (auto status = mHal->unsubscribe(mCallback, propIds); !status.isOk()) {
-            return android::hardware::automotive::vehicle::StatusError(
+            return android::frameworks::automotive::vhal::ClientStatusError(
                            static_cast<aidl::android::hardware::automotive::vehicle::StatusCode>(
                                    status.getServiceSpecificError()))
                     << "failed to unsubscribe to prop IDs: " << toString(propIds)

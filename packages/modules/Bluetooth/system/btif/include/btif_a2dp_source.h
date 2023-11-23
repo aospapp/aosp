@@ -63,7 +63,7 @@ bool btif_a2dp_source_end_session(const RawAddress& peer_address);
 
 // Shutdown the A2DP Source module.
 // This function should be called by the BTIF state machine to stop streaming.
-void btif_a2dp_source_shutdown(void);
+void btif_a2dp_source_shutdown(std::promise<void>);
 
 // Cleanup the A2DP Source module.
 // This function should be called by the BTIF state machine during graceful

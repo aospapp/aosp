@@ -31,14 +31,18 @@ import android.support.annotation.UiThread;
 import android.text.TextUtils;
 import android.util.ArraySet;
 import android.util.Log;
+import com.android.tv.R;
 import com.android.tv.TvSingletons;
 import com.android.tv.common.SoftPreconditions;
 import com.android.tv.common.dagger.annotations.ApplicationContext;
 import com.android.tv.common.singletons.HasTvInputId;
+import com.android.tv.common.util.CommonUtils;
 import com.android.tv.data.ChannelDataManager;
 import com.android.tv.data.api.Channel;
 import com.android.tv.tunerinputcontroller.BuiltInTunerManager;
 import com.google.common.base.Optional;
+
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
@@ -359,6 +363,52 @@ public class SetupUtils {
                         .apply();
             }
         }
+    }
+
+    /**
+     * Create a Intent to launch setup activity for {@code inputId}. The setup activity defined
+     * in the overlayable resources precedes the one defined in the corresponding TV input service.
+     */
+    @Nullable
+    public Intent createSetupIntent(Context context, TvInputInfo input) {
+        String[] componentStrings = context.getResources()
+                .getStringArray(R.array.setup_ComponentNames);
+
+        if (componentStrings != null) {
+            for (String component : componentStrings) {
+                String[] split = component.split("#");
+                if (split.length != 2) {
+                    Log.w(TAG, "Invalid component item: " + Arrays.toString(split));
+                    continue;
+                }
+
+                final String inputId = split[0].trim();
+                if (inputId.equals(input.getId())) {
+                    final String flattenedComponentName = split[1].trim();
+                    final ComponentName componentName = ComponentName
+                            .unflattenFromString(flattenedComponentName);
+                    if (componentName == null) {
+                        Log.w(TAG, "Failed to unflatten component: " + flattenedComponentName);
+                        continue;
+                    }
+
+                    final Intent overlaySetupIntent = new Intent(Intent.ACTION_MAIN);
+                    overlaySetupIntent.setComponent(componentName);
+                    overlaySetupIntent.putExtra(TvInputInfo.EXTRA_INPUT_ID, inputId);
+
+                    PackageManager pm = context.getPackageManager();
+                    if (overlaySetupIntent.resolveActivityInfo(pm, 0) == null) {
+                        Log.w(TAG, "unable to find component" + flattenedComponentName);
+                        continue;
+                    }
+
+                    Log.i(TAG, "overlay input id: " + inputId
+                            + " to setup activity: " + flattenedComponentName);
+                    return CommonUtils.createSetupIntent(overlaySetupIntent, inputId);
+                }
+            }
+        }
+        return CommonUtils.createSetupIntent(input);
     }
 
     /**

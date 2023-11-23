@@ -36,7 +36,9 @@ import android.net.wifi.p2p.WifiP2pGroupList;
 import android.net.wifi.p2p.WifiP2pManager;
 import android.net.wifi.p2p.nsd.WifiP2pServiceInfo;
 
+import com.android.server.wifi.WifiBaseTest;
 import com.android.server.wifi.WifiGlobals;
+import com.android.server.wifi.WifiInjector;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -52,12 +54,13 @@ import java.util.List;
  * which service (HIDL or AIDL) is available. Test the initialization logic and
  * verify that calls to all public methods are forwarded to the actual implementation.
  */
-public class SupplicantP2pIfaceHalTest {
+public class SupplicantP2pIfaceHalTest extends WifiBaseTest {
     private SupplicantP2pIfaceHalSpy mDut;
     private @Mock SupplicantP2pIfaceHalHidlImpl mP2pIfaceHalHidlMock;
     private @Mock SupplicantP2pIfaceHalAidlImpl mP2pIfaceHalAidlMock;
     private @Mock WifiP2pMonitor mMonitor;
     private @Mock WifiGlobals mWifiGlobals;
+    private @Mock WifiInjector mWifiInjector;
 
     private static final String IFACE_NAME = "wlan0";
     private static final String BSSID = "fa:45:23:23:12:12";
@@ -70,7 +73,7 @@ public class SupplicantP2pIfaceHalTest {
 
     private class SupplicantP2pIfaceHalSpy extends SupplicantP2pIfaceHal {
         SupplicantP2pIfaceHalSpy() {
-            super(mMonitor, mWifiGlobals);
+            super(mMonitor, mWifiGlobals, mWifiInjector);
         }
 
         @Override
@@ -789,5 +792,19 @@ public class SupplicantP2pIfaceHalTest {
         when(mP2pIfaceHalAidlMock.removeClient(eq(BSSID), anyBoolean())).thenReturn(true);
         assertTrue(mDut.removeClient(BSSID, true));
         verify(mP2pIfaceHalAidlMock).removeClient(eq(BSSID), eq(true));
+    }
+
+    /**
+     * Test that configureEapolIpAddressAllocationParams succeeds
+     */
+    @Test
+    public void testConfigureEapolIpAddressAllocationParamsSuccess() {
+        initializeWithAidlImpl(true);
+        when(mP2pIfaceHalAidlMock.configureEapolIpAddressAllocationParams(
+                anyInt(), anyInt(), anyInt(), anyInt())).thenReturn(true);
+        assertTrue(mDut.configureEapolIpAddressAllocationParams(0x0101A8C0,
+                0x00FFFFFF, 0x0501A8C0, 0x0801A8C0));
+        verify(mP2pIfaceHalAidlMock).configureEapolIpAddressAllocationParams(eq(0x0101A8C0),
+                eq(0x00FFFFFF), eq(0x0501A8C0), eq(0x0801A8C0));
     }
 }

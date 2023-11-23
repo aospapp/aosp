@@ -18,10 +18,12 @@ package android.car.apitest;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import static org.testng.Assert.assertThrows;
+import static org.junit.Assert.assertThrows;
 
 import android.car.VehicleAreaType;
+import android.car.VehicleAreaWindow;
 import android.car.hardware.CarPropertyConfig;
+import android.car.hardware.property.AreaIdConfig;
 import android.test.suitebuilder.annotation.MediumTest;
 
 import org.junit.Test;
@@ -34,7 +36,7 @@ import java.util.List;
  * Unit tests for {@link CarPropertyConfig}
  */
 @MediumTest
-public class CarPropertyConfigTest extends CarPropertyTestBase {
+public final class CarPropertyConfigTest extends CarPropertyTestBase {
 
     @Test
     public void testCarPropertyConfigBuilder() {
@@ -136,7 +138,7 @@ public class CarPropertyConfigTest extends CarPropertyTestBase {
         CarPropertyConfig<Integer[]> config = CarPropertyConfig
                 .newBuilder(Integer[].class, INT_ARRAY_PROPERTY_ID, CAR_AREA_TYPE)
                 // We do not set range for integer array properties.
-                .addAreaConfig(WINDOW_DRIVER, new Integer[] {10, 20, 30}, new Integer[0])
+                .addArea(WINDOW_DRIVER)
                 .addArea(WINDOW_PASSENGER)
                 .build();
 
@@ -164,7 +166,8 @@ public class CarPropertyConfigTest extends CarPropertyTestBase {
 
         // Wrote float, attempted to read integer.
         assertThrows(ClassCastException.class, () -> {
-            Integer value = integerConfig.getMinValue(WINDOW_PASSENGER);
+            // Need to keep this unused variable for the test to pass.
+            Integer unusedMinValue = integerConfig.getMinValue(WINDOW_PASSENGER);
         });
 
         // Type casting from raw CarPropertyConfig should be fine, just confidence check.
@@ -173,7 +176,8 @@ public class CarPropertyConfigTest extends CarPropertyTestBase {
 
         // Wrote float, attempted to read integer.
         assertThrows(ClassCastException.class, () -> {
-            int value = (Integer) rawTypeConfig.getMinValue(WINDOW_PASSENGER);
+            // Need to keep this unused variable for the test to pass.
+            int unusedMinValue = (Integer) rawTypeConfig.getMinValue(WINDOW_PASSENGER);
         });
     }
 
@@ -196,5 +200,145 @@ public class CarPropertyConfigTest extends CarPropertyTestBase {
         assertThat(configRead.getPropertyType()).isEqualTo(Object.class);
         assertThat(configRead.getAreaCount()).isEqualTo(1);
         assertThat(configRead.getConfigArray()).containsExactlyElementsIn(configArray).inOrder();
+    }
+
+    @Test
+    public void getConfigString_returnsExpectedValue() {
+        String testConfigString = "testConfigString";
+        CarPropertyConfig<Integer> carPropertyConfig = CarPropertyConfig
+                .newBuilder(Integer.class, INT_PROPERTY_ID,
+                        VehicleAreaType.VEHICLE_AREA_TYPE_GLOBAL).setConfigString(testConfigString)
+                .build();
+
+        assertThat(carPropertyConfig.getConfigString()).isEqualTo(testConfigString);
+    }
+
+    @Test
+    public void getFirstAndOnlyAreaId_returnsAreaId() {
+        CarPropertyConfig<Long> carPropertyConfig = CarPropertyConfig.newBuilder(Long.class,
+                LONG_PROPERTY_ID, VehicleAreaType.VEHICLE_AREA_TYPE_WINDOW).addArea(
+                VehicleAreaWindow.WINDOW_ROW_1_LEFT).build();
+
+        assertThat(carPropertyConfig.getFirstAndOnlyAreaId()).isEqualTo(
+                VehicleAreaWindow.WINDOW_ROW_1_LEFT);
+    }
+
+    @Test
+    public void getFirstAndOnlyAreaId_throwsIllegalStateException() {
+        CarPropertyConfig<Long> carPropertyConfig = CarPropertyConfig.newBuilder(Long.class,
+                LONG_PROPERTY_ID, VehicleAreaType.VEHICLE_AREA_TYPE_WINDOW).addArea(
+                VehicleAreaWindow.WINDOW_ROW_1_LEFT).addArea(
+                VehicleAreaWindow.WINDOW_ROW_1_RIGHT).build();
+
+        assertThrows(IllegalStateException.class, () -> carPropertyConfig.getFirstAndOnlyAreaId());
+    }
+
+    @Test
+    public void getAreaIdConfigs_returnsEmptyIfNoAreaIdsSupplied() {
+        CarPropertyConfig<Long> carPropertyConfig = CarPropertyConfig.newBuilder(Long.class,
+                LONG_PROPERTY_ID, VehicleAreaType.VEHICLE_AREA_TYPE_WINDOW).build();
+
+        assertThat(carPropertyConfig.getAreaIdConfigs()).isEmpty();
+    }
+
+    @Test
+    public void getAreaIdConfigs_returnsAreaIdConfigThatIsSupplied() {
+        AreaIdConfig<Long> areaIdConfig = new AreaIdConfig.Builder<Long>(
+                VehicleAreaWindow.WINDOW_REAR_WINDSHIELD).build();
+        CarPropertyConfig<Long> carPropertyConfig = CarPropertyConfig.newBuilder(Long.class,
+                LONG_PROPERTY_ID, VehicleAreaType.VEHICLE_AREA_TYPE_WINDOW).addAreaIdConfig(
+                areaIdConfig).build();
+
+        assertThat(carPropertyConfig.getAreaIdConfigs()).containsExactly(areaIdConfig);
+    }
+
+    @Test
+    public void getAreaIdConfigs_returnsMultipleAreaIdConfigsThatAreSupplied() {
+        AreaIdConfig<Long> areaIdConfig = new AreaIdConfig.Builder<Long>(
+                VehicleAreaWindow.WINDOW_REAR_WINDSHIELD).build();
+        AreaIdConfig<Long> areaIdConfig2 = new AreaIdConfig.Builder<Long>(
+                VehicleAreaWindow.WINDOW_FRONT_WINDSHIELD).build();
+        CarPropertyConfig<Long> carPropertyConfig = CarPropertyConfig.newBuilder(Long.class,
+                LONG_PROPERTY_ID, VehicleAreaType.VEHICLE_AREA_TYPE_WINDOW).addAreaIdConfig(
+                areaIdConfig).addAreaIdConfig(areaIdConfig2).build();
+
+        assertThat(carPropertyConfig.getAreaIdConfigs()).containsExactly(areaIdConfig,
+                areaIdConfig2);
+    }
+
+    @Test
+    public void getAreaIdConfig_throwsIllegalArgumentException() {
+        CarPropertyConfig<Long> carPropertyConfig = CarPropertyConfig.newBuilder(Long.class,
+                LONG_PROPERTY_ID, VehicleAreaType.VEHICLE_AREA_TYPE_WINDOW).build();
+
+        assertThrows(IllegalArgumentException.class,
+                () -> carPropertyConfig.getAreaIdConfig(/*areaId=*/0));
+    }
+
+    @Test
+    public void getAreaIdConfig_returnsAreaIdConfigThatIsSupplied() {
+        AreaIdConfig<Long> areaIdConfig = new AreaIdConfig.Builder<Long>(
+                VehicleAreaWindow.WINDOW_REAR_WINDSHIELD).build();
+        CarPropertyConfig<Long> carPropertyConfig = CarPropertyConfig.newBuilder(Long.class,
+                LONG_PROPERTY_ID, VehicleAreaType.VEHICLE_AREA_TYPE_WINDOW).addAreaIdConfig(
+                areaIdConfig).build();
+
+        assertThat(carPropertyConfig.getAreaIdConfig(
+                VehicleAreaWindow.WINDOW_REAR_WINDSHIELD)).isEqualTo(areaIdConfig);
+    }
+
+    @Test
+    public void getAreaIdConfig_returnsMultipleAreaIdConfigsThatAreSupplied() {
+        AreaIdConfig<Long> areaIdConfig = new AreaIdConfig.Builder<Long>(
+                VehicleAreaWindow.WINDOW_REAR_WINDSHIELD).build();
+        AreaIdConfig<Long> areaIdConfig2 = new AreaIdConfig.Builder<Long>(
+                VehicleAreaWindow.WINDOW_FRONT_WINDSHIELD).build();
+        CarPropertyConfig<Long> carPropertyConfig = CarPropertyConfig.newBuilder(Long.class,
+                LONG_PROPERTY_ID, VehicleAreaType.VEHICLE_AREA_TYPE_WINDOW).addAreaIdConfig(
+                areaIdConfig).addAreaIdConfig(areaIdConfig2).build();
+
+        assertThat(carPropertyConfig.getAreaIdConfig(
+                VehicleAreaWindow.WINDOW_REAR_WINDSHIELD)).isEqualTo(areaIdConfig);
+        assertThat(carPropertyConfig.getAreaIdConfig(
+                VehicleAreaWindow.WINDOW_FRONT_WINDSHIELD)).isEqualTo(areaIdConfig2);
+    }
+
+    @Test
+    public void getAreaIds_isEmptyIfNoAreaIdsAreSupplied() {
+        CarPropertyConfig<Long> carPropertyConfig = CarPropertyConfig.newBuilder(Long.class,
+                LONG_PROPERTY_ID, VehicleAreaType.VEHICLE_AREA_TYPE_WINDOW).build();
+
+        assertThat(carPropertyConfig.getAreaIds()).isEmpty();
+    }
+
+    @Test
+    public void getAreaIds_returnsAreaIdThatIsSupplied() {
+        AreaIdConfig<Long> areaIdConfig = new AreaIdConfig.Builder<Long>(
+                VehicleAreaWindow.WINDOW_REAR_WINDSHIELD).build();
+        CarPropertyConfig<Long> carPropertyConfig = CarPropertyConfig.newBuilder(Long.class,
+                LONG_PROPERTY_ID, VehicleAreaType.VEHICLE_AREA_TYPE_WINDOW).addAreaIdConfig(
+                areaIdConfig).build();
+
+        assertThat(carPropertyConfig.getAreaIds()).hasLength(1);
+        assertThat(carPropertyConfig.getAreaIds()[0]).isEqualTo(
+                VehicleAreaWindow.WINDOW_REAR_WINDSHIELD);
+    }
+
+    @Test
+    public void getAreaIds_returnsMultipleAreaIdsThatAreSupplied() {
+        AreaIdConfig<Long> areaIdConfig = new AreaIdConfig.Builder<Long>(
+                VehicleAreaWindow.WINDOW_REAR_WINDSHIELD).build();
+        AreaIdConfig<Long> areaIdConfig2 = new AreaIdConfig.Builder<Long>(
+                VehicleAreaWindow.WINDOW_FRONT_WINDSHIELD).build();
+        CarPropertyConfig<Long> carPropertyConfig = CarPropertyConfig.newBuilder(Long.class,
+                LONG_PROPERTY_ID, VehicleAreaType.VEHICLE_AREA_TYPE_WINDOW).addAreaIdConfig(
+                areaIdConfig).addAreaIdConfig(areaIdConfig2).build();
+
+        assertThat(carPropertyConfig.getAreaIds()).hasLength(2);
+        assertThat(carPropertyConfig.getAreaIds()[0]).isEqualTo(
+                VehicleAreaWindow.WINDOW_REAR_WINDSHIELD);
+        assertThat(carPropertyConfig.getAreaIds()[1]).isEqualTo(
+                VehicleAreaWindow.WINDOW_FRONT_WINDSHIELD);
+
     }
 }

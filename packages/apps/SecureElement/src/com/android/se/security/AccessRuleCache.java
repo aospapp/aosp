@@ -56,7 +56,7 @@ import java.util.Set;
 
 /** Stores all the access rules from the Secure Element */
 public class AccessRuleCache {
-    private static final boolean DEBUG = Build.IS_DEBUGGABLE;
+    private static final boolean DEBUG = Build.isDebuggable();
     private final String mTag = "SecureElement-AccessRuleCache";
     // Previous "RefreshTag"
     // 2012-09-25

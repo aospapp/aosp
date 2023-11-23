@@ -37,7 +37,7 @@ class MockLeAdvertisingManager : public LeAdvertisingManager {
       AdvertiserId,
       ExtendedCreateAdvertiser,
       (int regId,
-       const ExtendedAdvertisingConfig,
+       const AdvertisingConfig,
        const common::Callback<void(Address, AddressType)>&,
        const common::Callback<void(ErrorCode, uint8_t, uint8_t)>&,
        uint16_t,

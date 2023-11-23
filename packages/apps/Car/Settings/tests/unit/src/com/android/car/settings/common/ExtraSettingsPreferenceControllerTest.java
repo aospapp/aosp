@@ -334,7 +334,7 @@ public class ExtraSettingsPreferenceControllerTest {
         }
 
         @Override
-        protected int getAvailabilityStatus() {
+        protected int getDefaultAvailabilityStatus() {
             return mAvailabilityStatus;
         }
 

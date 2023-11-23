@@ -18,6 +18,11 @@ package com.android.car.obd2.test;
 
 import static android.hardware.automotive.vehicle.VehicleProperty.OBD2_FREEZE_FRAME;
 
+import static com.android.car.obd2.test.Obd2FrameGeneratorTestConstants.EXPECTED_DISCOVERY_COMMANDS;
+import static com.android.car.obd2.test.Obd2FrameGeneratorTestConstants.EXPECTED_DISCOVERY_RESPONSES;
+import static com.android.car.obd2.test.Obd2FrameGeneratorTestConstants.EXPECTED_INIT_COMMANDS;
+import static com.android.car.obd2.test.Obd2FrameGeneratorTestConstants.EXPECTED_INIT_RESPONSES;
+import static com.android.car.obd2.test.Obd2FrameGeneratorTestConstants.OBD2_PROMPT;
 import static com.android.car.obd2.test.Utils.concatIntArrays;
 import static com.android.car.obd2.test.Utils.stringsToIntArray;
 
@@ -36,51 +41,28 @@ import org.junit.Test;
 import java.io.StringReader;
 import java.io.StringWriter;
 
-public class Obd2FreezeFrameGeneratorTest {
-    private static final String[] EXPECTED_INIT_COMMANDS =
-            new String[] {
-                "ATD\r", "ATZ\r", "AT E0\r", "AT L0\r", "AT S0\r", "AT H0\r", "AT SP 0\r"
-            };
+public final class Obd2FreezeFrameGeneratorTest {
 
-    private static final String OBD2_PROMPT = ">";
-
-    private static final String[] EXPECTED_INIT_RESPONSES =
-            new String[] {
-                OBD2_PROMPT,
-                OBD2_PROMPT,
-                OBD2_PROMPT,
-                OBD2_PROMPT,
-                OBD2_PROMPT,
-                OBD2_PROMPT,
-                OBD2_PROMPT
-            };
-
-    private static final String[] EXPECTED_DISCOVERY_COMMANDS =
-            new String[] {"0100\r", "0120\r", "0140\r", "0160\r"};
-
-    private static final String[] EXPECTED_DISCOVERY_RESPONSES =
-        new String[] {"00 00 00 18 00 00", OBD2_PROMPT, OBD2_PROMPT, OBD2_PROMPT, OBD2_PROMPT};
-
-    private static final String[] EXPECTED_MODE3_COMMANDS = new String[] {"03\r"};
+    private static final String[] EXPECTED_MODE3_COMMANDS = new String[]{"03\r"};
 
     private static final String[] EXPECTED_MODE3_RESPONSES =
-            new String[] {
-                "0300E0:4306010002001:030043008200C12:0000000000000043010101", OBD2_PROMPT
+            new String[]{
+                    "0300E0:4306010002001:030043008200C12:0000000000000043010101", OBD2_PROMPT
             };
 
     private static final String[] EXPECTED_FRAME_COMMANDS =
-            new String[] {"020C 00\r", "020D 00\r", "020C 01\r", "020D 01\r"};
+            new String[]{"020C 00\r", "020D 00\r", "020C 01\r", "020D 01\r"};
 
     private static final String[] EXPECTED_FRAME_RESPONSES =
-            new String[] {
-                "42 0C 00 12 0F",
-                OBD2_PROMPT,
-                "42 0D 00 82",
-                OBD2_PROMPT,
-                "42 0C 01 12 0F",
-                OBD2_PROMPT,
-                "42 0D 01 83",
-                OBD2_PROMPT
+            new String[]{
+                    "42 0C 00 12 0F",
+                    OBD2_PROMPT,
+                    "42 0D 00 82",
+                    OBD2_PROMPT,
+                    "42 0C 01 12 0F",
+                    OBD2_PROMPT,
+                    "42 0D 01 83",
+                    OBD2_PROMPT
             };
 
     @Test

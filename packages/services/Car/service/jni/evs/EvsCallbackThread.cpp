@@ -26,8 +26,8 @@ constexpr const char kCallbackThreadName[] = "EvsCallbackThread";
 
 namespace android::automotive::evs {
 
-EvsCallbackThread::EvsCallbackThread(JavaVM* vm) :
-      mVm(vm), mRunning(true), mThread(&EvsCallbackThread::threadLoop, this) {
+EvsCallbackThread::EvsCallbackThread(JavaVM* vm) : mVm(vm), mRunning(true) {
+    mThread = std::thread(&EvsCallbackThread::threadLoop, this);
     LOG(DEBUG) << "Started the native callback handler thread = " << this;
 }
 

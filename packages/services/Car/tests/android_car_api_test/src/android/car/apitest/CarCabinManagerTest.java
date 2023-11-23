@@ -22,10 +22,12 @@ import static org.junit.Assert.fail;
 import android.car.Car;
 import android.car.hardware.CarPropertyConfig;
 import android.car.hardware.cabin.CarCabinManager;
+import android.car.test.ApiCheckerRule.Builder;
 import android.test.suitebuilder.annotation.MediumTest;
 import android.util.Log;
 
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 
 import java.util.Arrays;
@@ -34,10 +36,17 @@ import java.util.List;
 import java.util.Set;
 
 @MediumTest
-public class CarCabinManagerTest extends CarApiTestBase {
+public final class CarCabinManagerTest extends CarApiTestBase {
     private static final String TAG = CarCabinManagerTest.class.getSimpleName();
 
     private CarCabinManager mCabinManager;
+
+    // TODO(b/242350638): add missing annotations, remove (on child bug of 242350638)
+    @Override
+    protected void configApiCheckerRule(Builder builder) {
+        Log.w(TAG, "Disabling API requirements check");
+        builder.disableAnnotationsCheck();
+    }
 
     @Before
     public void setUp() throws Exception {
@@ -46,6 +55,7 @@ public class CarCabinManagerTest extends CarApiTestBase {
     }
 
     @Test
+    @Ignore("b/256244980-ID_WINDOW_LOCK is incorrect")
     public void testAllCabinProperties() throws Exception {
         List<CarPropertyConfig> properties = mCabinManager.getPropertyList();
         Set<Class> supportedTypes = new HashSet<>(Arrays.asList(
@@ -63,10 +73,15 @@ public class CarCabinManagerTest extends CarApiTestBase {
     private void assertTypeAndZone(CarPropertyConfig property) {
         int propId = property.getPropertyId();
         switch (propId) {
-            // Zoned boolean properties
-            case CarCabinManager.ID_DOOR_LOCK:
+            // Global boolean properties
             case CarCabinManager.ID_MIRROR_LOCK:
             case CarCabinManager.ID_MIRROR_FOLD:
+                assertThat(property.getPropertyType()).isAssignableTo(Boolean.class);
+                assertThat(property.isGlobalProperty()).isTrue();
+                break;
+
+            // Zoned boolean properties
+            case CarCabinManager.ID_DOOR_LOCK:
             case CarCabinManager.ID_SEAT_BELT_BUCKLED:
             case CarCabinManager.ID_WINDOW_LOCK:
                 assertThat(property.getPropertyType()).isAssignableTo(Boolean.class);

@@ -19,7 +19,7 @@
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="applications_settings" msgid="3446736638853404682">"ಆ್ಯಪ್ ಮಾಹಿತಿ"</string>
     <string name="accessibility_settings_classname" msgid="973410590374198997">"com.android.settings.accessibility.AccessibilitySettings"</string>
-    <string name="accessibility_settings" msgid="1488998032020612740">"ಪ್ರವೇಶಿಸುವಿಕೆ"</string>
+    <string name="accessibility_settings" msgid="1488998032020612740">"ಆ್ಯಕ್ಸೆಸಿಬಿಲಿಟಿ"</string>
     <string name="physical_keyboard_title" msgid="3955072245281785000">"ಭೌತಿಕ ಕೀಬೋರ್ಡ್"</string>
     <string name="add_virtual_keyboard" msgid="542703692821933851">"ಕೀಬೋರ್ಡ್‌ಗಳನ್ನು ನಿರ್ವಹಿಸಿ"</string>
     <string name="app_name_settings_intelligence" msgid="8701735500346011661">"ಸೆಟ್ಟಿಂಗ್‌ಗಳ ಸೂಚನೆಗಳು"</string>

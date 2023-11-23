@@ -52,7 +52,7 @@ public class DefaultAutofillPickerEntryPreferenceController extends
     }
 
     @Override
-    protected int getAvailabilityStatus() {
+    protected int getDefaultAvailabilityStatus() {
         if (mAutofillManager != null && mAutofillManager.isAutofillSupported()) {
             return AVAILABLE;
         }

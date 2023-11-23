@@ -19,6 +19,7 @@ package com.android.car.calendar;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.content.res.Resources;
+import android.icu.text.MessageFormat;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -28,7 +29,10 @@ import android.widget.TextView;
 
 import androidx.recyclerview.widget.RecyclerView;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 
 class AllDayEventsItem implements CalendarItem {
 
@@ -78,8 +82,12 @@ class AllDayEventsItem implements CalendarItem {
             hideEventSection();
 
             int size = eventCalendarItems.size();
-            mTitleTextView.setText(
-                    mResources.getQuantityString(R.plurals.all_day_title, size, size));
+            MessageFormat msgFmt = new MessageFormat(mResources.getString(
+                    R.string.all_day_title), Locale.getDefault());
+            Map<String, Object> strArgs = new HashMap<>();
+            strArgs.put("count", size);
+            String title = msgFmt.format(strArgs);
+            mTitleTextView.setText(title);
 
             for (EventCalendarItem eventCalendarItem : eventCalendarItems) {
                 EventCalendarItem.EventViewHolder holder =

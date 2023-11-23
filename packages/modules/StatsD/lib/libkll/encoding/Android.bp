@@ -23,6 +23,9 @@ package {
 
 cc_library_static {
     name: "libkll-encoder",
+    host_supported: true,
+    vendor_available: true,
+    double_loadable: true,
     srcs: [
         "encoder.cpp",
         "varint.cpp",

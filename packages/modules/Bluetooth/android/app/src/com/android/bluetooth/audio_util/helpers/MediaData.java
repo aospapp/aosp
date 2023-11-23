@@ -56,4 +56,10 @@ public class MediaData {
 
         return true;
     }
+
+    @Override
+    public int hashCode() {
+        // Do not hash the PlaybackState as it does not implement hashCode
+        return Objects.hash(metadata, queue);
+    }
 }

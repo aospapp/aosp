@@ -32,9 +32,12 @@ using ::bluetooth::common::Callback;
 using ::bluetooth::os::Handler;
 using ::bluetooth::os::Thread;
 
+using namespace std::chrono_literals;
+
 namespace bluetooth {
 namespace hci {
 namespace acl_manager {
+namespace {
 
 class TestController : public Controller {
  public:
@@ -95,11 +98,8 @@ class RoundRobinSchedulerTest : public ::testing::Test {
   }
 
   void sync_handler() {
-    std::promise<void> promise;
-    auto future = promise.get_future();
-    handler_->BindOnceOn(&promise, &std::promise<void>::set_value).Invoke();
-    auto status = future.wait_for(std::chrono::milliseconds(3));
-    EXPECT_EQ(status, std::future_status::ready);
+    ASSERT(thread_ != nullptr);
+    ASSERT(thread_->GetReactor()->WaitForIdle(2s));
   }
 
   void EnqueueAclUpEnd(AclConnection::QueueUpEnd* queue_up_end, std::vector<uint8_t> packet) {
@@ -136,8 +136,9 @@ class RoundRobinSchedulerTest : public ::testing::Test {
 
     packet_count_--;
     if (packet_count_ == 0) {
-      packet_promise_->set_value();
-      packet_promise_ = nullptr;
+      std::promise<void>* prom = packet_promise_.release();
+      prom->set_value();
+      delete prom;
     }
   }
 
@@ -152,7 +153,7 @@ class RoundRobinSchedulerTest : public ::testing::Test {
   }
 
   void SetPacketFuture(uint16_t count) {
-    ASSERT_LOG(packet_promise_ == nullptr, "Promises, Promises, ... Only one at a time.");
+    ASSERT_EQ(packet_promise_, nullptr) << "Promises, Promises, ... Only one at a time.";
     packet_count_ = count;
     packet_promise_ = std::make_unique<std::promise<void>>();
     packet_future_ = std::make_unique<std::future<void>>(packet_promise_->get_future());
@@ -185,7 +186,7 @@ TEST_F(RoundRobinSchedulerTest, buffer_packet) {
   auto connection_queue = std::make_shared<AclConnection::Queue>(10);
   round_robin_scheduler_->Register(RoundRobinScheduler::ConnectionType::CLASSIC, handle, connection_queue);
 
-  SetPacketFuture(2);
+  ASSERT_NO_FATAL_FAILURE(SetPacketFuture(2));
   AclConnection::QueueUpEnd* queue_up_end = connection_queue->GetUpEnd();
   std::vector<uint8_t> packet1 = {0x01, 0x02, 0x03};
   std::vector<uint8_t> packet2 = {0x04, 0x05, 0x06};
@@ -209,7 +210,7 @@ TEST_F(RoundRobinSchedulerTest, buffer_packet_from_two_connections) {
   round_robin_scheduler_->Register(RoundRobinScheduler::ConnectionType::CLASSIC, handle, connection_queue);
   round_robin_scheduler_->Register(RoundRobinScheduler::ConnectionType::LE, le_handle, le_connection_queue);
 
-  SetPacketFuture(2);
+  ASSERT_NO_FATAL_FAILURE(SetPacketFuture(2));
   AclConnection::QueueUpEnd* queue_up_end = connection_queue->GetUpEnd();
   AclConnection::QueueUpEnd* le_queue_up_end = le_connection_queue->GetUpEnd();
   std::vector<uint8_t> packet = {0x01, 0x02, 0x03};
@@ -232,7 +233,7 @@ TEST_F(RoundRobinSchedulerTest, do_not_register_when_credits_is_zero) {
   auto connection_queue = std::make_shared<AclConnection::Queue>(15);
   round_robin_scheduler_->Register(RoundRobinScheduler::ConnectionType::CLASSIC, handle, connection_queue);
 
-  SetPacketFuture(10);
+  ASSERT_NO_FATAL_FAILURE(SetPacketFuture(10));
   AclConnection::QueueUpEnd* queue_up_end = connection_queue->GetUpEnd();
   for (uint8_t i = 0; i < 15; i++) {
     std::vector<uint8_t> packet = {0x01, 0x02, 0x03, i};
@@ -246,7 +247,7 @@ TEST_F(RoundRobinSchedulerTest, do_not_register_when_credits_is_zero) {
   }
   ASSERT_EQ(round_robin_scheduler_->GetCredits(), 0);
 
-  SetPacketFuture(5);
+  ASSERT_NO_FATAL_FAILURE(SetPacketFuture(5));
   controller_->SendCompletedAclPacketsCallback(0x01, 10);
   sync_handler();
   packet_future_->wait();
@@ -276,7 +277,7 @@ TEST_F(RoundRobinSchedulerTest, buffer_packet_intervally) {
   auto le_connection_queue1 = std::make_shared<AclConnection::Queue>(10);
   auto le_connection_queue2 = std::make_shared<AclConnection::Queue>(10);
 
-  SetPacketFuture(18);
+  ASSERT_NO_FATAL_FAILURE(SetPacketFuture(18));
   AclConnection::QueueUpEnd* queue_up_end1 = connection_queue1->GetUpEnd();
   AclConnection::QueueUpEnd* queue_up_end2 = connection_queue2->GetUpEnd();
   AclConnection::QueueUpEnd* le_queue_up_end1 = le_connection_queue1->GetUpEnd();
@@ -333,7 +334,7 @@ TEST_F(RoundRobinSchedulerTest, send_fragments_without_interval) {
   round_robin_scheduler_->Register(RoundRobinScheduler::ConnectionType::CLASSIC, handle, connection_queue);
   round_robin_scheduler_->Register(RoundRobinScheduler::ConnectionType::LE, le_handle, le_connection_queue);
 
-  SetPacketFuture(5);
+  ASSERT_NO_FATAL_FAILURE(SetPacketFuture(5));
   AclConnection::QueueUpEnd* queue_up_end = connection_queue->GetUpEnd();
   AclConnection::QueueUpEnd* le_queue_up_end = le_connection_queue->GetUpEnd();
   std::vector<uint8_t> packet(controller_->hci_mtu_, 0xff);
@@ -379,7 +380,8 @@ TEST_F(RoundRobinSchedulerTest, receive_le_credit_when_next_fragment_is_classic)
   round_robin_scheduler_->Register(RoundRobinScheduler::ConnectionType::CLASSIC, handle, connection_queue);
   round_robin_scheduler_->Register(RoundRobinScheduler::ConnectionType::LE, le_handle, le_connection_queue);
 
-  SetPacketFuture(controller_->le_max_acl_packet_credits_ + controller_->max_acl_packet_credits_);
+  ASSERT_NO_FATAL_FAILURE(
+      SetPacketFuture(controller_->le_max_acl_packet_credits_ + controller_->max_acl_packet_credits_));
   AclConnection::QueueUpEnd* queue_up_end = connection_queue->GetUpEnd();
   AclConnection::QueueUpEnd* le_queue_up_end = le_connection_queue->GetUpEnd();
   std::vector<uint8_t> huge_packet(2000);
@@ -410,6 +412,7 @@ TEST_F(RoundRobinSchedulerTest, receive_le_credit_when_next_fragment_is_classic)
   round_robin_scheduler_->Unregister(le_handle);
 }
 
+}  // namespace
 }  // namespace acl_manager
 }  // namespace hci
 }  // namespace bluetooth

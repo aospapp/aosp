@@ -19,6 +19,7 @@ cc_defaults {
 
 cc_fuzz {
     name: "a2dp_codec_fuzz",
+    static_libs: ["libchrome"],
     defaults: ["libbt-stack_fuzz_codec_defaults"],
     srcs: [
         "fuzz_a2dp_codec.cc",
@@ -27,6 +28,7 @@ cc_fuzz {
 
 cc_fuzz {
     name: "a2dp_codec_info_fuzz",
+    static_libs: ["libchrome"],
     defaults: ["libbt-stack_fuzz_codec_defaults"],
     srcs: [
         "fuzz_a2dp_codec_info.cc",
@@ -35,6 +37,7 @@ cc_fuzz {
 
 cc_fuzz {
     name: "a2dp_codec_cfg_fuzz",
+    static_libs: ["libchrome"],
     defaults: ["libbt-stack_fuzz_codec_defaults"],
     srcs: [
         "fuzz_a2dp_codec_config.cc",

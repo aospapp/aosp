@@ -14,12 +14,7 @@
  * limitations under the License.
  */
 
-#include <map>
-#include <string>
-
-extern std::map<std::string, int> mock_function_count_map;
-
-#include <base/bind.h>
+#include <base/functional/bind.h>
 #include <base/location.h>
 #include <base/logging.h>
 #include <base/memory/weak_ptr.h>
@@ -27,7 +22,9 @@ extern std::map<std::string, int> mock_function_count_map;
 #include <base/time/time.h>
 #include <string.h>
 
+#include <map>
 #include <queue>
+#include <string>
 #include <vector>
 
 #include "bind_helpers.h"
@@ -38,22 +35,23 @@ extern std::map<std::string, int> mock_function_count_map;
 #include "stack/btm/ble_scanner_hci_interface.h"
 #include "stack/btm/btm_ble_int.h"
 #include "stack/btm/btm_int_types.h"
+#include "test/common/mock_functions.h"
 
 #ifndef UNUSED_ATTR
 #define UNUSED_ATTR
 #endif
 
-void BleScanningManager::CleanUp() { mock_function_count_map[__func__]++; }
-void btm_ble_scanner_init() { mock_function_count_map[__func__]++; }
+void BleScanningManager::CleanUp() { inc_func_call_count(__func__); }
+void btm_ble_scanner_init() { inc_func_call_count(__func__); }
 base::WeakPtr<BleScanningManager> BleScanningManager::Get() {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return nullptr;
 }
 bool BleScanningManager::IsInitialized() {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return false;
 }
 void BleScanningManager::Initialize(BleScannerHciInterface* interface) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
 }
-void btm_ble_scanner_cleanup(void) { mock_function_count_map[__func__]++; }
+void btm_ble_scanner_cleanup(void) { inc_func_call_count(__func__); }

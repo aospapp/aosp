@@ -27,7 +27,7 @@ import java.util.Collection;
 /**
  * A builder class for {@link android.hardware.automotive.vehicle.V2_0.VehiclePropConfig}
  */
-public class HidlVehiclePropConfigBuilder {
+public final class HidlVehiclePropConfigBuilder {
 
     private final VehiclePropConfig mConfig;
 

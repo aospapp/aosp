@@ -20,8 +20,32 @@
           android:sharedUserId="android.uid.system"
           package="com.android.systemui.tests">
 
-    <application android:debuggable="true" android:largeHeap="true">
+    <application
+        android:name="com.android.systemui.SystemUIApplication"
+        android:debuggable="true"
+        android:largeHeap="true"
+        tools:replace="android:appComponentFactory"
+        android:appComponentFactory="com.android.systemui.CarSystemUITestAppComponentFactory"
+        android:testOnly="true">
         <uses-library android:name="android.test.runner"/>
+
+        <activity android:name="com.android.systemui.car.userpicker.UserPickerDriverTestActivity"
+                  android:exported="false"
+                  android:theme="@style/Theme.UserPicker"
+                  android:finishOnCloseSystemDialogs="true"
+                  android:excludeFromRecents="true" />
+
+        <activity android:name="com.android.systemui.car.userpicker.UserPickerPassengerTestActivity"
+                  android:exported="false"
+                  android:theme="@style/Theme.UserPicker"
+                  android:finishOnCloseSystemDialogs="true"
+                  android:excludeFromRecents="true" />
+
+        <activity android:name="com.android.systemui.car.userpicker.UserPickerRecyclerViewTestActivity"
+                  android:exported="false"
+                  android:theme="@style/Theme.UserPicker"
+                  android:finishOnCloseSystemDialogs="true"
+                  android:excludeFromRecents="true" />
 
         <provider
             android:name="androidx.startup.InitializationProvider"

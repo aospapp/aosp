@@ -32,12 +32,13 @@ import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_WIFI_SECU
 import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_WIFI_SSID;
 import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_WIFI_USER_CERTIFICATE;
 
-
 import android.os.Parcel;
 import android.os.Parcelable;
 import android.os.PersistableBundle;
-import androidx.annotation.Nullable;
 import android.text.TextUtils;
+
+import androidx.annotation.Nullable;
+
 import com.android.internal.annotations.Immutable;
 import com.android.managedprovisioning.common.PersistableBundlable;
 
@@ -229,6 +230,12 @@ public final class WifiInfo extends PersistableBundlable {
         private String mProxyBypassHosts;
         private String mPacUrl;
 
+        /**
+         * Set the SSID of the network.
+         *
+         * Note: This must be in the same format as {@link android.net.wifi.WifiConfiguration#SSID},
+         *       and must be wrapped in double quotes or else it will be interpreted as hexadecimal.
+         */
         public Builder setSsid(String ssid) {
             mSsid = ssid;
             return this;

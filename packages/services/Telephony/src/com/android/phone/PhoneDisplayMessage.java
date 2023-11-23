@@ -80,7 +80,8 @@ public class PhoneDisplayMessage {
         sDisplayMessageDialog.getWindow().addFlags(
                 WindowManager.LayoutParams.FLAG_DIM_BEHIND
                 | WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON
-                | WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+                | WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
+                | WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED);
 
         sDisplayMessageDialog.show();
     }

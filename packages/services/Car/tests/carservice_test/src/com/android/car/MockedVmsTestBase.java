@@ -177,11 +177,12 @@ public class MockedVmsTestBase extends MockedCarTestBase {
         private BlockingQueue<VehiclePropValue> mMessages = new LinkedBlockingQueue<>();
 
         @Override
-        public void onPropertySet(VehiclePropValue value) {
+        public boolean onPropertySet2(VehiclePropValue value) {
             Log.d(TAG, "MockHalClient.onPropertySet");
             if (value.prop == VehicleProperty.VEHICLE_MAP_SERVICE) {
                 mMessages.add(value);
             }
+            return false;
         }
 
         void sendMessage(int... message) {

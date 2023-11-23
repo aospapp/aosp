@@ -17,9 +17,11 @@ package com.android.car.settings.datetime;
 
 import android.app.timedetector.ManualTimeSuggestion;
 import android.app.timedetector.TimeDetector;
+import android.app.timedetector.TimeDetectorHelper;
 import android.car.drivingstate.CarUxRestrictions;
 import android.content.Intent;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.ViewGroup;
 import android.widget.DatePicker;
 import android.widget.NumberPicker;
@@ -37,13 +39,14 @@ import com.android.car.settings.common.rotary.NumberPickerUtils;
 
 import java.util.ArrayList;
 import java.util.Calendar;
+import java.util.GregorianCalendar;
 import java.util.List;
 
 /**
  * Sets the system date.
  */
 public class DatePickerFragment extends BaseFragment {
-    private static final int MILLIS_IN_SECOND = 1000;
+    private static final String TAG = "DatePickerFragment";
 
     private DirectManipulationState mDirectManipulationMode;
     private DatePicker mDatePicker;
@@ -56,14 +59,18 @@ public class DatePickerFragment extends BaseFragment {
         c.set(Calendar.YEAR, mDatePicker.getYear());
         c.set(Calendar.MONTH, mDatePicker.getMonth());
         c.set(Calendar.DAY_OF_MONTH, mDatePicker.getDayOfMonth());
-        long when = Math.max(c.getTimeInMillis(), DatetimeSettingsFragment.MIN_DATE);
-        if (when / MILLIS_IN_SECOND < Integer.MAX_VALUE) {
-            TimeDetector timeDetector =
-                    getContext().getSystemService(TimeDetector.class);
-            ManualTimeSuggestion manualTimeSuggestion =
-                    TimeDetector.createManualTimeSuggestion(when, "Settings: Set date");
-            timeDetector.suggestManualTime(manualTimeSuggestion);
+
+        long when = c.getTimeInMillis();
+        TimeDetector timeDetector = getContext().getSystemService(TimeDetector.class);
+        ManualTimeSuggestion manualTimeSuggestion =
+                TimeDetector.createManualTimeSuggestion(when, "Settings: Set date");
+        boolean success = timeDetector.suggestManualTime(manualTimeSuggestion);
+        if (success) {
             getContext().sendBroadcast(new Intent(Intent.ACTION_TIME_CHANGED));
+        } else {
+            // This implies the system server is applying tighter bounds than the settings app or
+            // the date/time cannot be set for other reasons, e.g. perhaps "auto time" is turned on.
+            Log.w(TAG, "Unable to set date with suggestion=" + manualTimeSuggestion);
         }
     }
 
@@ -86,6 +93,21 @@ public class DatePickerFragment extends BaseFragment {
         mDirectManipulationMode = new DirectManipulationState();
         mDatePicker = getView().findViewById(R.id.date_picker);
         mDatePicker.setDescendantFocusability(ViewGroup.FOCUS_BLOCK_DESCENDANTS);
+
+        // Set lower and upper bounds for the date that the user is able to select.
+        GregorianCalendar calendar = new GregorianCalendar();
+        calendar.clear();
+        calendar.set(Calendar.DAY_OF_MONTH, 1);
+        calendar.set(Calendar.MONTH, Calendar.JANUARY);
+        calendar.set(Calendar.YEAR, TimeDetectorHelper.INSTANCE.getManualDateSelectionYearMin());
+        mDatePicker.setMinDate(calendar.getTimeInMillis());
+
+        calendar.clear();
+        calendar.set(Calendar.DAY_OF_MONTH, 31);
+        calendar.set(Calendar.MONTH, Calendar.DECEMBER);
+        calendar.set(Calendar.YEAR, TimeDetectorHelper.INSTANCE.getManualDateSelectionYearMax());
+        mDatePicker.setMaxDate(calendar.getTimeInMillis());
+
         mNumberPickers = new ArrayList<>();
         NumberPickerUtils.getNumberPickerDescendants(mNumberPickers, mDatePicker);
 

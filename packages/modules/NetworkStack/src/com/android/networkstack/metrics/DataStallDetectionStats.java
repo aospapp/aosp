@@ -157,8 +157,9 @@ public final class DataStallDetectionStats {
 
     @Override
     public int hashCode() {
-        return Objects.hash(mNetworkType, mEvaluationType, mWifiInfo, mCellularInfo, mDns,
-                mTcpFailRate, mTcpSentSinceLastRecv);
+        return Objects.hash(mNetworkType, mEvaluationType, Arrays.hashCode(mWifiInfo),
+                Arrays.hashCode(mCellularInfo), Arrays.hashCode(mDns), mTcpFailRate,
+                mTcpSentSinceLastRecv);
     }
 
     /**

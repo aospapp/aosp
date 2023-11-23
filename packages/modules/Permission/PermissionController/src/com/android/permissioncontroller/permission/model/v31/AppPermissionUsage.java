@@ -125,16 +125,6 @@ public final class AppPermissionUsage {
         return lastAccessTime;
     }
 
-    public long getAccessCount() {
-        long accessCount = 0;
-        final int permissionCount = mGroupUsages.size();
-        for (int i = 0; i < permissionCount; i++) {
-            final GroupUsage permission = mGroupUsages.get(i);
-            accessCount += permission.getAccessCount();
-        }
-        return accessCount;
-    }
-
     public @NonNull List<GroupUsage> getGroupUsages() {
         return mGroupUsages;
     }
@@ -161,62 +151,6 @@ public final class AppPermissionUsage {
             }
 
             return lastAccessAggregate((op) -> op.getLastAccessTime(PRIVACY_HUB_FLAGS));
-        }
-
-        public long getLastAccessForegroundTime() {
-            if (mLastUsage == null) {
-                return 0;
-            }
-
-            return lastAccessAggregate((op) -> op.getLastAccessForegroundTime(PRIVACY_HUB_FLAGS));
-        }
-
-        public long getLastAccessBackgroundTime() {
-            if (mLastUsage == null) {
-                return 0;
-            }
-
-            return lastAccessAggregate((op) -> op.getLastAccessBackgroundTime(PRIVACY_HUB_FLAGS));
-        }
-
-        public long getForegroundAccessCount() {
-            if (mHistoricalUsage == null) {
-                return 0;
-            }
-
-            return extractAggregate((HistoricalOp op)
-                    -> op.getForegroundAccessCount(PRIVACY_HUB_FLAGS));
-        }
-
-        public long getBackgroundAccessCount() {
-            if (mHistoricalUsage == null) {
-                return 0;
-            }
-
-            return extractAggregate((HistoricalOp op)
-                    -> op.getBackgroundAccessCount(PRIVACY_HUB_FLAGS));
-        }
-
-        public long getAccessCount() {
-            if (mHistoricalUsage == null) {
-                return 0;
-            }
-
-            return extractAggregate((HistoricalOp op) ->
-                    op.getForegroundAccessCount(PRIVACY_HUB_FLAGS)
-                            + op.getBackgroundAccessCount(PRIVACY_HUB_FLAGS)
-            );
-        }
-
-        /**
-         * Get the last access duration.
-         */
-        public long getLastAccessDuration() {
-            if (mLastUsage == null) {
-                return 0;
-            }
-            return lastAccessAggregate(
-                    (op) -> op.getLastDuration(AppOpsManager.OP_FLAGS_ALL_TRUSTED));
         }
 
         /**
@@ -508,11 +442,12 @@ public final class AppPermissionUsage {
                 }
 
                 AttributionLabelledGroupUsage build() {
+                    ArrayList<String> attributionTagsList = new ArrayList<>();
+                    attributionTagsList.addAll(mAttributionTags);
                     return new AttributionLabelledGroupUsage(mLabel,
                             mAppPermissionGroup,
-                            new ArrayList<String>() {{
-                                addAll(mAttributionTags);
-                            }}, mDiscreteAccessTime);
+                            attributionTagsList,
+                            mDiscreteAccessTime);
                 }
             }
         }

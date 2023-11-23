@@ -1,0 +1,7 @@
+{
+  "avf-presubmit" : [
+    {
+      "name" : "libvbmeta_rust.test"
+    }
+  ]
+}

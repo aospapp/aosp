@@ -21,11 +21,11 @@ import android.os.UserHandle
 import android.os.UserHandle.myUserId
 import android.permission.cts.PermissionUtils.install
 import android.permission.cts.PermissionUtils.uninstallApp
-import android.support.test.uiautomator.By
+import androidx.test.uiautomator.By
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.android.compatibility.common.util.SystemUtil.eventually
 import com.android.compatibility.common.util.SystemUtil.runWithShellPermissionIdentity
-import com.android.compatibility.common.util.UiAutomatorUtils.waitFindObjectOrNull
+import com.android.compatibility.common.util.UiAutomatorUtils2.waitFindObjectOrNull
 import com.android.permissioncontroller.permissionui.wakeUpScreen
 import org.junit.After
 import org.junit.Assert.assertNull

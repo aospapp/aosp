@@ -33,6 +33,7 @@ java_defaults {
 
     srcs: [
         // add full source for all codes under p/s/Car to reduce unnecessary library allow listing.
+        ":IVehicleGeneratedJavaFiles",
         ":android.car.cluster.navigation-src",
         ":android.car.watchdoglib-src",
         ":cartelemetry-cardata-proto-srcs",
@@ -65,6 +66,7 @@ java_defaults {
         "framework-connectivity",
         "framework-connectivity-t.stubs.module_lib",
         "framework-statsd",
+        "framework-tethering",
         "framework-wifi",
         "modules-utils-os",
         "modules-utils-preconditions",
@@ -72,14 +74,17 @@ java_defaults {
     ],
 
     static_libs: [
-        "android.automotive.telemetry.internal-V1-java",  // ICarTelemetryInternal
-        "android.automotive.watchdog.internal-V1-java",
+        "android.automotive.telemetry.internal-V2-java",  // ICarTelemetryInternal
+        "android.automotive.watchdog.internal-V3-java",
         "android.frameworks.automotive.powerpolicy.internal-V1-java",
+        "android.frameworks.automotive.powerpolicy-V2-java",
         "android.hidl.base-V1.0-java",
         "android.hardware.automotive.audiocontrol-V1.0-java",
         "android.hardware.automotive.audiocontrol-V2.0-java",
-        "android.hardware.automotive.audiocontrol-V2-java",
-        "android.hardware.automotive.vehicle-V1-java",
+        "android.hardware.automotive.audiocontrol-V3-java",
+        "android.hardware.automotive.remoteaccess-V1-java",
+        "android.hardware.automotive.vehicle-V2-java",
+        "android.hardware.automotive.vehicle.property-V2-java",
         "android.hardware.automotive.vehicle-V2.0-java",
         "android.hardware.health-V1.0-java",
         "android.hardware.health-V2.0-java",
@@ -103,7 +108,10 @@ java_defaults {
     },
 
     sdk_version: "module_current",
-    platform_apis: false,
+
+    java_resources: [
+        ":VehicleHalDefaultProperties_JSON",
+    ],
 }
 
 java_defaults {
@@ -146,6 +154,7 @@ java_library {
         "src/com/android/car/CarServiceBase.java",
         "src/com/android/car/CarServiceUtils.java",
         "src/com/android/car/CarLog.java",
+        "src/com/android/car/CarSystemService.java",
         "src/com/android/car/util/TransitionLog.java",
     ],
 
@@ -155,7 +164,7 @@ java_library {
     ],
 
     static_libs: [
-        "android.hardware.automotive.vehicle-V1-java",
+        "android.hardware.automotive.vehicle-V2-java",
         "android.hardware.automotive.vehicle-V2.0-java",
     ],
 
@@ -196,6 +205,7 @@ android_library {
 filegroup {
     name: "iscriptexecutor_aidl",
     srcs: [
+        "src/com/android/car/telemetry/scriptexecutorinterface/BundleList.aidl",
         "src/com/android/car/telemetry/scriptexecutorinterface/IScriptExecutor.aidl",
         "src/com/android/car/telemetry/scriptexecutorinterface/IScriptExecutorListener.aidl",
     ],

@@ -30,6 +30,7 @@ import android.os.HandlerThread
 import android.os.Looper
 import android.util.Log
 import androidx.test.InstrumentationRegistry
+import com.android.modules.utils.build.SdkLevel.isAtLeastS
 import com.android.net.module.util.ArrayTrackRecord
 import com.android.testutils.CompatUtil
 import com.android.testutils.ConnectivityModuleTest
@@ -38,7 +39,6 @@ import com.android.testutils.DevSdkIgnoreRule.IgnoreAfter
 import com.android.testutils.DevSdkIgnoreRule.IgnoreUpTo
 import com.android.testutils.DevSdkIgnoreRunner
 import com.android.testutils.TestableNetworkOfferCallback
-import com.android.testutils.isDevSdkInRange
 import org.junit.After
 import org.junit.Before
 import org.junit.Rule
@@ -79,6 +79,7 @@ class NetworkProviderTest {
     @After
     fun tearDown() {
         mHandlerThread.quitSafely()
+        mHandlerThread.join()
         instrumentation.getUiAutomation().dropShellPermissionIdentity()
     }
 
@@ -376,7 +377,7 @@ class NetworkProviderTest {
         doReturn(mCm).`when`(mockContext).getSystemService(Context.CONNECTIVITY_SERVICE)
         val provider = createNetworkProvider(mockContext)
         // ConnectivityManager not required at creation time after R
-        if (!isDevSdkInRange(0, Build.VERSION_CODES.R)) {
+        if (isAtLeastS()) {
             verifyNoMoreInteractions(mockContext)
         }
 

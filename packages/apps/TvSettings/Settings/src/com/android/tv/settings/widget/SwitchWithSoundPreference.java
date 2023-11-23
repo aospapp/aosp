@@ -31,8 +31,22 @@ import com.android.tv.settings.TvSettingsApplication;
 public class SwitchWithSoundPreference extends SwitchPreference {
     private final SystemSoundsPlayer mSystemSoundsPlayer;
 
+    public SwitchWithSoundPreference(Context context, AttributeSet attrs, int defStyleAttr,
+            int defStyleRes) {
+        super(context, attrs, defStyleAttr, defStyleRes);
+        TvSettingsApplication app = (TvSettingsApplication) context.getApplicationContext();
+        mSystemSoundsPlayer = app.getSystemSoundsPlayer();
+    }
+
+
     public SwitchWithSoundPreference(Context context, AttributeSet attrs) {
         super(context, attrs);
+        TvSettingsApplication app = (TvSettingsApplication) context.getApplicationContext();
+        mSystemSoundsPlayer = app.getSystemSoundsPlayer();
+    }
+
+    public SwitchWithSoundPreference(Context context) {
+        super(context);
         TvSettingsApplication app = (TvSettingsApplication) context.getApplicationContext();
         mSystemSoundsPlayer = app.getSystemSoundsPlayer();
     }
@@ -40,6 +54,9 @@ public class SwitchWithSoundPreference extends SwitchPreference {
     @Override
     public void onBindViewHolder(PreferenceViewHolder holder) {
         super.onBindViewHolder(holder);
+        if (mSystemSoundsPlayer == null) {
+            return;
+        }
         // disable default click sound effect played by android.view.View#performClick()
         holder.itemView.setSoundEffectsEnabled(false);
     }
@@ -48,6 +65,9 @@ public class SwitchWithSoundPreference extends SwitchPreference {
     protected void onClick() {
         boolean checkedBeforeClick = isChecked();
         super.onClick();
+        if (mSystemSoundsPlayer == null) {
+            return;
+        }
         if (isChecked() != checkedBeforeClick) {
             if (isChecked()) {
                 mSystemSoundsPlayer.playSoundEffect(SystemSoundsPlayer.FX_SELECT);

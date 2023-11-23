@@ -23,12 +23,15 @@ import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import android.app.KeyguardManager;
 import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
+import android.app.PendingIntent;
 import android.content.Context;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageInfo;
@@ -39,8 +42,8 @@ import android.os.UserHandle;
 import android.service.notification.NotificationListenerService;
 import android.service.notification.StatusBarNotification;
 import android.testing.TestableContext;
-import android.view.View;
 
+import androidx.annotation.Nullable;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.platform.app.InstrumentationRegistry;
 
@@ -54,7 +57,9 @@ import org.junit.runner.RunWith;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 @RunWith(AndroidJUnit4.class)
@@ -97,7 +102,11 @@ public class CarHeadsUpNotificationManagerTest {
     @Mock
     CarHeadsUpNotificationContainer mCarHeadsUpNotificationContainer;
     @Mock
+    CarHeadsUpNotificationQueue mCarHeadsUpNotificationQueue;
+    @Mock
     KeyguardManager mKeyguardManager;
+    @Mock
+    HeadsUpEntry mHeadsUpEntry;
     private CarHeadsUpNotificationManager mManager;
     private AlertEntry mAlertEntryMessageHeadsUp;
     private AlertEntry mAlertEntryNavigationHeadsUp;
@@ -107,11 +116,15 @@ public class CarHeadsUpNotificationManagerTest {
     private AlertEntry mAlertEntryEmergencyHeadsUp;
     private AlertEntry mAlertEntryCarInformationHeadsUp;
     private Map<String, AlertEntry> mActiveNotifications;
+    private List<CarHeadsUpNotificationManager.HeadsUpState> mHeadsUpStates;
+
 
     @Before
     public void setup() throws PackageManager.NameNotFoundException {
         MockitoAnnotations.initMocks(this);
 
+        mContext.getOrCreateTestableResources().addOverride(
+                R.bool.config_suppressAndThrottleHeadsUp, /* value= */ true);
         mContext.getOrCreateTestableResources().addOverride(
                 R.bool.config_showNavigationHeadsup, /* value= */ true);
         ApplicationInfo applicationInfo = mock(ApplicationInfo.class);
@@ -208,53 +221,157 @@ public class CarHeadsUpNotificationManagerTest {
                         POST_TIME));
 
         mActiveNotifications = new HashMap<>();
+        mHeadsUpStates = new ArrayList<>();
 
-        mManager = new CarHeadsUpNotificationManager(mContext, mClickHandlerFactory,
-                mCarHeadsUpNotificationContainer) {
-            @Override
-            protected NotificationListenerService.Ranking getRanking() {
-                return mRankingMock;
-            }
-        };
-        mManager.setNotificationDataManager(mNotificationDataManager);
+        createCarHeadsUpNotificationManager();
     }
 
     @Test
-    public void maybeShowHeadsUp_isNotImportant_returnsNull()
+    public void maybeShowHeadsUp_isNotImportant_returnsFalseAndNotAddedToQueue()
             throws PackageManager.NameNotFoundException {
         when(mRankingMock.getImportance()).thenReturn(NotificationManager.IMPORTANCE_DEFAULT);
         setPackageInfo(PKG_2, /* isSystem= */ false, /* isSignedWithPlatformKey= */ false);
 
-        mManager.maybeShowHeadsUp(mAlertEntryNavigationHeadsUp, mRankingMapMock,
+        boolean result = mManager.maybeShowHeadsUp(mAlertEntryNavigationHeadsUp, mRankingMapMock,
                 mActiveNotifications);
 
-        View notificationView = getNotificationView(mManager.getActiveHeadsUpNotifications().get(
-                mAlertEntryNavigationHeadsUp.getKey()));
-        assertThat(notificationView).isNull();
+        assertThat(result).isFalse();
+        verify(mCarHeadsUpNotificationQueue, never()).addToQueue(any(), any());
     }
 
-    /**
-     * Test that Heads up notification should be shown when notification is IMPORTANCE_HIGH.
-     */
     @Test
-    public void maybeShowHeadsUp_isImportanceHigh_returnsNotNull()
+    public void maybeShowHeadsUp_isImportanceHigh_returnsTrueAndAddedToQueue()
             throws PackageManager.NameNotFoundException {
-        // This test fails if looper isn't forced to prepare due to Handler creation in {@link
-        // HeadsUpEntry}.
-        Looper.prepare();
         setPackageInfo(PKG_2, /* isSystem= */ false, /* isSignedWithPlatformKey= */ false);
 
-        mManager.maybeShowHeadsUp(mAlertEntryNavigationHeadsUp, mRankingMapMock,
+        boolean result = mManager.maybeShowHeadsUp(mAlertEntryNavigationHeadsUp, mRankingMapMock,
                 mActiveNotifications);
 
-        View notificationView = getNotificationView(mManager.getActiveHeadsUpNotifications().get(
-                mAlertEntryNavigationHeadsUp.getKey()));
-        assertThat(notificationView).isNotNull();
+        assertThat(result).isTrue();
+        verify(mCarHeadsUpNotificationQueue).addToQueue(mAlertEntryNavigationHeadsUp,
+                mRankingMapMock);
+    }
+
+    @Test
+    public void maybeShowHeadsUp_categoryCarInformation_returnsFalseAndNotAddedToQueue()
+            throws PackageManager.NameNotFoundException {
+        setPackageInfo(PKG_1, /* isSystem= */ false, /* isSignedWithPlatformKey= */ false);
+
+        boolean result = mManager.maybeShowHeadsUp(mAlertEntryCarInformationHeadsUp,
+                mRankingMapMock, mActiveNotifications);
+
+        assertThat(result).isFalse();
+        verify(mCarHeadsUpNotificationQueue, never()).addToQueue(any(), any());
+    }
+
+    @Test
+    public void maybeShowHeadsUp_categoryMessage_returnsTrueAndAddedToQueue()
+            throws PackageManager.NameNotFoundException {
+        setPackageInfo(PKG_1, /* isSystem= */ false, /* isSignedWithPlatformKey= */ false);
+
+        boolean result = mManager.maybeShowHeadsUp(mAlertEntryMessageHeadsUp, mRankingMapMock,
+                mActiveNotifications);
+
+        assertThat(result).isTrue();
+        verify(mCarHeadsUpNotificationQueue).addToQueue(mAlertEntryMessageHeadsUp, mRankingMapMock);
+    }
+
+    @Test
+    public void maybeShowHeadsUp_categoryCall_returnsTrueAndAddedToQueue()
+            throws PackageManager.NameNotFoundException {
+        setPackageInfo(PKG_1, /* isSystem= */ false, /* isSignedWithPlatformKey= */ false);
+
+        boolean result = mManager.maybeShowHeadsUp(mAlertEntryCallHeadsUp, mRankingMapMock,
+                mActiveNotifications);
+
+        assertThat(result).isTrue();
+        verify(mCarHeadsUpNotificationQueue).addToQueue(mAlertEntryCallHeadsUp, mRankingMapMock);
+    }
+
+    @Test
+    public void maybeShowHeadsUp_categoryNavigation_returnsTrueAndAddedToQueue()
+            throws PackageManager.NameNotFoundException {
+        setPackageInfo(PKG_1, /* isSystem= */ false, /* isSignedWithPlatformKey= */ false);
+
+        boolean result = mManager.maybeShowHeadsUp(mAlertEntryNavigationHeadsUp, mRankingMapMock,
+                mActiveNotifications);
+
+        assertThat(result).isTrue();
+        verify(mCarHeadsUpNotificationQueue).addToQueue(mAlertEntryNavigationHeadsUp,
+                mRankingMapMock);
+    }
+
+    @Test
+    public void maybeShowHeadsUp_inboxHeadsUp_returnsTrueAndAddedToQueue()
+            throws PackageManager.NameNotFoundException {
+        setPackageInfo(PKG_1, /* isSystem= */ false, /* isSignedWithPlatformKey= */ false);
+
+        boolean result = mManager.maybeShowHeadsUp(mAlertEntryInboxHeadsUp, mRankingMapMock,
+                mActiveNotifications);
+
+        assertThat(result).isTrue();
+        verify(mCarHeadsUpNotificationQueue).addToQueue(mAlertEntryInboxHeadsUp, mRankingMapMock);
+    }
+
+    @Test
+    public void maybeShowHeadsUp_isSignedWithPlatformKey_returnsTrueAndAddedToQueue()
+            throws PackageManager.NameNotFoundException {
+        setPackageInfo(PKG_1, /* isSystem= */ false, /* isSignedWithPlatformKey= */ true);
+
+        boolean result = mManager.maybeShowHeadsUp(mAlertEntryCarInformationHeadsUp,
+                mRankingMapMock, mActiveNotifications);
+
+        assertThat(result).isTrue();
+        verify(mCarHeadsUpNotificationQueue).addToQueue(mAlertEntryCarInformationHeadsUp,
+                mRankingMapMock);
+    }
+
+    @Test
+    public void maybeShowHeadsUp_isSystemApp_returnsTrueAndAddedToQueue()
+            throws PackageManager.NameNotFoundException {
+        setPackageInfo(PKG_1, /* isSystem= */ true, /* isSignedWithPlatformKey= */ false);
+
+        boolean result = mManager.maybeShowHeadsUp(mAlertEntryCarInformationHeadsUp,
+                mRankingMapMock, mActiveNotifications);
+
+        assertThat(result).isTrue();
+        verify(mCarHeadsUpNotificationQueue).addToQueue(mAlertEntryCarInformationHeadsUp,
+                mRankingMapMock);
+    }
+
+    @Test
+    public void maybeShowHeadsUp_nonMutedNotification_returnsTrueAndAddedToQueue()
+            throws PackageManager.NameNotFoundException {
+        when(mNotificationDataManager.isMessageNotificationMuted(any())).thenReturn(false);
+        setPackageInfo(PKG_1, /* isSystem= */ false, /* isSignedWithPlatformKey= */ false);
+
+        boolean result = mManager.maybeShowHeadsUp(mAlertEntryInboxHeadsUp, mRankingMapMock,
+                mActiveNotifications);
+
+        assertThat(result).isTrue();
+        verify(mCarHeadsUpNotificationQueue).addToQueue(mAlertEntryInboxHeadsUp, mRankingMapMock);
+    }
+
+    @Test
+    public void maybeShowHeadsUp_mutedNotification_returnsFalseAndNotAddedToQueue()
+            throws PackageManager.NameNotFoundException {
+        when(mNotificationDataManager.isMessageNotificationMuted(any())).thenReturn(true);
+        setPackageInfo(PKG_1, /* isSystem= */ false, /* isSignedWithPlatformKey= */ false);
+
+        boolean result = mManager.maybeShowHeadsUp(mAlertEntryInboxHeadsUp, mRankingMapMock,
+                mActiveNotifications);
+
+        assertThat(result).isFalse();
+        verify(mCarHeadsUpNotificationQueue, never()).addToQueue(any(), any());
     }
 
     @Test
     public void getActiveHeadsUpNotifications_shouldReturnOne()
             throws PackageManager.NameNotFoundException {
+        // Queueing mechanism is not used
+        mContext.getOrCreateTestableResources().addOverride(
+                R.bool.config_suppressAndThrottleHeadsUp, /* value= */ false);
+        createCarHeadsUpNotificationManager();
         // This test fails if looper isn't forced to prepare due to Handler creation in {@link
         // HeadsUpEntry}.
         Looper.prepare();
@@ -271,6 +388,10 @@ public class CarHeadsUpNotificationManagerTest {
     @Test
     public void getActiveHeadsUpNotifications_diffNotifications_shouldReturnTwo()
             throws PackageManager.NameNotFoundException {
+        // Queueing mechanism is not used
+        mContext.getOrCreateTestableResources().addOverride(
+                R.bool.config_suppressAndThrottleHeadsUp, /* value= */ false);
+        createCarHeadsUpNotificationManager();
         // This test fails if looper isn't forced to prepare due to Handler creation in {@link
         // HeadsUpEntry}.
         Looper.prepare();
@@ -289,6 +410,10 @@ public class CarHeadsUpNotificationManagerTest {
     @Test
     public void getActiveHeadsUpNotifications_sameNotifications_shouldReturnOne()
             throws PackageManager.NameNotFoundException {
+        // Queueing mechanism is not used
+        mContext.getOrCreateTestableResources().addOverride(
+                R.bool.config_suppressAndThrottleHeadsUp, /* value= */ false);
+        createCarHeadsUpNotificationManager();
         // This test fails if looper isn't forced to prepare due to Handler creation in {@link
         // HeadsUpEntry}.
         Looper.prepare();
@@ -303,141 +428,55 @@ public class CarHeadsUpNotificationManagerTest {
     }
 
     @Test
-    public void maybeShowHeadsUp_categoryCarInformation_returnsNull()
+    public void isHeadsUpDismissible_ongoingCallNotificationWithFullScreenIntent_returnsFalse() {
+        Notification.Builder notificationBuilder = new Notification.Builder(mContext, CHANNEL_ID)
+                .setCategory(Notification.CATEGORY_CALL)
+                .setOngoing(true)
+                .setFullScreenIntent(mock(PendingIntent.class), /* highPriority= */ true);
+        StatusBarNotification sbn = mock(StatusBarNotification.class);
+        when(sbn.getNotification()).thenReturn(notificationBuilder.build());
+        when(sbn.isOngoing()).thenReturn(true);
+        AlertEntry alertEntry = new AlertEntry(sbn, /* postTime= */ 1000);
+
+        boolean result = CarHeadsUpNotificationManager.isHeadsUpDismissible(alertEntry);
+
+        assertThat(result).isFalse();
+    }
+
+    @Test
+    public void notification_removedFromQueue_notifyListeners()
             throws PackageManager.NameNotFoundException {
         setPackageInfo(PKG_1, /* isSystem= */ false, /* isSignedWithPlatformKey= */ false);
+        mManager.registerHeadsUpNotificationStateChangeListener((alertEntry, headsUpState) -> {
+            mHeadsUpStates.add(headsUpState);
+        });
+        CarHeadsUpNotificationQueue.CarHeadsUpNotificationQueueCallback queueCallback =
+                mManager.getCarHeadsUpNotificationQueueCallback();
 
-        mManager.maybeShowHeadsUp(mAlertEntryCarInformationHeadsUp, mRankingMapMock,
-                mActiveNotifications);
+        queueCallback.removedFromHeadsUpQueue(mAlertEntryMessageHeadsUp);
 
-        View notificationView = getNotificationView(
-                mManager.getActiveHeadsUpNotifications().get(
-                        mAlertEntryCarInformationHeadsUp.getKey()));
-        assertThat(notificationView).isNull();
+        assertThat(mHeadsUpStates.size()).isEqualTo(1);
+        assertThat(mHeadsUpStates.get(0)).isEqualTo(
+                CarHeadsUpNotificationManager.HeadsUpState.REMOVED_FROM_QUEUE);
     }
 
-    @Test
-    public void maybeShowHeadsUp_categoryMessage_returnsNotNull()
-            throws PackageManager.NameNotFoundException {
-        // This test fails if looper isn't forced to prepare due to Handler creation in {@link
-        // HeadsUpEntry}.
-        Looper.prepare();
-        setPackageInfo(PKG_1, /* isSystem= */ false, /* isSignedWithPlatformKey= */ false);
-
-        mManager.maybeShowHeadsUp(mAlertEntryMessageHeadsUp, mRankingMapMock,
-                mActiveNotifications);
-
-        View notificationView = getNotificationView(
-                mManager.getActiveHeadsUpNotifications().get(
-                        mAlertEntryMessageHeadsUp.getKey()));
-        assertThat(notificationView).isNotNull();
+    private void createCarHeadsUpNotificationManager() {
+        createCarHeadsUpNotificationManager(mCarHeadsUpNotificationQueue);
     }
 
-    @Test
-    public void maybeShowHeadsUp_categoryCall_returnsNotNull()
-            throws PackageManager.NameNotFoundException {
-        // This test fails if looper isn't forced to prepare due to Handler creation in {@link
-        // HeadsUpEntry}.
-        Looper.prepare();
-        setPackageInfo(PKG_1, /* isSystem= */ false, /* isSignedWithPlatformKey= */ false);
-
-        mManager.maybeShowHeadsUp(mAlertEntryCallHeadsUp, mRankingMapMock, mActiveNotifications);
-
-        View notificationView = getNotificationView(
-                mManager.getActiveHeadsUpNotifications().get(mAlertEntryCallHeadsUp.getKey()));
-        assertThat(notificationView).isNotNull();
-    }
-
-    @Test
-    public void maybeShowHeadsUp_categoryNavigation_returnsNotNull()
-            throws PackageManager.NameNotFoundException {
-        // This test fails if looper isn't forced to prepare due to Handler creation in {@link
-        // HeadsUpEntry}.
-        Looper.prepare();
-        setPackageInfo(PKG_1, /* isSystem= */ false, /* isSignedWithPlatformKey= */ false);
-
-        mManager.maybeShowHeadsUp(mAlertEntryNavigationHeadsUp, mRankingMapMock,
-                mActiveNotifications);
-
-        View notificationView = getNotificationView(mManager.getActiveHeadsUpNotifications().get(
-                mAlertEntryNavigationHeadsUp.getKey()));
-        assertThat(notificationView).isNotNull();
-    }
-
-    @Test
-    public void maybeShowHeadsUp_inboxHeadsUp_returnsNotNull()
-            throws PackageManager.NameNotFoundException {
-        // This test fails if looper isn't forced to prepare due to Handler creation in {@link
-        // HeadsUpEntry}.
-        Looper.prepare();
-        setPackageInfo(PKG_1, /* isSystem= */ false, /* isSignedWithPlatformKey= */ false);
-
-        mManager.maybeShowHeadsUp(mAlertEntryInboxHeadsUp, mRankingMapMock, mActiveNotifications);
-
-        View notificationView = getNotificationView(
-                mManager.getActiveHeadsUpNotifications().get(mAlertEntryInboxHeadsUp.getKey()));
-        assertThat(notificationView).isNotNull();
-    }
-
-    @Test
-    public void maybeShowHeadsUp_isSignedWithPlatformKey_returnsNotNull()
-            throws PackageManager.NameNotFoundException {
-        // This test fails if looper isn't forced to prepare due to Handler creation in {@link
-        // HeadsUpEntry}.
-        Looper.prepare();
-        setPackageInfo(PKG_1, /* isSystem= */ false, /* isSignedWithPlatformKey= */ true);
-
-        mManager.maybeShowHeadsUp(mAlertEntryCarInformationHeadsUp, mRankingMapMock,
-                mActiveNotifications);
-
-        View notificationView = getNotificationView(mManager.getActiveHeadsUpNotifications().get(
-                mAlertEntryCarInformationHeadsUp.getKey()));
-        assertThat(notificationView).isNotNull();
-    }
-
-    @Test
-    public void maybeShowHeadsUp_isSystemApp_returnsNotNull()
-            throws PackageManager.NameNotFoundException {
-        // This test fails if looper isn't forced to prepare due to Handler creation in {@link
-        // HeadsUpEntry}.
-        Looper.prepare();
-        setPackageInfo(PKG_1, /* isSystem= */ true, /* isSignedWithPlatformKey= */ false);
-
-        mManager.maybeShowHeadsUp(mAlertEntryCarInformationHeadsUp, mRankingMapMock,
-                mActiveNotifications);
-
-        View notificationView = getNotificationView(mManager.getActiveHeadsUpNotifications().get(
-                mAlertEntryCarInformationHeadsUp.getKey()));
-        assertThat(notificationView).isNotNull();
-    }
-
-    @Test
-    public void maybeShowHeadsUp_nonMutedNotification_headsUpShown()
-            throws PackageManager.NameNotFoundException {
-        // This test fails if looper isn't forced to prepare due to Handler creation in {@link
-        // HeadsUpEntry}.
-        Looper.prepare();
-        when(mNotificationDataManager.isMessageNotificationMuted(any())).thenReturn(false);
-        setPackageInfo(PKG_1, /* isSystem= */ false, /* isSignedWithPlatformKey= */ false);
-
-        mManager.maybeShowHeadsUp(mAlertEntryInboxHeadsUp, mRankingMapMock, mActiveNotifications);
-
-        View notificationView = getNotificationView(
-                mManager.getActiveHeadsUpNotifications().get(mAlertEntryInboxHeadsUp.getKey()));
-        assertThat(notificationView).isNotNull();
-    }
-
-    @Test
-    public void maybeShowHeadsUp_mutedNotification_headsUpNotShown()
-            throws PackageManager.NameNotFoundException {
-        when(mNotificationDataManager.isMessageNotificationMuted(any())).thenReturn(true);
-        setPackageInfo(PKG_1, /* isSystem= */ false, /* isSignedWithPlatformKey= */ false);
-
-        mManager.maybeShowHeadsUp(mAlertEntryInboxHeadsUp, mRankingMapMock, mActiveNotifications);
-
-        View notificationView = getNotificationView(
-                mManager.getActiveHeadsUpNotifications().get(mAlertEntryInboxHeadsUp.getKey()));
-        assertThat(notificationView).isNull();
+    private void createCarHeadsUpNotificationManager(
+            @Nullable CarHeadsUpNotificationQueue carHeadsUpNotificationQueue) {
+        mManager = new CarHeadsUpNotificationManager(mContext, mClickHandlerFactory,
+                mCarHeadsUpNotificationContainer) {
+            @Override
+            protected NotificationListenerService.Ranking getRanking() {
+                return mRankingMock;
+            }
+        };
+        if (carHeadsUpNotificationQueue != null) {
+            mManager.setCarHeadsUpNotificationQueue(carHeadsUpNotificationQueue);
+        }
+        mManager.setNotificationDataManager(mNotificationDataManager);
     }
 
     private void setPackageInfo(String packageName, boolean isSystem,
@@ -451,9 +490,5 @@ public class CarHeadsUpNotificationManagerTest {
         packageInfo.applicationInfo = applicationInfo;
         when(mPackageManager.getPackageInfoAsUser(eq(packageName), anyInt(), anyInt())).thenReturn(
                 packageInfo);
-    }
-
-    private View getNotificationView(HeadsUpEntry currentNotification) {
-        return currentNotification == null ? null : currentNotification.getNotificationView();
     }
 }

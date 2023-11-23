@@ -42,8 +42,6 @@
     <string name="car_permission_desc_projection" msgid="2352178999656292944">"አንድ መተግበሪያ በይነገጽን ከአንድ ስልክ በመኪናው ማሳያ ላይ እንዲልክና እንዲያሳይ ይፈቅድለታል።"</string>
     <string name="car_permission_label_access_projection_status" msgid="4231618890836627402">"የመላክና ማሳየት አገልግሎት ሁኔታን ድረስበት"</string>
     <string name="car_permission_desc_access_projection_status" msgid="8497351979100616278">"አንድ መተግበሪያ ወደ መኪናው ማሳያ በመላክና ማሳየት ላይ ያሉ የሌሎች መተግበሪያዎችን ሁኔታ እንዲያገኝ ይፈቅድለታል።"</string>
-    <string name="car_permission_label_bind_projection_service" msgid="5362076216606651526">"ለየመላክና ማሳየት አገልግሎት የተወሰነ"</string>
-    <string name="car_permission_desc_bind_projection_service" msgid="2282657787853408639">"ያዡ ግቤት ስልቱን ወደ ከፍተኛ-ደረጃ የመላክና ማሳየት አገልግሎት መጠረዝ ይፈቅዳሉ። ለመደበኛ መተግበሪያዎች በፍፁም አያስፈልግም።"</string>
     <string name="car_permission_label_audio_volume" msgid="310587969373137690">"የመኪናውን የኦዲዮ ድምፅ መጠን ይቆጣጠሩ"</string>
     <string name="car_permission_label_audio_settings" msgid="6524703796944023977">"የመኪናውን የኦዶዮ ቅንብሮች ተቆጣጠር"</string>
     <string name="car_permission_label_mock_vehicle_hal" msgid="7198852512207405935">"የመኪና HAL አቅርብ"</string>
@@ -62,8 +60,6 @@
     <string name="car_permission_desc_car_cluster_control" msgid="9222776665281176031">"መተግበሪያዎችን በመሣሪያ ስብስብ ውስጥ አስጀምር"</string>
     <string name="car_permission_car_monitor_cluster_navigation_state" msgid="7025307242306902441">"የመሣሪያ ስብስብ ዳሰሳ ሁኔታ"</string>
     <string name="car_permission_desc_car_monitor_cluster_navigation_state" msgid="8745047153878713339">"የመሣሪያ ስብስብ ዳሰሳ ሁኔታ ለውጦችን ያዳምጡ"</string>
-    <string name="car_permission_label_bind_instrument_cluster_rendering" msgid="8627480897198377418">"የመሣሪያ ስብስብ አቅርቦት"</string>
-    <string name="car_permission_desc_bind_instrument_cluster_rendering" msgid="5073596870485006783">"የመሣሪያ ስብስብ ውሂብን ተቀበል"</string>
     <string name="car_permission_label_car_ux_restrictions_configuration" msgid="6801393970411049725">"UX ገደቦች ውቅረት"</string>
     <string name="car_permission_desc_car_ux_restrictions_configuration" msgid="5711926927484813777">"የUX ገደቦችን ያዋቅሩ"</string>
     <string name="car_permission_label_access_private_display_id" msgid="6712116114341634316">"የግል ማሳያ መታወቂያ የንባብ መዳረሻ"</string>
@@ -74,8 +70,12 @@
     <string name="car_permission_desc_read_car_occupant_awareness_state" msgid="188865882598414986">"የተሳፋሪ ማስገንዘቢያ ሥርዓት ሁኔታን እና ፈልጎ ማግኛን ውሂብ ማንበብን ያስችላል"</string>
     <string name="car_permission_label_control_car_occupant_awareness_system" msgid="7163330266691094542">"የተሳፋሪ ማስገንዘቢያ ሥርዓት ፈልጎ ማወቂያ ግራፍን ይቆጣጠሩ"</string>
     <string name="car_permission_desc_control_car_occupant_awareness_system" msgid="7123482622084531911">"የተሳፋሪ ማስገንዘቢያ ሥርዓት ፈልጎ ማወቂያ ግራፍ ማስጀመርን እና ማስቆምን መቆጣጠርን ያስችላል"</string>
-    <string name="car_permission_label_bind_input_service" msgid="6698489034024273750">"የመኪና ግቤት አገልግሎት"</string>
-    <string name="car_permission_desc_bind_input_service" msgid="1670323419931890170">"የግቤት ክስተቶችን ያስተናግዱ"</string>
+    <string name="car_permission_label_read_driver_monitoring_settings" msgid="5208935577581001710">"የመኪናን የነጂ መከታተያ ቅንብሮች መረጃ አንብብ"</string>
+    <string name="car_permission_desc_read_driver_monitoring_settings" msgid="3721117607024237175">"የመኪናን የነጂ መከታተያ ቅንብሮች መረጃ አንብብ።"</string>
+    <string name="car_permission_label_control_driver_monitoring_settings" msgid="239453247872865455">"የመኪናን የነጂ መከታተያ ቅንብሮች መረጃ ተቆጣጠር"</string>
+    <string name="car_permission_desc_control_driver_monitoring_settings" msgid="7244804817277236221">"የመኪናን የነጂ መከታተያ ቅንብሮች መረጃ ተቆጣጠር።"</string>
+    <string name="car_permission_label_read_driver_monitoring_states" msgid="1555412806741155523">"የመኪናን የነጂ መከታተያ ሁኔታዎች መረጃ አንብብ"</string>
+    <string name="car_permission_desc_read_driver_monitoring_states" msgid="3124328827934661489">"የመኪናን የነጂ መከታተያ ሁኔታዎች መረጃ አንብብ።"</string>
     <string name="car_permission_label_diag_read" msgid="7248894224877702604">"የምርመራ ውሂብን አንብብ"</string>
     <string name="car_permission_desc_diag_read" msgid="1121426363040966178">"ከመኪናው ላይ የምርመራ ውሂብን ያንብቡ።"</string>
     <string name="car_permission_label_diag_clear" msgid="4783070510879698157">"የምርመራ ውሂብን አጽዳ"</string>
@@ -84,8 +84,6 @@
     <string name="car_permission_desc_vms_publisher" msgid="5589489298597386828">"የVMS መልእክቶችን ያትሙ"</string>
     <string name="car_permission_label_vms_subscriber" msgid="5648841182059222299">"VMS ደንበኝነት ተመዝጋቢ"</string>
     <string name="car_permission_desc_vms_subscriber" msgid="7551009457847673620">"ወደ VMS መልዕክቶች በደንበኝነት ይመዝገቡ"</string>
-    <string name="car_permission_label_bind_vms_client" msgid="4889732900973280313">"VMS ደንበኛ አገልግሎት"</string>
-    <string name="car_permission_desc_bind_vms_client" msgid="4062835325264330564">"ለ VMS ደንበኞች የተወሰነ"</string>
     <string name="car_permission_label_storage_monitoring" msgid="2327639346522530549">"የማከማቻ ቁጥጥር አደራረግ ብልጭታ"</string>
     <string name="car_permission_desc_storage_monitoring" msgid="2075712271139671318">"የብልጭታ ማከማቻ አጠቃቀምን ይቆጣጠሩ"</string>
     <string name="car_permission_label_driving_state" msgid="7754624599537393650">"የመንዳት ሁነታን በማዳመጥ ላይ"</string>
@@ -118,6 +116,8 @@
     <string name="car_permission_desc_control_car_mirrors" msgid="1224135684068855032">"የመኪና መስታውቶችን ይቆጣጠሩ።"</string>
     <string name="car_permission_label_control_car_seats" msgid="1826934820585497135">"የመኪና ወንበሮችን ተቆጣጠር"</string>
     <string name="car_permission_desc_control_car_seats" msgid="2407536601226470563">"የመኪና ወንበሮችን ይቆጣጠሩ።"</string>
+    <string name="car_permission_label_control_car_airbags" msgid="6823727183218389617">"የመኪናውን የአየር ላይ ከረጢቶች ይቆጣጠራል።"</string>
+    <string name="car_permission_desc_control_car_airbags" msgid="6181671903761622348">"የመኪናውን የአየር ላይ ከረጢቶች ይቆጣጠራል።"</string>
     <string name="car_permission_label_car_info" msgid="4707513570676492315">"የመኪናን መሠረታዊ መረጃ ድረስበት"</string>
     <string name="car_permission_desc_car_info" msgid="2118081474543537653">"የመኪና መሠረታዊ መረጃን ይድረሱበት።"</string>
     <string name="car_permission_label_privileged_car_info" msgid="1304018073760220785">"የመኪናውን የልዩ መብት መረጃን መድረስ"</string>
@@ -126,10 +126,10 @@
     <string name="car_permission_desc_vendor_permission_info" msgid="8152113853528488398">"የመኪና አቅራቢ ፈቃድ መረጃን መድረስ።"</string>
     <string name="car_permission_label_car_exterior_lights" msgid="541304469604902110">"የመኪናውን የውጭ መብራቶች ሁኔታ ድረስበት"</string>
     <string name="car_permission_desc_car_exterior_lights" msgid="4038037584100849318">"የመኪናውን የውጭ መብራቶች ሁነታ ይድረሱባቸው።"</string>
+    <string name="car_permission_label_control_glove_box" msgid="992118647212706782">"የመኪና የጓንት ሳጥን ሁኔታን ይድረሱ"</string>
+    <string name="car_permission_desc_control_glove_box" msgid="2888062136750123261">"የመኪና የጓንት ሳጥን ሁኔታን ይድረሱ።"</string>
     <string name="car_permission_label_car_epoch_time" msgid="6303397910662625112">"የመኪናው ጥንተ ጊዜ ዘንድ ይድረሱ"</string>
     <string name="car_permission_desc_car_epoch_time" msgid="398907082895238558">"የመኪናው ጥንተ ጊዜ ዘንድ ይድረሱ።"</string>
-    <string name="car_permission_label_encryption_binding_seed" msgid="4652180636501144684">"የመኪና ምስጠራ ማሰሪያ ዘር ይድረሱ"</string>
-    <string name="car_permission_desc_encryption_binding_seed" msgid="6290944678417286024">"የመኪና ምስጠራ ማሰሪያ ዘር ይድረሱ።"</string>
     <string name="car_permission_label_control_car_exterior_lights" msgid="101357531386232141">"የመኪናውን የውጭ መብራቶች አንብብ"</string>
     <string name="car_permission_desc_control_car_exterior_lights" msgid="6332252612685264180">"የመኪናውን የውጭ መብራቶች ይቆጣጠሩ።"</string>
     <string name="car_permission_label_car_interior_lights" msgid="8506302199784427680">"የመኪናውን የውስጥ መብራቶች አንብብ"</string>
@@ -146,6 +146,8 @@
     <string name="car_permission_desc_read_car_display_units" msgid="6891898275208542385">"የማሳያ አሃዶችን ያንብቡ።"</string>
     <string name="car_permission_label_control_car_display_units" msgid="4975303668183173076">"የመኪናውን ማሳያ አሃዶች ተቆጣጠር"</string>
     <string name="car_permission_desc_control_car_display_units" msgid="8744397195158556945">"የማሳያ አሃዶችን ይቆጣጠሩ።"</string>
+    <string name="car_permission_label_control_car_powertrain" msgid="234831541490237603">"የመኪናውን የኃይል ፉርጎ መረጃ ይቆጣጠሩ"</string>
+    <string name="car_permission_desc_control_car_powertrain" msgid="8205110385130069179">"የመኪናውን የኃይል ፉርጎ መረጃ ይቆጣጠሩ።"</string>
     <string name="car_permission_label_car_powertrain" msgid="4586122326622134886">"የመኪናውን የኃይል ፉርጎ መረጃ አንብብ"</string>
     <string name="car_permission_desc_car_powertrain" msgid="1116007372551797796">"የመኪናውን የኃይል ፉርጎ መረጃ ይድረሱበት።"</string>
     <string name="car_permission_label_car_power" msgid="8111448088314368268">"የመኪናውን የኃይል ሁነታ አንብብ"</string>
@@ -172,6 +174,40 @@
     <string name="car_permission_desc_template_renderer" msgid="6047233999260920122">"የቅንብር ደንቦችን ምስል ሥራ።"</string>
     <string name="car_permission_label_control_car_app_launch" msgid="214632389637409226">"መተግበሪያዎችን ማስጀመር መቆጣጠር"</string>
     <string name="car_permission_desc_control_car_app_launch" msgid="4245527461733374198">"መተግበሪያዎችን ማስጀመር መቆጣጠር።"</string>
+    <string name="car_permission_label_manage_thread_priority" msgid="6775846409863509575">"የተከታታይ ቅድሚያን ያስተዳድሩ"</string>
+    <string name="car_permission_desc_manage_thread_priority" msgid="3833845502119615929">"የተከታታይ ቅድሚያን ያስተዳድሩ።"</string>
+    <string name="car_permission_label_manage_occupant_zone" msgid="1390420387640478679">"የነዋሪን ዞን አስተዳድር"</string>
+    <string name="car_permission_desc_manage_occupant_zone" msgid="1641484205694436465">"የነዋሪን ዞን አስተዳድር።"</string>
+    <string name="car_permission_label_use_remote_access" msgid="4192095854784769805">"የርቀት መቆጣጠሪያ መዳረሻን ይጠቀማሉ"</string>
+    <string name="car_permission_desc_use_remote_access" msgid="7287637348044911791">"የርቀት መቆጣጠሪያ መዳረሻን ይጠቀማሉ።"</string>
+    <string name="car_permission_label_control_remote_access" msgid="4247590162299914718">"የርቀት መቆጣጠሪያ መዳረሻን ይቆጣጠራሉ"</string>
+    <string name="car_permission_desc_control_remote_access" msgid="127215188256669260">"የርቀት መቆጣጠሪያ መዳረሻን ይቆጣጠራሉ።"</string>
+    <string name="car_permission_label_control_steering_wheel" msgid="6244908950907824488">"የመኪናውን መሪ ይቆጣጠራል"</string>
+    <string name="car_permission_desc_control_steering_wheel" msgid="8408970211196600423">"የመኪናውን መሪ ይቆጣጠራል።"</string>
+    <string name="car_permission_label_read_adas_settings" msgid="151296373212801328">"የመኪናን የADAS ቅንብሮች መረጃ አንብብ"</string>
+    <string name="car_permission_desc_read_adas_settings" msgid="8490545343454791279">"የመኪናን የADAS ቅንብሮች መረጃ አንብብ።"</string>
+    <string name="car_permission_label_control_adas_settings" msgid="2535088218472880855">"የመኪናን የADAS ቅንብሮች መረጃን ተቆጣጠር"</string>
+    <string name="car_permission_desc_control_adas_settings" msgid="8781131640392345285">"የመኪናን የADAS ቅንብሮች መረጃ ተቆጣጠር።"</string>
+    <string name="car_permission_label_read_adas_states" msgid="8968657466958098106">"የመኪናን የADAS ሁኔታዎች መረጃ አንብብ"</string>
+    <string name="car_permission_desc_read_adas_states" msgid="5042430899788416991">"የADAS ሁኔታዎች መረጃን አንብብ።"</string>
+    <string name="car_permission_label_control_adas_states" msgid="758803765406463138">"የመኪናን የADAS ሁኔታዎች መረጃ ተቆጣጠር"</string>
+    <string name="car_permission_desc_control_adas_states" msgid="1893171217779342348">"የመኪናን የADAS ሁኔታዎች መረጃ ተቆጣጠር።"</string>
+    <string name="car_permission_label_read_windshield_wipers" msgid="896867772546890348">"የመኪና የዝናብ መጥረጊያዎችን ያንብቡ"</string>
+    <string name="car_permission_desc_read_windshield_wipers" msgid="597300271560195986">"የመኪና የዝናብ መጥረጊያዎችን ያንብቡ።"</string>
+    <string name="car_permission_label_control_windshield_wipers" msgid="7971852482734087493">"የመኪና የዝናብ መጥረጊያዎችን ይቆጣጠሩ"</string>
+    <string name="car_permission_desc_control_windshield_wipers" msgid="3803429825323199728">"የመኪና የዝናብ መጥረጊያዎችን ይቆጣጥሩ።"</string>
+    <string name="car_permission_label_manage_remote_device" msgid="1144368625081074994">"በመኪናው ውስጥ ያሉ የሌሎች የተጠቃሚ ሰው ዞኖችን እና በእነሱ ዞኖች ውስጥ የተጫኑ የአቻ መተግበሪያዎችን (ከደዋዩ ጋር ተመሳሳይ የጥቅል ስም ያላቸው መተግበሪያዎች) ሁኔታዎች ይከታተሉ እና የእነሱን ዞኖች ኃይል ያስተዳድሩ።"</string>
+    <string name="car_permission_desc_manage_remote_device" msgid="4802785901453919948">"በመኪናው ውስጥ ያሉ የሌሎች የተጠቃሚ ሰው ዞኖችን እና በእነሱ ዞኖች ውስጥ የተጫኑ የአቻ መተግበሪያዎችን (ከደዋዩ ጋር ተመሳሳይ የጥቅል ስም ያላቸው መተግበሪያዎች) ሁኔታዎች ይከታተሉ እና የእነሱን ዞኖች ኃይል ያስተዳድሩ።"</string>
+    <string name="car_permission_label_manage_occupant_connection" msgid="6007579379849984187">"ግንኙነት ይፍጠሩ እና በመኪናው ውስጥ ያሉ ሌሎች የተጠቃሚ ሰው ዞኖች ውስጥ ከተጫኑ አቻ መተግበሪያዎች (ከደዋዩ ጋር ተመሳሳይ የጥቅል ስም ያላቸው መተግበሪያዎች) ጋር ይገናኙ"</string>
+    <string name="car_permission_desc_manage_occupant_connection" msgid="6525045077082552965">"ግንኙነት ይፍጠሩ እና በመኪናው ውስጥ ባሉ ሌሎች የተጠቃሚ ሰዎች ዞኖች ውስጥ ከተጫኑ አቻ መተግበሪያዎች (ከደዋዩ ጋር ተመሳሳይ የጥቅል ስም ያላቸው መተግበሪያዎች) ጋር ይገናኙ።"</string>
+    <string name="car_permission_label_access_mirrored_surface" msgid="6235459468766618021">"የሌሎች መተግበሪያዎችን ማያ ገፅ ያንጸባርቁ"</string>
+    <string name="car_permission_desc_access_mirrored_surface" msgid="7701151689600074639">"የሌሎች መተግበሪያዎችን ማያ ገፅ ያንጸባርቁ።"</string>
+    <string name="car_permission_label_mirror_display" msgid="7591958768912962529">"የሌሎች ተጠቃሚዎች ማሳያን ያንጸባርቁ"</string>
+    <string name="car_permission_desc_mirror_display" msgid="2403249980834394896">"የሌሎች ተጠቃሚዎች ማሳያን ያንጸባርቁ።"</string>
+    <string name="car_permission_label_register_car_system_ui_proxy" msgid="4211405049007842422">"የሥርዓት ዩአይን ለማስተዳደር እና የተግባር ዕይታዎችን ለመፍጠር በሌላ መተግበሪያዎች ሥራ ላይ መዋል የሚችል የሥርዓት ዩአይ ተኪ ያቅርቡ።"</string>
+    <string name="car_permission_desc_register_car_system_ui_proxy" msgid="8863676956785764681">"የሥርዓት ዩአይን ለማስተዳደር እና የተግባር ዕይታዎችን ለመፍጠር በሌላ መተግበሪያዎች ሥራ ላይ መዋል የሚችል የሥርዓት ዩአይ ተኪ ያቅርቡ።"</string>
+    <string name="car_permission_label_manage_car_system_ui" msgid="1361615518679353414">"የተግባር ዕይታዎችን ለመፍጠር ወይም ስለ የሥርዓት ዩአይ ለውጦች ማሳወቂያዎችን ለማግኘት ከመኪና የሥርዓት ዩአይ ጋር ይነጋገሩ።"</string>
+    <string name="car_permission_desc_manage_car_system_ui" msgid="6201733970421818637">"የተግባር ዕይታዎችን ለመፍጠር ወይም ስለ የሥርዓት ዩአይ ለውጦች ማሳወቂያዎችን ለማግኘት ከመኪና የሥርዓት ዩአይ ጋር ይነጋገሩ።"</string>
     <string name="car_can_bus_failure" msgid="2334035748788283914">"CAN አውቶብስ አልተሳካም"</string>
     <string name="car_can_bus_failure_desc" msgid="4125516222786484733">"CAN አውቶብስ ምላሽ አይሰጥም። የጭንቅላት አሃድ መያዣ ሳጥኑን ይሰኩ እና ይንቀሉ በመቀጠል መኪናውን ዳግም ያስጀምሩ"</string>
     <string name="trust_device_default_name" msgid="4213625926070261253">"የእኔ መሣሪያ"</string>

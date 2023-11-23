@@ -45,6 +45,10 @@ public class AudioCard implements HomeCardModule {
         mViewModelProvider = viewModelProvider;
     }
 
+    protected ViewModelProvider getViewModelProvider() {
+        return mViewModelProvider;
+    }
+
     @Override
     public int getCardResId() {
         return R.id.bottom_card;

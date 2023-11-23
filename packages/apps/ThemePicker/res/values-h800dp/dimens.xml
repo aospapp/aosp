@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<resources>
+    <!--
+    Dimension for clock translationY when swiping clock carousel in picker,
+    copied from sysui resources
+    -->
+    <dimen name="keyguard_large_clock_top_margin">-112dp</dimen>
+</resources>

@@ -31,6 +31,8 @@
     <string name="enabled" msgid="5127188665060746381">"সক্ষম কৰা আছে"</string>
     <string name="disabled" msgid="4589065923272201387">"অক্ষম কৰা আছে"</string>
     <string name="unavailable" msgid="1610732303812180196">"উপলব্ধ নহয়"</string>
+    <string name="allow" msgid="6982558814345894019">"অনুমতি দিয়ক"</string>
+    <string name="deny" msgid="8291577308813053917">"অস্বীকাৰ কৰক"</string>
     <string name="header_category_suggestions" msgid="106077820663753645">"পৰামৰ্শবোৰ"</string>
     <string name="header_category_quick_settings" msgid="3785334008768367890">"ক্ষিপ্ৰ ছেটিংসমূহ"</string>
     <string name="header_category_general_settings" msgid="3897615781153506434">"সাধাৰণ ছেটিংসমূহ"</string>
@@ -49,8 +51,9 @@
     <string name="accounts_slice_summary" msgid="1571012157154521119">"মিডিয়া সেৱা, Assistant, Payments"</string>
     <string name="connectivity_network_category_title" msgid="8226264889892008114">"নেটৱৰ্ক আৰু ইণ্টাৰনেট"</string>
     <string name="sound_category_title" msgid="7899816751041939518">"ধ্বনি"</string>
-    <string name="applications_category_title" msgid="7112019490898586223">"এপসমূহ"</string>
+    <string name="applications_category_title" msgid="7112019490898586223">"এপ্‌সমূহ"</string>
     <string name="device_pref_category_title" msgid="8292572846154873762">"ডিভাইচৰ অগ্ৰাধিকাৰ"</string>
+    <string name="accessibility_category_title" msgid="1552664829936369592">"সাধ্য সুবিধা"</string>
     <string name="remotes_and_accessories_category_title" msgid="4795119810430255047">"ৰিম’ট আৰু সহায়ক সঁজুলিসমূহ"</string>
     <string name="display_and_sound_category_title" msgid="9203309625380755860">"ডিছপ্লে’ আৰু শব্দ"</string>
     <string name="help_and_feedback_category_title" msgid="7036505833991003031">"সহায় আৰু মতামত"</string>
@@ -63,7 +66,7 @@
     <string name="privacy_category_summary" msgid="3534434883380511043">"অৱস্থান, ব্যৱহাৰ আৰু ডায়েগন’ষ্টিক্স, বিজ্ঞাপন"</string>
     <string name="add_account" msgid="7386223854837017129">"একাউণ্ট যোগ কৰক"</string>
     <string name="account_header_remove_account" msgid="8573697553061331373">"একাউণ্ট আঁতৰাওক"</string>
-    <string name="account_sync" msgid="4315295293211313989">"ছিংক কৰা এপবোৰ বাছনি কৰক"</string>
+    <string name="account_sync" msgid="4315295293211313989">"ছিংক কৰা এপ্‌বোৰ বাছনি কৰক"</string>
     <string name="sync_now" msgid="4335217984374620551">"এতিয়া ছিংক কৰক"</string>
     <string name="sync_in_progress" msgid="8081367667406185785">"ছিংক কৰি থকা হৈছে…"</string>
     <string name="last_synced" msgid="8371967816955123864">"অন্তিমবাৰ ছিংক কৰা সময় <xliff:g id="TIME">%1$s</xliff:g>"</string>
@@ -87,17 +90,17 @@
     <string name="wifi_setting_enable_wifi" msgid="5276730445393952969">"ৱাই-ফাই"</string>
     <string name="connectivity_hint_message" msgid="5638304246522516583">"নেটৱৰ্কৰ লগত সংযোগ কৰক"</string>
     <string name="connectivity_network_diagnostics" msgid="4396132865849151854">"নেটৱর্কৰ ডায়েগনষ্টিক্স"</string>
-    <string name="apps_recently_used_category_title" msgid="7877660412428813933">"অলপতে খোলা এপসমূহ"</string>
+    <string name="apps_recently_used_category_title" msgid="7877660412428813933">"অলপতে খোলা এপ্‌সমূহ"</string>
     <string name="apps_see_all_apps" msgid="2002886135933443688">"সকলো এপ্ চাওক"</string>
     <string name="apps_permissions_category_title" msgid="8099660060701465267">"অনুমতিসমূহ"</string>
     <string name="overlay_security_slice_title" msgid="4895032817538300187"></string>
     <string name="update_slice_title" msgid="6553763903108611747"></string>
     <string name="all_apps_title" msgid="3717294436135280133">"সকলো এপ্"</string>
-    <string name="all_apps_show_system_apps" msgid="1260688031005374302">"ছিষ্টেম এপসমূহ দেখুৱাওক"</string>
-    <string name="all_apps_installed" msgid="8217778476185598971">"ইনষ্টল কৰা এপসমূহ"</string>
-    <string name="all_apps_other" msgid="4420174882983813158">"ছিষ্টেম এপসমূহ"</string>
-    <string name="all_apps_disabled" msgid="2776041242863791053">"নিষ্ক্ৰিয় কৰি ৰখা এপসমূহ"</string>
-    <string name="device_daydream" msgid="2631191946958113220">"স্ক্ৰীণ ছেভাৰ"</string>
+    <string name="all_apps_show_system_apps" msgid="1260688031005374302">"ছিষ্টেম এপ্‌সমূহ দেখুৱাওক"</string>
+    <string name="all_apps_installed" msgid="8217778476185598971">"ইনষ্টল কৰা এপ্‌সমূহ"</string>
+    <string name="all_apps_other" msgid="4420174882983813158">"ছিষ্টেম এপ্‌সমূহ"</string>
+    <string name="all_apps_disabled" msgid="2776041242863791053">"নিষ্ক্ৰিয় কৰি ৰখা এপ্‌সমূহ"</string>
+    <string name="device_daydream" msgid="2631191946958113220">"স্ক্ৰীন ছেভাৰ"</string>
     <string name="device_display" msgid="244634591698925025">"ডিছপ্লে’"</string>
     <string name="device_display_sound" msgid="7399153506435649193">"ডিছপ্লে’ আৰু ধ্বনি"</string>
     <string name="device_sound" msgid="8616320533559404963">"ধ্বনি"</string>
@@ -109,7 +112,8 @@
     <string name="device_backup_restore" msgid="3634531946308269398">"বেকআপ আৰু পুনঃস্থাপন"</string>
     <string name="device_factory_reset" msgid="1110189450013225971">"ফেক্টৰী ডেটা ৰিছেট"</string>
     <string name="device_calibration" msgid="2907914144048739705">"ক্ৰমাংকণ"</string>
-    <string name="device_energy_saver" msgid="1105023232841036991">"শক্তি সঞ্চয়কাৰী"</string>
+    <string name="device_energy_saver" msgid="6611757996220443028">"অফ হোৱাৰ টাইমাৰ"</string>
+    <string name="device_energy_saver_summary" msgid="5306058475316008429">"টিভি অফ কৰিবলৈ আৰু শক্তি ৰাহি কৰিবলৈ টাইমাৰ ছেট কৰক"</string>
     <string name="overlay_internal_slice_title" msgid="6427352417573831625"></string>
     <string name="device_fastpair" msgid="1235240814051277047">"ডিভাইচ"</string>
     <string name="surround_sound_select_formats" msgid="6070283650131226239">"ফৰমেটসমূহ বাছনি কৰক"</string>
@@ -118,7 +122,7 @@
     <string name="surround_sound_format_e_ac3" msgid="6923129088903887242">"Dolby Digital Plus"</string>
     <string name="surround_sound_format_dts" msgid="8331816247117135587">"DTS"</string>
     <string name="surround_sound_format_dts_hd" msgid="4268947520371740146">"DTS-HD"</string>
-    <string name="surround_sound_format_dts_uhd" msgid="2844983210044263719">"DTS-UHD"</string>
+    <string name="surround_sound_format_dts_uhd" msgid="4340749818133578788">"DTS:X"</string>
     <string name="surround_sound_format_dolby_mat" msgid="3029804841912462928">"Dolby TrueHDৰ সৈতে Dolby Atmos"</string>
     <string name="surround_sound_format_dolby_truehd" msgid="5113046743572967088">"Dolby TrueHD"</string>
     <string name="surround_sound_format_e_ac3_joc" msgid="3360344066462262996">"Dolby Digital Plusৰ সৈতে Dolby Atmos"</string>
@@ -147,10 +151,38 @@
     <string name="hdmi_cec_settings_title" msgid="7120729705063868627">"HDMI-CEC"</string>
     <string name="advanced_sound_settings_title" msgid="319921303039469139">"উন্নত ধ্বনি ছেটিংসমূহ"</string>
     <string name="game_mode_title" msgid="7280816243531315755">"গে’ম ম’ডৰ অনুমতি দিয়ক"</string>
+    <string name="match_content_dynamic_range_title" msgid="2794980556561655838">"সমলৰ গতিশীল পৰিসৰ মিলাওক"</string>
+    <string name="match_content_dynamic_range_summary" msgid="2255683926227355398">"এই বিকল্পটো সক্ষম কৰি থকাৰ সময়ত, সমলটো মিলাবলৈ ছিষ্টেমটো ভিন্ন গতিশীল পৰিসৰৰ ফৰ্মেটৰ মাজত সালসলনি হ’ব। ফৰ্মেট সলনি হৈ থকাৰ সময়ত এখন ক’লা স্ক্ৰীন ওলাব পাৰে।\n\nগতিশীল পৰিসৰৰ অধিক বিকল্প পাবলৈ উচ্চখাপৰ ডিছপ্লে’ৰ ছেটিঙত ক্লিক কৰক।"</string>
+    <string name="preferred_dynamic_range_title" msgid="5064883672337010588">"অগ্ৰাধিকাৰপ্ৰাপ্ত গতিশীল পৰিসৰ"</string>
+    <string name="preferred_dynamic_range_selection_system_title" msgid="4505030483876080996">"ছিষ্টেমে অগ্ৰাধিকাৰ দিয়া ৰূপান্তৰণ"</string>
+    <string name="preferred_dynamic_range_selection_system_desc" msgid="5712920601553613576">"ছিষ্টেমক ফৰ্মেটৰ ৰূপান্তৰণ পৰিচালনা কৰিবলৈ দিয়ে"</string>
+    <string name="preferred_dynamic_range_selection_system_summary" msgid="4509062596428781094">"যেতিয়া এই বিকল্পটো বাছনি কৰা হয়, তেতিয়া ছিষ্টেমে আপোনাৰ ডিছপ্লে’লৈ পঠিয়াবলৈ এটা উপযুক্ত গতিশীল পৰিসৰ নিৰ্ধাৰণ কৰিব আৰু প্ৰয়োজন অনুসৰি এই গতিশীল পৰিসৰলৈ সমল ৰূপান্তৰ কৰিব।"</string>
+    <string name="preferred_dynamic_range_selection_passthrough_desc" msgid="4831260397179583737">"সদায় সমলৰ ফৰ্মেটৰ সৈতে মিল খায়"</string>
+    <string name="preferred_dynamic_range_selection_force_title" msgid="4448836594133973103">"বলপূৰ্বক ৰূপান্তৰণ"</string>
+    <string name="preferred_dynamic_range_selection_force_desc" msgid="1418542349290684513">"বলপূৰ্বকভাৱে অগ্ৰাধিকাৰপ্ৰাপ্ত ফৰ্মেটলৈ ৰূপান্তৰ কৰে"</string>
+    <string name="preferred_dynamic_range_selection_force_summary" msgid="8381058061765216239">"বলপূৰ্বকভাৱে অগ্ৰাধিকাৰপ্ৰাপ্ত ফৰ্মেটলৈ ৰূপান্তৰ কৰক। বলপূৰ্বকভাৱে ৰূপান্তৰ কৰিলে ডিছপ্লে’ ম’ড অথবা HDR ফৰ্মেটত আন ছেটিং প্ৰভাৱিত হ’ব পাৰে।"</string>
+    <string name="preferred_dynamic_range_selection_force_sdr_title" msgid="3135104063034317252">"সদায় SDRলৈ"</string>
+    <string name="preferred_dynamic_range_selection_force_hdr_title" msgid="1032587815433139859">"সদায় <xliff:g id="HDR_TYPE">%s</xliff:g>লৈ"</string>
+    <string name="preferred_dynamic_range_force_dialog_title" msgid="6865110024863661702">"আপুনি HDR আউটপুট বলবৎ কৰিব বিচাৰেনে?"</string>
+    <string name="preferred_dynamic_range_force_dialog_desc" msgid="7758323258282201656">"ডিফ’ল্ট হিচাপে <xliff:g id="HDR_TYPE">%s</xliff:g>লৈ বলপূৰ্বকভাৱে ৰূপান্তৰণ কৰা হ’ব।"</string>
+    <string name="preferred_dynamic_range_force_dialog_desc_4k30_issue" msgid="4938418395391206131">"আপোনাৰ ডিছপ্লে’ ১০৮০পি ৬০হাৰ্টজ ৰিজ’লিউশ্বনত চলিব। ৪কে ৬০হাৰ্টজ ৰিজ’লিউশ্বনত চলি থাকোঁতে এই বিকল্পটো আপোনাৰ ডিছপ্লে’ৰ সৈতে সমিল নহয়।"</string>
+    <string name="selection_dolby_vision_not_supported_sidebar" msgid="8994591316574824115">"বৰ্তমানৰ ৰিজ’লিউশ্বনত Dolby Vision সমৰ্থিত নহয়। যদি আপুনি মেনুৱেলী Dolby Vision সক্ষম কৰে, তেন্তে আপোনৰ ডিছপ্লে’ৰ ৰিজ’লিউশ্বন ১০৮০ পিক্সেল ৬০ হাৰ্টজলৈ সলনি হ’ব"</string>
+    <string name="manual_dolby_vision_format_on_4k60_title" msgid="4172263676512376500">"ৰিজ’লিউশ্বন ১০৮০ পিক্সেল ৬০ হাৰ্টজলৈ সলনি কৰিবনে?"</string>
+    <string name="dynamic_range_selection_force_dv_title" msgid="8070148109262327094">"সদায় বলপূৰ্বকভাৱে ড’ল্‌বী ভিজনলৈ ৰূপান্তৰ কৰক"</string>
+    <string name="dynamic_range_selection_force_dv_summary" msgid="1052851029985095562">"যদি উচ্চখাপৰ ডিছপ্লে’ৰ ছেটিঙত HDR ফৰ্মেটসমূহত ড’ল্‌বী ভিজন অক্ষম কৰা হয়, তেন্তে বলপূৰ্বকভাৱে ড’ল্‌বী ভিজনলৈ ৰূপান্তৰ কৰাটোৱে এইটো পুনৰ সক্ষম কৰিব।"</string>
+    <string name="dynamic_range_selection_force_hdr10_title" msgid="1221688206945051384">"সদায় বলপূৰ্বকভাৱে HDR10লৈ ৰূপান্তৰ কৰক"</string>
+    <string name="dynamic_range_selection_force_hdr10_summary" msgid="7784573527636502784">"যদি উচ্চখাপৰ ডিছপ্লে’ৰ ছেটিঙত HDR ফৰ্মেটসমূহত HDR10 অক্ষম কৰা হয়, তেন্তে বলপূৰ্বকভাৱে HDR10লৈ ৰূপান্তৰ কৰাটোৱে এইটো পুনৰ সক্ষম কৰিব।"</string>
+    <string name="dynamic_range_selection_force_hlg_title" msgid="3976190987768712696">"সদায় বলপূৰ্বকভাৱে HLGলৈ ৰূপান্তৰ কৰক"</string>
+    <string name="dynamic_range_selection_force_hlg_summary" msgid="5371949016689544001">"যদি উচ্চখাপৰ ডিছপ্লে’ৰ ছেটিঙত HDR ফৰ্মেটসমূহত HLG অক্ষম কৰা হয়, তেন্তে বলপূৰ্বকভাৱে HLGলৈ ৰূপান্তৰ কৰাটোৱে এইটো পুনৰ সক্ষম কৰিব।"</string>
+    <string name="dynamic_range_selection_force_hdr10plus_title" msgid="1305556000063625735">"সদায় বলপূৰ্বকভাৱে HDR10+লৈ ৰূপান্তৰ কৰক"</string>
+    <string name="dynamic_range_selection_force_hdr10plus_summary" msgid="918038386222537401">"যদি উচ্চখাপৰ ডিছপ্লে’ৰ ছেটিঙত HDR ফৰ্মেটসমূহত HDR10+ অক্ষম কৰা হয়, তেন্তে বলপূৰ্বকভাৱে HDR10+লৈ ৰূপান্তৰ কৰাটোৱে এইটো পুনৰ সক্ষম কৰিব।"</string>
+    <string name="dynamic_range_selection_force_sdr_title" msgid="1063579223517652945">"সদায় বলপূৰ্বকভাৱে SDRলৈ ৰূপান্তৰ কৰক"</string>
+    <string name="dynamic_range_selection_force_sdr_summary" msgid="2874771365465898941">"বলপূৰ্বকভাৱে SDRলৈ ৰূপান্তৰ কৰাটোৱে উচ্চখাপৰ ডিছপ্লে’ৰ ছেটিঙত HDR ফৰ্মেটসমূহত আটাইবোৰ ফৰ্মেট অক্ষম কৰিব।"</string>
     <string name="match_content_frame_rate_title" msgid="153291168560947689">"সমলৰ ফ্ৰে\'মৰ হাৰ মিলাওক"</string>
-    <string name="match_content_frame_rate_seamless" msgid="5900012519258795448">"বাধাহীন"</string>
+    <string name="match_content_frame_rate_seamless" msgid="5577846750811067585">"কেৱল বাধাহীন"</string>
     <string name="match_content_frame_rate_seamless_summary" msgid="2737466163964133210">"এপ্‌টোৱে ইয়াৰ বাবে অনুৰোধ কৰিলে, আপোনাৰ ডিভাইচটোৱে আপুনি চাই থকা সমলৰ মূল ফ্ৰে’মৰ হাৰৰ সৈতে ইয়াৰ আউটপুট মিলাব, এনে তেতিয়াহে হ’ব যেতিয়া আপোনাৰ টিভিটোৱে এটা বাধাহীন পৰিৱৰ্তন সম্পাদন কৰিব পাৰিব।"</string>
-    <string name="match_content_frame_rate_non_seamless" msgid="1534300397118594640">"বাধাহীন নহয়"</string>
+    <string name="match_content_frame_rate_seamless_not_supported_summary" msgid="98559950465123792">"আপোনাৰ সংযুক্ত ডিছপ্লে’খনে বাধাহীন ৰিফ্ৰে’শ্বৰ হাৰৰ ট্ৰানজিশ্বনসমূহ সমৰ্থন নকৰে। আপুনি এইটো সমৰ্থন কৰা এখন ডিছপ্লে’লৈ সলনি নকৰালৈকে এই বিকল্পটোৰ কোনো প্ৰভাৱ নাথাকিব।"</string>
+    <string name="match_content_frame_rate_non_seamless" msgid="2702658727234710031">"সদায়"</string>
     <string name="match_content_frame_rate_non_seamless_summary" msgid="6831699459487130055">"এপ্‌টোৱে ইয়াৰ বাবে অনুৰোধ কৰিলে, আপোনাৰ ডিভাইচটোৱে আপুনি চাই থকা সমলৰ মূল ফ্ৰে’মৰ হাৰৰ সৈতে ইয়াৰ আউটপুট মিলাব। ইয়াৰ ফলত এটা ভিডিঅ’ প্লে’বেক আৰম্ভ কৰোঁতে অথবা তাৰপৰা বাহিৰ হওঁতে এক ছেকেণ্ডৰ বাবে আপোনাৰ স্ক্ৰীনখনত একো নোহোৱা হৈ পৰিব পাৰে।"</string>
     <string name="match_content_frame_rate_never" msgid="1678354793095148423">"কেতিয়াও নহয়"</string>
     <string name="match_content_frame_rate_never_summary" msgid="742977618080396095">"এপ্‌টোৱে ইয়াৰ বাবে অনুৰোধ কৰিলেও আপোনাৰ ডিভাইচটোৱে কেতিয়াও আপুনি চাই থকা সমলৰ মূল ফ্ৰে’মৰ হাৰৰ সৈতে ইয়াৰ আউটপুট মিলাবলৈ চেষ্টা নকৰে।"</string>
@@ -159,7 +191,7 @@
     <string name="font_scale_sample_text_title" msgid="5239266611413037261">"পাঠৰ নমুনা"</string>
     <string name="font_scale_preview_text_title" msgid="8056182208511371119">"অষ্ট্ৰেলিয়াৰ বিস্ময়কৰ যাদুকৰ"</string>
     <string name="font_scale_preview_text_subtitle" msgid="677394182922188048">"অধ্যায় ১১: অষ্ট্ৰেলিয়াৰ বিস্ময়কৰ পান্নাৰ মহানগৰ"</string>
-    <string name="font_scale_preview_text_body" msgid="2040384234251207410">"ডৰথী আৰু তেওঁৰ বন্ধুসকলে যদিও সেউজীয়া চশমা পিন্ধি আছিল, বিস্ময়কৰ মহানগৰখনৰ চালে চকু ছাট মৰা ৰূপ দেখি প্ৰথমে তেওঁলোক স্তম্ভিত হৈ পৰিছিল। ৰাস্তাৰ দুয়োফাল সেউজীয়া মাৰ্বলৰ দ্বাৰা সজা আৰু চিকমিক মুকুতাখচিত শাৰী শাৰী ঘৰেৰে ভৰি আছিল। তেওঁলোকে সূৰ্যৰ পোহৰত উজলি উঠা পান্নাবোৰৰ সহায়ত শাৰী শাৰীকৈ যোৰা লগোৱা সেউজীয়া মাৰ্বলেৰে নিৰ্মিত ফুটপাথেৰে খোজ কাঢ়িছিল। খিৰিকিৰ পাল্লাবোৰ সেউজীয়া কাঁচেৰে তৈয়াৰী আছিল, আনকি মহানগৰখনৰ ওপৰৰ আকাশখনো সেউজীয়া আভাৰে ভৰা আছিল আৰু সূৰ্যৰ ৰশ্মিও সেউজীয়া ৰঙৰ আছিল। \n\nতাত সেউজীয়া পোছাক পৰিহিত বহুতো পুৰুষ, মহিলা আৰু শিশুৱে খোজকাঢ়ি আছিল আৰু তেওঁলোকৰ গাৰ ছালৰ বৰণো সেউজীয়া আছিল। তেওঁলোকে ডৰথী আৰু তেওঁৰ সমনীয়াসকলৰ অদ্ভুত দলটোক বিস্ময়ভৰা চকুৰে চালে আৰু শিশুহঁতে সিংহ দেখা পাই দৌৰি গৈ মাকহতঁৰ পিছত লুকাল গৈ, কিন্তু কোনেও তেওঁলোকৰ সৈতে কথা নাপাতিলে। পথত বহুতো দোকান আছিল আৰু ডৰথীয়ে দেখা পালে যে তাত থকা সকলো বস্তুৱেই সেউজীয়া আছিল। সেই দোকানবোৰত সেউজীয়া কেণ্ডী, সেউজীয়া পপকৰ্ন, সেউজীয়া জোতা, সেউজীয়া টুপী আৰু সেউজীয়া ৰঙৰ সকলো ধৰণৰ কাপোৰ বিক্ৰীৰ বাবে ৰখা হৈছিল। এঠাইত মানুহ এজনে সেউজীয়া নেমু চৰবত বিক্ৰী কৰি আছিল আৰু ডৰথীয়ে দেখিলে যে শিশুসকলে চৰবত কিনোঁতে দিয়া মুদ্ৰাবোৰৰ ৰঙো সেউজীয়া আছিল। \n\nতাত ঘোঁৰা অথবা অন্য কোনো ধৰণৰ জন্তু দেখা পোৱা নগৈছিল; পুৰুষসকলে সেউজীয়া ৰঙৰ ঠেলাত বস্তুবোৰ কঢ়িয়াইছিল। সকলোকে সুখী, সন্তুষ্ট আৰু সমৃদ্ধ দেখা গৈছিল।"</string>
+    <string name="font_scale_preview_text_body" msgid="2040384234251207410">"ডৰথী আৰু তেওঁৰ বন্ধুসকলে যদিও সেউজীয়া চশমা পিন্ধি আছিল, বিস্ময়কৰ মহানগৰখনৰ চালে চকু ছাট মৰা ৰূপ দেখি প্ৰথমে তেওঁলোক স্তম্ভিত হৈ পৰিছিল। ৰাস্তাৰ দুয়োফাল সেউজীয়া মাৰ্বলৰ দ্বাৰা সজা আৰু চিকমিক মুকুতাখচিত শাৰী শাৰী ঘৰেৰে ভৰি আছিল। তেওঁলোকে সূৰ্যৰ পোহৰত উজলি উঠা পান্নাবোৰৰ সহায়ত শাৰী শাৰীকৈ যোৰা লগোৱা সেউজীয়া মাৰ্বলেৰে নিৰ্মিত ফুটপাথেৰে খোজ কাঢ়িছিল। খিৰিকিৰ পাল্লাবোৰ সেউজীয়া কাঁচেৰে তৈয়াৰী আছিল, আনকি মহানগৰখনৰ ওপৰৰ আকাশখনো সেউজীয়া আভাৰে ভৰা আছিল আৰু সূৰ্যৰ ৰশ্মিও সেউজীয়া ৰঙৰ আছিল। \n\nতাত সেউজীয়া পোছাক পৰিহিত বহুতো পুৰুষ, মহিলা আৰু শিশুৱে খোজকাঢ়ি আছিল আৰু তেওঁলোকৰ গাৰ ছালৰ বৰণো সেউজীয়া আছিল। তেওঁলোকে ডৰথী আৰু তেওঁৰ সমনীয়াসকলৰ অদ্ভুত দলটোক বিস্ময়ভৰা চকুৰে চালে আৰু শিশুহঁতে সিংহ দেখা পাই দৌৰি গৈ মাকহতঁৰ পাছত লুকাল গৈ, কিন্তু কোনেও তেওঁলোকৰ সৈতে কথা নাপাতিলে। পথত বহুতো দোকান আছিল আৰু ডৰথীয়ে দেখা পালে যে তাত থকা সকলো বস্তুৱেই সেউজীয়া আছিল। সেই দোকানবোৰত সেউজীয়া কেণ্ডী, সেউজীয়া পপকৰ্ন, সেউজীয়া জোতা, সেউজীয়া টুপী আৰু সেউজীয়া ৰঙৰ সকলো ধৰণৰ কাপোৰ বিক্ৰীৰ বাবে ৰখা হৈছিল। এঠাইত মানুহ এজনে সেউজীয়া নেমু চৰবত বিক্ৰী কৰি আছিল আৰু ডৰথীয়ে দেখিলে যে শিশুসকলে চৰবত কিনোঁতে দিয়া মুদ্ৰাবোৰৰ ৰঙো সেউজীয়া আছিল। \n\nতাত ঘোঁৰা অথবা অন্য কোনো ধৰণৰ জন্তু দেখা পোৱা নগৈছিল; পুৰুষসকলে সেউজীয়া ৰঙৰ ঠেলাত বস্তুবোৰ কঢ়িয়াইছিল। সকলোকে সুখী, সন্তুষ্ট আৰু সমৃদ্ধ দেখা গৈছিল।"</string>
     <string name="hdr_format_selection_title" msgid="4042679694363850581">"ফৰ্মেটৰ বাছনি"</string>
     <string name="hdr_format_selection_auto_title" msgid="2370148695440344232">"স্বয়ংক্ৰিয়"</string>
     <string name="hdr_format_selection_manual_title" msgid="2077604650196987438">"মেনুৱেল"</string>
@@ -167,6 +199,7 @@
     <string name="hdr_format_selection_manual_desc" msgid="8865649615882146772">"উপলব্ধ ফৰ্মেটসমূহৰ পৰা ফৰ্মেট মেনুৱেলী বাছনি কৰক"</string>
     <string name="hdr_format_supported_title" msgid="1458594819224612431">"সমৰ্থিত ফৰ্মেট"</string>
     <string name="hdr_format_unsupported_title" msgid="715318408107924941">"অসমৰ্থিত ফৰ্মেট"</string>
+    <string name="hdr_format_sdr" msgid="7211377112392255102">"SDR"</string>
     <string name="hdr_format_hdr10" msgid="8063543267227491062">"HDR10"</string>
     <string name="hdr_format_hlg" msgid="454510079939620321">"HLG"</string>
     <string name="hdr_format_hdr10plus" msgid="4371652089162162876">"HDR10+"</string>
@@ -182,10 +215,14 @@
     <string name="resolution_selection_title" msgid="2873993320284587853">"ৰিজ’লিউশ্বন"</string>
     <string name="resolution_selection_auto_title" msgid="4738671207331027385">"স্বয়ংক্ৰিয়"</string>
     <string name="resolution_selection_dialog_title" msgid="4029798035133645272">"ৰিজ’লিউশ্বন সলনি কৰা হ’ল"</string>
+    <string name="resolution_selection_with_mode_dialog_title" msgid="5011192408613100514">"ৰিজ’লিউশ্বন %1$sলৈ সলনি কৰিবনে?"</string>
     <string name="resolution_selection_dialog_desc" msgid="3667357611495669701">"এতিয়াৰ পৰা %1$s ব্যৱহাৰ কৰিবলৈ ঠিক আছে বাছনি কৰক।"</string>
+    <string name="resolution_selection_disabled_dolby_vision_dialog_desc" msgid="7952404018654828187">"%1$sত Dolby Vision সমৰ্থিত নহয় আৰু সেইটো \"উচ্চখাপৰ ডিছপ্লে’ৰ ছেটিঙ\"ত অক্ষম কৰা হ’ব"</string>
+    <string name="resolution_hdr_description_info" msgid="2408761621976850238">"এই ম\'ডটোৱে সমর্থন কৰে:%1$s\nআপুনি কিছুমান টিভিত অধিক HDR ফৰ্মেট সক্ষম কৰিবলৈ উন্নত HDMI অন কৰিব লগা হ’ব পাৰে। এইটো সমৰ্থিত হয়নে নহয় চাবলৈ আপোনাৰ টিভিৰ ছেটিং পৰীক্ষা কৰক।"</string>
     <string name="resolution_selection_dialog_cancel" msgid="3683616572317946129">"বাতিল কৰক"</string>
     <string name="resolution_selection_dialog_ok" msgid="3123351228545013492">"ঠিক আছে"</string>
     <string name="resolution_selection_hz" msgid="4425902505388495637">"হাৰ্টজ"</string>
+    <string name="resolution_display_mode" msgid="6633857172598855480">"<xliff:g id="RESOLUTION">%1$s</xliff:g> (<xliff:g id="REFRESH_RATE">%2$s</xliff:g> হাৰ্টজ)"</string>
     <string name="device_storage_clear_cache_title" msgid="14370154552302965">"কেশ্ব কৰা ডেটা মচিবনে?"</string>
     <string name="device_storage_clear_cache_message" msgid="4352802738505831032">"এই কাৰ্যই সকলো এপৰ কেশ্ব ডেটা পৰিষ্কাৰ কৰিব।"</string>
     <string name="default_audio_output_settings_title" msgid="5441937324539531999"></string>
@@ -249,7 +286,7 @@
     <string name="system_keyboard" msgid="1514460705385401872">"কীব\'ৰ্ড"</string>
     <string name="system_keyboard_autofill" msgid="8530944165814838255">"কীব’ৰ্ড আৰু স্বয়ংপূৰ্তি"</string>
     <string name="system_autofill" msgid="6983989261108020046">"স্বয়ংপূৰ্তি"</string>
-    <string name="system_home" msgid="2149349845791104094">"গৃহ স্ক্ৰীণ"</string>
+    <string name="system_home" msgid="2149349845791104094">"গৃহ স্ক্ৰীন"</string>
     <string name="system_search" msgid="3170169128257586925">"সন্ধান"</string>
     <string name="system_google" msgid="945985164023885276">"Google"</string>
     <string name="system_security" msgid="1012999639810957132">"সুৰক্ষা আৰু সীমাবদ্ধতা"</string>
@@ -257,23 +294,22 @@
     <string name="system_inputs" msgid="5552840337357572096">"ইনপুটসমূহ"</string>
     <string name="system_inputs_devices" msgid="2158421111699829399">"ইনপুট আৰু ডিভাইচ"</string>
     <string name="system_home_theater_control" msgid="6228949628173590310">"হ\'ম থিয়েটাৰ নিয়ন্ত্ৰণ"</string>
-    <string name="system_accessibility" msgid="3081009195560501010">"সাধ্য সুবিধাসমূহ"</string>
     <string name="system_developer_options" msgid="8480844257066475479">"বিকাশকৰ্তাৰ বিকল্পসমূহ"</string>
     <string name="accessibility_none" msgid="6355646833528306702">"এটাও নহয়"</string>
     <string name="system_diagnostic" msgid="1654842813331919958">"ব্যৱহাৰ আৰু ডায়েগন’ষ্টিক্স"</string>
     <string name="no_device_admins" msgid="4628974717150185625">"কোনো ডিভাইচ প্ৰশাসকৰ এপ্ উপলব্ধ নাই"</string>
     <string name="security_enable_widgets_disabled_summary" msgid="7678529948487939871">"প্ৰশাসকৰ দ্বাৰা অক্ষম কৰা হৈছে"</string>
     <string name="disabled_by_administrator_summary" msgid="3420979957115426764">"উপলব্ধ নহয়"</string>
-    <string name="manage_device_admin" msgid="5714217234035017983">"ডিভাইচৰ প্ৰশাসকৰ এপসমূহ"</string>
+    <string name="manage_device_admin" msgid="5714217234035017983">"ডিভাইচৰ প্ৰশাসকৰ এপ্‌সমূহ"</string>
     <string name="number_of_device_admins_none" msgid="2734299122299837459">"কোনো সক্ৰিয় এপ্ নাই"</string>
     <string name="unlock_set_unlock_disabled_summary" msgid="108190334043671416">"প্ৰশাসক, এনক্ৰিপশ্বন নীতি বা ক্ৰেডেনশ্বিয়েল ষ্ট’ৰেজৰ দ্বাৰা অক্ষম কৰা হৈছে"</string>
     <string name="enterprise_privacy_settings" msgid="8226765895133003202">"পৰিচালিত ডিভাইচৰ তথ্য"</string>
     <string name="enterprise_privacy_settings_summary_generic" msgid="5719549523275019419">"আপোনাৰ প্ৰতিষ্ঠানে সাল-সলনি আৰু ছেটিংসমূহ পৰিচালনা কৰে"</string>
     <string name="enterprise_privacy_settings_summary_with_name" msgid="2866704039759872293">"<xliff:g id="ORGANIZATION_NAME">%s</xliff:g>এ সাল-সলনি আৰু ছেটিংসমূহ পৰিচালনা কৰিছে"</string>
-    <string name="enterprise_privacy_header" msgid="9221881402582661521">"আপোনাৰ কৰ্মস্থানৰ ডেটালৈ আপোনাক প্ৰৱেশাধিকাৰ দিবলৈ, আপোনাৰ প্ৰতিষ্ঠানে আপোনাৰ ডিভাইচৰ ছেটিংসমূহ সলনি কৰিব পাৰে আৰু তাত ছফটৱেৰ ইনষ্টল কৰিব পাৰে।\n\nঅধিক জানিবৰ বাবে আপোনাৰ প্ৰতিষ্ঠানৰ প্ৰশাসকৰ সৈতে যোগাযোগ কৰক।"</string>
+    <string name="enterprise_privacy_header" msgid="9221881402582661521">"আপোনাৰ কৰ্মস্থানৰ ডেটালৈ আপোনাক এক্সেছ দিবলৈ, আপোনাৰ প্ৰতিষ্ঠানে আপোনাৰ ডিভাইচৰ ছেটিংসমূহ সলনি কৰিব পাৰে আৰু তাত ছফ্টৱেৰ ইনষ্টল কৰিব পাৰে।\n\nঅধিক জানিবৰ বাবে আপোনাৰ প্ৰতিষ্ঠানৰ প্ৰশাসকৰ সৈতে যোগাযোগ কৰক।"</string>
     <string name="enterprise_privacy_exposure_category" msgid="1555735251238636669">"আপোনাৰ প্ৰতিষ্ঠানে চাব পৰা তথ্যৰ প্ৰকাৰ"</string>
     <string name="enterprise_privacy_exposure_changes_category" msgid="7750498604032318318">"আপোনাৰ প্ৰতিষ্ঠানৰ প্ৰশাসকৰ দ্বাৰা কৰা সাল-সলনিসমূহ"</string>
-    <string name="enterprise_privacy_device_access_category" msgid="7397106369136259850">"এই ডিভাইচটোত আপোনাৰ প্ৰৱেশ"</string>
+    <string name="enterprise_privacy_device_access_category" msgid="7397106369136259850">"এই ডিভাইচটোলৈ আপোনাৰ এক্সেছ"</string>
     <string name="enterprise_privacy_enterprise_data" msgid="8135491104894522008">"আপোনাৰ কৰ্মস্থানৰ একাউণ্টৰ লগত জড়িত ডেটা, যেনে ইমেইল আৰু কেলেণ্ডাৰ"</string>
     <string name="enterprise_privacy_installed_packages" msgid="5012554762299490994">"আপোনাৰ ডিভাইচত থকা এপৰ তালিকা"</string>
     <string name="enterprise_privacy_usage_stats" msgid="7062422823174345793">"প্ৰতিটো এপত খৰচ হোৱা সময় আৰু ডেটাৰ পৰিমাণ"</string>
@@ -287,7 +323,7 @@
     <string name="enterprise_privacy_location_access" msgid="8978502415647245748">"অৱস্থানৰ অনুমতিসমূহ"</string>
     <string name="enterprise_privacy_microphone_access" msgid="3746238027890585248">"মাইক্ৰ\'ফোনত অনুমতি"</string>
     <string name="enterprise_privacy_camera_access" msgid="6258493631976121930">"কেমেৰাৰ অনুমতিসমূহ"</string>
-    <string name="enterprise_privacy_enterprise_set_default_apps" msgid="5538330175901952288">"ডিফ\'ল্ট এপসমূহ"</string>
+    <string name="enterprise_privacy_enterprise_set_default_apps" msgid="5538330175901952288">"ডিফ\'ল্ট এপ্‌সমূহ"</string>
     <string name="enterprise_privacy_number_packages" msgid="6256222390430349008">"{count,plural, =1{# টা এপ্}one{# টা এপ্}other{# টা এপ্}}"</string>
     <string name="enterprise_privacy_input_method" msgid="5814752394251833058">"ডিফ\'ল্ট কীব\'ৰ্ড"</string>
     <string name="enterprise_privacy_input_method_name" msgid="1088874503312671318">"<xliff:g id="APP_LABEL">%s</xliff:g>লৈ ছেট কৰা হৈছে"</string>
@@ -307,6 +343,7 @@
     <string name="do_disclosure_generic" msgid="8390478119591845948">"এই ডিভাইচটো আপোনাৰ প্ৰতিষ্ঠানৰ দ্বাৰা পৰিচালিত৷"</string>
     <string name="do_disclosure_with_name" msgid="4755509039938948975">"এই ডিভাইচটো <xliff:g id="ORGANIZATION_NAME">%s</xliff:g>ৰ দ্বাৰা পৰিচালিত।"</string>
     <string name="do_disclosure_learn_more_separator" msgid="4226390963162716446">" "</string>
+    <string name="hdr_capability" msgid="3331021013422460270">"- %1$s"</string>
     <string name="learn_more" msgid="820336467414665686">"অধিক জানক"</string>
     <string name="default_camera_app_title" msgid="4573905807226306484">"{count,plural, =1{কেমেৰা এপ্}one{কেমেৰা এপ্}other{কেমেৰা এপ্}}"</string>
     <string name="default_calendar_app_title" msgid="1533912443930743532">"কেলণ্ডাৰ এপ্"</string>
@@ -487,7 +524,7 @@
     <string name="storage_available" msgid="8860901789290434209">"উপলব্ধ"</string>
     <string name="storage_size" msgid="5517261387579171381">"মূঠ ঠাই: <xliff:g id="TOTAL_SPACE">%1$s</xliff:g>"</string>
     <string name="storage_calculating_size" msgid="5716281278843281044">"গণনা কৰি থকা হৈছে…"</string>
-    <string name="storage_apps_usage" msgid="8659915575274468924">"এপসমূহ"</string>
+    <string name="storage_apps_usage" msgid="8659915575274468924">"এপ্‌সমূহ"</string>
     <string name="storage_downloads_usage" msgid="8429196848359517158">"ডাউনল\'ডসমূহ"</string>
     <string name="storage_dcim_usage" msgid="1890098882753254745">"ফট’ আৰু ভিডিঅ’"</string>
     <string name="storage_music_usage" msgid="5362871290115089474">"অডিঅ’"</string>
@@ -523,7 +560,7 @@
     <string name="storage_format_success" msgid="5599914756144012286">"<xliff:g id="NAME">%1$s</xliff:g>ক ফৰ্মেট কৰা হ’ল"</string>
     <string name="storage_format_failure" msgid="5619442934314277332">"<xliff:g id="NAME">%1$s</xliff:g>ক ফৰমেট কৰিব পৰা নগ\'ল"</string>
     <string name="storage_wizard_format_as_private_title" msgid="7985715762649933211">"ডিভাইচৰ ষ্ট’ৰেজ হিচাপে ফৰ্মেট কৰক"</string>
-    <string name="storage_wizard_format_as_private_description" msgid="6143406934742456154">"ইউএছবি ড্ৰাইভটো সুৰক্ষিত কৰাৰ বাবে ইয়াক ফৰ্মেট কৰা দৰকাৰ। সুৰক্ষিতভাবে ফৰ্মেট কৰাৰ পিছত, এই ড্ৰাইভটোৱে কেৱল এই ডিভাইচৰ সৈতেহে কাম কৰিব। ফৰ্মেট কৰাৰ ফলত ড্ৰাইভটোত এতিয়া সঞ্চয় কৰি ৰখা সকলো ডেটা মচা যাব। ডেটা হেৰুওৱাৰ পৰা ৰক্ষা পৰিবলৈ, বেক আপ ল\'ব পাৰে।"</string>
+    <string name="storage_wizard_format_as_private_description" msgid="6143406934742456154">"ইউএছবি ড্ৰাইভটো সুৰক্ষিত কৰাৰ বাবে ইয়াক ফৰ্মেট কৰা দৰকাৰ। সুৰক্ষিতভাবে ফৰ্মেট কৰাৰ পাছত, এই ড্ৰাইভটোৱে কেৱল এই ডিভাইচৰ সৈতেহে কাম কৰিব। ফৰ্মেট কৰাৰ ফলত ড্ৰাইভটোত এতিয়া ষ্ট’ৰ কৰি ৰখা আটাইবোৰ ডেটা মচা যাব। ডেটা হেৰুওৱাৰ পৰা ৰক্ষা পৰিবলৈ, বেক আপ ল’ব পাৰে।"</string>
     <string name="storage_wizard_format_as_public_title" msgid="3546915348149438389">"মচক আৰু ফৰ্মেট কৰক"</string>
     <string name="storage_wizard_format_as_public_description" msgid="5849129772499352597">"ফৰ্মেট কৰাৰ পাছত, আপুনি এই ইউএছবি ড্ৰাইভটো অন্য ডিভাইচত ব্যৱহাৰ কৰিব পাৰিব। আটাইখিনি ডেটা মচা যাব। সেইবাবে প্ৰথমে এপ্‌বোৰ অন্য ডিভাইচলৈ স্থানান্তৰিত কৰি বেক আপ লোৱা উচিত।"</string>
     <string name="storage_wizard_format_progress_title" msgid="3875906251546380271">"ইউএছবি ড্ৰাইভ ফৰমেট কৰি থকা হৈছে…"</string>
@@ -532,16 +569,16 @@
     <string name="storage_wizard_migrate_confirm_title" msgid="5086390005970210697">"ডাটাবোৰ <xliff:g id="NAME">%1$s</xliff:g>লৈ স্থানান্তৰ কৰক"</string>
     <string name="storage_wizard_migrate_confirm_description" msgid="918834441157741482">"আপোনাৰ ফট\', ফাইল আৰু এপৰ ডাটাবোৰ <xliff:g id="NAME">%1$s</xliff:g>লৈ স্থানান্তৰ কৰক। এই কাৰ্যৰ বাবে কেইমিনিটমান লাগিব পাৰে। স্থানান্তৰ কৰি থকাৰ সময়ত কিছুমান এপে ভালদৰে কাম নকৰিব পাৰে।"</string>
     <string name="storage_wizard_migrate_confirm_action_move_now" msgid="7512917600174814567">"এতিয়াই স্থানান্তৰ কৰক"</string>
-    <string name="storage_wizard_migrate_confirm_action_move_later" msgid="6379986754827551474">"পিছত স্থানান্তৰ কৰক"</string>
+    <string name="storage_wizard_migrate_confirm_action_move_later" msgid="6379986754827551474">"পাছত স্থানান্তৰ কৰক"</string>
     <string name="storage_wizard_migrate_toast_success" msgid="6153579567666607584">"ডেটা <xliff:g id="NAME">%1$s</xliff:g>লৈ স্থানান্তৰ কৰা হ’ল"</string>
     <string name="storage_wizard_migrate_toast_failure" msgid="8580347235983040966">"ডাটাবোৰ <xliff:g id="NAME">%1$s</xliff:g>লৈ স্থানান্তৰিত কৰিবপৰা নগ\'ল"</string>
     <string name="storage_wizard_migrate_progress_title" msgid="2623480667090826800">"ডেটাবোৰ <xliff:g id="NAME">%1$s</xliff:g>লৈ স্থানান্তৰ কৰি থকা হৈছে…"</string>
     <string name="storage_wizard_migrate_progress_description" msgid="4023358325977284145">"এই কাম সম্পূৰ্ণ হ\'বলৈ কিছু সময় লাগিব পাৰে। অনুগ্ৰহ কৰি ড্ৰাইভটো নেৰুৱাব।\nস্থানান্তৰ কৰি থকাৰ সময়ত কিছুমান এপে ভালদৰে কাম নকৰিব পাৰে।"</string>
     <string name="storage_wizard_format_slow_title" msgid="7640229918512394316">"এই ড্ৰাইভটো হয়টো মন্থৰ"</string>
-    <string name="storage_wizard_format_slow_summary" msgid="3674023258060474037">"আপুনি অব্যাহত ৰাখিব পাৰে, কিন্তু ইয়ালৈ স্থানান্তৰ কৰা এপবোৰ বন্ধ হৈ পৰিব পাৰে আৰু ডেটা স্থানান্তৰ কৰাৰ বাবে বহু বেছি সময় লাগিব পাৰে। উন্নত প্ৰদৰ্শনৰ বাবে এটা ক্ষিপ্ৰতৰ ড্ৰাইভ ব্যৱহাৰ কৰক।"</string>
+    <string name="storage_wizard_format_slow_summary" msgid="3674023258060474037">"আপুনি অব্যাহত ৰাখিব পাৰে, কিন্তু ইয়ালৈ স্থানান্তৰ কৰা এপ্‌বোৰ বন্ধ হৈ পৰিব পাৰে আৰু ডেটা স্থানান্তৰ কৰাৰ বাবে বহু বেছি সময় লাগিব পাৰে। উন্নত প্ৰদৰ্শনৰ বাবে এটা ক্ষিপ্ৰতৰ ড্ৰাইভ ব্যৱহাৰ কৰক।"</string>
     <string name="storage_wizard_format_action" msgid="3275676687226857170">"ফৰ্মেট কৰক"</string>
     <string name="storage_wizard_backup_apps_action" msgid="1402199004931596519">"এপসমূহৰ বেক আপ লওক"</string>
-    <string name="storage_wizard_back_up_apps_title" msgid="6225663573896846937">"<xliff:g id="NAME">%1$s</xliff:g>ত সঞ্চিত এপসমূহ"</string>
+    <string name="storage_wizard_back_up_apps_title" msgid="6225663573896846937">"<xliff:g id="NAME">%1$s</xliff:g>ত সঞ্চিত এপ্‌সমূহ"</string>
     <string name="storage_wizard_back_up_apps_and_data_title" msgid="7763611380573099978">"<xliff:g id="NAME">%1$s</xliff:g>ত সঞ্চিত হৈ থকা এপ্ আৰু ডাটাবোৰ"</string>
     <string name="storage_wizard_back_up_apps_space_available" msgid="5741521038349239359">"<xliff:g id="SIZE">%1$s</xliff:g> উপলব্ধ"</string>
     <string name="storage_wizard_eject_private_title" msgid="1336088625197134497">"ডিভাইচৰ ষ্ট’ৰেজ এৰুৱাওক"</string>
@@ -549,7 +586,7 @@
     <string name="storage_wizard_eject_progress_title" msgid="6025569356827683446">"<xliff:g id="NAME">%1$s</xliff:g> এৰুৱাই থকা হৈছে"</string>
     <string name="storage_wizard_move_app_title" msgid="6504922588346440942">"ষ্ট’ৰেজ ব্যৱহাৰ কৰা হৈছে"</string>
     <string name="storage_wizard_move_app_progress_title" msgid="7058465372227392453">"<xliff:g id="NAME">%1$s</xliff:g>ক স্থানান্তৰ কৰি থকা হৈছে…"</string>
-    <string name="storage_wizard_move_app_progress_description" msgid="7673347796805764888">"স্থানান্তৰ হৈ থকা সময়ত ড্ৰাইভটো নেৰুৱাব। \nস্থানান্তৰ সম্পূৰ্ণ নোহোৱালৈকে <xliff:g id="APPNAME">%1$s</xliff:g> এপটো এই ডিভাইচত উপলব্ধ নহ’ব।"</string>
+    <string name="storage_wizard_move_app_progress_description" msgid="7673347796805764888">"স্থানান্তৰ হৈ থকা সময়ত ড্ৰাইভটো নেৰুৱাব। \nস্থানান্তৰ সম্পূৰ্ণ নোহোৱালৈকে <xliff:g id="APPNAME">%1$s</xliff:g> এপ্‌টো এই ডিভাইচত উপলব্ধ নহ’ব।"</string>
     <string name="storage_wizard_forget_confirm_title" msgid="3709482471888830896">"ডিভাইচৰ ষ্ট’ৰেজ পাহৰি যাব বিচাৰেনে?"</string>
     <string name="storage_wizard_forget_confirm_description" msgid="5896860042525566767">"\'পাহৰি যোৱা\'ৰ লগে লগে আপোনাৰ এই ড্ৰাইভত ছেভ থকা সকলো ডেটা হেৰাই যাব। আপুনি অব্যাহত ৰাখিব বিচাৰেনে?"</string>
     <string name="storage_wizard_forget_action" msgid="5609631662522950596">"পাহৰক"</string>
@@ -561,7 +598,7 @@
     <string name="storage_missing_title" msgid="9068915586235805818">"<xliff:g id="NAME">%1$s</xliff:g> এৰুওৱা হ’ল"</string>
     <string name="storage_missing_description" msgid="6835620703133204249">"ড্ৰাইভটো পুনৰ সংযোগ নকৰালৈকে কিছুমান এপ নাথাকিব পাৰে বা ভালদৰে কাম নকৰিব পাৰে।"</string>
     <string name="insufficient_storage" msgid="4175940286022466535">"ষ্ট’ৰেজত পৰ্যাপ্ত খালী ঠাই নাই।"</string>
-    <string name="does_not_exist" msgid="4071082040759146781">"এপটোৰ অস্তিত্ব নাই।"</string>
+    <string name="does_not_exist" msgid="4071082040759146781">"এপ্‌টোৰ অস্তিত্ব নাই।"</string>
     <string name="invalid_location" msgid="5571789982293787489">"ইনষ্টল কৰা অৱস্থান মান্য নহয়৷"</string>
     <string name="system_package" msgid="8276098460517049146">"বাহ্যিক মিডিয়াত ছিষ্টেমৰ আপডেইটসমূহ ইনষ্টল কৰিব নোৱাৰি৷"</string>
     <string name="move_error_device_admin" msgid="4144472536756635173">"বাহ্যিক মিডিয়াত ডিভাইচৰ প্ৰশাসক ইনষ্টল কৰিব নোৱাৰি।"</string>
@@ -590,6 +627,7 @@
     <string name="recently_accessed_show_all" msgid="5234849189704717855">"আটাইবোৰ চাওক"</string>
     <string name="microphone" msgid="7893752847683941214">"মাইক্ৰ’ফ’ন"</string>
     <string name="mic_toggle_title" msgid="7193417007060235665">"মাইক্ৰ’ফ’নৰ এক্সেছ"</string>
+    <string name="mic_remote_toggle_title" msgid="7153283895012570080">"আপোনাৰ ৰিম’টত মাইক্ৰ’ফ’নৰ এক্সেছ"</string>
     <string name="open_mic_permissions" msgid="8121871594807641073">"এপে মাইক্ৰ’ফ’ন এক্সেছ কৰাৰ অনুমতি"</string>
     <string name="microphone_physical_privacy_enabled_title" msgid="6135130916399886772">"মাইক্ৰ’ফ’নৰ এক্সেছ অৱৰোধ কৰা হৈছে"</string>
     <string name="microphone_physical_privacy_enabled_text" msgid="401238365312924088">"অৱৰোধৰ পৰা আঁতৰাবৰ বাবে মাইক্ৰ’ফ’নৰ এক্সেছ দিবলৈ আপোনাৰ ডিভাইচত গোপনীয়তাৰ ছুইচটো মাইক্ৰ’ফ’ন অন স্থিতিলৈ নিয়ক।"</string>
@@ -599,7 +637,11 @@
     <string name="camera_physical_privacy_enabled_title" msgid="1944155695921165511">"কেমেৰাৰ এক্সেছ অৱৰোধ কৰা হৈছে"</string>
     <string name="camera_physical_privacy_enabled_text" msgid="6692088634676282779">"অৱৰোধৰ পৰা আঁতৰাবৰ বাবে কেমেৰাৰ এক্সেছ দিবলৈ আপোনাৰ ডিভাইচত গোপনীয়তাৰ ছুইচটো কেমেৰা অন স্থিতিলৈ নিয়ক।"</string>
     <string name="mic_toggle_info_title" msgid="1086545614315873599">"মাইক্ৰ’ফ’নৰ এক্সেছ <xliff:g id="SENSOR_STATE">%s</xliff:g>"</string>
-    <string name="mic_toggle_info_content" msgid="4699624900513326055">"অন কৰা থাকিলে, অনুমতিপ্ৰাপ্ত আটাইবোৰ এপ্‌ আৰু সেৱাই এই ডিভাইচত থকা যিকোনো মাইক্ৰ’ফ’ন এক্সেছ কৰিব পাৰে।\n\nএই ছেটিঙে এটা কাষ্টম প্ৰ’ট’কল থকা অডিঅ’ৰ পৰিধীয় আহিলাসমূহ প্ৰভাৱিত নকৰে।"</string>
+    <string name="mic_toggle_info_content" msgid="3187791167208947239">"অন কৰিলে, মাইক্ৰ’ফ’ন ব্যৱহাৰ কৰাৰ অনুমতি থকা আটাইবোৰ এপ্‌ আৰু সেৱাই এইটো এক্সেছ কৰিব পাৰিব।\n\nঅফ কৰা থকিলে, কোনো এপ্‌ অথবা সেৱাই মাইক্ৰ’ফ’ন এক্সেছ কৰিব নোৱাৰিব। কিন্তু আপুনি তথাপি আপোনাৰ ৰিম’টত Assistant বুটামটো টিপি আপোনাৰ Google Assistantৰ সৈতে কথা পাতিব পাৰিব পাৰে।\n\nটিভিৰ সৈতে যোগাযোগৰ বাবে কাষ্টম প্ৰ’ট’ক’ল ব্যৱহাৰ কৰা অডিঅ’ ডিভাইচসমূহ এই ছেটিঙৰ দ্বাৰা প্ৰভাৱিত নহ’বও পাৰে।"</string>
+    <string name="mic_remote_toggle_on_info_title" msgid="8503441878870972046">"ৰিম’টত মাইক্ৰ’ফ’ন সক্ষম কৰা হৈছে"</string>
+    <string name="mic_remote_toggle_on_info_content" msgid="2715872916376493679">"Google Assistantএ আপোনাৰ ৰিম’টত মাইক্ৰ’ফ’ন এক্সেছ কৰিব পাৰে। আপুনি আপোনাৰ ৰিম’টত Google Assistant বুটামটো টিপি আপোনাৰ Assistantৰ সৈতে কথা পাতিব পাৰিব।"</string>
+    <string name="mic_remote_toggle_off_info_title" msgid="4902909833546393713">"ৰিম’টত মাইক্ৰ’ফ’ন অক্ষম কৰা হৈছে"</string>
+    <string name="mic_remote_toggle_off_info_content" msgid="8062526350553191004">"আপুনি আপোনাৰ ৰিম’ট ব্যৱহাৰ কৰি আপোনাৰ Google Assistantৰ সৈতে কথা পাতিব নোৱাৰিব। Google Assistant বুটামটো ব্যৱহাৰ কৰিব পৰা হ’বলৈ, মাইক্ৰ’ফ’নৰ এক্সেছ সক্ষম কৰক।"</string>
     <string name="camera_toggle_info_title" msgid="3871317082313736088">"কেমেৰাৰ এক্সেছ: <xliff:g id="SENSOR_STATE">%s</xliff:g>"</string>
     <string name="camera_toggle_info_content" msgid="2999965953853204003">"অন কৰা থাকিলে, অনুমতিপ্ৰাপ্ত আটাইবোৰ এপ্‌ আৰু সেৱাই এই ডিভাইচত থকা যিকোনো কেমেৰা এক্সেছ কৰিব পাৰে।\n\nএই ছেটিঙে এটা কাষ্টম প্ৰ’ট’কল থকা কেমেৰাৰ পৰিধীয় আহিলাসমূহ প্ৰভাৱিত নকৰে।"</string>
     <string name="sensor_toggle_info_on" msgid="4568111889147132257">"অন কৰক"</string>
@@ -621,13 +663,38 @@
     <string name="third_party_location_services_title" msgid="2826218400381676508">"৩য় পক্ষৰ অৱস্থান সেৱাসমূহ"</string>
     <string name="location_reporting" msgid="3552501333650895634">"অৱস্থান সবিশেষ"</string>
     <string name="location_history" msgid="4055660203090513120">"অৱস্থানৰ ইতিহাস"</string>
-    <string name="location_reporting_desc" msgid="1580018652781674608">"Googleএ এই বৈশিষ্ট্যবোৰ Google Now আৰু Google Mapৰ দৰে সামগ্ৰীবোৰত ব্যৱহাৰ কৰে। আপোনাৰ অৱস্থান সবিশেষ সক্ৰিয় কৰিলে যিকোনো Google প্ৰডাক্টক এই বৈশিষ্ট্য ব্যৱহাৰ কৰি আপোনাৰ Google একাউণ্টৰ সৈতে সম্পৰ্ক থকা ডিভাইচৰ একেবাৰে শেহতীয়া অৱস্থান সঞ্চয় কৰি ৰখাৰ আৰু ব্যৱহাৰ কৰাৰ অনুমতি দিয়ে।"</string>
-    <string name="location_history_desc" msgid="926674012916014270">"এই একাউণ্টৰ বাবে যেতিয়া অৱস্থানৰ ইতিহাস সক্ৰিয় হৈ থাকে, Googleএ আপোনাৰ ডিভাইচৰ অৱস্থানৰ ইতিহাস সঞ্চয় কৰি ৰাখে যাতে আপোনাৰ এপবোৰে ব্যৱহাৰ কৰিব পাৰে।\n\nউদাহৰণস্বৰূপে, Google Mapএ আপোনাক পথ দেখুৱাব পাৰে, আৰু Google Nowএ আপোনাক ট্ৰেফিকৰ বিষয়ে জনাব পাৰে।\n\nআপুনি যেতিয়াই বিচাৰে অৱস্থানৰ ইতিহাস অফ কৰিব পাৰে, কিন্তু এনে কৰিলে এইবোৰ মচা নাযায়। আপোনাৰ অৱস্থানৰ ইতিহাস চাবলৈ, maps.google.com/locationhistory লৈ যাওক।"</string>
+    <string name="location_reporting_desc" msgid="1580018652781674608">"Googleএ এই বৈশিষ্ট্যবোৰ Google Now আৰু Google Mapৰ দৰে সামগ্ৰীবোৰত ব্যৱহাৰ কৰে। আপোনাৰ অৱস্থান সবিশেষ সক্ৰিয় কৰিলে যিকোনো Google প্ৰডাক্টক এই বৈশিষ্ট্য ব্যৱহাৰ কৰি আপোনাৰ Google একাউণ্টৰ সৈতে সম্পৰ্ক থকা ডিভাইচৰ একেবাৰে শেহতীয়া অৱস্থান ষ্ট’ৰ কৰি ৰখাৰ আৰু ব্যৱহাৰ কৰাৰ অনুমতি দিয়ে।"</string>
+    <string name="location_history_desc" msgid="926674012916014270">"এই একাউণ্টৰ বাবে যেতিয়া অৱস্থানৰ ইতিহাস সক্ৰিয় হৈ থাকে, Googleএ আপোনাৰ ডিভাইচৰ অৱস্থানৰ ইতিহাস ষ্ট’ৰ কৰি ৰাখে যাতে আপোনাৰ এপ্‌বোৰে ব্যৱহাৰ কৰিব পাৰে।\n\nউদাহৰণস্বৰূপে, Google Mapএ আপোনাক পথ দেখুৱাব পাৰে, আৰু Google Nowএ আপোনাক ট্ৰেফিকৰ বিষয়ে জনাব পাৰে।\n\nআপুনি যেতিয়াই বিচাৰে অৱস্থানৰ ইতিহাস অফ কৰিব পাৰে, কিন্তু এনে কৰিলে এইবোৰ মচা নাযায়। আপোনাৰ অৱস্থানৰ ইতিহাস চাবলৈ, maps.google.com/locationhistory লৈ যাওক।"</string>
     <string name="delete_location_history_title" msgid="707559064715633152">"অৱস্থানৰ ইতিহাস মচক"</string>
-    <string name="delete_location_history_desc" msgid="4035229731487113147">"ইয়াৰ ফলত এই Google একাউণ্টৰ বাবে এই ডিভাইচটোৰ পৰা সঞ্চয় কৰা সকলো অৱস্থানৰ ইতিহাস মচি পেলাব। আপুনি এই মচা কাৰ্য আনডু কৰিব নোৱাৰিব। Google Nowকে ধৰি কিছুমান এপে কাম নকৰা হ\'ব।"</string>
-    <string name="system_services" msgid="5754310941186053151">"সেৱাসমূহ"</string>
+    <string name="delete_location_history_desc" msgid="4035229731487113147">"ইয়াৰ ফলত এই Google একাউণ্টৰ বাবে এই ডিভাইচটোৰ পৰা ষ্ট’ৰ কৰা আটাইবোৰ অৱস্থানৰ ইতিহাস মচি পেলাব। আপুনি এই মচা কাৰ্য আনডু কৰিব নোৱাৰিব। Google Nowকে ধৰি কিছুমান এপে কাম নকৰা হ’ব।"</string>
+    <string name="accessibility_screen_readers_category_title" msgid="7742526514873922018">"স্ক্ৰীন ৰীডাৰ"</string>
+    <string name="accessibility_display_category_title" msgid="593444602101558017">"ডিছপ্লে’"</string>
+    <string name="accessibility_interaction_controls_category_title" msgid="5290687835178852745">"পাৰস্পৰিক ক্ৰিয়াশীলতা নিয়ন্ত্ৰণ"</string>
+    <string name="accessibility_audio_and_onscreen_text_category_title" msgid="113841605896486212">"অডিঅ’ আৰু স্ক্ৰীনত প্ৰদৰ্শিত পাঠ"</string>
+    <string name="accessibility_experimental_category_title" msgid="3401773834179170206">"পৰীক্ষামূলক"</string>
+    <string name="accessibility_services_category_title" msgid="8813843874978910442">"সেৱা"</string>
     <string name="accessibility_service_settings" msgid="3251334786870932423">"সেৱা সম্পৰ্কীয় ছেটিংসমূহ"</string>
+    <string name="accessibility_screen_reader_flattened_component_name" msgid="6834614827111101213">"com.google.android.marvin.talkback/com.google.android.marvin.talkback.TalkBackService"</string>
     <string name="accessibility_toggle_high_text_contrast_preference_title" msgid="9200419191468995574">"ৰঙৰ উচ্চ প্ৰভেদযুক্ত পাঠ"</string>
+    <string name="accessibility_toggle_bold_text_preference_title" msgid="3328992531170432669">"ব’ল্ড কৰা পাঠ"</string>
+    <string name="accessibility_color_correction" msgid="6765093204922184119">"ৰং শুধৰণী"</string>
+    <string name="color_correction_usage" msgid="4160611639548748657">"ৰং শুধৰণী ব্যৱহাৰ কৰক"</string>
+    <string name="color_correction_color_mode" msgid="5081377780734779169">"ৰঙৰ ম’ড"</string>
+    <string name="color_correction_mode_deuteranomaly" msgid="1513793544554228224">"ডিউটাৰএন’মেলী"</string>
+    <string name="color_correction_mode_deuteranomaly_summary" msgid="5991561481464520986">"ৰঙা-সেউজীয়া"</string>
+    <string name="color_correction_mode_protanomaly" msgid="8105793166015115037">"প্ৰ’টান’মেলী"</string>
+    <string name="color_correction_mode_protanomaly_summary" msgid="3247619910784115563">"ৰঙা-সেউজীয়া"</string>
+    <string name="color_correction_mode_tritanomaly" msgid="757769418392736089">"ট্ৰাইটান’মেলী"</string>
+    <string name="color_correction_mode_tritanomaly_summary" msgid="137712354510881252">"নীলা-হালধীয়া"</string>
+    <string name="color_correction_mode_grayscale" msgid="2592973844160514484">"গ্ৰে’স্কে’ল"</string>
+    <string name="palette_color_red" msgid="507196433434979086">"ৰঙা"</string>
+    <string name="palette_color_orange" msgid="6209196069366109835">"কমলা"</string>
+    <string name="palette_color_yellow" msgid="298466132578870590">"হালধীয়া"</string>
+    <string name="palette_color_green" msgid="4904783063036825668">"সেউজীয়া"</string>
+    <string name="palette_color_cyan" msgid="3212217287628948203">"সেউজ নীলা"</string>
+    <string name="palette_color_blue" msgid="8836682634988540630">"নীলা"</string>
+    <string name="palette_color_purple" msgid="2123828754639683555">"বেঙুনীয়া"</string>
+    <string name="palette_color_gray" msgid="4014534773994261194">"ছাই-বৰণীয়া"</string>
     <string name="accessibility_shortcut" msgid="5856158637840030531">"সাধ্য সুবিধাসমূহৰ শ্বৰ্টকাট"</string>
     <string name="accessibility_shortcut_enable" msgid="6603542432267329986">"সাধ্য সুবিধাৰ শ্বৰ্টকাট সক্ষম কৰক"</string>
     <string name="accessibility_shortcut_service" msgid="2053250146891420311">"শ্বৰ্টকাট সেৱা"</string>
@@ -690,12 +757,12 @@
     <string name="system_drawing" msgid="5802739024643871942">"অংকন"</string>
     <string name="system_monitoring" msgid="7997260748312620855">"নিৰীক্ষণ"</string>
     <string name="system_apps" msgid="8481888654606868074">"এপ্"</string>
-    <string name="system_stay_awake" msgid="5935117574414511413">"স্ক্ৰীণ সক্ৰিয় ৰাখক"</string>
+    <string name="system_stay_awake" msgid="5935117574414511413">"স্ক্ৰীন সক্ৰিয় ৰাখক"</string>
     <string name="keep_screen_on_summary" msgid="4680661166009970792">"স্ক্ৰীনখন কেতিয়াও নিষ্ক্ৰিয় নহ’ব"</string>
     <string name="system_hdcp_checking" msgid="3757586362130048838">"HDCP পৰীক্ষণ"</string>
     <string name="system_hdmi_optimization" msgid="4122753440620724144">"HDMI অপ্টিমাইজেশ্বন"</string>
     <string name="system_reboot_confirm" msgid="7035370306447878560">"এতিয়া ৰিষ্টার্ট কৰিবনে?"</string>
-    <string name="system_desc_reboot_confirm" msgid="1567738857421128179">"এই ছেটিং আপডেইট কৰিবলৈ, আপোনাৰ ডিভাইচটো পুনৰ আৰম্ভ কৰিব লাগিব"</string>
+    <string name="system_desc_reboot_confirm" msgid="1567738857421128179">"এই ছেটিং আপডে’ট কৰিবলৈ, আপোনাৰ ডিভাইচটো পুনৰ আৰম্ভ কৰিব লাগিব"</string>
     <string name="system_never_check" msgid="2860070727606369055">"কেতিয়াও পৰীক্ষা নকৰিব"</string>
     <string name="system_check_for_drm_content_only" msgid="6667617772587997533">"কেৱল ডিআৰএম সমলৰ বাবে পৰীক্ষা কৰক"</string>
     <string name="system_always_check" msgid="384870282800221580">"সদায় পৰীক্ষা কৰক"</string>
@@ -715,7 +782,7 @@
     <string name="system_show_gpu_view_updates" msgid="1625918928089365222">"জিপিইউ দৰ্শনৰ আপডেইটসমূহ দেখুৱাওক"</string>
     <string name="system_show_hardware_layer" msgid="5833664339844452290">"হাৰ্ডৱেৰ লেয়াৰ দেখুৱাওক"</string>
     <string name="system_show_gpu_overdraw" msgid="5073007513540516704">"জিপিইউ অভাৰড্ৰ\' দেখুৱাওক"</string>
-    <string name="system_show_surface_updates" msgid="7680759813613585278">"পৃষ্ঠভাগৰ আপডেইট দেখুৱাওক"</string>
+    <string name="system_show_surface_updates" msgid="7680759813613585278">"পৃষ্ঠভাগৰ আপডে’ট দেখুৱাওক"</string>
     <string name="system_window_animation_scale" msgid="685477540250939659">"ৱিণ্ড\' এনিমেশ্বন স্কেল"</string>
     <string name="system_transition_animation_scale" msgid="7266380208347453619">"ট্ৰাঞ্জিশ্বন এনিমেশ্বন স্কেল"</string>
     <string name="system_animator_duration_scale" msgid="3829445237130423625">"এনিমেটৰ ব্যৱধানৰ স্কেল"</string>
@@ -735,8 +802,8 @@
     <string name="system_desc_show_gpu_view_updates" msgid="9088343415389734854">"জিপিইউৰ জৰিয়তে অঁকাৰ সময়ত ৱিণ্ড’ৰ ভিতৰত ফ্লাশ্ব দৰ্শন"</string>
     <string name="system_desc_show_hardware_layer" msgid="3483713991865249527">"আপডে\'ট হওঁতে হাৰ্ডৱেৰ লেয়াৰ সেউজীয়া ৰঙেৰে ফ্লাশ্ব কৰক"</string>
     <string name="system_desc_show_gpu_overdraw" msgid="74019834911598588">"উৎকৃষ্টৰ পৰা নিকৃষ্টলৈ: নীলা, সেউজীয়া, পাতল ৰঙা, ৰঙা"</string>
-    <string name="system_desc_show_surface_updates" msgid="4018685547515133353">"আপডেইট হওতে গোটেই ৱিণ্ড পৃষ্ঠাসমূহ ফ্লাশ্ব কৰক"</string>
-    <string name="system_desc_strict_mode_enabled" msgid="1974896408481676324">"যেতিয়া এপসমূহে মুখ্য থ্ৰেডত দীঘলীয়া কাৰ্যকলাপ চলাই, তেতিয়া স্ক্ৰীণ ফ্লাশ্ব কৰক"</string>
+    <string name="system_desc_show_surface_updates" msgid="4018685547515133353">"আপডে’ট হওতে গোটেই ৱিণ্ড পৃষ্ঠাসমূহ ফ্লাশ্ব কৰক"</string>
+    <string name="system_desc_strict_mode_enabled" msgid="1974896408481676324">"যেতিয়া এপসমূহে মুখ্য থ্ৰেডত দীঘলীয়া কাৰ্যকলাপ চলাই, তেতিয়া স্ক্ৰীন ফ্লাশ্ব কৰক"</string>
     <string name="system_desc_profile_gpu_rendering" msgid="1594070211030991">"adb shell dumpsys gfxinfoত ৰেণ্ডাৰিং সময় জোখক"</string>
     <string name="security_unknown_sources_title" msgid="2012801664240314305">"অজ্ঞাত উৎসবোৰ"</string>
     <string name="security_unknown_sources_desc" msgid="7196715598352173267">"প্লে ষ্ট\'ৰৰ বাদে আন উৎসৰ পৰা লাভ কৰা এপ্ ইনষ্টল কৰিবলৈ অনুমতি দিয়ক"</string>
@@ -762,7 +829,7 @@
     <item msgid="1290233583371556415">"এনিমেশ্বন স্কেল ১০গুণ"</item>
   </string-array>
     <string name="track_frame_time_off" msgid="8845064783618702239">"অফ"</string>
-    <string name="track_frame_time_bars" msgid="5841531515222229632">"স্ক্ৰীণত দণ্ড হিচাপে"</string>
+    <string name="track_frame_time_bars" msgid="5841531515222229632">"স্ক্ৰীনত দণ্ড হিচাপে"</string>
     <string name="app_process_limit_standard" msgid="6069948528843313888">"মানক সীমা"</string>
     <string name="app_process_limit_zero" msgid="4094665021909774994">"নেপথ্যত কোনো প্ৰক্ৰিয়া চলি থকা নাই"</string>
     <string name="app_process_limit_one" msgid="4509089015775863726">"সৰ্বাধিক ১টা প্ৰক্ৰিয়া"</string>
@@ -781,7 +848,7 @@
     <string name="title_current_autofill_service" msgid="9029001041887283153">"বৰ্তমান বাছনি কৰা স্বয়ংপূৰ্তি সেৱা"</string>
     <string name="title_select_autofill_service" msgid="696559582725756848">"স্বয়ংপূৰ্তি সেৱা বাছনি কৰক"</string>
     <string name="autofill_none" msgid="1615056985649424207">"নাই"</string>
-    <string name="autofill_confirmation_message" msgid="3840267789160192558">"&lt;b&gt;নিশ্চিত কৰক যে আপুনি এই এপটোক বিশ্বাস কৰে&lt;/b&gt; &lt;br/&gt; &lt;br/&gt; &lt;xliff:g id=app_name example=Password service&gt;%1$s&lt;/xliff:g&gt; কাৰণ ই আপোনাৰ স্ক্ৰীণত যি দেখা পোৱা যায় তাক ভিত্তি কৰি কি কি স্বয়ংপূৰ্তি কৰিব পাৰি নিৰ্ণয় কৰে।"</string>
+    <string name="autofill_confirmation_message" msgid="3840267789160192558">"&lt;b&gt;নিশ্চিত কৰক যে আপুনি এই এপ্‌টোক বিশ্বাস কৰে&lt;/b&gt; &lt;br/&gt; &lt;br/&gt; &lt;xliff:g id=app_name example=Password service&gt;%1$s&lt;/xliff:g&gt; কাৰণ ই আপোনাৰ স্ক্ৰীনত যি দেখা পোৱা যায় তাক ভিত্তি কৰি কি কি স্বয়ংপূৰ্তি কৰিব পাৰি নিৰ্ণয় কৰে।"</string>
     <string name="computing_size" msgid="8623916230485437579">"গণনা কৰি থকা হৈছে…"</string>
     <string name="title_select_wifi_network" msgid="935820896444071617">"আপোনাৰ ৱাইফাই নেটৱৰ্ক বাছনি কৰক"</string>
     <string name="accessories_wifi_display_rename_device" msgid="8803397194143132061">"নতুন নাম দিয়ক"</string>
@@ -797,7 +864,7 @@
     <string name="inputs_header_cec" msgid="4139015942980115323">"উপভোক্তা বৈদ্যুতিন নিয়ন্ত্ৰণ (CEC)"</string>
     <string name="inputs_cec_settings" msgid="5948357769198260080">"ডিভাইট নিয়ন্ত্ৰণ ছেটিংসমূহ"</string>
     <string name="inputs_blu_ray" msgid="6561004081102615775">"Blu-ray"</string>
-    <string name="inputs_cable" msgid="8274665772422377063">"কেব\'ল"</string>
+    <string name="inputs_cable" msgid="8274665772422377063">"কে’বল"</string>
     <string name="inputs_dvd" msgid="1452146927899250552">"ডি.ভি.ডি."</string>
     <string name="inputs_game" msgid="4762255172943107070">"গেইম কনছ\'ল"</string>
     <string name="inputs_aux" msgid="5331442342029867329">"অক্স"</string>
@@ -815,7 +882,7 @@
     <string name="inputs_header_connected_input" msgid="4323324944548164849">"{count,plural, =1{সংযুক্ত ইনপুট}one{সংযুক্ত ইনপুট}other{সংযুক্ত ইনপুট}}"</string>
     <string name="inputs_header_standby_input" msgid="600117963181008144">"{count,plural, =1{ষ্টেণ্ডবাই ইনপুট}one{ষ্টেণ্ডবাই ইনপুট}other{ষ্টেণ্ডবাই ইনপুট}}"</string>
     <string name="inputs_header_disconnected_input" msgid="3852361100151289264">"{count,plural, =1{সংযুক্ত হৈ নথকা ইনপুট}one{সংযুক্ত হৈ নথকা ইনপুট}other{সংযুক্ত হৈ নথকা ইনপুট}}"</string>
-    <string name="user_add_profile_item_summary" msgid="3211866291940617804">"আপোনাৰ একাউণ্টত এপ আৰু অন্য সমলবোৰৰ প্ৰৱেশাধিকাৰ সীমিত কৰক"</string>
+    <string name="user_add_profile_item_summary" msgid="3211866291940617804">"আপোনাৰ একাউণ্টত এপ্‌ আৰু অন্য সমলবোৰৰ এক্সেছ সীমিত কৰক"</string>
     <string name="user_new_profile_name" msgid="6637593067318708353">"সীমিত প্ৰ’ফাইল"</string>
     <string name="user_restrictions_controlled_by" msgid="8124926446168030445">"<xliff:g id="APP">%1$s</xliff:g>ৰ দ্বাৰা নিয়ন্ত্ৰিত"</string>
     <string name="app_not_supported_in_limited" msgid="4046604594925826955">"সীমিত প্ৰ\'ফাইলত এই এপ সমৰ্থিত নহয়"</string>
@@ -827,21 +894,21 @@
     <string name="restricted_profile_delete_title" msgid="7153982195273379506">"সীমিত প্ৰ\'ফাইল মচক"</string>
     <string name="restricted_profile_create_title" msgid="700322590579894058">"সীমিত প্ৰ’ফাইল সৃষ্টি কৰক"</string>
     <string name="restricted_profile_configure_title" msgid="3327502517511010296">"ছেটিংসমূহ"</string>
-    <string name="restricted_profile_configure_apps_title" msgid="2244201859522056827">"অনুমতিপ্ৰাপ্ত এপবোৰ"</string>
+    <string name="restricted_profile_configure_apps_title" msgid="2244201859522056827">"অনুমতিপ্ৰাপ্ত এপ্‌বোৰ"</string>
     <string name="restricted_profile_allowed" msgid="970921490464867884">"অনুমতি দিয়া হৈছে"</string>
     <string name="restricted_profile_not_allowed" msgid="8184983064118036268">"অনুমতি দিয়া হোৱা নাই"</string>
     <string name="restricted_profile_customize_restrictions" msgid="4723577877385636704">"নিজৰ উপযোগিতা অনুসৰি কৰা অৱৰোধসমূহ"</string>
     <string name="restricted_profile_configure_apps_description_loading" msgid="3293508876131962699">"কিছু সময় অপেক্ষা কৰক…"</string>
     <string name="restricted_profile_change_password_title" msgid="6961384850606763601">"পিন সলনি কৰক"</string>
     <string name="restriction_description" msgid="2053112392083722259">"<xliff:g id="DESCRIPTION">%1$s</xliff:g>\n<xliff:g id="VALUE">%2$s</xliff:g>"</string>
-    <string name="app_sees_restricted_accounts_and_controlled_by" msgid="1261056180558324892">"এই এপ্‌টোৱে আপোনাৰ একাউণ্টসমূহত প্ৰৱেশ কৰিব পাৰে৷ <xliff:g id="APP">%1$s</xliff:g>ৰ দ্বাৰা নিয়ন্ত্ৰিত"</string>
-    <string name="pin_enter_unlock_channel" msgid="243855138978654080">"এই চ্চেনেলটো চাবলৈ পিন দিয়ক"</string>
+    <string name="app_sees_restricted_accounts_and_controlled_by" msgid="1261056180558324892">"এই এপ্‌টোৱে আপোনাৰ একাউণ্টসমূহ এক্সেছ কৰিব পাৰে৷ <xliff:g id="APP">%1$s</xliff:g>ৰ দ্বাৰা নিয়ন্ত্ৰিত"</string>
+    <string name="pin_enter_unlock_channel" msgid="243855138978654080">"এই চেনেলটো চাবলৈ পিন দিয়ক"</string>
     <string name="pin_enter_unlock_program" msgid="275489015420025531">"এই প্ৰ\'গ্ৰাম চাবলৈ পিন দিয়ক"</string>
     <string name="pin_enter_pin" msgid="5020029261153234751">"পিন দিয়ক"</string>
     <string name="pin_enter_new_pin" msgid="1930944619313642621">"নতুন পিন ছেট কৰক"</string>
     <string name="pin_enter_again" msgid="7615050143778858658">"আপোনাৰ নতুন পিনটো আকৌ দিয়ক।"</string>
     <string name="pin_enter_old_pin" msgid="5665265735227617942">"পুৰণি পিনটো দিয়ক"</string>
-    <string name="pin_enter_wrong_seconds" msgid="3014013615537066237">"আপুনি ৫ বাৰ অশুদ্ধ পিন দিছে।\n<xliff:g id="RELATIVE_TIME_SPAN">%1$d</xliff:g> ছেকেণ্ডৰ পিছত পুনৰ চেষ্টা কৰক।"</string>
+    <string name="pin_enter_wrong_seconds" msgid="3014013615537066237">"আপুনি ৫ বাৰ অশুদ্ধ পিন দিছে।\n<xliff:g id="RELATIVE_TIME_SPAN">%1$d</xliff:g> ছেকেণ্ডৰ পাছত পুনৰ চেষ্টা কৰক।"</string>
     <string name="pin_toast_wrong" msgid="4297542365877164402">"অশুদ্ধ PIN, পুনৰ চেষ্টা কৰক"</string>
     <string name="pin_toast_not_match" msgid="2439298696342975155">"পিনটো মিলা নাই, আকৌ চেষ্টা কৰক"</string>
     <string name="wifi_setup_input_password" msgid="8510003548463241234">"<xliff:g id="SSID">%1$s</xliff:g>ৰ বাবে পাছৱৰ্ড দিয়ক"</string>
@@ -855,11 +922,11 @@
     <string name="device_apps_app_management_force_stop_desc" msgid="1980972142863114899">"আপুনি কোনো এপ্‌ বলেৰে বন্ধ কৰিবলৈ চেষ্টা কৰিলে ই অস্বাভাৱিক আচৰণ কৰিব পাৰে৷"</string>
     <string name="device_apps_app_management_uninstall" msgid="4171103696233332967">"আনইনষ্টল কৰক"</string>
     <string name="device_apps_app_management_uninstall_updates" msgid="5647988075828648951">"আপডেইটবিলাক আনইনষ্টনল কৰক"</string>
-    <string name="device_apps_app_management_uninstall_updates_desc" msgid="4508586498292236706">"এই Android চিষ্টেমৰ এপৰ সকলো আপডে’ট আনইনষ্টল কৰা হ\'ব।"</string>
+    <string name="device_apps_app_management_uninstall_updates_desc" msgid="4508586498292236706">"এই Android ছিষ্টেমৰ এপৰ সকলো আপডে’ট আনইনষ্টল কৰা হ\'ব।"</string>
     <string name="device_apps_app_management_disable" msgid="819003297535493633">"অক্ষম কৰক"</string>
-    <string name="device_apps_app_management_disable_desc" msgid="9143166267511427607">"আপুনি এই এপটো অক্ষম কৰিব বিচাৰেনে?"</string>
+    <string name="device_apps_app_management_disable_desc" msgid="9143166267511427607">"আপুনি এই এপ্‌টো অক্ষম কৰিব বিচাৰেনে?"</string>
     <string name="device_apps_app_management_enable" msgid="9173340340253029114">"সক্ষম কৰক"</string>
-    <string name="device_apps_app_management_enable_desc" msgid="8686291003061136476">"আপুনি এই এপটো সক্ষম কৰিব বিচাৰেনে?"</string>
+    <string name="device_apps_app_management_enable_desc" msgid="8686291003061136476">"আপুনি এই এপ্‌টো সক্ষম কৰিব বিচাৰেনে?"</string>
     <string name="device_apps_app_management_storage_used" msgid="6725789557993296433">"ষ্ট’ৰেজ ব্যৱহাৰ কৰা হৈছে"</string>
     <string name="device_apps_app_management_storage_used_desc" msgid="8928632612101487179">"ব্যৱহাৰ কৰা<xliff:g id="SIZE">%1$s</xliff:g><xliff:g id="VOLUME">%2$s</xliff:g>ত"</string>
     <string name="device_apps_app_management_clear_data" msgid="7305471678286735600">"ডেটা মচক"</string>
@@ -878,20 +945,32 @@
     <string name="settings_cancel" msgid="576094334743686152">"বাতিল কৰক"</string>
     <string name="settings_on" msgid="7734010120323404333">"অন কৰক"</string>
     <string name="settings_off" msgid="4060451657850476369">"অফ কৰক"</string>
-    <string name="device_daydreams_none" msgid="3405655350757277348">"স্ক্ৰীণ অফ কৰক"</string>
-    <string name="device_daydreams_select" msgid="7203264446482623438">"স্ক্ৰীণ ছেভাৰ"</string>
+    <string name="device_daydreams_none" msgid="3405655350757277348">"স্ক্ৰীন অফ কৰক"</string>
+    <string name="device_daydreams_select" msgid="7203264446482623438">"স্ক্ৰীন ছেভাৰ"</string>
     <string name="device_daydreams_test" msgid="7828275397550076567">"এতিয়া আৰম্ভ কৰক"</string>
     <string name="device_daydreams_sleep" msgid="6847770718407377357">"কেতিয়া ষ্টাৰ্ট কৰিব"</string>
-    <string name="device_daydreams_sleep_description" msgid="6237610484915504587">"নিষ্ক্ৰিয় অৱস্থাৰ পিছতহে স্ক্ৰীণ ছেভাৰ আৰম্ভ হয়। যদি স্ক্ৰীণ ছেভাৰ বাছনি কৰা নহয়, তেনেহ\'লে ডিছপ্লে’\' অফ হৈ যায়।"</string>
-    <string name="device_daydreams_sleep_summary" msgid="3081688734381995693">"নিষ্ক্ৰিয় হোৱাৰ <xliff:g id="SLEEP_DESCRIPTION">%1$s</xliff:g>ৰ পিছত"</string>
+    <string name="device_daydreams_sleep_description" msgid="6237610484915504587">"নিষ্ক্ৰিয় অৱস্থাৰ পিছতহে স্ক্ৰীন ছেভাৰ আৰম্ভ হয়। যদি স্ক্ৰীন ছেভাৰ বাছনি কৰা নহয়, তেনেহ\'লে ডিছপ্লে’\' অফ হৈ যায়।"</string>
+    <string name="device_daydreams_sleep_summary" msgid="3081688734381995693">"নিষ্ক্ৰিয় হোৱাৰ <xliff:g id="SLEEP_DESCRIPTION">%1$s</xliff:g>ৰ পাছত"</string>
     <string name="device_energy_saver_screen_off" msgid="6908468996426629480">"ডিছপ্লে’ অফ কৰক"</string>
-    <string name="device_energy_saver_screen_off_description" msgid="4469679706899396071">"<xliff:g id="SLEEP_DESCRIPTION">%1$s</xliff:g>ৰ পাছত"</string>
-    <string name="device_energy_saver_screen_off_dialog_title" msgid="4092476553760123309">"ইমান সময়ৰ পাছত ডিছপ্লে’ অফ কৰক"</string>
-    <string name="device_energy_saver_allow_turning_screen_off" msgid="3832490233158066073">"স্ক্রীন অফ কৰিবলৈ দিয়ক"</string>
-    <string name="device_energy_saver_allow_turning_screen_off_description" msgid="6369746832941270786">"মিডিয়া প্লে’বেকৰ সময়ত"</string>
-    <string name="device_energy_saver_confirmation_title" msgid="3888708298070409591">"শক্তি সঞ্চয়কাৰী ছেটিং নিশ্চিত কৰক"</string>
-    <string name="device_energy_saver_confirmation_text" msgid="3157546670441493125">"অনুগ্ৰহ কৰি নতুন ছেটিং <xliff:g id="SLEEP_TIME">%1$s</xliff:g>ত কৰাটো নিশ্চিত কৰক, য’ত শক্তিৰ বৰ্ধিত ব্যৱহাৰৰ সম্ভাৱনা আছে।"</string>
-    <string name="backup_configure_account_default_summary" msgid="2170733614341544296">"সম্প্ৰতি কোনো একাউণ্টে বেকআপ লোৱা ডেটা সঞ্চয় কৰা নাই"</string>
+    <!-- no translation found for device_energy_saver_timeout_description (3206609135199137514) -->
+    <skip />
+    <string name="device_energy_saver_confirmation_title" msgid="7614859812773584773">"পাৱাৰ আৰু শক্তিৰ ছেটিং নিশ্চিত কৰক"</string>
+    <string name="device_energy_saver_confirmation_message" msgid="7789453187001013951">"বহুত সময়লৈকে আপোনাৰ টিভিটো অন কৰি থোৱাটোৱে শক্তিৰ ব্যৱহাৰ বৃদ্ধি কৰিব পাৰে"</string>
+    <string name="device_energy_saver_disable_allow_turning_screen_off_title" msgid="1468097048101593731">"শক্তি সঞ্চয়কাৰী ছেটিং অক্ষম কৰক"</string>
+    <string name="device_energy_saver_disable_allow_turning_screen_off_text" msgid="6334963903866002164">"কিবা চাই থকাৰ সময়ত ডিছপ্লে’খন অফ হৈ যোৱাটো বন্ধ কৰিবলৈ নিশ্চিত কৰক, যিয়ে অধিক শক্তি খৰচ কৰাৰ সম্ভাৱনা আছে।"</string>
+    <string name="device_energy_saver_sleep_timeout" msgid="1841900768718452039">"নিষ্ক্ৰিয় হৈ থাকোঁতে"</string>
+    <string name="device_energy_saver_attentive_timeout" msgid="3649486668821348087">"চাই থাকোঁতে"</string>
+    <string name="device_energy_saver_category_title" msgid="170076161677525986">"স্বয়ংক্ৰিয়ভাৱে বন্ধ কৰক"</string>
+    <string name="device_energy_saver_sleep_timeout_dialog_title" msgid="6588352532253294558">"নিষ্ক্ৰিয় হৈ থাকিলে স্বয়ংক্ৰিয়ভাৱে বন্ধ কৰক"</string>
+    <string name="device_energy_saver_attentive_timeout_dialog_title" msgid="3273988875711109352">"চাই থাকোঁতে স্বয়ংক্ৰিয়ভাৱে বন্ধ কৰক"</string>
+    <string name="device_energy_saver_validation_sleep" msgid="7490897287741107840">"\"নিষ্ক্ৰিয় হৈ থকা সময়\"ৰ টাইমাৰ \"চাই থকা সময়\"ৰ টাইমাৰতকৈ কম সময়ৰ হ’বই লাগিব"</string>
+    <string name="device_energy_saver_validation_attentive" msgid="1461105528087097435">"\"চাই থকা সময়\"ৰ টাইমাৰ \"নিষ্ক্ৰিয় হৈ থকা সময়\"ৰ টাইমাৰতকৈ দীঘলীয়া সময়ৰ হ’বই লাগিব"</string>
+    <string name="limit_network_in_standby_toggle_title" msgid="6587185599397355336">"ষ্টেণ্ডবাই ম’ডত নেটৱৰ্কৰ সংযোগ সীমিত কৰক"</string>
+    <string name="limit_network_in_standby_toggle_summary" msgid="9127792748675581174">"ষ্টেণ্ডবাই ম’ডত কম শক্তি ব্যৱহাৰ কৰে"</string>
+    <string name="limit_network_in_standby_toggle_info" msgid="566947772381093991">"ষ্টেণ্ডবাই ম’ডত থাকিলে স্বয়ংক্ৰিয় আপডে’টসমূহ গ্ৰহণ কৰাৰ বাহিৰে আপোনাৰ নেটৱৰ্কৰ পৰা আপোনাৰ টিভিৰ সংযোগ বিচ্ছিন্ন কৰা হ’ব। এইটোৱে আপোনাৰ টিভিৰ শক্তিৰ ব্যৱহাৰ কমাব, যদিও এইটোৱে ইয়াকো বুজাই যে আপুনি ষ্টেণ্ডবাই ম’ডত থকাৰ অৱস্থাত Cast আৰু Google Assistantৰ দৰে ফাংশ্বনসমূহ ব্যৱহাৰ কৰিব নোৱাৰে।"</string>
+    <string name="limit_network_in_standby_confirm_title" msgid="789232987058850322">"ষ্টেণ্ডবাই ম’ডত নেটৱৰ্কৰ সংযোগৰ অনুমতি দিয়ক"</string>
+    <string name="limit_network_in_standby_confirm_message" msgid="7176699480768019689">"ষ্টেণ্ডবাই ম’ডত নেটৱৰ্কৰ সংযোগৰ অনুমতি দিয়াটোৱে ষ্টেণ্ডবাই ম’ডৰ শক্তিৰ ব্যৱহাৰ বৃদ্ধি কৰিব।"</string>
+    <string name="backup_configure_account_default_summary" msgid="2170733614341544296">"সম্প্ৰতি কোনো একাউণ্টে বেকআপ লোৱা ডেটা ষ্ট’ৰ কৰা নাই"</string>
     <string name="backup_erase_dialog_title" msgid="6008454053276987100"></string>
     <string name="backup_erase_dialog_message" msgid="222169533402624861">"আপোনাৰ ৱাই-ফাই পাছৱৰ্ড, বুকমাৰ্ক, অন্য ছেটিং আৰু এপ্ ডেটাৰ বেকআপ বন্ধ কৰাৰ লগতে Google ছাৰ্ভাৰত প্ৰতিলিপি কৰা সকলো বস্তুব মচিবনে?"</string>
     <string name="privacy_backup_data" msgid="3604057980102997914">"মোৰ ডেটাৰ বেকআপ লওক"</string>
@@ -933,24 +1012,24 @@
     <string name="manage_keyboards" msgid="7983890675377321912">"কীব\'ৰ্ডসমূহ পৰিচালনা কৰক"</string>
     <string name="app_permission_summary_allowed" msgid="5359622119044147500">"অনুমতি দিয়া হৈছে"</string>
     <string name="app_permission_summary_not_allowed" msgid="5131611341738385303">"অনুমতি দিয়া হোৱা নাই"</string>
-    <string name="usage_access" msgid="8402350645248312782">"ব্যৱহাৰৰ অনুমতি"</string>
-    <string name="usage_access_description" msgid="3276026988575551587">"ব্যৱহাৰৰ প্ৰৱেশাধিকাৰে আপুনি ব্যৱহাৰ কৰি থকা অন্য এপ্‌সমূহক কিমান সঘনাই ব্যৱহাৰ কৰে, লগতে আপোনাৰ বাহক, ভাষাৰ ছেটিংসমূহ আৰু অন্যান্য বিৱৰণ ট্ৰেক কৰিবলৈ অনুমতি দিয়ে৷"</string>
+    <string name="usage_access" msgid="8402350645248312782">"ব্যৱহাৰৰ এক্সেছ"</string>
+    <string name="usage_access_description" msgid="3276026988575551587">"ব্যৱহাৰৰ এক্সেছে আপুনি ব্যৱহাৰ কৰি থকা অন্য এপ্‌সমূহক কিমান সঘনাই ব্যৱহাৰ কৰে, লগতে আপোনাৰ বাহক, ভাষাৰ ছেটিংসমূহ আৰু অন্যান্য বিৱৰণ ট্ৰেক কৰিবলৈ অনুমতি দিয়ে৷"</string>
     <string name="high_power_apps" msgid="5841073958519976562">"বেটাৰি অপ্টিমাইজেশ্বন"</string>
     <string name="high_power_apps_description" msgid="8651692364795060525">"এপত ব্যৱহাৰ হোৱা বেটাৰিৰ পৰিমাণ অপ্টিমাইজ কৰক"</string>
     <string name="high_power_apps_empty" msgid="3084512758421482051">"অপ্টিমাইজ কৰাৰ প্ৰয়োজন নাই"</string>
     <string name="high_power_on" msgid="3120162683093360951">"অপ্টিমাইজ কৰা হোৱা নাই"</string>
     <string name="high_power_off" msgid="3588854600942236231">"বেটাৰিৰ ব্যৱহাৰ অপ্টিমাইজ কৰি থকা হৈছে"</string>
     <string name="high_power_system" msgid="6263052626979462255">"বেটাৰি অপ্টিমাইজেশ্বন উপলব্ধ নহয়।"</string>
-    <string name="manage_notification_access_title" msgid="8659254371564990084">"জাননী চোৱাৰ অনুমতি"</string>
-    <string name="no_notification_listeners" msgid="5119406452675724448">"ইনষ্টল কৰা কোনো এপে জাননী দেখুৱাবলৈ অনুৰোধ কৰা নাই।"</string>
+    <string name="manage_notification_access_title" msgid="8659254371564990084">"জাননীৰ এক্সেছ"</string>
+    <string name="no_notification_listeners" msgid="5119406452675724448">"ইনষ্টল কৰা কোনো এপে জাননীৰ এক্সেছ অনুৰোধ কৰা নাই।"</string>
     <string name="notification_listener_security_warning_summary" msgid="8602907284276088658">"এই এপবোৰে সকলো জাননী আৰু ব্যক্তিগত তথ্য যেনে সম্পৰ্কৰ নাম আৰু আপুনি লাভ কৰা পাঠ বাৰ্তা পঢ়িবলৈ সক্ষম হ\'ব। এইবোৰে জাননী প্ৰত্যাখ্যান কৰিব পাৰিব বা সেইবিলাকত থকা ক্ৰিয়া সম্পৰ্কীয় বুটাম দ্বাৰা কৰিবলগীয়া কাৰ্যসমূহৰ সূচনা কৰিব পাৰিব।"</string>
     <string name="default_notification_access_package_summary" msgid="1354775994781420222">"ছিষ্টেমৰ বাবে প্ৰয়োজনীয়"</string>
-    <string name="directory_access" msgid="7338555825237012006">"ডাইৰেক্টৰী ব্যৱহাৰৰ অনুমতি"</string>
-    <string name="directory_access_description" msgid="3630855858552422012">"এই এপসমূহে নিৰ্ধাৰিত ডাইৰেক্টৰী ব্যৱহাৰ কৰিব পাৰে।"</string>
+    <string name="directory_access" msgid="7338555825237012006">"ডাইৰেক্টৰীৰ এক্সেছ"</string>
+    <string name="directory_access_description" msgid="3630855858552422012">"এই এপ্‌সমূহে নিৰ্ধাৰিত ডাইৰেক্টৰী ব্যৱহাৰ কৰিব পাৰে।"</string>
     <string name="directory_on_volume" msgid="5628089584970521703">"<xliff:g id="VOLUME">%1$s</xliff:g> (<xliff:g id="DIRECTORY">%2$s</xliff:g>)"</string>
     <string name="system_alert_window_settings" msgid="5790572489650085051">"অন্য এপৰ ওপৰত দেখুৱায়"</string>
     <string name="permit_draw_overlay" msgid="5312730681030266735">"অন্য এপৰ ওপৰত দেখুৱাবলৈ অনুমতি দিয়ক"</string>
-    <string name="allow_overlay_description" msgid="5152329837278240259">"আপুনি ব্যৱহাৰ কৰি থকা অইন এপৰ ওপৰত দেখুৱাবলৈ এই এপটোক অনুমতি দিয়ক। ই আপুনি ব্যৱহাৰ কৰি থকা এপসমূহ চলাত ব্যাঘাত জন্মাব পাৰে বা সেইবিলাকে স্ক্ৰীণত কেনেধৰণে দেখা দিয়ে বা আচৰণ কৰে তাক সলনি কৰিব পাৰে।"</string>
+    <string name="allow_overlay_description" msgid="5152329837278240259">"আপুনি ব্যৱহাৰ কৰি থকা অইন এপৰ ওপৰত দেখুৱাবলৈ এই এপ্‌টোক অনুমতি দিয়ক। ই আপুনি ব্যৱহাৰ কৰি থকা এপ্‌সমূহ চলাত ব্যাঘাত জন্মাব পাৰে বা সেইবিলাকে স্ক্ৰীনত কেনেধৰণে দেখা দিয়ে বা আচৰণ কৰে তাক সলনি কৰিব পাৰে।"</string>
     <string name="write_system_settings" msgid="4284654265954461890">"ছিষ্টেমৰ ছেটিংসমূহ সংশোধন কৰক"</string>
     <string name="write_settings_title" msgid="2361816483383105754">"ছিষ্টেম ছেটিংসমূহ সংশোধন কৰিব পাৰে"</string>
     <string name="write_settings_description" msgid="7382397926674265937">"এই অনুমতিয়ে কোনো এপক ছিষ্টেম ছেটিংসমূহ সলনি কৰিবলৈ সুবিধা দিব।"</string>
@@ -962,12 +1041,12 @@
     <string name="picture_in_picture_title" msgid="2636935591386702348">"Picture-in-picture"</string>
     <string name="picture_in_picture_app_detail_switch" msgid="3688997906817583854">"picture-in-pictureক অনুমতি দিয়ক"</string>
     <string name="picture_in_picture_empty_text" msgid="4370198922852736600">"ইনষ্টল কৰি থোৱা কোনো এপে চিত্ৰৰ ভিতৰত চিত্ৰ দেখুৱাব নোৱাৰে"</string>
-    <string name="picture_in_picture_app_detail_summary" msgid="3296649114939705896">"আপুনি এই এপটো খুলি ৰখাৰ সময়ত বা ইয়াৰ পৰা আঁতৰি যোৱাৰ পিছত (উদাহৰণস্বৰূপে, ইতিমধ্যে চাই থকা ভিডিঅ\'টোলৈ উভতি যাবলৈ) ইয়াক picture-in-picture ৱিণ্ড\' সৃষ্টি কৰিবলৈ অনুমতি দিয়ক। আপুনি ব্যৱহাৰ কৰি থকা অন্য এপৰ ওপৰত এই ৱিণ্ড\' প্ৰদৰ্শিত হ\'ব।"</string>
+    <string name="picture_in_picture_app_detail_summary" msgid="3296649114939705896">"আপুনি এই এপ্‌টো খুলি ৰখাৰ সময়ত বা ইয়াৰ পৰা আঁতৰি যোৱাৰ পাছত (উদাহৰণস্বৰূপে, ইতিমধ্যে চাই থকা ভিডিঅ\'টোলৈ উভতি যাবলৈ) ইয়াক picture-in-picture ৱিণ্ড\' সৃষ্টি কৰিবলৈ অনুমতি দিয়ক। আপুনি ব্যৱহাৰ কৰি থকা অন্য এপৰ ওপৰত এই ৱিণ্ড\' প্ৰদৰ্শিত হ\'ব।"</string>
     <string name="alarms_and_reminders_description" msgid="4063972350154624500">"এপক এলাৰ্ম ছেট কৰিবলৈ আৰু সময় সংবেদনশীল কাৰ্যৰ সময়সূচী নিৰ্ধাৰণ কৰিবলৈ দিয়ক। ই এপক নেপথ্যত চলি থকাৰ অনুমতি দিয়ে, যাৰ ফলত অধিক বেটাৰী ব্যৱহাৰ হ’ব পাৰে।\n\nএই অনুমতিটো অফ কৰা থাকিলে, ইতিমধ্যে ছেট কৰা এলাৰ্ম আৰু এপ্‌টোৱে সময়সূচী নিৰ্ধাৰণ কৰা সময় ভিত্তিক অনুষ্ঠানসমূহে কাম নকৰা হ’ব।"</string>
     <string name="turn_screen_on_title" msgid="5293798529284629011">"স্ক্ৰীন অন কৰক"</string>
     <string name="allow_turn_screen_on" msgid="4903401106871656521">"স্ক্ৰীনখন অন কৰিবলৈ অনুমতি দিয়ক"</string>
     <string name="allow_turn_screen_on_description" msgid="7521761625343889415">"এপ্‌টোক স্ক্ৰীনখন অন কৰিবলৈ অনুমতি দিয়ক। যদি অনুমতি দিয়া হয়, এপ্‌টোৱে আপোনাৰ স্পষ্ট উদ্দেশ্য অবিহনেও যিকোনো সময়তে স্ক্ৰীনখন অন কৰিব পাৰে।"</string>
-    <string name="special_access" msgid="21806055758289916">"এপৰ বিশেষ প্ৰবেশাধিকাৰ"</string>
+    <string name="special_access" msgid="21806055758289916">"এপৰ বিশেষ এক্সেছ"</string>
     <string name="string_concat" msgid="5213870180216051497">"<xliff:g id="PART1">%1$s</xliff:g>, <xliff:g id="PART2">%2$s</xliff:g>"</string>
     <string name="audio_category" msgid="6143623109624947993">"অডিঅ’"</string>
     <string name="record_audio" msgid="5035689290259575229">"অডিঅ’ ৰেকৰ্ড কৰক"</string>
@@ -978,12 +1057,17 @@
     <string name="time_to_start_read_title" msgid="6565449163802837806">"পঢ়িবলৈ আৰম্ভ কৰাৰ সময়"</string>
     <string name="time_to_valid_audio_title" msgid="7246101824813414348">"অডিঅ’ ডেটা মান্য কৰাৰ সময়"</string>
     <string name="empty_audio_duration_title" msgid="9024377320171450683">"খালী অডিঅ’ৰ সময়সীমা"</string>
+    <string name="record_audio_source_title" msgid="9087784503276397929">"ৰেকর্ড কৰা অডিঅ’ৰ উৎস"</string>
+    <string name="record_audio_source_dialog_title" msgid="6556408220589197097">"পৰৱর্তী ৰেকর্ডিঙৰ বাবে ৰেকর্ড কৰা অডিঅ’ৰ উৎস বাছনি কৰক"</string>
+    <string name="recorded_microphones_title" msgid="5466988146086215426">"ৰেকর্ড কৰা মাইক্ৰ’ফ’ন(সমূহ)"</string>
     <string name="show_audio_recording_start_failed" msgid="9131762831381326605">"অডিঅ\' ৰেকৰ্ড আৰম্ভ কৰাত বিফল হ\'ল।"</string>
     <string name="show_audio_recording_failed" msgid="8128216664039868681">"অডিঅ\' ৰেকৰ্ড কৰাত বিফল হ\'ল।"</string>
     <string name="title_data_saver" msgid="7500278996154002792">"ডেটা সঞ্চয়কাৰী"</string>
     <string name="summary_data_saver" msgid="6793558728898207405">"কম ম’বাইল ডেটা ব্যৱহাৰ কৰিবলৈ স্বয়ংক্ৰিয়ভাৱে ভিডিঅ’ৰ গুণগত মান মিলাওক"</string>
     <string name="title_data_alert" msgid="8262081890052682475">"ডেটাৰ ব্যৱহাৰ আৰু সতৰ্কবাৰ্তাসমূহ"</string>
     <string name="data_saver_header_info" msgid="2706725187498535785">"আপুনি ৱাই-ফাই, ইথাৰনেট অথবা আপোনাৰ ফ’নৰ হটস্পটৰ জৰিয়তে ইণ্টাৰনেটৰ সৈতে সংযুক্ত হ’ব পাৰে।"</string>
+    <string name="bluetooth_ask_discovery_title" msgid="4955540555242269694">"অন্য ব্লুটুথ ডিভাইচে দেখা পোৱা কৰিবনে?"</string>
+    <string name="bluetooth_ask_discovery_message" msgid="8609666862877703398">"এটা এপে আপোনাৰ টিভিটো <xliff:g id="TIMEOUT">%1$d</xliff:g> ছেকেণ্ডৰ বাবে অন্য ব্লুটুথ ডিভাইচে দেখা পোৱা কৰিব বিচাৰিছে।"</string>
     <string name="help_center_title" msgid="6109822142761302433"></string>
     <string name="disabled_by_policy_title" msgid="2220484346213756472">"এই কাম বৈধ নহয়"</string>
     <string name="disabled_by_policy_title_adjust_volume" msgid="4229779946666263271">"ভলিউম সলনি কৰিব নোৱাৰি"</string>
@@ -991,24 +1075,24 @@
     <string name="disabled_by_policy_title_sms" msgid="5721045390560951358">"এছএমএছৰ অনুমতি নাই"</string>
     <string name="disabled_by_policy_title_camera" msgid="6576557964422257426">"কেমেৰাক অনুমতি দিয়া হোৱা নাই"</string>
     <string name="disabled_by_policy_title_screen_capture" msgid="5774035841010091253">"স্ক্ৰীণশ্বটৰ অনুমতি নাই"</string>
-    <string name="disabled_by_policy_title_suspend_packages" msgid="6500185610058872758">"এই এপটো খুলিব নোৱাৰি"</string>
+    <string name="disabled_by_policy_title_suspend_packages" msgid="6500185610058872758">"এই এপ্‌টো খুলিব নোৱাৰি"</string>
     <string name="default_admin_support_msg" msgid="7913455019068370350">"আপোনাৰ যদি কিবা প্ৰশ্ন আছে, আপোনাৰ আইটি প্ৰশাসকৰ সৈতে যোগাযোগ কৰক"</string>
     <string name="admin_support_more_info" msgid="9053232166115098434">"অধিক বিৱৰণ"</string>
-    <string name="admin_profile_owner_message" msgid="5729169873349157622">"আপোনাৰ এডমিনে আপোনাৰ কৰ্মস্থানৰ প্ৰ\'ফাইলৰ ছেটিংসমূহ, অনুমতিসূুহ, কৰ্পৰেট প্ৰৱেশ, নেটৱৰ্ক কাৰ্যকলাপ আৰু ডিভাইচৰ অৱস্থানৰ তথ্যৰ সৈতে জড়িত এপ্ আৰু ডেটা নিৰীক্ষণ কৰাৰ লগতে পৰিচালনা কৰিব পাৰে।"</string>
-    <string name="admin_profile_owner_user_message" msgid="6431405126322617268">"আপোনাৰ প্ৰশাসকে এই ব্যৱহাৰকাৰীৰ সৈতে জড়িত ছেটিংসমূহ, অনুমতিসমূহ, কৰ্পৰেট প্ৰৱেশ, নেটৱৰ্ক কাৰ্যকলাপ আৰু ডিভাইচৰ অৱস্থানৰ তথ্যকে আদি কৰি সকলো এপ্ আৰু ডেটা নিৰীক্ষণ কৰাৰ লগতে পৰিচালনা কৰিব পাৰে।"</string>
-    <string name="admin_device_owner_message" msgid="1935507216776040907">"আপোনাৰ প্ৰশাসকে ছেটিংসমূহ, অনুমতি, ক’ৰ্পৰেট প্ৰৱেশাধিকাৰ, নেটৱৰ্কৰ কাৰ্যকলাপ আৰু ডিভাইচৰ অৱস্থানৰ তথ্যক সামৰি, এই ডিভাইচটোৰ সৈতে যুক্ত এপ্ আৰু ডেটাক নিৰীক্ষণ আৰু পৰিচালনা কৰিব পাৰে৷"</string>
+    <string name="admin_profile_owner_message" msgid="5729169873349157622">"আপোনাৰ প্ৰশাসকে আপোনাৰ কৰ্মস্থানৰ প্ৰ\'ফাইলৰ ছেটিংসমূহ, অনুমতিসূুহ, কৰ্পৰেট এক্সেছ, নেটৱৰ্ক কাৰ্যকলাপ আৰু ডিভাইচৰ অৱস্থানৰ তথ্যৰ সৈতে জড়িত এপ্ আৰু ডেটা নিৰীক্ষণ কৰাৰ লগতে পৰিচালনা কৰিব পাৰে।"</string>
+    <string name="admin_profile_owner_user_message" msgid="6431405126322617268">"আপোনাৰ প্ৰশাসকে এই ব্যৱহাৰকাৰীৰ সৈতে জড়িত ছেটিংসমূহ, অনুমতিসমূহ, কৰ্পৰেট এক্সেছ, নেটৱৰ্ক কাৰ্যকলাপ আৰু ডিভাইচৰ অৱস্থানৰ তথ্যকে আদি কৰি সকলো এপ্ আৰু ডেটা নিৰীক্ষণ কৰাৰ লগতে পৰিচালনা কৰিব পাৰে।"</string>
+    <string name="admin_device_owner_message" msgid="1935507216776040907">"আপোনাৰ প্ৰশাসকে ছেটিংসমূহ, অনুমতি, ক’ৰ্পৰেট এক্সেছ, নেটৱৰ্কৰ কাৰ্যকলাপ আৰু ডিভাইচৰ অৱস্থানৰ তথ্যক সামৰি, এই ডিভাইচটোৰ সৈতে যুক্ত এপ্ আৰু ডেটাক নিৰীক্ষণ আৰু পৰিচালনা কৰিব পাৰে৷"</string>
     <string name="remove_managed_profile_label" msgid="8950011141359605612">"কৰ্মস্থানৰ প্ৰ\'ফাইল"</string>
     <string name="active_device_admin_msg" msgid="185537304726228624">"ডিভাইচ প্ৰশাসকৰ এপ্‌"</string>
-    <string name="remove_device_admin" msgid="2623866073546295104">"এই ডিভাইচ প্ৰশাসক এপটো অক্ষম কৰক"</string>
+    <string name="remove_device_admin" msgid="2623866073546295104">"এই ডিভাইচ প্ৰশাসক এপ্‌টো অক্ষম কৰক"</string>
     <string name="uninstall_device_admin" msgid="6301368408620948266">"এপ্ আনইনষ্টল কৰক"</string>
     <string name="remove_and_uninstall_device_admin" msgid="1504351551194915633">"নিষ্ক্ৰিয় আৰু আনইনষ্টল কৰক"</string>
-    <string name="select_device_admin_msg" msgid="8475934459999710332">"ডিভাইচৰ প্ৰশাসকৰ এপসমূহ"</string>
-    <string name="add_device_admin_msg" msgid="5390773166682603421">"এই ডিভাইচ প্ৰশাসক এপটো সক্ৰিয় কৰেনে?"</string>
-    <string name="add_device_admin" msgid="5078281377915844544">"এই ডিভাইচ এডমিন এপটো সক্ৰিয় কৰক"</string>
-    <string name="device_admin_warning" msgid="7399916080685200660">"এই এপটো সক্ৰিয় কৰিলে ই <xliff:g id="APP_NAME">%1$s</xliff:g> তলৰ কামবিলাক কৰিবলৈ সক্ষম হ\'ব:"</string>
+    <string name="select_device_admin_msg" msgid="8475934459999710332">"ডিভাইচৰ প্ৰশাসকৰ এপ্‌সমূহ"</string>
+    <string name="add_device_admin_msg" msgid="5390773166682603421">"এই ডিভাইচ প্ৰশাসক এপ্‌টো সক্ৰিয় কৰেনে?"</string>
+    <string name="add_device_admin" msgid="5078281377915844544">"এই ডিভাইচ এডমিন এপ্‌টো সক্ৰিয় কৰক"</string>
+    <string name="device_admin_warning" msgid="7399916080685200660">"এই এপ্‌টো সক্ৰিয় কৰিলে ই <xliff:g id="APP_NAME">%1$s</xliff:g> তলৰ কামবিলাক কৰিবলৈ সক্ষম হ\'ব:"</string>
     <string name="device_admin_warning_simplified" msgid="3310965971422346950">"এই ডিভাইচটো <xliff:g id="APP_NAME">%1$s</xliff:g>এ পৰিচালনা আৰু নিৰীক্ষণ কৰিব।"</string>
-    <string name="device_admin_status" msgid="5467001937240455367">"এই প্ৰশাসক এপটো সক্ৰিয় হৈ আছে আৰু ই <xliff:g id="APP_NAME">%1$s</xliff:g> নিম্নলিখিত কাৰ্যকলাপসমূহ কৰিব পাৰে:"</string>
-    <string name="adding_profile_owner_warning" msgid="3888867082224127564">"অব্যাহত ৰাখিলে, প্ৰশাসকে আপোনাৰ ব্যৱহাৰকাৰীক পৰিচালনা কৰিব আৰু তেওঁ সংলগ্ন ডেটাৰ লগতে আপোনাৰ ব্যক্তিগত ডেটাও জমা কৰিব পাৰিব।\n\nআপোনাৰ প্ৰশাসকে ছেটিংবিলাক, প্ৰৱেশ, এপসমূহ, আৰু এই ব্যৱহাৰকাৰীৰৰ লগত জড়িত ডেটা যেনে নেটৱৰ্কৰ কাৰ্যকলাপ আৰু আপোনাৰ ডিভাইচৰ অৱস্থান বিষয়কৰ তথ্য আদি নিৰীক্ষণ কৰাৰ লগতে পৰিচালনা কৰিব পাৰিব।"</string>
+    <string name="device_admin_status" msgid="5467001937240455367">"এই প্ৰশাসক এপ্‌টো সক্ৰিয় হৈ আছে আৰু ই <xliff:g id="APP_NAME">%1$s</xliff:g> নিম্নলিখিত কাৰ্যকলাপসমূহ কৰিব পাৰে:"</string>
+    <string name="adding_profile_owner_warning" msgid="3888867082224127564">"অব্যাহত ৰাখিলে, প্ৰশাসকে আপোনাৰ ব্যৱহাৰকাৰীক পৰিচালনা কৰিব আৰু তেওঁ সংলগ্ন ডেটাৰ লগতে আপোনাৰ ব্যক্তিগত ডেটাও ষ্ট\'ৰ কৰিব পাৰিব।\n\nআপোনাৰ প্ৰশাসকে ছেটিং, এক্সেছ, এপ্‌সমূহ, আৰু এই ব্যৱহাৰকাৰীৰৰ লগত জড়িত ডেটা যেনে নেটৱৰ্কৰ কাৰ্যকলাপ আৰু আপোনাৰ ডিভাইচৰ অৱস্থান বিষয়কৰ তথ্য আদি নিৰীক্ষণ কৰাৰ লগতে পৰিচালনা কৰিব পাৰিব।"</string>
     <string name="share_remote_bugreport_dialog_title" msgid="2080017987692459555">"বাগ প্ৰতিবেদন পঠাইনে?"</string>
     <string name="share_remote_bugreport_dialog_message_finished" msgid="8515056665416643253">"আপোনাৰ আইটি প্ৰশাসকে এই ডিভাইচটোৰ সমস্যা সমাধানৰ বাবে এটা বাগ প্ৰতিবেদন বিচাৰিছে। এপ্ আৰু ডেটা শ্বেয়াৰ কৰা হ\'ব পাৰে।"</string>
     <string name="share_remote_bugreport_dialog_message" msgid="4637489112422692638">"আপোনাৰ আইটি প্ৰশাসকে এই ডিভাইচটোৰ সমস্যা সমাধানৰ বাবে এটা বাগ প্ৰতিবেদন বিচাৰিছে। এপ্ আৰু ডেটা শ্বেয়াৰ কৰা হ\'ব আৰু আপোনাৰ ডিভাইচটো সাময়িকভাৱে লেহেমীয়া হ\'ব পাৰে।"</string>
@@ -1034,4 +1118,9 @@
     <string name="power_on_behavior" msgid="927607372303160716">"আৰম্ভ হওঁতে প্ৰদৰ্শিত হোৱা কাৰ্যকলাপ"</string>
     <string name="reset_options_title" msgid="7632580482285108955">"ৰিছেট কৰক"</string>
     <string name="adb_pairing_device_dialog_ethernet_pairing_code_label" msgid="7551782499828944838">"ইথাৰনেট পেয়াৰ কৰাৰ ক’ড"</string>
+    <string name="energy_modes" msgid="1331693860386361744">"শক্তি ম’ড"</string>
+    <string name="energy_modes_summary" msgid="7196407759836930799">"টিভি ব্যৱহাৰ নকৰা সময়ত শক্তিৰ সামৰ্থ্য উন্নত কৰক"</string>
+    <string name="energy_mode_enables" msgid="357960364751477627">"সক্ষম কৰা সুবিধাসমূহ:"</string>
+    <string name="energy_mode_eco_hint" msgid="1461517905015359947">"মন কৰিব যে এই ম’ডটোৰ ফলত ডিভাইচটোৱে অধিক শক্তি ব্যয় কৰিব পাৰে।"</string>
+    <string name="energy_modes_confirmation_title" msgid="4520280098781914825">"\"<xliff:g id="ENERGYMODENAME">%s</xliff:g>\" সক্ষম কৰক"</string>
 </resources>

@@ -54,7 +54,7 @@ public final class VmsAssociatedLayer implements Parcelable {
         mProviderIds = Collections.unmodifiableSet(mProviderIds);
     }
 
-    private void parcelProviderIds(Parcel dest, int flags) {
+    private void parcelProviderIds(Parcel dest) {
         ParcelHelper.writeArraySet(dest, new ArraySet<>(mProviderIds));
     }
 
@@ -113,7 +113,6 @@ public final class VmsAssociatedLayer implements Parcelable {
     }
 
     @Override
-    @AddedInOrBefore(majorVersion = 33)
     public String toString() {
         // You can override field toString logic by defining methods like:
         // String fieldNameToString() { ... }
@@ -125,7 +124,6 @@ public final class VmsAssociatedLayer implements Parcelable {
     }
 
     @Override
-    @AddedInOrBefore(majorVersion = 33)
     public boolean equals(@android.annotation.Nullable Object o) {
         // You can override field equality logic by defining either of the methods like:
         // boolean fieldNameEquals(VmsAssociatedLayer other) { ... }
@@ -142,7 +140,6 @@ public final class VmsAssociatedLayer implements Parcelable {
     }
 
     @Override
-    @AddedInOrBefore(majorVersion = 33)
     public int hashCode() {
         // You can override field hashCode logic by defining methods like:
         // int fieldNameHashCode() { ... }
@@ -160,7 +157,7 @@ public final class VmsAssociatedLayer implements Parcelable {
         // void parcelFieldName(Parcel dest, int flags) { ... }
 
         dest.writeTypedObject(mVmsLayer, flags);
-        parcelProviderIds(dest, flags);
+        parcelProviderIds(dest);
     }
 
     @Override

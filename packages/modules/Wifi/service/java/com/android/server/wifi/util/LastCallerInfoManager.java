@@ -67,6 +67,64 @@ public class LastCallerInfoManager {
                 return "AutojoinGlobal";
             case WifiManager.API_SET_SCAN_SCHEDULE:
                 return "SetScanScanSchedule";
+            case WifiManager.API_SET_ONE_SHOT_SCREEN_ON_CONNECTIVITY_SCAN_DELAY:
+                return "API_SET_ONE_SHOT_SCREEN_ON_CONNECTIVITY_SCAN_DELAY";
+            case WifiManager.API_SET_NETWORK_SELECTION_CONFIG:
+                return "API_SET_NETWORK_SELECTION_CONFIG";
+            case WifiManager.API_SET_THIRD_PARTY_APPS_ENABLING_WIFI_CONFIRMATION_DIALOG:
+                return "API_SET_THIRD_PARTY_APPS_ENABLING_WIFI_CONFIRMATION_DIALOG";
+            case WifiManager.API_ADD_NETWORK:
+                return "API_ADD_NETWORK";
+            case WifiManager.API_UPDATE_NETWORK:
+                return "API_UPDATE_NETWORK";
+            case WifiManager.API_ALLOW_AUTOJOIN:
+                return "API_ALLOW_AUTOJOIN";
+            case WifiManager.API_CONNECT_CONFIG:
+                return "API_CONNECT_CONFIG";
+            case WifiManager.API_CONNECT_NETWORK_ID:
+                return "API_CONNECT_NETWORK_ID";
+            case WifiManager.API_DISABLE_NETWORK:
+                return "API_DISABLE_NETWORK";
+            case WifiManager.API_ENABLE_NETWORK:
+                return "API_ENABLE_NETWORK";
+            case WifiManager.API_FORGET:
+                return "API_FORGET";
+            case WifiManager.API_SAVE:
+                return "API_SAVE";
+            case WifiManager.API_START_SCAN:
+                return "API_START_SCAN";
+            case WifiManager.API_START_LOCAL_ONLY_HOTSPOT:
+                return "API_START_LOCAL_ONLY_HOTSPOT";
+            case WifiManager.API_P2P_DISCOVER_PEERS:
+                return "API_P2P_DISCOVER_PEERS";
+            case WifiManager.API_P2P_DISCOVER_PEERS_ON_SOCIAL_CHANNELS:
+                return "API_P2P_DISCOVER_PEERS_ON_SOCIAL_CHANNELS";
+            case WifiManager.API_P2P_DISCOVER_PEERS_ON_SPECIFIC_FREQUENCY:
+                return "API_P2P_DISCOVER_PEERS_ON_SPECIFIC_FREQUENCY";
+            case WifiManager.API_P2P_STOP_PEER_DISCOVERY:
+                return "API_P2P_STOP_PEER_DISCOVERY";
+            case WifiManager.API_P2P_CONNECT:
+                return "API_P2P_CONNECT";
+            case WifiManager.API_P2P_CANCEL_CONNECT:
+                return "API_P2P_CANCEL_CONNECT";
+            case WifiManager.API_P2P_CREATE_GROUP:
+                return "API_P2P_CREATE_GROUP";
+            case WifiManager.API_P2P_CREATE_GROUP_P2P_CONFIG:
+                return "API_P2P_CREATE_GROUP_P2P_CONFIG";
+            case WifiManager.API_P2P_REMOVE_GROUP:
+                return "API_P2P_REMOVE_GROUP";
+            case WifiManager.API_P2P_START_LISTENING:
+                return "API_P2P_START_LISTENING";
+            case WifiManager.API_P2P_STOP_LISTENING:
+                return "API_P2P_STOP_LISTENING";
+            case WifiManager.API_P2P_SET_CHANNELS:
+                return "API_P2P_SET_CHANNELS";
+            case WifiManager.API_WIFI_SCANNER_START_SCAN:
+                return "API_WIFI_SCANNER_START_SCAN";
+            case WifiManager.API_SET_TDLS_ENABLED:
+                return "API_SET_TDLS_ENABLED";
+            case WifiManager.API_SET_TDLS_ENABLED_WITH_MAC_ADDRESS:
+                return "API_SET_TDLS_ENABLED_WITH_MAC_ADDRESS";
             default:
                 return "Unknown";
         }
@@ -80,7 +138,12 @@ public class LastCallerInfoManager {
         for (int i = 0; i < mLastCallerInfoMap.size(); i++) {
             String apiName = convertApiName(mLastCallerInfoMap.keyAt(i));
             String callerInfo = mLastCallerInfoMap.valueAt(i).toString();
-            pw.println(apiName + ": " + callerInfo);
+            pw.println(new StringBuilder()
+                    .append("API key=")
+                    .append(mLastCallerInfoMap.keyAt(i)).append(" API name=")
+                    .append(apiName)
+                    .append(": ")
+                    .append(callerInfo));
         }
     }
 

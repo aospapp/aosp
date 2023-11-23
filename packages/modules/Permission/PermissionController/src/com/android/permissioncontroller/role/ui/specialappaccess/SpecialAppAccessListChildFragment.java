@@ -32,10 +32,11 @@ import androidx.preference.PreferenceFragmentCompat;
 import androidx.preference.PreferenceManager;
 import androidx.preference.PreferenceScreen;
 
-import com.android.permissioncontroller.role.model.Role;
-import com.android.permissioncontroller.role.model.Roles;
 import com.android.permissioncontroller.role.ui.RoleItem;
 import com.android.permissioncontroller.role.ui.TwoTargetPreference;
+import com.android.permissioncontroller.role.utils.RoleUiBehaviorUtils;
+import com.android.role.controller.model.Role;
+import com.android.role.controller.model.Roles;
 
 import java.util.List;
 
@@ -110,10 +111,9 @@ public class SpecialAppAccessListChildFragment<PF extends PreferenceFragmentComp
                 preference.setPersistent(false);
                 preference.setOnPreferenceClickListener(this);
             }
-
-            role.preparePreferenceAsUser((TwoTargetPreference) preference, Process.myUserHandle(),
+            RoleUiBehaviorUtils.preparePreferenceAsUser(role, (TwoTargetPreference) preference,
+                    Process.myUserHandle(),
                     context);
-
             preferenceScreen.addPreference(preference);
         }
 
@@ -126,7 +126,7 @@ public class SpecialAppAccessListChildFragment<PF extends PreferenceFragmentComp
         Context context = requireContext();
         Role role = Roles.get(context).get(roleName);
         UserHandle user = Process.myUserHandle();
-        Intent intent = role.getManageIntentAsUser(user, context);
+        Intent intent = RoleUiBehaviorUtils.getManageIntentAsUser(role, user, context);
         if (intent == null) {
             intent = SpecialAppAccessActivity.createIntent(roleName, context);
         }

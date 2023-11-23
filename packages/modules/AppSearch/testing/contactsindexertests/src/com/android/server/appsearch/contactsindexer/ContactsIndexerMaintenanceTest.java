@@ -23,9 +23,15 @@ import static com.android.server.appsearch.contactsindexer.ContactsIndexerMainte
 import static com.google.common.truth.Truth.assertThat;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyZeroInteractions;
 import static org.mockito.Mockito.when;
 
 import android.annotation.UserIdInt;
@@ -34,26 +40,37 @@ import android.app.job.JobInfo;
 import android.app.job.JobScheduler;
 import android.content.Context;
 import android.content.ContextWrapper;
+import android.content.pm.UserInfo;
+import android.os.CancellationSignal;
 
 import androidx.annotation.Nullable;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.platform.app.InstrumentationRegistry;
 
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
+import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
+import com.android.dx.mockito.inline.extended.ExtendedMockito;
+import com.android.server.LocalManagerRegistry;
+import com.android.server.SystemService;
 
+import org.mockito.MockitoSession;
+
+import java.io.IOException;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 public class ContactsIndexerMaintenanceTest {
-
     private static final int DEFAULT_USER_ID = 0;
 
     private Context mContext = ApplicationProvider.getApplicationContext();
     private Context mContextWrapper;
+    private ContactsIndexerMaintenanceService mContactsIndexerMaintenanceService;
+    private MockitoSession session;
     @Mock private JobScheduler mockJobScheduler;
 
     @Before
@@ -69,6 +86,16 @@ public class ContactsIndexerMaintenanceTest {
                 return getSystemService(name);
             }
         };
+        mContactsIndexerMaintenanceService = spy(new ContactsIndexerMaintenanceService());
+        doNothing().when(mContactsIndexerMaintenanceService).jobFinished(any(), anyBoolean());
+        session = ExtendedMockito.mockitoSession().
+                mockStatic(LocalManagerRegistry.class).
+                startMocking();
+    }
+
+    @After
+    public void tearDown() {
+        session.finishMocking();
     }
 
     @Test
@@ -171,6 +198,102 @@ public class ContactsIndexerMaintenanceTest {
         // This verify() uses the default count of 1 (equivalent to times(1)) to account for the
         // call to JobScheduler.schedule() above where the first JobInfo is captured.
         verify(mockJobScheduler).schedule(any(JobInfo.class));
+    }
+
+    @Test
+    public void testDoFullUpdateForUser_withInitializedLocalService_isSuccessful() {
+        ExtendedMockito.doReturn(Mockito.mock(ContactsIndexerManagerService.LocalService.class))
+                .when(() -> LocalManagerRegistry.getManager(
+                        ContactsIndexerManagerService.LocalService.class));
+        boolean updateSucceeded = mContactsIndexerMaintenanceService
+                .doFullUpdateForUser(mContextWrapper, null, 0,
+                        new CancellationSignal());
+        assertThat(updateSucceeded).isTrue();
+    }
+
+    @Test
+    public void testDoFullUpdateForUser_withUninitializedLocalService_failsGracefully() {
+        ExtendedMockito.doReturn(null)
+                .when(() -> LocalManagerRegistry.getManager(
+                        ContactsIndexerManagerService.LocalService.class));
+        boolean updateSucceeded = mContactsIndexerMaintenanceService
+                .doFullUpdateForUser(mContextWrapper, null, 0,
+                        new CancellationSignal());
+        assertThat(updateSucceeded).isFalse();
+    }
+
+    @Test
+    public void testDoFullUpdateForUser_onEncounteringException_failsGracefully() {
+        ContactsIndexerManagerService.LocalService mockService = Mockito.mock(
+                ContactsIndexerManagerService.LocalService.class);
+        doThrow(RuntimeException.class).when(mockService).doFullUpdateForUser(anyInt(), any());
+        ExtendedMockito.doReturn(mockService)
+                .when(() -> LocalManagerRegistry.getManager(
+                        ContactsIndexerManagerService.LocalService.class));
+
+        boolean updateSucceeded = mContactsIndexerMaintenanceService
+                .doFullUpdateForUser(mContextWrapper, null, 0,
+                        new CancellationSignal());
+
+        assertThat(updateSucceeded).isFalse();
+    }
+
+    @Test
+    public void testDoFullUpdateForUser_cancelsBackgroundJob_whenCiDisabled() {
+        ExtendedMockito.doReturn(null)
+                .when(() -> LocalManagerRegistry.getManager(
+                        ContactsIndexerManagerService.LocalService.class));
+
+        mContactsIndexerMaintenanceService
+                .doFullUpdateForUser(mContextWrapper, null, 0,
+                        new CancellationSignal());
+
+        verify(mockJobScheduler).cancel(MIN_INDEXER_JOB_ID);
+    }
+
+    @Test
+    public void testDoFullUpdateForUser_doesNotCancelBackgroundJob_whenCiEnabled() {
+        ExtendedMockito.doReturn(Mockito.mock(ContactsIndexerManagerService.LocalService.class))
+                .when(() -> LocalManagerRegistry.getManager(
+                        ContactsIndexerManagerService.LocalService.class));
+
+        mContactsIndexerMaintenanceService
+                .doFullUpdateForUser(mContextWrapper, null, 0,
+                        new CancellationSignal());
+
+        verifyZeroInteractions(mockJobScheduler);
+    }
+
+    @Test
+    public void testCancelPendingFullUpdateJob_succeeds() throws IOException {
+        UserInfo userInfo = new UserInfo(DEFAULT_USER_ID, /*name=*/ "default", /*flags=*/ 0);
+        SystemService.TargetUser user = new SystemService.TargetUser(userInfo);
+        UiAutomation uiAutomation = InstrumentationRegistry.getInstrumentation().getUiAutomation();
+        try {
+            uiAutomation.adoptShellPermissionIdentity(RECEIVE_BOOT_COMPLETED);
+            ContactsIndexerMaintenanceService.scheduleFullUpdateJob(mContext, DEFAULT_USER_ID,
+                    /*periodic=*/ true, /*intervalMillis=*/ TimeUnit.DAYS.toMillis(7));
+        } finally {
+            uiAutomation.dropShellPermissionIdentity();
+        }
+        JobInfo jobInfo = getPendingFullUpdateJob(DEFAULT_USER_ID);
+        assertThat(jobInfo).isNotNull();
+
+        ContactsIndexerMaintenanceService.cancelFullUpdateJobIfScheduled(mContext,
+                user.getUserHandle());
+
+        jobInfo = getPendingFullUpdateJob(DEFAULT_USER_ID);
+        assertThat(jobInfo).isNull();
+    }
+
+    @Test
+    public void test_onStartJob_handlesExceptionGracefully() {
+        mContactsIndexerMaintenanceService.onStartJob(null);
+    }
+
+    @Test
+    public void test_onStopJob_handlesExceptionGracefully() {
+        mContactsIndexerMaintenanceService.onStopJob(null);
     }
 
     @Nullable

@@ -105,9 +105,15 @@ public class SupplicantP2pIfaceHalHidlImplTest extends WifiBaseTest {
 
     final String mIfaceName = "virtual_interface_name";
     final String mSsid = "\"SSID\"";
-    final ArrayList<Byte> mSsidBytes = new ArrayList<Byte>() {{
-            add((byte) 'S'); add((byte) 'S'); add((byte) 'I'); add((byte) 'D');
-        }};
+    private static ArrayList<Byte> createSsidBytes() {
+        ArrayList<Byte> result = new ArrayList<Byte>();
+        result.add((byte) 'S');
+        result.add((byte) 'S');
+        result.add((byte) 'I');
+        result.add((byte) 'D');
+        return result;
+    }
+    final ArrayList<Byte> mSsidBytes = createSsidBytes();
     final String mPeerMacAddress = "00:11:22:33:44:55";
     final byte[] mPeerMacAddressBytes = { 0x00, 0x11, 0x22, 0x33, 0x44, 0x55 };
     final String mGroupOwnerMacAddress = "01:12:23:34:45:56";
@@ -142,12 +148,24 @@ public class SupplicantP2pIfaceHalHidlImplTest extends WifiBaseTest {
     final int mValidUpnpServiceVersion = 16;
     final String mValidUpnpServiceName = "serviceName";
     final String mValidBonjourService = "bonjour 30313233 34353637";
-    final ArrayList<Byte> mValidBonjourServiceRequest = new ArrayList<Byte>() {{
-            add((byte) '0'); add((byte) '1'); add((byte) '2'); add((byte) '3');
-        }};
-    final ArrayList<Byte> mValidBonjourServiceResponse = new ArrayList<Byte>() {{
-            add((byte) '4'); add((byte) '5'); add((byte) '6'); add((byte) '7');
-        }};
+    private static ArrayList<Byte> createValidBonjourServiceRequest() {
+        ArrayList<Byte> result = new ArrayList<Byte>();
+        result.add((byte) '0');
+        result.add((byte) '1');
+        result.add((byte) '2');
+        result.add((byte) '3');
+        return result;
+    }
+    final ArrayList<Byte> mValidBonjourServiceRequest = createValidBonjourServiceRequest();
+    private static ArrayList<Byte> createValidBonjourServiceResponse() {
+        ArrayList<Byte> result = new ArrayList<Byte>();
+        result.add((byte) '4');
+        result.add((byte) '5');
+        result.add((byte) '6');
+        result.add((byte) '7');
+        return result;
+    }
+    final ArrayList<Byte> mValidBonjourServiceResponse = createValidBonjourServiceResponse();
 
     // variables for groupAdd with config
     final String mNetworkName = "DIRECT-xy-Hello";
@@ -2614,10 +2632,9 @@ public class SupplicantP2pIfaceHalHidlImplTest extends WifiBaseTest {
 
         // Convert these to long to help with comparisons.
         ArrayList<byte[]> clients = capturedClients.getValue();
-        ArrayList<Long> expectedClients = new ArrayList<Long>() {{
-                add(NativeUtil.macAddressToLong(mGroupOwnerMacAddressBytes));
-                add(NativeUtil.macAddressToLong(mPeerMacAddressBytes));
-            }};
+        List<Long> expectedClients = List.of(
+                NativeUtil.macAddressToLong(mGroupOwnerMacAddressBytes),
+                NativeUtil.macAddressToLong(mPeerMacAddressBytes));
         ArrayList<Long> receivedClients = new ArrayList<Long>();
         for (byte[] client : clients) {
             receivedClients.add(NativeUtil.macAddressToLong(client));
@@ -2675,10 +2692,9 @@ public class SupplicantP2pIfaceHalHidlImplTest extends WifiBaseTest {
                 .getNetwork(anyInt(), any(ISupplicantP2pIface.getNetworkCallback.class));
         doAnswer(new AnswerWithArguments() {
             public void answer(ISupplicantP2pNetwork.getClientListCallback cb) {
-                ArrayList<byte[]> clients = new ArrayList<byte[]>() {{
-                        add(mGroupOwnerMacAddressBytes);
-                        add(mPeerMacAddressBytes);
-                    }};
+                ArrayList<byte[]> clients = new ArrayList<>();
+                clients.add(mGroupOwnerMacAddressBytes);
+                clients.add(mPeerMacAddressBytes);
                 cb.onValues(mStatusSuccess, clients);
                 return;
             }
@@ -2712,10 +2728,9 @@ public class SupplicantP2pIfaceHalHidlImplTest extends WifiBaseTest {
                 .getNetwork(anyInt(), any(ISupplicantP2pIface.getNetworkCallback.class));
         doAnswer(new AnswerWithArguments() {
             public void answer(ISupplicantP2pNetwork.getClientListCallback cb) {
-                ArrayList<byte[]> clients = new ArrayList<byte[]>() {{
-                        add(mGroupOwnerMacAddressBytes);
-                        add(mPeerMacAddressBytes);
-                    }};
+                ArrayList<byte[]> clients = new ArrayList<>();
+                clients.add(mGroupOwnerMacAddressBytes);
+                clients.add(mPeerMacAddressBytes);
                 cb.onValues(mStatusSuccess, clients);
                 return;
             }

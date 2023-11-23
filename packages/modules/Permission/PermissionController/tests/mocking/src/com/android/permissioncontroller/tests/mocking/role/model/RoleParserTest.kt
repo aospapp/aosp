@@ -18,12 +18,22 @@ package com.android.permissioncontroller.tests.mocking.role.model
 
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
-import com.android.permissioncontroller.role.model.RoleParser
+import com.android.permissioncontroller.role.model.RoleParserInitializer
+import com.android.role.controller.model.RoleParser
+import org.junit.BeforeClass
 import org.junit.Test
 import org.junit.runner.RunWith
 
 @RunWith(AndroidJUnit4::class)
 class RoleParserTest {
+    companion object {
+        @BeforeClass
+        @JvmStatic
+        fun setupBeforeClass() {
+            RoleParserInitializer.initialize()
+        }
+    }
+
     private val targetContext = InstrumentationRegistry.getInstrumentation().getTargetContext()
 
     @Test

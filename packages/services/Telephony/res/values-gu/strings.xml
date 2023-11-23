@@ -133,6 +133,7 @@
     <string name="cdma_call_waiting_in_ims_off" msgid="1099246114368636334">"IMS હેઠળ CDMA કૉલ પ્રતીક્ષા બંધ છે"</string>
     <string name="updating_title" msgid="6130548922615719689">"કૉલ સેટિંગ"</string>
     <string name="call_settings_admin_user_only" msgid="7238947387649986286">"કૉલ સેટિંગને ફક્ત ઍડમિન વપરાશકર્તા દ્વારા જ બદલી શકાય છે."</string>
+    <string name="phone_account_settings_user_restriction" msgid="9142685151087208396">"ફોન એકાઉન્ટના સેટિંગને ફક્ત ઍડમિન અથવા ઑફિસના વપરાશકર્તા જ બદલી શકે છે."</string>
     <string name="call_settings_with_label" msgid="8460230435361579511">"સેટિંગ (<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
     <string name="error_updating_title" msgid="2024290892676808965">"કૉલ સેટિંગની ભૂલ"</string>
     <string name="reading_settings" msgid="1605904432450871183">"સેટિંગ વાંચી રહ્યાં છે…"</string>
@@ -556,6 +557,7 @@
     <string name="incall_error_supp_service_hold" msgid="8535056414643540997">"કૉલ્સને હોલ્ડ કરી શકતાં નથી."</string>
     <string name="incall_error_wfc_only_no_wireless_network" msgid="5860742792811400109">"કૉલ કરવા માટે વાયરલેસ નેટવર્કથી કનેક્ટ કરો."</string>
     <string name="incall_error_promote_wfc" msgid="9164896813931363415">"કૉલ કરવા માટે Wi-Fi કૉલિંગ સક્ષમ કરો."</string>
+    <string name="incall_error_satellite_enabled" msgid="1936541518147323016">"કૉલ કરવા માટે ઉપગ્રહ મોડ બંધ કરો."</string>
     <string name="emergency_information_hint" msgid="9208897544917793012">"ઇમર્જન્સીની માહિતી"</string>
     <string name="emergency_information_owner_hint" msgid="6256909888049185316">"માલિક"</string>
     <string name="emergency_information_confirm_hint" msgid="5109017615894918914">"માહિતી જોવા માટે ફરીથી ટૅપ કરો"</string>
@@ -713,6 +715,7 @@
     <string name="clh_callFailed_powerOff_txt" msgid="8279934912560765361">"એરપ્લેન મોડ ચાલુ છે"</string>
     <string name="clh_callFailed_simError_txt" msgid="5128538525762326413">"સિમ કાર્ડ ઍક્સેસ કરી શકતાં નથી"</string>
     <string name="clh_incall_error_out_of_service_txt" msgid="2736010617446749869">"મોબાઇલ નેટવર્ક ઉપલબ્ધ નથી"</string>
+    <string name="clh_callFailed_satelliteEnabled_txt" msgid="1675517238240377396">"ઉપગ્રહ મોડ ચાલુ છે"</string>
     <string name="clh_callFailed_unassigned_number_txt" msgid="141967660286695682">"તમે જે ફોન નંબર ડાયલ કરવાનો પ્રયાસ કરી રહ્યાં છો, તેની સમસ્યા. ભૂલનો કોડ 1."</string>
     <string name="clh_callFailed_no_route_to_destination_txt" msgid="4805015149822352308">"કૉલ પૂર્ણ થઈ શક્યો નથી. ભૂલનો કોડ 3."</string>
     <string name="clh_callFailed_channel_unacceptable_txt" msgid="4062754579408613021">"કૉલ પૂર્ણ થઈ શક્યો નથી. ભૂલનો કોડ 6."</string>
@@ -837,6 +840,7 @@
     <string name="dsds_dialog_cancel" msgid="3245958947099586655">"રદ કરો"</string>
     <string name="removable_esim_string" msgid="7931369811671787649">"કાઢી નાખી શકાય એવા ઇ-સિમ કાર્ડને ડિફૉલ્ટ તરીકે સેટ કરો"</string>
     <string name="radio_info_radio_power" msgid="8805595022160471587">"મોબાઇલ રેડિયો પાવર"</string>
+    <string name="simulate_out_of_service_string" msgid="7787925611727597193">"\'સેવા ઉપલબ્ધ નથી\' મોડ સિમ્યુલેટ કરો (માત્ર ડિબગ બિલ્ડ માટે)"</string>
     <string name="radioInfo_menu_viewADN" msgid="4533179730908559846">"સિમમાં સરનામા પુસ્તિકા જુઓ"</string>
     <string name="radioInfo_menu_viewFDN" msgid="1847236480527032061">"ફિક્સ્ડ ડાયલિંગ નંબર જુઓ"</string>
     <string name="radioInfo_menu_viewSDN" msgid="2613431584522392842">"સર્વિસ ડાયલિંગ નંબર જુઓ"</string>
@@ -861,6 +865,7 @@
     <string name="radioInfo_data_connected" msgid="7637335645634239508">"કનેક્ટેડ"</string>
     <string name="radioInfo_data_suspended" msgid="8695262782642002785">"સસ્પેન્ડ કરી"</string>
     <string name="radioInfo_unknown" msgid="5401423738500672850">"અજાણ"</string>
+    <string name="radioInfo_imei_primary" msgid="5948747378637224400">"પ્રાથમિક"</string>
     <string name="radioInfo_display_packets" msgid="6794302192441084157">"pkts"</string>
     <string name="radioInfo_display_bytes" msgid="7701006329222413797">"બાઇટ"</string>
     <string name="radioInfo_display_dbm" msgid="7491944975710865703">"dBm"</string>
@@ -887,10 +892,12 @@
     <string name="radio_info_ppp_sent_label" msgid="6542208429356199695">"ડેટા મોકલ્યો:"</string>
     <string name="radio_info_message_waiting_label" msgid="1886549432566952078">"સંદેશ ઉપલબ્ધ છે:"</string>
     <string name="radio_info_phone_number_label" msgid="2533852539562512203">"ફોન નંબર:"</string>
-    <string name="radio_info_band_mode_label" msgid="23480556225515290">"રેડિયો બૅન્ડ પસંદ કરો"</string>
     <string name="radio_info_voice_network_type_label" msgid="2395347336419593265">"વૉઇસ નેટવર્ક પ્રકાર:"</string>
     <string name="radio_info_data_network_type_label" msgid="8886597029237501929">"ડેટા નેટવર્કનો પ્રકાર:"</string>
     <string name="radio_info_override_network_type_label" msgid="4176280017221092005">"નેટવર્કનો પ્રકાર ઓવરરાઇડ કરો:"</string>
+    <string name="radio_info_voice_raw_registration_state_label" msgid="2822988327145825128">"Voice ડેટાનું મૂળભૂત રજિસ્ટ્રેશન સ્ટેટસ:"</string>
+    <string name="radio_info_data_raw_registration_state_label" msgid="2895895513822604539">"ડેટાનું મૂળભૂત રજિસ્ટ્રેશન સ્ટેટસ:"</string>
+    <string name="radio_info_wlan_data_raw_registration_state_label" msgid="6396894835757296612">"WLAN ડેટાનું મૂળભૂત રજિસ્ટ્રેશન સ્ટેટસ:"</string>
     <string name="phone_index_label" msgid="6222406512768964268">"ફોનની અનુક્રમણિકા પસંદ કરો"</string>
     <string name="radio_info_set_perferred_label" msgid="7408131389363136210">"પસંદગીનો નેટવર્ક પ્રકાર સેટ કરો:"</string>
     <string name="radio_info_ping_hostname_v4" msgid="6951237885381284790">"હોસ્ટનું નામ પિંગ કરો(www.google.com) IPv4:"</string>
@@ -919,4 +926,9 @@
     <string name="call_quality_notification_bluetooth_details" msgid="8348950331707346711">"તમારા બ્લૂટૂથનું સિગ્નલ નબળું છે. સ્પીકરફોન પર સ્વિચ કરવાનો પ્રયાસ કરો."</string>
     <string name="call_quality_notification_name" msgid="3476828289553948830">"કૉલની ક્વૉલિટી માટે નોટિફિકેશન"</string>
     <string name="notification_channel_sip_account" msgid="1261816025156179637">"ટાળવામાં આવેલા SIP એકાઉન્ટ"</string>
+    <string name="send_from_work_profile_title" msgid="7044759579507604732">"કોઈ વ્યક્તિગત ઍપ પરથી મેસેજ મોકલવાની પરવાનગી નથી"</string>
+    <string name="send_from_work_profile_description" msgid="2174402508727161974">"તમારી સંસ્થા તમને માત્ર ઑફિસ માટેની ઍપ પરથી મેસેજ મોકલવાની મંજૂરી આપે છે"</string>
+    <string name="send_from_work_profile_cancel" msgid="177746511030381711">"રદ કરો"</string>
+    <string name="send_from_work_profile_action_str" msgid="6892775562934243337">"ઑફિસની પ્રોફાઇલ પર સ્વિચ કરો"</string>
+    <string name="install_messages_on_work_profile_action_str" msgid="3773440996395152903">"ઑફિસ માટે કોઈ મેસેજિંગ ઍપ ઇન્સ્ટૉલ કરો"</string>
 </resources>

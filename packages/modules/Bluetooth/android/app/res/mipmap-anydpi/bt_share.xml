@@ -16,7 +16,7 @@
 <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
   <foreground>
     <inset
-      android:drawable="@*android:drawable/ic_bluetooth_share_icon"
+      android:drawable="@drawable/ic_bluetooth_share_icon"
       android:insetTop="25%"
       android:insetRight="25%"
       android:insetBottom="25%"

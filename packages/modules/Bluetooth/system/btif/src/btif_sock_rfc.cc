@@ -31,6 +31,7 @@
 #include "btif/include/btif_metrics_logging.h"
 /* The JV interface can have only one user, hence we need to call a few
  * L2CAP functions from this file. */
+#include "btif/include/btif_sock.h"
 #include "btif/include/btif_sock_l2cap.h"
 #include "btif/include/btif_sock_sdp.h"
 #include "btif/include/btif_sock_thread.h"
@@ -264,6 +265,20 @@ static rfc_slot_t* create_srv_accept_rfc_slot(rfc_slot_t* srv_rs,
   return accept_rs;
 }
 
+bt_status_t btsock_rfc_control_req(uint8_t dlci, const RawAddress& bd_addr,
+                                   uint8_t modem_signal, uint8_t break_signal,
+                                   uint8_t discard_buffers,
+                                   uint8_t break_signal_seq, bool fc) {
+  int status =
+      RFCOMM_ControlReqFromBTSOCK(dlci, bd_addr, modem_signal, break_signal,
+                                  discard_buffers, break_signal_seq, fc);
+  if (status != PORT_SUCCESS) {
+    LOG_WARN("failed to send control parameters, status=%d", status);
+    return BT_STATUS_FAIL;
+  }
+  return BT_STATUS_SUCCESS;
+}
+
 bt_status_t btsock_rfc_listen(const char* service_name,
                               const Uuid* service_uuid, int channel,
                               int* sock_fd, int flags, int app_uid) {
@@ -404,6 +419,10 @@ static void cleanup_rfc_slot(rfc_slot_t* slot) {
   if (slot->fd != INVALID_FD) {
     shutdown(slot->fd, SHUT_RDWR);
     close(slot->fd);
+    btif_sock_connection_logger(
+        SOCKET_CONNECTION_STATE_DISCONNECTED,
+        slot->f.server ? SOCKET_ROLE_LISTEN : SOCKET_ROLE_CONNECTION,
+        slot->addr);
     log_socket_connection_state(
         slot->addr, slot->id, BTSOCK_RFCOMM,
         android::bluetooth::SOCKET_CONNECTION_STATE_DISCONNECTED,
@@ -485,6 +504,10 @@ static void on_srv_rfc_listen_started(tBTA_JV_RFCOMM_START* p_start,
 
   if (p_start->status == BTA_JV_SUCCESS) {
     slot->rfc_handle = p_start->handle;
+    btif_sock_connection_logger(
+        SOCKET_CONNECTION_STATE_LISTENING,
+        slot->f.server ? SOCKET_ROLE_LISTEN : SOCKET_ROLE_CONNECTION,
+        slot->addr);
     log_socket_connection_state(
         slot->addr, slot->id, BTSOCK_RFCOMM,
         android::bluetooth::SocketConnectionstateEnum::
@@ -508,6 +531,10 @@ static uint32_t on_srv_rfc_connect(tBTA_JV_RFCOMM_SRV_OPEN* p_open,
       srv_rs, &p_open->rem_bda, p_open->handle, p_open->new_listen_handle);
   if (!accept_rs) return 0;
 
+  btif_sock_connection_logger(
+      SOCKET_CONNECTION_STATE_CONNECTED,
+      accept_rs->f.server ? SOCKET_ROLE_LISTEN : SOCKET_ROLE_CONNECTION,
+      accept_rs->addr);
   log_socket_connection_state(
       accept_rs->addr, accept_rs->id, BTSOCK_RFCOMM,
       android::bluetooth::SOCKET_CONNECTION_STATE_CONNECTED, 0, 0,
@@ -540,6 +567,9 @@ static void on_cli_rfc_connect(tBTA_JV_RFCOMM_OPEN* p_open, uint32_t id) {
   slot->rfc_port_handle = BTA_JvRfcommGetPortHdl(p_open->handle);
   slot->addr = p_open->rem_bda;
 
+  btif_sock_connection_logger(
+      SOCKET_CONNECTION_STATE_CONNECTED,
+      slot->f.server ? SOCKET_ROLE_LISTEN : SOCKET_ROLE_CONNECTION, slot->addr);
   log_socket_connection_state(
       slot->addr, slot->id, BTSOCK_RFCOMM,
       android::bluetooth::SOCKET_CONNECTION_STATE_CONNECTED, 0, 0,

@@ -18,8 +18,6 @@ package com.android.safetycenter.resources;
 
 import static java.util.Objects.requireNonNull;
 
-import android.annotation.NonNull;
-import android.annotation.Nullable;
 import android.content.Context;
 import android.content.ContextWrapper;
 import android.content.Intent;
@@ -27,9 +25,14 @@ import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
 import android.content.res.AssetManager;
 import android.content.res.Resources;
+import android.graphics.drawable.Drawable;
+import android.graphics.drawable.Icon;
 import android.util.Log;
 
-import com.android.internal.annotations.VisibleForTesting;
+import androidx.annotation.ColorInt;
+import androidx.annotation.Nullable;
+import androidx.annotation.StringRes;
+import androidx.annotation.VisibleForTesting;
 
 import java.io.File;
 import java.io.InputStream;
@@ -50,8 +53,7 @@ public class SafetyCenterResourcesContext extends ContextWrapper {
     private static final String APEX_MODULE_NAME = "com.android.permission";
 
     /**
-     * The path where the Permission apex is mounted.
-     * Current value = "/apex/com.android.permission"
+     * The path where the Permission apex is mounted. Current value = "/apex/com.android.permission"
      */
     private static final String APEX_MODULE_PATH =
             new File("/apex", APEX_MODULE_NAME).getAbsolutePath();
@@ -60,45 +62,80 @@ public class SafetyCenterResourcesContext extends ContextWrapper {
     private static final String CONFIG_NAME = "safety_center_config";
 
     /** Intent action that is used to identify the Safety Center resources APK */
-    @NonNull
     private final String mResourcesApkAction;
 
     /** The path where the Safety Center resources APK is expected to be installed */
-    @Nullable
-    private final String mResourcesApkPath;
+    @Nullable private final String mResourcesApkPath;
 
     /** Raw XML config resource name */
-    @NonNull
     private final String mConfigName;
 
     /** Specific flags used for retrieving resolve info */
     private final int mFlags;
 
-    // Cached package name and resources from the resources APK
-    @Nullable
-    private String mResourcesApkPkgName;
-    @Nullable
-    private AssetManager mAssetsFromApk;
-    @Nullable
-    private Resources mResourcesFromApk;
-    @Nullable
-    private Resources.Theme mThemeFromApk;
+    /**
+     * Whether we should fallback with an empty string when calling {@link #getStringByName} for a
+     * string resource that does not exist.
+     */
+    private final boolean mShouldFallbackIfNamedResourceNotFound;
 
-    public SafetyCenterResourcesContext(@NonNull Context contextBase) {
-        super(contextBase);
-        mResourcesApkAction = RESOURCES_APK_ACTION;
-        mResourcesApkPath = APEX_MODULE_PATH;
-        mConfigName = CONFIG_NAME;
-        mFlags = PackageManager.MATCH_SYSTEM_ONLY;
+    // Cached package name and resources from the resources APK
+    @Nullable private String mResourcesApkPkgName;
+    @Nullable private AssetManager mAssetsFromApk;
+    @Nullable private Resources mResourcesFromApk;
+    @Nullable private Resources.Theme mThemeFromApk;
+
+    public SafetyCenterResourcesContext(Context contextBase) {
+        this(contextBase, /* shouldFallbackIfNamedResourceNotFound */ true);
     }
 
-    SafetyCenterResourcesContext(@NonNull Context contextBase, @NonNull String resourcesApkAction,
-            @Nullable String resourcesApkPath, @NonNull String configName, int flags) {
+    private SafetyCenterResourcesContext(
+            Context contextBase, boolean shouldFallbackIfNamedResourceNotFound) {
+        this(
+                contextBase,
+                RESOURCES_APK_ACTION,
+                APEX_MODULE_PATH,
+                CONFIG_NAME,
+                PackageManager.MATCH_SYSTEM_ONLY,
+                shouldFallbackIfNamedResourceNotFound);
+    }
+
+    @VisibleForTesting
+    SafetyCenterResourcesContext(
+            Context contextBase,
+            String resourcesApkAction,
+            @Nullable String resourcesApkPath,
+            String configName,
+            int flags,
+            boolean shouldFallbackIfNamedResourceNotFound) {
         super(contextBase);
         mResourcesApkAction = requireNonNull(resourcesApkAction);
         mResourcesApkPath = resourcesApkPath;
         mConfigName = requireNonNull(configName);
         mFlags = flags;
+        mShouldFallbackIfNamedResourceNotFound = shouldFallbackIfNamedResourceNotFound;
+    }
+
+    /** Creates a new {@link SafetyCenterResourcesContext} for testing. */
+    @VisibleForTesting
+    public static SafetyCenterResourcesContext forTests(Context contextBase) {
+        return new SafetyCenterResourcesContext(
+                contextBase, /* shouldFallbackIfNamedResourceNotFound */ false);
+    }
+
+    /**
+     * Initializes the {@link Context}'s {@link AssetManager}, {@link Resources} and {@link
+     * Resources.Theme}.
+     *
+     * <p>This call is optional as this can also be lazily instantiated. This is useful to ensure
+     * that resources are loaded prior to interacting with the {@link SafetyCenterResourcesContext},
+     * as this code needs to run for the same user as the provided base {@link Context}; which may
+     * not be the case with a binder call.
+     */
+    public void init() {
+        mAssetsFromApk = getAssets();
+        mResourcesFromApk = getResources();
+        mThemeFromApk = getTheme();
     }
 
     /** Get the package name of the Safety Center resources APK. */
@@ -109,8 +146,8 @@ public class SafetyCenterResourcesContext extends ContextWrapper {
             return mResourcesApkPkgName;
         }
 
-        List<ResolveInfo> resolveInfos = getPackageManager().queryIntentActivities(
-                new Intent(mResourcesApkAction), mFlags);
+        List<ResolveInfo> resolveInfos =
+                getPackageManager().queryIntentActivities(new Intent(mResourcesApkAction), mFlags);
 
         if (resolveInfos.size() > 1) {
             // multiple apps found, log a warning, but continue
@@ -118,9 +155,12 @@ public class SafetyCenterResourcesContext extends ContextWrapper {
             final int resolveInfosSize = resolveInfos.size();
             for (int i = 0; i < resolveInfosSize; i++) {
                 ResolveInfo resolveInfo = resolveInfos.get(i);
-                Log.w(TAG, String.format("- pkg:%s at:%s",
-                        resolveInfo.activityInfo.applicationInfo.packageName,
-                        resolveInfo.activityInfo.applicationInfo.sourceDir));
+                Log.w(
+                        TAG,
+                        String.format(
+                                "- pkg:%s at:%s",
+                                resolveInfo.activityInfo.applicationInfo.packageName,
+                                resolveInfo.activityInfo.applicationInfo.sourceDir));
             }
         }
 
@@ -131,7 +171,7 @@ public class SafetyCenterResourcesContext extends ContextWrapper {
             ResolveInfo resolveInfo = resolveInfos.get(i);
             if (mResourcesApkPath != null
                     && !resolveInfo.activityInfo.applicationInfo.sourceDir.startsWith(
-                    mResourcesApkPath)) {
+                            mResourcesApkPath)) {
                 // skip apps that don't live in the Permission apex
                 continue;
             }
@@ -141,7 +181,8 @@ public class SafetyCenterResourcesContext extends ContextWrapper {
 
         if (info == null) {
             // Resource APK not loaded yet, print a stack trace to see where this is called from
-            Log.e(TAG,
+            Log.e(
+                    TAG,
                     "Attempted to fetch resources before Safety Center resources APK is loaded!",
                     new IllegalStateException());
             return null;
@@ -153,7 +194,7 @@ public class SafetyCenterResourcesContext extends ContextWrapper {
     }
 
     /**
-     * Get the raw XML resource representing the Safety Center configuration from the Safety Center
+     * Gets the raw XML resource representing the Safety Center configuration from the Safety Center
      * resources APK.
      */
     @Nullable
@@ -173,6 +214,81 @@ public class SafetyCenterResourcesContext extends ContextWrapper {
         return resources.openRawResource(id);
     }
 
+    /**
+     * Returns an optional {@link String} resource from the given {@code stringId}.
+     *
+     * <p>Returns {@code null} if {@code stringId} is equal to {@link Resources#ID_NULL}. Otherwise,
+     * throws a {@link Resources.NotFoundException} if the resource cannot be accessed.
+     */
+    @Nullable
+    public String getOptionalString(@StringRes int stringId) {
+        if (stringId == Resources.ID_NULL) {
+            return null;
+        }
+        return getString(stringId);
+    }
+
+    /** Same as {@link #getOptionalString(int)} but with the given {@code formatArgs}. */
+    @Nullable
+    public String getOptionalString(@StringRes int stringId, Object... formatArgs) {
+        if (stringId == Resources.ID_NULL) {
+            return null;
+        }
+        return getString(stringId, formatArgs);
+    }
+
+    /** Same as {@link #getOptionalString(int)} but using the string name rather than ID. */
+    @Nullable
+    public String getOptionalStringByName(String name) {
+        return getOptionalString(getStringRes(name));
+    }
+
+    /**
+     * Gets a string resource by name from the Safety Center resources APK, and returns an empty
+     * string if the resource does not exist (or throws a {@link Resources.NotFoundException} if
+     * {@link #mShouldFallbackIfNamedResourceNotFound} is {@code false}).
+     */
+    public String getStringByName(String name) {
+        int id = getStringRes(name);
+        return maybeFallbackIfNamedResourceIsNull(name, getOptionalString(id));
+    }
+
+    /** Same as {@link #getStringByName(String)} but with the given {@code formatArgs}. */
+    public String getStringByName(String name, Object... formatArgs) {
+        int id = getStringRes(name);
+        return maybeFallbackIfNamedResourceIsNull(name, getOptionalString(id, formatArgs));
+    }
+
+    private String maybeFallbackIfNamedResourceIsNull(String name, @Nullable String value) {
+        if (value != null) {
+            return value;
+        }
+        if (!mShouldFallbackIfNamedResourceNotFound) {
+            throw new Resources.NotFoundException();
+        }
+        Log.w(TAG, "String resource " + name + " not found");
+        return "";
+    }
+
+    @StringRes
+    private int getStringRes(String name) {
+        return getResId(name, "string");
+    }
+
+    private int getResId(String name, String type) {
+        String resourcePkgName = getResourcesApkPkgName();
+        if (resourcePkgName == null) {
+            return Resources.ID_NULL;
+        }
+        Resources resources = getResources();
+        if (resources == null) {
+            return Resources.ID_NULL;
+        }
+        // TODO(b/227738283): profile the performance of this operation and consider adding caching
+        //  or finding some alternative solution.
+        return resources.getIdentifier(name, type, resourcePkgName);
+    }
+
     @Nullable
     private Context getResourcesApkContext() {
         String name = getResourcesApkPkgName();
@@ -189,6 +305,7 @@ public class SafetyCenterResourcesContext extends ContextWrapper {
 
     /** Retrieve assets held in the Safety Center resources APK. */
     @Override
+    @Nullable
     public AssetManager getAssets() {
         if (mAssetsFromApk == null) {
             Context resourcesApkContext = getResourcesApkContext();
@@ -201,6 +318,7 @@ public class SafetyCenterResourcesContext extends ContextWrapper {
 
     /** Retrieve resources held in the Safety Center resources APK. */
     @Override
+    @Nullable
     public Resources getResources() {
         if (mResourcesFromApk == null) {
             Context resourcesApkContext = getResourcesApkContext();
@@ -213,6 +331,7 @@ public class SafetyCenterResourcesContext extends ContextWrapper {
 
     /** Retrieve theme held in the Safety Center resources APK. */
     @Override
+    @Nullable
     public Resources.Theme getTheme() {
         if (mThemeFromApk == null) {
             Context resourcesApkContext = getResourcesApkContext();
@@ -221,5 +340,64 @@ public class SafetyCenterResourcesContext extends ContextWrapper {
             }
         }
         return mThemeFromApk;
+    }
+
+    /**
+     * Gets a drawable resource by name from the Safety Center resources APK. Returns a null
+     * drawable if the resource does not exist (or throws a {@link Resources.NotFoundException} if
+     * {@link #mShouldFallbackIfNamedResourceNotFound} is {@code false}).
+     *
+     * @param name the identifier for this drawable resource
+     * @param theme the theme used to style the drawable attributes, may be {@code null}
+     */
+    @Nullable
+    public Drawable getDrawableByName(String name, @Nullable Resources.Theme theme) {
+        int resId = getResId(name, "drawable");
+        if (resId != Resources.ID_NULL) {
+            return getResources().getDrawable(resId, theme);
+        }
+
+        if (!mShouldFallbackIfNamedResourceNotFound) {
+            throw new Resources.NotFoundException();
+        }
+
+        Log.w(TAG, "Drawable resource " + name + " not found");
+        return null;
+    }
+
+    /**
+     * Returns an {@link Icon} instance containing a drawable with the given name. If no such
+     * drawable exists, returns {@code null} or throws {@link Resources.NotFoundException}.
+     */
+    @Nullable
+    public Icon getIconByDrawableName(String drawableResName) {
+        int resId = getResId(drawableResName, "drawable");
+        if (resId != Resources.ID_NULL) {
+            return Icon.createWithResource(getResourcesApkPkgName(), resId);
+        }
+
+        if (!mShouldFallbackIfNamedResourceNotFound) {
+            throw new Resources.NotFoundException();
+        }
+
+        Log.w(TAG, "Drawable resource " + drawableResName + " not found");
+        return null;
+    }
+
+    /** Gets a color by resource name */
+    @ColorInt
+    @Nullable
+    public Integer getColorByName(String name) {
+        int resId = getResId(name, "color");
+        if (resId != Resources.ID_NULL) {
+            return getResources().getColor(resId, getTheme());
+        }
+
+        if (!mShouldFallbackIfNamedResourceNotFound) {
+            throw new Resources.NotFoundException();
+        }
+
+        Log.w(TAG, "Color resource " + name + " not found");
+        return null;
     }
 }

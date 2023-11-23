@@ -19,16 +19,24 @@ version = "0.0.1"
 edition = "2018"
 
 [dependencies]
-cxx = "*"
-env_logger = "*"
-grpcio = "*"
-lazy_static = "*"
-log = "*"
-nix = "*"
-tokio = { version = "*", features = ['bytes', 'macros', 'net', 'rt-multi-thread', 'time'] }
+cxx = "1.0"
+env_logger = "0.8"
+futures = "0.3.13"
+grpcio = "0.9"
+lazy_static = "1.4"
+log = "0.4"
+nix = "0.23"
+tokio = { version = "1.0", features = ['bytes', 'macros', 'net', 'rt-multi-thread', 'time'] }
 
 # Proc Macro dependency
-paste = "*"
+paste = "1.0"
+
+[dev-dependencies]
+tokio = { version = "1.0", features = ['bytes', 'macros', 'net', 'rt-multi-thread', 'time', 'sync'] }
 
 [lib]
 crate-type = ["rlib"]
+
+[features]
+default = ["keystore"]
+keystore = []

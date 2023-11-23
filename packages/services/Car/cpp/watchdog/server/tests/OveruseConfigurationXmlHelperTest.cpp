@@ -17,19 +17,19 @@
 #include "OveruseConfigurationTestUtils.h"
 #include "OveruseConfigurationXmlHelper.h"
 
+#include <aidl/android/automotive/watchdog/internal/ApplicationCategoryType.h>
+#include <aidl/android/automotive/watchdog/internal/ComponentType.h>
 #include <android-base/file.h>
 #include <android-base/result.h>
-#include <android/automotive/watchdog/internal/ApplicationCategoryType.h>
-#include <android/automotive/watchdog/internal/ComponentType.h>
 #include <gmock/gmock.h>
 
 namespace android {
 namespace automotive {
 namespace watchdog {
 
-using ::android::automotive::watchdog::internal::ApplicationCategoryType;
-using ::android::automotive::watchdog::internal::ComponentType;
-using ::android::automotive::watchdog::internal::ResourceOveruseConfiguration;
+using ::aidl::android::automotive::watchdog::internal::ApplicationCategoryType;
+using ::aidl::android::automotive::watchdog::internal::ComponentType;
+using ::aidl::android::automotive::watchdog::internal::ResourceOveruseConfiguration;
 
 namespace {
 
@@ -192,8 +192,6 @@ TEST(OveruseConfigurationXmlHelperTest, TestWriteXmlFileWithSystemConfiguration)
 
     ASSERT_RESULT_OK(OveruseConfigurationXmlHelper::writeXmlFile(expected, temporaryFile.path));
 
-    ALOGW("Wrote to file: %s", temporaryFile.path);
-
     auto actual = OveruseConfigurationXmlHelper::parseXmlFile(temporaryFile.path);
 
     ASSERT_RESULT_OK(actual);
@@ -240,8 +238,6 @@ TEST(OveruseConfigurationXmlHelperTest, TestWriteXmlFileWithVendorConfiguration)
 
     ASSERT_RESULT_OK(OveruseConfigurationXmlHelper::writeXmlFile(expected, temporaryFile.path));
 
-    ALOGW("Wrote to file: %s", temporaryFile.path);
-
     auto actual = OveruseConfigurationXmlHelper::parseXmlFile(temporaryFile.path);
 
     ASSERT_RESULT_OK(actual);
@@ -269,8 +265,6 @@ TEST(OveruseConfigurationXmlHelperTest, TestWriteXmlFileWithThirdPartyConfigurat
     ASSERT_NE(temporaryFile.fd, -1);
 
     ASSERT_RESULT_OK(OveruseConfigurationXmlHelper::writeXmlFile(expected, temporaryFile.path));
-
-    ALOGW("Wrote to file: %s", temporaryFile.path);
 
     auto actual = OveruseConfigurationXmlHelper::parseXmlFile(temporaryFile.path);
 

@@ -32,7 +32,6 @@
 
 #include "a2dp_sbc_decoder.h"
 #include "a2dp_sbc_encoder.h"
-#include "bt_utils.h"
 #include "embdrv/sbc/encoder/include/sbc_encoder.h"
 #include "osi/include/log.h"
 #include "osi/include/osi.h"
@@ -693,6 +692,11 @@ bool A2DP_BuildCodecHeaderSbc(UNUSED_ATTR const uint8_t* p_codec_info,
                               BT_HDR* p_buf, uint16_t frames_per_packet) {
   // this doesn't happen in real life, but keeps fuzzer happy
   if (p_buf->len - p_buf->offset < A2DP_SBC_MPL_HDR_LEN) {
+    return false;
+  }
+
+  // there is a 4-byte timestamp right following p_buf
+  if (p_buf->offset < 4 + A2DP_SBC_MPL_HDR_LEN) {
     return false;
   }
 

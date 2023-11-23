@@ -74,7 +74,7 @@ public:
     ::ndk::ScopedAStatus notify(const aidlevs::EvsEventDesc& event) override;
 
     explicit ImplV0(const ::android::sp<hidlevs::V1_0::IEvsCameraStream>& stream);
-    virtual ~ImplV0() {}
+    virtual ~ImplV0() { mStream = nullptr; }
 };
 
 class AidlCameraStream::ImplV1 final : public IHidlCameraStream {

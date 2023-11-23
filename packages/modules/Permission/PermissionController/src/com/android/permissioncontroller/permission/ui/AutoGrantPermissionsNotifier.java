@@ -30,6 +30,8 @@ import static android.os.UserHandle.getUserHandleForUid;
 
 import static com.android.permissioncontroller.Constants.ADMIN_AUTO_GRANTED_PERMISSIONS_ALERTING_NOTIFICATION_CHANNEL_ID;
 import static com.android.permissioncontroller.Constants.ADMIN_AUTO_GRANTED_PERMISSIONS_NOTIFICATION_CHANNEL_ID;
+import static com.android.permissioncontroller.Constants.ADMIN_AUTO_GRANTED_PERMISSIONS_NOTIFICATION_GROUP_ID;
+import static com.android.permissioncontroller.Constants.ADMIN_AUTO_GRANTED_PERMISSIONS_NOTIFICATION_SUMMARY_ID;
 import static com.android.permissioncontroller.Constants.EXTRA_SESSION_ID;
 import static com.android.permissioncontroller.Constants.PERMISSION_GRANTED_BY_ADMIN_NOTIFICATION_ID;
 import static com.android.permissioncontroller.permission.utils.Utils.getSystemServiceSafe;
@@ -154,14 +156,15 @@ public class AutoGrantPermissionsNotifier {
         int packageBasedRequestCode = mPackageInfo.packageName.hashCode();
 
         String title = mContext.getString(
-                R.string.auto_granted_location_permission_notification_title);
+                R.string.auto_granted_location_permission_notification_title, pkgLabel);
         String messageText = Utils.getEnterpriseString(mContext, LOCATION_AUTO_GRANTED_MESSAGE,
                 R.string.auto_granted_permission_notification_body, pkgLabel);
-        Notification.Builder b = (new Notification.Builder(mContext,
+        Notification.Builder notificationBuilder = (new Notification.Builder(mContext,
                 getNotificationChannelId(shouldNotifySilently))).setContentTitle(title)
                 .setContentText(messageText)
                 .setStyle(new Notification.BigTextStyle().bigText(messageText).setBigContentTitle(
                         title))
+                .setGroup(ADMIN_AUTO_GRANTED_PERMISSIONS_NOTIFICATION_GROUP_ID)
                 // NOTE: Different icons would be needed for different permissions.
                 .setSmallIcon(R.drawable.ic_pin_drop)
                 .setLargeIcon(pkgIconBmp)
@@ -174,8 +177,17 @@ public class AutoGrantPermissionsNotifier {
         if (appName != null) {
             Bundle extras = new Bundle();
             extras.putString(Notification.EXTRA_SUBSTITUTE_APP_NAME, appName.toString());
-            b.addExtras(extras);
+            notificationBuilder.addExtras(extras);
         }
+
+        String summaryTitle = mContext.getString(R.string.auto_granted_permissions);
+
+        Notification.Builder summaryNotificationBuilder = new Notification.Builder(mContext,
+                getNotificationChannelId(shouldNotifySilently))
+                .setContentTitle(summaryTitle)
+                .setSmallIcon(R.drawable.ic_pin_drop)
+                .setGroup(ADMIN_AUTO_GRANTED_PERMISSIONS_NOTIFICATION_GROUP_ID)
+                .setGroupSummary(true);
 
         NotificationManager notificationManager = getSystemServiceSafe(mContext,
                 NotificationManager.class);
@@ -188,7 +200,9 @@ public class AutoGrantPermissionsNotifier {
                 mPackageInfo.packageName, PERMISSION_GRANTED_BY_ADMIN_NOTIFICATION_ID);
         notificationManager.notify(mPackageInfo.packageName,
                 PERMISSION_GRANTED_BY_ADMIN_NOTIFICATION_ID,
-                b.build());
+                notificationBuilder.build());
+        notificationManager.notify(ADMIN_AUTO_GRANTED_PERMISSIONS_NOTIFICATION_SUMMARY_ID,
+                summaryNotificationBuilder.build());
     }
 
     /**

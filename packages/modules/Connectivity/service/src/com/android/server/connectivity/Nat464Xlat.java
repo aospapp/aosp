@@ -17,10 +17,12 @@
 package com.android.server.connectivity;
 
 import static android.net.NetworkCapabilities.TRANSPORT_CELLULAR;
+import static android.net.NetworkCapabilities.TRANSPORT_TEST;
 
 import static com.android.net.module.util.CollectionUtils.contains;
 
 import android.annotation.NonNull;
+import android.annotation.Nullable;
 import android.net.ConnectivityManager;
 import android.net.IDnsResolver;
 import android.net.INetd;
@@ -127,6 +129,11 @@ public class Nat464Xlat {
         final boolean supported = contains(NETWORK_TYPES, nai.networkInfo.getType());
         final boolean connected = contains(NETWORK_STATES, nai.networkInfo.getState());
 
+        // Allow to run clat on test network.
+        // TODO: merge to boolean "supported" once boolean "supported" is migrated to
+        // NetworkCapabilities.TRANSPORT_*.
+        final boolean isTestNetwork = nai.networkCapabilities.hasTransport(TRANSPORT_TEST);
+
         // Only run clat on networks that have a global IPv6 address and don't have a native IPv4
         // address.
         LinkProperties lp = nai.linkProperties;
@@ -137,8 +144,8 @@ public class Nat464Xlat {
         final boolean skip464xlat = (nai.netAgentConfig() != null)
                 && nai.netAgentConfig().skip464xlat;
 
-        return supported && connected && isIpv6OnlyNetwork && !skip464xlat && !nai.destroyed
-                && (nai.networkCapabilities.hasTransport(TRANSPORT_CELLULAR)
+        return (supported || isTestNetwork) && connected && isIpv6OnlyNetwork && !skip464xlat
+                && !nai.isDestroyed() && (nai.networkCapabilities.hasTransport(TRANSPORT_CELLULAR)
                 ? isCellular464XlatEnabled() : true);
     }
 
@@ -414,7 +421,7 @@ public class Nat464Xlat {
      * This is necessary because the LinkProperties in mNetwork come from the transport layer, which
      * has no idea that 464xlat is running on top of it.
      */
-    public void fixupLinkProperties(@NonNull LinkProperties oldLp, @NonNull LinkProperties lp) {
+    public void fixupLinkProperties(@Nullable LinkProperties oldLp, @NonNull LinkProperties lp) {
         // This must be done even if clatd is not running, because otherwise shouldStartClat would
         // never return true.
         lp.setNat64Prefix(selectNat64Prefix());
@@ -427,6 +434,8 @@ public class Nat464Xlat {
         }
 
         Log.d(TAG, "clatd running, updating NAI for " + mIface);
+        // oldLp can't be null here since shouldStartClat checks null LinkProperties to start clat.
+        // Thus, the status won't pass isRunning check if the oldLp is null.
         for (LinkProperties stacked: oldLp.getStackedLinks()) {
             if (Objects.equals(mIface, stacked.getInterfaceName())) {
                 lp.addStackedLink(stacked);
@@ -534,13 +543,16 @@ public class Nat464Xlat {
      */
     public void dump(IndentingPrintWriter pw) {
         if (SdkLevel.isAtLeastT()) {
+            // Dump ClatCoordinator information while clatd has been started but not running. The
+            // reason is that it helps to have more information if clatd is started but the
+            // v4-* interface doesn't bring up. See #isStarted, #isRunning.
             if (isStarted()) {
                 pw.println("ClatCoordinator:");
                 pw.increaseIndent();
                 mClatCoordinator.dump(pw);
                 pw.decreaseIndent();
             } else {
-                pw.println("<not start>");
+                pw.println("<not started>");
             }
         }
     }

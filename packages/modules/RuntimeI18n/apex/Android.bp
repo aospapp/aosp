@@ -121,17 +121,20 @@ sdk {
     host_supported: true,
     target: {
         android: {
-            bootclasspath_fragments: ["i18n-bootclasspath-fragment"],
+            apexes: [
+                // Adds exportable dependencies of the APEX to the sdk,
+                // e.g. *classpath_fragments.
+                "com.android.i18n",
+            ],
             java_sdk_libs: [
                 "i18n.module.intra.core.api",
-                "legacy.i18n.module.platform.api",
                 "stable.i18n.module.platform.api",
-                "i18n.module.public.api",
             ],
         },
     },
     native_shared_libs: [
-        "libicu",
+        "libandroidicu",
+	"libicu",
     ],
 }
 

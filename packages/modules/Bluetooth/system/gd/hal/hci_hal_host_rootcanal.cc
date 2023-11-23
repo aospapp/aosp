@@ -168,7 +168,10 @@ class HciHalHost : public HciHal {
     sock_fd_ = ConnectToSocket();
     ASSERT(sock_fd_ != INVALID_FD);
     reactable_ = hci_incoming_thread_.GetReactor()->Register(
-        sock_fd_, common::Bind(&HciHalHost::incoming_packet_received, common::Unretained(this)), common::Closure());
+        sock_fd_,
+        common::Bind(&HciHalHost::incoming_packet_received, common::Unretained(this)),
+        common::Bind(&HciHalHost::send_packet_ready, common::Unretained(this)));
+    hci_incoming_thread_.GetReactor()->ModifyRegistration(reactable_, os::Reactor::REACT_ON_READ_ONLY);
     btsnoop_logger_ = GetDependency<SnoopLogger>();
     LOG_INFO("HAL opened successfully");
   }
@@ -214,26 +217,21 @@ class HciHalHost : public HciHal {
     // TODO: replace this with new queue when it's ready
     hci_outgoing_queue_.emplace(packet);
     if (hci_outgoing_queue_.size() == 1) {
-      hci_incoming_thread_.GetReactor()->ModifyRegistration(
-          reactable_,
-          common::Bind(&HciHalHost::incoming_packet_received, common::Unretained(this)),
-          common::Bind(&HciHalHost::send_packet_ready, common::Unretained(this)));
+      hci_incoming_thread_.GetReactor()->ModifyRegistration(reactable_, os::Reactor::REACT_ON_READ_WRITE);
     }
   }
 
   void send_packet_ready() {
-    std::lock_guard<std::mutex> lock(this->api_mutex_);
-    auto packet_to_send = this->hci_outgoing_queue_.front();
-    auto bytes_written = write(this->sock_fd_, (void*)packet_to_send.data(), packet_to_send.size());
-    this->hci_outgoing_queue_.pop();
+    std::lock_guard<std::mutex> lock(api_mutex_);
+    if (hci_outgoing_queue_.empty()) return;
+    auto packet_to_send = hci_outgoing_queue_.front();
+    auto bytes_written = write(sock_fd_, (void*)packet_to_send.data(), packet_to_send.size());
+    hci_outgoing_queue_.pop();
     if (bytes_written == -1) {
       abort();
     }
     if (hci_outgoing_queue_.empty()) {
-      this->hci_incoming_thread_.GetReactor()->ModifyRegistration(
-          this->reactable_,
-          common::Bind(&HciHalHost::incoming_packet_received, common::Unretained(this)),
-          common::Closure());
+      hci_incoming_thread_.GetReactor()->ModifyRegistration(reactable_, os::Reactor::REACT_ON_READ_ONLY);
     }
   }
 

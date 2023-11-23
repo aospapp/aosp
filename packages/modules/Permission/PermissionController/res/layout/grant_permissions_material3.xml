@@ -30,6 +30,7 @@
     <LinearLayout
         android:id="@+id/grant_singleton"
         android:importantForAccessibility="no"
+        android:focusable="false"
         style="@style/PermissionGrantSingleton">
 
         <!-- The dialog -->
@@ -52,6 +53,7 @@
 
                     <TextView
                         android:id="@+id/permission_message"
+                        android:accessibilityHeading="true"
                         style="@style/PermissionGrantTitleMessage" />
 
                 </LinearLayout>
@@ -62,6 +64,30 @@
 
             </LinearLayout>
 
+            <!-- permission rationale  -->
+            <LinearLayout
+                android:id="@+id/permission_rationale_container"
+                style="@style/PermissionGrantPermissionRationaleContent">
+
+                <ImageView
+                    android:id="@+id/permission_rationale_icon"
+                    android:importantForAccessibility="no"
+                    android:src="@drawable/ic_shield_exclamation_outline"
+                    style="@style/PermissionGrantPermissionRationaleIcon" />
+
+                <TextView
+                    android:id="@+id/permission_rationale_message"
+                    style="@style/PermissionGrantPermissionRationaleMessage" />
+
+                <ImageView
+                    android:id="@+id/permission_rationale_more_info_icon"
+                    android:importantForAccessibility="no"
+                    android:src="@drawable/ic_more_info_arrow"
+                    style="@style/PermissionGrantPermissionRationaleMoreInfoIcon" />
+
+            </LinearLayout>
+
+            <!-- location (precise/approximate) animations -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -69,7 +95,7 @@
 
                 <RadioGroup
                     android:id="@+id/permission_location_accuracy_radio_group"
-                    style="@style/PermissionLocationAccuracyRadioGroup">
+                    style="@style/PermissionLocationAccuracyRadioGroupMaterial3">
 
                     <RadioButton
                         android:id="@+id/permission_location_accuracy_radio_fine"
@@ -85,12 +111,12 @@
                 <ImageView
                     android:id="@+id/permission_location_accuracy_fine_only"
                     android:contentDescription="@string/precise_image_description"
-                    style="@style/PermissionLocationAccuracyFineImageView" />
+                    style="@style/PermissionLocationAccuracyFineImageViewMaterial3" />
 
                 <ImageView
                     android:id="@+id/permission_location_accuracy_coarse_only"
                     android:contentDescription="@string/approximate_image_description"
-                    style="@style/PermissionLocationAccuracyCoarseImageView" />
+                    style="@style/PermissionLocationAccuracyCoarseImageViewMaterial3" />
 
             </LinearLayout>
 
@@ -115,6 +141,16 @@
                     android:id="@+id/permission_allow_one_time_button"
                     android:text="@string/grant_dialog_button_allow_one_time"
                     style="@style/PermissionGrantButtonAllowOneTimeMaterial3" />
+
+                <com.android.permissioncontroller.permission.ui.widget.SecureButton
+                    android:id="@+id/permission_allow_selected_button"
+                    android:text="@string/grant_dialog_button_allow_selected_photos"
+                    style="@style/PermissionGrantButtonAllowSelectedMaterial3" />
+
+                <com.android.permissioncontroller.permission.ui.widget.SecureButton
+                    android:id="@+id/permission_allow_all_button"
+                    android:text="@string/grant_dialog_button_allow_all"
+                    style="@style/PermissionGrantButtonAllowAllMaterial3" />
 
                 <com.android.permissioncontroller.permission.ui.widget.SecureButton
                     android:id="@+id/permission_deny_button"
@@ -145,9 +181,15 @@
                     android:id="@+id/permission_no_upgrade_one_time_and_dont_ask_again_button"
                     android:text="@string/grant_dialog_button_no_upgrade_one_time"
                     style="@style/PermissionGrantButtonNoUpgradeMaterial3" />
+
+                <com.android.permissioncontroller.permission.ui.widget.SecureButton
+                    android:id="@+id/permission_dont_allow_more_selected_button"
+                    android:text="@string/grant_dialog_button_dont_select_more"
+                    style="@style/PermissionGrantButtonDontAllowMoreMaterial3" />
+
             </LinearLayout>
 
-            <com.android.permissioncontroller.permission.ui.widget.SafetyProtectionSectionView
+            <com.android.permissioncontroller.permission.ui.v33.widget.SafetyProtectionSectionView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="0dp"

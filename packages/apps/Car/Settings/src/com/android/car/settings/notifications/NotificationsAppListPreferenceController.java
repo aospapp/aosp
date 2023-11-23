@@ -18,6 +18,7 @@ package com.android.car.settings.notifications;
 
 import android.car.drivingstate.CarUxRestrictions;
 import android.content.Context;
+import android.content.pm.ApplicationInfo;
 import android.graphics.drawable.Drawable;
 
 import androidx.preference.Preference;
@@ -61,12 +62,14 @@ public class NotificationsAppListPreferenceController extends
         getPreference().removeAll();
         for (ApplicationsState.AppEntry appEntry : apps) {
             getPreference().addPreference(
-                    createPreference(appEntry.label, appEntry.icon,
-                            appEntry.info.packageName, appEntry.info.uid));
+                    createPreference(appEntry.label, appEntry.icon, appEntry.info));
         }
     }
 
-    private Preference createPreference(String title, Drawable icon, String packageName, int uid) {
+    private Preference createPreference(String title, Drawable icon, ApplicationInfo appInfo) {
+        String packageName = appInfo.packageName;
+        int uid = appInfo.uid;
+
         CarUiTwoActionSwitchPreference preference =
                 new CarUiTwoActionSwitchPreference(getContext());
         preference.setTitle(title);
@@ -85,6 +88,7 @@ public class NotificationsAppListPreferenceController extends
             }
         });
         preference.setSecondaryActionChecked(areNotificationsEnabled(packageName, uid));
+        preference.setSecondaryActionEnabled(areNotificationsChangeable(appInfo));
 
         return preference;
     }

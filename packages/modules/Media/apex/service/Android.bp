@@ -30,7 +30,10 @@ java_sdk_library {
     permitted_packages: [
         "com.android.server.media",
     ],
-    defaults: ["framework-system-server-module-defaults"],
+    defaults: [
+        "framework-system-server-module-defaults",
+        "framework-system-server-module-optimize-defaults",
+        ],
     srcs: [
         ":service-media-s-sources",
     ],

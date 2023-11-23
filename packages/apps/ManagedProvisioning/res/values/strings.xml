@@ -45,7 +45,7 @@
   <!-- Text in a pop-up that asks the user to confirm that they allow the mobile device management app to take control of the profile they are creating. [CHAR LIMIT=NONE]-->
   <string name="admin_has_ability_to_monitor_profile">Your IT admin can monitor and manage settings, corporate access, apps, permissions, data, and network activity associated with this profile, as well as your call history and contact search history. Contact your IT admin for more information and to learn more about your organization\'s privacy policies.</string>
   <!-- Text in a pop-up that asks the user to confirm that they allow the mobile device management app to take control of the device. [CHAR LIMIT=NONE]-->
-  <string name="admin_has_ability_to_monitor_device">Your IT admin has the ability to monitor and manage settings, corporate access, apps, permissions, and data associated with this device, including your network activity, as well as your device\'s location, call history, and contact search history.<xliff:g id="line_break">\n\n</xliff:g>Contact your IT admin for more information, including your organization\'s privacy policies.</string>
+  <string name="admin_has_ability_to_monitor_device">Your IT admin has the ability to monitor and manage settings, corporate access, apps, permissions, and data associated with this <xliff:g id="device_name" example="Pixel">%1$s</xliff:g>, including your network activity, as well as your device\'s location, call history, and contact search history.<xliff:g id="line_break">\n\n</xliff:g>Contact your IT admin for more information, including your organization\'s privacy policies.</string>
   <!-- Text in a pop-up that asks the user to confirm that theft protection will only be enabled after a password-protected screen lock was chosen. [CHAR LIMIT=NONE]-->
   <string name="theft_protection_disabled_warning">To use theft-protection features, you must have a password-protected screen lock for your device.</string>
   <!-- String telling the user how to get more information about their work profile-->
@@ -92,9 +92,9 @@
   <string name="cancel_delete_profile">Cancel</string>
 
   <!-- String shown on prompt for user to encrypt and reboot the device, in case of profile setup [CHAR LIMIT=NONE]-->
-  <string name="encrypt_device_text_for_profile_owner_setup">To set up your work profile, your device needs to be encrypted. This may take some time.</string>
+  <string name="encrypt_device_text_for_profile_owner_setup">To set up your work profile, your <xliff:g id="device_name" example="Pixel">%1$s</xliff:g> needs to be encrypted. This may take some time.</string>
   <!-- String shown on prompt for user to encrypt and reboot the device, in case of device setup [CHAR LIMIT=NONE]-->
-  <string name="encrypt_device_text_for_device_owner_setup">To set up this device, it needs to be encrypted first. This may take some time.</string>
+  <string name="encrypt_device_text_for_device_owner_setup">To set up this <xliff:g id="device_name" example="Pixel">%1$s</xliff:g>, it needs to be encrypted first. This may take some time.</string>
   <!-- String title shown on encryption dialog. [CHAR LIMIT=20]-->
   <string name="encrypt_this_device_question">Encrypt this device?</string>
   <!-- String shown on button for user to continue to settings to encrypt the device. [CHAR LIMIT=20]-->
@@ -112,7 +112,7 @@
   <!-- Title of an error dialog that appears when a user tries to set up a work profile. In this case, the work profile can't be added because one already exists and can't be replaced, or it isn't supported by the device or the IT admin. -->
   <string name="cant_replace_or_remove_work_profile">Can\'t replace or remove work profile</string>
   <!-- Message of an error dialog that appears when a user tries to set up a work profile. In this case, the work profile can't be added because one already exists and can't be replaced, or it isn't supported by the device or the IT admin. -->
-  <string name="work_profile_cant_be_added_contact_admin">A work profile can’t be added to this device. If you have questions, contact your IT admin.</string>
+  <string name="work_profile_cant_be_added_contact_admin">A work profile can’t be added to this <xliff:g id="device_name" example="Pixel">%1$s</xliff:g>. If you have questions, contact your IT admin.</string>
   <!-- Error string displayed if the selected launcher doesn't support work profiles. -->
   <string name="change_device_launcher">Change device launcher</string>
   <!-- Error string displayed if the selected launcher doesn't support work profiles. -->
@@ -134,11 +134,11 @@
   <string name="setup_work_device">Setting up work device\u2026</string>
 
   <!-- Message of the error dialog in case a device does not support encryption, but encryption is necessary. [CHAR LIMIT=NONE] -->
-  <string name="device_doesnt_allow_encryption_contact_admin">This device doesn\'t allow encryption, which is needed for setup. For help, contact your IT admin.</string>
+  <string name="device_doesnt_allow_encryption_contact_admin">This <xliff:g id="device_name" example="Pixel">%1$s</xliff:g> doesn\'t allow encryption, which is needed for setup. For help, contact your IT admin.</string>
   <!-- Title of the cancel device owner provisioning dialog. [CHAR LIMIT=NONE] -->
-  <string name="stop_setup_reset_device_question">Stop setup &amp; reset device?</string>
+  <string name="stop_setup_reset_device_question">Stop setup &amp; reset <xliff:g id="device_name" example="Pixel">%1$s</xliff:g>?</string>
   <!-- Title of the cancel device owner provisioning dialog. [CHAR LIMIT=NONE] -->
-  <string name="this_will_reset_take_back_first_screen">This will reset your device and take you back to the first screen</string>
+  <string name="this_will_reset_take_back_first_screen">This will reset your <xliff:g id="device_name" example="Pixel">%1$s</xliff:g> and take you back to the first screen</string>
   <!-- Message of the cancel device owner provisioning dialog. [CHAR LIMIT=NONE] -->
   <string name="device_owner_cancel_message">Stop setting up and erase your device\'s data?</string>
   <!-- Cancel button text of the cancel dialog. [CHAR LIMIT=45] -->
@@ -158,13 +158,13 @@
   <!-- Message of the error dialog in case of an unspecified error. [CHAR LIMIT=NONE] -->
   <string name="contact_your_admin_for_help">Contact your IT admin for help</string>
   <!-- Message of the error dialog in case of an unspecified error in financed device provisioning scenario. [CHAR LIMIT=NONE]. -->
-  <string name="reset_device">Reset this device and try setting it up again</string>
+  <string name="reset_device">Reset this <xliff:g id="device_name" example="Pixel">%1$s</xliff:g> and try setting it up again</string>
   <!-- Message of the error dialog when already provisioned. [CHAR LIMIT=NONE] -->
-  <string name="device_already_set_up">Device is already set up</string>
+  <string name="device_already_set_up"><xliff:g id="device_name" example="Pixel">%1$s</xliff:g> is already set up</string>
   <!-- Message of the error dialog when setting up wifi failed. [CHAR LIMIT=NONE] -->
   <string name="error_wifi">Couldn\'t connect to Wi-Fi</string>
   <!-- Message of the error dialog when passing factory reset protection fails. [CHAR LIMIT=NONE] -->
-  <string name="device_has_reset_protection_contact_admin">Your device has reset protection turned on. For help, contact your IT admin.</string>
+  <string name="device_has_reset_protection_contact_admin">Your <xliff:g id="device_name" example="Pixel">%1$s</xliff:g> has reset protection turned on. For help, contact your IT admin.</string>
   <!-- Message informing the user that the factory reset protection partition is being erased [CHAR LIMIT=30] -->
   <string name="frp_clear_progress_title" >Erasing</string>
   <!-- Progress screen text shown while erasing the factory reset protection partition [CHAR LIMIT=75] -->
@@ -264,11 +264,11 @@
   <!-- Accessibility description for the profile setup screen showing progress. [CHAR LIMIT=NONE] -->
   <string name="setup_profile_progress">Set up your profile. Showing progress</string>
   <!-- Accessibility description for the device setup screen showing company info. [CHAR LIMIT=NONE] -->
-  <string name="setup_device">Set up your device</string>
+  <string name="setup_device">Set up your <xliff:g id="device_name" example="Pixel">%1$s</xliff:g></string>
   <!-- Accessibility description for the device setup screen showing encryption info. [CHAR LIMIT=NONE] -->
-  <string name="setup_device_encryption">Set up your device. Encryption</string>
+  <string name="setup_device_encryption">Set up your <xliff:g id="device_name" example="Pixel">%1$s</xliff:g>. Encryption</string>
   <!-- Accessibility description for the device setup screen showing progress. [CHAR LIMIT=NONE] -->
-  <string name="setup_device_progress">Set up your device. Showing progress</string>
+  <string name="setup_device_progress">Set up your <xliff:g id="device_name" example="Pixel">%1$s</xliff:g>. Showing progress</string>
   <!-- Accessibility description for the learn more link in user consent dialog. [CHAR LIMIT=NONE] -->
   <string name="learn_more_label">Learn more button</string>
   <!-- Accessibility description for the company icon. [CHAR LIMIT=NONE] -->
@@ -330,7 +330,7 @@
   <!-- Screen title. This is letting the user know that the user's account will be managed on their new device. [CHAR LIMIT=NONE]-->
   <string name="account_management_disclaimer_header">Your account is managed</string>
   <!-- Subtext on a screen. This is letting the user know that their account will be managed on their new device. [CHAR LIMIT=NONE]-->
-  <string name="account_management_disclaimer_subheader">Your IT admin uses mobile device management to enforce security policies</string>
+  <string name="account_management_disclaimer_subheader">Your IT admin uses mobile  management to enforce security policies</string>
 
   <!-- Downloading screen -->
   <!-- Screen title. This is letting the user know that they're about to set up their device for work. [CHAR LIMIT=NONE]-->
@@ -356,22 +356,22 @@
   <!-- Screen title. This is letting the user know that they can use their work device to easily access their work apps. "At your fingertips" is another way of saying "easily accessible." [CHAR LIMIT=NONE]-->
   <string name="fully_managed_device_provisioning_step_1_header">Keep your work apps at your fingertips</string>
   <!-- Screen title. This is letting the user know that their entire device isn't private and can be accessed by their IT admin. [CHAR LIMIT=NONE]-->
-  <string name="fully_managed_device_provisioning_step_2_header">This device isn\'t private</string>
+  <string name="fully_managed_device_provisioning_step_2_header">This <xliff:g id="device_name" example="Pixel">%1$s</xliff:g> isn\'t private</string>
   <!-- Screen subtext. This is letting the user know that their IT admin may be able to see their data and activity since the device isn't private. [CHAR LIMIT=NONE]-->
-  <string name="fully_managed_device_provisioning_step_2_subheader">Your IT admin may be able to see your data and activity on this device.</string>
+  <string name="fully_managed_device_provisioning_step_2_subheader">Your IT admin may be able to see your data and activity on this <xliff:g id="device_name" example="Pixel">%1$s</xliff:g>.</string>
   <!-- Screen subtext title. This is letting the user know that their IT admin may be able to see their data and activity since the device isn't private. [CHAR LIMIT=NONE]-->
   <string name="fully_managed_device_provisioning_permissions_header">Your activity &amp; data</string>
   <string name="fully_managed_device_provisioning_permissions_subheader" translatable="false">@string/fully_managed_device_provisioning_step_2_subheader</string>
   <!-- Screen title. This is letting the user know that their IT admin can control permissions for apps on this device. [CHAR LIMIT=NONE]-->
   <string name="fully_managed_device_provisioning_permissions_secondary_header">App permissions</string>
   <!-- Screen subtext. This is letting the user know that their IT admin can control permissions for apps on this device. [CHAR LIMIT=NONE]-->
-  <string name="fully_managed_device_provisioning_permissions_secondary_subheader">Your IT admin can set permissions for apps on this device, such as microphone, camera, and location permissions.</string>
+  <string name="fully_managed_device_provisioning_permissions_secondary_subheader">Your IT admin can set permissions for apps on this <xliff:g id="device_name" example="Pixel">%1$s</xliff:g>, such as microphone, camera, and location permissions.</string>
   <!-- In-progress text that's part of a full-screen message. This is letting the user know that their device is being set up. [CHAR LIMIT=NONE]-->
   <string name="fully_managed_device_provisioning_progress_label">Setting up your device\u2026</string>
   <!-- Spoken text for screen readers. This is summarizing the key features of their work device while it's being set up. [CHAR LIMIT=NONE]-->
-  <string name="fully_managed_device_provisioning_summary">Use this device to easily access your work apps. This device isn\'t private, so your IT admin may be able to see your data and activity.</string>
+  <string name="fully_managed_device_provisioning_summary">Use this <xliff:g id="device_name" example="Pixel">%1$s</xliff:g> to easily access your work apps. This <xliff:g id="device_name" example="Pixel">%1$s</xliff:g> isn\'t private, so your IT admin may be able to see your data and activity.</string>
   <!-- Spoken text for screen readers. This is summarizing the key features of their work device, including their admin's ability to control permissions, while it's being set up. [CHAR LIMIT=NONE]-->
-  <string name="fully_managed_device_with_permission_control_provisioning_summary">Use this device to easily access your work apps. This device isn’t private, so your IT admin may be able to see your activity and data. Your IT admin can also set permissions for apps on this device, such as microphone, camera, and location permissions.</string>
+  <string name="fully_managed_device_with_permission_control_provisioning_summary">Use this <xliff:g id="device_name" example="Pixel">%1$s</xliff:g> to easily access your work apps. This <xliff:g id="device_name" example="Pixel">%1$s</xliff:g>  isn’t private, so your IT admin may be able to see your activity and data. Your IT admin can also set permissions for apps on this device, such as microphone, camera, and location permissions.</string>
   <!-- Screen title. This is letting the user know they should return the device to their IT admin if they do not want to finish set-up. [CHAR LIMIT=NONE]-->
   <string name="fully_managed_device_provisioning_return_device_title">Return this device to your IT admin</string>
   <!-- Screen subtext. This tells the user they should either go back to the previous screen to complete set-up, or abort set-up by resetting the device. [CHAR LIMIT=NONE]-->
@@ -380,6 +380,12 @@
   <string name="fully_managed_device_cancel_setup_button">Cancel setup</string>
   <!-- Button text. The final affirmitive button the user needs to press to actually reset the device. [CHARLIMIT=40]-->
   <string name="fully_managed_device_reset_and_return_button">Reset &amp; return device</string>
+  <!-- Screen title.This screen shows up when a user attempts to provision an unsupported DPC into DO on a headless device. [CHAR LIMIT=NONE]-->
+  <string name="fully_managed_device_unsupported_DPC_in_headless_mode_header">Device can\'t be set up</string>
+  <!-- Screen subtext.This screen shows up when a user attempts to provision an unsupported DPC into DO on a headless device. [CHAR LIMIT=NONE]-->
+  <string name="fully_managed_device_unsupported_DPC_in_headless_mode_subheader">This device can\'t be enrolled into fully managed mode. Factory reset your device and contact your IT admin.</string>
+  <!-- Button text. The final affirmitive button the user needs to press to actually reset the device. [CHAR LIMIT=40]-->
+  <string name="fully_managed_device_reset_button">Factory reset</string>
 
   <!-- Work profile on organization-owned device setup screens -->
   <!-- Screen title. This screen lets the user know that their work apps are kept in the work profile, and the work apps are managed by the user's IT admin. [CHAR LIMIT=90]-->
@@ -389,7 +395,7 @@
   <!-- Screen title. This is letting the user know that the IT admin can control this device and block certain apps. [CHAR LIMIT=90]-->
   <string name="cope_provisioning_step_3_header">Your IT admin can control this device &amp; block certain apps</string>
   <!-- Spoken text for screen readers. This is summarizing the key features of the work profile while it's being set up. [CHAR LIMIT=NONE]-->
-  <string name="cope_provisioning_summary">Work apps are kept in your work profile and managed by your IT admin. Personal apps are separate and hidden from work apps. Your IT admin can control this device and block certain apps.</string>
+  <string name="cope_provisioning_summary">Work apps are kept in your work profile and managed by your IT admin. Personal apps are separate and hidden from work apps. Your IT admin can control this <xliff:g id="device_name" example="Pixel">%1$s</xliff:g> and block certain apps.</string>
 
   <!-- Financed device setup screens -->
   <!-- Screen title. This is displayed when a user needs to wait for a moment during the device setup process. [CHAR LIMIT=NONE]-->
@@ -399,26 +405,26 @@
   <!-- Notification title. This text is letting the user know about a privacy reminder before they start using their new work device. [CHAR LIMIT=NONE]-->
   <string name="fully_managed_device_provisioning_privacy_title">Privacy reminder</string>
   <!-- Notification message. This text is letting the user know about a privacy reminder before they start using their new work device, and that their IT admin may be able to see their data and activity on this device. [CHAR LIMIT=NONE]-->
-  <string name="fully_managed_device_provisioning_privacy_body">Your IT admin may be able to see your data and activity on this device</string>
+  <string name="fully_managed_device_provisioning_privacy_body">Your IT admin may be able to see your data and activity on this <xliff:g id="device_name" example="Pixel">%1$s</xliff:g></string>
 
   <!-- Financed device provisioning landing screen -->
   <!-- Screen title in the device setup process. This is reminding the user that this device is provided by a creditor. This means the creditor can control the device, such as locking it if the user doesn't make payments. [CHAR LIMIT=NONE]-->
-  <string name="financed_device_screen_header">This device is provided by <xliff:g id="creditor_name" example="creditor_name">%s</xliff:g></string>
+  <string name="financed_device_screen_header">This <xliff:g id="device_name" example="Pixel">%1$s</xliff:g> is provided by <xliff:g id="creditor_name" example="creditor_name">%2$s</xliff:g></string>
   <!-- Section header. This is letting the user know they can make payments for this device. [CHAR LIMIT=NONE]-->
-  <string name="financed_make_payments_subheader_title">Make payments for this device</string>
+  <string name="financed_make_payments_subheader_title">Make payments for this  <xliff:g id="device_name" example="Pixel">%1$s</xliff:g></string>
   <!-- This text is reminding the user that the app installed by the credit provider can be used to make payments. The first placeholder is the name of the credit provider. The second placeholder is the name of the credit provider's app. [CHAR LIMIT=NONE]-->
-  <string name="financed_make_payments_subheader_description"><xliff:g id="creditor_name" example="creditor_name">%1$s</xliff:g> can install the <xliff:g id="creditor_name" example="creditor_name">%2$s</xliff:g> app so you can make payments for this device.</string>
+  <string name="financed_make_payments_subheader_description"><xliff:g id="creditor_name" example="creditor_name">%1$s</xliff:g> can install the <xliff:g id="creditor_name" example="creditor_name">%2$s</xliff:g> app so you can make payments for this <xliff:g id="device_name" example="Pixel">%3$s</xliff:g>.</string>
   <!-- Section header. This is letting the user know that this device can be restricted. [CHAR LIMIT=NONE]-->
-  <string name="financed_restrict_device_subheader_title">This device can be restricted</string>
+  <string name="financed_restrict_device_subheader_title">This  <xliff:g id="device_name" example="Pixel">%1$s</xliff:g> can be restricted</string>
   <!-- This text is letting the user know that the credit provider can restrict this device if the user doesn't make payments. The placeholder is the name of the credit provider. [CHAR LIMIT=NONE]-->
-  <string name="financed_restrict_device_subheader_description"><xliff:g id="creditor_name" example="creditor_name">%1$s</xliff:g> can restrict access to this device if you don\’t make payments.</string>
+  <string name="financed_restrict_device_subheader_description"><xliff:g id="creditor_name" example="creditor_name">%1$s</xliff:g> can restrict access to this <xliff:g id="device_name" example="Pixel">%2$s</xliff:g> if you don\’t make payments.</string>
 
   <!-- Error message. This message shows up when a user can't set up their device, and they're encouraged to contact their IT admin and reference the reason for the error. [CHAR LIMIT=NONE] -->
-  <string name="error_role_holder_hash_mismatch">Can\'t set up device. Contact your IT admin and reference \"Invalid checksum\".</string>
+  <string name="error_role_holder_hash_mismatch">Can\'t set up <xliff:g id="device_name" example="Pixel">%1$s</xliff:g>. Contact your IT admin and reference \"Invalid checksum\".</string>
   <!-- Error message. This message shows up when a user can't set up their device, and they're encouraged to contact their IT admin or try again later. [CHAR LIMIT=NONE] -->
   <string name="error_role_holder_download_install_failed">Try again later or ask your IT admin for help</string>
   <!-- Error message. This message shows up when a user can't set up their device, and they're encouraged to contact their IT admin and reference the reason for the error. [CHAR LIMIT=NONE] -->
-  <string name="error_role_holder_package_invalid">Can\'t set up device. Contact your IT admin and reference \"Missing or corrupted components\".</string>
+  <string name="error_role_holder_package_invalid">Can\'t set up <xliff:g id="device_name" example="Pixel">%1$s</xliff:g>. Contact your IT admin and reference \"Missing or corrupted components\".</string>
 
   <!-- Progress text shown when setting up work profile [CHAR LIMIT=NONE] -->
   <string name="setting_up">Setting up\u2026</string>

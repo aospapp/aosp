@@ -1,0 +1,23 @@
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
+java_test_host {
+    name: "AVFHostTestCases",
+    srcs: ["java/**/*.java"],
+    libs: [
+        "tradefed",
+        "compatibility-tradefed",
+        "compatibility-host-util",
+    ],
+    static_libs: [
+        "MicrodroidHostTestHelper",
+        "MicrodroidTestHelper",
+    ],
+    test_suites: [
+        "general-tests",
+    ],
+    data: [
+        ":MicrodroidTestApp",
+    ],
+}

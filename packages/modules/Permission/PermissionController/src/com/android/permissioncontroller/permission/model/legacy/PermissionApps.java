@@ -38,8 +38,8 @@ import androidx.annotation.Nullable;
 import com.android.modules.utils.build.SdkLevel;
 import com.android.permissioncontroller.R;
 import com.android.permissioncontroller.permission.model.AppPermissionGroup;
-import com.android.permissioncontroller.permission.utils.SubattributionUtils;
 import com.android.permissioncontroller.permission.utils.Utils;
+import com.android.permissioncontroller.permission.utils.v31.SubattributionUtils;
 
 import java.util.ArrayList;
 import java.util.Collections;

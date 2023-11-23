@@ -18,7 +18,7 @@
 
 #include "main/shim/btm_api.h"
 
-#include <base/callback.h>
+#include <base/functional/callback.h>
 #include <base/logging.h>
 
 #include <mutex>
@@ -26,7 +26,6 @@
 #include "common/metric_id_allocator.h"
 #include "common/time_util.h"
 #include "gd/common/callback.h"
-#include "gd/neighbor/name.h"
 #include "gd/os/log.h"
 #include "gd/security/security_module.h"
 #include "gd/security/ui.h"
@@ -37,9 +36,14 @@
 #include "main/shim/shim.h"
 #include "main/shim/stack.h"
 #include "osi/include/allocator.h"
+#include "osi/include/osi.h"  // UNUSED_ATTR
+#include "osi/include/properties.h"
+#include "stack/btm/btm_ble_int.h"
 #include "stack/btm/btm_int_types.h"
+#include "stack/btm/btm_sec.h"
 #include "stack/include/bt_hdr.h"
 #include "stack/include/bt_octets.h"
+#include "stack/include/hci_error_code.h"
 #include "types/ble_address_with_type.h"
 #include "types/bluetooth/uuid.h"
 #include "types/raw_address.h"
@@ -60,19 +64,19 @@ using bluetooth::common::MetricIdAllocator;
 extern tBTM_CB btm_cb;
 std::mutex btm_cb_mutex_;
 
-extern bool btm_inq_find_bdaddr(const RawAddress& p_bda);
+bool btm_inq_find_bdaddr(const RawAddress& p_bda);
 extern tINQ_DB_ENT* btm_inq_db_find(const RawAddress& raw_address);
 extern tINQ_DB_ENT* btm_inq_db_new(const RawAddress& p_bda);
 
 /**
  * Legacy bluetooth btm stack entry points
  */
-extern void btm_acl_update_inquiry_status(uint8_t status);
-extern void btm_clear_all_pending_le_entry(void);
-extern void btm_clr_inq_result_flt(void);
-extern void btm_set_eir_uuid(const uint8_t* p_eir, tBTM_INQ_RESULTS* p_results);
-extern void btm_sort_inq_result(void);
-extern void btm_process_inq_complete(tHCI_STATUS status, uint8_t result_type);
+void btm_acl_update_inquiry_status(uint8_t status);
+void btm_clear_all_pending_le_entry(void);
+void btm_clr_inq_result_flt(void);
+void btm_set_eir_uuid(const uint8_t* p_eir, tBTM_INQ_RESULTS* p_results);
+void btm_sort_inq_result(void);
+void btm_process_inq_complete(tHCI_STATUS status, uint8_t result_type);
 
 static bool is_classic_device(tBT_DEVICE_TYPE device_type) {
   return device_type == BT_DEVICE_TYPE_BREDR;
@@ -459,7 +463,7 @@ class ShimBondListener : public bluetooth::security::ISecurityManagerListener {
         LinkKey key;  // Never want to send the key to the stack
         (*bta_callbacks_->p_link_key_callback)(
             bluetooth::ToRawAddress(device.GetAddress()), 0, name, key,
-            BTM_LKEY_TYPE_COMBINATION);
+            BTM_LKEY_TYPE_COMBINATION, false /* is_ctkd */);
       }
       if (*bta_callbacks_->p_auth_complete_callback) {
         (*bta_callbacks_->p_auth_complete_callback)(
@@ -512,343 +516,6 @@ class ShimBondListener : public bluetooth::security::ISecurityManagerListener {
   const tBTM_APPL_INFO* bta_callbacks_;
 };
 
-tBTM_STATUS bluetooth::shim::BTM_StartInquiry(tBTM_INQ_RESULTS_CB* p_results_cb,
-                                              tBTM_CMPL_CB* p_cmpl_cb) {
-  CHECK(p_results_cb != nullptr);
-  CHECK(p_cmpl_cb != nullptr);
-
-  tBTM_INQ_PARMS inqparms = {};
-  inqparms.mode = BTM_GENERAL_INQUIRY | BTM_BLE_GENERAL_INQUIRY;
-  inqparms.duration = BTIF_DM_DEFAULT_INQ_MAX_DURATION;
-
-  std::lock_guard<std::mutex> lock(btm_cb_mutex_);
-
-  btm_cb.btm_inq_vars.inq_cmpl_info.num_resp = 0;
-
-  Stack::GetInstance()->GetBtm()->StartActiveScanning();
-  if (inqparms.duration != 0) {
-    Stack::GetInstance()->GetBtm()->SetScanningTimer(
-        inqparms.duration * 1000, common::BindOnce([]() {
-          LOG_INFO("%s scanning timeout popped", __func__);
-          std::lock_guard<std::mutex> lock(btm_cb_mutex_);
-          Stack::GetInstance()->GetBtm()->StopActiveScanning();
-        }));
-  }
-
-  Stack::GetInstance()->GetBtm()->StartActiveScanning();
-
-  uint8_t classic_mode = inqparms.mode & 0x0f;
-  if (!Stack::GetInstance()->GetBtm()->StartInquiry(
-          classic_mode, inqparms.duration, 0,
-          [](tBTM_STATUS status, uint8_t inquiry_mode) {
-            LOG_INFO("%s Inquiry is complete status:%hd inquiry_mode:%hhd",
-                     __func__, status, inquiry_mode);
-            btm_cb.btm_inq_vars.inqparms.mode &= ~(inquiry_mode);
-
-            btm_acl_update_inquiry_status(BTM_INQUIRY_COMPLETE);
-            if (btm_cb.btm_inq_vars.inq_active) {
-              btm_cb.btm_inq_vars.inq_cmpl_info.status = status;
-              btm_clear_all_pending_le_entry();
-              btm_cb.btm_inq_vars.state = BTM_INQ_INACTIVE_STATE;
-
-              /* Increment so the start of a next inquiry has a new count */
-              btm_cb.btm_inq_vars.inq_counter++;
-
-              btm_clr_inq_result_flt();
-
-              if ((status == BTM_SUCCESS) &&
-                  controller_get_interface()
-                      ->supports_rssi_with_inquiry_results()) {
-                btm_sort_inq_result();
-              }
-
-              btm_cb.btm_inq_vars.inq_active = BTM_INQUIRY_INACTIVE;
-              btm_cb.btm_inq_vars.p_inq_results_cb = nullptr;
-              btm_cb.btm_inq_vars.p_inq_cmpl_cb = nullptr;
-
-              if (btm_cb.btm_inq_vars.p_inq_cmpl_cb != nullptr) {
-                LOG_INFO("%s Sending inquiry completion to upper layer",
-                         __func__);
-                (btm_cb.btm_inq_vars.p_inq_cmpl_cb)(
-                    (tBTM_INQUIRY_CMPL*)&btm_cb.btm_inq_vars.inq_cmpl_info);
-                btm_cb.btm_inq_vars.p_inq_cmpl_cb = nullptr;
-              }
-            }
-          })) {
-    LOG_WARN("%s Unable to start inquiry", __func__);
-    return BTM_ERR_PROCESSING;
-  }
-
-  btm_cb.btm_inq_vars.state = BTM_INQ_ACTIVE_STATE;
-  btm_cb.btm_inq_vars.p_inq_cmpl_cb = p_cmpl_cb;
-  btm_cb.btm_inq_vars.p_inq_results_cb = p_results_cb;
-  btm_cb.btm_inq_vars.inq_active = inqparms.mode;
-
-  btm_acl_update_inquiry_status(BTM_INQUIRY_STARTED);
-
-  return BTM_CMD_STARTED;
-}
-
-tBTM_STATUS bluetooth::shim::BTM_SetDiscoverability(uint16_t discoverable_mode,
-                                                    uint16_t window,
-                                                    uint16_t interval) {
-  uint16_t classic_discoverable_mode = discoverable_mode & 0xff;
-  uint16_t le_discoverable_mode = discoverable_mode >> 8;
-
-  if (window == 0) window = BTM_DEFAULT_DISC_WINDOW;
-  if (interval == 0) interval = BTM_DEFAULT_DISC_INTERVAL;
-
-  switch (le_discoverable_mode) {
-    case kDiscoverableModeOff:
-      Stack::GetInstance()->GetBtm()->StopAdvertising();
-      break;
-    case kLimitedDiscoverableMode:
-    case kGeneralDiscoverableMode:
-      Stack::GetInstance()->GetBtm()->StartAdvertising();
-      break;
-    default:
-      LOG_WARN("%s Unexpected le discoverability mode:%d", __func__,
-               le_discoverable_mode);
-  }
-
-  switch (classic_discoverable_mode) {
-    case kDiscoverableModeOff:
-      Stack::GetInstance()->GetBtm()->SetClassicDiscoverabilityOff();
-      break;
-    case kLimitedDiscoverableMode:
-      Stack::GetInstance()->GetBtm()->SetClassicLimitedDiscoverability(
-          window, interval);
-      break;
-    case kGeneralDiscoverableMode:
-      Stack::GetInstance()->GetBtm()->SetClassicGeneralDiscoverability(
-          window, interval);
-      break;
-    default:
-      LOG_WARN("%s Unexpected classic discoverability mode:%d", __func__,
-               classic_discoverable_mode);
-  }
-  return BTM_SUCCESS;
-}
-
-void bluetooth::shim::BTM_EnableInterlacedInquiryScan() {
-  Stack::GetInstance()->GetBtm()->SetInterlacedInquiryScan();
-}
-
-tBTM_STATUS bluetooth::shim::BTM_BleObserve(bool start, uint8_t duration_sec,
-                                            tBTM_INQ_RESULTS_CB* p_results_cb,
-                                            tBTM_CMPL_CB* p_cmpl_cb) {
-  if (start) {
-    CHECK(p_results_cb != nullptr);
-    CHECK(p_cmpl_cb != nullptr);
-
-    std::lock_guard<std::mutex> lock(btm_cb_mutex_);
-
-    if (btm_cb.ble_ctr_cb.is_ble_observe_active()) {
-      if (duration_sec == 0) {
-        Stack::GetInstance()->GetBtm()->CancelObservingTimer();
-        return BTM_CMD_STARTED;
-      }
-      LOG_WARN("%s Observing already active", __func__);
-      return BTM_WRONG_MODE;
-    }
-
-    btm_cb.ble_ctr_cb.p_obs_results_cb = p_results_cb;
-    btm_cb.ble_ctr_cb.p_obs_cmpl_cb = p_cmpl_cb;
-    Stack::GetInstance()->GetBtm()->StartObserving();
-    btm_cb.ble_ctr_cb.set_ble_observe_active();
-
-    if (duration_sec != 0) {
-      Stack::GetInstance()->GetBtm()->SetObservingTimer(
-          duration_sec * 1000, common::BindOnce([]() {
-            LOG_INFO("%s observing timeout popped", __func__);
-
-            Stack::GetInstance()->GetBtm()->CancelObservingTimer();
-            Stack::GetInstance()->GetBtm()->StopObserving();
-
-            std::lock_guard<std::mutex> lock(btm_cb_mutex_);
-            btm_cb.ble_ctr_cb.reset_ble_observe();
-
-            if (btm_cb.ble_ctr_cb.p_obs_cmpl_cb) {
-              (btm_cb.ble_ctr_cb.p_obs_cmpl_cb)(
-                  &btm_cb.btm_inq_vars.inq_cmpl_info);
-            }
-            btm_cb.ble_ctr_cb.p_obs_results_cb = nullptr;
-            btm_cb.ble_ctr_cb.p_obs_cmpl_cb = nullptr;
-
-            btm_cb.btm_inq_vars.inqparms.mode &= ~(BTM_BLE_INQUIRY_MASK);
-
-            btm_acl_update_inquiry_status(BTM_INQUIRY_COMPLETE);
-
-            btm_clear_all_pending_le_entry();
-            btm_cb.btm_inq_vars.state = BTM_INQ_INACTIVE_STATE;
-
-            btm_cb.btm_inq_vars.inq_counter++;
-            btm_clr_inq_result_flt();
-            btm_sort_inq_result();
-
-            btm_cb.btm_inq_vars.inq_active = BTM_INQUIRY_INACTIVE;
-            btm_cb.btm_inq_vars.p_inq_results_cb = NULL;
-            btm_cb.btm_inq_vars.p_inq_cmpl_cb = NULL;
-
-            if (btm_cb.btm_inq_vars.p_inq_cmpl_cb) {
-              (btm_cb.btm_inq_vars.p_inq_cmpl_cb)(
-                  (tBTM_INQUIRY_CMPL*)&btm_cb.btm_inq_vars.inq_cmpl_info);
-              btm_cb.btm_inq_vars.p_inq_cmpl_cb = nullptr;
-            }
-          }));
-    }
-  } else {
-    std::lock_guard<std::mutex> lock(btm_cb_mutex_);
-
-    if (!btm_cb.ble_ctr_cb.is_ble_observe_active()) {
-      LOG_WARN("%s Observing already inactive", __func__);
-    }
-    Stack::GetInstance()->GetBtm()->CancelObservingTimer();
-    Stack::GetInstance()->GetBtm()->StopObserving();
-    btm_cb.ble_ctr_cb.reset_ble_observe();
-    Stack::GetInstance()->GetBtm()->StopObserving();
-    if (btm_cb.ble_ctr_cb.p_obs_cmpl_cb) {
-      (btm_cb.ble_ctr_cb.p_obs_cmpl_cb)(&btm_cb.btm_inq_vars.inq_cmpl_info);
-    }
-    btm_cb.ble_ctr_cb.p_obs_results_cb = nullptr;
-    btm_cb.ble_ctr_cb.p_obs_cmpl_cb = nullptr;
-  }
-  return BTM_CMD_STARTED;
-}
-
-void bluetooth::shim::BTM_BleOpportunisticObserve(
-    bool enable, tBTM_INQ_RESULTS_CB* p_results_cb) {
-  if (enable) {
-    btm_cb.ble_ctr_cb.p_opportunistic_obs_results_cb = p_results_cb;
-  } else {
-    btm_cb.ble_ctr_cb.p_opportunistic_obs_results_cb = nullptr;
-  }
-}
-
-void bluetooth::shim::BTM_EnableInterlacedPageScan() {
-  Stack::GetInstance()->GetBtm()->SetInterlacedPageScan();
-}
-
-tBTM_STATUS bluetooth::shim::BTM_SetInquiryMode(uint8_t inquiry_mode) {
-  switch (inquiry_mode) {
-    case kStandardInquiryResult:
-      Stack::GetInstance()->GetBtm()->SetStandardInquiryResultMode();
-      break;
-    case kInquiryResultWithRssi:
-      Stack::GetInstance()->GetBtm()->SetInquiryWithRssiResultMode();
-      break;
-    case kExtendedInquiryResult:
-      Stack::GetInstance()->GetBtm()->SetExtendedInquiryResultMode();
-      break;
-    default:
-      return BTM_ILLEGAL_VALUE;
-  }
-  return BTM_SUCCESS;
-}
-
-tBTM_STATUS bluetooth::shim::BTM_SetConnectability(uint16_t page_mode,
-                                                   uint16_t window,
-                                                   uint16_t interval) {
-  uint16_t classic_connectible_mode = page_mode & 0xff;
-  uint16_t le_connectible_mode = page_mode >> 8;
-
-  if (!window) window = BTM_DEFAULT_CONN_WINDOW;
-  if (!interval) interval = BTM_DEFAULT_CONN_INTERVAL;
-
-  switch (le_connectible_mode) {
-    case kConnectibleModeOff:
-      Stack::GetInstance()->GetBtm()->StopConnectability();
-      break;
-    case kConnectibleModeOn:
-      Stack::GetInstance()->GetBtm()->StartConnectability();
-      break;
-    default:
-      return BTM_ILLEGAL_VALUE;
-      break;
-  }
-
-  switch (classic_connectible_mode) {
-    case kConnectibleModeOff:
-      Stack::GetInstance()->GetBtm()->SetClassicConnectibleOff();
-      break;
-    case kConnectibleModeOn:
-      Stack::GetInstance()->GetBtm()->SetClassicConnectibleOn();
-      break;
-    default:
-      return BTM_ILLEGAL_VALUE;
-      break;
-  }
-  return BTM_SUCCESS;
-}
-
-uint16_t bluetooth::shim::BTM_IsInquiryActive(void) {
-  if (Stack::GetInstance()->GetBtm()->IsGeneralInquiryActive()) {
-    return BTM_GENERAL_INQUIRY_ACTIVE;
-  }
-  return BTM_INQUIRY_INACTIVE;
-}
-
-void bluetooth::shim::BTM_CancelInquiry(void) {
-  LOG_INFO("%s Cancel inquiry", __func__);
-  Stack::GetInstance()->GetBtm()->CancelInquiry();
-
-  btm_cb.btm_inq_vars.state = BTM_INQ_INACTIVE_STATE;
-  btm_clr_inq_result_flt();
-
-  Stack::GetInstance()->GetBtm()->CancelScanningTimer();
-  Stack::GetInstance()->GetBtm()->StopActiveScanning();
-
-  btm_cb.ble_ctr_cb.reset_ble_inquiry();
-
-  btm_cb.btm_inq_vars.inqparms.mode &=
-      ~(btm_cb.btm_inq_vars.inqparms.mode & BTM_BLE_INQUIRY_MASK);
-
-  btm_acl_update_inquiry_status(BTM_INQUIRY_COMPLETE);
-  /* Ignore any stray or late complete messages if the inquiry is not active */
-  if (btm_cb.btm_inq_vars.inq_active) {
-    btm_cb.btm_inq_vars.inq_cmpl_info.status = BTM_SUCCESS;
-    btm_clear_all_pending_le_entry();
-
-    if (controller_get_interface()->supports_rssi_with_inquiry_results()) {
-      btm_sort_inq_result();
-    }
-
-    btm_cb.btm_inq_vars.inq_active = BTM_INQUIRY_INACTIVE;
-    btm_cb.btm_inq_vars.p_inq_results_cb = nullptr;
-    btm_cb.btm_inq_vars.p_inq_cmpl_cb = nullptr;
-    btm_cb.btm_inq_vars.inq_counter++;
-
-    if (btm_cb.btm_inq_vars.p_inq_cmpl_cb != nullptr) {
-      LOG_INFO("%s Sending cancel inquiry completion to upper layer", __func__);
-      (btm_cb.btm_inq_vars.p_inq_cmpl_cb)(
-          (tBTM_INQUIRY_CMPL*)&btm_cb.btm_inq_vars.inq_cmpl_info);
-      btm_cb.btm_inq_vars.p_inq_cmpl_cb = nullptr;
-    }
-  }
-}
-
-tBTM_STATUS bluetooth::shim::BTM_ReadRemoteDeviceName(
-    const RawAddress& raw_address, tBTM_CMPL_CB* callback,
-    tBT_TRANSPORT transport) {
-  CHECK(callback != nullptr);
-  tBTM_STATUS status = BTM_NO_RESOURCES;
-
-  switch (transport) {
-    case BT_TRANSPORT_LE:
-      status = Stack::GetInstance()->GetBtm()->ReadLeRemoteDeviceName(
-          raw_address, callback);
-      break;
-    case BT_TRANSPORT_BR_EDR:
-      status = Stack::GetInstance()->GetBtm()->ReadClassicRemoteDeviceName(
-          raw_address, callback);
-      break;
-    default:
-      LOG_WARN("%s Unspecified transport:%d", __func__, transport);
-      break;
-  }
-  return status;
-}
-
 tBTM_STATUS bluetooth::shim::BTM_CancelRemoteDeviceName(void) {
   return Stack::GetInstance()->GetBtm()->CancelAllReadRemoteDeviceName();
 }
@@ -898,45 +565,6 @@ void bluetooth::shim::BTM_AddEirService(uint32_t* p_eir_uuid, uint16_t uuid16) {
   CHECK(p_eir_uuid != nullptr);
 }
 
-void bluetooth::shim::BTM_SecAddBleDevice(const RawAddress& bd_addr,
-                                          tBT_DEVICE_TYPE dev_type,
-                                          tBLE_ADDR_TYPE addr_type) {
-  LOG_INFO("UNIMPLEMENTED %s", __func__);
-}
-
-void bluetooth::shim::BTM_SecAddBleKey(const RawAddress& bd_addr,
-                                       tBTM_LE_KEY_VALUE* p_le_key,
-                                       tBTM_LE_KEY_TYPE key_type) {
-  LOG_INFO("UNIMPLEMENTED %s", __func__);
-  CHECK(p_le_key != nullptr);
-}
-
-void bluetooth::shim::BTM_BleLoadLocalKeys(uint8_t key_type,
-                                           tBTM_BLE_LOCAL_KEYS* p_key) {
-  LOG_INFO("UNIMPLEMENTED %s", __func__);
-  CHECK(p_key != nullptr);
-}
-
-static Octet16 bogus_root;
-
-/** Returns local device encryption root (ER) */
-const Octet16& bluetooth::shim::BTM_GetDeviceEncRoot() {
-  LOG_INFO("UNIMPLEMENTED %s", __func__);
-  return bogus_root;
-}
-
-/** Returns local device identity root (IR). */
-const Octet16& bluetooth::shim::BTM_GetDeviceIDRoot() {
-  LOG_INFO("UNIMPLEMENTED %s", __func__);
-  return bogus_root;
-}
-
-/** Return local device DHK. */
-const Octet16& bluetooth::shim::BTM_GetDeviceDHK() {
-  LOG_INFO("UNIMPLEMENTED %s", __func__);
-  return bogus_root;
-}
-
 void bluetooth::shim::BTM_ReadConnectionAddr(const RawAddress& remote_bda,
                                              RawAddress& local_conn_addr,
                                              tBLE_ADDR_TYPE* p_addr_type) {
@@ -952,35 +580,8 @@ bool bluetooth::shim::BTM_ReadRemoteConnectionAddr(
   return false;
 }
 
-void bluetooth::shim::BTM_SecurityGrant(const RawAddress& bd_addr,
-                                        uint8_t res) {
-  LOG_INFO("UNIMPLEMENTED %s", __func__);
-}
-
-void bluetooth::shim::BTM_BleOobDataReply(const RawAddress& bd_addr,
-                                          uint8_t res, uint8_t len,
-                                          uint8_t* p_data) {
-  LOG_INFO("UNIMPLEMENTED %s", __func__);
-  CHECK(p_data != nullptr);
-}
-
-void bluetooth::shim::BTM_BleSecureConnectionOobDataReply(
-    const RawAddress& bd_addr, uint8_t* p_c, uint8_t* p_r) {
-  LOG_INFO("UNIMPLEMENTED %s", __func__);
-  CHECK(p_c != nullptr);
-  CHECK(p_r != nullptr);
-}
-
 void bluetooth::shim::BTM_BleSetConnScanParams(uint32_t scan_interval,
                                                uint32_t scan_window) {
-  LOG_INFO("UNIMPLEMENTED %s", __func__);
-}
-
-void bluetooth::shim::BTM_BleSetPrefConnParams(const RawAddress& bd_addr,
-                                               uint16_t min_conn_int,
-                                               uint16_t max_conn_int,
-                                               uint16_t peripheral_latency,
-                                               uint16_t supervision_tout) {
   LOG_INFO("UNIMPLEMENTED %s", __func__);
 }
 
@@ -996,58 +597,6 @@ bool bluetooth::shim::BTM_ReadConnectedTransportAddress(
     RawAddress* remote_bda, tBT_TRANSPORT transport) {
   LOG_INFO("UNIMPLEMENTED %s", __func__);
   CHECK(remote_bda != nullptr);
-  return false;
-}
-
-void bluetooth::shim::BTM_BleReceiverTest(uint8_t rx_freq,
-                                          tBTM_CMPL_CB* p_cmd_cmpl_cback) {
-  LOG_INFO("UNIMPLEMENTED %s", __func__);
-  CHECK(p_cmd_cmpl_cback != nullptr);
-}
-
-void bluetooth::shim::BTM_BleTransmitterTest(uint8_t tx_freq,
-                                             uint8_t test_data_len,
-                                             uint8_t packet_payload,
-                                             tBTM_CMPL_CB* p_cmd_cmpl_cback) {
-  LOG_INFO("UNIMPLEMENTED %s", __func__);
-  CHECK(p_cmd_cmpl_cback != nullptr);
-}
-
-void bluetooth::shim::BTM_BleTestEnd(tBTM_CMPL_CB* p_cmd_cmpl_cback) {
-  LOG_INFO("UNIMPLEMENTED %s", __func__);
-  CHECK(p_cmd_cmpl_cback != nullptr);
-}
-
-bool bluetooth::shim::BTM_UseLeLink(const RawAddress& raw_address) {
-  return Stack::GetInstance()->GetBtm()->UseLeLink(raw_address);
-}
-
-void bluetooth::shim::BTM_BleReadPhy(
-    const RawAddress& bd_addr,
-    base::Callback<void(uint8_t tx_phy, uint8_t rx_phy, uint8_t status)> cb) {
-  LOG_INFO("UNIMPLEMENTED %s", __func__);
-}
-
-void bluetooth::shim::BTM_BleSetPhy(const RawAddress& bd_addr, uint8_t tx_phys,
-                                    uint8_t rx_phys, uint16_t phy_options) {
-  LOG_INFO("UNIMPLEMENTED %s", __func__);
-}
-
-bool bluetooth::shim::BTM_BleDataSignature(const RawAddress& bd_addr,
-                                           uint8_t* p_text, uint16_t len,
-                                           BLE_SIGNATURE signature) {
-  LOG_INFO("UNIMPLEMENTED %s", __func__);
-  CHECK(p_text != nullptr);
-  return false;
-}
-
-bool bluetooth::shim::BTM_BleVerifySignature(const RawAddress& bd_addr,
-                                             uint8_t* p_orig, uint16_t len,
-                                             uint32_t counter,
-                                             uint8_t* p_comp) {
-  LOG_INFO("UNIMPLEMENTED %s", __func__);
-  CHECK(p_orig != nullptr);
-  CHECK(p_comp != nullptr);
   return false;
 }
 
@@ -1145,73 +694,12 @@ void bluetooth::shim::BTM_BleEnableDisableFilterFeature(
   LOG_INFO("UNIMPLEMENTED %s", __func__);
 }
 
-uint8_t bluetooth::shim::BTM_BleMaxMultiAdvInstanceCount() {
-  return Stack::GetInstance()->GetBtm()->GetNumberOfAdvertisingInstances();
-}
-
-bool bluetooth::shim::BTM_BleLocalPrivacyEnabled(void) {
-  return controller_get_interface()->supports_ble_privacy();
-}
-
 tBTM_STATUS bluetooth::shim::BTM_SecBond(const RawAddress& bd_addr,
                                          tBLE_ADDR_TYPE addr_type,
                                          tBT_TRANSPORT transport,
                                          tBT_DEVICE_TYPE device_type) {
   return Stack::GetInstance()->GetBtm()->CreateBond(bd_addr, addr_type,
                                                     transport, device_type);
-}
-
-bool bluetooth::shim::BTM_SecRegister(const tBTM_APPL_INFO* bta_callbacks) {
-  CHECK(bta_callbacks != nullptr);
-  LOG_INFO("%s Registering security application", __func__);
-
-  if (bta_callbacks->p_pin_callback == nullptr) {
-    LOG_INFO("UNIMPLEMENTED %s pin_callback", __func__);
-  }
-
-  if (bta_callbacks->p_link_key_callback == nullptr) {
-    LOG_INFO("UNIMPLEMENTED %s link_key_callback", __func__);
-  }
-
-  if (bta_callbacks->p_auth_complete_callback == nullptr) {
-    LOG_INFO("UNIMPLEMENTED %s auth_complete_callback", __func__);
-  }
-
-  if (bta_callbacks->p_bond_cancel_cmpl_callback == nullptr) {
-    LOG_INFO("UNIMPLEMENTED %s bond_cancel_complete_callback", __func__);
-  }
-
-  if (bta_callbacks->p_le_callback == nullptr) {
-    LOG_INFO("UNIMPLEMENTED %s le_callback", __func__);
-  }
-
-  if (bta_callbacks->p_le_key_callback == nullptr) {
-    LOG_INFO("UNIMPLEMENTED %s le_key_callback", __func__);
-  }
-
-  ShimBondListener::GetInstance()->SetBtaCallbacks(bta_callbacks);
-
-  bluetooth::shim::GetSecurityModule()
-      ->GetSecurityManager()
-      ->RegisterCallbackListener(ShimBondListener::GetInstance(),
-                                 bluetooth::shim::GetGdShimHandler());
-
-  ShimUi::GetInstance()->SetBtaCallbacks(bta_callbacks);
-
-  bluetooth::shim::GetSecurityModule()
-      ->GetSecurityManager()
-      ->SetUserInterfaceHandler(ShimUi::GetInstance(),
-                                bluetooth::shim::GetGdShimHandler());
-
-  return true;
-}
-
-tBTM_STATUS bluetooth::shim::BTM_SecBondCancel(const RawAddress& bd_addr) {
-  if (Stack::GetInstance()->GetBtm()->CancelBond(bd_addr)) {
-    return BTM_SUCCESS;
-  } else {
-    return BTM_UNKNOWN_ADDR;
-  }
 }
 
 bool bluetooth::shim::BTM_SecAddDevice(const RawAddress& bd_addr,
@@ -1221,10 +709,6 @@ bool bluetooth::shim::BTM_SecAddDevice(const RawAddress& bd_addr,
                                        uint8_t key_type, uint8_t pin_length) {
   // Check if GD has a security record for the device
   return BTM_SUCCESS;
-}
-
-bool bluetooth::shim::BTM_SecDeleteDevice(const RawAddress& bd_addr) {
-  return Stack::GetInstance()->GetBtm()->RemoveBond(bd_addr);
 }
 
 void bluetooth::shim::BTM_ConfirmReqReply(tBTM_STATUS res,
@@ -1250,42 +734,6 @@ void bluetooth::shim::BTM_ConfirmReqReply(tBTM_STATUS res,
 uint16_t bluetooth::shim::BTM_GetHCIConnHandle(const RawAddress& remote_bda,
                                                tBT_TRANSPORT transport) {
   return Stack::GetInstance()->GetBtm()->GetAclHandle(remote_bda, transport);
-}
-
-static void remote_name_request_complete_noop(void* p_name){
-    // Should notify BTM_Sec, but we should use GD SMP.
-};
-
-void bluetooth::shim::SendRemoteNameRequest(const RawAddress& raw_address) {
-  Stack::GetInstance()->GetBtm()->ReadClassicRemoteDeviceName(
-      raw_address, remote_name_request_complete_noop);
-}
-
-tBTM_STATUS bluetooth::shim::btm_sec_mx_access_request(
-    const RawAddress& bd_addr, bool is_originator,
-    uint16_t security_requirement, tBTM_SEC_CALLBACK* p_callback,
-    void* p_ref_data) {
-  // Security has already been fulfilled by the l2cap connection, so reply back
-  // that everything is totally fine and legit and definitely not two kids in a
-  // trenchcoat
-
-  if (p_callback) {
-    (*p_callback)(&bd_addr, false, p_ref_data, BTM_SUCCESS);
-  }
-  return BTM_SUCCESS;
-}
-
-tBTM_STATUS bluetooth::shim::BTM_SetEncryption(const RawAddress& bd_addr,
-                                               tBT_TRANSPORT transport,
-                                               tBTM_SEC_CALLBACK* p_callback,
-                                               void* p_ref_data,
-                                               tBTM_BLE_SEC_ACT sec_act) {
-  // When we just bond a device, encryption is already done
-  (*p_callback)(&bd_addr, transport, p_ref_data, BTM_SUCCESS);
-
-  // TODO(hsz): Re-encrypt the link after first bonded
-
-  return BTM_SUCCESS;
 }
 
 void bluetooth::shim::BTM_SecClearSecurityFlags(const RawAddress& bd_addr) {
@@ -1332,5 +780,96 @@ tBTM_STATUS bluetooth::shim::BTM_SetDeviceClass(DEV_CLASS dev_class) {
 
 tBTM_STATUS bluetooth::shim::BTM_ClearEventFilter() {
   controller_get_interface()->clear_event_filter();
+  return BTM_SUCCESS;
+}
+
+tBTM_STATUS bluetooth::shim::BTM_ClearEventMask() {
+  controller_get_interface()->clear_event_mask();
+  return BTM_SUCCESS;
+}
+
+tBTM_STATUS bluetooth::shim::BTM_ClearFilterAcceptList() {
+  Stack::GetInstance()->GetAcl()->ClearFilterAcceptList();
+  return BTM_SUCCESS;
+}
+
+tBTM_STATUS bluetooth::shim::BTM_DisconnectAllAcls() {
+  Stack::GetInstance()->GetAcl()->DisconnectAllForSuspend();
+//  Stack::GetInstance()->GetAcl()->Shutdown();
+  return BTM_SUCCESS;
+}
+
+tBTM_STATUS bluetooth::shim::BTM_LeRand(LeRandCallback cb) {
+  Stack::GetInstance()->GetAcl()->LeRand(cb);
+  return BTM_SUCCESS;
+}
+
+tBTM_STATUS bluetooth::shim::BTM_SetEventFilterConnectionSetupAllDevices() {
+  // Autoplumbed
+  controller_get_interface()->set_event_filter_connection_setup_all_devices();
+  return BTM_SUCCESS;
+}
+
+tBTM_STATUS bluetooth::shim::BTM_AllowWakeByHid(
+    std::vector<RawAddress> classic_hid_devices,
+    std::vector<std::pair<RawAddress, uint8_t>> le_hid_devices) {
+  // First set ACL to suspended state.
+  Stack::GetInstance()->GetAcl()->SetSystemSuspendState(/*suspended=*/true);
+
+  // Allow classic HID wake.
+  controller_get_interface()->set_event_filter_allow_device_connection(
+      std::move(classic_hid_devices));
+
+  // Allow BLE HID
+  for (auto hid_address : le_hid_devices) {
+    std::promise<bool> accept_promise;
+    auto accept_future = accept_promise.get_future();
+
+    Stack::GetInstance()->GetAcl()->AcceptLeConnectionFrom(
+        ToAddressWithType(hid_address.first, hid_address.second),
+        /*is_direct=*/false, std::move(accept_promise));
+
+    accept_future.wait();
+  }
+
+  return BTM_SUCCESS;
+}
+
+tBTM_STATUS bluetooth::shim::BTM_RestoreFilterAcceptList(
+    std::vector<std::pair<RawAddress, uint8_t>> le_devices) {
+  // First, mark ACL as no longer suspended.
+  Stack::GetInstance()->GetAcl()->SetSystemSuspendState(/*suspended=*/false);
+
+  // Next, Allow BLE connection from all devices that need to be restored.
+  // This will also re-arm the LE connection.
+  for (auto address_pair : le_devices) {
+    std::promise<bool> accept_promise;
+    auto accept_future = accept_promise.get_future();
+
+    Stack::GetInstance()->GetAcl()->AcceptLeConnectionFrom(
+        ToAddressWithType(address_pair.first, address_pair.second),
+        /*is_direct=*/false, std::move(accept_promise));
+
+    accept_future.wait();
+  }
+
+  return BTM_SUCCESS;
+}
+
+tBTM_STATUS bluetooth::shim::BTM_SetDefaultEventMaskExcept(uint64_t mask,
+                                                           uint64_t le_mask) {
+  // Autoplumbed
+  controller_get_interface()->set_default_event_mask_except(mask, le_mask);
+  return BTM_SUCCESS;
+}
+
+tBTM_STATUS bluetooth::shim::BTM_SetEventFilterInquiryResultAllDevices() {
+  // Autoplumbed
+  controller_get_interface()->set_event_filter_inquiry_result_all_devices();
+  return BTM_SUCCESS;
+}
+
+tBTM_STATUS bluetooth::shim::BTM_BleResetId() {
+  btm_ble_reset_id();
   return BTM_SUCCESS;
 }

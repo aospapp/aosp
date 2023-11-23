@@ -1,0 +1,680 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--  Copyright (C) 2022 The Android Open Source Project
+
+     Licensed under the Apache License, Version 2.0 (the "License");
+     you may not use this file except in compliance with the License.
+     You may obtain a copy of the License at
+
+          http://www.apache.org/licenses/LICENSE-2.0
+
+     Unless required by applicable law or agreed to in writing, software
+     distributed under the License is distributed on an "AS IS" BASIS,
+     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+     See the License for the specific language governing permissions and
+     limitations under the License.
+ -->
+
+<!--  IMPORTANT! If adding new strings, then run generate_adservices_public_xml.py  -->
+
+<resources xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+    <string name="permlab_accessAdServicesTopics" msgid="1108993892369517728">"truy cập vào AdServices Topics API"</string>
+    <string name="permdesc_accessAdServicesTopics" msgid="4220466427260104683">"Cho phép ứng dụng truy cập vào AdServices Topics API."</string>
+    <string name="permlab_accessAdServicesAttribution" msgid="4498132091418336093">"truy cập vào các AdServices Attribution API"</string>
+    <string name="permdesc_accessAdServicesAttribution" msgid="1644434244130657749">"Cho phép ứng dụng truy cập vào các AdServices Attribution API."</string>
+    <string name="permlab_accessAdServicesCustomAudience" msgid="2766614780488510189">"truy cập vào AdServices Custom Audience API"</string>
+    <string name="permdesc_accessAdServicesCustomAudience" msgid="2034811807106784662">"Cho phép ứng dụng truy cập vào AdServices Custom Audience API."</string>
+    <string name="permlab_accessAdServicesAdId" msgid="2754825914769538156">"Truy cập vào API mã nhận dạng cho quảng cáo"</string>
+    <string name="permdesc_accessAdServicesAdId" msgid="7717770480967762044">"Cho phép ứng dụng truy cập vào API mã nhận dạng cho quảng cáo."</string>
+    <string name="permlab_accessAdServicesConsent" msgid="3203633397142568707">"truy cập vào AdServices Consent API"</string>
+    <string name="permdesc_accessAdServicesConsent" msgid="8440334072391708453">"Cho phép ứng dụng truy cập vào AdServices Consent API."</string>
+    <string name="permlab_adServicesAccessAdId" msgid="1425385999072194463">"Truy cập vào Ad ID API"</string>
+    <string name="permdesc_adServicesAccessAdId" msgid="5082994464565978279">"Cho phép ứng dụng truy cập vào Ad ID API."</string>
+    <string name="permlab_adServicesAccessAppSetId" msgid="1300149048751231124">"Truy cập vào App Set ID API"</string>
+    <string name="permdesc_adServicesAccessAppSetId" msgid="7919418391145455372">"Cho phép ứng dụng truy cập vào App Set ID API."</string>
+    <string name="permlab_adServicesAccessConsentService" msgid="5994709782267864205">"Truy cập vào Consent Service API"</string>
+    <string name="permdesc_adServicesAccessConsentService" msgid="4587727715580124241">"Cho phép ứng dụng truy cập vào Consent Service API."</string>
+    <string name="permlab_modifyAdServicesState" msgid="3594653261299518914">"Truy cập API sửa đổi trạng thái bật của AdService"</string>
+    <string name="permdesc_modifyAdServicesState" msgid="2485849128464307209">"Cho phép ứng dụng truy cập API sửa đổi trạng thái bật của AdService."</string>
+    <string name="permlab_accessAdServicesState" msgid="482058883975394398">"Truy cập API trạng thái bật của AdService"</string>
+    <string name="permdesc_accessAdServicesState" msgid="1165015604618567202">"Cho phép ứng dụng truy cập API trạng thái bật của AdService."</string>
+    <string name="permlab_accessAdServicesManager" msgid="4816332609066703740">"Truy cập vào các AdServicesManager API"</string>
+    <string name="permdesc_accessAdServicesManager" msgid="2619300431637689524">"Cho phép ứng dụng truy cập vào các AdServicesManager API."</string>
+    <string name="app_label" msgid="5985320129629013968">"Hệ thống Android"</string>
+    <string name="notificationUI_notification_title_eu" msgid="6328781145332100489">"Tham gia phiên bản beta về quyền riêng tư trong quảng cáo của Android"</string>
+    <string name="notificationUI_notification_content_eu" msgid="4119222762583017840">"Android đang khám phá nhiều cách bảo mật hơn để các ứng dụng có thể hiển thị quảng cáo cho bạn"</string>
+    <string name="notificationUI_notification_cta_eu" msgid="1294908454704864207">"Tìm hiểu thêm"</string>
+    <string name="notificationUI_header_title_eu" msgid="4955298263079910371">"Bản beta về quyền riêng tư trong quảng cáo của Android"</string>
+    <string name="notificationUI_container1_title_eu" msgid="8315199862119660570">"Có gì mới"</string>
+    <string name="notificationUI_container1_body_text_eu" msgid="1700290522706948241">"Các tính năng bảo mật mới trong Hộp cát về quyền riêng tư cho phép ứng dụng hiển thị cho bạn các quảng cáo có liên quan, nhưng hạn chế những gì ứng dụng đó có thể tìm hiểu về hoạt động của bạn trên các trang web cũng như ứng dụng từ nhà phát triển khác."</string>
+    <string name="notificationUI_container1_control_text_eu" msgid="3158258148321255153">"Cách thức hoạt động"</string>
+    <string name="notificationUI_container2_title_eu" msgid="7198761373796187596">"Cách tham gia"</string>
+    <string name="notificationUI_container2_body_text_eu" msgid="5763735880112009239">"Khi bạn bật bản beta, các ứng dụng có thể thử nghiệm những cách mới, riêng tư hơn để hiển thị quảng cáo cho bạn. Bạn có thể tắt bản beta bất kỳ lúc nào trong chế độ cài đặt quyền riêng tư."</string>
+    <string name="notificationUI_left_control_button_text_eu" msgid="3573715612232957187">"Không, cảm ơn"</string>
+    <string name="notificationUI_right_control_button_text_eu" msgid="8484787286437052150">"Bật"</string>
+    <string name="notificationUI_more_button_text" msgid="8861584693765844519">"Xem thêm"</string>
+    <string name="notificationUI_confirmation_accept_title" msgid="3178322390976087463">"Cảm ơn bạn đã tham gia."</string>
+    <string name="notificationUI_confirmation_accept_subtitle" msgid="6980730715078085252">"Bạn là một phần của bản beta về quyền riêng tư trong quảng cáo của Android. Hộp cát về quyền riêng tư được bật cho thiết bị của bạn.\n\nBạn có thể tìm hiểu thêm hoặc tắt bản beta bất kỳ lúc nào trong mục cài đặt quyền riêng tư của mình."</string>
+    <string name="notificationUI_confirmation_decline_title" msgid="6453417169877486440">"Bạn đã chọn không tham gia"</string>
+    <string name="notificationUI_confirmation_decline_subtitle" msgid="4194388733937808440">"Cảm ơn bạn đã phản hồi. Hộp cát về quyền riêng tư đã bị tắt trong thiết bị của bạn.\n\nNếu bạn thay đổi ý định hoặc muốn tìm hiểu thêm, hãy di chuyển tới mục cài đặt quyền riêng tư của mình."</string>
+    <string name="notificationUI_confirmation_left_control_button_text" msgid="7459283556129950513">"Chế độ cài đặt quyền riêng tư"</string>
+    <string name="notificationUI_confirmation_right_control_button_text" msgid="1390803936115621269">"Tôi hiểu"</string>
+    <string name="notificationUI_container2_title" msgid="3844342008598264655">"Bạn là một phần của bản beta"</string>
+    <string name="notificationUI_container2_body_text" msgid="758560159693325060">"Hộp cát về quyền riêng tư đã được bật cho thiết bị của bạn, nhờ vậy, các ứng dụng có thể thử nghiệm những cách mới, riêng tư hơn để hiển thị quảng cáo cho bạn. Bạn có thể tắt bản beta bất kỳ lúc nào trong chế độ cài đặt quyền riêng tư."</string>
+    <string name="notificationUI_right_control_button_text" msgid="4418849554981401536">"Đã hiểu"</string>
+    <string name="notificationUI_how_it_works_expanded_text1" msgid="5567641119079971239">"Hộp cát về quyền riêng tư của Android cung cấp các tính năng mới mà các ứng dụng có thể dùng để hiển thị những quảng cáo bạn có thể thích. Những công nghệ này không sử dụng mã nhận dạng thiết bị.\n\nAndroid và các ứng dụng bạn sử dụng có thể ước đoán các loại quảng cáo mà bạn có thể quan tâm và tạm thời lưu những mối quan tâm này trên thiết bị của bạn. Điều này cho phép các ứng dụng hiển thị những quảng cáo bạn có thể thích mà không cần theo dõi hoạt động của bạn trên các trang web cũng như ứng dụng của các nhà phát triển khác."</string>
+    <string name="notificationUI_how_it_works_expanded_text2" msgid="6676443093692450581">"Cá nhân hóa quảng cáo với Hộp cát về quyền riêng tư"</string>
+    <string name="notificationUI_how_it_works_expanded_text3" msgid="603165966360369018">"•  Mối quan tâm do Android ước đoán"</string>
+    <string name="notificationUI_how_it_works_expanded_text4" msgid="3910573920883580609">"Android định kỳ ước đoán những mối quan tâm hàng đầu của bạn dựa trên các ứng dụng bạn dùng, chẳng hạn như \"Thể thao\" hoặc \"Du lịch\".\n\nSau này, các ứng dụng có thể yêu cầu Android sử dụng những mối quan tâm đó để hiển thị cho bạn các quảng cáo phù hợp hơn.\n\nBạn có thể xem danh sách các mối quan tâm hiện tại trong phần cài đặt quyền riêng tư và chặn bất kỳ quảng cáo nào bạn không thích."</string>
+    <string name="notificationUI_how_it_works_expanded_text5" msgid="7257714040472055781">"•  Mối quan tâm do ứng dụng ước đoán"</string>
+    <string name="notificationUI_how_it_works_expanded_text6" msgid="2949292580123453023">"Các ứng dụng có thể ước đoán mối quan tâm của bạn và tạm thời lưu những mối quan tâm này trong Android. Chẳng hạn như một ứng dụng bạn dùng để mua giày chạy bộ có thể ước đoán sở thích của bạn là \"chạy marathon\".\n\nSau đó, dựa trên sở thích này, một ứng dụng khác có thể hiển thị cho bạn một quảng cáo liên quan đến chạy marathon.\n\nBạn có thể quản lý danh sách các ứng dụng đã lưu các mối quan tâm trong phần cài đặt quyền riêng tư."</string>
+    <string name="notificationUI_notification_ga_title" msgid="7090667803616048587">"Các tính năng mới về quyền riêng tư trong quảng cáo"</string>
+    <string name="notificationUI_notification_ga_content" msgid="3483979694272908942">"Với các chủ đề quảng cáo và quyền kiểm soát mới, bạn sẽ có thêm nhiều lựa chọn về quảng cáo mà mình thấy"</string>
+    <string name="notificationUI_header_ga_title" msgid="3557937325021173836">"Hiện có các tính năng mới liên quan đến quyền riêng tư trong quảng cáo"</string>
+    <string name="notificationUI_container2_ga_introduction" msgid="2201578950159210581">"Android lưu ý các chủ đề bạn quan tâm dựa trên những ứng dụng bạn dùng gần đây. Ngoài ra, ứng dụng bạn dùng có thể xác định sở thích của bạn. Sau đó, ứng dụng có thể yêu cầu hệ thống cung cấp thông tin này để hiển thị cho bạn quảng cáo được cá nhân hoá. Bạn có thể chọn chủ đề và ứng dụng dùng để hiển thị quảng cáo cho bạn."</string>
+    <string name="notificationUI_container3_ga_introduction" msgid="4247237824558927582">"Để đo lường hiệu suất của quảng cáo, chỉ một số loại dữ liệu được chia sẻ giữa các ứng dụng."</string>
+    <string name="notificationUI_ga_container1_control_text" msgid="2711321174550177509">"Tìm hiểu thêm về quảng cáo trên Android"</string>
+    <string name="notificationUI_how_it_works_row_subtitle1" msgid="8685034725335826096">"Các quảng cáo hữu ích hơn"</string>
+    <string name="notificationUI_how_it_works_row_body1" msgid="5865369599951938718">"Các ứng dụng có thể yêu cầu Android cung cấp thông tin để giúp cá nhân hoá quảng cáo bạn thấy."</string>
+    <string name="notificationUI_how_it_works_row_body2" msgid="6601773212442110369">"•  Android ghi nhận các chủ đề bạn quan tâm dựa trên những ứng dụng bạn mới dùng gần đây."</string>
+    <string name="notificationUI_how_it_works_row_body3" msgid="3692457397642529055">"•  Các ứng dụng bạn dùng cũng có thể xác định những thứ bạn thích dựa trên cách bạn sử dụng các ứng dụng đó. Chẳng hạn, nếu bạn dùng ứng dụng bán giày chạy bộ đường dài, ứng dụng này có thể cho rằng bạn quan tâm đến việc chạy marathon."</string>
+    <string name="notificationUI_how_it_works_row_body4" msgid="8731138074016839243">"Sau đó, ứng dụng bạn dùng có thể yêu cầu hệ thống cung cấp thông tin này, có thể là chủ đề quảng cáo hoặc quảng cáo do các ứng dụng bạn dùng đề xuất."</string>
+    <string name="notificationUI_how_it_works_row_body5" msgid="4524382869577899661">"Android thường xuyên tự động xoá các chủ đề và dữ liệu do ứng dụng đề xuất. Bạn cũng có thể chặn những ứng dụng và chủ đề cụ thể bạn không muốn đưa ra đề xuất."</string>
+    <string name="notificationUI_how_it_works_subtitle2" msgid="2203542887026049927">"Đo lường hiệu suất quảng cáo"</string>
+    <string name="notificationUI_how_it_works_row_body6" msgid="5368364880910986588">"Các ứng dụng bạn dùng có thể yêu cầu Android cung cấp thông tin giúp đo lường hiệu suất quảng cáo của những ứng dụng đó. Android cho phép các ứng dụng thu thập một số loại dữ liệu có giới hạn, chẳng hạn như thời gian trong ngày bạn thấy quảng cáo."</string>
+    <string name="notificationUI_notification_ga_title_eu" msgid="5803977334621918481">"Dùng thử các tính năng mới về quyền riêng tư trong quảng cáo"</string>
+    <string name="notificationUI_notification_ga_content_eu" msgid="8430705356085726474">"Các chủ đề quảng cáo mang đến cho bạn nhiều sự lựa chọn hơn đối với các quảng cáo bạn nhìn thấy"</string>
+    <string name="notificationUI_notification_ga_cta_eu" msgid="8494461862622985200">"Xem thông tin chi tiết"</string>
+    <string name="notificationUI_header_ga_title_eu" msgid="6246782633712559485">"Dùng thử tính năng mới về quyền riêng tư trong quảng cáo"</string>
+    <string name="notificationUI_container1_body_ga_text_eu" msgid="2461669162863900717">"Android sắp ra mắt các tính năng mới liên quan đến quyền riêng tư, giúp bạn có thêm nhiều lựa chọn về quảng cáo bạn thấy."</string>
+    <string name="notificationUI_container2_body_ga_text_eu" msgid="1692066129509373924">"Nhờ vào chủ đề quảng cáo, các ứng dụng sẽ hiển thị cho bạn quảng cáo phù hợp, đồng thời bảo vệ danh tính của bạn và thông tin về việc bạn dùng ứng dụng. Android có thể lưu ý các chủ đề bạn quan tâm dựa trên những ứng dụng bạn dùng gần đây. Sau đó, ứng dụng bạn dùng có thể yêu cầu Android cung cấp thông tin về các chủ đề có liên quan để cá nhân hoá quảng cáo bạn thấy."</string>
+    <string name="notificationUI_container3_body_ga_text_eu" msgid="5992069735281496875">"Bạn có thể xem các chủ đề quảng cáo trong phần cài đặt trên thiết bị, cũng như chặn những chủ đề bạn không muốn chia sẻ với ứng dụng. Android cũng thường xuyên tự động xoá các chủ đề quảng cáo."</string>
+    <string name="notificationUI_change_any_time_in_privacy_settings_eu" msgid="2908767337419331427">"Nếu đổi ý, bất cứ lúc nào bạn cũng có thể chỉnh sửa trong phần cài đặt quyền riêng tư."</string>
+    <string name="notificationUI_container1_control_ga_text_eu" msgid="4496835418228234590">"Tìm hiểu thêm về chủ đề quảng cáo"</string>
+    <string name="notificationUI_learn_more_from_privacy_policy" msgid="7809111628979410445">"Tìm hiểu thêm về cách Android đảm bảo an toàn cho dữ liệu của bạn trong "<a href="https://policies.google.com/privacy">"Chính sách quyền riêng tư"</a>" của chúng tôi."</string>
+    <string name="notificationUI_right_control_button_ga_text_eu" msgid="7164165910760741822">"Dùng thử"</string>
+    <string name="notificationUI_how_it_works_topics_expanded_text3" msgid="5620813445262745365">"•  Những dữ liệu được sử dụng"</string>
+    <string name="notificationUI_how_it_works_topics_expanded_text4" msgid="398508225331553559">"Chủ đề quảng cáo được xác định dựa trên dựa trên các ứng dụng bạn dùng gần đây trên thiết bị này cũng như tần suất bạn dùng các ứng dụng đó."</string>
+    <string name="notificationUI_how_it_works_topics_expanded_text5" msgid="5976468008939416198">"•  Cách chúng tôi sử dụng dữ liệu này"</string>
+    <string name="notificationUI_how_it_works_topics_expanded_text6" msgid="6318275524155409408">"Khi bạn dùng ứng dụng, Android sẽ lưu ý các chủ đề bạn quan tâm. Các nhãn chủ đề được xác định trước và gồm có những nội dung như Nghệ thuật và giải trí, Mua sắm và Thể thao. Sau đó, ứng dụng bạn dùng có thể yêu cầu Android cung cấp thông tin về một số ít chủ đề (chứ không phải dữ liệu về cách bạn sử dụng ứng dụng hoặc danh tính của bạn) để cá nhân hoá quảng cáo bạn thấy."</string>
+    <string name="notificationUI_how_it_works_topics_expanded_text7" msgid="4275126336833782389">"•  Cách bạn có thể quản lý dữ liệu của mình"</string>
+    <string name="notificationUI_how_it_works_topics_expanded_text8" msgid="2797007387412839612">"Android thường xuyên tự động xoá các chủ đề. Khi bạn tiếp tục dùng ứng dụng, một chủ đề có thể xuất hiện lại trên danh sách. Bất cứ lúc nào bạn cũng có thể chặn những chủ đề bạn không muốn Android chia sẻ với các ứng dụng, cũng như tắt các chủ đề quảng cáo trong phần cài đặt quyền riêng tư."</string>
+    <string name="notificationUI_you_can_change_in_privacy_settings" msgid="4781410091509838647">"Bạn có thể thực hiện thay đổi trong chế độ cài đặt quyền riêng tư."</string>
+    <string name="notificationUI_fledge_measurement_title" msgid="1721724915714192994">"Hiện có các tính năng khác liên quan đến quyền riêng tư trong quảng cáo"</string>
+    <string name="notificationUI_fledge_measurement_introduction_text1" msgid="2217529852483952185">"Android cũng ra mắt những cách mới để hạn chế những gì ứng dụng có thể tìm hiểu về bạn khi cho bạn xem quảng cáo được cá nhân hoá."</string>
+    <string name="notificationUI_fledge_measurement_introduction_text2" msgid="601600895880486962">"•  Quảng cáo do ứng dụng đề xuất giúp bảo vệ danh tính của bạn và thông tin về cách bạn dùng ứng dụng, đồng thời cho phép ứng dụng cho bạn xem quảng cáo có liên quan. Dựa trên hoạt động của bạn, ứng dụng bạn dùng có thể đề xuất quảng cáo có liên quan cho các ứng dụng khác. Trong phần cài đặt quyền riêng tư, bạn có thể xem danh sách các ứng dụng và chặn không cho ứng dụng đề xuất quảng cáo."</string>
+    <string name="notificationUI_fledge_measurement_introduction_text3" msgid="956235653060248351">"•  Với khả năng đo lường quảng cáo, chỉ có một số loại dữ liệu được chia sẻ giữa các ứng dụng để đo lường hiệu suất quảng cáo của những dữ liệu đó, chẳng hạn như thời gian trong ngày mà bạn thấy một quảng cáo."</string>
+    <string name="notificationUI_fledge_measurement_control_ga_text_eu" msgid="2346851728118443500">"Tìm hiểu thêm về quảng cáo do ứng dụng đề xuất và hoạt động đo lường quảng cáo"</string>
+    <string name="notificationUI_how_it_works_fledge_measurement_expanded_text0" msgid="2456923104551938349">"Quảng cáo do ứng dụng đề xuất"</string>
+    <string name="notificationUI_how_it_works_fledge_measurement_expanded_text1" msgid="5606895535548790900">"•  Loại dữ liệu được sử dụng"</string>
+    <string name="notificationUI_how_it_works_fledge_measurement_expanded_text2" msgid="6309052819494439288">"Hoạt động của bạn trong ứng dụng bạn đã dùng trên thiết bị này."</string>
+    <string name="notificationUI_how_it_works_fledge_measurement_expanded_text3" msgid="5347980571056638783">"•  Cách các ứng dụng sử dụng dữ liệu này"</string>
+    <string name="notificationUI_how_it_works_fledge_measurement_expanded_text4" msgid="4738335469671465639">"Các ứng dụng có thể lưu trữ thông tin về những thứ bạn thích trên Android. Chẳng hạn, nếu bạn dùng một ứng dụng về huấn luyện chạy marathon, ứng dụng đó có thể cho rằng bạn quan tâm đến giày chạy bộ. Sau này, nếu bạn sử dụng một ứng dụng khác, ứng dụng này có thể hiển thị cho bạn quảng cáo về giày chạy bộ do ứng dụng đầu tiên đề xuất."</string>
+    <string name="notificationUI_how_it_works_fledge_measurement_expanded_text5" msgid="8737925570089314631">"•  Cách bạn có thể quản lý dữ liệu của mình"</string>
+    <string name="notificationUI_how_it_works_fledge_measurement_expanded_text6" msgid="495908587748380196">"Android thường xuyên tự động xoá dữ liệu do ứng dụng đề xuất. Ứng dụng bạn sử dụng lại có thể xuất hiện lại trong danh sách."</string>
+    <string name="notificationUI_how_it_works_fledge_measurement_expanded_text7" msgid="8995912218837619600">"Bạn cũng có thể chặn không cho một ứng dụng đề xuất quảng cáo cho mình, đặt lại mọi dữ liệu đề xuất quảng cáo hoặc tắt quảng cáo do ứng dụng đề xuất bất cứ lúc nào trong phần cài đặt quyền riêng tư."</string>
+    <string name="notificationUI_how_it_works_fledge_measurement_expanded_text9" msgid="5709134827192739362">"Các ứng dụng bạn dùng có thể yêu cầu Android cung cấp thông tin giúp đo lường hiệu suất quảng cáo của những ứng dụng đó. Android bảo vệ quyền riêng tư của bạn bằng cách giới hạn thông tin các ứng dụng có thể chia sẻ với nhau."</string>
+    <string name="notificationUI_notification_ga_title_eu_v2" msgid="9132669086237883391">"Hiện có các tính năng mới liên quan đến quyền riêng tư trong quảng cáo"</string>
+    <string name="notificationUI_notification_ga_content_eu_v2" msgid="9205285241542339861">"Thêm nhiều lựa chọn đối với quảng cáo mà bạn thấy, trong khi vẫn bảo vệ được danh tính của bạn"</string>
+    <string name="notificationUI_fledge_measurement_title_v2" msgid="1097778529908285549">"Hiện có các tính năng mới liên quan đến quyền riêng tư trong quảng cáo"</string>
+    <string name="notificationUI_fledge_measurement_introduction_text1_v2" msgid="4019531984422364790">"Android sẽ ra mắt những cách mới để hạn chế những gì ứng dụng có thể tìm hiểu về bạn khi cho bạn xem quảng cáo được cá nhân hoá."</string>
+    <string name="notificationUI_fledge_measurement_introduction_text2_v2" msgid="7324869061552803848">"•  Nhờ tính năng quảng cáo do ứng dụng gợi ý cũng như các tính năng mới liên quan đến quyền riêng tư, danh tính và thông tin về việc bạn sử dụng ứng dụng sẽ được bảo vệ trong khi vẫn giúp được ứng dụng cho bạn xem quảng cáo phù hợp. Dựa trên hoạt động của bạn, ứng dụng mà bạn dùng có thể đề xuất quảng cáo có liên quan trên các ứng dụng khác. Trong phần chế độ cài đặt quyền riêng tư, bạn có thể xem danh sách ứng dụng và chặn không cho ứng dụng đề xuất quảng cáo."</string>
+    <string name="notificationUI_fledge_measurement_introduction_text3_v2" msgid="7061185974787039681">"•  Với tính năng đo lường quảng cáo, chỉ có một số loại dữ liệu được chia sẻ giữa các ứng dụng để tìm hiểu hiệu suất quảng cáo tương ứng, chẳng hạn như thời gian trong ngày mà bạn thấy một quảng cáo."</string>
+    <string name="notificationUI_how_it_works_fledge_measurement_expanded_text2_v2" msgid="5467298277353569728">"Thông tin về hoạt động của bạn trong ứng dụng trên thiết bị này có thể được dùng để gợi ý quảng cáo."</string>
+    <string name="notificationUI_header_ga_title_eu_v2" msgid="8442776546238998877">"Bật một tính năng khác về quyền riêng tư trong quảng cáo"</string>
+    <string name="notificationUI_container1_body_ga_text_eu_v2" msgid="1119632112904754361">"Android cũng ra mắt một tính năng mới liên quan đến quyền riêng tư, giúp bạn có thêm nhiều lựa chọn về quảng cáo mà mình thấy."</string>
+    <string name="notificationUI_container2_body_ga_text_eu_v2" msgid="7264946073865844642">"Nhờ vào chủ đề quảng cáo, các ứng dụng sẽ cho bạn thấy quảng cáo phù hợp trong khi vẫn bảo vệ được danh tính của bạn và thông tin về việc bạn dùng ứng dụng. Android có thể lưu ý các chủ đề bạn quan tâm dựa trên những ứng dụng bạn dùng gần đây. Sau đó, ứng dụng bạn dùng có thể yêu cầu Android cung cấp thông tin về các chủ đề có liên quan để cho bạn thấy những quảng cáo phù hợp hơn."</string>
+    <string name="notificationUI_container3_body_ga_text_eu_v2" msgid="3204499878554843655">"Bạn có thể xem các chủ đề quảng cáo trong phần chế độ cài đặt quyền riêng tư, cũng như chặn những chủ đề mà mình không muốn chia sẻ với ứng dụng. Android cũng thường xuyên tự động xoá các chủ đề quảng cáo."</string>
+    <string name="notificationUI_right_control_button_ga_text_eu_v2" msgid="7227289411885047121">"Bật"</string>
+    <string name="notificationUI_notification_ga_title_v2" msgid="7429979629916798545">"Hiện có các tính năng mới liên quan đến quyền riêng tư trong quảng cáo"</string>
+    <string name="notificationUI_notification_ga_content_v2" msgid="4673081782304081905">"Giờ đây, bạn có thêm nhiều lựa chọn đối với quảng cáo mà bạn thấy, trong khi vẫn bảo vệ được danh tính của bạn"</string>
+    <string name="notificationUI_header_ga_title_v2" msgid="2079990149331373941">"Hiện có các tính năng mới liên quan đến quyền riêng tư trong quảng cáo"</string>
+    <string name="notificationUI_container1_ga_introduction_v2" msgid="3820258766801905248">"Android nay ra mắt các tính năng mới liên quan đến quyền riêng tư, giúp bạn có thêm nhiều lựa chọn về quảng cáo mà mình thấy."</string>
+    <string name="notificationUI_next_button_text" msgid="5564270455474313663">"Tiếp theo"</string>
+    <string name="settingsUI_main_view_title" msgid="1663691082473230496">"Hộp cát về quyền riêng tư"</string>
+    <string name="settingsUI_main_view_subtitle" msgid="2059496555507319371">"Tham gia phiên bản beta về quyền riêng tư trong quảng cáo của Android"</string>
+    <string name="settingsUI_privacy_sandbox_beta_switch_title" msgid="5264782269528129670">"Hộp cát về quyền riêng tư"</string>
+    <string name="settingsUI_topics_title" msgid="5996189869721397937">"Mối quan tâm do Android ước đoán"</string>
+    <string name="settingsUI_apps_title" msgid="2772289096915264175">"Những ứng dụng ước đoán mối quan tâm"</string>
+    <string name="settingsUI_main_view_info_text8" msgid="2262800588014737545">"Đo lường quảng cáo"</string>
+    <string name="settingsUI_main_view_info_text9" msgid="5431131706102562540">"Các ứng dụng có thể sử dụng Hộp cát về quyền riêng tư để đo lường hiệu quả của quảng cáo. Để làm điều này, các nhà quảng cáo có thể tạm thời lưu dữ liệu tương tác của bạn giữa quảng cáo và ứng dụng của họ qua Android. Lượng dữ liệu họ có thể lưu bị hạn chế và sẽ bị xóa thường xuyên.\n\nBạn có thể xóa dữ liệu này bất kỳ lúc nào bằng cách tắt Hộp cát về quyền riêng tư."</string>
+    <string name="settingsUI_topics_view_subtitle" msgid="6608135144119617292">"Android định kỳ ước đoán những mối quan tâm hàng đầu của bạn dựa trên các ứng dụng bạn dùng. Các ứng dụng có thể yêu cầu Android sử dụng những mối quan tâm đó để hiển thị cho bạn các quảng cáo phù hợp hơn.\n\nNếu bạn chặn một mối quan tâm thì mối quan tâm đó sẽ không được thêm lại vào danh sách trừ phi bạn bỏ chặn. Bạn vẫn có thể thấy một số quảng cáo có liên quan."</string>
+    <string name="settingsUI_block_topic_title" msgid="1883542291264768402">"Chặn"</string>
+    <string name="settingsUI_unblock_topic_title" msgid="1710283575567727667">"Bỏ chặn"</string>
+    <string name="settingsUI_blocked_topics_title" msgid="5030422883546261820">"Mối quan tâm bạn đã chặn"</string>
+    <string name="settingsUI_reset_topics_title" msgid="6917960006583871987">"Đặt lại tất cả các mối quan tâm"</string>
+    <string name="settingsUI_topics_view_no_topics_text" msgid="6954747579303498382">"Hiện không có mối quan tâm nào để hiển thị."</string>
+    <string name="settingsUI_topics_view_no_topics_ga_text" msgid="8043163159679359485">"Hiện không có chủ đề nào để hiển thị.\nTìm hiểu thêm về "<a href="https://support.google.com/android?p=ad_privacy">"chủ đề quảng cáo"</a></string>
+    <string name="settingsUI_topics_view_info_text1" msgid="2477020249748216309">"Hộp cát về quyền riêng tư"</string>
+    <string name="settingsUI_topics_view_info_text2" msgid="6223353589295876851">"Bản beta về quyền riêng tư trong quảng cáo của Android cung cấp các tính năng mới mà ứng dụng có thể dùng để hiển thị những quảng cáo bạn có thể thích. Các công nghệ này không sử dụng số nhận dạng thiết bị.\n\nAndroid có thể ước tính các loại quảng cáo mà bạn có thể quan tâm và tạm thời lưu những sở thích này trên thiết bị của bạn. Điều này cho phép các ứng dụng hiển thị những quảng cáo có liên quan mà không cần theo dõi hoạt động của bạn trên các trang web cũng như ứng dụng từ nhà phát triển khác."</string>
+    <string name="settingsUI_topics_view_no_blocked_topics_text" msgid="6553014185055718781">"Bạn chưa chặn chủ đề nào"</string>
+    <string name="settingsUI_no_blocked_topics_ga_text" msgid="377459829879121256">"Chưa chặn chủ đề nào"</string>
+    <string name="settingsUI_view_blocked_topics_title" msgid="3705333677440361392">"Xem chủ đề bị chặn"</string>
+    <string name="settingsUI_topics_are_reset" msgid="7539323750312329931">"Đã đặt lại mối quan tâm"</string>
+    <string name="settingsUI_topics_are_reset_ga" msgid="5250296990870048195">"Đã đặt lại chủ đề"</string>
+    <string name="settingsUI_apps_view_subtitle" msgid="8193343057416677400">"Các ứng dụng có thể ước đoán mối quan tâm của bạn và tạm thời lưu những mối quan tâm này trong Android. Sau này, các ứng dụng khác có thể hiển thị cho bạn quảng cáo dựa trên những mối quan tâm này.\n\nNếu bạn chặn một ứng dụng, ứng dụng đó sẽ không ước đoán thêm mối quan tâm nào nữa. Ứng dụng đó sẽ không được thêm lại vào danh sách ứng dụng này trừ phi bạn bỏ chặn. Những mối quan tâm đã được ứng dụng đó ước đoán sẽ bị xóa, nhưng bạn vẫn có thể thấy một số quảng cáo có liên quan."</string>
+    <string name="settingsUI_blocked_apps_title" msgid="1260257485713408637">"Ứng dụng bạn đã chặn"</string>
+    <string name="settingsUI_view_blocked_apps_title" msgid="379556513199380600">"Xem các ứng dụng bị chặn"</string>
+    <string name="settingsUI_reset_apps_title" msgid="6221704974528131179">"Đặt lại mối quan tâm do ứng dụng ước đoán"</string>
+    <string name="settingsUI_apps_view_no_apps_text" msgid="7460005016322426137">"Hiện không có ứng dụng nào đang tạo các sở thích cho bạn"</string>
+    <string name="settingsUI_apps_view_no_apps_ga_text" msgid="742044210764257860">"Hiện không có ứng dụng nào để hiển thị. \nTìm hiểu thêm về "<a href="https://support.google.com/android?p=ad_privacy">"quảng cáo do ứng dụng gợi ý"</a></string>
+    <string name="settingsUI_apps_view_info_text1" msgid="7835635425477842692">"Hộp cát về quyền riêng tư"</string>
+    <string name="settingsUI_apps_view_info_text2" msgid="308547275474796552">"Bản beta về quyền riêng tư trong quảng cáo của Android cung cấp các tính năng mới mà các ứng dụng có thể dùng để hiển thị những quảng cáo bạn có thể thích. Những công nghệ này không sử dụng mã nhận dạng thiết bị.\n\nCác ứng dụng có thể ước đoán các loại quảng cáo mà bạn có thể quan tâm và tạm thời lưu những mối quan tâm này trên thiết bị của bạn. Điều này cho phép các ứng dụng hiển thị những quảng cáo bạn có thể thích mà không cần theo dõi hoạt động của bạn trên các trang web cũng như ứng dụng của các nhà phát triển khác."</string>
+    <string name="settingsUI_apps_view_no_blocked_apps_text" msgid="3953560911214151396">"Bạn không có ứng dụng nào bị chặn"</string>
+    <string name="settingsUI_no_blocked_apps_ga_text" msgid="7488680173653861943">"Chưa chặn ứng dụng nào"</string>
+    <string name="settingsUI_measurement_switch_title" msgid="6623116680555954932">"Cho phép đo lường quảng cáo"</string>
+    <string name="settingsUI_measurement_view_intro_text" msgid="3608942051176719850">"Ứng dụng và nhà quảng cáo có thể yêu cầu Android cung cấp thông tin giúp đo lường hiệu suất quảng cáo của ứng dụng/nhà quảng cáo đó.\n\nDữ liệu đo lường quảng cáo thường xuyên bị xoá khỏi thiết bị của bạn."</string>
+    <string name="settingsUI_measurement_view_reset_title" msgid="3063374834649428050">"Đặt lại dữ liệu đo lường"</string>
+    <string name="settingsUI_measurement_view_footer_text" msgid="5978750159738729308">"Android bảo vệ quyền riêng tư của bạn bằng cách giới hạn thông tin mà ứng dụng có thể chia sẻ với một ứng dụng khác. Việc gửi báo cáo sẽ có độ trễ để bảo vệ danh tính của bạn.\n\nTrình duyệt có thể áp dụng chế độ cài đặt tương tự. Nếu bạn bật tính năng đo lường quảng cáo cho cả Android và trình duyệt, thì có thể một công ty sẽ đo lường được mức độ hiệu quả của quảng cáo giữa ứng dụng bạn dùng và trang web bạn truy cập. Nhật ký duyệt web được giữ riêng tư trên thiết bị của bạn.\n\nTìm hiểu thêm về cách Android đảm bảo an toàn cho dữ liệu của bạn trong "<a href="https://policies.google.com/privacy">"Chính sách quyền riêng tư"</a>" của chúng tôi."</string>
+    <string name="settingsUI_measurement_are_reset" msgid="4375330550418573499">"Đã đặt lại dữ liệu đo lường quảng cáo"</string>
+    <string name="settingsUI_dialog_negative_text" msgid="3014088254631375852">"Huỷ"</string>
+    <string name="settingsUI_dialog_opt_out_title" msgid="1862069591629418291">"Tắt Hộp cát về quyền riêng tư?"</string>
+    <string name="settingsUI_dialog_opt_out_message" msgid="5696012172835241848">"Nếu bạn đổi ý hoặc muốn tìm hiểu thêm về bản beta về quyền riêng tư trong quảng cáo của Android, hãy chuyển đến phần cài đặt quyền riêng tư"</string>
+    <string name="settingsUI_dialog_opt_out_positive_text" msgid="5344259263448028614">"Tắt"</string>
+    <string name="settingsUI_dialog_block_topic_title" msgid="5744004384480280782">"Chặn chủ đề <xliff:g id="TOPIC">%1$s</xliff:g>?"</string>
+    <string name="settingsUI_dialog_block_topic_message" msgid="2581824495438333677">"Chủ đề này sẽ bị chặn và không được thêm lại vào danh sách của bạn, trừ phi bạn thêm lại chủ đề đó. Có thể bạn vẫn sẽ thấy một số quảng cáo có liên quan."</string>
+    <string name="settingsUI_dialog_block_topic_positive_text" msgid="2626152417590300510">"Chặn"</string>
+    <string name="settingsUI_dialog_unblock_topic_title" msgid="7361000923920947234">"Đã bỏ chặn chủ đề <xliff:g id="TOPIC">%1$s</xliff:g>"</string>
+    <string name="settingsUI_dialog_unblock_topic_message" msgid="1090743551997420666">"Android có thể thêm lại chủ đề này vào danh sách của bạn, nhưng có khả năng chủ đề này chưa xuất hiện ngay"</string>
+    <string name="settingsUI_dialog_unblock_topic_positive_text" msgid="2192452325573789737">"OK"</string>
+    <string name="settingsUI_dialog_reset_topic_title" msgid="8025836207966712435">"Đặt lại tất cả chủ đề quảng cáo?"</string>
+    <string name="settingsUI_dialog_reset_topic_message" msgid="4243744527757134000">"Danh sách của bạn sẽ bị xoá và các chủ đề mới sẽ được thêm vào sau này. Có thể bạn vẫn sẽ thấy một số quảng cáo liên quan đến các chủ đề mà mình đã đặt lại."</string>
+    <string name="settingsUI_dialog_reset_topic_positive_text" msgid="8345697359799280761">"Đặt lại"</string>
+    <string name="settingsUI_dialog_block_app_title" msgid="421160714549264414">"Chặn ứng dụng <xliff:g id="APP">%1$s</xliff:g>?"</string>
+    <string name="settingsUI_dialog_block_app_message" msgid="758788973278770119">"Ứng dụng này sẽ không đề xuất quảng cáo và không được thêm lại vào danh sách của bạn, trừ phi bạn bỏ chặn ứng dụng đó. Có thể bạn vẫn sẽ thấy một số quảng cáo có liên quan."</string>
+    <string name="settingsUI_dialog_unblock_app_title" msgid="4360730780049298286">"Đã bỏ chặn ứng dụng <xliff:g id="APP">%1$s</xliff:g>"</string>
+    <string name="settingsUI_dialog_unblock_app_message" msgid="5758218424845642060">"Ứng dụng này có thể đề xuất lại quảng cáo cho bạn, nhưng có khả năng ứng dụng này sẽ chưa xuất hiện ngay trên danh sách của bạn. Có thể phải chờ một lúc thì bạn mới thấy quảng cáo có liên quan."</string>
+    <string name="settingsUI_dialog_reset_app_title" msgid="5177572712117150557">"Đặt lại quảng cáo do ứng dụng đề xuất?"</string>
+    <string name="settingsUI_dialog_reset_app_message" msgid="7845329616145691006">"Dữ liệu đề xuất quảng cáo của các ứng dụng có trong danh sách của bạn sẽ bị xoá và các ứng dụng sẽ đề xuất quảng cáo mới từ giờ trở đi. Có thể bạn vẫn sẽ thấy một số quảng cáo có liên quan."</string>
+    <string name="settingsUI_apps_are_reset" msgid="1814400631145418530">"Đã đặt lại dữ liệu ứng dụng"</string>
+    <string name="settingsUI_dialog_topics_opt_in_title" msgid="8121927422479701361">"Tính năng Chủ đề quảng cáo đang bật"</string>
+    <string name="settingsUI_dialog_topics_opt_in_message" msgid="906156509464496182">"Android sẽ bắt đầu ghi nhớ những chủ đề bạn quan tâm, nhưng có thể mất một lúc để chủ đề đầu tiên xuất hiện."</string>
+    <string name="settingsUI_dialog_topics_opt_out_title" msgid="729119757000459089">"Tắt tính năng chủ đề quảng cáo?"</string>
+    <string name="settingsUI_dialog_topics_opt_out_message" msgid="1536431481297878931">"Danh sách chủ đề này sẽ bị xoá. Android sẽ không ghi nhớ những chủ đề bạn quan tâm nữa, nhưng bạn vẫn có thể nhìn thấy quảng cáo phù hợp."</string>
+    <string name="settingsUI_dialog_apps_opt_in_title" msgid="1802639238531107941">"Tính năng Quảng cáo do ứng dụng gợi ý đang bật"</string>
+    <string name="settingsUI_dialog_apps_opt_in_message" msgid="6335861029594000364">"Các ứng dụng có thể bắt đầu gợi ý quảng cáo. Bạn sẽ nhìn thấy danh sách ứng dụng khi các ứng dụng này bắt đầu gợi ý quảng cáo."</string>
+    <string name="settingsUI_dialog_apps_opt_out_title" msgid="2152898453001885432">"Tắt quảng cáo do ứng dụng gợi ý?"</string>
+    <string name="settingsUI_dialog_apps_opt_out_message" msgid="6894065908128443334">"Tất cả dữ liệu gợi ý quảng cáo sẽ bị xoá. Các ứng dụng sẽ không thể tiếp tục gợi ý quảng cáo, nhưng bạn vẫn có thể nhìn thấy quảng cáo phù hợp."</string>
+    <string name="settingsUI_dialog_measurement_opt_in_title" msgid="313317715284771681">"Tính năng Đo lường quảng cáo đang bật"</string>
+    <string name="settingsUI_dialog_measurement_opt_in_message" msgid="1122570790810645916">"Android chỉ có thể chia sẻ rất ít thông tin với các ứng dụng để giúp các ứng dụng đo lường hiệu suất quảng cáo."</string>
+    <string name="settingsUI_dialog_measurement_opt_out_title" msgid="1629867723206716370">"Tắt tính năng đo lường quảng cáo?"</string>
+    <string name="settingsUI_dialog_measurement_opt_out_message" msgid="1050338738668085641">"Tất cả báo cáo đang chờ xử lý của tính năng đo lường quảng cáo sẽ bị xoá và sẽ không có báo cáo mới nào được tạo hoặc chia sẻ."</string>
+    <string name="settingsUI_main_view_ga_title" msgid="4149820452019697214">"Quyền riêng tư trong quảng cáo"</string>
+    <string name="settingsUI_topics_ga_title" msgid="7324482132761824214">"Chủ đề quảng cáo"</string>
+    <string name="settingsUI_apps_ga_title" msgid="1527820834800364372">"Quảng cáo do ứng dụng đề xuất"</string>
+    <string name="settingsUI_main_view_ad_topics_info" msgid="2643088833140772417">"Android lưu ý các chủ đề bạn quan tâm dựa trên những ứng dụng bạn dùng gần đây và tần suất bạn dùng các ứng dụng đó."</string>
+    <string name="settingsUI_main_view_apps_info" msgid="1668244327840008046">"Các ứng dụng bạn dùng cũng có thể xác định sở thích của bạn dựa trên cách bạn dùng những ứng dụng đó."</string>
+    <string name="settingsU_main_view_measurement_info" msgid="7950104699961821635">"Các ứng dụng bạn dùng có thể yêu cầu Android cung cấp thông tin để giúp những ứng dụng đó đo lường hiệu suất của quảng cáo của họ. Android cho phép các ứng dụng thu thập một số loại dữ liệu có giới hạn."</string>
+    <string name="settingsU_main_view_learn_more" msgid="2129694798398023916">"Tìm hiểu thêm về "<a href="https://support.google.com/android?p=ad_privacy">"quyền riêng tư trong quảng cáo trên Android"</a></string>
+    <string name="settingsUI_topics_subtitle" msgid="6545976434367750110">"Đang bật / <xliff:g id="TOPICS_COUNT">%1$d</xliff:g> chủ đề"</string>
+    <string name="settingsUI_topics_subtitle_plural" msgid="4809219115021801972">"{count,plural, =1{Đang bật/# chủ đề}other{Đang bật/# chủ đề}}"</string>
+    <string name="settingsUI_apps_subtitle" msgid="387595280958995973">"Đang bật / <xliff:g id="APPS_COUNT">%1$d</xliff:g> ứng dụng"</string>
+    <string name="settingsUI_apps_subtitle_plural" msgid="3989880089023565457">"{count,plural, =1{Đang bật/# ứng dụng}other{Đang bật/# ứng dụng}}"</string>
+    <string name="settingsUI_subtitle_consent_on" msgid="7522464537194619022">"Đang bật"</string>
+    <string name="settingsUI_subtitle_consent_off" msgid="1604274030685784887">"Đang tắt"</string>
+    <string name="settingsUI_topics_view_ga_subtitle" msgid="3672784134413586246">"Các chủ đề bạn quan tâm sẽ được xác định dựa trên các ứng dụng bạn dùng gần đây và được các ứng dụng dùng để hiển thị quảng cáo phù hợp với bạn.\n\nBạn có thể chặn những chủ đề mà bạn không muốn chia sẻ với ứng dụng. Android cũng thường xuyên tự động xoá các chủ đề."</string>
+    <string name="settingsUI_topics_switch_title" msgid="5856255848598189791">"Cho phép chủ đề quảng cáo"</string>
+    <string name="settingsUI_blocked_topics_ga_title" msgid="7163366621282449273">"Chủ đề quảng cáo bạn đã chặn"</string>
+    <string name="settingsUI_reset_topics_ga_title" msgid="5365554894399951300">"Đặt lại tất cả chủ đề quảng cáo"</string>
+    <string name="settingsU_topics_view_footer" msgid="4769146330248953561">"Android ghi lại các chủ đề bạn quan tâm dựa trên những ứng dụng bạn đã dùng trong vài tuần qua.\n\nSau đó, ứng dụng bạn dùng có thể yêu cầu Android cung cấp các chủ đề của bạn để cá nhân hoá quảng cáo mà bạn nhìn thấy. Android sẽ chia sẻ tối đa 3 chủ đề trong khi vẫn bảo vệ danh tính và thông tin về việc bạn dùng ứng dụng.\n\nAndroid thường xuyên tự động xoá các chủ đề. Khi bạn tiếp tục dùng các ứng dụng, một chủ đề có thể xuất hiện lại trong danh sách. Hoặc bạn có thể chặn các chủ đề mà bạn không muốn Android chia sẻ với các ứng dụng.\n\nTrong các ứng dụng của bạn, một quảng cáo mà bạn nhìn thấy có thể được cá nhân hoá, tuỳ thuộc vào chế độ cài đặt này, chế độ cài đặt quảng cáo do ứng dụng đề xuất, chế độ cài đặt mã nhận dạng cho quảng cáo và liệu ứng dụng bạn đang dùng có cá nhân hoá quảng cáo hay không."</string>
+    <string name="settingsUI_apps_switch_title" msgid="1308209012769248890">"Cho phép quảng cáo do ứng dụng đề xuất"</string>
+    <string name="settingsUI_apps_view_ga_subtitle" msgid="1911743837387384160">"Ứng dụng bạn dùng có thể xác định sở thích của bạn rồi đề xuất quảng cáo trên các ứng dụng khác.\n\nBạn có thể chặn không cho ứng dụng đưa ra đề xuất. Android cũng thường tự động xoá dữ liệu do ứng dụng đề xuất."</string>
+    <string name="settingsUI_blocked_apps_ga_title" msgid="1896327995101895088">"Ứng dụng bạn chặn"</string>
+    <string name="settingsUI_reset_apps_ga_title" msgid="371969808353100852">"Đặt lại dữ liệu do ứng dụng đề xuất"</string>
+    <string name="settingsUI_apps_view_footer" msgid="6428897482766556515">"Các ứng dụng mà bạn dùng thường ghi nhớ những điều bạn quan tâm để cá nhân hoá trải nghiệm cho bạn. Các ứng dụng cũng có thể lưu trữ thông tin về các chủ đề của bạn với Android.\n\nVí dụ: nếu bạn dùng một ứng dụng tập chạy ma-ra-tông, thì có thể ứng dụng đó cho rằng bạn quan tâm đến giày chạy. Sau này, nếu bạn dùng một ứng dụng khác, thì có thể ứng dụng khác đó sẽ cho bạn xem một quảng cáo về giày chạy do ứng dụng ban đầu đề xuất.\n\nAndroid thường xuyên tự động xoá dữ liệu do ứng dụng đề xuất. Ứng dụng bạn sử dụng lại có thể xuất hiện lại trên danh sách này. Hoặc bạn có thể chặn không cho một ứng dụng đề xuất quảng cáo cho mình.\n\nTrong các ứng dụng bạn dùng, có thể quảng cáo mà bạn thấy đã được cá nhân hoá, tuỳ thuộc vào chế độ cài đặt này, chế độ cài đặt chủ đề quảng cáo, chế độ cài đặt mã nhận dạng cho quảng cáo và việc liệu ứng dụng bạn đang dùng có cá nhân hoá quảng cáo cho bạn hay không."</string>
+    <string name="notificationUI_u18_notification_title" msgid="4880509503177562077">"Có tính năng mới về quyền riêng tư trong quảng cáo"</string>
+    <string name="notificationUI_u18_notification_content" msgid="6734418183242286936">"Chỉ rất ít thông tin được chia sẻ giữa các ứng dụng để đo lường hiệu suất của quảng cáo."</string>
+    <string name="notificationUI_u18_body1" msgid="5384339364319615715">"Chúng tôi sắp ra mắt một tính năng về quyền riêng tư trong quảng cáo mới có tên là đo lường quảng cáo. Android chỉ chia sẻ rất ít thông tin giữa các ứng dụng (chẳng hạn như thông tin về thời điểm hiển thị quảng cáo cho bạn) để đo lường hiệu suất quảng cáo."</string>
+    <string name="notificationUI_u18_body3" msgid="4511974346169641579">"Bạn có thể thay đổi trong chế độ cài đặt quyền riêng tư trong quảng cáo."</string>
+    <string name="settingsUI_u18_main_view_measurement_info" msgid="1709326915590855853">"Các ứng dụng bạn dùng có thể yêu cầu Android cung cấp thông tin giúp đo lường hiệu suất quảng cáo của những ứng dụng đó. Android chỉ cho phép ứng dụng thu thập một số loại dữ liệu có giới hạn."</string>
+    <string name="ic_consent_notification_ga_image_description" msgid="6146488914437778539">"Hình có màu, minh hoạ các biểu tượng đại diện cho các chủ đề được quan tâm như âm nhạc, tin tức và thể thao"</string>
+    <string name="ic_main_view_ga_image_description" msgid="1846571138870271761">"Hình có màu, minh hoạ một chiếc ổ khoá ở trong một vòng tròn"</string>
+    <string name="ic_placeholder_icon_for_empty_apps_list_description" msgid="8171099879240285360">"Hình minh hoạ đen trắng cỡ nhỏ, thể hiện 9 dấu chấm tạo thành một hình vuông"</string>
+    <string name="ic_placeholder_icon_for_empty_topics_list_description" msgid="2112218456926009271">"Hình minh hoạ đen trắng cỡ nhỏ, thể hiện các hình khối đơn giản như hình trái tim, hình tam giác và hình vuông"</string>
+    <string name="topic10001" msgid="1636806320891333775">"Nghệ thuật &amp; Giải trí"</string>
+    <string name="topic10002" msgid="1226367977754287428">"Diễn xuất &amp; Kịch nghệ"</string>
+    <string name="topic10003" msgid="6949890838957814881">"Anime &amp; Manga"</string>
+    <string name="topic10004" msgid="5397903150832181233">"Hoạt hình"</string>
+    <string name="topic10005" msgid="6316179809581237302">"Truyện tranh"</string>
+    <string name="topic10006" msgid="7442330644172139790">"Hòa nhạc &amp; Lễ hội âm nhạc"</string>
+    <string name="topic10007" msgid="5537896091418145164">"Khiêu vũ"</string>
+    <string name="topic10008" msgid="2737343278307552521">"Ngành giải trí"</string>
+    <string name="topic10009" msgid="3252367380340240453">"Trò vui &amp; Chuyện phiếm"</string>
+    <string name="topic10010" msgid="932301479153552725">"Bài kiểm tra thú vị &amp; Khảo sát ngớ ngẩn"</string>
+    <string name="topic10011" msgid="3123553390567261985">"Hài hước"</string>
+    <string name="topic10012" msgid="8756486271154511326">"Video &amp; Hình ảnh vui nhộn"</string>
+    <string name="topic10013" msgid="1242353161202448753">"Hài kịch trực tiếp"</string>
+    <string name="topic10014" msgid="6086156236112755291">"Sự kiện thể thao trực tiếp"</string>
+    <string name="topic10015" msgid="9196350141359833832">"Ảo thuật"</string>
+    <string name="topic10016" msgid="202419376638900745">"Danh sách phim &amp; Lịch chiếu"</string>
+    <string name="topic10017" msgid="6737229918787540100">"Phim"</string>
+    <string name="topic10018" msgid="6823676154109177487">"Phim hành động &amp; Phiêu lưu"</string>
+    <string name="topic10019" msgid="6875960630918973127">"Phim hoạt hình"</string>
+    <string name="topic10020" msgid="4323870300602151489">"Phim hài"</string>
+    <string name="topic10021" msgid="446758643774468418">"Phim giáo phái &amp; Indie"</string>
+    <string name="topic10022" msgid="3671929742155787005">"Phim tài liệu"</string>
+    <string name="topic10023" msgid="3547616830531182863">"Phim chính kịch"</string>
+    <string name="topic10024" msgid="1044853632986202120">"Phim về gia đình"</string>
+    <string name="topic10025" msgid="5958629223443279316">"Phim kinh dị"</string>
+    <string name="topic10026" msgid="5685515125614860029">"Phim lãng mạn"</string>
+    <string name="topic10027" msgid="8846353713171614854">"Phim ly kỳ"</string>
+    <string name="topic10028" msgid="170404703980174756">"Nhạc &amp; Âm thanh"</string>
+    <string name="topic10029" msgid="4634600135545614665">"Nhạc Blues"</string>
+    <string name="topic10030" msgid="7226438392540805771">"Nhạc cổ điển"</string>
+    <string name="topic10031" msgid="1488013446112025676">"Nhạc đồng quê"</string>
+    <string name="topic10032" msgid="9053666244854789632">"Nhạc nhảy &amp; Nhạc điện tử"</string>
+    <string name="topic10033" msgid="440063573197454181">"Nhạc dân gian &amp; Nhạc truyền thống"</string>
+    <string name="topic10034" msgid="8296307244554241197">"Nhạc Jazz"</string>
+    <string name="topic10035" msgid="9171752741499923310">"Tải xuống &amp; Nghe nhạc trực tuyến"</string>
+    <string name="topic10036" msgid="2490236112725457376">"Video nhạc"</string>
+    <string name="topic10037" msgid="1923690469725883551">"Nhạc cụ"</string>
+    <string name="topic10038" msgid="2817492732688549631">"Đàn piano &amp; Đàn Keyboard"</string>
+    <string name="topic10039" msgid="8970033643570782019">"Nhạc Pop"</string>
+    <string name="topic10040" msgid="7478395512712452137">"Đài"</string>
+    <string name="topic10041" msgid="3319379117705411886">"Talk Radio"</string>
+    <string name="topic10042" msgid="8830471038440654640">"Rap &amp; Hip-Hop"</string>
+    <string name="topic10043" msgid="8585450284346207691">"Nhạc Rock"</string>
+    <string name="topic10044" msgid="3710011249220779842">"Rock cổ điển &amp; Nhạc Cổ điển"</string>
+    <string name="topic10045" msgid="7593443421067822441">"Nhạc Hard Rock &amp; &amp; Nhạc Progressive"</string>
+    <string name="topic10046" msgid="8715621227472631784">"Nhạc Indie &amp; Nhạc biến tấu"</string>
+    <string name="topic10047" msgid="3518038303049899798">"Thư viện mẫu &amp; âm thanh"</string>
+    <string name="topic10048" msgid="3063505369500799094">"Jazz &amp; R&amp;B"</string>
+    <string name="topic10049" msgid="8061992014977840818">"Nhạc phim"</string>
+    <string name="topic10050" msgid="3540229495848506229">"Âm nhạc thế giới"</string>
+    <string name="topic10051" msgid="6132468331924347995">"Nhạc Reggae &amp; Ca-ri-bê"</string>
+    <string name="topic10052" msgid="8213269199807045473">"Phòng trưng bày Hình ảnh trực tuyến"</string>
+    <string name="topic10053" msgid="1378192203082454197">"Video trực tuyến"</string>
+    <string name="topic10054" msgid="3727401645405134505">"Truyền video trực tiếp"</string>
+    <string name="topic10055" msgid="4943174831732192854">"Phim ảnh &amp; truyền hình trực tuyến"</string>
+    <string name="topic10056" msgid="3066058636154255073">"Opera"</string>
+    <string name="topic10057" msgid="387445514677222034">"Tham khảo &amp; Hướng dẫn Truyền hình"</string>
+    <string name="topic10058" msgid="9149178644022969766">"Đài &amp; Mạng Truyền hình"</string>
+    <string name="topic10059" msgid="6300562669238320524">"Chương trình truyền hình &amp; các chương trình khác"</string>
+    <string name="topic10060" msgid="3901256055064835246">"Hài kịch Truyền hình"</string>
+    <string name="topic10061" msgid="8343924749123326062">"Phim tài liệu truyền hình &amp; Thể loại phim phi hư cấu"</string>
+    <string name="topic10062" msgid="9183355218976951211">"Phim truyền hình"</string>
+    <string name="topic10063" msgid="644340831620792432">"Phim truyền hình Soap Opera (thể loại kịch xà phòng nhiều tập)"</string>
+    <string name="topic10064" msgid="5961885645457010998">"Chương trình truyền hình dành cho gia đình"</string>
+    <string name="topic10065" msgid="7916343612028608044">"Chương trình Truyền hình Thực tế"</string>
+    <string name="topic10066" msgid="5984396525358003559">"Chương trình Truyền hình Khoa học Viễn tưởng &amp; Giả tưởng"</string>
+    <string name="topic10067" msgid="6404637729885733437">"Nghệ thuật &amp; thiết kế thị giác"</string>
+    <string name="topic10068" msgid="4589856961950168493">"Thiết kế"</string>
+    <string name="topic10069" msgid="3129378082034151991">"Hội họa"</string>
+    <string name="topic10070" msgid="2570256568661324147">"Nghệ thuật nhiếp ảnh &amp; kỹ thuật số"</string>
+    <string name="topic10071" msgid="1288722040962471254">"Ô tô &amp; Xe cộ"</string>
+    <string name="topic10072" msgid="9155509766616567261">"Xe chở hàng hóa &amp; Xe tải có toa moóc"</string>
+    <string name="topic10073" msgid="3748676231341513738">"Xe cổ"</string>
+    <string name="topic10074" msgid="2040911547161463227">"Xe Tùy chỉnh &amp; Hiệu suất"</string>
+    <string name="topic10075" msgid="1242538698445713796">"Giá xăng &amp; Nhiên liệu xe"</string>
+    <string name="topic10076" msgid="8674225812339579627">"Phương tiện cơ giới ( theo loại)"</string>
+    <string name="topic10077" msgid="3577709810751953433">"Xe tự lái"</string>
+    <string name="topic10078" msgid="5493263845129910125">"Xe mui trần"</string>
+    <string name="topic10079" msgid="3466838852836498580">"Xe coupe"</string>
+    <string name="topic10080" msgid="3515647285637163190">"Xe hatchback"</string>
+    <string name="topic10081" msgid="4135085035401158860">"Xe sử dụng nhiên liệu thay thế &amp; Xe Hybrid (xe có động cơ lai)"</string>
+    <string name="topic10082" msgid="7168659489029594320">"Xe hạng sang"</string>
+    <string name="topic10083" msgid="1532745144715857802">"Xe siêu nhỏ &amp; Xe nhỏ gọn"</string>
+    <string name="topic10084" msgid="1984231414410381476">"Xe mô tô"</string>
+    <string name="topic10085" msgid="5235555028227554661">"Xe địa hình"</string>
+    <string name="topic10086" msgid="8360336602646460411">"Xe bán tải"</string>
+    <string name="topic10087" msgid="6566900167002195406">"Xe Scooter &amp; Moped"</string>
+    <string name="topic10088" msgid="2899313082601001223">"Xe sedan"</string>
+    <string name="topic10089" msgid="1053630346809973163">"Xe ô tô khoang dài"</string>
+    <string name="topic10090" msgid="4478565601243447368">"Xe SUV &amp; Crossoverse"</string>
+    <string name="topic10091" msgid="3812668311830832874">"Xe Crossover"</string>
+    <string name="topic10092" msgid="524130833813249539">"Xe tải &amp; Xe tải nhỏ"</string>
+    <string name="topic10093" msgid="8900143351472824542">"Xe kéo &amp; Xe cứu hộ ven đường"</string>
+    <string name="topic10094" msgid="6205146188176216038">"Xe cộ &amp; An toàn giao thông"</string>
+    <string name="topic10095" msgid="7983070264654477553">"Bộ phận &amp; phụ kiện xe cộ"</string>
+    <string name="topic10096" msgid="8148747014459050804">"Sửa chữa &amp; Bảo dưỡng Xe"</string>
+    <string name="topic10097" msgid="4716536434833425748">"Mua sắm xe cộ"</string>
+    <string name="topic10098" msgid="6401980112135995019">"Xe đã qua sử dụng"</string>
+    <string name="topic10099" msgid="8018714209926584445">"Trình diễn xe cộ"</string>
+    <string name="topic10100" msgid="2481422464734249871">"Làm đẹp &amp; Thể hình"</string>
+    <string name="topic10101" msgid="7889144198021629053">"Nghệ thuật vẽ trên cơ thể"</string>
+    <string name="topic10102" msgid="577637051755692238">"Chăm sóc da mặt &amp; Cơ thể"</string>
+    <string name="topic10103" msgid="6618157344631408510">"Sản phẩm chống mồ hôi"</string>
+    <string name="topic10104" msgid="6043649669944382784">"Sản phẩm tắm &amp; dưỡng thể"</string>
+    <string name="topic10105" msgid="3248569527339253661">"Mỹ phẩm sạch"</string>
+    <string name="topic10106" msgid="1291481249483309832">"Trang điểm &amp; mỹ phẩm"</string>
+    <string name="topic10107" msgid="1335060201249279923">"Sản phẩm chăm sóc móng"</string>
+    <string name="topic10108" msgid="4996884435711154930">"Nước hoa &amp; hương thơm"</string>
+    <string name="topic10109" msgid="7298403319989686251">"Dao cạo &amp; Máy cạo râu"</string>
+    <string name="topic10110" msgid="5954355866247248022">"Thời trang &amp; Phong cách sống"</string>
+    <string name="topic10111" msgid="4447710938881368413">"Thể dục"</string>
+    <string name="topic10112" msgid="8816530137921714131">"Thể hình"</string>
+    <string name="topic10113" msgid="8138889299405853557">"Hướng dẫn Thể dục &amp; Huấn luyện Cá nhân"</string>
+    <string name="topic10114" msgid="2172821400279346865">"Sản phẩm công nghệ tập thể hình"</string>
+    <string name="topic10115" msgid="9060244278068231494">"Chăm sóc tóc"</string>
+    <string name="topic10116" msgid="116242880964485085">"Sách và văn học"</string>
+    <string name="topic10117" msgid="8933734721100160863">"Văn học thiếu nhi"</string>
+    <string name="topic10118" msgid="4368531903547695191">"Sách Điện tử"</string>
+    <string name="topic10119" msgid="2781095265741115471">"Tạp chí"</string>
+    <string name="topic10120" msgid="3099507102655270527">"Thơ"</string>
+    <string name="topic10121" msgid="4466592180799340837">"Doanh nghiệp &amp; Công nghiệp"</string>
+    <string name="topic10122" msgid="2375136741125920744">"Quảng cáo &amp; Tiếp thị"</string>
+    <string name="topic10123" msgid="6974082907852347979">"Doanh số bán hàng"</string>
+    <string name="topic10124" msgid="44474598156972786">"Nông nghiệp &amp; Lâm nghiệp"</string>
+    <string name="topic10125" msgid="9170394261421539760">"Sản xuất Thực phẩm"</string>
+    <string name="topic10126" msgid="2210146434071038904">"Ngành Ô tô"</string>
+    <string name="topic10127" msgid="5503077037318678029">"Ngành Hàng không"</string>
+    <string name="topic10128" msgid="285525650692719959">"Hoạt động kinh doanh"</string>
+    <string name="topic10129" msgid="3094691551566702427">"Sắp xếp công việc linh hoạt"</string>
+    <string name="topic10130" msgid="1922351409757117764">"Nguồn nhân lực"</string>
+    <string name="topic10131" msgid="8598763405951029782">"Cho vay thương mại"</string>
+    <string name="topic10132" msgid="1476352626208153907">"Xây dựng &amp; Bảo trì"</string>
+    <string name="topic10133" msgid="7089177624979453528">"Kỹ thuật dân dụng"</string>
+    <string name="topic10134" msgid="3833032373311037601">"Ngành công nghiệp quốc phòng"</string>
+    <string name="topic10135" msgid="2478808072377000440">"Tiện ích &amp; Năng lượng"</string>
+    <string name="topic10136" msgid="9083992436834044162">"Cấp &amp; Xử lý nước"</string>
+    <string name="topic10137" msgid="1912599316814246824">"Ngành công nghiệp khách sạn"</string>
+    <string name="topic10138" msgid="7428346836350671895">"Sản xuất"</string>
+    <string name="topic10139" msgid="1396685812404869953">"Khai thác mỏ &amp; Kim loại"</string>
+    <string name="topic10140" msgid="5264212052238781441">"MLM &amp; Cơ hội kinh doanh"</string>
+    <string name="topic10141" msgid="860058416683118730">"Dược phẩm &amp; Công nghệ sinh học"</string>
+    <string name="topic10142" msgid="2912550934111655896">"In &amp; Xuất bản"</string>
+    <string name="topic10143" msgid="5690610408227078117">"Bán lẻ"</string>
+    <string name="topic10144" msgid="3341052306953106368">"Đầu tư mạo hiểm"</string>
+    <string name="topic10145" msgid="6886608911083388041">"Máy tính &amp; Điện tử"</string>
+    <string name="topic10146" msgid="8202145175139144216">"Thiết bị ngoại vi cho máy tính"</string>
+    <string name="topic10147" msgid="4687964705548995437">"Máy in"</string>
+    <string name="topic10148" msgid="8861628145647459323">"Bảo mật máy tính"</string>
+    <string name="topic10149" msgid="1719988773455991739">"Chống vi-rút &amp; phần mềm độc hại"</string>
+    <string name="topic10150" msgid="1482205464872465298">"An ninh mạng"</string>
+    <string name="topic10151" msgid="1772262905623388968">"Điện tử dân dụng"</string>
+    <string name="topic10152" msgid="651152740021127086">"Máy ảnh &amp; Máy quay phim"</string>
+    <string name="topic10153" msgid="8741504768717646372">"GPS &amp; điều hướng"</string>
+    <string name="topic10154" msgid="5382029798409496090">"Nhà tự động"</string>
+    <string name="topic10155" msgid="5243817792730496258">"Hệ thống rạp hát tại nhà"</string>
+    <string name="topic10156" msgid="2497791567138856030">"MP3 &amp; Trình phát phương tiện di động"</string>
+    <string name="topic10157" msgid="4723439422860510190">"Thiết bị công nghệ có thể đeo được"</string>
+    <string name="topic10158" msgid="5345830001295028513">"Sao lưu &amp; phục hồi dữ liệu"</string>
+    <string name="topic10159" msgid="6146958285117174314">"Máy tính để bàn"</string>
+    <string name="topic10160" msgid="6624820395549466426">"Máy tính xách tay &amp; Notebook"</string>
+    <string name="topic10161" msgid="912458758908978530">"Mạng"</string>
+    <string name="topic10162" msgid="6717352131379507693">"Điện toán đám mây &amp; hệ thống phân phối"</string>
+    <string name="topic10163" msgid="6344926622025055321">"Lập trình"</string>
+    <string name="topic10164" msgid="4228888249078845459">"Phần mềm"</string>
+    <string name="topic10165" msgid="5507908999219967161">"Phần mềm Âm thanh &amp; Âm nhạc"</string>
+    <string name="topic10166" msgid="4768106492755849560">"Phần mềm kinh doanh &amp; sản xuất"</string>
+    <string name="topic10167" msgid="8556935769754922871">"Lịch &amp; Phần mềm Lập lịch"</string>
+    <string name="topic10168" msgid="7730134961167790334">"Phần mềm cộng tác &amp; hội nghị"</string>
+    <string name="topic10169" msgid="5655084106378890454">"Phần mềm thuyết trình"</string>
+    <string name="topic10170" msgid="4638281897205909919">"Phần mềm bảng tính"</string>
+    <string name="topic10171" msgid="7910183120486541228">"Phần mềm xử lý văn bản"</string>
+    <string name="topic10172" msgid="3626573644414074730">"Chế bản điện tử"</string>
+    <string name="topic10173" msgid="7320053835183057144">"Phông chữ"</string>
+    <string name="topic10174" msgid="5770469447869586710">"Trình quản lý tải xuống"</string>
+    <string name="topic10175" msgid="3475235810022334041">"Phần mềm miễn phí &amp; Phần mềm chia sẻ"</string>
+    <string name="topic10176" msgid="6881704501596479881">"Phần mềm Đồ họa &amp; Hoạt hình"</string>
+    <string name="topic10177" msgid="6740430730079682579">"Trợ lý cá nhân thông minh"</string>
+    <string name="topic10178" msgid="7261811053741593091">"Trình phát đa phương tiện"</string>
+    <string name="topic10179" msgid="2967001567120854492">"Phần mềm theo dõi"</string>
+    <string name="topic10180" msgid="4197420326455130102">"Hệ điều hành"</string>
+    <string name="topic10181" msgid="3537573129132698830">"Phần mềm ảnh &amp; video"</string>
+    <string name="topic10182" msgid="7688631285131229981">"Phần mềm ảnh"</string>
+    <string name="topic10183" msgid="5994974566140272512">"Phần mềm video"</string>
+    <string name="topic10184" msgid="8685817335076871509">"Tiện ích Phần mềm"</string>
+    <string name="topic10185" msgid="308314128178285390">"Trình duyệt web"</string>
+    <string name="topic10186" msgid="3147859503481018245">"Tài chính"</string>
+    <string name="topic10187" msgid="7077128721410871032">"Kế toán &amp; Kiểm toán"</string>
+    <string name="topic10188" msgid="2206138708659457910">"Lập kế hoạch thuế &amp; kê khai thuế"</string>
+    <string name="topic10189" msgid="4001795553008246784">"Ngân hàng"</string>
+    <string name="topic10190" msgid="2988430661381243083">"Dịch vụ chuyển tiền &amp; chuyển khoản"</string>
+    <string name="topic10191" msgid="6196081825838237614">"Tín dụng &amp; Cho vay"</string>
+    <string name="topic10192" msgid="3290123244833047307">"Thẻ tín dụng"</string>
+    <string name="topic10193" msgid="294407043381146861">"Vay Mua Nhà"</string>
+    <string name="topic10194" msgid="2834543407440890272">"Khoản vay cá nhân"</string>
+    <string name="topic10195" msgid="7650553060132394782">"Khoản vay dành cho sinh viên &amp; Hỗ trợ tài chính bậc đại học"</string>
+    <string name="topic10196" msgid="5395035781876507254">"Quản lý &amp; lập kế hoạch tài chính"</string>
+    <string name="topic10197" msgid="1287138667488226463">"Nghỉ hưu &amp; Lương hưu"</string>
+    <string name="topic10198" msgid="2523256186943366779">"Trợ cấp"</string>
+    <string name="topic10199" msgid="3746711537661530183">"Trợ cấp"</string>
+    <string name="topic10200" msgid="2394864891391267841">"Bảo hiểm"</string>
+    <string name="topic10201" msgid="4301879117376963742">"Bảo hiểm Ô tô"</string>
+    <string name="topic10202" msgid="739808503036239379">"Bảo hiểm Y tế"</string>
+    <string name="topic10203" msgid="838786942776142290">"Bảo Hiểm Nhà Cửa"</string>
+    <string name="topic10204" msgid="6591131759521321677">"Bảo hiểm nhân thọ"</string>
+    <string name="topic10205" msgid="3294946723815021478">"Bảo hiểm du lịch"</string>
+    <string name="topic10206" msgid="6166888350685752683">"Đầu tư"</string>
+    <string name="topic10207" msgid="2296385804039743999">"Giao dịch hàng hóa &amp; Hàng hóa giao sau"</string>
+    <string name="topic10208" msgid="2717498987483479091">"Tiền tệ &amp; Ngoại hối"</string>
+    <string name="topic10209" msgid="5204948738662951962">"Quỹ phòng hộ"</string>
+    <string name="topic10210" msgid="4607225697024266227">"Quỹ tương hỗ"</string>
+    <string name="topic10211" msgid="7475381839877166080">"Cổ phiếu &amp; Trái phiếu"</string>
+    <string name="topic10212" msgid="3988751035952286047">"Thực phẩm &amp; Đồ uống"</string>
+    <string name="topic10213" msgid="1358963098339995471">"Nấu ăn &amp; Công thức nấu ăn"</string>
+    <string name="topic10214" msgid="8463864389138867811">"BBQ &amp; Đồ nướng"</string>
+    <string name="topic10215" msgid="3085467051491069648">"Ẩm thực"</string>
+    <string name="topic10216" msgid="6043130649326166680">"Món Chay"</string>
+    <string name="topic10217" msgid="7173870057669247536">"Món thuần chay"</string>
+    <string name="topic10218" msgid="5570240643247064951">"Chế độ ăn uống lành mạnh"</string>
+    <string name="topic10219" msgid="5896715206025463732">"Nhà bán lẻ Thực phẩm &amp; Hàng tạp hóa"</string>
+    <string name="topic10220" msgid="3894580611467039658">"Trò chơi"</string>
+    <string name="topic10221" msgid="14471057764591805">"Trò chơi Arcade &amp; Coin-Op‏"</string>
+    <string name="topic10222" msgid="2704894577954508861">"Bi-a"</string>
+    <string name="topic10223" msgid="202900267060220170">"Trò chơi cờ bàn"</string>
+    <string name="topic10224" msgid="6572627325588452785">"Cờ vua &amp; trò chơi chiến lược trừu tượng"</string>
+    <string name="topic10225" msgid="8056906319560292131">"Trò chơi thẻ bài"</string>
+    <string name="topic10226" msgid="714463563336281099">"Trò chơi Sưu tập Thẻ"</string>
+    <string name="topic10227" msgid="218768654597520683">"Trò chơi máy tính &amp; trò chơi điện tử"</string>
+    <string name="topic10228" msgid="850597136074192489">"Trò chơi hành động &amp; trò chơi nền tảng"</string>
+    <string name="topic10229" msgid="4284501233897149886">"Trò chơi mạo hiểm"</string>
+    <string name="topic10230" msgid="7156822286576815181">"Trò chơi phổ thông"</string>
+    <string name="topic10231" msgid="7620407218897744361">"Trò chơi điện tử mang tính cạnh tranh"</string>
+    <string name="topic10232" msgid="3029734447275709941">"Trò chơi lái xe &amp; đua xe"</string>
+    <string name="topic10233" msgid="8318075279868138231">"Trò chơi chiến đấu"</string>
+    <string name="topic10234" msgid="3899847414436099153">"Tham khảo &amp; đánh giá về trò chơi"</string>
+    <string name="topic10235" msgid="5851356242523630529">"Trò chơi điện tử gian lận &amp; gợi ý"</string>
+    <string name="topic10236" msgid="1986665634014804954">"Trò chơi cực nhiều người chơi"</string>
+    <string name="topic10237" msgid="5569920221620447713">"Trò chơi âm nhạc &amp; khiêu vũ"</string>
+    <string name="topic10238" msgid="7431087331656772530">"Trò chơi thế giới mở"</string>
+    <string name="topic10239" msgid="8667462879554115515">"Trò chơi Bắn súng"</string>
+    <string name="topic10240" msgid="1618985302446756520">"Trò chơi mô phỏng"</string>
+    <string name="topic10241" msgid="8450778411063723262">"Trò chơi kinh doanh &amp; quản lý"</string>
+    <string name="topic10242" msgid="8860812940320018907">"Trò chơi xây dựng thành phố"</string>
+    <string name="topic10243" msgid="1764694148721971512">"Trò chơi mô phỏng cuộc sống"</string>
+    <string name="topic10244" msgid="4308588210397969087">"Trò chơi mô phỏng xe"</string>
+    <string name="topic10245" msgid="6904368410919496658">"Trò chơi thể thao"</string>
+    <string name="topic10246" msgid="3381244806751528148">"Trò chơi quản lý thể thao"</string>
+    <string name="topic10247" msgid="5927502688389762068">"Trò chơi chiến lược"</string>
+    <string name="topic10248" msgid="8471339627212674032">"Trò chơi điện tử Mods &amp; Add-Ons"</string>
+    <string name="topic10249" msgid="5076706536204559962">"Trò chơi mang tính giáo dục"</string>
+    <string name="topic10250" msgid="6083030595195401083">"Trò chơi &amp; hoạt động hướng đến gia đình"</string>
+    <string name="topic10251" msgid="99237306730665104">"Trò chơi vẽ &amp; Tô màu"</string>
+    <string name="topic10252" msgid="6543039575961394064">"Trò chơi trang điểm &amp; thời trang"</string>
+    <string name="topic10253" msgid="566596668186874227">"Trò chơi giải đố và Trò chơi trí tuệ"</string>
+    <string name="topic10254" msgid="5732147617072023634">"Trò chơi nhập vai"</string>
+    <string name="topic10255" msgid="2890655077164103057">"Bóng bàn"</string>
+    <string name="topic10256" msgid="3302096971402751679">"Trò chơi xếp hình"</string>
+    <string name="topic10257" msgid="4238531589193902619">"Trò chơi chữ"</string>
+    <string name="topic10258" msgid="6995329540076529056">"Sở thích &amp; thời gian rỗi"</string>
+    <string name="topic10259" msgid="8649688885811560410">"Ngày kỷ niệm"</string>
+    <string name="topic10260" msgid="487999213495640080">"Ngày sinh nhật &amp; Ngày đặt tên (trong lễ rửa tội)"</string>
+    <string name="topic10261" msgid="8970668366745952094">"Lặn &amp; Các hoạt động dưới nước"</string>
+    <string name="topic10262" msgid="6644046161469353448">"Nghệ thuật Sợi &amp; Dệt"</string>
+    <string name="topic10263" msgid="848165976917542929">"Hoạt động ngoài trời"</string>
+    <string name="topic10264" msgid="6274985117752637104">"Câu cá"</string>
+    <string name="topic10265" msgid="4134876488948695674">"Săn bắn &amp; Bắn súng"</string>
+    <string name="topic10266" msgid="6617785039128074351">"Trò chơi bắn súng sơn"</string>
+    <string name="topic10267" msgid="488093331618885003">"Mô hình và Trò chơi điều khiển"</string>
+    <string name="topic10268" msgid="277932389492046264">"Lễ cưới"</string>
+    <string name="topic10269" msgid="8572041514147955202">"Nhà &amp; vườn"</string>
+    <string name="topic10270" msgid="2646715182474030951">"Làm vườn"</string>
+    <string name="topic10271" msgid="1308931236810509881">"Trang trí nội thất &amp; nhà cửa"</string>
+    <string name="topic10272" msgid="8746698707390628887">"Thiết bị Gia dụng"</string>
+    <string name="topic10273" msgid="344442071339164852">"Cải tạo nhà"</string>
+    <string name="topic10274" msgid="8982330028561451429">"Thiết bị an toàn &amp; an ninh cho gia đình"</string>
+    <string name="topic10275" msgid="8280198018937968735">"Đồ dùng gia đình"</string>
+    <string name="topic10276" msgid="1651598271798609235">"Thiết kế cảnh quan"</string>
+    <string name="topic10277" msgid="7675195736886448994">"Internet &amp; viễn thông"</string>
+    <string name="topic10278" msgid="873251714192341707">"Email &amp; tin nhắn"</string>
+    <string name="topic10279" msgid="6514296374139842600">"Email"</string>
+    <string name="topic10280" msgid="7976787187115018267">"Nhắn tin văn bản và nhắn tin nhanh"</string>
+    <string name="topic10281" msgid="4013341162811169339">"Trò chuyện thoại &amp; video"</string>
+    <string name="topic10282" msgid="7810462611906257564">"ISP"</string>
+    <string name="topic10283" msgid="3958287780718485172">"Nhà Cung Cấp Dịch Vụ Điện Thoại"</string>
+    <string name="topic10284" msgid="2415044270290467935">"Nhạc chuông &amp; Giao diện cho thiết bị di động"</string>
+    <string name="topic10285" msgid="7056449544316408821">"Công cụ tìm kiếm"</string>
+    <string name="topic10286" msgid="3458688996478472971">"Điện thoại Thông minh"</string>
+    <string name="topic10287" msgid="6766203044518402938">"Hội Nghị Từ Xa"</string>
+    <string name="topic10288" msgid="3883137694557636622">"Ứng dụng web &amp; công cụ trực tuyến"</string>
+    <string name="topic10289" msgid="3392995633794787676">"Dịch vụ web"</string>
+    <string name="topic10290" msgid="3118880486702986341">"Bộ nhớ trên đám mây"</string>
+    <string name="topic10291" msgid="6025855926350955094">"Thiết kế &amp; phát triển web"</string>
+    <string name="topic10292" msgid="3069720659823056935">"Lưu trữ web"</string>
+    <string name="topic10293" msgid="2489957780009828409">"Việc làm &amp; giáo dục"</string>
+    <string name="topic10294" msgid="474839431177892843">"Giáo dục"</string>
+    <string name="topic10295" msgid="2215489196192620880">"Hội nghị &amp; Ấn phẩm học thuật"</string>
+    <string name="topic10296" msgid="4494362881225210483">"Cao đẳng &amp; Đại học"</string>
+    <string name="topic10297" msgid="8596946591674128749">"Đào Tạo Từ Xa"</string>
+    <string name="topic10298" msgid="6669181180128620422">"Giáo dục mầm non"</string>
+    <string name="topic10299" msgid="989138215800115613">"Mẫu giáo"</string>
+    <string name="topic10300" msgid="8281464235308602670">"Giáo dục tại nhà"</string>
+    <string name="topic10301" msgid="9156890858635333460">"Kiểm tra Tiêu chuẩn &amp; Tuyển sinh"</string>
+    <string name="topic10302" msgid="1325835179421990876">"Các tài nguyên về Giảng dạy &amp; Lớp học"</string>
+    <string name="topic10303" msgid="3103839978894155537">"Giáo dục nghề nghiệp &amp; Giáo dục thường xuyên"</string>
+    <string name="topic10304" msgid="8831682558788062486">"Việc làm"</string>
+    <string name="topic10305" msgid="8415203095484493106">"Nguồn lực &amp; Lập kế hoạch nghề nghiệp"</string>
+    <string name="topic10306" msgid="7426556527349374835">"Danh sách việc làm"</string>
+    <string name="topic10307" msgid="1187762846826735256">"Luật pháp &amp; chính phủ"</string>
+    <string name="topic10308" msgid="3346756665358311386">"Tội phạm &amp; Công lý"</string>
+    <string name="topic10309" msgid="2041175328931014735">"Pháp lý"</string>
+    <string name="topic10310" msgid="7079570344976872062">"Dịch vụ pháp lý"</string>
+    <string name="topic10311" msgid="2095095138677585525">"Tin tức"</string>
+    <string name="topic10312" msgid="939721674816307639">"Tin tức Kinh tế"</string>
+    <string name="topic10313" msgid="4159611985538361632">"Tin tức địa phương"</string>
+    <string name="topic10314" msgid="93219947859117151">"Sáp nhập &amp; Mua lại"</string>
+    <string name="topic10315" msgid="5046321177148647481">"Báo chí"</string>
+    <string name="topic10316" msgid="8592980844674525307">"Chính trị"</string>
+    <string name="topic10317" msgid="2412259096368647866">"Tin tức thể thao"</string>
+    <string name="topic10318" msgid="1508449672941031904">"Thời tiết"</string>
+    <string name="topic10319" msgid="3973645291178509390">"Tin tức thế giới"</string>
+    <string name="topic10320" msgid="5279440074507438174">"Cộng đồng Trực tuyến"</string>
+    <string name="topic10321" msgid="7018890132742820265">"Nghệ thuật clip &amp; hoạt ảnh GIF"</string>
+    <string name="topic10322" msgid="1585737438943011532">"Hẹn hò &amp; Cá nhân"</string>
+    <string name="topic10323" msgid="962863497957179646">"Tổng hợp nguồn cấp dữ liệu &amp; đánh dấu trang trên mạng xã hội"</string>
+    <string name="topic10324" msgid="1425257460381023853">"Chia sẻ &amp; Lưu trữ tệp"</string>
+    <string name="topic10325" msgid="8698912164970408378">"Nhà cung cấp Diễn đàn &amp; Trò chuyện"</string>
+    <string name="topic10326" msgid="2425798096705921796">"Tiểu blog"</string>
+    <string name="topic10327" msgid="8518822987595111212">"Chia sẻ ảnh &amp; video"</string>
+    <string name="topic10328" msgid="8932708475346340912">"Chia sẻ Ảnh &amp; Hình ảnh"</string>
+    <string name="topic10329" msgid="223933889758324282">"Chia sẻ Video"</string>
+    <string name="topic10330" msgid="188028553492626282">"Trang phục"</string>
+    <string name="topic10331" msgid="426844238985651925">"Ứng dụng &amp; Tiện ích bổ sung Mạng xã hội"</string>
+    <string name="topic10332" msgid="291747325781232456">"Mạng xã hội"</string>
+    <string name="topic10333" msgid="7950152600374846488">"Con người &amp; Xã hội"</string>
+    <string name="topic10334" msgid="8671262583721706509">"Gia đình &amp; các mối quan hệ"</string>
+    <string name="topic10335" msgid="1526523762163185819">"Tổ tiên &amp; Gia phả"</string>
+    <string name="topic10336" msgid="4551233571090493177">"Hôn nhân"</string>
+    <string name="topic10337" msgid="8436172065188964882">"Nuôi dạy con"</string>
+    <string name="topic10338" msgid="8896269734682970">"Nhận con nuôi"</string>
+    <string name="topic10339" msgid="781900237993621300">"Trẻ sơ sinh &amp; trẻ mới biết đi‏"</string>
+    <string name="topic10340" msgid="6538182603360796294">"An toàn cho trẻ em khi sử dụng Internet"</string>
+    <string name="topic10341" msgid="3586543243312398568">"Lãng mạn"</string>
+    <string name="topic10342" msgid="3695176378281477573">"Khoa học viễn tưởng &amp; giả tưởng"</string>
+    <string name="topic10343" msgid="2318169062960263837">"Thú cưng &amp; động vật"</string>
+    <string name="topic10344" msgid="2005534117977874327">"Thức ăn cho thú cưng &amp; Nguồn cung cấp dịch vụ chăm sóc thú cưng"</string>
+    <string name="topic10345" msgid="2397329020706244200">"Thú cưng"</string>
+    <string name="topic10346" msgid="1323702748723563694">"Chim"</string>
+    <string name="topic10347" msgid="3301879823396773413">"Mèo"</string>
+    <string name="topic10348" msgid="8066686305498410222">"Chó"</string>
+    <string name="topic10349" msgid="5253723822905761195">"Cá &amp; Hồ cá"</string>
+    <string name="topic10350" msgid="6164036369108076590">"Loài bò sát &amp; lưỡng cư"</string>
+    <string name="topic10351" msgid="1132984519083501363">"Bác sỹ thú y"</string>
+    <string name="topic10352" msgid="6310110390516037997">"Bất động sản"</string>
+    <string name="topic10353" msgid="5114390804081576684">"Lô đất &amp; khu đất"</string>
+    <string name="topic10354" msgid="7980778954791504082">"Quyền sở hữu bất động sản &amp; bất động sản nghỉ dưỡng"</string>
+    <string name="topic10355" msgid="7720717354548642600">"Thông tin tham chiếu"</string>
+    <string name="topic10356" msgid="8366981308613661935">"Tin đăng cá nhân &amp; doanh nghiệp"</string>
+    <string name="topic10357" msgid="3185598234676097975">"Tham khảo chung"</string>
+    <string name="topic10358" msgid="6732669037513504019">"Máy tính &amp; Công cụ tham khảo"</string>
+    <string name="topic10359" msgid="8901932349008990500">"Từ điển &amp; Bách khoa toàn thư"</string>
+    <string name="topic10360" msgid="6113408769992775754">"Tài nguyên giáo dục"</string>
+    <string name="topic10361" msgid="364838820459183817">"Hướng dẫn"</string>
+    <string name="topic10362" msgid="3760998790588600032">"Thời gian &amp; lịch"</string>
+    <string name="topic10363" msgid="5464708619861040861">"Tài nguyên Ngôn ngữ"</string>
+    <string name="topic10364" msgid="4685400848805560054">"Học ngoại ngữ"</string>
+    <string name="topic10365" msgid="5196231842716190887">"Công cụ &amp; Tài nguyên Dịch thuật"</string>
+    <string name="topic10366" msgid="7460927054539097025">"Bản đồ"</string>
+    <string name="topic10367" msgid="3900361839783743700">"Khoa học"</string>
+    <string name="topic10368" msgid="2069447039109930660">"Thực tế ảo và tăng cường"</string>
+    <string name="topic10369" msgid="5747888306428024793">"Sinh Học"</string>
+    <string name="topic10370" msgid="4860829940151353583">"Di truyền học"</string>
+    <string name="topic10371" msgid="8229818210867472466">"Hóa học"</string>
+    <string name="topic10372" msgid="6400467418954574231">"Sinh thái &amp; Môi trường"</string>
+    <string name="topic10373" msgid="6990757247198163741">"Địa chất học"</string>
+    <string name="topic10374" msgid="8057983193031950119">"Học máy &amp; Trí tuệ nhân tạo"</string>
+    <string name="topic10375" msgid="8511185098682306025">"Toán học"</string>
+    <string name="topic10376" msgid="6387800251638760737">"Vật lý"</string>
+    <string name="topic10377" msgid="7834619927563362042">"Người máy"</string>
+    <string name="topic10378" msgid="242496862821758873">"Mua sắm"</string>
+    <string name="topic10379" msgid="5505228335012447165">"Đồ cổ &amp; sưu tập"</string>
+    <string name="topic10380" msgid="4989560205486143927">"May mặc"</string>
+    <string name="topic10381" msgid="7585496746485093505">"Quần áo Trẻ em"</string>
+    <string name="topic10382" msgid="5088060295126473451">"Trang phục"</string>
+    <string name="topic10383" msgid="4947104586590538143">"Quần áo nam"</string>
+    <string name="topic10384" msgid="3752472493887374077">"Quần áo nữ"</string>
+    <string name="topic10385" msgid="5275843140794803595">"Rao vặt"</string>
+    <string name="topic10386" msgid="5887032952574801982">"Tài nguyên Người tiêu dùng"</string>
+    <string name="topic10387" msgid="8474154360410317897">"Phiếu giảm giá &amp; Phiếu mua hàng giảm giá"</string>
+    <string name="topic10388" msgid="3650307363028796765">"Chương trình &amp; Thẻ khách hàng thân thiết"</string>
+    <string name="topic10389" msgid="1542336508240183221">"Hỗ trợ kỹ thuật &amp; sửa chữa"</string>
+    <string name="topic10390" msgid="831225961168954292">"Hoa"</string>
+    <string name="topic10391" msgid="6810540242154911762">"Thiệp chúc mừng"</string>
+    <string name="topic10392" msgid="2431377771302967625">"Đồ dùng cho buổi tiệc &amp; ngày nghỉ lễ"</string>
+    <string name="topic10393" msgid="2671274205988136926">"Cổng mua sắm trực tuyến"</string>
+    <string name="topic10394" msgid="1530096364743244151">"Thể thao"</string>
+    <string name="topic10395" msgid="316192616624062917">"Bóng bầu dục Mỹ"</string>
+    <string name="topic10396" msgid="8042120651878490689">"Bóng bầu dục Úc"</string>
+    <string name="topic10397" msgid="492901976344700942">"Đua xe ô tô"</string>
+    <string name="topic10398" msgid="3471795015226090296">"Bóng chày"</string>
+    <string name="topic10399" msgid="2126280752064021308">"Bóng rổ"</string>
+    <string name="topic10400" msgid="5440499529264277027">"Bowling"</string>
+    <string name="topic10401" msgid="166689951236922024">"Quyền Anh"</string>
+    <string name="topic10402" msgid="2451339788231007479">"Hoạt náo viên"</string>
+    <string name="topic10403" msgid="6455478521804717635">"Thể thao đại học"</string>
+    <string name="topic10404" msgid="5261583496913118024">"Cricket (bóng gậy)"</string>
+    <string name="topic10405" msgid="482477447879117820">"Đạp xe"</string>
+    <string name="topic10406" msgid="8167644332387528703">"Cưỡi ngựa"</string>
+    <string name="topic10407" msgid="3237734582719584272">"Thể thao mạo hiểm"</string>
+    <string name="topic10408" msgid="3859749534843254349">"Leo &amp; leo núi"</string>
+    <string name="topic10409" msgid="7485614115639267976">"Thể thao ảo"</string>
+    <string name="topic10410" msgid="5996939009229881074">"Gôn"</string>
+    <string name="topic10411" msgid="2513997418184786648">"Thể dục dụng cụ"</string>
+    <string name="topic10412" msgid="5411755341358248299">"Khúc côn cầu"</string>
+    <string name="topic10413" msgid="3319233613448963890">"Trượt băng"</string>
+    <string name="topic10414" msgid="1797840816328584660">"Võ thuật"</string>
+    <string name="topic10415" msgid="2886043330316735719">"Đua xe mô tô"</string>
+    <string name="topic10416" msgid="3436682172863605224">"Thế vận hội"</string>
+    <string name="topic10417" msgid="8296644015663416236">"Rugby (bóng bầu dục)"</string>
+    <string name="topic10418" msgid="8276736633218488127">"Chạy &amp; Đi bộ"</string>
+    <string name="topic10419" msgid="5663062924928275215">"Trượt tuyết &amp; Trượt ván trên tuyết"</string>
+    <string name="topic10420" msgid="2509320683543423424">"Bóng đá"</string>
+    <string name="topic10421" msgid="6512889128030030686">"Lướt sóng"</string>
+    <string name="topic10422" msgid="8342986282852879750">"Bơi"</string>
+    <string name="topic10423" msgid="6333426807705188459">"Quần vợt"</string>
+    <string name="topic10424" msgid="5495511215629567375">"Đường đua &amp; điền kinh"</string>
+    <string name="topic10425" msgid="4009138228283995179">"Bóng chuyền"</string>
+    <string name="topic10426" msgid="7998590461761852196">"Đấu vật"</string>
+    <string name="topic10427" msgid="6711468161729797769">"Du lịch &amp; Vận tải"</string>
+    <string name="topic10428" msgid="661919563628063196">"Du lịch Mạo hiểm"</string>
+    <string name="topic10429" msgid="408270392813634227">"Du Lịch Hàng Không"</string>
+    <string name="topic10430" msgid="3046485339481297656">"Chuyến đi công tác"</string>
+    <string name="topic10431" msgid="7439352609169583150">"Cho thuê ô tô"</string>
+    <string name="topic10432" msgid="5034961318884376752">"Du thuyền &amp; thuê tàu"</string>
+    <string name="topic10433" msgid="6354590445323135986">"Du lịch gia đình"</string>
+    <string name="topic10434" msgid="7081309045291255264">"Tuần trăng mật &amp; nơi nghỉ ngơi lãng mạn"</string>
+    <string name="topic10435" msgid="1064605516265819020">"Khách sạn &amp; Chỗ ở"</string>
+    <string name="topic10436" msgid="9050375924140897722">"Xe buýt đường dài &amp; Đường sắt"</string>
+    <string name="topic10437" msgid="2655664900730187701">"Chi phí thấp &amp; Du lịch phút cuối"</string>
+    <string name="topic10438" msgid="7944023251845122923">"Hành lý &amp; Phụ kiện du lịch"</string>
+    <string name="topic10439" msgid="7845433008088931971">"Điểm đến du lịch"</string>
+    <string name="topic10440" msgid="485118071443976808">"Bãi biển &amp; quần đảo"</string>
+    <string name="topic10441" msgid="518643446480879895">"Công viên &amp; Vườn bản địa"</string>
+    <string name="topic10442" msgid="6534536077484540292">"Công viên Giải trí"</string>
+    <string name="topic10443" msgid="8787722062991478596">"Vườn thú"</string>
+    <string name="topic10444" msgid="2075863187654728611">"Công cụ lập kế hoạch giao thông &amp; lộ trình"</string>
+    <string name="topic10445" msgid="3460421948068980869">"Đại lý &amp; Dịch vụ du lịch"</string>
+    <string name="topic10446" msgid="5333138740720504195">"Hướng dẫn du lịch và nhật ký hành trình"</string>
+</resources>

@@ -319,11 +319,8 @@ public class ValueMetricsTests extends DeviceAtomTestCase {
     LogUtil.CLog.d("Got the following value metric data: " + metricReport.toString());
     assertThat(metricReport.getMetricId()).isEqualTo(MetricsUtils.VALUE_METRIC_ID);
     assertThat(metricReport.getValueMetrics().getDataList()).isEmpty();
-    // Bucket is skipped because metric is not activated.
-    assertThat(metricReport.getValueMetrics().getSkippedList()).isNotEmpty();
-    assertThat(metricReport.getValueMetrics().getSkipped(0).getDropEventList()).isNotEmpty();
-    assertThat(metricReport.getValueMetrics().getSkipped(0).getDropEvent(0).getDropReason())
-            .isEqualTo(BucketDropReason.NO_DATA);
+    // Skipped buckets are not added when metric is empty.
+    assertThat(metricReport.getValueMetrics().getSkippedList()).isEmpty();
   }
 
     public void testValueMetricWithConditionAndActivation() throws Exception {

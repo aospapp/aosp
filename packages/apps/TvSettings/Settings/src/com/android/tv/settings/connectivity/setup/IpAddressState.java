@@ -126,11 +126,6 @@ public class IpAddressState implements State {
         }
 
         @Override
-        public void onViewCreated(View view, Bundle savedInstanceState) {
-            openInEditMode(mAction);
-        }
-
-        @Override
         public void onResume() {
             super.onResume();
             openInEditMode(mAction);

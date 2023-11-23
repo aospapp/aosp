@@ -55,6 +55,7 @@ import com.android.tv.dialog.HalfSizedDialogFragment;
 import com.android.tv.dialog.PinDialogFragment;
 import com.android.tv.dialog.RecentlyWatchedDialogFragment;
 import com.android.tv.dialog.SafeDismissDialogFragment;
+import com.android.tv.dialog.InteractiveAppDialogFragment;
 import com.android.tv.dvr.DvrDataManager;
 import com.android.tv.dvr.ui.browse.DvrBrowseActivity;
 import com.android.tv.guide.ProgramGuide;
@@ -198,6 +199,7 @@ public class TvOverlayManager implements AccessibilityStateChangeListener {
         AVAILABLE_DIALOG_TAGS.add(LicenseDialogFragment.DIALOG_TAG);
         AVAILABLE_DIALOG_TAGS.add(RatingsFragment.AttributionItem.DIALOG_TAG);
         AVAILABLE_DIALOG_TAGS.add(HalfSizedDialogFragment.DIALOG_TAG);
+        AVAILABLE_DIALOG_TAGS.add(InteractiveAppDialogFragment.DIALOG_TAG);
     }
 
     private final MainActivity mMainActivity;

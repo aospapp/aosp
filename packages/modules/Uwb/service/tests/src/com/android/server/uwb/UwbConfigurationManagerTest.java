@@ -26,11 +26,12 @@ import static com.google.uwb.support.fira.FiraParams.MULTI_NODE_MODE_MANY_TO_MAN
 import static com.google.uwb.support.fira.FiraParams.PREAMBLE_DURATION_T32_SYMBOLS;
 import static com.google.uwb.support.fira.FiraParams.PRF_MODE_HPRF;
 import static com.google.uwb.support.fira.FiraParams.PSDU_DATA_RATE_7M80;
-import static com.google.uwb.support.fira.FiraParams.RANGE_DATA_NTF_CONFIG_ENABLE_PROXIMITY;
+import static com.google.uwb.support.fira.FiraParams.RANGE_DATA_NTF_CONFIG_ENABLE_PROXIMITY_LEVEL_TRIG;
 import static com.google.uwb.support.fira.FiraParams.RANGING_DEVICE_ROLE_INITIATOR;
 import static com.google.uwb.support.fira.FiraParams.RANGING_DEVICE_TYPE_CONTROLEE;
 import static com.google.uwb.support.fira.FiraParams.RANGING_ROUND_USAGE_SS_TWR_DEFERRED_MODE;
 import static com.google.uwb.support.fira.FiraParams.RFRAME_CONFIG_SP1;
+import static com.google.uwb.support.fira.FiraParams.SESSION_TYPE_RANGING;
 import static com.google.uwb.support.fira.FiraParams.SFD_ID_VALUE_3;
 import static com.google.uwb.support.fira.FiraParams.STS_CONFIG_DYNAMIC_FOR_CONTROLEE_INDIVIDUAL_KEY;
 import static com.google.uwb.support.fira.FiraParams.STS_LENGTH_128_SYMBOLS;
@@ -39,6 +40,8 @@ import static com.google.uwb.support.fira.FiraParams.STS_SEGMENT_COUNT_VALUE_2;
 import static org.junit.Assert.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -74,6 +77,7 @@ import java.util.List;
 @SmallTest
 @Presubmit
 public class UwbConfigurationManagerTest {
+    private static final String TEST_CHIP_ID = "testChipId";
     @Mock
     private NativeUwbManager mNativeUwbManager;
     private UwbConfigurationManager mUwbConfigurationManager;
@@ -100,13 +104,13 @@ public class UwbConfigurationManagerTest {
         UwbConfigStatusData appConfig = new UwbConfigStatusData(UwbUciConstants.STATUS_CODE_OK,
                 1, cfgStatus);
         when(mNativeUwbManager.setAppConfigurations(anyInt(), anyInt(), anyInt(),
-                any(byte[].class))).thenReturn(appConfig);
+                any(byte[].class), anyString())).thenReturn(appConfig);
 
         int status = mUwbConfigurationManager
-                .setAppConfigurations(mUwbSession.getSessionId(), mFiraParams);
+                .setAppConfigurations(mUwbSession.getSessionId(), mFiraParams, TEST_CHIP_ID);
 
         verify(mNativeUwbManager).setAppConfigurations(anyInt(), anyInt(), anyInt(),
-                any(byte[].class));
+                any(byte[].class), eq(TEST_CHIP_ID));
         assertEquals(UwbUciConstants.STATUS_CODE_OK, status);
     }
 
@@ -115,30 +119,32 @@ public class UwbConfigurationManagerTest {
         byte[] tlvs = {0x01, 0x02, 0x02, 0x03};
         UwbTlvData getAppConfig = new UwbTlvData(UwbUciConstants.STATUS_CODE_OK, 1, tlvs);
         when(mNativeUwbManager.getAppConfigurations(anyInt(), anyInt(), anyInt(),
-                any(byte[].class))).thenReturn(getAppConfig);
+                any(byte[].class), anyString())).thenReturn(getAppConfig);
 
         mUwbConfigurationManager.getAppConfigurations(mUwbSession.getSessionId(),
-                mFiraParams.getProtocolName(), new byte[0], FiraOpenSessionParams.class);
+                mFiraParams.getProtocolName(), new byte[0], FiraOpenSessionParams.class,
+                TEST_CHIP_ID);
 
         verify(mNativeUwbManager).getAppConfigurations(anyInt(), anyInt(), anyInt(),
-                any(byte[].class));
+                any(byte[].class), eq(TEST_CHIP_ID));
     }
 
     @Test
     public void testGetCapsInfo() throws Exception {
         byte[] tlvs = {0x01, 0x02, 0x02, 0x03};
         UwbTlvData getAppConfig = new UwbTlvData(UwbUciConstants.STATUS_CODE_OK, 1, tlvs);
-        when(mNativeUwbManager.getCapsInfo()).thenReturn(getAppConfig);
+        when(mNativeUwbManager.getCapsInfo(anyString())).thenReturn(getAppConfig);
 
         mUwbConfigurationManager.getCapsInfo(mFiraParams.getProtocolName(),
-                FiraOpenSessionParams.class);
+                FiraOpenSessionParams.class, TEST_CHIP_ID);
 
-        verify(mNativeUwbManager).getCapsInfo();
+        verify(mNativeUwbManager).getCapsInfo(TEST_CHIP_ID);
     }
 
     private FiraOpenSessionParams getFiraParams() {
         FiraProtocolVersion protocolVersion = FiraParams.PROTOCOL_VERSION_1_1;
         int sessionId = 10;
+        int sessionType = SESSION_TYPE_RANGING;
         int deviceType = RANGING_DEVICE_TYPE_CONTROLEE;
         int deviceRole = RANGING_DEVICE_ROLE_INITIATOR;
         int rangingRoundUsage = RANGING_ROUND_USAGE_SS_TWR_DEFERRED_MODE;
@@ -151,14 +157,16 @@ public class UwbConfigurationManagerTest {
         List<UwbAddress> destAddressList = new ArrayList<>();
         destAddressList.add(destAddress1);
         destAddressList.add(destAddress2);
-        int initiationTimeMs = 100;
+        int initiationTime = 100;
         int slotDurationRstu = 2400;
         int slotsPerRangingRound = 10;
         int rangingIntervalMs = 100;
         int blockStrideLength = 2;
         int maxRangingRoundRetries = 3;
         int sessionPriority = 100;
-        boolean hasResultReportPhase = true;
+        boolean hasRangingResultReportMessage = true;
+        boolean hasControlMessage = true;
+        boolean hasRangingControlPhase = false;
         int measurementReportType = MEASUREMENT_REPORT_TYPE_INITIATOR_TO_RESPONDER;
         int inBandTerminationAttemptCount = 8;
         int channelNumber = 10;
@@ -169,6 +177,10 @@ public class UwbConfigurationManagerTest {
         int sfdId = SFD_ID_VALUE_3;
         int stsSegmentCount = STS_SEGMENT_COUNT_VALUE_2;
         int stsLength = STS_LENGTH_128_SYMBOLS;
+        byte[] sessionKey = new byte[] {0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
+                0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F};
+        byte[] subsessionKey = new byte[] {0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
+                0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F};
         int psduDataRate = PSDU_DATA_RATE_7M80;
         int bprfPhrDataRate = BPRF_PHR_DATA_RATE_6M81;
         int fcsType = MAC_FCS_TYPE_CRC_32;
@@ -180,7 +192,7 @@ public class UwbConfigurationManagerTest {
         boolean isKeyRotationEnabled = true;
         int keyRotationRate = 15;
         int aoaResultRequest = AOA_RESULT_REQUEST_MODE_REQ_AOA_RESULTS_INTERLEAVED;
-        int rangeDataNtfConfig = RANGE_DATA_NTF_CONFIG_ENABLE_PROXIMITY;
+        int rangeDataNtfConfig = RANGE_DATA_NTF_CONFIG_ENABLE_PROXIMITY_LEVEL_TRIG;
         int rangeDataNtfProximityNear = 50;
         int rangeDataNtfProximityFar = 200;
         boolean hasTimeOfFlightReport = true;
@@ -196,13 +208,14 @@ public class UwbConfigurationManagerTest {
                 new FiraOpenSessionParams.Builder()
                         .setProtocolVersion(protocolVersion)
                         .setSessionId(sessionId)
+                        .setSessionType(sessionType)
                         .setDeviceType(deviceType)
                         .setDeviceRole(deviceRole)
                         .setRangingRoundUsage(rangingRoundUsage)
                         .setMultiNodeMode(multiNodeMode)
                         .setDeviceAddress(deviceAddress)
                         .setDestAddressList(destAddressList)
-                        .setInitiationTimeMs(initiationTimeMs)
+                        .setInitiationTime(initiationTime)
                         .setSlotDurationRstu(slotDurationRstu)
                         .setSlotsPerRangingRound(slotsPerRangingRound)
                         .setRangingIntervalMs(rangingIntervalMs)
@@ -210,7 +223,9 @@ public class UwbConfigurationManagerTest {
                         .setMaxRangingRoundRetries(maxRangingRoundRetries)
                         .setSessionPriority(sessionPriority)
                         .setMacAddressMode(addressMode)
-                        .setHasResultReportPhase(hasResultReportPhase)
+                        .setHasRangingResultReportMessage(hasRangingResultReportMessage)
+                        .setHasControlMessage(hasControlMessage)
+                        .setHasRangingControlPhase(hasRangingControlPhase)
                         .setMeasurementReportType(measurementReportType)
                         .setInBandTerminationAttemptCount(inBandTerminationAttemptCount)
                         .setChannelNumber(channelNumber)
@@ -221,6 +236,8 @@ public class UwbConfigurationManagerTest {
                         .setSfdId(sfdId)
                         .setStsSegmentCount(stsSegmentCount)
                         .setStsLength(stsLength)
+                        .setSessionKey(sessionKey)
+                        .setSubsessionKey(subsessionKey)
                         .setPsduDataRate(psduDataRate)
                         .setBprfPhrDataRate(bprfPhrDataRate)
                         .setFcsType(fcsType)

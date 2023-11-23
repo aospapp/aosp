@@ -18,6 +18,7 @@ package com.android.car.settings.bluetooth;
 
 import static com.android.car.settings.common.PreferenceController.AVAILABLE;
 import static com.android.car.settings.common.PreferenceController.AVAILABLE_FOR_VIEWING;
+import static com.android.car.settings.common.PreferenceController.CONDITIONALLY_UNAVAILABLE;
 import static com.android.car.settings.common.PreferenceController.DISABLED_FOR_PROFILE;
 import static com.android.car.settings.enterprise.ActionDisabledByAdminDialogFragment.DISABLED_BY_ADMIN_CONFIRM_DIALOG_TAG;
 
@@ -142,6 +143,42 @@ public final class BluetoothDeviceProfilesPreferenceControllerMockTest {
     }
 
     @Test
+    public void testGetAvailabilityStatus_restrictedByUm_disabledForUser_zoneWrite() {
+        EnterpriseTestUtils.mockUserRestrictionSetByUm(mMockUserManager, TEST_RESTRICTION, true);
+
+        mPreferenceController.onCreate(mLifecycleOwner);
+        mPreferenceController.onStart(mLifecycleOwner);
+        mPreferenceController.setAvailabilityStatusForZone("write");
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), DISABLED_FOR_PROFILE);
+    }
+
+    @Test
+    public void testGetAvailabilityStatus_restrictedByUm_disabledForUser_zoneRead() {
+        EnterpriseTestUtils.mockUserRestrictionSetByUm(mMockUserManager, TEST_RESTRICTION, true);
+
+        mPreferenceController.onCreate(mLifecycleOwner);
+        mPreferenceController.onStart(mLifecycleOwner);
+        mPreferenceController.setAvailabilityStatusForZone("read");
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), DISABLED_FOR_PROFILE);
+    }
+
+    @Test
+    public void testGetAvailabilityStatus_restrictedByUm_disabledForUser_zoneHidden() {
+        EnterpriseTestUtils.mockUserRestrictionSetByUm(mMockUserManager, TEST_RESTRICTION, true);
+
+        mPreferenceController.onCreate(mLifecycleOwner);
+        mPreferenceController.onStart(mLifecycleOwner);
+        mPreferenceController.setAvailabilityStatusForZone("hidden");
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), DISABLED_FOR_PROFILE);
+    }
+
+    @Test
     public void testGetAvailabilityStatus_restrictedByDpm_disabledForUser() {
         EnterpriseTestUtils.mockUserRestrictionSetByDpm(mMockUserManager, TEST_RESTRICTION, true);
 
@@ -155,6 +192,51 @@ public final class BluetoothDeviceProfilesPreferenceControllerMockTest {
     }
 
     @Test
+    public void testGetAvailabilityStatus_restrictedByDpm_disabledForUser_zoneWrite() {
+        EnterpriseTestUtils.mockUserRestrictionSetByDpm(mMockUserManager, TEST_RESTRICTION, true);
+
+        mPreferenceController.onCreate(mLifecycleOwner);
+        mPreferenceController.onStart(mLifecycleOwner);
+        mPreferenceController.setAvailabilityStatusForZone("write");
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), AVAILABLE_FOR_VIEWING);
+        BluetoothDeviceProfilePreference pref =
+                (BluetoothDeviceProfilePreference) mPreferenceGroup.getPreference(0);
+        assertThat(pref.isEnabled()).isFalse();
+    }
+
+    @Test
+    public void testGetAvailabilityStatus_restrictedByDpm_disabledForUser_zoneRead() {
+        EnterpriseTestUtils.mockUserRestrictionSetByDpm(mMockUserManager, TEST_RESTRICTION, true);
+
+        mPreferenceController.onCreate(mLifecycleOwner);
+        mPreferenceController.onStart(mLifecycleOwner);
+        mPreferenceController.setAvailabilityStatusForZone("read");
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), AVAILABLE_FOR_VIEWING);
+        BluetoothDeviceProfilePreference pref =
+                (BluetoothDeviceProfilePreference) mPreferenceGroup.getPreference(0);
+        assertThat(pref.isEnabled()).isFalse();
+    }
+
+    @Test
+    public void testGetAvailabilityStatus_restrictedByDpm_disabledForUser_zoneHidden() {
+        EnterpriseTestUtils.mockUserRestrictionSetByDpm(mMockUserManager, TEST_RESTRICTION, true);
+
+        mPreferenceController.onCreate(mLifecycleOwner);
+        mPreferenceController.onStart(mLifecycleOwner);
+        mPreferenceController.setAvailabilityStatusForZone("hidden");
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), CONDITIONALLY_UNAVAILABLE);
+        BluetoothDeviceProfilePreference pref =
+                (BluetoothDeviceProfilePreference) mPreferenceGroup.getPreference(0);
+        assertThat(pref.isEnabled()).isFalse();
+    }
+
+    @Test
     public void testGetAvailabilityStatus_notRestricted_available() {
         EnterpriseTestUtils.mockUserRestrictionSetByDpm(mMockUserManager, TEST_RESTRICTION, false);
 
@@ -162,6 +244,51 @@ public final class BluetoothDeviceProfilesPreferenceControllerMockTest {
         mPreferenceController.onStart(mLifecycleOwner);
 
         assertThat(mPreferenceController.getAvailabilityStatus()).isEqualTo(AVAILABLE);
+        BluetoothDeviceProfilePreference pref =
+                (BluetoothDeviceProfilePreference) mPreferenceGroup.getPreference(0);
+        assertThat(pref.isEnabled()).isTrue();
+    }
+
+    @Test
+    public void testGetAvailabilityStatus_notRestricted_available_zoneWrite() {
+        EnterpriseTestUtils.mockUserRestrictionSetByDpm(mMockUserManager, TEST_RESTRICTION, false);
+
+        mPreferenceController.onCreate(mLifecycleOwner);
+        mPreferenceController.onStart(mLifecycleOwner);
+        mPreferenceController.setAvailabilityStatusForZone("write");
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), AVAILABLE);
+        BluetoothDeviceProfilePreference pref =
+                (BluetoothDeviceProfilePreference) mPreferenceGroup.getPreference(0);
+        assertThat(pref.isEnabled()).isTrue();
+    }
+
+    @Test
+    public void testGetAvailabilityStatus_notRestricted_available_zoneRead() {
+        EnterpriseTestUtils.mockUserRestrictionSetByDpm(mMockUserManager, TEST_RESTRICTION, false);
+
+        mPreferenceController.onCreate(mLifecycleOwner);
+        mPreferenceController.onStart(mLifecycleOwner);
+        mPreferenceController.setAvailabilityStatusForZone("read");
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), AVAILABLE_FOR_VIEWING);
+        BluetoothDeviceProfilePreference pref =
+                (BluetoothDeviceProfilePreference) mPreferenceGroup.getPreference(0);
+        assertThat(pref.isEnabled()).isTrue();
+    }
+
+    @Test
+    public void testGetAvailabilityStatus_notRestricted_available_zoneHidden() {
+        EnterpriseTestUtils.mockUserRestrictionSetByDpm(mMockUserManager, TEST_RESTRICTION, false);
+
+        mPreferenceController.onCreate(mLifecycleOwner);
+        mPreferenceController.onStart(mLifecycleOwner);
+        mPreferenceController.setAvailabilityStatusForZone("hidden");
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), CONDITIONALLY_UNAVAILABLE);
         BluetoothDeviceProfilePreference pref =
                 (BluetoothDeviceProfilePreference) mPreferenceGroup.getPreference(0);
         assertThat(pref.isEnabled()).isTrue();

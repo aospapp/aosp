@@ -13,15 +13,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package com.android.traceur;
 
 import android.database.Cursor;
 import android.database.MatrixCursor;
 import android.net.Uri;
 import android.os.Bundle;
-import android.os.FileUtils;
 import android.os.CancellationSignal;
+import android.os.FileUtils;
 import android.os.ParcelFileDescriptor;
+import android.os.UserManager;
 import android.provider.DocumentsContract;
 import android.provider.DocumentsContract.Document;
 import android.provider.DocumentsContract.Root;
@@ -75,10 +77,14 @@ public class StorageProvider extends FileSystemProvider{
         boolean developerOptionsIsEnabled =
             Settings.Global.getInt(getContext().getContentResolver(),
                 Settings.Global.DEVELOPMENT_SETTINGS_ENABLED, 0) != 0;
+        UserManager userManager = getContext().getSystemService(UserManager.class);
+        boolean isAdminUser = userManager.isAdminUser();
+        boolean debuggingDisallowed = userManager.hasUserRestriction(
+                UserManager.DISALLOW_DEBUGGING_FEATURES);
 
-        // If developer options is not enabled, return an empty root cursor.
-        // This removes the provider from the list entirely.
-        if (!developerOptionsIsEnabled) {
+        // If developer options is not enabled or the user is not an admin, return an empty root
+        // cursor. This removes the provider from the list entirely.
+        if (!developerOptionsIsEnabled || !isAdminUser || debuggingDisallowed) {
             return null;
         }
 

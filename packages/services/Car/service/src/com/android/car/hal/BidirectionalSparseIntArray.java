@@ -22,7 +22,7 @@ import android.util.SparseIntArray;
  *
  * <p>This class is immutable. Use {@link #create(int[])} factory method to instantiate this class.
  */
-class BidirectionalSparseIntArray {
+final class BidirectionalSparseIntArray {
     private final SparseIntArray mMap;
     private final SparseIntArray mInverseMap;
 

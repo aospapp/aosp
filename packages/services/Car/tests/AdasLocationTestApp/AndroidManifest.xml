@@ -15,8 +15,7 @@
   -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-          package="com.google.android.car.adaslocation"
-          android:sharedUserId="android.uid.system">
+          package="com.google.android.car.adaslocation">
 
     <!-- The app needs to access device location to verify ADAS and main location switch work as
     expected. -->
@@ -25,6 +24,10 @@
     <uses-permission android:name="android.permission.LOCATION_BYPASS"/>
 
     <application android:label="AdasLocationTestApp">
+        <!-- This app is a test app with no privacy policy. The fake policy url
+        is for testing features in Location Settings. -->
+        <meta-data android:name="privacy_policy"
+            android:value="https://source.android.com/devices/automotive/location_bypass_policy"/>
         <activity android:name=".AdasLocationActivity"
                   android:theme="@style/Theme.AppCompat"
                   android:exported="true">

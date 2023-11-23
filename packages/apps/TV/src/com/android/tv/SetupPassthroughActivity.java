@@ -109,7 +109,6 @@ public class SetupPassthroughActivity extends Activity {
                 finish();
                 return;
             }
-            SetupUtils.grantEpgPermission(this, mTvInputInfo.getServiceInfo().packageName);
             if (DEBUG) Log.d(TAG, "Activity after completion " + mActivityAfterCompletion);
             // If EXTRA_SETUP_INTENT is not removed, an infinite recursion happens during
             // setupIntent.putExtras(intent.getExtras()).
@@ -127,6 +126,7 @@ public class SetupPassthroughActivity extends Activity {
                     finish();
                     return;
                 }
+                SetupUtils.grantEpgPermission(this, mTvInputInfo.getServiceInfo().packageName);
                 startActivityForResult(setupIntent, REQUEST_START_SETUP_ACTIVITY);
             } catch (ActivityNotFoundException e) {
                 Log.e(TAG, "Can't find activity: " + setupIntent.getComponent());

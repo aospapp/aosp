@@ -16,17 +16,11 @@
 
 package com.android.permissioncontroller.permission.utils;
 
-import android.content.pm.PackageInfo;
-import android.util.ArrayMap;
-import android.util.ArraySet;
 import android.util.EventLog;
 
-import com.android.permissioncontroller.permission.model.AppPermissionGroup;
-import com.android.permissioncontroller.permission.model.Permission;
 import com.android.permissioncontroller.permission.model.livedatatypes.LightAppPermGroup;
 import com.android.permissioncontroller.permission.model.livedatatypes.LightPermission;
 
-import java.util.ArrayList;
 import java.util.List;
 
 public final class SafetyNetLogger {
@@ -49,21 +43,6 @@ public final class SafetyNetLogger {
      *
      * <p>The groups might refer to different permission groups and different apps.
      *
-     * @param packageInfo The info about the package for which permissions were requested
-     * @param groups The permission groups which were requested
-     */
-    public static void logPermissionsRequested(PackageInfo packageInfo,
-            List<AppPermissionGroup> groups) {
-        EventLog.writeEvent(SNET_NET_EVENT_LOG_TAG, PERMISSIONS_REQUESTED,
-                packageInfo.applicationInfo.uid, buildChangedPermissionForPackageMessage(
-                        packageInfo.packageName, groups));
-    }
-
-    /**
-     * Log that permission groups have been requested for the purpose of safety net.
-     *
-     * <p>The groups might refer to different permission groups and different apps.
-     *
      * @param packageName The name of the package for which permissions were requested
      * @param uid The uid of the package
      * @param groups The permission groups which were requested
@@ -72,52 +51,6 @@ public final class SafetyNetLogger {
             List<LightAppPermGroup> groups) {
         EventLog.writeEvent(SNET_NET_EVENT_LOG_TAG, PERMISSIONS_REQUESTED, uid,
                 buildChangedPermissionForPackageMessageNew(packageName, groups));
-    }
-
-    /**
-     * Log that permission groups have been toggled for the purpose of safety net.
-     *
-     * <p>The groups might refer to different permission groups and different apps.
-     *
-     * @param groups The groups toggled
-     */
-    public static void logPermissionsToggled(ArraySet<AppPermissionGroup> groups) {
-        ArrayMap<String, ArrayList<AppPermissionGroup>> groupsByPackage = new ArrayMap<>();
-
-        int numGroups = groups.size();
-        for (int i = 0; i < numGroups; i++) {
-            AppPermissionGroup group = groups.valueAt(i);
-
-            ArrayList<AppPermissionGroup> groupsForThisPackage = groupsByPackage.get(
-                    group.getApp().packageName);
-            if (groupsForThisPackage == null) {
-                groupsForThisPackage = new ArrayList<>();
-                groupsByPackage.put(group.getApp().packageName, groupsForThisPackage);
-            }
-
-            groupsForThisPackage.add(group);
-            if (group.getBackgroundPermissions() != null) {
-                groupsForThisPackage.add(group.getBackgroundPermissions());
-            }
-        }
-
-        int numPackages = groupsByPackage.size();
-        for (int i = 0; i < numPackages; i++) {
-            EventLog.writeEvent(SNET_NET_EVENT_LOG_TAG, PERMISSIONS_TOGGLED,
-                    android.os.Process.myUid(), buildChangedPermissionForPackageMessage(
-                            groupsByPackage.keyAt(i), groupsByPackage.valueAt(i)));
-        }
-    }
-
-    /**
-     * Log that a permission group has been toggled for the purpose of safety net.
-     *
-     * @param group The group toggled.
-     */
-    public static void logPermissionToggled(AppPermissionGroup group) {
-        ArraySet groups = new ArraySet<AppPermissionGroup>(1);
-        groups.add(group);
-        logPermissionsToggled(groups);
     }
 
     /**
@@ -167,22 +100,6 @@ public final class SafetyNetLogger {
         }
     }
 
-    private static void buildChangedPermissionForGroup(AppPermissionGroup group,
-            StringBuilder builder) {
-        int permissionCount = group.getPermissions().size();
-        for (int permissionNum = 0; permissionNum < permissionCount; permissionNum++) {
-            Permission permission = group.getPermissions().get(permissionNum);
-
-            if (builder.length() > 0) {
-                builder.append(';');
-            }
-
-            builder.append(permission.getName()).append('|');
-            builder.append(permission.isGrantedIncludingAppOp()).append('|');
-            builder.append(permission.getFlags());
-        }
-    }
-
     private static String buildChangedPermissionForPackageMessageNew(String packageName,
             List<LightAppPermGroup> groups) {
         StringBuilder builder = new StringBuilder();
@@ -191,25 +108,6 @@ public final class SafetyNetLogger {
         for (LightAppPermGroup group: groups) {
             buildChangedPermissionForGroup(group, false, builder);
         }
-        return builder.toString();
-    }
-
-    private static String buildChangedPermissionForPackageMessage(String packageName,
-            List<AppPermissionGroup> groups) {
-        StringBuilder builder = new StringBuilder();
-
-        builder.append(packageName).append(':');
-
-        int groupCount = groups.size();
-        for (int groupNum = 0; groupNum < groupCount; groupNum++) {
-            AppPermissionGroup group = groups.get(groupNum);
-
-            buildChangedPermissionForGroup(group, builder);
-            if (group.getBackgroundPermissions() != null) {
-                buildChangedPermissionForGroup(group.getBackgroundPermissions(), builder);
-            }
-        }
-
         return builder.toString();
     }
 }

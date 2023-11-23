@@ -38,16 +38,19 @@ using ::aidl::android::hardware::automotive::evs::ParameterRange;
 using ::android::hardware::hidl_vec;
 using ::ndk::ScopedAStatus;
 
-AidlCamera::AidlCamera(const ::android::sp<hidlevs::V1_0::IEvsCamera>& hidlCamera) {
+AidlCamera::AidlCamera(const ::android::sp<hidlevs::V1_0::IEvsCamera>& hidlCamera, bool forceV1_0) {
     auto hidlCameraV1 = hidlevs::V1_1::IEvsCamera::castFrom(hidlCamera).withDefault(nullptr);
-    if (!hidlCameraV1) {
+    if (forceV1_0 || !hidlCameraV1) {
+        // AidlCamera is initialized in V1_0::IEvsCamera support mode in below
+        // three conditions:
+        // 1. A given camera object is an implementation of V1_0::IEvsCamera
+        //    (fails to upcast as V1_1::IEvsCamera).
+        // 2. A caller explicitly creates AidlCamera object in V1_0::IEvsCamera
+        //    mode by setting forceV1_0 as true.
+        // 3. Or, A given camera object is invalid (nullptr).
         mImpl = std::make_shared<ImplV0>(hidlCamera);
     } else {
         mImpl = std::make_shared<ImplV1>(hidlCameraV1);
-    }
-
-    if (!mImpl) {
-        LOG(ERROR) << "Failed to initialize AidlCamera instance";
     }
 }
 
@@ -132,7 +135,18 @@ ScopedAStatus AidlCamera::unsetPrimaryClient() {
 }
 
 AidlCamera::ImplV0::ImplV0(const ::android::sp<hidlevs::V1_0::IEvsCamera>& camera) :
-      IHidlCamera(camera) {}
+      IHidlCamera(camera) {
+    if (!camera) {
+        LOG(WARNING) << "AidlCamera object is instantiated with an invalid IEvsCamera object.";
+        return;
+    }
+
+    // Because android::hardware::automotive::evs::V1_0::BufferDesc does not
+    // contain a device id while it is required to handle received frames
+    // properly, we are retrieving it from the camera descriptor and store
+    // locally.
+    camera->getCameraInfo([this](const auto& read) { mId = read.cameraId; });
+}
 
 ScopedAStatus AidlCamera::ImplV0::doneWithFrame(const std::vector<BufferDesc>& buffers) {
     if (!mHidlStream) {
@@ -160,7 +174,7 @@ ScopedAStatus AidlCamera::ImplV0::getCameraInfo(CameraDesc* _aidl_return) {
     }
 
     (void)mHidlCamera->getCameraInfo(
-            [&_aidl_return](auto& desc) { *_aidl_return = std::move(Utils::makeFromHidl(desc)); });
+            [_aidl_return](auto& desc) { *_aidl_return = std::move(Utils::makeFromHidl(desc)); });
 
     return ScopedAStatus::ok();
 }
@@ -213,6 +227,10 @@ ScopedAStatus AidlCamera::ImplV0::resumeVideoStream() {
 
 ScopedAStatus AidlCamera::ImplV0::setExtendedInfo(int32_t opaqueIdentifier,
                                                   const std::vector<uint8_t>& opaqueValue) {
+    if (opaqueValue.size() < sizeof(int32_t)) {
+        return Utils::buildScopedAStatusFromEvsResult(EvsResult::INVALID_ARG);
+    }
+
     int32_t v = *(reinterpret_cast<const int32_t*>(opaqueValue.data()));
     return Utils::buildScopedAStatusFromEvsResult(
             mHidlCamera->setExtendedInfo(opaqueIdentifier, v));
@@ -245,7 +263,7 @@ ScopedAStatus AidlCamera::ImplV0::startVideoStream(
     }
 
     // Creates a wrapper object and requests a video stream
-    mHidlStream = new (std::nothrow) HidlCameraStream(listener);
+    mHidlStream = new (std::nothrow) HidlCameraStream(mId, listener);
     return Utils::buildScopedAStatusFromEvsResult(mHidlCamera->startVideoStream(mHidlStream));
 }
 
@@ -264,7 +282,14 @@ ScopedAStatus AidlCamera::ImplV0::unsetPrimaryClient() {
 }
 
 AidlCamera::ImplV1::ImplV1(const ::android::sp<hidlevs::V1_1::IEvsCamera>& camera) :
-      IHidlCamera(camera), mHidlCamera(camera) {}
+      IHidlCamera(camera), mHidlCamera(camera) {
+    if (!camera) {
+        LOG(WARNING) << "AidlCamera object is instantiated with an invalid IEvsCamera object.";
+        return;
+    }
+
+    camera->getCameraInfo_1_1([this](const auto& read) { mId = read.v1.cameraId; });
+}
 
 ScopedAStatus AidlCamera::ImplV1::doneWithFrame(const std::vector<BufferDesc>& buffers) {
     if (!mHidlStream) {
@@ -300,7 +325,7 @@ ScopedAStatus AidlCamera::ImplV1::getCameraInfo(CameraDesc* _aidl_return) {
     }
 
     (void)mHidlCamera->getCameraInfo_1_1(
-            [&_aidl_return](auto& desc) { *_aidl_return = std::move(Utils::makeFromHidl(desc)); });
+            [_aidl_return](auto& desc) { *_aidl_return = std::move(Utils::makeFromHidl(desc)); });
 
     return ScopedAStatus::ok();
 }
@@ -313,8 +338,8 @@ ScopedAStatus AidlCamera::ImplV1::getExtendedInfo(int32_t opaqueIdentifier,
 
     hidlevs::V1_0::EvsResult hidlStatus = hidlevs::V1_0::EvsResult::OK;
     (void)mHidlCamera->getExtendedInfo_1_1(opaqueIdentifier,
-                                           [&hidlStatus, &value](auto status,
-                                                                 const hidl_vec<uint8_t>& hwValue) {
+                                           [&hidlStatus, value](auto status,
+                                                                const hidl_vec<uint8_t>& hwValue) {
                                                hidlStatus = status;
                                                *value = hwValue;
                                            });
@@ -328,8 +353,8 @@ ScopedAStatus AidlCamera::ImplV1::getIntParameter(CameraParam id, std::vector<in
 
     hidlevs::V1_0::EvsResult hidlStatus = hidlevs::V1_0::EvsResult::OK;
     (void)mHidlCamera->getIntParameter(Utils::makeToHidl(id),
-                                       [&hidlStatus, &value](auto status,
-                                                             const hidl_vec<int32_t>& hidlValues) {
+                                       [&hidlStatus, value](auto status,
+                                                            const hidl_vec<int32_t>& hidlValues) {
                                            hidlStatus = status;
                                            *value = hidlValues;
                                        });
@@ -343,7 +368,7 @@ ScopedAStatus AidlCamera::ImplV1::getIntParameterRange(CameraParam id,
     }
 
     (void)mHidlCamera->getIntParameterRange(Utils::makeToHidl(id),
-                                            [&_aidl_return](auto min, auto max, auto step) {
+                                            [_aidl_return](auto min, auto max, auto step) {
                                                 _aidl_return->min = min;
                                                 _aidl_return->max = max;
                                                 _aidl_return->step = step;
@@ -357,7 +382,7 @@ ScopedAStatus AidlCamera::ImplV1::getParameterList(std::vector<CameraParam>* _ai
     }
 
     (void)mHidlCamera->getParameterList(
-            [&_aidl_return](const hidl_vec<hidlevs::V1_1::CameraParam>& list) {
+            [_aidl_return](const hidl_vec<hidlevs::V1_1::CameraParam>& list) {
                 _aidl_return->reserve(list.size());
                 for (auto i = 0; i < list.size(); ++i) {
                     _aidl_return->push_back(std::move(Utils::makeFromHidl(list[i])));
@@ -372,7 +397,7 @@ ScopedAStatus AidlCamera::ImplV1::getPhysicalCameraInfo(const std::string& devic
         return Utils::buildScopedAStatusFromEvsResult(EvsResult::RESOURCE_NOT_AVAILABLE);
     }
 
-    (void)mHidlCamera->getPhysicalCameraInfo(deviceId, [&_aidl_return](const auto& hidlDesc) {
+    (void)mHidlCamera->getPhysicalCameraInfo(deviceId, [_aidl_return](const auto& hidlDesc) {
         *_aidl_return = std::move(Utils::makeFromHidl(hidlDesc));
     });
     return ScopedAStatus::ok();
@@ -391,7 +416,7 @@ ScopedAStatus AidlCamera::ImplV1::importExternalBuffers(const std::vector<Buffer
     }
     hidlevs::V1_0::EvsResult hidlStatus = hidlevs::V1_0::EvsResult::OK;
     (void)mHidlCamera->importExternalBuffers(hidlBuffers,
-                                             [&hidlStatus, &_aidl_return](auto status, auto delta) {
+                                             [&hidlStatus, _aidl_return](auto status, auto delta) {
                                                  hidlStatus = status;
                                                  *_aidl_return = delta;
                                              });
@@ -466,7 +491,7 @@ ScopedAStatus AidlCamera::ImplV1::startVideoStream(
     }
 
     // Creates a wrapper object and requests a video stream
-    mHidlStream = new (std::nothrow) HidlCameraStream(listener);
+    mHidlStream = new (std::nothrow) HidlCameraStream(mId, listener);
     return Utils::buildScopedAStatusFromEvsResult(mHidlCamera->startVideoStream(mHidlStream));
 }
 

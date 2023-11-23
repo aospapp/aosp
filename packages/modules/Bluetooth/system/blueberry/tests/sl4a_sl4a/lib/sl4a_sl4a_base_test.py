@@ -19,10 +19,15 @@ import os
 import traceback
 from functools import wraps
 
+from blueberry.tests.gd.cert.closable import safeClose
 from blueberry.tests.gd.cert.context import get_current_context
 from blueberry.tests.gd_sl4a.lib.ble_lib import BleLib
 from blueberry.tests.gd_sl4a.lib.ble_lib import disable_bluetooth
 from blueberry.tests.gd_sl4a.lib.ble_lib import enable_bluetooth
+from blueberry.tests.sl4a_sl4a.lib.le_advertiser import LeAdvertiser
+from blueberry.tests.sl4a_sl4a.lib.le_scanner import LeScanner
+from blueberry.tests.sl4a_sl4a.lib.l2cap import L2cap
+from blueberry.tests.sl4a_sl4a.lib.security import Security
 from blueberry.utils.mobly_sl4a_utils import setup_sl4a
 from blueberry.utils.mobly_sl4a_utils import teardown_sl4a
 from grpc import RpcError
@@ -34,6 +39,18 @@ from mobly.controllers.android_device_lib.adb import AdbError
 
 
 class Sl4aSl4aBaseTestClass(BaseTestClass):
+
+    # DUT
+    dut_advertiser_ = None
+    dut_scanner_ = None
+    dut_security_ = None
+    dut_l2cap_ = None
+
+    # CERT
+    cert_advertiser_ = None
+    cert_scanner_ = None
+    cert_security_ = None
+    cert_l2cap_ = None
 
     SUBPROCESS_WAIT_TIMEOUT_SECONDS = 10
 
@@ -94,9 +111,34 @@ class Sl4aSl4aBaseTestClass(BaseTestClass):
     def setup_test(self):
         self.setup_device_for_test(self.dut)
         self.setup_device_for_test(self.cert)
+        self.dut_advertiser_ = LeAdvertiser(self.dut)
+        self.dut_scanner_ = LeScanner(self.dut)
+        self.dut_security_ = Security(self.dut)
+        self.dut_l2cap_ = L2cap(self.dut)
+        self.cert_advertiser_ = LeAdvertiser(self.cert)
+        self.cert_scanner_ = LeScanner(self.cert)
+        self.cert_security_ = Security(self.cert)
+        self.cert_l2cap_ = L2cap(self.cert)
         return True
 
     def teardown_test(self):
+        # Go ahead and remove everything before turning off the stack
+        safeClose(self.dut_advertiser_)
+        safeClose(self.dut_scanner_)
+        safeClose(self.dut_security_)
+        safeClose(self.dut_l2cap_)
+        safeClose(self.cert_advertiser_)
+        safeClose(self.cert_scanner_)
+        safeClose(self.cert_security_)
+        safeClose(self.cert_l2cap_)
+        self.dut_advertiser_ = None
+        self.dut_scanner_ = None
+        self.dut_security_ = None
+        self.cert_advertiser_ = None
+        self.cert_l2cap_ = None
+        self.cert_scanner_ = None
+        self.cert_security_ = None
+
         # Make sure BLE is disabled and Bluetooth is disabled after test
         self.dut.sl4a.bluetoothDisableBLE()
         disable_bluetooth(self.dut.sl4a, self.dut.ed)

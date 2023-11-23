@@ -68,6 +68,7 @@ import androidx.slice.widget.SliceView;
 import com.android.wallpaper.R;
 import com.android.wallpaper.model.SetWallpaperViewModel;
 import com.android.wallpaper.model.WallpaperInfo.ColorInfo;
+import com.android.wallpaper.module.LargeScreenMultiPanesChecker;
 import com.android.wallpaper.util.FullScreenAnimation;
 import com.android.wallpaper.util.ResourceUtils;
 import com.android.wallpaper.util.ScreenSizeCalculator;
@@ -303,6 +304,7 @@ public class LivePreviewFragment extends PreviewFragment implements
                 return;
             }
             if (mWallpaperSurfaceCallback.getHomeImageWallpaper() != null) {
+                mWallpaperSurfaceCallback.setHomeImageWallpaperBlur(true);
                 ColorInfo colorInfo = getColorInfo();
                 Integer placeholderColor = colorInfo.getPlaceholderColor();
                 mWallpaper.getThumbAsset(activity.getApplicationContext())
@@ -371,7 +373,9 @@ public class LivePreviewFragment extends PreviewFragment implements
     protected void onBottomActionBarReady(BottomActionBar bottomActionBar) {
         super.onBottomActionBarReady(bottomActionBar);
         Activity activity = getActivity();
-        if (activity != null && activity.isInMultiWindowMode()) {
+        LargeScreenMultiPanesChecker checker = new LargeScreenMultiPanesChecker();
+        if (activity != null
+                && (activity.isInMultiWindowMode() || checker.isMultiPanesEnabled(getContext()))) {
             mBottomActionBar.showActionsOnly(INFORMATION, DELETE, CUSTOMIZE, APPLY);
         } else {
             mBottomActionBar.showActionsOnly(INFORMATION, DELETE, EDIT, CUSTOMIZE, APPLY);

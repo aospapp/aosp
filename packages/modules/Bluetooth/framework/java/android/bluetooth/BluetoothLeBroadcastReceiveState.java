@@ -450,50 +450,47 @@ public final class BluetoothLeBroadcastReceiveState implements Parcelable {
      * @hide
      */
     @SystemApi
-    public static final @NonNull Parcelable.Creator<BluetoothLeBroadcastReceiveState> CREATOR =
-            new Parcelable.Creator<BluetoothLeBroadcastReceiveState>() {
-                public @NonNull BluetoothLeBroadcastReceiveState createFromParcel(
-                        @NonNull Parcel in) {
-                    final int sourceId = in.readInt();
-                    final int sourceAddressType = in.readInt();
-                    final BluetoothDevice sourceDevice =
-                            in.readTypedObject(BluetoothDevice.CREATOR);
-                    final int sourceAdvertisingSid = in.readInt();
-                    final int broadcastId = in.readInt();
-                    final int paSyncState = in.readInt();
-                    final int bigEncryptionState = in.readInt();
-                    final int badCodeLen = in.readInt();
-                    byte[] badCode = null;
+    @NonNull
+    public static final Creator<BluetoothLeBroadcastReceiveState> CREATOR = new Creator<>() {
+        public @NonNull BluetoothLeBroadcastReceiveState createFromParcel(@NonNull Parcel in) {
+            final int sourceId = in.readInt();
+            final int sourceAddressType = in.readInt();
+            final BluetoothDevice sourceDevice = in.readTypedObject(BluetoothDevice.CREATOR);
+            final int sourceAdvertisingSid = in.readInt();
+            final int broadcastId = in.readInt();
+            final int paSyncState = in.readInt();
+            final int bigEncryptionState = in.readInt();
+            final int badCodeLen = in.readInt();
+            byte[] badCode = null;
 
-                    if (badCodeLen != -1) {
-                        badCode = new byte[badCodeLen];
-                        if (badCodeLen > 0) {
-                            in.readByteArray(badCode);
-                        }
-                    }
-                    final byte numSubGroups = in.readByte();
-                    final List<Long> bisSyncState =
-                            in.readArrayList(Long.class.getClassLoader(), Long.class);
-                    final List<BluetoothLeAudioContentMetadata> subgroupMetadata =
-                            new ArrayList<>();
-                    in.readTypedList(subgroupMetadata, BluetoothLeAudioContentMetadata.CREATOR);
-
-                    return new BluetoothLeBroadcastReceiveState(
-                            sourceId,
-                            sourceAddressType,
-                            sourceDevice,
-                            sourceAdvertisingSid,
-                            broadcastId,
-                            paSyncState,
-                            bigEncryptionState,
-                            badCode,
-                            numSubGroups,
-                            bisSyncState,
-                            subgroupMetadata);
+            if (badCodeLen != -1) {
+                badCode = new byte[badCodeLen];
+                if (badCodeLen > 0) {
+                    in.readByteArray(badCode);
                 }
+            }
+            final byte numSubGroups = in.readByte();
+            final List<Long> bisSyncState =
+                    in.readArrayList(Long.class.getClassLoader(), Long.class);
+            final List<BluetoothLeAudioContentMetadata> subgroupMetadata = new ArrayList<>();
+            in.readTypedList(subgroupMetadata, BluetoothLeAudioContentMetadata.CREATOR);
 
-                public @NonNull BluetoothLeBroadcastReceiveState[] newArray(int size) {
-                    return new BluetoothLeBroadcastReceiveState[size];
-                }
-            };
+            return new BluetoothLeBroadcastReceiveState(
+                    sourceId,
+                    sourceAddressType,
+                    sourceDevice,
+                    sourceAdvertisingSid,
+                    broadcastId,
+                    paSyncState,
+                    bigEncryptionState,
+                    badCode,
+                    numSubGroups,
+                    bisSyncState,
+                    subgroupMetadata);
+        }
+
+        public @NonNull BluetoothLeBroadcastReceiveState[] newArray(int size) {
+            return new BluetoothLeBroadcastReceiveState[size];
+        }
+    };
 }

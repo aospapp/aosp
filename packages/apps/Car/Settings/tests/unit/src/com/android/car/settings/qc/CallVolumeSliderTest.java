@@ -26,6 +26,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.android.car.qc.QCItem;
 import com.android.car.qc.QCList;
 import com.android.car.qc.QCRow;
+import com.android.car.qc.QCSlider;
 import com.android.car.settings.R;
 
 import org.junit.Before;
@@ -55,6 +56,32 @@ public class CallVolumeSliderTest extends VolumeSliderTestCase {
     @Test
     public void getQCItem_createsSlider() {
         verifySliderCreated(getCallVolumeSlider());
+    }
+
+    @Test
+    public void getQCItem_createsSlider_zoneWrite() {
+        mVolumeSlider.setAvailabilityStatusForZone("write");
+        QCRow row = getCallVolumeSlider();
+        QCSlider slider = row.getSlider();
+        assertThat(slider).isNotNull();
+        assertThat(slider.isEnabled()).isTrue();
+    }
+
+    @Test
+    public void getQCItem_createsSlider_zoneRead() {
+        mVolumeSlider.setAvailabilityStatusForZone("read");
+        QCRow row = getCallVolumeSlider();
+        QCSlider slider = row.getSlider();
+        assertThat(slider).isNotNull();
+        assertThat(slider.isEnabled()).isFalse();
+        assertThat(slider.isClickableWhileDisabled()).isTrue();
+    }
+
+    @Test
+    public void getQCItem_createsSlider_zoneHidden() {
+        mVolumeSlider.setAvailabilityStatusForZone("hidden");
+        QCItem item = mVolumeSlider.getQCItem();
+        assertThat(item).isNull();
     }
 
     @Test

@@ -27,6 +27,7 @@ import android.os.IBinder;
 import android.os.RemoteException;
 import android.util.Log;
 
+import com.android.internal.annotations.VisibleForTesting;
 import com.android.server.nearby.fastpair.FastPairController;
 
 /**
@@ -90,6 +91,14 @@ public class FastPairUiServiceImpl extends IFastPairUiService.Stub {
 
     public FastPairStatusCallback getPairStatusCallback() {
         return mFastPairStatusCallback;
+    }
+
+    /**
+     * Sets fastPairStatusCallback.
+     */
+    @VisibleForTesting
+    public void setFastPairStatusCallback(FastPairStatusCallback fastPairStatusCallback) {
+        mFastPairStatusCallback = fastPairStatusCallback;
     }
 
     /**

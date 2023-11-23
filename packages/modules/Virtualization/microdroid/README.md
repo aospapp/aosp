@@ -7,7 +7,7 @@ intended to host headless & native workloads only.
 
 ## Prerequisites
 
-Any 64-bit target (either x86_64 or arm64) is supported. 32-bit target is not
+Any 64-bit target (either x86\_64 or arm64) is supported. 32-bit target is not
 supported. Note that we currently don't support user builds; only userdebug
 builds are supported.
 
@@ -36,16 +36,16 @@ adb install out/dist/com.android.virt.apex
 adb reboot
 ```
 
-If your target is x86_64 (e.g. `aosp_cf_x86_64_phone`), replace `aosp_arm64`
+If your target is x86\_64 (e.g. `aosp_cf_x86_64_phone`), replace `aosp_arm64`
 with `aosp_x86_64`.
 
 ## Building an app
 
 An app in microdroid is a shared library file embedded in an APK. The shared
-library should have an entry point `android_native_main` as shown below:
+library should have an entry point `AVmPayload_main` as shown below:
 
 ```C++
-extern "C" int android_native_main(int argc, char* argv[]) {
+extern "C" int AVmPayload_main() {
   printf("Hello Microdroid!\n");
 }
 ```
@@ -138,16 +138,17 @@ and then automatically execute your app (the shared library
 TEST_ROOT=/data/local/tmp/virt
 adb shell /apex/com.android.virt/bin/vm run-app \
 --log $TEST_ROOT/log.txt \
+--console $TEST_ROOT/console.txt \
 PATH_TO_YOUR_APP \
 $TEST_ROOT/MyApp.apk.idsig \
 $TEST_ROOT/instance.img \
-assets/VM_CONFIG_FILE
+--config-path assets/VM_CONFIG_FILE
 ```
 
 The last command lets you know the CID assigned to the VM. The console output
-from the VM is stored to `$TEST_ROOT/log.txt` file for debugging purpose. If you
-omit the `--log $TEST_ROOT/log.txt` option, it will be emitted to the current
-console.
+from the VM is stored to `$TEST_ROOT/console.txt` and logcat is stored to
+`$TEST_ROOT/log.txt` file for debugging purpose. If you omit `--log` or
+`--console` option, they will be emitted to the current console.
 
 Stopping the VM can be done as follows:
 
@@ -159,22 +160,73 @@ adb shell /apex/com.android.virt/bin/vm stop $CID
 invoked with the `--daemonize` flag. If the flag was not used, press Ctrl+C on
 the console where the `vm run-app` command was invoked.
 
-## ADB
+## Debuggable microdroid
 
-On userdebug builds, you can have an adb connection to microdroid. To do so,
+### Debugging features
+Microdroid supports following debugging features:
+
+- VM log
+- console output
+- kernel output
+- logcat output
+- [ramdump](../docs/debug/ramdump.md)
+- crashdump
+- [adb](#adb)
+- [gdb](#debugging-the-payload-on-microdroid)
+
+### Enabling debugging features
+There's two ways to enable the debugging features:
+
+#### Option 1) Running microdroid on AVF debug policy configured device
+
+microdroid can be started with debugging features by debug policies from the
+host. Host bootloader may provide debug policies to host OS's device tree for
+VMs. Host bootloader MUST NOT provide debug policies for locked devices for
+security reasons.
+
+For protected VM, such device tree will be available in microdroid. microdroid
+can check which debuging features is enabled.
+
+Here are list of device tree properties for debugging features.
+
+- `/avf/guest/common/log`: `<1>` to enable kernel log and logcat. Ignored
+  otherwise.
+- `/avf/guest/common/ramdump`: `<1>` to enable ramdump. Ignored otherwise.
+- `/avf/guest/microdroid/adb`: `<1>` to enable `adb`. Ignored otherwise.
+
+#### Option 2) Lauching microdroid with debug level.
+
+microdroid can be started with debugging features. To do so, first, delete
+`$TEST_ROOT/instance.img`; this is because changing debug settings requires a
+new instance. Then add the `--debug=full` flag to the
+`/apex/com.android.virt/bin/vm run-app` command. This will enable all debugging
+features.
+
+### ADB
+
+If `adb` connection is enabled, launch following command.
 
 ```sh
-adb forward tcp:8000 vsock:$CID:5555
-adb connect localhost:8000
+vm_shell
 ```
 
-`$CID` should be the CID that `vm` reported upon execution of the `vm run`
-command in the above. You can also check it with
-`adb shell "/apex/com.android.virt/bin/vm list"`. `5555` must be the value.
-`8000` however can be any port on the development machine.
+Done. Now you are logged into Microdroid. Have fun!
 
-Done. Now you can log into microdroid. Have fun!
+Once you have an adb connection with `vm_shell`, `localhost:8000` will be the
+serial of microdroid.
+
+### Debugging the payload on microdroid
+
+Like a normal adb device, you can debug native processes using `lldbclient.py`
+script, either by running a new process, or attaching to an existing process.
+Use `vm_shell` tool above, and then run `lldbclient.py`.
 
 ```sh
-$ adb -s localhost:8000 shell
+adb -s localhost:8000 shell 'mount -o remount,exec /data'
+development/scripts/lldbclient.py -s localhost:8000 --chroot . --user '' \
+    (-p PID | -n NAME | -r ...)
 ```
+
+**Note:** We need to pass `--chroot .` to skip verifying device, because
+microdroid doesn't match with the host's lunch target. We need to also pass
+`--user ''` as there is no `su` binary in microdroid.

@@ -25,9 +25,9 @@ import com.android.internal.os.StatsdConfigProto.FieldMatcher;
 import com.android.internal.os.StatsdConfigProto.Position;
 import com.android.os.AtomsProto.Atom;
 import com.android.os.AtomsProto.AppBreadcrumbReported;
-import com.android.os.AtomsProto.AttributionNode;
 import com.android.os.AtomsProto.BleScanStateChanged;
 import com.android.os.AtomsProto.WakelockStateChanged;
+import com.android.os.AttributionNode;
 import com.android.os.StatsLog;
 import com.android.os.StatsLog.ConfigMetricsReport;
 import com.android.os.StatsLog.ConfigMetricsReportList;
@@ -385,6 +385,23 @@ public class CountMetricsTests extends DeviceAtomTestCase {
                     .setWhat(whatMatcherId)
                     .addSliceByState(stateId)
                     .addStateLink(stateLink)
+                    .setDimensionsInWhat(
+                        FieldMatcher.newBuilder()
+                            .setField(whatAtomId)
+                            .addChild(FieldMatcher.newBuilder()
+                                    .setField(1)
+                                    .setPosition(Position.FIRST)
+                                    .addChild(FieldMatcher.newBuilder()
+                                            .setField(AttributionNode.UID_FIELD_NUMBER)
+                                    )
+                            )
+                            .addChild(FieldMatcher.newBuilder()
+                                    .setField(2)
+                            )
+                            .addChild(FieldMatcher.newBuilder()
+                                    .setField(3)
+                        )
+                    )
                 )
                 .addAtomMatcher(whatMatcher)
                 .addState(state);

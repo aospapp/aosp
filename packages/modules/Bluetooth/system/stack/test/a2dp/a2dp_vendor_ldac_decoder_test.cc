@@ -27,7 +27,7 @@
 #include "stack/include/bt_hdr.h"
 #include "stack/include/ldacBT_bco_for_fluoride.h"
 
-extern void allocation_tracker_uninit(void);
+void allocation_tracker_uninit(void);
 namespace {
 
 uint8_t* Data(BT_HDR* packet) { return packet->data + packet->offset; }

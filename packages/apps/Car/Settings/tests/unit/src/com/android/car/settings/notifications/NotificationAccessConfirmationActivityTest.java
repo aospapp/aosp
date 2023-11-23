@@ -50,6 +50,7 @@ import com.android.car.settings.common.ConfirmationDialogFragment;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
 import java.util.Locale;
@@ -66,6 +67,8 @@ public final class NotificationAccessConfirmationActivityTest {
     private ActivityScenario<TestActivity> mActivityScenario;
     private TestActivity mActivity;
     private PackageManager mPackageManager;
+
+    @Mock
     private NotificationManager mNotificationManager;
 
     private static ServiceInfo createServiceInfoForTempComponent(String permission) {
@@ -165,7 +168,6 @@ public final class NotificationAccessConfirmationActivityTest {
                 activity -> {
                     mActivity = activity;
                     mPackageManager = mActivity.getPackageManager();
-                    mNotificationManager = mActivity.getSystemService(NotificationManager.class);
                     mActivity.setPackageManagerSpy(mPackageManager);
                     mActivity.setNotificationManagerSpy(mNotificationManager);
                 });
@@ -200,14 +202,10 @@ public final class NotificationAccessConfirmationActivityTest {
 
         @Override
         public Object getSystemService(String name) {
-            if (!name.toLowerCase(Locale.ROOT).contains("notification")) {
-                return super.getSystemService(name);
-            }
-
-            if (mNotificationManagerSpy == null) {
-                mNotificationManagerSpy = spy(super.getSystemService(NotificationManager.class));
-            }
-            return mNotificationManagerSpy;
+            return mNotificationManagerSpy != null
+                    && name.toLowerCase(Locale.ROOT).contains("notification")
+                    ? mNotificationManagerSpy
+                    : super.getSystemService(name);
         }
 
         @Override

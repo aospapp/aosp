@@ -17,41 +17,64 @@ package com.android.quickstep;
 
 import static android.app.ActivityManager.RECENT_IGNORE_UNAVAILABLE;
 
-import static com.android.launcher3.util.DisplayController.CHANGE_NAVIGATION_MODE;
 import static com.android.launcher3.util.Executors.MAIN_EXECUTOR;
+import static com.android.launcher3.util.Executors.UI_HELPER_EXECUTOR;
 
+import android.app.ActivityManager;
+import android.app.ActivityOptions;
 import android.app.PendingIntent;
 import android.app.PictureInPictureParams;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.ActivityInfo;
-import android.graphics.Bitmap;
-import android.graphics.Insets;
+import android.content.pm.PackageManager;
+import android.content.pm.ShortcutInfo;
 import android.graphics.Rect;
 import android.os.Bundle;
+import android.os.Handler;
 import android.os.IBinder;
 import android.os.IBinder.DeathRecipient;
+import android.os.Message;
 import android.os.RemoteException;
 import android.os.UserHandle;
 import android.util.Log;
+import android.view.IRecentsAnimationController;
+import android.view.IRecentsAnimationRunner;
+import android.view.IRemoteAnimationRunner;
 import android.view.MotionEvent;
 import android.view.RemoteAnimationAdapter;
 import android.view.RemoteAnimationTarget;
 import android.view.SurfaceControl;
 import android.window.IOnBackInvokedCallback;
+import android.window.RemoteTransition;
+import android.window.TaskSnapshot;
+import android.window.TransitionFilter;
 
-import com.android.launcher3.util.DisplayController;
-import com.android.launcher3.util.DisplayController.Info;
+import androidx.annotation.MainThread;
+import androidx.annotation.Nullable;
+import androidx.annotation.WorkerThread;
+
+import com.android.internal.logging.InstanceId;
+import com.android.internal.util.ScreenshotRequest;
+import com.android.internal.view.AppearanceRegion;
 import com.android.launcher3.util.MainThreadInitializedObject;
+import com.android.launcher3.util.Preconditions;
 import com.android.launcher3.util.SplitConfigurationOptions;
 import com.android.systemui.shared.recents.ISystemUiProxy;
-import com.android.systemui.shared.recents.model.Task;
-import com.android.systemui.shared.system.RemoteTransitionCompat;
+import com.android.systemui.shared.recents.model.ThumbnailData;
+import com.android.systemui.shared.system.RecentsAnimationControllerCompat;
+import com.android.systemui.shared.system.RecentsAnimationListener;
 import com.android.systemui.shared.system.smartspace.ILauncherUnlockAnimationController;
 import com.android.systemui.shared.system.smartspace.ISysuiUnlockAnimationController;
 import com.android.systemui.shared.system.smartspace.SmartspaceState;
+import com.android.systemui.unfold.progress.IUnfoldAnimation;
+import com.android.systemui.unfold.progress.IUnfoldTransitionListener;
 import com.android.wm.shell.back.IBackAnimation;
+import com.android.wm.shell.bubbles.IBubbles;
+import com.android.wm.shell.bubbles.IBubblesListener;
+import com.android.wm.shell.desktopmode.IDesktopMode;
+import com.android.wm.shell.draganddrop.IDragAndDrop;
 import com.android.wm.shell.onehanded.IOneHanded;
 import com.android.wm.shell.pip.IPip;
 import com.android.wm.shell.pip.IPipAnimationListener;
@@ -66,18 +89,23 @@ import com.android.wm.shell.util.GroupedRecentTaskInfo;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.LinkedHashMap;
 
 /**
  * Holds the reference to SystemUI.
  */
-public class SystemUiProxy implements ISystemUiProxy, DisplayController.DisplayInfoChangeListener {
+public class SystemUiProxy implements ISystemUiProxy {
     private static final String TAG = SystemUiProxy.class.getSimpleName();
 
     public static final MainThreadInitializedObject<SystemUiProxy> INSTANCE =
             new MainThreadInitializedObject<>(SystemUiProxy::new);
 
+    private static final int MSG_SET_SHELF_HEIGHT = 1;
+    private static final int MSG_SET_LAUNCHER_KEEP_CLEAR_AREA_HEIGHT = 2;
+
     private ISystemUiProxy mSystemUiProxy;
     private IPip mPip;
+    private IBubbles mBubbles;
     private ISysuiUnlockAnimationController mSysuiUnlockAnimationController;
     private ISplitScreen mSplitScreen;
     private IOneHanded mOneHanded;
@@ -85,6 +113,8 @@ public class SystemUiProxy implements ISystemUiProxy, DisplayController.DisplayI
     private IStartingWindow mStartingWindow;
     private IRecentTasks mRecentTasks;
     private IBackAnimation mBackAnimation;
+    private IDesktopMode mDesktopMode;
+    private IUnfoldAnimation mUnfoldAnimation;
     private final DeathRecipient mSystemUiProxyDeathRecipient = () -> {
         MAIN_EXECUTOR.execute(() -> clearProxy());
     };
@@ -94,34 +124,47 @@ public class SystemUiProxy implements ISystemUiProxy, DisplayController.DisplayI
     // up to the caller to clear the listeners to prevent leaks as these can be held indefinitely
     // in case SysUI needs to rebind.
     private IPipAnimationListener mPipAnimationListener;
+    private IBubblesListener mBubblesListener;
     private ISplitScreenListener mSplitScreenListener;
     private IStartingWindowListener mStartingWindowListener;
-    private ILauncherUnlockAnimationController mPendingLauncherUnlockAnimationController;
+    private ILauncherUnlockAnimationController mLauncherUnlockAnimationController;
     private IRecentTasksListener mRecentTasksListener;
-    private final ArrayList<RemoteTransitionCompat> mRemoteTransitions = new ArrayList<>();
+    private IUnfoldTransitionListener mUnfoldAnimationListener;
+    private final LinkedHashMap<RemoteTransition, TransitionFilter> mRemoteTransitions =
+            new LinkedHashMap<>();
+    private IBinder mOriginalTransactionToken = null;
     private IOnBackInvokedCallback mBackToLauncherCallback;
+    private IRemoteAnimationRunner mBackToLauncherRunner;
+    private IDragAndDrop mDragAndDrop;
 
     // Used to dedupe calls to SystemUI
     private int mLastShelfHeight;
     private boolean mLastShelfVisible;
-    private float mLastNavButtonAlpha;
-    private boolean mLastNavButtonAnimate;
-    private boolean mHasNavButtonAlphaBeenSet = false;
-    private Runnable mPendingSetNavButtonAlpha = null;
+
+    // Used to dedupe calls to SystemUI
+    private int mLastLauncherKeepClearAreaHeight;
+    private boolean mLastLauncherKeepClearAreaHeightVisible;
+
+    private final Context mContext;
+    private final Handler mAsyncHandler;
 
     // TODO(141886704): Find a way to remove this
     private int mLastSystemUiStateFlags;
 
-    public SystemUiProxy(Context context) {
-        DisplayController.INSTANCE.get(context).addChangeListener(this);
-    }
+    /**
+     * This is a singleton pending intent that is used to start recents via Shell (which is a
+     * different process). It is bare-bones, so it's expected that the component and options will
+     * be provided via fill-in intent.
+     */
+    private final PendingIntent mRecentsPendingIntent;
 
-    @Override
-    public void onDisplayInfoChanged(Context context, Info info, int flags) {
-        if ((flags & CHANGE_NAVIGATION_MODE) != 0) {
-            // Whenever the nav mode changes, force reset the nav button alpha
-            setNavBarButtonAlpha(1f, false);
-        }
+    public SystemUiProxy(Context context) {
+        mContext = context;
+        mAsyncHandler = new Handler(UI_HELPER_EXECUTOR.getLooper(), this::handleMessageAsync);
+        final Intent baseIntent = new Intent().setPackage(mContext.getPackageName());
+        mRecentsPendingIntent = PendingIntent.getActivity(mContext, 0, baseIntent,
+                PendingIntent.FLAG_MUTABLE | PendingIntent.FLAG_ALLOW_UNSAFE_IMPLICIT_INTENT
+                        | Intent.FILL_IN_COMPONENT);
     }
 
     @Override
@@ -163,14 +206,21 @@ public class SystemUiProxy implements ISystemUiProxy, DisplayController.DisplayI
         return null;
     }
 
-    public void setProxy(ISystemUiProxy proxy, IPip pip, ISplitScreen splitScreen,
+    /**
+     * Sets proxy state, including death linkage, various listeners, and other configuration objects
+     */
+    @MainThread
+    public void setProxy(ISystemUiProxy proxy, IPip pip, IBubbles bubbles, ISplitScreen splitScreen,
             IOneHanded oneHanded, IShellTransitions shellTransitions,
             IStartingWindow startingWindow, IRecentTasks recentTasks,
             ISysuiUnlockAnimationController sysuiUnlockAnimationController,
-            IBackAnimation backAnimation) {
+            IBackAnimation backAnimation, IDesktopMode desktopMode,
+            IUnfoldAnimation unfoldAnimation, IDragAndDrop dragAndDrop) {
+        Preconditions.assertUIThread();
         unlinkToDeath();
         mSystemUiProxy = proxy;
         mPip = pip;
+        mBubbles = bubbles;
         mSplitScreen = splitScreen;
         mOneHanded = oneHanded;
         mShellTransitions = shellTransitions;
@@ -178,40 +228,29 @@ public class SystemUiProxy implements ISystemUiProxy, DisplayController.DisplayI
         mSysuiUnlockAnimationController = sysuiUnlockAnimationController;
         mRecentTasks = recentTasks;
         mBackAnimation = backAnimation;
+        mDesktopMode = desktopMode;
+        mUnfoldAnimation = unfoldAnimation;
+        mDragAndDrop = dragAndDrop;
         linkToDeath();
         // re-attach the listeners once missing due to setProxy has not been initialized yet.
-        if (mPipAnimationListener != null && mPip != null) {
-            setPinnedStackAnimationListener(mPipAnimationListener);
-        }
-        if (mSplitScreenListener != null && mSplitScreen != null) {
-            registerSplitScreenListener(mSplitScreenListener);
-        }
-        if (mStartingWindowListener != null && mStartingWindow != null) {
-            setStartingWindowListener(mStartingWindowListener);
-        }
-        if (mPendingLauncherUnlockAnimationController != null
-                && mSysuiUnlockAnimationController != null) {
-            setLauncherUnlockAnimationController(mPendingLauncherUnlockAnimationController);
-            mPendingLauncherUnlockAnimationController = null;
-        }
-        for (int i = mRemoteTransitions.size() - 1; i >= 0; --i) {
-            registerRemoteTransition(mRemoteTransitions.get(i));
-        }
-        if (mRecentTasksListener != null && mRecentTasks != null) {
-            registerRecentTasksListener(mRecentTasksListener);
-        }
-        if (mBackAnimation != null && mBackToLauncherCallback != null) {
-            setBackToLauncherCallback(mBackToLauncherCallback);
-        }
-
-        if (mPendingSetNavButtonAlpha != null) {
-            mPendingSetNavButtonAlpha.run();
-            mPendingSetNavButtonAlpha = null;
-        }
+        setPipAnimationListener(mPipAnimationListener);
+        setBubblesListener(mBubblesListener);
+        registerSplitScreenListener(mSplitScreenListener);
+        setStartingWindowListener(mStartingWindowListener);
+        setLauncherUnlockAnimationController(mLauncherUnlockAnimationController);
+        new LinkedHashMap<>(mRemoteTransitions).forEach(this::registerRemoteTransition);
+        setupTransactionQueue();
+        registerRecentTasksListener(mRecentTasksListener);
+        setBackToLauncherCallback(mBackToLauncherCallback, mBackToLauncherRunner);
+        setUnfoldAnimationListener(mUnfoldAnimationListener);
     }
 
+    /**
+     * Clear the proxy to release held resources and turn the majority of its operations into no-ops
+     */
+    @MainThread
     public void clearProxy() {
-        setProxy(null, null, null, null, null, null, null, null, null);
+        setProxy(null, null, null, null, null, null, null, null, null, null, null, null, null);
     }
 
     // TODO(141886704): Find a way to remove this
@@ -270,45 +309,10 @@ public class SystemUiProxy implements ISystemUiProxy, DisplayController.DisplayI
         }
     }
 
-    @Override
-    public Rect getNonMinimizedSplitScreenSecondaryBounds() {
-        if (mSystemUiProxy != null) {
-            try {
-                return mSystemUiProxy.getNonMinimizedSplitScreenSecondaryBounds();
-            } catch (RemoteException e) {
-                Log.w(TAG, "Failed call getNonMinimizedSplitScreenSecondaryBounds", e);
-            }
-        }
-        return null;
-    }
-
-    public float getLastNavButtonAlpha() {
-        return mLastNavButtonAlpha;
-    }
-
-    @Override
-    public void setNavBarButtonAlpha(float alpha, boolean animate) {
-        boolean changed = Float.compare(alpha, mLastNavButtonAlpha) != 0
-                || animate != mLastNavButtonAnimate
-                || !mHasNavButtonAlphaBeenSet;
-        if (changed) {
-            if (mSystemUiProxy == null) {
-                mPendingSetNavButtonAlpha = () -> setNavBarButtonAlpha(alpha, animate);
-            } else {
-                mLastNavButtonAlpha = alpha;
-                mLastNavButtonAnimate = animate;
-                mHasNavButtonAlphaBeenSet = true;
-                try {
-                    mSystemUiProxy.setNavBarButtonAlpha(alpha, animate);
-                } catch (RemoteException e) {
-                    Log.w(TAG, "Failed call setNavBarButtonAlpha", e);
-                }
-            }
-        }
-    }
-
+    @MainThread
     @Override
     public void onStatusBarMotionEvent(MotionEvent event) {
+        Preconditions.assertUIThread();
         if (mSystemUiProxy != null) {
             try {
                 mSystemUiProxy.onStatusBarMotionEvent(event);
@@ -385,53 +389,6 @@ public class SystemUiProxy implements ISystemUiProxy, DisplayController.DisplayI
     }
 
     @Override
-    public void handleImageAsScreenshot(Bitmap bitmap, Rect rect, Insets insets, int i) {
-        if (mSystemUiProxy != null) {
-            try {
-                mSystemUiProxy.handleImageAsScreenshot(bitmap, rect, insets, i);
-            } catch (RemoteException e) {
-                Log.w(TAG, "Failed call handleImageAsScreenshot", e);
-            }
-        }
-    }
-
-    @Override
-    public void setSplitScreenMinimized(boolean minimized) {
-        if (mSystemUiProxy != null) {
-            try {
-                mSystemUiProxy.setSplitScreenMinimized(minimized);
-            } catch (RemoteException e) {
-                Log.w(TAG, "Failed call setSplitScreenMinimized", e);
-            }
-        }
-    }
-
-    @Override
-    public void notifySwipeUpGestureStarted() {
-        if (mSystemUiProxy != null) {
-            try {
-                mSystemUiProxy.notifySwipeUpGestureStarted();
-            } catch (RemoteException e) {
-                Log.w(TAG, "Failed call notifySwipeUpGestureStarted", e);
-            }
-        }
-    }
-
-    /**
-     * Notifies that swipe-to-home action is finished.
-     */
-    @Override
-    public void notifySwipeToHomeFinished() {
-        if (mSystemUiProxy != null) {
-            try {
-                mSystemUiProxy.notifySwipeToHomeFinished();
-            } catch (RemoteException e) {
-                Log.w(TAG, "Failed call notifySwipeToHomeFinished", e);
-            }
-        }
-    }
-
-    @Override
     public void notifyPrioritizedRotation(int rotation) {
         if (mSystemUiProxy != null) {
             try {
@@ -471,14 +428,12 @@ public class SystemUiProxy implements ISystemUiProxy, DisplayController.DisplayI
     }
 
     @Override
-    public void handleImageBundleAsScreenshot(Bundle screenImageBundle, Rect locationInScreen,
-            Insets visibleInsets, Task.TaskKey task) {
+    public void takeScreenshot(ScreenshotRequest request) {
         if (mSystemUiProxy != null) {
             try {
-                mSystemUiProxy.handleImageBundleAsScreenshot(screenImageBundle, locationInScreen,
-                    visibleInsets, task);
+                mSystemUiProxy.takeScreenshot(request);
             } catch (RemoteException e) {
-                Log.w(TAG, "Failed call handleImageBundleAsScreenshot");
+                Log.w(TAG, "Failed call takeScreenshot");
             }
         }
     }
@@ -513,12 +468,20 @@ public class SystemUiProxy implements ISystemUiProxy, DisplayController.DisplayI
      * Sets the shelf height.
      */
     public void setShelfHeight(boolean visible, int shelfHeight) {
+        Message.obtain(mAsyncHandler, MSG_SET_SHELF_HEIGHT,
+                visible ? 1 : 0 , shelfHeight).sendToTarget();
+    }
+
+    @WorkerThread
+    private void setShelfHeightAsync(int visibleInt, int shelfHeight) {
+        boolean visible = visibleInt != 0;
         boolean changed = visible != mLastShelfVisible || shelfHeight != mLastShelfHeight;
-        if (mPip != null && changed) {
+        IPip pip = mPip;
+        if (pip != null && changed) {
             mLastShelfVisible = visible;
             mLastShelfHeight = shelfHeight;
             try {
-                mPip.setShelfHeight(visible, shelfHeight);
+                pip.setShelfHeight(visible, shelfHeight);
             } catch (RemoteException e) {
                 Log.w(TAG, "Failed call setShelfHeight visible: " + visible
                         + " height: " + shelfHeight, e);
@@ -527,12 +490,39 @@ public class SystemUiProxy implements ISystemUiProxy, DisplayController.DisplayI
     }
 
     /**
-     * Sets listener to get pinned stack animation callbacks.
+     * Sets the height of the keep clear area that is going to be reported by
+     * the Launcher for the Hotseat.
      */
-    public void setPinnedStackAnimationListener(IPipAnimationListener listener) {
+    public void setLauncherKeepClearAreaHeight(boolean visible, int height) {
+        Message.obtain(mAsyncHandler, MSG_SET_LAUNCHER_KEEP_CLEAR_AREA_HEIGHT,
+                visible ? 1 : 0 , height).sendToTarget();
+    }
+
+    @WorkerThread
+    private void setLauncherKeepClearAreaHeight(int visibleInt, int height) {
+        boolean visible = visibleInt != 0;
+        boolean changed = visible != mLastLauncherKeepClearAreaHeightVisible
+                || height != mLastLauncherKeepClearAreaHeight;
+        IPip pip = mPip;
+        if (pip != null && changed) {
+            mLastLauncherKeepClearAreaHeightVisible = visible;
+            mLastLauncherKeepClearAreaHeight = height;
+            try {
+                pip.setLauncherKeepClearAreaHeight(visible, height);
+            } catch (RemoteException e) {
+                Log.w(TAG, "Failed call setLauncherKeepClearAreaHeight visible: " + visible
+                        + " height: " + height, e);
+            }
+        }
+    }
+
+    /**
+     * Sets listener to get pip animation callbacks.
+     */
+    public void setPipAnimationListener(IPipAnimationListener listener) {
         if (mPip != null) {
             try {
-                mPip.setPinnedStackAnimationListener(listener);
+                mPip.setPipAnimationListener(listener);
             } catch (RemoteException e) {
                 Log.w(TAG, "Failed call setPinnedStackAnimationListener", e);
             }
@@ -540,12 +530,17 @@ public class SystemUiProxy implements ISystemUiProxy, DisplayController.DisplayI
         mPipAnimationListener = listener;
     }
 
+    /**
+     * @return Destination bounds of auto-pip animation, {@code null} if the animation is not ready.
+     */
+    @Nullable
     public Rect startSwipePipToHome(ComponentName componentName, ActivityInfo activityInfo,
-            PictureInPictureParams pictureInPictureParams, int launcherRotation, int shelfHeight) {
+            PictureInPictureParams pictureInPictureParams, int launcherRotation,
+            Rect hotseatKeepClearArea) {
         if (mPip != null) {
             try {
                 return mPip.startSwipePipToHome(componentName, activityInfo,
-                        pictureInPictureParams, launcherRotation, shelfHeight);
+                        pictureInPictureParams, launcherRotation, hotseatKeepClearArea);
             } catch (RemoteException e) {
                 Log.w(TAG, "Failed call startSwipePipToHome", e);
             }
@@ -554,9 +549,9 @@ public class SystemUiProxy implements ISystemUiProxy, DisplayController.DisplayI
     }
 
     /**
-     * Notifies WM Shell that launcher has finished all the animation for swipe to home. WM Shell
-     * can choose to fade out the overlay when entering PIP is finished, and WM Shell should be
-     * responsible for cleaning up the overlay.
+     * Notifies WM Shell that launcher has finished the preparation of the animation for swipe to
+     * home. WM Shell can choose to fade out the overlay when entering PIP is finished, and WM Shell
+     * should be responsible for cleaning up the overlay.
      */
     public void stopSwipePipToHome(int taskId, ComponentName componentName, Rect destinationBounds,
             SurfaceControl overlay) {
@@ -565,6 +560,99 @@ public class SystemUiProxy implements ISystemUiProxy, DisplayController.DisplayI
                 mPip.stopSwipePipToHome(taskId, componentName, destinationBounds, overlay);
             } catch (RemoteException e) {
                 Log.w(TAG, "Failed call stopSwipePipToHome");
+            }
+        }
+    }
+
+    /**
+     * Notifies WM Shell that launcher has aborted all the animation for swipe to home. WM Shell
+     * can use this callback to clean up its internal states.
+     */
+    public void abortSwipePipToHome(int taskId, ComponentName componentName) {
+        if (mPip != null) {
+            try {
+                mPip.abortSwipePipToHome(taskId, componentName);
+            } catch (RemoteException e) {
+                Log.w(TAG, "Failed call abortSwipePipToHome");
+            }
+        }
+    }
+
+    /**
+     * Sets the next pip animation type to be the alpha animation.
+     */
+    public void setPipAnimationTypeToAlpha() {
+        if (mPip != null) {
+            try {
+                mPip.setPipAnimationTypeToAlpha();
+            } catch (RemoteException e) {
+                Log.w(TAG, "Failed call setPipAnimationTypeToAlpha", e);
+            }
+        }
+    }
+
+    /**
+     * Sets the app icon size in pixel used by Launcher all apps.
+     */
+    public void setLauncherAppIconSize(int iconSizePx) {
+        if (mPip != null) {
+            try {
+                mPip.setLauncherAppIconSize(iconSizePx);
+            } catch (RemoteException e) {
+                Log.w(TAG, "Failed call setLauncherAppIconSize", e);
+            }
+        }
+    }
+
+    //
+    // Bubbles
+    //
+
+    /**
+     * Sets the listener to be notified of bubble state changes.
+     */
+    public void setBubblesListener(IBubblesListener listener) {
+        if (mBubbles != null) {
+            try {
+                if (mBubblesListener != null) {
+                    // Clear out any previous listener
+                    mBubbles.unregisterBubbleListener(mBubblesListener);
+                }
+                if (listener != null) {
+                    mBubbles.registerBubbleListener(listener);
+                }
+            } catch (RemoteException e) {
+                Log.w(TAG, "Failed call registerBubblesListener");
+            }
+        }
+        mBubblesListener = listener;
+    }
+
+    /**
+     * Tells SysUI to show the bubble with the provided key.
+     * @param key the key of the bubble to show.
+     * @param onLauncherHome whether the bubble is showing on launcher home or not (modifies where
+     *                       the expanded bubble view is placed).
+     */
+    public void showBubble(String key, boolean onLauncherHome) {
+        if (mBubbles != null) {
+            try {
+                mBubbles.showBubble(key, onLauncherHome);
+            } catch (RemoteException e) {
+                Log.w(TAG, "Failed call showBubble");
+            }
+        }
+    }
+
+    /**
+     * Tells SysUI to collapse the bubbles.
+     */
+    public void collapseBubbles() {
+        if (mBubbles != null) {
+            try {
+                mBubbles.collapseBubbles();
+            } catch (RemoteException e) {
+                Log.w(TAG, "Failed call collapseBubbles");
             }
         }
     }
@@ -596,15 +684,57 @@ public class SystemUiProxy implements ISystemUiProxy, DisplayController.DisplayI
     }
 
     /** Start multiple tasks in split-screen simultaneously. */
-    public void startTasks(int mainTaskId, Bundle mainOptions, int sideTaskId, Bundle sideOptions,
-            @SplitConfigurationOptions.StagePosition int sidePosition, float splitRatio,
-            RemoteTransitionCompat remoteTransition) {
+    public void startTasks(int taskId1, Bundle options1, int taskId2, Bundle options2,
+            @SplitConfigurationOptions.StagePosition int splitPosition, float splitRatio,
+            RemoteTransition remoteTransition, InstanceId instanceId) {
         if (mSystemUiProxy != null) {
             try {
-                mSplitScreen.startTasks(mainTaskId, mainOptions, sideTaskId, sideOptions,
-                        sidePosition, splitRatio, remoteTransition.getTransition());
+                mSplitScreen.startTasks(taskId1, options1, taskId2, options2, splitPosition,
+                        splitRatio, remoteTransition, instanceId);
             } catch (RemoteException e) {
-                Log.w(TAG, "Failed call startTask");
+                Log.w(TAG, "Failed call startTasks");
+            }
+        }
+    }
+
+    public void startIntentAndTask(PendingIntent pendingIntent, int userId1, Bundle options1,
+            int taskId, Bundle options2, @SplitConfigurationOptions.StagePosition int splitPosition,
+            float splitRatio, RemoteTransition remoteTransition, InstanceId instanceId) {
+        if (mSystemUiProxy != null) {
+            try {
+                mSplitScreen.startIntentAndTask(pendingIntent, userId1, options1, taskId, options2,
+                        splitPosition, splitRatio, remoteTransition, instanceId);
+            } catch (RemoteException e) {
+                Log.w(TAG, "Failed call startIntentAndTask");
+            }
+        }
+    }
+
+    public void startIntents(PendingIntent pendingIntent1, int userId1,
+            @Nullable ShortcutInfo shortcutInfo1, Bundle options1, PendingIntent pendingIntent2,
+            int userId2, @Nullable ShortcutInfo shortcutInfo2, Bundle options2,
+            @SplitConfigurationOptions.StagePosition int splitPosition, float splitRatio,
+            RemoteTransition remoteTransition, InstanceId instanceId) {
+        if (mSystemUiProxy != null) {
+            try {
+                mSplitScreen.startIntents(pendingIntent1, userId1, shortcutInfo1, options1,
+                        pendingIntent2, userId2, shortcutInfo2, options2, splitPosition, splitRatio,
+                        remoteTransition, instanceId);
+            } catch (RemoteException e) {
+                Log.w(TAG, "Failed call startIntents");
+            }
+        }
+    }
+
+    public void startShortcutAndTask(ShortcutInfo shortcutInfo, Bundle options1, int taskId,
+            Bundle options2, @SplitConfigurationOptions.StagePosition int splitPosition,
+            float splitRatio, RemoteTransition remoteTransition, InstanceId instanceId) {
+        if (mSystemUiProxy != null) {
+            try {
+                mSplitScreen.startShortcutAndTask(shortcutInfo, options1, taskId, options2,
+                        splitPosition, splitRatio, remoteTransition, instanceId);
+            } catch (RemoteException e) {
+                Log.w(TAG, "Failed call startShortcutAndTask");
             }
         }
     }
@@ -612,50 +742,84 @@ public class SystemUiProxy implements ISystemUiProxy, DisplayController.DisplayI
     /**
      * Start multiple tasks in split-screen simultaneously.
      */
-    public void startTasksWithLegacyTransition(int mainTaskId, Bundle mainOptions, int sideTaskId,
-            Bundle sideOptions, @SplitConfigurationOptions.StagePosition int sidePosition,
-            float splitRatio, RemoteAnimationAdapter adapter) {
+    public void startTasksWithLegacyTransition(int taskId1, Bundle options1, int taskId2,
+            Bundle options2, @SplitConfigurationOptions.StagePosition int splitPosition,
+            float splitRatio, RemoteAnimationAdapter adapter, InstanceId instanceId) {
         if (mSystemUiProxy != null) {
             try {
-                mSplitScreen.startTasksWithLegacyTransition(mainTaskId, mainOptions, sideTaskId,
-                        sideOptions, sidePosition, splitRatio, adapter);
+                mSplitScreen.startTasksWithLegacyTransition(taskId1, options1, taskId2, options2,
+                        splitPosition, splitRatio, adapter, instanceId);
             } catch (RemoteException e) {
                 Log.w(TAG, "Failed call startTasksWithLegacyTransition");
             }
         }
     }
 
-    public void startIntentAndTaskWithLegacyTransition(PendingIntent pendingIntent,
-            Intent fillInIntent, int taskId, Bundle mainOptions, Bundle sideOptions,
-            @SplitConfigurationOptions.StagePosition int sidePosition, float splitRatio,
-            RemoteAnimationAdapter adapter) {
+    public void startIntentAndTaskWithLegacyTransition(PendingIntent pendingIntent, int userId1,
+            Bundle options1, int taskId, Bundle options2,
+            @SplitConfigurationOptions.StagePosition int splitPosition, float splitRatio,
+            RemoteAnimationAdapter adapter, InstanceId instanceId) {
         if (mSystemUiProxy != null) {
             try {
-                mSplitScreen.startIntentAndTaskWithLegacyTransition(pendingIntent, fillInIntent,
-                        taskId, mainOptions, sideOptions, sidePosition, splitRatio, adapter);
+                mSplitScreen.startIntentAndTaskWithLegacyTransition(pendingIntent, userId1,
+                        options1, taskId, options2, splitPosition, splitRatio, adapter, instanceId);
             } catch (RemoteException e) {
-                Log.w(TAG, "Failed call startTasksWithLegacyTransition");
+                Log.w(TAG, "Failed call startIntentAndTaskWithLegacyTransition");
+            }
+        }
+    }
+
+    public void startShortcutAndTaskWithLegacyTransition(ShortcutInfo shortcutInfo, Bundle options1,
+            int taskId, Bundle options2, @SplitConfigurationOptions.StagePosition int splitPosition,
+            float splitRatio, RemoteAnimationAdapter adapter, InstanceId instanceId) {
+        if (mSystemUiProxy != null) {
+            try {
+                mSplitScreen.startShortcutAndTaskWithLegacyTransition(shortcutInfo, options1,
+                        taskId, options2, splitPosition, splitRatio, adapter, instanceId);
+            } catch (RemoteException e) {
+                Log.w(TAG, "Failed call startShortcutAndTaskWithLegacyTransition");
+            }
+        }
+    }
+
+    /**
+     * Starts a pair of intents or shortcuts in split-screen using legacy transition. Passing a
+     * non-null shortcut info means to start the app as a shortcut.
+     */
+    public void startIntentsWithLegacyTransition(PendingIntent pendingIntent1, int userId1,
+            @Nullable ShortcutInfo shortcutInfo1, @Nullable Bundle options1,
+            PendingIntent pendingIntent2, int userId2, @Nullable ShortcutInfo shortcutInfo2,
+            @Nullable Bundle options2, @SplitConfigurationOptions.StagePosition int sidePosition,
+            float splitRatio, RemoteAnimationAdapter adapter, InstanceId instanceId) {
+        if (mSystemUiProxy != null) {
+            try {
+                mSplitScreen.startIntentsWithLegacyTransition(pendingIntent1, userId1,
+                        shortcutInfo1, options1, pendingIntent2, userId2, shortcutInfo2, options2,
+                        sidePosition, splitRatio, adapter, instanceId);
+            } catch (RemoteException e) {
+                Log.w(TAG, "Failed call startIntentsWithLegacyTransition");
             }
         }
     }
 
     public void startShortcut(String packageName, String shortcutId, int position,
-            Bundle options, UserHandle user) {
+            Bundle options, UserHandle user, InstanceId instanceId) {
         if (mSplitScreen != null) {
             try {
                 mSplitScreen.startShortcut(packageName, shortcutId, position, options,
-                        user);
+                        user, instanceId);
             } catch (RemoteException e) {
                 Log.w(TAG, "Failed call startShortcut");
             }
         }
     }
 
-    public void startIntent(PendingIntent intent, Intent fillInIntent, int position,
-            Bundle options) {
+    public void startIntent(PendingIntent intent, int userId, Intent fillInIntent, int position,
+            Bundle options, InstanceId instanceId) {
         if (mSplitScreen != null) {
             try {
-                mSplitScreen.startIntent(intent, fillInIntent, position, options);
+                mSplitScreen.startIntent(intent, userId, fillInIntent, position, options,
+                        instanceId);
             } catch (RemoteException e) {
                 Log.w(TAG, "Failed call startIntent");
             }
@@ -678,8 +842,9 @@ public class SystemUiProxy implements ISystemUiProxy, DisplayController.DisplayI
      *
      * @return RemoteAnimationTargets of windows that need to animate but only exist in shell.
      */
+    @Nullable
     public RemoteAnimationTarget[] onGoingToRecentsLegacy(RemoteAnimationTarget[] apps) {
-        if (mSplitScreen != null) {
+        if (!TaskAnimationManager.ENABLE_SHELL_TRANSITIONS && mSplitScreen != null) {
             try {
                 return mSplitScreen.onGoingToRecentsLegacy(apps);
             } catch (RemoteException e) {
@@ -689,6 +854,7 @@ public class SystemUiProxy implements ISystemUiProxy, DisplayController.DisplayI
         return null;
     }
 
+    @Nullable
     public RemoteAnimationTarget[] onStartingSplitLegacy(RemoteAnimationTarget[] apps) {
         if (mSplitScreen != null) {
             try {
@@ -728,29 +894,73 @@ public class SystemUiProxy implements ISystemUiProxy, DisplayController.DisplayI
     // Remote transitions
     //
 
-    public void registerRemoteTransition(RemoteTransitionCompat remoteTransition) {
+    public void registerRemoteTransition(
+            RemoteTransition remoteTransition, TransitionFilter filter) {
         if (mShellTransitions != null) {
             try {
-                mShellTransitions.registerRemote(remoteTransition.getFilter(),
-                        remoteTransition.getTransition());
+                mShellTransitions.registerRemote(filter, remoteTransition);
             } catch (RemoteException e) {
                 Log.w(TAG, "Failed call registerRemoteTransition");
             }
         }
-        if (!mRemoteTransitions.contains(remoteTransition)) {
-            mRemoteTransitions.add(remoteTransition);
+        if (!mRemoteTransitions.containsKey(remoteTransition)) {
+            mRemoteTransitions.put(remoteTransition, filter);
         }
     }
 
-    public void unregisterRemoteTransition(RemoteTransitionCompat remoteTransition) {
+    public void unregisterRemoteTransition(RemoteTransition remoteTransition) {
         if (mShellTransitions != null) {
             try {
-                mShellTransitions.unregisterRemote(remoteTransition.getTransition());
+                mShellTransitions.unregisterRemote(remoteTransition);
             } catch (RemoteException e) {
                 Log.w(TAG, "Failed call registerRemoteTransition");
             }
         }
         mRemoteTransitions.remove(remoteTransition);
+    }
+
+    /**
+     * Use SystemUI's transaction-queue instead of Launcher's independent one. This is necessary
+     * if Launcher and SystemUI need to coordinate transactions (eg. for shell transitions).
+     */
+    public void shareTransactionQueue() {
+        if (mOriginalTransactionToken == null) {
+            mOriginalTransactionToken = SurfaceControl.Transaction.getDefaultApplyToken();
+        }
+        setupTransactionQueue();
+    }
+
+    /**
+     * Switch back to using Launcher's independent transaction queue.
+     */
+    public void unshareTransactionQueue() {
+        if (mOriginalTransactionToken == null) {
+            return;
+        }
+        SurfaceControl.Transaction.setDefaultApplyToken(mOriginalTransactionToken);
+        mOriginalTransactionToken = null;
+    }
+
+    private void setupTransactionQueue() {
+        if (mOriginalTransactionToken == null) {
+            return;
+        }
+        if (mShellTransitions == null) {
+            SurfaceControl.Transaction.setDefaultApplyToken(mOriginalTransactionToken);
+            return;
+        }
+        final IBinder shellApplyToken;
+        try {
+            shellApplyToken = mShellTransitions.getShellApplyToken();
+        } catch (RemoteException e) {
+            Log.e(TAG, "Error getting Shell's apply token", e);
+            return;
+        }
+        if (shellApplyToken == null) {
+            Log.e(TAG, "Didn't receive apply token from Shell");
+            return;
+        }
+        SurfaceControl.Transaction.setDefaultApplyToken(shellApplyToken);
     }
 
     //
@@ -791,11 +1001,11 @@ public class SystemUiProxy implements ISystemUiProxy, DisplayController.DisplayI
                     controller.dispatchSmartspaceStateToSysui();
                 }
             } catch (RemoteException e) {
-                Log.w(TAG, "Failed call setStartingWindowListener", e);
+                Log.w(TAG, "Failed call setLauncherUnlockAnimationController", e);
             }
-        } else {
-            mPendingLauncherUnlockAnimationController = controller;
         }
+
+        mLauncherUnlockAnimationController = controller;
     }
 
     /**
@@ -844,13 +1054,15 @@ public class SystemUiProxy implements ISystemUiProxy, DisplayController.DisplayI
     //
 
     /** Sets the launcher {@link android.window.IOnBackInvokedCallback} to shell */
-    public void setBackToLauncherCallback(IOnBackInvokedCallback callback) {
+    public void setBackToLauncherCallback(IOnBackInvokedCallback callback,
+            IRemoteAnimationRunner runner) {
         mBackToLauncherCallback = callback;
-        if (mBackAnimation == null) {
+        mBackToLauncherRunner = runner;
+        if (mBackAnimation == null || mBackToLauncherCallback == null) {
             return;
         }
         try {
-            mBackAnimation.setBackToLauncherCallback(callback);
+            mBackAnimation.setBackToLauncherCallback(callback, runner);
         } catch (RemoteException e) {
             Log.e(TAG, "Failed call setBackToLauncherCallback", e);
         }
@@ -865,6 +1077,7 @@ public class SystemUiProxy implements ISystemUiProxy, DisplayController.DisplayI
             return;
         }
         mBackToLauncherCallback = null;
+        mBackToLauncherRunner = null;
         if (mBackAnimation == null) {
             return;
         }
@@ -876,16 +1089,16 @@ public class SystemUiProxy implements ISystemUiProxy, DisplayController.DisplayI
     }
 
     /**
-     * Notifies shell that all back to launcher animations have finished (including the transition
-     * that plays after the gesture is committed and before the app is closed.
+     * Called when the status bar color needs to be customized when back navigation.
      */
-    public void onBackToLauncherAnimationFinished() {
-        if (mBackAnimation != null) {
-            try {
-                mBackAnimation.onBackToLauncherAnimationFinished();
-            } catch (RemoteException e) {
-                Log.w(TAG, "Failed call onBackAnimationFinished", e);
-            }
+    public void customizeStatusBarAppearance(AppearanceRegion appearance) {
+        if (mBackAnimation == null) {
+            return;
+        }
+        try {
+            mBackAnimation.customizeStatusBarAppearance(appearance);
+        } catch (RemoteException e) {
+            Log.e(TAG, "Failed call useLauncherSysBarFlags", e);
         }
     }
 
@@ -903,5 +1116,141 @@ public class SystemUiProxy implements ISystemUiProxy, DisplayController.DisplayI
             }
         }
         return new ArrayList<>();
+    }
+
+    /**
+     * Gets the set of running tasks.
+     */
+    public ArrayList<ActivityManager.RunningTaskInfo> getRunningTasks(int numTasks) {
+        if (mRecentTasks != null
+                && mContext.getPackageManager().hasSystemFeature(PackageManager.FEATURE_PC)) {
+            try {
+                return new ArrayList<>(Arrays.asList(mRecentTasks.getRunningTasks(numTasks)));
+            } catch (RemoteException e) {
+                Log.w(TAG, "Failed call getRunningTasks", e);
+            }
+        }
+        return new ArrayList<>();
+    }
+
+    private boolean handleMessageAsync(Message msg) {
+        switch (msg.what) {
+            case MSG_SET_SHELF_HEIGHT:
+                setShelfHeightAsync(msg.arg1, msg.arg2);
+                return true;
+            case MSG_SET_LAUNCHER_KEEP_CLEAR_AREA_HEIGHT:
+                setLauncherKeepClearAreaHeight(msg.arg1, msg.arg2);
+                return true;
+        }
+
+        return false;
+    }
+
+    //
+    // Desktop Mode
+    //
+
+    /** Call shell to show all apps active on the desktop */
+    public void showDesktopApps(int displayId) {
+        if (mDesktopMode != null) {
+            try {
+                mDesktopMode.showDesktopApps(displayId);
+            } catch (RemoteException e) {
+                Log.w(TAG, "Failed call showDesktopApps", e);
+            }
+        }
+    }
+
+    /** Call shell to get number of visible freeform tasks */
+    public int getVisibleDesktopTaskCount(int displayId) {
+        if (mDesktopMode != null) {
+            try {
+                return mDesktopMode.getVisibleTaskCount(displayId);
+            } catch (RemoteException e) {
+                Log.w(TAG, "Failed call getVisibleDesktopTaskCount", e);
+            }
+        }
+        return 0;
+    }
+
+    //
+    // Unfold transition
+    //
+
+    /** Sets the unfold animation lister to sysui. */
+    public void setUnfoldAnimationListener(IUnfoldTransitionListener callback) {
+        mUnfoldAnimationListener = callback;
+        if (mUnfoldAnimation == null) {
+            return;
+        }
+        try {
+            Log.d(TAG, "Registering unfold animation receiver");
+            mUnfoldAnimation.setListener(callback);
+        } catch (RemoteException e) {
+            Log.e(TAG, "Failed call setUnfoldAnimationListener", e);
+        }
+    }
+
+    //
+    // Recents
+    //
+
+    /**
+     * Starts the recents activity. The caller should manage the thread on which this is called.
+     */
+    public boolean startRecentsActivity(Intent intent, ActivityOptions options,
+            RecentsAnimationListener listener) {
+        if (mRecentTasks == null) {
+            return false;
+        }
+        final IRecentsAnimationRunner runner = new IRecentsAnimationRunner.Stub() {
+            @Override
+            public void onAnimationStart(IRecentsAnimationController controller,
+                    RemoteAnimationTarget[] apps, RemoteAnimationTarget[] wallpapers,
+                    Rect homeContentInsets, Rect minimizedHomeBounds) {
+                listener.onAnimationStart(new RecentsAnimationControllerCompat(controller), apps,
+                        wallpapers, homeContentInsets, minimizedHomeBounds);
+            }
+
+            @Override
+            public void onAnimationCanceled(int[] taskIds, TaskSnapshot[] taskSnapshots) {
+                listener.onAnimationCanceled(
+                        ThumbnailData.wrap(taskIds, taskSnapshots));
+            }
+
+            @Override
+            public void onTasksAppeared(RemoteAnimationTarget[] apps) {
+                listener.onTasksAppeared(apps);
+            }
+        };
+        final Bundle optsBundle = options.toBundle();
+        try {
+            mRecentTasks.startRecentsTransition(mRecentsPendingIntent, intent, optsBundle,
+                    mContext.getIApplicationThread(), runner);
+            return true;
+        } catch (RemoteException e) {
+            Log.e(TAG, "Error starting recents via shell", e);
+            return false;
+        }
+    }
+
+    //
+    // Drag and drop
+    //
+
+    /**
+     * For testing purposes.  Returns `true` only if the shell drop target has shown and
+     * drawn and is ready to handle drag events and the subsequent drop.
+     */
+    public boolean isDragAndDropReady() {
+        if (mDragAndDrop == null) {
+            return false;
+        }
+        try {
+            return mDragAndDrop.isReadyToHandleDrag();
+        } catch (RemoteException e) {
+            Log.e(TAG, "Error querying drag state", e);
+            return false;
+        }
     }
 }

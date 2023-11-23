@@ -31,7 +31,6 @@ import android.os.UserHandle;
 
 import androidx.test.platform.app.InstrumentationRegistry;
 
-import com.android.car.scriptexecutor.ScriptExecutor;
 import com.android.car.telemetry.scriptexecutorinterface.IScriptExecutor;
 import com.android.car.telemetry.scriptexecutorinterface.IScriptExecutorListener;
 
@@ -48,7 +47,6 @@ import java.util.concurrent.TimeUnit;
 public final class ScriptExecutorFunctionalTest {
 
     private IScriptExecutor mScriptExecutor;
-    private ScriptExecutor mInstance;
     private Context mContext = InstrumentationRegistry.getInstrumentation().getTargetContext();
 
     private static final class ScriptExecutorListener extends IScriptExecutorListener.Stub {
@@ -164,21 +162,51 @@ public final class ScriptExecutorFunctionalTest {
     }
 
     @Test
-    public void invokeScript_skipsUnsupportedNestedTables()
+    public void invokeScript_supportsNestedTables()
             throws RemoteException, InterruptedException {
         String script =
                 "function nested(data, state)\n"
                         + "    result = {string=\"hello\", boolean=true, integer=1, number=1.1}\n"
-                        + "    result.nested_table = {x=0, y=0}\n"
+                        + "    result.nested_table = {x=10, y=30}\n"
                         + "    on_success(result)\n"
                         + "end\n";
 
         runScriptAndWaitForResponse(script, "nested", mEmptyPublishedData, mEmptyIterimResult);
 
         // Verify that expected error is received.
-        assertThat(mListener.mErrorType)
-                .isEqualTo(IScriptExecutorListener.ERROR_TYPE_LUA_SCRIPT_ERROR);
-        assertThat(mListener.mMessage).contains("nested tables are not supported");
+        assertThat(mListener.mInterimResult.size()).isEqualTo(5);
+        PersistableBundle nestedBundle = mListener.mInterimResult.getPersistableBundle(
+                "nested_table");
+        assertThat(nestedBundle).isNotNull();
+        assertThat(nestedBundle.getLong("x")).isEqualTo(10);
+        assertThat(nestedBundle.getLong("y")).isEqualTo(30);
+    }
+
+    @Test
+    public void invokeScript_supportsDeeplyNestedTables()
+            throws RemoteException, InterruptedException {
+        String script =
+                "function nested(data, state)\n"
+                        + "    local result = {}\n"
+                        + "    result.nested_table = {x=10, y=30}\n"
+                        + "    result.nested_table.second_nested_table = {z=100}\n"
+                        + "    on_success(result)\n"
+                        + "end\n";
+
+        runScriptAndWaitForResponse(script, "nested", mEmptyPublishedData, mEmptyIterimResult);
+
+        // Verify that expected error is received.
+        assertThat(mListener.mInterimResult.size()).isEqualTo(1);
+        PersistableBundle nestedBundle = mListener.mInterimResult.getPersistableBundle(
+                "nested_table");
+        assertThat(nestedBundle).isNotNull();
+        assertThat(nestedBundle.size()).isEqualTo(3);
+        assertThat(nestedBundle.getLong("x")).isEqualTo(10);
+        assertThat(nestedBundle.getLong("y")).isEqualTo(30);
+        PersistableBundle secondNestedBundle = nestedBundle.getPersistableBundle(
+                "second_nested_table");
+        assertThat(secondNestedBundle.size()).isEqualTo(1);
+        assertThat(secondNestedBundle.getLong("z")).isEqualTo(100);
     }
 
     @Test
@@ -254,16 +282,22 @@ public final class ScriptExecutorFunctionalTest {
         String script =
                 "function arrays(data, state)\n"
                         + "    result = {}\n"
+                        + "    result.boolean_array = state.boolean_array\n"
+                        + "    result.double_array = state.double_array\n"
                         + "    result.int_array = state.int_array\n"
                         + "    result.long_array = state.long_array\n"
                         + "    result.string_array = state.string_array\n"
                         + "    on_success(result)\n"
                         + "end\n";
         PersistableBundle previousState = new PersistableBundle();
+        boolean[] boolean_array = new boolean[] {true, true, false};
+        double[] double_array = new double[] {1.5, 2.222};
         int[] int_array = new int[] {1, 2};
         long[] int_array_in_long = new long[] {1, 2};
         long[] long_array = new long[] {1, 2, 3};
         String[] string_array = new String[] {"one", "two", "three"};
+        previousState.putBooleanArray("boolean_array", boolean_array);
+        previousState.putDoubleArray("double_array", double_array);
         previousState.putIntArray("int_array", int_array);
         previousState.putLongArray("long_array", long_array);
         previousState.putStringArray("string_array", string_array);
@@ -271,9 +305,12 @@ public final class ScriptExecutorFunctionalTest {
         runScriptAndWaitForResponse(script, "arrays", mEmptyPublishedData, previousState);
 
         // Verify that keys are preserved but the values are modified as expected.
-        assertThat(mListener.mInterimResult.size()).isEqualTo(3);
+        assertThat(mListener.mInterimResult.size()).isEqualTo(5);
         // Lua has only one lua_Integer. Here Java long is used to represent it when data is
         // transferred from Lua to CarTelemetryService.
+        assertThat(mListener.mInterimResult.getBooleanArray("boolean_array"))
+                .isEqualTo(boolean_array);
+        assertThat(mListener.mInterimResult.getDoubleArray("double_array")).isEqualTo(double_array);
         assertThat(mListener.mInterimResult.getLongArray("int_array")).isEqualTo(int_array_in_long);
         assertThat(mListener.mInterimResult.getLongArray("long_array")).isEqualTo(long_array);
         assertThat(mListener.mInterimResult.getStringArray("string_array")).isEqualTo(string_array);
@@ -835,6 +872,30 @@ public final class ScriptExecutorFunctionalTest {
     }
 
     @Test
+    public void invokeScript_runtimeErrorWithStackTrace()
+            throws RemoteException, InterruptedException {
+        // Verifies that errors during script are showing stacktrace.
+        String script =
+                "function func_2(data, state)\n"
+                        + "    func_3(data, state)\n"
+                        + "end\n"
+                        + "function func_1(data, state)\n"
+                        + "    func_2(data, state)\n"
+                        + "end\n";
+
+        runScriptAndWaitForError(script, "func_1");
+
+        // Verify that the expected error is received.
+        assertThat(mListener.mErrorType)
+                .isEqualTo(IScriptExecutorListener.ERROR_TYPE_LUA_RUNTIME_ERROR);
+        assertThat(mListener.mMessage).contains("Error encountered while running the script");
+        assertThat(mListener.mStackTrace).isNotNull();
+        assertThat(mListener.mStackTrace).isNotEmpty();
+        assertThat(mListener.mStackTrace).contains("func_2");
+        assertThat(mListener.mStackTrace).contains("func_1");
+    }
+
+    @Test
     public void invokeScript_returnedValuesOfUnsupportedTypesReturnError()
             throws RemoteException, InterruptedException {
         // Verifies that if we try to return a value of unsupported type, we get an error instead.
@@ -853,52 +914,6 @@ public final class ScriptExecutorFunctionalTest {
                 .isEqualTo(IScriptExecutorListener.ERROR_TYPE_LUA_SCRIPT_ERROR);
         assertThat(mListener.mMessage)
                 .contains("has a Lua type=function, which is not supported yet");
-    }
-
-    @Test
-    public void invokeScript_returnedFloatingArraysNotSupported()
-            throws RemoteException, InterruptedException {
-        // Verifies that we do not support return values that contain floating number arrays.
-        String script =
-                "function floating_point_arrays(data, state)\n"
-                        + "    array = {}\n"
-                        + "    array[0] = 1.1\n"
-                        + "    array[1] = 1.2\n"
-                        + "    result = {data = array}\n"
-                        + "    on_success(result)\n"
-                        + "end\n";
-
-        runScriptAndWaitForResponse(
-                script, "floating_point_arrays", mEmptyPublishedData, mEmptyIterimResult);
-
-        // Verify that the expected error is received.
-        assertThat(mListener.mErrorType)
-                .isEqualTo(IScriptExecutorListener.ERROR_TYPE_LUA_SCRIPT_ERROR);
-        assertThat(mListener.mMessage)
-                .contains("a floating number array, which is not supported yet");
-    }
-
-    @Test
-    public void invokeScript_returnedBooleanArraysNotSupported()
-            throws RemoteException, InterruptedException {
-        // Verifies that we do not yet support return values that contain boolean arrays.
-        String script =
-                "function array_of_booleans(data, state)\n"
-                        + "    array = {}\n"
-                        + "    array[0] = false\n"
-                        + "    array[1] = true\n"
-                        + "    result = {data = array}\n"
-                        + "    on_success(result)\n"
-                        + "end\n";
-
-        runScriptAndWaitForResponse(
-                script, "array_of_booleans", mEmptyPublishedData, mEmptyIterimResult);
-
-        // Verify that the expected error is received.
-        assertThat(mListener.mErrorType)
-                .isEqualTo(IScriptExecutorListener.ERROR_TYPE_LUA_SCRIPT_ERROR);
-        assertThat(mListener.mMessage)
-                .contains("is an array with values of type=boolean, which is not supported yet");
     }
 
     @Test

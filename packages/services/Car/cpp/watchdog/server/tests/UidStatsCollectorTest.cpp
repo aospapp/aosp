@@ -15,6 +15,7 @@
  */
 
 #include "MockPackageInfoResolver.h"
+#include "MockUidCpuStatsCollector.h"
 #include "MockUidIoStatsCollector.h"
 #include "MockUidProcStatsCollector.h"
 #include "PackageInfoTestUtils.h"
@@ -27,14 +28,16 @@
 #include <gmock/gmock.h>
 #include <utils/RefBase.h>
 
+#include <inttypes.h>
+
 #include <string>
 
 namespace android {
 namespace automotive {
 namespace watchdog {
 
-using ::android::automotive::watchdog::internal::PackageInfo;
-using ::android::automotive::watchdog::internal::UidType;
+using ::aidl::android::automotive::watchdog::internal::PackageInfo;
+using ::aidl::android::automotive::watchdog::internal::UidType;
 using ::android::base::Error;
 using ::android::base::Result;
 using ::android::base::StringAppendF;
@@ -52,7 +55,9 @@ using ::testing::UnorderedElementsAreArray;
 namespace {
 
 std::string toString(const UidStats& uidStats) {
-    return StringPrintf("UidStats{%s, %s, %s}", uidStats.packageInfo.toString().c_str(),
+    return StringPrintf("UidStats{packageInfo: %s, cpuTimeMillis: %" PRId64
+                        ", ioStats: %s, procStats: %s}",
+                        uidStats.packageInfo.toString().c_str(), uidStats.cpuTimeMillis,
                         uidStats.ioStats.toString().c_str(), uidStats.procStats.toString().c_str());
 }
 
@@ -69,6 +74,8 @@ std::string toString(const std::vector<UidStats>& uidStats) {
 MATCHER_P(UidStatsEq, expected, "") {
     return ExplainMatchResult(AllOf(Field("packageInfo", &UidStats::packageInfo,
                                           PackageInfoEq(expected.packageInfo)),
+                                    Field("cpuTimeMillis", &UidStats::cpuTimeMillis,
+                                          Eq(expected.cpuTimeMillis)),
                                     Field("ioStats", &UidStats::ioStats, Eq(expected.ioStats)),
                                     Field("procStats", &UidStats::procStats,
                                           UidProcStatsEq(expected.procStats))),
@@ -102,34 +109,45 @@ std::unordered_map<uid_t, UidIoStats> sampleUidIoStatsByUid() {
 
 std::unordered_map<uid_t, UidProcStats> sampleUidProcStatsByUid() {
     return {{1001234,
-             UidProcStats{.totalMajorFaults = 220,
+             UidProcStats{.cpuTimeMillis = 10,
+                          .totalMajorFaults = 220,
                           .totalTasksCount = 2,
                           .ioBlockedTasksCount = 1,
-                          .processStatsByPid = {{1, {"init", 0, 220, 2, 1}}}}},
+                          .processStatsByPid = {{1, {"init", 0, 10, 220, 2, 1}}}}},
             {1005678,
-             UidProcStats{.totalMajorFaults = 600,
+             UidProcStats{.cpuTimeMillis = 43,
+                          .totalMajorFaults = 600,
                           .totalTasksCount = 2,
                           .ioBlockedTasksCount = 2,
-                          .processStatsByPid = {{1000, {"system_server", 13'400, 600, 2, 2}}}}}};
+                          .processStatsByPid = {
+                                  {1000, {"system_server", 13'400, 43, 600, 2, 2}}}}}};
+}
+
+std::unordered_map<uid_t, int64_t> sampleUidCpuStatsByUid() {
+    return {{1001234, 15}, {1005678, 43}};
 }
 
 std::vector<UidStats> sampleUidStats() {
     return {{.packageInfo = constructPackageInfo("system.daemon", 1001234, UidType::NATIVE),
+             .cpuTimeMillis = 15,
              .ioStats = UidIoStats{/*fgRdBytes=*/3'000, /*bgRdBytes=*/0, /*fgWrBytes=*/500,
                                    /*bgWrBytes=*/0, /*fgFsync=*/20, /*bgFsync=*/0},
-             .procStats = UidProcStats{.totalMajorFaults = 220,
+             .procStats = UidProcStats{.cpuTimeMillis = 10,
+                                       .totalMajorFaults = 220,
                                        .totalTasksCount = 2,
                                        .ioBlockedTasksCount = 1,
-                                       .processStatsByPid = {{1, {"init", 0, 220, 2, 1}}}}},
+                                       .processStatsByPid = {{1, {"init", 0, 10, 220, 2, 1}}}}},
             {.packageInfo = constructPackageInfo("kitchensink.app", 1005678, UidType::APPLICATION),
+             .cpuTimeMillis = 43,
              .ioStats = UidIoStats{/*fgRdBytes=*/30, /*bgRdBytes=*/100, /*fgWrBytes=*/50,
                                    /*bgWrBytes=*/200,
                                    /*fgFsync=*/45, /*bgFsync=*/60},
-             .procStats = UidProcStats{.totalMajorFaults = 600,
+             .procStats = UidProcStats{.cpuTimeMillis = 43,
+                                       .totalMajorFaults = 600,
                                        .totalTasksCount = 2,
                                        .ioBlockedTasksCount = 2,
                                        .processStatsByPid = {
-                                               {1000, {"system_server", 13'400, 600, 2, 2}}}}}};
+                                               {1000, {"system_server", 13'400, 43, 600, 2, 2}}}}}};
 }
 
 }  // namespace
@@ -139,17 +157,22 @@ namespace internal {
 class UidStatsCollectorPeer final : public RefBase {
 public:
     explicit UidStatsCollectorPeer(sp<UidStatsCollector> collector) : mCollector(collector) {}
+    ~UidStatsCollectorPeer() { mCollector.clear(); }
 
-    void setPackageInfoResolver(sp<PackageInfoResolverInterface> packageInfoResolver) {
+    void setPackageInfoResolver(const sp<PackageInfoResolverInterface>& packageInfoResolver) {
         mCollector->mPackageInfoResolver = packageInfoResolver;
     }
 
-    void setUidIoStatsCollector(sp<UidIoStatsCollectorInterface> uidIoStatsCollector) {
+    void setUidIoStatsCollector(const sp<UidIoStatsCollectorInterface>& uidIoStatsCollector) {
         mCollector->mUidIoStatsCollector = uidIoStatsCollector;
     }
 
-    void setUidProcStatsCollector(sp<UidProcStatsCollectorInterface> uidProcStatsCollector) {
+    void setUidProcStatsCollector(const sp<UidProcStatsCollectorInterface>& uidProcStatsCollector) {
         mCollector->mUidProcStatsCollector = uidProcStatsCollector;
+    }
+
+    void setUidCpuStatsCollector(const sp<UidCpuStatsCollectorInterface>& uidCpuStatsCollector) {
+        mCollector->mUidCpuStatsCollector = uidCpuStatsCollector;
     }
 
 private:
@@ -166,9 +189,11 @@ protected:
         mMockPackageInfoResolver = sp<MockPackageInfoResolver>::make();
         mMockUidIoStatsCollector = sp<MockUidIoStatsCollector>::make();
         mMockUidProcStatsCollector = sp<MockUidProcStatsCollector>::make();
+        mMockUidCpuStatsCollector = sp<MockUidCpuStatsCollector>::make();
         mUidStatsCollectorPeer->setPackageInfoResolver(mMockPackageInfoResolver);
         mUidStatsCollectorPeer->setUidIoStatsCollector(mMockUidIoStatsCollector);
         mUidStatsCollectorPeer->setUidProcStatsCollector(mMockUidProcStatsCollector);
+        mUidStatsCollectorPeer->setUidCpuStatsCollector(mMockUidCpuStatsCollector);
     }
 
     virtual void TearDown() {
@@ -177,6 +202,7 @@ protected:
         mMockPackageInfoResolver.clear();
         mMockUidIoStatsCollector.clear();
         mMockUidProcStatsCollector.clear();
+        mMockUidCpuStatsCollector.clear();
     }
 
     sp<UidStatsCollector> mUidStatsCollector;
@@ -184,6 +210,7 @@ protected:
     sp<MockPackageInfoResolver> mMockPackageInfoResolver;
     sp<MockUidIoStatsCollector> mMockUidIoStatsCollector;
     sp<MockUidProcStatsCollector> mMockUidProcStatsCollector;
+    sp<MockUidCpuStatsCollector> mMockUidCpuStatsCollector;
 };
 
 TEST_F(UidStatsCollectorTest, TestInit) {
@@ -233,12 +260,14 @@ TEST_F(UidStatsCollectorTest, TestCollectLatestStats) {
     const std::unordered_map<uid_t, PackageInfo> packageInfoByUid = samplePackageInfoByUid();
     const std::unordered_map<uid_t, UidIoStats> uidIoStatsByUid = sampleUidIoStatsByUid();
     const std::unordered_map<uid_t, UidProcStats> uidProcStatsByUid = sampleUidProcStatsByUid();
+    const std::unordered_map<uid_t, int64_t> uidCpuStatsByUid = sampleUidCpuStatsByUid();
 
     EXPECT_CALL(*mMockPackageInfoResolver,
                 getPackageInfosForUids(UnorderedElementsAre(1001234, 1005678)))
             .WillOnce(Return(packageInfoByUid));
     EXPECT_CALL(*mMockUidIoStatsCollector, latestStats()).WillOnce(Return(uidIoStatsByUid));
     EXPECT_CALL(*mMockUidProcStatsCollector, latestStats()).WillOnce(Return(uidProcStatsByUid));
+    EXPECT_CALL(*mMockUidCpuStatsCollector, latestStats()).WillOnce(Return(uidCpuStatsByUid));
 
     ASSERT_RESULT_OK(mUidStatsCollector->collect());
 
@@ -259,12 +288,14 @@ TEST_F(UidStatsCollectorTest, TestCollectDeltaStats) {
     const std::unordered_map<uid_t, PackageInfo> packageInfoByUid = samplePackageInfoByUid();
     const std::unordered_map<uid_t, UidIoStats> uidIoStatsByUid = sampleUidIoStatsByUid();
     const std::unordered_map<uid_t, UidProcStats> uidProcStatsByUid = sampleUidProcStatsByUid();
+    const std::unordered_map<uid_t, int64_t> uidCpuStatsByUid = sampleUidCpuStatsByUid();
 
     EXPECT_CALL(*mMockPackageInfoResolver,
                 getPackageInfosForUids(UnorderedElementsAre(1001234, 1005678)))
             .WillOnce(Return(packageInfoByUid));
     EXPECT_CALL(*mMockUidIoStatsCollector, deltaStats()).WillOnce(Return(uidIoStatsByUid));
     EXPECT_CALL(*mMockUidProcStatsCollector, deltaStats()).WillOnce(Return(uidProcStatsByUid));
+    EXPECT_CALL(*mMockUidCpuStatsCollector, deltaStats()).WillOnce(Return(uidCpuStatsByUid));
 
     ASSERT_RESULT_OK(mUidStatsCollector->collect());
 
@@ -286,12 +317,14 @@ TEST_F(UidStatsCollectorTest, TestCollectDeltaStatsWithMissingUidIoStats) {
     std::unordered_map<uid_t, UidIoStats> uidIoStatsByUid = sampleUidIoStatsByUid();
     uidIoStatsByUid.erase(1001234);
     const std::unordered_map<uid_t, UidProcStats> uidProcStatsByUid = sampleUidProcStatsByUid();
+    const std::unordered_map<uid_t, int64_t> uidCpuStatsByUid = sampleUidCpuStatsByUid();
 
     EXPECT_CALL(*mMockPackageInfoResolver,
                 getPackageInfosForUids(UnorderedElementsAre(1001234, 1005678)))
             .WillOnce(Return(packageInfoByUid));
     EXPECT_CALL(*mMockUidIoStatsCollector, deltaStats()).WillOnce(Return(uidIoStatsByUid));
     EXPECT_CALL(*mMockUidProcStatsCollector, deltaStats()).WillOnce(Return(uidProcStatsByUid));
+    EXPECT_CALL(*mMockUidCpuStatsCollector, deltaStats()).WillOnce(Return(uidCpuStatsByUid));
 
     ASSERT_RESULT_OK(mUidStatsCollector->collect());
 
@@ -314,12 +347,14 @@ TEST_F(UidStatsCollectorTest, TestCollectDeltaStatsWithMissingUidProcStats) {
     const std::unordered_map<uid_t, UidIoStats> uidIoStatsByUid = sampleUidIoStatsByUid();
     std::unordered_map<uid_t, UidProcStats> uidProcStatsByUid = sampleUidProcStatsByUid();
     uidProcStatsByUid.erase(1001234);
+    const std::unordered_map<uid_t, int64_t> uidCpuStatsByUid = sampleUidCpuStatsByUid();
 
     EXPECT_CALL(*mMockPackageInfoResolver,
                 getPackageInfosForUids(UnorderedElementsAre(1001234, 1005678)))
             .WillOnce(Return(packageInfoByUid));
     EXPECT_CALL(*mMockUidIoStatsCollector, deltaStats()).WillOnce(Return(uidIoStatsByUid));
     EXPECT_CALL(*mMockUidProcStatsCollector, deltaStats()).WillOnce(Return(uidProcStatsByUid));
+    EXPECT_CALL(*mMockUidCpuStatsCollector, deltaStats()).WillOnce(Return(uidCpuStatsByUid));
 
     ASSERT_RESULT_OK(mUidStatsCollector->collect());
 
@@ -337,9 +372,8 @@ TEST_F(UidStatsCollectorTest, TestCollectDeltaStatsWithMissingUidProcStats) {
     EXPECT_THAT(actual, IsEmpty()) << "Latest UID stats isn't empty.\nActual: " << toString(actual);
 }
 
-TEST_F(UidStatsCollectorTest, TestCollectDeltaStatsWithMissingPackageInfo) {
-    std::unordered_map<uid_t, PackageInfo> packageInfoByUid = samplePackageInfoByUid();
-    packageInfoByUid.erase(1001234);
+TEST_F(UidStatsCollectorTest, TestCollectDeltaStatsWithMissingUidCpuStats) {
+    const std::unordered_map<uid_t, PackageInfo> packageInfoByUid = samplePackageInfoByUid();
     const std::unordered_map<uid_t, UidIoStats> uidIoStatsByUid = sampleUidIoStatsByUid();
     const std::unordered_map<uid_t, UidProcStats> uidProcStatsByUid = sampleUidProcStatsByUid();
 
@@ -348,6 +382,38 @@ TEST_F(UidStatsCollectorTest, TestCollectDeltaStatsWithMissingPackageInfo) {
             .WillOnce(Return(packageInfoByUid));
     EXPECT_CALL(*mMockUidIoStatsCollector, deltaStats()).WillOnce(Return(uidIoStatsByUid));
     EXPECT_CALL(*mMockUidProcStatsCollector, deltaStats()).WillOnce(Return(uidProcStatsByUid));
+
+    ASSERT_RESULT_OK(mUidStatsCollector->collect());
+
+    std::vector<UidStats> expected = sampleUidStats();
+    // Since no Uid CPU time was recovered from the /proc/uid_cputime/show_uid_stat file, the
+    // collector will default the UID CPU time to the UidProcStats' CPU time.
+    expected[0].cpuTimeMillis = 10;
+
+    auto actual = mUidStatsCollector->deltaStats();
+
+    EXPECT_THAT(actual, UnorderedElementsAreArray(UidStatsMatchers(expected)))
+            << "Delta UID stats doesn't match.\nExpected: " << toString(expected)
+            << "\nActual: " << toString(actual);
+
+    actual = mUidStatsCollector->latestStats();
+
+    EXPECT_THAT(actual, IsEmpty()) << "Latest UID stats isn't empty.\nActual: " << toString(actual);
+}
+
+TEST_F(UidStatsCollectorTest, TestCollectDeltaStatsWithMissingPackageInfo) {
+    std::unordered_map<uid_t, PackageInfo> packageInfoByUid = samplePackageInfoByUid();
+    packageInfoByUid.erase(1001234);
+    const std::unordered_map<uid_t, UidIoStats> uidIoStatsByUid = sampleUidIoStatsByUid();
+    const std::unordered_map<uid_t, UidProcStats> uidProcStatsByUid = sampleUidProcStatsByUid();
+    const std::unordered_map<uid_t, int64_t> uidCpuStatsByUid = sampleUidCpuStatsByUid();
+
+    EXPECT_CALL(*mMockPackageInfoResolver,
+                getPackageInfosForUids(UnorderedElementsAre(1001234, 1005678)))
+            .WillOnce(Return(packageInfoByUid));
+    EXPECT_CALL(*mMockUidIoStatsCollector, deltaStats()).WillOnce(Return(uidIoStatsByUid));
+    EXPECT_CALL(*mMockUidProcStatsCollector, deltaStats()).WillOnce(Return(uidProcStatsByUid));
+    EXPECT_CALL(*mMockUidCpuStatsCollector, deltaStats()).WillOnce(Return(uidCpuStatsByUid));
 
     ASSERT_RESULT_OK(mUidStatsCollector->collect());
 

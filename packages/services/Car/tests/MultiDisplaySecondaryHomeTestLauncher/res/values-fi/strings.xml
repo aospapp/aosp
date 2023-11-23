@@ -25,4 +25,5 @@
     <string name="set_wallpaper" msgid="3650915172749345197">"Aseta taustakuva"</string>
     <string name="new_instance" msgid="1924479866055190730">"Pyydä käynnistämistä uudessa esiintymässä"</string>
     <string name="wallpaper_description" msgid="5885164573334720996">"Esimerkki monen näytön taustakuvasta"</string>
+    <string name="exit" msgid="3648703694102318310">"Sulje"</string>
 </resources>

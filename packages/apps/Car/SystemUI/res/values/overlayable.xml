@@ -1,5 +1,5 @@
 <?xml version='1.0' encoding='UTF-8'?>
-<!-- Copyright (C) 2022 The Android Open Source Project
+<!-- Copyright (C) 2023 The Android Open Source Project
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
@@ -31,10 +31,13 @@ REGENERATE USING packages/apps/Car/libs/tools/rro/generate-overlayable.py
       <item type="anim" name="car_user_switcher_open_pod_animation"/>
       <item type="array" name="config_allowedAppInstallSources"/>
       <item type="array" name="config_carSystemUIOverlayViewsMediators"/>
+      <item type="array" name="config_qcPanelReadOnlyIconControllers"/>
       <item type="array" name="config_quickControlsEntryPointIconControllers"/>
+      <item type="array" name="config_quickControlsSubIconControllers"/>
       <item type="array" name="config_readOnlyIconControllers"/>
       <item type="array" name="config_restrictedToastsPackageNameAllowList"/>
       <item type="array" name="config_statusBarIconsToExclude"/>
+      <item type="array" name="config_userpickerReadOnlyIconControllers"/>
       <item type="array" name="hvac_heated_seat_default_icons"/>
       <item type="array" name="hvac_temperature_control_levels"/>
       <item type="array" name="hvac_temperature_level_backgrounds"/>
@@ -65,12 +68,14 @@ REGENERATE USING packages/apps/Car/libs/tools/rro/generate-overlayable.py
       <item type="attr" name="offValue"/>
       <item type="attr" name="onValue"/>
       <item type="attr" name="packages"/>
+      <item type="attr" name="panelGravity"/>
       <item type="attr" name="preventToggleOff"/>
       <item type="attr" name="remoteQCProvider"/>
       <item type="attr" name="seatTemperatureIconDrawableList"/>
       <item type="attr" name="seatTemperatureType"/>
       <item type="attr" name="selectedAlpha"/>
       <item type="attr" name="selectedIcon"/>
+      <item type="attr" name="showAsDropDown"/>
       <item type="attr" name="showMoreWhenSelected"/>
       <item type="attr" name="toggleSelected"/>
       <item type="attr" name="unselectedAlpha"/>
@@ -81,8 +86,12 @@ REGENERATE USING packages/apps/Car/libs/tools/rro/generate-overlayable.py
       <item type="bool" name="config_consumeSystemBarTouchWhenNotificationPanelOpen"/>
       <item type="bool" name="config_enableBottomSystemBar"/>
       <item type="bool" name="config_enableHeadsUpNotificationWhenNotificationPanelOpen"/>
+      <item type="bool" name="config_enableImmersivePrivacyChip"/>
+      <item type="bool" name="config_enableImmersivePrivacyChipAnimation"/>
       <item type="bool" name="config_enableLeftSystemBar"/>
       <item type="bool" name="config_enableRightSystemBar"/>
+      <item type="bool" name="config_enableSecondaryUserRRO"/>
+      <item type="bool" name="config_enableShellMainThread"/>
       <item type="bool" name="config_enableTopSystemBar"/>
       <item type="bool" name="config_hideBottomSystemBarForKeyboard"/>
       <item type="bool" name="config_hideLeftSystemBarForKeyboard"/>
@@ -93,6 +102,8 @@ REGENERATE USING packages/apps/Car/libs/tools/rro/generate-overlayable.py
       <item type="bool" name="config_notif_panel_inset_by_right_systembar"/>
       <item type="bool" name="config_notif_panel_inset_by_top_systembar"/>
       <item type="bool" name="config_profile_panel_disabled_while_driving"/>
+      <item type="bool" name="config_registerCarSystemUIProxy"/>
+      <item type="bool" name="config_registerShellTaskOrganizerOnInit"/>
       <item type="bool" name="config_systemBarButtonsDraggable"/>
       <item type="color" name="activity_blocking_action_button_background_color"/>
       <item type="color" name="activity_blocking_activity_background"/>
@@ -102,6 +113,7 @@ REGENERATE USING packages/apps/Car/libs/tools/rro/generate-overlayable.py
       <item type="color" name="car_nav_icon_fill_color"/>
       <item type="color" name="car_nav_icon_fill_color_selected"/>
       <item type="color" name="car_nav_unseen_indicator_color"/>
+      <item type="color" name="car_quick_controls_button_background_pill_color"/>
       <item type="color" name="car_quick_controls_icon_drawable_color"/>
       <item type="color" name="car_seekbar_track_background"/>
       <item type="color" name="car_seekbar_track_secondary_progress"/>
@@ -115,6 +127,8 @@ REGENERATE USING packages/apps/Car/libs/tools/rro/generate-overlayable.py
       <item type="color" name="car_volume_dialog_tint"/>
       <item type="color" name="car_volume_item_background_color"/>
       <item type="color" name="car_volume_item_divider_color"/>
+      <item type="color" name="display_input_lock_background_color"/>
+      <item type="color" name="display_input_lock_icon_color"/>
       <item type="color" name="docked_divider_background"/>
       <item type="color" name="hvac_background_color"/>
       <item type="color" name="hvac_fan_drawable_fill_color"/>
@@ -142,18 +156,20 @@ REGENERATE USING packages/apps/Car/libs/tools/rro/generate-overlayable.py
       <item type="color" name="keyguard_keypad_image_color"/>
       <item type="color" name="list_divider_color"/>
       <item type="color" name="notification_divider_color"/>
+      <item type="color" name="notification_handle_bar_color"/>
       <item type="color" name="notification_ripple_untinted_color"/>
       <item type="color" name="notification_shade_background_color"/>
       <item type="color" name="privacy_chip_dark_icon_color"/>
       <item type="color" name="privacy_chip_indicator_color"/>
       <item type="color" name="privacy_chip_indicator_outside_stroke_color"/>
-      <item type="color" name="status_bar_background_color"/>
+      <item type="color" name="privacy_chip_light_icon_color"/>
       <item type="color" name="status_icon_highlighted_color"/>
       <item type="color" name="status_icon_not_highlighted_color"/>
       <item type="color" name="status_icon_panel_bg_color"/>
       <item type="color" name="status_icon_selected_button_color"/>
       <item type="color" name="system_bar_background_opaque"/>
       <item type="color" name="system_bar_background_pill_color"/>
+      <item type="color" name="system_bar_clock_text_color"/>
       <item type="color" name="system_bar_icon_color"/>
       <item type="color" name="system_bar_icon_color_with_selection"/>
       <item type="color" name="system_bar_icon_selected_color"/>
@@ -161,6 +177,14 @@ REGENERATE USING packages/apps/Car/libs/tools/rro/generate-overlayable.py
       <item type="color" name="system_bar_text_color_with_selection"/>
       <item type="color" name="system_bar_text_selected_color"/>
       <item type="color" name="system_bar_text_unavailable_color"/>
+      <item type="color" name="user_picker_background_color"/>
+      <item type="color" name="user_picker_background_pill_color"/>
+      <item type="color" name="user_picker_bottom_bar_color"/>
+      <item type="color" name="user_picker_current_login_state_color"/>
+      <item type="color" name="user_picker_other_login_state_color"/>
+      <item type="color" name="user_picker_snack_bar_background_color"/>
+      <item type="color" name="user_picker_snack_bar_transparent_color"/>
+      <item type="color" name="user_picker_user_name_color"/>
       <item type="dimen" name="activity_blocking_action_button_corner_radius"/>
       <item type="dimen" name="activity_blocking_action_button_height"/>
       <item type="dimen" name="activity_blocking_action_button_max_width"/>
@@ -204,6 +228,7 @@ REGENERATE USING packages/apps/Car/libs/tools/rro/generate-overlayable.py
       <item type="dimen" name="car_quick_controls_entry_points_button_margin_start"/>
       <item type="dimen" name="car_quick_controls_entry_points_button_margin_top"/>
       <item type="dimen" name="car_quick_controls_entry_points_button_width"/>
+      <item type="dimen" name="car_quick_controls_entry_points_icon_space"/>
       <item type="dimen" name="car_quick_controls_entry_points_icon_width"/>
       <item type="dimen" name="car_quick_controls_footer_button_horizontal_padding"/>
       <item type="dimen" name="car_quick_controls_footer_button_min_height"/>
@@ -211,6 +236,10 @@ REGENERATE USING packages/apps/Car/libs/tools/rro/generate-overlayable.py
       <item type="dimen" name="car_quick_controls_footer_button_vertical_margin"/>
       <item type="dimen" name="car_quick_controls_icon_drawable_height"/>
       <item type="dimen" name="car_quick_controls_icon_drawable_width"/>
+      <item type="dimen" name="car_quick_controls_panel_default_width"/>
+      <item type="dimen" name="car_quick_controls_panel_footer_button_view_height"/>
+      <item type="dimen" name="car_quick_controls_panel_footer_button_view_padding"/>
+      <item type="dimen" name="car_quick_controls_panel_margin"/>
       <item type="dimen" name="car_read_only_status_icon_height"/>
       <item type="dimen" name="car_read_only_status_icon_width"/>
       <item type="dimen" name="car_right_system_bar_width"/>
@@ -253,7 +282,23 @@ REGENERATE USING packages/apps/Car/libs/tools/rro/generate-overlayable.py
       <item type="dimen" name="car_volume_item_seekbar_margin_vertical"/>
       <item type="dimen" name="car_volume_item_seekbar_padding_vertical"/>
       <item type="dimen" name="common_margin"/>
+      <item type="dimen" name="confirm_logout_dialog_dim"/>
       <item type="dimen" name="device_management_dialog_subtitle_padding"/>
+      <item type="dimen" name="display_input_lock_background_radius"/>
+      <item type="dimen" name="display_input_lock_text_bottom_margin"/>
+      <item type="dimen" name="display_input_lock_text_padding"/>
+      <item type="dimen" name="display_input_lock_text_size"/>
+      <item type="dimen" name="display_input_lock_text_width"/>
+      <item type="dimen" name="fullscreen_indicator_animation_margin_horizontal_end"/>
+      <item type="dimen" name="fullscreen_indicator_animation_margin_horizontal_start"/>
+      <item type="dimen" name="fullscreen_indicator_animation_margin_vertical_end"/>
+      <item type="dimen" name="fullscreen_indicator_animation_margin_vertical_start"/>
+      <item type="dimen" name="fullscreen_indicator_container_width"/>
+      <item type="dimen" name="fullscreen_indicator_dot_size"/>
+      <item type="dimen" name="fullscreen_indicator_height"/>
+      <item type="dimen" name="fullscreen_indicator_padding_horizontal"/>
+      <item type="dimen" name="fullscreen_indicator_padding_vertical"/>
+      <item type="dimen" name="fullscreen_indicator_width"/>
       <item type="dimen" name="hvac_button_margin_bottom"/>
       <item type="dimen" name="hvac_button_margin_end"/>
       <item type="dimen" name="hvac_button_margin_start"/>
@@ -281,6 +326,7 @@ REGENERATE USING packages/apps/Car/libs/tools/rro/generate-overlayable.py
       <item type="dimen" name="hvac_icon_drawable_width"/>
       <item type="dimen" name="hvac_max_value_celsius"/>
       <item type="dimen" name="hvac_min_value_celsius"/>
+      <item type="dimen" name="hvac_min_value_fahrenheit"/>
       <item type="dimen" name="hvac_panel_bottom_padding"/>
       <item type="dimen" name="hvac_panel_button_dimen"/>
       <item type="dimen" name="hvac_panel_button_height"/>
@@ -291,13 +337,10 @@ REGENERATE USING packages/apps/Car/libs/tools/rro/generate-overlayable.py
       <item type="dimen" name="hvac_panel_fan_direction_margin"/>
       <item type="dimen" name="hvac_panel_full_expanded_height"/>
       <item type="dimen" name="hvac_panel_group_height"/>
+      <item type="dimen" name="hvac_panel_handle_bar_frame_padding"/>
       <item type="dimen" name="hvac_panel_handle_bar_height"/>
-      <item type="dimen" name="hvac_panel_handle_bar_margin_bottom"/>
-      <item type="dimen" name="hvac_panel_handle_bar_margin_end"/>
-      <item type="dimen" name="hvac_panel_handle_bar_margin_start"/>
-      <item type="dimen" name="hvac_panel_handle_bar_margin_top"/>
       <item type="dimen" name="hvac_panel_handle_bar_radius"/>
-      <item type="dimen" name="hvac_panel_list_padding_bottom"/>
+      <item type="dimen" name="hvac_panel_handle_bar_width"/>
       <item type="dimen" name="hvac_panel_margin"/>
       <item type="dimen" name="hvac_panel_row_animation_height_shift"/>
       <item type="dimen" name="hvac_panel_row_margin"/>
@@ -332,12 +375,10 @@ REGENERATE USING packages/apps/Car/libs/tools/rro/generate-overlayable.py
       <item type="dimen" name="notification_panel_margin_top"/>
       <item type="dimen" name="notification_panel_padding_bottom"/>
       <item type="dimen" name="notification_panel_width"/>
+      <item type="dimen" name="notification_shade_handle_bar_frame_padding"/>
       <item type="dimen" name="notification_shade_handle_bar_height"/>
-      <item type="dimen" name="notification_shade_handle_bar_margin_bottom"/>
-      <item type="dimen" name="notification_shade_handle_bar_margin_end"/>
-      <item type="dimen" name="notification_shade_handle_bar_margin_start"/>
-      <item type="dimen" name="notification_shade_handle_bar_margin_top"/>
       <item type="dimen" name="notification_shade_handle_bar_radius"/>
+      <item type="dimen" name="notification_shade_handle_bar_width"/>
       <item type="dimen" name="notification_shade_list_padding_bottom"/>
       <item type="dimen" name="notification_shadow_radius"/>
       <item type="dimen" name="privacy_chip_dialog_icon_height"/>
@@ -350,6 +391,7 @@ REGENERATE USING packages/apps/Car/libs/tools/rro/generate-overlayable.py
       <item type="dimen" name="scrim_behind_alpha"/>
       <item type="dimen" name="side_margin"/>
       <item type="dimen" name="signal_icon_size"/>
+      <item type="dimen" name="signal_icon_size_roaming"/>
       <item type="dimen" name="status_bar_header_height"/>
       <item type="dimen" name="status_bar_icon_scale_factor"/>
       <item type="dimen" name="status_bar_system_icon_spacing"/>
@@ -377,6 +419,28 @@ REGENERATE USING packages/apps/Car/libs/tools/rro/generate-overlayable.py
       <item type="dimen" name="temperature_off_text_bg_height"/>
       <item type="dimen" name="temperature_off_text_bg_width"/>
       <item type="dimen" name="temperature_side_margin"/>
+      <item type="dimen" name="user_icon_background_size"/>
+      <item type="dimen" name="user_icon_text_size"/>
+      <item type="dimen" name="user_picker_alert_dialog_common_padding_size"/>
+      <item type="dimen" name="user_picker_button_padding_size"/>
+      <item type="dimen" name="user_picker_button_size"/>
+      <item type="dimen" name="user_picker_clock_elevation_size"/>
+      <item type="dimen" name="user_picker_header_left_margin"/>
+      <item type="dimen" name="user_picker_header_margin"/>
+      <item type="dimen" name="user_picker_horizontal_space_between_users"/>
+      <item type="dimen" name="user_picker_login_state_text_size"/>
+      <item type="dimen" name="user_picker_logout_button_margin_right_size"/>
+      <item type="dimen" name="user_picker_pill_button_height"/>
+      <item type="dimen" name="user_picker_pill_button_width"/>
+      <item type="dimen" name="user_picker_pill_header_margin"/>
+      <item type="dimen" name="user_picker_pill_padding_horizontal"/>
+      <item type="dimen" name="user_picker_pill_padding_vertical"/>
+      <item type="dimen" name="user_picker_pill_radius"/>
+      <item type="dimen" name="user_picker_snack_bar_text_size"/>
+      <item type="dimen" name="user_picker_user_avatar_border_size"/>
+      <item type="dimen" name="user_picker_user_avatar_size"/>
+      <item type="dimen" name="user_picker_user_name_text_size"/>
+      <item type="dimen" name="user_picker_vertical_space_between_users"/>
       <item type="dimen" name="volume_button_size"/>
       <item type="dimen" name="volume_dialog_elevation"/>
       <item type="dimen" name="volume_dialog_panel_width"/>
@@ -388,18 +452,26 @@ REGENERATE USING packages/apps/Car/libs/tools/rro/generate-overlayable.py
       <item type="drawable" name="ac_master_switch_on"/>
       <item type="drawable" name="activity_blocking_action_button_background"/>
       <item type="drawable" name="car_add_circle_round"/>
+      <item type="drawable" name="car_border_circle"/>
       <item type="drawable" name="car_ic_add_white"/>
       <item type="drawable" name="car_ic_apps"/>
       <item type="drawable" name="car_ic_apps_selected"/>
       <item type="drawable" name="car_ic_arrow"/>
       <item type="drawable" name="car_ic_arrow_drop_up"/>
       <item type="drawable" name="car_ic_brightness"/>
+      <item type="drawable" name="car_ic_chevron_right"/>
+      <item type="drawable" name="car_ic_control_center"/>
+      <item type="drawable" name="car_ic_drive_mode"/>
       <item type="drawable" name="car_ic_home"/>
       <item type="drawable" name="car_ic_home_selected"/>
       <item type="drawable" name="car_ic_hvac"/>
       <item type="drawable" name="car_ic_hvac_selected"/>
       <item type="drawable" name="car_ic_keyboard_arrow_down"/>
+      <item type="drawable" name="car_ic_logout"/>
       <item type="drawable" name="car_ic_managed_device"/>
+      <item type="drawable" name="car_ic_media_volume_down"/>
+      <item type="drawable" name="car_ic_media_volume_off"/>
+      <item type="drawable" name="car_ic_media_volume_up"/>
       <item type="drawable" name="car_ic_music"/>
       <item type="drawable" name="car_ic_music_mute"/>
       <item type="drawable" name="car_ic_music_selected"/>
@@ -413,14 +485,18 @@ REGENERATE USING packages/apps/Car/libs/tools/rro/generate-overlayable.py
       <item type="drawable" name="car_ic_phone_selected"/>
       <item type="drawable" name="car_ic_phone_volume"/>
       <item type="drawable" name="car_ic_phone_volume_mute"/>
+      <item type="drawable" name="car_ic_power"/>
+      <item type="drawable" name="car_ic_recents"/>
       <item type="drawable" name="car_ic_selection_bg"/>
       <item type="drawable" name="car_ic_settings_icon"/>
       <item type="drawable" name="car_ic_unseen_indicator"/>
       <item type="drawable" name="car_ic_users_icon"/>
       <item type="drawable" name="car_ic_ux_restricted"/>
+      <item type="drawable" name="car_quick_controls_button_background_pill"/>
       <item type="drawable" name="car_rounded_bg_bottom"/>
       <item type="drawable" name="car_seekbar_thumb"/>
       <item type="drawable" name="car_stat_sys_data_bluetooth_indicator"/>
+      <item type="drawable" name="car_user_icon_circle_background"/>
       <item type="drawable" name="fan_speed_inset"/>
       <item type="drawable" name="hvac_decrease_button"/>
       <item type="drawable" name="hvac_increase_button"/>
@@ -459,6 +535,7 @@ REGENERATE USING packages/apps/Car/libs/tools/rro/generate-overlayable.py
       <item type="drawable" name="ic_mic_light"/>
       <item type="drawable" name="ic_mic_off_dark"/>
       <item type="drawable" name="ic_mic_off_light"/>
+      <item type="drawable" name="ic_phone"/>
       <item type="drawable" name="ic_rear_defroster_off"/>
       <item type="drawable" name="ic_rear_defroster_on"/>
       <item type="drawable" name="ic_recycle_air_off"/>
@@ -467,6 +544,8 @@ REGENERATE USING packages/apps/Car/libs/tools/rro/generate-overlayable.py
       <item type="drawable" name="ic_seat_heat_level_2"/>
       <item type="drawable" name="ic_seat_heat_level_3"/>
       <item type="drawable" name="ic_seat_heat_off"/>
+      <item type="drawable" name="ic_status_wifi_disabled"/>
+      <item type="drawable" name="ic_user_picker"/>
       <item type="drawable" name="notification_handle_bar"/>
       <item type="drawable" name="notification_material_bg"/>
       <item type="drawable" name="notification_material_bg_dim"/>
@@ -477,18 +556,27 @@ REGENERATE USING packages/apps/Car/libs/tools/rro/generate-overlayable.py
       <item type="drawable" name="stat_sys_signal_null"/>
       <item type="drawable" name="status_icon_background"/>
       <item type="drawable" name="status_icon_panel_bg"/>
+      <item type="drawable" name="system_animation_ongoing_dot"/>
       <item type="drawable" name="system_bar_background"/>
       <item type="drawable" name="system_bar_background_pill"/>
       <item type="drawable" name="system_bar_button_background"/>
       <item type="drawable" name="system_bar_pill_rotary_background"/>
       <item type="drawable" name="temperature_bar_background"/>
+      <item type="drawable" name="user_picker_splash_icon"/>
+      <item type="drawable" name="userpicker_ic_arrow_back"/>
+      <item type="drawable" name="userpicker_ic_background"/>
+      <item type="drawable" name="userpicker_ic_power"/>
       <item type="drawable" name="volume_dialog_background"/>
+      <item type="fraction" name="celsius_temperature_increment"/>
+      <item type="fraction" name="fahrenheit_temperature_increment"/>
+      <item type="fraction" name="user_picker_disabled_alpha"/>
       <item type="id" name="ac_button"/>
       <item type="id" name="ac_master_switch"/>
       <item type="id" name="action_button_container"/>
       <item type="id" name="active_background"/>
       <item type="id" name="activity_blocking_content"/>
       <item type="id" name="auto_button"/>
+      <item type="id" name="back_button"/>
       <item type="id" name="blocking_text"/>
       <item type="id" name="blurred_surface_view"/>
       <item type="id" name="bottom_guideline"/>
@@ -501,13 +589,17 @@ REGENERATE USING packages/apps/Car/libs/tools/rro/generate-overlayable.py
       <item type="id" name="car_nav_button_more_icon"/>
       <item type="id" name="car_nav_button_unseen_icon"/>
       <item type="id" name="car_top_bar"/>
+      <item type="id" name="chevron_right"/>
       <item type="id" name="circular_active_indicator_horizontal_guideline"/>
       <item type="id" name="circular_active_indicator_vertical_guideline"/>
       <item type="id" name="clock"/>
       <item type="id" name="clock_container"/>
       <item type="id" name="connected_device_signals_stub"/>
+      <item type="id" name="control_center_nav"/>
+      <item type="id" name="current_user_frame"/>
       <item type="id" name="dark_icon"/>
       <item type="id" name="dark_muted_icon"/>
+      <item type="id" name="date"/>
       <item type="id" name="debug_info"/>
       <item type="id" name="defroster_button"/>
       <item type="id" name="device_management_disclosures"/>
@@ -517,6 +609,7 @@ REGENERATE USING packages/apps/Car/libs/tools/rro/generate-overlayable.py
       <item type="id" name="direction_face"/>
       <item type="id" name="direction_face_and_floor"/>
       <item type="id" name="direction_floor"/>
+      <item type="id" name="drive_mode_panel"/>
       <item type="id" name="driver_hvac"/>
       <item type="id" name="empty_notification_text"/>
       <item type="id" name="exit_button"/>
@@ -529,12 +622,15 @@ REGENERATE USING packages/apps/Car/libs/tools/rro/generate-overlayable.py
       <item type="id" name="fan_speed_4"/>
       <item type="id" name="focus_parking_view"/>
       <item type="id" name="focus_view"/>
+      <item type="id" name="footer_container"/>
       <item type="id" name="fullscreen_user_switcher_stub"/>
       <item type="id" name="glass_pane"/>
       <item type="id" name="grid"/>
       <item type="id" name="grid_nav"/>
       <item type="id" name="handle_bar"/>
       <item type="id" name="header"/>
+      <item type="id" name="header_barrier"/>
+      <item type="id" name="header_container"/>
       <item type="id" name="home"/>
       <item type="id" name="hvac"/>
       <item type="id" name="hvac_decrease_button"/>
@@ -546,6 +642,10 @@ REGENERATE USING packages/apps/Car/libs/tools/rro/generate-overlayable.py
       <item type="id" name="hvac_temperature_bar"/>
       <item type="id" name="hvac_temperature_text"/>
       <item type="id" name="icon"/>
+      <item type="id" name="immersive_indicator_container"/>
+      <item type="id" name="immersive_privacy_camera"/>
+      <item type="id" name="immersive_privacy_dot"/>
+      <item type="id" name="immersive_privacy_microphone"/>
       <item type="id" name="inactive_background"/>
       <item type="id" name="inactive_selected_background"/>
       <item type="id" name="inout_container"/>
@@ -553,9 +653,14 @@ REGENERATE USING packages/apps/Car/libs/tools/rro/generate-overlayable.py
       <item type="id" name="light_icon"/>
       <item type="id" name="light_muted_icon"/>
       <item type="id" name="lock_screen_nav_buttons"/>
+      <item type="id" name="logged_in_info"/>
+      <item type="id" name="logout_button"/>
+      <item type="id" name="logout_button_icon_view"/>
       <item type="id" name="manage_button"/>
       <item type="id" name="max_width_guideline"/>
+      <item type="id" name="message"/>
       <item type="id" name="mic_privacy_chip"/>
+      <item type="id" name="mic_privacy_panel"/>
       <item type="id" name="nav_buttons"/>
       <item type="id" name="network_logging_disclosures"/>
       <item type="id" name="network_logging_subtitle"/>
@@ -566,25 +671,45 @@ REGENERATE USING packages/apps/Car/libs/tools/rro/generate-overlayable.py
       <item type="id" name="notification_view"/>
       <item type="id" name="notifications"/>
       <item type="id" name="occlusion_buttons"/>
+      <item type="id" name="passenger_home"/>
       <item type="id" name="passenger_hvac"/>
       <item type="id" name="phone_nav"/>
+      <item type="id" name="power_button_icon_view"/>
       <item type="id" name="primary_icon"/>
+      <item type="id" name="privacy_dot_bottom_left_container"/>
+      <item type="id" name="privacy_dot_bottom_right_container"/>
+      <item type="id" name="privacy_dot_top_left_container"/>
+      <item type="id" name="privacy_dot_top_right_container"/>
       <item type="id" name="qc_bluetooth_footer_button"/>
+      <item type="id" name="qc_bluetooth_status_icon"/>
       <item type="id" name="qc_camera_footer_button"/>
       <item type="id" name="qc_connectivity_footer_button"/>
       <item type="id" name="qc_display_footer_button"/>
+      <item type="id" name="qc_display_status_icon"/>
+      <item type="id" name="qc_drive_mode_status_icon"/>
       <item type="id" name="qc_entry_points_container"/>
+      <item type="id" name="qc_location_status_icon"/>
+      <item type="id" name="qc_media_volume_status_icon"/>
       <item type="id" name="qc_mic_footer_button"/>
+      <item type="id" name="qc_mobile_signal_status_icon"/>
+      <item type="id" name="qc_phone_call_status_icon"/>
       <item type="id" name="qc_profile_footer_button"/>
+      <item type="id" name="qc_scroll_container"/>
+      <item type="id" name="qc_signal_status_icon"/>
+      <item type="id" name="qc_status_icon_list"/>
+      <item type="id" name="qc_wifi_signal_status_icon"/>
       <item type="id" name="qs_car_top_bar"/>
       <item type="id" name="read_only_icons_container"/>
+      <item type="id" name="read_only_status_icons_container"/>
       <item type="id" name="rear_defroster_button"/>
       <item type="id" name="recycle_air_button"/>
+      <item type="id" name="screen_off_button"/>
       <item type="id" name="scrollView"/>
       <item type="id" name="seat_heat_level_button_left"/>
       <item type="id" name="seat_heat_level_button_right"/>
       <item type="id" name="segment_container"/>
       <item type="id" name="settingsIcon"/>
+      <item type="id" name="settings_button"/>
       <item type="id" name="statusIcons"/>
       <item type="id" name="supplemental_icon"/>
       <item type="id" name="supplemental_icon_divider"/>
@@ -593,12 +718,19 @@ REGENERATE USING packages/apps/Car/libs/tools/rro/generate-overlayable.py
       <item type="id" name="toggle_debug_info"/>
       <item type="id" name="top_guideline"/>
       <item type="id" name="user_avatar"/>
+      <item type="id" name="user_avatar_border"/>
+      <item type="id" name="user_button"/>
       <item type="id" name="user_grid"/>
+      <item type="id" name="user_icon"/>
       <item type="id" name="user_loading"/>
       <item type="id" name="user_loading_avatar"/>
       <item type="id" name="user_name"/>
       <item type="id" name="user_name_container"/>
       <item type="id" name="user_name_text"/>
+      <item type="id" name="user_picker"/>
+      <item type="id" name="user_picker_bottom_bar"/>
+      <item type="id" name="user_picker_bottom_bar_clock"/>
+      <item type="id" name="user_picker_status_icon_container"/>
       <item type="id" name="user_switcher_container"/>
       <item type="id" name="user_switcher_focus_area"/>
       <item type="id" name="user_switching_dialog_stub"/>
@@ -620,19 +752,21 @@ REGENERATE USING packages/apps/Car/libs/tools/rro/generate-overlayable.py
       <item type="integer" name="car_volume_dialog_display_expanded_normal_timeout"/>
       <item type="integer" name="car_volume_dialog_display_hovering_timeout"/>
       <item type="integer" name="car_volume_dialog_display_normal_timeout"/>
-      <item type="integer" name="celsius_increment_fraction"/>
       <item type="integer" name="config_bottomSystemBarType"/>
       <item type="integer" name="config_bottomSystemBarZOrder"/>
+      <item type="integer" name="config_displayInputLockIconAnimDuration"/>
+      <item type="integer" name="config_displayInputLockIconDismissDelay"/>
+      <item type="integer" name="config_displayInputLockInitialDismissDelay"/>
       <item type="integer" name="config_finalNotificationBackgroundAlpha"/>
       <item type="integer" name="config_initialNotificationBackgroundAlpha"/>
       <item type="integer" name="config_leftSystemBarType"/>
       <item type="integer" name="config_leftSystemBarZOrder"/>
+      <item type="integer" name="config_privacyIndicatorLocation"/>
       <item type="integer" name="config_rightSystemBarType"/>
       <item type="integer" name="config_rightSystemBarZOrder"/>
       <item type="integer" name="config_topSystemBarType"/>
       <item type="integer" name="config_topSystemBarZOrder"/>
       <item type="integer" name="config_userSwitchTransitionViewShownTimeoutMs"/>
-      <item type="integer" name="fahrenheit_increment_fraction"/>
       <item type="integer" name="hvac_global_area_id"/>
       <item type="integer" name="hvac_panel_settle_close_percentage"/>
       <item type="integer" name="hvac_seat_heat_level_count"/>
@@ -641,6 +775,7 @@ REGENERATE USING packages/apps/Car/libs/tools/rro/generate-overlayable.py
       <item type="integer" name="privacy_chip_animation_transition_duration"/>
       <item type="integer" name="privacy_chip_no_sensor_usage_delay"/>
       <item type="integer" name="privacy_chip_pill_to_circle_delay"/>
+      <item type="integer" name="privacy_indicator_animation_duration"/>
       <item type="integer" name="user_fullscreen_switcher_num_col"/>
       <item type="layout" name="activity_blocking"/>
       <item type="layout" name="activity_continuous_blank"/>
@@ -653,6 +788,7 @@ REGENERATE USING packages/apps/Car/libs/tools/rro/generate-overlayable.py
       <item type="layout" name="car_left_system_bar"/>
       <item type="layout" name="car_left_system_bar_unprovisioned"/>
       <item type="layout" name="car_qc_entry_points_button"/>
+      <item type="layout" name="car_quick_controls_panel"/>
       <item type="layout" name="car_right_system_bar"/>
       <item type="layout" name="car_right_system_bar_unprovisioned"/>
       <item type="layout" name="car_status_bar_header"/>
@@ -666,66 +802,103 @@ REGENERATE USING packages/apps/Car/libs/tools/rro/generate-overlayable.py
       <item type="layout" name="device_management_dialog"/>
       <item type="layout" name="fan_direction"/>
       <item type="layout" name="fan_speed"/>
+      <item type="layout" name="hvac_panel"/>
       <item type="layout" name="hvac_panel_container"/>
       <item type="layout" name="hvac_panel_handle_bar"/>
       <item type="layout" name="hvac_temperature_bar_overlay"/>
+      <item type="layout" name="immersive_privacy_chip"/>
       <item type="layout" name="mic_privacy_chip"/>
       <item type="layout" name="notification_center_activity"/>
       <item type="layout" name="notification_handle_bar"/>
       <item type="layout" name="notification_panel_container"/>
       <item type="layout" name="privacy_chip_content"/>
+      <item type="layout" name="privacy_dot_bottom_left"/>
+      <item type="layout" name="privacy_dot_bottom_right"/>
+      <item type="layout" name="privacy_dot_top_left"/>
+      <item type="layout" name="privacy_dot_top_right"/>
       <item type="layout" name="qc_bluetooth_panel"/>
       <item type="layout" name="qc_camera_panel"/>
       <item type="layout" name="qc_connectivity_panel"/>
       <item type="layout" name="qc_display_panel"/>
+      <item type="layout" name="qc_drive_mode_panel"/>
       <item type="layout" name="qc_mic_panel"/>
       <item type="layout" name="qc_profile_switcher"/>
       <item type="layout" name="status_bar_wifi_group"/>
       <item type="layout" name="system_icons"/>
       <item type="layout" name="sysui_overlay_window"/>
       <item type="layout" name="text_toast"/>
+      <item type="layout" name="user_picker"/>
+      <item type="layout" name="user_picker_alert_dialog_large_center_message"/>
+      <item type="layout" name="user_picker_alert_dialog_normal_message"/>
+      <item type="layout" name="user_picker_status_icon_layout"/>
+      <item type="layout" name="user_picker_user_pod"/>
       <item type="string" name="activity_blocked_text"/>
+      <item type="string" name="already_logged_in_message"/>
       <item type="string" name="camera_privacy_chip_app_recently_used_camera_suffix"/>
       <item type="string" name="camera_privacy_chip_app_using_camera_suffix"/>
       <item type="string" name="camera_privacy_chip_apps_recently_used_camera_suffix"/>
       <item type="string" name="camera_privacy_chip_apps_using_camera_suffix"/>
-      <item type="string" name="camera_privacy_chip_camera_settings"/>
       <item type="string" name="camera_privacy_chip_dialog_ok"/>
       <item type="string" name="camera_privacy_chip_off_toast"/>
       <item type="string" name="camera_privacy_chip_on_toast"/>
       <item type="string" name="car_add_user"/>
+      <item type="string" name="car_guest"/>
+      <item type="string" name="car_keyguard_enter_your_password"/>
+      <item type="string" name="car_keyguard_enter_your_pattern"/>
+      <item type="string" name="car_keyguard_enter_your_pin"/>
       <item type="string" name="car_loading_profile"/>
       <item type="string" name="car_loading_profile_developer_message"/>
       <item type="string" name="car_new_user"/>
       <item type="string" name="config_appGridComponentName"/>
       <item type="string" name="config_notificationPanelViewMediator"/>
+      <item type="string" name="config_secondaryUserSystemUIRROPackageName"/>
       <item type="string" name="config_statusBarComponent"/>
-      <item type="string" name="config_systemUIFactoryComponent"/>
+      <item type="string" name="confirm_add_user_title"/>
+      <item type="string" name="create_user_failed_message"/>
       <item type="string" name="debug_button_text"/>
+      <item type="string" name="display_input_lock_started_text"/>
+      <item type="string" name="display_input_lock_stopped_text"/>
+      <item type="string" name="display_input_lock_text"/>
+      <item type="string" name="drive_mode_modes_comfort"/>
+      <item type="string" name="drive_mode_modes_eco"/>
+      <item type="string" name="drive_mode_modes_sport"/>
+      <item type="string" name="end_session"/>
       <item type="string" name="exit_button_close_application"/>
       <item type="string" name="exit_button_go_back"/>
       <item type="string" name="fan_speed_max"/>
       <item type="string" name="fan_speed_off"/>
+      <item type="string" name="guest_creation_failed_message"/>
+      <item type="string" name="header_bar_text_in_logged_out_state"/>
+      <item type="string" name="hvac_decrease_button_label"/>
+      <item type="string" name="hvac_increase_button_label"/>
       <item type="string" name="hvac_max_text"/>
       <item type="string" name="hvac_min_text"/>
       <item type="string" name="hvac_null_temp_text"/>
       <item type="string" name="hvac_temperature_format_celsius"/>
       <item type="string" name="hvac_temperature_format_fahrenheit"/>
       <item type="string" name="hvac_temperature_off"/>
+      <item type="string" name="keyguard_enter_your_password"/>
+      <item type="string" name="keyguard_enter_your_pattern"/>
+      <item type="string" name="keyguard_enter_your_pin"/>
       <item type="string" name="lockpattern_does_not_support_rotary"/>
+      <item type="string" name="logged_in_text"/>
+      <item type="string" name="max_user_limit_reached_message"/>
+      <item type="string" name="max_user_limit_reached_title"/>
       <item type="string" name="mic_privacy_chip_apps_using_mic_suffix"/>
       <item type="string" name="mic_privacy_chip_dialog_ok"/>
-      <item type="string" name="mic_privacy_chip_microphone_settings"/>
       <item type="string" name="mic_privacy_chip_off_toast"/>
       <item type="string" name="mic_privacy_chip_on_toast"/>
+      <item type="string" name="prefix_logged_in_info_for_other_seat"/>
       <item type="string" name="privacy_chip_app_recently_used_sensor_suffix"/>
       <item type="string" name="privacy_chip_app_using_sensor_suffix"/>
       <item type="string" name="privacy_chip_apps_recently_used_sensor_suffix"/>
       <item type="string" name="privacy_chip_off_content"/>
+      <item type="string" name="privacy_chip_settings"/>
       <item type="string" name="privacy_chip_use_sensor"/>
       <item type="string" name="privacy_chip_use_sensor_subtext"/>
       <item type="string" name="profile_limit_reached_message"/>
       <item type="string" name="profile_limit_reached_title"/>
+      <item type="string" name="qc_drive_mode_active_subtitle"/>
       <item type="string" name="qc_footer_bluetooth_settings"/>
       <item type="string" name="qc_footer_display_settings"/>
       <item type="string" name="qc_footer_network_internet_settings"/>
@@ -733,14 +906,44 @@ REGENERATE USING packages/apps/Car/libs/tools/rro/generate-overlayable.py
       <item type="string" name="qc_footer_profiles_accounts_settings"/>
       <item type="string" name="qc_footer_settings"/>
       <item type="string" name="qc_icon_tag"/>
+      <item type="string" name="seat_center_side"/>
+      <item type="string" name="seat_driver"/>
+      <item type="string" name="seat_front"/>
+      <item type="string" name="seat_left_side"/>
+      <item type="string" name="seat_rear"/>
+      <item type="string" name="seat_right_side"/>
       <item type="string" name="sensor_privacy_start_use_camera_dialog_content"/>
       <item type="string" name="sensor_privacy_start_use_camera_dialog_title"/>
       <item type="string" name="sensor_privacy_start_use_mic_dialog_content"/>
       <item type="string" name="sensor_privacy_start_use_mic_dialog_title"/>
+      <item type="string" name="status_icon_bluetooth_connected"/>
+      <item type="string" name="status_icon_bluetooth_disconnected"/>
+      <item type="string" name="status_icon_bluetooth_off"/>
+      <item type="string" name="status_icon_display_status"/>
+      <item type="string" name="status_icon_drive_mode"/>
+      <item type="string" name="status_icon_signal_hotspot"/>
+      <item type="string" name="status_icon_signal_mobile"/>
+      <item type="string" name="status_icon_signal_wifi"/>
+      <item type="string" name="stopping_user_text"/>
+      <item type="string" name="system_bar_app_drawer_intent"/>
+      <item type="string" name="system_bar_applications_label"/>
+      <item type="string" name="system_bar_climate_control_label"/>
+      <item type="string" name="system_bar_control_center_label"/>
+      <item type="string" name="system_bar_home_label"/>
+      <item type="string" name="system_bar_maps_label"/>
+      <item type="string" name="system_bar_media_label"/>
+      <item type="string" name="system_bar_notifications_label"/>
+      <item type="string" name="system_bar_phone_label"/>
       <item type="string" name="user_add_profile_title"/>
       <item type="string" name="user_add_user_message_setup"/>
       <item type="string" name="user_add_user_message_update"/>
+      <item type="string" name="user_adding_message"/>
+      <item type="string" name="user_logout"/>
+      <item type="string" name="user_logout_message"/>
+      <item type="string" name="user_logout_title"/>
+      <item type="string" name="user_switching_message"/>
       <item type="string" name="voice_recognition_toast"/>
+      <item type="string" name="wait_for_until_stopped_message"/>
       <item type="style" name="ActionButtonText"/>
       <item type="style" name="ActivityBlockingActivityText"/>
       <item type="style" name="ButtonStyle"/>
@@ -753,16 +956,23 @@ REGENERATE USING packages/apps/Car/libs/tools/rro/generate-overlayable.py
       <item type="style" name="HvacTemperatureControlIcon"/>
       <item type="style" name="HvacTemperatureFont"/>
       <item type="style" name="QCFooterButtonStyle"/>
+      <item type="style" name="QCFooterButtonViewStyle"/>
       <item type="style" name="QuickControlEntryPointButton"/>
       <item type="style" name="SystemBarButton"/>
       <item type="style" name="TextAppearance.CarStatus"/>
       <item type="style" name="TextAppearance.SystemBar.Clock"/>
+      <item type="style" name="TextAppearance.SystemBar.ClockWithSelection"/>
       <item type="style" name="TextAppearance.SystemBar.Username"/>
       <item type="style" name="TextAppearance.Toast"/>
       <item type="style" name="Theme.Notification"/>
+      <item type="style" name="Theme.UserPicker"/>
+      <item type="style" name="UserPickerDialogMessageLargeText"/>
+      <item type="style" name="UserPickerDialogMessageNormalText"/>
+      <item type="style" name="UserPickerSnackBarText"/>
       <item type="style" name="VolumeButtons"/>
       <item type="xml" name="camera_privacy_chip_scene"/>
       <item type="xml" name="car_volume_items"/>
+      <item type="xml" name="immersive_privacy_chip_scene"/>
       <item type="xml" name="mic_privacy_chip_scene"/>
     </policy>
   </overlayable>

@@ -106,7 +106,7 @@ class DirectoryItemAnimator extends DefaultItemAnimator {
 
     class ItemInfo extends DefaultItemAnimator.ItemHolderInfo {
         boolean isActivated;
-    };
+    }
 
     /**
      * Animates changes in background color.
@@ -161,5 +161,5 @@ class DirectoryItemAnimator extends DefaultItemAnimator {
 
         @Override
         public void onAnimationRepeat(Animator animation) {}
-    };
-};
+    }
+}

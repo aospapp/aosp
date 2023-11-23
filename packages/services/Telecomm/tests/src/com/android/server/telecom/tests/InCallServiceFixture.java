@@ -26,9 +26,11 @@ import android.os.IBinder;
 import android.os.IInterface;
 import android.os.RemoteException;
 import android.telecom.CallAudioState;
+import android.telecom.CallEndpoint;
 import android.telecom.ParcelableCall;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -103,6 +105,15 @@ public class InCallServiceFixture implements TestFixture<IInCallService> {
         public void onCallAudioStateChanged(CallAudioState audioState) throws RemoteException {
             mCallAudioState = audioState;
         }
+
+        @Override
+        public void onCallEndpointChanged(CallEndpoint callEndpoint) {}
+
+        @Override
+        public void onAvailableCallEndpointsChanged(List<CallEndpoint> availableCallEndpoints) {}
+
+        @Override
+        public void onMuteStateChanged(boolean isMuted) {}
 
         @Override
         public void bringToForeground(boolean showDialpad) throws RemoteException {

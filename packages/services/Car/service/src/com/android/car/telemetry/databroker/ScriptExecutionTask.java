@@ -17,8 +17,11 @@
 package com.android.car.telemetry.databroker;
 
 import android.annotation.NonNull;
+import android.annotation.Nullable;
 import android.car.telemetry.TelemetryProto;
 import android.os.PersistableBundle;
+
+import java.util.List;
 
 /**
  * A wrapper class containing all the necessary information to invoke the ScriptExecutor API. It
@@ -31,8 +34,10 @@ public class ScriptExecutionTask implements Comparable<ScriptExecutionTask> {
     private final int mPublisherType;
     private final long mTimestampMillis;
     private final DataSubscriber mSubscriber;
-    private final PersistableBundle mData;
-    private final boolean mIsLargeData;
+
+    private PersistableBundle mData = null;
+    private List<PersistableBundle> mBundleList = null;
+    private boolean mIsLargeData = false;
 
     ScriptExecutionTask(
             @NonNull DataSubscriber subscriber,
@@ -44,6 +49,17 @@ public class ScriptExecutionTask implements Comparable<ScriptExecutionTask> {
         mSubscriber = subscriber;
         mData = data;
         mIsLargeData = isLargeData;
+        mPublisherType = publisherType;
+    }
+
+    ScriptExecutionTask(
+            @NonNull DataSubscriber subscriber,
+            @NonNull List<PersistableBundle> bundleList,
+            long elapsedRealtimeMillis,
+            int publisherType) {
+        mTimestampMillis = elapsedRealtimeMillis;
+        mSubscriber = subscriber;
+        mBundleList = bundleList;
         mPublisherType = publisherType;
     }
 
@@ -74,9 +90,15 @@ public class ScriptExecutionTask implements Comparable<ScriptExecutionTask> {
     }
 
     /** Returns the data being sent to the subscriber. */
-    @NonNull
+    @Nullable
     public PersistableBundle getData() {
         return mData;
+    }
+
+    /** Returns the bundle list data being sent to subscriber. */
+    @Nullable
+    public List<PersistableBundle> getBundleList() {
+        return mBundleList;
     }
 
     /**
@@ -91,6 +113,18 @@ public class ScriptExecutionTask implements Comparable<ScriptExecutionTask> {
      */
     public boolean isLargeData() {
         return mIsLargeData;
+    }
+
+    /**
+     * Returns if the data is a list of bundles.
+     */
+    public boolean isBundleList() {
+        return mBundleList != null;
+    }
+
+    /** Determines if the task is eligible to bypass script executor. */
+    public boolean bypassScriptExecutor() {
+        return getHandlerName().isEmpty();
     }
 
     @Override

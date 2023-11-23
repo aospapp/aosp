@@ -107,7 +107,7 @@ static Octet16 cmac_aes_k_calculate(const Octet16& key) {
 
   DVLOG(2) << __func__;
 
-  uint8_t i = 1;
+  uint16_t i = 1;
   while (i <= cmac_cb.round) {
     /* Mi' := Mi (+) X  */
     xor_128((Octet16*)&cmac_cb.text[(cmac_cb.round - i) * OCTET16_LEN], x);

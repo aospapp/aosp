@@ -30,7 +30,7 @@ import androidx.lifecycle.Transformations;
 import androidx.lifecycle.ViewModel;
 import androidx.lifecycle.ViewModelProvider;
 
-import com.android.permissioncontroller.role.model.Role;
+import com.android.role.controller.model.Role;
 
 import java.util.List;
 

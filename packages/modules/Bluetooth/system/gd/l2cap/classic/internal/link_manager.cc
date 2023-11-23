@@ -105,7 +105,7 @@ void LinkManager::ConnectDynamicChannelServices(
 void LinkManager::InitiateConnectionForSecurity(hci::Address remote) {
   auto* link = GetLink(remote);
   if (link != nullptr) {
-    LOG_ERROR("Link already exists for %s", remote.ToString().c_str());
+    LOG_ERROR("Link already exists for %s", ADDRESS_TO_LOGGABLE_CSTR(remote));
   }
   acl_manager_->CreateConnection(remote);
 }
@@ -240,8 +240,10 @@ class LinkSecurityInterfaceImpl : public LinkSecurityInterface {
 void LinkManager::OnConnectSuccess(std::unique_ptr<hci::acl_manager::ClassicAclConnection> acl_connection) {
   // Same link should not be connected twice
   hci::Address device = acl_connection->GetAddress();
-  ASSERT_LOG(GetLink(device) == nullptr, "%s is connected twice without disconnection",
-             acl_connection->GetAddress().ToString().c_str());
+  ASSERT_LOG(
+      GetLink(device) == nullptr,
+      "%s is connected twice without disconnection",
+      ADDRESS_TO_LOGGABLE_CSTR(acl_connection->GetAddress()));
   links_.try_emplace(device, l2cap_handler_, std::move(acl_connection), parameter_provider_,
                      dynamic_channel_service_manager_, fixed_channel_service_manager_, this);
   auto* link = GetLink(device);
@@ -284,14 +286,18 @@ void LinkManager::OnConnectSuccess(std::unique_ptr<hci::acl_manager::ClassicAclC
   pending_links_.erase(device);
 }
 
-void LinkManager::OnConnectFail(hci::Address device, hci::ErrorCode reason) {
+void LinkManager::OnConnectRequest(hci::Address device, hci::ClassOfDevice cod) {
+  LOG_ERROR("Remote connect request unimplemented");
+}
+
+void LinkManager::OnConnectFail(hci::Address device, hci::ErrorCode reason, bool locally_initiated) {
   // Notify all pending links for this device
   auto pending_link = pending_links_.find(device);
   if (pending_link == pending_links_.end()) {
     // There is no pending link, exit
     LOG_INFO(
         "Connection to %s failed without a pending link; reason: %s",
-        device.ToString().c_str(),
+        ADDRESS_TO_LOGGABLE_CSTR(device),
         hci::ErrorCodeText(reason).c_str());
     if (pending_dynamic_channels_callbacks_.find(device) != pending_dynamic_channels_callbacks_.end()) {
       for (Link::PendingDynamicChannelConnection& callbacks : pending_dynamic_channels_callbacks_[device]) {
@@ -324,8 +330,11 @@ void LinkManager::HACK_OnScoConnectRequest(hci::Address device, hci::ClassOfDevi
 
 void LinkManager::OnDisconnect(hci::Address device, hci::ErrorCode status) {
   auto* link = GetLink(device);
-  ASSERT_LOG(link != nullptr, "Device %s is disconnected with reason 0x%x, but not in local database",
-             device.ToString().c_str(), static_cast<uint8_t>(status));
+  ASSERT_LOG(
+      link != nullptr,
+      "Device %s is disconnected with reason 0x%x, but not in local database",
+      ADDRESS_TO_LOGGABLE_CSTR(device),
+      static_cast<uint8_t>(status));
   if (link_security_interface_listener_handler_ != nullptr) {
     link_security_interface_listener_handler_->CallOn(
         link_security_interface_listener_, &LinkSecurityInterfaceListener::OnLinkDisconnected, device);

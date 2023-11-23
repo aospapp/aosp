@@ -24,14 +24,20 @@
 #include <android-base/stringprintf.h>
 #include <gtest/gtest.h>
 
-TEST(socket_spec, parse_tcp_socket_spec_failure) {
+// If the socket spec is incorrectly specified (i.e w/o a "tcp:" prefix),
+// check for the contents of the returned error string.
+TEST(socket_spec, parse_tcp_socket_spec_failure_error_check) {
     std::string hostname, error, serial;
     int port;
-    EXPECT_FALSE(parse_tcp_socket_spec("sneakernet:5037", &hostname, &port, &serial, &error));
+
+    // spec needs to be prefixed with "tcp:"
+    const std::string spec("sneakernet:5037");
+    EXPECT_FALSE(parse_tcp_socket_spec(spec, &hostname, &port, &serial, &error));
     EXPECT_TRUE(error.find("sneakernet") != std::string::npos);
+    EXPECT_EQ(error, "specification is not tcp: " + spec);
 }
 
-TEST(socket_spec, parse_tcp_socket_spec_just_port) {
+TEST(socket_spec, parse_tcp_socket_spec_just_port_success) {
     std::string hostname, error, serial;
     int port;
     EXPECT_TRUE(parse_tcp_socket_spec("tcp:5037", &hostname, &port, &serial, &error));
@@ -40,7 +46,7 @@ TEST(socket_spec, parse_tcp_socket_spec_just_port) {
     EXPECT_EQ("", serial);
 }
 
-TEST(socket_spec, parse_tcp_socket_spec_bad_ports) {
+TEST(socket_spec, parse_tcp_socket_spec_bad_ports_failure) {
     std::string hostname, error, serial;
     int port;
     EXPECT_FALSE(parse_tcp_socket_spec("tcp:", &hostname, &port, &serial, &error));
@@ -48,7 +54,7 @@ TEST(socket_spec, parse_tcp_socket_spec_bad_ports) {
     EXPECT_FALSE(parse_tcp_socket_spec("tcp:65536", &hostname, &port, &serial, &error));
 }
 
-TEST(socket_spec, parse_tcp_socket_spec_host_and_port) {
+TEST(socket_spec, parse_tcp_socket_spec_host_and_port_success) {
     std::string hostname, error, serial;
     int port;
     EXPECT_TRUE(parse_tcp_socket_spec("tcp:localhost:1234", &hostname, &port, &serial, &error));
@@ -57,7 +63,7 @@ TEST(socket_spec, parse_tcp_socket_spec_host_and_port) {
     EXPECT_EQ("localhost:1234", serial);
 }
 
-TEST(socket_spec, parse_tcp_socket_spec_host_no_port) {
+TEST(socket_spec, parse_tcp_socket_spec_host_no_port_success) {
     std::string hostname, error, serial;
     int port;
     EXPECT_TRUE(parse_tcp_socket_spec("tcp:localhost", &hostname, &port, &serial, &error));
@@ -66,7 +72,16 @@ TEST(socket_spec, parse_tcp_socket_spec_host_no_port) {
     EXPECT_EQ("localhost:5555", serial);
 }
 
-TEST(socket_spec, parse_tcp_socket_spec_host_bad_ports) {
+TEST(socket_spec, parse_tcp_socket_spec_host_ipv4_no_port_success) {
+    std::string hostname, error, serial;
+    int port;
+    EXPECT_TRUE(parse_tcp_socket_spec("tcp:127.0.0.1", &hostname, &port, &serial, &error));
+    EXPECT_EQ("127.0.0.1", hostname);
+    EXPECT_EQ(5555, port);
+    EXPECT_EQ("127.0.0.1:5555", serial);
+}
+
+TEST(socket_spec, parse_tcp_socket_spec_host_bad_ports_failure) {
     std::string hostname, error, serial;
     int port;
     EXPECT_FALSE(parse_tcp_socket_spec("tcp:localhost:", &hostname, &port, &serial, &error));
@@ -74,33 +89,85 @@ TEST(socket_spec, parse_tcp_socket_spec_host_bad_ports) {
     EXPECT_FALSE(parse_tcp_socket_spec("tcp:localhost:65536", &hostname, &port, &serial, &error));
 }
 
-TEST(socket_spec, parse_tcp_socket_spec_ipv6_and_port) {
+TEST(socket_spec, parse_tcp_socket_spec_host_ipv4_bad_ports_failure) {
+    std::string hostname, error, serial;
+    int port;
+    EXPECT_FALSE(parse_tcp_socket_spec("tcp:127.0.0.1:", &hostname, &port, &serial, &error));
+    EXPECT_FALSE(parse_tcp_socket_spec("tcp:127.0.0.1:-1", &hostname, &port, &serial, &error));
+    EXPECT_FALSE(parse_tcp_socket_spec("tcp:127.0.0.1:65536", &hostname, &port, &serial, &error));
+}
+
+TEST(socket_spec, parse_tcp_socket_spec_host_ipv6_bad_ports_failure) {
+    std::string hostname, error, serial;
+    int port;
+    EXPECT_FALSE(parse_tcp_socket_spec("tcp:2601:644:8e80:620:c63:50c9:8a91:8efa:", &hostname,
+                                       &port, &serial, &error));
+    EXPECT_FALSE(parse_tcp_socket_spec("tcp:2601:644:8e80:620:c63:50c9:8a91:8efa:-1", &hostname,
+                                       &port, &serial, &error));
+    EXPECT_FALSE(parse_tcp_socket_spec("tcp:2601:644:8e80:620:c63:50c9:8a91:8efa:65536", &hostname,
+                                       &port, &serial, &error));
+}
+
+TEST(socket_spec, parse_tcp_socket_spec_ipv6_and_port_success) {
     std::string hostname, error, serial;
     int port;
     EXPECT_TRUE(parse_tcp_socket_spec("tcp:[::1]:1234", &hostname, &port, &serial, &error));
     EXPECT_EQ("::1", hostname);
     EXPECT_EQ(1234, port);
     EXPECT_EQ("[::1]:1234", serial);
+
+    // Repeat with different format of ipv6
+    EXPECT_TRUE(parse_tcp_socket_spec("tcp:[2601:644:8e80:620::fbbc]:2345", &hostname, &port,
+                                      &serial, &error));
+    EXPECT_EQ("2601:644:8e80:620::fbbc", hostname);
+    EXPECT_EQ(2345, port);
+    EXPECT_EQ("[2601:644:8e80:620::fbbc]:2345", serial);
 }
 
-TEST(socket_spec, parse_tcp_socket_spec_ipv6_no_port) {
+TEST(socket_spec, parse_tcp_socket_spec_ipv6_no_port_success) {
     std::string hostname, error, serial;
     int port;
     EXPECT_TRUE(parse_tcp_socket_spec("tcp:::1", &hostname, &port, &serial, &error));
     EXPECT_EQ("::1", hostname);
     EXPECT_EQ(5555, port);
     EXPECT_EQ("[::1]:5555", serial);
+
+    // Repeat with other supported formats of ipv6.
+    EXPECT_TRUE(parse_tcp_socket_spec("tcp:2601:644:8e80:620::fbbc", &hostname, &port, &serial,
+                                      &error));
+    EXPECT_EQ("2601:644:8e80:620::fbbc", hostname);
+    EXPECT_EQ(5555, port);
+    EXPECT_EQ("[2601:644:8e80:620::fbbc]:5555", serial);
+
+    EXPECT_TRUE(parse_tcp_socket_spec("tcp:2601:644:8e80:620:c63:50c9:8a91:8efa", &hostname, &port,
+                                      &serial, &error));
+    EXPECT_EQ("2601:644:8e80:620:c63:50c9:8a91:8efa", hostname);
+    EXPECT_EQ(5555, port);
+    EXPECT_EQ("[2601:644:8e80:620:c63:50c9:8a91:8efa]:5555", serial);
+
+    EXPECT_TRUE(parse_tcp_socket_spec("tcp:2601:644:8e80:620:2d0e:b944:5288:97df", &hostname, &port,
+                                      &serial, &error));
+    EXPECT_EQ("2601:644:8e80:620:2d0e:b944:5288:97df", hostname);
+    EXPECT_EQ(5555, port);
+    EXPECT_EQ("[2601:644:8e80:620:2d0e:b944:5288:97df]:5555", serial);
 }
 
-TEST(socket_spec, parse_tcp_socket_spec_ipv6_bad_ports) {
+TEST(socket_spec, parse_tcp_socket_spec_ipv6_bad_ports_failure) {
     std::string hostname, error, serial;
     int port;
     EXPECT_FALSE(parse_tcp_socket_spec("tcp:[::1]", &hostname, &port, &serial, &error));
     EXPECT_FALSE(parse_tcp_socket_spec("tcp:[::1]:", &hostname, &port, &serial, &error));
     EXPECT_FALSE(parse_tcp_socket_spec("tcp:[::1]:-1", &hostname, &port, &serial, &error));
+
+    EXPECT_TRUE(parse_tcp_socket_spec("tcp:2601:644:8e80:620:2d0e:b944:5288:97df", &hostname, &port,
+                                      &serial, &error));
+    EXPECT_FALSE(parse_tcp_socket_spec("tcp:2601:644:8e80:620:2d0e:b944:5288:97df:", &hostname,
+                                       &port, &serial, &error));
+    EXPECT_FALSE(parse_tcp_socket_spec("tcp:2601:644:8e80:620:2d0e:b944:5288:97df:-1", &hostname,
+                                       &port, &serial, &error));
 }
 
-TEST(socket_spec, get_host_socket_spec_port) {
+TEST(socket_spec, get_host_socket_spec_port_success) {
     std::string error;
     EXPECT_EQ(5555, get_host_socket_spec_port("tcp:5555", &error));
     EXPECT_EQ(5555, get_host_socket_spec_port("tcp:localhost:5555", &error));

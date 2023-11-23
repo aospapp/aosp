@@ -19,22 +19,24 @@ package com.android.bluetooth.pbapclient;
 import android.os.Handler;
 import android.util.Log;
 
+import com.android.internal.annotations.VisibleForTesting;
 import com.android.obex.Authenticator;
 import com.android.obex.PasswordAuthentication;
+
+import java.util.Arrays;
 
 /* ObexAuthentication is a required component for PBAP in order to support backwards compatibility
  * with PSE devices prior to PBAP 1.2. With profiles prior to 1.2 the actual initiation of
  * authentication is implementation defined.
  */
-
-
 class BluetoothPbapObexAuthenticator implements Authenticator {
 
     private static final String TAG = "BtPbapObexAuthenticator";
     private static final boolean DBG = Utils.DBG;
 
     //Default session key for legacy devices is 0000
-    private String mSessionKey = "0000";
+    @VisibleForTesting
+    String mSessionKey = "0000";
 
     private final Handler mCallback;
 
@@ -63,9 +65,8 @@ class BluetoothPbapObexAuthenticator implements Authenticator {
 
     @Override
     public byte[] onAuthenticationResponse(byte[] userName) {
-        if (DBG) Log.v(TAG, "onAuthenticationResponse: " + userName);
+        if (DBG) Log.v(TAG, "onAuthenticationResponse: " + Arrays.toString(userName));
         /* required only in case PCE challenges PSE which we don't do now */
         return null;
     }
-
 }

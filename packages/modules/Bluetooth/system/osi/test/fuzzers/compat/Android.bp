@@ -15,8 +15,8 @@ cc_fuzz {
         "fuzz_compat.cc",
     ],
     shared_libs: [
-        "liblog",
         "libcutils",
+        "liblog",
     ],
     static_libs: [
         "libosi",

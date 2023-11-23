@@ -92,8 +92,8 @@
     <string name="save_error" msgid="8631128801982095782">"Yehlulekile ukulondoloza idokhumenti"</string>
     <string name="create_error" msgid="3092144450044861994">"Yehlulekile ukudala ifolda"</string>
     <string name="query_error" msgid="6625421453613879336">"Ayikwazanga ukulayisha okuqukethwe okwamanje"</string>
-    <string name="quiet_mode_error_title" msgid="9126656325282792843">"Iphrofayela yomsebenzi iphunyuziwe"</string>
-    <string name="quiet_mode_button" msgid="6977115032320235420">"Vula"</string>
+    <string name="quiet_mode_error_title" msgid="554319751414657910">"Ama-app omsebenzi amisiwe"</string>
+    <string name="quiet_mode_button" msgid="8051436551926677305">"Vula ama-app omsebenzi"</string>
     <string name="cant_select_work_files_error_title" msgid="6688716319549644354">"Ayikwazi ukukhetha amafayela omsebenzi"</string>
     <string name="cant_select_work_files_error_message" msgid="683480676150690641">"Umphathi wakho we-IT akakuvumeli ukuba ufinyelele amafayela omsebenzi avela kuhlelo lokusebenza lomuntu siqu"</string>
     <string name="cant_select_personal_files_error_title" msgid="3200697170148617742">"Ayikwazi ukukhetha amafayela akho siqu"</string>

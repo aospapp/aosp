@@ -23,16 +23,16 @@
     <string name="action_mute_long" msgid="6846675719189989477">"Mute conversation"</string>
     <string name="action_unmute_short" msgid="7157822835069715986">"Unmute"</string>
     <string name="action_unmute_long" msgid="22482625837159466">"Unmute conversation"</string>
-    <string name="action_canned_reply" msgid="4045960823021872834">"\'I\'m driving at the moment.\'"</string>
-    <string name="canned_reply_message" msgid="7959257272917598063">"I\'m driving at the moment."</string>
+    <string name="action_canned_reply" msgid="4045960823021872834">"\"I\'m driving right now.\""</string>
+    <string name="canned_reply_message" msgid="7959257272917598063">"I\'m driving right now."</string>
     <string name="toast_message_sent_success" msgid="1159956191974273064">"Message sent successfully."</string>
     <string name="notification_service_label" msgid="7512186049723777468">"Car Notification Listener Service"</string>
-    <string name="notifications" msgid="2865534625906329283">"Notification centre"</string>
+    <string name="notifications" msgid="2865534625906329283">"Notification center"</string>
     <string name="clear_all" msgid="1845314281571237722">"Clear all"</string>
     <string name="ellipsized_string" msgid="6993649229498857557">"…"</string>
     <string name="show_more" msgid="7291378544926443344">"Show more"</string>
     <string name="notification_header" msgid="324550431063568049">"Notifications"</string>
-    <string name="notification_recents" msgid="5855769440781958546">"Recent"</string>
+    <string name="notification_recents" msgid="5855769440781958546">"Recents"</string>
     <string name="notification_older" msgid="8162161020296499690">"Older notifications"</string>
     <string name="empty_notification_header" msgid="4928379791607839720">"No notifications"</string>
     <string name="collapse_group" msgid="4923097735600949715">"Collapse group"</string>
@@ -49,4 +49,11 @@
     <string name="see_more_message" msgid="6343183827924395955">"See more"</string>
     <string name="restricted_hun_message_content" msgid="631111937988857716">"New message"</string>
     <string name="manage_text" msgid="4225197445283791757">"Manage"</string>
+    <string name="category_navigation" msgid="4406139232918521087">"navigation"</string>
+    <string name="category_call" msgid="2249490790700877973">"call"</string>
+    <string name="category_message" msgid="451360226248504859">"msg"</string>
+    <string name="hun_suppression_channel_name" msgid="8298850157350352525">"Heads Up suppression"</string>
+    <string name="hun_suppression_notification_title_park" msgid="2790860076784227523">"Keep up with the latest"</string>
+    <string name="hun_suppression_notification_title_drive" msgid="4403363470548899844">"Focus on driving"</string>
+    <string name="hun_suppression_notification_description" msgid="5269238832987802104">"Some new notifications are saved in the Notification Center"</string>
 </resources>

@@ -17,17 +17,24 @@
 package com.android.car.telemetry.publisher;
 
 import android.annotation.NonNull;
+import android.app.ActivityManager;
 import android.car.builtin.os.TraceHelper;
+import android.car.builtin.util.Slogf;
 import android.car.builtin.util.TimingsTraceLog;
 import android.car.telemetry.TelemetryProto;
 import android.car.telemetry.TelemetryProto.Publisher.PublisherCase;
+import android.content.Context;
+import android.os.Debug;
 import android.os.Handler;
 import android.os.PersistableBundle;
+import android.provider.Settings;
 
 import com.android.car.CarLog;
+import com.android.car.telemetry.CarTelemetryService;
 import com.android.car.telemetry.ResultStore;
 import com.android.car.telemetry.databroker.DataSubscriber;
 import com.android.car.telemetry.sessioncontroller.SessionAnnotation;
+import com.android.car.telemetry.sessioncontroller.SessionController;
 import com.android.internal.annotations.VisibleForTesting;
 import com.android.internal.util.Preconditions;
 
@@ -35,7 +42,12 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 /**
  * Publisher implementation for {@link TelemetryProto.MemoryPublisher}.
@@ -47,25 +59,45 @@ import java.util.Arrays;
  *
  * <p>Failure to read from /proc/meminfo will cause a {@link TelemetryProto.TelemetryError} to be
  * returned to the client.
+ *
+ * <p>The published data format is:
+ * <code>
+ * - mem.timestamp_millis :              long
+ * - mem.meminfo :                       string (device meminfo)
+ * - package_name:uid:process_name : PersistableBundle (parsed from Debug.MemInfo, listed below)
+ *   - mem.summary.total-pss : int
+ *   - mem.summary.java-heap : int
+ *   - mem.summary.native-heap : int
+ *   - mem.summary.stack : int
+ *   - mem.summary.system : int
+ *   - mem.summary.code : int
+ *   - mem.summary.graphics : int
+ *   - mem.summary.private-other : int
+ *   - mem.summary.total-swap : int
+ *   - mem.total_shared_clean : int
+ *   - mem.total_shared_dirty : int
+ *   - mem.total_private_clean : int
+ *   - mem.total_private_dirty : int
+ *   - mem.total_swappable_pss : int
+ * </code>
  */
 public class MemoryPublisher extends AbstractPublisher {
 
     private static final int MILLIS_IN_SECOND = 1000;
+    private static final String ACTIVITY_MANAGER_CONSTANTS = "activity_manager_constants";
     @VisibleForTesting
     static final int THROTTLE_MILLIS = 60 * MILLIS_IN_SECOND;
     @VisibleForTesting
     static final String BUNDLE_KEY_NUM_SNAPSHOTS_UNTIL_FINISH = "num_snapshots_left";
     @VisibleForTesting
     static final String BUNDLE_KEY_COLLECT_INDEFINITELY = "collect_indefinitely";
-    @VisibleForTesting
-    static final String DATA_BUNDLE_KEY_MEMINFO = "meminfo";
-    @VisibleForTesting
-    static final String DATA_BUNDLE_KEY_TIMESTAMP = "timestamp";
 
-    private final Runnable mReadMeminfoRunnable = this::readMemInfo;
+    private final ActivityManager mActivityManager;
+    private final Context mContext;
     private final Handler mTelemetryHandler;
     private final Path mMeminfoPath;
     private final ResultStore mResultStore;
+    private final Runnable mReadMeminfoRunnable = this::readMemInfo;
     private final TimingsTraceLog mTraceLog;
 
     private MemorySubscriberWrapper mSubscriber;
@@ -73,26 +105,35 @@ public class MemoryPublisher extends AbstractPublisher {
     private SessionAnnotation mSessionAnnotation;
 
     MemoryPublisher(
+            @NonNull Context context,
             @NonNull PublisherListener listener,
             @NonNull Handler telemetryHandler,
-            @NonNull ResultStore resultStore) {
-        this(listener, telemetryHandler, resultStore, Paths.get("/proc/meminfo"));
+            @NonNull ResultStore resultStore,
+            @NonNull SessionController sessionController) {
+        this(context, listener, telemetryHandler, resultStore, sessionController,
+                Paths.get("/proc/meminfo"));
     }
 
     @VisibleForTesting
     MemoryPublisher(
+            @NonNull Context context,
             @NonNull PublisherListener listener,
             @NonNull Handler telemetryHandler,
             @NonNull ResultStore resultStore,
+            @NonNull SessionController sessionController,
             @NonNull Path meminfoPath) {
         super(listener);
+        mContext = context;
         mTelemetryHandler = telemetryHandler;
         mResultStore = resultStore;
         mMeminfoPath = meminfoPath;
+        mActivityManager = mContext.getSystemService(ActivityManager.class);
         mPublisherState = mResultStore.getPublisherData(
                 MemoryPublisher.class.getSimpleName(), false);
         mTraceLog = new TimingsTraceLog(
                 CarLog.TAG_TELEMETRY, TraceHelper.TRACE_TAG_CAR_SERVICE);
+        // Subscribes the publisher to driving session updates by SessionController.
+        sessionController.registerCallback(this::handleSessionStateChange);
     }
 
     @Override
@@ -170,10 +211,10 @@ public class MemoryPublisher extends AbstractPublisher {
             resetPublisher();
             return;
         }
-        mTraceLog.traceBegin("Reading /proc/meminfo and publishing");
+        mTraceLog.traceBegin("Reading meminfo and publishing");
         // Read timestamp and meminfo and create published data
         PersistableBundle data = new PersistableBundle();
-        data.putLong(DATA_BUNDLE_KEY_TIMESTAMP, System.currentTimeMillis());
+        data.putLong(Constants.MEMORY_BUNDLE_KEY_TIMESTAMP, System.currentTimeMillis());
         String meminfo;
         try {
             meminfo = new String(Files.readAllBytes(mMeminfoPath));
@@ -184,7 +225,12 @@ public class MemoryPublisher extends AbstractPublisher {
             mTraceLog.traceEnd();
             return;
         }
-        data.putString(DATA_BUNDLE_KEY_MEMINFO, meminfo);
+        data.putString(Constants.MEMORY_BUNDLE_KEY_MEMINFO, meminfo);
+
+        if (!mSubscriber.mPackageNames.isEmpty()) {
+            readProcessMeminfo(data);
+        }
+
         // add sessions info to published data if available
         if (mSessionAnnotation != null) {
             mSessionAnnotation.addAnnotationsToBundle(data);
@@ -207,10 +253,88 @@ public class MemoryPublisher extends AbstractPublisher {
         // if there are too many pending tasks from this publisher, throttle this publisher
         // by reducing the publishing frequency
         int delayMillis = numPendingTasks < mSubscriber.mMaxPendingTasks
-                ? mSubscriber.mPublisherProto.getMemory().getReadIntervalSec() * MILLIS_IN_SECOND
+                ? mSubscriber.mPublisherProto.getReadIntervalSec() * MILLIS_IN_SECOND
                 : THROTTLE_MILLIS;
         // schedule the next Runnable to read meminfo
         mTelemetryHandler.postDelayed(mReadMeminfoRunnable, delayMillis);
+        mTraceLog.traceEnd();
+    }
+
+    /**
+     * Helper method to get process meminfo statistics from the declared packages in
+     * {@code mSubscriber}. Each process meminfo is a PersistableBundle and it will be put into the
+     * parameter {@code data};
+     */
+    private void readProcessMeminfo(PersistableBundle data) {
+        mTraceLog.traceBegin("reading process meminfo");
+        // update the throttle time for ActivityManager#getProcessMemoryInfo API call
+        String restore = Settings.Global.getString(
+                mContext.getContentResolver(), ACTIVITY_MANAGER_CONSTANTS);
+        Settings.Global.putString(
+                mContext.getContentResolver(),
+                ACTIVITY_MANAGER_CONSTANTS,
+                "memory_info_throttle_time=1");
+        // find PIDs from package names because the API accept an array of PIDs
+        List<ActivityManager.RunningAppProcessInfo> runningAppProcesses =
+                mActivityManager.getRunningAppProcesses();
+        // the 2 lists run in parallel, where pidList.get(i) is the pid of the pkgList.get(i)
+        List<Integer> pidList = new ArrayList<>();
+        List<String> bundleKeys = new ArrayList<>();
+        // find PIDs from package names specified by the MetricsConfig
+        for (ActivityManager.RunningAppProcessInfo process : runningAppProcesses) {
+            // Default apps use package name as process name, some apps will have the format
+            // package_name:process_name, so we extract package name and process name with split
+            String[] split = process.processName.split(":");
+            if (mSubscriber.mPackageNames.contains(split[0])) {
+                if (CarTelemetryService.DEBUG) {
+                    Slogf.d(CarLog.TAG_TELEMETRY,
+                            "MemoryPublisher found matching process " + process.processName);
+                }
+                pidList.add(process.pid);
+                bundleKeys.add(split[0] + ":" + process.uid + ":" + split[split.length - 1]);
+            }
+        }
+
+        // return early if no matching process found
+        if (pidList.size() == 0) {
+            return;
+        }
+
+        // convert ArrayList<Integer> into int[]
+        int[] pids = new int[pidList.size()];
+        for (int i = 0; i < pids.length; i++) {
+            pids[i] = pidList.get(i);
+        }
+        // get process meminfo and parse it into a PersistableBundle
+        Debug.MemoryInfo[] mis = mActivityManager.getProcessMemoryInfo(pids);
+        for (int i = 0; i < mis.length; i++) {
+            Debug.MemoryInfo mi = mis[i];
+            PersistableBundle processMeminfoBundle = new PersistableBundle();
+            processMeminfoBundle.putInt(
+                    Constants.MEMORY_BUNDLE_KEY_TOTAL_SWAPPABLE_PSS,
+                    Integer.valueOf(mi.getTotalSwappablePss()));
+            processMeminfoBundle.putInt(
+                    Constants.MEMORY_BUNDLE_KEY_TOTAL_PRIVATE_DIRTY,
+                    Integer.valueOf(mi.getTotalPrivateDirty()));
+            processMeminfoBundle.putInt(
+                    Constants.MEMORY_BUNDLE_KEY_TOTAL_SHARED_DIRTY,
+                    Integer.valueOf(mi.getTotalSharedDirty()));
+            processMeminfoBundle.putInt(
+                    Constants.MEMORY_BUNDLE_KEY_TOTAL_PRIVATE_CLEAN,
+                    Integer.valueOf(mi.getTotalPrivateClean()));
+            processMeminfoBundle.putInt(
+                    Constants.MEMORY_BUNDLE_KEY_TOTAL_SHARED_CLEAN,
+                    Integer.valueOf(mi.getTotalSharedClean()));
+            Map<String, String> map = mi.getMemoryStats();
+            for (Map.Entry<String, String> entry : map.entrySet()) {
+                processMeminfoBundle.putInt(Constants.MEMORY_BUNDLE_KEY_PREFIX + entry.getKey(),
+                        Integer.valueOf(entry.getValue()));
+            }
+            data.putPersistableBundle(bundleKeys.get(i), processMeminfoBundle);
+        }
+        // restore the settings constant to the original state
+        Settings.Global.putString(mContext.getContentResolver(),
+                ACTIVITY_MANAGER_CONSTANTS, restore);
         mTraceLog.traceEnd();
     }
 
@@ -221,18 +345,20 @@ public class MemoryPublisher extends AbstractPublisher {
          * This flag should be set to true when the max_snapshots field is unspecified in
          * {@link TelemetryProto.Publisher}.
          */
-        private boolean mCollectIndefinitely;
+        private final boolean mCollectIndefinitely;
+        /**
+         * Maximum number of memory-related pending tasks before throttling this publisher
+         */
+        private final int mMaxPendingTasks;
+        private final DataSubscriber mDataSubscriber;
+        private final TelemetryProto.MetricsConfig mMetricsConfig;
+        private final TelemetryProto.MemoryPublisher mPublisherProto;
+        private final Set<String> mPackageNames = new HashSet<>();
+
         /**
          * Number of snapshots until the publisher stops collecting data.
          */
         private int mNumSnapshotsLeft;
-        /**
-         * Maximum number of memory-related pending tasks before throttling this publisher
-         */
-        private int mMaxPendingTasks;
-        private DataSubscriber mDataSubscriber;
-        private TelemetryProto.MetricsConfig mMetricsConfig;
-        private TelemetryProto.Publisher mPublisherProto;
 
         private MemorySubscriberWrapper(
                 DataSubscriber dataSubscriber, int numSnapshotsLeft, boolean collectIndefinitely) {
@@ -240,8 +366,9 @@ public class MemoryPublisher extends AbstractPublisher {
             mNumSnapshotsLeft = numSnapshotsLeft;
             mCollectIndefinitely = collectIndefinitely;
             mMetricsConfig = dataSubscriber.getMetricsConfig();
-            mPublisherProto = dataSubscriber.getPublisherParam();
-            mMaxPendingTasks = mPublisherProto.getMemory().getMaxPendingTasks();
+            mPublisherProto = dataSubscriber.getPublisherParam().getMemory();
+            mMaxPendingTasks = mPublisherProto.getMaxPendingTasks();
+            mPackageNames.addAll(mPublisherProto.getPackageNamesList());
         }
 
         /** Publishes data and returns the number of pending tasks by this publisher. */
@@ -249,7 +376,10 @@ public class MemoryPublisher extends AbstractPublisher {
             if (mNumSnapshotsLeft > 0) {
                 mNumSnapshotsLeft--;
             }
-            return mDataSubscriber.push(data);
+            boolean isLargeData =
+                    data.toString().length() >= DataSubscriber.SCRIPT_INPUT_SIZE_THRESHOLD_BYTES
+                            ? true : false;
+            return mDataSubscriber.push(data, isLargeData);
         }
 
         private boolean isDone() {

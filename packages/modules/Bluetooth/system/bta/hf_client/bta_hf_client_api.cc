@@ -28,6 +28,10 @@
 
 #include <cstdint>
 
+#ifdef __ANDROID__
+#include <hfp.sysprop.h>
+#endif
+
 #include "bt_trace.h"  // Legacy trace logging
 #include "bta/hf_client/bta_hf_client_int.h"
 #include "bta/sys/bta_sys.h"
@@ -80,17 +84,17 @@ void BTA_HfClientDisable(void) { bta_hf_client_api_disable(); }
  * Description      Opens up a RF connection to the remote device and
  *                  subsequently set it up for a HF SLC
  *
- * Returns          void
+ * Returns          bt_status_t
  *
  ******************************************************************************/
-void BTA_HfClientOpen(const RawAddress& bd_addr, uint16_t* p_handle) {
+bt_status_t BTA_HfClientOpen(const RawAddress& bd_addr, uint16_t* p_handle) {
   APPL_TRACE_DEBUG("%s", __func__);
   tBTA_HF_CLIENT_API_OPEN* p_buf =
       (tBTA_HF_CLIENT_API_OPEN*)osi_malloc(sizeof(tBTA_HF_CLIENT_API_OPEN));
 
   if (!bta_hf_client_allocate_handle(bd_addr, p_handle)) {
     APPL_TRACE_ERROR("%s: could not allocate handle", __func__);
-    return;
+    return BT_STATUS_FAIL;
   }
 
   p_buf->hdr.event = BTA_HF_CLIENT_API_OPEN_EVT;
@@ -98,6 +102,7 @@ void BTA_HfClientOpen(const RawAddress& bd_addr, uint16_t* p_handle) {
   p_buf->bd_addr = bd_addr;
 
   bta_sys_sendmsg(p_buf);
+  return BT_STATUS_SUCCESS;
 }
 
 /*******************************************************************************
@@ -203,3 +208,29 @@ void BTA_HfClientSendAT(uint16_t handle, tBTA_HF_CLIENT_AT_CMD_TYPE at,
  *
  ******************************************************************************/
 void BTA_HfClientDumpStatistics(int fd) { bta_hf_client_dump_statistics(fd); }
+
+/*******************************************************************************
+ *
+ * function         get_default_hf_client_features
+ *
+ * description      return the hf_client features.
+ *                  value can be override via system property
+ *
+ * returns          int
+ *
+ ******************************************************************************/
+int get_default_hf_client_features() {
+#define DEFAULT_BTIF_HF_CLIENT_FEATURES                                        \
+  (BTA_HF_CLIENT_FEAT_ECNR | BTA_HF_CLIENT_FEAT_3WAY |                         \
+   BTA_HF_CLIENT_FEAT_CLI | BTA_HF_CLIENT_FEAT_VREC | BTA_HF_CLIENT_FEAT_VOL | \
+   BTA_HF_CLIENT_FEAT_ECS | BTA_HF_CLIENT_FEAT_ECC | BTA_HF_CLIENT_FEAT_CODEC)
+
+#ifdef __ANDROID__
+  static const int features =
+      android::sysprop::bluetooth::Hfp::hf_client_features().value_or(
+          DEFAULT_BTIF_HF_CLIENT_FEATURES);
+  return features;
+#else
+  return DEFAULT_BTIF_HF_CLIENT_FEATURES;
+#endif
+}

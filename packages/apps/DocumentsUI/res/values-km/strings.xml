@@ -92,8 +92,8 @@
     <string name="save_error" msgid="8631128801982095782">"បានបរាជ័យក្នុងការរក្សាទុកឯកសារ"</string>
     <string name="create_error" msgid="3092144450044861994">"បាន​បរាជ័យ​ក្នុង​ការ​បង្កើត​ថត"</string>
     <string name="query_error" msgid="6625421453613879336">"មិនអាចដំណើរការមាតិកាបានទេនៅពេលនេះ"</string>
-    <string name="quiet_mode_error_title" msgid="9126656325282792843">"កម្រងព័ត៌មាន​ការងារ​ត្រូវបាន​ផ្អាក"</string>
-    <string name="quiet_mode_button" msgid="6977115032320235420">"បើក"</string>
+    <string name="quiet_mode_error_title" msgid="554319751414657910">"កម្មវិធី​ការងារ​ត្រូវបានផ្អាក"</string>
+    <string name="quiet_mode_button" msgid="8051436551926677305">"បើក​កម្មវិធី​ការងារ"</string>
     <string name="cant_select_work_files_error_title" msgid="6688716319549644354">"មិនអាច​ជ្រើសរើស​ឯកសារ​ការងារ​បានទេ"</string>
     <string name="cant_select_work_files_error_message" msgid="683480676150690641">"អ្នកគ្រប់គ្រង​ផ្នែក​ព័ត៌មានវិទ្យា​របស់អ្នក​មិនអនុញ្ញាត​ឱ្យអ្នក​ចូលប្រើ​ឯកសារ​ការងារ​ពីកម្មវិធី​ផ្ទាល់ខ្លួនទេ"</string>
     <string name="cant_select_personal_files_error_title" msgid="3200697170148617742">"មិនអាច​ជ្រើសរើស​ឯកសារ​ផ្ទាល់ខ្លួន​បានទេ"</string>

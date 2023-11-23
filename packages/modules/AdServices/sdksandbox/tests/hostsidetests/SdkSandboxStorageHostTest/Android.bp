@@ -18,13 +18,18 @@ package {
 
 java_test_host {
     name: "SdkSandboxStorageHostTest",
-    srcs: ["src/**/SdkSandboxStorageHostTest.java"],
+    srcs: [
+        "src/**/SdkSandboxStorageHostTest.java",
+        ":CtsHostsideTestsAppSecurityUtil",
+    ],
     test_config: "SdkSandboxStorageHostTest.xml",
     libs: [
         "tradefed",
     ],
     static_libs: [
+        "modules-utils-build-testing",
         "cts-install-lib-host",
+        "SdkSandboxHostTestUtils",
     ],
     test_suites: ["general-tests"],
     data: [
@@ -42,13 +47,18 @@ java_defaults {
         ":sdksandbox_aidl",
         ":sdksandbox-sources",
     ],
+    defaults: ["framework-sdksandbox-jarjar-defaults"],
     static_libs: [
         "androidx.core_core",
+        "androidx.test.ext.junit",
+        "androidx.test.uiautomator_uiautomator",
         "compatibility-device-util-axt",
         "SdkSandboxTestUtils",
+        "StorageTestSdk1Api",
     ],
+    min_sdk_version: "Tiramisu",
+    target_sdk_version: "Tiramisu",
     test_suites: ["general-tests"],
-    platform_apis: true,
 }
 
 android_test_helper_app {
@@ -69,7 +79,19 @@ android_test_helper_app {
     defaults: ["platform_app_defaults"],
     srcs: [
        "codeprovider/src/**/*.java",
-       ":framework-sdksandbox-sources",
     ],
-    platform_apis: true,
+    static_libs: [
+        "compatibility-device-util-axt",
+        "StorageTestSdk1Api",
+    ],
+    certificate: ":sdksandbox-test",
+    min_sdk_version: "33",
+    target_sdk_version: "33",
+}
+
+java_library {
+    name: "StorageTestSdk1Api",
+    srcs: [
+        "codeprovider/src/**/*.aidl",
+    ],
 }

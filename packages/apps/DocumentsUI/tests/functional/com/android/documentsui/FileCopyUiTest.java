@@ -16,6 +16,8 @@
 
 package com.android.documentsui;
 
+import static android.content.Context.RECEIVER_EXPORTED;
+
 import static com.android.documentsui.base.Providers.AUTHORITY_STORAGE;
 import static com.android.documentsui.base.Providers.ROOT_ID_DEVICE;
 
@@ -42,6 +44,7 @@ import com.android.documentsui.base.RootInfo;
 import com.android.documentsui.files.FilesActivity;
 import com.android.documentsui.filters.HugeLongTest;
 import com.android.documentsui.services.TestNotificationService;
+import com.android.modules.utils.build.SdkLevel;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -132,7 +135,10 @@ public class FileCopyUiTest extends ActivityTest<FilesActivity> {
         mPreTestStayAwakeValue = Settings.Global.getInt(context.getContentResolver(),
                 Settings.Global.STAY_ON_WHILE_PLUGGED_IN);
         device.executeShellCommand("settings put global stay_on_while_plugged_in 3");
-        MediaStore.waitForIdle(context.getContentResolver());
+
+        if (SdkLevel.isAtLeastR()) {
+            MediaStore.waitForIdle(context.getContentResolver());
+        }
 
         mDeviceLabel = Settings.Global.getString(context.getContentResolver(),
                 Settings.Global.DEVICE_NAME);
@@ -166,7 +172,7 @@ public class FileCopyUiTest extends ActivityTest<FilesActivity> {
 
         IntentFilter filter = new IntentFilter();
         filter.addAction(TestNotificationService.ACTION_OPERATION_RESULT);
-        context.registerReceiver(mReceiver, filter);
+        context.registerReceiver(mReceiver, filter, RECEIVER_EXPORTED);
         context.sendBroadcast(new Intent(
                 TestNotificationService.ACTION_CHANGE_EXECUTION_MODE));
     }

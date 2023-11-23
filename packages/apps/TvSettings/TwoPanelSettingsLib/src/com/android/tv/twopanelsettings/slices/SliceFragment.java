@@ -86,7 +86,6 @@ import java.util.Map;
 public class SliceFragment extends SettingsPreferenceFragment implements Observer<Slice>,
         SliceFragmentCallback {
     private static final int SLICE_REQUEST_CODE = 10000;
-    private static final int A11Y_FOCUS_REQUEST_DELAY = 1000;
     private static final String TAG = "SliceFragment";
     private static final String KEY_PREFERENCE_FOLLOWUP_INTENT = "key_preference_followup_intent";
     private static final String KEY_PREFERENCE_FOLLOWUP_RESULT_CODE =
@@ -334,33 +333,7 @@ public class SliceFragment extends SettingsPreferenceFragment implements Observe
             ((TwoPanelSettingsFragment) getParentFragment()).refocusPreference(this);
         }
         mIsMainPanelReady = true;
-
-        resetA11yFocusIfNeeded();
     }
-
-    // Because the SliceProvider may call for updates an uncertain amount of times, we
-    // should have the current focus request a11yFocus after the update, since it will
-    // be lost otherwise. The delay is to give the screen reader enough time to
-    // process the update.
-    private void resetA11yFocusIfNeeded() {
-        if (isA11yOn()) {
-            mHandler.postDelayed(() -> {
-                if (isResumed() && getListView() != null && getListView().findFocus() != null) {
-                    getListView().findFocus().requestAccessibilityFocus();
-                }
-            }, A11Y_FOCUS_REQUEST_DELAY);
-        }
-    }
-
-    private boolean isA11yOn() {
-        if (getActivity() == null) {
-            return false;
-        }
-        return Settings.Secure.getInt(
-                getActivity().getContentResolver(),
-                Settings.Secure.ACCESSIBILITY_ENABLED, 0) == 1;
-    }
-
 
     private void back() {
         if (getCallbackFragment() instanceof TwoPanelSettingsFragment) {
@@ -491,9 +464,9 @@ public class SliceFragment extends SettingsPreferenceFragment implements Observe
         for (int i = 0; i < screen.getPreferenceCount(); i++) {
             Preference screenPref = screen.getPreference(i);
             if (screenPref instanceof TwoStatePreference
-                    && twoStatePreferenceIsCheckedByOrder.get(i) != null) {
+                    && twoStatePreferenceIsCheckedByOrder.get(screenPref.getOrder()) != null) {
                 ((TwoStatePreference) screenPref)
-                        .setChecked(twoStatePreferenceIsCheckedByOrder.get(i));
+                        .setChecked(twoStatePreferenceIsCheckedByOrder.get(screenPref.getOrder()));
             }
         }
         removeAnimationClipping(getView());

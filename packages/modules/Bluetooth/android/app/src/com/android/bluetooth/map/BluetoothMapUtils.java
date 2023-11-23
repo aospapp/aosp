@@ -22,8 +22,13 @@ import com.android.bluetooth.mapapi.BluetoothMapContract;
 
 import java.io.ByteArrayOutputStream;
 import java.io.UnsupportedEncodingException;
+import java.nio.ByteBuffer;
+import java.nio.CharBuffer;
 import java.nio.charset.Charset;
+import java.nio.charset.CharsetDecoder;
+import java.nio.charset.CodingErrorAction;
 import java.nio.charset.IllegalCharsetNameException;
+import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
 import java.util.Arrays;
 import java.util.BitSet;
@@ -447,6 +452,32 @@ public class BluetoothMapUtils {
         return utf8Bytes;
     }
 
+    /**
+     * Truncate UTF-8 string encoded to desired length
+     * @param utf8InString String to truncate
+     * @param maxBytesLength Max length in bytes of the returned string
+     * @return A valid truncated utf-8 string
+     * @throws UnsupportedEncodingException
+     */
+    public static String truncateUtf8StringToString(String utf8InString, int maxBytesLength)
+            throws UnsupportedEncodingException {
+        Charset charset = StandardCharsets.UTF_8;
+        final byte[] utf8InBytes = utf8InString.getBytes(charset);
+        if (utf8InBytes.length <= maxBytesLength) {
+            return utf8InString;
+        }
+        // Create a buffer that wildly truncate at desired lengtht.
+        // It may contain invalid utf-8 char.
+        ByteBuffer truncatedString = ByteBuffer.wrap(utf8InBytes, 0, maxBytesLength);
+        CharBuffer validUtf8Buffer = CharBuffer.allocate(maxBytesLength);
+        // Decode From the truncatedString into a valid Utf8 CharBuffer while ignoring(discarding)
+        // any invalid utf-8
+        CharsetDecoder decoder = charset.newDecoder().onMalformedInput(CodingErrorAction.IGNORE);
+        decoder.decode(truncatedString, validUtf8Buffer, true);
+        decoder.flush(validUtf8Buffer);
+        return new String(validUtf8Buffer.array(), 0, validUtf8Buffer.position());
+    }
+
     private static final Pattern PATTERN = Pattern.compile("=\\?(.+?)\\?(.)\\?(.+?(?=\\?=))\\?=");
 
     /**
@@ -675,6 +706,21 @@ public class BluetoothMapUtils {
         if (V) Log.v(TAG, "getDateTimeString  timestamp :" + timestamp + " time:"
                 + format.format(cal.getTime()));
         return format.format(cal.getTime());
+    }
+
+    static boolean isDateTimeOlderThanOneYear(long timestamp) {
+        Calendar cal = Calendar.getInstance();
+        cal.setTimeInMillis(timestamp);
+        Calendar oneYearAgo = Calendar.getInstance();
+        oneYearAgo.add(Calendar.YEAR, -1);
+        if (cal.before(oneYearAgo)) {
+            if (V) {
+                Log.v(TAG, "isDateTimeOlderThanOneYear " + cal.getTimeInMillis()
+                        + " oneYearAgo: " + oneYearAgo.getTimeInMillis());
+            }
+            return true;
+        }
+        return false;
     }
 
     static void savePeerSupportUtcTimeStamp(int remoteFeatureMask) {

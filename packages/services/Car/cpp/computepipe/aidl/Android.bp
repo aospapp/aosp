@@ -10,12 +10,13 @@ aidl_interface {
         "android/automotive/computepipe/*.aidl",
     ],
     imports: [
-        "android.hardware.graphics.common-V3",
+        "android.hardware.graphics.common-V4",
     ],
     stability: "vintf",
     // Automotive has different platform schedule. We shouldn't need to
     // freeze Auto interfaces when the mainline Android launches.
     owner: "automotive",
+    frozen: false,
     backend: {
         java: {
             enabled: false,
@@ -24,13 +25,18 @@ aidl_interface {
             enabled: false,
         },
     },
-    versions: ["1"],
+    versions_with_info: [
+        {
+            version: "1",
+            imports: ["android.hardware.graphics.common-V1"],
+        }
+    ],
 }
 
 aidl_interface {
     name: "android.automotive.computepipe.registry",
     vendor_available: true,
-    imports: ["android.automotive.computepipe.runner"],
+    imports: ["android.automotive.computepipe.runner-V2"],
     srcs: [
         "android/automotive/computepipe/registry/*.aidl",
         "android/automotive/computepipe/*.aidl",
@@ -39,6 +45,7 @@ aidl_interface {
     // Automotive has different platform schedule. We shouldn't need to
     // freeze Auto interfaces when the mainline Android launches.
     owner: "automotive",
+    frozen: false,
     backend: {
         java: {
             enabled: false,
@@ -47,5 +54,10 @@ aidl_interface {
             enabled: false,
         },
     },
-    versions: ["1"],
+    versions_with_info: [
+        {
+            version: "1",
+            imports: ["android.automotive.computepipe.runner-V1"],
+        }
+    ],
 }

@@ -15,9 +15,8 @@
  */
 package com.android.server.uwb.secure.csml;
 
-import static com.android.server.uwb.secure.csml.FiRaResponse.PROPRIETARY_RESPONSE_TAG;
-
 import android.annotation.IntDef;
+import android.util.Log;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -41,6 +40,7 @@ import java.util.Optional;
  * Response of Dispatch APDU, See CSML 1.0 - 8.2.2.14.2.9
  */
 public class DispatchResponse extends FiRaResponse {
+    private static final String LOG_TAG = "DispatchResponse";
     @VisibleForTesting
     static final Tag STATUS_TAG = new Tag((byte) 0x80);
     @VisibleForTesting
@@ -55,27 +55,28 @@ public class DispatchResponse extends FiRaResponse {
     static final Tag NOTIFICATION_DATA_TAG = new Tag((byte) 0x82);
 
     @IntDef(prefix = { "TRANSACTION_STATUS_" }, value = {
-            TRANSACTION_STATUS_NO_ERROR,
+            TRANSACTION_STATUS_UNDEFINED,
+            TRANSACTION_STATUS_COMPLETE,
             TRANSACTION_STATUS_FORWARD_TO_REMOTE,
-            TRANSACTION_STATUS_FORWARD_TO_HOST_APP,
+            TRANSACTION_STATUS_FORWARD_TO_HOST,
             TRANSACTION_STATUS_WITH_ERROR,
-            TRANSACTION_STATUS_NO_OP,
     })
     @Retention(RetentionPolicy.SOURCE)
-    private @interface TransctionStatus {}
+    private @interface TransactionStatus {}
 
-    private static final int TRANSACTION_STATUS_NO_ERROR = 0;
+    private static final int TRANSACTION_STATUS_UNDEFINED = -1;
+    private static final int TRANSACTION_STATUS_COMPLETE = 0;
     private static final int TRANSACTION_STATUS_FORWARD_TO_REMOTE = 1;
-    private static final int TRANSACTION_STATUS_FORWARD_TO_HOST_APP = 2;
+    private static final int TRANSACTION_STATUS_FORWARD_TO_HOST = 2;
     private static final int TRANSACTION_STATUS_WITH_ERROR = 3;
-    private static final int TRANSACTION_STATUS_NO_OP = 4;
+
 
     @IntDef(prefix = { "NOTIFICATION_EVENT_ID_" }, value = {
             NOTIFICATION_EVENT_ID_ADF_SELECTED,
             NOTIFICATION_EVENT_ID_SECURE_CHANNEL_ESTABLISHED,
             NOTIFICATION_EVENT_ID_RDS_AVAILABLE,
             NOTIFICATION_EVENT_ID_SECURE_SESSION_ABORTED,
-            NOTIFICATION_EVENT_ID_SEURE_SESSION_AUTO_TERMINATED,
+            NOTIFICATION_EVENT_ID_CONTROLEE_INFO_AVAILABLE,
     })
     @Retention(RetentionPolicy.SOURCE)
     public @interface NotificationEventId {}
@@ -84,7 +85,7 @@ public class DispatchResponse extends FiRaResponse {
     public static final int NOTIFICATION_EVENT_ID_SECURE_CHANNEL_ESTABLISHED = 1;
     public static final int NOTIFICATION_EVENT_ID_RDS_AVAILABLE = 2;
     public static final int NOTIFICATION_EVENT_ID_SECURE_SESSION_ABORTED = 3;
-    public static final int NOTIFICATION_EVENT_ID_SEURE_SESSION_AUTO_TERMINATED = 4;
+    public static final int NOTIFICATION_EVENT_ID_CONTROLEE_INFO_AVAILABLE = 4;
 
     /**
      * The base class of notification from the FiRa applet.
@@ -116,8 +117,12 @@ public class DispatchResponse extends FiRaResponse {
      * The notification of the secure channel established.
      */
     public static class SecureChannelEstablishedNotification extends Notification {
-        private SecureChannelEstablishedNotification() {
+        public final Optional<Integer> defaultSessionId;
+
+        private SecureChannelEstablishedNotification(Optional<Integer> defaultSessionId) {
             super(NOTIFICATION_EVENT_ID_SECURE_CHANNEL_ESTABLISHED);
+
+            this.defaultSessionId = defaultSessionId;
         }
     }
 
@@ -127,15 +132,6 @@ public class DispatchResponse extends FiRaResponse {
     public static class SecureSessionAbortedNotification extends Notification {
         private SecureSessionAbortedNotification() {
             super(NOTIFICATION_EVENT_ID_SECURE_SESSION_ABORTED);
-        }
-    }
-
-    /**
-     * The notification of the secure session terminated automatically.
-     */
-    public static class SecureSessionAutoTerminatedNotification extends Notification {
-        private SecureSessionAutoTerminatedNotification() {
-            super(NOTIFICATION_EVENT_ID_SEURE_SESSION_AUTO_TERMINATED);
         }
     }
 
@@ -160,11 +156,23 @@ public class DispatchResponse extends FiRaResponse {
         }
     }
 
-    @TransctionStatus
-    private int mTransactionStatus = TRANSACTION_STATUS_NO_OP;
+    /**
+     * The notification of the controlee info available.
+     */
+    public static class ControleeInfoAvailableNotification extends Notification {
+        public final byte[] arbitraryData;
+
+        private ControleeInfoAvailableNotification(@NonNull byte[] arbitraryData) {
+            super(NOTIFICATION_EVENT_ID_CONTROLEE_INFO_AVAILABLE);
+            this.arbitraryData = arbitraryData;
+        }
+    }
+
+    @TransactionStatus
+    private int mTransactionStatus = TRANSACTION_STATUS_UNDEFINED;
 
     /**
-     * The data should be sent to the peer device or host app.
+     * The data should be sent to the peer device or host.
      */
     @NonNull
     private Optional<OutboundData> mOutboundData = Optional.empty();
@@ -187,7 +195,8 @@ public class DispatchResponse extends FiRaResponse {
         }
         Map<Tag, List<TlvDatum>> proprietaryTlvsMap = TlvParser.parseTlvs(responseApdu);
         List<TlvDatum> proprietaryTlv = proprietaryTlvsMap.get(PROPRIETARY_RESPONSE_TAG);
-        if (proprietaryTlv.size() == 0) {
+        if (proprietaryTlv == null || proprietaryTlv.size() == 0) {
+            logw("no valid dispatch response, root tag is empty.");
             return;
         }
 
@@ -197,27 +206,24 @@ public class DispatchResponse extends FiRaResponse {
 
         List<TlvDatum> statusTlvs = tlvsMap.get(STATUS_TAG);
         if (statusTlvs == null || statusTlvs.size() == 0) {
-            // no status attached.
+            logw("no status tag is attached, required by FiRa");
             return;
         }
-        mTransactionStatus = parseTransctionStatus(statusTlvs.get(0).value);
+        mTransactionStatus = parseTransactionStatus(statusTlvs.get(0).value);
         switch (mTransactionStatus) {
-            case TRANSACTION_STATUS_NO_ERROR:
-                notifications.add(new SecureSessionAutoTerminatedNotification());
-                break;
             case TRANSACTION_STATUS_WITH_ERROR:
                 notifications.add(new SecureSessionAbortedNotification());
                 break;
-            case TRANSACTION_STATUS_FORWARD_TO_HOST_APP:
+            case TRANSACTION_STATUS_FORWARD_TO_HOST:
                 // fall through
             case TRANSACTION_STATUS_FORWARD_TO_REMOTE:
                 List<TlvDatum> dataTlvs = tlvsMap.get(DATA_TAG);
                 if (dataTlvs.size() == 0) {
                     break;
                 }
-                if (mTransactionStatus == TRANSACTION_STATUS_FORWARD_TO_HOST_APP) {
+                if (mTransactionStatus == TRANSACTION_STATUS_FORWARD_TO_HOST) {
                     mOutboundData = Optional.of(
-                            new OutboundData(OUTBOUND_TARGET_HOST_APP,
+                            new OutboundData(OUTBOUND_TARGET_HOST,
                                     dataTlvs.get(0).value));
                 } else {
                     mOutboundData = Optional.of(
@@ -225,29 +231,32 @@ public class DispatchResponse extends FiRaResponse {
                                     dataTlvs.get(0).value));
                 }
                 break;
-            case TRANSACTION_STATUS_NO_OP:
+            case TRANSACTION_STATUS_UNDEFINED:
+                // fall through
+            case TRANSACTION_STATUS_COMPLETE:
                 // fall through
             default:
+                logd("Dispatch response: transaction status: " + mTransactionStatus);
                 break;
         }
     }
 
-    @TransctionStatus
-    private int parseTransctionStatus(@Nullable byte[] status) {
+    @TransactionStatus
+    private int parseTransactionStatus(@Nullable byte[] status) {
         if (status == null || status.length < 1) {
-            return TRANSACTION_STATUS_NO_OP;
+            return TRANSACTION_STATUS_UNDEFINED;
         }
         switch (status[0]) {
             case (byte) 0x00:
-                return TRANSACTION_STATUS_NO_ERROR;
+                return TRANSACTION_STATUS_COMPLETE;
             case (byte) 0x80:
                 return TRANSACTION_STATUS_FORWARD_TO_REMOTE;
             case (byte) 0x81:
-                return TRANSACTION_STATUS_FORWARD_TO_HOST_APP;
+                return TRANSACTION_STATUS_FORWARD_TO_HOST;
             case (byte) 0xFF:
                 return TRANSACTION_STATUS_WITH_ERROR;
             default:
-                return TRANSACTION_STATUS_NO_OP;
+                return TRANSACTION_STATUS_UNDEFINED;
         }
     }
 
@@ -285,7 +294,25 @@ public class DispatchResponse extends FiRaResponse {
                     notificationList.add(new AdfSelectedNotification(adfOid));
                     break;
                 case (byte) 0x01:
-                    notificationList.add(new SecureChannelEstablishedNotification());
+                    // TODO: not defined by CSML, may be changed.
+                    Optional<Integer> defaultSessionId = Optional.empty();
+                    notificationDataTlvs = curTlvs.get(NOTIFICATION_DATA_TAG);
+                    if (notificationDataTlvs != null && notificationDataTlvs.size() != 0) {
+                        // try to get the default session Id from the notification.
+                        byte[] payload = notificationDataTlvs.get(0).value;
+                        if (payload == null || payload.length < 2
+                                || payload.length < 1 + payload[0]) {
+                            logd("not valid session id in sc established notification.");
+                        } else {
+                            int sessionIdLen = payload[0];
+                            byte[] sessionId = new byte[sessionIdLen];
+                            System.arraycopy(payload, 1, sessionId, 0, sessionIdLen);
+                            defaultSessionId = Optional.of(
+                                    DataTypeConversionUtil.arbitraryByteArrayToI32(sessionId));
+                        }
+                    }
+                    notificationList.add(
+                            new SecureChannelEstablishedNotification(defaultSessionId));
                     break;
                 case (byte) 0x02:
                     // parse sessionId and arbitrary data
@@ -297,30 +324,43 @@ public class DispatchResponse extends FiRaResponse {
                     byte[] payload = notificationDataTlvs.get(0).value;
                     if (payload == null || payload.length < 2 || payload.length < 1 + payload[0]) {
                         throw new IllegalStateException(
-                                "RDS Notificaition data - bad payload");
+                                "RDS Notification data - bad payload");
                     }
                     int sessionIdLen = payload[0];
                     byte[] sessionId = new byte[sessionIdLen];
                     System.arraycopy(payload, 1, sessionId, 0, sessionIdLen);
 
-                    byte[] arbitratryData = null;
-                    int arbitratryDataOffset = sessionIdLen + 1;
-                    if (payload.length > arbitratryDataOffset) {
-                        int arbitratryDataLen = payload[arbitratryDataOffset];
-                        if (payload.length != 2 + sessionIdLen + arbitratryDataLen) {
-                            // ignore the arbitrary data
-                            arbitratryData = null;
-                        } else {
-                            arbitratryData = new byte[arbitratryDataLen];
-                            System.arraycopy(payload, arbitratryDataOffset + 1,
-                                    arbitratryData, 0, arbitratryDataLen);
+                    byte[] arbitraryData = new byte[0];
+                    int arbitraryDataOffset = sessionIdLen + 1;
+                    if (payload.length > arbitraryDataOffset) {
+                        int arbitraryDataLen = payload[arbitraryDataOffset];
+                        if (payload.length == 2 + sessionIdLen + arbitraryDataLen) {
+                            arbitraryData = new byte[arbitraryDataLen];
+                            System.arraycopy(payload, arbitraryDataOffset + 1,
+                                    arbitraryData, 0, arbitraryDataLen);
                         }
                     }
 
                     notificationList.add(
                             new RdsAvailableNotification(
                                     DataTypeConversionUtil.arbitraryByteArrayToI32(sessionId),
-                                    arbitratryData));
+                                    arbitraryData));
+                    break;
+                case (byte) 0x03:
+                    // TODO: change it according to the final CSML spec, this is not defined yet.
+                    // use 0x03 and controlee info data as notification data.
+                    notificationDataTlvs = curTlvs.get(NOTIFICATION_DATA_TAG);
+                    arbitraryData = new byte[0];
+                    if (notificationDataTlvs != null && notificationDataTlvs.size() != 0) {
+                        payload = notificationDataTlvs.get(0).value;
+                        if (payload == null || payload.length == 0) {
+                            throw new IllegalStateException(
+                                    "payload of controlee info available notification is bad.");
+                        }
+                        arbitraryData = new byte[payload.length];
+                        System.arraycopy(payload, 0, arbitraryData, 0, payload.length);
+                    }
+                    notificationList.add(new ControleeInfoAvailableNotification(arbitraryData));
                     break;
                 default:
             }
@@ -330,7 +370,7 @@ public class DispatchResponse extends FiRaResponse {
     }
 
     /**
-     * Parse the response of InitiateTractionCommand.
+     * Parse the response of DispatchCommand.
      */
     @NonNull
     public static DispatchResponse fromResponseApdu(@NonNull ResponseApdu responseApdu) {
@@ -338,13 +378,13 @@ public class DispatchResponse extends FiRaResponse {
     }
 
     @IntDef(prefix = { "OUTBOUND_TARGET_" }, value = {
-            OUTBOUND_TARGET_HOST_APP,
+            OUTBOUND_TARGET_HOST,
             OUTBOUND_TARGET_REMOTE,
     })
     @Retention(RetentionPolicy.SOURCE)
     public @interface OutboundTarget {}
 
-    public static final int OUTBOUND_TARGET_HOST_APP = 0;
+    public static final int OUTBOUND_TARGET_HOST = 0;
     public static final int OUTBOUND_TARGET_REMOTE = 1;
 
     /**
@@ -359,5 +399,12 @@ public class DispatchResponse extends FiRaResponse {
             this.target = target;
             this.data = data;
         }
+    }
+
+    private void logw(@NonNull String dbgMsg) {
+        Log.w(LOG_TAG, dbgMsg);
+    }
+    private void logd(@NonNull String dbgMsg) {
+        Log.d(LOG_TAG, dbgMsg);
     }
 }

@@ -128,7 +128,8 @@ public class GatewayState implements State {
         }
 
         @Override
-        public void onViewCreated(View view, Bundle savedInstanceState) {
+        public void onResume() {
+            super.onResume();
             openInEditMode(mAction);
         }
 

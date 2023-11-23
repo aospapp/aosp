@@ -29,8 +29,8 @@
 
 std::promise<tBTM_REMOTE_DEV_NAME> promise_;
 
-void RemoteNameCallback(void* data) {
-  promise_.set_value(*static_cast<tBTM_REMOTE_DEV_NAME*>(data));
+void RemoteNameCallback(const tBTM_REMOTE_DEV_NAME* data) {
+  promise_.set_value(*data);
 }
 
 int bluetooth::test::headless::Name::Run() {

@@ -25,16 +25,23 @@
 #include <ostream>
 #include <string>
 
+#include "common/interfaces/ILoggable.h"
 #include "packet/custom_field_fixed_size_interface.h"
 #include "storage/serializable.h"
 
 namespace bluetooth {
 namespace hci {
 
-class Address final : public packet::CustomFieldFixedSizeInterface<Address>, public storage::Serializable<Address> {
+class Address final : public packet::CustomFieldFixedSizeInterface<Address>,
+                      public storage::Serializable<Address>,
+                      public bluetooth::common::IRedactableLoggable {
  public:
   static constexpr size_t kLength = 6;
 
+  // Bluetooth MAC address bytes saved in little endian format.
+  // The address MSB is address[5], the address LSB is address[0].
+  // Note that the textual representation follows the big endian format,
+  // ie. Address{0, 1, 2, 3, 4, 5} is represented as 05:04:03:02:01:00.
   std::array<uint8_t, kLength> address = {};
 
   Address() = default;
@@ -51,6 +58,10 @@ class Address final : public packet::CustomFieldFixedSizeInterface<Address>, pub
 
   // storage::Serializable methods
   std::string ToString() const override;
+  std::string ToColonSepHexString() const;
+  std::string ToStringForLogging() const override;
+  std::string ToRedactedStringForLogging() const override;
+
   static std::optional<Address> FromString(const std::string& from);
   std::string ToLegacyConfigString() const override;
   static std::optional<Address> FromLegacyConfigString(const std::string& str);
@@ -91,8 +102,12 @@ class Address final : public packet::CustomFieldFixedSizeInterface<Address>, pub
 
   static const Address kEmpty;  // 00:00:00:00:00:00
   static const Address kAny;    // FF:FF:FF:FF:FF:FF
+ private:
+  std::string _ToMaskedColonSepHexString(int bytes_to_mask) const;
 };
 
+// TODO: to fine-tune this.
+// we need an interface between the logger and ILoggable
 inline std::ostream& operator<<(std::ostream& os, const Address& a) {
   os << a.ToString();
   return os;

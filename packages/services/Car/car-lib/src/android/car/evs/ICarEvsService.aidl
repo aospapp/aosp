@@ -16,6 +16,7 @@
 
 package android.car.evs;
 
+import android.car.evs.CarEvsBufferDescriptor;
 import android.car.evs.CarEvsStatus;
 import android.car.evs.ICarEvsStatusListener;
 import android.car.evs.ICarEvsStreamCallback;
@@ -49,7 +50,7 @@ interface ICarEvsService {
     /**
      * Returns the buffer when its usages are done.
      */
-    void returnFrameBuffer(int bufferId);
+    void returnFrameBuffer(in CarEvsBufferDescriptor buffer);
 
     /**
      * Returns a current status of CarEvsService.

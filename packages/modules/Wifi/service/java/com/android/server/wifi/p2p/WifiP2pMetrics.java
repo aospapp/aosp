@@ -16,6 +16,11 @@
 
 package com.android.server.wifi.p2p;
 
+import static android.os.Process.SYSTEM_UID;
+
+import android.content.Context;
+import android.net.wifi.WifiInfo;
+import android.net.wifi.WifiManager;
 import android.net.wifi.p2p.WifiP2pConfig;
 import android.net.wifi.p2p.WifiP2pGroup;
 import android.net.wifi.p2p.WifiP2pGroupList;
@@ -26,6 +31,7 @@ import com.android.server.wifi.proto.WifiStatsLog;
 import com.android.server.wifi.proto.nano.WifiMetricsProto.GroupEvent;
 import com.android.server.wifi.proto.nano.WifiMetricsProto.P2pConnectionEvent;
 import com.android.server.wifi.proto.nano.WifiMetricsProto.WifiP2pStats;
+import com.android.server.wifi.util.StringUtil;
 
 import java.io.PrintWriter;
 import java.util.ArrayList;
@@ -45,9 +51,14 @@ public class WifiP2pMetrics {
 
     private static final int MAX_CONNECTION_EVENTS = 256;
     private static final int MAX_GROUP_EVENTS = 256;
+    private static final int MIN_2G_FREQUENCY_MHZ = 2412;
+
+    private static final int MAX_CONNECTION_ATTEMPT_TIME_INTERVAL_MS = 30 * 1000;
 
     private Clock mClock;
+    private final Context mContext;
     private final Object mLock = new Object();
+    private boolean mIsCountryCodeWorldMode = true;
 
     /**
      * Metrics are stored within an instance of the WifiP2pStats proto during runtime,
@@ -73,6 +84,12 @@ public class WifiP2pMetrics {
      * The latest started (but un-ended) connection attempt start time
      */
     private long mCurrentConnectionEventStartTime;
+
+    private long mLastConnectionEventStartTime;
+
+    private int mLastConnectionEventUid;
+
+    private int mLastConnectionTryCount;
 
     /**
      * Group Session information that gets logged for every formed group.
@@ -102,9 +119,9 @@ public class WifiP2pMetrics {
      */
     private int mNumPersistentGroup;
 
-    public WifiP2pMetrics(Clock clock) {
+    public WifiP2pMetrics(Clock clock, Context context) {
         mClock = clock;
-
+        mContext = context;
         mNumPersistentGroup = 0;
     }
 
@@ -171,12 +188,7 @@ public class WifiP2pMetrics {
                 if (event.startTimeMillis == 0) {
                     sb.append("            <null>");
                 } else {
-                    sb.append(c.get(Calendar.MONTH)).append("-")
-                            .append(c.get(Calendar.DAY_OF_MONTH)).append(" ")
-                            .append(c.get(Calendar.HOUR_OF_DAY)).append(":")
-                            .append(c.get(Calendar.MINUTE)).append(":")
-                            .append(c.get(Calendar.SECOND)).append(".")
-                            .append(c.get(Calendar.MILLISECOND));
+                    sb.append(StringUtil.calendarToString(c));
                 }
                 sb.append(", connectionType=");
                 switch (event.connectionType) {
@@ -231,6 +243,21 @@ public class WifiP2pMetrics {
                         sb.append("UNKNOWN DURING CONNECT");
                         break;
                 }
+
+                sb.append(", tryCount=");
+                sb.append(event.tryCount);
+                sb.append(", inviteToNeg=");
+                sb.append(event.fallbackToNegotiationOnInviteStatusInfoUnavailable);
+                sb.append(", isCcWw=");
+                sb.append(event.isCountryCodeWorldMode);
+                sb.append(", band=");
+                sb.append(event.band);
+                sb.append(", freq=");
+                sb.append(event.frequencyMhz);
+                sb.append(", sta freq=");
+                sb.append(event.staFrequencyMhz);
+                sb.append(", uid=");
+                sb.append(event.uid);
                 sb.append(", connectivityLevelFailureCode=");
                 switch (event.connectivityLevelFailureCode) {
                     case P2pConnectionEvent.CLF_NONE:
@@ -254,12 +281,17 @@ public class WifiP2pMetrics {
                     case P2pConnectionEvent.CLF_NEW_CONNECTION_ATTEMPT:
                         sb.append("NEW_CONNECTION_ATTEMPT");
                         break;
+                    case P2pConnectionEvent.CLF_GROUP_REMOVED:
+                        sb.append("GROUP_REMOVED");
+                        break;
+                    case P2pConnectionEvent.CLF_CREATE_GROUP_FAILED:
+                        sb.append("CREATE_GROUP_FAILED");
+                        break;
                     case P2pConnectionEvent.CLF_UNKNOWN:
                     default:
                         sb.append("UNKNOWN");
                         break;
                 }
-
                 if (event == mCurrentConnectionEvent) {
                     sb.append(" CURRENTLY OPEN EVENT");
                 }
@@ -332,6 +364,22 @@ public class WifiP2pMetrics {
         }
     }
 
+    /** Returns if current connection event type is FAST connection */
+    public boolean isP2pFastConnectionType() {
+        if (mCurrentConnectionEvent == null) {
+            return false;
+        }
+        return P2pConnectionEvent.CONNECTION_FAST == mCurrentConnectionEvent.connectionType;
+    }
+
+    /** Gets current connection event group role string */
+    public String getP2pGroupRoleString() {
+        if (mCurrentConnectionEvent == null) {
+            return "UNKNOWN";
+        }
+        return (GroupEvent.GROUP_OWNER == mCurrentConnectionEvent.groupRole) ? "GO" : "GC";
+    }
+
     /**
      * Create a new connection event. Call when p2p attempts to make a new connection to
      * another peer. If there is a current 'un-ended' connection event, it will be ended with
@@ -341,7 +389,8 @@ public class WifiP2pMetrics {
      * @param config configuration used for this connection.
      * @param groupRole groupRole used for this connection.
      */
-    public void startConnectionEvent(int connectionType, WifiP2pConfig config, int groupRole) {
+    public void startConnectionEvent(int connectionType, WifiP2pConfig config, int groupRole,
+            int uid) {
         synchronized (mLock) {
             // handle overlapping connection event first.
             if (mCurrentConnectionEvent != null) {
@@ -357,12 +406,32 @@ public class WifiP2pMetrics {
             mCurrentConnectionEvent.startTimeMillis = mClock.getWallClockMillis();
             mCurrentConnectionEvent.connectionType = connectionType;
             mCurrentConnectionEvent.groupRole = groupRole;
+
             if (config != null) {
                 mCurrentConnectionEvent.wpsMethod = config.wps.setup;
+                mCurrentConnectionEvent.band = convertGroupOwnerBand(config.groupOwnerBand);
+                mCurrentConnectionEvent.frequencyMhz =
+                        (config.groupOwnerBand < MIN_2G_FREQUENCY_MHZ) ? 0 : config.groupOwnerBand;
             }
+            mCurrentConnectionEvent.staFrequencyMhz = getWifiStaFrequency();
+            mCurrentConnectionEvent.uid = uid;
+            if (mLastConnectionEventUid == uid && mCurrentConnectionEventStartTime < (
+                    mLastConnectionEventStartTime + MAX_CONNECTION_ATTEMPT_TIME_INTERVAL_MS)) {
+                mLastConnectionTryCount += 1;
+            } else {
+                mLastConnectionTryCount = 1;
+            }
+            mLastConnectionEventUid = uid;
+            mLastConnectionEventStartTime = mCurrentConnectionEventStartTime;
+            mCurrentConnectionEvent.tryCount = mLastConnectionTryCount;
 
             mConnectionEventList.add(mCurrentConnectionEvent);
         }
+    }
+
+    /** Returns if there is an ongoing connection */
+    public boolean hasOngoingConnection() {
+        return mCurrentConnectionEvent != null;
     }
 
     /**
@@ -379,22 +448,49 @@ public class WifiP2pMetrics {
                 // There won't be a connection starting event in framework.
                 // THe framework only get the connection ending event in GroupStarted state.
                 startConnectionEvent(P2pConnectionEvent.CONNECTION_REINVOKE, null,
-                        GroupEvent.GROUP_UNKNOWN);
+                        GroupEvent.GROUP_UNKNOWN, SYSTEM_UID);
             }
 
             mCurrentConnectionEvent.durationTakenToConnectMillis = (int)
                     (mClock.getElapsedSinceBootMillis()
                     - mCurrentConnectionEventStartTime);
             mCurrentConnectionEvent.connectivityLevelFailureCode = failure;
+            mCurrentConnectionEvent.isCountryCodeWorldMode = mIsCountryCodeWorldMode;
 
             WifiStatsLog.write(WifiStatsLog.WIFI_P2P_CONNECTION_REPORTED,
                     convertConnectionType(mCurrentConnectionEvent.connectionType),
                     mCurrentConnectionEvent.durationTakenToConnectMillis,
                     mCurrentConnectionEvent.durationTakenToConnectMillis / 200,
                     convertFailureCode(failure),
-                    convertGroupRole(mCurrentConnectionEvent.groupRole));
+                    convertGroupRole(mCurrentConnectionEvent.groupRole),
+                    convertBandStatsLog(mCurrentConnectionEvent.band),
+                    mCurrentConnectionEvent.frequencyMhz,
+                    mCurrentConnectionEvent.staFrequencyMhz,
+                    mCurrentConnectionEvent.uid,
+                    mIsCountryCodeWorldMode,
+                    mCurrentConnectionEvent.fallbackToNegotiationOnInviteStatusInfoUnavailable,
+                    mCurrentConnectionEvent.tryCount);
             mCurrentConnectionEvent = null;
+            if (P2pConnectionEvent.CLF_NONE == failure) {
+                mLastConnectionTryCount = 0;
+            }
         }
+    }
+
+    /**
+     * Fallback to GO negotiation if device receives invitation response status code -
+     * information is currently unavailable
+     */
+    public void setFallbackToNegotiationOnInviteStatusInfoUnavailable() {
+        if (mCurrentConnectionEvent == null) {
+            return;
+        }
+        mCurrentConnectionEvent.fallbackToNegotiationOnInviteStatusInfoUnavailable = true;
+    }
+
+   /** Sets if the Country Code is in world mode */
+    public void setIsCountryCodeWorldMode(boolean isCountryCodeWorldMode) {
+        mIsCountryCodeWorldMode = isCountryCodeWorldMode;
     }
 
     private int convertConnectionType(int connectionType) {
@@ -429,6 +525,12 @@ public class WifiP2pMetrics {
             case P2pConnectionEvent.CLF_NEW_CONNECTION_ATTEMPT:
                 return WifiStatsLog
                         .WIFI_P2P_CONNECTION_REPORTED__FAILURE_CODE__NEW_CONNECTION_ATTEMPT;
+            case P2pConnectionEvent.CLF_GROUP_REMOVED:
+                return WifiStatsLog
+                        .WIFI_P2P_CONNECTION_REPORTED__FAILURE_CODE__GROUP_REMOVED;
+            case P2pConnectionEvent.CLF_CREATE_GROUP_FAILED:
+                return WifiStatsLog
+                        .WIFI_P2P_CONNECTION_REPORTED__FAILURE_CODE__CREATE_GROUP_FAILED;
             case P2pConnectionEvent.CLF_UNKNOWN:
             default:
                 return WifiStatsLog.WIFI_P2P_CONNECTION_REPORTED__FAILURE_CODE__UNKNOWN;
@@ -443,6 +545,50 @@ public class WifiP2pMetrics {
                 return WifiStatsLog.WIFI_P2P_CONNECTION_REPORTED__GROUP_ROLE__GROUP_CLIENT;
             default:
                 return WifiStatsLog.WIFI_P2P_CONNECTION_REPORTED__GROUP_ROLE__GROUP_UNKNOWN;
+        }
+    }
+
+    private int convertGroupOwnerBand(int bandOrFrequency) {
+        if (bandOrFrequency >= MIN_2G_FREQUENCY_MHZ) {
+            return P2pConnectionEvent.BAND_FREQUENCY;
+        } else {
+            switch (bandOrFrequency) {
+                case WifiP2pConfig.GROUP_OWNER_BAND_AUTO:
+                    return P2pConnectionEvent.BAND_AUTO;
+                case WifiP2pConfig.GROUP_OWNER_BAND_2GHZ:
+                    return P2pConnectionEvent.BAND_2G;
+                case WifiP2pConfig.GROUP_OWNER_BAND_5GHZ:
+                    return P2pConnectionEvent.BAND_5G;
+                default:
+                    return P2pConnectionEvent.BAND_UNKNOWN;
+            }
+        }
+    }
+
+    private int convertBandStatsLog(int band) {
+        switch (band) {
+            case P2pConnectionEvent.BAND_AUTO:
+                return WifiStatsLog.WIFI_P2P_CONNECTION_REPORTED__BAND__BAND_AUTO;
+            case P2pConnectionEvent.BAND_2G:
+                return WifiStatsLog.WIFI_P2P_CONNECTION_REPORTED__BAND__BAND_2G;
+            case P2pConnectionEvent.BAND_5G:
+                return WifiStatsLog.WIFI_P2P_CONNECTION_REPORTED__BAND__BAND_5G;
+            case P2pConnectionEvent.BAND_6G:
+                return WifiStatsLog.WIFI_P2P_CONNECTION_REPORTED__BAND__BAND_6G;
+            case P2pConnectionEvent.BAND_FREQUENCY:
+                return WifiStatsLog.WIFI_P2P_CONNECTION_REPORTED__BAND__BAND_FREQUENCY;
+            default:
+                return WifiStatsLog.WIFI_P2P_CONNECTION_REPORTED__BAND__BAND_UNKNOWN;
+        }
+    }
+
+    private int getWifiStaFrequency() {
+        WifiManager wifiManager = mContext.getSystemService(WifiManager.class);
+        WifiInfo wifiInfo = wifiManager.getConnectionInfo();
+        if (wifiInfo.getFrequency() > 0) {
+            return wifiInfo.getFrequency();
+        } else {
+            return 0;
         }
     }
 

@@ -26,8 +26,6 @@
 #include <map>
 #include <string>
 
-extern std::map<std::string, int> mock_function_count_map;
-
 // Mock include file to share data between tests and mock
 #include "test/mock/mock_osi_thread.h"
 
@@ -56,47 +54,47 @@ struct thread_stop thread_stop;
 
 // Mocked functions, if any
 void thread_free(thread_t* thread) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   test::mock::osi_thread::thread_free(thread);
 }
 reactor_t* thread_get_reactor(const thread_t* thread) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return test::mock::osi_thread::thread_get_reactor(thread);
 }
 bool thread_is_self(const thread_t* thread) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return test::mock::osi_thread::thread_is_self(thread);
 }
 void thread_join(thread_t* thread) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   test::mock::osi_thread::thread_join(thread);
 }
 const char* thread_name(const thread_t* thread) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return test::mock::osi_thread::thread_name(thread);
 }
 thread_t* thread_new(const char* name) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return test::mock::osi_thread::thread_new(name);
 }
 thread_t* thread_new_sized(const char* name, size_t work_queue_capacity) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return test::mock::osi_thread::thread_new_sized(name, work_queue_capacity);
 }
 bool thread_post(thread_t* thread, thread_fn func, void* context) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return test::mock::osi_thread::thread_post(thread, func, context);
 }
 bool thread_set_priority(thread_t* thread, int priority) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return test::mock::osi_thread::thread_set_priority(thread, priority);
 }
 bool thread_set_rt_priority(thread_t* thread, int priority) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return test::mock::osi_thread::thread_set_rt_priority(thread, priority);
 }
 void thread_stop(thread_t* thread) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   test::mock::osi_thread::thread_stop(thread);
 }
 // Mocked functions complete

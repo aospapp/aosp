@@ -32,7 +32,6 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
 import java.util.function.Predicate;
 
@@ -120,6 +119,26 @@ public class TunUtils {
     }
 
     /**
+     * Returns if the needle array can be found in the haystack array.
+     */
+    private static boolean containsSubArray(byte[] haystack, byte[] needle) {
+        // TODO(b/242923891): Move this method to a util class.
+        for (int i = 0; i < haystack.length - needle.length + 1; i++) {
+            boolean found = true;
+            for (int j = 0; j < needle.length; j++) {
+                if (haystack[i + j] != needle[j]) {
+                    found = false;
+                    break;
+                }
+            }
+            if (found) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
      * Checks if the specified bytes were ever sent in plaintext.
      *
      * <p>Only checks for known plaintext bytes to prevent triggering on ICMP/RA packets or the like
@@ -128,11 +147,7 @@ public class TunUtils {
      * @param startIndex the index in the list to check for
      */
     public boolean hasPlaintextPacket(byte[] plaintext, int startIndex) {
-        Predicate<byte[]> verifier =
-                (pkt) -> {
-                    return Collections.indexOfSubList(Arrays.asList(pkt), Arrays.asList(plaintext))
-                            != -1;
-                };
+        Predicate<byte[]> verifier = (pkt) -> containsSubArray(pkt, plaintext);
         return getFirstMatchingPacket(verifier, startIndex) != null;
     }
 

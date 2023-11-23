@@ -21,7 +21,7 @@
           android:versionName="1.0.0.0">
 
     <uses-sdk
-        android:minSdkVersion="30"
+        android:minSdkVersion="33"
         android:targetSdkVersion="33"/>
 
     <!-- For using plugins -->

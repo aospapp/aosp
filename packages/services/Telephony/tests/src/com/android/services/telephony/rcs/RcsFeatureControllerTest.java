@@ -22,6 +22,7 @@ import static org.junit.Assert.assertNull;
 import static org.junit.Assert.fail;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -171,12 +172,13 @@ public class RcsFeatureControllerTest extends TelephonyTestBase {
         verify(mFeatureManager).registerImsRegistrationCallback(captor.capture());
         assertNotNull(captor.getValue());
 
-        captor.getValue().onDeregistered(REASON_DISCONNECTED);
+        captor.getValue().onDeregistered(REASON_DISCONNECTED, 0, 0);
         controller.getRegistrationState(result -> {
             assertNotNull(result);
             assertEquals(RegistrationManager.REGISTRATION_STATE_NOT_REGISTERED, result.intValue());
         });
-        verify(mRegistrationCallback).handleImsUnregistered(REASON_DISCONNECTED);
+        verify(mRegistrationCallback).handleImsUnregistered(eq(REASON_DISCONNECTED),
+                anyInt(), anyInt());
 
         ImsRegistrationAttributes attr = new ImsRegistrationAttributes.Builder(
                 ImsRegistrationImplBase.REGISTRATION_TECH_LTE).build();
@@ -193,8 +195,7 @@ public class RcsFeatureControllerTest extends TelephonyTestBase {
             assertNotNull(result);
             assertEquals(RegistrationManager.REGISTRATION_STATE_REGISTERED, result.intValue());
         });
-        verify(mRegistrationCallback).handleImsRegistered(
-                AccessNetworkConstants.TRANSPORT_TYPE_WWAN);
+        verify(mRegistrationCallback).handleImsRegistered(attr);
     }
 
     @Test

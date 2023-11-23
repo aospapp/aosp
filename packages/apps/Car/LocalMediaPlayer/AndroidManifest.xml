@@ -18,10 +18,6 @@
     package="com.android.car.media.localmediaplayer"
     android:sharedUserId="com.android.car.media" >
 
-    <uses-sdk
-        android:minSdkVersion="23"
-        android:targetSdkVersion="29" />
-
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
@@ -39,6 +35,7 @@
             <intent-filter>
                 <action android:name="android.media.browse.MediaBrowserService" />
             </intent-filter>
+            <meta-data android:name="androidx.car.app.launchable" android:value="true" />
         </service>
 
         <activity

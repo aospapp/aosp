@@ -22,6 +22,7 @@ import static android.system.OsConstants.IPPROTO_IPV6;
 import static android.system.OsConstants.IPV6_TCLASS;
 import static android.system.OsConstants.IP_TOS;
 
+import android.net.Network;
 import android.net.ipsec.ike.exceptions.IkeProtocolException;
 import android.os.Handler;
 import android.system.ErrnoException;
@@ -74,6 +75,7 @@ public abstract class IkeSocket implements AutoCloseable {
     // Map from locally generated IKE SPI to IkeSocket.Callback instances.
     @VisibleForTesting final LongSparseArray<Callback> mSpiToCallback = new LongSparseArray<>();
 
+    // TODO(b/276814374): Remove refcounting now that sockets are 1:1 mapped against sessions
     // Set to store all registered IkeSocket.Callbacks
     @VisibleForTesting protected final Set<Callback> mRegisteredCallbacks = new HashSet<>();
 
@@ -113,7 +115,6 @@ public abstract class IkeSocket implements AutoCloseable {
     protected static void applySocketConfig(
             IkeSocketConfig sockConfig, FileDescriptor sock, boolean isIpv6)
             throws ErrnoException, IOException {
-        sockConfig.getNetwork().bindSocket(sock);
         if (isIpv6) {
             // Traffic class field consists of a 6-bit Differentiated Services Code Point (DSCP)
             // field and a 2-bit Explicit Congestion Notification (ECN) field.
@@ -159,6 +160,11 @@ public abstract class IkeSocket implements AutoCloseable {
                         return;
                     }
                 }).start();
+    }
+
+    /** Binds the socket to a given network. */
+    public void bindToNetwork(Network network) throws IOException {
+        network.bindSocket(getFd());
     }
 
     private byte[] receiveFromFd() throws IOException {

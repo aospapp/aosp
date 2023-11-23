@@ -50,6 +50,17 @@ import com.android.deskclock.timer.TimerService
  */
 internal class TimerNotificationBuilder {
 
+    fun isChannelCreated(notificationManager: NotificationManagerCompat): Boolean {
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+            if(notificationManager.getNotificationChannelCompat(TIMER_MODEL_NOTIFICATION_CHANNEL_ID) != null) {
+                return true
+            } else {
+                return false
+            }
+        }
+        return false
+    }
+
     fun buildChannel(context: Context, notificationManager: NotificationManagerCompat) {
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
             val channel = NotificationChannel(

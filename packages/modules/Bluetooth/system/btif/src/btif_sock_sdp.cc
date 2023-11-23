@@ -30,6 +30,8 @@
 #include "stack/include/sdpdefs.h"
 #include "types/bluetooth/uuid.h"
 
+using namespace bluetooth::legacy::stack::sdp;
+
 using bluetooth::Uuid;
 
 // This module provides an abstraction on top of the lower-level SDP database
@@ -110,19 +112,22 @@ static bool create_base_record(const uint32_t sdp_handle, const char* name,
   uint16_t list = UUID_SERVCLASS_PUBLIC_BROWSE_GROUP;
 
   const char* stage = "protocol_list";
-  if (!SDP_AddProtocolList(sdp_handle, num_proto_elements, proto_list))
+  if (!get_legacy_stack_sdp_api()->handle.SDP_AddProtocolList(
+          sdp_handle, num_proto_elements, proto_list))
     goto error;
 
   // Add the name to the SDP record.
   if (name[0] != '\0') {
     stage = "service_name";
-    if (!SDP_AddAttribute(sdp_handle, ATTR_ID_SERVICE_NAME, TEXT_STR_DESC_TYPE,
-                          (uint32_t)strlen(name), (uint8_t*)name))
+    if (!get_legacy_stack_sdp_api()->handle.SDP_AddAttribute(
+            sdp_handle, ATTR_ID_SERVICE_NAME, TEXT_STR_DESC_TYPE,
+            (uint32_t)strlen(name), (uint8_t*)name))
       goto error;
   }
 
   stage = "browseable";
-  if (!SDP_AddUuidSequence(sdp_handle, ATTR_ID_BROWSE_GROUP_LIST, 1, &list))
+  if (!get_legacy_stack_sdp_api()->handle.SDP_AddUuidSequence(
+          sdp_handle, ATTR_ID_BROWSE_GROUP_LIST, 1, &list))
     goto error;
 
   APPL_TRACE_DEBUG(
@@ -147,7 +152,7 @@ static int add_sdp_by_uuid(const char* name, const Uuid& uuid,
   APPL_TRACE_DEBUG("%s: uuid: %s, scn: %d, service_name: %s", __func__,
                    uuid.ToString().c_str(), channel, name);
 
-  uint32_t handle = SDP_CreateRecord();
+  uint32_t handle = get_legacy_stack_sdp_api()->handle.SDP_CreateRecord();
   if (handle == 0) {
     APPL_TRACE_ERROR(
         "%s: failed to create sdp record, scn: %d, service_name: %s", __func__,
@@ -177,8 +182,9 @@ static int add_sdp_by_uuid(const char* name, const Uuid& uuid,
   { ARRAY_TO_BE_STREAM(tmp, uuid.To128BitBE().data(), UUID_MAX_LENGTH); }
 
   stage = "service_class_sequence";
-  if (!SDP_AddSequence(handle, (uint16_t)ATTR_ID_SERVICE_CLASS_ID_LIST, 1,
-                       &type, &type_len, &type_buf_ptr))
+  if (!get_legacy_stack_sdp_api()->handle.SDP_AddSequence(
+          handle, (uint16_t)ATTR_ID_SERVICE_CLASS_ID_LIST, 1, &type, &type_len,
+          &type_buf_ptr))
     goto error;
 
   APPL_TRACE_DEBUG(
@@ -194,7 +200,7 @@ static int add_sdp_by_uuid(const char* name, const Uuid& uuid,
   return handle;
 
 error:
-  SDP_DeleteRecord(handle);
+  get_legacy_stack_sdp_api()->handle.SDP_DeleteRecord(handle);
   APPL_TRACE_ERROR("%s: failed to register service stage: %s, service_name: %s",
                    __func__, stage, name);
   return 0;
@@ -205,7 +211,7 @@ error:
 static int add_pbap_sdp(const char* name, const int channel) {
   APPL_TRACE_DEBUG("add_pbap_sdp: scn %d, service_name %s", channel, name);
 
-  uint32_t handle = SDP_CreateRecord();
+  uint32_t handle = get_legacy_stack_sdp_api()->handle.SDP_CreateRecord();
   if (handle == 0) {
     APPL_TRACE_ERROR(
         "add_pbap_sdp: failed to create sdp record, "
@@ -223,18 +229,21 @@ static int add_pbap_sdp(const char* name, const int channel) {
 
   // Add service class
   stage = "service_class";
-  if (!SDP_AddServiceClassIdList(handle, 1, &service)) goto error;
+  if (!get_legacy_stack_sdp_api()->handle.SDP_AddServiceClassIdList(handle, 1,
+                                                                    &service))
+    goto error;
 
   // Add in the phone access descriptor
   stage = "profile_descriptor_list";
-  if (!SDP_AddProfileDescriptorList(handle, UUID_SERVCLASS_PHONE_ACCESS,
-                                    BTA_PBS_DEFAULT_VERSION))
+  if (!get_legacy_stack_sdp_api()->handle.SDP_AddProfileDescriptorList(
+          handle, UUID_SERVCLASS_PHONE_ACCESS, BTA_PBS_DEFAULT_VERSION))
     goto error;
 
   // Set up our supported repositories
   stage = "supported_repositories";
-  if (!SDP_AddAttribute(handle, ATTR_ID_SUPPORTED_REPOSITORIES, UINT_DESC_TYPE,
-                        1, (uint8_t*)&bta_pbs_cfg.supported_repositories))
+  if (!get_legacy_stack_sdp_api()->handle.SDP_AddAttribute(
+          handle, ATTR_ID_SUPPORTED_REPOSITORIES, UINT_DESC_TYPE, 1,
+          (uint8_t*)&bta_pbs_cfg.supported_repositories))
     goto error;
 
   // Notify the system that we've got a new service class UUID.
@@ -247,7 +256,7 @@ static int add_pbap_sdp(const char* name, const int channel) {
   return handle;
 
 error:
-  SDP_DeleteRecord(handle);
+  get_legacy_stack_sdp_api()->handle.SDP_DeleteRecord(handle);
   APPL_TRACE_ERROR(
       "add_pbap_sdp: failed to register PBAP service, stage: %s, "
       "service_name: %s",
@@ -259,7 +268,7 @@ error:
 static int add_ops_sdp(const char* name, const int channel) {
   APPL_TRACE_DEBUG("add_ops_sdp: scn %d, service_name %s", channel, name);
 
-  uint32_t handle = SDP_CreateRecord();
+  uint32_t handle = get_legacy_stack_sdp_api()->handle.SDP_CreateRecord();
   if (handle == 0) {
     APPL_TRACE_ERROR(
         "add_ops_sdp: failed to create sdp record, "
@@ -284,12 +293,14 @@ static int add_ops_sdp(const char* name, const int channel) {
 
   // Add service class.
   stage = "service_class";
-  if (!SDP_AddServiceClassIdList(handle, 1, &service)) goto error;
+  if (!get_legacy_stack_sdp_api()->handle.SDP_AddServiceClassIdList(handle, 1,
+                                                                    &service))
+    goto error;
 
   // Add the OBEX push profile descriptor.
   stage = "profile_descriptor_list";
-  if (!SDP_AddProfileDescriptorList(handle, UUID_SERVCLASS_OBEX_OBJECT_PUSH,
-                                    0x0100))
+  if (!get_legacy_stack_sdp_api()->handle.SDP_AddProfileDescriptorList(
+          handle, UUID_SERVCLASS_OBEX_OBJECT_PUSH, 0x0100))
     goto error;
 
   for (int i = 0; i < OBEX_PUSH_NUM_FORMATS; i++) {
@@ -301,8 +312,9 @@ static int add_ops_sdp(const char* name, const int channel) {
   }
 
   stage = "supported_types";
-  if (!SDP_AddSequence(handle, (uint16_t)ATTR_ID_SUPPORTED_FORMATS_LIST, j,
-                       desc_type, type_len, type_value))
+  if (!get_legacy_stack_sdp_api()->handle.SDP_AddSequence(
+          handle, (uint16_t)ATTR_ID_SUPPORTED_FORMATS_LIST, j, desc_type,
+          type_len, type_value))
     goto error;
 
   // Set class of device.
@@ -320,7 +332,7 @@ static int add_ops_sdp(const char* name, const int channel) {
   return handle;
 
 error:
-  SDP_DeleteRecord(handle);
+  get_legacy_stack_sdp_api()->handle.SDP_DeleteRecord(handle);
   APPL_TRACE_ERROR(
       "add_ops_sdp: failed to register OPS service, "
       "stage: %s, service_name: %s",
@@ -333,7 +345,7 @@ error:
 static int add_spp_sdp(const char* name, const int channel) {
   APPL_TRACE_DEBUG("add_spp_sdp: scn %d, service_name %s", channel, name);
 
-  int handle = SDP_CreateRecord();
+  int handle = get_legacy_stack_sdp_api()->handle.SDP_CreateRecord();
   if (handle == 0) {
     APPL_TRACE_ERROR(
         "add_spp_sdp: failed to create sdp record, "
@@ -350,11 +362,13 @@ static int add_spp_sdp(const char* name, const int channel) {
     goto error;
 
   stage = "service_class";
-  if (!SDP_AddServiceClassIdList(handle, 1, &service)) goto error;
+  if (!get_legacy_stack_sdp_api()->handle.SDP_AddServiceClassIdList(handle, 1,
+                                                                    &service))
+    goto error;
 
   stage = "profile_descriptor_list";
-  if (!SDP_AddProfileDescriptorList(handle, UUID_SERVCLASS_SERIAL_PORT,
-                                    SPP_PROFILE_VERSION))
+  if (!get_legacy_stack_sdp_api()->handle.SDP_AddProfileDescriptorList(
+          handle, UUID_SERVCLASS_SERIAL_PORT, SPP_PROFILE_VERSION))
     goto error;
 
   APPL_TRACE_DEBUG(
@@ -365,7 +379,7 @@ static int add_spp_sdp(const char* name, const int channel) {
   return handle;
 
 error:
-  SDP_DeleteRecord(handle);
+  get_legacy_stack_sdp_api()->handle.SDP_DeleteRecord(handle);
   APPL_TRACE_ERROR(
       "add_spp_sdp: failed to register SPP service, "
       "stage: %s, service_name: %s",

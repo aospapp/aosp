@@ -18,6 +18,7 @@ package android.net.wifi.p2p;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNull;
 
 import android.os.Parcel;
 
@@ -111,5 +112,42 @@ public class WifiP2pGroupListTest {
         list.clear();
         assertEquals(0, list.getGroupList().size());
 
+    }
+
+    /**
+     * Verifies that a WifiP2pGroup with null group owner is ignored in
+     * {@link WifiP2pGroupList#getNetworkId(String)}.
+     */
+    @Test
+    public void testGetNetworkIdIgnoresNullGroupOwner() {
+        WifiP2pGroupList list = new WifiP2pGroupList();
+        list.add(createGroup(mTestGroup1.getNetworkId(), "testGroup", "12345678", false, null));
+        list.add(mTestGroup2);
+        assertEquals(mTestGroup2.getNetworkId(),
+                list.getNetworkId(TEST_GROUP_OWNER_2.deviceAddress));
+    }
+
+    /**
+     * Verifies that a WifiP2pGroup with null group owner is ignored in
+     * {@link WifiP2pGroupList#getNetworkId(String, String)}.
+     */
+    @Test
+    public void testGetNetworkIdWithSsidIgnoresNullGroupOwner() {
+        WifiP2pGroupList list = new WifiP2pGroupList();
+        list.add(createGroup(mTestGroup1.getNetworkId(), "testGroup", "12345678", false, null));
+        list.add(mTestGroup2);
+        assertEquals(mTestGroup2.getNetworkId(),
+                list.getNetworkId(TEST_GROUP_OWNER_2.deviceAddress, mTestGroup2.getNetworkName()));
+    }
+
+    /**
+     * Verifies that a WifiP2pGroup with null group owner is ignored in
+     * {@link WifiP2pGroupList#getOwnerAddr(int)}.
+     */
+    @Test
+    public void testGetOwnerAddrWithNullGroupOwner() {
+        WifiP2pGroupList list = new WifiP2pGroupList();
+        list.add(createGroup(0, "testGroup", "12345678", false, null));
+        assertNull(list.getOwnerAddr(0));
     }
 }

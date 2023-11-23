@@ -196,6 +196,7 @@ typedef uint8_t tBTM_SCO_TYPE;
 #define BTM_SCO_CODEC_NONE 0x0000
 #define BTM_SCO_CODEC_CVSD 0x0001
 #define BTM_SCO_CODEC_MSBC 0x0002
+#define BTM_SCO_CODEC_LC3 0x0004
 typedef uint16_t tBTM_SCO_CODEC_TYPE;
 
 /*******************
@@ -283,6 +284,7 @@ inline std::string security_mode_text(const tSECURITY_MODE& security_mode) {
   }
 }
 
+/* BTM_SEC security masks */
 enum : uint16_t {
   /* Nothing required */
   BTM_SEC_NONE = 0x0000,
@@ -478,6 +480,26 @@ enum {
 
 typedef uint8_t tBTM_OOB_DATA;
 
+#ifndef CASE_RETURN_TEXT
+#define CASE_RETURN_TEXT(code) \
+  case code:                   \
+    return #code
+#endif
+
+inline std::string btm_oob_data_text(const tBTM_OOB_DATA& data) {
+  switch (data) {
+    CASE_RETURN_TEXT(BTM_OOB_NONE);
+    CASE_RETURN_TEXT(BTM_OOB_PRESENT_192);
+    CASE_RETURN_TEXT(BTM_OOB_PRESENT_256);
+    CASE_RETURN_TEXT(BTM_OOB_PRESENT_192_AND_256);
+    CASE_RETURN_TEXT(BTM_OOB_UNKNOWN);
+    default:
+      return std::string("UNKNOWN[") + std::to_string(data) + std::string("]");
+  }
+}
+
+#undef CASE_RETURN_TEXT
+
 /* data type for BTM_SP_IO_REQ_EVT */
 typedef struct {
   RawAddress bd_addr;     /* peer address */
@@ -602,6 +624,8 @@ typedef void(tBTM_BOND_CANCEL_CMPL_CALLBACK)(tBTM_STATUS result);
 /* KEY update event */
 #define BTM_LE_KEY_EVT (BTM_LE_LAST_FROM_SMP + 1)
 #define BTM_LE_CONSENT_REQ_EVT SMP_CONSENT_REQ_EVT
+/* Identity address associate event */
+#define BTM_LE_ADDR_ASSOC_EVT SMP_LE_ADDR_ASSOC_EVT
 typedef uint8_t tBTM_LE_EVT;
 
 enum : uint8_t {
@@ -635,12 +659,6 @@ typedef uint8_t tBTM_LE_AUTH_REQ;
 #define BTM_LE_AUTH_REQ_SC_MITM SMP_AUTH_SC_MITM_NB      /* 00101100 */
 #define BTM_LE_AUTH_REQ_SC_MITM_BOND SMP_AUTH_SC_MITM_GB /* 00101101 */
 #define BTM_LE_AUTH_REQ_MASK SMP_AUTH_MASK               /* 0x3D */
-
-/* LE security level */
-#define BTM_LE_SEC_NONE SMP_SEC_NONE
-#define BTM_LE_SEC_UNAUTHENTICATE SMP_SEC_UNAUTHENTICATE /* 1 */
-#define BTM_LE_SEC_AUTHENTICATED SMP_SEC_AUTHENTICATED   /* 4 */
-typedef uint8_t tBTM_LE_SEC;
 
 typedef struct {
   /* local IO capabilities */

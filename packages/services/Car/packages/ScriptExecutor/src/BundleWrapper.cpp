@@ -17,6 +17,7 @@
 #include "BundleWrapper.h"
 
 #include "JniUtils.h"
+#include "jni.h"
 #include "nativehelper/scoped_local_ref.h"
 
 namespace com {
@@ -106,6 +107,37 @@ Result<void> BundleWrapper::putString(const char* key, const char* value) {
     return {};  // ok result
 }
 
+Result<void> BundleWrapper::putBooleanArray(const char* key,
+                                            const std::vector<unsigned char>& value) {
+    ScopedLocalRef<jstring> keyStringRef(mJNIEnv, mJNIEnv->NewStringUTF(key));
+    if (keyStringRef == nullptr) {
+        return Error() << "Failed to create a string for a key=" << key << " due to OOM error";
+    }
+
+    jmethodID putBooleanArrayMethod =
+            mJNIEnv->GetMethodID(mBundleClass, "putBooleanArray", "(Ljava/lang/String;[Z)V");
+
+    ScopedLocalRef<jbooleanArray> arrayRef(mJNIEnv, mJNIEnv->NewBooleanArray(value.size()));
+    mJNIEnv->SetBooleanArrayRegion(arrayRef.get(), 0, value.size(), &value.at(0));
+    mJNIEnv->CallVoidMethod(mBundle, putBooleanArrayMethod, keyStringRef.get(), arrayRef.get());
+    return {};  // ok result
+}
+
+Result<void> BundleWrapper::putDoubleArray(const char* key, const std::vector<double>& value) {
+    ScopedLocalRef<jstring> keyStringRef(mJNIEnv, mJNIEnv->NewStringUTF(key));
+    if (keyStringRef == nullptr) {
+        return Error() << "Failed to create a string for a key=" << key << " due to OOM error";
+    }
+
+    jmethodID putDoubleArrayMethod =
+            mJNIEnv->GetMethodID(mBundleClass, "putDoubleArray", "(Ljava/lang/String;[D)V");
+
+    ScopedLocalRef<jdoubleArray> arrayRef(mJNIEnv, mJNIEnv->NewDoubleArray(value.size()));
+    mJNIEnv->SetDoubleArrayRegion(arrayRef.get(), 0, value.size(), &value[0]);
+    mJNIEnv->CallVoidMethod(mBundle, putDoubleArrayMethod, keyStringRef.get(), arrayRef.get());
+    return {};  // ok result
+}
+
 Result<void> BundleWrapper::putLongArray(const char* key, const std::vector<int64_t>& value) {
     ScopedLocalRef<jstring> keyStringRef(mJNIEnv, mJNIEnv->NewStringUTF(key));
     if (keyStringRef == nullptr) {
@@ -148,7 +180,20 @@ Result<void> BundleWrapper::putStringArray(const char* key, const std::vector<st
     return {};  // ok result
 }
 
-jobject BundleWrapper::getBundle() {
+Result<void> BundleWrapper::putPersistableBundle(const char* key, const BundleWrapper& value) {
+    jmethodID putPersistableBundleMethod =
+            mJNIEnv->GetMethodID(mBundleClass, "putPersistableBundle",
+                                 "(Ljava/lang/String;Landroid/os/PersistableBundle;)V");
+    ScopedLocalRef<jstring> keyStringRef(mJNIEnv, mJNIEnv->NewStringUTF(key));
+    if (keyStringRef == nullptr) {
+        return Error() << "Failed to create a string for a key=" << key << " due to OOM error";
+    }
+    mJNIEnv->CallVoidMethod(mBundle, putPersistableBundleMethod, keyStringRef.get(),
+                            value.getBundle());
+    return {};  // ok result
+}
+
+jobject BundleWrapper::getBundle() const {
     return mBundle;
 }
 

@@ -27,14 +27,18 @@ import static android.net.SocketKeepalive.ERROR_INVALID_SOCKET;
 import static android.net.SocketKeepalive.ERROR_SOCKET_NOT_IDLE;
 import static android.net.SocketKeepalive.ERROR_UNSUPPORTED;
 import static android.net.ipsec.ike.IkeManager.getIkeLog;
+import static android.net.ipsec.ike.IkeSessionParams.IKE_OPTION_AUTOMATIC_KEEPALIVE_ON_OFF;
 
+import android.annotation.Nullable;
 import android.content.Context;
 import android.net.ConnectivityManager;
 import android.net.IpSecManager.UdpEncapsulationSocket;
 import android.net.Network;
 import android.net.SocketKeepalive;
+import android.net.ipsec.ike.IkeSessionParams;
 
-import java.io.IOException;
+import com.android.internal.net.ipsec.ike.shim.ShimUtils;
+
 import java.net.Inet4Address;
 import java.util.concurrent.Executors;
 
@@ -46,21 +50,33 @@ public class HardwareKeepaliveImpl implements IkeNattKeepalive.NattKeepalive {
     private final SocketKeepalive mSocketKeepalive;
     private final HardwareKeepaliveCallback mHardwareKeepaliveCb;
 
+    /***
+     * The NATT keepalive start options.
+     *
+     * This must be a value from {@link SocketKeepalive#StartFlags}.
+     */
+    private final int mKeepaliveOptions;
+    /** Network underpinned by the IKE session, which can be monitored for automatic keepalive */
+    @Nullable private final Network mUnderpinnedNetwork;
+
     /** Construct an instance of HardwareKeepaliveImpl */
     public HardwareKeepaliveImpl(
             Context context,
             ConnectivityManager connectMgr,
             int keepaliveDelaySeconds,
+            IkeSessionParams ikeParams,
             Inet4Address src,
             Inet4Address dest,
             UdpEncapsulationSocket socket,
             Network network,
-            HardwareKeepaliveCallback hardwareKeepaliveCb)
-            throws IOException {
+            Network underpinnedNetwork,
+            HardwareKeepaliveCallback hardwareKeepaliveCb) {
         // Setup for hardware offload keepalive. Fail to create mSocketKeepalive will cause
         // MySocketKeepaliveCb#onError to be fired
         mKeepaliveDelaySeconds = keepaliveDelaySeconds;
         mHardwareKeepaliveCb = hardwareKeepaliveCb;
+        mKeepaliveOptions = getKeepaliveStartOptions(ikeParams);
+        mUnderpinnedNetwork = underpinnedNetwork;
 
         mSocketKeepalive =
                 connectMgr.createSocketKeepalive(
@@ -74,7 +90,8 @@ public class HardwareKeepaliveImpl implements IkeNattKeepalive.NattKeepalive {
 
     @Override
     public void start() {
-        mSocketKeepalive.start(mKeepaliveDelaySeconds);
+        ShimUtils.getInstance().startKeepalive(
+                mSocketKeepalive, mKeepaliveDelaySeconds, mKeepaliveOptions, mUnderpinnedNetwork);
     }
 
     @Override
@@ -87,6 +104,14 @@ public class HardwareKeepaliveImpl implements IkeNattKeepalive.NattKeepalive {
         // Do thing. Should never be called
     }
 
+    private static int getKeepaliveStartOptions(IkeSessionParams ikeParams) {
+        int flags = 0;
+        if (ikeParams.hasIkeOption(IKE_OPTION_AUTOMATIC_KEEPALIVE_ON_OFF)) {
+            flags |= SocketKeepalive.FLAG_AUTOMATIC_ON_OFF;
+        }
+        return flags;
+    }
+
     /** Callback interface to receive states change of hardware keepalive */
     public interface HardwareKeepaliveCallback {
         /** Called when there is a hardware error for keepalive. */
@@ -97,6 +122,9 @@ public class HardwareKeepaliveImpl implements IkeNattKeepalive.NattKeepalive {
          * packet to fail
          */
         void onNetworkError();
+
+        /** Called when the keepalive has stopped */
+        void onStopped(HardwareKeepaliveImpl hardwareKeepalive);
     }
 
     class MySocketKeepaliveCb extends SocketKeepalive.Callback {
@@ -123,6 +151,11 @@ public class HardwareKeepaliveImpl implements IkeNattKeepalive.NattKeepalive {
                 default:
                     mHardwareKeepaliveCb.onNetworkError();
             }
+        }
+
+        @Override
+        public void onStopped() {
+            mHardwareKeepaliveCb.onStopped(HardwareKeepaliveImpl.this);
         }
     }
 }

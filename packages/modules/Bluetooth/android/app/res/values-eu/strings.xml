@@ -20,14 +20,15 @@
     <string name="permdesc_bluetoothShareManager" msgid="1588034776955941477">"Bluetooth bidezko partekatzeen kudeatzailea atzitzea eta fitxategiak transferitzeko erabiltzeko baimena ematen die aplikazioei."</string>
     <string name="permlab_bluetoothAcceptlist" msgid="5785922051395856524">"Ezarri Bluetooth bidezko gailuak onartutakoen zerrendan."</string>
     <string name="permdesc_bluetoothAcceptlist" msgid="259308920158011885">"Bluetooth bidezko gailu bat aldi baterako onartutakoen zerrendan ezartzeko baimena ematen die aplikazioei, gailu honetara fitxategiak bidaltzeko baimena izan dezan, baina gailu honen erabiltzaileari berrespena eskatu beharrik gabe."</string>
-    <string name="bt_share_picker_label" msgid="7464438494743777696">"Bluetooth-a"</string>
+    <string name="bt_share_picker_label" msgid="7464438494743777696">"Bluetootha"</string>
     <string name="unknown_device" msgid="2317679521750821654">"Identifikatu ezin den gailua"</string>
     <string name="unknownNumber" msgid="1245183329830158661">"Ezezaguna"</string>
+    <string name="not_provided" msgid="6938740494380012614">"Ez dira zehaztu"</string>
     <string name="airplane_error_title" msgid="2570111716678850860">"Hegaldi modua"</string>
-    <string name="airplane_error_msg" msgid="4853111123699559578">"Ezin duzu erabili Bluetooth-a Hegaldi moduan."</string>
+    <string name="airplane_error_msg" msgid="4853111123699559578">"Ezin duzu erabili Bluetootha Hegaldi moduan."</string>
     <string name="bt_enable_title" msgid="4484289159118416315"></string>
-    <string name="bt_enable_line1" msgid="8429910585843481489">"Bluetooth-zerbitzuak erabiltzeko, Bluetooth-a aktibatu behar duzu."</string>
-    <string name="bt_enable_line2" msgid="1466367120348920892">"Bluetooth-a aktibatu nahi duzu?"</string>
+    <string name="bt_enable_line1" msgid="8429910585843481489">"Bluetooth-zerbitzuak erabiltzeko, Bluetootha aktibatu behar duzu."</string>
+    <string name="bt_enable_line2" msgid="1466367120348920892">"Bluetootha aktibatu nahi duzu?"</string>
     <string name="bt_enable_cancel" msgid="6770180540581977614">"Utzi"</string>
     <string name="bt_enable_ok" msgid="4224374055813566166">"Aktibatu"</string>
     <string name="incoming_file_confirm_title" msgid="938251186275547290">"Fitxategi-transferentzia"</string>
@@ -38,11 +39,11 @@
     <string name="incoming_file_confirm_timeout_content" msgid="3221412098281076974">"\"<xliff:g id="SENDER">%1$s</xliff:g>\" igorlearen sarrerako fitxategia onartzeko denbora-muga gainditu da"</string>
     <string name="incoming_file_confirm_Notification_title" msgid="5381395500920804895">"Sarrerako fitxategia"</string>
     <string name="incoming_file_confirm_Notification_content" msgid="2669135531488877921">"<xliff:g id="SENDER">%1$s</xliff:g> igorlea prest dago fitxategi hau bidaltzeko: <xliff:g id="FILE">%2$s</xliff:g>"</string>
-    <string name="notification_receiving" msgid="8445265771083510696">"Bluetooth bidez partekatzea: <xliff:g id="FILE">%1$s</xliff:g> fitxategia jasotzen"</string>
+    <string name="notification_receiving" msgid="8445265771083510696">"Bluetooth bidez partekatzea: <xliff:g id="FILE">%1$s</xliff:g> jasotzen"</string>
     <string name="notification_received" msgid="2330252358543000567">"Bluetooth bidez partekatzea: <xliff:g id="FILE">%1$s</xliff:g> fitxategia jaso da"</string>
     <string name="notification_received_fail" msgid="9059153354809379374">"Bluetooth bidez partekatzea: ez da jaso <xliff:g id="FILE">%1$s</xliff:g> fitxategia"</string>
-    <string name="notification_sending" msgid="8269912843286868700">"Bluetooth bidez partekatzea: <xliff:g id="FILE">%1$s</xliff:g> fitxategia bidaltzen"</string>
-    <string name="notification_sent" msgid="2685202778935769332">"Bluetooth bidez partekatzea: <xliff:g id="FILE">%1$s</xliff:g> fitxategia bidali da"</string>
+    <string name="notification_sending" msgid="8269912843286868700">"Bluetooth bidez partekatzea: <xliff:g id="FILE">%1$s</xliff:g> bidaltzen"</string>
+    <string name="notification_sent" msgid="2685202778935769332">"Bluetooth bidez partekatzea: <xliff:g id="FILE">%1$s</xliff:g> bidali da"</string>
     <string name="notification_sent_complete" msgid="6293391081175517098">"% 100ean osatuta"</string>
     <string name="notification_sent_fail" msgid="7449832660578001579">"Bluetooth bidez partekatzea: ez da bidali <xliff:g id="FILE">%1$s</xliff:g> fitxategia"</string>
     <string name="download_title" msgid="6449408649671518102">"Fitxategi-transferentzia"</string>
@@ -76,7 +77,7 @@
     <string name="not_exist_file" msgid="5097565588949092486">"Ez dago fitxategirik"</string>
     <string name="not_exist_file_desc" msgid="250802392160941265">"Ez dago horrelako fitxategirik. \n"</string>
     <string name="enabling_progress_title" msgid="5262637688863903594">"Itxaron…"</string>
-    <string name="enabling_progress_content" msgid="685427201206684584">"Bluetooth-a aktibatzen…"</string>
+    <string name="enabling_progress_content" msgid="685427201206684584">"Bluetootha aktibatzen…"</string>
     <string name="bt_toast_1" msgid="8791691594887576215">"Fitxategia jasoko da. Egoera kontrolatzeko, joan Jakinarazpenen panelera."</string>
     <string name="bt_toast_2" msgid="2041575937953174042">"Ezin da fitxategia jaso."</string>
     <string name="bt_toast_3" msgid="3053157171297761920">"\"<xliff:g id="SENDER">%1$s</xliff:g>\" igorlearen fitxategia jasotzeari utzi zaio"</string>
@@ -127,5 +128,11 @@
     <string name="bluetooth_disconnected" msgid="6841396291728343534">"Deskonektatu da Bluetooth bidezko audioa"</string>
     <string name="a2dp_sink_mbs_label" msgid="6035366346569127155">"Bluetooth bidezko audioa"</string>
     <string name="bluetooth_opp_file_limit_exceeded" msgid="6612109860149473930">"Ezin dira transferitu 4 GB baino gehiagoko fitxategiak"</string>
-    <string name="bluetooth_connect_action" msgid="2319449093046720209">"Konektatu Bluetooth-era"</string>
+    <string name="bluetooth_connect_action" msgid="2319449093046720209">"Konektatu Bluetoothera"</string>
+    <string name="bluetooth_enabled_apm_title" msgid="6914461147844949044">"Bluetootha aktibatuta mantentzen da hegaldi moduan"</string>
+    <string name="bluetooth_enabled_apm_message" msgid="6168686193308136881">"Bluetootha aktibatuta utziz gero, hura aktibatuta mantentzeaz gogoratuko da gailua hegaldi modua erabiltzen duzun hurrengoan"</string>
+    <string name="bluetooth_stays_on_title" msgid="39720820955212918">"Bluetootha aktibatuta mantenduko da"</string>
+    <string name="bluetooth_stays_on_message" msgid="3669663452593157737">"Hegaldi moduan, Bluetootha aktibatuta mantentzeaz gogoratzen da gailua. Halakorik nahi ez baduzu, desaktiba ezazu zuk zeuk."</string>
+    <string name="bluetooth_and_wifi_stays_on_title" msgid="5821932798860821244">"Wifia eta Bluetootha aktibatuta mantentzen dira"</string>
+    <string name="bluetooth_and_wifi_stays_on_message" msgid="7848565203843882558">"Hegaldi moduan, wifia eta Bluetootha aktibatuta mantentzeaz gogoratzen da gailua. Halakorik nahi ez baduzu, desaktiba itzazu zuk zeuk."</string>
 </resources>

@@ -20,6 +20,7 @@ import android.hardware.camera2.CaptureResult;
 import android.location.Location;
 import android.os.Build;
 
+import com.android.camera.debug.DebugPropertyHelper;
 import com.android.camera.exif.ExifInterface;
 import com.android.camera.exif.Rational;
 import com.android.camera.one.v2.camera2proxy.CaptureResultProxy;
@@ -113,8 +114,13 @@ public class ExifUtil {
     }
 
     private void addMakeAndModelToExif() {
-        addExifTag(ExifInterface.TAG_MAKE, Build.MANUFACTURER);
-        addExifTag(ExifInterface.TAG_MODEL, Build.MODEL);
+        if (DebugPropertyHelper.isRedactExifEnabled()) {
+            addExifTag(ExifInterface.TAG_MAKE, "CAM_YY");
+            addExifTag(ExifInterface.TAG_MODEL, "CAM_XX");
+        } else {
+            addExifTag(ExifInterface.TAG_MAKE, Build.MANUFACTURER);
+            addExifTag(ExifInterface.TAG_MODEL, Build.MODEL);
+        }
     }
 
     private void addImageDataToExif(TaskImageContainer.TaskImage image) {

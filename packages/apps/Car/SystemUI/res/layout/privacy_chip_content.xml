@@ -60,7 +60,7 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
-        app:layout_constraintGuide_end="@dimen/privacy_chip_indicator_circle_diameter" />
+        app:layout_constraintGuide_begin="@dimen/privacy_chip_indicator_circle_diameter" />
 
     <View
         android:id="@+id/active_background"
@@ -69,10 +69,10 @@
         android:alpha="0.0"
         android:background="@drawable/privacy_chip_active_background_pill"
         android:focusable="false"
-        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintBottom_toTopOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toEndOf="parent"
-        app:layout_constraintTop_toBottomOf="parent" />
+        app:layout_constraintTop_toTopOf="parent" />
 
     <ImageView
         android:id="@+id/light_muted_icon"

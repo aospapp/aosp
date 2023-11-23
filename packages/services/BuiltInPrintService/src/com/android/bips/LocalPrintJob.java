@@ -312,13 +312,12 @@ class LocalPrintJob implements MdnsDiscovery.Listener, ConnectionListener,
                                 BackendConstants.PARAM_ERROR_MESSAGES,
                                 getStringifiedBlockedReasons());
                         break;
+                    case BackendConstants.JOB_DONE_BAD_CERTIFICATE:
+                        handleBadCertificate(jobStatus);
+                        break;
                     default:
                         // Job failed
-                        if (jobStatus.getBlockedReasonId() == R.string.printer_bad_certificate) {
-                            handleBadCertificate(jobStatus);
-                        } else {
-                            finish(false, null);
-                        }
+                        finish(false, null);
                         bundle.putString(
                                 BackendConstants.PARAM_ERROR_MESSAGES,
                                 getStringifiedBlockedReasons());

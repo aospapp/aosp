@@ -35,7 +35,7 @@ public class PutDoCommandTest {
         // <code>cla | ins | p1 | p2 | lc | data | le</code>
         byte[] expectedApdu = DataTypeConversionUtil.hexStringToByteArray(
                 "00DB3FFF050A0B02A0B000");
-        byte[] actualApdu = PutDoCommand.build(doTag, doData)
+        byte[] actualApdu = PutDoCommand.build(new TlvDatum(doTag, doData))
                 .getCommandApdu().getEncoded();
 
         assertThat(actualApdu).isEqualTo(expectedApdu);

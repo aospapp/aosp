@@ -150,7 +150,9 @@ public class CarModeTracker {
         Log.i(this, "handleExitCarMode: packageName=%s, priority=%d", packageName, priority);
         mCarModeChangeLog.log("exitCarMode: packageName=" + packageName + ", priority="
                 + priority);
-        mCarModeApps.removeIf(c -> c.getPriority() == priority);
+
+        //Remove the car mode app with specified priority without clearing out the projection entry.
+        mCarModeApps.removeIf(c -> c.getPriority() == priority && !c.hasSetAutomotiveProjection());
     }
 
     public void handleSetAutomotiveProjection(@NonNull String packageName) {

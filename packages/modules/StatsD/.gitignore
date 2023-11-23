@@ -6,3 +6,8 @@
 **/.idea
 **/*.iml
 **/*.ipr
+
+# VSCode
+**/.vscode/
+**/packages.modules.StatsD.code-workspace
+

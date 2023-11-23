@@ -14,4 +14,6 @@
     <string name="localPhoneName">My name</string>
     <string name="defaultnumber">000000</string>
     <string name="pbap_notification_group">Bluetooth Contact share</string>
+    <string name="phonebook_advance_feature_support">Phonebook Advance Feature Supported</string>
+    <string name="repair_for_adv_phonebook_feature">Re-pair for Advance Phonebook Feature</string>
 </resources>

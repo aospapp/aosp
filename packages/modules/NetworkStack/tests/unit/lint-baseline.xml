@@ -3,79 +3,58 @@
 
     <issue
         id="NewApi"
-        message="Call requires API level R (current min is 29): `android.net.NetworkCapabilities()`"
-        errorLine1="    private val EMPTY_CAPABILITIES = NetworkCapabilities()"
-        errorLine2="                                     ~~~~~~~~~~~~~~~~~~~~~">
+        message="Call requires API level 30 (current min is 29): `android.net.NetworkCapabilities()`">
         <location
             file="packages/modules/NetworkStack/tests/unit/src/com/android/networkstack/NetworkStackNotifierTest.kt"
-            line="134"
-            column="38"/>
+            line="136"/>
     </issue>
 
     <issue
         id="NewApi"
-        message="Call requires API level R (current min is 29): `android.net.NetworkCapabilities()`"
-        errorLine1="    private val VALIDATED_CAPABILITIES = NetworkCapabilities()"
-        errorLine2="                                         ~~~~~~~~~~~~~~~~~~~~~">
+        message="Call requires API level 30 (current min is 29): `android.net.NetworkCapabilities()`">
         <location
             file="packages/modules/NetworkStack/tests/unit/src/com/android/networkstack/NetworkStackNotifierTest.kt"
-            line="135"
-            column="42"/>
+            line="137"/>
     </issue>
 
     <issue
         id="NewApi"
-        message="Call requires API level R (current min is 29): `new android.net.NetworkCapabilities`"
-        errorLine1="            new NetworkCapabilities()"
-        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~">
+        message="Call requires API level 30 (current min is 29): `new android.net.NetworkCapabilities`">
         <location
             file="packages/modules/NetworkStack/tests/unit/src/com/android/networkstack/metrics/NetworkValidationMetricsTest.java"
-            line="57"
-            column="13"/>
+            line="57"/>
     </issue>
 
     <issue
         id="NewApi"
-        message="Call requires API level R (current min is 29): `new android.net.NetworkCapabilities`"
-        errorLine1="        NetworkCapabilities nc = new NetworkCapabilities();"
-        errorLine2="                                 ~~~~~~~~~~~~~~~~~~~~~~~">
+        message="Call requires API level 30 (current min is 29): `new android.net.NetworkCapabilities`">
         <location
             file="packages/modules/NetworkStack/tests/unit/src/com/android/networkstack/metrics/NetworkValidationMetricsTest.java"
-            line="109"
-            column="34"/>
+            line="109"/>
     </issue>
 
     <issue
         id="NewApi"
-        message="Call requires API level R (current min is 29): `new android.net.NetworkCapabilities`"
-        errorLine1="        nc = new NetworkCapabilities();"
-        errorLine2="             ~~~~~~~~~~~~~~~~~~~~~~~">
+        message="Call requires API level 30 (current min is 29): `new android.net.NetworkCapabilities`">
         <location
             file="packages/modules/NetworkStack/tests/unit/src/com/android/networkstack/metrics/NetworkValidationMetricsTest.java"
-            line="117"
-            column="14"/>
+            line="117"/>
     </issue>
 
     <issue
         id="NewApi"
-        message="Call requires API level R (current min is 29): `new android.net.NetworkCapabilities`"
-        errorLine1="        nc = new NetworkCapabilities();"
-        errorLine2="             ~~~~~~~~~~~~~~~~~~~~~~~">
+        message="Call requires API level 30 (current min is 29): `new android.net.NetworkCapabilities`">
         <location
             file="packages/modules/NetworkStack/tests/unit/src/com/android/networkstack/metrics/NetworkValidationMetricsTest.java"
-            line="123"
-            column="14"/>
+            line="123"/>
     </issue>
 
     <issue
         id="NewApi"
-        message="Call requires API level R (current min is 29): `new android.net.NetworkCapabilities`"
-        errorLine1="        nc = new NetworkCapabilities();"
-        errorLine2="             ~~~~~~~~~~~~~~~~~~~~~~~">
+        message="Call requires API level 30 (current min is 29): `new android.net.NetworkCapabilities`">
         <location
             file="packages/modules/NetworkStack/tests/unit/src/com/android/networkstack/metrics/NetworkValidationMetricsTest.java"
-            line="129"
-            column="14"/>
+            line="129"/>
     </issue>
 
 </issues>

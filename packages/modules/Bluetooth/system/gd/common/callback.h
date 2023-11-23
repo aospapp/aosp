@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include "base/callback.h"
+#include "base/functional/callback.h"
 
 namespace bluetooth {
 namespace common {

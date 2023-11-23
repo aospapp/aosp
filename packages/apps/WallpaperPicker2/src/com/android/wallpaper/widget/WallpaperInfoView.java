@@ -16,6 +16,8 @@
 package com.android.wallpaper.widget;
 
 import android.content.Context;
+import android.os.Handler;
+import android.os.Looper;
 import android.util.AttributeSet;
 import android.view.View;
 import android.widget.Button;
@@ -29,9 +31,12 @@ import com.android.wallpaper.R;
 import com.android.wallpaper.model.WallpaperInfo;
 
 import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 /** A view for displaying wallpaper info. */
 public class WallpaperInfoView extends LinearLayout {
+    private static final ExecutorService sExecutorService = Executors.newCachedThreadPool();
     private TextView mTitle;
     private TextView mSubtitle1;
     private TextView mSubtitle2;
@@ -55,39 +60,42 @@ public class WallpaperInfoView extends LinearLayout {
                                       CharSequence actionLabel,
                                       boolean shouldShowExploreButton,
                                       OnClickListener exploreButtonClickListener) {
-        final List<String> attributions = wallpaperInfo.getAttributions(getContext());
+        sExecutorService.execute(() -> {
+            final List<String> attributions = wallpaperInfo.getAttributions(getContext());
+            new Handler(Looper.getMainLooper()).post(() -> {
+                // Reset wallpaper information UI
+                mTitle.setText(null);
+                mSubtitle1.setText(null);
+                mSubtitle1.setVisibility(View.GONE);
+                mSubtitle2.setText(null);
+                mSubtitle2.setVisibility(View.GONE);
+                mExploreButton.setText(null);
+                mExploreButton.setOnClickListener(null);
+                mExploreButton.setVisibility(View.GONE);
 
-        // Reset
-        mTitle.setText(null);
-        mSubtitle1.setText(null);
-        mSubtitle1.setVisibility(View.GONE);
-        mSubtitle2.setText(null);
-        mSubtitle2.setVisibility(View.GONE);
-        mExploreButton.setText(null);
-        mExploreButton.setOnClickListener(null);
-        mExploreButton.setVisibility(View.GONE);
+                if (attributions.size() > 0 && attributions.get(0) != null) {
+                    mTitle.setText(attributions.get(0));
+                }
 
-        if (attributions.size() > 0 && attributions.get(0) != null) {
-            mTitle.setText(attributions.get(0));
-        }
+                if (shouldShowMetadata(wallpaperInfo)) {
+                    if (attributions.size() > 1 && attributions.get(1) != null) {
+                        mSubtitle1.setVisibility(View.VISIBLE);
+                        mSubtitle1.setText(attributions.get(1));
+                    }
 
-        if (shouldShowMetadata(wallpaperInfo)) {
-            if (attributions.size() > 1 && attributions.get(1) != null) {
-                mSubtitle1.setVisibility(View.VISIBLE);
-                mSubtitle1.setText(attributions.get(1));
-            }
+                    if (attributions.size() > 2 && attributions.get(2) != null) {
+                        mSubtitle2.setVisibility(View.VISIBLE);
+                        mSubtitle2.setText(attributions.get(2));
+                    }
 
-            if (attributions.size() > 2 && attributions.get(2) != null) {
-                mSubtitle2.setVisibility(View.VISIBLE);
-                mSubtitle2.setText(attributions.get(2));
-            }
-
-            if (shouldShowExploreButton) {
-                mExploreButton.setVisibility(View.VISIBLE);
-                mExploreButton.setText(actionLabel);
-                mExploreButton.setOnClickListener(exploreButtonClickListener);
-            }
-        }
+                    if (shouldShowExploreButton) {
+                        mExploreButton.setVisibility(View.VISIBLE);
+                        mExploreButton.setText(actionLabel);
+                        mExploreButton.setOnClickListener(exploreButtonClickListener);
+                    }
+                }
+            });
+        });
     }
 
     private boolean shouldShowMetadata(WallpaperInfo wallpaperInfo) {

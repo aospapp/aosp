@@ -146,6 +146,7 @@ class NetworkValidationTest {
         httpServer.stop()
         handlerThread.threadHandler.post { reader.stop() }
         handlerThread.quitSafely()
+        handlerThread.join()
 
         iface.fileDescriptor.close()
     }

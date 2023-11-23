@@ -15,6 +15,8 @@
  */
 package com.android.server.wifi;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 import static org.mockito.Matchers.eq;
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.anyInt;
@@ -32,6 +34,7 @@ import com.android.dx.mockito.inline.extended.ExtendedMockito;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.mockito.MockitoSession;
@@ -92,9 +95,14 @@ public class SupplicantStaNetworkCallbackAidlImplTest extends WifiBaseTest {
     public void testOnCertificateSuccess() throws Exception {
         mSupplicantStaNetworkCallbackAidlImpl.onServerCertificateAvailable(
                 0, "subject".getBytes(), "certHash".getBytes(), "cert".getBytes());
+        ArgumentCaptor<CertificateEventInfo> certificateEventInfoArgumentCaptor =
+                ArgumentCaptor.forClass(CertificateEventInfo.class);
         verify(mWifiMonitor).broadcastCertificationEvent(
-                eq(TEST_INTERFACE), eq(TEST_NETWORK_ID),
-                eq(TEST_SSID), eq(0), eq(mX509Certificate));
+                eq(TEST_INTERFACE), eq(TEST_NETWORK_ID), eq(TEST_SSID), eq(0),
+                certificateEventInfoArgumentCaptor.capture());
+
+        assertEquals(mX509Certificate, certificateEventInfoArgumentCaptor.getValue().getCert());
+        assertTrue("certHash".equals(certificateEventInfoArgumentCaptor.getValue().getCertHash()));
     }
 
     /** verify onServerCertificateAvailable with illegal arguments. */

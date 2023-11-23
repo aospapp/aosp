@@ -19,4 +19,5 @@ android_robolectric_test {
     ],
 
     instrumentation_for: "MmsService",
+    upstream: true,
 }

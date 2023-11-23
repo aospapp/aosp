@@ -121,8 +121,6 @@ public class DevelopmentState extends PreferenceControllerState {
 
     private static final String TERMINAL_APP_PACKAGE = "com.android.terminal";
 
-    private static final String KEY_CONVERT_FBE = "convert_to_file_encryption";
-
     private static final int RESULT_DEBUG_APP = 1000;
     private static final int RESULT_MOCK_LOCATION_APP = 1001;
 

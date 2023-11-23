@@ -16,8 +16,8 @@
 
 #include "sniffer.h"
 
+#include "log.h"
 #include "model/setup/device_boutique.h"
-#include "os/log.h"
 
 using std::vector;
 
@@ -28,44 +28,26 @@ bool Sniffer::registered_ =
 
 Sniffer::Sniffer(const vector<std::string>& args) {
   if (args.size() >= 2) {
-    if (Address::FromString(args[1], device_to_sniff_)) {
-      properties_.SetAddress(device_to_sniff_);
-    }
+    Address::FromString(args[1], address_);
   }
 }
 
-void Sniffer::TimerTick() {}
-
-void Sniffer::IncomingPacket(model::packets::LinkLayerPacketView packet) {
+void Sniffer::ReceiveLinkLayerPacket(model::packets::LinkLayerPacketView packet,
+                                     Phy::Type /*type*/, int8_t /*rssi*/) {
   Address source = packet.GetSourceAddress();
   Address dest = packet.GetDestinationAddress();
-  bool match_source = device_to_sniff_ == source;
-  bool match_dest = device_to_sniff_ == dest;
+  model::packets::PacketType packet_type = packet.GetType();
+
+  bool match_source = address_ == source;
+  bool match_dest = address_ == dest;
   if (!match_source && !match_dest) {
     return;
   }
-  model::packets::PacketType packet_type = packet.GetType();
 
-  if (packet_type == model::packets::PacketType::RSSI_WRAPPER) {
-    auto wrapper_view = model::packets::RssiWrapperView::Create(packet);
-    ASSERT(wrapper_view.IsValid());
-    auto wrapped_view =
-        model::packets::LinkLayerPacketView::Create(wrapper_view.GetPayload());
-    ASSERT(wrapped_view.IsValid());
-    LOG_INFO(
-        "%s %s -> %s (Type %s wrapping %s)",
-        (match_source ? (match_dest ? "<->" : "<--") : "-->"),
-        source.ToString().c_str(), dest.ToString().c_str(),
-        model::packets::PacketTypeText(packet_type).c_str(),
-        (packet_type == model::packets::PacketType::RSSI_WRAPPER
-             ? model::packets::PacketTypeText(wrapped_view.GetType()).c_str()
-             : ""));
-  } else {
-    LOG_INFO("%s %s -> %s (Type %s)",
-             (match_source ? (match_dest ? "<->" : "<--") : "-->"),
-             source.ToString().c_str(), dest.ToString().c_str(),
-             model::packets::PacketTypeText(packet_type).c_str());
-  }
+  LOG_INFO("%s %s -> %s (Type %s)",
+           (match_source ? (match_dest ? "<->" : "<--") : "-->"),
+           source.ToString().c_str(), dest.ToString().c_str(),
+           model::packets::PacketTypeText(packet_type).c_str());
 }
 
 }  // namespace rootcanal

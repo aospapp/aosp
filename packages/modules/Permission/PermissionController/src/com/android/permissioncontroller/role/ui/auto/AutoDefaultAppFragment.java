@@ -27,8 +27,8 @@ import androidx.preference.TwoStatePreference;
 
 import com.android.permissioncontroller.R;
 import com.android.permissioncontroller.auto.AutoSettingsFrameFragment;
-import com.android.permissioncontroller.role.model.Role;
 import com.android.permissioncontroller.role.ui.DefaultAppChildFragment;
+import com.android.role.controller.model.Role;
 
 /** Screen to pick a default app for a particular {@link Role}. */
 public class AutoDefaultAppFragment extends AutoSettingsFrameFragment implements

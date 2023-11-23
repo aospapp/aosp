@@ -21,6 +21,7 @@ import android.graphics.Bitmap;
 import android.graphics.Bitmap.Config;
 import android.graphics.Point;
 import android.graphics.Rect;
+import android.os.Handler;
 import android.widget.ImageView;
 
 import androidx.annotation.Nullable;
@@ -57,18 +58,21 @@ public final class TestAsset extends Asset {
 
     @Override
     public void decodeBitmap(int targetWidth, int targetHeight, BitmapReceiver receiver) {
-        receiver.onBitmapDecoded(mBitmap);
+        Handler.getMain().post(() ->
+                receiver.onBitmapDecoded(mBitmap));
     }
 
     @Override
     public void decodeBitmapRegion(Rect unused, int targetWidth, int targetHeight,
             boolean shouldAdjustForRtl, BitmapReceiver receiver) {
-        receiver.onBitmapDecoded(mBitmap);
+        Handler.getMain().post(() ->
+                receiver.onBitmapDecoded(mBitmap));
     }
 
     @Override
     public void decodeRawDimensions(Activity unused, DimensionsReceiver receiver) {
-        receiver.onDimensionsDecoded(mIsCorrupt ? null : new Point(1, 1));
+        Handler.getMain().post(() ->
+                receiver.onDimensionsDecoded(mIsCorrupt ? null : new Point(1, 1)));
     }
 
     @Override

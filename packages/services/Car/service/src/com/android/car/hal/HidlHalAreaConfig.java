@@ -83,4 +83,10 @@ public final class HidlHalAreaConfig extends HalAreaConfig {
     public float getMaxFloatValue() {
         return mConfig.maxFloatValue;
     }
+
+    /**
+     * Get the supported enum values.
+     */
+    @Override
+    public long[] getSupportedEnumValues() { return new long[0]; }
 }

@@ -77,7 +77,8 @@ public class ExternalSources extends ManageAppOp {
         switchPref.setKey(entry.info.packageName);
         switchPref.setIcon(entry.icon);
         switchPref.setOnPreferenceChangeListener((pref, newValue) -> {
-            setCanInstallApps(entry, (Boolean) newValue);
+            findEntriesUsingPackageName(entry.info.packageName)
+                    .forEach(packageEntry -> setCanInstallApps(packageEntry, (Boolean) newValue));
             return true;
         });
 

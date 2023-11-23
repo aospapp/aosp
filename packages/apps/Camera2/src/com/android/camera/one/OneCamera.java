@@ -89,10 +89,20 @@ public interface OneCamera {
         public void onFailure();
 
         /**
+         * Called if the camera is currently being used by a higher priority application.
+         **/
+        public void onCameraInUse();
+
+        /**
          * Called if the camera is closed or disconnected while attempting to
          * open.
          */
         public void onCameraClosed();
+
+        /** 
+         * Called if the camera is disconnected after successfully opening
+         */
+        public void onCameraInterrupted();
     }
 
     /**

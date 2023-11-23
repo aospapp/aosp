@@ -39,17 +39,9 @@ cc_test {
         "libcrypto_utils",
         "libprotobuf-cpp-lite",
         "libssl",
-    ],
-
-    // Let's statically link them so we don't have to install it onto the
-    // system image for testing.
-    static_libs: [
-        "libadb_pairing_auth_static",
-        "libadb_pairing_connection_static",
-        "libadb_pairing_server_static",
-        "libadb_crypto_static",
-        "libadb_protos_static",
-        "libadb_tls_connection_static",
+        "libadb_pairing_auth",
+        "libadb_pairing_connection",
+        "libadb_pairing_server",
     ],
 
     test_suites: ["general-tests", "mts-adbd"],

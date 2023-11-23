@@ -21,6 +21,7 @@ import static org.mockito.Mockito.*;
 import android.content.Context;
 import android.content.pm.PackageManager;
 import android.media.AudioManager;
+import android.media.session.MediaSession;
 import android.media.session.MediaSessionManager;
 import android.media.session.PlaybackState;
 import android.os.Looper;
@@ -57,6 +58,7 @@ public class MediaPlayerListTest {
 
     private final String mFlagDexmarker = System.getProperty("dexmaker.share_classloader", "false");
     private MediaPlayerWrapper.Callback mActivePlayerCallback;
+    private MediaSessionManager mMediaSessionManager;
 
     @Before
     public void setUp() throws Exception {
@@ -76,7 +78,7 @@ public class MediaPlayerListTest {
         when(mMockContext.getSystemServiceName(AudioManager.class))
             .thenReturn(Context.AUDIO_SERVICE);
 
-        MediaSessionManager mMediaSessionManager = InstrumentationRegistry.getTargetContext()
+        mMediaSessionManager = InstrumentationRegistry.getTargetContext()
                 .getSystemService(MediaSessionManager.class);
         PackageManager mockPackageManager = mock(PackageManager.class);
         when(mMockContext.getSystemService(Context.MEDIA_SESSION_SERVICE))
@@ -92,11 +94,8 @@ public class MediaPlayerListTest {
         when(mMockContext.getPackageManager()).thenReturn(mockPackageManager);
         when(mockPackageManager.queryIntentServices(any(), anyInt())).thenReturn(null);
 
-        Method method = BrowsablePlayerConnector.class.getDeclaredMethod("setInstanceForTesting",
-                BrowsablePlayerConnector.class);
         BrowsablePlayerConnector mockConnector = mock(BrowsablePlayerConnector.class);
-        method.setAccessible(true);
-        method.invoke(null, mockConnector);
+        BrowsablePlayerConnector.setInstanceForTesting(mockConnector);
         mMediaPlayerList.init(mMediaUpdateCallback);
 
         MediaControllerFactory.inject(mMockController);
@@ -112,10 +111,8 @@ public class MediaPlayerListTest {
 
     @After
     public void tearDown() throws Exception {
-        Method method = BrowsablePlayerConnector.class.getDeclaredMethod("setInstanceForTesting",
-                BrowsablePlayerConnector.class);
-        method.setAccessible(true);
-        method.invoke(null, (BrowsablePlayerConnector) null);
+        BrowsablePlayerConnector.setInstanceForTesting(null);
+
 
         MediaControllerFactory.inject(null);
         MediaPlayerWrapperFactory.inject(null);
@@ -192,4 +189,38 @@ public class MediaPlayerListTest {
         verify(mMediaUpdateCallback, never()).run(any());
     }
 
+    @Test
+    public void testSkipGlobalPrioritySession() {
+        // Store current active media player.
+        MediaPlayerWrapper activeMediaPlayer = mMediaPlayerList.getActivePlayer();
+
+        // Create MediaSession with GLOBAL_PRIORITY flag.
+        MediaSession session = new MediaSession(
+                InstrumentationRegistry.getTargetContext(),
+                MediaPlayerListTest.class.getSimpleName());
+        session.setFlags(MediaSession.FLAG_EXCLUSIVE_GLOBAL_PRIORITY
+                | MediaSession.FLAG_HANDLES_MEDIA_BUTTONS);
+
+        // Use MediaPlayerList onMediaKeyEventSessionChanged callback to send the new session.
+        mMediaPlayerList.mMediaKeyEventSessionChangedListener.onMediaKeyEventSessionChanged(
+                session.getController().getPackageName(), session.getSessionToken());
+
+        // Retrieve the current available controllers
+        ArrayList<android.media.session.MediaController> currentControllers =
+                new ArrayList<android.media.session.MediaController>(
+                mMediaSessionManager.getActiveSessions(null));
+        // Add the new session
+        currentControllers.add(session.getController());
+        // Use MediaPlayerList onActiveSessionsChanged callback to send the new session.
+        mMediaPlayerList.mActiveSessionsChangedListener.onActiveSessionsChanged(
+                currentControllers);
+
+        // Retrieve the new active MediaSession.
+        MediaPlayerWrapper newActiveMediaPlayer = mMediaPlayerList.getActivePlayer();
+
+        // Should be the same as before.
+        Assert.assertEquals(activeMediaPlayer, newActiveMediaPlayer);
+
+        session.release();
+    }
 }

@@ -16,9 +16,26 @@
 -->
 <resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="app_title">Car Launcher</string>
-
+    <string name="reset_appgrid_title">Reset app grid to A-Z order</string>
+    <string name="reset_appgrid_dialogue_message">This function will remove all custom ordering.
+        Do you want to continue?</string>
     <string name="app_launcher_title_all_apps">All apps</string>
     <string name="app_launcher_title_media_only">Media apps</string>
+    <string name="app_launcher_stop_app_action">Stop app</string>
+    <string name="app_launcher_app_info_action">App info</string>
+    <string name="app_launcher_stop_app_success_toast_text">
+        <xliff:g id="app_name" example="Radio">%1$s</xliff:g> has been stopped.
+    </string>
+    <!-- Manage applications, title for dialog when killing persistent apps. [CHAR LIMIT=40] -->
+    <string name="app_launcher_stop_app_dialog_title">Stop app?</string>
+    <!-- Manage applications, text for dialog when killing persistent apps. [CHAR LIMIT=200] -->
+    <string name="app_launcher_stop_app_dialog_text">If you force stop an app, it may
+        misbehave.
+    </string>
+    <!-- Manage applications, text for dialog when apps can not be stopped -->
+    <string name="app_launcher_stop_app_cant_stop_text">App can’t be stopped.</string>
+
+    <string name="default_media_song_title"></string>
 
     <string name="driving_toast_text">
         <xliff:g id="app_name" example="Settings">%1$s</xliff:g> can\'t be used while driving.
@@ -52,6 +69,9 @@
     <!-- Toolbar MenuItem text for showing debug apps, only visible on debug builds [CHAR_LIMIT=50] -->
     <string name="show_debug_apps">Show debug apps</string>
 
+    <!-- Separator between current time and max time in control bar, optional times [CHAR_LIMIT=5] -->
+    <string name="times_separator"> / </string>
+
     <!--
         A list of package names to exclude from the app selector when filtering is active.
         DO NOT TRANSLATE.
@@ -59,7 +79,6 @@
     <string-array name="hidden_apps" translatable="false">
         <item>com.android.car.themeplayground</item>
         <item>com.google.android.auto.welcome</item>
-        <item>com.android.car.acast.source</item>
         <item>com.google.android.embedded.projection</item>
         <item>com.android.car.bugreport</item>
         <item>com.android.car.trust</item>
@@ -86,4 +105,13 @@
         <item>org.chromium.webview_shell</item>
     </string-array>
 
+    <string name="recents_empty_state_text">No recent items</string>
+    <string name="recents_clear_all_text">Clear All</string>
+    <string name="failure_opening_recent_task_message">App isn\'t available</string>
+    <!--
+        A list of package names that are excluded from recents.
+        DO NOT TRANSLATE.
+    -->
+    <string-array name="packages_hidden_from_recents" translatable="false">
+    </string-array>
 </resources>

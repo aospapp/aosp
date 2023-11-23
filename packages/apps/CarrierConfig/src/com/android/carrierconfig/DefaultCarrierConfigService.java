@@ -261,9 +261,9 @@ public class DefaultCarrierConfigService extends CarrierService {
      * Checks to see if an XML node matches carrier filters.
      *
      * <p>This iterates over the attributes of the current tag pointed to by {@code parser} and
-     * checks each one against {@code id} or {@link Build.DEVICE} or {@link R.string#sku_filter}.
-     * Attributes that are not specified in the node will not be checked, so a node with no
-     * attributes will always return true. The supported filter attributes are,
+     * checks each one against {@code id} or {@link Build.DEVICE} or {@link R.string#sku_filter} or
+     * {@link Build.BOARD}. Attributes that are not specified in the node will not be checked, so a
+     * node with no attributes will always return true. The supported filter attributes are,
      * <ul>
      *   <li>mcc: {@link CarrierIdentifier#getMcc}</li>
      *   <li>mnc: {@link CarrierIdentifier#getMnc}</li>
@@ -274,6 +274,7 @@ public class DefaultCarrierConfigService extends CarrierService {
      *   <li>device: {@link Build.DEVICE}</li>
      *   <li>vendorSku: {@link SystemConfig.VENDOR_SKU_PROPERTY}</li>
      *   <li>hardwareSku: {@link SystemConfig.SKU_PROPERTY}</li>
+     *   <li>board: {@link Build.BOARD}</li>
      *   <li>cid: {@link CarrierIdentifier#getCarrierId()}
      *   or {@link CarrierIdentifier#getSpecificCarrierId()}</li>
      *   <li>sku: {@link R.string#sku_filter} "sku_filter" that OEM customizable filter</li>
@@ -327,6 +328,9 @@ public class DefaultCarrierConfigService extends CarrierService {
                     break;
                 case "hardwareSku":
                     result = value.equalsIgnoreCase(hardwareSkuProperty);
+                    break;
+                case "board":
+                    result = value.equalsIgnoreCase(Build.BOARD);
                     break;
                 case "cid":
                     result = (id == null) || (Integer.parseInt(value) == id.getCarrierId())

@@ -15,9 +15,19 @@
 -->
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android">
-    <style name="ActionBarTheme" parent="@style/ThemeOverlay.AppCompat.ActionBar">
+    <style name="ActionBarThemeCommon" parent="@style/ThemeOverlay.AppCompat.ActionBar">
         <item name="colorControlNormal">?android:textColorSecondary</item>
+        <!-- Modern platform themes set actionMenuTextColor to textColorPrimary. For example,
+             see Theme.Material in frameworks/base/core/res/res/values/themes_material.xml.
+             However, if the platform theme does not set actionMenuTextColor we are going to
+             crash, so let's set it here. Additionally, most of our ActionBarTheme themes
+             override this -->
+        <item name="android:actionMenuTextColor">?android:textColorPrimary</item>
+        <item name="android:textAllCaps">false</item>
     </style>
+
+    <!-- This gets overridden for specific platform versions and/or configs -->
+    <style name="ActionBarTheme" parent="@style/ActionBarThemeCommon"/>
 
     <style name="ActionModeStyle" parent="Widget.AppCompat.ActionMode">
         <!-- attr "height" was used by support lib should not in overlay scope -->
@@ -74,7 +84,7 @@
         <item name="android:textSize">20sp</item>
         <item name="fontFamily">@string/config_fontFamilyMedium</item>
     </style>
-
+    
     <style name="MaterialButton" parent="@style/Widget.MaterialComponents.Button.UnelevatedButton">
         <item name="android:textAppearance">@style/MaterialButtonTextAppearance</item>
     </style>

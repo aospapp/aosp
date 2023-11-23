@@ -12,14 +12,14 @@ genrule {
     tools: [
         "bluetooth_packetgen",
     ],
-    cmd: "$(location bluetooth_packetgen) --include=packages/modules/Bluetooth/system/gd --out=$(genDir) $(in)",
+    cmd: "$(location bluetooth_packetgen) --testing --include=packages/modules/Bluetooth/system/gd --out=$(genDir) $(in)",
     srcs: [
-        "test_packets.pdl",
         "big_endian_test_packets.pdl",
+        "test_packets.pdl",
     ],
     out: [
-        "packet/parser/test/test_packets.h",
         "packet/parser/test/big_endian_test_packets.h",
+        "packet/parser/test/test_packets.h",
     ],
 }
 

@@ -22,46 +22,41 @@
 #include <map>
 #include <string>
 
-extern std::map<std::string, int> mock_function_count_map;
-
 #define LOG_TAG "bt_shim"
 #include "gd/common/init_flags.h"
 #include "main/shim/entry.h"
 #include "main/shim/shim.h"
+#include "test/common/mock_functions.h"
 
 #ifndef UNUSED_ATTR
 #define UNUSED_ATTR
 #endif
 
 bool bluetooth::shim::is_gd_l2cap_enabled() {
-  mock_function_count_map[__func__]++;
-  return false;
-}
-bool bluetooth::shim::is_gd_security_enabled() {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return false;
 }
 bool bluetooth::shim::is_gd_shim_enabled() {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return false;
 }
 bool bluetooth::shim::is_gd_stack_started_up() {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return false;
 }
 bool bluetooth::shim::is_gd_link_policy_enabled() {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return false;
 }
 future_t* GeneralShutDown() {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return nullptr;
 }
 future_t* IdleModuleStartUp() {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return nullptr;
 }
 future_t* ShimModuleStartUp() {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return nullptr;
 }

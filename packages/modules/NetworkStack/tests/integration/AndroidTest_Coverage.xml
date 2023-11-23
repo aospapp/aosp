@@ -14,7 +14,7 @@
      limitations under the License.
 -->
 <configuration description="Runs coverage tests for NetworkStack">
-    <target_preparer class="com.android.tradefed.targetprep.TestAppInstallSetup">
+    <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller">
         <option name="test-file-name" value="NetworkStackCoverageTests.apk" />
     </target_preparer>
 
@@ -22,6 +22,14 @@
     <test class="com.android.tradefed.testtype.AndroidJUnitTest" >
         <option name="package" value="com.android.server.networkstack.coverage" />
         <option name="runner" value="androidx.test.runner.AndroidJUnitRunner" />
+        <!-- By default, include and exclude filters go into /data/local/tmp/ajur/, which these
+             tests cannot access because they run in the network_stack selinux context. Move
+             them to the tests' data directory instead.
+
+             This avoids confusing module errors in presubmit when a test fails, the test infra
+             attempts to retry it, but the retry run results in the test process crashing with a
+             permission denial trying to read the exclude file. -->
+        <option name="test-filter-dir" value="/data/data/{PACKAGE}/cache" />
         <option name="hidden-api-checks" value="false"/>
         <option name="device-listeners" value="com.android.modules.utils.testing.NativeCoverageHackInstrumentationListener" />
     </test>

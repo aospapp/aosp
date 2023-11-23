@@ -22,14 +22,13 @@ package {
 
 android_app {
     name: "AoapPhoneCompanionApp",
-
     srcs: ["src/**/*.java"],
-
     resource_dirs: ["res"],
-
     sdk_version: "current",
-
     optimize: {
         enabled: false,
     },
+    static_libs: [
+        "guava",
+    ],
 }

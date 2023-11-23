@@ -8,5 +8,22 @@
                 }
             ]
         }
+    ],
+    "mainline-presubmit": [
+        {
+            "name": "CtsRoleTestCases[com.google.android.permission.apex]",
+            "options": [
+                // TODO(b/238677748): These two tests currently fails on R base image
+                {
+                    "exclude-filter": "android.app.role.cts.RoleManagerTest#openDefaultAppListThenIsNotDefaultAppInList"
+                },
+                {
+                    "exclude-filter": "android.app.role.cts.RoleManagerTest#removeSmsRoleHolderThenPermissionIsRevoked"
+                },
+                {
+                   "exclude-annotation": "androidx.test.filters.FlakyTest"
+                }
+            ]
+        }
     ]
 }

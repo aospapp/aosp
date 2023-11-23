@@ -63,10 +63,15 @@ public class LogicalPreferenceGroup extends PreferenceGroup {
 
     @Override
     public boolean addPreference(Preference preference) {
+        updateShowChevron(preference);
+
+        return super.addPreference(preference);
+    }
+
+    protected void updateShowChevron(Preference preference) {
         if (!mShouldShowChevron && (preference instanceof CarUiPreference
                 || preference instanceof CarUiEditTextPreference)) {
             ((CarUiPreference) preference).setShowChevron(false);
         }
-        return super.addPreference(preference);
     }
 }

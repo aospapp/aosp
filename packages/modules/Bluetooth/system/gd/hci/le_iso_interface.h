@@ -29,7 +29,6 @@ constexpr hci::SubeventCode LeIsoEvents[] = {
     hci::SubeventCode::TERMINATE_BIG_COMPLETE,
     hci::SubeventCode::BIG_SYNC_ESTABLISHED,
     hci::SubeventCode::BIG_SYNC_LOST,
-    hci::SubeventCode::BIG_INFO_ADVERTISING_REPORT,
 };
 
 typedef CommandInterface<LeIsoCommandBuilder> LeIsoInterface;

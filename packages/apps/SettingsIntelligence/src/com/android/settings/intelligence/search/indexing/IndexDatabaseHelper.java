@@ -40,7 +40,7 @@ public class IndexDatabaseHelper extends SQLiteOpenHelper {
     private static final String TAG = "IndexDatabaseHelper";
 
     private static final String DATABASE_NAME = "search_index.db";
-    private static final int DATABASE_VERSION = 120;
+    private static final int DATABASE_VERSION = 121;
 
     @VisibleForTesting
     static final String SHARED_PREFS_TAG = "indexing_manager";
@@ -75,6 +75,7 @@ public class IndexDatabaseHelper extends SQLiteOpenHelper {
         String DATA_KEY_REF = "data_key_reference";
         String PAYLOAD_TYPE = "payload_type";
         String PAYLOAD = "payload";
+        String TOP_LEVEL_MENU_KEY = "top_level_menu_key";
     }
 
     public interface MetaColumns {
@@ -92,6 +93,7 @@ public class IndexDatabaseHelper extends SQLiteOpenHelper {
         String CHILD_CLASS = "child_class";
         String PARENT_TITLE = "parent_title";
         String CHILD_TITLE = "child_title";
+        String HIGHLIGHTABLE_MENU_KEY = "highlightable_menu_key";
     }
 
     private static final String CREATE_INDEX_TABLE =
@@ -136,6 +138,8 @@ public class IndexDatabaseHelper extends SQLiteOpenHelper {
                     IndexColumns.PAYLOAD_TYPE +
                     ", " +
                     IndexColumns.PAYLOAD +
+                    ", " +
+                    IndexColumns.TOP_LEVEL_MENU_KEY +
                     ");";
 
     private static final String CREATE_META_TABLE =
@@ -162,6 +166,8 @@ public class IndexDatabaseHelper extends SQLiteOpenHelper {
                     SiteMapColumns.PARENT_TITLE +
                     ", " +
                     SiteMapColumns.CHILD_TITLE +
+                    ", " +
+                    SiteMapColumns.HIGHLIGHTABLE_MENU_KEY +
                     ")";
     private static final String INSERT_BUILD_VERSION =
             "INSERT INTO " + Tables.TABLE_META_INDEX +

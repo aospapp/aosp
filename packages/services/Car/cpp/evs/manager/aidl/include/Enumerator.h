@@ -27,6 +27,7 @@
 #include <system/camera_metadata.h>
 
 #include <list>
+#include <shared_mutex>
 #include <unordered_map>
 #include <unordered_set>
 
@@ -50,6 +51,8 @@ public:
     ::ndk::ScopedAStatus closeDisplay(const std::shared_ptr<aidlevs::IEvsDisplay>& obj) override;
     ::ndk::ScopedAStatus getDisplayIdList(std::vector<uint8_t>* list) override;
     ::ndk::ScopedAStatus getDisplayState(aidlevs::DisplayState* state) override;
+    ::ndk::ScopedAStatus getDisplayStateById(int32_t displayId,
+                                             aidlevs::DisplayState* state) override;
     ::ndk::ScopedAStatus registerStatusCallback(
             const std::shared_ptr<aidlevs::IEvsEnumeratorStatusCallback>& callback) override;
     ::ndk::ScopedAStatus openUltrasonicsArray(
@@ -68,6 +71,12 @@ public:
 
     // Destructor
     virtual ~Enumerator();
+
+    // TODO(b/235110887): We may eventually want to remove below two methods and
+    //                    replace their functionality with other methods more
+    //                    elegant.
+    bool init(std::shared_ptr<aidlevs::IEvsEnumerator>& hwEnumerator, bool enableMonitor = false);
+    void enablePermissionCheck(bool enable);
 
 private:
     class EvsDeviceStatusCallbackImpl : public aidlevs::BnEvsEnumeratorStatusCallback {
@@ -110,7 +119,7 @@ private:
     std::vector<uint8_t> mDisplayPorts;
 
     // Display port the internal display is connected to.
-    uint8_t mInternalDisplayPort;
+    int32_t mInternalDisplayPort;
 
     // Collecting camera usage statistics from clients
     ::android::sp<StatsCollector> mClientsMonitor;
@@ -125,11 +134,12 @@ private:
     std::shared_ptr<EvsDeviceStatusCallbackImpl> mDeviceStatusCallback;
 
     // Mutex to protect resources related with a device status callback
-    mutable std::mutex mLock;
+    mutable std::shared_mutex mLock;
 
     // Clients to forward device status callback messages
-    std::set<std::shared_ptr<aidlevs::IEvsEnumeratorStatusCallback>> mDeviceStatusCallbacks
-            GUARDED_BY(mLock);
+    std::set<std::shared_ptr<aidlevs::IEvsEnumeratorStatusCallback>> mDeviceStatusCallbacks;
+
+    bool mDisablePermissionCheck = false;
 };
 
 }  // namespace aidl::android::automotive::evs::implementation

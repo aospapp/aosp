@@ -24,7 +24,7 @@
 
 #define LOG_TAG "bt_bta_sys_main"
 
-#include <base/bind.h>
+#include <base/functional/bind.h>
 #include <base/logging.h>
 
 #include <cstring>

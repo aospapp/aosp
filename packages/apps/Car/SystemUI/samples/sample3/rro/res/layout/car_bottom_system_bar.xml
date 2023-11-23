@@ -55,6 +55,7 @@
 
             <com.android.systemui.car.systembar.CarSystemBarButton
                 android:id="@+id/home"
+                android:contentDescription="@string/system_bar_home_label"
                 style="@style/SystemBarButton"
                 systemui:componentNames="com.android.car.carlauncher/.CarLauncher"
                 systemui:highlightWhenSelected="true"
@@ -71,6 +72,7 @@
 
             <com.android.systemui.car.systembar.CarSystemBarButton
                 android:id="@+id/grid_nav"
+                android:contentDescription="@string/system_bar_applications_label"
                 style="@style/SystemBarButton"
                 systemui:componentNames="@string/config_appGridComponentName"
                 systemui:highlightWhenSelected="true"
@@ -79,6 +81,7 @@
 
             <com.android.systemui.car.systembar.HvacButton
                 android:id="@+id/hvac"
+                android:contentDescription="@string/system_bar_climate_control_label"
                 style="@style/SystemBarButton"
                 systemui:highlightWhenSelected="true"
                 systemui:icon="@drawable/car_ic_hvac"
@@ -86,6 +89,7 @@
 
             <com.android.systemui.car.systembar.CarSystemBarButton
                 android:id="@+id/notifications"
+                android:contentDescription="@string/system_bar_notifications_label"
                 style="@style/SystemBarButton"
                 systemui:highlightWhenSelected="true"
                 systemui:icon="@drawable/car_ic_notification"
@@ -104,7 +108,7 @@
             android:layout_alignParentEnd="true"
             android:gravity="center_vertical"
             systemui:hvacAreaId="68"
-            systemui:hvacTempFormat="%.0f\u00B0" />
+            systemui:hvacTempFormat="%.0f\u00B0"/>
     </RelativeLayout>
 
     <LinearLayout
@@ -116,6 +120,5 @@
         android:layoutDirection="ltr"
         android:paddingEnd="@dimen/car_keyline_1"
         android:paddingStart="@dimen/car_keyline_1"
-        android:visibility="gone"
-    />
+        android:visibility="gone"/>
 </com.android.systemui.car.systembar.CarSystemBarView>

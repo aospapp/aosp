@@ -17,6 +17,8 @@
 package com.android.car.settings.applications.specialaccess;
 
 import static com.android.car.settings.common.PreferenceController.AVAILABLE;
+import static com.android.car.settings.common.PreferenceController.AVAILABLE_FOR_VIEWING;
+import static com.android.car.settings.common.PreferenceController.CONDITIONALLY_UNAVAILABLE;
 import static com.android.car.settings.common.PreferenceController.UNSUPPORTED_ON_DEVICE;
 
 import static com.google.common.truth.Truth.assertThat;
@@ -97,6 +99,33 @@ public class MoreSpecialAccessPreferenceControllerTest {
     }
 
     @Test
+    public void getAvailabilityStatus_noPermissionController_zoneWrite() {
+        when(mMockPackageManager.getPermissionControllerPackageName()).thenReturn(null);
+        setUpPreferenceController();
+        mPreferenceController.setAvailabilityStatusForZone("write");
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), UNSUPPORTED_ON_DEVICE);
+    }
+
+    @Test
+    public void getAvailabilityStatus_noPermissionController_zoneRead() {
+        when(mMockPackageManager.getPermissionControllerPackageName()).thenReturn(null);
+        setUpPreferenceController();
+        mPreferenceController.setAvailabilityStatusForZone("read");
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), UNSUPPORTED_ON_DEVICE);
+    }
+
+    @Test
+    public void getAvailabilityStatus_noPermissionController_zoneHidden() {
+        when(mMockPackageManager.getPermissionControllerPackageName()).thenReturn(null);
+        setUpPreferenceController();
+        mPreferenceController.setAvailabilityStatusForZone("hidden");
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), UNSUPPORTED_ON_DEVICE);
+    }
+
+    @Test
     public void getAvailabilityStatus_noResolvedActivity_returnsUnsupportedOnDevice() {
         when(mMockPackageManager.getPermissionControllerPackageName()).thenReturn(PACKAGE);
         when(mMockPackageManager.resolveActivity(any(), eq(PackageManager.MATCH_DEFAULT_ONLY)))
@@ -108,6 +137,42 @@ public class MoreSpecialAccessPreferenceControllerTest {
     }
 
     @Test
+    public void getAvailabilityStatus_noResolvedActivity_returnsUnsupportedOnDevice_zoneWrite() {
+        when(mMockPackageManager.getPermissionControllerPackageName()).thenReturn(PACKAGE);
+        when(mMockPackageManager.resolveActivity(any(), eq(PackageManager.MATCH_DEFAULT_ONLY)))
+                .thenReturn(null);
+        setUpPreferenceController();
+        mPreferenceController.setAvailabilityStatusForZone("write");
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), UNSUPPORTED_ON_DEVICE);
+    }
+
+    @Test
+    public void getAvailabilityStatus_noResolvedActivity_returnsUnsupportedOnDevice_zoneRead() {
+        when(mMockPackageManager.getPermissionControllerPackageName()).thenReturn(PACKAGE);
+        when(mMockPackageManager.resolveActivity(any(), eq(PackageManager.MATCH_DEFAULT_ONLY)))
+                .thenReturn(null);
+        setUpPreferenceController();
+        mPreferenceController.setAvailabilityStatusForZone("read");
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), UNSUPPORTED_ON_DEVICE);
+    }
+
+    @Test
+    public void getAvailabilityStatus_noResolvedActivity_returnsUnsupportedOnDevice_zoneHidden() {
+        when(mMockPackageManager.getPermissionControllerPackageName()).thenReturn(PACKAGE);
+        when(mMockPackageManager.resolveActivity(any(), eq(PackageManager.MATCH_DEFAULT_ONLY)))
+                .thenReturn(null);
+        setUpPreferenceController();
+        mPreferenceController.setAvailabilityStatusForZone("hidden");
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), UNSUPPORTED_ON_DEVICE);
+    }
+
+    @Test
     public void getAvailabilityStatus_resolvedActivity_returnsAvailable() {
         when(mMockPackageManager.getPermissionControllerPackageName()).thenReturn(PACKAGE);
         when(mMockPackageManager.resolveActivity(any(), eq(PackageManager.MATCH_DEFAULT_ONLY)))
@@ -116,6 +181,42 @@ public class MoreSpecialAccessPreferenceControllerTest {
 
         assertThat(mPreferenceController.getAvailabilityStatus()).isEqualTo(
                 AVAILABLE);
+    }
+
+    @Test
+    public void getAvailabilityStatus_resolvedActivity_returnsAvailable_zoneWrite() {
+        when(mMockPackageManager.getPermissionControllerPackageName()).thenReturn(PACKAGE);
+        when(mMockPackageManager.resolveActivity(any(), eq(PackageManager.MATCH_DEFAULT_ONLY)))
+                .thenReturn(mResolveInfo);
+        setUpPreferenceController();
+        mPreferenceController.setAvailabilityStatusForZone("write");
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), AVAILABLE);
+    }
+
+    @Test
+    public void getAvailabilityStatus_resolvedActivity_returnsAvailable_zoneRead() {
+        when(mMockPackageManager.getPermissionControllerPackageName()).thenReturn(PACKAGE);
+        when(mMockPackageManager.resolveActivity(any(), eq(PackageManager.MATCH_DEFAULT_ONLY)))
+                .thenReturn(mResolveInfo);
+        setUpPreferenceController();
+        mPreferenceController.setAvailabilityStatusForZone("read");
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), AVAILABLE_FOR_VIEWING);
+    }
+
+    @Test
+    public void getAvailabilityStatus_resolvedActivity_returnsAvailable_zoneHidden() {
+        when(mMockPackageManager.getPermissionControllerPackageName()).thenReturn(PACKAGE);
+        when(mMockPackageManager.resolveActivity(any(), eq(PackageManager.MATCH_DEFAULT_ONLY)))
+                .thenReturn(mResolveInfo);
+        setUpPreferenceController();
+        mPreferenceController.setAvailabilityStatusForZone("hidden");
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), CONDITIONALLY_UNAVAILABLE);
     }
 
     @Test

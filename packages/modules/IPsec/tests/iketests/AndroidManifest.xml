@@ -26,6 +26,8 @@
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
     <!--Allow tests to use wake locks-->
     <uses-permission android:name="android.permission.WAKE_LOCK"/>
+    <!--Allow tests to read device config-->
+    <uses-permission android:name="android.permission.READ_DEVICE_CONFIG"/>
 
     <!--
        'debuggable=true' is required to properly load mockito jvmti dependencies,

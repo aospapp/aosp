@@ -38,8 +38,9 @@ public final class CarMockitoHelper {
     public static void mockHandleRemoteExceptionFromCarServiceWithDefaultValue(
             @NonNull Car car) {
         doAnswer((invocation) -> {
+            Log.v(TAG, "mocking handleRemoteExceptionFromCarService(): args=" + invocation);
             Object returnValue = invocation.getArguments()[1];
-            Log.v(TAG, "mocking handleRemoteExceptionFromCarService(): " + returnValue);
+            Log.v(TAG, "returning " + returnValue);
             return returnValue;
         }).when(car).handleRemoteExceptionFromCarService(isA(RemoteException.class), any());
     }

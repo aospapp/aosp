@@ -29,5 +29,6 @@ android_test_helper_app {
         "androidx.test.core",
     ],
     sdk_version: "current",
+    min_sdk_version: "Tiramisu",
     target_sdk_version: "Tiramisu",
 }

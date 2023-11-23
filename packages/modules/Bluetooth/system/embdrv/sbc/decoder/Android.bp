@@ -13,26 +13,29 @@ cc_library_static {
     defaults: ["fluoride_defaults"],
     srcs: [
         "srce/alloc.c",
-        "srce/bitalloc.c",
         "srce/bitalloc-sbc.c",
+        "srce/bitalloc.c",
         "srce/bitstream-decode.c",
         "srce/decoder-oina.c",
         "srce/decoder-private.c",
         "srce/decoder-sbc.c",
         "srce/dequant.c",
-        "srce/framing.c",
         "srce/framing-sbc.c",
+        "srce/framing.c",
         "srce/oi_codec_version.c",
-        "srce/synthesis-sbc.c",
-        "srce/synthesis-dct8.c",
         "srce/synthesis-8-generated.c",
+        "srce/synthesis-dct8.c",
+        "srce/synthesis-sbc.c",
     ],
     local_include_dirs: [
         "include",
         "srce",
     ],
     host_supported: true,
-    min_sdk_version: "Tiramisu"
+    apex_available: [
+        "com.android.btservices",
+    ],
+    min_sdk_version: "Tiramisu",
 }
 
 cc_fuzz {
@@ -46,5 +49,5 @@ cc_fuzz {
     local_include_dirs: [
         "include",
     ],
-    host_supported: false,
+    host_supported: true,
 }

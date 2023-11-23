@@ -15,6 +15,10 @@
  */
 package com.android.wallpaper.picker;
 
+import android.annotation.Nullable;
+import android.content.Context;
+import android.content.Intent;
+
 /**
  * Interface for activities that launch an Android custom image picker.
  */
@@ -47,5 +51,26 @@ public interface MyPhotosStarter {
     interface MyPhotosStarterProvider {
 
         MyPhotosStarter getMyPhotosStarter();
+    }
+
+    /**
+     * Interface for a provider of the intent to start the "My Photos" picker.
+     * Defaults to resolving {@link Intent#ACTION_PICK}.
+     */
+    interface MyPhotosIntentProvider {
+
+        /**
+         * @return the Intent to use to start the "My Photos" picker.
+         */
+        default Intent getMyPhotosIntent(Context context) {
+            Intent intent = new Intent(Intent.ACTION_PICK);
+            intent.setType("image/*");
+            return intent;
+        }
+
+        @Nullable
+        default Intent getFallbackIntent(Context context) {
+            return null;
+        }
     }
 }

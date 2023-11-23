@@ -26,8 +26,6 @@
 #include <map>
 #include <string>
 
-extern std::map<std::string, int> mock_function_count_map;
-
 // Mock include file to share data between tests and mock
 #include "test/mock/mock_stack_btm_ble_bgconn.h"
 #include "types/raw_address.h"
@@ -54,6 +52,7 @@ struct BTM_BackgroundConnectAddressKnown BTM_BackgroundConnectAddressKnown;
 struct BTM_SetLeConnectionModeToFast BTM_SetLeConnectionModeToFast;
 struct BTM_SetLeConnectionModeToSlow BTM_SetLeConnectionModeToSlow;
 struct BTM_AcceptlistAdd BTM_AcceptlistAdd;
+struct BTM_AcceptlistAddDirect BTM_AcceptlistAddDirect;
 struct BTM_AcceptlistRemove BTM_AcceptlistRemove;
 struct BTM_AcceptlistClear BTM_AcceptlistClear;
 
@@ -64,46 +63,51 @@ struct BTM_AcceptlistClear BTM_AcceptlistClear;
 // Mocked functions, if any
 const tBLE_BD_ADDR convert_to_address_with_type(
     const RawAddress& bd_addr, const tBTM_SEC_DEV_REC* p_dev_rec) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return test::mock::stack_btm_ble_bgconn::convert_to_address_with_type(
       bd_addr, p_dev_rec);
 }
 void btm_update_scanner_filter_policy(tBTM_BLE_SFP scan_policy) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   test::mock::stack_btm_ble_bgconn::btm_update_scanner_filter_policy(
       scan_policy);
 }
 bool btm_ble_suspend_bg_conn(void) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return test::mock::stack_btm_ble_bgconn::btm_ble_suspend_bg_conn();
 }
 bool btm_ble_resume_bg_conn(void) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return test::mock::stack_btm_ble_bgconn::btm_ble_resume_bg_conn();
 }
 bool BTM_BackgroundConnectAddressKnown(const RawAddress& address) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return test::mock::stack_btm_ble_bgconn::BTM_BackgroundConnectAddressKnown(
       address);
 }
 bool BTM_SetLeConnectionModeToFast() {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return test::mock::stack_btm_ble_bgconn::BTM_SetLeConnectionModeToFast();
 }
 void BTM_SetLeConnectionModeToSlow() {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   test::mock::stack_btm_ble_bgconn::BTM_SetLeConnectionModeToSlow();
 }
 bool BTM_AcceptlistAdd(const RawAddress& address) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return test::mock::stack_btm_ble_bgconn::BTM_AcceptlistAdd(address);
 }
+bool BTM_AcceptlistAdd(const RawAddress& address, bool is_direct) {
+  inc_func_call_count(__func__);
+  return test::mock::stack_btm_ble_bgconn::BTM_AcceptlistAddDirect(address,
+                                                                   is_direct);
+}
 void BTM_AcceptlistRemove(const RawAddress& address) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   test::mock::stack_btm_ble_bgconn::BTM_AcceptlistRemove(address);
 }
 void BTM_AcceptlistClear() {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   test::mock::stack_btm_ble_bgconn::BTM_AcceptlistClear();
 }
 

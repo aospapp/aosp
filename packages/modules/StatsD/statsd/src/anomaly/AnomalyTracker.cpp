@@ -255,13 +255,15 @@ bool AnomalyTracker::isInRefractoryPeriod(const int64_t& timestampNs,
     return false;
 }
 
-std::pair<bool, uint64_t> AnomalyTracker::getProtoHash() const {
+std::pair<optional<InvalidConfigReason>, uint64_t> AnomalyTracker::getProtoHash() const {
     string serializedAlert;
     if (!mAlert.SerializeToString(&serializedAlert)) {
         ALOGW("Unable to serialize alert %lld", (long long)mAlert.id());
-        return {false, 0};
+        return {createInvalidConfigReasonWithAlert(INVALID_CONFIG_REASON_ALERT_SERIALIZATION_FAILED,
+                                                   mAlert.metric_id(), mAlert.id()),
+                0};
     }
-    return {true, Hash64(serializedAlert)};
+    return {nullopt, Hash64(serializedAlert)};
 }
 
 void AnomalyTracker::informSubscribers(const MetricDimensionKey& key, int64_t metric_id,

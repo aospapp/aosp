@@ -30,7 +30,7 @@
     <string name="notification_disconnectedCall_body" msgid="600491714584417536">"ការហៅ​ទូរសព្ទ​ទៅ <xliff:g id="CALLER">%s</xliff:g> ត្រូវ​បាន​ផ្ដាច់ ដោយសារ​កំពុង​ហៅ​ទៅ​លេខ​សង្គ្រោះ​បន្ទាន់។"</string>
     <string name="notification_disconnectedCall_generic_body" msgid="5282765206349184853">"ការហៅ​ទូរសព្ទ​របស់​អ្នក​ត្រូវ​បាន​ផ្ដាច់ ដោយសារ​តែ​កំពុង​ធ្វើ​ការហៅ​ទៅ​លេខ​សង្គ្រោះ​បន្ទាន់។"</string>
     <string name="notification_audioProcessing_title" msgid="1619035039880584575">"ការហៅនៅផ្ទៃខាងក្រោយ"</string>
-    <string name="notification_audioProcessing_body" msgid="6397005913770420388">"<xliff:g id="AUDIO_PROCESSING_APP_NAME">%s</xliff:g> បាន​ធ្វើ​ការហៅ​ទូរសព្ទ​នៅ​ផ្ទៃ​ខាង​ក្រោយ។ កម្មវិធី​នេះ​អាច​កំពុង​ចូល​ប្រើប្រាស់ និង​ចាក់​សំឡេង​តាម​ការហៅ​ទូរសព្ទ។"</string>
+    <string name="notification_audioProcessing_body" msgid="8811420157964118913">"<xliff:g id="AUDIO_PROCESSING_APP_NAME">%s</xliff:g> កំពុង​ដំណើរការ​ការ​ហៅ​ទូរសព្ទ​នៅ​ផ្ទៃខាងក្រោយ។ កម្មវិធី​នេះ​អាច​កំពុង​ចូល​ប្រើប្រាស់ និង​ចាក់​សំឡេង​តាម​ការហៅ​ទូរសព្ទ។"</string>
     <string name="notification_incallservice_not_responding_title" msgid="5347557574288598548">"<xliff:g id="IN_CALL_SERVICE_APP_NAME">%s</xliff:g> បាន​គាំង"</string>
     <string name="notification_incallservice_not_responding_body" msgid="9209308270131968623">"ការហៅ​ទូរសព្ទ​របស់​អ្នក​បាន​ប្រើប្រាស់​កម្មវិធី​ទូរសព្ទ​ដែល​ភ្ជាប់​មក​ជាមួយ​ឧបករណ៍​របស់​អ្នក"</string>
     <string name="accessibility_call_muted" msgid="2968461092554300779">"ការ​ហៅ​បិទ​សំឡេង។"</string>
@@ -100,6 +100,7 @@
     <string name="notification_channel_background_calls" msgid="7785659903711350506">"ការហៅនៅផ្ទៃខាងក្រោយ"</string>
     <string name="notification_channel_disconnected_calls" msgid="8228636543997645757">"ការហៅ​ទូរសព្ទដែលបាន​ផ្ដាច់"</string>
     <string name="notification_channel_in_call_service_crash" msgid="7313237519166984267">"កម្មវិធី​ទូរសព្ទ​គាំង"</string>
+    <string name="notification_channel_call_streaming" msgid="5100510699787538991">"មុខងារផ្សាយ​ការហៅទូរសព្ទ"</string>
     <string name="alert_outgoing_call" msgid="5319895109298927431">"ការ​ហៅ​ទូរសព្ទ​នេះ នឹង​បញ្ចប់​ការហៅ <xliff:g id="OTHER_APP">%1$s</xliff:g> របស់​អ្នក។"</string>
     <string name="alert_redirect_outgoing_call_or_not" msgid="665409645789521636">"ជ្រើសរើស​របៀប​ធ្វើ​ការហៅ​ទូរសព្ទ​នេះ"</string>
     <string name="alert_place_outgoing_call_with_redirection" msgid="5221065030959024121">"បញ្ជូន​ការហៅ​ទូរសព្ទ​បន្ត​ដោយ​ប្រើប្រាស់ <xliff:g id="OTHER_APP">%1$s</xliff:g>"</string>
@@ -123,4 +124,14 @@
     <string name="developer_title" msgid="9146088855661672353">"ម៉ឺនុយ​អ្នក​អភិវឌ្ឍន៍​ទូរគមនាគមន៍"</string>
     <string name="toast_emergency_can_not_pull_call" msgid="9074229465338410869">"មិន​អាច​ទទួល​ការហៅ​ទូរសព្ទ​បាន​ទេ ពេល​កំពុង​ហៅ​ទៅ​លេខ​សង្គ្រោះ​បន្ទាន់។"</string>
     <string name="cancel" msgid="6733466216239934756">"បោះបង់"</string>
+    <string name="back" msgid="6915955601805550206">"ថយក្រោយ"</string>
+    <string name="callendpoint_name_earpiece" msgid="7047285080319678594">"ឧបករណ៍ស្ដាប់សំឡេង"</string>
+    <string name="callendpoint_name_bluetooth" msgid="210210953208913172">"ប៊្លូធូស"</string>
+    <string name="callendpoint_name_wiredheadset" msgid="6860787176412079742">"កាស​មាន​ខ្សែ"</string>
+    <string name="callendpoint_name_speaker" msgid="1971760468695323189">"ឧបករណ៍​បំពង​សំឡេង"</string>
+    <string name="callendpoint_name_streaming" msgid="2337595450408275576">"ខាង​ក្រៅ"</string>
+    <string name="callendpoint_name_unknown" msgid="2199074708477193852">"មិន​ស្គាល់"</string>
+    <string name="call_streaming_notification_body" msgid="502216105683378263">"កំពុង​ផ្សាយ​សំឡេង​ទៅឧបករណ៍​ផ្សេងទៀត"</string>
+    <string name="call_streaming_notification_action_hang_up" msgid="7017663335289063827">"បញ្ចប់​ការហៅ​ទូរសព្ទ"</string>
+    <string name="call_streaming_notification_action_switch_here" msgid="3524180754186221228">"ប្ដូរនៅទីនេះ"</string>
 </resources>

@@ -23,6 +23,7 @@ java_test_host {
     static_libs: [
         "cts-install-lib-host",
         "frameworks-base-hostutils",
+        "modules-utils-build-testing",
         "test_util_current_version",
     ],
     data: [

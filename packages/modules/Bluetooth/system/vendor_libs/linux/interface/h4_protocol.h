@@ -29,34 +29,43 @@ namespace hci {
 
 using ::android::hardware::hidl_vec;
 using PacketReadCallback = std::function<void(const hidl_vec<uint8_t>&)>;
+using OnDisconnectCallback = std::function<void()>;
 
 class H4Protocol {
  public:
   H4Protocol(int fd, PacketReadCallback event_cb, PacketReadCallback acl_cb,
-             PacketReadCallback sco_cb, PacketReadCallback iso_cb)
-      : uart_fd_(fd),
-        event_cb_(event_cb),
-        acl_cb_(acl_cb),
-        sco_cb_(sco_cb),
-        iso_cb_(iso_cb),
-        hci_packetizer_([this]() { OnPacketReady(); }) {}
+             PacketReadCallback sco_cb, PacketReadCallback iso_cb,
+             OnDisconnectCallback disconnect_cb);
+
+  virtual ~H4Protocol() {}
 
   size_t Send(uint8_t type, const uint8_t* data, size_t length);
-
-  void OnPacketReady();
 
   void OnDataReady(int fd);
 
  private:
   int uart_fd_;
+  bool disconnected_{false};
+
+  size_t on_packet_ready(const hidl_vec<uint8_t>& packet);
+  void send_data_to_packetizer(uint8_t* buffer, size_t length);
 
   PacketReadCallback event_cb_;
   PacketReadCallback acl_cb_;
   PacketReadCallback sco_cb_;
   PacketReadCallback iso_cb_;
+  OnDisconnectCallback disconnect_cb_;
 
   HciPacketType hci_packet_type_{HCI_PACKET_TYPE_UNKNOWN};
   HciPacketizer hci_packetizer_;
+
+  /**
+   * Question : Why read in single chunk rather than multiple reads?
+   * Answer: Using multiple reads does not work with some BT USB dongles.
+   * Reading in single shot gives expected response.
+   * ACL max length is 2 bytes, so using 64K as the buffer length.
+   */
+  static constexpr size_t kMaxPacketLength = 64 * 1024;
 };
 
 }  // namespace hci

@@ -14,14 +14,14 @@ rust_library {
     srcs: ["src/lib.rs"],
     edition: "2018",
     rustlibs: [
-      "libbluetooth_rs",
-      "libbt_facade_proto",
-      "libfutures",
-      "libgrpcio",
-      "libprotobuf",
-      "libtokio",
-      "libgddi",
-      "liblog_rust",
+        "libbluetooth_rs",
+        "libbt_facade_proto",
+        "libfutures",
+        "libgddi",
+        "libgrpcio",
+        "liblog_rust",
+        "libprotobuf_deprecated",
+        "libtokio",
     ],
 }
 
@@ -31,15 +31,35 @@ rust_binary {
     srcs: ["src/main.rs"],
     edition: "2018",
     rustlibs: [
-      "libclap",
-      "libbluetooth_with_facades",
-      "libfutures",
-      "libgrpcio",
-      "libtokio",
-      "libnix",
-      "libbt_common",
-      "liblog_rust",
+        "libbluetooth_with_facades",
+        "libbt_common",
+        "libclap",
+        "libfutures",
+        "libgrpcio",
+        "liblazy_static",
+        "liblog_rust",
+        "libnix",
+        "libtokio",
     ],
+}
+
+rust_test {
+    name: "bluetooth_with_facades.test",
+    defaults: ["gd_rust_defaults"],
+    srcs: ["src/main.rs"],
+    edition: "2018",
+    rustlibs: [
+        "libbluetooth_with_facades",
+        "libbt_common",
+        "libclap",
+        "libfutures",
+        "libgrpcio",
+        "liblazy_static",
+        "liblog_rust",
+        "libnix",
+        "libtokio",
+    ],
+    test_suites: ["general-tests"],
 }
 
 rust_library {
@@ -51,15 +71,15 @@ rust_library {
     rustlibs: [
         "libbt_facade_proto",
         "libbytes",
+        "libcxx",
         "libfutures",
         "libgrpcio",
-        "libtokio",
-        "libprotobuf",
         "liblog_rust",
-        "libcxx",
+        "libprotobuf_deprecated",
+        "libtokio",
     ],
     apex_available: [
-        "com.android.bluetooth",
+        "com.android.btservices",
     ],
     min_sdk_version: "30",
 }

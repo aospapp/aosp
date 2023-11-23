@@ -18,5 +18,7 @@
     <privapp-permissions package="com.android.adservices.api">
         <!-- Permission required for reading DeviceConfig -->
         <permission name="android.permission.READ_DEVICE_CONFIG" />
+        <!-- Permission required for checking the importance of caller process -->
+        <permission name="android.permission.PACKAGE_USAGE_STATS" />
     </privapp-permissions>
 </permissions>

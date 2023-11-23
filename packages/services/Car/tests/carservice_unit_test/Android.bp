@@ -21,7 +21,16 @@ package {
 android_test {
     name: "CarServiceUnitTest",
 
-    srcs: ["src/**/*.java"],
+    srcs: [
+            "src/**/*.java",
+            "src/**/*.aidl",
+        ],
+
+    aidl: {
+            include_dirs: [
+                "packages/services/Car/car-lib/src",
+            ],
+    },
 
     aaptflags: [
         "--extra-packages com.android.car",
@@ -38,13 +47,24 @@ android_test {
 
     instrumentation_for: "CarService",
 
+    sdk_version: "core_platform",
+
     libs: [
         "android.car",
-        "android.car.builtin",
+        "android.car.builtin.impl",
         "android.car.watchdoglib",
         "android.test.runner",
         "android.test.base",
         "android.test.mock",
+        // The following three lines are needed for tests that build against framework-bluetooth's
+        // @hide APIs. Order matters for the first two: classes in framework-bluetooth are
+        // resolved before framework, meaning @hide APIs in framework-bluetooth are resolved
+        // before @SystemApi stubs in framework. If sdk_version="", then the third line would get
+        // automatically included; since it isn't, it needs to be manually added here.
+        // (Ref: "framework-bluetooth-tests-defaults" in packages/modules/Bluetooth/framework/Android.bp)
+        "framework-bluetooth.impl",
+        "framework",
+        "framework-res",
     ],
 
     static_libs: [
@@ -61,16 +81,22 @@ android_test {
         "frameworks-base-testutils",
         "mockito-target-extended",
         "SettingsLib",
-        "testng",
+        "servicestests-utils",
         "truth-prebuilt",
         "WindowManager-Shell",  // for CarActivityServiceTaskMonitorUnitTest
         "vehicle-hal-support-lib",
     ],
 
-    test_suites: ["general-tests"],
+    test_suites: [
+        "general-tests",
+        "automotive-tests",
+        "automotive-general-tests",
+    ],
 
     // mockito-target-inline dependency
     jni_libs: [
+        "libcarservicejni",
+        "libcarservicejni_test",
         "libdexmakerjvmtiagent",
         "libstaticjvmtiagent",
     ],

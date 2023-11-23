@@ -27,5 +27,6 @@
         android:fragment="com.android.tv.twopanelsettings.slices.SliceFragment"
         android:key="ambient_settings"
         android:title="@string/ambient_settings_title"
+        custom:isPreferenceVisible="false"
         custom:uri="@string/ambient_slice_uri"/>
 </PreferenceScreen>

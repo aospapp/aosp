@@ -24,4 +24,5 @@
     <string name="set_wallpaper">Set wallpaper</string>
     <string name="new_instance">Request launch in new instance</string>
     <string name="wallpaper_description">Sample multidisplay wallpaper</string>
+    <string name="exit">Exit</string>
 </resources>

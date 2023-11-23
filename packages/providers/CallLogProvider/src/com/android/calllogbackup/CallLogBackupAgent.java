@@ -21,6 +21,8 @@ import static android.provider.CallLog.Calls.MISSED_REASON_NOT_MISSED;
 import android.app.backup.BackupAgent;
 import android.app.backup.BackupDataInput;
 import android.app.backup.BackupDataOutput;
+import android.app.backup.BackupManager;
+import android.app.backup.BackupRestoreEventLogger;
 import android.content.ComponentName;
 import android.content.ContentResolver;
 import android.database.Cursor;
@@ -108,6 +110,22 @@ public class CallLogBackupAgent extends BackupAgent {
 
     private static final String TAG = "CallLogBackupAgent";
 
+    /** Data types and errors used when reporting B&R success rate and errors.  */
+    @BackupRestoreEventLogger.BackupRestoreDataType
+    @VisibleForTesting
+    static final String CALLLOGS = "telecom_call_logs";
+
+    @BackupRestoreEventLogger.BackupRestoreError
+    static final String ERROR_UNEXPECTED_KEY = "unexpected_key";
+    @BackupRestoreEventLogger.BackupRestoreError
+    static final String ERROR_END_OEM_MARKER_NOT_FOUND = "end_oem_marker_not_found";
+    @BackupRestoreEventLogger.BackupRestoreError
+    static final String ERROR_READING_CALL_DATA = "error_reading_call_data";
+    @BackupRestoreEventLogger.BackupRestoreError
+    static final String ERROR_BACKUP_CALL_FAILED = "backup_call_failed";
+
+    private BackupRestoreEventLogger mLogger;
+
     /** Current version of CallLogBackup. Used to track the backup format. */
     @VisibleForTesting
     static final int VERSION = 1009;
@@ -150,6 +168,56 @@ public class CallLogBackupAgent extends BackupAgent {
         CallLog.Calls.MISSED_REASON,
         CallLog.Calls.IS_PHONE_ACCOUNT_MIGRATION_PENDING
     };
+
+    /**
+     * BackupRestoreEventLogger Dependencies for testing.
+     */
+    @VisibleForTesting
+    public interface BackupRestoreEventLoggerProxy {
+        void logItemsBackedUp(String dataType, int count);
+        void logItemsBackupFailed(String dataType, int count, String error);
+        void logItemsRestored(String dataType, int count);
+        void logItemsRestoreFailed(String dataType, int count, String error);
+    }
+
+    private BackupRestoreEventLoggerProxy mBackupRestoreEventLoggerProxy =
+            new BackupRestoreEventLoggerProxy() {
+        @Override
+        public void logItemsBackedUp(String dataType, int count) {
+            mLogger.logItemsBackedUp(dataType, count);
+        }
+
+        @Override
+        public void logItemsBackupFailed(String dataType, int count, String error) {
+            mLogger.logItemsBackupFailed(dataType, count, error);
+        }
+
+        @Override
+        public void logItemsRestored(String dataType, int count) {
+            mLogger.logItemsRestored(dataType, count);
+        }
+
+        @Override
+        public void logItemsRestoreFailed(String dataType, int count, String error) {
+            mLogger.logItemsRestoreFailed(dataType, count, error);
+        }
+    };
+
+    /**
+     * Overrides BackupRestoreEventLogger dependencies for testing.
+     */
+    @VisibleForTesting
+    public void setBackupRestoreEventLoggerProxy(BackupRestoreEventLoggerProxy proxy) {
+        mBackupRestoreEventLoggerProxy = proxy;
+    }
+
+    @Override
+    public void onCreate() {
+        super.onCreate();
+        Log.d(TAG, "onCreate");
+        BackupManager backupManager = new BackupManager(getApplicationContext());
+        mLogger = backupManager.getBackupRestoreEventLogger(/* backupAgent */ this);
+    }
 
     /** ${inheritDoc} */
     @Override
@@ -205,6 +273,7 @@ public class CallLogBackupAgent extends BackupAgent {
             Call call = readCallFromData(data);
             if (call != null && call.type != Calls.VOICEMAIL_TYPE) {
                 writeCallToProvider(call);
+                mBackupRestoreEventLoggerProxy.logItemsRestored(CALLLOGS, /* count */ 1);
                 if (isDebug()) {
                     Log.d(TAG, "Restored call: " + call);
                 }
@@ -233,6 +302,7 @@ public class CallLogBackupAgent extends BackupAgent {
                 // This call still exists in the current call log so delete it from the
                 // "callsToRemove" set since we want to keep it.
                 callsToRemove.remove(call.id);
+                mBackupRestoreEventLoggerProxy.logItemsBackedUp(CALLLOGS, /* count */ 1);
             }
         }
 
@@ -339,6 +409,8 @@ public class CallLogBackupAgent extends BackupAgent {
         try {
             callId = Integer.parseInt(data.getKey());
         } catch (NumberFormatException e) {
+            mBackupRestoreEventLoggerProxy.logItemsRestoreFailed(
+                    CALLLOGS, /* count */ 1, ERROR_UNEXPECTED_KEY);
             Log.e(TAG, "Unexpected key found in restore: " + data.getKey());
             return null;
         }
@@ -374,6 +446,8 @@ public class CallLogBackupAgent extends BackupAgent {
 
                 int marker = dataInput.readInt();
                 if (marker != END_OEM_DATA_MARKER) {
+                    mBackupRestoreEventLoggerProxy.logItemsRestoreFailed(CALLLOGS, /* count */ 1,
+                            ERROR_END_OEM_MARKER_NOT_FOUND);
                     Log.e(TAG, "Did not find END-OEM marker for call " + call.id);
                     // The marker does not match the expected value, ignore this call completely.
                     return null;
@@ -432,6 +506,8 @@ public class CallLogBackupAgent extends BackupAgent {
             }
             return call;
         } catch (IOException e) {
+            mBackupRestoreEventLoggerProxy.logItemsRestoreFailed(
+                    CALLLOGS, /* count */ 1, ERROR_READING_CALL_DATA);
             Log.e(TAG, "Error reading call data for " + callId, e);
             return null;
         }
@@ -566,10 +642,14 @@ public class CallLogBackupAgent extends BackupAgent {
             output.writeEntityHeader(Integer.toString(call.id), baos.size());
             output.writeEntityData(baos.toByteArray(), baos.size());
 
+            mBackupRestoreEventLoggerProxy.logItemsBackedUp(CALLLOGS, /* count */ 1);
+
             if (isDebug()) {
                 Log.d(TAG, "Wrote call to backup: " + call + " with byte array: " + baos);
             }
-        } catch (IOException e) {
+        } catch (Exception e) {
+            mBackupRestoreEventLoggerProxy.logItemsBackupFailed(
+                    CALLLOGS, /* count */ 1, ERROR_BACKUP_CALL_FAILED);
             Log.e(TAG, "Failed to backup call: " + call, e);
         }
     }

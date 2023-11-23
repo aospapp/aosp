@@ -25,8 +25,9 @@ android_test {
         "java/**/*.kt",
     ],
     static_libs: [
-        "safety-center-resources-lib",
         "compatibility-device-util-axt",
+        "kotlin-test",
+        "safety-center-resources-lib",
     ],
     data: [
         ":SafetyCenterResourcesLibTestResources",

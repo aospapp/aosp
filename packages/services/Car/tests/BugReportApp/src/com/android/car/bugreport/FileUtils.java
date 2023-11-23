@@ -88,10 +88,12 @@ public class FileUtils {
      *
      * @param timestamp - current timestamp, when audio was created.
      * @param bug       - a bug report.
+     * @param extension - an extension of audio file.
      */
-    static String getAudioFileName(String timestamp, MetaBugReport bug) {
+    static String getAudioFileName(String timestamp, MetaBugReport bug, String extension) {
         String lookupCode = extractLookupCode(bug);
-        return PREFIX + bug.getUserName() + FS + timestamp + "-" + lookupCode + "-message.3gp";
+        return (PREFIX + bug.getUserName() + FS + timestamp
+                + "-" + lookupCode + "-message." + extension);
     }
 
     private static String extractLookupCode(MetaBugReport bug) {

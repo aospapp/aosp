@@ -184,4 +184,41 @@ public final class UidRangeUtils {
         uidRangeSet.add(new UidRange(start, stop));
         return uidRangeSet;
     }
+
+    private static int compare(UidRange range1, UidRange range2) {
+        return range1.start - range2.start;
+    }
+
+    /**
+     * Sort the given UidRange array.
+     *
+     * @param ranges The array of UidRange which is going to be sorted.
+     * @return Array of UidRange.
+     */
+    public static UidRange[] sortRangesByStartUid(UidRange[] ranges) {
+        final ArrayList uidRanges = new ArrayList(Arrays.asList(ranges));
+        Collections.sort(uidRanges, UidRangeUtils::compare);
+        return (UidRange[]) uidRanges.toArray(new UidRange[0]);
+    }
+
+    /**
+     * Check if the given sorted UidRange array contains overlap or not.
+     *
+     * Note that the sorted UidRange array must be sorted by increasing lower bound. If it's not,
+     * the behavior is undefined.
+     *
+     * @param ranges The sorted UidRange array which is going to be checked if there is an overlap
+     *               or not.
+     * @return A boolean to indicate if the given sorted UidRange array contains overlap or not.
+     */
+    public static boolean sortedRangesContainOverlap(UidRange[] ranges) {
+        final ArrayList uidRanges = new ArrayList(Arrays.asList(ranges));
+        for (int i = 0; i + 1 < uidRanges.size(); i++) {
+            if (((UidRange) uidRanges.get(i + 1)).start <= ((UidRange) uidRanges.get(i)).stop) {
+                return true;
+            }
+        }
+
+        return false;
+    }
 }

@@ -88,6 +88,9 @@ apex {
 
 sdk {
     name: "scheduling-sdk",
-    bootclasspath_fragments: ["com.android.scheduling-bootclasspath-fragment"],
-    systemserverclasspath_fragments: ["com.android.scheduling-systemserverclasspath-fragment"],
+    apexes: [
+        // Adds exportable dependencies of the APEX to the sdk,
+        // e.g. *classpath_fragments.
+        "com.android.scheduling",
+    ],
 }

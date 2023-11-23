@@ -39,6 +39,23 @@
         <item name="buttonBarButtonStyle">@*android:style/Widget.DeviceDefault.Button.ButtonBar.AlertDialog</item>
     </style>
 
+    <!-- Base settings application theme with minor modifications for visibility -->
+    <style name="Theme.CDOBaseTheme" parent="@style/Theme.Settings">
+        <item name="android:textAppearanceListItem">@style/CDOTitleTextAppearance</item>
+        <item name="android:textColor">@*android:color/car_body1</item>
+        <item name="android:textColorSecondary">@*android:color/car_body1</item>
+    </style>
+
+    <style name="Theme.SubSettings" parent="@android:style/Theme.DeviceDefault.NoActionBar">
+        <item name="alertDialogTheme">@style/Theme.AlertDialog</item>
+        <item name="switchBarTheme">@style/ThemeOverlay.SwitchBar.Settings</item>
+    </style>
+
+    <style name="CollapsingToolbarTitle.Expanded" parent="CollapsingToolbarTitle.Collapsed">
+        <item name="android:textSize">36dp</item>
+        <item name="android:textColor">@*android:color/car_body1</item>
+    </style>
+
     <style name="MainSwitchText">
         <item name="android:textSize">@*android:dimen/car_body4_size</item>
         <item name="android:textColor">?android:attr/textColorPrimary</item>
@@ -47,16 +64,20 @@
     <style name="Theme.CarDeveloperOptions" parent="@style/Theme.CarUi.WithToolbar">
         <item name="alertDialogTheme">@style/Theme.AlertDialog</item>
         <item name="switchBarTheme">@style/ThemeOverlay.SwitchBar.Settings</item>
-        <item name="preferenceTheme">@style/CarDeveloperOptionsPreferenceTheme</item>
+        <item name="preferenceTheme">@style/CDOPreferenceTheme</item>
     </style>
 
-    <style name="CarDeveloperOptionsPreferenceTheme" parent="@style/CarUiPreferenceTheme">
-        <item name="preferenceFragmentCompatStyle">@style/CarDeveloperOptionsPreferenceFragment</item>
-        <item name="preferenceFragmentStyle">@style/CarDeveloperOptionsPreferenceFragment</item>
+    <style name="CDOPreferenceTheme" parent="@style/CarUiPreferenceTheme">
+        <item name="preferenceFragmentCompatStyle">@style/CDOPreferenceFragment</item>
+        <item name="preferenceFragmentStyle">@style/CDOPreferenceFragment</item>
     </style>
 
-    <style name="CarDeveloperOptionsPreferenceFragment" parent="@style/PreferenceFragment.CarUi">
+    <style name="CDOPreferenceFragment" parent="@style/PreferenceFragment.CarUi">
         <item name="android:layout">@layout/preference_list_fragment</item>
     </style>
 
+    <style name="CDOTitleTextAppearance" parent="@android:style/TextAppearance.DeviceDefault">
+        <item name="android:textSize">@*android:dimen/car_body2_size</item>
+        <item name="android:textColor">@*android:color/car_body1</item>
+    </style>
 </resources>

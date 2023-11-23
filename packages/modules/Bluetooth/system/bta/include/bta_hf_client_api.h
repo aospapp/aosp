@@ -172,6 +172,7 @@ typedef uint8_t tBTA_HF_CLIENT_IND_TYPE;
 #define BTA_HF_CLIENT_AT_CMD_NREC 15
 #define BTA_HF_CLIENT_AT_CMD_VENDOR_SPECIFIC_CMD 16
 #define BTA_HF_CLIENT_AT_CMD_BIEV 17
+#define BTA_HF_CLIENT_AT_CMD_ANDROID 18
 
 typedef uint8_t tBTA_HF_CLIENT_AT_CMD_TYPE;
 
@@ -321,10 +322,10 @@ void BTA_HfClientDisable(void);
  *                  calls to do any AT operations
  *
  *
- * Returns          void
+ * Returns          bt_status_t
  *
  ******************************************************************************/
-void BTA_HfClientOpen(const RawAddress& bd_addr, uint16_t* p_handle);
+bt_status_t BTA_HfClientOpen(const RawAddress& bd_addr, uint16_t* p_handle);
 
 /*******************************************************************************
  *
@@ -390,4 +391,15 @@ void BTA_HfClientSendAT(uint16_t handle, tBTA_HF_CLIENT_AT_CMD_TYPE at,
  ******************************************************************************/
 void BTA_HfClientDumpStatistics(int fd);
 
+/*******************************************************************************
+ *
+ * function         get_default_hf_client_features
+ *
+ * description      return the hf_client features.
+ *                  value can be override via system property
+ *
+ * returns          int
+ *
+ ******************************************************************************/
+int get_default_hf_client_features();
 #endif /* BTA_HF_CLIENT_API_H */

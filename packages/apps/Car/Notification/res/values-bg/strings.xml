@@ -49,4 +49,11 @@
     <string name="see_more_message" msgid="6343183827924395955">"Вижте още"</string>
     <string name="restricted_hun_message_content" msgid="631111937988857716">"Ново съобщение"</string>
     <string name="manage_text" msgid="4225197445283791757">"Управление"</string>
+    <string name="category_navigation" msgid="4406139232918521087">"навигация"</string>
+    <string name="category_call" msgid="2249490790700877973">"обаждане"</string>
+    <string name="category_message" msgid="451360226248504859">"съобщ."</string>
+    <string name="hun_suppression_channel_name" msgid="8298850157350352525">"Потискане на „Вдигнете глава“."</string>
+    <string name="hun_suppression_notification_title_park" msgid="2790860076784227523">"Не пропускайте най-новите неща"</string>
+    <string name="hun_suppression_notification_title_drive" msgid="4403363470548899844">"Фокусиране при шофиране"</string>
+    <string name="hun_suppression_notification_description" msgid="5269238832987802104">"Някои нови известия се запазват в съответния център"</string>
 </resources>

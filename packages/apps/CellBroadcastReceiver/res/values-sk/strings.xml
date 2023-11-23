@@ -19,7 +19,7 @@
     <string name="app_label" msgid="2008319089248760277">"Bezdrôtové tiesňové upozornenia"</string>
     <string name="sms_cb_settings" msgid="9021266457863671070">"Bezdrôtové tiesňové upozornenia"</string>
     <string name="sms_cb_sender_name_default" msgid="972946539768958828">"Bezdrôtové núdzové upozornenia"</string>
-    <string name="sms_cb_sender_name_presidential" msgid="5302753979711319380">"Bezdrôtové núdzové upozornenia"</string>
+    <string name="sms_cb_sender_name_presidential" msgid="5302753979711319380">"Bezdrôtové tiesňové varovania"</string>
     <string name="sms_cb_sender_name_emergency" msgid="2937067842997478965">"Bezdrôtové núdzové upozornenia"</string>
     <string name="sms_cb_sender_name_public_safety" msgid="5230033387708907922">"Informačné upozornenie"</string>
     <string name="cell_broadcast_settings_not_available" msgid="3908142962162375221">"Bezdrôtové tiesňové upozornenia nie sú pre tohto používateľa dostupné"</string>
@@ -66,7 +66,7 @@
     <string name="enable_alert_speech_title" msgid="8052104771053526941">"Čítať upozornenia"</string>
     <string name="enable_alert_speech_summary" msgid="2855629032890937297">"Čítať bezdrôtové tiesňové upozornenia prevodom textu na reč"</string>
     <string name="alert_reminder_dialog_title" msgid="2299010977651377315">"Zvuk pripomenutí sa prehrá bežnou hlasitosťou"</string>
-    <string name="emergency_alert_history_title" msgid="8310173569237268431">"História tiesňových upozornení"</string>
+    <string name="emergency_alert_history_title" msgid="8310173569237268431">"História tiesňových varovaní"</string>
     <string name="alert_preferences_title" msgid="6001469026393248468">"Nastavenia upozornení"</string>
     <string name="enable_etws_test_alerts_title" msgid="3593533226735441539">"Testovacie vysielania ETWS"</string>
     <string name="enable_etws_test_alerts_summary" msgid="8746155402612927306">"Testovacie vysielania systému varovania pred zemetrasením a cunami"</string>
@@ -139,7 +139,7 @@
     <string name="cmas_opt_out_dialog_text" msgid="4820577535626084938">"Aktuálne prijímate bezdrôtové tiesňové upozornenia. Chcete ich prijímať aj naďalej?"</string>
     <string name="cmas_opt_out_button_yes" msgid="7248930667195432936">"Áno"</string>
     <string name="cmas_opt_out_button_no" msgid="3110484064328538553">"Nie"</string>
-    <string name="cb_list_activity_title" msgid="1433502151877791724">"História tiesňových upozornení"</string>
+    <string name="cb_list_activity_title" msgid="1433502151877791724">"História tiesňových varovaní"</string>
     <string name="action_delete" msgid="7435661404543945861">"Odstrániť"</string>
     <string name="action_detail_info" msgid="8486524382178381810">"Zobraziť podrobnosti"</string>
   <string-array name="alert_reminder_interval_entries">

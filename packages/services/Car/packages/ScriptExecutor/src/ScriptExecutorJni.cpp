@@ -67,7 +67,7 @@ JNIEXPORT void JNICALL Java_com_android_car_scriptexecutor_ScriptExecutor_native
 // Step 6: Attempt to run the provided function.
 JNIEXPORT void JNICALL Java_com_android_car_scriptexecutor_ScriptExecutor_nativeInvokeScript(
         JNIEnv* env, jobject object, jlong luaEnginePtr, jstring scriptBody, jstring functionName,
-        jobject publishedData, jobject savedState, jobject listener) {
+        jobject publishedData, jobject bundleList, jobject savedState, jobject listener) {
     if (!luaEnginePtr) {
         env->FatalError("luaEnginePtr parameter cannot be nil");
     }
@@ -106,8 +106,13 @@ JNIEXPORT void JNICALL Java_com_android_car_scriptexecutor_ScriptExecutor_native
         return;
     }
 
-    // Unpack bundle in publishedData, convert to Lua table and push it to Lua stack.
-    pushBundleToLuaTable(env, engine->getLuaState(), publishedData);
+    if (bundleList != nullptr) {
+        // Unpack bundle in bundleList, convert to Lua array of tables and push it to Lua stack.
+        pushBundleListToLuaTable(env, engine->getLuaState(), bundleList);
+    } else {
+        // Unpack bundle in publishedData, convert to Lua table and push it to Lua stack.
+        pushBundleToLuaTable(env, engine->getLuaState(), publishedData);
+    }
 
     // Unpack bundle in savedState, convert to Lua table and push it to Lua
     // stack.

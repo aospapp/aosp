@@ -89,4 +89,9 @@ public class TlvUtil {
         ByteBuffer buffer = ByteBuffer.allocate(size).put(data);
         return buffer.array();
     }
+
+    /** Convert RSTU to microsecond */
+    public static final int rstuToUs(int value) {
+        return (int) (value * 416 / 499.2);
+    }
 }

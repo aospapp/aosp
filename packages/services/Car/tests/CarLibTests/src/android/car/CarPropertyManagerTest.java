@@ -21,6 +21,8 @@ import static android.car.VehiclePropertyIds.HVAC_TEMPERATURE_CURRENT;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import static org.junit.Assert.assertThrows;
+
 import android.car.hardware.property.CarPropertyManager;
 import android.car.testapi.CarPropertyController;
 import android.car.testapi.FakeCar;
@@ -66,11 +68,8 @@ public class CarPropertyManagerTest {
     @Test
     public void carPropertyManager_intThrows() {
         mController.addProperty(HVAC_FAN_SPEED, FAN_SPEED_VALUE);
-        try {
-            mManager.getFloatProperty(HVAC_FAN_SPEED, 0);
-        } catch (IllegalArgumentException expected) {
-            // Expected, the property is an integer value.
-        }
+        assertThrows(IllegalArgumentException.class,
+                () -> mManager.getFloatProperty(HVAC_FAN_SPEED, 0));
     }
 
     @Test
@@ -83,10 +82,7 @@ public class CarPropertyManagerTest {
     @Test
     public void carPropertyManager_floatThrows() {
         mController.addProperty(HVAC_TEMPERATURE_CURRENT, TEMPERATURE_VALUE);
-        try {
-            mManager.getIntProperty(HVAC_TEMPERATURE_CURRENT, 0);
-        } catch (IllegalArgumentException expected) {
-            // Expected, the property is an integer value.
-        }
+        assertThrows(IllegalArgumentException.class,
+                () -> mManager.getIntProperty(HVAC_TEMPERATURE_CURRENT, 0));
     }
 }

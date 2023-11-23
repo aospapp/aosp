@@ -18,6 +18,7 @@ package com.android.tv.settings.connectivity.setup;
 
 import android.content.Context;
 import android.os.Bundle;
+import android.text.TextUtils;
 import android.view.View;
 
 import androidx.annotation.NonNull;
@@ -120,13 +121,18 @@ public class EnterSsidState implements State {
         }
 
         @Override
-        public void onViewCreated(@NonNull View view, Bundle savedInstanceState) {
+        public void onResume() {
+            super.onResume();
             openInEditMode(mAction);
         }
 
         @Override
         public long onGuidedActionEditedAndProceed(GuidedAction action) {
-            mUserChoiceInfo.put(UserChoiceInfo.SSID, action.getTitle().toString());
+            final String ssid = action.getTitle().toString();
+            if (TextUtils.isEmpty(ssid)) {
+                return GuidedAction.ACTION_ID_CURRENT;
+            }
+            mUserChoiceInfo.put(UserChoiceInfo.SSID, ssid);
             mStateMachine.getListener().onComplete(StateMachine.CONTINUE);
             return action.getId();
         }

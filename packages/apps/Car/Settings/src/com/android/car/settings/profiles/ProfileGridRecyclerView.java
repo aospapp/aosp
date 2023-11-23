@@ -227,7 +227,8 @@ public class ProfileGridRecyclerView extends RecyclerView {
     private List<UserInfo> getProfilesForProfileGrid() {
         List<UserInfo> users = UserManager.get(mContext).getAliveUsers();
         return users.stream()
-                .filter(UserInfo::supportsSwitchToByUser)
+                .filter(userInfo -> userInfo.supportsSwitchTo() && userInfo.isFull())
+                .sorted((u1, u2) -> Long.signum(u1.creationTime - u2.creationTime))
                 .collect(Collectors.toList());
     }
 

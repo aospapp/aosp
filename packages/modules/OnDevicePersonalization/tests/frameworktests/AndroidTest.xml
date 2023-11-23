@@ -13,7 +13,7 @@
      See the License for the specific language governing permissions and
      limitations under the License.
 -->
-<configuration description="Config for OnDevicePersonalization Manager unit tests">
+<configuration description="Config for OnDevicePersonalizationManager unit tests">
     <option name="config-descriptor:metadata" key="component" value="framework" />
     <option name="config-descriptor:metadata" key="parameter" value="not_instant_app" />
     <option name="config-descriptor:metadata" key="parameter" value="not_multi_abi" />
@@ -25,6 +25,12 @@
     </target_preparer>
 
     <test class="com.android.tradefed.testtype.AndroidJUnitTest">
+        <option name="hidden-api-checks" value="false" /> <!-- Allow hidden API uses -->
         <option name="package" value="android.ondevicepersonalization"/>
     </test>
+
+    <object type="module_controller" class="com.android.tradefed.testtype.suite.module.MainlineTestModuleController">
+        <option name="mainline-module-package-name" value="com.google.android.ondevicepersonalization" />
+    </object>
+    <option name="config-descriptor:metadata" key="mainline-param" value="com.google.android.ondevicepersonalization.apex" />
 </configuration>

@@ -19,6 +19,7 @@ import android.annotation.IntDef;
 import android.annotation.NonNull;
 import android.annotation.RequiresPermission;
 import android.annotation.SystemApi;
+import android.annotation.TestApi;
 import android.car.Car;
 import android.car.CarManagerBase;
 import android.car.annotation.AddedInOrBefore;
@@ -191,13 +192,14 @@ public final class CarMediaManager extends CarManagerBase {
      * isn't or if the value could not be determined.
      * @hide
      */
+    @TestApi
     @RequiresPermission(value = android.Manifest.permission.MEDIA_CONTENT_CONTROL)
     @AddedInOrBefore(majorVersion = 33)
     public boolean isIndependentPlaybackConfig() {
         try {
             return mService.isIndependentPlaybackConfig();
         } catch (RemoteException e) {
-            return handleRemoteExceptionFromCarService(e, null);
+            return handleRemoteExceptionFromCarService(e, false);
         }
     }
 
@@ -206,6 +208,7 @@ public final class CarMediaManager extends CarManagerBase {
      * @param independent whether the browse and playback sources can be changed independently.
      * @hide
      */
+    @TestApi
     @RequiresPermission(value = android.Manifest.permission.MEDIA_CONTENT_CONTROL)
     @AddedInOrBefore(majorVersion = 33)
     public void setIndependentPlaybackConfig(boolean independent) {

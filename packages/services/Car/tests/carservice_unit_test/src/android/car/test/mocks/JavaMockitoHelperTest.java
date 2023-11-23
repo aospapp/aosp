@@ -19,12 +19,11 @@ package android.car.test.mocks;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 
+import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
-import static org.testng.Assert.assertThrows;
-import static org.testng.Assert.expectThrows;
 
 import android.util.Log;
 
@@ -112,7 +111,7 @@ public final class JavaMockitoHelperTest {
         TimeoutException cause = new TimeoutException("D'OH!");
         when(mFuture.get(anyLong(), any())).thenThrow(cause);
 
-        IllegalStateException exception = expectThrows(IllegalStateException.class,
+        IllegalStateException exception = assertThrows(IllegalStateException.class,
                 () -> JavaMockitoHelper.getResult(mFuture, "I am number %d!", 4));
 
         assertThat(exception).hasCauseThat().isSameInstanceAs(cause);
@@ -125,7 +124,7 @@ public final class JavaMockitoHelperTest {
         ExecutionException cause = new ExecutionException(new Exception("Double D'OH!"));
         when(mFuture.get(anyLong(), any())).thenThrow(cause);
 
-        IllegalStateException exception = expectThrows(IllegalStateException.class,
+        IllegalStateException exception = assertThrows(IllegalStateException.class,
                 () -> JavaMockitoHelper.getResult(mFuture, "I am number %d!", 4));
 
         assertThat(exception).hasCauseThat().isSameInstanceAs(cause);
@@ -138,7 +137,7 @@ public final class JavaMockitoHelperTest {
         when(mFuture.get(anyLong(), any())).thenThrow(cause);
         Thread thread = getCurrentThreadIninterrupted();
 
-        IllegalStateException exception = expectThrows(IllegalStateException.class,
+        IllegalStateException exception = assertThrows(IllegalStateException.class,
                 () -> JavaMockitoHelper.getResult(mFuture, "I am number %d!", 4));
 
         assertThat(exception).hasCauseThat().isSameInstanceAs(cause);
@@ -173,7 +172,7 @@ public final class JavaMockitoHelperTest {
         TimeoutException cause = new TimeoutException("D'OH!");
         when(mFuture.get(anyLong(), any())).thenThrow(cause);
 
-        IllegalStateException exception = expectThrows(IllegalStateException.class,
+        IllegalStateException exception = assertThrows(IllegalStateException.class,
                 () -> JavaMockitoHelper.getResult(mFuture, TIMEOUT_MS, "I am number %d!", 4));
 
         assertThat(exception).hasCauseThat().isSameInstanceAs(cause);
@@ -186,7 +185,7 @@ public final class JavaMockitoHelperTest {
         ExecutionException cause = new ExecutionException(new Exception("Double D'OH!"));
         when(mFuture.get(anyLong(), any())).thenThrow(cause);
 
-        IllegalStateException exception = expectThrows(IllegalStateException.class,
+        IllegalStateException exception = assertThrows(IllegalStateException.class,
                 () -> JavaMockitoHelper.getResult(mFuture, TIMEOUT_MS, "I am number %d!", 4));
 
         assertThat(exception).hasCauseThat().isSameInstanceAs(cause);
@@ -199,7 +198,7 @@ public final class JavaMockitoHelperTest {
         when(mFuture.get(anyLong(), any())).thenThrow(cause);
         Thread thread = getCurrentThreadIninterrupted();
 
-        IllegalStateException exception = expectThrows(IllegalStateException.class,
+        IllegalStateException exception = assertThrows(IllegalStateException.class,
                 () -> JavaMockitoHelper.getResult(mFuture, TIMEOUT_MS, "I am number %d!", 4));
 
         assertThat(exception).hasCauseThat().isSameInstanceAs(cause);

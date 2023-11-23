@@ -41,6 +41,7 @@ import android.os.UserHandle;
 import android.provider.CallLog;
 import android.telecom.CallScreeningService;
 import android.telecom.ParcelableCall;
+import android.telecom.PhoneAccountHandle;
 import android.telecom.TelecomManager;
 import android.test.suitebuilder.annotation.SmallTest;
 
@@ -104,6 +105,10 @@ public class CallScreeningServiceFilterTest extends TelecomTestCase {
                     .setCallScreeningComponentName(COMPONENT_NAME.flattenToString())
                     .build();
 
+    private static final PhoneAccountHandle PA_HANDLE =
+            new PhoneAccountHandle(COMPONENT_NAME,
+                    "pa_id");
+
     @Override
     @Before
     public void setUp() throws Exception {
@@ -124,6 +129,8 @@ public class CallScreeningServiceFilterTest extends TelecomTestCase {
 
         when(mCallsManager.getCurrentUserHandle()).thenReturn(UserHandle.CURRENT);
         when(mCall.getId()).thenReturn(CALL_ID);
+        when(mCall.getAssociatedUser()).
+                thenReturn(PA_HANDLE.getUserHandle());
         when(mContext.getPackageManager()).thenReturn(mPackageManager);
         when(mContext.getSystemService(TelecomManager.class))
                 .thenReturn(mTelecomManager);
@@ -132,7 +139,7 @@ public class CallScreeningServiceFilterTest extends TelecomTestCase {
         when(mParcelableCallUtilsConverter.toParcelableCall(
                 eq(mCall), anyBoolean(), eq(mPhoneAccountRegistrar))).thenReturn(null);
         when(mContext.bindServiceAsUser(nullable(Intent.class), nullable(ServiceConnection.class),
-                anyInt(), eq(UserHandle.CURRENT))).thenReturn(true);
+                anyInt(), eq(PA_HANDLE.getUserHandle()))).thenReturn(true);
         when(mPackageManager.queryIntentServicesAsUser(nullable(Intent.class), anyInt(), anyInt()))
                 .thenReturn(Collections.singletonList(mResolveInfo));
         doReturn(mCallScreeningService).when(mBinder).queryLocalInterface(anyString());
@@ -154,7 +161,7 @@ public class CallScreeningServiceFilterTest extends TelecomTestCase {
     @Test
     public void testContextFailToBind() throws Exception {
         when(mContext.bindServiceAsUser(nullable(Intent.class), nullable(ServiceConnection.class),
-                anyInt(), eq(UserHandle.CURRENT))).thenReturn(false);
+                anyInt(), eq(PA_HANDLE.getUserHandle()))).thenReturn(false);
         CallScreeningServiceFilter filter = new CallScreeningServiceFilter(mCall, PKG_NAME,
                 CallScreeningServiceFilter.PACKAGE_TYPE_CARRIER, mContext, mCallsManager,
                 mAppLabelProxy, mParcelableCallUtilsConverter);
@@ -199,7 +206,7 @@ public class CallScreeningServiceFilterTest extends TelecomTestCase {
         when(mPackageManager.checkPermission(Manifest.permission.READ_CONTACTS, PKG_NAME))
                 .thenReturn(PackageManager.PERMISSION_DENIED);
         when(mContext.bindServiceAsUser(nullable(Intent.class), nullable(ServiceConnection.class),
-                anyInt(), eq(UserHandle.CURRENT))).thenThrow(new SecurityException());
+                anyInt(), eq(PA_HANDLE.getUserHandle()))).thenThrow(new SecurityException());
         inputResult.contactExists = true;
         CallScreeningServiceFilter filter = new CallScreeningServiceFilter(mCall, PKG_NAME,
                 CallScreeningServiceFilter.PACKAGE_TYPE_USER_CHOSEN, mContext, mCallsManager,
@@ -395,8 +402,9 @@ public class CallScreeningServiceFilterTest extends TelecomTestCase {
                 .forClass(ServiceConnection.class);
         verify(mContext, timeout(CallScreeningServiceFilter.CALL_SCREENING_FILTER_TIMEOUT))
                 .bindServiceAsUser(intentCaptor.capture(), serviceCaptor.capture(),
-                eq(Context.BIND_AUTO_CREATE | Context.BIND_FOREGROUND_SERVICE),
-                eq(UserHandle.CURRENT));
+                eq(Context.BIND_AUTO_CREATE | Context.BIND_FOREGROUND_SERVICE
+                        | Context.BIND_SCHEDULE_LIKE_TOP_APP),
+                eq(PA_HANDLE.getUserHandle()));
 
         Intent capturedIntent = intentCaptor.getValue();
         assertEquals(CallScreeningService.SERVICE_INTERFACE, capturedIntent.getAction());

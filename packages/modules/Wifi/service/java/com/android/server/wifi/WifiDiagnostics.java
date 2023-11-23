@@ -19,6 +19,8 @@ package com.android.server.wifi;
 import android.annotation.NonNull;
 import android.annotation.SuppressLint;
 import android.content.Context;
+import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.os.BugreportManager;
 import android.os.BugreportParams;
 import android.os.Handler;
@@ -350,30 +352,14 @@ public class WifiDiagnostics {
         pw.println("--------------------------------------------------------------------");
     }
 
-    /**
-     * Initiates a system-level bug report if there is no bug report taken recently.
-     * This is done in a non-blocking fashion.
-     */
     // TODO(b/193460475): BugReportManager changes from SystemApi to PublicApi, not a new API
     @SuppressLint("NewApi")
-    public void takeBugReport(String bugTitle, String bugDetail) {
-        if (mBuildProperties.isUserBuild()
-                || !mContext.getResources().getBoolean(
-                        R.bool.config_wifi_diagnostics_bugreport_enabled)) {
-            return;
-        }
-        long currentTime = mClock.getWallClockMillis();
-        if ((currentTime - mLastBugReportTime)
-                < mWifiInjector.getDeviceConfigFacade().getBugReportMinWindowMs()
-                && mLastBugReportTime > 0) {
-            return;
-        }
-        mLastBugReportTime = currentTime;
-        mWifiMetrics.logBugReport();
+    private void takeBugReportThroughBugreportManager(String bugTitle, String bugDetail) {
         BugreportManager bugreportManager = mContext.getSystemService(BugreportManager.class);
         BugreportParams params = new BugreportParams(BugreportParams.BUGREPORT_MODE_FULL);
         try {
             bugreportManager.requestBugreport(params, bugTitle, bugDetail);
+            mLastBugReportTime = mClock.getWallClockMillis();
         } catch (RuntimeException e) {
             mLog.err("error taking bugreport: %").c(e.getClass().getName()).flush();
         }
@@ -402,12 +388,7 @@ public class WifiDiagnostics {
             Calendar c = Calendar.getInstance();
             c.setTimeInMillis(systemTimeMs);
             builder.append("system time = ")
-                    .append(c.get(Calendar.MONTH)).append("-")
-                    .append(c.get(Calendar.DAY_OF_MONTH)).append(" ")
-                    .append(c.get(Calendar.HOUR_OF_DAY)).append(":")
-                    .append(c.get(Calendar.MINUTE)).append(":")
-                    .append(c.get(Calendar.SECOND)).append(".")
-                    .append(c.get(Calendar.MILLISECOND)).append("\n");
+                    .append(StringUtil.calendarToString(c)).append("\n");
 
             long kernelTimeMs = kernelTimeNanos/(1000*1000);
             builder.append("kernel time = ").append(kernelTimeMs/1000).append(".").append
@@ -899,6 +880,173 @@ public class WifiDiagnostics {
     public void startPktFateMonitoring(@NonNull String ifaceName) {
         if (!mWifiNative.startPktFateMonitoring(ifaceName)) {
             mLog.wC("Failed to start packet fate monitoring");
+        }
+    }
+
+    /**
+     *  Builder for communicating with betterbug.
+     */
+    private class BetterBugIntentBuilder {
+        private static final boolean DEFAULT_AUTO_UPLOAD_ENABLED = false;
+        private static final boolean DEFAULT_BUGREPORT_REQUIRED = true;
+        // Component: Android > Android OS & Apps > Systems > wifi
+        private static final long DEFAULT_COMPONENT_ID = 33618L;
+        private static final String DEFAULT_BUG_ASSIGNEE = "android-wifi-team@google.com";
+
+        private static final String EXTRA_DEEPLINK = "EXTRA_DEEPLINK";
+        private static final String EXTRA_ISSUE_TITLE = "EXTRA_ISSUE_TITLE";
+        private static final String EXTRA_ISSUE_DESCRIPTION = "EXTRA_ISSUE_DESCRIPTION";
+        private static final String EXTRA_DEEPLINK_SILENT = "EXTRA_DEEPLINK_SILENT";
+        private static final String EXTRA_ADDITIONAL_COMMENT = "EXTRA_ADDITIONAL_COMMENT";
+        private static final String EXTRA_HOTLIST_ID_LIST = "EXTRA_HOTLIST_ID_LIST";
+        private static final String EXTRA_TARGET_PACKAGE = "EXTRA_TARGET_PACKAGE";
+        private static final String EXTRA_REQUIRE_BUGREPORT = "EXTRA_REQUIRE_BUGREPORT";
+        private static final String EXTRA_HAPPENED_TIME = "EXTRA_HAPPENED_TIME";
+        private static final String EXTRA_REPRO_STEPS = "EXTRA_REPRO_STEPS";
+        private static final String EXTRA_ACTUALLY_HAPPENED = "EXTRA_ACTUALLY_HAPPENED";
+        private static final String EXTRA_BUG_ASSIGNEE = "EXTRA_BUG_ASSIGNEE";
+        private static final String EXTRA_CC = "EXTRA_CC";
+        private static final String EXTRA_COMPONENT_ID = "EXTRA_COMPONENT_ID";
+
+        private final Intent mBetterBugIntent;
+
+        BetterBugIntentBuilder() {
+            mBetterBugIntent = new Intent()
+                    .setAction(mContext.getResources().getString(
+                            R.string.config_wifiBugreportDeepLink))
+                    .putExtra(EXTRA_DEEPLINK, true);
+            setAutoUpload(DEFAULT_AUTO_UPLOAD_ENABLED);
+            setBugreportRequired(DEFAULT_BUGREPORT_REQUIRED);
+            setBugAssignee(DEFAULT_BUG_ASSIGNEE);
+            setComponentId(DEFAULT_COMPONENT_ID);
+        }
+
+        public BetterBugIntentBuilder setIssueTitle(String title) {
+            mBetterBugIntent.putExtra(EXTRA_ISSUE_TITLE, title);
+            return this;
+        }
+
+        public BetterBugIntentBuilder setIssueDescription(String description) {
+            mBetterBugIntent.putExtra(EXTRA_ISSUE_DESCRIPTION, description);
+            return this;
+        }
+
+        public BetterBugIntentBuilder setAutoUpload(boolean autoUploadEnabled) {
+            mBetterBugIntent.putExtra(EXTRA_DEEPLINK_SILENT, autoUploadEnabled);
+            return this;
+        }
+
+        public BetterBugIntentBuilder setTargetPackage(String targetPackage) {
+            mBetterBugIntent.putExtra(EXTRA_TARGET_PACKAGE, targetPackage);
+            return this;
+        }
+
+        public BetterBugIntentBuilder setComponentId(long componentId) {
+            mBetterBugIntent.putExtra(EXTRA_COMPONENT_ID, componentId);
+            return this;
+        }
+
+        public BetterBugIntentBuilder setBugreportRequired(boolean isBugreportRequired) {
+            mBetterBugIntent.putExtra(EXTRA_REQUIRE_BUGREPORT, isBugreportRequired);
+            return this;
+        }
+
+        public BetterBugIntentBuilder setHappenedTimestamp(long happenedTimeSinceEpochMs) {
+            mBetterBugIntent.putExtra(EXTRA_HAPPENED_TIME, happenedTimeSinceEpochMs);
+            return this;
+        }
+
+        public BetterBugIntentBuilder setReproSteps(List<String> reproSteps) {
+            if (reproSteps == null) {
+                Log.e(TAG, "List reproSteps is null.");
+                return this;
+            }
+            mBetterBugIntent.putExtra(EXTRA_REPRO_STEPS, new ArrayList<>(reproSteps));
+            return this;
+        }
+
+        public BetterBugIntentBuilder setWhatActuallyHappenedDescription(String whatHappened) {
+            mBetterBugIntent.putExtra(EXTRA_ACTUALLY_HAPPENED, whatHappened);
+            return this;
+        }
+
+        public BetterBugIntentBuilder setAdditionalComment(String additionalComment) {
+            mBetterBugIntent.putExtra(EXTRA_ADDITIONAL_COMMENT, additionalComment);
+            return this;
+        }
+
+        public BetterBugIntentBuilder setBugAssignee(String assignee) {
+            mBetterBugIntent.putExtra(EXTRA_BUG_ASSIGNEE, assignee);
+            return this;
+        }
+
+        public BetterBugIntentBuilder setBugCc(String ccList) {
+            mBetterBugIntent.putExtra(EXTRA_CC, ccList);
+            return this;
+        }
+
+        public BetterBugIntentBuilder setBuganizerHotlist(List<Long> hotlistIds) {
+            mBetterBugIntent.putExtra(EXTRA_HOTLIST_ID_LIST, hotlistIds.toArray());
+            return this;
+        }
+
+        public Intent build() {
+            return mBetterBugIntent;
+        }
+    }
+
+    private boolean takeBugreportThroughBetterBug(String bugTitle, String bugDetail) {
+        Intent launchBetterBugIntent =
+                new BetterBugIntentBuilder()
+                        .setIssueTitle(bugTitle)
+                        .setIssueDescription(bugDetail)
+                        .setHappenedTimestamp(System.currentTimeMillis())
+                        .build();
+
+        boolean isIntentUnSafe = mContext.getPackageManager().queryIntentActivities(
+                launchBetterBugIntent, PackageManager.MATCH_SYSTEM_ONLY).isEmpty();
+        if (isIntentUnSafe) {
+            Log.d(TAG,
+                    "BetterBugIntent is unsafe and skip bugreport through betterBug " + bugTitle);
+            return false;
+        }
+
+        try {
+            launchBetterBugIntent.addFlags(Intent.FLAG_RECEIVER_FOREGROUND);
+            mContext.startActivity(launchBetterBugIntent);
+            Log.d(TAG, "Taking the bugreport " + bugTitle + "(" + bugDetail + ")");
+            mLastBugReportTime = mClock.getWallClockMillis();
+            return true;
+        } catch (RuntimeException e) {
+            Log.e(TAG, "Error taking bugreport: " + e);
+            return false;
+        }
+    }
+
+    /**
+     * Initiates a system-level bug report if there is no bug report taken recently.
+     * This is done in a non-blocking fashion.
+     */
+    public void takeBugReport(String bugTitle, String bugDetail) {
+        if (mBuildProperties.isUserBuild() || !mContext.getResources().getBoolean(
+                R.bool.config_wifi_diagnostics_bugreport_enabled)) {
+            Log.d(TAG, "Bugreport can be triggered only in userdebug build, skip " + bugTitle + "("
+                    + bugDetail + ")");
+            return;
+        }
+
+        long currentTimeMs = mClock.getWallClockMillis();
+        long timeSinceLastUploadMs = currentTimeMs - mLastBugReportTime;
+        if (timeSinceLastUploadMs
+                < mWifiInjector.getDeviceConfigFacade().getBugReportMinWindowMs()
+                && mLastBugReportTime > 0) {
+            Log.d(TAG, "Bugreport was filed recently, skip " + bugTitle + "(" + bugDetail + ")");
+            return;
+        }
+
+        mWifiMetrics.logBugReport();
+        if (!takeBugreportThroughBetterBug(bugTitle, bugDetail)) {
+            takeBugReportThroughBugreportManager(bugTitle, bugDetail);
         }
     }
 }

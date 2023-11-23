@@ -23,9 +23,8 @@
 #include <map>
 #include <string>
 
-extern std::map<std::string, int> mock_function_count_map;
-
 #include "stack/include/gap_api.h"
+#include "test/common/mock_functions.h"
 #include "types/raw_address.h"
 
 #ifndef UNUSED_ATTR
@@ -33,19 +32,19 @@ extern std::map<std::string, int> mock_function_count_map;
 #endif
 
 bool GAP_BleCancelReadPeerDevName(const RawAddress& peer_bda) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return false;
 }
 bool GAP_BleReadPeerDevName(const RawAddress& peer_bda,
                             tGAP_BLE_CMPL_CBACK* p_cback) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return false;
 }
 bool GAP_BleReadPeerPrefConnParams(const RawAddress& peer_bda) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return false;
 }
 void GAP_BleAttrDBUpdate(uint16_t attr_uuid, tGAP_BLE_ATTR_VALUE* p_value) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
 }
-void gap_attr_db_init(void) { mock_function_count_map[__func__]++; }
+void gap_attr_db_init(void) { inc_func_call_count(__func__); }

@@ -63,7 +63,6 @@ public final class MetricDisplay {
 
     private ManagerFragment mFragment;
 
-    private NetworkStats.Bucket mDisplayBucket;
     private Context mContext;
     @Nullable private Timer mTimer;
     private long mStartTime;

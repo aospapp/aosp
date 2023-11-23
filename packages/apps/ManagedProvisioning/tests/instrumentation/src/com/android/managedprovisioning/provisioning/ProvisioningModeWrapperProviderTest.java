@@ -19,8 +19,6 @@ package com.android.managedprovisioning.provisioning;
 import static com.android.managedprovisioning.provisioning.ProvisioningActivity.PROVISIONING_MODE_FULLY_MANAGED_DEVICE;
 import static com.android.managedprovisioning.provisioning.ProvisioningActivity.PROVISIONING_MODE_WORK_PROFILE;
 import static com.android.managedprovisioning.provisioning.ProvisioningActivity.PROVISIONING_MODE_WORK_PROFILE_ON_ORG_OWNED_DEVICE;
-import static com.android.managedprovisioning.provisioning.ProvisioningModeWrapperProvider.WORK_PROFILE_ON_ORG_OWNED_DEVICE_WRAPPER;
-import static com.android.managedprovisioning.provisioning.ProvisioningModeWrapperProvider.WORK_PROFILE_WRAPPER;
 
 import static com.google.common.truth.Truth.assertThat;
 
@@ -35,6 +33,8 @@ import androidx.test.filters.SmallTest;
 import com.android.managedprovisioning.R;
 import com.android.managedprovisioning.model.ProvisioningParams;
 import com.android.managedprovisioning.provisioning.ProvisioningModeWrapperProvider.ProvisioningModeWrapper;
+
+import com.google.android.setupdesign.util.DeviceHelper;
 
 import org.junit.Test;
 
@@ -54,10 +54,12 @@ public class ProvisioningModeWrapperProviderTest {
     private final ProvisioningModeWrapperProvider mTestProvider =
             new ProvisioningModeWrapperProvider(SIMPLE_PARAMS);
 
+    private final CharSequence TEST_DEVICE_NAME = DeviceHelper.getDeviceName(mContext);
+
     @Test
     public void testGetProvisioningModeWrapper_invalidMode() {
         assertThrows(IllegalStateException.class,
-                () -> mTestProvider.getProvisioningModeWrapper(-1));
+                () -> mTestProvider.getProvisioningModeWrapper(-1, TEST_DEVICE_NAME));
     }
 
     @Test
@@ -65,17 +67,17 @@ public class ProvisioningModeWrapperProviderTest {
         String expected = mContext.getString(R.string.work_profile_provisioning_summary);
 
         ProvisioningModeWrapper wrapper = mTestProvider.getProvisioningModeWrapper(
-                PROVISIONING_MODE_WORK_PROFILE);
+                PROVISIONING_MODE_WORK_PROFILE, TEST_DEVICE_NAME);
 
         assertWrapperAsExpected(wrapper, expected);
     }
 
     @Test
     public void testGetProvisioningModeWrapper_workProfileOnOrgOwnedDevice() {
-        String expected = mContext.getString(R.string.cope_provisioning_summary);
+        String expected = mContext.getString(R.string.cope_provisioning_summary, TEST_DEVICE_NAME);
 
         ProvisioningModeWrapper wrapper = mTestProvider.getProvisioningModeWrapper(
-                PROVISIONING_MODE_WORK_PROFILE_ON_ORG_OWNED_DEVICE);
+                PROVISIONING_MODE_WORK_PROFILE_ON_ORG_OWNED_DEVICE, TEST_DEVICE_NAME);
 
         assertWrapperAsExpected(wrapper, expected);
     }
@@ -88,10 +90,12 @@ public class ProvisioningModeWrapperProviderTest {
                 .setDeviceOwnerPermissionGrantOptOut(true)
                 .build();
         ProvisioningModeWrapperProvider provider = new ProvisioningModeWrapperProvider(params);
-        String expected = mContext.getString(R.string.fully_managed_device_provisioning_summary);
+        String expected = mContext.getString(R.string.fully_managed_device_provisioning_summary,
+                TEST_DEVICE_NAME);
 
         ProvisioningModeWrapper wrapper =
-                provider.getProvisioningModeWrapper(PROVISIONING_MODE_FULLY_MANAGED_DEVICE);
+                provider.getProvisioningModeWrapper(PROVISIONING_MODE_FULLY_MANAGED_DEVICE,
+                        TEST_DEVICE_NAME);
 
         assertWrapperAsExpected(wrapper, expected);
     }
@@ -105,15 +109,17 @@ public class ProvisioningModeWrapperProviderTest {
                 .build();
         ProvisioningModeWrapperProvider provider = new ProvisioningModeWrapperProvider(params);
         String expected = mContext.getString(
-                R.string.fully_managed_device_with_permission_control_provisioning_summary);
+                R.string.fully_managed_device_with_permission_control_provisioning_summary,
+                TEST_DEVICE_NAME);
 
         ProvisioningModeWrapper wrapper =
-                provider.getProvisioningModeWrapper(PROVISIONING_MODE_FULLY_MANAGED_DEVICE);
+                provider.getProvisioningModeWrapper(PROVISIONING_MODE_FULLY_MANAGED_DEVICE,
+                        TEST_DEVICE_NAME);
 
         assertWrapperAsExpected(wrapper, expected);
     }
 
     private void assertWrapperAsExpected(ProvisioningModeWrapper wrapper, String expected) {
-        assertThat(mContext.getString(wrapper.summary)).isEqualTo(expected);
+        assertThat(wrapper.mSummary.value(mContext)).isEqualTo(expected);
     }
 }

@@ -23,6 +23,7 @@ import static androidx.test.espresso.matcher.ViewMatchers.isDisplayed;
 import static androidx.test.espresso.matcher.ViewMatchers.withId;
 import static androidx.test.espresso.matcher.ViewMatchers.withText;
 
+import static com.android.providers.media.photopicker.espresso.OverflowMenuUtils.assertOverflowMenuNotShown;
 import static com.android.providers.media.photopicker.espresso.RecyclerViewTestUtils.assertItemDisplayed;
 import static com.android.providers.media.photopicker.espresso.RecyclerViewTestUtils.assertItemNotDisplayed;
 import static com.android.providers.media.photopicker.espresso.RecyclerViewTestUtils.longClickItem;
@@ -116,8 +117,8 @@ public class SpecialFormatSingleSelectTest extends SpecialFormatBaseTest {
         // Navigate to preview
         longClickItem(PICKER_TAB_RECYCLERVIEW_ID, GIF_POSITION, ICON_THUMBNAIL_ID);
 
-        try (ViewPager2IdlingResource idlingResource
-                     = ViewPager2IdlingResource.register(mRule, PREVIEW_VIEW_PAGER_ID)) {
+        try (ViewPager2IdlingResource idlingResource =
+                ViewPager2IdlingResource.register(mRule.getScenario(), PREVIEW_VIEW_PAGER_ID)) {
             // Verify gif icon is displayed for gif preview
             assertSingleSelectImagePreviewCommonLayout();
             onView(withId(PREVIEW_GIF_ID)).check(matches(isDisplayed()));
@@ -132,8 +133,8 @@ public class SpecialFormatSingleSelectTest extends SpecialFormatBaseTest {
         // Navigate to preview
         longClickItem(PICKER_TAB_RECYCLERVIEW_ID, ANIMATED_WEBP_POSITION, ICON_THUMBNAIL_ID);
 
-        try (ViewPager2IdlingResource idlingResource
-                     = ViewPager2IdlingResource.register(mRule, PREVIEW_VIEW_PAGER_ID)) {
+        try (ViewPager2IdlingResource idlingResource =
+                ViewPager2IdlingResource.register(mRule.getScenario(), PREVIEW_VIEW_PAGER_ID)) {
             // Verify gif icon is displayed for animated preview
             assertSingleSelectImagePreviewCommonLayout();
             onView(withId(PREVIEW_GIF_ID)).check(matches(isDisplayed()));
@@ -147,13 +148,13 @@ public class SpecialFormatSingleSelectTest extends SpecialFormatBaseTest {
         onView(withId(PICKER_TAB_RECYCLERVIEW_ID)).check(matches(isDisplayed()));
 
         // This is the 4th item which is on the second row
-        BottomSheetTestUtils.swipeUp(mRule);
+        BottomSheetTestUtils.swipeUp(mRule.getScenario());
 
         // Navigate to preview
         longClickItem(PICKER_TAB_RECYCLERVIEW_ID, NON_ANIMATED_WEBP_POSITION, ICON_THUMBNAIL_ID);
 
-        try (ViewPager2IdlingResource idlingResource
-                     = ViewPager2IdlingResource.register(mRule, PREVIEW_VIEW_PAGER_ID)) {
+        try (ViewPager2IdlingResource idlingResource =
+                ViewPager2IdlingResource.register(mRule.getScenario(), PREVIEW_VIEW_PAGER_ID)) {
             // Verify gif icon is not displayed for non-animated webp preview
             assertSingleSelectImagePreviewCommonLayout();
             onView(withId(PREVIEW_GIF_ID)).check(doesNotExist());
@@ -168,8 +169,8 @@ public class SpecialFormatSingleSelectTest extends SpecialFormatBaseTest {
         // Navigate to preview
         longClickItem(PICKER_TAB_RECYCLERVIEW_ID, MOTION_PHOTO_POSITION, ICON_THUMBNAIL_ID);
 
-        try (ViewPager2IdlingResource idlingResource
-                     = ViewPager2IdlingResource.register(mRule, PREVIEW_VIEW_PAGER_ID)) {
+        try (ViewPager2IdlingResource idlingResource =
+                ViewPager2IdlingResource.register(mRule.getScenario(), PREVIEW_VIEW_PAGER_ID)) {
             // Verify motion photo icon is displayed for motion photo preview
             assertSingleSelectImagePreviewCommonLayout();
             onView(withId(PREVIEW_MOTION_PHOTO_ID)).check(matches(isDisplayed()));
@@ -185,6 +186,8 @@ public class SpecialFormatSingleSelectTest extends SpecialFormatBaseTest {
 
         onView(withId(R.id.preview_selected_check_button)).check(matches(not(isDisplayed())));
         onView(withId(R.id.preview_add_button)).check(matches(not(isDisplayed())));
+        // Verify the overflow menu is not shown for PICK_IMAGES intent
+        assertOverflowMenuNotShown();
     }
 
     private void assertSingleSelectImagePreviewCommonLayout() {

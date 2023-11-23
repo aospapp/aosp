@@ -39,7 +39,6 @@ import androidx.preference.Preference;
 import androidx.preference.PreferenceCategory;
 import androidx.preference.PreferenceGroup;
 import androidx.preference.PreferenceScreen;
-import androidx.preference.SwitchPreference;
 
 import com.android.settingslib.RestrictedLockUtils;
 import com.android.settingslib.RestrictedLockUtilsInternal;
@@ -48,7 +47,8 @@ import com.android.settingslib.location.RecentLocationApps;
 import com.android.tv.settings.R;
 import com.android.tv.settings.SettingsPreferenceFragment;
 import com.android.tv.settings.device.apps.AppManagementFragment;
-import com.android.tv.settings.library.overlay.FlavorUtils;
+import com.android.tv.settings.overlay.FlavorUtils;
+import com.android.tv.settings.widget.SwitchWithSoundPreference;
 import com.android.tv.twopanelsettings.SummaryListPreference;
 
 import java.util.ArrayList;
@@ -77,7 +77,7 @@ public class LocationFragment extends SettingsPreferenceFragment implements
 
     private SummaryListPreference mLocationMode;
     private RestrictedPreference mRestrictedLocationMode;
-    private SwitchPreference mAlwaysScan;
+    private SwitchWithSoundPreference mAlwaysScan;
 
     private BroadcastReceiver mReceiver = new BroadcastReceiver() {
         @Override
@@ -138,7 +138,7 @@ public class LocationFragment extends SettingsPreferenceFragment implements
         }
 
         if (FlavorUtils.isTwoPanel(getContext())) {
-            mAlwaysScan = new SwitchPreference(themedContext);
+            mAlwaysScan = new SwitchWithSoundPreference(themedContext);
             mAlwaysScan.setKey(KEY_WIFI_ALWAYS_SCAN);
             mAlwaysScan.setTitle(R.string.wifi_setting_always_scan);
             mAlwaysScan.setSummary(R.string.wifi_setting_always_scan_context);

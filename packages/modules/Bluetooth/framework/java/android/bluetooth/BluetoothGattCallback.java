@@ -267,4 +267,21 @@ public abstract class BluetoothGattCallback {
      */
     public void onServiceChanged(@NonNull BluetoothGatt gatt) {
     }
+
+    /**
+     * Callback indicating LE connection's subrate parameters have changed.
+     *
+     * @param gatt GATT client involved
+     * @param subrateFactor for the LE connection.
+     * @param latency Worker latency for the connection in number of connection events. Valid range
+     * is from 0 to 499
+     * @param contNum Valid range is from 0 to 499.
+     * @param timeout Supervision timeout for this connection, in 10ms unit. Valid range is from 10
+     * (0.1s) to 3200 (32s)
+     * @param status {@link BluetoothGatt#GATT_SUCCESS} if LE connection subrating has been changed
+     * successfully.
+     * @hide
+     */
+    public void onSubrateChange(BluetoothGatt gatt, int subrateFactor, int latency, int contNum,
+            int timeout, int status) {}
 }

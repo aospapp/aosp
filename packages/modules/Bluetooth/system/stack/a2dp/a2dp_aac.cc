@@ -30,7 +30,6 @@
 
 #include "a2dp_aac_decoder.h"
 #include "a2dp_aac_encoder.h"
-#include "bt_utils.h"
 #include "osi/include/log.h"
 #include "osi/include/osi.h"
 #include "osi/include/properties.h"

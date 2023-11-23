@@ -36,7 +36,7 @@
     <string name="confirm_delete_all_broadcasts" msgid="2924444089047280871">"Alle ontvangen uitzendingsberichten verwijderen?"</string>
     <string name="button_delete" msgid="4672451757925194350">"Verwijderen"</string>
     <string name="button_cancel" msgid="7479958360523246140">"Annuleren"</string>
-    <string name="etws_earthquake_warning" msgid="6428741104423152511">"Waarschuwing voor aardbeving"</string>
+    <string name="etws_earthquake_warning" msgid="6428741104423152511">"Aardbevingswaarschuwing"</string>
     <string name="etws_tsunami_warning" msgid="6173964105145900312">"Waarschuwing voor tsunami"</string>
     <string name="etws_earthquake_and_tsunami_warning" msgid="662449983177407681">"Waarschuwing voor aardbeving en tsunami"</string>
     <string name="etws_test_message" msgid="8447820262584381894">"ETWS-testbericht"</string>

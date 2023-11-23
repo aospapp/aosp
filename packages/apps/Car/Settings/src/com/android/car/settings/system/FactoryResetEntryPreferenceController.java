@@ -64,7 +64,7 @@ public class FactoryResetEntryPreferenceController
     }
 
     @Override
-    public int getAvailabilityStatus() {
+    public int getDefaultAvailabilityStatus() {
         if (!isAlwaysAvailableForUser()
                 || hasUserRestrictionByUm(getContext(), DISALLOW_FACTORY_RESET)
                 || hasUserRestrictionByDpm(getContext(), DISALLOW_FACTORY_RESET)) {

@@ -46,7 +46,8 @@ public class VolumeControlStateMachine extends StateMachine {
     static final int DISCONNECT = 2;
     @VisibleForTesting
     static final int STACK_EVENT = 101;
-    private static final int CONNECT_TIMEOUT = 201;
+    @VisibleForTesting
+    static final int CONNECT_TIMEOUT = 201;
 
     // NOTE: the value is not "final" - it is modified in the unit tests
     @VisibleForTesting

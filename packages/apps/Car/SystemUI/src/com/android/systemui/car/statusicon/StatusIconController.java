@@ -43,6 +43,24 @@ public abstract class StatusIconController {
     private final Map<ImageView, Observer<StatusIconData>> mObserverMap = new HashMap<>();
 
     /**
+     * Interface definition for a callback to be invoked when a status icon is updated.
+     */
+    public interface OnStatusUpdatedListener {
+        /**
+         * Reports that a status icon is updated.
+         *
+         * @param statusIconController controller to display a certain status icon.
+         */
+        void onStatusUpdated(StatusIconController statusIconController);
+    }
+
+    private OnStatusUpdatedListener mOnStatusUpdatedListener;
+
+    public void setOnStatusUpdatedListener(OnStatusUpdatedListener l) {
+        mOnStatusUpdatedListener = l;
+    }
+
+    /**
      * Registers an {@link ImageView} to contain the icon that this controller controls.
      */
     public final void registerIconView(ImageView view) {
@@ -73,6 +91,13 @@ public abstract class StatusIconController {
     /**
      * Sets the icon drawable to display.
      */
+    protected final void setIconContentDescription(String str) {
+        mStatusIconData.setContentDescription(str);
+    }
+
+    /**
+     * Sets the icon drawable to display.
+     */
     protected final void setIconDrawableToDisplay(Drawable drawable) {
         mStatusIconData.setIconDrawable(drawable);
     }
@@ -92,6 +117,9 @@ public abstract class StatusIconController {
      */
     protected void onStatusUpdated() {
         mStatusIconLiveData.setValue(mStatusIconData);
+        if (mOnStatusUpdatedListener != null) {
+            mOnStatusUpdatedListener.onStatusUpdated(this);
+        }
     }
 
     /**
@@ -100,8 +128,8 @@ public abstract class StatusIconController {
     protected void updateIconView(ImageView view, StatusIconData data) {
         view.setImageDrawable(data.getIconDrawable());
         view.setVisibility(data.getIsIconVisible() ? View.VISIBLE : View.GONE);
+        view.setContentDescription(data.getContentDescription());
     }
-
     /**
      * Returns the resource id of the layout to be drawn inside the panel associated with this
      * status icon.
@@ -127,6 +155,11 @@ public abstract class StatusIconController {
      * views by calling {@link #onStatusUpdated} at the end.
      */
     protected abstract void updateStatus();
+
+    /**
+     * Gets the Id for the View.
+     */
+    protected abstract int getId();
 
     @VisibleForTesting
     boolean isViewRegistered(ImageView view) {

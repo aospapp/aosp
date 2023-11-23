@@ -16,6 +16,8 @@
 
 package com.android.cellbroadcastservice;
 
+import static com.android.cellbroadcastservice.CellBroadcastMetrics.ERR_UNEXPECTED_GEOMETRY_FROM_FWK;
+
 import android.annotation.NonNull;
 import android.telephony.CbGeoUtils.Circle;
 import android.telephony.CbGeoUtils.Geometry;
@@ -80,9 +82,8 @@ public class CbGeoUtils {
                 default:
                     final String errorMessage = "Invalid geometry format " + geometryStr;
                     Log.e(TAG, errorMessage);
-                    CellBroadcastStatsLog.write(CellBroadcastStatsLog.CB_MESSAGE_ERROR,
-                            CellBroadcastStatsLog.CELL_BROADCAST_MESSAGE_ERROR__TYPE__UNEXPECTED_GEOMETRY_FROM_FWK,
-                            errorMessage);
+                    CellBroadcastServiceMetrics.getInstance().logMessageError(
+                            ERR_UNEXPECTED_GEOMETRY_FROM_FWK, errorMessage);
             }
         }
         return geometries;
